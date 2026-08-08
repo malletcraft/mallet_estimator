@@ -11,11 +11,13 @@
   "project",
   "customer",
   "column_break_header",
-  "work_scope",
-  "estimation_mode",
+  "work_type",
   "quote_number",
+  "column_break_header_2",
   "designed_by",
   "execution_company",
+  "work_scope",
+  "estimation_mode",
   "skus_section",
   "intake",
   "skus",
@@ -60,6 +62,17 @@
  ],
  "fields": [
   {
+   "fieldname": "work_type",
+   "fieldtype": "Select",
+   "label": "Type of Work",
+   "options": "New Work\nRepair\nSupply & Install",
+   "default": "New Work",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Chosen first. An estimate carries ONE kind of work, so only SKUs of this kind can be added to it \u2014 the three price on different bases and summing them would quote a number nothing was costed at."
+  },
+  {
    "fieldname": "header_section",
    "fieldtype": "Section Break",
    "label": "Project"
@@ -95,22 +108,24 @@
   {
    "fieldname": "work_scope",
    "fieldtype": "Select",
-   "label": "Work Scope",
+   "label": "Work Scope (legacy)",
    "options": "\nNew Work\nRepair\nSupply & Install\nMixed",
    "read_only": 1,
    "bold": 1,
    "in_standard_filter": 1,
-   "description": "Derived from the SKUs. One estimate can carry all three — a client who calls about a hinge often adds new work and a bought-in door — and each kind is subtotalled separately all the way to the quotation."
+   "description": "Derived from the SKUs. One estimate can carry all three \u2014 a client who calls about a hinge often adds new work and a bought-in door \u2014 and each kind is subtotalled separately all the way to the quotation.",
+   "hidden": 1
   },
   {
    "fieldname": "estimation_mode",
    "fieldtype": "Select",
-   "label": "Estimation Mode",
+   "label": "Estimation Mode (legacy)",
    "options": "\nCSV-Nest\nOCL PDF (standard)",
    "bold": 1,
    "in_standard_filter": 1,
-   "description": "Choose this FIRST — it decides what each SKU row asks you to upload. CSV-Nest: Part List CSVs, nested together here. OCL PDF: each SKU priced standalone from its own OpenCutList PDF. Locks once the estimate carries SKUs.",
-   "read_only_depends_on": "eval:(doc.skus||[]).length>0"
+   "description": "",
+   "read_only_depends_on": "eval:(doc.skus||[]).length>0",
+   "hidden": 1
   },
   {
    "fieldname": "quote_number",
@@ -145,7 +160,7 @@
    "fieldname": "sku_detail_section",
    "fieldtype": "Section Break",
    "label": "Selected SKU",
-   "description": "Click a row in the SKUs grid above to read it here — grouped material lines, then its client pricing summary. Read-only; edits happen on the SKU form."
+   "description": "Click a row in the SKUs grid above to read it here \u2014 grouped material lines, then its client pricing summary. Read-only; edits happen on the SKU form."
   },
   {
    "fieldname": "sku_materials_html",
@@ -181,9 +196,9 @@
   {
    "fieldname": "transport_section",
    "fieldtype": "Section Break",
-   "label": "Transport (consolidated — SKUs share trips)",
+   "label": "Transport (consolidated \u2014 SKUs share trips)",
    "collapsible": 1,
-   "description": "Trips shared across all SKUs of this estimate. Edit quantities/rates or ADD rows as needed — rows are seeded once from Estimate Settings rates."
+   "description": "Trips shared across all SKUs of this estimate. Edit quantities/rates or ADD rows as needed \u2014 rows are seeded once from Estimate Settings rates."
   },
   {
    "fieldname": "transport_items",
@@ -274,13 +289,13 @@
   {
    "fieldname": "total_new_work",
    "fieldtype": "Currency",
-   "label": "New Work — to Client",
+   "label": "New Work \u2014 to Client",
    "read_only": 1
   },
   {
    "fieldname": "total_repair",
    "fieldtype": "Currency",
-   "label": "Repair & Site Work — to Client",
+   "label": "Repair & Site Work \u2014 to Client",
    "read_only": 1
   },
   {
@@ -295,7 +310,7 @@
    "fieldtype": "Percent",
    "label": "GST %",
    "default": "18",
-   "description": "Output GST charged ON TOP of the client total — always quote plus GST."
+   "description": "Output GST charged ON TOP of the client total \u2014 always quote plus GST."
   },
   {
    "fieldname": "total_gst",
@@ -365,8 +380,8 @@
    "fieldname": "intake",
    "fieldtype": "Table",
    "options": "Estimate SKU Intake",
-   "label": "Add SKUs — select existing or create",
-   "description": "One row per SKU: pick an <b>Existing SKU</b>, or fill Room + Name and attach either a <b>Part List CSV</b> (CSV-Nest — nested here, shared material across the estimate) or a <b>Material Estimate PDF</b> (OCL PDF — standalone, packed by OpenCutList). Add as many rows as you need, then Save. An estimate holds ONE mode; the first SKU decides it.",
+   "label": "Add SKUs \u2014 select existing or create",
+   "description": "One row per SKU: pick an <b>Existing SKU</b>, or fill Room + Name and attach either a <b>Part List CSV</b> (CSV-Nest \u2014 nested here, shared material across the estimate) or a <b>Material Estimate PDF</b> (OCL PDF \u2014 standalone, packed by OpenCutList). Add as many rows as you need, then Save. An estimate holds ONE mode; the first SKU decides it.",
    "hidden": 1
   },
   {
@@ -381,14 +396,14 @@
    "fieldtype": "Currency",
    "label": "Total Material Tax (input)",
    "read_only": 1,
-   "description": "Tax on purchased material at each line's applied rate — the input-side view; the client-facing GST stays the document-level charge below."
+   "description": "Tax on purchased material at each line's applied rate \u2014 the input-side view; the client-facing GST stays the document-level charge below."
   },
   {
    "fieldname": "total_material_with_tax",
    "fieldtype": "Currency",
    "label": "Total Material incl. Tax",
    "read_only": 1,
-   "description": "Every SKU's discounted material plus its tax — the landed material spend."
+   "description": "Every SKU's discounted material plus its tax \u2014 the landed material spend."
   },
   {
    "fieldname": "total_material_tax_saved",
@@ -396,6 +411,10 @@
    "label": "Total Tax Saved",
    "read_only": 1,
    "description": "Every SKU's per-line tax differences vs the standard rate."
+  },
+  {
+   "fieldname": "column_break_header_2",
+   "fieldtype": "Column Break"
   }
  ],
  "links": [],

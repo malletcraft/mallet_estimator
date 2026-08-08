@@ -126,16 +126,17 @@
   {% endif %}
 
   <table class="grand">
+    {# One estimate quotes one kind of work, so there is a single subtotal to
+       name. The two kinds are never added together on one page any more —
+       they price on different bases, and a client querying a line has to be
+       answerable from the document in front of them. #}
     {% if p.rooms %}
-    <tr><td>{% if p.repair %}New work{% else %}Subtotal (all rooms{% if p.total_sqft %}, {{ "%.2f"|format(p.total_sqft) }} sq ft{% endif %}){% endif %}</td><td class="r">{{ money(p.new_work_subtotal) }}</td></tr>
+    <tr><td>Subtotal (all rooms{% if p.total_sqft %}, {{ "%.2f"|format(p.total_sqft) }} sq ft{% endif %})</td><td class="r">{{ money(p.new_work_subtotal) }}</td></tr>
     <tr><td>Rate / sq ft (all rooms, pre-tax)</td><td class="r">{{ money(p.per_sqft_total) }}</td></tr>
     <tr><td>Estimated build time</td><td class="r">{{ "%.1f"|format(p.total_days) }} days</td></tr>
     {% endif %}
     {% if p.repair %}
-    <tr><td>Site work (repair, supply &amp; install)</td><td class="r">{{ money(p.repair.total) }}</td></tr>
-    {% endif %}
-    {% if p.rooms and p.repair %}
-    <tr><td>Subtotal</td><td class="r">{{ money(p.subtotal) }}</td></tr>
+    <tr><td>Subtotal</td><td class="r">{{ money(p.repair.total) }}</td></tr>
     {% endif %}
     <tr><td>Transport</td><td class="r">{{ money(p.transport) }}</td></tr>
     <tr><td>GST {{ "%g"|format(p.gst_pct) }}%</td><td class="r">{{ money(p.gst) }}</td></tr>

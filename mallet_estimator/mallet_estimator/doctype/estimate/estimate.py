@@ -69,7 +69,7 @@ class Estimate(Document):
         if self.docstatus == 0:
             self.process_intake()
             self.sync_sku_files()
-            self.enforce_single_mode()
+            self.enforce_single_work_type()
             self.refresh_sku_rows()
         self.stamp_mode()
         # Provisional allowances (F6) — amounts are a simple qty x assumed rate,
@@ -161,12 +161,7 @@ class Estimate(Document):
                 if url:
                     _reattach_file(url, sku.name, f)
                 setattr(sku, f, url)
-            # A newly created SKU is born in the default (PDF) mode; the file
-            # the user just dropped is the real answer, so honour it.
-            if changed.get("parts_csv"):
-                sku.estimation_mode = cons.CSV_MODE
-            elif changed.get("estimate_pdf"):
-                sku.estimation_mode = cons.PDF_MODE
+            sku.estimation_mode = cons.CSV_MODE
             sku.save(ignore_permissions=True)
 
     @frappe.whitelist()
@@ -177,26 +172,21 @@ class Estimate(Document):
         automatically."""
         if self.docstatus != 0:
             frappe.throw(_("This estimate is approved (submitted). Amend it to change the SKUs."))
-        from mallet_estimator import consolidate as cons
         existing = {r.estimate_sku for r in (self.skus or [])}
-        mode = self.estimate_mode()
+        want = self.work_type_value()
         added, skipped = 0, []
         candidates = frappe.get_all(
             "Estimate SKU", filters={"project": self.project},
-            fields=["name", "estimation_mode"],
+            fields=["name", "work_type"],
             order_by="room asc, article_name asc",
         ) if self.project else []
-        # An estimate is single-mode; when it is still empty the FIRST SKU
-        # decides which mode it becomes, and the rest must match.
-        if not mode:
-            for c in candidates:
-                if c.name not in existing:
-                    mode = c.get("estimation_mode") or cons.PDF_MODE
-                    break
         for c in candidates:
             if c.name in existing:
                 continue
-            if (c.get("estimation_mode") or cons.PDF_MODE) != mode:
+            # The estimate's kind of work is the filter. A repair SKU joining a
+            # new-work estimate would be refused on save anyway; skipping it
+            # here says so while the user is still looking at the button.
+            if (c.get("work_type") or "New Work") != want:
                 skipped.append(c.name)
                 continue
             self.append("skus", {"estimate_sku": c.name})
@@ -204,11 +194,11 @@ class Estimate(Document):
         self.save(ignore_permissions=True)
         if skipped:
             frappe.msgprint(
-                _("Skipped {0} SKU(s) of the other estimation mode — an estimate "
-                  "cannot mix CSV-Nest and OCL PDF: {1}").format(len(skipped), ", ".join(skipped)),
-                indicator="orange")
+                _("Skipped {0} SKU(s) that are not <b>{1}</b>: {2}. Put those on "
+                  "their own estimate for this project.")
+                .format(len(skipped), want, ", ".join(skipped)), indicator="orange")
         return {"count": len(self.skus), "added": added, "skipped": len(skipped),
-                "mode": mode, "client": self.total_client}
+                "work_type": want, "client": self.total_client}
 
     def refresh_sku_rows(self):
         """Refresh the DATA of the rows this estimate carries (dedupe, reprice
@@ -380,80 +370,61 @@ class Estimate(Document):
                                     fields=["name", "work_type", "estimation_mode"])
         }
 
-    def sku_modes(self):
-        """{sku: estimation_mode} for the NEW-WORK rows only.
-
-        Estimation mode answers 'who packed the sheets, us or OpenCutList'.
-        A repair SKU has no sheets, so the question does not apply to it and
-        it must never be dragged into the exclusivity check — that is exactly
-        what lets a repair job and new work share one estimate."""
-        return {name: mode for name, (work, mode) in self.sku_kinds().items()
-                if work not in self.SITE_KINDS}
-
     SITE_KINDS = ("Repair", "Supply & Install")
 
-    def work_scope_value(self):
-        """New Work / Repair / New + Repair — or None while the estimate is
-        empty. A client who calls about a broken hinge often ends up ordering a
-        wardrobe; both belong on one estimate, subtotalled apart."""
-        kinds = {work for work, _mode in self.sku_kinds().values()}
-        if not kinds:
-            return None
-        if len(kinds) == 1:
-            return next(iter(kinds))
-        # More than one kind on one estimate is normal — a client who calls
-        # about a hinge adds new work and a bought-in door. Naming every
-        # combination would give unreadable labels, so the list says "Mixed"
-        # and the two subtotals below it carry the detail.
-        return "Mixed"
+    def work_type_value(self):
+        """The kind of work this estimate quotes. Chosen up front and never
+        derived, so an empty estimate already knows what it is and can filter
+        the SKU picker from the first row."""
+        return self.get("work_type") or "New Work"
 
     def estimate_mode(self):
-        """The mode this estimate is committed to (None while it has no SKUs)."""
+        """Every estimate is CSV-Nest now.
+
+        OCL-PDF intake is gone: it carried no parts, so it could not be nested
+        and could not take a share of offcut waste, which made it permanently
+        unable to price the way the shop actually buys sheets. Quoting a single
+        article standalone did not need a second mode either — an estimate with
+        one SKU nests one SKU, which IS the standalone price."""
         from mallet_estimator import consolidate as cons
-        csv_nest, pdf = cons.split_by_mode(self.sku_modes())
-        if csv_nest and not pdf:
-            return cons.CSV_MODE
-        if pdf and not csv_nest:
-            return cons.PDF_MODE
-        return None
+        return cons.CSV_MODE
 
     def stamp_mode(self):
-        """Persist the mode on the estimate itself. It is DERIVED from the SKUs
-        (never typed), but storing it is what makes the answer to "is this a
-        CSV-Nest or a PDF estimate?" visible without opening the doc — the list
-        view's indicator and its standard filter both read this column. Blank
-        while the estimate carries no SKUs yet."""
+        """Keep the two superseded columns agreeing with the fields that
+        replaced them. Both are hidden; neither is read any more. They are
+        written rather than dropped because deleting a column means migrating
+        the rows that still hold values in it."""
         if self.meta.has_field("estimation_mode"):
-            # Derived from the SKUs once there are any. Before that the field is
-            # the user's OWN up-front choice of how this estimate will work, so
-            # it must not be blanked out from under them.
-            derived = self.estimate_mode()
-            if derived:
-                self.estimation_mode = derived
+            self.estimation_mode = self.estimate_mode()
         if self.meta.has_field("work_scope"):
-            self.work_scope = self.work_scope_value() or ""
+            self.work_scope = self.work_type_value()
 
-    def enforce_single_mode(self):
-        """CSV-Nest and OCL-PDF SKUs are mutually exclusive on one estimate.
-        Their material packing is decided by different authorities — CSV-Nest
-        sheets are nested (and re-nested estimate-wide) HERE, PDF sheet counts
-        come already packed from OpenCutList per SKU — so a mixed estimate
-        would sum quantities that were never packed together and would show
-        the shared-material saving on only part of the job."""
-        from mallet_estimator import consolidate as cons
-        modes = self.sku_modes()
-        if not cons.is_mixed(modes):
+    def enforce_single_work_type(self):
+        """An estimate carries ONE kind of work.
+
+        New work, repair and supply-and-install are priced on three different
+        bases — a nested sheet cost, a visit-charge floor over crew minutes,
+        and a bought-out margin on someone else's invoice. Adding them together
+        produces a total that nothing was costed at, and a client who queries
+        one line cannot be answered from a document that mixed them.
+
+        A client who calls about a hinge and then orders a wardrobe gets two
+        estimates against the one project. That is the honest shape: each has
+        its own basis, its own approval and its own quotation."""
+        want = self.work_type_value()
+        wrong = {name: work for name, (work, _mode) in self.sku_kinds().items()
+                 if work != want}
+        if not wrong:
             return
-        csv_nest, pdf = cons.split_by_mode(modes)
+        listed = "<br>".join(f"<b>{n}</b> — {w}" for n, w in sorted(wrong.items()))
         frappe.throw(
-            _("An estimate cannot mix estimation modes — material packing is "
-              "computed here for CSV-Nest SKUs and by OpenCutList for PDF SKUs, "
-              "so their sheet counts can't be added up together.<br><br>"
-              "<b>CSV-Nest:</b> {0}<br><b>OCL PDF:</b> {1}<br><br>"
-              "Keep one mode per estimate — remove the odd ones out, or build a "
-              "second estimate for them (the same SKU may serve many estimates).")
-            .format(", ".join(csv_nest), ", ".join(pdf)),
-            title=_("Mixed estimation modes"))
+            _("This estimate is <b>{0}</b>, so it can only carry {0} SKUs. "
+              "These do not match:<br><br>{1}<br><br>"
+              "Remove them, or put them on their own estimate for the same "
+              "project — the three kinds price on different bases, so a total "
+              "that mixed them would be a number nothing was costed at.")
+            .format(want, listed),
+            title=_("Wrong kind of work for this estimate"))
 
     def process_intake(self):
         """The intake grid IS the estimation UX: one row = Room + Article name
@@ -465,52 +436,41 @@ class Estimate(Document):
         if not self.meta.has_field("intake") or not self.get("intake"):
             return
         from mallet_estimator import consolidate as cons
-        # The estimate's mode is decided by its first SKU and every later row
-        # must match it (mixing is refused with an explanation).
-        mode = self.estimate_mode()
+        want = self.work_type_value()
         existing_rows = {r.estimate_sku for r in (self.skus or []) if r.estimate_sku}
         remaining, created, picked = [], [], []
         for row in self.intake:
             # (a) the row simply POINTS at an SKU that already exists
             if row.get("existing_sku"):
                 name = row.existing_sku
-                row_mode = frappe.db.get_value("Estimate SKU", name, "estimation_mode") or cons.PDF_MODE
-                if mode and row_mode != mode:
+                row_work = frappe.db.get_value("Estimate SKU", name, "work_type") or "New Work"
+                if row_work != want:
                     frappe.throw(
-                        _("<b>{0}</b> is a {1} SKU but this estimate is {2} — the two modes "
-                          "cannot share an estimate, because their material packing comes from "
-                          "different places. Put it on its own estimate.").format(name, row_mode, mode),
-                        title=_("Mixed estimation modes"))
-                mode = mode or row_mode
+                        _("<b>{0}</b> is {1} work but this estimate is {2}. The two price on "
+                          "different bases, so they cannot share a total — put it on its own "
+                          "estimate for this project.").format(name, row_work, want),
+                        title=_("Wrong kind of work for this estimate"))
                 if name not in existing_rows:
                     self.append("skus", {"estimate_sku": name})
                     existing_rows.add(name)
                     picked.append(name)
                 continue
-            # (b) or CREATES one — the attached file decides the mode
-            try:
-                row_mode = cons.intake_row_mode(bool(row.get("parts_csv")),
-                                                bool(row.get("estimate_pdf")))
-            except ValueError:
-                frappe.throw(
-                    _("Row <b>{0}</b> has both a Part List CSV and a Material Estimate PDF — "
-                      "an SKU is packed by one authority or the other, never both. Keep one.")
-                    .format(row.get("article_name") or row.idx),
-                    title=_("Which packing applies?"))
-            if not (row.get("article_name") and row.get("room") and row_mode):
+            # (b) or CREATES one. Repair and supply-and-install carry no part
+            # list, so a row for them needs only its name and room; new work
+            # waits for the CSV that gives it parts to nest.
+            has_csv = bool(row.get("parts_csv"))
+            ready = bool(row.get("article_name") and row.get("room")
+                         and (has_csv or want in self.SITE_KINDS))
+            if not ready:
                 remaining.append(row)
                 continue
-            if mode and row_mode != mode:
-                frappe.throw(
-                    _("Row <b>{0}</b> would create a {1} SKU but this estimate is {2} — "
-                      "one estimate holds one mode. Start a separate estimate for it.")
-                    .format(row.get("article_name"), row_mode, mode),
-                    title=_("Mixed estimation modes"))
             try:
                 sku = frappe.new_doc("Estimate SKU")
                 sku.article_name = row.article_name.strip()
                 if sku.meta.has_field("estimation_mode"):
-                    sku.estimation_mode = row_mode
+                    sku.estimation_mode = cons.CSV_MODE
+                if sku.meta.has_field("work_type"):
+                    sku.work_type = want
                 if self.get("project"):
                     sku.project = self.project
                 if self.get("customer") and sku.meta.has_field("customer"):
@@ -520,7 +480,6 @@ class Estimate(Document):
                     if row.get(fieldname):
                         sku.set(fieldname, row.get(fieldname))
                 sku.insert()
-                mode = mode or row_mode
                 for fieldname in ("parts_csv", "estimate_pdf", "partlist_pdf", "views_pdf"):
                     if row.get(fieldname):
                         _reattach_file(row.get(fieldname), sku.name, fieldname)
