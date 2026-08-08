@@ -139,6 +139,13 @@ class EstimateSKU(Document):
         self.ensure_step_remarks()
         self.ensure_custom_operations()
         self.maybe_import()
+        # The map is DERIVED from the lines, every save. It ran on import only,
+        # so a re-import from a changed CSV left letters behind that no line
+        # referred to — five laminate slots for the two the job uses, brands
+        # attached to letters that meant nothing. Deriving it makes "the map
+        # never holds more slots than the OpenCutList codes use" an invariant
+        # instead of something a button restores after you notice.
+        self.sync_decor_slots()
         self.pull_decor_masters()
         self.pull_line_decors()
         self.apply_decor_map()
@@ -299,22 +306,11 @@ class EstimateSKU(Document):
             if self.meta.has_field("repair_visits"):
                 self.repair_visits = r["visits"]
 
-    @frappe.whitelist()
-    def reset_decor_map(self):
-        """Rebuild the décor slot tables from the CURRENT material lines.
-
-        Slots accumulate: every import adds the letters it needs and nothing
-        ever took the old ones away, so a SKU re-imported from a changed CSV
-        ends up carrying letters no material line refers to — five laminate
-        slots for the two the job actually uses. Pruning happens on import,
-        but only on import, which is no help to an SKU imported before that
-        existed.
-
-        So this is the 'start over' button. Slots the lines still use KEEP
-        their brand / code / name — that is the user's work and losing it
-        would be worse than the clutter. Slots nothing refers to are dropped."""
-        if self._frozen():
-            frappe.throw(_("This SKU is quoted (frozen) — cancel and amend the estimate first."))
+    def live_slots(self):
+        """The slot letters the CURRENT material lines actually use, split by
+        the table that owns them. This set is the map's ceiling: if the
+        OpenCutList codes name laminate a and b, there is no such thing as a
+        laminate c to map."""
         live_lam, live_eb = set(), set()
         for m in self.materials or []:
             up = str(m.material or "").upper()
@@ -325,7 +321,18 @@ class EstimateSKU(Document):
                 live_eb.add(key)
             elif up.startswith("SG_LAM") or up.startswith("SG_PLY"):
                 live_lam.add(key)
+        return live_lam, live_eb
 
+    def sync_decor_slots(self):
+        """Make the map match the lines: drop slots nothing refers to, add a
+        blank row for a slot the lines need, keep everything else untouched.
+
+        A slot that survives KEEPS its brand / code / name — that is the
+        user's work, and losing it on an unrelated save would be far worse
+        than the clutter this removes. Returns (dropped, added) so a caller
+        that wants to report the change can; the ordinary save says nothing,
+        because a map that silently stays correct is the whole point."""
+        live_lam, live_eb = self.live_slots()
         dropped = []
 
         def prune(table, live):
@@ -334,13 +341,12 @@ class EstimateSKU(Document):
                 if (row.slot or "").strip().lower() in live:
                     keep.append(row)
                 else:
-                    dropped.append(f"{row.slot}")
+                    dropped.append(str(row.slot))
             self.set(table, keep)
             return {(r.slot or "").strip().lower() for r in keep}
 
         have_lam = prune("sku_decors", live_lam)
         have_eb = prune("sku_decor_edges", live_eb)
-        # Any slot a line needs but the map lacks gets a blank row to fill in.
         added = []
         for key in sorted(live_lam - have_lam):
             self.append("sku_decors", {"slot": key, "domain": "Laminate"})
@@ -348,6 +354,19 @@ class EstimateSKU(Document):
         for key in sorted(live_eb - have_eb):
             self.append("sku_decor_edges", {"slot": key, "thickness": 0.8, "width": 22})
             added.append(key)
+        return dropped, added
+
+    @frappe.whitelist()
+    def reset_decor_map(self):
+        """Rebuild the map and SAY what changed.
+
+        The rebuild itself now happens on every save, so this exists for the
+        one case the automatic pass cannot cover: wanting to see the answer.
+        Kept whitelisted because an SKU saved before the invariant existed may
+        still be carrying stale letters until someone saves it."""
+        if self._frozen():
+            frappe.throw(_("This SKU is quoted (frozen) — cancel and amend the estimate first."))
+        dropped, added = self.sync_decor_slots()
         self.save()
         frappe.msgprint(
             _("Décor map rebuilt from the material lines.<br>Kept: <b>{0}</b><br>"
@@ -934,8 +953,14 @@ class EstimateSKU(Document):
             if m.meta.has_field("remarks"):
                 key = decor.slot_key(base)
                 kind_lbl = "edge" if is_edge else "lam"
-                m.remarks = (f"{kind_lbl} {key} → {real.rsplit('_', 1)[-1]}" if letter
-                             else f"{kind_lbl} {key}: NOT MAPPED")[:140]
+                # Say WHAT the slot resolved to, not just which suffix won.
+                # "lam b → VM6534" makes you go and look up VM6534; the point
+                # of the column is to verify the mapping without leaving the
+                # line, and a catalogue number alone cannot be verified.
+                row = (edge if is_edge else lam).get(letter) if letter else None
+                named = str((row or {}).get("raw") or "").strip()
+                m.remarks = (f"{kind_lbl} {key} → {named or real.rsplit('_', 1)[-1]}"
+                             if letter else f"{kind_lbl} {key}: NOT MAPPED")[:140]
             if (m.item or "") == real:
                 continue
             meta = (edge if is_edge else lam).get(letter) if letter else None

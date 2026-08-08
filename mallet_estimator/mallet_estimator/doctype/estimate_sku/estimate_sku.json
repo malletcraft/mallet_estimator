@@ -608,9 +608,9 @@
   {
    "fieldname": "decor_section",
    "fieldtype": "Section Break",
-   "label": "D\u00e9cor Slots",
+   "label": "D\u00e9cor Map \u2014 laminate and edge band",
    "collapsible": 0,
-   "description": "Type the brand / code / name here, or pick a Mallet Decor master on the material line itself \u2014 either resolves the generic slot codes to real items. Hit Apply D\u00e9cor Map to see how many lines are still generic."
+   "description": "One row per slot the material lines use. Search an existing d\u00e9cor or create one inline; every line carrying that slot re-points on save."
   },
   {
    "fieldname": "sku_decors",
@@ -766,8 +766,8 @@
   {
    "fieldname": "reset_decor_map_btn",
    "fieldtype": "Button",
-   "label": "Rebuild D\u00e9cor Slots from Material Lines",
-   "description": "Slots accumulate across imports. This drops every slot no material line refers to and adds a blank row for any the lines need \u2014 brand/code/name on the slots still in use are kept."
+   "label": "Rebuild D\u00e9cor Slots (report what changed)",
+   "description": "The map is rebuilt from the material lines on every save, so it can never hold a slot the OpenCutList codes do not use. This says what the last rebuild kept, dropped and added."
   },
   {
    "fieldname": "apply_decor_map_btn",
