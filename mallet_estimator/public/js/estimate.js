@@ -265,6 +265,32 @@ function render_estimate_bifurcation(frm) {
       <thead><tr><th>Room</th><th class="text-right">Facial sq ft</th><th class="text-right">₹ / sq ft</th><th class="text-right">Subtotal (client, excl. transport &amp; GST)</th></tr></thead>
       <tbody>${roomRows}</tbody>
     </table>` : "";
+  // Wastage: each SKU pays its parts' area, and the offcut splits pro-rata by
+  // that share. Reporting only "3 sheets" leaves "why is my share 0.4 of one?"
+  // unanswerable — which is exactly the question a fractional quantity invites,
+  // and the reason a sheet count on a line looks wrong until you see this.
+  const c = d.consolidation;
+  const matRows = c ? Object.keys(c.materials || {}).sort().map((k) => {
+    const m = c.materials[k];
+    const alloc = m.alloc || {};
+    const share = Object.keys(alloc).sort()
+      .map((s) => `${esc(s)}: ${(alloc[s] || 0).toFixed(2)}`).join(" · ");
+    const saved = (m.standalone || 0) - (m.combined || 0);
+    return `<tr><td>${esc(k)}</td>
+      <td class="text-right">${(m.combined || 0).toFixed(2)}</td>
+      <td class="text-right">${(m.standalone || 0).toFixed(2)}</td>
+      <td class="text-right">${saved > 0 ? saved.toFixed(2) : "—"}</td>
+      <td class="text-right">${m.util == null ? "—" : (m.util * 100).toFixed(1) + "%"}</td>
+      <td class="text-muted">${share}</td></tr>`;
+  }).join("") : "";
+  const nestTable = matRows ? `
+    <h5 style="margin:18px 0 6px">Nesting &amp; wastage — parts nested across all SKUs</h5>
+    <div class="text-muted" style="margin-bottom:6px">Each SKU pays its own parts' area; the offcut splits pro-rata by that share, so a share is fractional on purpose.</div>
+    <table class="table table-bordered" style="font-size:13px">
+      <thead><tr><th>Material</th><th class="text-right">Nested</th><th class="text-right">If ordered alone</th>
+        <th class="text-right">Saved</th><th class="text-right">Utilisation</th><th>Share per SKU</th></tr></thead>
+      <tbody>${matRows}</tbody>
+    </table>` : "";
   f.$wrapper.html(`
     <h5 style="margin:8px 0 6px">Bifurcation — all SKUs combined</h5>
     <table class="table table-bordered" style="font-size:14px;margin:0;width:100%">
@@ -276,7 +302,8 @@ function render_estimate_bifurcation(frm) {
         ${sq}
       </tbody>
     </table>
-    ${roomTable}`);
+    ${roomTable}
+    ${nestTable}`);
 }
 
 function update_estimate_totals(frm) {
@@ -360,8 +387,7 @@ function highlight_selected_row(frm) {
 // cycle. Mixing the two is what put this screen into a reload loop.
 function render_sku_detail(frm) {
   const $sum = frm.get_field("sku_summary_html") && frm.get_field("sku_summary_html").$wrapper;
-  const $mat = frm.get_field("sku_materials_html") && frm.get_field("sku_materials_html").$wrapper;
-  if ($mat) $mat.empty();          // the board is not shown here any more
+  render_decor_review(frm);
   if (!$sum) return;
   // Frappe REUSES one form object per doctype across routes, so both our
   // selection state and the HTML we injected survive into the next document —
@@ -466,3 +492,59 @@ function render_cost_summary(m, frm) {
     </div>`;
 }
 
+
+// --- Décor across the nest (review only) -----------------------------------
+// Slot letters are per SKU: `a` in one article and `a` in another are
+// independent names that may legitimately mean different laminates. Readable
+// while each SKU is read on its own; impossible to hold in your head once the
+// parts are nested together and bought as one order. So the estimate answers
+// the two questions the nest makes urgent — what is each letter buying, and is
+// anything still generic — and answers them read-only, because a slot is set
+// on its SKU where the lines that use it are.
+function render_decor_review(frm) {
+  const field = frm.get_field("sku_materials_html");
+  if (!field || !field.$wrapper) return;
+  const $w = field.$wrapper;
+  const key = frm.doc.name || "__new__";
+  if (frm.__decor_for !== key) {
+    frm.__decor_for = key;
+    $w.empty();
+  }
+  if (frm.is_new() || !(frm.doc.skus || []).length) {
+    $w.empty();
+    return;
+  }
+  frm.call("decor_review").then((r) => {
+    if (frm.__decor_for !== key) return;   // routed away mid-flight
+    const d = (r && r.message) || {};
+    const rows = d.rows || [];
+    if (!rows.length) {
+      $w.empty();
+      return;
+    }
+    const body = rows.map((x) =>
+      `<tr>
+         <td>${esc(x.domain)}</td>
+         <td><b>${esc(x.slot)}</b></td>
+         <td>${x.decor ? esc(x.decor) : `<span style="color:#c0392b">${esc(__("not mapped"))}</span>`}</td>
+         <td class="text-muted">${esc((x.skus || []).join(", "))}</td>
+       </tr>`).join("");
+    const notes = [];
+    if ((d.unmapped || []).length) {
+      notes.push(`<div style="color:#c0392b">${esc(__("Still generic: {0}", [d.unmapped.join("; ")]))}</div>`);
+    }
+    if ((d.split || []).length) {
+      notes.push(`<div class="text-muted">${esc(__("One letter, more than one décor: {0} — deliberate on some jobs, an accident on others.", [d.split.join(", ")]))}</div>`);
+    }
+    $w.html(
+      `<div style="margin-bottom:4px" class="text-muted">${esc(__("Décor across this estimate — review only; set a slot on its own SKU."))}</div>` +
+      `<table class="table table-bordered" style="font-size:12.5px;margin:0">
+         <thead><tr>
+           <th style="width:12%">${esc(__("Kind"))}</th>
+           <th style="width:8%">${esc(__("Slot"))}</th>
+           <th style="width:40%">${esc(__("Décor"))}</th>
+           <th>${esc(__("Used by"))}</th>
+         </tr></thead><tbody>${body}</tbody></table>` + notes.join("")
+    );
+  });
+}

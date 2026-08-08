@@ -88,12 +88,19 @@ class TestMasters(MalletTestCase):
         # beside them. If any of these columns goes missing the estimate screen
         # silently loses the intake it replaced.
         row = frappe.get_meta("Execution Estimate SKU")
-        for f in ("estimate_sku", "parts_csv", "estimate_pdf", "views_pdf",
-                  "estimation_mode", "sheets", "client_total", "est_days"):
+        for f in ("estimate_sku", "parts_csv", "views_pdf",
+                  "sheets", "client_total", "est_days"):
             self.assertTrue(row.has_field(f), f"missing Execution Estimate SKU.{f}")
         est = frappe.get_meta("Estimate")
         for f in ("sku_materials_html", "sku_summary_html"):
             self.assertTrue(est.has_field(f), f"missing Estimate.{f}")
+        # The kind of work is CHOSEN on the estimate and gates which SKUs may
+        # join it. Losing this field silently re-allows the mixed total it
+        # exists to prevent, so it is pinned with its option list.
+        self.assertTrue(est.has_field("work_type"), "missing Estimate.work_type")
+        opts = set(filter(None, est.get_field("work_type").options.split("\n")))
+        self.assertEqual(opts, {"New Work", "Repair", "Supply & Install"})
+        self.assertNotIn("Mixed", opts, "an estimate is never more than one kind")
         # Creating a SKU straight from the grid's link column needs quick entry.
         self.assertTrue(frappe.get_meta("Estimate SKU").quick_entry,
                         "Estimate SKU must allow quick entry (create from the grid)")

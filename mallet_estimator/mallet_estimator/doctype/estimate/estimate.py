@@ -233,15 +233,17 @@ class Estimate(Document):
                     s.compute_costs()
                 except Exception:
                     frappe.log_error(frappe.get_traceback(), f"estimate reprice {s.name}")
-                if (s.get("estimation_mode") or "") == "CSV-Nest":
-                    try:
-                        ni = (json.loads(s.import_drivers or "{}") or {}).get("__nest_inputs__")
-                    except Exception:
-                        ni = None
-                    if ni:
-                        nest_inputs[s.name] = ni
+                # Whether an SKU joins the nest is decided by whether it HAS
+                # parts, not by a mode flag — an on-site job simply never
+                # stashed any, so it drops out here without being asked about.
+                try:
+                    ni = (json.loads(s.import_drivers or "{}") or {}).get("__nest_inputs__")
+                except Exception:
+                    ni = None
+                if ni:
+                    nest_inputs[s.name] = ni
             loaded.append((r, s))
-        # PASS 2 — cross-SKU consolidation: nest all the estimate's CSV-Nest
+        # PASS 2 — cross-SKU consolidation: nest all the estimate's
         # SKUs' parts together, so shared sheets/rolls make every SKU cheaper
         # than it is alone. IN MEMORY ONLY — an SKU can serve many estimates,
         # so its stored standalone numbers are never overwritten.
@@ -595,87 +597,54 @@ class Estimate(Document):
         }
 
     @frappe.whitelist()
-    def sku_materials(self, sku):
-        """Everything the estimate screen shows for the SELECTED SKU, in one
-        round trip: its material lines GROUPED by material bucket, and its
-        client pricing summary (the same bifurcation the SKU form prints) with
-        the man-days behind it.
+    def decor_review(self):
+        """How every décor slot resolved, across the whole nest. Review only.
 
-        READ-ONLY throughout. Quantities are the SKU's own stored values — the
-        estimate's consolidated allocation is reported separately in the cost
-        breakup, because an SKU can serve several estimates."""
-        if sku not in {r.estimate_sku for r in (self.skus or [])}:
-            frappe.throw(_("{0} is not on this estimate.").format(sku))
-        from mallet_estimator import inventory
-        doc = frappe.get_doc("Estimate SKU", sku)
-        doc.check_permission("read")
+        Slot letters are PER SKU: `a` in one article and `a` in another are
+        independent names that may legitimately point at different laminates.
+        That is fine while each SKU is read on its own, and impossible to hold
+        in your head once their parts are nested together and bought as one
+        order. So this reads the estimate's SKUs side by side and answers the
+        two questions the nest makes urgent: what is each letter actually
+        buying, and is anything still generic.
 
-        groups, order = {}, []
-        for m in doc.get("materials") or []:
-            bucket = inventory.material_bucket(m.get("item"), m.get("material")) or "Other Material"
-            if bucket not in groups:
-                groups[bucket] = {"group": bucket, "lines": [],
-                                  "taxable": 0.0, "tax": 0.0, "landed": 0.0}
-                order.append(bucket)
-            g = groups[bucket]
-            g["lines"].append({
-                "material": m.get("material"), "item": m.get("item"),
-                "description": m.get("description"), "qty": m.get("qty"),
-                "uom": m.get("uom"), "rate": m.get("unit_cost"),
-                "amount": m.get("line_cost"),
-                "amount_with_tax": m.get("amount_with_tax"),
-                "tax": m.get("tax_amount"), "discount": m.get("discount_amount"),
-                "tax_saved": m.get("tax_saved"), "std_tax": m.get("tax_rate_policy"),
-                "applied_tax": m.get("tax_rate"),
-                "manual": bool(m.get("is_manual")),
-                "client_supplied": bool(m.get("customer_supplied")),
-            })
-            g["taxable"] += float(m.get("line_cost") or 0)
-            g["tax"] += float(m.get("tax_amount") or 0)
-            g["landed"] += float(m.get("amount_with_tax") or 0)
-        rank = {name: i for i, name in enumerate(self.MATERIAL_GROUP_ORDER)}
-        order.sort(key=lambda b: (rank.get(b, len(rank)), b))
-
-        # The pricing summary is the SKU's OWN breakup — rebuilt in memory when
-        # the stored blob predates the current margins, so the estimate never
-        # shows a number the SKU form would disagree with.
-        try:
-            breakup = json.loads(doc.get("cost_breakup") or "{}") or {}
-        except Exception:
-            breakup = {}
-        if not breakup.get("bifurcation"):
+        Nothing here is editable. A slot is set on its SKU, where the material
+        lines that use it are — one place to change it, one place to be
+        wrong."""
+        rows, unmapped = {}, []
+        for name in [r.estimate_sku for r in (self.skus or []) if r.estimate_sku]:
             try:
-                doc.build_cost_breakup()
-                breakup = json.loads(doc.cost_breakup or "{}") or {}
-            except Exception:
-                breakup = {}
-
-        carp = float(doc.get("carp_min_total") or 0)
-        helper = float(doc.get("helper_min_total") or 0)
-        return {
-            "sku": doc.name,
-            "article": doc.article_name,
-            "code": doc.get("sku_code"),
-            "room": "Multiple Rooms" if doc.get("multi_room") else doc.get("room"),
-            "mode": doc.get("estimation_mode") or "OCL PDF (standard)",
-            "frozen": bool(doc.get("rates_frozen")),
-            "unpriced": doc.get("unpriced_materials"),
-            "material_cost": doc.get("material_cost"),
-            "groups": [groups[b] for b in order],
-            "rows": [ln for b in order for ln in groups[b]["lines"]],
-            "bifurcation": breakup.get("bifurcation") or {},
-            "sqft": breakup.get("sqft") or {},
-            "profit": breakup.get("profit"),
-            "margin_pct": breakup.get("margin_pct"),
-            "days": {
-                "est_days": float(doc.get("est_days") or 0),
-                "carp_min": carp,
-                "helper_min": helper,
-                # a productive day is 360 min on the floor, not 480 — the same
-                # divisor the SKU's own est_days uses
-                "productive_min_per_day": 360,
-            },
-        }
+                doc = frappe.get_doc("Estimate SKU", name)
+            except frappe.DoesNotExistError:
+                continue
+            if doc.get("work_type") in self.SITE_KINDS:
+                continue          # on-site work has no sheets and no slots
+            live_lam, live_eb = doc.live_slots()
+            for table, domain, live in (("sku_decors", "Laminate", live_lam),
+                                        ("sku_decor_edges", "Edge Band", live_eb)):
+                for r in (doc.get(table) or []):
+                    slot = (r.slot or "").strip().lower()
+                    if slot not in live:
+                        continue   # derived away on the SKU's next save
+                    named = " ".join(str(x) for x in
+                                     ((r.brand or "").strip(), (r.code or "").strip(),
+                                      (r.decor_name or "").strip()) if x).strip()
+                    key = (domain, slot, named)
+                    entry = rows.setdefault(key, {"domain": domain, "slot": slot,
+                                                  "decor": named, "skus": []})
+                    entry["skus"].append(doc.article_name or name)
+                    if not named:
+                        unmapped.append(f"{doc.article_name or name}: {domain.lower()} {slot}")
+        out = sorted(rows.values(), key=lambda r: (r["domain"], r["slot"], r["decor"]))
+        # One letter meaning two different décors is legal and often deliberate
+        # — but on a nested estimate it is also the easiest thing in the world
+        # to have done by accident, so it is named rather than left to be read
+        # out of the table.
+        seen = {}
+        for r in out:
+            seen.setdefault((r["domain"], r["slot"]), set()).add(r["decor"])
+        split = [f"{d.lower()} {s}" for (d, s), v in sorted(seen.items()) if len(v) > 1]
+        return {"rows": out, "unmapped": unmapped, "split": split}
 
     @frappe.whitelist()
     def add_skus_from_files(self, files, room=None):
@@ -799,8 +768,13 @@ class Estimate(Document):
                 "saving": standalone[name] - float(s.client_total or 0),
             })
         self._consolidation = {
+            # alloc is the wastage answer: each SKU pays its parts' area, and
+            # the offcut splits pro-rata by that share (decision 2026-08-07).
+            # Reporting only the combined count leaves "why is my share 0.4 of
+            # a sheet?" unanswerable, which is the question the number invites.
             "materials": {
                 k: {kk: v[kk] for kk in ("kind", "combined", "standalone", "util")}
+                   | {"alloc": v.get("alloc") or {}}
                 for k, v in mats.items()
             },
             "per_sku": per_sku,
