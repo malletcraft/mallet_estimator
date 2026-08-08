@@ -7,15 +7,12 @@ frappe.ui.form.on("Estimate", {
     const approved = frm.doc.docstatus === 1;
 
     render_estimate_bifurcation(frm);
-    render_mode_headline(frm);
-    // ONE grid for the SKUs: which file column it offers depends on the mode,
-    // and clicking a row fills the two detail tables underneath it.
     apply_mode_columns(frm);
     bind_sku_selection(frm);
     // Creating a SKU from the grid should ask for the NAME and nothing else —
-    // project, customer and mode are already settled by the estimate you are
-    // standing on, so they are handed to the quick-entry dialog rather than
-    // asked for again.
+    // project, customer and the kind of work are already settled by the
+    // estimate you are standing on, so they are handed to the quick-entry
+    // dialog rather than asked for again.
     const link = frm.fields_dict.skus && frm.fields_dict.skus.grid
       && frm.fields_dict.skus.grid.get_field
       && frm.fields_dict.skus.grid.get_field("estimate_sku");
@@ -23,35 +20,23 @@ frappe.ui.form.on("Estimate", {
       link.get_route_options_for_new_doc = () => ({
         project: frm.doc.project,
         customer: frm.doc.customer,
-        estimation_mode: frm.doc.estimation_mode || undefined,
-        // A repair estimate makes repair SKUs: same box, same flow, and the
-        // new SKU opens on its activity grid instead of asking for a CSV.
-        work_type: (frm.doc.work_scope === "Repair" || frm.doc.work_scope === "Supply & Install")
-          ? frm.doc.work_scope
-          : undefined,
+        work_type: frm.doc.work_type || "New Work",
       });
     }
     if (!frm.is_new()) render_sku_detail(frm);
 
-    // CSV-Nest and OCL-PDF SKUs are EXCLUSIVE on one estimate (packing is
-    // computed here for CSV-Nest, by OpenCutList for PDF — the counts can't be
-    // added together). Once the estimate carries SKUs, the picker only offers
-    // the matching mode; the server enforces it either way.
-    frm.set_query("estimate_sku", "skus", () => {
+    // An estimate carries ONE kind of work, so the picker only offers that
+    // kind. The server refuses the rest either way; filtering here means the
+    // refusal never has to happen.
+    const kind_filter = () => {
       const f = frm.doc.project ? { project: frm.doc.project } : {};
-      if (frm.doc.estimation_mode) f.estimation_mode = frm.doc.estimation_mode;
+      f.work_type = frm.doc.work_type || "New Work";
       return { filters: f };
-    });
-    // The Add-SKUs grid: an 'Existing SKU' row picks a CSV-Nest SKU that
-    // already exists (same project first); leave it blank to create one from
-    // the columns beside it. Either way you never leave this screen.
+    };
+    frm.set_query("estimate_sku", "skus", kind_filter);
     // Legacy intake grid (hidden, folded into the SKUs grid) — kept wired so
     // an estimate saved before this change still behaves if it is unhidden.
-    frm.set_query("existing_sku", "intake", () => {
-      const f = frm.doc.project ? { project: frm.doc.project } : {};
-      if (frm.doc.estimation_mode) f.estimation_mode = frm.doc.estimation_mode;
-      return { filters: f };
-    });
+    frm.set_query("existing_sku", "intake", kind_filter);
 
     // The two prints, clearly separated. Both carry ONLY client-shared numbers
     // by construction (leak-safe); the execution copy adds views + purchase data.
@@ -108,14 +93,15 @@ frappe.ui.form.on("Estimate", {
           const m = (r && r.message) || {};
           frappe.show_alert({
             message: __("Added {0} SKU(s) · {1} total · {2}{3}", [m.added || 0, m.count || 0, format_currency(m.client || 0),
-              m.skipped ? __(" · {0} skipped (other mode)", [m.skipped]) : ""]),
+              m.skipped ? __(" · {0} skipped (not {1})", [m.skipped, m.work_type]) : ""]),
             indicator: "green",
           });
           frm.reload_doc();
         });
       });
       frm.dashboard.add_comment(
-        __("Draft — the <b>SKUs</b> grid below is the whole flow: in <b>Estimate SKU</b> either pick an existing SKU or type a new name and choose <b>Create</b>, then drop that SKU's <b>Part List CSV</b> (CSV-Nest) or <b>Material Estimate PDF</b> (OCL PDF) and its <b>7 Views PDF</b> in the same row. <b>Save</b> — each SKU arrives imported, nested, priced, with operations and décor map seeded. Click any row to read its grouped material lines and pricing summary underneath. One estimate holds ONE mode: <b>CSV-Nest</b> nests all its SKUs together (shared-material saving, valid when the set is ordered together), <b>OCL PDF</b> prices each article standalone. <b>Submit</b> to approve and freeze before quoting."),
+        __("Draft — the <b>SKUs</b> grid below is the whole flow: in <b>Estimate SKU</b> either pick an existing SKU or type a new name and choose <b>Create</b>, then drop that SKU's <b>Part List CSV</b> and its <b>7 Views PDF</b> in the same row. <b>Save</b> — each SKU arrives imported, nested, priced, with operations and décor map seeded. Click any row to read its material lines and pricing summary underneath. Every SKU on the estimate is nested with the others, so each price carries the shared-sheet saving. This estimate is <b>{0}</b> and can only carry that kind of SKU. <b>Submit</b> to approve and freeze before quoting.",
+           [frm.doc.work_type || "New Work"]),
         "blue", true
       );
     }
@@ -312,47 +298,17 @@ function esc(s) {
   return frappe.utils.escape_html ? frappe.utils.escape_html(String(s == null ? "" : s)) : String(s == null ? "" : s);
 }
 
-// Which kind of estimate am I looking at? The stored estimation_mode (derived
-// from the SKUs, read-only in the header) also gets a coloured headline at the
-// very top of the form, because the mode decides how the numbers below it were
-// arrived at — nesting them together vs pricing each article on its own.
-function render_mode_headline(frm) {
-  const mode = frm.doc.estimation_mode;
-  if (!mode) {
-    // No SKUs yet — nothing is committed, so claim nothing.
-    if (frm.dashboard.clear_headline) frm.dashboard.clear_headline();
-    return;
-  }
-  const csv = mode === "CSV-Nest";
-  const colour = csv ? "blue" : "orange";
-  const rule = csv ? "#1f7aec" : "#e69500";
-  const tint = csv ? "#eef5ff" : "#fff8ec";
-  const what = csv
-    ? __("every SKU on this estimate is nested TOGETHER — sheet counts and the shared-material saving are computed here, which holds only if the whole set is ordered together")
-    : __("each SKU is priced STANDALONE from its OpenCutList PDF — no shared-material saving, so this is what an article costs if it is ordered on its own later");
-  frm.dashboard.set_headline(
-    `<div style="padding:6px 10px;border-left:3px solid ${rule};background:${tint}">` +
-      `<b>${esc(mode)}</b> ${esc(__("estimate"))} — ${esc(what)}.</div>`,
-    colour
-  );
-}
-
 // --- The SKUs grid is the ONE table ---------------------------------------
 // Search / select / create a SKU in its link column, drop this SKU's input
-// files in the same row, read its numbers in the same row. Which file column
-// you get depends on the mode, because a SKU takes ONE kind of input.
+// files in the same row, read its numbers in the same row. Which file columns
+// you get depends on the kind of work: on-site jobs take no OpenCutList input
+// at all, because their work is typed into the activity grid.
 function apply_mode_columns(frm) {
   const grid = frm.fields_dict.skus && frm.fields_dict.skus.grid;
   if (!grid || typeof grid.update_docfield_property !== "function") return;
-  const mode = frm.doc.estimation_mode;
-  // Before the first SKU the estimate is committed to neither mode, so offer
-  // both columns — whichever file lands first decides it.
-  // A repair estimate takes no OpenCutList input at all — its work is typed
-  // into the activity grid — so it is offered no file columns.
-  const repair = frm.doc.work_scope === "Repair" || frm.doc.work_scope === "Supply & Install";
-  const show = { parts_csv: !repair && (!mode || mode === "CSV-Nest"),
-                 estimate_pdf: !repair && (!mode || mode === "OCL PDF (standard)"),
-                 views_pdf: !repair };
+  const kind = frm.doc.work_type || "New Work";
+  const on_site = kind === "Repair" || kind === "Supply & Install";
+  const show = { parts_csv: !on_site, estimate_pdf: false, views_pdf: !on_site };
   Object.keys(show).forEach((f) => {
     try {
       grid.update_docfield_property(f, "hidden", show[f] ? 0 : 1);

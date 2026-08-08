@@ -40,6 +40,33 @@ frappe.ui.form.on("Estimate Settings", {
         });
       });
     });
+    // Clearing the estimating work is destructive and irreversible, so it sits
+    // under Danger Zone behind a typed phrase rather than a confirm dialog — a
+    // button that needs one careless click eventually gets one.
+    frm.add_custom_button(__("Start Over — delete all estimates"), () => {
+      const d = new frappe.ui.Dialog({
+        title: __("Start Over"),
+        fields: [
+          { fieldtype: "HTML", options:
+            `<p>${__("This deletes every <b>Estimate</b>, every <b>Estimate SKU</b> and the client-article <b>Items</b> those SKUs created.")}</p>` +
+            `<p class="text-muted">${__("Your masters are left alone: material Items and their prices, suppliers, décors, rooms, settings, workstations, operations and routings.")}</p>` +
+            `<p><b>${__("This cannot be undone.")}</b></p>` },
+          { fieldname: "confirm", fieldtype: "Data", reqd: 1,
+            label: __("Type DELETE ESTIMATES to confirm") },
+        ],
+        primary_action_label: __("Delete them"),
+        primary_action(values) {
+          d.hide();
+          frappe.call({
+            method: "mallet_estimator.reset.start_over",
+            args: { confirm: values.confirm }, freeze: true,
+            freeze_message: __("Clearing estimates …"),
+          });
+        },
+      });
+      d.show();
+      d.get_primary_btn().removeClass("btn-primary").addClass("btn-danger");
+    }, __("Danger Zone"));
     render_calculator(frm);
   },
   carpenter_salary: (frm) => render_calculator(frm),

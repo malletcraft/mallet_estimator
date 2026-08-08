@@ -21,7 +21,7 @@
    "in_list_view": 1,
    "columns": 2,
    "label": "Existing SKU",
-   "description": "Pick an SKU that already exists — it must match this estimate's mode. Leave blank to create one from the columns to the right."
+   "description": "Pick an SKU that already exists \u2014 it must match this estimate's mode. Leave blank to create one from the columns to the right."
   },
   {
    "fieldname": "room",
@@ -38,30 +38,33 @@
    "in_list_view": 1,
    "columns": 2,
    "label": "SKU / Article Name",
-   "description": "Required when creating a new SKU — the SKU code (YS_MB_WAR) is generated on save."
+   "description": "Required when creating a new SKU \u2014 the SKU code (YS_MB_WAR) is generated on save."
   },
   {
    "fieldname": "parts_csv",
    "fieldtype": "Attach",
    "in_list_view": 1,
    "columns": 2,
-   "label": "Part List CSV (CSV-Nest)",
+   "label": "Part List CSV",
    "description": "Creates a CSV-Nest SKU: sheets are nested here and re-nested across the estimate's SKUs (shared-material saving)."
   },
   {
    "fieldname": "estimate_pdf",
    "fieldtype": "Attach",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "columns": 2,
    "label": "Material Estimate PDF (OCL)",
-   "description": "Creates an OCL-PDF SKU instead: sheet counts come already packed from OpenCutList — standalone, no shared-material saving."
+   "description": "Creates an OCL-PDF SKU instead: sheet counts come already packed from OpenCutList \u2014 standalone, no shared-material saving.",
+   "hidden": 1
   },
   {
    "fieldname": "partlist_pdf",
    "fieldtype": "Attach",
    "columns": 2,
    "label": "Part List PDF (OCL)",
-   "description": "Optional companion of the Material Estimate PDF — identifies hardware designations and edge-band metres."
+   "description": "Optional companion of the Material Estimate PDF \u2014 identifies hardware designations and edge-band metres.",
+   "hidden": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "views_pdf",

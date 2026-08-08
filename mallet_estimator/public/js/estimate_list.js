@@ -1,35 +1,24 @@
-// Estimate list: the mode is the first thing you need to know about an estimate
-// — CSV-Nest estimates nest all their SKUs together (shared-material saving,
-// valid only if the set is ordered together), OCL-PDF estimates price each
-// article standalone. Reading it used to mean opening the doc, so the row
-// indicator now carries BOTH the approval state and the mode, and the mode is
-// a sidebar filter as well.
+// Estimate list: the kind of work is the first thing you need to know about an
+// estimate — building an article, making a repair visit and fitting something
+// bought in are three different businesses priced on three different bases.
+// Reading it used to mean opening the doc, so the row indicator carries both
+// the approval state and the kind, and the kind is a sidebar filter as well.
+//
+// Estimation mode is gone from here: there is only one intake now, so naming
+// it on every row said nothing.
 frappe.listview_settings["Estimate"] = {
-  add_fields: ["estimation_mode", "work_scope"],
+  add_fields: ["work_type"],
 
   get_indicator(doc) {
-    // Work scope leads: new work and repair are different businesses (an
-    // article you build vs a visit you make), and estimation mode is
-    // meaningless on a pure-repair estimate. Mode follows only when it says
-    // something — a New + Repair estimate names both.
-    const scope = doc.work_scope || "";
-    const mode =
-      doc.estimation_mode === "CSV-Nest"
-        ? __("CSV-Nest")
-        : doc.estimation_mode
-        ? __("OCL PDF")
-        : scope
-        ? ""
-        : __("no SKUs");
-    const what = [scope, mode].filter(Boolean).join(" · ") || __("no SKUs");
+    const kind = doc.work_type || __("New Work");
     // Colour stays the ERPNext docstatus convention (people scan for it);
-    // the mode rides in the label so one glance answers both questions.
+    // the kind rides in the label so one glance answers both questions.
     if (doc.docstatus === 2) {
-      return [__("Cancelled") + " · " + what, "red", "docstatus,=,2"];
+      return [__("Cancelled") + " · " + kind, "red", "docstatus,=,2"];
     }
     if (doc.docstatus === 1) {
-      return [__("Approved") + " · " + what, "green", "docstatus,=,1"];
+      return [__("Approved") + " · " + kind, "green", "docstatus,=,1"];
     }
-    return [__("Draft") + " · " + what, "orange", "docstatus,=,0"];
+    return [__("Draft") + " · " + kind, "orange", "docstatus,=,0"];
   },
 };
