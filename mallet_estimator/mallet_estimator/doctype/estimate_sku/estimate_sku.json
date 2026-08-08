@@ -290,8 +290,9 @@
   {
    "fieldname": "material_board_html",
    "fieldtype": "HTML",
-   "label": "Material lines",
-   "description": "Grouped by what each line IS, with the whole money chain on one row and the d\u00e9cor on the line it belongs to. Edits save as you make them."
+   "label": "Material board (legacy)",
+   "description": "Grouped by what each line IS, with the whole money chain on one row and the d\u00e9cor on the line it belongs to. Edits save as you make them.",
+   "hidden": 1
   },
   {
    "fieldname": "materials",

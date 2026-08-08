@@ -212,48 +212,19 @@ def get_sku_context(sku):
 
 
 @frappe.whitelist()
-def material_board(sku):
-    """The grouped, editable material view for one Estimate SKU. Same payload
-    whether it is rendered on the SKU form or inside the Estimate screen —
-    there is one board, not two implementations that drift apart."""
-    from mallet_estimator import material_board as board
+def apply_decor(sku):
+    """Re-point every generic line at the décor now assigned to it, and report
+    how many are still generic — the 'did it actually map?' answer.
 
-    doc = frappe.get_doc("Estimate SKU", sku)
-    doc.check_permission("read")
-    return board.build(doc)
-
-
-@frappe.whitelist()
-def save_material_edits(sku, changes):
-    """Apply board edits and SAVE, returning the board the save produced.
-
-    The browser recomputes locally so totals move as you type, but it never
-    gets the last word: the save runs the whole pricing pipeline (price list
-    rates, discount, tax policy vs applied, décor re-point) and what comes
-    back is what was actually stored."""
-    from mallet_estimator import material_board as board
-
-    if isinstance(changes, str):
-        changes = json.loads(changes or "[]")
+    The grouped board this used to return is gone; the material lines are an
+    ordinary grid again, so the caller reloads the form and reads them there.
+    What comes back is the one number the button was pressed to find out."""
     doc = frappe.get_doc("Estimate SKU", sku)
     doc.check_permission("write")
     if doc.get("rates_frozen"):
         frappe.throw(_("{0} is frozen (quoted on an approved estimate) — cancel and "
                        "amend that estimate to change its lines.").format(sku))
-    board.apply_edits(doc, changes)
-    doc.save()
-    return board.build(doc)
-
-
-@frappe.whitelist()
-def apply_decor(sku):
-    """Re-point every generic line at the décor now assigned to it, and report
-    how many are still generic — the 'did it actually map?' answer."""
-    from mallet_estimator import material_board as board
-
-    doc = frappe.get_doc("Estimate SKU", sku)
-    doc.check_permission("write")
     doc.save()  # apply_decor_map runs inside the ordinary validate pipeline
-    result = board.build(doc)
-    result["applied"] = 1
-    return result
+    unmapped = sum(1 for m in (doc.materials or [])
+                   if "NOT MAPPED" in str(m.get("remarks") or ""))
+    return {"applied": 1, "unmapped": unmapped, "lines": len(doc.materials or [])}

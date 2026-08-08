@@ -39,25 +39,24 @@
    "in_list_view": 1,
    "columns": 2,
    "label": "Material Item",
-   "description": "The ERPNext stock Item — cost comes from its valuation / price.",
+   "description": "The ERPNext stock Item \u2014 cost comes from its valuation / price.",
    "read_only": 1
   },
   {
    "fieldname": "description",
    "fieldtype": "Data",
    "in_list_view": 0,
-   "columns": 3,
    "label": "Description",
    "read_only": 1
   },
   {
    "fieldname": "remarks",
    "fieldtype": "Data",
-   "label": "Mapping",
+   "label": "D\u00e9cor mapping",
    "read_only": 1,
    "in_list_view": 1,
    "columns": 2,
-   "description": "Which décor slot produced this line (cross-check vs the map)."
+   "description": "Which d\u00e9cor slot produced this line (cross-check vs the map)."
   },
   {
    "fieldname": "qty",
@@ -66,14 +65,14 @@
    "columns": 1,
    "label": "Qty",
    "default": "1",
-   "description": "Imported from the PDFs — not editable. Add extra hardware via the 'Add material row' button.",
+   "description": "Imported from the PDFs \u2014 not editable. Add extra hardware via the 'Add material row' button.",
    "read_only": 1
   },
   {
    "fieldname": "uom",
    "fieldtype": "Link",
    "options": "UOM",
-   "in_list_view": 0,
+   "in_list_view": 1,
    "columns": 1,
    "label": "UOM",
    "read_only": 1
@@ -85,36 +84,35 @@
    "columns": 1,
    "label": "MRP / Stock Rate",
    "read_only": 1,
-   "description": "The Estimation (Assumed) price-list rate — by house rule the MAX MRP across suppliers, kept PRE-tax. Read-only: the price list is the rate authority."
+   "description": "The Estimation (Assumed) price-list rate \u2014 by house rule the MAX MRP across suppliers, kept PRE-tax. Read-only: the price list is the rate authority."
   },
   {
    "fieldname": "line_cost",
    "fieldtype": "Currency",
-   "in_list_view": 1,
-   "columns": 1,
+   "in_list_view": 0,
    "label": "Taxable Amount",
    "read_only": 1,
-   "description": "qty x net rate — the value tax is charged on."
+   "description": "qty x net rate \u2014 the value tax is charged on."
   },
   {
    "fieldname": "customer_supplied",
    "fieldtype": "Check",
    "in_list_view": 0,
    "label": "Cust. Supplied",
-   "description": "Client buys & ships this material to us — excluded from the client price."
+   "description": "Client buys & ships this material to us \u2014 excluded from the client price."
   },
   {
    "fieldname": "material",
    "fieldtype": "Data",
    "label": "OpenCutList Code",
    "read_only": 1,
-   "columns": 2,
-   "in_list_view": 1
+   "in_list_view": 0
   },
   {
    "fieldname": "dims_section",
    "fieldtype": "Section Break",
-   "label": "Dimensions (mm)"
+   "label": "Dimensions (mm)",
+   "in_list_view": 0
   },
   {
    "fieldname": "length",
@@ -122,7 +120,8 @@
    "label": "Length",
    "fetch_from": "item.mallet_sheet_length_mm",
    "fetch_if_empty": 1,
-   "read_only": 1
+   "read_only": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "width",
@@ -130,7 +129,8 @@
    "label": "Width",
    "fetch_from": "item.mallet_sheet_width_mm",
    "fetch_if_empty": 1,
-   "read_only": 1
+   "read_only": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "thickness",
@@ -138,32 +138,36 @@
    "label": "Thickness",
    "fetch_from": "item.mallet_thickness_mm",
    "fetch_if_empty": 1,
-   "read_only": 1
+   "read_only": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "is_manual",
    "fieldtype": "Check",
    "label": "Manual Row",
    "hidden": 1,
-   "default": "0"
+   "default": "0",
+   "in_list_view": 0
   },
   {
    "fieldname": "decor",
    "fieldtype": "Link",
    "options": "Mallet Decor",
-   "label": "Décor / Edge Band",
-   "in_list_view": 1,
-   "columns": 2,
+   "label": "D\u00e9cor / Edge Band (legacy)",
+   "in_list_view": 0,
    "depends_on": "eval:doc.material && (doc.material.indexOf('SG_')===0 || doc.material.indexOf('EB_')===0)",
-   "description": "Search or create the real laminate / edge band for THIS line's slot — the SKU's décor map is updated and the line re-points on save."
+   "description": "Search or create the real laminate / edge band for THIS line's slot \u2014 the SKU's d\u00e9cor map is updated and the line re-points on save.",
+   "hidden": 1
   },
   {
    "fieldname": "decor_ext",
    "fieldtype": "Link",
    "options": "Mallet Decor",
-   "label": "Décor (external face)",
+   "label": "D\u00e9cor (external face) (legacy)",
    "depends_on": "eval:doc.material && doc.material.indexOf('SG_PLY')===0",
-   "description": "Ply carries two faces: this maps the SECOND (external) slot letter. Leave blank when both faces share one décor."
+   "description": "Ply carries two faces: this maps the SECOND (external) slot letter. Leave blank when both faces share one d\u00e9cor.",
+   "hidden": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "discount_pct",
@@ -176,35 +180,43 @@
   {
    "fieldname": "discount_amount",
    "fieldtype": "Currency",
-   "label": "Discount ₹",
+   "label": "Discount \u20b9",
    "read_only": 1,
-   "description": "qty x rate x disc% — what this line saves."
+   "description": "qty x rate x disc% \u2014 what this line saves.",
+   "in_list_view": 0
   },
   {
    "fieldname": "net_rate",
    "fieldtype": "Currency",
    "label": "Net Rate",
    "read_only": 1,
-   "description": "MRP after this line's discount."
+   "description": "MRP after this line's discount.",
+   "in_list_view": 0
   },
   {
    "fieldname": "tax_rate_policy",
    "fieldtype": "Percent",
    "label": "Std Tax %",
    "read_only": 1,
-   "description": "The standard rate for this item (Item.mallet_gst_pct, else the house GST%)."
+   "description": "The standard rate for this item (Item.mallet_gst_pct, else the house GST%).",
+   "in_list_view": 1,
+   "columns": 1
   },
   {
    "fieldname": "tax_rate",
    "fieldtype": "Percent",
    "label": "Applied Tax %",
-   "description": "Override for this line only. Blank = the standard rate applies."
+   "description": "Standard rate less the tax discount. This is what the line is actually charged at.",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
   },
   {
    "fieldname": "tax_amount",
    "fieldtype": "Currency",
-   "label": "Tax ₹",
-   "read_only": 1
+   "label": "Tax \u20b9",
+   "read_only": 1,
+   "in_list_view": 0
   },
   {
    "fieldname": "amount_with_tax",
@@ -213,21 +225,24 @@
    "read_only": 1,
    "in_list_view": 1,
    "columns": 1,
-   "description": "Taxable amount + tax — what this line actually costs."
+   "description": "Taxable amount + tax \u2014 what this line actually costs."
   },
   {
    "fieldname": "tax_discount_pct",
    "fieldtype": "Percent",
    "label": "Tax Disc %",
-   "read_only": 1,
-   "description": "Standard rate minus the applied rate — how far this line sits below policy (negative = above)."
+   "read_only": 0,
+   "description": "Percentage points off the standard rate. 18% standard with 6 here is charged at 12%.",
+   "in_list_view": 1,
+   "columns": 1
   },
   {
    "fieldname": "tax_saved",
    "fieldtype": "Currency",
-   "label": "Tax Saved ₹",
+   "label": "Tax Saved \u20b9",
    "read_only": 1,
-   "description": "What the tax difference is worth on this line's taxable amount."
+   "description": "What the tax difference is worth on this line's taxable amount.",
+   "in_list_view": 0
   }
  ],
  "istable": 1,

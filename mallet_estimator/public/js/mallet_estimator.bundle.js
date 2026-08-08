@@ -1,6 +1,5 @@
 // The material board renders on both the Estimate and the Estimate SKU, so it
 // rides in the app bundle rather than either form script.
-import "./material_board";
 
 // Make the Mallet Estimator workspace tile on the app switcher.
 //

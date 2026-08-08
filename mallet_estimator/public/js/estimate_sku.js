@@ -38,7 +38,6 @@ frappe.ui.form.on("Estimate SKU", {
     // The material board — the same component the Estimate screen embeds,
     // just with more room. It reads stored values, so it is always what the
     // last save produced rather than a half-typed form.
-    render_material_board(frm);
     setTimeout(() => { lock_qty(frm); lock_design_columns(frm); }, 300);
     // I1: cache the live Workstation Net Hour Rates so Phase Cost updates instantly
     // as you edit Qty / Min / Operation — no save needed.
@@ -620,39 +619,3 @@ frappe.ui.form.on("Estimate SKU", {
 });
 
 
-// Grouped, editable material lines: one implementation shared with the
-// Estimate screen, so the two views can never drift apart.
-function render_material_board(frm) {
-  const field = frm.get_field("material_board_html");
-  if (!field || !field.$wrapper) return;
-  // The form object is reused across routes, so a new SKU would otherwise
-  // open showing the last one's board. Clear before deciding anything else.
-  if (frm.is_new()) {
-    field.$wrapper.empty();
-    frm.__board = null;
-    return;
-  }
-  const editable = frm.doc.docstatus === 0 && !frm.doc.rates_frozen;
-  if (frm.__board && frm.__board.sku === frm.doc.name) {
-    frm.__board.editable = editable;
-    frm.__board.load();
-    return;
-  }
-  frm.__board = new mallet.MaterialBoard({
-    wrapper: field.$wrapper,
-    sku: frm.doc.name,
-    editable: editable,
-    // A board edit saves the SKU server-side, which leaves this form stale.
-    // NOT reload_doc: the board already renders what the save returned, and
-    // reloading re-enters refresh — which is one half of the loop this had.
-    on_change: (data) => {
-      if (data && data.totals) {
-        frm.doc.material_cost = data.totals.material_cost;
-        frm.doc.client_total = data.totals.client_total;
-        frm.refresh_field("material_cost");
-        frm.refresh_field("client_total");
-      }
-    },
-  });
-  frm.__board.load();
-}

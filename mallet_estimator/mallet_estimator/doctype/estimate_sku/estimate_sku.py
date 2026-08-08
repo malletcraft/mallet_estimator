@@ -1103,9 +1103,19 @@ class EstimateSKU(Document):
             # GST business: an unkeyed item falls back to the house rate, and
             # a truly exempt item is expressed by overriding Applied Tax %.
             m.tax_rate_policy = float(policy) if policy else house_gst
-            applied = m.get("tax_rate")
-            applied_pct = float(applied) if applied not in (None, "") else float(m.tax_rate_policy)
-            m.tax_discount_pct = float(m.tax_rate_policy) - applied_pct
+            # The standard rate is the scheme's; what a user TYPES is a
+            # discount in percentage points off it, so the applied rate is
+            # derived and read-only. Typing the applied rate directly was the
+            # other way round and made "how much have I knocked off?" a
+            # subtraction the reader had to do in their head.
+            disc = m.get("tax_discount_pct")
+            tax_disc = float(disc) if disc not in (None, "") else 0.0
+            # A discount cannot make the rate negative, and a negative discount
+            # would quietly charge MORE than the scheme allows.
+            tax_disc = min(max(tax_disc, 0.0), float(m.tax_rate_policy))
+            m.tax_discount_pct = tax_disc
+            applied_pct = float(m.tax_rate_policy) - tax_disc
+            m.tax_rate = applied_pct
             m.tax_amount = float(m.line_cost or 0) * applied_pct / 100.0
             m.tax_saved = float(m.line_cost or 0) * float(m.tax_discount_pct) / 100.0
             m.amount_with_tax = float(m.line_cost or 0) + float(m.tax_amount or 0)

@@ -422,46 +422,30 @@ class TestClientSuppliedIsPricedButNotCosted(unittest.TestCase):
 
 
 
-class TestMaterialBoardShape(unittest.TestCase):
-    """The board gives each material group only the columns that mean
-    something for it — a hinge has no décor, a ply sheet has two faces. That
-    mapping is what makes the view readable, so it is pinned."""
+class TestTaxDiscount(unittest.TestCase):
+    """The scheme sets the standard rate; a user knocks percentage points off
+    it. Deriving the applied rate from the discount (rather than the other way
+    round) is what makes "how much have I taken off?" readable on the line
+    instead of a subtraction done in the reader's head."""
 
-    def _board(self):
-        import importlib
-        return importlib.import_module("mallet_estimator.material_board")
+    def applied(self, standard, discount):
+        # mirrors price_material_lines: clamp, then subtract
+        d = min(max(discount, 0.0), standard)
+        return standard - d, d
 
-    def test_ply_carries_two_decor_faces(self):
-        shape = self._board().GROUP_SHAPE
-        for g in ("Ply V0 (structure grade)", "Ply V1 (visible grade)"):
-            self.assertEqual(shape[g]["decor"], 2, g)
+    def test_a_discount_comes_off_the_standard_rate(self):
+        self.assertEqual(self.applied(18.0, 6.0), (12.0, 6.0))
 
-    def test_surfaces_carry_one_decor(self):
-        shape = self._board().GROUP_SHAPE
-        for g in ("Laminate Internal", "Laminate External",
-                  "Edge Banding Internal", "Edge Banding External"):
-            self.assertEqual(shape[g]["decor"], 1, g)
+    def test_no_discount_charges_the_standard_rate(self):
+        self.assertEqual(self.applied(18.0, 0.0), (18.0, 0.0))
 
-    def test_hardware_earns_no_extra_columns(self):
-        # its group header already says Client vs Joinery, and the line's own
-        # code IS the designation — an extra column would only ever be blank
-        shape = self._board().GROUP_SHAPE
-        for g in ("Client Hardware", "Joinery Hardware"):
-            self.assertNotIn(g, shape, g)
+    def test_a_discount_cannot_take_the_rate_below_zero(self):
+        # 25 points off an 18% rate is 0%, not -7%
+        self.assertEqual(self.applied(18.0, 25.0), (0.0, 18.0))
 
-    def test_every_shaped_group_is_in_the_reading_order(self):
-        board = self._board()
-        for g in board.GROUP_SHAPE:
-            self.assertIn(g, board.GROUP_ORDER, g)
-
-    def test_only_the_offered_fields_are_writable(self):
-        # the payload arrives from the browser, so the allow-list is the guard
-        board = self._board()
-        self.assertEqual(set(board.EDITABLE),
-                         {"discount_pct", "tax_rate", "customer_supplied", "decor", "decor_ext"})
-        for unsafe in ("unit_cost", "qty", "item", "line_cost", "is_manual"):
-            self.assertNotIn(unsafe, board.EDITABLE, unsafe)
-
+    def test_a_negative_discount_cannot_overcharge(self):
+        # otherwise a stray minus sign charges more tax than the scheme allows
+        self.assertEqual(self.applied(18.0, -5.0), (18.0, 0.0))
 
 
 class TestNameSplitting(unittest.TestCase):
