@@ -172,3 +172,40 @@ class TestSlotLettersAreNotShared(unittest.TestCase):
             self._two_skus("X_MER1834", "X_MER1834", parts))["materials"]
         self.assertEqual(len(same), 1)
         self.assertEqual(set(same["X_MER1834"]["alloc"]), {"WAR", "BED"})
+
+
+class TestOffcutCredit(unittest.TestCase):
+    """Retained offcuts come off the job. Not all of their value, though: a
+    kept piece is worth something only once it is used, and crediting a whole
+    board back would discount the client for a piece that may sit on the rack."""
+
+    def _panel(self, key):
+        p = [(1200.0, 600.0)] * 3
+        return {"A": {"ply": {key: p}, "lam": {}, "edges": {}},
+                "B": {"ply": {key: p}, "lam": {}, "edges": {}}}
+
+    def test_no_policy_means_no_credit(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=0)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertEqual(m["credit"], 0.0)
+        self.assertEqual(m["billable"], float(m["combined"]))
+
+    def test_a_policy_credits_part_of_a_board_never_all_of_it(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=60)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertGreater(m["credit"], 0)
+        self.assertLess(m["billable"], m["combined"])
+        self.assertGreaterEqual(m["billable"], 1.0, "a board can never be un-bought")
+
+    def test_an_external_panel_is_never_retained(self):
+        # this client's laminate; worth nothing on the next job
+        only_v0 = lambda k: k.startswith("PANEL_V0_")
+        m = consolidate.consolidate(self._panel("PANEL_V1_16mm_GE_ME"), recovery_pct=60,
+                                    retainable=only_v0)["materials"]["PANEL_V1_16mm_GE_ME"]
+        self.assertEqual(m["credit"], 0.0)
+
+    def test_the_credit_reaches_every_sku_by_part_area_share(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=60)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertEqual(set(m["alloc"]), {"A", "B"})
+        self.assertAlmostEqual(sum(m["alloc"].values()), m["billable"], places=2)

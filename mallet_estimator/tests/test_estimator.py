@@ -532,3 +532,51 @@ class TestPerUnitLanded(unittest.TestCase):
         full = self.landed_per_unit(2208.0, 18.0, 0.0)
         cut = self.landed_per_unit(2208.0, 18.0, 9.0)
         self.assertAlmostEqual(full - cut, 2208.0 * 9 / 100.0, places=2)
+
+
+class TestPanelIdentity(unittest.TestCase):
+    """A panel saw cuts the sandwich, so what shares a sheet is the pasted
+    assembly, not the ply code. `a` is always the internal face; `b` onwards
+    are always external (Amit, 2026-08-09)."""
+
+    def faces(self, code):
+        from mallet_estimator import decor
+        return decor.panel_faces(code)
+
+    def key(self, code, th, shorts):
+        from mallet_estimator import decor
+        return decor.panel_key(code, th, shorts)
+
+    SHORTS = {"a": "GE1834", "b": "ME1834", "b1": "VM6534", "c": "RT6575"}
+
+    def test_a_is_internal_and_b_onwards_external(self):
+        self.assertEqual(self.faces("SG_PLY_V1_a_b"), ("a", "b"))
+        self.assertEqual(self.faces("SG_PLY_V1_b_a"), ("a", "b"))
+        self.assertEqual(self.faces("SG_PLY_V1_a_b1"), ("a", "b1"))
+        self.assertEqual(self.faces("SG_PLY_V1_a_c"), ("a", "c"))
+
+    def test_an_internal_board_is_laminated_both_sides_with_a(self):
+        self.assertEqual(self.faces("SG_PLY_V0_a_a"), ("a", "a"))
+
+    def test_internal_boards_pool_across_the_whole_project(self):
+        # `a` is one décor for a project, so every article's V0 panels match
+        w = self.key("SG_PLY_V0_a_a", 16, self.SHORTS)
+        b = self.key("SG_PLY_V0_a_a", 16, self.SHORTS)
+        self.assertEqual(w, b)
+        self.assertIn("V0", w)
+
+    def test_two_externals_never_pool_however_alike_the_ply_code_looks(self):
+        # the wardrobe in Merino and the bed in Virgo Mica are the same string
+        # in OpenCutList and two different pasted panels in the workshop
+        wardrobe = self.key("SG_PLY_V1_a_b", 16, {"a": "GE1834", "b": "ME1834"})
+        bed = self.key("SG_PLY_V1_a_b", 16, {"a": "GE1834", "b": "VM6534"})
+        self.assertNotEqual(wardrobe, bed)
+
+    def test_thickness_separates_panels(self):
+        self.assertNotEqual(self.key("SG_PLY_V0_a_a", 16, self.SHORTS),
+                            self.key("SG_PLY_V0_a_a", 18, self.SHORTS))
+
+    def test_an_unmapped_external_has_no_panel_identity(self):
+        # nothing has said what it is; guessing it into someone else's sheet
+        # is the error the key exists to prevent
+        self.assertIsNone(self.key("SG_PLY_V1_a_d", 16, self.SHORTS))

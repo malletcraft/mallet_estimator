@@ -42,3 +42,27 @@ class TestNesting(unittest.TestCase):
         self.assertEqual(nesting.envelope_check((2133, 580, 2133),
                                                 {("X", 18.0): [(2150, 580)]}), [])
         self.assertEqual(nesting.envelope_check((0, 0, 0), ply), [])
+
+
+class TestOffcutsWorthKeeping(unittest.TestCase):
+    """A board that leaves a shelf-sized piece behind did not cost the job a
+    whole board. The free rectangles were always computed and always thrown
+    away; reporting them is what lets that be priced instead of assumed."""
+
+    def test_packing_reports_what_is_left_over(self):
+        r = nesting.pack_sheets([(1200.0, 600.0)] * 3)
+        self.assertIn("offcuts", r)
+        self.assertTrue(r["offcuts"], "a part-filled sheet always leaves something")
+        # biggest first — the useful ones are the ones you look at
+        areas = [l * w for (l, w) in r["offcuts"]]
+        self.assertEqual(areas, sorted(areas, reverse=True))
+
+    def test_only_pieces_you_can_build_from_are_kept(self):
+        # 400 x 600 is the floor: a shelf or a small box. Below it, dust with
+        # a shape. Orientation does not matter to a rack, so both ways round.
+        keep = nesting.reusable([(1000.0, 500.0), (500.0, 1000.0),
+                                 (2000.0, 300.0), (350.0, 900.0), (100.0, 100.0)])
+        self.assertEqual(keep, [(1000.0, 500.0), (1000.0, 500.0)])
+
+    def test_a_sliver_the_full_length_of_the_sheet_is_still_a_sliver(self):
+        self.assertEqual(nesting.reusable([(2440.0, 120.0)]), [])

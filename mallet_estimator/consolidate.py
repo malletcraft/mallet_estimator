@@ -23,7 +23,16 @@ def _area(parts):
     return sum(float(l) * float(w) for (l, w) in parts)
 
 
-def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
+# A retained offcut is worth something only if it gets used, and it will not
+# always be. Crediting a whole board back would discount the client for a piece
+# that may sit on the rack forever, so the recovery is a POLICY percentage
+# (Amit, 2026-08-09: 60%) applied to the sheet-equivalent area kept back.
+# 0 here as every rate is; the real number lives in the site DB.
+RECOVERY_PCT = 0.0
+
+
+def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM, recovery_pct=None,
+                retainable=None):
     """sku_inputs: {sku: {"ply": {"CODE@th": [(l, w), ...]},
                           "lam": {code: [(l, w), ...]},
                           "edges": {code: meters}}}
@@ -54,6 +63,7 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
     sheets_alone = {}   # sku -> standalone sheet-count (ply + lam)
     for key, b in sorted(buckets.items()):
         per_sku = b["per_sku"]
+        credit, retained = 0.0, []
         if b["kind"] == "edge":
             total_m = sum(per_sku.values())
             combined = nesting.edge_rolls(total_m)
@@ -72,7 +82,22 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
             total_area = _area(all_parts)
             shares = {s: (_area(parts) / total_area if total_area else 0.0)
                       for s, parts in per_sku.items()}
-        alloc = {s: round(combined * share, 3) for s, share in shares.items()}
+            # Offcuts big enough to build a shelf out of go back on the rack,
+            # so the job did not consume that part of the board. Internal-grade
+            # panels only: `a` is one décor for a whole project, but a V1
+            # external is this client's laminate and worth nothing on the next
+            # job. Credit is area-based and capped below one whole sheet — a
+            # board can be partly recovered, never un-bought.
+            if retainable is None or retainable(key):
+                keep = nesting.reusable(r.get("offcuts") or [])
+                sheet_area = float(nesting.SHEET_L) * float(nesting.SHEET_W)
+                pct = RECOVERY_PCT if recovery_pct is None else float(recovery_pct)
+                credit = min(
+                    sum(l * w for (l, w) in keep) / sheet_area * (pct / 100.0),
+                    max(combined - 1, 0))
+                retained = keep
+        billable = max(combined - credit, 0.0)
+        alloc = {s: round(billable * share, 3) for s, share in shares.items()}
         if b["kind"] in ("sheet", "laminate"):
             for s in per_sku:
                 sheets_alloc[s] = sheets_alloc.get(s, 0.0) + alloc[s]
@@ -80,6 +105,9 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
         materials[key] = {
             "kind": b["kind"],
             "combined": combined,
+            "billable": round(billable, 3),
+            "credit": round(credit, 3),
+            "retained": retained,
             "standalone": sum(standalone_by_sku.values()),
             "util": util,
             "alloc": alloc,

@@ -279,3 +279,60 @@ def substitute_real_code(code, slot_shorts):
         return code, None
     base = "_".join(str(code).split("_")[: -len(letters)])
     return f"{base}_{short}", key
+
+
+# A panel saw cuts a SANDWICH, not a board. What occupies a sheet is the
+# pre-pasted assembly — ply core plus the laminate on each face — so what
+# decides whether two articles can share a sheet is the assembly, not the ply
+# code. `SG_PLY_V1_a_b` in a wardrobe and the same string in a bed are the same
+# ply and different panels the moment `b` means two different laminates.
+#
+# The slot grammar makes this cheap to read: `a` is ALWAYS the internal face,
+# and `b` onwards — b, b1, c, d, d1 — are ALWAYS external (Amit, 2026-08-09).
+# So the external décor is the first trailing slot that is not an `a`.
+INTERNAL_SLOT = "a"
+
+
+def panel_faces(code):
+    """(internal_slot, external_slot) for a ply placeholder.
+
+        SG_PLY_V0_a_a  -> ('a', 'a')     internal both sides
+        SG_PLY_V1_a_b  -> ('a', 'b')     b is the face the client sees
+        SG_PLY_V1_a_b1 -> ('a', 'b1')
+
+    Both come back 'a' for a V0 board, which is what makes every article's
+    internal-grade panels shareable: `a` is one décor for a whole project."""
+    slots = trailing_slots(code)
+    if not slots:
+        return None, None
+    external = next((s for s in slots if not s.startswith(INTERNAL_SLOT)), None)
+    internal = next((s for s in slots if s.startswith(INTERNAL_SLOT)), None)
+    if external is None:
+        external = internal          # V0: internal décor on both faces
+    if internal is None:
+        internal = external
+    return internal, external
+
+
+def panel_key(code, thickness, slot_shorts):
+    """What this pasted panel IS, as a nesting bucket.
+
+    Two SKUs share sheets when this key matches, because that is exactly when
+    the sheets coming off the saw are physically interchangeable. A V0 board
+    keyed on internal `a` matches project-wide — the saving the shop actually
+    gets. A V1 board carries its external décor, so a wardrobe in Merino and a
+    bed in Virgo Mica never pool, however identical their ply codes look.
+
+    An unresolved external slot yields None: nothing has yet said what the
+    panel is, and guessing it into someone else's sheet is the error this
+    exists to prevent."""
+    internal, external = panel_faces(code)
+    if not external:
+        return None
+    ext = (slot_shorts or {}).get(external)
+    intl = (slot_shorts or {}).get(internal) if internal else None
+    if not ext:
+        return None
+    base = str(code or "").split("_")
+    grade = next((t for t in base if re.fullmatch(r"V\d", t)), "V?")
+    return f"PANEL_{grade}_{float(thickness or 0):g}mm_{intl or '?'}_{ext}"

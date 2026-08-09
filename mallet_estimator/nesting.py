@@ -74,12 +74,41 @@ def pack_sheets(parts, sheet=(SHEET_L, SHEET_W), kerf=4.0, trim=10.0, allow_rota
         used_area += pl * pw
     n = len(sheets)
     cap = n * usable_l * usable_w
+    # The free rectangles were always computed and always thrown away. They are
+    # the offcuts: the shop keeps the big ones and builds shelves and boxes out
+    # of them, so a board that leaves a usable piece behind did not cost the
+    # job a whole board. Reporting them is what lets that be priced instead of
+    # assumed. Sorted biggest first — the useful ones are the ones you look at.
+    offcuts = sorted(
+        ((round(fl, 1), round(fw, 1)) for free in sheets for (_x, _y, fl, fw) in free),
+        key=lambda r: r[0] * r[1], reverse=True)
     return {
         "sheets": n,
         "utilization": (used_area / cap) if cap else 0.0,
         "placed": len(todo),
         "too_big": too_big,
+        "offcuts": offcuts,
     }
+
+
+# A piece worth keeping is one you can still make something out of — a shelf, a
+# small box. Below that it is dust with a shape (Amit, 2026-08-09: both
+# dimensions at or above 400 x 600).
+REUSABLE_MIN = (600.0, 400.0)
+
+
+def reusable(offcuts, minimum=REUSABLE_MIN):
+    """The offcuts big enough to go back on the rack, longest side first.
+
+    Orientation does not matter to a rack, so the piece is measured against the
+    threshold both ways round."""
+    lo, hi = min(minimum), max(minimum)
+    out = []
+    for (l, w) in offcuts or []:
+        a, b = max(l, w), min(l, w)
+        if a >= hi and b >= lo:
+            out.append((a, b))
+    return sorted(out, key=lambda r: r[0] * r[1], reverse=True)
 
 
 def edge_rolls(total_meters, roll_m=EDGE_ROLL_M):
