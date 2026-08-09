@@ -833,9 +833,25 @@ class Estimate(Document):
         def rekey(d):
             return {real.get(k, f"{k}#{sku.name}"): v for k, v in (d or {}).items()}
 
+        def rekey_faces(d):
+            """Both levels move: the panel key becomes the pasted-assembly key
+            the ply bucket uses, and each laminate code becomes the real stock
+            Item — so a face pools with a face on another SKU only when both
+            letters point at the same material."""
+            out = {}
+            for panel, by_face in (d or {}).items():
+                dst = out.setdefault(real.get(panel, f"{panel}#{sku.name}"), {})
+                for face, by_code in (by_face or {}).items():
+                    face_dst = dst.setdefault(face, {})
+                    for code, area in (by_code or {}).items():
+                        rk = real.get(code, f"{code}#{sku.name}")
+                        face_dst[rk] = face_dst.get(rk, 0.0) + float(area or 0)
+            return out
+
         out = {
             "ply": rekey(inputs.get("ply")),
             "lam": rekey(inputs.get("lam")),
+            "faces": rekey_faces(inputs.get("faces")),
             "edges": rekey(inputs.get("edges")),
         }
         keymap = dict(real)

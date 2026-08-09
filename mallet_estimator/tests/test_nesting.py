@@ -66,3 +66,51 @@ class TestOffcutsWorthKeeping(unittest.TestCase):
 
     def test_a_sliver_the_full_length_of_the_sheet_is_still_a_sliver(self):
         self.assertEqual(nesting.reusable([(2440.0, 120.0)]), [])
+
+
+class TestLaminateFollowsThePanel(unittest.TestCase):
+    """The shop presses a full laminate sheet onto a full ply sheet and only
+    then puts the sandwich on the panel saw, so laminate is bought per ply
+    sheet per laminated face — never nested to part size on its own."""
+
+    def test_both_faces_same_decor_doubles_the_boards(self):
+        # 3 boards of V0, internal laminate on both faces -> 6 laminate sheets
+        panels = {("SG_PLY_V0_a_a", 12): 3}
+        faces = {("SG_PLY_V0_a_a", 12): {
+            "Frontside": {"SG_LAM_V0_12mm_a_a": 4.78e6},
+            "Backside": {"SG_LAM_V0_12mm_a_a": 4.78e6},
+        }}
+        self.assertEqual(nesting.laminate_from_panels(panels, faces),
+                         {"SG_LAM_V0_12mm_a_a": 6})
+
+    def test_each_face_of_a_v1_board_buys_its_own_laminate(self):
+        panels = {("SG_PLY_V1_a_b", 16): 2}
+        faces = {("SG_PLY_V1_a_b", 16): {
+            "Frontside": {"SG_LAM_V1_16mm_b_a": 4.16e6},   # external
+            "Backside": {"SG_LAM_V1_16mm_a_b": 4.16e6},    # internal
+        }}
+        self.assertEqual(nesting.laminate_from_panels(panels, faces),
+                         {"SG_LAM_V1_16mm_b_a": 2, "SG_LAM_V1_16mm_a_b": 2})
+
+    def test_a_face_carrying_two_decors_splits_by_part_area(self):
+        # half the boards' front area is one laminate, half the other: 4 boards
+        # -> 2 sheets each, and neither is rounded up to a whole board twice
+        panels = {("SG_PLY_V1_a_b", 16): 4}
+        faces = {("SG_PLY_V1_a_b", 16): {
+            "Frontside": {"SG_LAM_V1_16mm_b_a": 1.0e6, "SG_LAM_V1_16mm_c_a": 1.0e6},
+        }}
+        self.assertEqual(nesting.laminate_from_panels(panels, faces),
+                         {"SG_LAM_V1_16mm_b_a": 2, "SG_LAM_V1_16mm_c_a": 2})
+
+    def test_shares_are_summed_before_rounding(self):
+        # two boards each contributing half a sheet is ONE sheet, not two:
+        # rounding each contribution first buys laminate the press never eats
+        panels = {("A", 16): 1, ("B", 16): 1}
+        faces = {
+            ("A", 16): {"Frontside": {"LAM": 1.0e6, "OTHER": 1.0e6}},
+            ("B", 16): {"Frontside": {"LAM": 1.0e6, "OTHER": 1.0e6}},
+        }
+        self.assertEqual(nesting.laminate_from_panels(panels, faces)["LAM"], 1)
+
+    def test_an_unlaminated_board_buys_nothing(self):
+        self.assertEqual(nesting.laminate_from_panels({("SG_PLY_V0_a_a", 16): 4}, {}), {})

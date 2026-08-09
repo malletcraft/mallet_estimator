@@ -19,7 +19,12 @@ from mallet_estimator import estimate_pdf, inventory, nesting, opencutlist, deco
 from mallet_estimator.estimator import op_phase
 from mallet_estimator.opencutlist import _material_from, _num
 
-# calibrated on the shop's real OCL exports (WAR 9/9, BED 23/23 exact)
+# Calibrated against the shop's real OpenCutList exports. On YS_MB_WAR
+# (2026-08-09 export, checked line by line against OCL's own Estimate PDF) the
+# engine now reproduces OCL exactly: ply 9/9 per code, edge banding 18.28 m and
+# 20.28 m to the centimetre, hardware 99/99. Earlier calibration numbers were
+# taken while the importer read CSV ROWS rather than part QUANTITIES, so treat
+# any figure quoted before 2026-08-09 as unverified.
 KERF_MM = 4.0
 TRIM_MM = 10.0
 
@@ -27,13 +32,24 @@ TRIM_MM = 10.0
 def collect(rows):
     """Aggregate the CSV part rows into nesting inputs:
     (ply {(code, th): [(l,w)..]}, lam {code: [(l,w)..]}, edges {code: meters},
-    hardware [ {code, category, qty, ...} ], banded_edge_count).
+    hardware [ {code, category, qty, ...} ], banded_edge_count,
+    faces {(code, th): {face_column: {lam_code: part_area_mm2}}}).
+
+    Every row is expanded by opencutlist.part_qty — OpenCutList groups
+    identical parts onto ONE row and puts the count in `Quantity`, so a row is
+    usually several pieces.
+
+    `faces` is what makes laminate follow the panel: it records which laminate
+    is pressed onto which face of which board, so the laminate sheet count
+    comes off the ply nest (nesting.laminate_from_panels) instead of a nest of
+    the laminate's own. `lam` stays as the per-face part list — the décor map
+    and the rate lookup key off it, and it is what says a code exists at all.
 
     Hardware comes from opencutlist.hardware_list — the same aggregator the
     PDF path uses — so a line is the REAL designation (HWD_AH_SC_0 = Auto
     Hinge Soft Close 0°), never the coarse Material name (HWD_Hinge), which
     can hide several distinct SKUs at different rates."""
-    ply, lam, edges = {}, {}, {}
+    ply, lam, edges, faces = {}, {}, {}, {}
     banded = 0
     for r in rows:
         name = (r.get("Material name") or "").strip()
@@ -44,19 +60,22 @@ def collect(rows):
             th = _num(r.get("Thickness") or r.get("Thickness - raw"))
             if not (l and w):
                 continue
-            ply.setdefault((name, th), []).append((l, w))
+            qty = opencutlist.part_qty(r)
+            ply.setdefault((name, th), []).extend([(l, w)] * qty)
             for col, dim in (("Edge Length 1", l), ("Edge Length 2", l),
                              ("Edge Width 1", w), ("Edge Width 2", w)):
                 eb = _material_from(r.get(col))
                 if eb:
-                    edges[eb] = edges.get(eb, 0.0) + dim / 1000.0
-                    banded += 1
+                    edges[eb] = edges.get(eb, 0.0) + dim * qty / 1000.0
+                    banded += qty
             for col in ("Frontside", "Backside"):
                 lc = _material_from(r.get(col))
                 if lc:
-                    lam.setdefault(lc, []).append((l, w))
+                    lam.setdefault(lc, []).extend([(l, w)] * qty)
+                    by_face = faces.setdefault((name, th), {}).setdefault(col, {})
+                    by_face[lc] = by_face.get(lc, 0.0) + l * w * qty
     hw = opencutlist.hardware_list(rows)
-    return ply, lam, edges, hw, banded
+    return ply, lam, edges, hw, banded, faces
 
 
 def envelope_issues(doc, ply):
@@ -83,7 +102,7 @@ def run(doc):
     rows = opencutlist.parse_opencutlist_csv(content)
     if not rows:
         frappe.throw(_("The Part List CSV could not be parsed — is it the OpenCutList export?"))
-    ply, lam, edges, hw, banded_edges = collect(rows)
+    ply, lam, edges, hw, banded_edges, faces = collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
     issues = envelope_issues(doc, ply)
@@ -92,10 +111,12 @@ def run(doc):
     doc.set("materials", [])
     unpriced, mats_shape, nest_info = [], [], {}
 
+    panel_sheets = {}
     for (code, th), parts in sorted(ply.items()):
         r = nesting.pack_sheets(parts, kerf=KERF_MM, trim=TRIM_MM, allow_rotate=False)
         for (l, w) in r["too_big"]:
             issues.append(_("{0}: part {1:g} × {2:g} mm cannot fit a sheet at all").format(code, l, w))
+        panel_sheets[(code, th)] = r["sheets"]
         nest_info[f"{code}@{th:g}mm"] = {"sheets": r["sheets"], "util": round(r["utilization"], 3),
                                          "parts": len(parts)}
         doc._add_material_line(
@@ -104,14 +125,23 @@ def run(doc):
             unpriced)
         mats_shape.append({"name": code, "kind": "sheet", "thickness": th, "qty": r["sheets"]})
 
-    for code, faces in sorted(lam.items()):
-        r = nesting.pack_sheets(faces, kerf=KERF_MM, trim=TRIM_MM, allow_rotate=False)
-        nest_info[code] = {"sheets": r["sheets"], "util": round(r["utilization"], 3), "parts": len(faces)}
+    # Laminate is pressed onto the WHOLE board before the panel saw runs, so it
+    # is bought per ply sheet per laminated face, not nested on its own.
+    lam_sheets = nesting.laminate_from_panels(panel_sheets, faces)
+    for code in sorted(set(lam) | set(lam_sheets)):
+        sheets = lam_sheets.get(code, 0)
+        if not sheets:
+            continue
+        boards = ", ".join(
+            f"{c}@{t:g}mm" for (c, t), by_face in sorted(faces.items())
+            if any(code in bf for bf in by_face.values()))
+        nest_info[code] = {"sheets": sheets, "faces": len(lam.get(code) or []), "pressed_on": boards}
         doc._add_material_line(
-            code, "laminate", 0, r["sheets"],
-            f"{code} — {len(faces)} faces nested → {r['sheets']} sheet(s) ({r['utilization']:.0%} used) [CSV-Nest]",
+            code, "laminate", 0, sheets,
+            f"{code} — pressed on {boards or 'ply'} → {sheets} sheet(s), "
+            f"one per board face [CSV-Nest]",
             unpriced)
-        mats_shape.append({"name": code, "kind": "laminate", "thickness": 0, "qty": r["sheets"]})
+        mats_shape.append({"name": code, "kind": "laminate", "thickness": 0, "qty": sheets})
 
     for code, meters in sorted(edges.items()):
         rolls = nesting.edge_rolls(meters)
@@ -213,6 +243,10 @@ def run(doc):
         "ply": {f"{code}@{th:g}": parts for (code, th), parts in ply.items()},
         "lam": lam,
         "edges": edges,
+        # {ply key: {face: {laminate code: part area}}} — consolidation needs it
+        # to derive laminate from the COMBINED panel nest (and to carry the
+        # offcut credit through the sandwich), same rule as the SKU above.
+        "faces": {f"{code}@{th:g}": by_face for (code, th), by_face in faces.items()},
     }
     if issues:
         opq["__issues__"] = issues
@@ -229,6 +263,7 @@ def run(doc):
         for p in parts:
             doc.append("parts", {
                 "part_no": p["part_no"], "designation": p["designation"], "material": p["material"],
+                "qty": p.get("qty", 1),
                 "tag": p["tag"], "length": p["length"], "width": p["width"], "thickness": p["thickness"],
                 "cut": p.get("cut", 1), "edge_banded": p.get("edge_banded", 0),
                 "laminated": p.get("laminated", 0),

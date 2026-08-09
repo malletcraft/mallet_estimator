@@ -134,6 +134,48 @@ def envelope_check(outer_dims, ply, tol=25.0):
     return bad
 
 
+def laminate_share(panel_sheets, panel_faces):
+    """The un-rounded {laminate_code: sheet-equivalents} behind
+    laminate_from_panels — see that function for the rule. Kept separate so
+    consolidation can sum shares across SKUs BEFORE rounding up (rounding each
+    SKU first would buy a part-sheet of laminate per SKU that the press never
+    consumes).
+
+    panel_sheets: {panel_key: sheets}
+    panel_faces:  {panel_key: {face: {laminate_code: part_area_mm2}}}"""
+    out = {}
+    for key, faces in (panel_faces or {}).items():
+        sheets = float(panel_sheets.get(key) or 0)
+        if sheets <= 0:
+            continue
+        for by_code in (faces or {}).values():
+            total = sum(float(a or 0) for a in (by_code or {}).values())
+            if total <= 0:
+                continue
+            # One face of `sheets` boards, split by part area when the panel's
+            # parts do not all carry the same laminate.
+            for code, area in by_code.items():
+                out[code] = out.get(code, 0.0) + sheets * (float(area or 0) / total)
+    return out
+
+
+def laminate_from_panels(panel_sheets, panel_faces):
+    """Laminate sheet counts derived from the PANELS, not from a nest of the
+    laminate's own.
+
+    The shop presses a full laminate sheet onto a full ply sheet and only then
+    puts the sandwich on the panel saw (Amit, 2026-08-09), so laminate is
+    consumed per ply sheet per laminated face. Nesting the laminate as if it
+    were cut to part size first buys fewer sheets than the press actually eats:
+    on the real YS_MB_WAR export that was 16 sheets against OpenCutList's own
+    18, and every panel offcut it implies would have to come off a board that
+    was never laminated.
+
+    Returns {laminate_code: whole sheets}."""
+    return {c: max(1, math.ceil(round(v, 6)))
+            for c, v in laminate_share(panel_sheets, panel_faces).items() if v > 0}
+
+
 def laminate_faces(ply_parts_by_code):
     """Laminate consumption from the ply parts themselves: every ply part face
     is laminated per its code's slots (SG_PLY_V0_a_a → both faces slot 'a';
