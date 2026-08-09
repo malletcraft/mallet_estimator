@@ -28,7 +28,7 @@ def _area(parts):
 # A retained offcut is worth something only if it gets used, and it will not
 # always be. Crediting a whole board back would discount the client for a piece
 # that may sit on the rack forever, so the recovery is a POLICY percentage
-# (Amit, 2026-08-09: 60%) applied to the sheet-equivalent area kept back.
+# (set on Estimate Settings, ### here) applied to the sheet-equivalent area kept back.
 # 0 here as every rate is; the real number lives in the site DB.
 RECOVERY_PCT = 0.0
 
