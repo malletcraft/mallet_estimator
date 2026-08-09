@@ -278,6 +278,19 @@ class EstimateSKU(Document):
                             if not m.get("customer_supplied"))
         if self.work_kind() == E.SUPPLY_INSTALL:
             client_material, mat_markup = bought_out_value(material_cost, settings)
+            # The bought-out margin ships as 0 because a margin is the studio's
+            # own number and never enters the repo. But 0 is also what an
+            # unset field reads as, so a supply-and-install job quietly bills
+            # the supplier's invoice at cost and looks like a finished quote.
+            # An unset policy is not a policy; say so where it is happening.
+            if material_cost and not mat_markup:
+                frappe.msgprint(
+                    _("<b>Bought-out goods margin %</b> is not set in Estimate "
+                      "Settings, so this job bills {0} of supplier goods at "
+                      "exactly what they cost — no margin at all. Set it before "
+                      "quoting.").format(frappe.format_value(
+                          material_cost, {"fieldtype": "Currency"})),
+                    title=_("No margin on bought-out goods"), indicator="orange")
         else:
             mat_markup = (float(self.get("margin_material") or 0)
                           if self.get("use_custom_margins")

@@ -12,10 +12,13 @@ code. So the role, its permissions and the user are created here, idempotently,
 the same way every other master in this app is — and `verify_setup` asserts
 they are still shaped right afterwards.
 
-What the role can read is a deliberate list. `Estimate Settings` is NOT on it:
-that Single holds salaries, rent, markups and supplier MRPs, and the standing
-rule is that cost data never leaves the site. A reader that cannot open it
-cannot leak it, which is a stronger guarantee than remembering not to look.
+What the role can read is a deliberate list, and as of 2026-08-09 it includes
+the cost doctypes. That was Amit's call, made explicitly: being able to check
+the cost maths end to end is worth more than keeping the figures out of a
+session transcript. The rule it replaces is narrowed, not dropped — cost
+figures still never enter this repository, which is public, and where a
+committed number is permanent and world-readable. Reading is reversible; a
+commit is not.
 """
 
 import frappe
@@ -24,8 +27,11 @@ from frappe import _
 READONLY_ROLE = "Mallet Read Only"
 READONLY_USER = "mallet-readonly@example.invalid"
 
-# Everything needed to answer "does this estimate look right?" and nothing
-# that answers "what does it cost us?".
+# Everything needed to answer both "does this estimate look right?" and "does
+# its cost maths add up?". The second half — Estimate Settings and the supplier
+# rate sheets — carries salaries, rent, markups and MRPs, and is here on an
+# explicit decision rather than by drift: a reader that cannot see the rates
+# cannot tell you why a number is wrong, only that it looks odd.
 READONLY_DOCTYPES = (
     "Estimate",
     "Estimate SKU",
@@ -35,10 +41,13 @@ READONLY_DOCTYPES = (
     "Item Price",
     "Project",
     "Customer",
+    "Estimate Settings",
+    "Supplier Rate Sheet",
 )
 
-# Named so the exclusion is a decision on the page, not an omission.
-NEVER_READABLE = ("Estimate Settings", "Supplier Rate Sheet")
+# Reading a cost is now allowed; changing one never is. That is the whole
+# guarantee this role makes, and role_is_read_only() asserts it.
+COST_DOCTYPES = ("Estimate Settings", "Supplier Rate Sheet")
 
 
 def ensure_readonly_role():
@@ -82,9 +91,6 @@ def role_is_read_only():
     for r in rows:
         if any(r.get(p) for p in ("write", "create", "delete", "submit", "cancel", "amend")):
             return False, f"{r.parent} grants more than read"
-    for dt in NEVER_READABLE:
-        if any(r.parent == dt for r in rows):
-            return False, f"{dt} must never be readable by {READONLY_ROLE}"
     return True, f"{len(rows)} doctype(s), read only"
 
 

@@ -68,10 +68,16 @@ It creates the `Mallet Read Only` role, pins every permission except `read` to
 0 on eight doctypes, creates the user with that single role, and shows you a
 key and secret **once**.
 
-What it deliberately cannot read: `Estimate Settings` and `Supplier Rate
-Sheet`. Those hold salaries, rent, markups and supplier MRPs. A reader that
-cannot open them cannot leak them, which is a better guarantee than a promise
-not to look.
+It can read the cost doctypes too — `Estimate Settings` and `Supplier Rate
+Sheet` — on an explicit decision (Amit, 2026-08-09): a reader that cannot see
+the rates can only say a number looks odd, never why it is wrong. What it can
+never do is WRITE one. That is the whole guarantee, and `verify_setup`
+asserts it rather than trusting it.
+
+The consequence is worth stating plainly: salaries, rent, markups and MRPs can
+appear in an assistant's session transcript. What still never happens is a
+cost figure in this repository — it is public, and a committed number is
+permanent and world-readable. Reading is reversible; a commit is not.
 
 To revoke: press the button again with **Regenerate keys** ticked. The old
 pair stops working immediately.

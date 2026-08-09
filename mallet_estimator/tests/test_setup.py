@@ -59,20 +59,30 @@ class TestMasters(MalletTestCase):
         self.assertTrue(report["all_ok"], f"verify_setup failed: {report['failed']}")
 
     def test_readonly_role_can_only_read(self):
-        # The role's entire value is a guarantee: it cannot write, and it
-        # cannot open the Single that holds salaries, rent and markups. Both
-        # are asserted rather than trusted, because a later ERPNext upgrade
+        # The role's guarantee is now exactly one thing: it cannot write.
+        # Reading the cost doctypes is allowed on an explicit decision
+        # (2026-08-09), so the assertion that matters is that granting that
+        # read did not quietly bring write with it — an ERPNext upgrade
         # shipping different permission defaults would widen it silently.
         from mallet_estimator import integration
         integration.ensure_readonly_role()
         ok, detail = integration.role_is_read_only()
         self.assertTrue(ok, detail)
-        for dt in integration.NEVER_READABLE:
-            self.assertFalse(
-                frappe.db.exists("Custom DocPerm",
-                                 {"role": integration.READONLY_ROLE, "parent": dt}),
-                f"{dt} must never be readable by {integration.READONLY_ROLE}")
-        self.assertNotIn("Estimate Settings", integration.READONLY_DOCTYPES)
+
+    def test_the_cost_doctypes_are_readable_but_not_writable(self):
+        # Being able to see a rate is what lets a reader say WHY a number is
+        # wrong instead of only that it looks odd. Being able to change one
+        # is never part of that.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        for dt in integration.COST_DOCTYPES:
+            self.assertIn(dt, integration.READONLY_DOCTYPES, dt)
+            perm = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.READONLY_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            self.assertTrue(perm and perm.read, f"{dt} should be readable")
+            for p in ("write", "create", "delete"):
+                self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
 
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
