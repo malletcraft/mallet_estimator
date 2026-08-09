@@ -600,13 +600,53 @@ function mm_to_ftin(mm) {
 }
 
 function show_ftin(frm) {
+  // One line under the section, not a paragraph hanging off the third field:
+  // it belongs to all three dimensions, and putting it under Outer Height made
+  // the row three times taller to say something about the row.
   const parts = [frm.doc.outer_w, frm.doc.outer_d, frm.doc.outer_h].map(mm_to_ftin).filter(Boolean);
-  frm.set_df_property("outer_h", "description",
-    parts.length ? __("= {0} (W x D x H, feet-inches)", [parts.join(" x ")]) : "");
+  frm.set_df_property("outer_h", "description", "");
+  const $sec = frm.fields_dict.spec_section && frm.fields_dict.spec_section.$wrapper;
+  if (!$sec) return;
+  $sec.find(".mallet-ftin").remove();
+  if (!parts.length) return;
+  $sec.append(
+    `<div class="mallet-ftin text-muted" style="margin:-6px 0 8px;font-size:12px">` +
+    `${frappe.utils.escape_html(parts.join(" × "))} ` +
+    `${frappe.utils.escape_html(__("(W × D × H, feet-inches)"))}</div>`
+  );
 }
 
+// A field's description is worth reading ONCE. Printed under every box for
+// ever after it is just noise between you and the next box, and on this form
+// it was pushing the whole Files section off the screen. Moved to the label's
+// tooltip: still there when wanted, silent when not.
+function tooltips(frm, fieldnames) {
+  (fieldnames || []).forEach((f) => {
+    const field = frm.fields_dict[f];
+    if (!field || !field.$wrapper) return;
+    const text = (field.df && field.df.description) || field.__mallet_tip;
+    if (!text) return;
+    field.__mallet_tip = text;
+    frm.set_df_property(f, "description", "");
+    field.$wrapper.find(".clearfix .control-label, .control-label").first()
+      .attr("title", text).css("cursor", "help");
+    field.$wrapper.find(".help-box, .field-description").hide();
+  });
+}
+
+const TOOLTIP_FIELDS = [
+  "parts_csv", "views_pdf", "estimate_pdf", "partlist_pdf", "article_image",
+  "reset_decor_map_btn", "apply_decor_map_btn", "decor_section",
+  "material_cost", "material_tax_total", "material_tax_saved_total",
+  "material_total_with_tax", "material_discount_total", "client_supplied_value",
+  "outer_w", "outer_d", "outer_h",
+];
+
 frappe.ui.form.on("Estimate SKU", {
-  refresh: show_ftin,
+  refresh: (frm) => {
+    show_ftin(frm);
+    tooltips(frm, TOOLTIP_FIELDS);
+  },
   include_misc: (frm) => update_live_totals(frm),
   outer_w: show_ftin,
   outer_d: show_ftin,

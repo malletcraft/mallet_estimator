@@ -1207,6 +1207,12 @@ class EstimateSKU(Document):
             applied_pct = float(m.tax_rate_policy) - tax_disc
             m.tax_rate = applied_pct
             m.tax_amount = float(m.line_cost or 0) * applied_pct / 100.0
+            # What ONE sheet / metre / piece costs delivered. The line total
+            # answers "what does this material cost"; per unit answers "is that
+            # the right price for a sheet", which is the question a person
+            # standing in front of a supplier's quote is actually asking.
+            if m.meta.has_field("unit_cost_with_tax"):
+                m.unit_cost_with_tax = float(m.net_rate or 0) * (1 + applied_pct / 100.0)
             m.tax_saved = float(m.line_cost or 0) * float(m.tax_discount_pct) / 100.0
             m.amount_with_tax = float(m.line_cost or 0) + float(m.tax_amount or 0)
             # A client-supplied line is not bought by US, so none of it enters

@@ -408,9 +408,9 @@
   {
    "fieldname": "total_material_tax_saved",
    "fieldtype": "Currency",
-   "label": "Total Tax Saved",
+   "label": "GST Saved (all SKUs)",
    "read_only": 1,
-   "description": "Every SKU's per-line tax differences vs the standard rate."
+   "description": "What the concessional rates on the material lines came to across every SKU on this estimate, against the standard rate they would otherwise have carried."
   },
   {
    "fieldname": "column_break_header_2",

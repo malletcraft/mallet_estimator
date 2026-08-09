@@ -799,9 +799,9 @@
   {
    "fieldname": "material_tax_saved_total",
    "fieldtype": "Currency",
-   "label": "Tax Saved (this SKU)",
+   "label": "GST Saved (this SKU)",
    "read_only": 1,
-   "description": "Sum of the per-line tax differences vs the standard rate."
+   "description": "Standard rate minus applied rate, summed over this SKU\u2019s material lines. 18% standard charged at 9% shows the 9% not charged."
   },
   {
    "fieldname": "client_supplied_value",

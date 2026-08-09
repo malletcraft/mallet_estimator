@@ -140,3 +140,35 @@ class TestStoredModeField(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSlotLettersAreNotShared(unittest.TestCase):
+    """Slot letters are PER SKU. `b` on the wardrobe and `b` on the bed are two
+    independent names that usually mean two different laminates, and nesting
+    keyed on the raw OpenCutList code pooled them anyway — packing physically
+    different sheets as one. The damage points the wrong way: FEWER sheets than
+    will be bought, and a shared-material saving that does not exist."""
+
+    def _two_skus(self, key_a, key_b, parts):
+        return {"WAR": {"ply": {}, "lam": {key_a: parts}, "edges": {}},
+                "BED": {"ply": {}, "lam": {key_b: parts}, "edges": {}}}
+
+    def test_the_same_letter_meaning_two_laminates_is_not_one_material(self):
+        parts = [(900.0, 450.0)] * 2
+        pooled = consolidate.consolidate(self._two_skus("X_b", "X_b", parts))["materials"]
+        apart = consolidate.consolidate(
+            self._two_skus("X_MER1834", "X_VM6534", parts))["materials"]
+        self.assertEqual(len(pooled), 1, "the generic letter collapses them to one bucket")
+        self.assertEqual(len(apart), 2, "resolved décors stay two materials")
+        # and the pooled answer under-buys: one sheet fewer than the job needs
+        self.assertLess(sum(v["combined"] for v in pooled.values()),
+                        sum(v["combined"] for v in apart.values()))
+
+    def test_the_same_real_laminate_in_two_skus_still_pools(self):
+        # the saving is real when the letters point at the SAME material —
+        # that is the case cross-SKU nesting exists for, and it must survive
+        parts = [(900.0, 450.0)] * 2
+        same = consolidate.consolidate(
+            self._two_skus("X_MER1834", "X_MER1834", parts))["materials"]
+        self.assertEqual(len(same), 1)
+        self.assertEqual(set(same["X_MER1834"]["alloc"]), {"WAR", "BED"})

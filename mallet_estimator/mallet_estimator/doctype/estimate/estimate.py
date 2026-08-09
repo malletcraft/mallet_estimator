@@ -754,6 +754,41 @@ class Estimate(Document):
         self.save()
         return out
 
+    def _resolved_nest_keys(self, sku, inputs):
+        """Re-key one SKU's nesting inputs by the REAL material each slot
+        resolved to, and return (inputs, generic -> real key map).
+
+        The material line keeps the generic OpenCutList code in `material` and
+        the resolved stock Item in `item`, so the line IS the translation
+        table. A slot with no décor mapped yet cannot be pooled at all —
+        nothing has said what it is — so it is qualified by SKU and nests on
+        its own rather than being guessed into someone else's sheet."""
+        real = {}
+        for m in (sku.materials or []):
+            base = str(m.get("material") or "")
+            if not base or m.get("is_manual"):
+                continue
+            item = str(m.get("item") or "")
+            mapped = item and item != base
+            th = float(m.get("thickness") or 0)
+            target = item if mapped else f"{base}#{sku.name}"
+            real[base] = target
+            real[f"{base}@{th:g}"] = f"{target}@{th:g}" if mapped else f"{target}@{th:g}"
+
+        def rekey(d):
+            return {real.get(k, f"{k}#{sku.name}"): v for k, v in (d or {}).items()}
+
+        out = {
+            "ply": rekey(inputs.get("ply")),
+            "lam": rekey(inputs.get("lam")),
+            "edges": rekey(inputs.get("edges")),
+        }
+        keymap = dict(real)
+        for group in ("ply", "lam", "edges"):
+            for k in (inputs.get(group) or {}):
+                keymap.setdefault(k, real.get(k, f"{k}#{sku.name}"))
+        return out, keymap
+
     def _apply_consolidation(self, loaded, nest_inputs):
         """Nest every CSV-Nest SKU's parts TOGETHER per material and re-price
         each SKU at its allocated share: parts area is paid directly, offcut
@@ -765,18 +800,30 @@ class Estimate(Document):
         from mallet_estimator import consolidate as cons
         from mallet_estimator.estimator import op_phase
 
-        result = cons.consolidate(nest_inputs)
-        mats = result["materials"]
         by_name = {s.name: s for (_r, s) in loaded}
+        # Slot letters are PER SKU: `b` on the wardrobe and `b` on the bed are
+        # two independent names that usually mean two different laminates.
+        # Nesting keyed on the raw OpenCutList code pooled them anyway, packing
+        # physically different sheets as one — fewer sheets than will be bought,
+        # a saving that does not exist, and each SKU's offcut share computed
+        # against a pool it is not part of. Keys are translated through each
+        # SKU's own décor resolution first, so two SKUs pool only when their
+        # letters point at the SAME real material, which is when pooling is true.
+        resolved = {name: self._resolved_nest_keys(by_name[name], nest_inputs[name])
+                    for name in nest_inputs}
+        result = cons.consolidate({n: v[0] for n, v in resolved.items()})
+        mats = result["materials"]
         standalone = {n: float(by_name[n].client_total or 0) for n in nest_inputs}
 
         sheet_ops = ("Sheet Lamination", "Sheet Tape Removal", "Sheet Cutting")
         for name in nest_inputs:
             s = by_name[name]
+            keymap = resolved[name][1]
             for m in s.materials or []:
                 if m.get("is_manual"):
                     continue
-                key = f"{m.material}@{float(m.thickness or 0):g}"
+                generic = f"{m.material}@{float(m.thickness or 0):g}"
+                key = keymap.get(generic) or keymap.get(str(m.material or "")) or generic
                 info = mats.get(key) or mats.get(str(m.material or ""))
                 if info and name in info["alloc"]:
                     m.qty = info["alloc"][name]

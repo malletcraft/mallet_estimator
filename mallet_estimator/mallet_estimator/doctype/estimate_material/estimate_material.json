@@ -17,6 +17,7 @@
   "line_cost",
   "tax_rate_policy",
   "tax_rate",
+  "unit_cost_with_tax",
   "tax_discount_pct",
   "tax_saved",
   "tax_amount",
@@ -72,8 +73,7 @@
    "fieldname": "uom",
    "fieldtype": "Link",
    "options": "UOM",
-   "in_list_view": 1,
-   "columns": 1,
+   "in_list_view": 0,
    "label": "UOM",
    "read_only": 1
   },
@@ -82,7 +82,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "columns": 1,
-   "label": "MRP / Stock Rate",
+   "label": "Rate / Unit (pre-tax)",
    "read_only": 1,
    "description": "The Estimation (Assumed) price-list rate \u2014 by house rule the MAX MRP across suppliers, kept PRE-tax. Read-only: the price list is the rate authority."
   },
@@ -173,8 +173,7 @@
    "fieldname": "discount_pct",
    "fieldtype": "Percent",
    "label": "Disc %",
-   "in_list_view": 1,
-   "columns": 1,
+   "in_list_view": 0,
    "description": "Discount on the stock price for THIS line only (the price list keeps its rate)."
   },
   {
@@ -199,8 +198,7 @@
    "label": "Std Tax %",
    "read_only": 1,
    "description": "The standard rate for this item (Item.mallet_gst_pct, else the house GST%).",
-   "in_list_view": 1,
-   "columns": 1
+   "in_list_view": 0
   },
   {
    "fieldname": "tax_rate",
@@ -208,6 +206,15 @@
    "label": "Applied Tax %",
    "description": "Standard rate less the tax discount. This is what the line is actually charged at.",
    "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "unit_cost_with_tax",
+   "fieldtype": "Currency",
+   "label": "Landed / Unit",
+   "read_only": 1,
+   "description": "Net rate per unit plus the tax actually applied \u2014 what one sheet, metre or piece costs delivered.",
    "in_list_view": 1,
    "columns": 1
   },
@@ -230,7 +237,7 @@
   {
    "fieldname": "tax_discount_pct",
    "fieldtype": "Percent",
-   "label": "Tax Disc %",
+   "label": "GST Disc %",
    "read_only": 0,
    "description": "Percentage points off the standard rate. 18% standard with 6 here is charged at 12%.",
    "in_list_view": 1,

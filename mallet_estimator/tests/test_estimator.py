@@ -509,3 +509,26 @@ class TestNameSplitting(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPerUnitLanded(unittest.TestCase):
+    """A line total answers "what does this material cost". Per unit answers
+    "is that the right price for a sheet", which is the question someone
+    holding a supplier's quote is actually asking."""
+
+    def landed_per_unit(self, net_rate, standard, discount):
+        d = min(max(discount, 0.0), standard)
+        return round(net_rate * (1 + (standard - d) / 100.0), 2)
+
+    def test_the_standard_rate_lands_a_sheet_at_the_full_amount(self):
+        # 2208 pre-tax at 18% -> 2605.44
+        self.assertEqual(self.landed_per_unit(2208.0, 18.0, 0.0), 2605.44)
+
+    def test_a_concession_lands_it_lower(self):
+        # 9 points off 18 is 9% applied -> 2406.72
+        self.assertEqual(self.landed_per_unit(2208.0, 18.0, 9.0), 2406.72)
+
+    def test_what_the_concession_saved_is_the_difference(self):
+        full = self.landed_per_unit(2208.0, 18.0, 0.0)
+        cut = self.landed_per_unit(2208.0, 18.0, 9.0)
+        self.assertAlmostEqual(full - cut, 2208.0 * 9 / 100.0, places=2)

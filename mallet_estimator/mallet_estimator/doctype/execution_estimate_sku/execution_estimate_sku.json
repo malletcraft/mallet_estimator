@@ -62,7 +62,8 @@
    "label": "Part List CSV",
    "in_list_view": 1,
    "columns": 1,
-   "description": "Drop the OpenCutList Part List CSV here — it is pushed onto the SKU, which switches to CSV-Nest and re-imports."
+   "description": "Set on the SKU. Shown here so the same file is never asked for twice.",
+   "read_only": 1
   },
   {
    "fieldname": "estimate_pdf",
@@ -70,14 +71,17 @@
    "label": "Material Estimate PDF",
    "in_list_view": 1,
    "columns": 1,
-   "description": "Drop the OpenCutList Material Estimate PDF here — it is pushed onto the SKU, which switches to OCL PDF mode and re-imports."
+   "description": "Set on the SKU. Shown here so the same file is never asked for twice.",
+   "read_only": 1
   },
   {
    "fieldname": "views_pdf",
    "fieldtype": "Attach",
    "label": "7 Views PDF",
    "in_list_view": 1,
-   "columns": 1
+   "columns": 1,
+   "read_only": 1,
+   "description": "Set on the SKU. Shown here so the same file is never asked for twice."
   },
   {
    "fieldname": "sheets",
