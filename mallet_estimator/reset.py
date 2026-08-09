@@ -44,7 +44,7 @@ def start_over(confirm=None, delete_items=1):
               "on this site and cannot be undone.").format(CONFIRM),
             title=_("Confirmation required"))
 
-    report = {"estimates": 0, "skus": 0, "items": 0, "kept": []}
+    report = {"estimates": 0, "skus": 0, "items": 0, "orphans": 0, "kept": []}
 
     # Cancel before delete: a submitted Estimate refuses deletion, and the
     # cancel also unfreezes its SKUs, which is what lets them go next.
@@ -72,12 +72,26 @@ def start_over(confirm=None, delete_items=1):
         if int(delete_items or 0) and item:
             report["items"] += _delete_client_item(item, report)
 
+    # Then sweep the group itself. Following the SKU's `item` link only reaches
+    # Items whose SKU still exists to be followed — an Item whose SKU was
+    # deleted by any other means was invisible to the loop above, and survived
+    # every run. That also made this NOT idempotent: running it twice could
+    # never clean up what the first run could not see. The group is the real
+    # definition of "a client article", so it is what gets swept.
+    if int(delete_items or 0):
+        for name in frappe.get_all(
+                "Item", filters={"item_group": inventory.CLIENT_SKU_GROUP}, pluck="name"):
+            report["orphans"] += _delete_client_item(name, report)
+        report["items"] += report["orphans"]
+
     frappe.db.commit()
     frappe.msgprint(
-        _("Deleted {0} estimate(s), {1} SKU(s) and {2} client-article Item(s). "
-          "Masters — material Items, prices, suppliers, décors, rooms, settings "
-          "— were left alone.{3}")
+        _("Deleted {0} estimate(s), {1} SKU(s) and {2} client-article Item(s)"
+          "{3}. Masters — material Items, prices, suppliers, décors, rooms, "
+          "settings — were left alone.{4}")
         .format(report["estimates"], report["skus"], report["items"],
+                _(" (of which {0} orphaned — no SKU pointed at them)").format(report["orphans"])
+                if report["orphans"] else "",
                 "<br><br>Could not delete: " + ", ".join(report["kept"])
                 if report["kept"] else ""),
         title=_("Start Over"), indicator="orange")
