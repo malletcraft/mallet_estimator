@@ -1226,7 +1226,16 @@ class EstimateSKU(Document):
         effect without a re-import. Edge banding lines (Roll UOM) stay at the
         per-metre rate x roll length. Quantities, descriptions and manual rows
         are untouched; the unpriced flag clears itself as items get priced."""
-        if self._frozen() or not self.materials:
+        if self._frozen():
+            return
+        # Checked BEFORE the no-lines guard below, not after it: the guard
+        # returns on exactly the case this warning exists for, so putting it
+        # at the end of the loop meant the one article that most needed
+        # flagging was the one article that never got flagged.
+        if not self.materials:
+            self.unpriced_materials = (
+                "" if self.is_site_work()
+                else _("NO MATERIAL LINES — import the Part List CSV"))
             return
         unpriced = []
         for row in self.materials:
@@ -1240,14 +1249,6 @@ class EstimateSKU(Document):
             row.line_cost = (row.qty or 0) * row.unit_cost
             if source == "unset" and row.item not in unpriced:
                 unpriced.append(row.item)
-        # An article with NO material lines is not a cheap article — it is an
-        # article nobody has told us the parts of. It still accrues labour,
-        # overhead and days from whatever is on its labour rows, so it prices like a
-        # real quote and reads like one. That is the worst possible failure:
-        # silent and plausible. Say it in the field the screen already shows
-        # in red, and refuse the submit further down.
-        if not (self.materials or []) and not self.is_site_work():
-            unpriced.insert(0, _("NO MATERIAL LINES — import the Part List CSV"))
         self.unpriced_materials = ", ".join(unpriced)
 
     # classify_hardware's buckets -> the driver keys used by the locked ops
