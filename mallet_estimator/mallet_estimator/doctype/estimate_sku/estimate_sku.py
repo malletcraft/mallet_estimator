@@ -589,8 +589,15 @@ class EstimateSKU(Document):
             return
         for field, endings in wanted.items():
             for f in files:
-                # A file already claimed by another Attach field is not spare.
-                if f.get("attached_to_field"):
+                # Spare means: claimed by no field, OR claimed by THIS one while
+                # the field itself is empty. The second case is the one that
+                # actually happened — an empty estimate row pushed a blank onto
+                # the SKU, clearing parts_csv while the File row went on saying
+                # attached_to_field="parts_csv". Treating that as "already
+                # claimed" left the file visible in the sidebar, pointing at a
+                # field that no longer pointed back, and adopted by nothing.
+                claimed = f.get("attached_to_field")
+                if claimed and claimed != field:
                     continue
                 name = (f.get("file_name") or "").lower()
                 if not name.endswith(endings):

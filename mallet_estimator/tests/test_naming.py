@@ -244,3 +244,22 @@ class TestFilesReachTheSku(MalletTestCase):
         est.insert(ignore_permissions=True)
         est.reload()
         self.assertEqual(est.skus[0].parts_csv, "/files/pull_me.csv")
+
+    def test_a_file_still_claiming_a_cleared_field_is_adopted_back(self):
+        # The empty-grid-row bug cleared parts_csv but left the File row saying
+        # attached_to_field="parts_csv". Treating that as "already claimed"
+        # left the CSV visible in the sidebar, pointing at a field that no
+        # longer pointed back, and adopted by nothing.
+        sku = self._sku("Orphaned File Wardrobe")
+        f = frappe.get_doc({
+            "doctype": "File", "file_name": "orphan.csv",
+            "content": "Material name,Length,Width\n", "is_private": 1,
+            "attached_to_doctype": "Estimate SKU", "attached_to_name": sku.name,
+        }).insert(ignore_permissions=True)
+        frappe.db.set_value("File", f.name, "attached_to_field", "parts_csv",
+                            update_modified=False)
+        frappe.db.set_value("Estimate SKU", sku.name, "parts_csv", None,
+                            update_modified=False)
+        sku.reload()
+        sku.adopt_sidebar_attachments()
+        self.assertTrue(sku.parts_csv, "the stranded file should be adopted back")
