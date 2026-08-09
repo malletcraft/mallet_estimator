@@ -46,6 +46,32 @@ def _sku_client_buckets(s):
 
 
 class Estimate(Document):
+    def before_submit(self):
+        """Refuse to approve an article nobody has told us the parts of.
+
+        A new-work SKU with no material lines still accrues labour, overhead
+        and days, so it produces a plausible price and reads like a finished
+        quote — the failure is silent, and the first person to notice is the
+        client asking why the wardrobe cost what it did. Approving is the
+        point of no return (it freezes the rates), so it is the right place
+        to stop."""
+        empty = []
+        for name in [r.estimate_sku for r in (self.skus or []) if r.estimate_sku]:
+            row = frappe.db.get_value("Estimate SKU", name,
+                                      ["article_name", "work_type"], as_dict=True)
+            if not row or (row.work_type or "New Work") in self.SITE_KINDS:
+                continue
+            if not frappe.db.count("Estimate Material", {"parent": name}):
+                empty.append(f"<b>{row.article_name or name}</b> ({name})")
+        if empty:
+            frappe.throw(
+                _("These articles have no material lines, so their price is "
+                  "labour and overhead only — nothing is costed for what they "
+                  "are built from:<br><br>{0}<br><br>"
+                  "Import each one's Part List CSV, or remove it from this "
+                  "estimate.").format("<br>".join(empty)),
+                title=_("Nothing to build them from"))
+
     def on_submit(self):
         """Approving the estimate FREEZES every SKU's rates — later price-list
         changes never alter what was quoted (the price list keeps the history)."""

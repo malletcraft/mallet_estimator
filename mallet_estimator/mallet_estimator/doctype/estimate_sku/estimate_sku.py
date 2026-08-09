@@ -1188,6 +1188,14 @@ class EstimateSKU(Document):
             row.line_cost = (row.qty or 0) * row.unit_cost
             if source == "unset" and row.item not in unpriced:
                 unpriced.append(row.item)
+        # An article with NO material lines is not a cheap article — it is an
+        # article nobody has told us the parts of. It still accrues labour,
+        # overhead and days from whatever is on its labour rows, so it prices like a
+        # real quote and reads like one. That is the worst possible failure:
+        # silent and plausible. Say it in the field the screen already shows
+        # in red, and refuse the submit further down.
+        if not (self.materials or []) and not self.is_site_work():
+            unpriced.insert(0, _("NO MATERIAL LINES — import the Part List CSV"))
         self.unpriced_materials = ", ".join(unpriced)
 
     # classify_hardware's buckets -> the driver keys used by the locked ops
@@ -1310,16 +1318,30 @@ class EstimateSKU(Document):
 
     # --- derived consumables + transport (J1 / C1) -------------------------
     def derive_joinery(self):
-        """J1 — Fevicol + Abrotape derived from the Sheet Lamination step qty:
-        3 packets + 11 m tape per laminated sheet, as stocked Joinery Hardware
-        items at their landed (post-tax) rate."""
+        """J1 — Fevicol + Abrotape at 3 packets + 11 m tape per LAMINATED
+        SHEET, as stocked Joinery Hardware items at their landed rate.
+
+        The count comes from the laminate material lines, not from the Sheet
+        Lamination step. Reading the step let a number typed into a labour row
+        conjure material that nothing was buying: an SKU with no part list at
+        all produced 21 packets of Fevicol and 77 m of tape — a third of its
+        internal cost — because someone had typed 7 into a row. Glue is bought
+        per sheet laminated, so the sheets are what it follows."""
         if not self.meta.has_field("joinery_items"):
             return
-        sheets = 0.0
-        for row in self.labor or []:
-            if op_phase(row) == "Sheet Lamination":
-                sheets = float(row.qty or 0)
-                break
+        sheets = sum(float(m.qty or 0) for m in (self.materials or [])
+                     if str(m.material or "").upper().startswith("SG_LAM"))
+        if not sheets and not (self.materials or []):
+            # No material lines at all — nothing has been laminated, whatever
+            # the labour rows say. Fall through to clearing the table.
+            sheets = 0.0
+        elif not sheets:
+            # Lines exist but none is laminate: honour a hand-kept step qty,
+            # which is the only signal a manually built SKU has.
+            for row in self.labor or []:
+                if op_phase(row) == "Sheet Lamination":
+                    sheets = float(row.qty or 0)
+                    break
         self.set("joinery_items", [])
         if not sheets:
             return

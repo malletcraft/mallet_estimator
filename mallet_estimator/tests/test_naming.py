@@ -144,3 +144,52 @@ class TestSkuNamingInTheDatabase(MalletTestCase):
         sku = self._sku("Chimney Hood", "Kitchen")
         self.assertIn("_KIT_", sku.sku_code)
         self.assertNotIn("_K_", sku.sku_code)
+
+
+class TestAnArticleWithNoParts(MalletTestCase):
+    """An SKU with no material lines is not a cheap article — it is one nobody
+    has told us the parts of. It still accrues labour, overhead and days, so it
+    prices like a finished quote and reads like one. Silent and plausible is
+    the worst way for this to fail, so both halves are pinned."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.customer = _customer()
+        cls.project = _project(cls.customer)
+        _room("Master Bedroom")
+
+    def _bare_sku(self, article):
+        doc = frappe.new_doc("Estimate SKU")
+        doc.project = self.project
+        doc.customer = self.customer
+        doc.room = "Master Bedroom"
+        doc.article_name = article
+        return doc.insert(ignore_permissions=True)
+
+    def test_it_says_it_has_no_material_lines(self):
+        sku = self._bare_sku("Partless Wardrobe")
+        self.assertIn("NO MATERIAL LINES", sku.unpriced_materials or "",
+                      "an SKU with no parts must say so where the screen shows it in red")
+
+    def test_a_labour_quantity_cannot_conjure_glue(self):
+        # 7 typed into Sheet Lamination used to produce 21 packets of Fevicol
+        # and 77 m of tape — a third of the internal cost — with nothing bought.
+        sku = self._bare_sku("Glueless Wardrobe")
+        for row in sku.labor or []:
+            if (row.operation or row.phase) == "Sheet Lamination":
+                row.qty = 7
+        sku.save(ignore_permissions=True)
+        self.assertEqual(len(sku.joinery_items or []), 0,
+                         "joinery must follow laminate MATERIAL, not a labour row")
+        self.assertFalse(sku.joinery_cost)
+
+    def test_an_estimate_cannot_be_approved_with_a_partless_sku(self):
+        sku = self._bare_sku("Unapprovable Wardrobe")
+        est = frappe.new_doc("Estimate")
+        est.project = self.project
+        est.work_type = "New Work"
+        est.append("skus", {"estimate_sku": sku.name})
+        est.insert(ignore_permissions=True)
+        with self.assertRaises(frappe.ValidationError):
+            est.submit()
