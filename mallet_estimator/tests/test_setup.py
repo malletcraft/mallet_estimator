@@ -58,6 +58,30 @@ class TestMasters(MalletTestCase):
         report = install.verify_setup()
         self.assertTrue(report["all_ok"], f"verify_setup failed: {report['failed']}")
 
+    def test_readonly_role_can_only_read(self):
+        # The role's entire value is a guarantee: it cannot write, and it
+        # cannot open the Single that holds salaries, rent and markups. Both
+        # are asserted rather than trusted, because a later ERPNext upgrade
+        # shipping different permission defaults would widen it silently.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        ok, detail = integration.role_is_read_only()
+        self.assertTrue(ok, detail)
+        for dt in integration.NEVER_READABLE:
+            self.assertFalse(
+                frappe.db.exists("Custom DocPerm",
+                                 {"role": integration.READONLY_ROLE, "parent": dt}),
+                f"{dt} must never be readable by {integration.READONLY_ROLE}")
+        self.assertNotIn("Estimate Settings", integration.READONLY_DOCTYPES)
+
+    def test_ensure_readonly_role_is_idempotent(self):
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        before = frappe.db.count("Custom DocPerm", {"role": integration.READONLY_ROLE})
+        integration.ensure_readonly_role()
+        self.assertEqual(
+            frappe.db.count("Custom DocPerm", {"role": integration.READONLY_ROLE}), before)
+
     def test_batch_tier_masters(self):
         self.assertTrue(frappe.db.exists("DocType", "Mallet Operation Batch Tier"))
         self.assertTrue(frappe.get_meta("Operation").has_field("mallet_batch_tiers"),

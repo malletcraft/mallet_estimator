@@ -596,6 +596,17 @@ def verify_setup():
     })
     chk("Material prices", True, f"{n_unpriced} material(s) still unpriced" if n_unpriced else "all materials priced")
 
+    # The read-only integration role. Its whole value is the guarantee that it
+    # cannot write and cannot open Estimate Settings — so that is what is
+    # asserted. Existing is not the same as still being safe.
+    from mallet_estimator import integration
+    if frappe.db.exists("Role", integration.READONLY_ROLE):
+        ok, detail = integration.role_is_read_only()
+        chk("Read-only API role", ok, detail)
+    else:
+        chk("Read-only API role", True,
+            "not created — optional, see the button on Estimate Settings")
+
     failed = [c["name"] for c in checks if not c["ok"]]
     return {"checks": checks, "all_ok": not failed, "failed": failed}
 
