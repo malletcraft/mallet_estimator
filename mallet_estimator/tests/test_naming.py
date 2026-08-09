@@ -193,3 +193,54 @@ class TestAnArticleWithNoParts(MalletTestCase):
         est.insert(ignore_permissions=True)
         with self.assertRaises(frappe.ValidationError):
             est.submit()
+
+
+class TestFilesReachTheSku(MalletTestCase):
+    """A file is useless wherever it is not read. Two ways it went missing:
+    dropped on the Attachments sidebar instead of the field, and blanked off
+    the SKU by an empty grid row on the estimate."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.customer = _customer()
+        cls.project = _project(cls.customer)
+        _room("Master Bedroom")
+
+    def _sku(self, article):
+        doc = frappe.new_doc("Estimate SKU")
+        doc.project = self.project
+        doc.customer = self.customer
+        doc.room = "Master Bedroom"
+        doc.article_name = article
+        return doc.insert(ignore_permissions=True)
+
+    def test_an_empty_grid_row_never_wipes_the_skus_file(self):
+        # Picking an existing SKU makes a row with no file in it. That row used
+        # to count as a change and push a blank back, taking the SKU's part
+        # list — and every material line imported from it — with it.
+        sku = self._sku("Filed Wardrobe")
+        frappe.db.set_value("Estimate SKU", sku.name, "parts_csv",
+                            "/files/keep_me.csv", update_modified=False)
+        est = frappe.new_doc("Estimate")
+        est.project = self.project
+        est.work_type = "New Work"
+        est.append("skus", {"estimate_sku": sku.name})
+        est.insert(ignore_permissions=True)
+        self.assertEqual(
+            frappe.db.get_value("Estimate SKU", sku.name, "parts_csv"),
+            "/files/keep_me.csv", "the empty row wiped the SKU's part list")
+
+    def test_the_grid_row_shows_the_file_the_sku_already_has(self):
+        # ...and it is pulled INTO the row, so the same file is not asked for
+        # a second time on a screen that already has it.
+        sku = self._sku("Pulled Wardrobe")
+        frappe.db.set_value("Estimate SKU", sku.name, "parts_csv",
+                            "/files/pull_me.csv", update_modified=False)
+        est = frappe.new_doc("Estimate")
+        est.project = self.project
+        est.work_type = "New Work"
+        est.append("skus", {"estimate_sku": sku.name})
+        est.insert(ignore_permissions=True)
+        est.reload()
+        self.assertEqual(est.skus[0].parts_csv, "/files/pull_me.csv")

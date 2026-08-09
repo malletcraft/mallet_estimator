@@ -173,8 +173,17 @@ class Estimate(Document):
                 continue
             current = frappe.db.get_value(
                 "Estimate SKU", r.estimate_sku, fields, as_dict=True) or {}
-            changed = {f: (r.get(f) or None) for f in fields
-                       if (r.get(f) or None) != (current.get(f) or None)}
+            # PULL first: a row that is empty because its SKU was picked, not
+            # uploaded to, shows what the SKU already carries. Without this the
+            # same file has to be supplied twice — and, far worse, the empty
+            # row counted as a CHANGE and pushed a blank back, wiping the file
+            # off the SKU and taking its imported material lines with it.
+            for f in fields:
+                if not r.get(f) and current.get(f):
+                    r.set(f, current.get(f))
+            # Only a row that actually HOLDS a file may overwrite the SKU's.
+            changed = {f: r.get(f) for f in fields
+                       if r.get(f) and r.get(f) != (current.get(f) or None)}
             if not changed:
                 continue
             sku = frappe.get_doc("Estimate SKU", r.estimate_sku)

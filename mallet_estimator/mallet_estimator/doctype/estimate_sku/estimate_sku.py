@@ -542,11 +542,63 @@ class EstimateSKU(Document):
     def _frozen(self):
         return bool(self.get("rates_frozen"))
 
+    def adopt_sidebar_attachments(self):
+        """Take a part list that was dropped on the Attachments panel.
+
+        The desk has two places to put a file on a document: the Attach FIELD,
+        which this app reads, and the Attachments sidebar, which accepts
+        anything and sets no field. Dropping the CSV in the sidebar therefore
+        looks completely successful — the file is listed, right there, named
+        after the SKU — and imports nothing. The article then prices on labour
+        alone, which is how a wardrobe came to cost ₹30,154 with no materials.
+
+        A .csv attached to THIS SKU can only be its part list, so it is
+        adopted rather than ignored. Same for a views PDF. The user is told,
+        because a file quietly moving between two places is worse than a file
+        that stayed put."""
+        if self._frozen() or self.is_new():
+            return
+        wanted = {}
+        if not self.get("parts_csv"):
+            wanted["parts_csv"] = (".csv",)
+        if not self.get("views_pdf"):
+            wanted["views_pdf"] = ("view.pdf", "views.pdf")
+        if not wanted:
+            return
+        try:
+            files = frappe.get_all(
+                "File",
+                filters={"attached_to_doctype": self.doctype,
+                         "attached_to_name": self.name},
+                fields=["file_name", "file_url", "attached_to_field"],
+                order_by="creation desc")
+        except Exception:
+            return
+        for field, endings in wanted.items():
+            for f in files:
+                # A file already claimed by another Attach field is not spare.
+                if f.get("attached_to_field"):
+                    continue
+                name = (f.get("file_name") or "").lower()
+                if not name.endswith(endings):
+                    continue
+                self.set(field, f.get("file_url"))
+                frappe.db.set_value("File", frappe.db.get_value(
+                    "File", {"file_url": f.get("file_url")}, "name"),
+                    "attached_to_field", field, update_modified=False)
+                frappe.msgprint(
+                    _("<b>{0}</b> was attached to this SKU but not to a field, so "
+                      "nothing read it. Using it as the <b>{1}</b>.").format(
+                        f.get("file_name"), self.meta.get_label(field)),
+                    indicator="blue", alert=True)
+                break
+
     def maybe_import(self):
         """When an estimation input PDF is attached (or changed), import the
         material quantities + operation quantities automatically on save — no
         button. The Parts CSV, if attached, gives the edge-banding part count and
         the QR part list."""
+        self.adopt_sidebar_attachments()
         self.maybe_extract_iso()
         if self._frozen():
             return  # quoted — rates are locked, no re-imports
