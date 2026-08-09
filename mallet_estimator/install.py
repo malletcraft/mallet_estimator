@@ -237,9 +237,26 @@ def after_migrate():
     _safe(ensure_manufacturing_masters)
     _safe(ensure_print_format)
     _safe(ensure_workspace)
+    _safe(sync_readonly_role)
     # Regenerate the bootinfo/module-app cache so the app tile + workspace grouping
     # (module -> app) reflect the current state on the app switcher.
     _safe(frappe.clear_cache)
+
+
+def sync_readonly_role():
+    """Re-apply the read-only role's permissions if the site has that role.
+
+    The doctype list is CODE, so widening or narrowing it is a deploy — but
+    nothing re-applied it, and the permissions stayed frozen at whatever the
+    button wrote the day it was pressed. Adding the cost doctypes to the list
+    therefore changed nothing on any live site, silently, which is exactly the
+    class of failure a productised app must not carry into its second studio.
+
+    Only for sites that ALREADY have the role: a site nothing reads from
+    should not acquire an integration role because it upgraded."""
+    from mallet_estimator import integration
+    if frappe.db.exists("Role", integration.READONLY_ROLE):
+        integration.ensure_readonly_role()
 
 
 def ensure_rooms():

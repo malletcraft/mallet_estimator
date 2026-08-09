@@ -158,3 +158,21 @@ class TestMasters(MalletTestCase):
         for t in ("Estimate SKU Decor", "Estimate SKU Decor Edge"):
             self.assertTrue(frappe.get_meta(t).has_field("decor"),
                             f"missing {t}.decor link")
+
+    def test_migrate_reapplies_the_readonly_role(self):
+        # The doctype list is code, so widening it is a deploy — but nothing
+        # re-applied it, and a live site's permissions stayed frozen at
+        # whatever the button wrote the day it was pressed. Adding the cost
+        # doctypes changed nothing on the real site, silently.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        frappe.db.delete("Custom DocPerm",
+                         {"role": integration.READONLY_ROLE, "parent": "Estimate Settings"})
+        self.assertFalse(frappe.db.exists(
+            "Custom DocPerm",
+            {"role": integration.READONLY_ROLE, "parent": "Estimate Settings"}))
+        install.sync_readonly_role()
+        self.assertTrue(frappe.db.exists(
+            "Custom DocPerm",
+            {"role": integration.READONLY_ROLE, "parent": "Estimate Settings"}),
+            "migrate must bring a live site's role back in line with the code")
