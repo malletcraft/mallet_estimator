@@ -754,6 +754,36 @@ class Estimate(Document):
         self.save()
         return out
 
+    @frappe.whitelist()
+    def offcut_labels(self):
+        """The offcuts worth racking, ready to print a sticker for.
+
+        OpenCutList gives you cutting diagrams and labels for the PARTS; what
+        comes off the saw as leftover is nobody's output, so it goes on the
+        rack unlabelled and is forgotten. Naming it — panel, size, which
+        estimate it came off — is the difference between stock and clutter.
+
+        Read-only, and only the internal-grade panels: a V1 external is this
+        client's laminate and is not going on anyone's rack."""
+        blob = getattr(self, "_consolidation", None)
+        if not blob:
+            try:
+                blob = (json.loads(self.cost_breakup or "{}") or {}).get("consolidation")
+            except Exception:
+                blob = None
+        rows = []
+        for key, info in ((blob or {}).get("materials") or {}).items():
+            for (l, w) in (info.get("retained") or []):
+                rows.append({
+                    "panel": key, "length": l, "width": w,
+                    "sqft": round(l * w / 92903.04, 2),
+                    "label": f"{key} · {l:g}×{w:g} mm",
+                    "estimate": self.name, "project": self.get("project"),
+                })
+        rows.sort(key=lambda r: r["length"] * r["width"], reverse=True)
+        return {"rows": rows, "count": len(rows),
+                "sqft": round(sum(r["sqft"] for r in rows), 2)}
+
     def _resolved_nest_keys(self, sku, inputs):
         """Re-key one SKU's nesting inputs by the REAL material each slot
         resolved to, and return (inputs, generic -> real key map).
@@ -763,14 +793,39 @@ class Estimate(Document):
         table. A slot with no décor mapped yet cannot be pooled at all —
         nothing has said what it is — so it is qualified by SKU and nests on
         its own rather than being guessed into someone else's sheet."""
+        from mallet_estimator import decor as D
+        # What each slot letter means on THIS SKU, read off its own map.
+        shorts = {}
+        for table in ("sku_decors", "sku_decor_edges"):
+            for r in (sku.get(table) or []):
+                slot = (r.get("slot") or "").strip().lower()
+                short = D.short_code({"brand": r.get("brand"), "catalogue": r.get("code"),
+                                      "name": r.get("decor_name"), "short": r.get("short"),
+                                      "raw": " ".join(x for x in (r.get("brand"), r.get("code"),
+                                                                  r.get("decor_name")) if x)})
+                if slot and short:
+                    shorts[slot] = short
+
         real = {}
         for m in (sku.materials or []):
             base = str(m.get("material") or "")
             if not base or m.get("is_manual"):
                 continue
+            th = float(m.get("thickness") or 0)
+            up = base.upper()
+            if up.startswith("SG_PLY"):
+                # A panel saw cuts the SANDWICH. Ply is bucketed by the pasted
+                # assembly — grade, thickness and the décor on each face — so a
+                # V0 board pools across the whole project (internal `a` is one
+                # décor throughout) while two V1 boards with different external
+                # laminates never do, however identical their ply codes look.
+                panel = D.panel_key(base, th, shorts)
+                target = panel or f"{base}#{sku.name}"
+                real[base] = target
+                real[f"{base}@{th:g}"] = target if panel else f"{target}@{th:g}"
+                continue
             item = str(m.get("item") or "")
             mapped = item and item != base
-            th = float(m.get("thickness") or 0)
             target = item if mapped else f"{base}#{sku.name}"
             real[base] = target
             real[f"{base}@{th:g}"] = f"{target}@{th:g}" if mapped else f"{target}@{th:g}"
@@ -778,9 +833,25 @@ class Estimate(Document):
         def rekey(d):
             return {real.get(k, f"{k}#{sku.name}"): v for k, v in (d or {}).items()}
 
+        def rekey_faces(d):
+            """Both levels move: the panel key becomes the pasted-assembly key
+            the ply bucket uses, and each laminate code becomes the real stock
+            Item — so a face pools with a face on another SKU only when both
+            letters point at the same material."""
+            out = {}
+            for panel, by_face in (d or {}).items():
+                dst = out.setdefault(real.get(panel, f"{panel}#{sku.name}"), {})
+                for face, by_code in (by_face or {}).items():
+                    face_dst = dst.setdefault(face, {})
+                    for code, area in (by_code or {}).items():
+                        rk = real.get(code, f"{code}#{sku.name}")
+                        face_dst[rk] = face_dst.get(rk, 0.0) + float(area or 0)
+            return out
+
         out = {
             "ply": rekey(inputs.get("ply")),
             "lam": rekey(inputs.get("lam")),
+            "faces": rekey_faces(inputs.get("faces")),
             "edges": rekey(inputs.get("edges")),
         }
         keymap = dict(real)
@@ -811,7 +882,13 @@ class Estimate(Document):
         # letters point at the SAME real material, which is when pooling is true.
         resolved = {name: self._resolved_nest_keys(by_name[name], nest_inputs[name])
                     for name in nest_inputs}
-        result = cons.consolidate({n: v[0] for n, v in resolved.items()})
+        settings = frappe.get_single("Estimate Settings")
+        result = cons.consolidate(
+            {n: v[0] for n, v in resolved.items()},
+            recovery_pct=float(settings.get("offcut_recovery_pct") or 0),
+            # Only internal-grade panels go back on the rack. A V1 external is
+            # this client's laminate and worth nothing on the next job.
+            retainable=lambda k: k.startswith("PANEL_V0_"))
         mats = result["materials"]
         standalone = {n: float(by_name[n].client_total or 0) for n in nest_inputs}
 
@@ -856,7 +933,9 @@ class Estimate(Document):
             # a sheet?" unanswerable, which is the question the number invites.
             "materials": {
                 k: {kk: v[kk] for kk in ("kind", "combined", "standalone", "util")}
-                   | {"alloc": v.get("alloc") or {}}
+                   | {"alloc": v.get("alloc") or {},
+                      "billable": v.get("billable"), "credit": v.get("credit"),
+                      "retained": v.get("retained") or []}
                 for k, v in mats.items()
             },
             "per_sku": per_sku,

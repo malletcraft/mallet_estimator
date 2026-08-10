@@ -932,6 +932,7 @@ class EstimateSKU(Document):
             for p in parts:
                 self.append("parts", {
                     "part_no": p["part_no"], "designation": p["designation"], "material": p["material"],
+                    "qty": p.get("qty", 1),
                     "tag": p["tag"], "length": p["length"], "width": p["width"], "thickness": p["thickness"],
                     "cut": p.get("cut", 1), "edge_banded": p.get("edge_banded", 0),
                     "laminated": p.get("laminated", 0),

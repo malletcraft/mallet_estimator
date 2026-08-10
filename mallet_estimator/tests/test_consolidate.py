@@ -172,3 +172,111 @@ class TestSlotLettersAreNotShared(unittest.TestCase):
             self._two_skus("X_MER1834", "X_MER1834", parts))["materials"]
         self.assertEqual(len(same), 1)
         self.assertEqual(set(same["X_MER1834"]["alloc"]), {"WAR", "BED"})
+
+
+class TestOffcutCredit(unittest.TestCase):
+    """Retained offcuts come off the job. Not all of their value, though: a
+    kept piece is worth something only once it is used, and crediting a whole
+    board back would discount the client for a piece that may sit on the rack."""
+
+    def _panel(self, key):
+        p = [(1200.0, 600.0)] * 3
+        return {"A": {"ply": {key: p}, "lam": {}, "edges": {}},
+                "B": {"ply": {key: p}, "lam": {}, "edges": {}}}
+
+    def test_no_policy_means_no_credit(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=0)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertEqual(m["credit"], 0.0)
+        self.assertEqual(m["billable"], float(m["combined"]))
+
+    def test_a_policy_credits_part_of_a_board_never_all_of_it(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=60)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertGreater(m["credit"], 0)
+        self.assertLess(m["billable"], m["combined"])
+        self.assertGreaterEqual(m["billable"], 1.0, "a board can never be un-bought")
+
+    def test_an_external_panel_is_never_retained(self):
+        # this client's laminate; worth nothing on the next job
+        only_v0 = lambda k: k.startswith("PANEL_V0_")
+        m = consolidate.consolidate(self._panel("PANEL_V1_16mm_GE_ME"), recovery_pct=60,
+                                    retainable=only_v0)["materials"]["PANEL_V1_16mm_GE_ME"]
+        self.assertEqual(m["credit"], 0.0)
+
+    def test_the_credit_reaches_every_sku_by_part_area_share(self):
+        m = consolidate.consolidate(self._panel("PANEL_V0_16mm_GE_GE"),
+                                    recovery_pct=60)["materials"]["PANEL_V0_16mm_GE_GE"]
+        self.assertEqual(set(m["alloc"]), {"A", "B"})
+        self.assertAlmostEqual(sum(m["alloc"].values()), m["billable"], places=2)
+
+
+class TestLaminateFollowsThePanelAcrossSKUs(unittest.TestCase):
+    """Laminate is pressed onto whole boards, so pooling two SKUs' boards pools
+    their laminate too — and the offcut credit runs through the sandwich, since
+    a retained offcut is a LAMINATED board the client did not consume."""
+
+    PANEL = "PANEL_V0_16mm_1834_1834"
+    LAM = "SG_LAM_V0_16mm_a_a"
+
+    def _inputs(self, sku, parts):
+        area = sum(l * w for (l, w) in parts)
+        return {sku: {
+            "ply": {self.PANEL: parts},
+            "faces": {self.PANEL: {"Frontside": {self.LAM: area},
+                                   "Backside": {self.LAM: area}}},
+            "edges": {},
+        }}
+
+    def test_laminate_is_two_per_pooled_board(self):
+        # each SKU's parts alone need a board; together they share one
+        half = [(2400.0, 580.0)]   # two of these share one board's width
+        inputs = {}
+        inputs.update(self._inputs("A", half))
+        inputs.update(self._inputs("B", half))
+        out = consolidate.consolidate(inputs)
+        boards = out["materials"][self.PANEL]["combined"]
+        self.assertEqual(boards, 1)
+        # one board, laminated both faces -> 2 sheets, not 2 per SKU
+        self.assertEqual(out["materials"][self.LAM]["combined"], 2 * boards)
+
+    def test_laminate_allocation_follows_the_boards(self):
+        # A brings three times B's area, so it pays three quarters of the laminate
+        out = consolidate.consolidate({
+            **self._inputs("A", [(1200.0, 600.0)] * 3),
+            **self._inputs("B", [(1200.0, 600.0)]),
+        })
+        alloc = out["materials"][self.LAM]["alloc"]
+        self.assertAlmostEqual(alloc["A"] / (alloc["A"] + alloc["B"]), 0.75, places=3)
+
+    def test_laminate_is_never_nested_on_its_own(self):
+        # 2 boards laminated both sides is 4 sheets. Nesting the laminate to
+        # part size would fit those parts on fewer, and buy laminate the press
+        # never presses.
+        parts = [(2400.0, 1180.0), (2400.0, 1180.0)]   # one full board each
+        out = consolidate.consolidate(self._inputs("A", parts))
+        self.assertEqual(out["materials"][self.PANEL]["combined"], 2)
+        self.assertEqual(out["materials"][self.LAM]["combined"], 4)
+        self.assertIsNone(out["materials"][self.LAM]["util"])
+
+    def test_offcut_credit_carries_through_the_sandwich(self):
+        # a recovery policy that discounts the board must discount its laminate
+        # by the same fraction — the retained offcut is already pasted
+        parts = [(1200.0, 600.0)] * 5
+        plain = consolidate.consolidate(self._inputs("A", parts))
+        credited = consolidate.consolidate(self._inputs("A", parts), recovery_pct=60)
+        self.assertLess(credited["materials"][self.PANEL]["billable"],
+                        plain["materials"][self.PANEL]["billable"])
+        self.assertLess(credited["materials"][self.LAM]["billable"],
+                        plain["materials"][self.LAM]["billable"])
+
+    def test_drivers_stashed_before_faces_still_cost(self):
+        # an SKU saved before this rule existed has no `faces` blob: fall back
+        # to nesting its laminate rather than dropping the line altogether
+        out = consolidate.consolidate({"A": {
+            "ply": {self.PANEL: [(1200.0, 600.0)]},
+            "lam": {self.LAM: [(1200.0, 600.0), (1200.0, 600.0)]},
+            "edges": {},
+        }})
+        self.assertEqual(out["materials"][self.LAM]["kind"], "laminate")
+        self.assertGreaterEqual(out["materials"][self.LAM]["combined"], 1)

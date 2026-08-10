@@ -74,12 +74,41 @@ def pack_sheets(parts, sheet=(SHEET_L, SHEET_W), kerf=4.0, trim=10.0, allow_rota
         used_area += pl * pw
     n = len(sheets)
     cap = n * usable_l * usable_w
+    # The free rectangles were always computed and always thrown away. They are
+    # the offcuts: the shop keeps the big ones and builds shelves and boxes out
+    # of them, so a board that leaves a usable piece behind did not cost the
+    # job a whole board. Reporting them is what lets that be priced instead of
+    # assumed. Sorted biggest first — the useful ones are the ones you look at.
+    offcuts = sorted(
+        ((round(fl, 1), round(fw, 1)) for free in sheets for (_x, _y, fl, fw) in free),
+        key=lambda r: r[0] * r[1], reverse=True)
     return {
         "sheets": n,
         "utilization": (used_area / cap) if cap else 0.0,
         "placed": len(todo),
         "too_big": too_big,
+        "offcuts": offcuts,
     }
+
+
+# A piece worth keeping is one you can still make something out of — a shelf, a
+# small box. Below that it is dust with a shape (Amit, 2026-08-09: both
+# dimensions at or above 400 x 600).
+REUSABLE_MIN = (600.0, 400.0)
+
+
+def reusable(offcuts, minimum=REUSABLE_MIN):
+    """The offcuts big enough to go back on the rack, longest side first.
+
+    Orientation does not matter to a rack, so the piece is measured against the
+    threshold both ways round."""
+    lo, hi = min(minimum), max(minimum)
+    out = []
+    for (l, w) in offcuts or []:
+        a, b = max(l, w), min(l, w)
+        if a >= hi and b >= lo:
+            out.append((a, b))
+    return sorted(out, key=lambda r: r[0] * r[1], reverse=True)
 
 
 def edge_rolls(total_meters, roll_m=EDGE_ROLL_M):
@@ -103,6 +132,48 @@ def envelope_check(outer_dims, ply, tol=25.0):
             if big > dims[0] + tol or small > dims[1] + tol:
                 bad.append((code, float(l), float(w), dims[0], dims[1]))
     return bad
+
+
+def laminate_share(panel_sheets, panel_faces):
+    """The un-rounded {laminate_code: sheet-equivalents} behind
+    laminate_from_panels — see that function for the rule. Kept separate so
+    consolidation can sum shares across SKUs BEFORE rounding up (rounding each
+    SKU first would buy a part-sheet of laminate per SKU that the press never
+    consumes).
+
+    panel_sheets: {panel_key: sheets}
+    panel_faces:  {panel_key: {face: {laminate_code: part_area_mm2}}}"""
+    out = {}
+    for key, faces in (panel_faces or {}).items():
+        sheets = float(panel_sheets.get(key) or 0)
+        if sheets <= 0:
+            continue
+        for by_code in (faces or {}).values():
+            total = sum(float(a or 0) for a in (by_code or {}).values())
+            if total <= 0:
+                continue
+            # One face of `sheets` boards, split by part area when the panel's
+            # parts do not all carry the same laminate.
+            for code, area in by_code.items():
+                out[code] = out.get(code, 0.0) + sheets * (float(area or 0) / total)
+    return out
+
+
+def laminate_from_panels(panel_sheets, panel_faces):
+    """Laminate sheet counts derived from the PANELS, not from a nest of the
+    laminate's own.
+
+    The shop presses a full laminate sheet onto a full ply sheet and only then
+    puts the sandwich on the panel saw (Amit, 2026-08-09), so laminate is
+    consumed per ply sheet per laminated face. Nesting the laminate as if it
+    were cut to part size first buys fewer sheets than the press actually eats:
+    on the real YS_MB_WAR export that was 16 sheets against OpenCutList's own
+    18, and every panel offcut it implies would have to come off a board that
+    was never laminated.
+
+    Returns {laminate_code: whole sheets}."""
+    return {c: max(1, math.ceil(round(v, 6)))
+            for c, v in laminate_share(panel_sheets, panel_faces).items() if v > 0}
 
 
 def laminate_faces(ply_parts_by_code):

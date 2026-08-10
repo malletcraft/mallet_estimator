@@ -74,9 +74,10 @@ class TestMaterialRateCard(MalletTestCase):
                       ("Client Hardware", "Hardware"))
         # Rates are sensitive (###) and no longer seeded from the repo — keyed on
         # the site's price list instead, so no rate assertion here.
-        # sheet code already carries its thickness — no double suffix
-        self.assertTrue(frappe.db.exists("Item", "SG_PLY_V0_a_a_16mm"))
-        self.assertFalse(frappe.db.exists("Item", "SG_PLY_V0_a_a_16mm_16mm"))
+        # board Item is grade + thickness: no décor letters, no double suffix
+        self.assertTrue(frappe.db.exists("Item", "SG_PLY_V0_16mm"))
+        self.assertFalse(frappe.db.exists("Item", "SG_PLY_V0_16mm_16mm"))
+        self.assertFalse(frappe.db.exists("Item", "SG_PLY_V0_a_a_16mm"))
 
 
 class TestPartlistEdges(MalletTestCase):

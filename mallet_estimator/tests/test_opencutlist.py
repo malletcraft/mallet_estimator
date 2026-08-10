@@ -167,3 +167,38 @@ class TestCsvHardwareDesignations(unittest.TestCase):
         self.assertEqual(OCL.classify_hardware("HWD_AH_SC_0 · HWD_Hinge"), "hinges")
         self.assertEqual(OCL.classify_hardware("HWD_HDL_128 · HWD_Handle"), "handles")
         self.assertEqual(OCL.classify_hardware("HWD_AH_SC_0"), "other")
+
+
+# OpenCutList GROUPS identical parts onto one row and puts the count in
+# `Quantity` — "Group181#2 ( CARCASS_SHELF x3 )" is three shelves, one row. On
+# the shop's real YS_MB_WAR export, reading the row and not the count nested 21
+# parts instead of 34 (7 sheets against OpenCutList's own 9) and bought 10
+# pieces of hardware where the model has 99 — 24 MiniFix on one row counted once.
+GROUPED_CSV = (
+    "No.;Material name;Material type;Designation;Quantity;Length;Width;Thickness\n"
+    "1;SG_PLY_V0_a_a;Sheet Goods;CARCASS_SHELF x3;3;600;400;16\n"
+    "2;SG_PLY_V0_a_a;Sheet Goods;CARCASS_SIDE;1;2060;580;16\n"
+    "3;HWD_MiniFix;Hardware;HWD_MiniFix;24;0;0;0\n"
+)
+
+
+class TestGroupedRows(unittest.TestCase):
+    def test_part_qty_reads_the_count(self):
+        rows = OCL.parse_opencutlist_csv(GROUPED_CSV)
+        self.assertEqual([OCL.part_qty(r) for r in rows], [3, 1, 24])
+
+    def test_missing_quantity_is_one_part(self):
+        # the older export shape has no Quantity column at all
+        self.assertEqual(OCL.part_qty({}), 1)
+        self.assertEqual(OCL.part_qty({"Quantity": ""}), 1)
+        self.assertEqual(OCL.part_qty({"Quantity": "0"}), 1)
+
+    def test_parts_list_carries_the_count(self):
+        # the ROW stays whole so the part number still matches the QR label on
+        # the floor; the operator cuts `qty` of it
+        parts = OCL.parts_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
+        self.assertEqual([(p["part_no"], p["qty"]) for p in parts], [("1", 3), ("2", 1)])
+
+    def test_hardware_buys_every_piece(self):
+        hw = OCL.hardware_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
+        self.assertEqual([(h["code"], h["qty"]) for h in hw], [("HWD_MiniFix", 24)])

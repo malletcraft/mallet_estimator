@@ -276,8 +276,10 @@ function render_estimate_bifurcation(frm) {
     const share = Object.keys(alloc).sort()
       .map((s) => `${esc(s)}: ${(alloc[s] || 0).toFixed(2)}`).join(" · ");
     const saved = (m.standalone || 0) - (m.combined || 0);
+    const billable = m.billable == null ? m.combined : m.billable;
     return `<tr><td>${esc(k)}</td>
-      <td class="text-right">${(m.combined || 0).toFixed(2)}</td>
+      <td class="text-right">${(m.combined || 0).toFixed(2)}${
+        (m.credit || 0) > 0 ? ` <span class="text-muted">(billed ${(billable || 0).toFixed(2)})</span>` : ""}</td>
       <td class="text-right">${(m.standalone || 0).toFixed(2)}</td>
       <td class="text-right">${saved > 0 ? saved.toFixed(2) : "—"}</td>
       <td class="text-right">${m.util == null ? "—" : (m.util * 100).toFixed(1) + "%"}</td>
@@ -303,7 +305,8 @@ function render_estimate_bifurcation(frm) {
       </tbody>
     </table>
     ${roomTable}
-    ${nestTable}`);
+    ${nestTable}
+    ${offcutTable}`);
 }
 
 function update_estimate_totals(frm) {

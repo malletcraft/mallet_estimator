@@ -19,7 +19,11 @@ class TestClassification(MalletTestCase):
         self.assertEqual(inventory.kind_for_code("SW_Teak"), "solidwood")
 
     def test_item_code_carries_thickness_for_sheets(self):
-        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 16, "sheet"), "SG_PLY_V0_a_a_16mm")
+        # thickness stays in the identity; the décor letters do not — the board
+        # is the same board whatever gets pasted on it
+        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 16, "sheet"), "SG_PLY_V0_16mm")
+        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 12, "sheet"), "SG_PLY_V0_12mm")
+        self.assertEqual(inventory.item_code_for("SG_PLY_V1_a_c", 16, "sheet"), "SG_PLY_V1_16mm")
         self.assertEqual(inventory.item_code_for("HWD_Hinge", 0, "hardware"), "HWD_Hinge")
 
     def test_is_material_code(self):
@@ -163,11 +167,22 @@ class TestCodingAndVendors(MalletTestCase):
         self.assertIsNone(inventory.parse_material_code("HWD_Hinge")["visible_sides"])
 
     def test_coding_fields_populated_on_item(self):
+        # A BOARD carries its grade and nothing about décor: the same board takes
+        # any laminate, and the letter names a different one on the next project.
         code, _, _ = inventory.ensure_material_item("SG_PLY_V1_b_c", kind="sheet", thickness=18)
+        self.assertEqual(code, "SG_PLY_V1_18mm")
         it = frappe.get_doc("Item", code)
         self.assertEqual(it.get("mallet_visible_sides"), 1)
-        self.assertEqual(it.get("mallet_lam_internal"), "b")
-        self.assertEqual(it.get("mallet_lam_external"), "c")
+        self.assertFalse(it.get("mallet_lam_internal"))
+        self.assertFalse(it.get("mallet_lam_external"))
+
+    def test_coding_fields_on_a_resolved_laminate(self):
+        # A LAMINATE is a décor, so its slots stay readable on the Item — that is
+        # what makes the coding fields filterable at all.
+        code, _, _ = inventory.ensure_material_item("SG_LAM_V1_16mm_a_b", kind="laminate")
+        it = frappe.get_doc("Item", code)
+        self.assertEqual(it.get("mallet_lam_internal"), "a")
+        self.assertEqual(it.get("mallet_lam_external"), "b")
 
     def test_vendor_masters_seeded(self):
         inventory.ensure_vendor_masters()

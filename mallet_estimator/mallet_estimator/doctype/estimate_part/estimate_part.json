@@ -7,6 +7,7 @@
  "field_order": [
   "part_no",
   "designation",
+  "qty",
   "material",
   "tag",
   "length",
@@ -20,6 +21,7 @@
  "fields": [
   {"fieldname": "part_no", "fieldtype": "Data", "in_list_view": 1, "label": "Part No. (QR)"},
   {"fieldname": "designation", "fieldtype": "Data", "in_list_view": 1, "label": "Designation"},
+  {"fieldname": "qty", "fieldtype": "Int", "in_list_view": 1, "label": "Qty", "default": "1"},
   {"fieldname": "material", "fieldtype": "Data", "in_list_view": 1, "label": "Material"},
   {"fieldname": "tag", "fieldtype": "Data", "in_list_view": 1, "label": "Tag"},
   {"fieldname": "length", "fieldtype": "Float", "label": "Length"},

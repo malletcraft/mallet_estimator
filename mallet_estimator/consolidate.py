@@ -13,6 +13,8 @@
 # estimate-specific numbers).
 # ---------------------------------------------------------------------------
 
+import math
+
 from mallet_estimator import nesting
 
 KERF_MM = 4.0
@@ -23,10 +25,26 @@ def _area(parts):
     return sum(float(l) * float(w) for (l, w) in parts)
 
 
-def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
+# A retained offcut is worth something only if it gets used, and it will not
+# always be. Crediting a whole board back would discount the client for a piece
+# that may sit on the rack forever, so the recovery is a POLICY percentage
+# (set on Estimate Settings, ### here) applied to the sheet-equivalent area kept back.
+# 0 here as every rate is; the real number lives in the site DB.
+RECOVERY_PCT = 0.0
+
+
+def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM, recovery_pct=None,
+                retainable=None):
     """sku_inputs: {sku: {"ply": {"CODE@th": [(l, w), ...]},
                           "lam": {code: [(l, w), ...]},
+                          "faces": {"CODE@th": {face: {lam code: part area}}},
                           "edges": {code: meters}}}
+
+    Laminate quantities come from `faces` — pressed per ply sheet per laminated
+    face off the COMBINED panel nest, so pooling boards pools their laminate
+    too and the offcut credit carries through the whole sandwich. SKUs whose
+    drivers were stashed before `faces` existed fall back to nesting their
+    laminate on its own, so an estimate built on old blobs still costs.
 
     Returns {"materials": {key: {kind, combined, standalone, util,
                                  alloc: {sku: fractional qty},
@@ -38,13 +56,22 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
     sheets means proportionally fewer sheet-level operations per SKU.
     """
     buckets = {}  # key -> {"kind", "per_sku": {sku: parts-or-meters}}
+    lam_faces = {}  # ply key -> {face: {lam code: {sku: part area}}}
     for sku, inputs in sku_inputs.items():
         for key, parts in (inputs.get("ply") or {}).items():
             b = buckets.setdefault(key, {"kind": "sheet", "per_sku": {}})
             b["per_sku"].setdefault(sku, []).extend(tuple(p) for p in parts)
-        for code, faces in (inputs.get("lam") or {}).items():
-            b = buckets.setdefault(code, {"kind": "laminate", "per_sku": {}})
-            b["per_sku"].setdefault(sku, []).extend(tuple(p) for p in faces)
+        by_panel = inputs.get("faces") or {}
+        for key, by_face in by_panel.items():
+            for face, by_code in (by_face or {}).items():
+                for code, area in (by_code or {}).items():
+                    per_sku = lam_faces.setdefault(key, {}).setdefault(face, {}).setdefault(code, {})
+                    per_sku[sku] = per_sku.get(sku, 0.0) + float(area or 0)
+        if not by_panel:
+            # pre-`faces` drivers: nest this SKU's laminate the old way
+            for code, sides in (inputs.get("lam") or {}).items():
+                b = buckets.setdefault(code, {"kind": "laminate", "per_sku": {}})
+                b["per_sku"].setdefault(sku, []).extend(tuple(p) for p in sides)
         for code, meters in (inputs.get("edges") or {}).items():
             b = buckets.setdefault(code, {"kind": "edge", "per_sku": {}})
             b["per_sku"][sku] = b["per_sku"].get(sku, 0.0) + float(meters)
@@ -54,6 +81,7 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
     sheets_alone = {}   # sku -> standalone sheet-count (ply + lam)
     for key, b in sorted(buckets.items()):
         per_sku = b["per_sku"]
+        credit, retained = 0.0, []
         if b["kind"] == "edge":
             total_m = sum(per_sku.values())
             combined = nesting.edge_rolls(total_m)
@@ -72,7 +100,22 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
             total_area = _area(all_parts)
             shares = {s: (_area(parts) / total_area if total_area else 0.0)
                       for s, parts in per_sku.items()}
-        alloc = {s: round(combined * share, 3) for s, share in shares.items()}
+            # Offcuts big enough to build a shelf out of go back on the rack,
+            # so the job did not consume that part of the board. Internal-grade
+            # panels only: `a` is one décor for a whole project, but a V1
+            # external is this client's laminate and worth nothing on the next
+            # job. Credit is area-based and capped below one whole sheet — a
+            # board can be partly recovered, never un-bought.
+            if retainable is None or retainable(key):
+                keep = nesting.reusable(r.get("offcuts") or [])
+                sheet_area = float(nesting.SHEET_L) * float(nesting.SHEET_W)
+                pct = RECOVERY_PCT if recovery_pct is None else float(recovery_pct)
+                credit = min(
+                    sum(l * w for (l, w) in keep) / sheet_area * (pct / 100.0),
+                    max(combined - 1, 0))
+                retained = keep
+        billable = max(combined - credit, 0.0)
+        alloc = {s: round(billable * share, 3) for s, share in shares.items()}
         if b["kind"] in ("sheet", "laminate"):
             for s in per_sku:
                 sheets_alloc[s] = sheets_alloc.get(s, 0.0) + alloc[s]
@@ -80,8 +123,65 @@ def consolidate(sku_inputs, kerf=KERF_MM, trim=TRIM_MM):
         materials[key] = {
             "kind": b["kind"],
             "combined": combined,
+            "billable": round(billable, 3),
+            "credit": round(credit, 3),
+            "retained": retained,
             "standalone": sum(standalone_by_sku.values()),
             "util": util,
+            "alloc": alloc,
+            "standalone_by_sku": standalone_by_sku,
+        }
+
+    # ---- laminate, derived from the panels it is pressed onto ----------------
+    # A laminate sheet is consumed per ply sheet per laminated face, so its
+    # quantity is a function of the panel nest, never a nest of its own. Shares
+    # are summed across every board and SKU BEFORE rounding: rounding each
+    # contribution up first would buy a part-sheet per board that the press
+    # never eats. `billable` (not `combined`) drives the allocation so the
+    # panel's offcut credit carries through the whole sandwich — a retained
+    # offcut is a LAMINATED board, and the client did not consume it.
+    lam_acc = {}
+    for panel_key, by_face in sorted(lam_faces.items()):
+        info = materials.get(panel_key)
+        if not info:
+            continue
+        alone_by_sku = info["standalone_by_sku"]
+        for _face, by_code in sorted(by_face.items()):
+            face_area = sum(sum(d.values()) for d in by_code.values())
+            if face_area <= 0:
+                continue
+            own_area = {}
+            for d in by_code.values():
+                for s, a in d.items():
+                    own_area[s] = own_area.get(s, 0.0) + a
+            for code, per_sku_area in by_code.items():
+                acc = lam_acc.setdefault(
+                    code, {"combined": 0.0, "billable": 0.0, "per_sku": {}, "alone": {}})
+                for s, area in per_sku_area.items():
+                    acc["combined"] += float(info["combined"]) * (area / face_area)
+                    part = float(info["billable"]) * (area / face_area)
+                    acc["billable"] += part
+                    acc["per_sku"][s] = acc["per_sku"].get(s, 0.0) + part
+                    if own_area.get(s):
+                        acc["alone"][s] = acc["alone"].get(s, 0.0) + \
+                            float(alone_by_sku.get(s) or 0) * (area / own_area[s])
+
+    for code, acc in sorted(lam_acc.items()):
+        combined = max(1, math.ceil(round(acc["combined"], 6)))
+        billable = min(acc["billable"], combined)
+        alloc = {s: round(v, 3) for s, v in acc["per_sku"].items()}
+        standalone_by_sku = {s: max(1, math.ceil(round(v, 6))) for s, v in acc["alone"].items()}
+        for s in alloc:
+            sheets_alloc[s] = sheets_alloc.get(s, 0.0) + alloc[s]
+            sheets_alone[s] = sheets_alone.get(s, 0.0) + standalone_by_sku.get(s, 0)
+        materials[code] = {
+            "kind": "laminate",
+            "combined": combined,
+            "billable": round(billable, 3),
+            "credit": round(max(combined - billable, 0.0), 3),
+            "retained": [],
+            "standalone": sum(standalone_by_sku.values()),
+            "util": None,          # not nested — pressed onto whole boards
             "alloc": alloc,
             "standalone_by_sku": standalone_by_sku,
         }

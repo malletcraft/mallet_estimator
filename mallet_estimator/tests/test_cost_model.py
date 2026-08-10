@@ -26,8 +26,11 @@ class TestGstLanded(MalletTestCase):
         self.assertEqual(source, "assumed")
 
     def test_material_bucket_classifier(self):
-        self.assertEqual(inventory.material_bucket("SG_PLY_V0_a_a_16mm"), "Ply V0 (structure grade)")
-        self.assertEqual(inventory.material_bucket("SG_PLY_V1_a_b_16mm"), "Ply V1 (visible grade)")
+        self.assertEqual(inventory.material_bucket("SG_PLY_V0_16mm"), "Ply V0 (structure grade)")
+        self.assertEqual(inventory.material_bucket("SG_PLY_V1_16mm"), "Ply V1 (visible grade)")
+        # the internal FACE of a visible board is internal laminate — the slot
+        # says so, and the board's grade has no vote
+        self.assertEqual(inventory.material_bucket("SG_LAM_V1_16mm_a_b"), "Laminate Internal")
         self.assertEqual(inventory.material_bucket("SG_LAM_V1_16mm_b_a"), "Laminate External")
         self.assertEqual(inventory.material_bucket("SG_LAM_V0_12mm_a_a"), "Laminate Internal")
         self.assertEqual(inventory.material_bucket("EB_PVC_EX_b"), "Edge Banding External")

@@ -34,6 +34,7 @@
   "repair_visit_charge",
   "markup_repair",
   "markup_bought_out",
+  "offcut_recovery_pct",
   "calculator_section",
   "cost_calculator_html",
   "markup_section",
@@ -47,36 +48,36 @@
   {
    "fieldname": "salary_section",
    "fieldtype": "Section Break",
-   "label": "Staff Salaries & Calendar (L1 — drives every wage & rent rate)",
-   "description": "Effective ₹/hr is DERIVED: salary × (12 + bonus months) ÷ 12 ÷ productive hours/month. Productive hrs/mo = (working days − paid holidays − national holidays⁄12) × (shift − lunch) hours."
+   "label": "Staff Salaries & Calendar (L1 \u2014 drives every wage & rent rate)",
+   "description": "Effective \u20b9/hr is DERIVED: salary \u00d7 (12 + bonus months) \u00f7 12 \u00f7 productive hours/month. Productive hrs/mo = (working days \u2212 paid holidays \u2212 national holidays\u204412) \u00d7 (shift \u2212 lunch) hours."
   },
   {
    "fieldname": "carpenter_salary",
    "fieldtype": "Currency",
-   "label": "Carpenter Salary (₹/month)",
+   "label": "Carpenter Salary (\u20b9/month)",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "helper_salary",
    "fieldtype": "Currency",
-   "label": "Helper Salary (₹/month)",
+   "label": "Helper Salary (\u20b9/month)",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "designer_salary",
    "fieldtype": "Currency",
-   "label": "Designer Salary (₹/month)",
+   "label": "Designer Salary (\u20b9/month)",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "bonus_months",
    "fieldtype": "Float",
    "label": "Bonus (months of salary / year)",
    "default": "1",
-   "description": "Diwali bonus — 1 = one month's salary once a year."
+   "description": "Diwali bonus \u2014 1 = one month's salary once a year."
   },
   {
    "fieldname": "column_break_salary",
@@ -121,7 +122,7 @@
    "fieldtype": "Currency",
    "label": "Monthly Rent",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "factory_section",
@@ -143,25 +144,25 @@
   {
    "fieldname": "sheet_length_mm",
    "fieldtype": "Float",
-   "label": "Sheet Length (mm) — unused",
+   "label": "Sheet Length (mm) \u2014 unused",
    "hidden": 1
   },
   {
    "fieldname": "sheet_width_mm",
    "fieldtype": "Float",
-   "label": "Sheet Width (mm) — unused",
+   "label": "Sheet Width (mm) \u2014 unused",
    "hidden": 1
   },
   {
    "fieldname": "wastage_pct",
    "fieldtype": "Percent",
-   "label": "Sheet Wastage % — unused",
+   "label": "Sheet Wastage % \u2014 unused",
    "hidden": 1
   },
   {
    "fieldname": "transport_section",
    "fieldtype": "Section Break",
-   "label": "Transport Trip Rates (₹/trip)",
+   "label": "Transport Trip Rates (\u20b9/trip)",
    "description": "Inward: big tempo = ply + internal laminate + joinery hardware; separate trips for external laminate and client hardware. Outward = finished goods to site."
   },
   {
@@ -169,14 +170,14 @@
    "fieldtype": "Currency",
    "label": "Big Tempo (ply / int-laminate / joinery)",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "trip_rate_ext_lam",
    "fieldtype": "Currency",
    "label": "External Laminate Trip",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "column_break_transport",
@@ -187,20 +188,20 @@
    "fieldtype": "Currency",
    "label": "Client Hardware Trip",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "trip_rate_outward",
    "fieldtype": "Currency",
    "label": "Outward Delivery Trip",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "repair_section",
    "fieldtype": "Section Break",
    "label": "Repair Work",
-   "description": "Policy for repair jobs. Both values ship as 0 — key the real ones here; they never live in the code repo."
+   "description": "Policy for repair jobs. Both values ship as 0 \u2014 key the real ones here; they never live in the code repo."
   },
   {
    "fieldname": "repair_visit_charge",
@@ -212,13 +213,19 @@
    "fieldname": "markup_repair",
    "fieldtype": "Percent",
    "label": "Repair labour margin %",
-   "description": "Margin on repair labour. Repair carries more risk per minute than factory work — you find things once you open it up."
+   "description": "Margin on repair labour. Repair carries more risk per minute than factory work \u2014 you find things once you open it up."
   },
   {
    "fieldname": "markup_bought_out",
    "fieldtype": "Percent",
    "label": "Bought-out goods margin %",
-   "description": "Margin on a FINISHED article bought in and fitted (a door, a shutter). Deliberately thinner than material: the client can look up what a door costs. Ships as 0 — key the real one here."
+   "description": "Margin on a FINISHED article bought in and fitted (a door, a shutter). Deliberately thinner than material: the client can look up what a door costs. Ships as 0 \u2014 key the real one here."
+  },
+  {
+   "fieldname": "offcut_recovery_pct",
+   "fieldtype": "Percent",
+   "label": "Offcut recovery %",
+   "description": "How much of a retained offcut's value comes off the job. A kept piece is only worth something once it is used, so this is deliberately below 100 \u2014 60% is the house figure. 0 credits nothing."
   },
   {
    "fieldname": "calculator_section",
@@ -240,14 +247,14 @@
    "fieldtype": "Percent",
    "label": "Material %",
    "default": "0",
-   "description": "Material shows at the unit rates you enter; keep 0 unless you add a % on top. (### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "Material shows at the unit rates you enter; keep 0 unless you add a % on top. (### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "markup_labor",
    "fieldtype": "Percent",
    "label": "Labor %",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "column_break_markup",
@@ -258,14 +265,14 @@
    "fieldtype": "Percent",
    "label": "Overhead %",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   },
   {
    "fieldname": "markup_design",
    "fieldtype": "Percent",
    "label": "Design %",
    "default": "0",
-   "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
+   "description": "(### sensitive \u2014 key the real value here on the site; never stored in the repo.)"
   }
  ],
  "links": [],

@@ -259,15 +259,34 @@ def short_code(parsed):
     return _slug(parsed.get("raw"))[:20] or None
 
 
+_BOARD_TOKEN = re.compile(r"V\d+|\d+(?:\.\d+)?mm", re.I)
+
+
+def stock_base(base):
+    """Drop the BOARD's attributes from a laminate placeholder's base.
+
+        SG_LAM_V1_16mm → SG_LAM
+
+    A 1 mm sheet of Virgo Mica GRAY is ONE stock item. The grade and thickness
+    in the OpenCutList name describe the board the sheet gets pressed onto —
+    they are there so OpenCutList keeps each board's laminate on its own layout
+    — and carrying them into the Item mints a separate Item, and a separate rate
+    to key, for every board the same laminate happens to land on. Edge bands and
+    anything else pass through untouched."""
+    if not str(base).upper().startswith("SG_LAM"):
+        return base
+    return "_".join(t for t in str(base).split("_") if not _BOARD_TOKEN.fullmatch(t))
+
+
 def substitute_real_code(code, slot_shorts):
     """Turn a laminate/edge PLACEHOLDER into the REAL item code by replacing the
     trailing slot letters with the FIRST letter's décor short code (the pair only
     indicates which side gets what — the purchase is ONE laminate):
-        SG_LAM_V1_16mm_b_a + {b: VM6534} → SG_LAM_V1_16mm_VM6534
-        SG_LAM_V0_a_a      + {a: GE1834} → SG_LAM_V0_GE1834
+        SG_LAM_V1_16mm_b_a + {b: VM6534} → SG_LAM_VM6534
+        SG_LAM_V0_a_a      + {a: GE1834} → SG_LAM_GE1834
         EB_PVC_EX_b        + {b: VM6534} → EB_PVC_EX_VM6534
     Suffixed placeholders (SketchUp paste-rename) are their OWN slot instance:
-        SG_LAM_V1_16mm_b_a1 + {b1: VM6534} → SG_LAM_V1_16mm_VM6534
+        SG_LAM_V1_16mm_b_a1 + {b1: VM6534} → SG_LAM_VM6534
     Returns (real_code, slot_key) — or (code, None) when no décor is defined
     for the deciding slot (the placeholder itself stays the item)."""
     letters = trailing_slots(code)
@@ -277,5 +296,62 @@ def substitute_real_code(code, slot_shorts):
     short = slot_shorts.get(key)
     if not short:
         return code, None
-    base = "_".join(str(code).split("_")[: -len(letters)])
+    base = stock_base("_".join(str(code).split("_")[: -len(letters)]))
     return f"{base}_{short}", key
+
+
+# A panel saw cuts a SANDWICH, not a board. What occupies a sheet is the
+# pre-pasted assembly — ply core plus the laminate on each face — so what
+# decides whether two articles can share a sheet is the assembly, not the ply
+# code. `SG_PLY_V1_a_b` in a wardrobe and the same string in a bed are the same
+# ply and different panels the moment `b` means two different laminates.
+#
+# The slot grammar makes this cheap to read: `a` is ALWAYS the internal face,
+# and `b` onwards — b, b1, c, d, d1 — are ALWAYS external (Amit, 2026-08-09).
+# So the external décor is the first trailing slot that is not an `a`.
+INTERNAL_SLOT = "a"
+
+
+def panel_faces(code):
+    """(internal_slot, external_slot) for a ply placeholder.
+
+        SG_PLY_V0_a_a  -> ('a', 'a')     internal both sides
+        SG_PLY_V1_a_b  -> ('a', 'b')     b is the face the client sees
+        SG_PLY_V1_a_b1 -> ('a', 'b1')
+
+    Both come back 'a' for a V0 board, which is what makes every article's
+    internal-grade panels shareable: `a` is one décor for a whole project."""
+    slots = trailing_slots(code)
+    if not slots:
+        return None, None
+    external = next((s for s in slots if not s.startswith(INTERNAL_SLOT)), None)
+    internal = next((s for s in slots if s.startswith(INTERNAL_SLOT)), None)
+    if external is None:
+        external = internal          # V0: internal décor on both faces
+    if internal is None:
+        internal = external
+    return internal, external
+
+
+def panel_key(code, thickness, slot_shorts):
+    """What this pasted panel IS, as a nesting bucket.
+
+    Two SKUs share sheets when this key matches, because that is exactly when
+    the sheets coming off the saw are physically interchangeable. A V0 board
+    keyed on internal `a` matches project-wide — the saving the shop actually
+    gets. A V1 board carries its external décor, so a wardrobe in Merino and a
+    bed in Virgo Mica never pool, however identical their ply codes look.
+
+    An unresolved external slot yields None: nothing has yet said what the
+    panel is, and guessing it into someone else's sheet is the error this
+    exists to prevent."""
+    internal, external = panel_faces(code)
+    if not external:
+        return None
+    ext = (slot_shorts or {}).get(external)
+    intl = (slot_shorts or {}).get(internal) if internal else None
+    if not ext:
+        return None
+    base = str(code or "").split("_")
+    grade = next((t for t in base if re.fullmatch(r"V\d", t)), "V?")
+    return f"PANEL_{grade}_{float(thickness or 0):g}mm_{intl or '?'}_{ext}"

@@ -33,6 +33,20 @@ def _num(v):
     return float(m.group()) if m else 0.0
 
 
+def part_qty(row):
+    """How many physical pieces one CSV row stands for.
+
+    OpenCutList GROUPS identical parts onto a single row and puts the count in
+    `Quantity` ("Group181#2 ( CARCASS_SHELF x3 ) → 3"). Every consumer of the
+    CSV has to expand by it. Reading the row and not the count is what nested
+    a 34-part wardrobe as 21 parts (7 sheets against OpenCutList's 9) and
+    bought 10 pieces of hardware where the model has 99 — 24 MiniFix on one
+    row counted once. Missing/zero reads as 1: a row that exists is at least
+    one part."""
+    q = int(_num(row.get("Quantity")) or 0)
+    return q if q > 0 else 1
+
+
 def _material_from(cell):
     """'EB_PVC_IN_a (1 mm x 22 mm)' -> 'EB_PVC_IN_a'; '' -> None."""
     s = (cell or "").strip()
@@ -65,8 +79,11 @@ def parse_opencutlist_csv(text):
 
 def parts_list(rows):
     """Extract the panel part list (Material type = Sheet Goods, name starts SG)
-    from the parts CSV — one entry per part instance, carrying the part number
-    (the id encoded in the OpenCutList QR label) for job-card tracking."""
+    from the parts CSV — one entry per OpenCutList ROW, carrying the part number
+    (the id encoded in the OpenCutList QR label) for job-card tracking and `qty`,
+    how many identical pieces that row stands for. The row is kept whole rather
+    than expanded so the part number on the job card still matches the QR label
+    on the shop floor; the operator cuts `qty` of it."""
     out = []
     for r in rows:
         if (r.get("Material type") or "").strip().lower() != "sheet goods":
@@ -84,6 +101,7 @@ def parts_list(rows):
         out.append({
             "part_no": (r.get("No.") or "").strip(),
             "designation": (r.get("Designation") or r.get("Instance") or "").strip(),
+            "qty": part_qty(r),
             "material": name,
             "length": _num(r.get("Length") or r.get("Length - raw")),
             "width": _num(r.get("Width") or r.get("Width - raw")),
@@ -149,7 +167,7 @@ def hardware_list(rows):
                 "thickness": _num(r.get("Thickness") or r.get("Thickness - raw")),
             }
             order.append(code)
-        out[code]["qty"] += 1
+        out[code]["qty"] += part_qty(r)
     return [out[c] for c in order]
 
 
