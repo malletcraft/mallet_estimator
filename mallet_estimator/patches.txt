@@ -51,3 +51,8 @@ mallet_estimator.patches.rename_csv_article_names
 # Re-derive SKU codes under the current grammar and rename their Items — reads
 # Estimate SKU columns the model sync owns, so post-model-sync.
 mallet_estimator.patches.recode_skus_to_current_naming
+# The OpenCutList name and the stock Item code are different identities: a ply
+# Item loses its décor letters, a laminate Item loses the board's grade and
+# thickness, and each survivor inherits the highest assumed rate that collapsed
+# onto it. Reads Item custom fields the model sync owns, so post-model-sync.
+mallet_estimator.patches.collapse_board_item_codes

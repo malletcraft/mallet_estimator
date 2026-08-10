@@ -22,6 +22,14 @@ EDGE_ROLL_METERS = 50.0  # edge banding is bought in 50 m rolls
 PARENT_GROUP = "Mallet Materials"
 CLIENT_SKU_GROUP = "Client SKU"  # finished articles per client project (archivable)
 
+# The OpenCutList name and the stock Item code answer different questions —
+# "which board do these parts come off" vs "what do I buy" — so the décor slot
+# letters are stripped on the way into inventory. See item_code_for().
+PLY_PREFIX = "SG_PLY"
+LAM_PREFIX = "SG_LAM"
+_MM_TOKEN = re.compile(r"\d+(?:\.\d+)?mm", re.I)
+_BOARD_TOKEN = re.compile(r"V\d+|\d+(?:\.\d+)?mm", re.I)
+
 # S1 — makers vs vendors are DIFFERENT (corrects F2, which wrongly seeded the OEMs
 # as Suppliers). Manufacturers (OEM) make the goods; Suppliers are the vendors the
 # shop actually buys from. One technical Item carries its Manufacturer + many
@@ -146,12 +154,18 @@ def parse_material_code(name):
 
 
 def _coding_fields(name):
-    """parse_material_code() mapped onto the Item custom-field names."""
+    """parse_material_code() mapped onto the Item custom-field names.
+
+    A ply Item gets its GRADE but not the décor letters. The board is the same
+    board whatever is pasted on it, and a slot letter names a different laminate
+    on every project — stamping one onto a stock Item would be false the moment
+    the next project uses the same letter for something else."""
     p = parse_material_code(name)
+    ply = str(name or "").upper().startswith(PLY_PREFIX)
     return {
         "mallet_visible_sides": p["visible_sides"],
-        "mallet_lam_internal": p["lam_internal"],
-        "mallet_lam_external": p["lam_external"],
+        "mallet_lam_internal": None if ply else p["lam_internal"],
+        "mallet_lam_external": None if ply else p["lam_external"],
     }
 
 
@@ -163,9 +177,36 @@ def sheet_dims(kind, thickness):
 
 
 def item_code_for(name, thickness, kind=None):
-    """Stable ERPNext item_code. Thickness is part of the identity for sheet goods
-    (a 16mm and 18mm ply are different Items) UNLESS the code already carries it."""
+    """Stable ERPNext item_code — the PURCHASING identity, which is NOT the
+    OpenCutList material name.
+
+    Thickness is part of the identity for sheet goods (16mm and 18mm ply are
+    different Items) unless the code already carries it.
+
+    A ply board is the same board whatever gets pasted on it, so the décor slot
+    letters are stripped: SG_PLY_V1_a_b @16 → SG_PLY_V1_16mm. Keeping them minted
+    one Item per external décor in a project (SG_PLY_V1_a_b_16mm, _a_c_16mm,
+    _a_d_16mm) — three rate cards for one physical board, each carrying a letter
+    that means a different laminate on the next project.
+
+    The letters still belong in the OpenCutList NAME: that is what makes
+    OpenCutList lay two décors out on separate boards, and its diagram is a
+    cutting instruction, not a label. Which laminate goes on which face is
+    carried by the material line and the panel nest, never by the board's Item."""
     kind = kind or kind_for_code(name)
+    if kind == "sheet" and str(name or "").upper().startswith(PLY_PREFIX):
+        from mallet_estimator import decor
+        tokens = str(name).split("_")
+        own_mm = next((t for t in tokens if _MM_TOKEN.fullmatch(t)), "")
+        base = "_".join(t for t in tokens if not _MM_TOKEN.fullmatch(t))
+        slots = decor.trailing_slots(base)
+        if slots:
+            base = "_".join(base.split("_")[: -len(slots)])
+        if thickness:
+            return f"{base}_{thickness:g}mm"
+        # No thickness passed: the code's own mm token IS the thickness, and
+        # dropping it would collapse 12mm and 16mm boards onto one Item.
+        return f"{base}_{own_mm}" if own_mm else base
     if kind == "sheet" and thickness and "mm" not in str(name).lower():
         return f"{name}_{thickness:g}mm"
     return name
@@ -808,6 +849,16 @@ def material_bucket(item_code, oc_code=None):
     if kind == "sheet":
         return "Ply V1 (visible grade)" if "_V1" in up else "Ply V0 (structure grade)"
     if kind == "laminate":
+        # Internal vs external is a USE, not a property of the sheet — the same
+        # laminate is internal on one panel and external on another — so it is
+        # read off the SLOT (a is always internal, b onwards always external),
+        # not off the board's grade. Keying on "_V1" put the INTERNAL face of a
+        # V1 board (SG_LAM_V1_16mm_a_b) in the external bucket. Falls back to
+        # the old heuristic only for a code with no slot letters left.
+        from mallet_estimator import decor
+        key = decor.slot_key(code)
+        if key:
+            return "Laminate Internal" if key.startswith(decor.INTERNAL_SLOT) else "Laminate External"
         return "Laminate External" if ("_V1" in up or "_EX" in up) else "Laminate Internal"
     if kind == "edge":
         return "Edge Banding External" if "_EX" in up else "Edge Banding Internal"

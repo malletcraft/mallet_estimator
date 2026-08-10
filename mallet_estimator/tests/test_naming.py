@@ -263,3 +263,52 @@ class TestFilesReachTheSku(MalletTestCase):
         sku.reload()
         sku.adopt_sidebar_attachments()
         self.assertTrue(sku.parts_csv, "the stranded file should be adopted back")
+
+
+class TestBoardItemsArePurchasingIdentities(MalletTestCase):
+    """A ply board is one Item however many décors get pasted on it, and the
+    Item that ends up in the database is what proves it — item_code_for can be
+    right in isolation and still be bypassed by ensure_material_item."""
+
+    def test_two_decors_one_board_item(self):
+        from mallet_estimator import inventory
+        a, _r, _s = inventory.ensure_material_item("SG_PLY_V1_a_b", kind="sheet", thickness=16)
+        b, _r, _s = inventory.ensure_material_item("SG_PLY_V1_a_c", kind="sheet", thickness=16)
+        self.assertEqual(a, b)
+        self.assertEqual(a, "SG_PLY_V1_16mm")
+        self.assertTrue(frappe.db.exists("Item", "SG_PLY_V1_16mm"))
+
+    def test_the_board_item_carries_no_decor_letters(self):
+        # a slot letter means a different laminate on the next project, so
+        # stamping one on the stock Item would be false
+        from mallet_estimator import inventory
+        code, _r, _s = inventory.ensure_material_item("SG_PLY_V1_a_b", kind="sheet", thickness=18)
+        row = frappe.db.get_value(
+            "Item", code, ["mallet_visible_sides", "mallet_lam_internal", "mallet_lam_external"],
+            as_dict=True) or {}
+        self.assertEqual(row.get("mallet_visible_sides"), 1)   # grade is real, keep it
+        self.assertFalse(row.get("mallet_lam_internal"))
+        self.assertFalse(row.get("mallet_lam_external"))
+
+    def test_thickness_still_makes_a_different_board(self):
+        from mallet_estimator import inventory
+        twelve, _r, _s = inventory.ensure_material_item("SG_PLY_V0_a_a", kind="sheet", thickness=12)
+        sixteen, _r, _s = inventory.ensure_material_item("SG_PLY_V0_a_a", kind="sheet", thickness=16)
+        self.assertNotEqual(twelve, sixteen)
+
+    def test_the_patch_collapses_and_then_leaves_alone(self):
+        from mallet_estimator.patches import collapse_board_item_codes as P
+        self.assertEqual(P.collapsed_code("SG_PLY_V1_a_b_16mm"), "SG_PLY_V1_16mm")
+        self.assertEqual(P.collapsed_code("SG_LAM_V1_16mm_VM6534"), "SG_LAM_VM6534")
+        # already collapsed, and things that are neither: nothing to do
+        self.assertIsNone(P.collapsed_code("SG_PLY_V1_16mm"))
+        self.assertIsNone(P.collapsed_code("SG_LAM_VM6534"))
+        self.assertIsNone(P.collapsed_code("EB_PVC_EX_RH1834"))
+        self.assertIsNone(P.collapsed_code("HWD_MiniFix"))
+
+    def test_an_unmapped_laminate_placeholder_is_left_alone(self):
+        # stripping the board tokens off a placeholder would merge every
+        # unmapped laminate on the site into one meaningless SG_LAM_a_a
+        from mallet_estimator.patches import collapse_board_item_codes as P
+        self.assertIsNone(P.collapsed_code("SG_LAM_V0_12mm_a_a"))
+        self.assertIsNone(P.collapsed_code("SG_LAM_V1_16mm_b_a"))

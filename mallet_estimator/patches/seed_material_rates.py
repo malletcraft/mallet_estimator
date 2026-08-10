@@ -20,9 +20,13 @@ MATERIAL_CATALOGUE = [
     ("SG_LAM_V0_16mm_a_a", "laminate"),
     ("SG_LAM_V1_16mm_a_b", "laminate"),
     ("SG_LAM_V1_16mm_b_a", "laminate"),
-    ("SG_PLY_V0_a_a_12mm", "sheet"),
-    ("SG_PLY_V0_a_a_16mm", "sheet"),
-    ("SG_PLY_V1_a_b_16mm", "sheet"),
+    # Board Items carry grade + thickness only — the décor letters belong to the
+    # OpenCutList NAME, not to what you buy (see inventory.item_code_for). A
+    # fresh site therefore seeds the collapsed codes directly; sites seeded
+    # before this rule are collapsed by patches/collapse_board_item_codes.
+    ("SG_PLY_V0_12mm", "sheet"),
+    ("SG_PLY_V0_16mm", "sheet"),
+    ("SG_PLY_V1_16mm", "sheet"),
 ]
 
 

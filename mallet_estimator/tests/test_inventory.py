@@ -19,7 +19,11 @@ class TestClassification(MalletTestCase):
         self.assertEqual(inventory.kind_for_code("SW_Teak"), "solidwood")
 
     def test_item_code_carries_thickness_for_sheets(self):
-        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 16, "sheet"), "SG_PLY_V0_a_a_16mm")
+        # thickness stays in the identity; the décor letters do not — the board
+        # is the same board whatever gets pasted on it
+        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 16, "sheet"), "SG_PLY_V0_16mm")
+        self.assertEqual(inventory.item_code_for("SG_PLY_V0_a_a", 12, "sheet"), "SG_PLY_V0_12mm")
+        self.assertEqual(inventory.item_code_for("SG_PLY_V1_a_c", 16, "sheet"), "SG_PLY_V1_16mm")
         self.assertEqual(inventory.item_code_for("HWD_Hinge", 0, "hardware"), "HWD_Hinge")
 
     def test_is_material_code(self):

@@ -189,9 +189,14 @@ class TestDecor(unittest.TestCase):
         # FIRST letter's décor short code; one PO code per laminate.
         from mallet_estimator import decor
         ss = {"b": "VM6534", "a": "GE1834"}
-        self.assertEqual(decor.substitute_real_code("SG_LAM_V0_a_a", ss)[0], "SG_LAM_V0_GE1834")
-        self.assertEqual(decor.substitute_real_code("SG_LAM_V1_16mm_a_b", ss)[0], "SG_LAM_V1_16mm_GE1834")
-        self.assertEqual(decor.substitute_real_code("SG_LAM_V1_16mm_b_a", ss)[0], "SG_LAM_V1_16mm_VM6534")
+        # The board's grade and thickness drop out: they describe what the sheet
+        # gets pressed ONTO, and one décor is one stock item however many boards
+        # it lands on.
+        self.assertEqual(decor.substitute_real_code("SG_LAM_V0_a_a", ss)[0], "SG_LAM_GE1834")
+        self.assertEqual(decor.substitute_real_code("SG_LAM_V1_16mm_a_b", ss)[0], "SG_LAM_GE1834")
+        self.assertEqual(decor.substitute_real_code("SG_LAM_V0_12mm_a_a", ss)[0], "SG_LAM_GE1834")
+        self.assertEqual(decor.substitute_real_code("SG_LAM_V1_16mm_b_a", ss)[0], "SG_LAM_VM6534")
+        # edge bands carry no board attributes, so they pass through untouched
         self.assertEqual(decor.substitute_real_code("EB_PVC_EX_b", ss)[0], "EB_PVC_EX_VM6534")
         # no description -> the placeholder itself stays the item
         self.assertEqual(decor.substitute_real_code("SG_LAM_V0_12mm_a_a", {}), ("SG_LAM_V0_12mm_a_a", None))
@@ -580,3 +585,68 @@ class TestPanelIdentity(unittest.TestCase):
         # nothing has said what it is; guessing it into someone else's sheet
         # is the error the key exists to prevent
         self.assertIsNone(self.key("SG_PLY_V1_a_d", 16, self.SHORTS))
+
+
+def _ply_item(name, thickness):
+    """inventory.item_code_for's ply branch, without the frappe import so this
+    runs in CI's no-DB unit job. Kept deliberately literal — if it drifts from
+    inventory.py the DB-backed test in test_naming.py catches it."""
+    import re
+    from mallet_estimator import decor
+    mm = re.compile(r"\d+(?:\.\d+)?mm", re.I)
+    base = "_".join(t for t in str(name).split("_") if not mm.fullmatch(t))
+    slots = decor.trailing_slots(base)
+    if slots:
+        base = "_".join(base.split("_")[: -len(slots)])
+    if thickness:
+        return f"{base}_{thickness:g}mm"
+    own = next((t for t in str(name).split("_") if mm.fullmatch(t)), "")
+    return f"{base}_{own}" if own else base
+
+
+class TestPurchasingIdentity(unittest.TestCase):
+    """The OpenCutList material name and the stock Item code answer different
+    questions — "which board do these parts come off" vs "what do I buy". The
+    décor letters are load-bearing in the first and false in the second."""
+
+    def test_one_board_however_many_decors(self):
+        from mallet_estimator import decor
+        # SG_PLY_V1_a_b and SG_PLY_V1_a_c are two OpenCutList materials — that
+        # is what makes it lay them out on separate boards — and ONE Item.
+        self.assertEqual(_ply_item("SG_PLY_V1_a_b", 16), "SG_PLY_V1_16mm")
+        self.assertEqual(_ply_item("SG_PLY_V1_a_c", 16), "SG_PLY_V1_16mm")
+        self.assertEqual(_ply_item("SG_PLY_V1_a_b1", 16), "SG_PLY_V1_16mm")
+        self.assertIsNotNone(decor.trailing_slots("SG_PLY_V1_a_b"))
+
+    def test_thickness_still_separates_boards(self):
+        self.assertEqual(_ply_item("SG_PLY_V0_a_a", 12), "SG_PLY_V0_12mm")
+        self.assertEqual(_ply_item("SG_PLY_V0_a_a", 16), "SG_PLY_V0_16mm")
+
+    def test_grade_still_separates_boards(self):
+        self.assertNotEqual(_ply_item("SG_PLY_V0_a_a", 16), _ply_item("SG_PLY_V1_a_b", 16))
+
+    def test_collapsing_is_idempotent(self):
+        # a code that has already collapsed must collapse to itself, or a
+        # second migrate would mint yet another Item
+        self.assertEqual(_ply_item("SG_PLY_V1_16mm", 16), "SG_PLY_V1_16mm")
+
+    def test_a_code_carrying_its_own_thickness_keeps_it(self):
+        # the seeder calls this with no thickness argument; dropping the mm
+        # token would put a 12mm and a 16mm board on the same Item
+        self.assertEqual(_ply_item("SG_PLY_V0_a_a_12mm", 0), "SG_PLY_V0_12mm")
+        self.assertEqual(_ply_item("SG_PLY_V0_a_a_16mm", 0), "SG_PLY_V0_16mm")
+        self.assertNotEqual(_ply_item("SG_PLY_V0_a_a_12mm", 0),
+                            _ply_item("SG_PLY_V0_a_a_16mm", 0))
+
+    def test_one_laminate_however_many_boards(self):
+        from mallet_estimator import decor
+        ss = {"a": "GE1834"}
+        codes = ["SG_LAM_V0_12mm_a_a", "SG_LAM_V0_16mm_a_a", "SG_LAM_V1_16mm_a_b"]
+        self.assertEqual({decor.substitute_real_code(c, ss)[0] for c in codes},
+                         {"SG_LAM_GE1834"})
+
+    def test_stock_base_leaves_everything_else_alone(self):
+        from mallet_estimator import decor
+        self.assertEqual(decor.stock_base("EB_PVC_EX"), "EB_PVC_EX")
+        self.assertEqual(decor.stock_base("HWD_Hinge"), "HWD_Hinge")
+        self.assertEqual(decor.stock_base("SG_LAM"), "SG_LAM")

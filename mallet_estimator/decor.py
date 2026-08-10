@@ -259,15 +259,34 @@ def short_code(parsed):
     return _slug(parsed.get("raw"))[:20] or None
 
 
+_BOARD_TOKEN = re.compile(r"V\d+|\d+(?:\.\d+)?mm", re.I)
+
+
+def stock_base(base):
+    """Drop the BOARD's attributes from a laminate placeholder's base.
+
+        SG_LAM_V1_16mm → SG_LAM
+
+    A 1 mm sheet of Virgo Mica GRAY is ONE stock item. The grade and thickness
+    in the OpenCutList name describe the board the sheet gets pressed onto —
+    they are there so OpenCutList keeps each board's laminate on its own layout
+    — and carrying them into the Item mints a separate Item, and a separate rate
+    to key, for every board the same laminate happens to land on. Edge bands and
+    anything else pass through untouched."""
+    if not str(base).upper().startswith("SG_LAM"):
+        return base
+    return "_".join(t for t in str(base).split("_") if not _BOARD_TOKEN.fullmatch(t))
+
+
 def substitute_real_code(code, slot_shorts):
     """Turn a laminate/edge PLACEHOLDER into the REAL item code by replacing the
     trailing slot letters with the FIRST letter's décor short code (the pair only
     indicates which side gets what — the purchase is ONE laminate):
-        SG_LAM_V1_16mm_b_a + {b: VM6534} → SG_LAM_V1_16mm_VM6534
-        SG_LAM_V0_a_a      + {a: GE1834} → SG_LAM_V0_GE1834
+        SG_LAM_V1_16mm_b_a + {b: VM6534} → SG_LAM_VM6534
+        SG_LAM_V0_a_a      + {a: GE1834} → SG_LAM_GE1834
         EB_PVC_EX_b        + {b: VM6534} → EB_PVC_EX_VM6534
     Suffixed placeholders (SketchUp paste-rename) are their OWN slot instance:
-        SG_LAM_V1_16mm_b_a1 + {b1: VM6534} → SG_LAM_V1_16mm_VM6534
+        SG_LAM_V1_16mm_b_a1 + {b1: VM6534} → SG_LAM_VM6534
     Returns (real_code, slot_key) — or (code, None) when no décor is defined
     for the deciding slot (the placeholder itself stays the item)."""
     letters = trailing_slots(code)
@@ -277,7 +296,7 @@ def substitute_real_code(code, slot_shorts):
     short = slot_shorts.get(key)
     if not short:
         return code, None
-    base = "_".join(str(code).split("_")[: -len(letters)])
+    base = stock_base("_".join(str(code).split("_")[: -len(letters)]))
     return f"{base}_{short}", key
 
 
