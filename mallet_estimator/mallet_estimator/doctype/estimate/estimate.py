@@ -1,4 +1,5 @@
 import json
+import math
 
 import frappe
 from frappe import _
@@ -754,6 +755,123 @@ class Estimate(Document):
         self.save()
         return out
 
+    def _consolidated_skus(self):
+        """The estimate's new-work SKUs, repriced and CONSOLIDATED in memory.
+
+        An SKU's stored numbers are its STANDALONE ones — it can serve several
+        estimates, so estimate-specific quantities are never written back to it.
+        Anything that quotes the client therefore has to re-run the pooling
+        rather than read the SKU, or it quotes each article as if it were built
+        on its own: more sheets than the project actually buys."""
+        loaded, nest_inputs = [], {}
+        for r in self.skus or []:
+            if not (r.estimate_sku and frappe.db.exists("Estimate SKU", r.estimate_sku)):
+                continue
+            s = frappe.get_doc("Estimate SKU", r.estimate_sku)
+            if (s.get("work_type") or "New Work") in self.SITE_KINDS:
+                continue          # repair prices as a lump sum, not from a BOM
+            if not s.get("rates_frozen"):
+                try:
+                    s.compute_costs()
+                except Exception:
+                    frappe.log_error(frappe.get_traceback(), f"bom reprice {s.name}")
+            try:
+                ni = (json.loads(s.import_drivers or "{}") or {}).get("__nest_inputs__")
+            except Exception:
+                ni = None
+            if ni and not s.get("rates_frozen"):
+                nest_inputs[s.name] = ni
+            loaded.append((r, s))
+        if len(nest_inputs) >= 2:
+            try:
+                self._apply_consolidation(loaded, nest_inputs)
+            except Exception:
+                frappe.log_error(frappe.get_traceback(), f"bom consolidation {self.name}")
+        return [s for (_r, s) in loaded]
+
+    @frappe.whitelist()
+    def project_bom(self):
+        """The client-facing Bill of Materials for the WHOLE project.
+
+        The client is charged the complete material the project consumes —
+        whole boards, whole rolls, whole pieces, waste included (Amit,
+        2026-08-10). Offcuts are not credited back; they stay with the shop.
+
+        Quantities are therefore summed ACROSS the estimate and rounded once,
+        at project level. They deliberately are NOT rounded per SKU: an article
+        uses 2.35 of a board, and rounding each article up before adding would
+        bill boards nobody buys. The client sees the project's whole numbers
+        and a price per article — never a fraction of a sheet.
+
+        LEAK-SAFE: a row carries quantity and the CLIENT amount (cost × the
+        material markup, the same arithmetic behind `client_material`), never
+        internal cost, rate or margin. Customer-supplied material is listed for
+        completeness at zero — the client already owns it."""
+        from mallet_estimator import inventory
+        from mallet_estimator.estimator import _num
+
+        settings = frappe.get_single("Estimate Settings")
+        markup = 1 + _num(settings.get("markup_material")) / 100.0
+
+        rows, client_material = {}, 0.0
+        for s in self._consolidated_skus():
+            client_material += float(s.get("client_material") or 0)
+            for m in s.materials or []:
+                supplied = bool(m.get("customer_supplied"))
+                key = (str(m.item or m.material or ""), bool(supplied))
+                row = rows.setdefault(key, {
+                    "item": m.item or m.material or "",
+                    "description": m.material or "",
+                    "bucket": inventory.material_bucket(m.item, m.material),
+                    "uom": m.uom or "Nos", "qty": 0.0, "cost": 0.0,
+                    "supplied": supplied,
+                })
+                row["qty"] += float(m.qty or 0)
+                if not supplied:
+                    row["cost"] += float(m.qty or 0) * float(m.unit_cost or 0)
+            for j in s.get("joinery_items") or []:
+                key = (str(j.item or ""), False)
+                row = rows.setdefault(key, {
+                    "item": j.item or "", "description": j.description or "",
+                    "bucket": "Joinery Hardware", "uom": j.uom or "Nos",
+                    "qty": 0.0, "cost": 0.0, "supplied": False,
+                })
+                row["qty"] += float(j.qty or 0)
+                row["cost"] += float(j.amount or (_num(j.qty) * _num(j.unit_cost)))
+
+        groups, total = {}, 0.0
+        for row in rows.values():
+            # One rounding, here. A part-sheet cannot be bought, and the shop
+            # eats the remainder of the last board either way.
+            row["qty"] = math.ceil(round(row["qty"], 6)) if row["qty"] else 0
+            row["amount"] = round(row["cost"] * markup, 2) if not row["supplied"] else 0.0
+            row.pop("cost", None)
+            total += row["amount"]
+            g = groups.setdefault(row["bucket"], {"bucket": row["bucket"], "rows": [], "subtotal": 0.0})
+            g["rows"].append(row)
+            g["subtotal"] += row["amount"]
+
+        for g in groups.values():
+            g["rows"].sort(key=lambda r: r["item"])
+            g["subtotal"] = round(g["subtotal"], 2)
+        order = ["Ply V0 (structure grade)", "Ply V1 (visible grade)",
+                 "Laminate Internal", "Laminate External",
+                 "Edge Banding Internal", "Edge Banding External",
+                 "Client Hardware", "Joinery Hardware", "Other Material"]
+        ranked = sorted(groups.values(),
+                        key=lambda g: (order.index(g["bucket"]) if g["bucket"] in order else 99,
+                                       g["bucket"]))
+        # Rounding up to whole boards can only ever ADD to the priced total, so
+        # the BOM is expected to sit a little above the sum of the article
+        # prices. A shortfall would mean material is being consumed that no
+        # article is paying for, which is worth seeing rather than hiding.
+        return {
+            "groups": ranked,
+            "total": round(total, 2),
+            "client_material": round(client_material, 2),
+            "rounding": round(total - client_material, 2),
+        }
+
     @frappe.whitelist()
     def offcut_labels(self):
         """The offcuts worth racking, ready to print a sticker for.
@@ -999,13 +1117,19 @@ class Estimate(Document):
         # area and no room-wise price per sq ft. It gets its own printed
         # section, so a consolidated quote reads as two clearly separate
         # offers the client can accept independently.
-        skus, repair_skus, total_client = [], [], 0.0
+        # New-work SKUs come back CONSOLIDATED. Loading them straight from the
+        # database gives each article's STANDALONE price — every sheet nested
+        # as if that article were built on its own — which is more material
+        # than the project buys and disagrees with the estimate's own stored
+        # total, since that total is rolled up after consolidation.
+        skus, repair_skus, total_client = self._consolidated_skus(), [], 0.0
         for r in self.skus or []:
             if r.estimate_sku and frappe.db.exists("Estimate SKU", r.estimate_sku):
                 s = frappe.get_doc("Estimate SKU", r.estimate_sku)
-                on_site = (s.get("work_type") or "New Work") in self.SITE_KINDS
-                (repair_skus if on_site else skus).append(s)
-                total_client += float(s.client_total or 0)
+                if (s.get("work_type") or "New Work") in self.SITE_KINDS:
+                    repair_skus.append(s)
+                    total_client += float(s.client_total or 0)
+        total_client += sum(float(s.client_total or 0) for s in skus)
         allowance = float(self.total_allowance or 0)
         spread = (1 + allowance / total_client) if total_client else 1.0
         rooms, order, gallery, rate_rows = {}, [], [], {}
@@ -1091,6 +1215,9 @@ class Estimate(Document):
             "transport": transport,
             "gst_pct": gst_pct, "gst": gst, "grand_total": subtotal + transport + gst,
             "assumed_rates": sorted(rate_rows.values(), key=lambda x: (x["bucket"], x["item"])),
+            # The complete material the project consumes, in whole units — the
+            # detailed Bill of Materials the client is promised.
+            "bom": self.project_bom(),
             "gallery": gallery,
             "repair": self.repair_print_block(repair_skus, spread, kind),
         }

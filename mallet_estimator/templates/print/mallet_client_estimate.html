@@ -158,17 +158,42 @@
   </table>
   {% endif %}
 
+  {% if p.bom and p.bom.groups %}
+  <div class="page"></div>
+  <h4>Bill of Materials — the whole project</h4>
+  <p class="muted">Every board, roll and piece this project consumes, in whole
+  units. Sheet goods are bought whole: the offcut left at the end of a board is
+  part of what the job uses, so it is priced here.</p>
+  <table style="margin-top:8px">
+    <thead><tr><th>Material</th><th class="r">Qty</th><th>Unit</th><th class="r">Amount</th></tr></thead>
+    <tbody>
+    {% for g in p.bom.groups %}
+      <tr><td colspan="4"><b>{{ g.bucket }}</b></td></tr>
+      {% for r in g.rows %}
+      <tr>
+        <td>&nbsp;&nbsp;{{ r.item }}{% if r.supplied %} <span class="muted">(supplied by you)</span>{% endif %}</td>
+        <td class="r">{{ "%g"|format(r.qty) }}</td><td>{{ r.uom }}</td>
+        <td class="r">{% if r.supplied %}&mdash;{% else %}{{ money(r.amount) }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+      <tr class="tot"><td colspan="3">{{ g.bucket }} subtotal</td><td class="r">{{ money(g.subtotal) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="grand"><table><tr class="tot"><td>Material total</td><td class="r">{{ money(p.bom.total) }}</td></tr></table></div>
+  {% endif %}
+
   {% for s in p.gallery %}
   <div class="page"></div>
   <h4>{{ s.sku }} — {{ s.article }} <span class="muted">({{ s.room }} · {{ s.dims_ftin or s.dims }} · {{ s.dims }})</span></h4>
   {% if s.iso %}<img class="iso" src="{{ s.iso }}">{% endif %}
   <table style="margin-top:8px">
-    <thead><tr><th>Your choices at the gallery</th><th>Category</th><th class="r">Qty</th><th>Unit</th><th class="r">Budget</th></tr></thead>
+    <thead><tr><th>Your choices at the gallery</th><th>Category</th></tr></thead>
     <tbody>
     {% for m in s.choose %}
-      <tr><td>{{ m.item }}</td><td>{{ m.bucket }}</td><td class="r">{{ "%g"|format(m.qty) }}</td><td>{{ m.uom }}</td><td class="r">{{ money(m.budget) }}</td></tr>
+      <tr><td>{{ m.item }}</td><td>{{ m.bucket }}</td></tr>
     {% else %}
-      <tr><td colspan="5" class="muted">No client-choosable items on this article.</td></tr>
+      <tr><td colspan="2" class="muted">No client-choosable items on this article.</td></tr>
     {% endfor %}
     </tbody>
   </table>
