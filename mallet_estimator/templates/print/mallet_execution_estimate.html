@@ -112,6 +112,36 @@
     <tr class="tot"><td>Grand Total</td><td class="r">{{ money(p.grand_total) }}</td></tr>
   </table>
 
+  {% if p.press and p.press.rows %}
+  <div class="page"></div>
+  <h4>Press List — lamination station</h4>
+  <p class="muted">Every physical board is pressed, including any the offcut
+  credit discounts from the bill. Reconciles to the laminate lines on the BOM.</p>
+  <table>
+    <thead><tr><th>Board stack</th><th class="r">Boards</th><th>Face</th><th>Laminate</th><th class="r">Sheets</th></tr></thead>
+    <tbody>
+    {% for row in p.press.rows %}
+      {% for f in row.faces %}
+      <tr>
+        {% if loop.first %}<td rowspan="{{ row.faces|length }}">{{ row.board }}</td>
+        <td class="r" rowspan="{{ row.faces|length }}">{{ "%g"|format(row.boards) }}</td>{% endif %}
+        <td>{{ f.face }}</td><td>{{ f.code }}</td><td class="r">{{ "%g"|format(f.sheets) }}</td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+  </table>
+  <table style="margin-top:10px">
+    <thead><tr><th>Laminate total</th><th class="r">Sheets</th></tr></thead>
+    <tbody>
+    {% for code, sheets in p.press.totals.items() %}
+      <tr><td>{{ code }}</td><td class="r">{{ "%g"|format(sheets) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% for w in p.press.warnings %}<p class="muted">⚠ {{ w }}</p>{% endfor %}
+  {% endif %}
+
   {% if p.assumed_rates %}
   <h4>Assumed Unit Rates</h4>
   <table>

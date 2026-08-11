@@ -873,6 +873,61 @@ class Estimate(Document):
         }
 
     @frappe.whitelist()
+    def press_list(self):
+        """The LAMINATION STATION's work order: which laminate is pressed onto
+        which face of which board stack — the missing middle between the BOM
+        (buy) and the panel part list (cut). Derived from the same consolidated
+        panel nest the pricing uses, so every sheet on the BOM lands on a named
+        board and the three artefacts reconcile.
+
+        Uses COMBINED board counts: every physical board is pressed, including
+        any the offcut credit later discounts from the bill. Works for a
+        single-SKU estimate too — pressing is real however few articles pool."""
+        from mallet_estimator import consolidate as cons
+
+        nest_inputs, by_name = {}, {}
+        for r in self.skus or []:
+            if not (r.estimate_sku and frappe.db.exists("Estimate SKU", r.estimate_sku)):
+                continue
+            s = frappe.get_doc("Estimate SKU", r.estimate_sku)
+            if (s.get("work_type") or "New Work") in self.SITE_KINDS:
+                continue
+            try:
+                ni = (json.loads(s.import_drivers or "{}") or {}).get("__nest_inputs__")
+            except Exception:
+                ni = None
+            if ni:
+                nest_inputs[s.name] = ni
+                by_name[s.name] = s
+        if not nest_inputs:
+            return {"rows": [], "totals": {}, "warnings": [
+                _("No nested SKUs on this estimate — import a panel part list first.")]}
+
+        resolved = {n: self._resolved_nest_keys(by_name[n], nest_inputs[n])[0]
+                    for n in nest_inputs}
+        settings = frappe.get_single("Estimate Settings")
+        result = cons.consolidate(
+            resolved,
+            recovery_pct=float(settings.get("offcut_recovery_pct") or 0),
+            retainable=lambda k: k.startswith("PANEL_V0_"))
+        rows = cons.press_list(resolved, result["materials"])
+
+        totals, warnings = {}, []
+        for row in rows:
+            # PANEL_{grade}_{th}mm_{int}_{ext} reads out as the board stack.
+            toks = str(row["panel"]).split("_")
+            if row["panel"].startswith("PANEL_") and len(toks) >= 5:
+                row["board"] = f"{toks[1]} ply {toks[2]}"
+            else:
+                row["board"] = row["panel"]
+                warnings.append(_(
+                    "{0}: décor not mapped yet — this stack cannot pool and its "
+                    "laminate codes below are still generic.").format(row["panel"]))
+            for f in row["faces"]:
+                totals[f["code"]] = round(totals.get(f["code"], 0.0) + f["sheets"], 2)
+        return {"rows": rows, "totals": totals, "warnings": warnings}
+
+    @frappe.whitelist()
     def offcut_labels(self):
         """The offcuts worth racking, ready to print a sticker for.
 
@@ -1219,6 +1274,9 @@ class Estimate(Document):
             # detailed Bill of Materials the client is promised.
             "bom": self.project_bom(),
             "gallery": gallery,
+            # The lamination station's work order — execution print only; a
+            # client has no use for press instructions.
+            "press": self.press_list() if kind == "execution" else None,
             "repair": self.repair_print_block(repair_skus, spread, kind),
         }
 

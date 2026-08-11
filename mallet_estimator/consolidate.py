@@ -243,3 +243,39 @@ def intake_row_mode(has_csv, has_estimate_pdf):
     if has_estimate_pdf:
         return PDF_MODE
     return None
+
+
+def press_list(sku_inputs, materials):
+    """Rows for the LAMINATION STATION: which laminate is pressed onto which
+    face of which board stack — the missing middle between the BOM (buy) and
+    the panel part list (cut). One row per pasted-panel bucket, its COMBINED
+    board count, and per face the laminate code with the sheets it consumes.
+
+    Uses combined counts, not billable: every physical board gets pressed,
+    including any the offcut credit later discounts from the bill. A face
+    whose parts carry two laminates splits its sheets by part area, same rule
+    as nesting.laminate_share.
+
+    sku_inputs: {sku: {"faces": {panel_key: {face: {lam_code: area}}}, ...}}
+    materials:  consolidate()["materials"] (for the combined board counts)."""
+    agg = {}
+    for _sku, inputs in (sku_inputs or {}).items():
+        for pkey, by_face in (inputs.get("faces") or {}).items():
+            for face, by_code in (by_face or {}).items():
+                d = agg.setdefault(pkey, {}).setdefault(face, {})
+                for code, area in (by_code or {}).items():
+                    d[code] = d.get(code, 0.0) + float(area or 0)
+    rows = []
+    for pkey in sorted(agg):
+        boards = float(((materials or {}).get(pkey) or {}).get("combined") or 0)
+        faces_out = []
+        for face in sorted(agg[pkey]):
+            total = sum(agg[pkey][face].values())
+            if total <= 0:
+                continue
+            for code, area in sorted(agg[pkey][face].items()):
+                faces_out.append({"face": face, "code": code,
+                                  "sheets": round(boards * (area / total), 2)})
+        if faces_out:
+            rows.append({"panel": pkey, "boards": boards, "faces": faces_out})
+    return rows

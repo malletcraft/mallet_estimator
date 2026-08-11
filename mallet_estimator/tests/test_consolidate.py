@@ -280,3 +280,77 @@ class TestLaminateFollowsThePanelAcrossSKUs(unittest.TestCase):
         }})
         self.assertEqual(out["materials"][self.LAM]["kind"], "laminate")
         self.assertGreaterEqual(out["materials"][self.LAM]["combined"], 1)
+
+
+class TestPressList(unittest.TestCase):
+    """The lamination station's work order: which laminate goes on which face
+    of which board stack, off the same panel nest the pricing uses."""
+
+    PANEL_V0 = "PANEL_V0_16mm_GE1834_GE1834"
+    PANEL_V1 = "PANEL_V1_16mm_GE1834_VM1834"
+
+    def _inputs(self):
+        v0_parts = [(2400.0, 1180.0)] * 2          # two full boards
+        v1_parts = [(2400.0, 1180.0)]              # one full board
+        a = 2400.0 * 1180.0
+        return {"WAR": {
+            "ply": {self.PANEL_V0: v0_parts, self.PANEL_V1: v1_parts},
+            "faces": {
+                self.PANEL_V0: {"Frontside": {"SG_LAM_GE1834": a * 2},
+                                "Backside": {"SG_LAM_GE1834": a * 2}},
+                self.PANEL_V1: {"Frontside": {"SG_LAM_VM1834": a},
+                                "Backside": {"SG_LAM_GE1834": a}},
+            },
+            "edges": {},
+        }}
+
+    def test_one_sheet_per_board_per_face(self):
+        inputs = self._inputs()
+        result = consolidate.consolidate(inputs)
+        rows = {r["panel"]: r for r in consolidate.press_list(inputs, result["materials"])}
+        v0 = rows[self.PANEL_V0]
+        self.assertEqual(v0["boards"], 2)
+        # both faces internal: 2 sheets front + 2 back, same code
+        self.assertEqual(sorted((f["face"], f["code"], f["sheets"]) for f in v0["faces"]),
+                         [("Backside", "SG_LAM_GE1834", 2.0),
+                          ("Frontside", "SG_LAM_GE1834", 2.0)])
+        v1 = rows[self.PANEL_V1]
+        self.assertEqual([(f["face"], f["code"], f["sheets"]) for f in sorted(
+            v1["faces"], key=lambda f: f["face"])],
+            [("Backside", "SG_LAM_GE1834", 1.0), ("Frontside", "SG_LAM_VM1834", 1.0)])
+
+    def test_press_uses_combined_not_billable(self):
+        # a recovery credit reduces the BILL, never the pressing — the board
+        # exists and gets pasted either way
+        inputs = self._inputs()
+        credited = consolidate.consolidate(inputs, recovery_pct=60)
+        rows = {r["panel"]: r for r in consolidate.press_list(inputs, credited["materials"])}
+        self.assertEqual(rows[self.PANEL_V0]["boards"],
+                         credited["materials"][self.PANEL_V0]["combined"])
+
+    def test_press_reconciles_to_the_bom_laminate(self):
+        # sum of press sheets per code == the laminate the BOM buys (before
+        # credit), because both come off the same panel nest
+        inputs = self._inputs()
+        result = consolidate.consolidate(inputs)
+        totals = {}
+        for r in consolidate.press_list(inputs, result["materials"]):
+            for f in r["faces"]:
+                totals[f["code"]] = totals.get(f["code"], 0.0) + f["sheets"]
+        self.assertEqual(totals["SG_LAM_GE1834"], 5.0)   # 2+2 on V0, 1 on V1 back
+        self.assertEqual(totals["SG_LAM_VM1834"], 1.0)
+        self.assertEqual(result["materials"]["SG_LAM_GE1834"]["combined"], 5)
+        self.assertEqual(result["materials"]["SG_LAM_VM1834"]["combined"], 1)
+
+    def test_a_mixed_face_splits_by_part_area(self):
+        a = 2400.0 * 1180.0
+        inputs = {"X": {
+            "ply": {"PANEL_V1_16mm_GE1834_MIX": [(2400.0, 1180.0)] * 4},
+            "faces": {"PANEL_V1_16mm_GE1834_MIX": {
+                "Frontside": {"SG_LAM_VM1834": a * 3, "SG_LAM_VM6534": a}}},
+            "edges": {},
+        }}
+        result = consolidate.consolidate(inputs)
+        row = consolidate.press_list(inputs, result["materials"])[0]
+        got = {f["code"]: f["sheets"] for f in row["faces"]}
+        self.assertEqual(got, {"SG_LAM_VM1834": 3.0, "SG_LAM_VM6534": 1.0})
