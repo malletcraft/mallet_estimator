@@ -120,8 +120,16 @@ def _resolve_sku(sku):
     if len(matches) > 1:
         frappe.throw(_("SKU code {0} matches {1} Estimate SKUs — address it by name instead.")
                      .format(sku, len(matches)))
-    frappe.throw(_("No Estimate SKU named or coded {0}. Create it on the Estimate first "
-                   "(Add SKUs), or check the component name in SketchUp.").format(sku))
+    # The component was named naturally (LOFT) while the code generator
+    # abbreviates (LOF) — the commonest miss, so the refusal names the
+    # nearest real codes instead of leaving the renamer to guess.
+    import difflib
+    codes = frappe.get_all("Estimate SKU", pluck="sku_code")
+    near = difflib.get_close_matches(sku, [c for c in codes if c], n=3, cutoff=0.6)
+    hint = _(" Did you mean: {0}?").format(", ".join(near)) if near else ""
+    frappe.throw(_("No Estimate SKU named or coded {0}.{1} Create it on the Estimate "
+                   "first (Add SKUs), or rename the component in SketchUp to the "
+                   "exact sku_code.").format(sku, hint))
 
 
 @frappe.whitelist()
