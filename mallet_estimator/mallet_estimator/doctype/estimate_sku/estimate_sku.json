@@ -300,8 +300,7 @@
    "label": "Material Lines",
    "options": "Estimate Material",
    "cannot_add_rows": 1,
-   "description": "Imported from the PDFs (read-only). Use 'Add material row' for extras like a hydraulic lift \u2014 priced from the stock price list.",
-   "hidden": 1
+   "description": "Imported from the part list (read-only) \u2014 pushed from SketchUp or attached as CSV. Use 'Add material row' for extras like a hydraulic lift \u2014 priced from the stock price list."
   },
   {
    "fieldname": "unpriced_materials",
