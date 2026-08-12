@@ -150,3 +150,109 @@ def create_readonly_api_user(email=None, full_name="Mallet Read Only", regenerat
         "doctypes": list(READONLY_DOCTYPES),
         "header": f"Authorization: token {api_key}:{api_secret}",
     }
+
+
+# ---------------------------------------------------------------------------
+# The PLUGIN user — the SketchUp bridge's own identity.
+#
+# The read-only role above exists so an assistant can VERIFY numbers and can
+# never change one. The plugin's job is the opposite: it writes panel part
+# lists. Giving it the reader's keys fails by design (the first live push,
+# 2026-08-11, did exactly that and got 403), and giving it a human's broad
+# keys would park System-Manager powers in a laptop file. So it gets its own
+# user with exactly the two doctypes the push/pull surface touches.
+# ---------------------------------------------------------------------------
+
+PLUGIN_ROLE = "Mallet Plugin"
+PLUGIN_USER = "mallet-plugin@example.invalid"
+
+# read+write Estimate SKU: import_parts_csv loads, mutates and saves the SKU
+# (Items/Files created inside the import use ignore_permissions internally).
+# read Estimate: so a later plugin version can list an estimate's SKU codes.
+PLUGIN_RW_DOCTYPES = ("Estimate SKU",)
+PLUGIN_RO_DOCTYPES = ("Estimate", "Estimate Room")
+
+
+def ensure_plugin_role():
+    """Create the plugin role: read+write on the SKU, read on its context —
+    and every other permission explicitly 0, same defence as the reader."""
+    if not frappe.db.exists("Role", PLUGIN_ROLE):
+        frappe.get_doc({
+            "doctype": "Role", "role_name": PLUGIN_ROLE,
+            "desk_access": 1, "disabled": 0,
+        }).insert(ignore_permissions=True)
+
+    from frappe.permissions import add_permission, update_permission_property
+
+    def pin(dt, allowed):
+        if not frappe.db.exists("DocType", dt):
+            return
+        try:
+            add_permission(dt, PLUGIN_ROLE, 0)
+        except Exception:
+            pass
+        all_perms = ("read", "write", "create", "delete", "submit", "cancel",
+                     "amend", "import", "export", "print", "email", "share",
+                     "report")
+        for perm in all_perms:
+            try:
+                update_permission_property(dt, PLUGIN_ROLE, 0, perm,
+                                           1 if perm in allowed else 0)
+            except Exception:
+                pass
+
+    for dt in PLUGIN_RW_DOCTYPES:
+        pin(dt, ("read", "write"))
+    for dt in PLUGIN_RO_DOCTYPES:
+        pin(dt, ("read",))
+    return PLUGIN_ROLE
+
+
+@frappe.whitelist()
+def create_plugin_api_user(email=None, full_name="Mallet Plugin", regenerate=0):
+    """Create (or re-key) the SketchUp plugin's API user and return its
+    credentials ONCE — same contract as create_readonly_api_user: a lost
+    secret is re-keyed, not recovered, and re-keying is how you revoke."""
+    if not frappe.has_permission("User", "create"):
+        frappe.throw(_("Only an administrator can create the integration user."),
+                     frappe.PermissionError)
+    email = (email or PLUGIN_USER).strip().lower()
+    ensure_plugin_role()
+
+    if frappe.db.exists("User", email):
+        user = frappe.get_doc("User", email)
+        if not int(regenerate or 0):
+            frappe.throw(
+                _("<b>{0}</b> already exists. Tick <b>Regenerate keys</b> to issue a "
+                  "new key and secret — the old pair stops working immediately, which "
+                  "is also how you revoke access.").format(email),
+                title=_("User already exists"))
+    else:
+        user = frappe.get_doc({
+            "doctype": "User", "email": email, "first_name": full_name,
+            "user_type": "System User",
+            "send_welcome_email": 0,
+            "enabled": 1,
+        })
+        user.flags.ignore_permissions = True
+        user.insert(ignore_permissions=True)
+
+    user.set("roles", [])
+    user.append("roles", {"role": PLUGIN_ROLE})
+    api_key = frappe.generate_hash(length=15)
+    api_secret = frappe.generate_hash(length=15)
+    user.api_key = api_key
+    user.api_secret = api_secret
+    user.flags.ignore_permissions = True
+    user.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "user": email,
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "role": PLUGIN_ROLE,
+        "read_write": list(PLUGIN_RW_DOCTYPES),
+        "read_only": list(PLUGIN_RO_DOCTYPES),
+        "header": f"Authorization: token {api_key}:{api_secret}",
+    }

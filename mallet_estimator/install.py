@@ -257,6 +257,10 @@ def sync_readonly_role():
     from mallet_estimator import integration
     if frappe.db.exists("Role", integration.READONLY_ROLE):
         integration.ensure_readonly_role()
+    # Same contract for the plugin writer role: re-pin where it exists,
+    # never mint it on a site that merely upgraded.
+    if frappe.db.exists("Role", integration.PLUGIN_ROLE):
+        integration.ensure_plugin_role()
 
 
 def ensure_rooms():
