@@ -42,20 +42,20 @@ jobs:
           FC_SITE: ${{ vars.FC_SITE != '' && vars.FC_SITE || 'mcft-stg.frappe.cloud' }}
           FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
           FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+        # Best-effort: team API keys are refused by some press job endpoints
+        # ("API access not permitted"), so every probe here tolerates failure
+        # and the step never turns the run red — the bench probe above is the
+        # authoritative part of this workflow.
+        continue-on-error: true
         run: |
-          set -euo pipefail
-          jobs=$(curl -sSL -X POST "https://$FC_HOST/api/method/press.api.site.jobs" \
-            -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
-            -d "{\"name\":\"$FC_SITE\",\"start\":0}")
-          echo "$jobs" | jq -r '.message[:8][] | "\(.creation) \(.status) \(.job_type // .name)"' || echo "$jobs" | head -c 2000
-          failed=$(echo "$jobs" | jq -r '[.message[] | select(.status=="Failure")][0].name // empty')
-          if [ -n "$failed" ]; then
-            echo "--- failed job $failed ---"
-            curl -sSL -X POST "https://$FC_HOST/api/method/press.api.site.job" \
+          set -uo pipefail
+          probe() {  # probe <method> <json-body>
+            echo "--- $1 $2"
+            curl -sSL --max-time 30 -X POST "https://$FC_HOST/api/method/$1" \
               -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
-              -d "{\"job\":\"$failed\"}" \
-            | jq -r '.message.steps[]? | select(.status != "Success") | "== \(.step_name) [\(.status)]\n\(.output // "")"' \
-              || true
-          else
-            echo "no failed site job in the recent window"
-          fi
+              -d "$2" | head -c 4000; echo
+          }
+          probe press.api.site.jobs "{\"name\":\"$FC_SITE\",\"start\":0}"
+          probe press.api.site.get "{\"name\":\"$FC_SITE\"}"
+          probe press.api.site.overview "{\"name\":\"$FC_SITE\"}"
+          probe press.api.client.get_list "{\"doctype\":\"Agent Job\",\"filters\":{\"site\":\"$FC_SITE\"},\"fields\":[\"name\",\"job_type\",\"status\",\"creation\"],\"limit\":8,\"order_by\":\"creation desc\"}"
