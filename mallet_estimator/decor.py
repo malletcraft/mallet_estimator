@@ -242,6 +242,20 @@ def slot_key(code):
     return toks[0][0] + re.sub(r"^[a-z]", "", toks[-1])
 
 
+def panel_slots(code):
+    """EVERY slot instance a ply placeholder carries — a panel has two faces,
+    so SG_PLY_V1_a_b names TWO laminates (internal a, external b), where
+    slot_key would keep only the deciding first one. The paste-rename suffix
+    rides the whole material definition, so it applies to each letter:
+    SG_PLY_V1_a_b → ['a','b']; SG_PLY_V2_b_c1 → ['b1','c1'];
+    SG_PLY_V0_a_a → ['a']; no trailing slots → []."""
+    toks = trailing_slots(code)
+    if not toks:
+        return []
+    suffix = re.sub(r"^[a-z]", "", toks[-1])
+    return sorted({t[0] + suffix for t in toks})
+
+
 def short_code(parsed):
     """The décor SHORT code that replaces the slot letters in a real item name:
     explicit Short= label wins; else brand initials (multi-word: 'Virgo Mica' →

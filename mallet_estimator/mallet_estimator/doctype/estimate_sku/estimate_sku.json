@@ -23,10 +23,15 @@
   "include_misc",
   "spec_section",
   "outer_w",
+  "column_break_spec_outer_d",
   "outer_d",
+  "column_break_spec_outer_h",
   "outer_h",
+  "column_break_spec_finish",
   "finish",
+  "spec_detail_section",
   "description",
+  "column_break_spec_detail",
   "article_image",
   "views_images",
   "material_section",
@@ -44,12 +49,14 @@
   "sku_decor_edges",
   "reset_decor_map_btn",
   "apply_decor_map_btn",
+  "material_money_section",
   "material_cost",
-  "material_tax_total",
-  "material_tax_saved_total",
-  "client_supplied_value",
-  "material_total_with_tax",
   "material_discount_total",
+  "material_tax_total",
+  "column_break_material_money",
+  "material_tax_saved_total",
+  "material_total_with_tax",
+  "client_supplied_value",
   "joinery_section",
   "joinery_items",
   "joinery_cost",
@@ -218,9 +225,17 @@
    "label": "Outer Width (mm)"
   },
   {
+   "fieldname": "column_break_spec_outer_d",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "outer_d",
    "fieldtype": "Float",
    "label": "Outer Depth (mm)"
+  },
+  {
+   "fieldname": "column_break_spec_outer_h",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "outer_h",
@@ -228,14 +243,26 @@
    "label": "Outer Height (mm)"
   },
   {
+   "fieldname": "column_break_spec_finish",
+   "fieldtype": "Column Break"
+  },
+  {
    "fieldname": "finish",
    "fieldtype": "Data",
    "label": "Finish"
   },
   {
+   "fieldname": "spec_detail_section",
+   "fieldtype": "Section Break"
+  },
+  {
    "fieldname": "description",
    "fieldtype": "Small Text",
    "label": "Description (shown on client estimate)"
+  },
+  {
+   "fieldname": "column_break_spec_detail",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "article_image",
@@ -266,6 +293,25 @@
    "description": "Standard: OCL Material Estimate PDF + Part List PDF. CSV-Nest: only the Part List CSV \u2014 sheet counts computed by the calibrated nesting engine (7Views PDF unchanged).",
    "allow_in_quick_entry": 1,
    "hidden": 1
+  },
+  {
+   "fieldname": "work_type",
+   "fieldtype": "Select",
+   "label": "Work Type",
+   "options": "New Work\nRepair\nSupply & Install",
+   "default": "New Work",
+   "bold": 1,
+   "in_standard_filter": 1,
+   "allow_in_quick_entry": 1,
+   "description": "New Work builds an article from its parts. Repair prices ACTIVITIES on things that already exist. Supply & Install buys a FINISHED article elsewhere and fits it \u2014 no parts, no nesting, and the margin question is different because the client can price-check what you bought."
+  },
+  {
+   "fieldname": "parts_csv",
+   "fieldtype": "Attach",
+   "label": "OpenCutList Part List CSV",
+   "print_hide": 1,
+   "description": "The part list is the estimate. Its parts are nested with every other SKU on the estimate, so each price carries the shared-sheet saving.",
+   "depends_on": "eval:!doc.work_type || doc.work_type=='New Work' || doc.parts_csv"
   },
   {
    "fieldname": "estimate_pdf",
@@ -311,9 +357,105 @@
    "print_hide": 1
   },
   {
+   "fieldname": "decor_section",
+   "fieldtype": "Section Break",
+   "label": "D\u00e9cor Map \u2014 laminate and edge band",
+   "collapsible": 0,
+   "description": "One row per slot the material lines use. Search an existing d\u00e9cor or create one inline; every line carrying that slot re-points on save."
+  },
+  {
+   "fieldname": "sku_decors",
+   "fieldtype": "Table",
+   "label": "Laminates (a, b \u2026)",
+   "options": "Estimate SKU Decor",
+   "description": "MASTER map: what each laminate slot letter means for THIS SKU. Sheet is always 1220 x 2440 \u2014 only thickness varies. Edit + Save re-points the material lines."
+  },
+  {
+   "fieldname": "sku_decor_edges",
+   "fieldtype": "Table",
+   "label": "Edge Bands",
+   "options": "Estimate SKU Decor Edge",
+   "description": "Edge-band slots. Defaults: 22 x 0.8 mm (50 x 1 mm when ply is thicker than 18 mm)."
+  },
+  {
+   "fieldname": "reset_decor_map_btn",
+   "fieldtype": "Button",
+   "label": "Rebuild D\u00e9cor Slots (report what changed)",
+   "description": "The map is rebuilt from the material lines on every save, so it can never hold a slot the OpenCutList codes do not use. This says what the last rebuild kept, dropped and added."
+  },
+  {
+   "fieldname": "apply_decor_map_btn",
+   "fieldtype": "Button",
+   "label": "Apply D\u00e9cor Map",
+   "description": "Saves and re-points the laminate/edge material lines at the mapped d\u00e9cors \u2014 check the Materials table after."
+  },
+  {
+   "fieldname": "material_money_section",
+   "fieldtype": "Section Break",
+   "label": "Material Money (this SKU)"
+  },
+  {
    "fieldname": "material_cost",
    "fieldtype": "Currency",
    "label": "Material Cost",
+   "read_only": 1,
+   "print_hide": 1
+  },
+  {
+   "fieldname": "material_discount_total",
+   "fieldtype": "Currency",
+   "label": "Material Discount (this SKU)",
+   "read_only": 1,
+   "description": "Sum of the per-line discounts on this SKU's material lines."
+  },
+  {
+   "fieldname": "material_tax_total",
+   "fieldtype": "Currency",
+   "label": "Material Tax (this SKU)",
+   "read_only": 1,
+   "description": "Tax on the discounted material lines at each line's applied rate (stock prices are pre-tax)."
+  },
+  {
+   "fieldname": "column_break_material_money",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "material_tax_saved_total",
+   "fieldtype": "Currency",
+   "label": "GST Saved (this SKU)",
+   "read_only": 1,
+   "description": "Standard rate minus applied rate, summed over this SKU\u2019s material lines. 18% standard charged at 9% shows the 9% not charged."
+  },
+  {
+   "fieldname": "material_total_with_tax",
+   "fieldtype": "Currency",
+   "label": "Material incl. Tax (this SKU)",
+   "read_only": 1,
+   "description": "Discounted material cost + its tax \u2014 what this SKU's material actually lands at."
+  },
+  {
+   "fieldname": "client_supplied_value",
+   "fieldtype": "Currency",
+   "label": "Client-Supplied Material (landed value)",
+   "read_only": 1,
+   "description": "What the material the CLIENT buys is worth, landed. Never part of our cost \u2014 shown so the estimate reads as the whole job."
+  },
+  {
+   "fieldname": "joinery_section",
+   "fieldtype": "Section Break",
+   "label": "Joinery Consumables (derived from Sheet Lamination)",
+   "description": "Fevicol + Abrotape auto-computed from the Sheet Lamination qty (3 packets + 11 m tape per laminated sheet). Use these quantities to raise the purchase order \u2014 Abrotape is bought in 20 m rolls."
+  },
+  {
+   "fieldname": "joinery_items",
+   "fieldtype": "Table",
+   "label": "Joinery Consumables",
+   "options": "Estimate Consumable"
+  },
+  {
+   "fieldname": "joinery_cost",
+   "fieldtype": "Currency",
+   "label": "Joinery Consumables Cost",
    "read_only": 1,
    "print_hide": 1
   },
@@ -359,25 +501,6 @@
    "collapsible_depends_on": "eval:false",
    "description": "Execution-phase inputs. The Parts CSV, cut diagrams and labels are used on the shop floor after the estimate is approved \u2014 they do not affect the estimate.",
    "hidden": 1
-  },
-  {
-   "fieldname": "work_type",
-   "fieldtype": "Select",
-   "label": "Work Type",
-   "options": "New Work\nRepair\nSupply & Install",
-   "default": "New Work",
-   "bold": 1,
-   "in_standard_filter": 1,
-   "allow_in_quick_entry": 1,
-   "description": "New Work builds an article from its parts. Repair prices ACTIVITIES on things that already exist. Supply & Install buys a FINISHED article elsewhere and fits it \u2014 no parts, no nesting, and the margin question is different because the client can price-check what you bought."
-  },
-  {
-   "fieldname": "parts_csv",
-   "fieldtype": "Attach",
-   "label": "OpenCutList Part List CSV",
-   "print_hide": 1,
-   "description": "The part list is the estimate. Its parts are nested with every other SKU on the estimate, so each price carries the shared-sheet saving.",
-   "depends_on": "eval:!doc.work_type || doc.work_type=='New Work' || doc.parts_csv"
   },
   {
    "fieldname": "parts",
@@ -510,25 +633,6 @@
    "print_hide": 1
   },
   {
-   "fieldname": "joinery_section",
-   "fieldtype": "Section Break",
-   "label": "Joinery Consumables (derived from Sheet Lamination)",
-   "description": "Fevicol + Abrotape auto-computed from the Sheet Lamination qty (3 packets + 11 m tape per laminated sheet). Use these quantities to raise the purchase order \u2014 Abrotape is bought in 20 m rolls."
-  },
-  {
-   "fieldname": "joinery_items",
-   "fieldtype": "Table",
-   "label": "Joinery Consumables",
-   "options": "Estimate Consumable"
-  },
-  {
-   "fieldname": "joinery_cost",
-   "fieldtype": "Currency",
-   "label": "Joinery Consumables Cost",
-   "read_only": 1,
-   "print_hide": 1
-  },
-  {
    "fieldname": "design_section",
    "fieldtype": "Section Break",
    "label": "Design Labor"
@@ -542,6 +646,13 @@
    "cannot_add_rows": 1
   },
   {
+   "fieldname": "design_cost",
+   "fieldtype": "Currency",
+   "label": "Design Cost",
+   "read_only": 1,
+   "print_hide": 1
+  },
+  {
    "fieldname": "design_hours",
    "fieldtype": "Float",
    "label": "Design Hours (legacy)",
@@ -552,13 +663,6 @@
    "fieldtype": "Currency",
    "label": "Flat Design Charge (legacy)",
    "hidden": 1
-  },
-  {
-   "fieldname": "design_cost",
-   "fieldtype": "Currency",
-   "label": "Design Cost",
-   "read_only": 1,
-   "print_hide": 1
   },
   {
    "fieldname": "transport_section",
@@ -603,27 +707,6 @@
    "read_only": 1,
    "hidden": 1,
    "print_hide": 1
-  },
-  {
-   "fieldname": "decor_section",
-   "fieldtype": "Section Break",
-   "label": "D\u00e9cor Map \u2014 laminate and edge band",
-   "collapsible": 0,
-   "description": "One row per slot the material lines use. Search an existing d\u00e9cor or create one inline; every line carrying that slot re-points on save."
-  },
-  {
-   "fieldname": "sku_decors",
-   "fieldtype": "Table",
-   "label": "Laminates (a, b \u2026)",
-   "options": "Estimate SKU Decor",
-   "description": "MASTER map: what each laminate slot letter means for THIS SKU. Sheet is always 1220 x 2440 \u2014 only thickness varies. Edit + Save re-points the material lines."
-  },
-  {
-   "fieldname": "sku_decor_edges",
-   "fieldtype": "Table",
-   "label": "Edge Bands",
-   "options": "Estimate SKU Decor Edge",
-   "description": "Edge-band slots. Defaults: 22 x 0.8 mm (50 x 1 mm when ply is thicker than 18 mm)."
   },
   {
    "fieldname": "margins_section",
@@ -695,6 +778,13 @@
    "label": "Cost Summary"
   },
   {
+   "fieldname": "rates_frozen",
+   "fieldtype": "Check",
+   "label": "Rates Frozen (quoted)",
+   "read_only": 1,
+   "description": "Set when this SKU's Estimate is submitted/quoted \u2014 material re-imports and re-pricing are locked; price-list changes no longer affect this estimate."
+  },
+  {
    "fieldname": "machine_cost",
    "fieldtype": "Currency",
    "label": "Machine (depreciation)",
@@ -754,60 +844,6 @@
    "bold": 1,
    "precision": "1",
    "description": "max(carpenter, helper) minutes / 360 productive min per day"
-  },
-  {
-   "fieldname": "rates_frozen",
-   "fieldtype": "Check",
-   "label": "Rates Frozen (quoted)",
-   "read_only": 1,
-   "description": "Set when this SKU's Estimate is submitted/quoted \u2014 material re-imports and re-pricing are locked; price-list changes no longer affect this estimate."
-  },
-  {
-   "fieldname": "reset_decor_map_btn",
-   "fieldtype": "Button",
-   "label": "Rebuild D\u00e9cor Slots (report what changed)",
-   "description": "The map is rebuilt from the material lines on every save, so it can never hold a slot the OpenCutList codes do not use. This says what the last rebuild kept, dropped and added."
-  },
-  {
-   "fieldname": "apply_decor_map_btn",
-   "fieldtype": "Button",
-   "label": "Apply D\u00e9cor Map",
-   "description": "Saves and re-points the laminate/edge material lines at the mapped d\u00e9cors \u2014 check the Materials table after."
-  },
-  {
-   "fieldname": "material_discount_total",
-   "fieldtype": "Currency",
-   "label": "Material Discount (this SKU)",
-   "read_only": 1,
-   "description": "Sum of the per-line discounts on this SKU's material lines."
-  },
-  {
-   "fieldname": "material_tax_total",
-   "fieldtype": "Currency",
-   "label": "Material Tax (this SKU)",
-   "read_only": 1,
-   "description": "Tax on the discounted material lines at each line's applied rate (stock prices are pre-tax)."
-  },
-  {
-   "fieldname": "material_total_with_tax",
-   "fieldtype": "Currency",
-   "label": "Material incl. Tax (this SKU)",
-   "read_only": 1,
-   "description": "Discounted material cost + its tax \u2014 what this SKU's material actually lands at."
-  },
-  {
-   "fieldname": "material_tax_saved_total",
-   "fieldtype": "Currency",
-   "label": "GST Saved (this SKU)",
-   "read_only": 1,
-   "description": "Standard rate minus applied rate, summed over this SKU\u2019s material lines. 18% standard charged at 9% shows the 9% not charged."
-  },
-  {
-   "fieldname": "client_supplied_value",
-   "fieldtype": "Currency",
-   "label": "Client-Supplied Material (landed value)",
-   "read_only": 1,
-   "description": "What the material the CLIENT buys is worth, landed. Never part of our cost \u2014 shown so the estimate reads as the whole job."
   }
  ],
  "links": [],

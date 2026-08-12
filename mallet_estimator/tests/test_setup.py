@@ -84,6 +84,19 @@ class TestMasters(MalletTestCase):
             for p in ("write", "create", "delete"):
                 self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
 
+    def test_the_desk_ui_doctypes_are_readable_but_not_writable(self):
+        # Page/Workspace read is what lets the reader RENDER a desk form —
+        # see the layout a user sees — while staying strictly read-only.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        for dt in integration.READONLY_UI_DOCTYPES:
+            perm = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.READONLY_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            self.assertTrue(perm and perm.read, f"{dt} should be readable")
+            for p in ("write", "create", "delete"):
+                self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
+
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
         integration.ensure_readonly_role()

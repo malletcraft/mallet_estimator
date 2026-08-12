@@ -56,3 +56,7 @@ mallet_estimator.patches.recode_skus_to_current_naming
 # thickness, and each survivor inherits the highest assumed rate that collapsed
 # onto it. Reads Item custom fields the model sync owns, so post-model-sync.
 mallet_estimator.patches.collapse_board_item_codes
+# Stale per-user grid layouts (saved before the Décor search column existed)
+# hide it on the Laminates grid. Clears saved layouts once; post-model-sync so
+# the current DocField defaults are what users fall back to.
+mallet_estimator.patches.reset_decor_grid_columns

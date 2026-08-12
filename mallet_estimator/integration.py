@@ -45,6 +45,15 @@ READONLY_DOCTYPES = (
     "Supplier Rate Sheet",
 )
 
+# Desk UI metadata, not business data: reading these lets the reader RENDER a
+# form in a browser (the desk router refuses to route without Page read), so
+# an assistant can SEE what a user sees instead of inferring it from doctype
+# JSON. Pinned by the same explicit-zero loop as the business doctypes.
+READONLY_UI_DOCTYPES = (
+    "Page",
+    "Workspace",
+)
+
 # Reading a cost is now allowed; changing one never is. That is the whole
 # guarantee this role makes, and role_is_read_only() asserts it.
 COST_DOCTYPES = ("Estimate Settings", "Supplier Rate Sheet")
@@ -65,7 +74,7 @@ def ensure_readonly_role():
 
     from frappe.permissions import add_permission, update_permission_property
 
-    for dt in READONLY_DOCTYPES:
+    for dt in READONLY_DOCTYPES + READONLY_UI_DOCTYPES:
         if not frappe.db.exists("DocType", dt):
             continue
         try:

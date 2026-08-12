@@ -164,6 +164,18 @@ class TestDecor(unittest.TestCase):
         self.assertEqual(decor.material_slots("EB_PVC_EX_c"), ["c"])
         self.assertEqual(decor.material_slots("SG_PLY_V0_a_a"), [])
 
+    def test_panel_slots(self):
+        # A panel names a laminate per FACE — slot_key keeps only the deciding
+        # first letter (right for SG_LAM), panel_slots keeps both (for SG_PLY,
+        # where the second face's laminate must exist in the décor map even
+        # before any SG_LAM line arrives to claim it).
+        from mallet_estimator import decor
+        self.assertEqual(decor.panel_slots("SG_PLY_V1_a_b"), ["a", "b"])
+        self.assertEqual(decor.panel_slots("SG_PLY_V0_a_a"), ["a"])
+        self.assertEqual(decor.panel_slots("SG_PLY_V2_b_c1"), ["b1", "c1"])
+        self.assertEqual(decor.panel_slots("SG_PLY_V0_12mm"), [])
+        self.assertEqual(decor.slot_key("SG_PLY_V1_a_b"), "a")
+
     def test_multi_slot_description(self):
         from mallet_estimator import decor
         out = decor.parse_description("b=Merino 6534; c=RT 6575 Black Marmor", "SG_PLY_V2_b_c")

@@ -326,14 +326,21 @@ class EstimateSKU(Document):
         laminate c to map."""
         live_lam, live_eb = set(), set()
         for m in self.materials or []:
-            up = str(m.material or "").upper()
-            key = decor.slot_key(str(m.material or ""))
-            if not key:
-                continue
+            code = str(m.material or "")
+            up = code.upper()
             if up.startswith("EB_"):
-                live_eb.add(key)
-            elif up.startswith("SG_LAM") or up.startswith("SG_PLY"):
-                live_lam.add(key)
+                key = decor.slot_key(code)
+                if key:
+                    live_eb.add(key)
+            elif up.startswith("SG_PLY"):
+                # A panel names a laminate per FACE: SG_PLY_V1_a_b uses both
+                # a and b, so the map must offer both even before any SG_LAM
+                # line exists to claim the second one.
+                live_lam.update(decor.panel_slots(code))
+            elif up.startswith("SG_LAM"):
+                key = decor.slot_key(code)
+                if key:
+                    live_lam.add(key)
         return live_lam, live_eb
 
     def sync_decor_slots(self):
