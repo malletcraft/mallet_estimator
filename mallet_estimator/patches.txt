@@ -60,3 +60,7 @@ mallet_estimator.patches.collapse_board_item_codes
 # hide it on the Laminates grid. Clears saved layouts once; post-model-sync so
 # the current DocField defaults are what users fall back to.
 mallet_estimator.patches.reset_decor_grid_columns
+# Three item-grammar generations coexisted; only the newest is real. Disables
+# the superseded laminate/edge codes (letter placeholders stay — they are the
+# working unmapped state). Data-only, so post-model-sync.
+mallet_estimator.patches.retire_stale_decor_items
