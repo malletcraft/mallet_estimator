@@ -30,3 +30,32 @@ jobs:
             mallet_estimator: (.message.apps[]? | select(.app=="mallet_estimator")
               | {current_hash, current_tag, next_release, update_available})
           }'
+
+      # A deploy that builds green but never moves the site fails INSIDE a site
+      # agent job (Update Site / Migrate Site), whose traceback is otherwise
+      # only on the dashboard. Surface the recent jobs and the failed one's
+      # step output here, so a stalled deploy can be diagnosed without a human
+      # opening the FC dashboard.
+      - name: Recent site agent jobs (+ failed job detail)
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_SITE: ${{ vars.FC_SITE != '' && vars.FC_SITE || 'mcft-stg.frappe.cloud' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+        run: |
+          set -euo pipefail
+          jobs=$(curl -sSL -X POST "https://$FC_HOST/api/method/press.api.site.jobs" \
+            -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
+            -d "{\"name\":\"$FC_SITE\",\"start\":0}")
+          echo "$jobs" | jq -r '.message[:8][] | "\(.creation) \(.status) \(.job_type // .name)"' || echo "$jobs" | head -c 2000
+          failed=$(echo "$jobs" | jq -r '[.message[] | select(.status=="Failure")][0].name // empty')
+          if [ -n "$failed" ]; then
+            echo "--- failed job $failed ---"
+            curl -sSL -X POST "https://$FC_HOST/api/method/press.api.site.job" \
+              -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
+              -d "{\"job\":\"$failed\"}" \
+            | jq -r '.message.steps[]? | select(.status != "Success") | "== \(.step_name) [\(.status)]\n\(.output // "")"' \
+              || true
+          else
+            echo "no failed site job in the recent window"
+          fi
