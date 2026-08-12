@@ -64,3 +64,8 @@ mallet_estimator.patches.reset_decor_grid_columns
 # the superseded laminate/edge codes (letter placeholders stay — they are the
 # working unmapped state). Data-only, so post-model-sync.
 mallet_estimator.patches.retire_stale_decor_items
+# A laminate and its matching edge band share brand+code by nature, so the
+# {brand} {code} autoname collided across domains. Renames existing decors to
+# the domain-carrying shape. Data rename after the model carries the new
+# autoname, so post-model-sync.
+mallet_estimator.patches.rename_decors_with_domain

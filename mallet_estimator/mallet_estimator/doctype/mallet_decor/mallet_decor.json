@@ -1,6 +1,6 @@
 {
  "actions": [],
- "autoname": "format:{brand} {code}",
+ "autoname": "format:{brand} {code} ({domain})",
  "creation": "2026-08-07 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
