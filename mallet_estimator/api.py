@@ -106,13 +106,32 @@ def version_info():
     return out
 
 
+def _resolve_sku(sku):
+    """An Estimate SKU addressed by NAME (MEST-SKU-00008) or by SKU CODE
+    (YS_MB_WAR). The code path is what the SketchUp plugin uses: with one
+    container model per project, each article is a component NAMED with its
+    sku_code (Amit, 2026-08-11), so the component name IS the address and
+    nobody re-types document ids into SketchUp."""
+    if frappe.db.exists("Estimate SKU", sku):
+        return frappe.get_doc("Estimate SKU", sku)
+    matches = frappe.get_all("Estimate SKU", filters={"sku_code": sku}, pluck="name")
+    if len(matches) == 1:
+        return frappe.get_doc("Estimate SKU", matches[0])
+    if len(matches) > 1:
+        frappe.throw(_("SKU code {0} matches {1} Estimate SKUs — address it by name instead.")
+                     .format(sku, len(matches)))
+    frappe.throw(_("No Estimate SKU named or coded {0}. Create it on the Estimate first "
+                   "(Add SKUs), or check the component name in SketchUp.").format(sku))
+
+
 @frappe.whitelist()
 def import_parts_csv(sku, csv_content, filename=None):
     """Attach an OpenCutList Part List CSV to the SKU, switch it to CSV-Nest
     mode, run the import (nesting, décor slots, ops, costing) and return the
     result the caller needs to display: nest details, part-list-vs-views
-    issues, unpriced materials, and the client totals."""
-    doc = frappe.get_doc("Estimate SKU", sku)
+    issues, unpriced materials, and the client totals. `sku` may be the
+    document name or the sku_code (see _resolve_sku)."""
+    doc = _resolve_sku(sku)
     doc.check_permission("write")
     if doc.get("rates_frozen"):
         frappe.throw(_("Rates are frozen (quoted) — amend/cancel the Estimate first."))
@@ -179,8 +198,8 @@ def get_sku_context(sku):
     """Everything the SketchUp side needs to set a model up for this SKU:
     identity (customer/project/room/code), the décor slot map (which generic
     codes to paint with), current material lines with rates, and state flags.
-    Read-only."""
-    doc = frappe.get_doc("Estimate SKU", sku)
+    Read-only. `sku` may be the document name or the sku_code."""
+    doc = _resolve_sku(sku)
     doc.check_permission("read")
     return {
         "sku": doc.name,
