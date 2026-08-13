@@ -1,0 +1,39 @@
+name: FC update now (site move)
+
+# Manual equivalent of the dashboard's Site -> Updates -> "Update Now": ask
+# Frappe Cloud to move the site onto its already-built pending bench. Exists
+# because deploy_and_update sometimes builds the bench without queuing the
+# site move (2026-08-12, three times), and team API keys cannot schedule the
+# move through press.api.site.* — but the dashboard itself works through the
+# press.api.client CRUD family, which DOES answer our key (get_list proved
+# it). Mutation, so manual-only; it moves the site to code that is already
+# shipped and CI-green on main, nothing else.
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect pending Site Updates, then schedule one
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_SITE: ${{ vars.FC_SITE != '' && vars.FC_SITE || 'mcft-stg.frappe.cloud' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+        run: |
+          set -uo pipefail
+          call() {  # call <method> <json-body>
+            echo "--- $1 $2"
+            curl -sSL --max-time 30 -X POST "https://$FC_HOST/api/method/$1" \
+              -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
+              -d "$2" | head -c 3000; echo
+          }
+          # What Site Updates already exist (shape + whether one is pending)
+          call press.api.client.get_list "{\"doctype\":\"Site Update\",\"filters\":{\"site\":\"$FC_SITE\"},\"fields\":[\"name\",\"status\",\"creation\",\"deploy_type\"],\"limit\":5,\"order_by\":\"creation desc\"}"
+          # The dashboard's Update Now, by its two known spellings — first one
+          # that answers wins; both failing means the key cannot do this.
+          call press.api.site.update "{\"name\":\"$FC_SITE\"}"
+          call press.api.client.insert "{\"doc\":{\"doctype\":\"Site Update\",\"site\":\"$FC_SITE\"}}"
+          # Read back — did a new Site Update appear?
+          call press.api.client.get_list "{\"doctype\":\"Site Update\",\"filters\":{\"site\":\"$FC_SITE\"},\"fields\":[\"name\",\"status\",\"creation\"],\"limit\":3,\"order_by\":\"creation desc\"}"
