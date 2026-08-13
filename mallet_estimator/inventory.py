@@ -130,6 +130,15 @@ def stock_uom_for(kind):
     return KIND_SPEC.get(kind or "hardware", KIND_SPEC["hardware"])["stock_uom"]
 
 
+# Items whose stock unit differs from their kind's default. WHOEVER creates
+# the Item first decides its UOM forever (ensure_material_item never edits an
+# existing Item's unit, and _ensure_abrotape early-returns on exists) — so the
+# generic creation path must know these, not just the seeding patch.
+STOCK_UOM_OVERRIDES = {
+    "JH_Abrotape": "Meter",   # tape stocked per meter, bought in 20 m rolls
+}
+
+
 def parse_material_code(name):
     """F3 — decode a sheet/laminate code into its structural attributes:
       SG_PLY_V{v}_{int}_{ext}[_{th}mm]   (plywood core)
@@ -619,7 +628,8 @@ def ensure_material_item(name, kind=None, thickness=0, dims=None):
         item.item_name = (name or code)[:140]
         item.item_group = group if frappe.db.exists("Item Group", group) else \
             (spec["group"] if frappe.db.exists("Item Group", spec["group"]) else _fallback_group())
-        item.stock_uom = spec["stock_uom"] if frappe.db.exists("UOM", spec["stock_uom"]) else "Nos"
+        uom = STOCK_UOM_OVERRIDES.get(code, spec["stock_uom"])
+        item.stock_uom = uom if frappe.db.exists("UOM", uom) else "Nos"
         item.is_stock_item = 1
         item.is_purchase_item = 1
         if meta.has_field("include_item_in_manufacturing"):
@@ -707,7 +717,8 @@ def ensure_catalogue_item(part_no, description=None, manufacturer=None, kind="ha
         item.item_code = code
         item.item_name = (description or code)[:140]
         item.item_group = group if frappe.db.exists("Item Group", group) else _fallback_group()
-        item.stock_uom = spec["stock_uom"] if frappe.db.exists("UOM", spec["stock_uom"]) else "Nos"
+        uom = STOCK_UOM_OVERRIDES.get(code, spec["stock_uom"])
+        item.stock_uom = uom if frappe.db.exists("UOM", uom) else "Nos"
         item.is_stock_item = 1
         item.is_purchase_item = 1
         if meta.has_field("include_item_in_manufacturing"):
