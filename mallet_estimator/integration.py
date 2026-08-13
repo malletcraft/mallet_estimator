@@ -265,3 +265,137 @@ def create_plugin_api_user(email=None, full_name="Mallet Plugin", regenerate=0):
         "read_only": list(PLUGIN_RO_DOCTYPES),
         "header": f"Authorization: token {api_key}:{api_secret}",
     }
+
+
+# ---------------------------------------------------------------------------
+# The DATA STEWARD — the assistant's writing hand for DATA fixes.
+#
+# Data fixes and code fixes are different things (Amit, 2026-08-13): a wrong
+# UOM, a stale item, a decor row pointing nowhere should be corrected in
+# minutes over the API, not ride a CI build + bench deploy the way CODE must.
+# The steward writes operational DATA; it still cannot touch a rate — keying
+# money stays a human act on every assistant identity, by design, and
+# steward_is_rate_safe() asserts it the way role_is_read_only() asserts the
+# reader.
+# ---------------------------------------------------------------------------
+
+STEWARD_ROLE = "Mallet Data Steward"
+STEWARD_USER = "data-steward-claude@malletcrafts.com"
+
+# Operational data: full lifecycle (Estimate is submittable, so a fix may need
+# cancel -> amend). Item gets no delete: history-carrying masters retire by
+# `disabled`, never by deletion.
+STEWARD_RWC_DOCTYPES = ("Estimate", "Estimate SKU", "Mallet Decor",
+                        "Estimate Room", "File")
+STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM")
+# Money: LISTED here so the exclusion is explicit and asserted, not implied.
+STEWARD_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price")
+
+
+def ensure_steward_role():
+    """Create the steward role: write on operational data, explicit zero on
+    everything money — the same explicit-zero pinning as the reader and the
+    plugin, including rows for the FORBIDDEN doctypes so an upgrade shipping
+    new defaults cannot quietly widen them."""
+    if not frappe.db.exists("Role", STEWARD_ROLE):
+        frappe.get_doc({
+            "doctype": "Role", "role_name": STEWARD_ROLE,
+            "desk_access": 1, "disabled": 0,
+        }).insert(ignore_permissions=True)
+
+    from frappe.permissions import add_permission, update_permission_property
+
+    def pin(dt, allowed):
+        if not frappe.db.exists("DocType", dt):
+            return
+        try:
+            add_permission(dt, STEWARD_ROLE, 0)
+        except Exception:
+            pass
+        all_perms = ("read", "write", "create", "delete", "submit", "cancel",
+                     "amend", "import", "export", "print", "email", "share",
+                     "report")
+        for perm in all_perms:
+            try:
+                update_permission_property(dt, STEWARD_ROLE, 0, perm,
+                                           1 if perm in allowed else 0)
+            except Exception:
+                pass
+
+    for dt in STEWARD_RWC_DOCTYPES:
+        pin(dt, ("read", "write", "create", "delete", "submit", "cancel",
+                 "amend", "export", "report"))
+    for dt in STEWARD_RW_DOCTYPES:
+        pin(dt, ("read", "write", "create", "export", "report"))
+    for dt in STEWARD_FORBIDDEN:
+        pin(dt, ())        # a row of explicit zeros, on purpose
+    # Desk rendering, same read-only grants as the reader.
+    for dt in READONLY_UI_DOCTYPES:
+        pin(dt, ("read",))
+    return STEWARD_ROLE
+
+
+def steward_is_rate_safe():
+    """True when the steward role grants NOTHING on the money doctypes.
+    Asserted by verify_setup — the exclusion is the point of the design."""
+    rows = frappe.get_all(
+        "Custom DocPerm",
+        filters={"role": STEWARD_ROLE, "parent": ("in", STEWARD_FORBIDDEN)},
+        fields=["parent", "read", "write", "create", "delete", "submit",
+                "cancel", "amend"])
+    for r in rows:
+        if any(r.get(p) for p in ("read", "write", "create", "delete",
+                                  "submit", "cancel", "amend")):
+            return False, f"{r.parent} grants the steward access to money"
+    return True, f"{len(rows)} money doctype(s) pinned to zero"
+
+
+@frappe.whitelist()
+def create_steward_api_user(email=None, full_name="Mallet Data Steward", regenerate=0):
+    """Create (or re-key) the data steward's API user and return credentials
+    ONCE — same contract as the reader and the plugin: a lost secret is
+    re-keyed, not recovered, and re-keying is how you revoke."""
+    if not frappe.has_permission("User", "create"):
+        frappe.throw(_("Only an administrator can create the integration user."),
+                     frappe.PermissionError)
+    email = (email or STEWARD_USER).strip().lower()
+    ensure_steward_role()
+
+    if frappe.db.exists("User", email):
+        user = frappe.get_doc("User", email)
+        if not int(regenerate or 0):
+            frappe.throw(
+                _("<b>{0}</b> already exists. Tick <b>Regenerate keys</b> to issue a "
+                  "new key and secret — the old pair stops working immediately, which "
+                  "is also how you revoke access.").format(email),
+                title=_("User already exists"))
+    else:
+        user = frappe.get_doc({
+            "doctype": "User", "email": email, "first_name": full_name,
+            "user_type": "System User",
+            "send_welcome_email": 0,
+            "enabled": 1,
+        })
+        user.flags.ignore_permissions = True
+        user.insert(ignore_permissions=True)
+
+    user.set("roles", [])
+    user.append("roles", {"role": STEWARD_ROLE})
+    api_key = frappe.generate_hash(length=15)
+    api_secret = frappe.generate_hash(length=15)
+    user.api_key = api_key
+    user.api_secret = api_secret
+    user.flags.ignore_permissions = True
+    user.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "user": email,
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "role": STEWARD_ROLE,
+        "full_lifecycle": list(STEWARD_RWC_DOCTYPES),
+        "read_write": list(STEWARD_RW_DOCTYPES),
+        "never": list(STEWARD_FORBIDDEN),
+        "header": f"Authorization: token {api_key}:{api_secret}",
+    }

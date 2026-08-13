@@ -261,6 +261,10 @@ def sync_readonly_role():
     # never mint it on a site that merely upgraded.
     if frappe.db.exists("Role", integration.PLUGIN_ROLE):
         integration.ensure_plugin_role()
+    # And for the data steward: data fixes bypass CI/CD, so its pins must
+    # survive upgrades exactly as strictly.
+    if frappe.db.exists("Role", integration.STEWARD_ROLE):
+        integration.ensure_steward_role()
 
 
 def ensure_rooms():

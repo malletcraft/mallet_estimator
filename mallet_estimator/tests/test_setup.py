@@ -97,6 +97,20 @@ class TestMasters(MalletTestCase):
             for p in ("write", "create", "delete"):
                 self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
 
+    def test_the_steward_writes_data_but_never_money(self):
+        # Data fixes bypass CI/CD through the steward — which is exactly why
+        # its money exclusion must be asserted, not implied.
+        from mallet_estimator import integration
+        integration.ensure_steward_role()
+        ok, detail = integration.steward_is_rate_safe()
+        self.assertTrue(ok, detail)
+        perm = frappe.db.get_value(
+            "Custom DocPerm",
+            {"role": integration.STEWARD_ROLE, "parent": "Estimate SKU"},
+            ["read", "write", "create"], as_dict=True)
+        self.assertTrue(perm and perm.read and perm.write and perm.create,
+                        "the steward must be able to FIX an Estimate SKU")
+
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
         integration.ensure_readonly_role()
