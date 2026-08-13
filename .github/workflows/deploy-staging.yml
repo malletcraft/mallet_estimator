@@ -27,6 +27,7 @@ on:
     # the FC deploy queue). A commit that also touches app code still deploys.
     paths-ignore:
       - '.github/**'
+      - '.claude/**'
       - 'cypress/**'
       - 'cypress.config.js'
       - 'mallet_estimator/tests/**'
