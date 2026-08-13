@@ -69,3 +69,7 @@ mallet_estimator.patches.retire_stale_decor_items
 # the domain-carrying shape. Data rename after the model carries the new
 # autoname, so post-model-sync.
 mallet_estimator.patches.rename_decors_with_domain
+# The joinery and wastage changes only show after an import re-runs; re-run it
+# as the deploy so nobody clicks Re-import per SKU. Calls doc.reimport(), which
+# needs the current code, so post-model-sync.
+mallet_estimator.patches.reimport_nest_skus
