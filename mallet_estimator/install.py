@@ -267,6 +267,24 @@ def sync_readonly_role():
         integration.ensure_steward_role()
 
 
+def ensure_core_seed():
+    """Core ERPNext records the estimator cannot live without, created
+    idempotently: fresh sites seed these through ERPNext's own fixtures, but
+    partly in background jobs — CI's tests raced that seeding and lost
+    ('Could not find Warehouse Type: Transit', intermittent, 2026-08-13).
+    A no-op everywhere the records already exist, so safe on every site."""
+    for wt in ("Transit",):
+        if frappe.db.exists("DocType", "Warehouse Type") and \
+                not frappe.db.exists("Warehouse Type", wt):
+            frappe.get_doc({"doctype": "Warehouse Type", "name": wt}).insert(
+                ignore_permissions=True)
+    for uom in ("Nos", "Meter", "Roll", "Sheet"):
+        if not frappe.db.exists("UOM", uom):
+            frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
+                ignore_permissions=True)
+    frappe.db.commit()
+
+
 def ensure_rooms():
     for r in DEFAULT_ROOMS:
         if not frappe.db.exists("Estimate Room", r):

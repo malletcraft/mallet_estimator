@@ -99,6 +99,11 @@ jobs:
         working-directory: frappe-bench
         run: |
           bench --site test_site set-config allow_tests true
+          # ERPNext seeds core records (Warehouse Types, UOMs) partly through
+          # background jobs on fresh sites; on fast runners the tests can start
+          # before that settles ('Could not find Warehouse Type: Transit',
+          # 2026-08-13, intermittent). Make the seed deterministic first.
+          bench --site test_site execute mallet_estimator.install.ensure_core_seed
           bench --site test_site run-tests --app mallet_estimator
 
       - name: Show error logs on failure
