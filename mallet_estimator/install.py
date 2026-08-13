@@ -282,6 +282,13 @@ def ensure_core_seed():
         if not frappe.db.exists("UOM", uom):
             frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
                 ignore_permissions=True)
+    # The stock default group old builds misfiled into — tests simulate that
+    # misfile, and without the group the simulation lands somewhere valid.
+    if frappe.db.exists("Item Group", "All Item Groups") and \
+            not frappe.db.exists("Item Group", "Products"):
+        frappe.get_doc({"doctype": "Item Group", "item_group_name": "Products",
+                        "parent_item_group": "All Item Groups"}).insert(
+            ignore_permissions=True)
     frappe.db.commit()
 
 
@@ -602,10 +609,15 @@ def verify_setup():
 
     # T2 — native GST: item tax template applied on the material groups. A site
     # whose chart of accounts has no Duties-and-Taxes group (bare CI) can't hold
-    # tax accounts — the checks report but never fail there.
+    # tax accounts — the checks report but never fail there. Scoped to the
+    # DEFAULT company: ERPNext's test machinery can conjure a _Test Company
+    # with a full chart mid-run, and accounts on a company this site does not
+    # serve must not flip the verdict (CI, 2026-08-13).
     itt = frappe.db.get_value("Item Tax Template", {"title": ITEM_TAX_TEMPLATE}, "name")
-    has_tax_parent = bool(frappe.db.exists(
-        "Account", {"account_name": ["like", "%Duties and Taxes%"], "is_group": 1}))
+    default_company = frappe.defaults.get_global_default("company")
+    has_tax_parent = bool(default_company) and bool(frappe.db.exists(
+        "Account", {"account_name": ["like", "%Duties and Taxes%"], "is_group": 1,
+                    "company": default_company}))
     grp_applied = bool(itt) and bool(frappe.db.exists("Item Tax", {"parenttype": "Item Group"}))
     chk("Item tax template", bool(itt) or not has_tax_parent,
         ITEM_TAX_TEMPLATE if itt else ("no Duties-and-Taxes accounts on this site" if not has_tax_parent
