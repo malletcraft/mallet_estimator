@@ -73,26 +73,33 @@ def execute():
 
 
 def _ensure_abrotape():
+    """Idempotent on PROPERTIES, not just existence: a nest save can create
+    JH_Abrotape through the generic ensure_material_item path first (correct
+    stock UOM via the override table, but no Roll purchase unit), and an
+    early-return on exists would freeze that thinner shape forever."""
     code = "JH_Abrotape"
     if frappe.db.exists("Item", code):
-        return
-    item = frappe.new_doc("Item")
-    item.item_code = code
+        item = frappe.get_doc("Item", code)
+    else:
+        item = frappe.new_doc("Item")
+        item.item_code = code
+        item.item_group = inventory.JOINERY_GROUP if frappe.db.exists("Item Group", inventory.JOINERY_GROUP) \
+            else inventory._fallback_group()
+        item.is_stock_item = 1
+        item.is_purchase_item = 1
     item.item_name = "Abrotape (laminate holding tape)"
-    item.item_group = inventory.JOINERY_GROUP if frappe.db.exists("Item Group", inventory.JOINERY_GROUP) \
-        else inventory._fallback_group()
     item.stock_uom = "Meter" if frappe.db.exists("UOM", "Meter") else "Nos"
-    item.is_stock_item = 1
-    item.is_purchase_item = 1
     if item.meta.has_field("purchase_uom") and frappe.db.exists("UOM", "Roll"):
         item.purchase_uom = "Roll"
-    item.append("uoms", {"uom": item.stock_uom, "conversion_factor": 1})
-    if frappe.db.exists("UOM", "Roll"):
+    have_uoms = {r.uom for r in (item.uoms or [])}
+    if item.stock_uom not in have_uoms:
+        item.append("uoms", {"uom": item.stock_uom, "conversion_factor": 1})
+    if frappe.db.exists("UOM", "Roll") and "Roll" not in have_uoms:
         item.append("uoms", {"uom": "Roll", "conversion_factor": 20})  # 20 m per roll
     item.description = "Abrotape — holds laminate while Fevicol dries. Stocked per metre; bought in 20 m rolls."
     if item.meta.has_field("mallet_oc_code"):
         item.mallet_oc_code = code
-    item.insert(ignore_permissions=True)
+    item.save(ignore_permissions=True) if not item.is_new() else item.insert(ignore_permissions=True)
     inventory.attach_scope_suppliers(code, "joinery")
 
 
