@@ -27,7 +27,6 @@
   "outer_d",
   "column_break_spec_outer_h",
   "outer_h",
-  "column_break_spec_finish",
   "finish",
   "spec_detail_section",
   "description",
@@ -243,13 +242,11 @@
    "label": "Outer Height (mm)"
   },
   {
-   "fieldname": "column_break_spec_finish",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "finish",
    "fieldtype": "Data",
-   "label": "Finish"
+   "label": "Finish",
+   "hidden": 1,
+   "description": "Retired 2026-08-13 (never wired to print or costing) \u2014 finish notes belong in Description."
   },
   {
    "fieldname": "spec_detail_section",

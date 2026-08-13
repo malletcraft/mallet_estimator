@@ -111,17 +111,31 @@ def run(doc):
     doc.set("materials", [])
     unpriced, mats_shape, nest_info = [], [], {}
 
+    SQFT_MM2 = 92903.04
+    sheet_sqft = nesting.SHEET_L * nesting.SHEET_W / SQFT_MM2
+
     panel_sheets = {}
     for (code, th), parts in sorted(ply.items()):
         r = nesting.pack_sheets(parts, kerf=KERF_MM, trim=TRIM_MM, allow_rotate=False)
         for (l, w) in r["too_big"]:
             issues.append(_("{0}: part {1:g} × {2:g} mm cannot fit a sheet at all").format(code, l, w))
         panel_sheets[(code, th)] = r["sheets"]
+        # Wastage is what the client pays for and the shop keeps: whole boards
+        # in, parts out, the difference in square feet AND rupees — per ply
+        # code, because the board is the unit MCFT tracks (Amit, 2026-08-13).
+        used_sqft = sum(l * w for (l, w) in parts) / SQFT_MM2
+        waste_sqft = max(0.0, r["sheets"] * sheet_sqft - used_sqft)
+        _item, sheet_rate, _src = inventory.ensure_material_item(code, kind="sheet", thickness=th)
+        waste_money = waste_sqft / sheet_sqft * (sheet_rate or 0)
+        waste_txt = (f", waste {waste_sqft:.1f} sqft ≈ ₹{waste_money:,.0f}"
+                     if sheet_rate else f", waste {waste_sqft:.1f} sqft")
         nest_info[f"{code}@{th:g}mm"] = {"sheets": r["sheets"], "util": round(r["utilization"], 3),
-                                         "parts": len(parts)}
+                                         "parts": len(parts),
+                                         "waste_sqft": round(waste_sqft, 1),
+                                         "waste_money": round(waste_money, 0)}
         doc._add_material_line(
             code, "sheet", th, r["sheets"],
-            f"{code} — {len(parts)} parts nested → {r['sheets']} sheet(s) ({r['utilization']:.0%} used) [CSV-Nest]",
+            f"{code} — {len(parts)} parts → {r['sheets']} sheet(s) ({r['utilization']:.0%} used{waste_txt}) [CSV-Nest]",
             unpriced)
         mats_shape.append({"name": code, "kind": "sheet", "thickness": th, "qty": r["sheets"]})
 
