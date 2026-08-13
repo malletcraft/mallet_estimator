@@ -51,11 +51,13 @@ Playbook:
 
 1. `fc-status` shows a FAILED `Update Site Migrate` → that job's step output
    is the traceback; fix the migration (usually a patch), new batch.
-2. No failed job, site just never moved → force ONCE:
-   dispatch `deploy-staging.yml` on `main` with input `force: true`.
-3. Still not moved → stop forcing. The pending update needs the dashboard's
-   **Update Now** (Site → Updates) — the API key cannot schedule a site
-   move. Tell the user; the change also rides along with the next ship.
+2. No failed job, site just never moved → dispatch `fc-update-now.yml`
+   (manual-only; calls `press.api.site.update` — the dashboard's Update Now
+   by its API name; proven 2026-08-13, Site Update b2nk7ibq7i). Then poll
+   version_info again.
+3. Still not moved after that → stop. Tell the user to open the dashboard
+   (Site → Updates) and read the pending update's state; the change also
+   rides along with the next ship.
 
 ## 5. After it lands
 

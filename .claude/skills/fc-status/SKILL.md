@@ -47,7 +47,7 @@ permitted", expected, ignore it). Timestamps are IST. Job types:
 |---|---|---|
 | site hash == expected | landed | update footer since-time from the migrate job |
 | `update_available` + a FAILED Update Site job | migration errored | the job's step output is the traceback; fix, new batch |
-| `update_available`, all jobs Success, none newer than the build | FC never queued the site move (2026-08-12 pattern) | force ONCE (`deploy-staging.yml`, input `force: true`); if still unmoved → dashboard **Update Now**, stop forcing |
+| `update_available`, all jobs Success, none newer than the build | FC never queued the site move (2026-08-12 pattern) | dispatch `fc-update-now.yml` (`press.api.site.update` — the dashboard's Update Now by its API name; proven 2026-08-13); if still unmoved → dashboard, stop |
 | `deploy_in_progress` true | build running | wait; poll version_info in background |
 | 503 from the site | migrate window in progress | keep polling, it is landing |
 
