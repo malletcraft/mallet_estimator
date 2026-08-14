@@ -106,12 +106,10 @@ def version_info():
     return out
 
 
-def _resolve_sku(sku):
-    """An Estimate SKU addressed by NAME (MEST-SKU-00008) or by SKU CODE
-    (YS_MB_WAR). The code path is what the SketchUp plugin uses: with one
-    container model per project, each article is a component NAMED with its
-    sku_code (Amit, 2026-08-11), so the component name IS the address and
-    nobody re-types document ids into SketchUp."""
+def _find_sku(sku):
+    """The non-throwing half of resolution: doc by NAME or unique SKU CODE,
+    else None. A code matching SEVERAL SKUs still throws — silence there
+    would import into an arbitrary one."""
     if frappe.db.exists("Estimate SKU", sku):
         return frappe.get_doc("Estimate SKU", sku)
     matches = frappe.get_all("Estimate SKU", filters={"sku_code": sku}, pluck="name")
@@ -120,6 +118,18 @@ def _resolve_sku(sku):
     if len(matches) > 1:
         frappe.throw(_("SKU code {0} matches {1} Estimate SKUs — address it by name instead.")
                      .format(sku, len(matches)))
+    return None
+
+
+def _resolve_sku(sku):
+    """An Estimate SKU addressed by NAME (MEST-SKU-00008) or by SKU CODE
+    (YS_MB_WAR). The code path is what the SketchUp plugin uses: with one
+    container model per project, each article is a component NAMED with its
+    sku_code (Amit, 2026-08-11), so the component name IS the address and
+    nobody re-types document ids into SketchUp."""
+    doc = _find_sku(sku)
+    if doc:
+        return doc
     # The component was named naturally (LOFT) while the code generator
     # abbreviates (LOF) — the commonest miss, so the refusal names the
     # nearest real codes instead of leaving the renamer to guess.
@@ -132,14 +142,96 @@ def _resolve_sku(sku):
                    "exact sku_code.").format(sku, hint))
 
 
+def _project_customer(project):
+    """(customer, display_name, initials) for a Project — the binding the
+    SketchUp file carries decides these, never the component name."""
+    from mallet_estimator.estimator import customer_initials
+    if not frappe.db.exists("Project", project):
+        frappe.throw(_("No Project named {0} — re-link the SketchUp model.").format(project))
+    customer = frappe.db.get_value("Project", project, "customer")
+    if not customer:
+        frappe.throw(_("Project {0} has no Customer — set it on the Project first.").format(project))
+    display = frappe.db.get_value("Customer", customer, "customer_name") or customer
+    return customer, display, customer_initials(display)
+
+
+def _room_for_token(token):
+    """The Estimate Room whose abbreviation IS the token (MB → Master
+    Bedroom), using the same room_abbr the code generator uses — one
+    grammar, both directions. Unknown token refuses with the valid list."""
+    from mallet_estimator.estimator import room_abbr
+    rooms = frappe.get_all("Estimate Room", pluck="name")
+    by_abbr = {}
+    for r in rooms:
+        by_abbr.setdefault(room_abbr(r), r)
+    room = by_abbr.get((token or "").upper())
+    if not room:
+        frappe.throw(_("No room matches token {0}. Valid room tokens: {1}").format(
+            token, ", ".join(f"{a} ({r})" for a, r in sorted(by_abbr.items()))))
+    return room
+
+
+def _create_sku_from_component(project, tail):
+    """Create an Estimate SKU from a SketchUp component tail (MB_WAR_OPT.1):
+    first _-token names the room, the rest is the article. The code is kept
+    VERBATIM (auto_name off) so the component name and sku_code never drift
+    apart — the whole point of the convention (execution/DESIGN.md §1)."""
+    customer, display, ci = _project_customer(project)
+    parts = str(tail or "").split("_", 1)
+    if len(parts) < 2 or not parts[1]:
+        frappe.throw(_("Component name {0} must read ROOM_ARTICLE (e.g. MB_WAR).").format(tail))
+    room = _room_for_token(parts[0])
+    doc = frappe.new_doc("Estimate SKU")
+    doc.project = project
+    doc.customer = customer
+    doc.room = room
+    doc.article_name = parts[1].replace("_", " ")
+    doc.auto_name = 0
+    doc.sku_code = tail if tail.upper().startswith(ci + "_") else f"{ci}_{tail}"
+    doc.insert()
+    return doc
+
+
 @frappe.whitelist()
-def import_parts_csv(sku, csv_content, filename=None):
+def list_projects():
+    """Open Projects with their customers, for the plugin's model-binding
+    picker. Select-only by design: clients and projects are created in the
+    lead/opportunity phase, never from SketchUp."""
+    frappe.has_permission("Project", "read", throw=True)
+    out = []
+    for p in frappe.get_all("Project", filters={"status": "Open"},
+                            fields=["name", "project_name", "customer"],
+                            order_by="modified desc", limit_page_length=50):
+        display = initials = ""
+        if p.customer:
+            from mallet_estimator.estimator import customer_initials
+            display = frappe.db.get_value("Customer", p.customer, "customer_name") or p.customer
+            initials = customer_initials(display)
+        out.append({"project": p.name, "title": p.project_name or p.name,
+                    "customer": p.customer, "customer_name": display,
+                    "initials": initials})
+    return out
+
+
+@frappe.whitelist()
+def import_parts_csv(sku, csv_content, filename=None, project=None, create_if_missing=0):
     """Attach an OpenCutList Part List CSV to the SKU, switch it to CSV-Nest
     mode, run the import (nesting, décor slots, ops, costing) and return the
     result the caller needs to display: nest details, part-list-vs-views
     issues, unpriced materials, and the client totals. `sku` may be the
-    document name or the sku_code (see _resolve_sku)."""
-    doc = _resolve_sku(sku)
+    document name, the sku_code, or — when `project` carries the SketchUp
+    file's binding — a component tail (MB_WAR): resolution tries the exact
+    address, then the binding's initials + tail, and with `create_if_missing`
+    finally CREATES the SKU on the bound project (execution/DESIGN.md §1)."""
+    doc = _find_sku(sku)
+    if not doc and project:
+        _, _, ci = _project_customer(project)
+        if not sku.upper().startswith(ci + "_"):
+            doc = _find_sku(f"{ci}_{sku}")
+        if not doc and frappe.utils.cint(create_if_missing):
+            doc = _create_sku_from_component(project, sku)
+    if not doc:
+        doc = _resolve_sku(sku)   # throws with the did-you-mean refusal
     doc.check_permission("write")
     if doc.get("rates_frozen"):
         frappe.throw(_("Rates are frozen (quoted) — amend/cancel the Estimate first."))

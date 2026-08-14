@@ -175,11 +175,18 @@ def create_readonly_api_user(email=None, full_name="Mallet Read Only", regenerat
 PLUGIN_ROLE = "Mallet Plugin"
 PLUGIN_USER = "mallet-plugin@example.invalid"
 
-# read+write Estimate SKU: import_parts_csv loads, mutates and saves the SKU
-# (Items/Files created inside the import use ignore_permissions internally).
+# read+write+CREATE Estimate SKU: import_parts_csv loads, mutates and saves
+# the SKU, and — with the SketchUp file's project binding — creates a missing
+# one from the component name (execution/DESIGN.md §1). Items/Files created
+# inside the import use ignore_permissions internally.
 # read Estimate: so a later plugin version can list an estimate's SKU codes.
-PLUGIN_RW_DOCTYPES = ("Estimate SKU",)
-PLUGIN_RO_DOCTYPES = ("Estimate", "Estimate Room")
+# read Project/Customer: the model-binding picker is SELECT-ONLY — clients
+# and projects are born in the lead/opportunity phase, never in SketchUp,
+# and this role's permissions are what enforce that.
+PLUGIN_RWC_DOCTYPES = ("Estimate SKU",)
+PLUGIN_RO_DOCTYPES = ("Estimate", "Estimate Room", "Project", "Customer")
+# Kept for callers that predate the create grant.
+PLUGIN_RW_DOCTYPES = PLUGIN_RWC_DOCTYPES
 
 
 def ensure_plugin_role():
@@ -210,8 +217,8 @@ def ensure_plugin_role():
             except Exception:
                 pass
 
-    for dt in PLUGIN_RW_DOCTYPES:
-        pin(dt, ("read", "write"))
+    for dt in PLUGIN_RWC_DOCTYPES:
+        pin(dt, ("read", "write", "create"))
     for dt in PLUGIN_RO_DOCTYPES:
         pin(dt, ("read",))
     return PLUGIN_ROLE

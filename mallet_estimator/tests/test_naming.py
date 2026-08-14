@@ -146,6 +146,47 @@ class TestSkuNamingInTheDatabase(MalletTestCase):
         self.assertNotIn("_K_", sku.sku_code)
 
 
+class TestSkuFromComponentName(MalletTestCase):
+    """execution/DESIGN.md §1 — a SketchUp component MCFT_MB_WAR pushed with
+    the file's project binding creates its own SKU: room from the token by
+    the SAME room_abbr grammar the code generator uses, code kept verbatim
+    (auto_name off) so component and sku_code never drift."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.customer = _customer()
+        cls.project = _project(cls.customer)
+        _room("Master Bedroom")
+
+    def test_component_tail_creates_the_sku(self):
+        from mallet_estimator import api
+        for name in frappe.get_all("Estimate SKU",
+                                   filters={"sku_code": ["like", "%_MB_WARCOMP%"]},
+                                   pluck="name"):
+            frappe.delete_doc("Estimate SKU", name, force=True, ignore_permissions=True)
+        doc = api._create_sku_from_component(self.project, "MB_WARCOMP")
+        ci = estimator.customer_initials(CUSTOMER_NAME)
+        self.assertEqual(doc.room, "Master Bedroom")
+        self.assertEqual(doc.sku_code, f"{ci}_MB_WARCOMP")
+        self.assertEqual(doc.project, self.project)
+        self.assertEqual(doc.customer, self.customer)
+
+    def test_an_unknown_room_token_refuses_with_the_valid_list(self):
+        from mallet_estimator import api
+        with self.assertRaises(frappe.ValidationError):
+            api._room_for_token("ZZ")
+
+    def test_resolution_prefers_an_existing_sku_over_creating(self):
+        # import with a tail whose prefixed code already exists must NOT
+        # create a second SKU — the binding composes YS_MB_X and finds it.
+        from mallet_estimator import api
+        doc = api._create_sku_from_component(self.project, "MB_EXISTCOMP")
+        ci = estimator.customer_initials(CUSTOMER_NAME)
+        found = api._find_sku(f"{ci}_MB_EXISTCOMP")
+        self.assertEqual(found.name, doc.name)
+
+
 class TestAnArticleWithNoParts(MalletTestCase):
     """An SKU with no material lines is not a cheap article — it is one nobody
     has told us the parts of. It still accrues labour, overhead and days, so it
