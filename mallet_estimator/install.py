@@ -608,6 +608,18 @@ def verify_setup():
                         "public/sitephoto/manifest.json",
                         "public/images/sitephoto-192.png")
             if not os.path.exists(os.path.join(_app, r))]
+    # The ImageMeter loop: masters present, and whether it is actually wired.
+    _im_ok = bool(frappe.db.exists("DocType", "Site Photo Settings")) and \
+        bool(frappe.db.exists("DocType", "Site Photo Inbox"))
+    _im_on = bool(frappe.db.get_single_value("Site Photo Settings", "sync_enabled")) \
+        if _im_ok else False
+    import os as _os
+    _im_key = bool(_os.environ.get("MCFT_GDRIVE_SA_JSON"))
+    chk("ImageMeter sync", _im_ok,
+        ("masters ✓ — " + ("enabled" if _im_on else "not enabled")
+         + (", credential present" if _im_key else ", MCFT_GDRIVE_SA_JSON not set on this bench"))
+        if _im_ok else "missing Site Photo Settings / Site Photo Inbox")
+
     chk("Site Photo PWA", not _pwa,
         ("missing: " + ", ".join(_pwa)) if _pwa else "/sitephoto shell + manifest + icons ✓")
 

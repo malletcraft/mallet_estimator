@@ -6,7 +6,10 @@
  "field_order": [
   "face",
   "image",
-  "note"
+  "note",
+  "source",
+  "drive_file_id",
+  "drive_modified"
  ],
  "fields": [
   {
@@ -18,18 +21,39 @@
    "in_list_view": 1
   },
   {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "options": "\nImageMeter\nPWA\nManual",
+   "label": "Source",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "drive_file_id",
+   "fieldtype": "Data",
+   "label": "Drive File ID",
+   "read_only": 1,
+   "description": "Set when the annotation came back through ImageMeter \u2014 the key that stops a re-import duplicating it."
+  },
+  {
+   "fieldname": "drive_modified",
+   "fieldtype": "Data",
+   "label": "Modified On Drive",
+   "read_only": 1
+  },
+  {
    "fieldname": "image",
    "fieldtype": "Attach Image",
    "label": "Annotated Image",
    "reqd": 1,
    "in_list_view": 1,
    "description": "A marked-up COPY of the face. The generated faces stay pristine; annotation is a layer on top."
-  },
-  {
-   "fieldname": "note",
-   "fieldtype": "Small Text",
-   "label": "Note",
-   "in_list_view": 1
   }
  ],
  "links": [],

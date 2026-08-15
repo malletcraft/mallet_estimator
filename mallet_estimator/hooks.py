@@ -34,9 +34,19 @@ doctype_js = {
     "Estimate SKU": "public/js/estimate_sku.js",
     "Estimate": "public/js/estimate.js",
     "Project": "public/js/project.js",
+    "Site Photo Settings": "mallet_estimator/doctype/site_photo_settings/site_photo_settings.js",
 }
 
 # List-view scripts (row indicators / extra columns).
 doctype_list_js = {
     "Estimate": "public/js/estimate_list.js",
+}
+
+# Hourly: hand split captures over to ImageMeter and bring annotated photos
+# back. Silent no-op unless Site Photo Settings has it enabled AND the bench
+# holds MCFT_GDRIVE_SA_JSON.
+scheduler_events = {
+    "hourly_long": [
+        "mallet_estimator.imagemeter_sync.scheduled_sync",
+    ],
 }

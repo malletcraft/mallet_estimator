@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-08-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "title_field": "title",
+ "field_order": [
+  "title", "status", "column_break_a", "folder_path", "drive_modified",
+  "assign_section", "photo", "face", "note",
+  "src_section", "drive_file_id", "image"
+ ],
+ "fields": [
+  {"fieldname": "title", "fieldtype": "Data", "label": "File", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "status", "fieldtype": "Select", "options": "Pending\nReady\nAttached\nIgnored",
+   "label": "Status", "default": "Pending", "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "column_break_a", "fieldtype": "Column Break"},
+  {"fieldname": "folder_path", "fieldtype": "Data", "label": "Drive Folder", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "drive_modified", "fieldtype": "Data", "label": "Modified On Drive", "read_only": 1},
+  {"fieldname": "assign_section", "fieldtype": "Section Break", "label": "Assign"},
+  {"fieldname": "photo", "fieldtype": "Link", "options": "Site Photo 360", "label": "Capture",
+   "in_list_view": 1},
+  {"fieldname": "face", "fieldtype": "Select", "options": "\nfront\nright\nback\nleft\nup\ndown",
+   "label": "Face"},
+  {"fieldname": "note", "fieldtype": "Small Text", "label": "Note"},
+  {"fieldname": "src_section", "fieldtype": "Section Break", "label": "Source"},
+  {"fieldname": "drive_file_id", "fieldtype": "Data", "label": "Drive File ID", "read_only": 1, "unique": 1},
+  {"fieldname": "image", "fieldtype": "Attach Image", "label": "Preview", "read_only": 1}
+ ],
+ "links": [],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Site Photo Inbox",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1,
+   "report": 1, "role": "System Manager", "share": 1, "write": 1},
+  {"create": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1,
+   "role": "All", "share": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

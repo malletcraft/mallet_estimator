@@ -1,0 +1,84 @@
+{
+ "actions": [],
+ "creation": "2026-08-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "field_order": [
+  "sync_enabled",
+  "column_break_top",
+  "last_sync",
+  "last_summary",
+  "folders_section",
+  "handover_folder_id",
+  "imagemeter_folder_id",
+  "help_html"
+ ],
+ "fields": [
+  {
+   "fieldname": "sync_enabled",
+   "fieldtype": "Check",
+   "label": "Sync with Google Drive",
+   "default": "0",
+   "description": "Off until the bench has MCFT_GDRIVE_SA_JSON and the folder ids below."
+  },
+  {
+   "fieldname": "column_break_top",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Sync",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_summary",
+   "fieldtype": "Small Text",
+   "label": "Last Result",
+   "read_only": 1
+  },
+  {
+   "fieldname": "folders_section",
+   "fieldtype": "Section Break",
+   "label": "Drive Folders"
+  },
+  {
+   "fieldname": "handover_folder_id",
+   "fieldtype": "Data",
+   "label": "Handover Folder ID",
+   "description": "The folder ERPNext WRITES faces into. Must be in a shared drive: a service account has no storage of its own, so writing into a My Drive folder fails on quota."
+  },
+  {
+   "fieldname": "imagemeter_folder_id",
+   "fieldtype": "Data",
+   "label": "ImageMeter Upload Folder ID",
+   "description": "ImageMeter's image-upload directory, READ ONLY. Never write here — ImageMeter manages its own sync data."
+  },
+  {
+   "fieldname": "help_html",
+   "fieldtype": "HTML",
+   "options": "<p class='text-muted small'>Find a folder id in its Drive URL: <code>drive.google.com/drive/folders/&lt;id&gt;</code>. Share the handover folder with the service account as <b>Content manager</b> and the ImageMeter folder as <b>Viewer</b>.</p>"
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Site Photo Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
