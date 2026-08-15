@@ -73,3 +73,7 @@ mallet_estimator.patches.rename_decors_with_domain
 # as the deploy so nobody clicks Re-import per SKU. Calls doc.reimport(), which
 # needs the current code, so post-model-sync.
 mallet_estimator.patches.reimport_nest_skus
+# The Rheau->Rehau brand fix could not reach the decor DOCUMENT NAMES while
+# the doctype forbade renaming; allow_rename ships in this batch, and this
+# renames the stragglers. Data rename post-model-sync.
+mallet_estimator.patches.rename_rheau_decors

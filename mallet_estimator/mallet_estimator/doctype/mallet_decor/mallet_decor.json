@@ -50,7 +50,7 @@
   {
    "fieldname": "decor_name",
    "fieldtype": "Data",
-   "label": "Décor Name",
+   "label": "D\u00e9cor Name",
    "in_list_view": 1,
    "allow_in_quick_entry": 1,
    "description": "e.g. Moonlit Gray, Black Marmor."
@@ -117,5 +117,6 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "allow_rename": 1
 }
