@@ -1,0 +1,12 @@
+#!/bin/sh
+# Work happens on batch-next; main only ever receives a fast-forward at ship
+# time. Twice on 2026-08-15 a commit landed on main by accident, so the CI run
+# that was supposed to test it silently re-tested the previous commit instead.
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$branch" = "main" ]; then
+  echo "pre-commit: refusing to commit directly on main."
+  echo "  git checkout batch-next   # then commit; ship with a ff-merge into main"
+  echo "  (override once with: git commit --no-verify)"
+  exit 1
+fi
+exit 0
