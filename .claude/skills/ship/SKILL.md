@@ -42,6 +42,15 @@ Poll (30–40 s interval, ≥60 min budget — FC builds are slow) until
 migrate window, not an outage. Run the poll in the background; do not block
 the conversation on it.
 
+A run of UNREACHABLE polls at the END of the window is the same thing, and
+a poller that calls that a stall is lying: 2026-08-15 (aabe053) the site
+went quiet for the last 13 polls, the watcher reported STALLED, and a
+single probe a minute later showed the new hash serving fine. A batch that
+adds a **Python dependency** (numpy/Pillow there) lengthens that quiet
+window, because FC installs it before the migrate. Never act on a stall
+verdict without one fresh probe first — the lever in §4 is disruptive and
+the cheap check costs a second.
+
 ## 4. If the deploy workflow fails or the hash never flips
 
 Diagnose before re-forcing — run the `/fc-status` skill and read its
