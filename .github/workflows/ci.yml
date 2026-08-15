@@ -24,8 +24,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install pure-test deps
+        run: pip install numpy pillow
       - name: Run pure unit tests
-        run: python -m unittest mallet_estimator.tests.test_estimator mallet_estimator.tests.test_opencutlist mallet_estimator.tests.test_nesting mallet_estimator.tests.test_consolidate mallet_estimator.tests.test_repair -v
+        run: python -m unittest mallet_estimator.tests.test_estimator mallet_estimator.tests.test_opencutlist mallet_estimator.tests.test_nesting mallet_estimator.tests.test_consolidate mallet_estimator.tests.test_repair mallet_estimator.tests.test_panorama -v
 
   integration:
     name: Integration (Frappe v16 + ERPNext)

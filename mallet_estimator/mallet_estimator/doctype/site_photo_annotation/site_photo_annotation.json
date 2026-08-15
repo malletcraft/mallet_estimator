@@ -1,0 +1,44 @@
+{
+ "creation": "2026-08-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "istable": 1,
+ "field_order": [
+  "face",
+  "image",
+  "note"
+ ],
+ "fields": [
+  {
+   "fieldname": "face",
+   "fieldtype": "Select",
+   "options": "front\nright\nback\nleft\nup\ndown",
+   "label": "Face",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Attach Image",
+   "label": "Annotated Image",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "A marked-up COPY of the face. The generated faces stay pristine; annotation is a layer on top."
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note",
+   "in_list_view": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Site Photo Annotation",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

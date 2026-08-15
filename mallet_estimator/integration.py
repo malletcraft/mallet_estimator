@@ -43,6 +43,7 @@ READONLY_DOCTYPES = (
     "Customer",
     "Estimate Settings",
     "Supplier Rate Sheet",
+    "Site Photo 360",
 )
 
 # Desk UI metadata, not business data: reading these lets the reader RENDER a
@@ -293,7 +294,7 @@ STEWARD_USER = "data-steward-claude@malletcrafts.com"
 # cancel -> amend). Item gets no delete: history-carrying masters retire by
 # `disabled`, never by deletion.
 STEWARD_RWC_DOCTYPES = ("Estimate", "Estimate SKU", "Mallet Decor",
-                        "Estimate Room", "File")
+                        "Estimate Room", "File", "Site Photo 360")
 STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM")
 # Money: LISTED here so the exclusion is explicit and asserted, not implied.
 STEWARD_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price")

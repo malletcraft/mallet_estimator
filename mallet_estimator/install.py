@@ -588,6 +588,18 @@ def verify_setup():
     chk("Execution print", frappe.db.exists("Print Format", EXECUTION_PRINT_FORMAT_NAME), EXECUTION_PRINT_FORMAT_NAME)
     chk("Workspace", frappe.db.exists("Workspace", WORKSPACE_NAME), WORKSPACE_NAME)
 
+    # Site 360 photos: the doctype AND the projection engine. numpy rides the
+    # app's pyproject, but a bench that skipped dependency install would
+    # otherwise only find out at the first split — surface it here instead.
+    try:
+        from mallet_estimator import panorama
+        pano_detail = f"splitter ready (default {int(panorama.DEFAULT_FOV)}°, {panorama.DEFAULT_FACE_PX}px)"
+        pano_ok = True
+    except ImportError as exc:
+        pano_detail, pano_ok = f"projection engine unavailable: {exc}", False
+    chk("Site Photo 360", bool(frappe.db.exists("DocType", "Site Photo 360")) and pano_ok,
+        pano_detail)
+
     # F5 — assumed price list; F4 — Project material-choice table; F6 — allowance table.
     chk("Assumed price list", frappe.db.exists("Price List", inventory.ESTIMATION_PRICE_LIST),
         inventory.ESTIMATION_PRICE_LIST)

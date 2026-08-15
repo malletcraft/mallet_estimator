@@ -204,6 +204,24 @@ class TestMasters(MalletTestCase):
             self.assertTrue(frappe.get_meta(t).has_field("decor"),
                             f"missing {t}.decor link")
 
+    def test_site_photo_360_masters(self):
+        # One doc per capture is the versioning model — the doctype and its
+        # face/annotation fields are the contract the splitter writes into.
+        self.assertTrue(frappe.db.exists("DocType", "Site Photo 360"))
+        self.assertTrue(frappe.db.exists("DocType", "Site Photo Annotation"))
+        meta = frappe.get_meta("Site Photo 360")
+        for f in ("project", "room", "capture_date", "stage", "fov", "face_px",
+                  "status", "pano", "split_signature", "annotations",
+                  "face_front", "face_right", "face_back", "face_left",
+                  "face_up", "face_down"):
+            self.assertTrue(meta.has_field(f), f"missing Site Photo 360.{f}")
+        self.assertEqual(meta.get_field("fov").default, "110")
+        # The steward fixes photo records (wrong room, wrong date) like any
+        # other operational data; the readonly identity can inspect them.
+        from mallet_estimator import integration
+        self.assertIn("Site Photo 360", integration.STEWARD_RWC_DOCTYPES)
+        self.assertIn("Site Photo 360", integration.READONLY_DOCTYPES)
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

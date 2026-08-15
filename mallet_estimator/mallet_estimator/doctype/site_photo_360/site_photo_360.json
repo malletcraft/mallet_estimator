@@ -1,0 +1,228 @@
+{
+ "actions": [],
+ "autoname": "MEST-PH-.YYYY.-.#####",
+ "creation": "2026-08-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "title_field": "title",
+ "image_field": "face_front",
+ "field_order": [
+  "project",
+  "room",
+  "column_break_who",
+  "capture_date",
+  "stage",
+  "column_break_how",
+  "fov",
+  "face_px",
+  "status",
+  "title",
+  "split_signature",
+  "split_error",
+  "pano_section",
+  "pano",
+  "faces_section",
+  "face_front",
+  "face_right",
+  "face_back",
+  "column_break_faces",
+  "face_left",
+  "face_up",
+  "face_down",
+  "annotations_section",
+  "annotations"
+ ],
+ "fields": [
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "options": "Project",
+   "label": "Project",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "options": "Estimate Room",
+   "label": "Room",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "The same room master the SKU codes use — MB photos sit beside YS_MB_* SKUs."
+  },
+  {
+   "fieldname": "column_break_who",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "capture_date",
+   "fieldtype": "Date",
+   "label": "Capture Date",
+   "reqd": 1,
+   "default": "Today",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "options": "\nBaseline\nCivil\nWiring\nCarpentry\nFinishing\nHandover",
+   "label": "Site Stage",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_how",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "fov",
+   "fieldtype": "Int",
+   "label": "Face FOV (°)",
+   "default": "110",
+   "description": "Faces sit 90° apart, so 110° gives ~20° overlap per edge — corners show on both adjacent faces. Change and save to re-split."
+  },
+  {
+   "fieldname": "face_px",
+   "fieldtype": "Int",
+   "label": "Face Size (px)",
+   "default": "1600"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "options": "Pending\nProcessing\nSplit\nFailed",
+   "label": "Status",
+   "default": "Pending",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "split_signature",
+   "fieldtype": "Data",
+   "label": "Split Signature",
+   "hidden": 1,
+   "read_only": 1,
+   "description": "pano|fov|face_px the current faces were generated from — the re-split trigger."
+  },
+  {
+   "fieldname": "split_error",
+   "fieldtype": "Small Text",
+   "label": "Split Error",
+   "read_only": 1,
+   "depends_on": "eval:doc.status=='Failed'"
+  },
+  {
+   "fieldname": "pano_section",
+   "fieldtype": "Section Break",
+   "label": "360 Photo"
+  },
+  {
+   "fieldname": "pano",
+   "fieldtype": "Attach",
+   "label": "360 Photo (equirectangular)",
+   "description": "The full 360 as exported by the camera (width = 2 × height). Source of truth — faces are derived and regenerable."
+  },
+  {
+   "fieldname": "faces_section",
+   "fieldtype": "Section Break",
+   "label": "Faces",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "face_front",
+   "fieldtype": "Attach Image",
+   "label": "Front",
+   "read_only": 1
+  },
+  {
+   "fieldname": "face_right",
+   "fieldtype": "Attach Image",
+   "label": "Right",
+   "read_only": 1
+  },
+  {
+   "fieldname": "face_back",
+   "fieldtype": "Attach Image",
+   "label": "Back",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_faces",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "face_left",
+   "fieldtype": "Attach Image",
+   "label": "Left",
+   "read_only": 1
+  },
+  {
+   "fieldname": "face_up",
+   "fieldtype": "Attach Image",
+   "label": "Up",
+   "read_only": 1
+  },
+  {
+   "fieldname": "face_down",
+   "fieldtype": "Attach Image",
+   "label": "Down",
+   "read_only": 1
+  },
+  {
+   "fieldname": "annotations_section",
+   "fieldtype": "Section Break",
+   "label": "Annotations",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "annotations",
+   "fieldtype": "Table",
+   "options": "Site Photo Annotation",
+   "label": "Annotations"
+  }
+ ],
+ "links": [],
+ "modified": "2026-08-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Site Photo 360",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "capture_date",
+ "sort_order": "DESC"
+}
