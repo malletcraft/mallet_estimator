@@ -28,9 +28,12 @@ SEP = " · "
 
 # What a returning file's caption must match for us to re-attach it without a
 # human deciding. Anchored on the document name, which is unique site-wide.
-CAPTION_ID_RE = re.compile(r"\b(MEST-PH-[0-9]{4}-[0-9]{5})\b")
+# NOT \b on either side: our own handover filenames put an underscore right
+# after the id ("MEST-PH-2026-00001_front.jpg") and \b does not fire between a
+# digit and an underscore, so \b would refuse to parse the very names we write.
+CAPTION_ID_RE = re.compile(r"(?<![A-Za-z0-9])(MEST-PH-[0-9]{4}-[0-9]{5})(?![0-9])")
 CAPTION_FACE_RE = re.compile(
-    r"\b(front|right|back|left|up|down|ceiling|floor)\b", re.I)
+    r"(?<![A-Za-z])(front|right|back|left|up|down|ceiling|floor)(?![A-Za-z])", re.I)
 # Faces are named for a room, not a compass: 'up' reads as Ceiling on site.
 FACE_LABELS = {"front": "Front", "right": "Right", "back": "Back",
                "left": "Left", "up": "Ceiling", "down": "Floor"}

@@ -36,6 +36,21 @@ class TestCaption(unittest.TestCase):
         self.assertIn("Ceiling", H.caption_text("X", "K", "up"))
         self.assertIn("Floor", H.caption_text("X", "K", "down"))
 
+    def test_our_own_filenames_parse(self):
+        # Regression: \b does not fire between a digit and an underscore, so
+        # the original pattern refused to read the very names we write —
+        # which would have broken the whole automated return path.
+        for face in ("front", "right", "back", "left", "ceiling", "floor"):
+            fn = f"MEST-PH-2026-00001_{face}.jpg"
+            photo, got = H.parse_caption(fn)
+            self.assertEqual(photo, "MEST-PH-2026-00001", fn)
+            self.assertEqual(got, H.LABEL_TO_FACE.get(face, face), fn)
+
+    def test_a_near_miss_id_is_not_accepted(self):
+        # A longer number, or an id glued to other text, is not our capture.
+        self.assertEqual(H.parse_caption("MEST-PH-2026-000012.jpg"), (None, None))
+        self.assertEqual(H.parse_caption("xMEST-PH-2026-00001.jpg"), (None, None))
+
     def test_a_foreign_file_is_refused_not_guessed(self):
         # ImageMeter's own exports look like this. Claiming one belongs to a
         # capture would attach a stranger's photo to a client's room.
