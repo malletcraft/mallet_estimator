@@ -12,12 +12,24 @@ except Exception:
     from frappe.tests.utils import FrappeTestCase as MalletTestCase
 
 
+def _company():
+    name = frappe.db.get_value("Company", {}, "name")
+    if name:
+        return name
+    return frappe.get_doc({
+        "doctype": "Company", "company_name": "Mallet Test Co", "abbr": "MTC",
+        "default_currency": "INR", "country": "India",
+    }).insert(ignore_permissions=True).name
+
+
 def _project():
     name = frappe.db.get_value("Project", {"project_name": "ZZ Site Photo Test"}, "name")
     if name:
         return name
+    # Company is mandatory on ERPNext's Project — a bare insert fails in CI.
     return frappe.get_doc({
         "doctype": "Project", "project_name": "ZZ Site Photo Test",
+        "company": _company(),
     }).insert(ignore_permissions=True).name
 
 
