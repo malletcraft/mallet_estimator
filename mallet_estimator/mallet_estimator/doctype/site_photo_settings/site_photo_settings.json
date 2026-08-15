@@ -12,6 +12,7 @@
   "folders_section",
   "handover_folder_id",
   "imagemeter_folder_id",
+  "queue_files_since",
   "help_html"
  ],
  "fields": [
@@ -53,12 +54,18 @@
    "fieldname": "imagemeter_folder_id",
    "fieldtype": "Data",
    "label": "ImageMeter Upload Folder ID",
-   "description": "ImageMeter's image-upload directory, READ ONLY. Never write here — ImageMeter manages its own sync data."
+   "description": "ImageMeter's image-upload directory, READ ONLY. Never write here \u2014 ImageMeter manages its own sync data."
   },
   {
    "fieldname": "help_html",
    "fieldtype": "HTML",
    "options": "<p class='text-muted small'>Find a folder id in its Drive URL: <code>drive.google.com/drive/folders/&lt;id&gt;</code>. Share the handover folder with the service account as <b>Content manager</b> and the ImageMeter folder as <b>Viewer</b>.</p>"
+  },
+  {
+   "fieldname": "queue_files_since",
+   "fieldtype": "Datetime",
+   "label": "Only Queue Files Modified After",
+   "description": "ImageMeter's folder holds years of unrelated photos. Anything older than this is not a reply to a handover, so it is never queued for review. Set automatically on the first sync; clear it to re-consider everything."
   }
  ],
  "links": [],

@@ -13,7 +13,7 @@
 # goes to Site Photo Inbox for a person; attaching a stranger's photo to a
 # client's room is worse than asking.
 import frappe
-from frappe.utils import now_datetime
+from frappe.utils import get_datetime, now_datetime
 
 from mallet_estimator import drive_client, drive_sync, handover, panorama
 
@@ -113,8 +113,15 @@ def pull_annotations(client=None, limit=400):
     known = set(frappe.get_all(PHOTO, pluck="name"))
     files = client.walk_files(root)[:limit]
 
+    # ImageMeter's folder is not ours: it holds years of photos for other
+    # clients. Anything modified before we ever handed a face over cannot be a
+    # reply to a handover, so it is passed over rather than queued — the first
+    # run against a real folder would otherwise raise hundreds of review rows
+    # nobody will ever triage (2026-08-15: it raised 394).
+    cutoff = _queue_cutoff(s)
+
     out = {"scanned": len(files), "attached": 0, "queued": 0, "skipped": 0,
-           "errors": []}
+           "history": 0, "errors": []}
     for f in files:
         action, payload = drive_sync.classify_return(
             f, imported_file_ids=seen, known_photos=known)
@@ -124,6 +131,8 @@ def pull_annotations(client=None, limit=400):
             elif action == drive_sync.ATTACH:
                 _attach(client, payload, f)
                 out["attached"] += 1
+            elif cutoff and (f.get("modified") or "") < cutoff:
+                out["history"] += 1
             else:
                 if _queue(f, payload):
                     out["queued"] += 1
@@ -133,6 +142,35 @@ def pull_annotations(client=None, limit=400):
             out["errors"].append(f"{f.get('title')}: {exc}")
             frappe.log_error(frappe.get_traceback(), f"imagemeter pull {f.get('title')}")
     return out
+
+
+def _queue_cutoff(settings):
+    """The moment this site started expecting replies, as UTC.
+
+    Stamped on first sync so a fresh install does not inherit somebody else's
+    photo history. Returned in UTC because Drive reports UTC and the site
+    clock is Asia/Kolkata: comparing the two as written would call the last
+    five and a half hours of files "history" and silently drop them."""
+    since = settings.get("queue_files_since")
+    if not since:
+        since = now_datetime()
+        settings.db_set("queue_files_since", since, update_modified=False)
+    return to_drive_utc(since)
+
+
+def to_drive_utc(value):
+    """Site-local Datetime -> the RFC-3339 UTC string Drive uses."""
+    import datetime as _dt
+
+    dt = get_datetime(value)
+    if dt.tzinfo is None:
+        try:
+            import zoneinfo
+            from frappe.utils import get_system_timezone
+            dt = dt.replace(tzinfo=zoneinfo.ZoneInfo(get_system_timezone()))
+        except Exception:
+            dt = dt.replace(tzinfo=_dt.timezone.utc)
+    return dt.astimezone(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _imported_file_ids():

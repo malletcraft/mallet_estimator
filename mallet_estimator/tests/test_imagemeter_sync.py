@@ -189,6 +189,46 @@ class TestImageMeterSync(MalletTestCase):
         self.assertEqual(out2["queued"], 0)
         self.assertEqual(frappe.db.count("Site Photo Inbox", {"drive_file_id": "im9"}), 1)
 
+    def test_history_is_passed_over_not_queued(self):
+        # ImageMeter's folder holds years of other clients' photos. The first
+        # real run queued 394 review rows; anything older than the watermark
+        # is now passed over instead.
+        _split_capture()
+        s = frappe.get_single("Site Photo Settings")
+        s.queue_files_since = "2026-08-15 12:00:00"
+        s.save(ignore_permissions=True)
+        drive = FakeDrive(returning=[
+            {"id": "old1", "title": "image_from_2._Jan_2024.jpg",
+             "parents_path": ["someone_else"], "modified": "2024-01-02T09:00:00Z"},
+            {"id": "new1", "title": "image_from_15._Aug_2026.jpg",
+             "parents_path": ["yogesh"], "modified": "2026-08-15T23:00:00Z"}])
+        out = imagemeter_sync.pull_annotations(client=drive)
+        self.assertEqual(out["history"], 1, out)
+        self.assertEqual(out["queued"], 1, out)
+        self.assertFalse(frappe.db.exists("Site Photo Inbox", {"drive_file_id": "old1"}))
+        self.assertTrue(frappe.db.exists("Site Photo Inbox", {"drive_file_id": "new1"}))
+
+    def test_an_old_file_that_names_a_capture_still_attaches(self):
+        # The watermark suppresses GUESSWORK, never proof: a file that names
+        # its capture is attached however old it is.
+        doc = _split_capture()
+        s = frappe.get_single("Site Photo Settings")
+        s.queue_files_since = "2026-08-15 12:00:00"
+        s.save(ignore_permissions=True)
+        drive = FakeDrive(returning=[
+            {"id": "oldbut", "title": f"{doc.name}_front.jpg",
+             "parents_path": [], "modified": "2020-01-01T00:00:00Z"}])
+        out = imagemeter_sync.pull_annotations(client=drive)
+        self.assertEqual(out["attached"], 1, out)
+
+    def test_the_watermark_is_compared_in_utc(self):
+        # The site clock is Asia/Kolkata and Drive reports UTC; comparing them
+        # as written would call the last five and a half hours "history".
+        got = imagemeter_sync.to_drive_utc("2026-08-15 23:30:00")
+        self.assertTrue(got.endswith("Z"), got)
+        self.assertLess(got, "2026-08-15T23:30:00Z",
+                        f"{got} should be EARLIER than the same wall clock in UTC")
+
     def test_an_ignored_file_stays_ignored(self):
         _split_capture()
         drive = FakeDrive(returning=[
