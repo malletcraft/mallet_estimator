@@ -111,6 +111,24 @@ class TestMasters(MalletTestCase):
         self.assertTrue(perm and perm.read and perm.write and perm.create,
                         "the steward must be able to FIX an Estimate SKU")
 
+    def test_the_plugin_role_reads_projects_and_creates_skus(self):
+        # 2026-08-15: the binding picker 403'd in the field because the role
+        # missed its new Project grant on a migrate. Assert the grants the
+        # plugin contract depends on, from the live perm rows.
+        from mallet_estimator import integration
+        integration.ensure_plugin_role()
+        for dt, need, forbid in (("Project", ("read",), ("write", "create", "delete")),
+                                 ("Customer", ("read",), ("write", "create", "delete")),
+                                 ("Estimate SKU", ("read", "write", "create"), ("delete",))):
+            perm = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.PLUGIN_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            self.assertTrue(perm, f"{dt} has no perm row for the plugin role")
+            for p in need:
+                self.assertTrue(perm.get(p), f"plugin must {p} {dt}")
+            for p in forbid:
+                self.assertFalse(perm.get(p), f"plugin must never {p} {dt}")
+
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
         integration.ensure_readonly_role()

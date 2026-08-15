@@ -255,16 +255,19 @@ def sync_readonly_role():
     Only for sites that ALREADY have the role: a site nothing reads from
     should not acquire an integration role because it upgraded."""
     from mallet_estimator import integration
+    # Each role re-pins INSIDE ITS OWN guard: one ensure throwing must not
+    # starve the others (2026-08-15: the plugin role missed its new Project
+    # grant on a migrate, invisibly, because the three shared one try).
     if frappe.db.exists("Role", integration.READONLY_ROLE):
-        integration.ensure_readonly_role()
+        _safe(integration.ensure_readonly_role)
     # Same contract for the plugin writer role: re-pin where it exists,
     # never mint it on a site that merely upgraded.
     if frappe.db.exists("Role", integration.PLUGIN_ROLE):
-        integration.ensure_plugin_role()
+        _safe(integration.ensure_plugin_role)
     # And for the data steward: data fixes bypass CI/CD, so its pins must
     # survive upgrades exactly as strictly.
     if frappe.db.exists("Role", integration.STEWARD_ROLE):
-        integration.ensure_steward_role()
+        _safe(integration.ensure_steward_role)
 
 
 def ensure_core_seed():

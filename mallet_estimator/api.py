@@ -193,6 +193,39 @@ def _create_sku_from_component(project, tail):
 
 
 @frappe.whitelist()
+def attach_sku_image(sku, filename, filedata, project=None):
+    """Attach a rendered view (base64 PNG) as the SKU's article image — the
+    client estimate prints article_image, so the concept picture the customer
+    sees IS the current model, never a stale render. Same address resolution
+    as the CSV push (name → binding initials + tail); replaces the previous
+    image on every push."""
+    import base64
+    doc = _find_sku(sku)
+    if not doc and project:
+        _, _, ci = _project_customer(project)
+        if not sku.upper().startswith(ci + "_"):
+            doc = _find_sku(f"{ci}_{sku}")
+    if not doc:
+        doc = _resolve_sku(sku)   # throws with the did-you-mean refusal
+    doc.check_permission("write")
+    content = base64.b64decode(filedata)
+    if len(content) > 8 * 1024 * 1024:
+        frappe.throw(_("Image too large ({0} KB) — the iso render should be well under 8 MB.")
+                     .format(len(content) // 1024))
+    f = frappe.get_doc({
+        "doctype": "File",
+        "file_name": filename or f"{doc.name}_iso.png",
+        "attached_to_doctype": "Estimate SKU",
+        "attached_to_name": doc.name,
+        "attached_to_field": "article_image",
+        "is_private": 0,          # article_image prints on the client estimate
+        "content": content,
+    }).insert(ignore_permissions=True)
+    doc.db_set("article_image", f.file_url)
+    return {"sku": doc.name, "sku_code": doc.get("sku_code"), "file_url": f.file_url}
+
+
+@frappe.whitelist()
 def list_projects():
     """Open Projects with their customers, for the plugin's model-binding
     picker. Select-only by design: clients and projects are created in the

@@ -358,6 +358,27 @@ def steward_is_rate_safe():
 
 
 @frappe.whitelist()
+def role_report():
+    """What each integration role can actually DO right now, read from the
+    live Custom DocPerm rows — so a remote session can VERIFY a role's grants
+    without holding that role's key (2026-08-15: the plugin role silently
+    missed its Project grant and only a failing user found out). Structure
+    only — doctype names and permission bits, no data, no secrets; readable
+    by any identity that can read an Estimate."""
+    frappe.has_permission("Estimate", "read", throw=True)
+    out = {}
+    for role in (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE):
+        rows = frappe.get_all(
+            "Custom DocPerm", filters={"role": role},
+            fields=["parent", "read", "write", "create", "delete"],
+            order_by="parent")
+        out[role] = {
+            r.parent: "".join(p[0] for p in ("read", "write", "create", "delete") if r.get(p))
+            for r in rows}
+    return out
+
+
+@frappe.whitelist()
 def create_steward_api_user(email=None, full_name="Mallet Data Steward", regenerate=0):
     """Create (or re-key) the data steward's API user and return credentials
     ONCE — same contract as the reader and the plugin: a lost secret is
