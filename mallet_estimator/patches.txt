@@ -77,3 +77,7 @@ mallet_estimator.patches.reimport_nest_skus
 # the doctype forbade renaming; allow_rename ships in this batch, and this
 # renames the stragglers. Data rename post-model-sync.
 mallet_estimator.patches.rename_rheau_decors
+# Role doctype lists are plain Python, and a Python-only deploy gets no migrate
+# on Frappe Cloud — so after_migrate never re-pins them and a new grant exists
+# only in the source. Re-pins after the model sync so the new doctypes exist.
+mallet_estimator.patches.sync_integration_roles

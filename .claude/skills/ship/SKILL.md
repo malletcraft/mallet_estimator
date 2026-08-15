@@ -51,6 +51,13 @@ window, because FC installs it before the migrate. Never act on a stall
 verdict without one fresh probe first — the lever in §4 is disruptive and
 the cheap check costs a second.
 
+A deploy that changes ONLY Python gets no migrate, so `after_migrate` does
+not run and anything it applies — integration role grants above all — stays
+in the source and never reaches the database. 2026-08-15: the steward's new
+grant shipped, version_info reported the new commit, and the steward still
+403'd. If a batch changes a role's doctype list, ship a PATCH with it; the
+patch entry is what forces the migrate.
+
 ## 4. If the deploy workflow fails or the hash never flips
 
 Diagnose before re-forcing — run the `/fc-status` skill and read its
