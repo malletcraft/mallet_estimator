@@ -221,6 +221,14 @@ class TestMasters(MalletTestCase):
         from mallet_estimator import integration
         self.assertIn("Site Photo 360", integration.STEWARD_RWC_DOCTYPES)
         self.assertIn("Site Photo 360", integration.READONLY_DOCTYPES)
+        # The steward runs the Drive sync, so it must be able to configure it
+        # and clear its inbox — neither of which is money.
+        for dt in ("Site Photo Settings", "Site Photo Inbox"):
+            self.assertIn(dt, integration.STEWARD_RWC_DOCTYPES, dt)
+            self.assertIn(dt, integration.READONLY_DOCTYPES, dt)
+        # and the money exclusion is untouched by that widening
+        ok, detail = integration.steward_is_rate_safe()
+        self.assertTrue(ok, detail)
 
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing

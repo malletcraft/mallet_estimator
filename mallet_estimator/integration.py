@@ -44,6 +44,8 @@ READONLY_DOCTYPES = (
     "Estimate Settings",
     "Supplier Rate Sheet",
     "Site Photo 360",
+    "Site Photo Settings",
+    "Site Photo Inbox",
 )
 
 # Desk UI metadata, not business data: reading these lets the reader RENDER a
@@ -294,7 +296,10 @@ STEWARD_USER = "data-steward-claude@malletcrafts.com"
 # cancel -> amend). Item gets no delete: history-carrying masters retire by
 # `disabled`, never by deletion.
 STEWARD_RWC_DOCTYPES = ("Estimate", "Estimate SKU", "Mallet Decor",
-                        "Estimate Room", "File", "Site Photo 360")
+                        "Estimate Room", "File", "Site Photo 360",
+                        # The steward operates the Drive sync, so it configures
+                        # it and works its inbox. Neither holds money.
+                        "Site Photo Settings", "Site Photo Inbox")
 STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM")
 # Money: LISTED here so the exclusion is explicit and asserted, not implied.
 STEWARD_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price")
