@@ -230,6 +230,12 @@ class TestMasters(MalletTestCase):
         ok, detail = integration.steward_is_rate_safe()
         self.assertTrue(ok, detail)
 
+    def test_the_site_photo_screens_are_reachable_from_the_workspace(self):
+        # A settings page only reachable by URL is a settings page nobody uses.
+        links = {l.label for l in frappe.get_doc("Workspace", "Mallet Estimator").links}
+        for label in ("Site Photo 360", "Site Photo Settings", "Site Photo Inbox"):
+            self.assertIn(label, links, f"{label} missing from the workspace")
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at
