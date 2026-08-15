@@ -600,6 +600,17 @@ def verify_setup():
     chk("Site Photo 360", bool(frappe.db.exists("DocType", "Site Photo 360")) and pano_ok,
         pano_detail)
 
+    # The capture PWA is a page ON this bench (/sitephoto), so a missing shell
+    # is a silent 404 on someone's phone at a site visit — checked, not assumed.
+    import os
+    _app = frappe.get_app_path("mallet_estimator")
+    _pwa = [r for r in ("www/sitephoto/index.html", "www/sitephoto/index.py",
+                        "public/sitephoto/manifest.json",
+                        "public/images/sitephoto-192.png")
+            if not os.path.exists(os.path.join(_app, r))]
+    chk("Site Photo PWA", not _pwa,
+        ("missing: " + ", ".join(_pwa)) if _pwa else "/sitephoto shell + manifest + icons ✓")
+
     # F5 — assumed price list; F4 — Project material-choice table; F6 — allowance table.
     chk("Assumed price list", frappe.db.exists("Price List", inventory.ESTIMATION_PRICE_LIST),
         inventory.ESTIMATION_PRICE_LIST)

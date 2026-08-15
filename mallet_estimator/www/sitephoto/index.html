@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2933">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Site Photos — Mallet</title>
+<link rel="manifest" href="/assets/mallet_estimator/sitephoto/manifest.json">
+<link rel="icon" href="/assets/mallet_estimator/images/sitephoto-192.png">
+<link rel="apple-touch-icon" href="/assets/mallet_estimator/images/sitephoto-192.png">
+<meta name="mcft-csrf" content="{{ csrf_token }}">
+<meta name="mcft-user" content="{{ user }}">
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --ink: #1f2933; --muted: #6b7785;
+  --line: #dde1e6; --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700;
+  --bad: #b42318; --pad: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font: 16px/1.45 -apple-system,
+  "Segoe UI", Roboto, system-ui, sans-serif;
+  display: flex; flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+}
+header {
+  background: var(--ink); color: #fff; padding: 12px var(--pad);
+  display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 5;
+}
+header h1 { font-size: 17px; margin: 0; font-weight: 600; flex: 1; }
+header .who { font-size: 12px; opacity: .7; }
+main { flex: 1; overflow-y: auto; padding: var(--pad); padding-bottom: 90px; }
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0; display: flex;
+  background: var(--card); border-top: 1px solid var(--line); z-index: 5;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav button {
+  flex: 1; border: 0; background: none; padding: 12px 4px 14px; font-size: 13px;
+  color: var(--muted); font-weight: 600;
+}
+nav button.on { color: var(--accent); box-shadow: inset 0 2px 0 var(--accent); }
+.view { display: none; }
+.view.on { display: block; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: var(--pad); margin-bottom: 14px;
+}
+label.lbl { display: block; font-size: 13px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .03em; margin: 0 0 6px; }
+select, input[type=date], textarea {
+  width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--line);
+  border-radius: 8px; background: #fff; color: var(--ink); font-family: inherit;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  border: 1px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 9px 14px; font-size: 14px; color: var(--ink); font-weight: 500;
+}
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { flex: 1; }
+.btn {
+  display: block; width: 100%; padding: 15px; border: 0; border-radius: 10px;
+  background: var(--accent); color: #fff; font-size: 16px; font-weight: 600;
+}
+.btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.btn:disabled { opacity: .45; }
+.hint { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.badge { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+.badge.Split { background: #e6f4ea; color: var(--ok); }
+.badge.Processing { background: #fff4e5; color: var(--warn); }
+.badge.Pending { background: #eef0f3; color: var(--muted); }
+.badge.Failed { background: #fde8e6; color: var(--bad); }
+.faces { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.face { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #000; position: relative; }
+.face img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; }
+.face span {
+  position: absolute; left: 0; bottom: 0; right: 0; background: rgba(0,0,0,.55);
+  color: #fff; font-size: 12px; font-weight: 600; padding: 5px 8px;
+}
+.face i.n { position: absolute; top: 6px; right: 6px; background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 700; border-radius: 99px; padding: 2px 7px; font-style: normal; }
+.cap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cap b { font-size: 15px; }
+.strip { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+.strip figure { margin: 0; flex: 0 0 62%; }
+.strip img { width: 100%; border-radius: 10px; border: 1px solid var(--line); display: block; aspect-ratio: 1; object-fit: cover; background: #000; }
+.strip figcaption { font-size: 12px; color: var(--muted); padding-top: 5px; font-weight: 600; }
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 15px; }
+.err { background: #fde8e6; color: var(--bad); border-radius: 8px; padding: 10px 12px;
+  font-size: 14px; margin-bottom: 12px; }
+/* annotator */
+#pad { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+#pad canvas { display: block; width: 100%; touch-action: none; }
+.tools { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+.pen { width: 34px; height: 34px; border-radius: 50%; border: 3px solid #fff;
+  box-shadow: 0 0 0 1px var(--line); padding: 0; }
+.pen.on { box-shadow: 0 0 0 3px var(--accent); }
+.tools .btn { width: auto; flex: 0 0 auto; padding: 10px 14px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="title">Site Photos</h1>
+  <span class="who">{{ full_name }}</span>
+</header>
+
+<main>
+  <div class="err" id="err" style="display:none"></div>
+
+  <!-- ============ CAPTURE ============ -->
+  <section class="view on" id="v-capture">
+    <div class="card">
+      <label class="lbl" for="proj">Project</label>
+      <select id="proj"></select>
+      <p class="hint" id="projhint"></p>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Room</label>
+      <div class="chips" id="rooms"></div>
+    </div>
+
+    <div class="card">
+      <label class="lbl">Stage</label>
+      <div class="chips" id="stages"></div>
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label class="lbl" for="cdate">Date</label>
+          <input type="date" id="cdate">
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <label class="lbl" for="fov">Face field of view — <span id="fovv">110</span>°</label>
+        <input type="range" id="fov" min="60" max="150" step="5" value="110" style="width:100%">
+        <p class="hint">110° overlaps each face by about 20°, so a corner shows on both
+          neighbouring faces. Narrower is tighter but loses that context.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <input type="file" id="pick" accept="image/*" style="display:none">
+      <button class="btn" id="go">Choose 360 photo</button>
+      <div id="prog" style="display:none">
+        <p class="hint" id="progtxt">Uploading…</p>
+        <div class="bar"><i id="progbar"></i></div>
+      </div>
+      <p class="hint">Pick the equirectangular photo your 360 camera saved (a wide 2:1 image).</p>
+    </div>
+
+    <div id="justdone"></div>
+  </section>
+
+  <!-- ============ ROOMS / TIMELINE ============ -->
+  <section class="view" id="v-rooms">
+    <div class="card">
+      <label class="lbl" for="proj2">Project</label>
+      <select id="proj2"></select>
+      <div style="margin-top:14px">
+        <label class="lbl">Room</label>
+        <div class="chips" id="rooms2"></div>
+      </div>
+    </div>
+    <div id="tl"></div>
+  </section>
+
+  <!-- ============ ONE CAPTURE ============ -->
+  <section class="view" id="v-photo">
+    <button class="btn ghost" id="back1" style="margin-bottom:14px">‹ Back</button>
+    <div id="photo"></div>
+  </section>
+
+  <!-- ============ ANNOTATE ============ -->
+  <section class="view" id="v-annot">
+    <button class="btn ghost" id="back2" style="margin-bottom:14px">‹ Back</button>
+    <div class="card">
+      <div class="cap"><b id="anot-title">Annotate</b></div>
+      <div id="pad"><canvas id="cv"></canvas></div>
+      <div class="tools">
+        <button class="pen on" data-c="#e5484d" style="background:#e5484d"></button>
+        <button class="pen" data-c="#ffd400" style="background:#ffd400"></button>
+        <button class="pen" data-c="#30a46c" style="background:#30a46c"></button>
+        <button class="pen" data-c="#ffffff" style="background:#ffffff"></button>
+        <button class="btn ghost" id="undo">Undo</button>
+        <button class="btn ghost" id="clear">Clear</button>
+      </div>
+      <label class="lbl" for="note">Note</label>
+      <textarea id="note" rows="3" placeholder="What needs attention here?"></textarea>
+      <button class="btn" id="save" style="margin-top:12px">Save annotation</button>
+      <div id="aprog" style="display:none"><div class="bar"><i id="abar"></i></div></div>
+    </div>
+    <div id="existing"></div>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-v="capture">Capture</button>
+  <button data-v="rooms">Rooms</button>
+</nav>
+
+{% raw %}
+<script>
+"use strict";
+const CSRF = document.querySelector('meta[name=mcft-csrf]').content;
+const FACE_LABEL = { front: 'Front', right: 'Right', back: 'Back',
+                     left: 'Left', up: 'Ceiling', down: 'Floor' };
+const $ = (s) => document.querySelector(s);
+const S = {
+  boot: null, project: '', room: '', stage: '', room2: '',
+  photo: null, face: null, strokes: [], color: '#e5484d', img: null,
+};
+
+/* ---------- transport ---------- */
+async function api(method, args) {
+  const r = await fetch('/api/method/mallet_estimator.sitephoto.' + method, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': CSRF },
+    body: JSON.stringify(args || {}),
+  });
+  const text = await r.text();
+  let j = {};
+  try { j = JSON.parse(text); } catch (e) { /* html error page */ }
+  if (!r.ok) {
+    if (r.status === 401 || r.status === 403) {
+      location.href = '/login?redirect-to=/sitephoto';
+      throw new Error('session expired');
+    }
+    throw new Error(readErr(j) || ('HTTP ' + r.status));
+  }
+  return j.message;
+}
+
+function readErr(j) {
+  try {
+    const m = JSON.parse(j._server_messages || '[]')[0];
+    if (m) return JSON.parse(m).message || m;
+  } catch (e) { /* fall through */ }
+  return j.exception || j.exc_type || '';
+}
+
+function upload(file, opts, onProgress) {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', file, opts.filename || file.name || 'photo.jpg');
+    fd.append('is_private', '1');
+    if (opts.doctype) fd.append('doctype', opts.doctype);
+    if (opts.docname) fd.append('docname', opts.docname);
+    if (opts.fieldname) fd.append('fieldname', opts.fieldname);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/method/upload_file');
+    xhr.setRequestHeader('X-Frappe-CSRF-Token', CSRF);
+    xhr.upload.onprogress = (e) => {
+      if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let j = {};
+      try { j = JSON.parse(xhr.responseText); } catch (e) { /* noop */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(j.message);
+      else reject(new Error(readErr(j) || ('upload failed: HTTP ' + xhr.status)));
+    };
+    xhr.onerror = () => reject(new Error('network error while uploading'));
+    xhr.send(fd);
+  });
+}
+
+function fail(e) {
+  const box = $('#err');
+  box.textContent = (e && e.message) || String(e);
+  box.style.display = 'block';
+  window.scrollTo(0, 0);
+}
+function clearErr() { $('#err').style.display = 'none'; }
+
+/* ---------- chrome ---------- */
+function show(view) {
+  document.querySelectorAll('.view').forEach((v) => v.classList.remove('on'));
+  $('#v-' + view).classList.add('on');
+  document.querySelectorAll('nav button').forEach((b) =>
+    b.classList.toggle('on', b.dataset.v === view));
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('nav button').forEach((b) => {
+  b.onclick = () => { show(b.dataset.v); if (b.dataset.v === 'rooms') loadTimeline(); };
+});
+
+function chips(host, values, current, onPick) {
+  host.innerHTML = '';
+  values.forEach((v) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (v === current ? ' on' : '');
+    b.textContent = v;
+    b.onclick = () => {
+      host.querySelectorAll('.chip').forEach((c) => c.classList.remove('on'));
+      b.classList.add('on');
+      onPick(v);
+    };
+    host.appendChild(b);
+  });
+}
+
+function projectOptions(sel, current) {
+  sel.innerHTML = '';
+  S.boot.projects.forEach((p) => {
+    const o = document.createElement('option');
+    o.value = p.project;
+    o.textContent = p.title + (p.customer_name ? ' — ' + p.customer_name : '');
+    sel.appendChild(o);
+  });
+  if (current) sel.value = current;
+}
+
+/* ---------- boot ---------- */
+async function boot() {
+  try {
+    S.boot = await api('bootstrap');
+  } catch (e) { return fail(e); }
+
+  if (!S.boot.projects.length) {
+    fail(new Error('No projects yet — create the project in ERPNext first.'));
+    return;
+  }
+  S.project = localStorage.getItem('mcft_project') || S.boot.projects[0].project;
+  if (!S.boot.projects.some((p) => p.project === S.project)) S.project = S.boot.projects[0].project;
+  S.room = localStorage.getItem('mcft_room') || S.boot.rooms[0];
+  S.room2 = S.room;
+  S.stage = localStorage.getItem('mcft_stage') || '';
+
+  projectOptions($('#proj'), S.project);
+  projectOptions($('#proj2'), S.project);
+  $('#proj').onchange = () => { S.project = $('#proj').value; remember(); $('#proj2').value = S.project; };
+  $('#proj2').onchange = () => { S.project = $('#proj2').value; $('#proj').value = S.project; remember(); loadTimeline(); };
+
+  chips($('#rooms'), S.boot.rooms, S.room, (v) => { S.room = v; remember(); });
+  chips($('#rooms2'), S.boot.rooms, S.room2, (v) => { S.room2 = v; loadTimeline(); });
+  chips($('#stages'), S.boot.stages, S.stage, (v) => { S.stage = v; remember(); });
+
+  $('#cdate').value = new Date().toISOString().slice(0, 10);
+  $('#fov').value = S.boot.default_fov;
+  $('#fovv').textContent = S.boot.default_fov;
+  $('#fov').oninput = () => { $('#fovv').textContent = $('#fov').value; };
+
+  if (!S.boot.can_create) {
+    $('#go').disabled = true;
+    $('#projhint').textContent = 'Your account cannot create site photos — ask for the permission.';
+  }
+}
+function remember() {
+  localStorage.setItem('mcft_project', S.project);
+  localStorage.setItem('mcft_room', S.room);
+  localStorage.setItem('mcft_stage', S.stage);
+}
+
+/* ---------- capture ---------- */
+$('#go').onclick = () => $('#pick').click();
+$('#pick').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  clearErr();
+  $('#go').disabled = true;
+  $('#prog').style.display = 'block';
+  $('#justdone').innerHTML = '';
+  try {
+    $('#progtxt').textContent = 'Creating the record…';
+    const made = await api('create_capture', {
+      project: S.project, room: S.room, capture_date: $('#cdate').value,
+      stage: S.stage, fov: $('#fov').value,
+    });
+
+    $('#progtxt').textContent = 'Uploading the 360…';
+    const f = await upload(file, {
+      doctype: 'Site Photo 360', docname: made.name, fieldname: 'pano',
+    }, (p) => { $('#progbar').style.width = Math.round(p * 92) + '%'; });
+
+    $('#progtxt').textContent = 'Splitting into six faces…';
+    $('#progbar').style.width = '95%';
+    await api('bind_pano', { name: made.name, file_url: f.file_url });
+
+    const doc = await waitForSplit(made.name);
+    $('#progbar').style.width = '100%';
+    if (doc.status === 'Failed') throw new Error(doc.split_error || 'the split failed');
+    $('#progtxt').textContent = 'Done — six faces ready.';
+    S.photo = doc;
+    $('#justdone').innerHTML = '<div class="card"><div class="cap"><b>' +
+      esc(doc.room) + '</b><span class="badge Split">Split</span></div></div>';
+    renderPhoto(doc);
+    show('photo');
+  } catch (err) {
+    fail(err);
+  } finally {
+    $('#go').disabled = false;
+    setTimeout(() => { $('#prog').style.display = 'none'; $('#progbar').style.width = '0'; }, 900);
+  }
+};
+
+async function waitForSplit(name) {
+  for (let i = 0; i < 60; i++) {
+    const d = await api('detail', { name: name });
+    if (d.status === 'Split' || d.status === 'Failed') return d;
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  throw new Error('still splitting — check the Rooms tab in a minute');
+}
+
+/* ---------- timeline ---------- */
+async function loadTimeline() {
+  const host = $('#tl');
+  host.innerHTML = '<p class="empty">Loading…</p>';
+  try {
+    const rows = await api('timeline', { project: S.project, room: S.room2 });
+    if (!rows.length) {
+      host.innerHTML = '<p class="empty">No photos for this room yet.</p>';
+      return;
+    }
+    host.innerHTML = '';
+    host.appendChild(progressStrip(rows));
+    rows.forEach((r) => host.appendChild(captureCard(r)));
+  } catch (e) { fail(e); host.innerHTML = ''; }
+}
+
+function progressStrip(rows) {
+  // The whole point of versioning by capture: the SAME face across dates.
+  const done = rows.filter((r) => r.face_front).slice().reverse();
+  const wrap = document.createElement('div');
+  wrap.className = 'card';
+  if (!done.length) { wrap.innerHTML = '<p class="hint">No split photos yet.</p>'; return wrap; }
+  const sel = FACE_LABEL[S.face || 'front'] ? (S.face || 'front') : 'front';
+  wrap.innerHTML = '<div class="cap"><b>Progress</b></div>';
+  const picker = document.createElement('div');
+  picker.className = 'chips';
+  picker.style.marginBottom = '12px';
+  wrap.appendChild(picker);
+  const strip = document.createElement('div');
+  strip.className = 'strip';
+  wrap.appendChild(strip);
+
+  function paint(face) {
+    strip.innerHTML = '';
+    done.forEach((r) => {
+      const url = r['face_' + face];
+      if (!url) return;
+      const fig = document.createElement('figure');
+      fig.innerHTML = '<img loading="lazy" src="' + esc(url) + '">' +
+        '<figcaption>' + esc(r.capture_date || '') +
+        (r.stage ? ' · ' + esc(r.stage) : '') + '</figcaption>';
+      fig.onclick = () => openPhoto(r.name);
+      strip.appendChild(fig);
+    });
+  }
+  Object.keys(FACE_LABEL).forEach((f) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (f === sel ? ' on' : '');
+    b.textContent = FACE_LABEL[f];
+    b.onclick = () => {
+      picker.querySelectorAll('.chip').forEach((c) => c.classList.remove('on'));
+      b.classList.add('on');
+      paint(f);
+    };
+    picker.appendChild(b);
+  });
+  paint(sel);
+  return wrap;
+}
+
+function captureCard(r) {
+  const el = document.createElement('div');
+  el.className = 'card';
+  el.innerHTML = '<div class="cap"><b>' + esc(r.capture_date || '') + '</b>' +
+    (r.stage ? '<span class="chip">' + esc(r.stage) + '</span>' : '') +
+    '<span class="badge ' + esc(r.status) + '">' + esc(r.status) + '</span></div>' +
+    (r.status === 'Failed' ? '<p class="hint">' + esc(r.split_error || '') + '</p>' : '');
+  if (r.face_front) {
+    const g = document.createElement('div');
+    g.className = 'faces';
+    g.innerHTML = '<div class="face"><img loading="lazy" src="' + esc(r.face_front) +
+      '"><span>Front</span></div><div class="face"><img loading="lazy" src="' +
+      esc(r.face_right) + '"><span>Right</span></div>';
+    el.appendChild(g);
+    const b = document.createElement('button');
+    b.className = 'btn ghost';
+    b.style.marginTop = '12px';
+    b.textContent = 'Open all six faces';
+    b.onclick = () => openPhoto(r.name);
+    el.appendChild(b);
+  }
+  return el;
+}
+
+async function openPhoto(name) {
+  try {
+    S.photo = await api('detail', { name: name });
+    renderPhoto(S.photo);
+    show('photo');
+  } catch (e) { fail(e); }
+}
+
+function renderPhoto(doc) {
+  const host = $('#photo');
+  const counts = {};
+  (doc.annotations || []).forEach((a) => { counts[a.face] = (counts[a.face] || 0) + 1; });
+  let html = '<div class="card"><div class="cap"><b>' + esc(doc.room) + '</b>' +
+    '<span class="badge ' + esc(doc.status) + '">' + esc(doc.status) + '</span></div>' +
+    '<p class="hint">' + esc(doc.capture_date || '') + (doc.stage ? ' · ' + esc(doc.stage) : '') +
+    ' · ' + esc(String(doc.fov)) + '° faces · ' + esc(doc.name) + '</p></div>';
+  html += '<div class="card"><p class="hint" style="margin:0 0 10px">Tap a face to draw on it.</p><div class="faces">';
+  Object.keys(FACE_LABEL).forEach((f) => {
+    const url = doc['face_' + f];
+    if (!url) return;
+    html += '<div class="face" data-f="' + f + '"><img loading="lazy" src="' + esc(url) + '">' +
+      (counts[f] ? '<i class="n">' + counts[f] + '</i>' : '') +
+      '<span>' + FACE_LABEL[f] + '</span></div>';
+  });
+  html += '</div></div>';
+  host.innerHTML = html;
+  host.querySelectorAll('.face').forEach((el) => {
+    el.onclick = () => openAnnotator(doc, el.dataset.f);
+  });
+}
+
+/* ---------- annotator ---------- */
+function openAnnotator(doc, face) {
+  S.photo = doc; S.face = face; S.strokes = [];
+  $('#anot-title').textContent = FACE_LABEL[face] + ' — ' + doc.room;
+  $('#note').value = '';
+  const img = new Image();
+  img.onload = () => { S.img = img; sizeCanvas(); redraw(); };
+  img.onerror = () => fail(new Error('could not load that face'));
+  img.src = doc['face_' + face];
+  renderExisting(doc, face);
+  show('annot');
+}
+
+function renderExisting(doc, face) {
+  const mine = (doc.annotations || []).filter((a) => a.face === face);
+  $('#existing').innerHTML = mine.length
+    ? '<div class="card"><div class="cap"><b>Earlier notes on this face</b></div>' +
+      mine.map((a) => '<figure style="margin:0 0 14px"><img src="' + esc(a.image) +
+        '" style="width:100%;border-radius:8px;border:1px solid var(--line)">' +
+        (a.note ? '<figcaption class="hint">' + esc(a.note) + '</figcaption>' : '') +
+        '</figure>').join('') + '</div>'
+    : '';
+}
+
+const cv = $('#cv'), ctx = cv.getContext('2d');
+function sizeCanvas() {
+  const w = $('#pad').clientWidth;
+  cv.width = w; cv.height = Math.round(w * (S.img.height / S.img.width));
+}
+function redraw() {
+  if (!S.img) return;
+  ctx.drawImage(S.img, 0, 0, cv.width, cv.height);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  S.strokes.forEach((s) => {
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = Math.max(2, s.w * cv.width);
+    ctx.beginPath();
+    s.pts.forEach((p, i) => {
+      const x = p[0] * cv.width, y = p[1] * cv.height;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+}
+window.addEventListener('resize', () => { if (S.img) { sizeCanvas(); redraw(); } });
+
+let drawing = null;
+function at(e) {
+  const r = cv.getBoundingClientRect();
+  return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+}
+cv.addEventListener('pointerdown', (e) => {
+  if (!S.img) return;
+  cv.setPointerCapture(e.pointerId);
+  drawing = { color: S.color, w: 0.010, pts: [at(e)] };
+  S.strokes.push(drawing);
+  redraw();
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!drawing) return;
+  drawing.pts.push(at(e));
+  redraw();
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
+  cv.addEventListener(ev, () => { drawing = null; }));
+
+document.querySelectorAll('.pen').forEach((p) => {
+  p.onclick = () => {
+    document.querySelectorAll('.pen').forEach((q) => q.classList.remove('on'));
+    p.classList.add('on');
+    S.color = p.dataset.c;
+  };
+});
+$('#undo').onclick = () => { S.strokes.pop(); redraw(); };
+$('#clear').onclick = () => { S.strokes = []; redraw(); };
+
+$('#save').onclick = async () => {
+  if (!S.img) return;
+  if (!S.strokes.length && !$('#note').value.trim()) {
+    return fail(new Error('draw something or write a note first'));
+  }
+  clearErr();
+  $('#save').disabled = true;
+  $('#aprog').style.display = 'block';
+  try {
+    const blob = await composite();
+    const stamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    const f = await upload(blob, {
+      doctype: 'Site Photo 360', docname: S.photo.name,
+      filename: S.photo.name + '_' + S.face + '_note' + stamp + '.jpg',
+    }, (p) => { $('#abar').style.width = Math.round(p * 100) + '%'; });
+    await api('annotate', {
+      photo: S.photo.name, face: S.face, file_url: f.file_url,
+      note: $('#note').value.trim(),
+    });
+    S.photo = await api('detail', { name: S.photo.name });
+    S.strokes = []; $('#note').value = ''; redraw();
+    renderExisting(S.photo, S.face);
+    $('#abar').style.width = '0';
+  } catch (e) { fail(e); } finally {
+    $('#save').disabled = false;
+    $('#aprog').style.display = 'none';
+  }
+};
+
+// Composite at the face's NATURAL resolution — the phone draws on a scaled
+// view, but the saved markup must stay as sharp as the photo it marks.
+function composite() {
+  const off = document.createElement('canvas');
+  off.width = S.img.naturalWidth; off.height = S.img.naturalHeight;
+  const o = off.getContext('2d');
+  o.drawImage(S.img, 0, 0);
+  o.lineCap = 'round'; o.lineJoin = 'round';
+  S.strokes.forEach((s) => {
+    o.strokeStyle = s.color;
+    o.lineWidth = Math.max(2, s.w * off.width);
+    o.beginPath();
+    s.pts.forEach((p, i) => {
+      const x = p[0] * off.width, y = p[1] * off.height;
+      if (i === 0) o.moveTo(x, y); else o.lineTo(x, y);
+    });
+    o.stroke();
+  });
+  return new Promise((res) => off.toBlob(res, 'image/jpeg', 0.9));
+}
+
+$('#back1').onclick = () => { show('rooms'); loadTimeline(); };
+$('#back2').onclick = () => { renderPhoto(S.photo); show('photo'); };
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+boot();
+</script>
+{% endraw %}
+</body>
+</html>
