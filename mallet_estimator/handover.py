@@ -33,11 +33,18 @@ SEP = " · "
 # digit and an underscore, so \b would refuse to parse the very names we write.
 CAPTION_ID_RE = re.compile(r"(?<![A-Za-z0-9])(MEST-PH-[0-9]{4}-[0-9]{5})(?![0-9])")
 CAPTION_FACE_RE = re.compile(
-    r"(?<![A-Za-z])(front|right|back|left|up|down|ceiling|floor)(?![A-Za-z])", re.I)
-# Faces are named for a room, not a compass: 'up' reads as Ceiling on site.
+    r"(?<![A-Za-z])(front|right|back|left|up|down|top|bottom|ceiling|floor)(?![A-Za-z])",
+    re.I)
+# Top/Bottom rather than Up/Down or Ceiling/Floor because that is the naming
+# already in use on this Drive: Yogesh_Sahasrabudhe-2/YS_GB/YS_GB_top.jpg and
+# 42 siblings, hand-made before this existed. One vocabulary in one folder
+# tree beats a tidier one that argues with the files already there.
 FACE_LABELS = {"front": "Front", "right": "Right", "back": "Back",
-               "left": "Left", "up": "Ceiling", "down": "Floor"}
+               "left": "Left", "up": "Top", "down": "Bottom"}
+# Older/spoken synonyms still read back, so nothing already named that way
+# becomes unmatchable.
 LABEL_TO_FACE = {v.lower(): k for k, v in FACE_LABELS.items()}
+LABEL_TO_FACE.update({"ceiling": "up", "floor": "down"})
 
 
 def _font(px):

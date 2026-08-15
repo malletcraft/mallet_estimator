@@ -27,20 +27,26 @@ class TestCaption(unittest.TestCase):
         self.assertEqual(photo, "MEST-PH-2026-00007")
         self.assertEqual(face, "front")
 
-    def test_ceiling_and_floor_read_back_as_up_and_down(self):
-        # On site nobody says "the up face" — but the doctype field does.
+    def test_top_and_bottom_read_back_as_up_and_down(self):
+        # The doctype field says up/down; the Drive files say top/bottom,
+        # which is the naming already in use there.
         for face in ("up", "down"):
             text = H.caption_text("MEST-PH-2026-00001", "Kitchen", face, "2026-08-15")
             photo, got = H.parse_caption(text)
             self.assertEqual(got, face, text)
-        self.assertIn("Ceiling", H.caption_text("X", "K", "up"))
-        self.assertIn("Floor", H.caption_text("X", "K", "down"))
+        self.assertIn("Top", H.caption_text("X", "K", "up"))
+        self.assertIn("Bottom", H.caption_text("X", "K", "down"))
+
+    def test_the_older_ceiling_floor_words_still_parse(self):
+        # Anything already named that way must not become unmatchable.
+        self.assertEqual(H.parse_caption("MEST-PH-2026-00001_ceiling.jpg")[1], "up")
+        self.assertEqual(H.parse_caption("MEST-PH-2026-00001_floor.jpg")[1], "down")
 
     def test_our_own_filenames_parse(self):
         # Regression: \b does not fire between a digit and an underscore, so
         # the original pattern refused to read the very names we write —
         # which would have broken the whole automated return path.
-        for face in ("front", "right", "back", "left", "ceiling", "floor"):
+        for face in ("front", "right", "back", "left", "top", "bottom"):
             fn = f"MEST-PH-2026-00001_{face}.jpg"
             photo, got = H.parse_caption(fn)
             self.assertEqual(photo, "MEST-PH-2026-00001", fn)
@@ -104,7 +110,7 @@ class TestLayout(unittest.TestCase):
 
     def test_filenames_name_the_face(self):
         self.assertEqual(H.handover_filename("MEST-PH-2026-00007", "up"),
-                         "MEST-PH-2026-00007_ceiling.jpg")
+                         "MEST-PH-2026-00007_top.jpg")
         self.assertEqual(H.handover_filename("MEST-PH-2026-00007", "front"),
                          "MEST-PH-2026-00007_front.jpg")
 

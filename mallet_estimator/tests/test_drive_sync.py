@@ -17,7 +17,7 @@ class TestPlanUploads(unittest.TestCase):
         plan = D.plan_uploads(PHOTO, FACES)
         self.assertEqual(len(plan), 6)
         self.assertEqual({p["face"] for p in plan}, set(FACES))
-        self.assertIn(f"{PHOTO}_ceiling.jpg", [p["filename"] for p in plan])
+        self.assertIn(f"{PHOTO}_top.jpg", [p["filename"] for p in plan])
 
     def test_rerunning_a_handover_uploads_nothing(self):
         # Otherwise the same wall appears twice in ImageMeter with no way to
@@ -29,7 +29,7 @@ class TestPlanUploads(unittest.TestCase):
 
     def test_only_the_missing_face_is_re_sent(self):
         done = [f"{PHOTO}_front.jpg", f"{PHOTO}_right.jpg", f"{PHOTO}_back.jpg",
-                f"{PHOTO}_left.jpg", f"{PHOTO}_ceiling.jpg"]
+                f"{PHOTO}_left.jpg", f"{PHOTO}_top.jpg"]
         plan = D.plan_uploads(PHOTO, FACES, existing_filenames=done)
         self.assertEqual([p["face"] for p in plan], ["down"])
 
@@ -51,10 +51,10 @@ class TestClassifyReturn(unittest.TestCase):
 
     def test_a_file_naming_its_capture_attaches_itself(self):
         action, payload = D.classify_return(
-            {"id": "x1", "title": f"{PHOTO}_ceiling.jpg"}, known_photos=[PHOTO])
+            {"id": "x1", "title": f"{PHOTO}_top.jpg"}, known_photos=[PHOTO])
         self.assertEqual(action, D.ATTACH)
         self.assertEqual(payload["photo"], PHOTO)
-        self.assertEqual(payload["face"], "up")     # Ceiling is the up face
+        self.assertEqual(payload["face"], "up")     # Top is the up face
 
     def test_imagemeters_own_naming_goes_to_a_person(self):
         # This is the ordinary case: ImageMeter renames exports after the date.
