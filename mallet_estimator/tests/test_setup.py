@@ -346,6 +346,38 @@ class TestMasters(MalletTestCase):
             "every integration role must appear in the report")
         self.assertIn(integration.PHOTOGRAPHER_ROLE, reported)
 
+    def test_a_named_user_carrying_the_role_can_capture_and_nothing_more(self):
+        # role_report says the grants landed on the ROLE. What nobody could
+        # check after creating an account was whether they landed on the
+        # PERSON — so this asks frappe the same question every real request
+        # asks, with the user named explicitly.
+        from mallet_estimator import integration
+        integration.ensure_photographer_role()
+        email = "zz-photographer-test@example.com"
+        if not frappe.db.exists("User", email):
+            frappe.get_doc({
+                "doctype": "User", "email": email, "first_name": "ZZ Photographer",
+                "user_type": "System User", "send_welcome_email": 0,
+                "roles": [{"role": integration.PHOTOGRAPHER_ROLE}],
+            }).insert(ignore_permissions=True)
+
+        rep = integration.user_access_report(email)
+        self.assertTrue(rep["exists"])
+        self.assertIn(integration.PHOTOGRAPHER_ROLE, rep["roles"])
+        self.assertTrue(rep["can_capture"], f"cannot make a capture: {rep['access']}")
+        self.assertIn("r", rep["access"].get("Project", ""), "must see the project list")
+        # The money doctypes are the point of the role. Asserted by name so a
+        # future default that widens them fails here rather than on a phone.
+        for dt in ("Estimate Settings", "Supplier Rate Sheet", "Item Price"):
+            self.assertEqual(rep["access"].get(dt, ""), "",
+                             f"a site photographer must not reach {dt}")
+
+    def test_the_access_report_refuses_to_invent_a_user(self):
+        from mallet_estimator import integration
+        rep = integration.user_access_report("nobody-here@example.com")
+        self.assertFalse(rep["exists"])
+        self.assertNotIn("access", rep)
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

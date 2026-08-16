@@ -504,3 +504,52 @@ def photographer_is_scoped():
 # answer to "did the patch run?" was unobtainable from outside. A report that
 # can silently omit a role is worse than no report: it reads as an all-clear.
 INTEGRATION_ROLES = (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE, PHOTOGRAPHER_ROLE)
+
+# The doctypes user_access_report will answer about, and no others. A fixed
+# list is the containment: the question it can be asked is "can this person do
+# the capture job, and are the money doctypes still shut", never "enumerate
+# what anyone can reach across this site".
+ACCESS_PROBE_DOCTYPES = PHOTOGRAPHER_RWC + PHOTOGRAPHER_RO + PHOTOGRAPHER_FORBIDDEN
+
+
+@frappe.whitelist()
+def user_access_report(user):
+    """What ONE named user can actually do across the capture surface.
+
+    role_report answers "did the grants land on the ROLE". This answers the
+    question that actually matters after someone creates an account: did the
+    role land on the PERSON, and does the framework agree. It asks
+    frappe.has_permission with an explicit user — the same call every real
+    request goes through — so a yes here is the yes the site will give, not an
+    inference from permission rows.
+
+    It never switches session and never touches credentials: no password, no
+    key, no impersonation. Structure only, over a fixed doctype list."""
+    frappe.has_permission("Estimate", "read", throw=True)
+    user = (user or "").strip()
+    if not frappe.db.exists("User", user):
+        return {"user": user, "exists": False}
+
+    roles = sorted(frappe.get_roles(user))
+    out = {}
+    for dt in ACCESS_PROBE_DOCTYPES:
+        if not frappe.db.exists("DocType", dt):
+            continue
+        out[dt] = "".join(
+            p[0] for p in ("read", "write", "create", "delete")
+            if frappe.has_permission(dt, ptype=p, user=user))
+
+    leaks = [dt for dt in PHOTOGRAPHER_FORBIDDEN if out.get(dt)]
+    can_capture = "c" in out.get("Site Photo 360", "") and "c" in out.get("File", "")
+    return {
+        "user": user, "exists": True,
+        "enabled": bool(frappe.db.get_value("User", user, "enabled")),
+        "user_type": frappe.db.get_value("User", user, "user_type"),
+        "roles": roles,
+        "access": out,
+        "can_capture": can_capture,
+        # Named explicitly rather than left for the reader to spot: a person
+        # who can also open the cost screens is the failure this whole role
+        # exists to prevent, and it must not be a subtle line in a table.
+        "leaks": leaks,
+    }
