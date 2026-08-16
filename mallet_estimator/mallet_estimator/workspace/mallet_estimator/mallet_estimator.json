@@ -1,7 +1,7 @@
 {
  "app": "mallet_estimator",
  "charts": [],
- "content": "[{\"id\": \"mest_sc\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Capture a 360\", \"col\": 4}}, {\"id\": \"mest_sc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Site Photos\", \"col\": 4}}, {\"id\": \"mest_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Estimating\", \"col\": 4}}, {\"id\": \"mest_photo_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Site Photos\", \"col\": 4}}]",
+ "content": "[{\"id\": \"mest_sc\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Capture a 360\", \"col\": 4}}, {\"id\": \"mest_sc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"All Captures\", \"col\": 4}}, {\"id\": \"mest_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Estimating\", \"col\": 4}}, {\"id\": \"mest_photo_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Site Photos\", \"col\": 4}}]",
  "creation": "2026-08-01 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -93,7 +93,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-16 09:15:00.000000",
+ "modified": "2026-08-16 09:45:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Mallet Estimator",
@@ -113,7 +113,7 @@
    "doc_view": ""
   },
   {
-   "label": "Site Photos",
+   "label": "All Captures",
    "type": "DocType",
    "link_to": "Site Photo 360",
    "color": "Grey",

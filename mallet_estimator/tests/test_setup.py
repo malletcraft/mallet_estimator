@@ -242,6 +242,7 @@ class TestMasters(MalletTestCase):
         # the capture app gets a shortcut tile — the most direct route there is
         shortcuts = {s.label: s for s in (ws.shortcuts or [])}
         self.assertIn("Capture a 360", shortcuts)
+        self.assertIn("All Captures", shortcuts)
         self.assertEqual(shortcuts["Capture a 360"].type, "URL")
         self.assertEqual(shortcuts["Capture a 360"].url, "/sitephoto")
 
