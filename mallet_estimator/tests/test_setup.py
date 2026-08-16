@@ -246,6 +246,13 @@ class TestMasters(MalletTestCase):
         self.assertEqual(shortcuts["Capture a 360"].type, "URL")
         self.assertEqual(shortcuts["Capture a 360"].url, "/sitephoto")
 
+    def test_the_capture_form_shows_its_photos_inline(self):
+        # Before the gallery, looking at a photo meant opening an attachment in
+        # a new tab, and the annotations sat unread in a collapsed table.
+        meta = frappe.get_meta("Site Photo 360")
+        self.assertTrue(meta.has_field("gallery_html"), "no gallery on the form")
+        self.assertEqual(meta.get_field("gallery_html").fieldtype, "HTML")
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at
