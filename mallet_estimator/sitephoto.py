@@ -132,3 +132,76 @@ def delete_annotation(photo, idx):
     doc.set("annotations", [a for a in (doc.annotations or []) if a.idx != cint(idx)])
     doc.save()
     return {"count": len(doc.annotations)}
+
+
+@frappe.whitelist()
+def tree():
+    """Client → project → room, the way ImageMeter's own folders read.
+
+    Built from the captures that exist rather than from the masters: a room
+    nobody has photographed is not a folder, it is noise. Counts come from one
+    grouped query so the browser stays fast as the history grows."""
+    rows = frappe.get_list(
+        DOCTYPE, fields=["project", "room", "capture_date", "name", "status"],
+        order_by="capture_date desc, creation desc", limit_page_length=5000)
+    if not rows:
+        return {"clients": []}
+
+    projects = {}
+    for p in frappe.get_all(
+            "Project", filters={"name": ("in", list({r.project for r in rows if r.project}))},
+            fields=["name", "project_name", "customer"]):
+        projects[p.name] = p
+    cust_names = {}
+    for c in frappe.get_all(
+            "Customer",
+            filters={"name": ("in", list({p.customer for p in projects.values() if p.customer}))},
+            fields=["name", "customer_name"]):
+        cust_names[c.name] = c.customer_name or c.name
+
+    tree_ = {}
+    for r in rows:
+        p = projects.get(r.project)
+        client = cust_names.get(p.customer if p else None) or "(no client)"
+        ptitle = (p.project_name if p else None) or r.project or "(no project)"
+        c = tree_.setdefault(client, {})
+        pr = c.setdefault((r.project, ptitle), {})
+        room = pr.setdefault(r.room or "(no room)", {"captures": 0, "latest": None})
+        room["captures"] += 1
+        if not room["latest"] or str(r.capture_date or "") > room["latest"]:
+            room["latest"] = str(r.capture_date or "")
+
+    out = []
+    for client in sorted(tree_):
+        plist = []
+        for (pname, ptitle) in sorted(tree_[client], key=lambda x: x[1]):
+            rooms = tree_[client][(pname, ptitle)]
+            plist.append({
+                "project": pname, "title": ptitle,
+                "captures": sum(v["captures"] for v in rooms.values()),
+                "rooms": [{"room": k, **v} for k, v in
+                          sorted(rooms.items(), key=lambda kv: kv[0])],
+            })
+        out.append({"client": client,
+                    "captures": sum(p["captures"] for p in plist),
+                    "projects": plist})
+    return {"clients": out}
+
+
+@frappe.whitelist()
+def room_captures(project, room, limit=60):
+    """Every capture for one room, newest first, with its faces — the right
+    pane of the browser and the progress record for that wall."""
+    rows = frappe.get_list(
+        DOCTYPE, filters={"project": project, "room": room}, fields=LIST_FIELDS,
+        order_by="capture_date desc, creation desc", limit_page_length=cint(limit) or 60)
+    names = [r["name"] for r in rows]
+    counts = {}
+    if names:
+        for a in frappe.get_all("Site Photo Annotation",
+                                filters={"parent": ("in", names)},
+                                fields=["parent", "count(name) as n"], group_by="parent"):
+            counts[a["parent"]] = a["n"]
+    for r in rows:
+        r["annotations"] = counts.get(r["name"], 0)
+    return rows

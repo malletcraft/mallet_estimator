@@ -1,0 +1,17 @@
+{
+ "content": null,
+ "creation": "2026-08-16 13:00:00.000000",
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-08-16 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "site-photo-browser",
+ "owner": "Administrator",
+ "page_name": "site-photo-browser",
+ "roles": [{"role": "All"}],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "title": "Site Photos"
+}
