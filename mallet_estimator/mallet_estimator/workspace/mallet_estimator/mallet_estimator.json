@@ -1,7 +1,7 @@
 {
  "app": "mallet_estimator",
  "charts": [],
- "content": "[{\"id\":\"mest_card\",\"type\":\"card\",\"data\":{\"card_name\":\"Estimating\",\"col\":4}}]",
+ "content": "[{\"id\": \"mest_sc\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Capture a 360\", \"col\": 4}}, {\"id\": \"mest_sc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Site Photos\", \"col\": 4}}, {\"id\": \"mest_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Estimating\", \"col\": 4}}, {\"id\": \"mest_photo_card\", \"type\": \"card\", \"data\": {\"card_name\": \"Site Photos\", \"col\": 4}}]",
  "creation": "2026-08-01 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -55,6 +55,16 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Site Photos",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break",
+   "link_to": null,
+   "link_type": null
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Site Photo 360",
    "link_count": 0,
    "link_to": "Site Photo 360",
@@ -94,6 +104,21 @@
  "quick_lists": [],
  "roles": [],
  "sequence_id": 20.0,
- "shortcuts": [],
+ "shortcuts": [
+  {
+   "label": "Capture a 360",
+   "type": "URL",
+   "url": "/sitephoto",
+   "color": "Blue",
+   "doc_view": ""
+  },
+  {
+   "label": "Site Photos",
+   "type": "DocType",
+   "link_to": "Site Photo 360",
+   "color": "Grey",
+   "doc_view": "List"
+  }
+ ],
  "title": "Mallet Estimator"
 }

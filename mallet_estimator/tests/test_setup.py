@@ -232,9 +232,18 @@ class TestMasters(MalletTestCase):
 
     def test_the_site_photo_screens_are_reachable_from_the_workspace(self):
         # A settings page only reachable by URL is a settings page nobody uses.
-        links = {l.label for l in frappe.get_doc("Workspace", "Mallet Estimator").links}
+        ws = frappe.get_doc("Workspace", "Mallet Estimator")
+        links = {l.label for l in ws.links}
         for label in ("Site Photo 360", "Site Photo Settings", "Site Photo Inbox"):
             self.assertIn(label, links, f"{label} missing from the workspace")
+        # and they are their own section, not buried among the estimating tools
+        breaks = [l.label for l in ws.links if l.type == "Card Break"]
+        self.assertIn("Site Photos", breaks, "Site Photos needs its own card")
+        # the capture app gets a shortcut tile — the most direct route there is
+        shortcuts = {s.label: s for s in (ws.shortcuts or [])}
+        self.assertIn("Capture a 360", shortcuts)
+        self.assertEqual(shortcuts["Capture a 360"].type, "URL")
+        self.assertEqual(shortcuts["Capture a 360"].url, "/sitephoto")
 
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
