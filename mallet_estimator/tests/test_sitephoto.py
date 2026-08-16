@@ -120,6 +120,25 @@ class TestSitePhotoApi(MalletTestCase):
         for f in ("name", "capture_date", "stage", "status", "face_front"):
             self.assertIn(f, only[0])
 
+    def test_room_captures_counts_the_annotations(self):
+        # The browser's right-hand pane. It shipped untested and threw on the
+        # very first click — frappe refuses a SQL function written as a string
+        # in `fields`, so the pane came up empty behind an error dialog.
+        proj = _project()
+        room = _room()
+        made = sitephoto.create_capture(project=proj, room=room)
+        sitephoto.create_capture(project=proj, room=room)
+        sitephoto.annotate(made["name"], "front", "/private/files/a.jpg", "one")
+        sitephoto.annotate(made["name"], "front", "/private/files/b.jpg", "two")
+
+        rows = sitephoto.room_captures(proj, room)
+        self.assertGreaterEqual(len(rows), 2)
+        by_name = {r["name"]: r for r in rows}
+        self.assertEqual(by_name[made["name"]]["annotations"], 2)
+        # a capture nobody annotated reports zero, not a missing key
+        self.assertTrue(all("annotations" in r for r in rows))
+        self.assertIn(0, [r["annotations"] for r in rows])
+
     def test_the_pwa_shell_is_installed(self):
         # The app is a page on the bench, not a separate deploy — if the shell
         # or its manifest goes missing the phone silently 404s.

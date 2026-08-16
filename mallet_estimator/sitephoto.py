@@ -198,10 +198,14 @@ def room_captures(project, room, limit=60):
     names = [r["name"] for r in rows]
     counts = {}
     if names:
+        # Counted in Python rather than SQL: frappe rejects a function written
+        # as a string in `fields` ("count(name) as n"), and the rejection is a
+        # thrown message that empties the whole pane. At one page of captures
+        # the rows are few enough that the query builder is not worth the risk.
         for a in frappe.get_all("Site Photo Annotation",
                                 filters={"parent": ("in", names)},
-                                fields=["parent", "count(name) as n"], group_by="parent"):
-            counts[a["parent"]] = a["n"]
+                                fields=["parent"], limit_page_length=0):
+            counts[a["parent"]] = counts.get(a["parent"], 0) + 1
     for r in rows:
         r["annotations"] = counts.get(r["name"], 0)
     return rows
