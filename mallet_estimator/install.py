@@ -620,6 +620,23 @@ def verify_setup():
          + (", credential present" if _im_key else ", MCFT_GDRIVE_SA_JSON not set on this bench"))
         if _im_ok else "missing Site Photo Settings / Site Photo Inbox")
 
+    # A workspace edit is only applied when the on-disk record is NEWER than
+    # the row (2026-08-16: it was not, and three shipped edits did nothing at
+    # all, silently). Compare the live record against what the code expects.
+    _want = {"Estimate SKU", "Estimate", "Estimate Settings",
+             "Site Photo 360", "Site Photo Inbox", "Site Photo Settings"}
+    try:
+        _ws = frappe.get_doc("Workspace", WORKSPACE_NAME)
+        _have = {l.label for l in _ws.links}
+        _miss = sorted(_want - _have)
+        _short = {s.label for s in (_ws.shortcuts or [])}
+    except Exception:
+        _miss, _short = sorted(_want), set()
+    chk("Workspace links", not _miss,
+        ("NOT applied — bump `modified` in the workspace JSON; missing: "
+         + ", ".join(_miss)) if _miss
+        else f"{len(_want)} links + {len(_short)} shortcut(s) ✓")
+
     chk("Site Photo PWA", not _pwa,
         ("missing: " + ", ".join(_pwa)) if _pwa else "/sitephoto shell + manifest + icons ✓")
 
