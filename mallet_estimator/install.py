@@ -720,6 +720,17 @@ def verify_setup():
         chk("Read-only API role", True,
             "not created — optional, see the button on Estimate Settings")
 
+    # Unlike the three API identities, the photographer role is minted on every
+    # site by sync_readonly_role — so absence here does not mean "optional, not
+    # set up", it means the migrate never ran. That is the one deploy failure
+    # this app keeps hitting, and until now nothing on the outside could see it.
+    if frappe.db.exists("Role", integration.PHOTOGRAPHER_ROLE):
+        ok, detail = integration.photographer_is_scoped()
+        chk("Site photographer role", ok, detail)
+    else:
+        chk("Site photographer role", False,
+            "missing — the migrate did not run; ship a patch to force one")
+
     failed = [c["name"] for c in checks if not c["ok"]]
     return {"checks": checks, "all_ok": not failed, "failed": failed}
 

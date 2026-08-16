@@ -333,6 +333,19 @@ class TestMasters(MalletTestCase):
                 for p in ("read", "write", "create", "delete"):
                     self.assertFalse(perm.get(p), f"photographer must not {p} {dt}")
 
+    def test_the_role_report_can_see_every_role(self):
+        # role_report exists so a remote session can answer "did the grants
+        # actually reach the database?" — and it listed three roles while a
+        # fourth was live, so the honest answer was unobtainable. A report
+        # that can silently omit a role reads as an all-clear.
+        from mallet_estimator import integration
+        integration.ensure_photographer_role()
+        reported = set(integration.role_report())
+        self.assertEqual(
+            set(integration.INTEGRATION_ROLES) - reported, set(),
+            "every integration role must appear in the report")
+        self.assertIn(integration.PHOTOGRAPHER_ROLE, reported)
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

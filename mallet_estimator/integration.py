@@ -373,7 +373,7 @@ def role_report():
     by any identity that can read an Estimate."""
     frappe.has_permission("Estimate", "read", throw=True)
     out = {}
-    for role in (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE):
+    for role in INTEGRATION_ROLES:
         rows = frappe.get_all(
             "Custom DocPerm", filters={"role": role},
             fields=["parent", "read", "write", "create", "delete"],
@@ -496,3 +496,11 @@ def photographer_is_scoped():
                 r.get(p) for p in ("read", "write", "create", "delete")):
             return False, f"{r.parent} must be closed to a site photographer"
     return True, f"{len(rows)} doctype(s), capture only"
+
+
+# Every integration role, named once, because role_report() is the ONLY way a
+# remote session can see whether a role's grants actually reached the database
+# — and on 2026-08-16 it listed three roles while a fourth was live, so the
+# answer to "did the patch run?" was unobtainable from outside. A report that
+# can silently omit a role is worse than no report: it reads as an all-clear.
+INTEGRATION_ROLES = (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE, PHOTOGRAPHER_ROLE)
