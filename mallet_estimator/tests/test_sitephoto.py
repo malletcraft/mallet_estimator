@@ -149,3 +149,34 @@ class TestSitePhotoApi(MalletTestCase):
                     "public/images/sitephoto-192.png",
                     "public/images/sitephoto-512.png"):
             self.assertTrue(os.path.exists(os.path.join(base, rel)), f"missing {rel}")
+
+    def test_the_worker_is_registered_for_the_page_it_must_control(self):
+        # Registering /sitephoto/sw.js without a scope gives it the DEFAULT
+        # scope /sitephoto/ — and the app lives at /sitephoto, no trailing
+        # slash, which is not under that string. The worker then controls
+        # nothing: invisible online, and on site the app does not open at all.
+        # Verified in a browser (2026-08-16): pre-fix the page reported
+        # controller=false with scope /sitephoto/.
+        import os
+        import re
+        base = frappe.get_app_path("mallet_estimator")
+        with open(os.path.join(base, "www/sitephoto/index.html")) as f:
+            html = f.read()
+        reg = re.search(r"serviceWorker\.register\(([^)]*)\)", html)
+        self.assertTrue(reg, "the shell must register a service worker")
+        self.assertIn("scope", reg.group(1),
+                      "the worker must be registered with an EXPLICIT scope")
+        self.assertIn("'/sitephoto'", reg.group(1),
+                      "the scope must cover /sitephoto itself, not just /sitephoto/")
+
+    def test_the_masters_survive_a_dead_network(self):
+        # An offline shell that opens to empty pickers is not offline support:
+        # nothing can be chosen, so nothing reaches the queue. The last good
+        # bootstrap is kept on the phone and used when the call fails.
+        import os
+        base = frappe.get_app_path("mallet_estimator")
+        with open(os.path.join(base, "www/sitephoto/index.html")) as f:
+            html = f.read()
+        self.assertIn("mcft_boot_v1", html, "the masters must be cached on the device")
+        self.assertIn("stale_masters", html,
+                      "and the app must SAY the list is old, or a new room goes missing silently")

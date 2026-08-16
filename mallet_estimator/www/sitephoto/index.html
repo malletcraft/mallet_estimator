@@ -320,10 +320,29 @@ function projectOptions(sel, current) {
 }
 
 /* ---------- boot ---------- */
+// The masters the app needs before it can accept anything: the project list,
+// the rooms, the stages. They come from the server, and on a site visit the
+// server is exactly what is missing — so the last good answer is kept on the
+// phone. Without this the offline shell opens to a dead screen: nothing to
+// pick, so nothing to queue, so the queue never sees a capture at all.
+const BOOT_CACHE = 'mcft_boot_v1';
+
 async function boot() {
+  let stale = false;
   try {
     S.boot = await api('bootstrap');
-  } catch (e) { return fail(e); }
+    try { localStorage.setItem(BOOT_CACHE, JSON.stringify(S.boot)); } catch (e) { /* full/private */ }
+  } catch (e) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(BOOT_CACHE) || 'null'); } catch (e2) { /* noop */ }
+    // Never invent masters: with no cached answer the honest outcome is the
+    // error, not an empty picker that looks like "this project has no rooms".
+    if (!cached || !cached.projects) return fail(e);
+    S.boot = cached;
+    stale = true;
+  }
+
+  if (stale) S.stale_masters = true;
 
   if (!S.boot.projects.length) {
     fail(new Error('No projects yet — create the project in ERPNext first.'));
@@ -729,7 +748,11 @@ async function showQueue() {
     + (pending.length
         ? `${pending.length} capture(s) waiting to upload.`
           + (off ? '' : ' <a href="#" id="flushnow">Upload now</a>')
-        : 'They will upload when you are back in range.');
+        : 'They will upload when you are back in range.')
+    // Say where the pickers came from. A project added this morning will not
+    // be in a list cached last week, and silently missing is the kind of gap
+    // that gets a capture filed against the wrong room.
+    + (S.stale_masters ? '<br>Project and room list is from the last time you were online.' : '');
   const a = document.getElementById('flushnow');
   if (a) a.onclick = (e) => { e.preventDefault(); flushQueue(); };
 }
@@ -758,7 +781,23 @@ window.addEventListener('online', () => { showQueue(); flushQueue(); });
 window.addEventListener('offline', showQueue);
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sitephoto/sw.js').catch(() => {});
+  // The scope MUST be stated. A worker registered from /sitephoto/sw.js takes
+  // the default scope /sitephoto/ — and this page is /sitephoto, with no
+  // trailing slash, so it does not start with that string and the worker
+  // controls nothing. Online that is invisible; offline the app simply does
+  // not open, which is the one place it has to. The server sends
+  // Service-Worker-Allowed: / so asking for a wider scope is permitted.
+  navigator.serviceWorker.register('/sitephoto/sw.js', { scope: '/sitephoto' })
+    .then(() => navigator.serviceWorker.getRegistrations())
+    .then((regs) => {
+      // Drop the mis-scoped registration left behind on phones that installed
+      // the app before this fix — otherwise it lingers forever, controlling
+      // nothing, and makes the worker list lie about what is running.
+      regs.forEach((r) => {
+        if (r.scope.endsWith('/sitephoto/')) r.unregister();
+      });
+    })
+    .catch(() => {});
 }
 
 boot();
