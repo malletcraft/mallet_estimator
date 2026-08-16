@@ -253,6 +253,21 @@ class TestMasters(MalletTestCase):
         self.assertTrue(meta.has_field("gallery_html"), "no gallery on the form")
         self.assertEqual(meta.get_field("gallery_html").fieldtype, "HTML")
 
+    def test_the_service_worker_is_served_from_the_scope_it_controls(self):
+        # frappe refuses .js/.json from www/, and a worker served from /assets
+        # would be scoped to /assets — no offline shell, no installable app.
+        # A page renderer answers /sitephoto/sw.js instead.
+        import os
+        from mallet_estimator import sitephoto_assets as A
+        base = frappe.get_app_path("mallet_estimator")
+        for rel in ("public/sitephoto/sw.js", "public/sitephoto/manifest.json"):
+            self.assertTrue(os.path.exists(os.path.join(base, rel)), rel)
+        for route in ("sitephoto/sw.js", "sitephoto/manifest.json"):
+            r = A.SitePhotoAssetRenderer(path=route)
+            self.assertTrue(r.can_render(), route)
+        self.assertFalse(A.SitePhotoAssetRenderer(path="sitephoto").can_render())
+        self.assertFalse(A.SitePhotoAssetRenderer(path="something/else.js").can_render())
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

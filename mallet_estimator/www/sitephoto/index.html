@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Site Photos — Mallet</title>
-<link rel="manifest" href="/assets/mallet_estimator/sitephoto/manifest.json">
+<link rel="manifest" href="/sitephoto/manifest.json">
 <link rel="icon" href="/assets/mallet_estimator/images/sitephoto-192.png">
 <link rel="apple-touch-icon" href="/assets/mallet_estimator/images/sitephoto-192.png">
 <meta name="mcft-csrf" content="{{ csrf_token }}">
@@ -110,10 +110,12 @@ select, input[type=date], textarea {
 
 <header>
   <h1 id="title">Site Photos</h1>
-  <span class="who">{{ full_name }}</span>
+  <span class="who" id="who">{{ full_name }}</span>
 </header>
 
 <main>
+  <div id="offline" style="display:none;background:#fff4e5;color:#9a6700;border-radius:8px;
+       padding:10px 12px;font-size:14px;margin-bottom:12px"></div>
   <div class="err" id="err" style="display:none"></div>
 
   <!-- ============ CAPTURE ============ -->
@@ -368,6 +370,20 @@ $('#pick').onchange = async (e) => {
   $('#go').disabled = true;
   $('#prog').style.display = 'block';
   $('#justdone').innerHTML = '';
+
+  if (!navigator.onLine) {
+    try {
+      await qAdd({ project: S.project, room: S.room, capture_date: $('#cdate').value,
+                   stage: S.stage, fov: $('#fov').value, blob: file, filename: file.name });
+      $('#progtxt').textContent = 'Saved on this phone — it uploads when you are back in range.';
+      $('#progbar').style.width = '100%';
+    } catch (err) { fail(new Error('could not save offline: ' + err.message)); }
+    $('#go').disabled = false;
+    showQueue();
+    setTimeout(() => { $('#prog').style.display = 'none'; $('#progbar').style.width = '0'; }, 1200);
+    return;
+  }
+
   try {
     $('#progtxt').textContent = 'Creating the record…';
     const made = await api('create_capture', {
@@ -659,7 +675,95 @@ function esc(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/* ---------- offline queue ----------
+   A site visit is where the signal dies, so a capture is written to
+   IndexedDB FIRST and uploaded when there is a network. Nothing is lost by
+   walking out of range mid-upload; the photo is on the phone until the site
+   has confirmed it. */
+const DB_NAME = 'mcft-sitephoto', STORE = 'queue';
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => {
+      if (!r.result.objectStoreNames.contains(STORE)) {
+        r.result.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function qAdd(item) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add(item);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function qAll() {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const rq = tx.objectStore(STORE).getAll();
+    rq.onsuccess = () => res(rq.result || []); rq.onerror = () => rej(rq.error);
+  });
+}
+async function qDel(id) {
+  const db = await idb();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(id);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+async function showQueue() {
+  const box = $('#offline');
+  let pending = [];
+  try { pending = await qAll(); } catch (e) { /* private mode */ }
+  const off = !navigator.onLine;
+  if (!off && !pending.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = (off ? '<b>Offline.</b> Captures are saved on this phone. ' : '')
+    + (pending.length
+        ? `${pending.length} capture(s) waiting to upload.`
+          + (off ? '' : ' <a href="#" id="flushnow">Upload now</a>')
+        : 'They will upload when you are back in range.');
+  const a = document.getElementById('flushnow');
+  if (a) a.onclick = (e) => { e.preventDefault(); flushQueue(); };
+}
+
+let flushing = false;
+async function flushQueue() {
+  if (flushing || !navigator.onLine) return;
+  flushing = true;
+  try {
+    for (const item of await qAll()) {
+      try {
+        const made = await api('create_capture', {
+          project: item.project, room: item.room, capture_date: item.capture_date,
+          stage: item.stage, fov: item.fov,
+        });
+        const f = await upload(new File([item.blob], item.filename || 'pano.jpg',
+          { type: item.blob.type || 'image/jpeg' }),
+          { doctype: 'Site Photo 360', docname: made.name, fieldname: 'pano' });
+        await api('bind_pano', { name: made.name, file_url: f.file_url });
+        await qDel(item.id);
+      } catch (err) { break; }   // still no network — try again later
+    }
+  } finally { flushing = false; showQueue(); }
+}
+window.addEventListener('online', () => { showQueue(); flushQueue(); });
+window.addEventListener('offline', showQueue);
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sitephoto/sw.js').catch(() => {});
+}
+
 boot();
+showQueue();
+flushQueue();
 </script>
 {% endraw %}
 </body>

@@ -50,3 +50,10 @@ scheduler_events = {
         "mallet_estimator.imagemeter_sync.scheduled_sync",
     ],
 }
+
+# /sitephoto/sw.js and /sitephoto/manifest.json — frappe will not serve .js or
+# .json statically from www/, and a service worker must be served from the
+# scope it controls. See sitephoto_assets.py.
+page_renderer = [
+    "mallet_estimator.sitephoto_assets.SitePhotoAssetRenderer",
+]
