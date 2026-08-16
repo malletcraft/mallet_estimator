@@ -208,6 +208,19 @@ class TestImageMeterSync(MalletTestCase):
         self.assertFalse(frappe.db.exists("Site Photo Inbox", {"drive_file_id": "old1"}))
         self.assertTrue(frappe.db.exists("Site Photo Inbox", {"drive_file_id": "new1"}))
 
+    def test_a_file_with_no_timestamp_is_queued_not_dropped(self):
+        # Unknown age must not read as "old": that would silently discard the
+        # very files a person needs to see.
+        _split_capture()
+        s = frappe.get_single("Site Photo Settings")
+        s.queue_files_since = "2026-08-15 12:00:00"
+        s.save(ignore_permissions=True)
+        drive = FakeDrive(returning=[
+            {"id": "nots", "title": "mystery.jpg", "parents_path": [], "modified": ""}])
+        out = imagemeter_sync.pull_annotations(client=drive)
+        self.assertEqual(out["history"], 0, out)
+        self.assertEqual(out["queued"], 1, out)
+
     def test_an_old_file_that_names_a_capture_still_attaches(self):
         # The watermark suppresses GUESSWORK, never proof: a file that names
         # its capture is attached however old it is.

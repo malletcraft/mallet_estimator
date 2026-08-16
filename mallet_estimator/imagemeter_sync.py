@@ -131,7 +131,10 @@ def pull_annotations(client=None, limit=400):
             elif action == drive_sync.ATTACH:
                 _attach(client, payload, f)
                 out["attached"] += 1
-            elif cutoff and (f.get("modified") or "") < cutoff:
+            elif cutoff and f.get("modified") and f["modified"] < cutoff:
+                # Only a KNOWN older timestamp counts as history. A file whose
+                # age we cannot read is not assumed old and dropped — the whole
+                # point of the queue is that unprovable things get looked at.
                 out["history"] += 1
             else:
                 if _queue(f, payload):
