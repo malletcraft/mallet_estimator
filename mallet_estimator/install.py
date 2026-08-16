@@ -260,6 +260,9 @@ def sync_readonly_role():
     # grant on a migrate, invisibly, because the three shared one try).
     if frappe.db.exists("Role", integration.READONLY_ROLE):
         _safe(integration.ensure_readonly_role)
+    # A person's role, not an integration's: always kept in step so a new
+    # site user can be given the camera and nothing else.
+    _safe(integration.ensure_photographer_role)
     # Same contract for the plugin writer role: re-pin where it exists,
     # never mint it on a site that merely upgraded.
     if frappe.db.exists("Role", integration.PLUGIN_ROLE):

@@ -310,6 +310,29 @@ class TestMasters(MalletTestCase):
                 for r in p["rooms"]:
                     self.assertGreater(r["captures"], 0, "an empty room is not a folder")
 
+    def test_a_site_photographer_gets_the_camera_and_nothing_else(self):
+        # A technician with a phone needs real permissions, but handing them a
+        # broad ERPNext role to get there would give them the cost screens too.
+        from mallet_estimator import integration
+        integration.ensure_photographer_role()
+        ok, detail = integration.photographer_is_scoped()
+        self.assertTrue(ok, detail)
+        cap = frappe.db.get_value(
+            "Custom DocPerm",
+            {"role": integration.PHOTOGRAPHER_ROLE, "parent": "Site Photo 360"},
+            ["read", "write", "create", "delete"], as_dict=True)
+        self.assertTrue(cap and cap.read and cap.write and cap.create,
+                        "a photographer must be able to make a capture")
+        self.assertFalse(cap.delete, "and must not be able to delete one")
+        for dt in ("Estimate Settings", "Item Price", "User", "Role"):
+            perm = frappe.db.get_value(
+                "Custom DocPerm",
+                {"role": integration.PHOTOGRAPHER_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            if perm:
+                for p in ("read", "write", "create", "delete"):
+                    self.assertFalse(perm.get(p), f"photographer must not {p} {dt}")
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

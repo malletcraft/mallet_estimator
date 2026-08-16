@@ -433,3 +433,66 @@ def create_steward_api_user(email=None, full_name="Mallet Data Steward", regener
         "never": list(STEWARD_FORBIDDEN),
         "header": f"Authorization: token {api_key}:{api_secret}",
     }
+
+
+# ---------------------------------------------------------------------------
+# The SITE PHOTOGRAPHER role — a person with a phone, not an integration.
+#
+# The capture app runs as whoever is logged in, so a site user needs real
+# permissions. Handing them a broad ERPNext role to get there would give a
+# technician the estimator's cost screens along with the camera. This grants
+# exactly the capture surface: make a photo record, attach a file, and read
+# the project and room lists needed to file it. Nothing about money, and no
+# ability to create users — a role that can make accounts is not a role you
+# hand to a phone.
+PHOTOGRAPHER_ROLE = "Mallet Site Photographer"
+PHOTOGRAPHER_RWC = ("Site Photo 360", "File")
+PHOTOGRAPHER_RO = ("Project", "Customer", "Estimate Room", "Site Photo Inbox")
+PHOTOGRAPHER_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price",
+                          "User", "Role")
+
+
+def ensure_photographer_role():
+    """Create/re-pin the site-photographer role. Idempotent."""
+    if not frappe.db.exists("Role", PHOTOGRAPHER_ROLE):
+        frappe.get_doc({
+            "doctype": "Role", "role_name": PHOTOGRAPHER_ROLE,
+            "desk_access": 1, "disabled": 0,
+        }).insert(ignore_permissions=True)
+
+    from frappe.permissions import add_permission, update_permission_property
+
+    def pin(dt, perms):
+        if not frappe.db.exists("DocType", dt):
+            return
+        try:
+            add_permission(dt, PHOTOGRAPHER_ROLE, 0)
+        except Exception:
+            pass
+        for perm, value in perms.items():
+            try:
+                update_permission_property(dt, PHOTOGRAPHER_ROLE, 0, perm, value)
+            except Exception:
+                pass
+
+    for dt in PHOTOGRAPHER_RWC:
+        pin(dt, {"read": 1, "write": 1, "create": 1, "delete": 0,
+                 "submit": 0, "cancel": 0, "amend": 0})
+    for dt in PHOTOGRAPHER_RO:
+        pin(dt, {"read": 1, "write": 0, "create": 0, "delete": 0})
+    # Stated, so the exclusion is asserted rather than assumed.
+    for dt in PHOTOGRAPHER_FORBIDDEN:
+        pin(dt, {"read": 0, "write": 0, "create": 0, "delete": 0})
+    return PHOTOGRAPHER_ROLE
+
+
+def photographer_is_scoped():
+    """True when the role cannot reach money, users or roles."""
+    rows = frappe.get_all(
+        "Custom DocPerm", filters={"role": PHOTOGRAPHER_ROLE},
+        fields=["parent", "read", "write", "create", "delete"])
+    for r in rows:
+        if r.parent in PHOTOGRAPHER_FORBIDDEN and any(
+                r.get(p) for p in ("read", "write", "create", "delete")):
+            return False, f"{r.parent} must be closed to a site photographer"
+    return True, f"{len(rows)} doctype(s), capture only"

@@ -81,3 +81,7 @@ mallet_estimator.patches.rename_rheau_decors
 # on Frappe Cloud — so after_migrate never re-pins them and a new grant exists
 # only in the source. Re-pins after the model sync so the new doctypes exist.
 mallet_estimator.patches.sync_integration_roles
+# A person with a phone needs real permissions; giving them a broad ERPNext
+# role to get there would hand a technician the cost screens too. Patch, not
+# just code, because a Python-only deploy never re-pins a role.
+mallet_estimator.patches.add_photographer_role
