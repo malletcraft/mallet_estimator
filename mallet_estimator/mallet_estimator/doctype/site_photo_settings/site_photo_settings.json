@@ -13,6 +13,10 @@
   "handover_folder_id",
   "imagemeter_folder_id",
   "queue_files_since",
+  "twa_section",
+  "twa_package",
+  "twa_fingerprints",
+  "twa_help",
   "help_html"
  ],
  "fields": [
@@ -66,10 +70,33 @@
    "fieldtype": "Datetime",
    "label": "Only Queue Files Modified After",
    "description": "ImageMeter's folder holds years of unrelated photos. Anything older than this is not a reply to a handover, so it is never queued for review. Set automatically on the first sync; clear it to re-consider everything."
+  },
+  {
+   "fieldname": "twa_section",
+   "fieldtype": "Section Break",
+   "label": "Android App (TWA)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "twa_package",
+   "fieldtype": "Data",
+   "label": "Android Package Name",
+   "description": "e.g. com.malletcrafts.sitephotos \u2014 must match the app on Play."
+  },
+  {
+   "fieldname": "twa_fingerprints",
+   "fieldtype": "Small Text",
+   "label": "Signing SHA-256 Fingerprints",
+   "description": "One per line. Take Play's App Signing certificate fingerprint AND your upload certificate's \u2014 an app signed by Play shows the browser bar unless BOTH are listed."
+  },
+  {
+   "fieldname": "twa_help",
+   "fieldtype": "HTML",
+   "options": "<p class='text-muted small'>These publish <code>/.well-known/assetlinks.json</code>, which is how Android proves this app owns this site and hides the URL bar. Chrome fetches it anonymously and caches it \u2014 get it right before the first release.</p>"
   }
  ],
  "links": [],
- "modified": "2026-08-15 00:00:00.000000",
+ "modified": "2026-08-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo Settings",

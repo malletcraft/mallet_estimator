@@ -268,6 +268,33 @@ class TestMasters(MalletTestCase):
         self.assertFalse(A.SitePhotoAssetRenderer(path="sitephoto").can_render())
         self.assertFalse(A.SitePhotoAssetRenderer(path="something/else.js").can_render())
 
+    def test_asset_links_publish_nothing_until_configured(self):
+        # A wrong assetlinks file is cached by Google AND the device, so it is
+        # slower to undo than a missing one. Nothing is served until both the
+        # package and a fingerprint exist.
+        from mallet_estimator import sitephoto_assets as A
+        s = frappe.get_single("Site Photo Settings")
+        s.twa_package = ""
+        s.twa_fingerprints = ""
+        s.save(ignore_permissions=True)
+        frappe.clear_cache()
+        self.assertEqual(A._assetlinks(), [])
+        self.assertFalse(A.SitePhotoAssetRenderer(path=".well-known/assetlinks.json").can_render())
+
+        s.twa_package = "com.malletcrafts.sitephotos"
+        s.twa_fingerprints = "AA:BB:CC\n dd:ee:ff "
+        s.save(ignore_permissions=True)
+        frappe.clear_cache()
+        links = A._assetlinks()
+        self.assertEqual(len(links), 1)
+        t = links[0]["target"]
+        self.assertEqual(t["package_name"], "com.malletcrafts.sitephotos")
+        # both certificates matter: Play re-signs, so the upload key alone
+        # leaves the shipped app showing a browser URL bar
+        self.assertEqual(t["sha256_cert_fingerprints"], ["AA:BB:CC", "DD:EE:FF"])
+        self.assertIn("delegate_permission/common.handle_all_urls", links[0]["relation"])
+        self.assertTrue(A.SitePhotoAssetRenderer(path=".well-known/assetlinks.json").can_render())
+
     def test_migrate_reapplies_the_readonly_role(self):
         # The doctype list is code, so widening it is a deploy — but nothing
         # re-applied it, and a live site's permissions stayed frozen at

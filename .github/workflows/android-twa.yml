@@ -1,0 +1,80 @@
+name: Android (TWA)
+
+# Builds the Play bundle from the checked-in TWA config. Manual only: the web
+# app updates without a Play release, so a build here is a deliberate act —
+# a new package name, new icons, or a new Android runtime.
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: "Version name, e.g. 1.0.1"
+        required: true
+      versionCode:
+        description: "Version code (must increase on every Play upload)"
+        required: true
+
+jobs:
+  bundle:
+    name: Build signed .aab
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+
+      - name: Refuse to build without a keystore
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KS" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 is not set. Generate the upload key once and store it as a secret — see android/README.md."
+            exit 1
+          fi
+
+      - name: Restore keystore
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KS" | base64 -d > android/android.keystore
+
+      - name: Stamp the version
+        working-directory: android
+        run: |
+          python3 - <<'PY'
+          import json, os
+          m = json.load(open("twa-manifest.json"))
+          m["appVersionName"] = os.environ["VN"]
+          m["appVersionCode"] = int(os.environ["VC"])
+          json.dump(m, open("twa-manifest.json", "w"), indent=2)
+          print("building", m["packageId"], m["appVersionName"], m["appVersionCode"])
+          PY
+        env:
+          VN: ${{ inputs.versionName }}
+          VC: ${{ inputs.versionCode }}
+
+      - name: Check the site is publishing asset links
+        run: |
+          body=$(curl -sS --max-time 30 https://mcft-stg.frappe.cloud/.well-known/assetlinks.json || echo '[]')
+          echo "$body"
+          # An empty statement list means the fingerprints are not configured;
+          # the app would install and then show a browser URL bar.
+          if [ "$(echo "$body" | tr -d '[:space:]')" = "[]" ]; then
+            echo "::error::/.well-known/assetlinks.json is empty — set the package name and BOTH SHA-256 fingerprints in Site Photo Settings first."
+            exit 1
+          fi
+
+      - name: Build
+        working-directory: android
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          npm i -g @bubblewrap/cli
+          bubblewrap build --skipPwaValidation
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sitephotos-aab
+          path: android/app-release-bundle.aab
+          if-no-files-found: error

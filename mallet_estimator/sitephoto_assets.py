@@ -22,6 +22,11 @@ ROUTES = {
     "sitephoto/manifest.json": ("manifest.json", "application/manifest+json"),
 }
 
+# Digital Asset Links: how Android proves the installed app owns this site.
+# Without it a TWA still runs but shows the browser URL bar, which is the
+# difference between "an app" and "a web page in a chrome-less tab".
+ASSETLINKS = ".well-known/assetlinks.json"
+
 
 def _path(filename):
     return os.path.join(frappe.get_app_path("mallet_estimator"), ASSET_DIR, filename)
@@ -32,9 +37,20 @@ class SitePhotoAssetRenderer(BaseRenderer):
 
     def can_render(self):
         route = (self.path or "").strip("/")
+        if route == ASSETLINKS:
+            return bool(_assetlinks())
         return route in ROUTES and os.path.exists(_path(ROUTES[route][0]))
 
     def render(self):
+        if (self.path or "").strip("/") == ASSETLINKS:
+            r = Response(frappe.as_json(_assetlinks()), mimetype="application/json")
+            # Chrome fetches this anonymously, from Google's servers as well as
+            # the device — it must never require a session.
+            r.headers["Cache-Control"] = "public, max-age=300"
+            return r
+        return self._render_asset()
+
+    def _render_asset(self):
         filename, mime = ROUTES[(self.path or "").strip("/")]
         with open(_path(filename), "rb") as f:
             body = f.read()
@@ -46,3 +62,25 @@ class SitePhotoAssetRenderer(BaseRenderer):
         # would pin users to an old build.
         r.headers["Cache-Control"] = "no-cache, must-revalidate"
         return r
+
+
+def _assetlinks():
+    """The statement list, or [] when the app is not configured yet.
+
+    Returning [] rather than a half-filled statement is deliberate: a
+    malformed assetlinks file is cached by Google and by the device, so
+    publishing a wrong one is slower to undo than publishing none."""
+    try:
+        s = frappe.get_cached_doc("Site Photo Settings")
+    except Exception:
+        return []
+    package = (s.get("twa_package") or "").strip()
+    prints = [f.strip().upper() for f in (s.get("twa_fingerprints") or "").splitlines()
+              if f.strip()]
+    if not package or not prints:
+        return []
+    return [{
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {"namespace": "android_app", "package_name": package,
+                   "sha256_cert_fingerprints": prints},
+    }]
