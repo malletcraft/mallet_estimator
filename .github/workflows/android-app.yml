@@ -37,11 +37,30 @@ jobs:
         run: gradle :pano:test --console=plain
       # RELEASE, not debug. Managed Google Play refuses a debuggable APK
       # outright ('APK is marked as debuggable', 2026-08-17, at the private
-      # app upload in the Workspace admin console) — and the release variant
-      # is what phones should run anyway. Same committed keystore signs both,
-      # so a release build still installs over a debug one.
+      # app upload in the Workspace admin console).
+      #
+      # The upload key exists ONLY as repo secrets. A main build without it
+      # REFUSES to continue rather than falling back to the dev key: the
+      # signature Play learns on first upload is the signature forever, and a
+      # build that quietly flip-flops keys strands every installed device.
+      - name: Unpack the release signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "MCFT_RELEASE_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "release key present"
+          elif [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            echo "::error::main build with no ANDROID_KEYSTORE_B64 secret — refusing to publish a wrongly-signed APK"
+            exit 1
+          else
+            echo "no release key (non-main build) — dev-key fallback"
+          fi
       - name: Assemble
         working-directory: android
+        env:
+          MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: gradle -PwithApp :app:assembleRelease :app:assembleDebug --console=plain
       - name: Rename with commit
         run: cp android/app/build/outputs/apk/release/app-release.apk

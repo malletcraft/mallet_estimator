@@ -15,29 +15,49 @@ android {
         // phone bought for this job will not be older.
         minSdk = 29
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.2.1"
+        versionCode = 4
+        versionName = "0.3.0"
     }
 
     signingConfigs {
         getByName("debug") {
             // A COMMITTED keystore, deliberately. Debug keystores are not
             // secrets (storepass "android" is the platform convention); what
-            // matters is that every CI build carries the SAME signature, so a
-            // new APK installs OVER the old one instead of demanding an
+            // matters is that every dev build carries the SAME signature, so
+            // a new APK installs OVER the old one instead of demanding an
             // uninstall that would wipe the offline queue. This key never
-            // touches Play — the Play upload key will be a real secret.
+            // touches Play.
             storeFile = file("../debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
+        }
+        create("release") {
+            // The Play upload key. It exists ONLY as GitHub secrets
+            // (ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD) — never in
+            // this public repo. Without the secret, release still compiles
+            // using the dev key so local builds work; CI refuses to PUBLISH
+            // such a build from main, because a signature that flip-flops
+            // between keys strands every installed device.
+            val ks = System.getenv("MCFT_RELEASE_KEYSTORE")
+            if (ks != null) {
+                storeFile = file(ks)
+                storePassword = System.getenv("MCFT_RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = "mcft-upload"
+                keyPassword = System.getenv("MCFT_RELEASE_KEYSTORE_PASSWORD")
+            } else {
+                storeFile = file("../debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
