@@ -174,9 +174,18 @@ class TestSitePhotoApi(MalletTestCase):
         # default, the fallback 'All Customer Groups' is the tree ROOT, and
         # ERPNext refuses a group node on a Customer — so the capture sat in
         # 'waiting to retry' forever. The chosen group must be a LEAF.
+        # The root's NAME varies by site — the CI site has no 'All Customer
+        # Groups' at all, which is itself the lesson: never hardcode a tree
+        # node's name. Find a group node, or make one.
+        root = frappe.db.get_value("Customer Group", {"is_group": 1}, "name")
+        if not root:
+            root = frappe.get_doc({
+                "doctype": "Customer Group",
+                "customer_group_name": "ZZ Root Group", "is_group": 1,
+            }).insert(ignore_permissions=True).name
         s = frappe.get_single("Selling Settings")
         old = s.customer_group
-        s.customer_group = "All Customer Groups"
+        s.customer_group = root
         s.save(ignore_permissions=True)
         try:
             made = sitephoto.ensure_site("ZZ Group Node Client",
