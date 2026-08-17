@@ -169,30 +169,24 @@ class TestSitePhotoApi(MalletTestCase):
                     if "match" in (p.project_name or "").lower()
                     and "zz" in (p.project_name or "").lower()]))
 
-    def test_a_site_is_created_even_when_the_default_group_is_a_group_node(self):
-        # Caught live on the FIRST phone-minted site: with no Selling Settings
-        # default, the fallback 'All Customer Groups' is the tree ROOT, and
-        # ERPNext refuses a group node on a Customer — so the capture sat in
-        # 'waiting to retry' forever. The chosen group must be a LEAF.
-        # The root's NAME varies by site — the CI site has no 'All Customer
-        # Groups' at all, which is itself the lesson: never hardcode a tree
-        # node's name. Find a group node, or make one.
-        root = frappe.db.get_value("Customer Group", {"is_group": 1}, "name")
-        if not root:
-            root = frappe.get_doc({
-                "doctype": "Customer Group",
-                "customer_group_name": "ZZ Root Group", "is_group": 1,
-            }).insert(ignore_permissions=True).name
+    def test_a_site_is_created_even_with_no_selling_defaults(self):
+        # Staging's exact shape when the FIRST phone-minted site failed:
+        # Selling Settings had NO customer_group, the old fallback 'All
+        # Customer Groups' is the tree ROOT, and ERPNext refuses a group node
+        # on a Customer — so the capture sat in 'waiting to retry'. (A group
+        # node cannot even be STORED in Selling Settings — its own validation
+        # refuses, which is what my first version of this test tripped over —
+        # so EMPTY is the reachable hazard, and the one reproduced here.)
         s = frappe.get_single("Selling Settings")
         old = s.customer_group
-        s.customer_group = root
+        s.customer_group = None
         s.save(ignore_permissions=True)
         try:
-            made = sitephoto.ensure_site("ZZ Group Node Client",
-                                         "ZZ_GROUP_NODE_PROJECT")
+            made = sitephoto.ensure_site("ZZ No Defaults Client",
+                                         "ZZ_NO_DEFAULTS_PROJECT")
             self.assertTrue(made["created"])
             group = frappe.db.get_value(
-                "Customer", {"customer_name": "ZZ Group Node Client"},
+                "Customer", {"customer_name": "ZZ No Defaults Client"},
                 "customer_group")
             self.assertFalse(
                 frappe.db.get_value("Customer Group", group, "is_group"),
