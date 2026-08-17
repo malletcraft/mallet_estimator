@@ -1,6 +1,39 @@
-// The Android app is not here yet — this builds the one piece that must be
-// right before anything else is written: the on-device projection, held to
-// the goldens the server publishes. It is pure JVM Kotlin with no Android
-// dependency, so it can be built and TESTED without the Android SDK.
+// Two modules with very different needs:
+//
+//   :pano — pure JVM. The projection + naming contract, buildable and
+//           TESTABLE anywhere a JDK exists. This is what CI's projection
+//           job and the no-SDK dev container run.
+//   :app  — the Android app. Needs the Android SDK, so it is included only
+//           when explicitly asked for (-PwithApp). Gating on ANDROID_HOME
+//           instead would silently flip behaviour between machines — GitHub
+//           runners HAVE the SDK preinstalled, so the projection job would
+//           start configuring AGP for tests that never touch Android.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    // Versions DECLARED here are only RESOLVED by a project that applies
+    // them. The Android plugins therefore live here, not in the root build:
+    // a root declaration would force AGP resolution on every build — and the
+    // pure-JVM machines that run :pano:test cannot reach google()'s maven.
+    plugins {
+        id("com.android.application") version "8.7.3"
+        id("org.jetbrains.kotlin.android") version "2.0.21"
+        id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 rootProject.name = "mcft-site-photos"
 include(":pano")
+if (providers.gradleProperty("withApp").isPresent) {
+    include(":app")
+}

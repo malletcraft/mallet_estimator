@@ -1,0 +1,164 @@
+package com.malletcrafts.sitephotos
+
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.net.Uri
+import android.provider.MediaStore
+import com.malletcrafts.sitephotos.pano.Handover
+import com.malletcrafts.sitephotos.pano.Panorama
+import java.io.File
+
+/**
+ * From a picked 360 to six captioned faces in the gallery, entirely on the
+ * device — a face that has to reach a server first is a face ImageMeter never
+ * sees while anyone is still standing in the room.
+ *
+ * Faces go through MediaStore into Pictures/MCFT Site Photos/… because that
+ * is what ImageMeter's importer browses (it picks from Google Photos, which
+ * shows device folders as albums). The untouched original pano is kept
+ * app-private for the sync worker to upload — the server re-splits it for the
+ * ERPNext record, and the projection contract in CI is what guarantees those
+ * faces agree with these.
+ */
+object FaceWriter {
+
+    /** Decode target: enough source for a 1600px face at 110° (needs about
+     *  face_px * 360/110 ≈ 5300px of pano width). An X3 shot passes through
+     *  untouched; an 11K shot is halved instead of exhausting the heap. */
+    private const val MAX_DECODE_WIDTH = 6500
+
+    data class Result(val faceCount: Int, val relativePath: String)
+
+    fun split(
+        context: Context,
+        source: Uri,
+        deviceId: String,
+        customerName: String,
+        projectTitle: String,
+        room: String,
+        captureDate: String,
+        stage: String,
+        fov: Double,
+        facePx: Int = Panorama.DEFAULT_FACE_PX,
+        panoDir: File,
+    ): Pair<Result, File> {
+        val resolver = context.contentResolver
+
+        // Keep the ORIGINAL bytes first: the server wants the real pano, not
+        // our decode of it, and the picked Uri's read grant does not survive
+        // process death — the sync worker runs later, maybe days later.
+        panoDir.mkdirs()
+        val panoFile = File(panoDir, "$deviceId.jpg")
+        resolver.openInputStream(source).use { input ->
+            requireNotNull(input) { "could not open the selected photo" }
+            panoFile.outputStream().use { input.copyTo(it) }
+        }
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(panoFile.path, bounds)
+        require(bounds.outWidth > 0) { "not a decodable image" }
+        require(Panorama.looksEquirect(bounds.outWidth, bounds.outHeight)) {
+            "not a 360 photo (${bounds.outWidth}×${bounds.outHeight} is not 2:1) — " +
+                "export the 360 from the Insta360 app first"
+        }
+
+        var sample = 1
+        while (bounds.outWidth / sample > MAX_DECODE_WIDTH) sample *= 2
+        val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap = BitmapFactory.decodeFile(panoFile.path, opts)
+            ?: error("could not decode the selected photo")
+
+        val pano = try {
+            val px = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(px, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            for (i in px.indices) px[i] = px[i] and 0xFFFFFF
+            Panorama.Image(bitmap.width, bitmap.height, px)
+        } finally {
+            bitmap.recycle()
+        }
+
+        val relPath = Handover.relativePath(customerName, projectTitle, room)
+        var written = 0
+        for ((face, yaw, pitch) in Panorama.FACES) {
+            val img = Panorama.faceFromEquirect(pano, yaw, pitch, fov, facePx)
+            val captioned = captioned(img, Handover.captionText(
+                deviceId, room, face, captureDate, stage))
+            try {
+                saveToGallery(context, captioned, relPath,
+                    Handover.filename(deviceId, face))
+                written += 1
+            } finally {
+                captioned.recycle()
+            }
+        }
+        return Result(written, relPath) to panoFile
+    }
+
+    /** The caption strip is ADDED BELOW the face, never painted over it —
+     *  same rule as the server: annotation space is sacred. */
+    private fun captioned(face: Panorama.Image, text: String): Bitmap {
+        val strip = (face.height * 0.052).toInt().coerceAtLeast(28)
+        val out = Bitmap.createBitmap(face.width, face.height + strip,
+            Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+
+        val px = IntArray(face.pixels.size)
+        for (i in px.indices) px[i] = -0x1000000 or face.pixels[i]   // opaque
+        val faceBmp = Bitmap.createBitmap(px, face.width, face.height,
+            Bitmap.Config.ARGB_8888)
+        canvas.drawBitmap(faceBmp, 0f, 0f, null)
+        faceBmp.recycle()
+
+        val bar = Paint().apply { color = Color.rgb(17, 24, 31) }
+        canvas.drawRect(0f, face.height.toFloat(), face.width.toFloat(),
+            (face.height + strip).toFloat(), bar)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = strip * 0.62f
+        }
+        // Shrink to fit rather than clip: the id at the front is the part a
+        // person needs, but a truncated room name helps nobody.
+        while (paint.measureText(text) > face.width * 0.96f && paint.textSize > 8f) {
+            paint.textSize -= 1f
+        }
+        val y = face.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
+        canvas.drawText(text, face.width * 0.02f, y, paint)
+        return out
+    }
+
+    private fun saveToGallery(context: Context, bitmap: Bitmap,
+                              relativePath: String, displayName: String) {
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath.trimEnd('/'))
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val collection = MediaStore.Images.Media.getContentUri(
+            MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = resolver.insert(collection, values)
+            ?: error("gallery refused the file")
+        try {
+            resolver.openOutputStream(uri).use { out ->
+                requireNotNull(out) { "could not write to the gallery" }
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+            }
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            resolver.delete(uri, null, null)
+            throw e
+        }
+    }
+}

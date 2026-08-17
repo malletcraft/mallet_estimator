@@ -1,67 +1,41 @@
-# Site Photos — Android (Trusted Web Activity)
+# MCFT Site Photos — Android
 
-The Android app is a thin shell around the web app at `/sitephoto`. That is
-the whole point: **an ordinary change ships as a web deploy and reaches every
-phone with no Play release and no review.** A Play release is only needed when
-something in this folder changes — the package name, the icons, the target
-host, or the Android runtime itself.
+Two modules:
 
-It also means the web app and the Android app cannot drift apart, because
-they are the same app.
+- **`pano/`** — pure JVM. The 360→faces projection and the ImageMeter naming
+  convention, held to the goldens the server publishes
+  (`mallet_estimator/tests/golden/`). Runs anywhere a JDK exists; CI's
+  "Projection contract" job is this.
+- **`app/`** — the phone app. Included only with `-PwithApp` because it needs
+  the Android SDK.
 
-## What has to exist before the first build
+## What the app does (reduced scope, pending the Insta360 SDK)
 
-1. A **Play Console organization account** (D-U-N-S required; start early —
-   verification is the long pole, not the $25).
-2. An **upload keystore**. Generate once, keep it out of this repo forever:
+Pick a 360 from the gallery (exported by the Insta360 app) → choose
+client/project/room/stage from the cached masters → the phone splits it into
+six captioned faces and writes them to
+`Pictures/MCFT Site Photos/<Client>/<Project>/<Project> — <Room>/`, where
+ImageMeter's importer (via Google Photos) picks them up → the untouched pano
+queues in app-private storage and syncs to ERPNext whenever there is signal
+(create → upload → bind, idempotent on the device-minted `MCAP-…` id).
 
-   ```
-   keytool -genkeypair -v -keystore android.keystore -alias sitephotos \
-       -keyalg RSA -keysize 2048 -validity 10000
-   ```
-
-   Store it as the `ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` /
-   `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` GitHub secrets. A lost upload
-   key is recoverable through Play support; a leaked one is not.
-
-3. **Digital Asset Links**, or the app shows a browser URL bar and looks like
-   a web page rather than an app. Put BOTH fingerprints into *Site Photo
-   Settings → Android App (TWA)*:
-   - Play Console → *App signing* → **App signing key certificate** SHA-256
-   - Play Console → *App signing* → **Upload key certificate** SHA-256
-
-   The site then publishes `/.well-known/assetlinks.json` itself — no deploy
-   needed to change a fingerprint. Verify before releasing:
-
-   ```
-   curl -s https://mcft-stg.frappe.cloud/.well-known/assetlinks.json
-   ```
-
-   Chrome and Google cache this, so a wrong file is slower to undo than a
-   missing one — which is why the site serves nothing at all until both the
-   package name and a fingerprint are set.
+Credentials: site URL + API key/secret (Settings screen). Generate the pair on
+the user's page in ERPNext; the app never holds a session, so sync survives
+any number of offline days.
 
 ## Building
 
-```
-npm i -g @bubblewrap/cli
-bubblewrap init --manifest=https://mcft-stg.frappe.cloud/sitephoto/manifest.json
-bubblewrap build          # produces app-release-bundle.aab
-```
+APK: CI (`android-app.yml`) on every push touching `android/`, artifact
+`mcft-site-photos-apk`. Locally: `gradle -PwithApp :app:assembleDebug`
+(needs the Android SDK).
 
-`twa-manifest.json` here is the checked-in answer to everything `init` asks,
-so keep it as the source of truth and let `init` read it rather than
-answering the prompts by hand.
+Contract tests only: `gradle :pano:test` (no SDK needed).
 
-## Which track
+## The committed keystore
 
-Start on **internal testing** (up to 100 testers by email): installs through
-Play, upgrades automatically, no public listing and no full review. Move to
-production only if this is ever offered to other studios.
-
-## Pointing at a different site
-
-`host`, `startUrl`, `fullScopeUrl` and `webManifestUrl` all name the site. A
-production deployment is a different package id and a different keystore —
-do not repoint this one, or a staging build will overwrite the real app on
-everyone's phone.
+`debug.keystore` is committed ON PURPOSE. It is a sideload-testing signature,
+not a secret (storepass `android`, the platform convention): committing it
+means every CI build carries the SAME signature, so a new APK installs over
+the old one instead of demanding an uninstall that would wipe the offline
+queue. It must never sign anything for Play — the Play upload key will be a
+real secret in CI, once the Play Console exists.
