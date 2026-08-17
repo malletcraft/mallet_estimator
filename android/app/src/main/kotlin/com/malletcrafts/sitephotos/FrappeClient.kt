@@ -92,6 +92,14 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("name", docname)
             .put("file_url", fileUrl))
 
+    /** Turn a client/project typed offline at a NEW site into real masters —
+     *  or, far more often, match them against masters that already exist.
+     *  The server matches insensitively before it ever creates. */
+    fun ensureSite(customerName: String, projectTitle: String): JSONObject =
+        post("mallet_estimator.sitephoto.ensure_site", JSONObject()
+            .put("customer_name", customerName)
+            .put("project_title", projectTitle))
+
     companion object {
         private const val PREFS = "mcft_settings"
 

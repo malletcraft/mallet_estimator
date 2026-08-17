@@ -88,6 +88,10 @@ private fun AppScreen() {
     var showSettings by remember { mutableStateOf(!FrappeClient.configured(context)) }
 
     var project by remember { mutableStateOf<ProjectRow?>(null) }
+    // A site with no project row yet: the typed (client, project) pair. The
+    // capture files against the words; sync turns them into masters.
+    var newSite by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var showNewSite by remember { mutableStateOf(false) }
     var room by remember { mutableStateOf<String?>(null) }
     var stage by remember { mutableStateOf("") }
 
@@ -121,7 +125,7 @@ private fun AppScreen() {
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        val p = project
+        val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
         if (uri == null || p == null || r == null) return@rememberLauncherForActivityResult
         val stageNow = stage
@@ -178,8 +182,15 @@ private fun AppScreen() {
                 Spacer(Modifier.height(12.dp))
             }
 
-            Picker("Project", projectRows.map { it.title },
-                project?.title ?: "—") { i -> project = projectRows[i]; }
+            Picker("Project",
+                projectRows.map { it.title } + "＋ New client / project…",
+                newSite?.let { it.second + " (new)" } ?: project?.title ?: "—") { i ->
+                if (i < projectRows.size) {
+                    project = projectRows[i]; newSite = null
+                } else {
+                    showNewSite = true
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Picker("Room", rooms, room ?: "—") { i -> room = rooms[i] }
             Spacer(Modifier.height(8.dp))
@@ -194,7 +205,8 @@ private fun AppScreen() {
                     picker.launch(PickVisualMediaRequest(
                         ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
-                enabled = busy == null && project != null && room != null,
+                enabled = busy == null && (project != null || newSite != null)
+                    && room != null,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Pick 360 photo") }
 
@@ -239,6 +251,15 @@ private fun AppScreen() {
                 }
             }
         }
+    }
+
+    if (showNewSite) {
+        NewSiteDialog(
+            onDismiss = { showNewSite = false },
+            onSave = { client, proj ->
+                newSite = client to proj
+                showNewSite = false
+            })
     }
 
     if (showSettings) {
@@ -301,6 +322,38 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
                 onClick = { onSave(url, key, secret) },
                 enabled = url.isNotBlank() && key.isNotBlank() && secret.isNotBlank(),
             ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun NewSiteDialog(onDismiss: () -> Unit,
+                          onSave: (String, String) -> Unit) {
+    var client by remember { mutableStateOf("") }
+    var projectName by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New site") },
+        text = {
+            Column {
+                OutlinedTextField(client, { client = it },
+                    label = { Text("Client name") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(projectName, { projectName = it },
+                    label = { Text("Project name") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                Text("Works offline. When the phone syncs, these become the " +
+                    "real client and project in ERPNext — or match ones that " +
+                    "already exist, however the names were spelled.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(client.trim(), projectName.trim()) },
+                enabled = client.isNotBlank() && projectName.isNotBlank(),
+            ) { Text("Use this site") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

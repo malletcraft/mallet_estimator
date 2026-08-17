@@ -9,6 +9,8 @@
 # to frappe's native /api/method/upload_file (multipart), which streams
 # instead of inflating a 20 MB pano into ~27 MB of base64 JSON. These methods
 # create the record, bind the uploaded file, and read back.
+import re
+
 import frappe
 from frappe import _
 from frappe.utils import cint, today
@@ -92,6 +94,90 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
     })
     doc.insert()
     return {"name": doc.name, "status": doc.status}
+
+
+def _site_key(text):
+    """Case-, space- and underscore-insensitive identity for matching a name
+    typed on a site against a master typed in an office. 'Yogesh_Sahasrabudhe'
+    and 'yogesh sahasrabudhe' are the same person; treating them as two is how
+    a customer ends up with half their photos under each spelling."""
+    return re.sub(r"[\s_]+", " ", (text or "").strip()).casefold()
+
+
+@frappe.whitelist()
+def ensure_site(customer_name, project_title):
+    """Resolve — or create — the client and project a device capture named.
+
+    A technician arriving at a NEW site has no signal and no project row, so
+    the app lets them type the client and project offline; this is the sync
+    step that turns those words into masters. Matching comes first, always:
+    the typed name is compared insensitively against every existing project
+    and customer, because the failure mode that matters is not a missing row
+    but a DUPLICATE one — photos split across 'Yogesh_Sahasrabudhe' and
+    'yogesh sahasrabudhe' are worse than either alone.
+
+    Runs with ignore_permissions on the inserts, deliberately: the
+    photographer role stays camera-only (no create on Customer/Project), and
+    THIS ENDPOINT is the one gate through which a phone may mint a site —
+    gated on the same capture permission the rest of the app needs. What it
+    creates carries no money: a Customer and a Project are names, not rates."""
+    frappe.has_permission(DOCTYPE, "create", throw=True)
+
+    customer_name = (customer_name or "").strip()
+    project_title = (project_title or "").strip()
+    if not customer_name or not project_title:
+        frappe.throw(_("Both a client name and a project name are needed."))
+
+    # An existing project wins outright, whatever customer was typed — the
+    # office's record beats the site's memory of it.
+    pkey = _site_key(project_title)
+    for p in frappe.get_all("Project", fields=["name", "project_name", "customer"],
+                            limit_page_length=0):
+        if _site_key(p.project_name) == pkey:
+            cust = (frappe.db.get_value("Customer", p.customer, "customer_name")
+                    if p.customer else "") or ""
+            return {"project": p.name, "project_title": p.project_name,
+                    "customer_name": cust, "created": False}
+
+    ckey = _site_key(customer_name)
+    customer = None
+    for c in frappe.get_all("Customer", fields=["name", "customer_name"],
+                            limit_page_length=0):
+        if _site_key(c.customer_name) == ckey:
+            customer = c.name
+            break
+    if not customer:
+        doc = frappe.get_doc({
+            "doctype": "Customer", "customer_name": customer_name,
+            "customer_group": _default_or("Selling Settings", "customer_group",
+                                          "Customer Group", "All Customer Groups"),
+            "territory": _default_or("Selling Settings", "territory",
+                                     "Territory", "All Territories"),
+        })
+        doc.insert(ignore_permissions=True)
+        customer = doc.name
+
+    company = frappe.db.get_single_value("Global Defaults", "default_company") \
+        or frappe.db.get_value("Company", {}, "name")
+    project = frappe.get_doc({
+        "doctype": "Project", "project_name": project_title,
+        "customer": customer, "company": company,
+    })
+    project.insert(ignore_permissions=True)
+    frappe.db.commit()
+    return {"project": project.name, "project_title": project.project_name,
+            "customer_name": frappe.db.get_value("Customer", customer,
+                                                 "customer_name") or "",
+            "created": True}
+
+
+def _default_or(single, field, doctype, fallback):
+    v = frappe.db.get_single_value(single, field)
+    if v and frappe.db.exists(doctype, v):
+        return v
+    if frappe.db.exists(doctype, fallback):
+        return fallback
+    return frappe.db.get_value(doctype, {}, "name")
 
 
 @frappe.whitelist()

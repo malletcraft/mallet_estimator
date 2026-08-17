@@ -69,6 +69,14 @@ class CaptureStore(context: Context) :
         })
     }
 
+    /** The sync step that adopts a device-typed site: once the server has
+     *  matched or minted the real Project, the row learns its id. */
+    fun setProject(deviceId: String, project: String) {
+        writableDatabase.update("captures", ContentValues().apply {
+            put("project", project)
+        }, "device_id = ?", arrayOf(deviceId))
+    }
+
     fun setState(deviceId: String, state: String, serverName: String? = null,
                  error: String? = null) {
         writableDatabase.update("captures", ContentValues().apply {

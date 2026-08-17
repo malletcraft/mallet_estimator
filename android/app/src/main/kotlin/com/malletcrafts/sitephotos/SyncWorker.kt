@@ -38,8 +38,21 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         for (c in store.pending()) {
             try {
                 store.setState(c.deviceId, "SYNCING")
+
+                // A capture from a NEW site carries the typed names and no
+                // project id yet. Resolve first — the server matches
+                // insensitively against existing masters and only creates
+                // when nothing matches, so two visits to one new site end up
+                // on one project however the names were typed.
+                var projectId = c.project
+                if (projectId.isBlank()) {
+                    val site = client.ensureSite(c.customerName, c.projectTitle)
+                    projectId = site.getString("project")
+                    store.setProject(c.deviceId, projectId)
+                }
+
                 val made = client.createCapture(
-                    project = c.project, room = c.room,
+                    project = projectId, room = c.room,
                     captureDate = c.captureDate, stage = c.stage,
                     deviceCaptureId = c.deviceId)
                 val name = made.getString("name")

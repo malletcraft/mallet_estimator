@@ -139,6 +139,44 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertTrue(all("annotations" in r for r in rows))
         self.assertIn(0, [r["annotations"] for r in rows])
 
+    def test_a_new_site_typed_on_a_phone_becomes_a_real_project_once(self):
+        # A technician at a NEW site has no project row and no signal. They
+        # type the client and project; sync turns the words into masters —
+        # and typing them again must match, not duplicate.
+        made = sitephoto.ensure_site("ZZ New Client", "ZZ_NEW_SITE_PROJECT")
+        self.assertTrue(made["created"])
+        self.assertTrue(frappe.db.exists("Project", made["project"]))
+        self.assertEqual(made["customer_name"], "ZZ New Client")
+
+        again = sitephoto.ensure_site("ZZ New Client", "ZZ_NEW_SITE_PROJECT")
+        self.assertFalse(again["created"])
+        self.assertEqual(again["project"], made["project"])
+        # and a capture can immediately file against it
+        cap = sitephoto.create_capture(project=made["project"], room=_room())
+        self.assertTrue(cap["name"])
+
+    def test_site_matching_ignores_case_spaces_and_underscores(self):
+        # 'Yogesh_Sahasrabudhe' typed as 'yogesh sahasrabudhe' is the same
+        # person. Photos split across two spellings of one client are worse
+        # than either spelling alone.
+        first = sitephoto.ensure_site("ZZ Match Client", "ZZ_MATCH_PROJECT")
+        variant = sitephoto.ensure_site("zz  match_client", "zz match project")
+        self.assertFalse(variant["created"])
+        self.assertEqual(variant["project"], first["project"])
+        self.assertEqual(
+            1, len([p for p in frappe.get_all("Project", fields=["project_name"],
+                                              limit_page_length=0)
+                    if "match" in (p.project_name or "").lower()
+                    and "zz" in (p.project_name or "").lower()]))
+
+    def test_a_blank_site_name_is_refused(self):
+        # A blank that slipped through would mint a nameless customer that
+        # every later blank matches — a black hole for photos.
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.ensure_site("", "Some Project")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.ensure_site("Some Client", "   ")
+
     def test_a_device_capture_syncs_once_however_often_it_is_retried(self):
         # The phone queues captures offline and retries. A connection that
         # drops the acknowledgement AFTER the insert succeeded would otherwise
