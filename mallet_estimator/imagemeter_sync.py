@@ -135,22 +135,28 @@ def pull_annotations(client=None, limit=400):
     device_ids = {r["device_capture_id"]: r["name"] for r in frappe.get_all(
         PHOTO, filters={"device_capture_id": ["is", "set"]},
         fields=["name", "device_capture_id"])}
-    # NEWEST FIRST, then cap. Drive's own order is not chronological, so a cap
-    # applied to it drops arbitrary files — and the folder already holds more
-    # files than the cap (462 vs 400 on 2026-08-17). A returning photo outside
-    # the window is never seen and nothing reports an error, which is the worst
-    # shape a failure can take. Sorted, the cap can only ever drop the oldest.
-    files = client.walk_files(root)
-    files.sort(key=_scan_order, reverse=True)
-    dropped = max(0, len(files) - limit)
-    files = files[:limit]
-
     # ImageMeter's folder is not ours: it holds years of photos for other
     # clients. Anything modified before we ever handed a face over cannot be a
     # reply to a handover, so it is passed over rather than queued — the first
     # run against a real folder would otherwise raise hundreds of review rows
     # nobody will ever triage (2026-08-15: it raised 394).
     cutoff = _queue_cutoff(s)
+
+    # Narrowed AT DRIVE, not after. 383 of the 400 files scanned on 2026-08-17
+    # were history: old photos fetched and dismissed every hour, and they are
+    # what pushed real arrivals towards the cap. Anything carrying one of our
+    # id prefixes still comes back whatever its date, because naming a capture
+    # outranks age — the classifier keeps deciding, it is just no longer asked
+    # about years of somebody else's kitchen.
+    files = client.walk_files(root, since=cutoff,
+                              name_prefixes=("MEST-PH-", "MCAP-"))
+    # NEWEST FIRST, then cap. Drive's own order is not chronological, so a cap
+    # applied to it drops arbitrary files. Sorted, the cap can only ever drop
+    # the oldest — and it says how many, because a silent truncation is
+    # indistinguishable from a clean run.
+    files.sort(key=_scan_order, reverse=True)
+    dropped = max(0, len(files) - limit)
+    files = files[:limit]
 
     out = {"scanned": len(files), "attached": 0, "queued": 0, "skipped": 0,
            "history": 0, "errors": []}

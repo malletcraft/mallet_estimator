@@ -69,8 +69,21 @@ class FakeDrive:
                 return f.get("bytes", _jpeg())
         return self.files[file_id][2]
 
-    def walk_files(self, root_id, _trail=()):
-        return list(self.returning)
+    def walk_files(self, root_id, _trail=(), since=None, name_prefixes=()):
+        # Applies the same narrowing the real client asks Drive for, so the
+        # tests exercise the filter instead of quietly ignoring it. A fake that
+        # accepts arguments and does nothing with them proves the caller
+        # compiles, not that it is right.
+        out = []
+        for f in self.returning:
+            if not since:
+                out.append(f)
+                continue
+            named = str(f.get("title", "")).startswith(tuple(name_prefixes)) \
+                if name_prefixes else False
+            if named or (f.get("modified") or "") > since:
+                out.append(f)
+        return out
 
 
 def _company():
@@ -345,6 +358,43 @@ class TestImageMeterSync(MalletTestCase):
         out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=junk))
         self.assertEqual(out["queued"], 0, f"nothing to ask a person about: {out}")
         self.assertEqual(frappe.db.count("Site Photo Inbox"), before)
+
+    def test_the_walk_asks_drive_for_a_narrowed_set(self):
+        # The real fix: 383 of 400 files scanned were history, fetched and
+        # dismissed every hour. Narrowing has to happen AT Drive, and it has
+        # to be the QUERY that does it — a client that fetches everything and
+        # filters afterwards costs the same and still crowds the cap.
+        from mallet_estimator import drive_client
+        seen = {}
+
+        class Spy(drive_client.DriveClient):
+            def __init__(self):
+                pass
+
+            def list_children(self, parent_id, only_folders=False,
+                              page_size=200, extra_q=None):
+                seen["q"] = extra_q
+                return []
+
+        Spy().walk_files("ROOT", since="2026-08-15T00:00:00",
+                         name_prefixes=("MEST-PH-", "MCAP-"))
+        q = seen["q"] or ""
+        self.assertIn("modifiedTime > '2026-08-15T00:00:00'", q)
+        self.assertIn("name contains 'MEST-PH-'", q)
+        self.assertIn("name contains 'MCAP-'", q)
+        # Folders must survive their own timestamp or an old folder hides
+        # every new photo inside it.
+        self.assertIn("application/vnd.google-apps.folder", q)
+
+    def test_a_capture_named_file_still_attaches_however_old_it_looks(self):
+        # Naming a capture outranks age. Narrowing must not quietly repeal
+        # that rule by never fetching the file in the first place.
+        doc = _split_capture()
+        ancient = [{"id": "old1", "title": f"{doc.name}_front.jpg",
+                    "parents_path": [], "modified": "2019-01-01T00:00:00Z",
+                    "bytes": _jpeg(80, (5, 5, 200))}]
+        out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=ancient))
+        self.assertEqual(out["attached"], 1, f"age must not beat a named capture: {out}")
 
     def test_the_masters_exist(self):
         self.assertTrue(frappe.db.exists("DocType", "Site Photo Settings"))

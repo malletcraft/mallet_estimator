@@ -85,10 +85,13 @@ class DriveClient:
         return r
 
     # ---- reading --------------------------------------------------------
-    def list_children(self, parent_id, only_folders=False, page_size=200):
+    def list_children(self, parent_id, only_folders=False, page_size=200,
+                      extra_q=None):
         q = f"'{parent_id}' in parents and trashed = false"
         if only_folders:
             q += f" and mimeType = '{FOLDER_MIME}'"
+        if extra_q:
+            q += f" and ({extra_q})"
         out, page = [], None
         while True:
             params = dict(_ALL_DRIVES, q=q, corpora="allDrives", pageSize=page_size,
@@ -115,13 +118,37 @@ class DriveClient:
                                      timeout=self.timeout), "download")
         return r.content
 
-    def walk_files(self, root_id, _trail=()):
+    def walk_files(self, root_id, _trail=(), since=None, name_prefixes=()):
         """Every file under a folder, with the folder trail that led to it —
-        the trail is what tells a person which room a returning photo is from."""
+        the trail is what tells a person which room a returning photo is from.
+
+        since / name_prefixes narrow the walk AT DRIVE, not afterwards. The
+        ImageMeter folder holds years of unrelated photos, and fetching all of
+        them to throw nearly all away each hour is what made a scan cap
+        necessary in the first place.
+
+        Two things the filter must not break, and both are in the query rather
+        than left to luck:
+        - FOLDERS are always returned whatever their own timestamp, or an old
+          folder hides every new photo inside it.
+        - A file carrying one of our id prefixes is always returned however
+          old it looks, because naming a capture outranks age — that is the
+          rule that lets a long-delayed annotation still attach itself."""
+        keep = []
+        if since:
+            keep.append(f"modifiedTime > '{since}'")
+        for p in name_prefixes:
+            keep.append(f"name contains '{p}'")
+        extra_q = None
+        if keep:
+            extra_q = " or ".join([f"mimeType = '{FOLDER_MIME}'"] + keep)
+
         found = []
-        for f in self.list_children(root_id):
+        for f in self.list_children(root_id, extra_q=extra_q):
             if f["mimeType"] == FOLDER_MIME:
-                found.extend(self.walk_files(f["id"], _trail + (f["name"],)))
+                found.extend(self.walk_files(
+                    f["id"], _trail + (f["name"],),
+                    since=since, name_prefixes=name_prefixes))
             else:
                 found.append({"id": f["id"], "title": f["name"],
                               "parents_path": list(_trail),
