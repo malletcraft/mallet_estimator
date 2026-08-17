@@ -127,7 +127,25 @@ jobs:
           # before that settles ('Could not find Warehouse Type: Transit',
           # 2026-08-13, intermittent). Make the seed deterministic first.
           bench --site test_site execute mallet_estimator.install.ensure_core_seed
-          bench --site test_site run-tests --app mallet_estimator
+          set -o pipefail
+          bench --site test_site run-tests --app mallet_estimator 2>&1 \
+            | tee /tmp/mallet-tests.log
+
+      # A run prints ~1700 lines, the last 500 of which are the UNIT phase
+      # passing and the service containers shutting down. The integration
+      # failure sits a thousand lines above that, past what any log tail
+      # reaches — so a red run said "OK" at the bottom and told you nothing
+      # (2026-08-17, twice). Pull the failures out and put them at the end.
+      - name: What actually failed
+        if: failure()
+        run: |
+          echo "===== failures and errors ====="
+          grep -nE "^(FAIL|ERROR):|^Ran [0-9]+ tests|^(FAILED|OK)" \
+            /tmp/mallet-tests.log || echo "(no unittest summary lines found)"
+          echo
+          echo "===== tracebacks ====="
+          awk '/^(FAIL|ERROR): /{p=1} p' /tmp/mallet-tests.log | head -200 \
+            || true
 
       - name: Show error logs on failure
         if: failure()
