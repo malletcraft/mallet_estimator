@@ -731,6 +731,22 @@ def verify_setup():
         chk("Site photographer role", False,
             "missing — the migrate did not run; ship a patch to force one")
 
+    # The role only means anything while the doctypes are NOT open to everyone.
+    # They shipped granting "All" read/write/create, which made the role
+    # decorative: every login had the camera and the inbox (2026-08-17).
+    _open = []
+    for _dt in ("Site Photo 360", "Site Photo Inbox"):
+        if not frappe.db.exists("DocType", _dt):
+            continue
+        for _tbl in ("Custom DocPerm", "DocPerm"):
+            for _r in frappe.get_all(_tbl, filters={"parent": _dt, "role": "All"},
+                                     fields=["read", "write", "create"]):
+                if any(_r.get(p) for p in ("read", "write", "create")):
+                    _open.append(f"{_dt} ({_tbl})")
+    chk("Site photos are not open to everyone", not _open,
+        ("'All' can still reach " + ", ".join(sorted(set(_open)))) if _open
+        else "only System Manager and the photographer role ✓")
+
     failed = [c["name"] for c in checks if not c["ok"]]
     return {"checks": checks, "all_ok": not failed, "failed": failed}
 

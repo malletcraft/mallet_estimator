@@ -85,3 +85,8 @@ mallet_estimator.patches.sync_integration_roles
 # role to get there would hand a technician the cost screens too. Patch, not
 # just code, because a Python-only deploy never re-pins a role.
 mallet_estimator.patches.add_photographer_role
+# The site-photo doctypes granted read/write/create to "All", so every login
+# had the camera and the photographer role decided nothing. Post-model-sync
+# because it deletes the COPIED Custom DocPerm row, which only exists after
+# the doctype has synced.
+mallet_estimator.patches.close_site_photo_to_everyone

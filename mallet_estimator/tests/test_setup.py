@@ -333,6 +333,25 @@ class TestMasters(MalletTestCase):
                 for p in ("read", "write", "create", "delete"):
                     self.assertFalse(perm.get(p), f"photographer must not {p} {dt}")
 
+    def test_the_camera_is_not_handed_to_every_login(self):
+        # The site-photo doctypes shipped granting "All" read/write/create.
+        # Every account carries "All", so the photographer role — whose entire
+        # job is to be the thing that grants capture access — decided nothing:
+        # a sales user or an accounts clerk had the camera and the review
+        # inbox. Guest was still refused, so nothing was public; the hole was
+        # internal, which is exactly the kind nobody trips over until it
+        # matters.
+        for dt in ("Site Photo 360", "Site Photo Inbox"):
+            for table in ("Custom DocPerm", "DocPerm"):
+                for row in frappe.get_all(
+                        table, filters={"parent": dt, "role": "All"},
+                        fields=["read", "write", "create", "delete"]):
+                    for p in ("read", "write", "create", "delete"):
+                        self.assertFalse(
+                            row.get(p),
+                            f"'All' must not {p} {dt} — that is the "
+                            f"photographer role's job")
+
     def test_the_role_report_can_see_every_role(self):
         # role_report exists so a remote session can answer "did the grants
         # actually reach the database?" — and it listed three roles while a

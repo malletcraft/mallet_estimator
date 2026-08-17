@@ -229,7 +229,7 @@
   }
  ],
  "links": [],
- "modified": "2026-08-17 08:00:00.000000",
+ "modified": "2026-08-17 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo 360",
@@ -249,15 +249,10 @@
    "write": 1
   },
   {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
+   "role": "Mallet Site Photographer",
    "read": 1,
-   "report": 1,
-   "role": "All",
-   "share": 1,
-   "write": 1
+   "write": 1,
+   "create": 1
   }
  ],
  "sort_field": "capture_date",
