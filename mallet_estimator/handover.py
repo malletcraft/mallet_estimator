@@ -31,7 +31,24 @@ SEP = " · "
 # NOT \b on either side: our own handover filenames put an underscore right
 # after the id ("MEST-PH-2026-00001_front.jpg") and \b does not fire between a
 # digit and an underscore, so \b would refuse to parse the very names we write.
-CAPTION_ID_RE = re.compile(r"(?<![A-Za-z0-9])(MEST-PH-[0-9]{4}-[0-9]{5})(?![0-9])")
+#
+# TWO id shapes, for one reason. A capture made on a phone with no signal has
+# no document name yet — the server assigns MEST-PH-… on sync, and by then the
+# faces are long since in ImageMeter under whatever they were called at birth.
+# So the device mints MCAP-<12 hex> the moment the shutter fires, the server
+# adopts that id when the capture syncs, and a face annotated in a basement
+# still finds its way back to the right wall. Fixed length and hex-only keeps
+# the pattern tight enough that it cannot match an ordinary word.
+CAPTION_ID_RE = re.compile(
+    r"(?<![A-Za-z0-9])(MEST-PH-[0-9]{4}-[0-9]{5}|MCAP-[0-9a-f]{12})(?![0-9a-f])")
+DEVICE_ID_RE = re.compile(r"^MCAP-[0-9a-f]{12}$")
+
+
+def is_device_id(token):
+    """True when an id was minted on a device rather than by the server."""
+    return bool(token and DEVICE_ID_RE.match(str(token)))
+
+
 CAPTION_FACE_RE = re.compile(
     r"(?<![A-Za-z])(front|right|back|left|up|down|top|bottom|ceiling|floor)(?![A-Za-z])",
     re.I)

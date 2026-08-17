@@ -39,8 +39,12 @@ def push_handovers(client=None, limit=25):
         return {"skipped": "no handover folder configured"}
     client = _client(client)
 
+    # A capture born on a phone was split there and handed to ImageMeter on
+    # the device, before the server ever saw it. Pushing its faces to Drive
+    # would put a second copy of every wall in front of the annotator, with
+    # nothing to say which one is current.
     rows = frappe.get_all(
-        PHOTO, filters={"status": "Split"},
+        PHOTO, filters={"status": "Split", "device_capture_id": ["in", ["", None]]},
         fields=["name", "project", "room", "capture_date", "stage",
                 "handover_folder_id"],
         order_by="creation asc", limit_page_length=limit)
@@ -111,6 +115,12 @@ def pull_annotations(client=None, limit=400):
 
     seen = _imported_file_ids()
     known = set(frappe.get_all(PHOTO, pluck="name"))
+    # Faces from a phone carry the id the device minted, not the docname the
+    # server assigned afterwards — so a returning file has to be translated
+    # before it can be matched.
+    device_ids = {r["device_capture_id"]: r["name"] for r in frappe.get_all(
+        PHOTO, filters={"device_capture_id": ["not in", ["", None]]},
+        fields=["name", "device_capture_id"])}
     files = client.walk_files(root)[:limit]
 
     # ImageMeter's folder is not ours: it holds years of photos for other
@@ -124,7 +134,7 @@ def pull_annotations(client=None, limit=400):
            "history": 0, "errors": []}
     for f in files:
         action, payload = drive_sync.classify_return(
-            f, imported_file_ids=seen, known_photos=known)
+            f, imported_file_ids=seen, known_photos=known, device_ids=device_ids)
         try:
             if action == drive_sync.SKIP:
                 out["skipped"] += 1

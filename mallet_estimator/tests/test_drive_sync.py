@@ -88,5 +88,48 @@ class TestClassifyReturn(unittest.TestCase):
                          {D.ATTACH: 1, D.REVIEW: 1, D.SKIP: 1})
 
 
+DEV = "MCAP-a1b2c3d4e5f6"
+
+
+class TestDeviceBornCaptures(unittest.TestCase):
+    """A capture made on a phone with no signal reaches ImageMeter under the
+    id the DEVICE minted, because the server had not named it yet. The face
+    that comes back therefore says MCAP-… where every existing file says
+    MEST-PH-…, and nothing else in it identifies the wall."""
+
+    def test_a_synced_device_capture_attaches_to_its_real_docname(self):
+        action, payload = D.classify_return(
+            {"id": "d1", "title": f"{DEV}_top.jpg"},
+            known_photos=[PHOTO], device_ids={DEV: PHOTO})
+        self.assertEqual(action, D.ATTACH)
+        self.assertEqual(payload["photo"], PHOTO, "must resolve to the docname")
+        self.assertEqual(payload["face"], "up", "top is the up face")
+
+    def test_an_unsynced_device_capture_is_asked_about_never_guessed(self):
+        # Annotated before the phone ever reached the server. The face is
+        # ours, but the capture is not here yet — inventing a link would file
+        # somebody's wall against whichever room happened to look close.
+        action, payload = D.classify_return(
+            {"id": "d2", "title": f"{DEV}_front.jpg"},
+            known_photos=[PHOTO], device_ids={})
+        self.assertEqual(action, D.REVIEW)
+        self.assertIn("not synced yet", payload["reason"])
+        self.assertIn(DEV, payload["reason"])
+
+    def test_a_server_born_id_is_unaffected_by_the_new_shape(self):
+        action, payload = D.classify_return(
+            {"id": "d3", "title": f"{PHOTO}_front.jpg"},
+            known_photos=[PHOTO], device_ids={DEV: PHOTO})
+        self.assertEqual(action, D.ATTACH)
+        self.assertEqual(payload["photo"], PHOTO)
+
+    def test_the_device_pattern_cannot_match_an_ordinary_word(self):
+        from mallet_estimator import handover
+        for junk in ("MCAP-notahexstrng", "MCAP-a1b2c3", "mcap-a1b2c3d4e5f6",
+                     "MCAP-a1b2c3d4e5f6a", "recap-image.jpg", ""):
+            self.assertFalse(handover.is_device_id(junk), junk)
+        self.assertTrue(handover.is_device_id(DEV))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -31,11 +31,15 @@ def plan_uploads(photo_name, faces, existing_filenames=()):
     return plan
 
 
-def classify_return(drive_file, imported_file_ids=(), known_photos=None):
+def classify_return(drive_file, imported_file_ids=(), known_photos=None,
+                    device_ids=None):
     """Decide what a file sitting in ImageMeter's upload folder is.
 
     drive_file: {"id", "title", "parents_path": [...]} — parents_path is the
     folder trail below the ImageMeter root, e.g. ["yogesh_sar", "master_Bad"].
+    device_ids: {MCAP-… : MEST-PH-…} for captures born on a phone, whose faces
+    reached ImageMeter under the device's id because the server had not named
+    them yet.
 
     Returns (action, payload). ATTACH only when the file names a capture we
     know; everything else is REVIEW with a reason a person can act on."""
@@ -45,6 +49,17 @@ def classify_return(drive_file, imported_file_ids=(), known_photos=None):
 
     title = drive_file.get("title") or ""
     photo, face = handover.parse_caption(title)
+
+    if photo and handover.is_device_id(photo):
+        # A device id is a claim, not a link. It resolves only through the
+        # capture that actually synced; an unsynced or unknown one goes to a
+        # person, because attaching a stranger's wall is worse than asking.
+        resolved = (device_ids or {}).get(photo)
+        if not resolved:
+            return REVIEW, {"reason": f"device capture not synced yet: {photo}",
+                            "file_id": fid, "title": title,
+                            "folder": drive_file.get("parents_path") or []}
+        photo = resolved
 
     if photo and known_photos is not None and photo not in set(known_photos):
         # The id looks like ours but names a capture this site does not have —

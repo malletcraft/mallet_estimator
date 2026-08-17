@@ -139,6 +139,27 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertTrue(all("annotations" in r for r in rows))
         self.assertIn(0, [r["annotations"] for r in rows])
 
+    def test_a_device_capture_syncs_once_however_often_it_is_retried(self):
+        # The phone queues captures offline and retries. A connection that
+        # drops the acknowledgement AFTER the insert succeeded would otherwise
+        # file the same room twice, with nobody able to say which is real.
+        dev = "MCAP-0123456789ab"
+        first = sitephoto.create_capture(project=_project(), room=_room(),
+                                         device_capture_id=dev)
+        again = sitephoto.create_capture(project=_project(), room=_room(),
+                                         device_capture_id=dev)
+        self.assertEqual(first["name"], again["name"])
+        self.assertTrue(again.get("already_synced"))
+        self.assertEqual(
+            frappe.db.count("Site Photo 360", {"device_capture_id": dev}), 1)
+
+    def test_a_made_up_device_id_is_refused(self):
+        # The id is what an annotated face comes home by. Accepting a loose
+        # string would let a typo become a permanent, unmatchable capture.
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.create_capture(project=_project(), room=_room(),
+                                     device_capture_id="not-a-device-id")
+
     def test_the_pwa_shell_is_installed(self):
         # The app is a page on the bench, not a separate deploy — if the shell
         # or its manifest goes missing the phone silently 404s.

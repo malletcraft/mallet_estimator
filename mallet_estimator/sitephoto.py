@@ -10,9 +10,10 @@
 # instead of inflating a 20 MB pano into ~27 MB of base64 JSON. These methods
 # create the record, bind the uploaded file, and read back.
 import frappe
+from frappe import _
 from frappe.utils import cint, today
 
-from mallet_estimator import panorama
+from mallet_estimator import handover, panorama
 
 DOCTYPE = "Site Photo 360"
 STAGES = ("Baseline", "Civil", "Wiring", "Carpentry", "Finishing", "Handover")
@@ -59,9 +60,27 @@ def bootstrap():
 
 
 @frappe.whitelist()
-def create_capture(project, room, capture_date=None, stage=None, fov=None):
+def create_capture(project, room, capture_date=None, stage=None, fov=None,
+                   device_capture_id=None):
     """Step 1 of a capture: the record. The phone then uploads the pano
-    against this docname and calls bind_pano()."""
+    against this docname and calls bind_pano().
+
+    device_capture_id is the id a phone minted at the shutter, before it had
+    any way to reach the server. Passing it again returns the SAME capture
+    rather than making a second one — an offline queue retries, and a network
+    that drops an acknowledgement after the insert succeeded would otherwise
+    file the same room twice with nobody able to tell which is real."""
+    device_capture_id = (device_capture_id or "").strip() or None
+    if device_capture_id:
+        if not handover.is_device_id(device_capture_id):
+            frappe.throw(_("Not a device capture id: {0}").format(device_capture_id))
+        existing = frappe.db.get_value(
+            DOCTYPE, {"device_capture_id": device_capture_id}, ["name", "status"],
+            as_dict=True)
+        if existing:
+            return {"name": existing.name, "status": existing.status,
+                    "already_synced": True}
+
     doc = frappe.get_doc({
         "doctype": DOCTYPE,
         "project": project,
@@ -69,6 +88,7 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None):
         "capture_date": capture_date or today(),
         "stage": stage or "",
         "fov": cint(fov) or int(panorama.DEFAULT_FOV),
+        "device_capture_id": device_capture_id,
     })
     doc.insert()
     return {"name": doc.name, "status": doc.status}
