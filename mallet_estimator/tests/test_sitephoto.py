@@ -169,6 +169,29 @@ class TestSitePhotoApi(MalletTestCase):
                     if "match" in (p.project_name or "").lower()
                     and "zz" in (p.project_name or "").lower()]))
 
+    def test_a_site_is_created_even_when_the_default_group_is_a_group_node(self):
+        # Caught live on the FIRST phone-minted site: with no Selling Settings
+        # default, the fallback 'All Customer Groups' is the tree ROOT, and
+        # ERPNext refuses a group node on a Customer — so the capture sat in
+        # 'waiting to retry' forever. The chosen group must be a LEAF.
+        s = frappe.get_single("Selling Settings")
+        old = s.customer_group
+        s.customer_group = "All Customer Groups"
+        s.save(ignore_permissions=True)
+        try:
+            made = sitephoto.ensure_site("ZZ Group Node Client",
+                                         "ZZ_GROUP_NODE_PROJECT")
+            self.assertTrue(made["created"])
+            group = frappe.db.get_value(
+                "Customer", {"customer_name": "ZZ Group Node Client"},
+                "customer_group")
+            self.assertFalse(
+                frappe.db.get_value("Customer Group", group, "is_group"),
+                f"{group} is a group node — a Customer needs a leaf")
+        finally:
+            s.customer_group = old
+            s.save(ignore_permissions=True)
+
     def test_a_blank_site_name_is_refused(self):
         # A blank that slipped through would mint a nameless customer that
         # every later blank matches — a black hole for photos.

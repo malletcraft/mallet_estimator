@@ -149,10 +149,10 @@ def ensure_site(customer_name, project_title):
     if not customer:
         doc = frappe.get_doc({
             "doctype": "Customer", "customer_name": customer_name,
-            "customer_group": _default_or("Selling Settings", "customer_group",
-                                          "Customer Group", "All Customer Groups"),
-            "territory": _default_or("Selling Settings", "territory",
-                                     "Territory", "All Territories"),
+            "customer_group": _leaf_default("Selling Settings", "customer_group",
+                                            "Customer Group"),
+            "territory": _leaf_default("Selling Settings", "territory",
+                                       "Territory"),
         })
         doc.insert(ignore_permissions=True)
         customer = doc.name
@@ -171,13 +171,19 @@ def ensure_site(customer_name, project_title):
             "created": True}
 
 
-def _default_or(single, field, doctype, fallback):
+def _leaf_default(single, field, doctype):
+    """A LEAF of the group tree, never a group node.
+
+    The obvious fallbacks — 'All Customer Groups', 'All Territories' — are the
+    tree ROOTS, and ERPNext refuses a group node on a Customer ('Cannot select
+    a Group type Customer Group'). Caught live on the very first phone-minted
+    site, 2026-08-17: staging's Selling Settings has no default, the fallback
+    fired, and the capture sat in 'waiting to retry' until this."""
     v = frappe.db.get_single_value(single, field)
-    if v and frappe.db.exists(doctype, v):
+    if v and frappe.db.exists(doctype, v) \
+            and not frappe.db.get_value(doctype, v, "is_group"):
         return v
-    if frappe.db.exists(doctype, fallback):
-        return fallback
-    return frappe.db.get_value(doctype, {}, "name")
+    return frappe.db.get_value(doctype, {"is_group": 0}, "name")
 
 
 @frappe.whitelist()
