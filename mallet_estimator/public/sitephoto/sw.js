@@ -46,8 +46,18 @@ self.addEventListener('fetch', (event) => {
 		event.respondWith(
 			fetch(req)
 				.then((r) => {
-					const copy = r.clone();
-					caches.open(SHELL).then((c) => c.put('/sitephoto', copy));
+					// Only a real page replaces the saved one. /sitephoto is
+					// session-guarded, so an expired login answers with a
+					// redirect to /login — and a navigation request carries
+					// redirect:'manual', which makes that an opaque response
+					// with ok=false. Cached, it would become the offline
+					// shell: the app would open on site showing a login page
+					// it cannot possibly complete, and the good copy would be
+					// gone. Keeping the last real shell is strictly better.
+					if (r.ok && r.type === 'basic' && !r.redirected) {
+						const copy = r.clone();
+						caches.open(SHELL).then((c) => c.put('/sitephoto', copy));
+					}
 					return r;
 				})
 				.catch(() => caches.match('/sitephoto').then((r) => r || offlineCard()))

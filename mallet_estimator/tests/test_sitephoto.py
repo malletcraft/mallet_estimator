@@ -180,3 +180,18 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertIn("mcft_boot_v1", html, "the masters must be cached on the device")
         self.assertIn("stale_masters", html,
                       "and the app must SAY the list is old, or a new room goes missing silently")
+
+    def test_only_a_real_page_replaces_the_saved_shell(self):
+        # /sitephoto is session-guarded. An expired login answers a navigation
+        # with a redirect to /login, which arrives as an opaque response — and
+        # caching THAT as the shell means the app opens on site showing a
+        # login page it cannot complete, with the good copy overwritten.
+        # Reproduced in a browser: with the guard removed, the offline load
+        # navigates away chasing the cached redirect instead of rendering.
+        import os
+        base = frappe.get_app_path("mallet_estimator")
+        with open(os.path.join(base, "public/sitephoto/sw.js")) as f:
+            sw = f.read()
+        for guard in ("r.ok", "r.type === 'basic'", "!r.redirected"):
+            self.assertIn(guard, sw,
+                          f"the shell cache must be guarded by {guard}")
