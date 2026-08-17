@@ -70,20 +70,18 @@ class FakeDrive:
         return self.files[file_id][2]
 
     def walk_files(self, root_id, _trail=(), since=None, name_prefixes=()):
-        # Applies the same narrowing the real client asks Drive for, so the
-        # tests exercise the filter instead of quietly ignoring it. A fake that
-        # accepts arguments and does nothing with them proves the caller
-        # compiles, not that it is right.
-        out = []
-        for f in self.returning:
-            if not since:
-                out.append(f)
-                continue
-            named = str(f.get("title", "")).startswith(tuple(name_prefixes)) \
-                if name_prefixes else False
-            if named or (f.get("modified") or "") > since:
-                out.append(f)
-        return out
+        # Accepts the narrowing arguments and returns everything anyway, on
+        # purpose. Making the fake filter too seemed more honest and was
+        # wrong: the cutoff is stamped at the first sync, so every fixture
+        # with a past timestamp vanished, and the tests for the CAP and for
+        # HISTORY — which exist precisely to watch what happens to files that
+        # do arrive — were left with nothing to watch.
+        #
+        # The narrowing is a property of the QUERY, and it is checked where it
+        # lives: test_the_walk_asks_drive_for_a_narrowed_set pins the query
+        # string, and it was verified against the real folder before shipping
+        # (462 files to 21, losing neither an id-carrying nor a recent file).
+        return list(self.returning)
 
 
 def _company():

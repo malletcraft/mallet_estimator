@@ -134,7 +134,14 @@ class TestProjectionContract(unittest.TestCase):
         with open(path) as f:
             golden = json.load(f)
 
-        pano = G.synthetic_pano(golden["pano"]["width"], golden["pano"]["height"])
+        # Load the SHIPPED pano, not a freshly generated one. Both this test
+        # and the Kotlin one read the same PNG, so a drift in the fixture
+        # cannot masquerade as agreement — or as a projection bug.
+        png = os.path.join(os.path.dirname(os.path.abspath(G.__file__)),
+                           golden["pano"]["file"])
+        pano = np.asarray(Image.open(png).convert("RGB"))
+        self.assertEqual(pano.shape[1], golden["pano"]["width"])
+        self.assertEqual(pano.shape[0], golden["pano"]["height"])
         tol = golden["tolerance"]
         for name, spec in golden["faces"].items():
             face = P.face_from_equirect(pano, spec["yaw"], spec["pitch"],

@@ -62,12 +62,22 @@ def main():
                 for x, y in SAMPLES
             ],
         }
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "projection_goldens.json")
+    here = os.path.dirname(os.path.abspath(__file__))
+
+    # The source pano ships as a PNG, not as a recipe both sides reimplement.
+    # A second implementation of the FIXTURE is a second thing that can be
+    # wrong, and a fixture bug looks exactly like a projection bug.
+    from PIL import Image
+    png = os.path.join(here, "projection_pano.png")
+    Image.fromarray(pano).save(png, format="PNG", optimize=True)
+    out["pano"]["file"] = "projection_pano.png"
+
+    path = os.path.join(here, "projection_goldens.json")
     with open(path, "w") as f:
         json.dump(out, f, indent=1)
         f.write("\n")
     print(f"wrote {path}: {len(out['faces'])} faces x {len(SAMPLES)} samples")
+    print(f"wrote {png}: {os.path.getsize(png)} bytes")
 
 
 if __name__ == "__main__":

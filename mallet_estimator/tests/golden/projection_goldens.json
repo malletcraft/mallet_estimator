@@ -2,7 +2,8 @@
  "pano": {
   "width": 512,
   "height": 256,
-  "recipe": "synthetic_pano"
+  "recipe": "synthetic_pano",
+  "file": "projection_pano.png"
  },
  "fov": 110.0,
  "face_px": 64,
