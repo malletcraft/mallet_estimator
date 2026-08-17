@@ -18,7 +18,13 @@ pluginManagement {
     // them. The Android plugins therefore live here, not in the root build:
     // a root declaration would force AGP resolution on every build — and the
     // pure-JVM machines that run :pano:test cannot reach google()'s maven.
+    // ALL plugin versions live here and NONE in the root build script.
+    // A root declaration loads that plugin into the root classloader; the
+    // Android plugin then loads into :app's child loader, and Kotlin —
+    // resolved from the parent — cannot see AGP's classes (the BaseVariant
+    // crash). Declared here, each module assembles one coherent classpath.
     plugins {
+        id("org.jetbrains.kotlin.jvm") version "2.0.21"
         id("com.android.application") version "8.7.3"
         id("org.jetbrains.kotlin.android") version "2.0.21"
         id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
