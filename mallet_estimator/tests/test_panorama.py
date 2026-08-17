@@ -112,5 +112,42 @@ class TestProjection(unittest.TestCase):
         self.assertFalse(P.looks_equirect(640, 480))
 
 
+class TestProjectionContract(unittest.TestCase):
+    """The numbers a SECOND implementation must reproduce.
+
+    The Android app has to split on the device — that is the only way
+    ImageMeter gets a face on a site with no signal — so this projection will
+    exist twice, in two languages. Two implementations of one formula drift
+    silently: nobody sees a face that is two degrees off, they measure the
+    wrong wall months later. The goldens are the contract between them, and
+    this test holds THIS side to it, so changing the projection has to be a
+    deliberate act of regenerating the file, not an accident."""
+
+    def test_the_published_goldens_still_describe_this_projection(self):
+        import json
+        import os
+
+        from mallet_estimator.tests.golden import make_projection_goldens as G
+
+        path = os.path.join(os.path.dirname(os.path.abspath(G.__file__)),
+                            "projection_goldens.json")
+        with open(path) as f:
+            golden = json.load(f)
+
+        pano = G.synthetic_pano(golden["pano"]["width"], golden["pano"]["height"])
+        tol = golden["tolerance"]
+        for name, spec in golden["faces"].items():
+            face = P.face_from_equirect(pano, spec["yaw"], spec["pitch"],
+                                        golden["fov"], golden["face_px"])
+            for s in spec["samples"]:
+                got = [int(c) for c in face[s["y"], s["x"]][:3]]
+                for ch, (a, b) in enumerate(zip(got, s["rgb"])):
+                    self.assertLessEqual(
+                        abs(a - b), tol,
+                        f"{name} ({s['x']},{s['y']}) channel {ch}: {got} vs "
+                        f"golden {s['rgb']} — regenerate the goldens ON "
+                        f"PURPOSE if the projection really changed")
+
+
 if __name__ == "__main__":
     unittest.main()
