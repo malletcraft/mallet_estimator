@@ -139,13 +139,20 @@ jobs:
       - name: What actually failed
         if: failure()
         run: |
-          echo "===== failures and errors ====="
-          grep -nE "^(FAIL|ERROR):|^Ran [0-9]+ tests|^(FAILED|OK)" \
-            /tmp/mallet-tests.log || echo "(no unittest summary lines found)"
+          # Strip ANSI first. The runner colours its result lines, so a plain
+          # ^FAIL: pattern matches nothing and the traceback section comes out
+          # empty — which is how the first version of this step reported a
+          # failure it had successfully found (2026-08-17).
+          sed -e 's/\x1b\[[0-9;]*m//g' /tmp/mallet-tests.log > /tmp/plain.log
+          echo "===== summary ====="
+          grep -nE "^(FAIL|ERROR):|^Ran [0-9]+ tests|^(FAILED|OK)" /tmp/plain.log \
+            || echo "(no unittest summary lines found)"
           echo
-          echo "===== tracebacks ====="
-          awk '/^(FAIL|ERROR): /{p=1} p' /tmp/mallet-tests.log | head -200 \
-            || true
+          echo "===== integration phase (runs first, where failures land) ====="
+          # The integration phase finishes long before the unit phase, so its
+          # output is unreachable from any tail of the job log.
+          sed -n "1,$(grep -n '^Ran [0-9]* tests' /tmp/plain.log | head -1 \
+            | cut -d: -f1)p" /tmp/plain.log | tail -120
 
       - name: Show error logs on failure
         if: failure()

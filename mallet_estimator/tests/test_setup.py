@@ -352,6 +352,43 @@ class TestMasters(MalletTestCase):
                             f"'All' must not {p} {dt} — that is the "
                             f"photographer role's job")
 
+    def test_granting_the_camera_grants_only_the_camera(self):
+        # The narrow alternative to giving the steward write on User. A role
+        # that can edit users can grant itself any role, so that shortcut
+        # would have quietly undone every exclusion the steward has.
+        from mallet_estimator import integration
+        email = "zz-grant-test@example.com"
+        if not frappe.db.exists("User", email):
+            frappe.get_doc({
+                "doctype": "User", "email": email, "first_name": "ZZ Grant",
+                "user_type": "System User", "send_welcome_email": 0,
+            }).insert(ignore_permissions=True)
+
+        out = integration.grant_photographer(email)
+        self.assertTrue(out["granted"])
+        roles = set(frappe.get_roles(email))
+        self.assertIn(integration.PHOTOGRAPHER_ROLE, roles)
+        for other in (integration.STEWARD_ROLE, integration.READONLY_ROLE,
+                      integration.PLUGIN_ROLE, "System Manager"):
+            self.assertNotIn(other, roles, "it must grant ONE role, not a set")
+        self.assertTrue(out["access"]["can_capture"])
+        for dt in ("Estimate Settings", "Supplier Rate Sheet", "Item Price"):
+            self.assertEqual(out["access"]["access"].get(dt, ""), "")
+
+        # Idempotent: running it again is a no-op, not a duplicate row.
+        again = integration.grant_photographer(email)
+        self.assertFalse(again["granted"])
+        self.assertEqual(
+            len([r for r in frappe.get_doc("User", email).roles
+                 if r.role == integration.PHOTOGRAPHER_ROLE]), 1)
+
+    def test_granting_refuses_to_invent_a_user(self):
+        # Deciding somebody should have a login is not a decision this gets
+        # to make — only that an existing person may hold the camera.
+        from mallet_estimator import integration
+        with self.assertRaises(frappe.ValidationError):
+            integration.grant_photographer("nobody-at-all@example.com")
+
     def test_the_role_report_can_see_every_role(self):
         # role_report exists so a remote session can answer "did the grants
         # actually reach the database?" — and it listed three roles while a

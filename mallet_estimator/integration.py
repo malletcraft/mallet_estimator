@@ -513,6 +513,54 @@ ACCESS_PROBE_DOCTYPES = PHOTOGRAPHER_RWC + PHOTOGRAPHER_RO + PHOTOGRAPHER_FORBID
 
 
 @frappe.whitelist()
+def grant_photographer(user):
+    """Give an EXISTING user the site-photographer role, and nothing else.
+
+    Amit, 2026-08-17: "tick Mallet Site Photographer on pm@… Do it yourself.
+    If required, get steward those rights." Handing the steward write on User
+    would have satisfied that literally and been the wrong answer — a role
+    that can edit users can grant itself any role, so the steward's careful
+    exclusion from money would last exactly as long as nobody thought about
+    it. This is the narrow version of the same permission.
+
+    What it can do: add ONE named role to a user who already exists.
+    What it cannot do: create a user, remove a role, grant any other role, or
+    touch a thing this role is not allowed to reach. The role it grants is
+    itself asserted harmless before every grant, so widening the role by
+    accident disables the granting rather than quietly spreading it.
+
+    Gated on write access to Site Photo Settings: the steward and a System
+    Manager have it, a photographer does not — so holding the camera never
+    becomes the power to hand it out."""
+    frappe.has_permission("Site Photo Settings", "write", throw=True)
+
+    user = (user or "").strip()
+    if not frappe.db.exists("User", user):
+        # Never create one. Deciding that a person should have a login is not
+        # a decision any assistant identity gets to make.
+        frappe.throw(_("No such user: {0}. Create the account first.").format(user))
+
+    ensure_photographer_role()
+    ok, detail = photographer_is_scoped()
+    if not ok:
+        frappe.throw(_("Refusing to grant a role that is no longer scoped: {0}")
+                     .format(detail))
+
+    doc = frappe.get_doc("User", user)
+    if any(r.role == PHOTOGRAPHER_ROLE for r in (doc.roles or [])):
+        return {"user": user, "granted": False, "reason": "already had it",
+                "access": user_access_report(user)}
+
+    doc.append("roles", {"role": PHOTOGRAPHER_ROLE})
+    doc.save(ignore_permissions=True)
+    frappe.db.commit()
+    return {"user": user, "granted": True, "role": PHOTOGRAPHER_ROLE,
+            # Returned so the grant is verified by the same call that made it,
+            # rather than trusted because it did not raise.
+            "access": user_access_report(user)}
+
+
+@frappe.whitelist()
 def user_access_report(user):
     """What ONE named user can actually do across the capture surface.
 
