@@ -103,6 +103,15 @@ def _file_content(file_url):
     return frappe.get_doc("File", name).get_content()
 
 
+def _scan_order(f):
+    """Sort key for deciding which files the cap may drop.
+
+    A file with no timestamp cannot be judged old, so it sorts ABOVE every
+    real date rather than below — the cap must never be the reason an
+    undatable file goes unseen (the classifier already has a rule for them)."""
+    return f.get("modified") or "9999"
+
+
 # ---------------------------------------------------------------- pull -----
 def pull_annotations(client=None, limit=400):
     """Bring annotated photos home. Matched ones attach themselves; the rest
@@ -126,7 +135,15 @@ def pull_annotations(client=None, limit=400):
     device_ids = {r["device_capture_id"]: r["name"] for r in frappe.get_all(
         PHOTO, filters={"device_capture_id": ["is", "set"]},
         fields=["name", "device_capture_id"])}
-    files = client.walk_files(root)[:limit]
+    # NEWEST FIRST, then cap. Drive's own order is not chronological, so a cap
+    # applied to it drops arbitrary files — and the folder already holds more
+    # files than the cap (462 vs 400 on 2026-08-17). A returning photo outside
+    # the window is never seen and nothing reports an error, which is the worst
+    # shape a failure can take. Sorted, the cap can only ever drop the oldest.
+    files = client.walk_files(root)
+    files.sort(key=_scan_order, reverse=True)
+    dropped = max(0, len(files) - limit)
+    files = files[:limit]
 
     # ImageMeter's folder is not ours: it holds years of photos for other
     # clients. Anything modified before we ever handed a face over cannot be a
@@ -137,6 +154,11 @@ def pull_annotations(client=None, limit=400):
 
     out = {"scanned": len(files), "attached": 0, "queued": 0, "skipped": 0,
            "history": 0, "errors": []}
+    if dropped:
+        # Named in the summary rather than left implicit. A cap that quietly
+        # stops looking reads as "everything is fine" in exactly the runs
+        # where it isn't.
+        out["not_scanned"] = dropped
     for f in files:
         action, payload = drive_sync.classify_return(
             f, imported_file_ids=seen, known_photos=known, device_ids=device_ids)

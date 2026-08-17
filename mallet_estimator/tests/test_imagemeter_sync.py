@@ -305,6 +305,47 @@ class TestImageMeterSync(MalletTestCase):
         self.assertNotIn(f"{device.name}_front.jpg", names,
                          "a device capture was already handed over on the phone")
 
+    def test_the_cap_can_only_ever_drop_the_oldest(self):
+        # Drive's order is not chronological, so capping it dropped arbitrary
+        # files — and the real folder already held more than the cap (462 vs
+        # 400 on 2026-08-17). A returning photo outside the window is never
+        # seen and nothing reports an error.
+        doc = _split_capture()
+        old = [{"id": f"old{i}", "title": f"image_from_1._Jan_2020-{i}.jpg",
+                "parents_path": [], "modified": "2020-01-01T00:00:00Z",
+                "bytes": _jpeg()} for i in range(5)]
+        fresh = {"id": "fresh", "title": f"{doc.name}_front.jpg",
+                 "parents_path": [], "modified": "2026-08-17T04:46:44Z",
+                 "bytes": _jpeg(80, (10, 20, 200))}
+        # The newest file LAST in Drive order, which is what broke it.
+        out = imagemeter_sync.pull_annotations(
+            client=FakeDrive(returning=old + [fresh]), limit=3)
+        self.assertEqual(out["attached"], 1, f"the newest file must be seen: {out}")
+        self.assertEqual(out["not_scanned"], 3, "and the drop must be reported")
+
+    def test_a_file_with_no_timestamp_outranks_the_cap(self):
+        # Undatable means we cannot call it old, so it must not be what the
+        # cap discards.
+        doc = _split_capture()
+        dated = [{"id": f"d{i}", "title": f"image_from_1._Jan_2026-{i}.jpg",
+                  "parents_path": [], "modified": "2026-01-01T00:00:00Z",
+                  "bytes": _jpeg()} for i in range(4)]
+        undated = {"id": "nodate", "title": f"{doc.name}_back.jpg",
+                   "parents_path": [], "bytes": _jpeg(80, (200, 10, 10))}
+        out = imagemeter_sync.pull_annotations(
+            client=FakeDrive(returning=dated + [undated]), limit=2)
+        self.assertEqual(out["attached"], 1, f"undated file must survive: {out}")
+
+    def test_imagemeters_own_spreadsheets_never_reach_the_queue(self):
+        before = frappe.db.count("Site Photo Inbox")
+        junk = [{"id": "x1", "title": "Kids_Bedroom.xlsx", "parents_path": [],
+                 "modified": "2026-08-17T04:47:43Z", "bytes": b"not an image"},
+                {"id": "x2", "title": "Kids_Bedroom-copy.xlsx", "parents_path": [],
+                 "modified": "2026-08-17T04:47:49Z", "bytes": b"not an image"}]
+        out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=junk))
+        self.assertEqual(out["queued"], 0, f"nothing to ask a person about: {out}")
+        self.assertEqual(frappe.db.count("Site Photo Inbox"), before)
+
     def test_the_masters_exist(self):
         self.assertTrue(frappe.db.exists("DocType", "Site Photo Settings"))
         self.assertTrue(frappe.db.exists("DocType", "Site Photo Inbox"))

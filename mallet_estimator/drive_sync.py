@@ -14,6 +14,19 @@ from mallet_estimator import handover, panorama
 # What came back and what we should do about it.
 SKIP, ATTACH, REVIEW = "skip", "attach", "review"
 
+# ImageMeter's folder holds its own working files beside the photos — data
+# table exports (Kids_Bedroom.xlsx), PDFs, project archives. None of them can
+# ever be a face, but each one queued a review row that nobody would resolve,
+# so they came back every run (nine of them by 2026-08-17). The review queue is
+# only useful while everything in it is a real question.
+IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".bmp", ".tif", ".tiff")
+
+
+def is_image(title):
+    """True when a filename claims to be a photo. Extension only: the job
+    never opens a file it has already decided to ignore."""
+    return str(title or "").lower().endswith(IMAGE_SUFFIXES)
+
 
 def plan_uploads(photo_name, faces, existing_filenames=()):
     """Which faces still need handing over. Re-running a handover must not
@@ -48,6 +61,9 @@ def classify_return(drive_file, imported_file_ids=(), known_photos=None,
         return SKIP, {"reason": "already imported", "file_id": fid}
 
     title = drive_file.get("title") or ""
+    if not is_image(title):
+        return SKIP, {"reason": "not an image", "file_id": fid, "title": title}
+
     photo, face = handover.parse_caption(title)
 
     if photo and handover.is_device_id(photo):

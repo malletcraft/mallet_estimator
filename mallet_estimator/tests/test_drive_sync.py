@@ -131,5 +131,34 @@ class TestDeviceBornCaptures(unittest.TestCase):
         self.assertTrue(handover.is_device_id(DEV))
 
 
+class TestNonImagesAreNotQuestions(unittest.TestCase):
+    """ImageMeter keeps its own working files beside the photos. None can be a
+    face, but each queued a review row nobody would ever resolve, so they came
+    back every run. A queue is only useful while everything in it is a real
+    question."""
+
+    def test_imagemeters_own_exports_are_skipped(self):
+        for name in ("Kids_Bedroom.xlsx", "Kids_Bedroom-copy.xlsx",
+                     "measurements.pdf", "project.imm", "notes.txt"):
+            action, payload = D.classify_return({"id": "z", "title": name},
+                                                known_photos=[PHOTO])
+            self.assertEqual(action, D.SKIP, name)
+            self.assertEqual(payload["reason"], "not an image")
+
+    def test_photos_are_still_looked_at(self):
+        for name in (f"{PHOTO}_front.jpg", "image_from_1._Jan_2026.JPG",
+                     "shot.jpeg", "scan.PNG", "phone.heic"):
+            action, _ = D.classify_return({"id": "z", "title": name},
+                                          known_photos=[PHOTO])
+            self.assertNotEqual(action, D.SKIP, name)
+
+    def test_an_already_imported_file_is_still_skipped_as_imported(self):
+        # Order matters: a known file should report why it was really skipped.
+        action, payload = D.classify_return(
+            {"id": "dup", "title": f"{PHOTO}_front.jpg"}, imported_file_ids=["dup"])
+        self.assertEqual(action, D.SKIP)
+        self.assertEqual(payload["reason"], "already imported")
+
+
 if __name__ == "__main__":
     unittest.main()
