@@ -269,6 +269,42 @@ class TestImageMeterSync(MalletTestCase):
         s.save(ignore_permissions=True)
         self.assertIn("skipped", imagemeter_sync.sync())
 
+    def test_a_face_from_a_synced_device_capture_attaches_itself(self):
+        # The whole return leg for the phone app, through the real queries.
+        # The pure tests proved the DECISION was right while the DB query
+        # feeding it was wrong: filtering ["not in", ["", None]] is never true
+        # in SQL, so the device map came back empty and every device face was
+        # told its capture had not synced when it plainly had. Found on the
+        # live site, 2026-08-17 — nothing in the suite went near that query.
+        dev = "MCAP-0f1e2d3c4b5a"
+        doc = _split_capture()
+        doc.db_set("device_capture_id", dev, update_modified=False)
+        returning = [{"id": "drvdev", "title": f"{dev}_front.jpg",
+                      "parents_path": ["Client", "Room"],
+                      "modified": "2026-08-17T04:46:44Z", "bytes": _jpeg(80, (30, 180, 90))}]
+        out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=returning))
+        self.assertEqual(out["attached"], 1, f"must attach, got {out}")
+        doc.reload()
+        self.assertTrue(any(a.face == "front" for a in doc.annotations))
+
+    def test_a_device_capture_is_never_handed_over_twice(self):
+        # It was handed to ImageMeter on the phone already. Pushing it to
+        # Drive would put a second copy of the wall in front of the annotator
+        # with nothing to say which is current. Same NULL trap on the other
+        # side: ["in", ["", None]] happened to work, which is not a reason to
+        # keep depending on it.
+        device = _split_capture()
+        device.db_set("device_capture_id", "MCAP-99887766aabb", update_modified=False)
+        server_born = _split_capture()
+
+        drive = FakeDrive()
+        imagemeter_sync.push_handovers(client=drive)
+        names = set(drive.uploads)
+        self.assertIn(f"{server_born.name}_front.jpg", names,
+                      "an ordinary capture must still be handed over")
+        self.assertNotIn(f"{device.name}_front.jpg", names,
+                         "a device capture was already handed over on the phone")
+
     def test_the_masters_exist(self):
         self.assertTrue(frappe.db.exists("DocType", "Site Photo Settings"))
         self.assertTrue(frappe.db.exists("DocType", "Site Photo Inbox"))

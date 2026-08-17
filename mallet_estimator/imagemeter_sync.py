@@ -44,7 +44,7 @@ def push_handovers(client=None, limit=25):
     # would put a second copy of every wall in front of the annotator, with
     # nothing to say which one is current.
     rows = frappe.get_all(
-        PHOTO, filters={"status": "Split", "device_capture_id": ["in", ["", None]]},
+        PHOTO, filters={"status": "Split", "device_capture_id": ["is", "not set"]},
         fields=["name", "project", "room", "capture_date", "stage",
                 "handover_folder_id"],
         order_by="creation asc", limit_page_length=limit)
@@ -118,8 +118,13 @@ def pull_annotations(client=None, limit=400):
     # Faces from a phone carry the id the device minted, not the docname the
     # server assigned afterwards — so a returning file has to be translated
     # before it can be matched.
+    # "is set", NOT ["not in", ["", None]] — SQL says NOT IN (…, NULL) is
+    # never true, so that filter returned an empty map on every run and every
+    # device face went to review saying its capture had not synced when it
+    # plainly had (caught live, 2026-08-17). "is set" is the only spelling
+    # that means what it says about NULL.
     device_ids = {r["device_capture_id"]: r["name"] for r in frappe.get_all(
-        PHOTO, filters={"device_capture_id": ["not in", ["", None]]},
+        PHOTO, filters={"device_capture_id": ["is", "set"]},
         fields=["name", "device_capture_id"])}
     files = client.walk_files(root)[:limit]
 
