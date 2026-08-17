@@ -1,0 +1,56 @@
+# Switch which git branch the Frappe Cloud bench deploys for an app.
+#
+# Exists because of 2026-08-17: the bench was discovered tracking batch-next —
+# the site ran a commit never merged to main, meaning two CI-red commits
+# reached staging. The dashboard fix is a click behind a human login; this is
+# the same press call (press.api.bench.change_branch) made with the
+# credentials the deploy workflows already hold, so the fix is scriptable and
+# auditable instead of a memory of who clicked what.
+name: FC change app branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "App whose branch to change"
+        default: "mallet_estimator"
+        required: true
+      to_branch:
+        description: "Branch the bench should deploy from"
+        default: "main"
+        required: true
+
+jobs:
+  change:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Change branch on the release group
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_BENCH: ${{ vars.FC_BENCH != '' && vars.FC_BENCH || 'bench-44687' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+          APP: ${{ inputs.app }}
+          TO: ${{ inputs.to_branch }}
+        run: |
+          set -euo pipefail
+          echo "switching $APP on $FC_BENCH -> $TO"
+          curl -sSL --fail-with-body -X POST \
+            "https://$FC_HOST/api/method/press.api.bench.change_branch" \
+            -H "Authorization: token $FC_KEY:$FC_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$FC_BENCH\",\"app\":\"$APP\",\"to_branch\":\"$TO\"}"
+          echo
+          echo "=== read back the deploy information ==="
+          curl -sSL -X POST \
+            "https://$FC_HOST/api/method/press.api.bench.deploy_information" \
+            -H "Authorization: token $FC_KEY:$FC_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\":\"$FC_BENCH\"}" | python3 -c "
+          import sys, json
+          m = json.load(sys.stdin).get('message', {})
+          for a in m.get('apps') or []:
+              print(a.get('app'), '| branch:', a.get('branch'),
+                    '| current:', str(a.get('current_hash'))[:7],
+                    '| next:', str(a.get('next_hash'))[:7])
+          "
