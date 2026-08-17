@@ -29,6 +29,27 @@ jobs:
       - name: Run pure unit tests
         run: python -m unittest mallet_estimator.tests.test_estimator mallet_estimator.tests.test_opencutlist mallet_estimator.tests.test_nesting mallet_estimator.tests.test_consolidate mallet_estimator.tests.test_repair mallet_estimator.tests.test_panorama mallet_estimator.tests.test_handover mallet_estimator.tests.test_drive_sync -v
 
+  projection:
+    name: Projection contract (device vs bench)
+    runs-on: ubuntu-latest
+    # The 360 → faces projection exists TWICE: Python on the bench, Kotlin on
+    # the phone — because a site has no signal, and a face that must reach a
+    # server first is a face ImageMeter never sees while anyone is still in
+    # the room. Two implementations of one formula drift silently: nobody
+    # notices a face two degrees off, they measure the wrong wall months
+    # later. This job is what makes the contract binding rather than a good
+    # intention. No Android SDK required — the module is pure JVM on purpose.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Kotlin projection must match the published goldens
+        working-directory: android
+        run: gradle :pano:test --console=plain
+
   integration:
     name: Integration (Frappe v16 + ERPNext)
     runs-on: ubuntu-latest
