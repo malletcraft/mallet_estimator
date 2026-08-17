@@ -322,10 +322,10 @@ class TestImageMeterSync(MalletTestCase):
         # 400 on 2026-08-17). A returning photo outside the window is never
         # seen and nothing reports an error.
         doc = _split_capture()
-        old = [{"id": f"old{i}", "title": f"image_from_1._Jan_2020-{i}.jpg",
+        old = [{"id": f"cap-old{i}", "title": f"image_from_1._Jan_2020-{i}.jpg",
                 "parents_path": [], "modified": "2020-01-01T00:00:00Z",
                 "bytes": _jpeg()} for i in range(5)]
-        fresh = {"id": "fresh", "title": f"{doc.name}_front.jpg",
+        fresh = {"id": "cap-fresh", "title": f"{doc.name}_front.jpg",
                  "parents_path": [], "modified": "2026-08-17T04:46:44Z",
                  "bytes": _jpeg(80, (10, 20, 200))}
         # The newest file LAST in Drive order, which is what broke it.
@@ -338,10 +338,10 @@ class TestImageMeterSync(MalletTestCase):
         # Undatable means we cannot call it old, so it must not be what the
         # cap discards.
         doc = _split_capture()
-        dated = [{"id": f"d{i}", "title": f"image_from_1._Jan_2026-{i}.jpg",
+        dated = [{"id": f"nd-d{i}", "title": f"image_from_1._Jan_2026-{i}.jpg",
                   "parents_path": [], "modified": "2026-01-01T00:00:00Z",
                   "bytes": _jpeg()} for i in range(4)]
-        undated = {"id": "nodate", "title": f"{doc.name}_back.jpg",
+        undated = {"id": "nd-undated", "title": f"{doc.name}_back.jpg",
                    "parents_path": [], "bytes": _jpeg(80, (200, 10, 10))}
         out = imagemeter_sync.pull_annotations(
             client=FakeDrive(returning=dated + [undated]), limit=2)
@@ -349,9 +349,9 @@ class TestImageMeterSync(MalletTestCase):
 
     def test_imagemeters_own_spreadsheets_never_reach_the_queue(self):
         before = frappe.db.count("Site Photo Inbox")
-        junk = [{"id": "x1", "title": "Kids_Bedroom.xlsx", "parents_path": [],
+        junk = [{"id": "junk-x1", "title": "Kids_Bedroom.xlsx", "parents_path": [],
                  "modified": "2026-08-17T04:47:43Z", "bytes": b"not an image"},
-                {"id": "x2", "title": "Kids_Bedroom-copy.xlsx", "parents_path": [],
+                {"id": "junk-x2", "title": "Kids_Bedroom-copy.xlsx", "parents_path": [],
                  "modified": "2026-08-17T04:47:49Z", "bytes": b"not an image"}]
         out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=junk))
         self.assertEqual(out["queued"], 0, f"nothing to ask a person about: {out}")
@@ -388,7 +388,7 @@ class TestImageMeterSync(MalletTestCase):
         # Naming a capture outranks age. Narrowing must not quietly repeal
         # that rule by never fetching the file in the first place.
         doc = _split_capture()
-        ancient = [{"id": "old1", "title": f"{doc.name}_front.jpg",
+        ancient = [{"id": "ancient-1", "title": f"{doc.name}_front.jpg",
                     "parents_path": [], "modified": "2019-01-01T00:00:00Z",
                     "bytes": _jpeg(80, (5, 5, 200))}]
         out = imagemeter_sync.pull_annotations(client=FakeDrive(returning=ancient))
