@@ -15,8 +15,12 @@ android {
         // phone bought for this job will not be older.
         minSdk = 29
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.3.0"
+        // Play refuses any upload whose versionCode is not strictly higher
+        // than the last, and hands-off publishing means nobody is around to
+        // bump a number. CI supplies both from the workflow run number, which
+        // only ever grows; the fallbacks keep local builds compiling.
+        versionCode = (System.getenv("MCFT_VERSION_CODE") ?: "4").toInt()
+        versionName = System.getenv("MCFT_VERSION_NAME") ?: "0.3.0-local"
     }
 
     signingConfigs {
