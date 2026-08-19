@@ -26,9 +26,24 @@ returns.*
 3. **New site with no project yet?** Project picker → **＋ New client /
    project…** — type both names, works fully offline; on sync they become
    real masters, or match existing ones no matter how the spelling differs.
-4. **Pick 360 photo** → the phone splits it into six captioned faces and
+4. **Room size** — pick Small / Medium / Large (or Server default). Small
+   rooms need wider split faces or the walls come back with corners cut
+   off; the app computes the right field-of-view from the room geometry
+   (a ~5×7 ft bathroom needs ≈130°, a large living room ≈100°). The
+   choice is remembered, so a morning of bathrooms is one tap.
+5. **Pick 360 photo** → the phone splits it into six captioned faces and
    saves them to
    `Pictures/MCFT Site Photos/<Client>/<Project>/<Project> — <Room>/`.
+
+**Shooting technique — what makes the split faces true:**
+
+- Camera at **half the ceiling height** (≈4 ft 9 in under a 9½ ft
+  ceiling). Mid-height splits the view evenly between floor and ceiling
+  — a low camera is the main reason ceiling corners go missing.
+- Stick **vertical, camera level**; the X3's own levelling then exports a
+  true pano, and a level pano in means square walls out.
+- Stand near the **room centre** when possible — every wall gets the same
+  treatment.
 
 Each capture card shows its life honestly: *on this phone* → *uploading* →
 *Synced as MEST-PH-…*, with the reason shown if a sync attempt failed

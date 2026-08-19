@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import kotlinx.coroutines.Dispatchers
@@ -94,6 +95,16 @@ private fun AppScreen() {
     var showNewSite by remember { mutableStateOf(false) }
     var room by remember { mutableStateOf<String?>(null) }
     var stage by remember { mutableStateOf("") }
+    // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
+    // extra "server default" entry at the end. Remembered across launches —
+    // a photographer doing bathrooms all morning picks Small once.
+    val capturePrefs = remember {
+        context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
+    }
+    var roomSize by remember {
+        mutableStateOf(capturePrefs.getInt("room_size", 1)
+            .coerceIn(0, CaptureGeometry.PRESETS.size))
+    }
 
     var busy by remember { mutableStateOf<String?>(null) }
     var lastResult by remember { mutableStateOf<String?>(null) }
@@ -136,7 +147,8 @@ private fun AppScreen() {
                 val id = Handover.mintDeviceId(
                     ByteArray(6).also { SecureRandom().nextBytes(it) })
                 val today = LocalDate.now().toString()
-                val fov = masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
+                val fov = CaptureGeometry.PRESETS.getOrNull(roomSize)?.fov
+                    ?: masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
                     ?: Panorama.DEFAULT_FOV
                 val (result, pano) = FaceWriter.split(
                     context = context, source = uri, deviceId = id,
@@ -198,6 +210,23 @@ private fun AppScreen() {
                 stage.ifBlank { "(none)" }) { i ->
                 stage = if (i == 0) "" else stages[i - 1]
             }
+            Spacer(Modifier.height(8.dp))
+            // Small rooms need wider faces or the split truncates the walls —
+            // the geometry (and the presets) live in CaptureGeometry.
+            val sizeOptions = CaptureGeometry.PRESETS.map {
+                "${it.label} — ${it.fov.toInt()}°"
+            } + "Server default"
+            Picker("Room size", sizeOptions,
+                sizeOptions[roomSize.coerceIn(0, sizeOptions.size - 1)]) { i ->
+                roomSize = i
+                capturePrefs.edit().putInt("room_size", i).apply()
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Shoot from the room centre, camera LEVEL at half ceiling " +
+                    "height (≈4 ft 9 in under a 9½ ft ceiling) — " +
+                    "then every wall keeps all four corners after the split.",
+                style = MaterialTheme.typography.bodySmall)
 
             Spacer(Modifier.height(16.dp))
             Button(
