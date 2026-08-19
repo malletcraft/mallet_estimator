@@ -148,17 +148,27 @@ jobs:
             exit 0
           fi
           pip -q install google-auth requests
-          # The bench stores this value as base64 of the SA JSON (raw JSON
-          # also accepted) — mirror drive_client.load_credentials exactly so
-          # the same paste works in both places.
+          # The value may be base64 of the SA JSON or the raw JSON — mirror
+          # drive_client.load_credentials. A bad value must NOT sink the
+          # public APK pipeline: warn loudly, skip the camera build, exit 0.
           printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.raw"
-          python3 - <<'PY'
+          if ! python3 - <<'PY'
           import base64, json, os, requests
           raw = open(os.environ["RUNNER_TEMP"] + "/sa.raw").read().strip()
           try:
-              data = json.loads(base64.b64decode(raw))
+              data = json.loads(base64.b64decode(raw, validate=True))
           except Exception:
-              data = json.loads(raw)
+              try:
+                  data = json.loads(raw)
+              except Exception:
+                  # Diagnose without leaking: shape only, never content.
+                  looks = "asterisks/masked" if set(raw) <= {"*"} else (
+                      "json-ish" if raw[:1] == "{" else "neither json nor base64")
+                  print(f"::error::MCFT_GDRIVE_SA_JSON is unusable: {len(raw)} chars, "
+                        f"looks like {looks}. The FC dashboard MASKS secret values — "
+                        "copy the original service-account .json key file instead "
+                        "(or mint a new key in GCP IAM).")
+                  raise SystemExit(1)
           with open(os.environ["RUNNER_TEMP"] + "/sa.json", "w") as f:
               json.dump(data, f)
           from google.oauth2 import service_account
@@ -178,6 +188,11 @@ jobs:
                   f.write(chunk)
           print("downloaded", os.path.getsize(out), "bytes")
           PY
+          then :; else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::camera build skipped — MCFT_GDRIVE_SA_JSON unusable or Drive fetch failed (see above)"
+            exit 0
+          fi
           mkdir -p "$RUNNER_TEMP/insta-sdk"
           unzip -q "$RUNNER_TEMP/insta-sdk.zip" -d "$RUNNER_TEMP/insta-sdk"
           # First runs are archaeology: show what the zip actually holds so a
