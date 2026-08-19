@@ -21,6 +21,14 @@ android {
         // only ever grows; the fallbacks keep local builds compiling.
         versionCode = (System.getenv("MCFT_VERSION_CODE") ?: "4").toInt()
         versionName = System.getenv("MCFT_VERSION_NAME") ?: "0.3.0-local"
+
+        // arm64 only. The Insta360 SDK ships native stitching libraries for
+        // every ABI and the all-ABI camera APK weighed 382 MB (proven at the
+        // managed-Play uploader, 2026-08-19, 'APK of size 382715581 is too
+        // large'). Insta360 themselves deprecate 32-bit; every site phone is
+        // arm64. The stub build carries almost no native code, so this
+        // costs it nothing.
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     signingConfigs {
