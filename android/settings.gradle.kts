@@ -40,11 +40,14 @@ dependencyResolutionManagement {
         // credentials are parsed out of the (privately parked) demo zip by
         // CI and arrive as env vars; they are never committed. Absent env =
         // repo not added = every non-camera build unaffected.
-        val instaUrl = System.getenv("INSTA_MVN_URL")
-        if (!instaUrl.isNullOrBlank()) {
+        // The URL and coordinates are public facts (they appear in
+        // Insta360's own docs); only the credentials are licensed, so they
+        // arrive via env — parsed out of the privately parked demo zip by
+        // CI, never committed. No creds = repo not added = every non-camera
+        // build unaffected.
+        if (!System.getenv("INSTA_MVN_USER").isNullOrBlank()) {
             maven {
-                url = uri(instaUrl)
-                isAllowInsecureProtocol = true  // their nexus is plain http
+                url = uri("https://androidsdk.insta360.com/repository/maven-public/")
                 credentials {
                     username = System.getenv("INSTA_MVN_USER") ?: ""
                     password = System.getenv("INSTA_MVN_PASS") ?: ""

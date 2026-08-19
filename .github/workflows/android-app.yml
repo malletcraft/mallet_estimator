@@ -203,70 +203,25 @@ jobs:
           if python3 - <<'PY'
           import os, re, sys, pathlib
           root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "insta-sdk"
-          files = {}
-          for pat in ("settings.gradle*", "build.gradle*", "gradle.properties", "*.toml"):
+          text = ""
+          for pat in ("settings.gradle*", "build.gradle*", "gradle.properties"):
               for f in root.rglob(pat):
-                  if "__MACOSX" in str(f):
-                      continue
-                  files[str(f.relative_to(root))] = f.read_text(errors="ignore")
-          text = "\n".join(files.values())
-
-          # FIRST: find and mask the password — everything printed after
-          # this is safe even if it quotes the gradle files.
+                  if "__MACOSX" not in str(f):
+                      text += f.read_text(errors="ignore") + "\n"
+          # Only the CREDENTIALS are taken from the zip (they are the licensed
+          # part). Repo URL and coordinates are public and hardcoded in the
+          # build. Password masked before anything else — public logs.
           pw = re.search(r'password\s*[=(:]\s*["\']([^"\']+)', text)
-          if pw:
-              print(f"::add-mask::{pw.group(1)}")
           user = re.search(r'username\s*[=(:]\s*["\']([^"\']+)', text)
-
-          # Repo URL: any non-public http(s) url in the build files.
-          urls = re.findall(r'https?://[^"\')\s]+', text)
-          public = ("google.com", "gradle.org", "maven.org", "jitpack",
-                    "github.com", "maven.google", "jetbrains", "android.com")
-          cand = [u for u in dict.fromkeys(urls) if not any(k in u for k in public)]
-          url = cand[0] if cand else None
-
-          def coord(artifact):
-              # Direct group:artifact:version string first.
-              m = re.search(r'["\']([\w.\-]+:[\w\-]*' + artifact + r'[\w\-]*:[\w.\-]+)["\']', text)
-              if m:
-                  return m.group(1)
-              # Version-catalog form: module = "g:a" + version(.ref) = "..."
-              m = re.search(r'{[^}]*module\s*=\s*["\']([\w.\-]+:[\w\-]*' + artifact + r'[\w\-]*)["\'][^}]*}', text)
-              if not m:
-                  return None
-              entry, module = m.group(0), m.group(1)
-              v = re.search(r'version\s*=\s*["\']([^"\']+)', entry)
-              if v:
-                  return f"{module}:{v.group(1)}"
-              vr = re.search(r'version\.ref\s*=\s*["\']([^"\']+)', entry)
-              if vr:
-                  vv = re.search(r'^\s*' + re.escape(vr.group(1)) + r'\s*=\s*["\']([^"\']+)',
-                                 text, re.M)
-                  if vv:
-                      return f"{module}:{vv.group(1)}"
-              return None
-
-          cam, med = coord("sdkcamera"), coord("sdkmedia")
-          if not (url and user and pw and cam):
-              print(f"extraction incomplete: url={url!r} user={bool(user)} "
-                    f"pw={bool(pw)} cam={cam!r} med={med!r}")
-              # Safe excerpts: build-file lines around repos/deps, with
-              # credential lines dropped entirely (password also masked).
-              for name, body in files.items():
-                  keep = [l for l in body.splitlines()
-                          if re.search(r'maven|url|arashivision|sdkcamera|sdkmedia|insta', l, re.I)
-                          and not re.search(r'password|username', l, re.I)]
-                  if keep:
-                      print(f"--- {name} ---")
-                      print("\n".join(keep[:40]))
+          if not (user and pw):
+              print(f"credentials not found in the demo gradle files: "
+                    f"user={bool(user)} pw={bool(pw)}")
               sys.exit(1)
+          print(f"::add-mask::{pw.group(1)}")
           with open(os.environ["GITHUB_ENV"], "a") as f:
-              f.write(f"INSTA_MVN_URL={url}\n")
               f.write(f"INSTA_MVN_USER={user.group(1)}\n")
               f.write(f"INSTA_MVN_PASS={pw.group(1)}\n")
-              f.write(f"INSTA_SDKCAMERA_COORD={cam}\n")
-              f.write(f"INSTA_SDKMEDIA_COORD={med or cam}\n")
-          print("resolved:", cam, "and", med or cam, "from", url)
+          print("maven credentials extracted")
           PY
           then
             echo "present=true" >> "$GITHUB_OUTPUT"

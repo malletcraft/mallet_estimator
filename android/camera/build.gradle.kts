@@ -24,24 +24,22 @@ kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarg
 // demo project, not a bag of AARs). CI parses the coordinates + credentials
 // out of the privately parked zip into env vars; local dev can either set
 // the same four INSTA_* vars or drop AARs into libs/ (gitignored).
-val camCoord: String? = System.getenv("INSTA_SDKCAMERA_COORD")
-val medCoord: String? = System.getenv("INSTA_SDKMEDIA_COORD") ?: camCoord
-val sdkAars = fileTree("libs") { include("*.aar") }
-if (camCoord == null && sdkAars.isEmpty) {
+// Coordinates match the parked Android-SDK-V1.10.1.zip (its demo's version
+// catalog names exactly these). The repo needs credentials — see settings —
+// so building -PwithCamera without INSTA_MVN_USER/PASS cannot resolve them.
+val instaVersion = "1.10.1"
+
+if (System.getenv("INSTA_MVN_USER").isNullOrBlank()) {
     error(
-        "camera: no Insta360 SDK available. Building with -PwithCamera needs " +
-        "either the INSTA_MVN_* + INSTA_SDK*_COORD env vars (the CI path) " +
-        "or AARs in android/camera/libs/ — see android/camera/README.md."
+        "camera: INSTA_MVN_USER/INSTA_MVN_PASS not set. The SDK resolves from " +
+        "Insta360's credentialed maven; CI parses the credentials out of the " +
+        "privately parked demo zip — see android/camera/README.md."
     )
 }
 
 dependencies {
     implementation(project(":pano"))
-    if (camCoord != null) {
-        implementation(camCoord)
-        if (medCoord != camCoord) implementation(medCoord!!)
-    } else {
-        implementation(sdkAars)
-    }
+    implementation("com.arashivision.sdk:sdkcamera:$instaVersion")
+    implementation("com.arashivision.sdk:sdkmedia:$instaVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
