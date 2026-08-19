@@ -195,18 +195,49 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/insta-sdk"
           unzip -q "$RUNNER_TEMP/insta-sdk.zip" -d "$RUNNER_TEMP/insta-sdk"
-          # First runs are archaeology: show what the zip actually holds so a
-          # failed camera build can be diagnosed from the log alone.
-          find "$RUNNER_TEMP/insta-sdk" -name "*.aar" -o -name "build.gradle*" | head -50
-          mkdir -p android/camera/libs
-          find "$RUNNER_TEMP/insta-sdk" -name "*.aar" -exec cp {} android/camera/libs/ \;
-          n=$(ls android/camera/libs/*.aar 2>/dev/null | wc -l)
-          echo "copied $n AAR(s) into android/camera/libs/"
-          if [ "$n" = "0" ]; then
-            echo "::error::SDK zip carried no .aar — inspect the listing above"
-            exit 1
+          # The zip is Insta360's DEMO PROJECT — the SDK itself resolves from
+          # their private Maven, whose URL, credentials and versions live in
+          # the demo's gradle files. Parse them out and hand them to gradle
+          # via env. The password is MASKED before anything else happens:
+          # this repo's CI logs are public.
+          if python3 - <<'PY'
+          import os, re, sys, pathlib
+          root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "insta-sdk"
+          text = ""
+          for pat in ("*.gradle", "*.gradle.kts", "gradle.properties", "*.toml"):
+              for p in root.rglob(pat):
+                  text += p.read_text(errors="ignore") + "\n"
+          url = re.search(r'https?://[^"\')\s]*arashivision[^"\')\s]*', text)
+          user = re.search(r'username\s*[=(:]\s*["\']([^"\']+)', text)
+          pw = re.search(r'password\s*[=(:]\s*["\']([^"\']+)', text)
+          # Full group:artifact:version — group ids differ between SDK
+          # releases, so never assume one.
+          cam = re.search(r'([\w.\-]*arashivision[\w.\-]*:[\w\-]*sdkcamera[\w\-]*:[\w.\-]+)', text)
+          med = re.search(r'([\w.\-]*arashivision[\w.\-]*:[\w\-]*sdkmedia[\w\-]*:[\w.\-]+)', text)
+          if not (url and user and pw and cam):
+              names = [str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()]
+              print("could not extract maven url/credentials/versions.")
+              print(f"found: url={bool(url)} user={bool(user)} pw={bool(pw)} cam={bool(cam)}")
+              print("zip contents (names only, first 100):")
+              print("\n".join(names[:100]))
+              sys.exit(1)
+          print(f"::add-mask::{pw.group(1)}")
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"INSTA_MVN_URL={url.group(0)}\n")
+              f.write(f"INSTA_MVN_USER={user.group(1)}\n")
+              f.write(f"INSTA_MVN_PASS={pw.group(1)}\n")
+              f.write(f"INSTA_SDKCAMERA_COORD={cam.group(1)}\n")
+              f.write(f"INSTA_SDKMEDIA_COORD={(med or cam).group(1)}\n")
+          print("maven coordinates extracted:", cam.group(1), "and",
+                (med or cam).group(1))
+          PY
+          then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::camera build skipped — could not extract SDK maven coordinates from the zip (listing above)"
+            exit 0
           fi
-          echo "present=true" >> "$GITHUB_OUTPUT"
       - name: Assemble the camera build (artifact-only, embeds the SDK)
         if: steps.sdk.outputs.present == 'true'
         working-directory: android

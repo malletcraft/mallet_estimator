@@ -36,6 +36,21 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Insta360's private Maven — the SDK's home. Coordinates and
+        // credentials are parsed out of the (privately parked) demo zip by
+        // CI and arrive as env vars; they are never committed. Absent env =
+        // repo not added = every non-camera build unaffected.
+        val instaUrl = System.getenv("INSTA_MVN_URL")
+        if (!instaUrl.isNullOrBlank()) {
+            maven {
+                url = uri(instaUrl)
+                isAllowInsecureProtocol = true  // their nexus is plain http
+                credentials {
+                    username = System.getenv("INSTA_MVN_USER") ?: ""
+                    password = System.getenv("INSTA_MVN_PASS") ?: ""
+                }
+            }
+        }
     }
 }
 
