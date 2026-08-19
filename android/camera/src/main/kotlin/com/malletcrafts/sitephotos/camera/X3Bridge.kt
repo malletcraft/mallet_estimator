@@ -25,8 +25,11 @@ object X3Bridge : CameraPort {
 
     private var statusListener: ((Boolean, String?) -> Unit)? = null
 
+    // Signatures verified against the shipped V1.10.1 AARs (javap in CI,
+    // 2026-08-19): status carries the connect type, and every other method
+    // has a default.
     private val cameraCallback = object : ICameraChangedCallback {
-        override fun onCameraStatusChanged(enabled: Boolean) {
+        override fun onCameraStatusChanged(enabled: Boolean, connectType: Int) {
             statusListener?.invoke(enabled, null)
         }
 
@@ -58,14 +61,9 @@ object X3Bridge : CameraPort {
 
     override fun shootAndExport(targetPath: String, onDone: (Result<String>) -> Unit) {
         val mgr = InstaCameraManager.getInstance()
+        // V1.10.1: onCaptureFinish and onCaptureError are the two abstract
+        // members; the lifecycle chatter all has defaults.
         mgr.setCaptureStatusListener(object : ICaptureStatusListener {
-            override fun onCaptureStarting() {}
-            override fun onCaptureWorking() {}
-            override fun onCaptureStopping() {}
-            override fun onFileSaving() {}
-            override fun onCaptureTimeChanged(captureTime: Long) {}
-            override fun onCaptureCountChanged(captureCount: Int) {}
-
             override fun onCaptureFinish(filePaths: Array<String>?) {
                 mgr.setCaptureStatusListener(null)
                 if (filePaths.isNullOrEmpty()) {
@@ -74,6 +72,11 @@ object X3Bridge : CameraPort {
                     return
                 }
                 export(filePaths, targetPath, onDone)
+            }
+
+            override fun onCaptureError(errorCode: Int) {
+                mgr.setCaptureStatusListener(null)
+                onDone(Result.failure(RuntimeException("capture error $errorCode")))
             }
         })
         mgr.startNormalCapture()
@@ -93,12 +96,13 @@ object X3Bridge : CameraPort {
                     .setExportMode(ExportUtils.ExportMode.PANORAMA)
                     .setTargetPath(targetPath)
                 ExportUtils.exportImage(work, params, object : IExportCallback {
+                    override fun onStart(exportId: Int) {}
                     override fun onSuccess() = onDone(Result.success(targetPath))
-                    override fun onFail() =
-                        onDone(Result.failure(RuntimeException("stitch export failed")))
+                    override fun onFail(errorCode: Int, message: String?) =
+                        onDone(Result.failure(RuntimeException(
+                            "stitch export failed ($errorCode): $message")))
                     override fun onCancel() =
                         onDone(Result.failure(RuntimeException("stitch export cancelled")))
-                    override fun onProgress(progress: Float) {}
                 })
             }.onFailure { onDone(Result.failure(it)) }
         }.start()
