@@ -188,7 +188,7 @@ jobs:
                   f.write(chunk)
           print("downloaded", os.path.getsize(out), "bytes")
           PY
-          then :; else
+          then
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::warning::camera build skipped — MCFT_GDRIVE_SA_JSON unusable or Drive fetch failed (see above)"
             exit 0
