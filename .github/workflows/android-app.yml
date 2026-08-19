@@ -69,7 +69,11 @@ jobs:
         working-directory: android
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: gradle -PwithApp :app:assembleRelease :app:assembleDebug --console=plain
+        # -PwithCamera compiles the X3 bridge STUB into the app (inert until
+        # the proprietary SDK AAR is fetched into camera/libs — never present
+        # here yet). Without this flag no job would ever compile :camera and
+        # a syntax error in it would land silently.
+        run: gradle -PwithApp -PwithCamera :app:assembleRelease :app:assembleDebug --console=plain
       - name: Rename with commit
         run: cp android/app/build/outputs/apk/release/app-release.apk
           "mcft-site-photos-${GITHUB_SHA::7}.apk"

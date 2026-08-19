@@ -76,6 +76,13 @@ android {
 
 dependencies {
     implementation(project(":pano"))
+    // The X3 bridge rides along only when the build asks for it (and the
+    // proprietary SDK AAR is parked in android/camera/libs/ — see
+    // android/camera/README.md). The app discovers it by reflection
+    // (CameraCapability), so this block absent changes nothing at compile.
+    if (providers.gradleProperty("withCamera").isPresent) {
+        implementation(project(":camera"))
+    }
 
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)

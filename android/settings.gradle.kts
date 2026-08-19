@@ -43,3 +43,11 @@ include(":pano")
 if (providers.gradleProperty("withApp").isPresent) {
     include(":app")
 }
+// :camera wraps the proprietary Insta360 SDK (direct X3 connection). The
+// AAR is licensed, so it lives OUTSIDE this public repo — parked privately
+// and dropped into android/camera/libs/ (gitignored) before building with
+// -PwithCamera. Gated separately from -PwithApp so every existing build
+// keeps working with no SDK on disk.
+if (providers.gradleProperty("withCamera").isPresent) {
+    include(":camera")
+}
