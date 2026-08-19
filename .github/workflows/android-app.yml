@@ -236,6 +236,23 @@ jobs:
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: gradle -PwithApp -PwithCamera :app:assembleRelease --console=plain
+      # TEMPORARY diagnostic while the bridge is being wired: when the
+      # camera compile fails, print the exact callback signatures V1.10.1
+      # ships — javap over the AARs gradle already resolved into its cache.
+      # Public API shapes only; no credentials involved.
+      - name: SDK callback signatures (on compile failure)
+        if: failure() && steps.sdk.outputs.present == 'true'
+        run: |
+          for a in sdkcamera sdkmedia; do
+            aar=$(find ~/.gradle/caches -name "$a-1.10.1*.aar" | head -1)
+            [ -n "$aar" ] || { echo "$a aar not in cache"; continue; }
+            d="$RUNNER_TEMP/$a-x"; mkdir -p "$d"; unzip -o -q "$aar" -d "$d" || true
+          done
+          javap -classpath "$RUNNER_TEMP/sdkcamera-x/classes.jar" \
+            com.arashivision.sdkcamera.camera.callback.ICameraChangedCallback \
+            com.arashivision.sdkcamera.camera.callback.ICaptureStatusListener || true
+          javap -classpath "$RUNNER_TEMP/sdkmedia-x/classes.jar" \
+            com.arashivision.sdkmedia.export.IExportCallback || true
       - name: Upload the camera APK (Actions artifact only — NOT the public release)
         if: steps.sdk.outputs.present == 'true'
         uses: actions/upload-artifact@v4
