@@ -20,19 +20,21 @@ android {
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
-// Soft check while the scaffold carries no SDK calls yet: warn, don't fail.
-// The moment X3Bridge wires real Insta360 classes this flips to error(),
-// because compiling without the AAR would then be impossible anyway.
+// X3Bridge calls real SDK classes now, so the AARs are a hard requirement:
+// fail at configuration with instructions instead of at compile with 200
+// unresolved references. CI fetches them from the private Drive parking;
+// local dev unzips the SDK into libs/ (gitignored — see README.md).
 val sdkAars = fileTree("libs") { include("*.aar") }
 if (sdkAars.isEmpty) {
-    logger.warn(
-        "camera: no Insta360 SDK AAR in android/camera/libs/ — building the " +
-        "stub only. Park the SDK privately (see android/camera/README.md) " +
-        "and unzip its AARs here to wire the real camera."
+    error(
+        "camera: no Insta360 SDK AAR in android/camera/libs/. Building with " +
+        "-PwithCamera needs the SDK — see android/camera/README.md for where " +
+        "it is parked and how CI fetches it."
     )
 }
 
 dependencies {
+    implementation(project(":pano"))
     implementation(sdkAars)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }

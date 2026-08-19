@@ -69,11 +69,11 @@ jobs:
         working-directory: android
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        # -PwithCamera compiles the X3 bridge STUB into the app (inert until
-        # the proprietary SDK AAR is fetched into camera/libs — never present
-        # here yet). Without this flag no job would ever compile :camera and
-        # a syntax error in it would land silently.
-        run: gradle -PwithApp -PwithCamera :app:assembleRelease :app:assembleDebug --console=plain
+        # No -PwithCamera here: this is the PUBLIC build. The camera module
+        # embeds the proprietary Insta360 SDK, which must never appear in a
+        # world-downloadable artifact — the android-latest release stays
+        # SDK-free. The camera build happens below, artifact-only.
+        run: gradle -PwithApp :app:assembleRelease :app:assembleDebug --console=plain
       - name: Rename with commit
         run: cp android/app/build/outputs/apk/release/app-release.apk
           "mcft-site-photos-${GITHUB_SHA::7}.apk"
@@ -130,3 +130,68 @@ jobs:
           releaseFiles: mcft-site-photos.apk
           track: production
           status: completed
+
+      # ---- The camera build. The Insta360 SDK is licensed to MCFT and is
+      # parked in a PRIVATE Drive folder the mcft-erpnext-drive service
+      # account can read. It is fetched at build time, never committed, and
+      # the resulting APK is uploaded ONLY as an Actions artifact (GitHub
+      # login required) — never to the public android-latest release.
+      - name: Fetch the Insta360 SDK from private Drive
+        id: sdk
+        env:
+          SA_JSON: ${{ secrets.MCFT_GDRIVE_SA_JSON }}
+          SDK_FILE_ID: 14URjMZ3IFGhcVdsOo6U2wzYbW8wwCPN6
+        run: |
+          if [ -z "$SA_JSON" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::MCFT_GDRIVE_SA_JSON not set — skipping the camera build"
+            exit 0
+          fi
+          pip -q install google-auth requests
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          python3 - <<'PY'
+          import os, requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+          creds = service_account.Credentials.from_service_account_file(
+              os.environ["RUNNER_TEMP"] + "/sa.json",
+              scopes=["https://www.googleapis.com/auth/drive.readonly"])
+          creds.refresh(Request())
+          fid = os.environ["SDK_FILE_ID"]
+          r = requests.get(
+              f"https://www.googleapis.com/drive/v3/files/{fid}?alt=media",
+              headers={"Authorization": f"Bearer {creds.token}"}, stream=True, timeout=600)
+          r.raise_for_status()
+          out = os.environ["RUNNER_TEMP"] + "/insta-sdk.zip"
+          with open(out, "wb") as f:
+              for chunk in r.iter_content(1 << 20):
+                  f.write(chunk)
+          print("downloaded", os.path.getsize(out), "bytes")
+          PY
+          mkdir -p "$RUNNER_TEMP/insta-sdk"
+          unzip -q "$RUNNER_TEMP/insta-sdk.zip" -d "$RUNNER_TEMP/insta-sdk"
+          # First runs are archaeology: show what the zip actually holds so a
+          # failed camera build can be diagnosed from the log alone.
+          find "$RUNNER_TEMP/insta-sdk" -name "*.aar" -o -name "build.gradle*" | head -50
+          mkdir -p android/camera/libs
+          find "$RUNNER_TEMP/insta-sdk" -name "*.aar" -exec cp {} android/camera/libs/ \;
+          n=$(ls android/camera/libs/*.aar 2>/dev/null | wc -l)
+          echo "copied $n AAR(s) into android/camera/libs/"
+          if [ "$n" = "0" ]; then
+            echo "::error::SDK zip carried no .aar — inspect the listing above"
+            exit 1
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+      - name: Assemble the camera build (artifact-only, embeds the SDK)
+        if: steps.sdk.outputs.present == 'true'
+        working-directory: android
+        env:
+          MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: gradle -PwithApp -PwithCamera :app:assembleRelease --console=plain
+      - name: Upload the camera APK (Actions artifact only — NOT the public release)
+        if: steps.sdk.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcft-site-photos-camera-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30

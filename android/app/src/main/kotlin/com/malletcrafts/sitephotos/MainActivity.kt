@@ -133,12 +133,12 @@ private fun AppScreen() {
     if (room == null && rooms.isNotEmpty()) room = rooms.first()
     val stages = strings(masters, "stages")
 
-    val picker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
+    // One ingest path for BOTH capture routes: gallery-pick and the direct
+    // X3 connection hand the same equirect JPG to the same split + queue.
+    fun ingest(uri: Uri) {
         val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
-        if (uri == null || p == null || r == null) return@rememberLauncherForActivityResult
+        if (p == null || r == null) return
         val stageNow = stage
         busy = "Splitting the 360 into six faces…"
         lastResult = null
@@ -176,6 +176,10 @@ private fun AppScreen() {
             }
         }
     }
+
+    val picker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? -> if (uri != null) ingest(uri) }
 
     Scaffold(topBar = {
         TopAppBar(
@@ -229,6 +233,44 @@ private fun AppScreen() {
                 style = MaterialTheme.typography.bodySmall)
 
             Spacer(Modifier.height(16.dp))
+            CameraCapability.port?.let { cam ->
+                var x3Connected by remember { mutableStateOf(cam.connected) }
+                var x3Note by remember { mutableStateOf<String?>(null) }
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text((if (x3Connected) "X3 connected" else "X3 not connected")
+                        + (x3Note?.let { " — $it" } ?: ""),
+                        style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = {
+                        if (x3Connected) { cam.disconnect(); x3Connected = false }
+                        else cam.connect { ok, err ->
+                            scope.launch(Dispatchers.Main) {
+                                x3Connected = ok; x3Note = err
+                            }
+                        }
+                    }) { Text(if (x3Connected) "Disconnect" else "Connect X3 (join its Wi-Fi first)") }
+                }
+                Button(
+                    onClick = {
+                        busy = "Shooting on the X3…"
+                        lastResult = null
+                        val out = File(context.filesDir,
+                            "x3-${System.currentTimeMillis()}.jpg")
+                        cam.shootAndExport(out.path) { result ->
+                            scope.launch(Dispatchers.Main) {
+                                busy = null
+                                result.fold(
+                                    onSuccess = { path -> ingest(Uri.fromFile(File(path))) },
+                                    onFailure = { lastResult = "X3 capture failed: ${it.message}" })
+                            }
+                        }
+                    },
+                    enabled = busy == null && x3Connected
+                        && (project != null || newSite != null) && room != null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Shoot 360 on X3") }
+                Spacer(Modifier.height(8.dp))
+            }
             Button(
                 onClick = {
                     picker.launch(PickVisualMediaRequest(
