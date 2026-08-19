@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- The only permission. Storage needs none: minSdk 29 means scoped
          storage, and an app writing its OWN images into Pictures/ is allowed
          outright. The photo picker grants per-file read on the chosen 360. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- tools:replace: the Insta360 SDK's library manifest ships its own
+         android:label; ours wins, by declaration rather than by luck. -->
     <application
         android:name=".SitePhotosApp"
         android:label="MCFT Site Photos"
+        tools:replace="android:label"
         android:icon="@mipmap/ic_launcher"
         android:largeHeap="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
