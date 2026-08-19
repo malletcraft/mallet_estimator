@@ -148,9 +148,19 @@ jobs:
             exit 0
           fi
           pip -q install google-auth requests
-          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          # The bench stores this value as base64 of the SA JSON (raw JSON
+          # also accepted) — mirror drive_client.load_credentials exactly so
+          # the same paste works in both places.
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.raw"
           python3 - <<'PY'
-          import os, requests
+          import base64, json, os, requests
+          raw = open(os.environ["RUNNER_TEMP"] + "/sa.raw").read().strip()
+          try:
+              data = json.loads(base64.b64decode(raw))
+          except Exception:
+              data = json.loads(raw)
+          with open(os.environ["RUNNER_TEMP"] + "/sa.json", "w") as f:
+              json.dump(data, f)
           from google.oauth2 import service_account
           from google.auth.transport.requests import Request
           creds = service_account.Credentials.from_service_account_file(
