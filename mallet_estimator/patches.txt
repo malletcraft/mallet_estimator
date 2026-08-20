@@ -92,3 +92,5 @@ mallet_estimator.patches.add_photographer_role
 mallet_estimator.patches.close_site_photo_to_everyone
 # forces the migrate that model-syncs device_app_version onto Site Photo 360 (Python-only deploys run no migrate)
 mallet_estimator.patches.note_device_app_version
+# forces the migrate for the face_annotations field (renamed after colliding with the legacy annotations table)
+mallet_estimator.patches.note_face_annotations

@@ -224,14 +224,18 @@ def save_annotations(name, face, data):
     blob = json.dumps(data, separators=(",", ":"))
     if len(blob) > 65536:
         frappe.throw(_("Annotation payload too large"))
-    if not doc.meta.has_field("annotations"):
-        frappe.throw(_("This bench has not migrated the annotations field yet"))
-    allfaces = json.loads(doc.annotations or "{}")
+    # face_annotations, NOT annotations: that name already belongs to the
+    # legacy child table of ImageMeter image-annotations (proven in CI,
+    # 2026-08-20 — reusing it turned the table into a Code field and broke
+    # every attach path).
+    if not doc.meta.has_field("face_annotations"):
+        frappe.throw(_("This bench has not migrated the face_annotations field yet"))
+    allfaces = json.loads(doc.face_annotations or "{}")
     if data.get("lines") or data.get("pins"):
         allfaces[face] = data
     else:
         allfaces.pop(face, None)   # emptied on the device = removed here
-    doc.db_set("annotations", json.dumps(allfaces, separators=(",", ":")),
+    doc.db_set("face_annotations", json.dumps(allfaces, separators=(",", ":")),
                update_modified=True)
     return {"name": doc.name, "faces": sorted(allfaces)}
 
@@ -241,9 +245,9 @@ def get_annotations(name):
     """Cross-device pull: every face's annotation JSON for one capture."""
     doc = frappe.get_doc(DOCTYPE, name)
     doc.check_permission("read")
-    if not doc.meta.has_field("annotations"):
+    if not doc.meta.has_field("face_annotations"):
         return {}
-    return json.loads(doc.annotations or "{}")
+    return json.loads(doc.face_annotations or "{}")
 
 
 @frappe.whitelist()
