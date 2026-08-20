@@ -76,6 +76,8 @@ jobs:
           # The steps of one agent job carry the output/traceback of a
           # failed migrate - the only surviving record after FC rolls the
           # site back.
-          curl -sSL --max-time 30 -X POST "https://$FC_HOST/api/method/press.api.client.get_list" \
+          # Full doc read of the parent job (list on Agent Job is allowed,
+          # so the doc read usually is too) — steps ride inside it.
+          curl -sSL --max-time 30 -X POST "https://$FC_HOST/api/method/press.api.client.get" \
             -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
-            -d "{\"doctype\":\"Agent Job Step\",\"filters\":{\"agent_job\":\"$JOB\"},\"fields\":[\"step_name\",\"status\",\"output\"],\"limit\":20}" | head -c 30000; echo
+            -d "{\"doctype\":\"Agent Job\",\"name\":\"$JOB\"}" | head -c 40000; echo
