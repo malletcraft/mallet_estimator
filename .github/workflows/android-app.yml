@@ -254,20 +254,28 @@ jobs:
           H = {"Authorization": f"Bearer {creds.token}"}
           API = "https://www.googleapis.com/drive/v3"
           UP = "https://www.googleapis.com/upload/drive/v3"
-          # The handover root — the service account organises this tree.
+          # The handover root — the service account organises this tree. It
+          # lives in a SHARED DRIVE, and shared-drive items are invisible to
+          # the API unless every call carries supportsAllDrives (run 47
+          # failed exactly here: find() saw nothing, create got refused).
           parent = "1ySA5wEDX_3YdCBqxrlxt6lX1I6uDIcKI"
+          SD = {"supportsAllDrives": "true"}
           def find(name, folder):
               q = f"name = '{name}' and '{folder}' in parents and trashed = false"
-              r = requests.get(f"{API}/files", params={"q": q, "fields": "files(id)"},
-                               headers=H).json()
-              hits = r.get("files", [])
+              r = requests.get(f"{API}/files", params={
+                  "q": q, "fields": "files(id)",
+                  "includeItemsFromAllDrives": "true", **SD}, headers=H)
+              r.raise_for_status()
+              hits = r.json().get("files", [])
               return hits[0]["id"] if hits else None
           folder = find("MCFT App Releases (private)", parent)
           if not folder:
-              folder = requests.post(f"{API}/files", headers=H, json={
+              r = requests.post(f"{API}/files", params=SD, headers=H, json={
                   "name": "MCFT App Releases (private)",
                   "mimeType": "application/vnd.google-apps.folder",
-                  "parents": [parent]}).json()["id"]
+                  "parents": [parent]})
+              r.raise_for_status()
+              folder = r.json()["id"]
           vn, vc = os.environ["MCFT_VERSION_NAME"], os.environ["MCFT_VERSION_CODE"]
           apk_name = "mcft-site-photos-camera-latest.apk"
           data = open("android/app/build/outputs/apk/release/app-release.apk", "rb").read()
@@ -275,9 +283,10 @@ jobs:
           init = dict(H, **{"X-Upload-Content-Type": "application/octet-stream"})
           if fid:
               r = requests.patch(f"{UP}/files/{fid}?uploadType=resumable",
-                                 headers=init, json={})
+                                 params=SD, headers=init, json={})
           else:
-              r = requests.post(f"{UP}/files?uploadType=resumable", headers=init,
+              r = requests.post(f"{UP}/files?uploadType=resumable",
+                                params=SD, headers=init,
                                 json={"name": apk_name, "parents": [folder]})
           r.raise_for_status()
           requests.put(r.headers["Location"], data=data,
@@ -287,15 +296,15 @@ jobs:
                                  "apk": apk_name})
           mid = find("camera-latest.json", folder)
           if mid:
-              requests.patch(f"{UP}/files/{mid}?uploadType=media", headers=H,
-                             data=manifest).raise_for_status()
+              requests.patch(f"{UP}/files/{mid}?uploadType=media", params=SD,
+                             headers=H, data=manifest).raise_for_status()
           else:
               b = "xxMCFTxx"
               body = (f"--{b}\r\nContent-Type: application/json\r\n\r\n"
                       + json.dumps({"name": "camera-latest.json", "parents": [folder]})
                       + f"\r\n--{b}\r\nContent-Type: application/json\r\n\r\n"
                       + manifest + f"\r\n--{b}--")
-              requests.post(f"{UP}/files?uploadType=multipart",
+              requests.post(f"{UP}/files?uploadType=multipart", params=SD,
                             headers={**H, "Content-Type":
                                      f"multipart/related; boundary={b}"},
                             data=body).raise_for_status()
