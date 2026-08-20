@@ -81,12 +81,14 @@
    "description": "The one capture whose annotations the SketchUp model is built from. Only one per project + room.",
    "fieldname": "geometry_baseline",
    "fieldtype": "Check",
+   "hidden": 1,
    "label": "Geometry baseline for this room"
   },
   {
    "depends_on": "eval:doc.geometry_baseline",
    "fieldname": "baseline_frozen",
    "fieldtype": "Check",
+   "hidden": 1,
    "label": "Baseline frozen",
    "read_only": 1
   },
@@ -94,6 +96,7 @@
    "depends_on": "eval:doc.baseline_frozen",
    "fieldname": "baseline_frozen_on",
    "fieldtype": "Datetime",
+   "hidden": 1,
    "label": "Frozen on",
    "read_only": 1
   },
@@ -101,6 +104,7 @@
    "depends_on": "eval:doc.baseline_frozen",
    "fieldname": "baseline_frozen_by",
    "fieldtype": "Link",
+   "hidden": 1,
    "label": "Frozen by",
    "options": "User",
    "read_only": 1
@@ -275,7 +279,7 @@
  ],
  "image_field": "face_front",
  "links": [],
- "modified": "2026-08-20 19:05:00.000000",
+ "modified": "2026-08-20 21:10:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo 360",

@@ -100,3 +100,6 @@ mallet_estimator.patches.raise_max_file_size
 # forces the migrate for the geometry-baseline fields on Site Photo 360
 # (the frozen reference the SketchUp room model is built from)
 mallet_estimator.patches.note_geometry_baseline
+# forces the migrate that hides the geometry-baseline fields on Site Photo 360
+# (the SketchUp room-builder was stopped; fields hidden, never deleted)
+mallet_estimator.patches.note_baseline_hidden
