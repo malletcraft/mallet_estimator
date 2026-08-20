@@ -82,7 +82,15 @@ class DistoClient(private val context: Context) {
         val g = gatt ?: return
         val op = ops.poll() ?: return
         busy = true
-        op(g)
+        // Every GATT call can throw SecurityException if the person granted
+        // SCAN but not CONNECT — they are separate permissions on Android
+        // 12+, and these run on a binder callback thread where an escape
+        // takes the whole app down. A dead laser is a nuisance; a crash in
+        // the middle of measuring a room loses the visit.
+        runCatching { op(g) }.onFailure {
+            busy = false
+            moveTo(State.OFF, "Bluetooth refused: ${it.message}")
+        }
     }
 
     private fun done() {
@@ -165,11 +173,18 @@ class DistoClient(private val context: Context) {
     }
 
     private fun connect(device: BluetoothDevice) {
-        moveTo(State.CONNECTING, device.name ?: "DISTO")
+        moveTo(State.CONNECTING, runCatching { device.name }.getOrNull() ?: "DISTO")
         // No createBond(): the D2 is one of the models Leica connects to
         // WITHOUT pairing, and bonding it breaks the link.
-        gatt = device.connectGatt(context, false, gattCallback,
-            BluetoothDevice.TRANSPORT_LE)
+        gatt = runCatching {
+            device.connectGatt(context, false, gattCallback,
+                BluetoothDevice.TRANSPORT_LE)
+        }.getOrElse {
+            // BLUETOOTH_CONNECT can be refused even when BLUETOOTH_SCAN was
+            // granted, and this is the first call that needs it.
+            moveTo(State.OFF, "Bluetooth connect permission refused")
+            null
+        }
     }
 
     private val gattCallback = object : BluetoothGattCallback() {
