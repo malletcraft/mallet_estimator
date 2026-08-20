@@ -80,6 +80,23 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     error = e.message?.take(200) ?: e.javaClass.simpleName)
             }
         }
+        // Annotations ride the same sync: any face edited since its last
+        // push goes up now — measurement edits after the capture synced
+        // included. Empty payloads delete server-side, mirroring the device.
+        val annStore = AnnotationStore(applicationContext)
+        for (c in store.all()) {
+            val serverName = c.serverName ?: continue
+            for (face in annStore.dirtyFaces(c.deviceId)) {
+                try {
+                    client.saveAnnotations(serverName, face,
+                        AnnotationStore.encode(annStore.load(c.deviceId, face)))
+                    annStore.markSynced(c.deviceId, face)
+                } catch (e: Exception) {
+                    failures += 1   // retry later; dirty marker stays
+                }
+            }
+        }
+
         // Retry lets WorkManager back off and try again with signal; the rows
         // keep their ERROR text so the screen can say why in the meantime.
         return if (failures > 0) Result.retry() else Result.success()

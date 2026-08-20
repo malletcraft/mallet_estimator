@@ -49,7 +49,23 @@ Each capture card shows its life honestly: *on this phone* → *uploading* →
 *Synced as MEST-PH-…*, with the reason shown if a sync attempt failed
 (it retries itself; **Sync now** forces one).
 
-## Annotating in ImageMeter
+## Annotating in the app (new — replaces ImageMeter)
+
+Tap any capture card → its six faces → tap a face to annotate:
+
+- **Measure**: tap the two ends of what you're measuring, key the value in
+  mm/cm/m/in/ft — the label shows metric (and imperial too, via the `m · ft`
+  chip). Drag an endpoint to fine-tune; a **magnifier loupe** follows your
+  finger so the point lands exactly on the wall edge.
+- **Notes**: long-press drops a text pin ("damp patch", "switchboard").
+- Annotations are data, never burned into the photo — they sync to ERPNext
+  with the capture and follow it to every device. Tap a label to correct a
+  value; the photo never needs re-shooting.
+
+Annotate every wall face: the measured faces are what the SketchUp room
+model gets built from.
+
+## Annotating in ImageMeter (legacy, until audio notes land in-app)
 
 Open ImageMeter → your project/room folder → **add photos** → pick from
 Google Photos — the album named `<Project> — <Room>` is the one the app just

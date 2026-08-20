@@ -14,6 +14,7 @@
   "stage",
   "device_capture_id",
   "device_app_version",
+  "annotations",
   "column_break_how",
   "fov",
   "face_px",
@@ -94,6 +95,15 @@
    "read_only": 1,
    "hidden": 1,
    "description": "App versionName the phone reported when this capture synced - the fleet's version ledger, one row per capture."
+  },
+  {
+   "fieldname": "annotations",
+   "fieldtype": "Code",
+   "label": "Annotations",
+   "read_only": 1,
+   "hidden": 1,
+   "options": "JSON",
+   "description": "Per-face annotation JSON from the app: {face: {lines: [{x1,y1,x2,y2,mm}], pins: [{x,y,text}]}}. Coordinates normalized 0..1; rendering happens at view time, originals stay pristine."
   },
   {
    "fieldname": "column_break_how",
@@ -238,7 +248,7 @@
   }
  ],
  "links": [],
- "modified": "2026-08-20 11:45:00.000000",
+ "modified": "2026-08-20 12:20:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo 360",

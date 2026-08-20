@@ -74,6 +74,12 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             // query instead of a hands-on-device check.
             .put("app_version", appVersion))
 
+    fun saveAnnotations(docname: String, face: String, data: JSONObject): JSONObject =
+        post("mallet_estimator.sitephoto.save_annotations", JSONObject()
+            .put("name", docname)
+            .put("face", face)
+            .put("data", data.toString()))
+
     /** Returns the private file_url the server stored the pano under. */
     fun uploadPano(docname: String, pano: File): String {
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)

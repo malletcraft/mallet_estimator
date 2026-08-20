@@ -110,6 +110,24 @@ private fun AppScreen() {
     var lastResult by remember { mutableStateOf<String?>(null) }
     var queue by remember { mutableStateOf(store.all()) }
 
+    // Annotation navigation: a capture opens its face list; a face opens
+    // the editor. Plain state instead of a nav library — two levels deep.
+    val annStore = remember { AnnotationStore(context) }
+    var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
+    var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    annotating?.let { (devId, face) ->
+        AnnotateScreen(deviceId = devId, face = face, store = annStore,
+            onBack = { annotating = null })
+        return
+    }
+    facesFor?.let { cap ->
+        FacesScreen(capture = cap, annStore = annStore,
+            onFace = { face -> annotating = cap.deviceId to face },
+            onBack = { facesFor = null })
+        return
+    }
+
     fun refreshQueue() { queue = store.all() }
 
     // First composition with credentials: pull fresh masters in the
@@ -310,7 +328,8 @@ private fun AppScreen() {
             }
             LazyColumn {
                 items(queue, key = { it.deviceId }) { c ->
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        onClick = { facesFor = c }) {
                         Column(Modifier.padding(10.dp)) {
                             Text((if (c.customerName.isNotBlank()) "${c.customerName} · " else "")
                                 + "${c.projectTitle} — ${c.room}"

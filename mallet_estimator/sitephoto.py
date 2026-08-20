@@ -9,6 +9,7 @@
 # to frappe's native /api/method/upload_file (multipart), which streams
 # instead of inflating a 20 MB pano into ~27 MB of base64 JSON. These methods
 # create the record, bind the uploaded file, and read back.
+import json
 import re
 
 import frappe
@@ -200,6 +201,49 @@ def bind_pano(name, file_url):
     doc.pano = file_url
     doc.save()
     return {"name": doc.name, "status": doc.status}
+
+
+@frappe.whitelist()
+def save_annotations(name, face, data):
+    """The app's annotation layer for one face: lines ({x1,y1,x2,y2,mm},
+    normalized coords) and pins ({x,y,text}). Stored as DATA on the capture —
+    rendering happens at view time, the face image is never touched. Last
+    writer wins per face; cross-device conflict is a person re-measuring,
+    which is exactly when the newer number should win."""
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("write")
+    if face not in panorama.FACE_NAMES:
+        frappe.throw(_("Not a face: {0}").format(face))
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            frappe.throw(_("Annotations must be JSON"))
+    if not isinstance(data, dict):
+        frappe.throw(_("Annotations must be a JSON object"))
+    blob = json.dumps(data, separators=(",", ":"))
+    if len(blob) > 65536:
+        frappe.throw(_("Annotation payload too large"))
+    if not doc.meta.has_field("annotations"):
+        frappe.throw(_("This bench has not migrated the annotations field yet"))
+    allfaces = json.loads(doc.annotations or "{}")
+    if data.get("lines") or data.get("pins"):
+        allfaces[face] = data
+    else:
+        allfaces.pop(face, None)   # emptied on the device = removed here
+    doc.db_set("annotations", json.dumps(allfaces, separators=(",", ":")),
+               update_modified=True)
+    return {"name": doc.name, "faces": sorted(allfaces)}
+
+
+@frappe.whitelist()
+def get_annotations(name):
+    """Cross-device pull: every face's annotation JSON for one capture."""
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("read")
+    if not doc.meta.has_field("annotations"):
+        return {}
+    return json.loads(doc.annotations or "{}")
 
 
 @frappe.whitelist()

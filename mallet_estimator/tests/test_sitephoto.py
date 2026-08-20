@@ -89,6 +89,28 @@ class TestSitePhotoApi(MalletTestCase):
             frappe.db.get_value("Site Photo 360", made["name"],
                                 "device_app_version"))
 
+    def test_annotations_round_trip_per_face(self):
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        payload = {"lines": [{"x1": 0.1, "y1": 0.2, "x2": 0.8, "y2": 0.2,
+                              "mm": 1220}],
+                   "pins": [{"x": 0.5, "y": 0.9, "text": "damp patch"}]}
+        out = sitephoto.save_annotations(made["name"], "front", payload)
+        self.assertEqual(out["faces"], ["front"])
+        got = sitephoto.get_annotations(made["name"])
+        self.assertEqual(got["front"]["lines"][0]["mm"], 1220)
+        self.assertEqual(got["front"]["pins"][0]["text"], "damp patch")
+        # emptied on the device = removed here
+        sitephoto.save_annotations(made["name"], "front",
+                                   {"lines": [], "pins": []})
+        self.assertEqual(sitephoto.get_annotations(made["name"]), {})
+
+    def test_annotations_refuse_junk(self):
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            sitephoto.save_annotations(made["name"], "ceiling", {"lines": []})
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            sitephoto.save_annotations(made["name"], "front", "not json {{")
+
     def test_an_absurd_fov_is_clamped_not_obeyed(self):
         made = sitephoto.create_capture(project=_project(), room=_room(), fov=999)
         self.assertEqual(frappe.db.get_value("Site Photo 360", made["name"], "fov"),
