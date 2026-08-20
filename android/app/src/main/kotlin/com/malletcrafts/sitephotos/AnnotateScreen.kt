@@ -7,26 +7,33 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.sitephotos.pano.Annotation
 import com.malletcrafts.sitephotos.pano.Handover
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
@@ -73,16 +80,46 @@ private fun loadBitmap(context: Context, uri: Uri): Bitmap? = runCatching {
     }
 }.getOrNull()
 
+/** What the toolbar acts on. Null means nothing is selected. */
+private sealed interface Sel {
+    data class L(val i: Int) : Sel
+    data class P(val i: Int) : Sel
+}
+
+/** Grab targets for a one-finger drag: a line endpoint, or a pin. */
+private sealed interface Grab {
+    data class End(val i: Int, val end: Int) : Grab
+    data class Pin(val i: Int) : Grab
+}
+
+private const val MIN_SCALE = 1f
+private const val MAX_SCALE = 10f
+private const val HANDLE_PX = 46f     // fingertip-sized grab radius, screen px
+private const val SNAP_PX = 22f       // endpoints within this snap together
+
 /**
- * The annotation editor for one face. Interactions, chosen for gloved
- * thumbs on site:
- *  - tap–tap places a measurement line (first tap anchors, second ends,
- *    then the dimension dialog opens);
- *  - dragging near an endpoint moves it, with a MAGNIFIER LOUPE above the
- *    finger so the endpoint lands exactly on the wall edge;
- *  - tapping a line's label re-opens its dimension;
- *  - long-press drops a note pin;
- *  - the m/ft chip toggles dual metric·imperial labels everywhere.
+ * The annotation editor for one face — rebuilt against the ImageMeter
+ * benchmark (see mcft-erpnext-context execution/DESIGN.md §11).
+ *
+ * The three things that made the first version unusable, and what replaced
+ * them:
+ *  - the photo could not be ZOOMED, so precision was impossible on a 2400 px
+ *    face squeezed into a phone width. Now: pinch to zoom (to 10x), one
+ *    finger drags the photo, and every coordinate is stored in the image's
+ *    own normalized space so zoom never changes what was measured.
+ *  - the photo was STRETCHED to the canvas, so what the eye lined a
+ *    measurement up against was a distorted room. Now: aspect-correct fit,
+ *    letterboxed.
+ *  - there was no SELECTION, so nothing could act on "the measure you mean".
+ *    Now a tap selects; the toolbar (value, delete) acts on the selection —
+ *    and this is the hook the Leica DISTO needs, because the laser's
+ *    contract is "the value lands in the selected measure".
+ *
+ * Placement follows ImageMeter too: "+ Measure" DROPS a line into the middle
+ * of what you are looking at and you drag its ends onto the wall, instead of
+ * asking for two blind taps. The loupe sits in a fixed top corner rather than
+ * riding above the finger, so it can never be pushed off-screen and the
+ * other hand never covers it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,163 +135,351 @@ fun AnnotateScreen(
         uri?.let { loadBitmap(context, it)?.asImageBitmap() }
     }
     var ann by remember { mutableStateOf(store.load(deviceId, face)) }
+    val undo = remember { mutableStateListOf<Annotation.FaceAnnotations>() }
     var showImperial by remember {
         mutableStateOf(context.getSharedPreferences("capture", Context.MODE_PRIVATE)
             .getBoolean("imperial", false))
     }
-    var canvasSize by remember { mutableStateOf(IntSize(1, 1)) }
+    var canvas by remember { mutableStateOf(IntSize(1, 1)) }
 
-    // In-flight gestures. pending = first tap of a new line waiting for its
-    // second; dragging = (line index, endpoint 1|2); magnifier follows the
-    // finger while dragging.
-    var pending by remember { mutableStateOf<Offset?>(null) }
-    var dragging by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    var finger by remember { mutableStateOf<Offset?>(null) }
+    // Viewport: user zoom on top of the aspect-correct base fit.
+    var scale by remember { mutableStateOf(1f) }
+    var off by remember { mutableStateOf(Offset.Zero) }
+
+    var selected by remember { mutableStateOf<Sel?>(null) }
+    var finger by remember { mutableStateOf<Offset?>(null) }   // loupe target
     var editingLine by remember { mutableStateOf<Int?>(null) }
-    var notePos by remember { mutableStateOf<Offset?>(null) }
+    var noteFor by remember { mutableStateOf<Int?>(null) }
+
+    // --- viewport maths -------------------------------------------------
+    val imgW = (bitmap?.width ?: 1).toFloat()
+    val imgH = (bitmap?.height ?: 1).toFloat()
+    val fit = min(canvas.width / imgW, canvas.height / imgH)
+    val fitW = imgW * fit
+    val fitH = imgH * fit
+    val baseX = (canvas.width - fitW) / 2f
+    val baseY = (canvas.height - fitH) / 2f
+
+    fun toScreen(nx: Double, ny: Double) = Offset(
+        (baseX + nx.toFloat() * fitW) * scale + off.x,
+        (baseY + ny.toFloat() * fitH) * scale + off.y)
+
+    fun toNorm(s: Offset): Pair<Double, Double> {
+        val fx = (s.x - off.x) / scale
+        val fy = (s.y - off.y) / scale
+        return Pair(((fx - baseX) / fitW).toDouble().coerceIn(0.0, 1.0),
+            ((fy - baseY) / fitH).toDouble().coerceIn(0.0, 1.0))
+    }
+
+    /** Keep the photo from being flung off-screen: at 1x it stays centred,
+     *  zoomed in it may pan only as far as its own edges. */
+    fun clamp() {
+        val sw = fitW * scale
+        val sh = fitH * scale
+        val bx = baseX * scale
+        val by = baseY * scale
+        off = Offset(
+            if (sw <= canvas.width) -bx + (canvas.width - sw) / 2f
+            else off.x.coerceIn(canvas.width - sw - bx, -bx),
+            if (sh <= canvas.height) -by + (canvas.height - sh) / 2f
+            else off.y.coerceIn(canvas.height - sh - by, -by))
+    }
 
     fun persist(updated: Annotation.FaceAnnotations) {
+        undo.add(ann)
+        if (undo.size > 20) undo.removeAt(0)
         ann = updated
         store.save(deviceId, face, updated)
         SyncWorker.syncNow(context)
     }
 
-    fun norm(o: Offset) = Pair(
-        (o.x / canvasSize.width).toDouble().coerceIn(0.0, 1.0),
-        (o.y / canvasSize.height).toDouble().coerceIn(0.0, 1.0))
+    /** Endpoint snapping: a wall corner shared by two measurements should be
+     *  ONE point, not two a few pixels apart — the model is built from these. */
+    fun snap(nx: Double, ny: Double, skipLine: Int, skipEnd: Int): Pair<Double, Double> {
+        val tol = (SNAP_PX / (fitW * scale)).toDouble()
+        for ((i, l) in ann.lines.withIndex()) {
+            for (e in 1..2) {
+                if (i == skipLine && e == skipEnd) continue
+                val px = if (e == 1) l.x1 else l.x2
+                val py = if (e == 1) l.y1 else l.y2
+                if (abs(px - nx) < tol && abs(py - ny) < tol * (fitW / fitH))
+                    return Pair(px, py)
+            }
+        }
+        return Pair(nx, ny)
+    }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(Handover.FACE_LABELS[face] ?: face) },
-            navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
-            actions = {
-                FilterChip(selected = showImperial, onClick = {
-                    showImperial = !showImperial
-                    context.getSharedPreferences("capture", Context.MODE_PRIVATE)
-                        .edit().putBoolean("imperial", showImperial).apply()
-                }, label = { Text("m · ft") })
-            })
-    }) { pad ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(Handover.FACE_LABELS[face] ?: face) },
+                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                actions = {
+                    if (undo.isNotEmpty()) {
+                        TextButton(onClick = {
+                            val prev = undo.removeAt(undo.size - 1)
+                            ann = prev
+                            store.save(deviceId, face, prev)
+                            selected = null
+                            SyncWorker.syncNow(context)
+                        }) { Text("Undo") }
+                    }
+                    FilterChip(selected = showImperial, onClick = {
+                        showImperial = !showImperial
+                        context.getSharedPreferences("capture", Context.MODE_PRIVATE)
+                            .edit().putBoolean("imperial", showImperial).apply()
+                    }, label = { Text("m · ft") })
+                })
+        },
+        bottomBar = {
+            BottomAppBar {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = {
+                        // Drop a measure across the middle of what's on screen,
+                        // then the ends get dragged onto the wall.
+                        val a = toNorm(Offset(canvas.width * 0.3f, canvas.height * 0.5f))
+                        val b = toNorm(Offset(canvas.width * 0.7f, canvas.height * 0.5f))
+                        persist(ann.copy(lines = ann.lines +
+                            Annotation.Line(a.first, a.second, b.first, b.second, 0)))
+                        selected = Sel.L(ann.lines.lastIndex)
+                    }) { Text("+ Measure") }
+                    TextButton(onClick = {
+                        val c = toNorm(Offset(canvas.width / 2f, canvas.height / 2f))
+                        persist(ann.copy(pins = ann.pins +
+                            Annotation.Pin(c.first, c.second, "")))
+                        val i = ann.pins.lastIndex
+                        selected = Sel.P(i)
+                        noteFor = i
+                    }) { Text("+ Note") }
+                    val s = selected
+                    TextButton(
+                        enabled = s != null,
+                        onClick = {
+                            when (s) {
+                                is Sel.L -> editingLine = s.i
+                                is Sel.P -> noteFor = s.i
+                                null -> {}
+                            }
+                        }) { Text("Value") }
+                    TextButton(
+                        enabled = s != null,
+                        onClick = {
+                            when (s) {
+                                is Sel.L -> persist(ann.copy(
+                                    lines = ann.lines.filterIndexed { i, _ -> i != s.i }))
+                                is Sel.P -> persist(ann.copy(
+                                    pins = ann.pins.filterIndexed { i, _ -> i != s.i }))
+                                null -> {}
+                            }
+                            selected = null
+                        }) { Text("Delete") }
+                }
+            }
+        }) { pad ->
         if (bitmap == null) {
             Text("This face's image is no longer on the phone.",
                 Modifier.padding(pad).padding(16.dp))
             return@Scaffold
         }
         Column(Modifier.padding(pad)) {
-            Text("Tap–tap: measure · drag ends to adjust · long-press: note",
-                Modifier.padding(horizontal = 12.dp),
+            Text(if (selected == null)
+                    "Pinch to zoom · tap a measure to select it · + Measure to add"
+                 else "Drag the ends onto the wall · Value sets the dimension",
+                Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall)
             Canvas(modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .onSizeChanged { canvasSize = it }
-                .pointerInput(ann) {
-                    detectTapGestures(
-                        onTap = { o ->
-                            val (nx, ny) = norm(o)
-                            // A tap on an existing label re-opens its value.
-                            val hit = ann.lines.indexOfFirst { l ->
-                                val mx = (l.x1 + l.x2) / 2; val my = (l.y1 + l.y2) / 2
-                                Math.abs(mx - nx) < 0.06 && Math.abs(my - ny) < 0.05
+                .onSizeChanged { canvas = it; clamp() }
+                .pointerInput(ann, selected, canvas, scale) {
+                    awaitEachGesture {
+                        val first = awaitFirstDown(requireUnconsumed = false)
+                        var transform = false
+                        var moved = false
+
+                        // What did the finger land on? Endpoints of the
+                        // selected line win — that is the adjust step.
+                        var grab: Grab? = null
+                        run {
+                            val sl = selected
+                            if (sl is Sel.L) {
+                                ann.lines.getOrNull(sl.i)?.let { l ->
+                                    val d1 = (toScreen(l.x1, l.y1) - first.position)
+                                        .getDistance()
+                                    val d2 = (toScreen(l.x2, l.y2) - first.position)
+                                        .getDistance()
+                                    if (d1 <= HANDLE_PX && d1 <= d2) grab = Grab.End(sl.i, 1)
+                                    else if (d2 <= HANDLE_PX) grab = Grab.End(sl.i, 2)
+                                }
                             }
-                            if (hit >= 0) { editingLine = hit; return@detectTapGestures }
-                            val p = pending
-                            if (p == null) pending = o
-                            else {
-                                val (ax, ay) = norm(p)
-                                val updated = ann.copy(lines = ann.lines +
-                                    Annotation.Line(ax, ay, nx, ny, 0))
-                                ann = updated
-                                pending = null
-                                editingLine = updated.lines.lastIndex
+                            if (grab == null && sl is Sel.P) {
+                                ann.pins.getOrNull(sl.i)?.let { p ->
+                                    if ((toScreen(p.x, p.y) - first.position)
+                                            .getDistance() <= HANDLE_PX)
+                                        grab = Grab.Pin(sl.i)
+                                }
                             }
-                        },
-                        onLongPress = { o -> notePos = o })
-                }
-                .pointerInput(ann) {
-                    detectDragGestures(
-                        onDragStart = { o ->
-                            val (nx, ny) = norm(o)
+                        }
+                        if (grab != null) finger = first.position
+
+                        do {
+                            val event = awaitPointerEvent()
+                            val pressed = event.changes.filter { it.pressed }
+                            if (pressed.size >= 2) {
+                                // Two fingers always mean zoom/pan, and they
+                                // cancel any handle drag that had started.
+                                transform = true
+                                grab = null
+                                finger = null
+                                val z = event.calculateZoom()
+                                val pan = event.calculatePan()
+                                if (z != 1f) {
+                                    val c = event.calculateCentroid(useCurrent = true)
+                                    val ns = (scale * z).coerceIn(MIN_SCALE, MAX_SCALE)
+                                    val k = ns / scale
+                                    off = Offset(c.x - (c.x - off.x) * k,
+                                        c.y - (c.y - off.y) * k)
+                                    scale = ns
+                                }
+                                off += pan
+                                clamp()
+                                event.changes.forEach { it.consume() }
+                            } else if (pressed.size == 1 && !transform) {
+                                val ch = pressed[0]
+                                val d = ch.positionChange()
+                                if (d.getDistance() > 6f) moved = true
+                                val g = grab
+                                if (g != null) {
+                                    finger = ch.position
+                                    val (nx, ny) = toNorm(ch.position)
+                                    ann = when (g) {
+                                        is Grab.End -> {
+                                            val (sx, sy) = snap(nx, ny, g.i, g.end)
+                                            val l = ann.lines[g.i]
+                                            val nl = if (g.end == 1)
+                                                l.copy(x1 = sx, y1 = sy)
+                                            else l.copy(x2 = sx, y2 = sy)
+                                            ann.copy(lines = ann.lines.toMutableList()
+                                                .also { it[g.i] = nl })
+                                        }
+                                        is Grab.Pin -> ann.copy(
+                                            pins = ann.pins.toMutableList().also {
+                                                it[g.i] = it[g.i].copy(x = nx, y = ny)
+                                            })
+                                    }
+                                    ch.consume()
+                                } else if (moved) {
+                                    off += d
+                                    clamp()
+                                    ch.consume()
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+
+                        if (grab != null) {
+                            store.save(deviceId, face, ann)
+                            SyncWorker.syncNow(context)
+                            finger = null
+                        } else if (!moved && !transform) {
+                            // A tap: select whatever is under it, else clear.
+                            val p = first.position
+                            var hit: Sel? = null
+                            var best = HANDLE_PX * 1.4f
                             for ((i, l) in ann.lines.withIndex()) {
-                                val end = Annotation.nearestEndpoint(l, nx, ny, 0.08)
-                                if (end > 0) { dragging = i to end; break }
+                                val a = toScreen(l.x1, l.y1)
+                                val b = toScreen(l.x2, l.y2)
+                                val dd = distanceToSegment(p, a, b)
+                                if (dd < best) { best = dd; hit = Sel.L(i) }
                             }
-                        },
-                        onDrag = { change, _ ->
-                            finger = change.position
-                            val d = dragging ?: return@detectDragGestures
-                            val (nx, ny) = norm(change.position)
-                            val l = ann.lines[d.first]
-                            val nl = if (d.second == 1) l.copy(x1 = nx, y1 = ny)
-                                     else l.copy(x2 = nx, y2 = ny)
-                            ann = ann.copy(lines = ann.lines.toMutableList()
-                                .also { it[d.first] = nl })
-                        },
-                        onDragEnd = {
-                            if (dragging != null) persist(ann)
-                            dragging = null; finger = null
-                        })
+                            for ((i, pin) in ann.pins.withIndex()) {
+                                val dd = (toScreen(pin.x, pin.y) - p).getDistance()
+                                if (dd < best) { best = dd; hit = Sel.P(i) }
+                            }
+                            selected = hit
+                        }
+                    }
                 }
             ) {
-                // Face image, letterboxed to fill.
-                drawImage(bitmap, dstSize = IntSize(size.width.toInt(), size.height.toInt()))
+                val topLeft = toScreen(0.0, 0.0)
+                drawImage(bitmap,
+                    dstOffset = IntOffset(topLeft.x.toInt(), topLeft.y.toInt()),
+                    dstSize = IntSize((fitW * scale).toInt(), (fitH * scale).toInt()))
 
-                fun px(x: Double, y: Double) = Offset(
-                    (x * size.width).toFloat(), (y * size.height).toFloat())
-
+                val sel = selected
                 for ((i, l) in ann.lines.withIndex()) {
-                    val a = px(l.x1, l.y1); val b = px(l.x2, l.y2)
-                    drawLine(Color(0xFFFF3D00), a, b, strokeWidth = 5f)
-                    drawCircle(Color(0xFFFF3D00), 14f, a, style = Stroke(5f))
-                    drawCircle(Color(0xFFFF3D00), 14f, b, style = Stroke(5f))
+                    val a = toScreen(l.x1, l.y1)
+                    val b = toScreen(l.x2, l.y2)
+                    val on = sel is Sel.L && sel.i == i
+                    val col = if (on) Color(0xFF00E5FF) else Color(0xFFFF3D00)
+                    drawLine(col, a, b, strokeWidth = if (on) 7f else 5f)
+                    // End ticks perpendicular to the run, so a dimension reads
+                    // like a drawing rather than a scratch.
+                    val dir = b - a
+                    val len = max(dir.getDistance(), 0.001f)
+                    val n = Offset(-dir.y / len, dir.x / len) * 14f
+                    drawLine(col, a - n, a + n, strokeWidth = if (on) 6f else 4f)
+                    drawLine(col, b - n, b + n, strokeWidth = if (on) 6f else 4f)
+                    if (on) {
+                        drawCircle(col, HANDLE_PX / 2f, a, style = Stroke(5f))
+                        drawCircle(col, HANDLE_PX / 2f, b, style = Stroke(5f))
+                    }
                     val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
-                    val text = if (l.mm > 0) Annotation.label(l.mm, showImperial) else "?"
+                    val text = if (l.mm > 0) Annotation.label(l.mm, showImperial)
+                               else "tap Value"
                     drawContext.canvas.nativeCanvas.apply {
                         val paint = android.graphics.Paint().apply {
-                            textSize = 42f; color = android.graphics.Color.WHITE
+                            textSize = 42f
+                            color = if (l.mm > 0) android.graphics.Color.WHITE
+                                    else android.graphics.Color.YELLOW
                             setShadowLayer(6f, 0f, 0f, android.graphics.Color.BLACK)
                             isFakeBoldText = true
                         }
                         drawText(text, mid.x - paint.measureText(text) / 2,
-                            mid.y - 14f, paint)
+                            mid.y - 16f, paint)
                     }
                 }
-                for (p in ann.pins) {
-                    val at = px(p.x, p.y)
-                    drawCircle(Color(0xFF2962FF), 16f, at)
+                for ((i, p) in ann.pins.withIndex()) {
+                    val at = toScreen(p.x, p.y)
+                    val on = sel is Sel.P && sel.i == i
+                    val col = if (on) Color(0xFF00E5FF) else Color(0xFF2962FF)
+                    drawCircle(col, if (on) 22f else 16f, at)
+                    if (on) drawCircle(col, HANDLE_PX / 2f, at, style = Stroke(4f))
                     drawContext.canvas.nativeCanvas.apply {
                         val paint = android.graphics.Paint().apply {
                             textSize = 36f; color = android.graphics.Color.WHITE
                             setShadowLayer(6f, 0f, 0f, android.graphics.Color.BLACK)
                         }
-                        drawText(p.text.take(24), at.x + 22f, at.y + 12f, paint)
+                        drawText(p.text.take(24), at.x + 26f, at.y + 12f, paint)
                     }
                 }
-                pending?.let { drawCircle(Color(0xFFFF3D00), 18f, it, style = Stroke(6f)) }
 
-                // The magnifier: a 3x loupe above the finger while dragging,
-                // so the endpoint can be planted exactly on the wall line.
+                // The loupe: a fixed inset in a top corner (flipping to the
+                // other side when the finger is under it), showing the exact
+                // pixel being placed. Fixed beats finger-following — it can
+                // never be pushed off-screen and the hand never covers it.
                 finger?.let { f ->
-                    val r = 120f
-                    val center = Offset(f.x, max(r + 20f, f.y - 260f))
-                    val path = Path().apply { addOval(
-                        androidx.compose.ui.geometry.Rect(center - Offset(r, r),
-                            center + Offset(r, r))) }
-                    clipPath(path) {
-                        val zoom = 3f
+                    val side = 300f
+                    val m = 16f
+                    val left = if (f.x < size.width / 2f) size.width - side - m else m
+                    val rect = Rect(left, m, left + side, m + side)
+                    val lz = 3f
+                    clipRect(rect.left, rect.top, rect.right, rect.bottom) {
+                        val c = rect.center
                         drawImage(bitmap,
-                            dstSize = IntSize((size.width * zoom).toInt(),
-                                (size.height * zoom).toInt()),
-                            dstOffset = androidx.compose.ui.unit.IntOffset(
-                                (center.x - f.x * zoom).toInt(),
-                                (center.y - f.y * zoom).toInt()))
-                        // crosshair on the exact point
-                        drawLine(Color.Red, Offset(center.x - 20, center.y),
-                            Offset(center.x + 20, center.y), 3f)
-                        drawLine(Color.Red, Offset(center.x, center.y - 20),
-                            Offset(center.x, center.y + 20), 3f)
+                            dstOffset = IntOffset(
+                                (c.x - (f.x - topLeft.x) * lz).toInt(),
+                                (c.y - (f.y - topLeft.y) * lz).toInt()),
+                            dstSize = IntSize((fitW * scale * lz).toInt(),
+                                (fitH * scale * lz).toInt()))
+                        drawLine(Color.Red, Offset(c.x - 26f, c.y),
+                            Offset(c.x + 26f, c.y), 3f)
+                        drawLine(Color.Red, Offset(c.x, c.y - 26f),
+                            Offset(c.x, c.y + 26f), 3f)
                     }
-                    drawCircle(Color.White, r, center, style = Stroke(6f))
+                    drawRect(Color.White, topLeft = rect.topLeft,
+                        size = rect.size, style = Stroke(5f))
                 }
             }
         }
@@ -263,17 +488,8 @@ fun AnnotateScreen(
     editingLine?.let { idx ->
         DimensionDialog(
             initialMm = ann.lines.getOrNull(idx)?.mm ?: 0,
-            onDismiss = {
-                // A brand-new line abandoned without a value is discarded —
-                // an unmeasured line is noise, not data.
-                if (ann.lines.getOrNull(idx)?.mm == 0)
-                    persist(ann.copy(lines = ann.lines.filterIndexed { i, _ -> i != idx }))
-                editingLine = null
-            },
-            onDelete = {
-                persist(ann.copy(lines = ann.lines.filterIndexed { i, _ -> i != idx }))
-                editingLine = null
-            },
+            showImperial = showImperial,
+            onDismiss = { editingLine = null },
             onSave = { mm ->
                 persist(ann.copy(lines = ann.lines.toMutableList()
                     .also { it[idx] = it[idx].copy(mm = mm) }))
@@ -281,28 +497,48 @@ fun AnnotateScreen(
             })
     }
 
-    notePos?.let { o ->
+    noteFor?.let { idx ->
         NoteDialog(
-            onDismiss = { notePos = null },
+            initial = ann.pins.getOrNull(idx)?.text ?: "",
+            onDismiss = {
+                // A pin dropped and abandoned without words is noise.
+                if (ann.pins.getOrNull(idx)?.text.isNullOrBlank()) {
+                    persist(ann.copy(pins = ann.pins.filterIndexed { i, _ -> i != idx }))
+                    selected = null
+                }
+                noteFor = null
+            },
             onSave = { text ->
-                val (nx, ny) = norm(o)
-                persist(ann.copy(pins = ann.pins + Annotation.Pin(nx, ny, text)))
-                notePos = null
+                persist(ann.copy(pins = ann.pins.toMutableList()
+                    .also { it[idx] = it[idx].copy(text = text) }))
+                noteFor = null
             })
     }
+}
+
+/** Shortest distance from p to segment a-b, in screen pixels. */
+private fun distanceToSegment(p: Offset, a: Offset, b: Offset): Float {
+    val ab = b - a
+    val len2 = ab.x * ab.x + ab.y * ab.y
+    if (len2 < 0.0001f) return (p - a).getDistance()
+    val t = (((p.x - a.x) * ab.x + (p.y - a.y) * ab.y) / len2).coerceIn(0f, 1f)
+    return (p - (a + ab * t)).getDistance()
 }
 
 @Composable
 private fun DimensionDialog(
     initialMm: Int,
+    showImperial: Boolean,
     onDismiss: () -> Unit,
-    onDelete: () -> Unit,
     onSave: (Int) -> Unit,
 ) {
     var value by remember {
         mutableStateOf(if (initialMm > 0) initialMm.toString() else "")
     }
     var unit by remember { mutableStateOf(Annotation.Unit.MM) }
+    val preview = value.toDoubleOrNull()?.let { v ->
+        if (v > 0) Annotation.label(Annotation.toMm(v, unit), showImperial) else null
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Measurement") },
@@ -318,6 +554,10 @@ private fun DimensionDialog(
                             modifier = Modifier.padding(end = 4.dp))
                     }
                 }
+                if (preview != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(preview, style = MaterialTheme.typography.titleMedium)
+                }
             }
         },
         confirmButton = {
@@ -327,17 +567,16 @@ private fun DimensionDialog(
                 }
             }) { Text("Save") }
         },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onDelete) { Text("Delete") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
-            }
-        })
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 @Composable
-private fun NoteDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var text by remember { mutableStateOf("") }
+private fun NoteDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Note") },
