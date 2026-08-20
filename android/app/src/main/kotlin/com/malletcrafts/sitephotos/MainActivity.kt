@@ -199,8 +199,13 @@ private fun AppScreen() {
             }
 
             Picker("Project",
-                projectRows.map { it.title } + "＋ New client / project…",
-                newSite?.let { it.second + " (new)" } ?: project?.title ?: "—") { i ->
+                projectRows.map { r ->
+                    if (r.customer.isNotBlank()) "${r.title} · ${r.customer}" else r.title
+                } + "＋ New client / project…",
+                newSite?.let { "${it.second} · ${it.first} (new)" }
+                    ?: project?.let {
+                        if (it.customer.isNotBlank()) "${it.title} · ${it.customer}" else it.title
+                    } ?: "—") { i ->
                 if (i < projectRows.size) {
                     project = projectRows[i]; newSite = null
                 } else {
@@ -307,7 +312,8 @@ private fun AppScreen() {
                 items(queue, key = { it.deviceId }) { c ->
                     Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(Modifier.padding(10.dp)) {
-                            Text("${c.projectTitle} — ${c.room}"
+                            Text((if (c.customerName.isNotBlank()) "${c.customerName} · " else "")
+                                + "${c.projectTitle} — ${c.room}"
                                 + (if (c.stage.isNotBlank()) " · ${c.stage}" else ""))
                             Text(
                                 when (c.state) {
