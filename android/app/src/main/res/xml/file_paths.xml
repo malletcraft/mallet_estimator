@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The OTA download lives in filesDir/updates; the installer reads it
+     through this provider grant and nowhere else. -->
+<paths>
+    <files-path name="updates" path="updates/" />
+</paths>

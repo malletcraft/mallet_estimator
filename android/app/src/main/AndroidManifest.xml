@@ -6,6 +6,9 @@
          storage, and an app writing its OWN images into Pictures/ is allowed
          outright. The photo picker grants per-file read on the chosen 360. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Self-update: the app hands its own next APK to the system
+         installer. Android still requires the person to tap Install. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- tools:replace: the Insta360 SDK's library manifest ships its own
          android:label; ours wins, by declaration rather than by luck. -->
@@ -16,6 +19,16 @@
         android:icon="@mipmap/ic_launcher"
         android:largeHeap="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.malletcrafts.sitephotos.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <activity
             android:name=".MainActivity"

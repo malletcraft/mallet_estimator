@@ -105,6 +105,9 @@ private fun AppScreen() {
         mutableStateOf(capturePrefs.getInt("room_size", 1)
             .coerceIn(0, CaptureGeometry.PRESETS.size))
     }
+    var updateJson by remember {
+        mutableStateOf(capturePrefs.getString("update_available", null))
+    }
 
     var busy by remember { mutableStateOf<String?>(null) }
     var lastResult by remember { mutableStateOf<String?>(null) }
@@ -128,7 +131,10 @@ private fun AppScreen() {
         return
     }
 
-    fun refreshQueue() { queue = store.all() }
+    fun refreshQueue() {
+        queue = store.all()
+        updateJson = capturePrefs.getString("update_available", null)
+    }
 
     // First composition with credentials: pull fresh masters in the
     // background so the pickers are not a week old.
@@ -216,6 +222,38 @@ private fun AppScreen() {
                 Spacer(Modifier.height(12.dp))
             }
 
+            updateJson?.let { uj ->
+                val info = org.json.JSONObject(uj)
+                Card(onClick = {
+                    busy = "Downloading update ${info.optString("version_name")}…"
+                    scope.launch(Dispatchers.IO) {
+                        val outcome = runCatching {
+                            val dest = File(context.filesDir, "updates/update.apk")
+                            FrappeClient.load(context)!!.downloadPrivate(
+                                info.getString("file_url"), dest)
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context, "com.malletcrafts.sitephotos.fileprovider", dest)
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW)
+                                .setDataAndType(uri,
+                                    "application/vnd.android.package-archive")
+                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        }
+                        withContext(Dispatchers.Main) {
+                            busy = null
+                            outcome.onFailure {
+                                lastResult = "Update failed: ${it.message}"
+                            }
+                        }
+                    }
+                }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    Text("Update available: ${info.optString("version_name")} — " +
+                        "tap to download & install",
+                        Modifier.padding(12.dp))
+                }
+            }
             Picker("Project",
                 projectRows.map { r ->
                     if (r.customer.isNotBlank()) "${r.title} · ${r.customer}" else r.title

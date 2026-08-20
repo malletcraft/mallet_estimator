@@ -111,6 +111,18 @@ class TestSitePhotoApi(MalletTestCase):
         with self.assertRaises(frappe.exceptions.ValidationError):
             sitephoto.save_annotations(made["name"], "front", "not json {{")
 
+    def test_app_update_info_degrades_to_none_without_drive(self):
+        # The CI bench has no Drive credential; phones must get a calm
+        # 'none', never a 500.
+        from mallet_estimator import app_update
+        import os
+        had = os.environ.pop("MCFT_GDRIVE_SA_JSON", None)
+        try:
+            self.assertEqual(app_update.app_update_info()["status"], "none")
+        finally:
+            if had is not None:
+                os.environ["MCFT_GDRIVE_SA_JSON"] = had
+
     def test_an_absurd_fov_is_clamped_not_obeyed(self):
         made = sitephoto.create_capture(project=_project(), room=_room(), fov=999)
         self.assertEqual(frappe.db.get_value("Site Photo 360", made["name"], "fov"),

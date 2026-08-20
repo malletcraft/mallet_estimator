@@ -97,6 +97,22 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             }
         }
 
+        // Update check rides the sync too: when the server holds a newer
+        // camera build, remember it so the screen can offer the install.
+        runCatching {
+            val info = client.appUpdateInfo()
+            val prefs = applicationContext.getSharedPreferences(
+                "capture", Context.MODE_PRIVATE)
+            val mine = applicationContext.packageManager.getPackageInfo(
+                applicationContext.packageName, 0).longVersionCode
+            if (info.optString("status") == "ready" &&
+                info.optInt("version_code") > mine) {
+                prefs.edit().putString("update_available", info.toString()).apply()
+            } else {
+                prefs.edit().remove("update_available").apply()
+            }
+        }
+
         // Retry lets WorkManager back off and try again with signal; the rows
         // keep their ERROR text so the screen can say why in the meantime.
         return if (failures > 0) Result.retry() else Result.success()

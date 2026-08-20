@@ -236,6 +236,72 @@ jobs:
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: gradle -PwithApp -PwithCamera :app:assembleRelease --console=plain
+      # The OTA leg: every green camera build lands in the private Drive
+      # releases folder with a manifest; the bench mirrors it and phones
+      # self-update from inside the app. main only — batch-next camera
+      # builds are for review.
+      - name: Publish camera build to the private OTA channel
+        if: steps.sdk.outputs.present == 'true' && github.ref == 'refs/heads/main'
+        run: |
+          python3 - <<'PY'
+          import json, os, requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+          creds = service_account.Credentials.from_service_account_file(
+              os.environ["RUNNER_TEMP"] + "/sa.json",
+              scopes=["https://www.googleapis.com/auth/drive"])
+          creds.refresh(Request())
+          H = {"Authorization": f"Bearer {creds.token}"}
+          API = "https://www.googleapis.com/drive/v3"
+          UP = "https://www.googleapis.com/upload/drive/v3"
+          # The handover root — the service account organises this tree.
+          parent = "1ySA5wEDX_3YdCBqxrlxt6lX1I6uDIcKI"
+          def find(name, folder):
+              q = f"name = '{name}' and '{folder}' in parents and trashed = false"
+              r = requests.get(f"{API}/files", params={"q": q, "fields": "files(id)"},
+                               headers=H).json()
+              hits = r.get("files", [])
+              return hits[0]["id"] if hits else None
+          folder = find("MCFT App Releases (private)", parent)
+          if not folder:
+              folder = requests.post(f"{API}/files", headers=H, json={
+                  "name": "MCFT App Releases (private)",
+                  "mimeType": "application/vnd.google-apps.folder",
+                  "parents": [parent]}).json()["id"]
+          vn, vc = os.environ["MCFT_VERSION_NAME"], os.environ["MCFT_VERSION_CODE"]
+          apk_name = "mcft-site-photos-camera-latest.apk"
+          data = open("android/app/build/outputs/apk/release/app-release.apk", "rb").read()
+          fid = find(apk_name, folder)
+          init = dict(H, **{"X-Upload-Content-Type": "application/octet-stream"})
+          if fid:
+              r = requests.patch(f"{UP}/files/{fid}?uploadType=resumable",
+                                 headers=init, json={})
+          else:
+              r = requests.post(f"{UP}/files?uploadType=resumable", headers=init,
+                                json={"name": apk_name, "parents": [folder]})
+          r.raise_for_status()
+          requests.put(r.headers["Location"], data=data,
+                       headers={"Content-Type": "application/octet-stream"}
+                       ).raise_for_status()
+          manifest = json.dumps({"version_name": vn, "version_code": int(vc),
+                                 "apk": apk_name})
+          mid = find("camera-latest.json", folder)
+          if mid:
+              requests.patch(f"{UP}/files/{mid}?uploadType=media", headers=H,
+                             data=manifest).raise_for_status()
+          else:
+              b = "xxMCFTxx"
+              body = (f"--{b}\r\nContent-Type: application/json\r\n\r\n"
+                      + json.dumps({"name": "camera-latest.json", "parents": [folder]})
+                      + f"\r\n--{b}\r\nContent-Type: application/json\r\n\r\n"
+                      + manifest + f"\r\n--{b}--")
+              requests.post(f"{UP}/files?uploadType=multipart",
+                            headers={**H, "Content-Type":
+                                     f"multipart/related; boundary={b}"},
+                            data=body).raise_for_status()
+          print(f"OTA channel now serves {vn} (vc {vc}), {len(data)} bytes")
+          PY
+
       # TEMPORARY diagnostic while the bridge is being wired: when the
       # camera compile fails, print the exact callback signatures V1.10.1
       # ships — javap over the AARs gradle already resolved into its cache.

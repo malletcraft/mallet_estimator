@@ -80,6 +80,23 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("face", face)
             .put("data", data.toString()))
 
+    fun appUpdateInfo(): JSONObject =
+        post("mallet_estimator.app_update.app_update_info", JSONObject())
+
+    /** Streams a private site file to [dest] over the same token auth —
+     *  the OTA download; the APK is far too big for a string body. */
+    fun downloadPrivate(fileUrl: String, dest: java.io.File) {
+        val req = Request.Builder().url("$baseUrl$fileUrl")
+            .header("Authorization", "token $key:$secret").get().build()
+        http.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) throw ApiException(resp.code, "download: HTTP ${resp.code}")
+            dest.parentFile?.mkdirs()
+            dest.outputStream().use { out ->
+                resp.body!!.byteStream().copyTo(out)
+            }
+        }
+    }
+
     /** Returns the private file_url the server stored the pano under. */
     fun uploadPano(docname: String, pano: File): String {
         val body = MultipartBody.Builder().setType(MultipartBody.FORM)
