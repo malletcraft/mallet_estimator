@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.malletcrafts.sitephotos.pano.RoomToken
 
 /**
  * The browser: client folder → project folder → room → the captures in it.
@@ -148,7 +149,8 @@ fun RoomsScreen(
                 }
                 items(shot) { r ->
                     val n = captureCount(r)
-                    FolderRow(r, if (n == 1) "1 capture" else "$n captures",
+                    FolderRow(RoomToken.label(r),
+                        if (n == 1) "1 capture" else "$n captures",
                         badge = "$n") { onOpen(r) }
                 }
             }
@@ -163,7 +165,9 @@ fun RoomsScreen(
                 }
             }
             if (showAll) {
-                items(rest) { r -> FolderRow(r, "no captures yet") { onOpen(r) } }
+                items(rest) { r ->
+                    FolderRow(RoomToken.label(r), "no captures yet") { onOpen(r) }
+                }
             }
         }
     }

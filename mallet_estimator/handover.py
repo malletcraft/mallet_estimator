@@ -135,11 +135,21 @@ def _safe(part):
 def handover_folders(customer_name, project_title, room, capture_date, stage=None):
     """client → project → room → capture. Mirrors how ImageMeter's own folders
     already read on this Drive (client, then room), with a capture level so a
-    revisit never overwrites the previous visit's faces."""
+    revisit never overwrites the previous visit's faces.
+
+    The room level uses the SHORT token — MB, KB, KIT — the same room_abbr the
+    SKU codes use and the same one the phone writes into its gallery folders,
+    so the Drive tree, the phone tree and the estimate all say the same word
+    about the same room (Amit, 2026-08-20). Falls back to the full name if a
+    room yields no token."""
+    from mallet_estimator.estimator import room_abbr
+
     leaf = _safe(capture_date)
     if stage:
         leaf = f"{leaf}_{_safe(stage)}"
-    return [_safe(customer_name), _safe(project_title), _safe(room), leaf]
+    token = (room_abbr(room) or "").strip() if room else ""
+    return [_safe(customer_name), _safe(project_title),
+            _safe(token or room), leaf]
 
 
 def handover_filename(photo_name, face):

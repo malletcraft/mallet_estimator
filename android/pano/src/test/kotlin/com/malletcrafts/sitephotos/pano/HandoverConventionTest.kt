@@ -54,13 +54,23 @@ class HandoverConventionTest {
     }
 
     @Test
-    fun `the folder leaf carries the project so albums stay unambiguous`() {
+    fun `the folder leaf carries the client so albums stay unambiguous`() {
+        // YS_KB: the same folder name ImageMeter already uses and the same
+        // prefix the SKU codes use. The client half matters — Android names
+        // the album after the LEAF, so a bare "KB" would collide with every
+        // other project's kids bedroom in the picker ImageMeter imports from.
         val p = Handover.relativePath("Yogesh Sahasrabudhe", "YS_1402_SKYI_INTERIOR",
                                       "Kids Bedroom")
         assertEquals(
             "Pictures/MCFT Site Photos/Yogesh Sahasrabudhe/YS_1402_SKYI_INTERIOR/" +
-                "YS_1402_SKYI_INTERIOR — Kids Bedroom/", p)
+                "YS_KB/", p)
         // Path metacharacters must not become directories.
         assertTrue(!Handover.relativePath("A/B", "P:1", "R?").contains("A/B"))
+    }
+
+    @Test
+    fun `an unknown client still yields a usable folder`() {
+        val p = Handover.relativePath("", "P", "Master Bedroom")
+        assertTrue(p.endsWith("/MB/"), p)
     }
 }

@@ -92,10 +92,20 @@ class TestCaption(unittest.TestCase):
 
 class TestLayout(unittest.TestCase):
     def test_folders_read_client_project_room_capture(self):
+        # The room level is the SHORT token, the same one the SKU codes use
+        # and the same one the phone writes into its gallery folders, so the
+        # Drive tree and the estimate say the same word about the same room.
         f = H.handover_folders("Yogesh Sharma", "YS_1402_SKYI_Interior",
                                "Master Bedroom", "2026-08-15", "Carpentry")
         self.assertEqual(f, ["Yogesh_Sharma", "YS_1402_SKYI_Interior",
-                             "Master_Bedroom", "2026-08-15_Carpentry"])
+                             "MB", "2026-08-15_Carpentry"])
+        self.assertEqual(
+            H.handover_folders("C", "P", "Kitchen", "2026-08-15")[2], "KIT")
+
+    def test_a_room_with_no_token_keeps_its_name(self):
+        # Never produce an unnamed folder: a long name beats no name.
+        self.assertEqual(H.handover_folders("C", "P", "", "2026-08-15")[2],
+                         "unknown")
 
     def test_a_revisit_gets_its_own_folder(self):
         a = H.handover_folders("C", "P", "Kitchen", "2026-08-15", "Civil")

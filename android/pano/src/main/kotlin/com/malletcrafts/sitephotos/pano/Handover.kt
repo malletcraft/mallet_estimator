@@ -69,8 +69,17 @@ object Handover {
     fun relativePath(client: String, projectTitle: String, room: String): String {
         val c = safe(client.ifBlank { "Unfiled" })
         val p = safe(projectTitle)
-        val r = safe(room)
-        return "Pictures/MCFT Site Photos/$c/$p/$p — $r/"
+        // YS_MB — client initials + room token. Exactly the folders Amit
+        // already keeps in ImageMeter, and exactly the prefix the SKU codes
+        // use (YS_MB_WAR), so the album, the Drive folder and the estimate
+        // all say the same word about the same room.
+        //
+        // The client half is not decoration: Android names a gallery album
+        // after the LEAF folder, so a bare "MB" would collide with every
+        // other project's master bedroom in the picker ImageMeter imports
+        // from. That is what the old "<project> — <room>" leaf was for.
+        val r = safe(RoomToken.folder(client, room))
+        return "Pictures/MCFT Site Photos/$c/$p/$r/"
     }
 
     private fun safe(part: String): String =

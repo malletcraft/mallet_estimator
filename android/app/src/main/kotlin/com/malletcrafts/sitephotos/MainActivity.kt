@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
+import com.malletcrafts.sitephotos.pano.RoomToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -279,7 +280,10 @@ private fun AppScreen() {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("${navProject?.title ?: ""} · ${navRoom}") },
+            title = {
+                Text("${navProject?.title ?: ""} · " +
+                    RoomToken.label(navRoom ?: ""))
+            },
             navigationIcon = {
                 TextButton(onClick = { navRoom = null }) { Text("< Rooms") }
             },
