@@ -99,7 +99,37 @@ object FaceWriter {
                 captioned.recycle()
             }
         }
+        // The 360 itself belongs in the room's folder too, beside its faces.
+        // Amit: "360 foto will be split in that folder itself retaining its
+        // 360 foto at that folder level." The app-private copy above is what
+        // the sync worker uploads; this one is for a person browsing the
+        // folder, who should find the original next to what came out of it.
+        runCatching {
+            resolver.openInputStream(source).use { input ->
+                requireNotNull(input)
+                saveStreamToGallery(context, input, relPath, "$deviceId.jpg")
+            }
+        }
         return Result(written, relPath) to panoFile
+    }
+
+    /** Copy bytes straight into the gallery folder without decoding them —
+     *  an 11K pano must not be inflated into the heap just to be filed. */
+    private fun saveStreamToGallery(
+        context: Context,
+        input: java.io.InputStream,
+        relativePath: String,
+        displayName: String,
+    ): Uri? {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, relativePath)
+        }
+        val uri = context.contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return null
+        context.contentResolver.openOutputStream(uri)?.use { input.copyTo(it) }
+        return uri
     }
 
     /** The caption strip is ADDED BELOW the face, never painted over it —

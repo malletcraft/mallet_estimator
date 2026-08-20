@@ -88,12 +88,14 @@ private fun AppScreen() {
     var configured by remember { mutableStateOf(FrappeClient.configured(context)) }
     var showSettings by remember { mutableStateOf(!FrappeClient.configured(context)) }
 
-    var project by remember { mutableStateOf<ProjectRow?>(null) }
-    // A site with no project row yet: the typed (client, project) pair. The
-    // capture files against the words; sync turns them into masters.
-    var newSite by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Where we are in the folder tree: client > project > room. Null means
+    // "not that deep yet", which is also what the Back buttons unwind.
+    val cat = remember { Catalogue(context) }
+    var navClient by remember { mutableStateOf<String?>(null) }
+    var navProject by remember { mutableStateOf<Catalogue.Project?>(null) }
+    var navRoom by remember { mutableStateOf<String?>(null) }
+
     var showNewSite by remember { mutableStateOf(false) }
-    var room by remember { mutableStateOf<String?>(null) }
     var stage by remember { mutableStateOf("") }
     // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
     // extra "server default" entry at the end. Remembered across launches —
@@ -152,10 +154,19 @@ private fun AppScreen() {
     }
 
     val projectRows = projects(masters)
-    if (project == null && projectRows.isNotEmpty()) project = projectRows.first()
-    val rooms = strings(masters, "rooms")
-    if (room == null && rooms.isNotEmpty()) room = rooms.first()
+    val rooms = cat.rooms(masters)
     val stages = strings(masters, "stages")
+
+    // The tree drives the capture target; nothing is pre-selected, because
+    // a photo filed against whatever happened to be first in a list is the
+    // failure this whole screen exists to prevent.
+    // A site with no project row yet keeps its typed words; sync turns them
+    // into masters through ensure_site.
+    val project: ProjectRow? = navProject?.takeIf { it.synced }
+        ?.let { ProjectRow(it.serverId, it.title, it.client) }
+    val newSite: Pair<String, String>? =
+        navProject?.takeIf { !it.synced }?.let { it.client to it.title }
+    val room: String? = navRoom
 
     // One ingest path for BOTH capture routes: gallery-pick and the direct
     // X3 connection hand the same equirect JPG to the same split + queue.
@@ -205,9 +216,73 @@ private fun AppScreen() {
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> if (uri != null) ingest(uri) }
 
+    if (showSettings) {
+        SettingsDialog(
+            initialUrl = FrappeClient.savedUrl(context),
+            onDismiss = { showSettings = false },
+            onSave = { url, key, secret ->
+                FrappeClient.save(context, url, key, secret)
+                configured = true
+                showSettings = false
+                SyncWorker.syncNow(context)
+            })
+    }
+
+    // ---- the folder tree ------------------------------------------------
+    if (showNewSite) {
+        NewSiteDialog(
+            onDismiss = { showNewSite = false },
+            onSave = { client, proj ->
+                cat.addLocalSite(client, proj)
+                showNewSite = false
+                navClient = client
+                navProject = Catalogue.Project(client, proj, "", local = true)
+            })
+    }
+
+    if (navRoom == null) {
+        val proj = navProject
+        val client = navClient
+        when {
+            proj != null -> RoomsScreen(
+                project = proj, rooms = rooms,
+                captureCount = { r ->
+                    queue.count { it.room == r &&
+                        it.projectTitle.equals(proj.title, true) }
+                },
+                onOpen = { navRoom = it },
+                onBack = { navProject = null })
+            client != null -> ProjectsScreen(
+                client = client,
+                projects = cat.projectsOf(masters, client),
+                onOpen = { navProject = it },
+                onNewSite = { showNewSite = true },
+                onBack = { navClient = null })
+            else -> ClientsScreen(
+                clients = cat.clients(masters),
+                projectCount = { c -> cat.projectsOf(masters, c).size },
+                onOpen = { navClient = it },
+                onNewSite = { showNewSite = true },
+                onSettings = { showSettings = true },
+                banner = {
+                    if (!configured) {
+                        Text("Set the server and API key in Settings to begin.",
+                            Modifier.padding(16.dp))
+                    } else if (masters == null) {
+                        Text("Waiting for the first master list — go online once.",
+                            Modifier.padding(16.dp))
+                    }
+                })
+        }
+        return
+    }
+
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("MCFT Site Photos") },
+            title = { Text("${navProject?.title ?: ""} · ${navRoom}") },
+            navigationIcon = {
+                TextButton(onClick = { navRoom = null }) { Text("< Rooms") }
+            },
             actions = {
                 TextButton(onClick = { showSettings = true }) { Text("Settings") }
             })
@@ -254,23 +329,6 @@ private fun AppScreen() {
                         Modifier.padding(12.dp))
                 }
             }
-            Picker("Project",
-                projectRows.map { r ->
-                    if (r.customer.isNotBlank()) "${r.title} · ${r.customer}" else r.title
-                } + "＋ New client / project…",
-                newSite?.let { "${it.second} · ${it.first} (new)" }
-                    ?: project?.let {
-                        if (it.customer.isNotBlank()) "${it.title} · ${it.customer}" else it.title
-                    } ?: "—") { i ->
-                if (i < projectRows.size) {
-                    project = projectRows[i]; newSite = null
-                } else {
-                    showNewSite = true
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Picker("Room", rooms, room ?: "—") { i -> room = rooms[i] }
-            Spacer(Modifier.height(8.dp))
             Picker("Stage", listOf("(none)") + stages,
                 stage.ifBlank { "(none)" }) { i ->
                 stage = if (i == 0) "" else stages[i - 1]
@@ -365,7 +423,11 @@ private fun AppScreen() {
                 }) { Text("Sync now") }
             }
             LazyColumn {
-                items(queue, key = { it.deviceId }) { c ->
+                val here = queue.filter {
+                    it.room == navRoom &&
+                        it.projectTitle.equals(navProject?.title ?: "", true)
+                }
+                items(here, key = { it.deviceId }) { c ->
                     Card(onClick = { facesFor = c },
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(Modifier.padding(10.dp)) {
@@ -387,26 +449,7 @@ private fun AppScreen() {
         }
     }
 
-    if (showNewSite) {
-        NewSiteDialog(
-            onDismiss = { showNewSite = false },
-            onSave = { client, proj ->
-                newSite = client to proj
-                showNewSite = false
-            })
-    }
 
-    if (showSettings) {
-        SettingsDialog(
-            initialUrl = FrappeClient.savedUrl(context),
-            onDismiss = { showSettings = false },
-            onSave = { url, key, secret ->
-                FrappeClient.save(context, url, key, secret)
-                configured = true
-                showSettings = false
-                SyncWorker.syncNow(context)
-            })
-    }
 }
 
 @Composable
