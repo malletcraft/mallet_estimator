@@ -212,6 +212,14 @@ def save_annotations(name, face, data):
     which is exactly when the newer number should win."""
     doc = frappe.get_doc(DOCTYPE, name)
     doc.check_permission("write")
+    # A frozen baseline is what the SketchUp model was built from. Letting a
+    # phone edit it afterwards would put the drawing and the site silently
+    # out of step — the same reason a submitted Estimate freezes its rates.
+    # A real change on site is a NEW baseline, not an edit of this one.
+    if doc.get("baseline_frozen"):
+        frappe.throw(_("{0} is a frozen geometry baseline — annotations "
+                       "cannot change. Capture the room again and make the "
+                       "new capture the baseline.").format(doc.name))
     if face not in panorama.FACE_NAMES:
         frappe.throw(_("Not a face: {0}").format(face))
     if isinstance(data, str):
@@ -248,6 +256,51 @@ def get_annotations(name):
     if not doc.meta.has_field("face_annotations"):
         return {}
     return json.loads(doc.face_annotations or "{}")
+
+
+@frappe.whitelist()
+def freeze_baseline(name, frozen=1):
+    """Freeze (or release) the geometry baseline for a room.
+
+    Freezing is what makes a model reproducible: build the room again from
+    the same baseline and you get the same shell. Releasing is deliberately
+    possible — the six faces are rarely marked perfectly on the first pass —
+    but it is an act with a name and a timestamp on it, not a silent edit.
+    """
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("write")
+    frozen = cint(frozen)
+    if frozen and not doc.geometry_baseline:
+        frappe.throw(_("Mark this capture as the geometry baseline first"))
+    doc.db_set({
+        "baseline_frozen": frozen,
+        "baseline_frozen_on": frappe.utils.now() if frozen else None,
+        "baseline_frozen_by": frappe.session.user if frozen else None,
+    })
+    return {"name": doc.name, "baseline_frozen": frozen}
+
+
+@frappe.whitelist()
+def room_baseline(project, room):
+    """The capture the SketchUp model should be built from, or None.
+
+    The plugin asks this rather than guessing from folder contents: the
+    authority is a flag on one capture, not a path anybody can move."""
+    name = frappe.db.get_value(DOCTYPE, {
+        "project": project, "room": room, "geometry_baseline": 1})
+    if not name:
+        return None
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("read")
+    return {
+        "name": doc.name,
+        "project": doc.project,
+        "room": doc.room,
+        "capture_date": str(doc.capture_date or ""),
+        "frozen": bool(doc.baseline_frozen),
+        "annotations": json.loads(doc.face_annotations or "{}")
+        if doc.meta.has_field("face_annotations") else {},
+    }
 
 
 @frappe.whitelist()

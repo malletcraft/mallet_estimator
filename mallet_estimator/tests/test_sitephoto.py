@@ -104,6 +104,49 @@ class TestSitePhotoApi(MalletTestCase):
                                    {"lines": [], "pins": []})
         self.assertEqual(sitephoto.get_annotations(made["name"]), {})
 
+    def test_one_geometry_baseline_per_project_and_room(self):
+        project, room = _project(), _room()
+        first = sitephoto.create_capture(project=project, room=room)
+        doc = frappe.get_doc("Site Photo 360", first["name"])
+        doc.geometry_baseline = 1
+        doc.save()
+        second = sitephoto.create_capture(project=project, room=room)
+        rival = frappe.get_doc("Site Photo 360", second["name"])
+        rival.geometry_baseline = 1
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            rival.save()
+        doc.geometry_baseline = 0
+        doc.save()
+
+    def test_a_frozen_baseline_refuses_annotation_edits(self):
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        sitephoto.save_annotations(made["name"], "front", {
+            "lines": [{"x1": 0.1, "y1": 0.1, "x2": 0.9, "y2": 0.1, "mm": 3050}],
+            "pins": []})
+        doc = frappe.get_doc("Site Photo 360", made["name"])
+        doc.geometry_baseline = 1
+        doc.save()
+        sitephoto.freeze_baseline(made["name"])
+
+        # Frozen: the model was built from these numbers, so they stop moving.
+        with self.assertRaises(frappe.exceptions.ValidationError):
+            sitephoto.save_annotations(made["name"], "front",
+                                       {"lines": [], "pins": []})
+        # ...but reading still works, and the plugin finds it by room.
+        found = sitephoto.room_baseline(doc.project, doc.room)
+        self.assertEqual(found["name"], made["name"])
+        self.assertTrue(found["frozen"])
+        self.assertEqual(found["annotations"]["front"]["lines"][0]["mm"], 3050)
+
+        # Releasing is allowed, and then edits land again.
+        sitephoto.freeze_baseline(made["name"], frozen=0)
+        sitephoto.save_annotations(made["name"], "front",
+                                   {"lines": [], "pins": []})
+        self.assertEqual(sitephoto.get_annotations(made["name"]), {})
+        doc.reload()
+        doc.geometry_baseline = 0
+        doc.save()
+
     def test_annotations_refuse_junk(self):
         made = sitephoto.create_capture(project=_project(), room=_room())
         with self.assertRaises(frappe.exceptions.ValidationError):

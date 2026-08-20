@@ -97,3 +97,6 @@ mallet_estimator.patches.note_face_annotations
 # raises max_file_size to 400 MB in site_config (site-owned, survives bench rebuilds):
 # the 25 MB default made File.insert refuse the 323 MB camera-APK mirror
 mallet_estimator.patches.raise_max_file_size
+# forces the migrate for the geometry-baseline fields on Site Photo 360
+# (the frozen reference the SketchUp room model is built from)
+mallet_estimator.patches.note_geometry_baseline

@@ -4,8 +4,6 @@
  "creation": "2026-08-15 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "title_field": "title",
- "image_field": "face_front",
  "field_order": [
   "project",
   "room",
@@ -43,116 +41,144 @@
   {
    "fieldname": "project",
    "fieldtype": "Link",
-   "options": "Project",
-   "label": "Project",
-   "reqd": 1,
-   "in_list_view": 1,
-   "in_standard_filter": 1
-  },
-  {
-   "fieldname": "room",
-   "fieldtype": "Link",
-   "options": "Estimate Room",
-   "label": "Room",
-   "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "The same room master the SKU codes use \u2014 MB photos sit beside YS_MB_* SKUs."
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "description": "The same room master the SKU codes use \u2014 MB photos sit beside YS_MB_* SKUs.",
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Room",
+   "options": "Estimate Room",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_who",
    "fieldtype": "Column Break"
   },
   {
+   "default": "Today",
    "fieldname": "capture_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Capture Date",
-   "reqd": 1,
-   "default": "Today",
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "stage",
    "fieldtype": "Select",
-   "options": "\nBaseline\nCivil\nWiring\nCarpentry\nFinishing\nHandover",
-   "label": "Site Stage",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Site Stage",
+   "options": "\nBaseline\nCivil\nWiring\nCarpentry\nFinishing\nHandover"
   },
   {
+   "description": "The one capture whose annotations the SketchUp model is built from. Only one per project + room.",
+   "fieldname": "geometry_baseline",
+   "fieldtype": "Check",
+   "label": "Geometry baseline for this room"
+  },
+  {
+   "depends_on": "eval:doc.geometry_baseline",
+   "fieldname": "baseline_frozen",
+   "fieldtype": "Check",
+   "label": "Baseline frozen",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.baseline_frozen",
+   "fieldname": "baseline_frozen_on",
+   "fieldtype": "Datetime",
+   "label": "Frozen on",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.baseline_frozen",
+   "fieldname": "baseline_frozen_by",
+   "fieldtype": "Link",
+   "label": "Frozen by",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "description": "Set by the phone app at capture time (MCAP-\u2026). The faces reach ImageMeter under this id because the server has not named the capture yet, so it is how an annotated face finds its way home.",
    "fieldname": "device_capture_id",
    "fieldtype": "Data",
    "label": "Device Capture ID",
-   "read_only": 1,
-   "unique": 1,
    "no_copy": 1,
-   "description": "Set by the phone app at capture time (MCAP-\u2026). The faces reach ImageMeter under this id because the server has not named the capture yet, so it is how an annotated face finds its way home."
+   "read_only": 1,
+   "unique": 1
   },
   {
+   "description": "App versionName the phone reported when this capture synced - the fleet's version ledger, one row per capture.",
    "fieldname": "device_app_version",
    "fieldtype": "Data",
-   "label": "Device App Version",
-   "read_only": 1,
    "hidden": 1,
-   "description": "App versionName the phone reported when this capture synced - the fleet's version ledger, one row per capture."
+   "label": "Device App Version",
+   "read_only": 1
   },
   {
+   "description": "Per-face annotation JSON from the app: {face: {lines: [{x1,y1,x2,y2,mm}], pins: [{x,y,text}]}}. Coordinates normalized 0..1; rendering happens at view time, originals stay pristine.",
    "fieldname": "face_annotations",
    "fieldtype": "Code",
-   "label": "Face Annotations",
-   "read_only": 1,
    "hidden": 1,
+   "label": "Face Annotations",
    "options": "JSON",
-   "description": "Per-face annotation JSON from the app: {face: {lines: [{x1,y1,x2,y2,mm}], pins: [{x,y,text}]}}. Coordinates normalized 0..1; rendering happens at view time, originals stay pristine."
+   "read_only": 1
   },
   {
    "fieldname": "column_break_how",
    "fieldtype": "Column Break"
   },
   {
+   "default": "110",
+   "description": "Faces sit 90\u00b0 apart, so 110\u00b0 gives ~20\u00b0 overlap per edge \u2014 corners show on both adjacent faces. Change and save to re-split.",
    "fieldname": "fov",
    "fieldtype": "Int",
-   "label": "Face FOV (\u00b0)",
-   "default": "110",
-   "description": "Faces sit 90\u00b0 apart, so 110\u00b0 gives ~20\u00b0 overlap per edge \u2014 corners show on both adjacent faces. Change and save to re-split."
+   "label": "Face FOV (\u00b0)"
   },
   {
+   "default": "1600",
    "fieldname": "face_px",
    "fieldtype": "Int",
-   "label": "Face Size (px)",
-   "default": "1600"
+   "label": "Face Size (px)"
   },
   {
+   "default": "Pending",
    "fieldname": "status",
    "fieldtype": "Select",
-   "options": "Pending\nProcessing\nSplit\nFailed",
-   "label": "Status",
-   "default": "Pending",
-   "read_only": 1,
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nProcessing\nSplit\nFailed",
+   "read_only": 1
   },
   {
    "fieldname": "title",
    "fieldtype": "Data",
-   "label": "Title",
    "hidden": 1,
+   "label": "Title",
    "read_only": 1
   },
   {
+   "description": "pano|fov|face_px the current faces were generated from \u2014 the re-split trigger.",
    "fieldname": "split_signature",
    "fieldtype": "Data",
-   "label": "Split Signature",
    "hidden": 1,
-   "read_only": 1,
-   "description": "pano|fov|face_px the current faces were generated from \u2014 the re-split trigger."
+   "label": "Split Signature",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.status=='Failed'",
    "fieldname": "split_error",
    "fieldtype": "Small Text",
    "label": "Split Error",
-   "read_only": 1,
-   "depends_on": "eval:doc.status=='Failed'"
+   "read_only": 1
   },
   {
    "fieldname": "pano_section",
@@ -160,16 +186,16 @@
    "label": "360 Photo"
   },
   {
+   "description": "The full 360 as exported by the camera (width = 2 \u00d7 height). Source of truth \u2014 faces are derived and regenerable.",
    "fieldname": "pano",
    "fieldtype": "Attach",
-   "label": "360 Photo (equirectangular)",
-   "description": "The full 360 as exported by the camera (width = 2 \u00d7 height). Source of truth \u2014 faces are derived and regenerable."
+   "label": "360 Photo (equirectangular)"
   },
   {
+   "collapsible": 1,
    "fieldname": "faces_section",
    "fieldtype": "Section Break",
-   "label": "Face Files (raw)",
-   "collapsible": 1
+   "label": "Face Files (raw)"
   },
   {
    "fieldname": "face_front",
@@ -212,23 +238,23 @@
    "read_only": 1
   },
   {
+   "collapsible": 1,
    "fieldname": "annotations_section",
    "fieldtype": "Section Break",
-   "label": "Annotations",
-   "collapsible": 1
+   "label": "Annotations"
   },
   {
    "fieldname": "annotations",
    "fieldtype": "Table",
-   "options": "Site Photo Annotation",
-   "label": "Annotations"
+   "label": "Annotations",
+   "options": "Site Photo Annotation"
   },
   {
+   "description": "Drive folder holding this capture's faces for ImageMeter.",
    "fieldname": "handover_folder_id",
    "fieldtype": "Data",
    "label": "Handover Folder ID",
-   "read_only": 1,
-   "description": "Drive folder holding this capture's faces for ImageMeter."
+   "read_only": 1
   },
   {
    "fieldname": "handover_at",
@@ -247,8 +273,9 @@
    "label": "Gallery"
   }
  ],
+ "image_field": "face_front",
  "links": [],
- "modified": "2026-08-20 12:55:00.000000",
+ "modified": "2026-08-20 19:05:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo 360",
@@ -268,12 +295,13 @@
    "write": 1
   },
   {
-   "role": "Mallet Site Photographer",
+   "create": 1,
    "read": 1,
-   "write": 1,
-   "create": 1
+   "role": "Mallet Site Photographer",
+   "write": 1
   }
  ],
  "sort_field": "capture_date",
- "sort_order": "DESC"
+ "sort_order": "DESC",
+ "title_field": "title"
 }

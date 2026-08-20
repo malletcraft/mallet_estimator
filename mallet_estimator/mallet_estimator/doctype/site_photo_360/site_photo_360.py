@@ -3,6 +3,7 @@
 # The split runs as a background job — a 60 MB pano upload must never hold a
 # web worker hostage.
 import frappe
+from frappe import _
 from frappe.model.document import Document
 
 from mallet_estimator import panorama
@@ -19,6 +20,26 @@ class SitePhoto360(Document):
             self.room, str(self.capture_date or ""), self.stage]))
         if not self.pano:
             self.status = "Pending"
+        self.validate_baseline()
+
+    def validate_baseline(self):
+        """One geometry baseline per project + room. The SketchUp model is
+        built from the baseline's annotations, so two candidates would mean
+        two different versions of the same room — and the whole point of the
+        freeze is that re-running the build on the same baseline gives the
+        same shell."""
+        if not self.geometry_baseline:
+            if self.baseline_frozen:
+                frappe.throw(_("Unfreeze this baseline before clearing it"))
+            return
+        if not (self.project and self.room):
+            frappe.throw(_("A geometry baseline needs both a project and a room"))
+        other = frappe.db.get_value("Site Photo 360", {
+            "project": self.project, "room": self.room,
+            "geometry_baseline": 1, "name": ["!=", self.name or ""]})
+        if other:
+            frappe.throw(_("{0} is already the geometry baseline for {1} · {2}")
+                         .format(other, self.project, self.room))
 
     def on_update(self):
         if self.pano and self._signature() != (self.split_signature or ""):
