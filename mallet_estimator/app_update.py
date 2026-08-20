@@ -17,6 +17,7 @@ Install tap on the phone — the OS requires a person for that, by design.
 """
 
 import json
+import os
 
 import frappe
 from frappe import _
@@ -27,6 +28,11 @@ RELEASES_FOLDER = "MCFT App Releases (private)"
 MANIFEST = "camera-latest.json"
 SETTINGS = "Site Photo Settings"
 FILE_PREFIX = "mcft-site-photos-camera-"
+# The mirror runs on a worker, where an uncaught death is invisible from
+# outside (Error Log needs System Manager, and an OOM-killed worker writes
+# nothing at all). The job parks its last traceback here so app_update_info
+# can show it to an operator instead of answering 'preparing' forever.
+MIRROR_ERR_KEY = "mcft_mirror_apk_error"
 
 
 def _releases_folder(client):
@@ -69,12 +75,16 @@ def app_update_info():
     if cached:
         out.update({"status": "ready", "file_url": cached.file_url})
         return out
+    last_error = frappe.cache().get_value(MIRROR_ERR_KEY)
+    if last_error:
+        out["mirror_error"] = last_error   # for operators; the app ignores it
     # Mirror in the background: the pull is hundreds of MB and must never
     # ride a request thread. Deduped by job name; repeat calls while it
-    # runs just keep answering 'preparing'.
+    # runs just keep answering 'preparing'. timeout is explicit because the
+    # long queue's default (1500s) once killed the pull mid-download.
     frappe.enqueue(
         "mallet_estimator.app_update.mirror_apk",
-        queue="long", job_id=f"mirror-apk-{version_code}",
+        queue="long", job_id=f"mirror-apk-{version_code}", timeout=3600,
         deduplicate=True, apk_name=info.get("apk"), version_code=version_code)
     return out
 
@@ -82,26 +92,39 @@ def app_update_info():
 def mirror_apk(apk_name, version_code):
     """Pull the APK from Drive into the site's private files (standalone
     File — the photographer role's File read is what authorises the phone's
-    download). Older mirrored builds are deleted: the newest is the only
-    one anybody should install."""
-    if _cached_file(version_code):
-        return
-    client = DriveClient()
-    folder = _releases_folder(client)
-    apk = client.find_child(folder, apk_name) if folder else None
-    if not apk:
-        return
-    data = client.download(apk["id"])
-    frappe.get_doc({
-        "doctype": "File",
-        "file_name": f"{FILE_PREFIX}{version_code}.apk",
-        "is_private": 1,
-        "content": data,
-    }).insert(ignore_permissions=True)
-    for old in frappe.get_all(
-            "File", filters={"file_name": ["like", f"{FILE_PREFIX}%"]},
-            fields=["name", "file_name"]):
-        if old.file_name != f"{FILE_PREFIX}{version_code}.apk":
-            frappe.delete_doc("File", old.name, ignore_permissions=True,
-                              delete_permanently=True)
-    frappe.db.commit()
+    download). The pull STREAMS to disk: the first version buffered the
+    323 MB build in worker RAM and died without a trace, which the phone
+    saw as 'preparing' forever. Older mirrored builds are deleted: the
+    newest is the only one anybody should install."""
+    try:
+        if _cached_file(version_code):
+            return
+        client = DriveClient()
+        folder = _releases_folder(client)
+        apk = client.find_child(folder, apk_name) if folder else None
+        if not apk:
+            raise DriveError(f"{apk_name} is not in the releases folder")
+        fname = f"{FILE_PREFIX}{version_code}.apk"
+        path = frappe.get_site_path("private", "files", fname)
+        md5 = client.download_to(apk["id"], path)
+        # The File row points at the already-written file; content_hash is
+        # pre-set so validation never re-reads 323 MB into memory.
+        frappe.get_doc({
+            "doctype": "File",
+            "file_name": fname,
+            "file_url": f"/private/files/{fname}",
+            "is_private": 1,
+            "file_size": os.path.getsize(path),
+            "content_hash": md5,
+        }).insert(ignore_permissions=True)
+        for old in frappe.get_all(
+                "File", filters={"file_name": ["like", f"{FILE_PREFIX}%"]},
+                fields=["name", "file_name"]):
+            if old.file_name != fname:
+                frappe.delete_doc("File", old.name, ignore_permissions=True,
+                                  delete_permanently=True)
+        frappe.db.commit()
+        frappe.cache().delete_value(MIRROR_ERR_KEY)
+    except Exception:
+        frappe.cache().set_value(MIRROR_ERR_KEY, frappe.get_traceback()[-1500:])
+        raise

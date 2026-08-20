@@ -118,6 +118,25 @@ class DriveClient:
                                      timeout=self.timeout), "download")
         return r.content
 
+    def download_to(self, file_id, path, chunk_size=8 * 1024 * 1024):
+        """Stream a file to disk and return its md5. For anything the size
+        of the camera APK (~323 MB) this is the only safe shape: a worker
+        that buffers it in RAM is a worker the kernel kills, and a killed
+        worker leaves no Error Log. Writes to <path>.part and renames, so a
+        half-finished pull is never mistaken for the file."""
+        import hashlib
+        r = self._check(requests.get(f"{API}/files/{file_id}", headers=self._headers(),
+                                     params=dict(_ALL_DRIVES, alt="media"),
+                                     timeout=self.timeout, stream=True), "download")
+        md5 = hashlib.md5()
+        tmp = f"{path}.part"
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                f.write(chunk)
+                md5.update(chunk)
+        os.replace(tmp, path)
+        return md5.hexdigest()
+
     def walk_files(self, root_id, _trail=(), since=None, name_prefixes=()):
         """Every file under a folder, with the folder trail that led to it —
         the trail is what tells a person which room a returning photo is from.
