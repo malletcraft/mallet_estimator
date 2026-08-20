@@ -72,7 +72,12 @@ the photo, not on the screen.
   Four, not two, because a window seen from an angle is not a square on the
   photo, and keeping its true shape is what lets the model place it
   correctly. **Tag** changes what it is or adds a note.
-- **+ Note** drops a text pin ("damp patch", "switchboard").
+- **+ Note** drops a pin you can type on, **speak into, or both**. Tap
+  **Record**, say what a carpenter needs to know ("this beam drops 200
+  below the slab, wardrobe has to stop short"), tap **Stop**. A pin with a
+  voice note wears a ring and shows ▶, so you can tell it apart from a
+  typed one without opening it. Recording works with no signal — the clip
+  uploads itself the next time the phone syncs.
 - **Tap** anything to select it; handles appear only on the selection, so
   nothing gets nudged by accident. **Delete** removes the selection,
   **Undo** takes back the last change.
@@ -99,6 +104,14 @@ normal. Tap **Laser** again to reconnect.
 Annotations are data, never burned into the photo — they sync to ERPNext
 with the capture and follow it to every device. Correct a value any time;
 the photo never needs re-shooting.
+
+**Working on the same room from two phones is fine.** Marks sync both ways:
+whatever the carpenter measured shows up on the designer's phone and the
+other way round. A face you have edits on that haven't uploaded yet is
+never overwritten by someone else's — your work is safe until it's sent.
+Once it is sent, the most recent measurement wins, which is what you want:
+if somebody went back and measured that wall again, their number is the
+one to keep.
 
 Annotate every wall face: the measured faces are what the SketchUp room
 model gets built from.
