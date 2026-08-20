@@ -328,8 +328,8 @@ private fun AppScreen() {
             }
             LazyColumn {
                 items(queue, key = { it.deviceId }) { c ->
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        onClick = { facesFor = c }) {
+                    Card(onClick = { facesFor = c },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(Modifier.padding(10.dp)) {
                             Text((if (c.customerName.isNotBlank()) "${c.customerName} · " else "")
                                 + "${c.projectTitle} — ${c.room}"

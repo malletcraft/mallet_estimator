@@ -378,8 +378,8 @@ fun FacesScreen(
                     FaceFiles.findFace(context, capture.deviceId, face) != null
                 }
                 val ann = annStore.load(capture.deviceId, face)
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    onClick = { if (present) onFace(face) }) {
+                Card(onClick = { if (present) onFace(face) },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Row(Modifier.padding(14.dp).fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(Handover.FACE_LABELS[face] ?: face)
