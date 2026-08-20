@@ -107,6 +107,21 @@ private fun kindColor(kind: String): Color = when (Annotation.Kind.of(kind)) {
     Annotation.Kind.OPENING -> Color(0xFFBDBDBD)
 }
 
+/**
+ * The annotation tools are OFF.
+ *
+ * Amit, 2026-08-20, after using them on site: "having a foto preview is
+ * good. keep it from current build. for time being hide/remove all
+ * annotaion features from the flat foto." The measure handles do not drag
+ * (a real bug, logged) and the loupe is short of ImageMeter; meanwhile the
+ * SketchUp model is being built from ImageMeter's measurements instead.
+ *
+ * So this is a switch, not a deletion: the editor stays in the build,
+ * unreachable, and comes back when it is good enough to earn its place.
+ * Flip to true and every control returns.
+ */
+private const val ANNOTATION_ENABLED = false
+
 private const val MIN_SCALE = 1f
 private const val MAX_SCALE = 10f
 private const val HANDLE_PX = 46f     // fingertip-sized grab radius, screen px
@@ -277,6 +292,7 @@ fun AnnotateScreen(
                 title = { Text(Handover.FACE_LABELS[face] ?: face) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
+                    if (!ANNOTATION_ENABLED) return@TopAppBar
                     TextButton(onClick = {
                         if (distoState == DistoClient.State.OFF) askBle.launch(blePerms)
                         else disto.measure()
@@ -305,6 +321,7 @@ fun AnnotateScreen(
                 })
         },
         bottomBar = {
+            if (!ANNOTATION_ENABLED) return@Scaffold
             BottomAppBar {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -388,7 +405,8 @@ fun AnnotateScreen(
             return@Scaffold
         }
         Column(Modifier.padding(pad)) {
-            Text(distoNote ?: when (selected) {
+            Text(if (!ANNOTATION_ENABLED) "Pinch to zoom · drag to move around"
+                 else distoNote ?: when (selected) {
                     null -> "Pinch to zoom · tap something to select it"
                     is Sel.Q -> "Drag the 4 corners onto the opening · Tag says what it is"
                     else -> "Drag the ends onto the wall · Value, or shoot the laser"
@@ -409,6 +427,7 @@ fun AnnotateScreen(
                         // selected line win — that is the adjust step.
                         var grab: Grab? = null
                         run {
+                            if (!ANNOTATION_ENABLED) return@run
                             val sl = selected
                             if (sl is Sel.L) {
                                 ann.lines.getOrNull(sl.i)?.let { l ->
@@ -509,6 +528,7 @@ fun AnnotateScreen(
                             finger = null
                         } else if (!moved && !transform) {
                             // A tap: select whatever is under it, else clear.
+                            if (!ANNOTATION_ENABLED) return@awaitEachGesture
                             val p = first.position
                             var hit: Sel? = null
                             var best = HANDLE_PX * 1.4f
@@ -542,6 +562,7 @@ fun AnnotateScreen(
                     dstSize = IntSize((fitW * scale).toInt(), (fitH * scale).toInt()))
 
                 val sel = selected
+                if (!ANNOTATION_ENABLED) return@Canvas
 
                 // Tagged openings first, so measurement lines stay on top of
                 // them — the number is what a person came to read.
@@ -897,8 +918,10 @@ fun FacesScreen(
             navigationIcon = { TextButton(onClick = onBack) { Text("Back") } })
     }) { pad ->
         Column(Modifier.padding(pad).padding(12.dp)) {
-            Text("Annotate every wall — measured faces are what the " +
-                "SketchUp model gets built from.",
+            Text(if (ANNOTATION_ENABLED)
+                    "Annotate every wall — measured faces are what the " +
+                    "SketchUp model gets built from."
+                 else "Tap a face to look at it.",
                 style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(8.dp))
             FaceFiles.ORDER.forEach { face ->
@@ -913,6 +936,7 @@ fun FacesScreen(
                         Text(Handover.FACE_LABELS[face] ?: face)
                         Text(when {
                             !present -> "image not on this phone"
+                            !ANNOTATION_ENABLED -> "tap to view"
                             ann.isEmpty -> "not annotated"
                             else -> "${ann.lines.size} lines · " +
                                 "${ann.quads.size} openings · ${ann.pins.size} notes"
