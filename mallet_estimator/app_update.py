@@ -92,10 +92,10 @@ def app_update_info():
 def mirror_apk(apk_name, version_code):
     """Pull the APK from Drive into the site's private files (standalone
     File — the photographer role's File read is what authorises the phone's
-    download). The pull STREAMS to disk: the first version buffered the
-    323 MB build in worker RAM and died without a trace, which the phone
-    saw as 'preparing' forever. Older mirrored builds are deleted: the
-    newest is the only one anybody should install."""
+    download). The payload is touched exactly once, by a streaming download
+    to disk; nothing in this function ever holds 323 MB in memory. Older
+    mirrored builds are deleted: the newest is the only one anybody should
+    install."""
     try:
         if _cached_file(version_code):
             return
@@ -106,17 +106,31 @@ def mirror_apk(apk_name, version_code):
             raise DriveError(f"{apk_name} is not in the releases folder")
         fname = f"{FILE_PREFIX}{version_code}.apk"
         path = frappe.get_site_path("private", "files", fname)
-        md5 = client.download_to(apk["id"], path)
-        # The File row points at the already-written file; content_hash is
-        # pre-set so validation never re-reads 323 MB into memory.
-        frappe.get_doc({
-            "doctype": "File",
+        want = frappe.utils.cint(apk.get("size"))
+        if want and os.path.exists(path) and os.path.getsize(path) == want:
+            md5 = None      # already pulled by an earlier run that died later
+        else:
+            md5 = client.download_to(apk["id"], path)
+        # db_insert, NOT insert: File.before_insert calls get_content(),
+        # which reads the whole payload back into RAM to size-check it.
+        # For a 323 MB APK that is an OOM kill — the worker dies by SIGKILL,
+        # so no traceback is ever written and the phone sees 'preparing'
+        # forever (2026-08-20; raising max_file_size only moved the death
+        # from the size check to the allocation). db_insert writes the row
+        # directly, so the bytes are touched exactly once, by the streaming
+        # download above. The row is complete because we fill in by hand
+        # what the controller would have computed.
+        doc = frappe.new_doc("File")
+        doc.update({
             "file_name": fname,
             "file_url": f"/private/files/{fname}",
             "is_private": 1,
+            "folder": "Home",
             "file_size": os.path.getsize(path),
             "content_hash": md5,
-        }).insert(ignore_permissions=True)
+        })
+        doc.name = frappe.generate_hash(length=10)
+        doc.db_insert()
         for old in frappe.get_all(
                 "File", filters={"file_name": ["like", f"{FILE_PREFIX}%"]},
                 fields=["name", "file_name"]):
