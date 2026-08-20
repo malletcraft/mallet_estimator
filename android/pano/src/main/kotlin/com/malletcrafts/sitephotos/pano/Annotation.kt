@@ -24,12 +24,76 @@ object Annotation {
 
     data class Pin(val x: Double, val y: Double, val text: String)
 
+    /** What a tagged rectangle can BE. Deliberately small and closed: the
+     *  tag is what the model reads, so it has to stay machine-readable —
+     *  anything that doesn't fit goes in the free-text note instead. */
+    enum class Kind(val tag: String, val label: String) {
+        WINDOW("window", "Window"),
+        DOOR("door", "Door"),
+        COLUMN("column", "Column"),
+        BEAM("beam", "Beam"),
+        OPENING("opening", "Opening");
+
+        companion object {
+            fun of(tag: String?): Kind =
+                entries.firstOrNull { it.tag == tag } ?: OPENING
+        }
+    }
+
+    /**
+     * A tagged opening: FOUR corners, clockwise from top-left, plus what it
+     * is. Four and not two, because a window photographed from anywhere but
+     * dead centre is a quadrilateral on the face, never an axis-aligned box.
+     * Keeping the marked corners keeps the perspective the projection
+     * actually produced — which is what the ray maths wants, since each
+     * corner becomes a ray meeting the wall plane at the opening's true
+     * rectangle. Forcing a box would bake in an error.
+     */
+    data class Quad(
+        val x1: Double, val y1: Double,
+        val x2: Double, val y2: Double,
+        val x3: Double, val y3: Double,
+        val x4: Double, val y4: Double,
+        val kind: String = Kind.OPENING.tag,
+        val note: String = "",
+    ) {
+        fun corner(i: Int): Pair<Double, Double> = when (i) {
+            1 -> x1 to y1
+            2 -> x2 to y2
+            3 -> x3 to y3
+            else -> x4 to y4
+        }
+
+        fun withCorner(i: Int, x: Double, y: Double): Quad = when (i) {
+            1 -> copy(x1 = x, y1 = y)
+            2 -> copy(x2 = x, y2 = y)
+            3 -> copy(x3 = x, y3 = y)
+            else -> copy(x4 = x, y4 = y)
+        }
+    }
+
     data class FaceAnnotations(
         val lines: List<Line> = emptyList(),
         val pins: List<Pin> = emptyList(),
+        val quads: List<Quad> = emptyList(),
     ) {
-        val isEmpty: Boolean get() = lines.isEmpty() && pins.isEmpty()
+        val isEmpty: Boolean
+            get() = lines.isEmpty() && pins.isEmpty() && quads.isEmpty()
     }
+
+    /** A ready-made rectangle over the middle of the view, to be dragged
+     *  onto the real corners — drop-then-adjust, so nobody has to trace an
+     *  opening freehand with a thumb. */
+    fun newQuad(
+        kind: Kind,
+        cx: Double = 0.5, cy: Double = 0.5,
+        halfW: Double = 0.15, halfH: Double = 0.2,
+    ) = Quad(
+        cx - halfW, cy - halfH,
+        cx + halfW, cy - halfH,
+        cx + halfW, cy + halfH,
+        cx - halfW, cy + halfH,
+        kind.tag)
 
     /** The units a site person keys a measurement in. Everything converts
      *  to mm at entry; display converts back out. */

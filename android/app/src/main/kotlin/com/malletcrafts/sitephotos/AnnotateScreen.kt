@@ -84,12 +84,25 @@ private fun loadBitmap(context: Context, uri: Uri): Bitmap? = runCatching {
 private sealed interface Sel {
     data class L(val i: Int) : Sel
     data class P(val i: Int) : Sel
+    data class Q(val i: Int) : Sel
 }
 
-/** Grab targets for a one-finger drag: a line endpoint, or a pin. */
+/** Grab targets for a one-finger drag: a line endpoint, a pin, or one
+ *  corner of a tagged opening. */
 private sealed interface Grab {
     data class End(val i: Int, val end: Int) : Grab
     data class Pin(val i: Int) : Grab
+    data class Corner(val i: Int, val corner: Int) : Grab
+}
+
+/** Colour per tag, so a wall reads at a glance: openings warm, structure
+ *  cold. Structure is what a carpenter must work around, not through. */
+private fun kindColor(kind: String): Color = when (Annotation.Kind.of(kind)) {
+    Annotation.Kind.WINDOW -> Color(0xFF00B0FF)
+    Annotation.Kind.DOOR -> Color(0xFF00E676)
+    Annotation.Kind.COLUMN -> Color(0xFFAB47BC)
+    Annotation.Kind.BEAM -> Color(0xFFFFA000)
+    Annotation.Kind.OPENING -> Color(0xFFBDBDBD)
 }
 
 private const val MIN_SCALE = 1f
@@ -150,6 +163,8 @@ fun AnnotateScreen(
     var finger by remember { mutableStateOf<Offset?>(null) }   // loupe target
     var editingLine by remember { mutableStateOf<Int?>(null) }
     var noteFor by remember { mutableStateOf<Int?>(null) }
+    var tagFor by remember { mutableStateOf<Int?>(null) }
+    var openingMenu by remember { mutableStateOf(false) }
 
     // --- viewport maths -------------------------------------------------
     val imgW = (bitmap?.width ?: 1).toFloat()
@@ -245,6 +260,34 @@ fun AnnotateScreen(
                             Annotation.Line(a.first, a.second, b.first, b.second, 0)))
                         selected = Sel.L(ann.lines.lastIndex)
                     }) { Text("+ Measure") }
+                    Box {
+                        TextButton(onClick = { openingMenu = true }) {
+                            Text("+ Opening")
+                        }
+                        DropdownMenu(expanded = openingMenu,
+                            onDismissRequest = { openingMenu = false }) {
+                            Annotation.Kind.entries.forEach { k ->
+                                DropdownMenuItem(
+                                    text = { Text(k.label) },
+                                    onClick = {
+                                        openingMenu = false
+                                        // Dropped over the middle of what's on
+                                        // screen, sized in view terms, so it
+                                        // lands grabbable however far you're
+                                        // zoomed in.
+                                        val c = toNorm(Offset(canvas.width / 2f,
+                                            canvas.height / 2f))
+                                        val e = toNorm(Offset(canvas.width * 0.68f,
+                                            canvas.height * 0.72f))
+                                        persist(ann.copy(quads = ann.quads +
+                                            Annotation.newQuad(k, c.first, c.second,
+                                                kotlin.math.abs(e.first - c.first),
+                                                kotlin.math.abs(e.second - c.second))))
+                                        selected = Sel.Q(ann.quads.lastIndex)
+                                    })
+                            }
+                        }
+                    }
                     TextButton(onClick = {
                         val c = toNorm(Offset(canvas.width / 2f, canvas.height / 2f))
                         persist(ann.copy(pins = ann.pins +
@@ -260,9 +303,10 @@ fun AnnotateScreen(
                             when (s) {
                                 is Sel.L -> editingLine = s.i
                                 is Sel.P -> noteFor = s.i
+                                is Sel.Q -> tagFor = s.i
                                 null -> {}
                             }
-                        }) { Text("Value") }
+                        }) { Text(if (selected is Sel.Q) "Tag" else "Value") }
                     TextButton(
                         enabled = s != null,
                         onClick = {
@@ -271,6 +315,8 @@ fun AnnotateScreen(
                                     lines = ann.lines.filterIndexed { i, _ -> i != s.i }))
                                 is Sel.P -> persist(ann.copy(
                                     pins = ann.pins.filterIndexed { i, _ -> i != s.i }))
+                                is Sel.Q -> persist(ann.copy(
+                                    quads = ann.quads.filterIndexed { i, _ -> i != s.i }))
                                 null -> {}
                             }
                             selected = null
@@ -284,9 +330,11 @@ fun AnnotateScreen(
             return@Scaffold
         }
         Column(Modifier.padding(pad)) {
-            Text(if (selected == null)
-                    "Pinch to zoom · tap a measure to select it · + Measure to add"
-                 else "Drag the ends onto the wall · Value sets the dimension",
+            Text(when (selected) {
+                    null -> "Pinch to zoom · tap something to select it"
+                    is Sel.Q -> "Drag the 4 corners onto the opening · Tag says what it is"
+                    else -> "Drag the ends onto the wall · Value sets the dimension"
+                },
                 Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall)
             Canvas(modifier = Modifier
@@ -319,6 +367,20 @@ fun AnnotateScreen(
                                     if ((toScreen(p.x, p.y) - first.position)
                                             .getDistance() <= HANDLE_PX)
                                         grab = Grab.Pin(sl.i)
+                                }
+                            }
+                            if (grab == null && sl is Sel.Q) {
+                                ann.quads.getOrNull(sl.i)?.let { q ->
+                                    var bestD = HANDLE_PX
+                                    for (c in 1..4) {
+                                        val (cx, cy) = q.corner(c)
+                                        val d = (toScreen(cx, cy) - first.position)
+                                            .getDistance()
+                                        if (d <= bestD) {
+                                            bestD = d
+                                            grab = Grab.Corner(sl.i, c)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -368,6 +430,11 @@ fun AnnotateScreen(
                                             pins = ann.pins.toMutableList().also {
                                                 it[g.i] = it[g.i].copy(x = nx, y = ny)
                                             })
+                                        is Grab.Corner -> ann.copy(
+                                            quads = ann.quads.toMutableList().also {
+                                                it[g.i] = it[g.i]
+                                                    .withCorner(g.corner, nx, ny)
+                                            })
                                     }
                                     ch.consume()
                                 } else if (moved) {
@@ -397,6 +464,15 @@ fun AnnotateScreen(
                                 val dd = (toScreen(pin.x, pin.y) - p).getDistance()
                                 if (dd < best) { best = dd; hit = Sel.P(i) }
                             }
+                            for ((i, q) in ann.quads.withIndex()) {
+                                for (c in 1..4) {
+                                    val (ax, ay) = q.corner(c)
+                                    val (bx, by) = q.corner(if (c == 4) 1 else c + 1)
+                                    val dd = distanceToSegment(p,
+                                        toScreen(ax, ay), toScreen(bx, by))
+                                    if (dd < best) { best = dd; hit = Sel.Q(i) }
+                                }
+                            }
                             selected = hit
                         }
                     }
@@ -408,6 +484,35 @@ fun AnnotateScreen(
                     dstSize = IntSize((fitW * scale).toInt(), (fitH * scale).toInt()))
 
                 val sel = selected
+
+                // Tagged openings first, so measurement lines stay on top of
+                // them — the number is what a person came to read.
+                for ((i, q) in ann.quads.withIndex()) {
+                    val on = sel is Sel.Q && sel.i == i
+                    val col = kindColor(q.kind)
+                    val pts = (1..4).map { c ->
+                        val (cx, cy) = q.corner(c); toScreen(cx, cy)
+                    }
+                    for (c in 0..3) {
+                        drawLine(col, pts[c], pts[(c + 1) % 4],
+                            strokeWidth = if (on) 7f else 5f)
+                    }
+                    if (on) pts.forEach {
+                        drawCircle(col, HANDLE_PX / 2f, it, style = Stroke(5f))
+                    }
+                    val label = Annotation.Kind.of(q.kind).label +
+                        (if (q.note.isNotBlank()) " · ${q.note.take(18)}" else "")
+                    drawContext.canvas.nativeCanvas.apply {
+                        val paint = android.graphics.Paint().apply {
+                            textSize = 38f
+                            color = android.graphics.Color.WHITE
+                            setShadowLayer(6f, 0f, 0f, android.graphics.Color.BLACK)
+                            isFakeBoldText = true
+                        }
+                        drawText(label, pts[0].x + 8f, pts[0].y - 12f, paint)
+                    }
+                }
+
                 for ((i, l) in ann.lines.withIndex()) {
                     val a = toScreen(l.x1, l.y1)
                     val b = toScreen(l.x2, l.y2)
@@ -497,6 +602,21 @@ fun AnnotateScreen(
             })
     }
 
+    tagFor?.let { idx ->
+        ann.quads.getOrNull(idx)?.let { q ->
+            TagDialog(
+                initialKind = Annotation.Kind.of(q.kind),
+                initialNote = q.note,
+                onDismiss = { tagFor = null },
+                onSave = { kind, note ->
+                    persist(ann.copy(quads = ann.quads.toMutableList().also {
+                        it[idx] = it[idx].copy(kind = kind.tag, note = note)
+                    }))
+                    tagFor = null
+                })
+        }
+    }
+
     noteFor?.let { idx ->
         NoteDialog(
             initial = ann.pins.getOrNull(idx)?.text ?: "",
@@ -570,6 +690,42 @@ private fun DimensionDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
+/** What an opening IS. The tag is the machine-readable part the model
+ *  reads; the note takes whatever doesn't fit the vocabulary. */
+@Composable
+private fun TagDialog(
+    initialKind: Annotation.Kind,
+    initialNote: String,
+    onDismiss: () -> Unit,
+    onSave: (Annotation.Kind, String) -> Unit,
+) {
+    var kind by remember { mutableStateOf(initialKind) }
+    var note by remember { mutableStateOf(initialNote) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("What is this?") },
+        text = {
+            Column {
+                Annotation.Kind.entries.chunked(3).forEach { row ->
+                    Row {
+                        row.forEach { k ->
+                            FilterChip(selected = kind == k, onClick = { kind = k },
+                                label = { Text(k.label) },
+                                modifier = Modifier.padding(end = 4.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = note, onValueChange = { note = it },
+                    label = { Text("Note (optional)") }, singleLine = true)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(kind, note.trim()) }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+}
+
 @Composable
 private fun NoteDialog(
     initial: String,
@@ -625,7 +781,8 @@ fun FacesScreen(
                         Text(when {
                             !present -> "image not on this phone"
                             ann.isEmpty -> "not annotated"
-                            else -> "${ann.lines.size} lines · ${ann.pins.size} notes"
+                            else -> "${ann.lines.size} lines · " +
+                                "${ann.quads.size} openings · ${ann.pins.size} notes"
                         }, style = MaterialTheme.typography.bodySmall)
                     }
                 }

@@ -147,6 +147,18 @@ class TestSitePhotoApi(MalletTestCase):
         doc.geometry_baseline = 0
         doc.save()
 
+    def test_a_face_of_only_tagged_openings_survives(self):
+        # The tagged quads ARE the geometry marks — a face carrying only
+        # those must not be treated as an empty face and dropped.
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        sitephoto.save_annotations(made["name"], "left", {
+            "lines": [], "pins": [],
+            "quads": [{"x1": 0.2, "y1": 0.3, "x2": 0.5, "y2": 0.28,
+                       "x3": 0.5, "y3": 0.7, "x4": 0.2, "y4": 0.72,
+                       "kind": "window", "note": "grille outside"}]})
+        got = sitephoto.get_annotations(made["name"])
+        self.assertEqual(got["left"]["quads"][0]["kind"], "window")
+
     def test_annotations_refuse_junk(self):
         made = sitephoto.create_capture(project=_project(), room=_room())
         with self.assertRaises(frappe.exceptions.ValidationError):

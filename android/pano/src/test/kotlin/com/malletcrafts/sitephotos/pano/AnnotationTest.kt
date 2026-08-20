@@ -44,4 +44,44 @@ class AnnotationTest {
         assertEquals(2, Annotation.nearestEndpoint(l, 0.88, 0.91, 0.06))
         assertEquals(-1, Annotation.nearestEndpoint(l, 0.50, 0.50, 0.06))
     }
+
+    @Test
+    fun `a dropped opening starts as a rectangle around the given centre`() {
+        val q = Annotation.newQuad(Annotation.Kind.WINDOW, 0.5, 0.4, 0.1, 0.2)
+        assertEquals("window", q.kind)
+        assertEquals(0.4, q.x1, 1e-9)
+        assertEquals(0.2, q.y1, 1e-9)
+        assertEquals(0.6, q.x2, 1e-9)
+        assertEquals(0.6, q.y3, 1e-9)
+        assertEquals(0.4, q.x4, 1e-9)
+    }
+
+    @Test
+    fun `each corner moves on its own, so perspective survives`() {
+        // A window seen off-centre is a quadrilateral, never a box: dragging
+        // one corner must not pull its neighbours back into a rectangle.
+        val q = Annotation.newQuad(Annotation.Kind.WINDOW).withCorner(1, 0.31, 0.22)
+        assertEquals(0.31, q.x1, 1e-9)
+        assertEquals(0.22, q.y1, 1e-9)
+        assertEquals(0.65, q.x2, 1e-9)
+        assertEquals(0.30, q.y2, 1e-9)
+        assertEquals(0.70, q.y3, 1e-9)
+    }
+
+    @Test
+    fun `an unknown tag reads as a plain opening rather than throwing`() {
+        // Tags arrive from other devices and older builds; the vocabulary is
+        // closed, so anything unrecognised degrades instead of crashing.
+        assertEquals(Annotation.Kind.OPENING, Annotation.Kind.of("skylight"))
+        assertEquals(Annotation.Kind.OPENING, Annotation.Kind.of(null))
+        assertEquals(Annotation.Kind.BEAM, Annotation.Kind.of("beam"))
+    }
+
+    @Test
+    fun `a face holding only openings is not empty`() {
+        val only = Annotation.FaceAnnotations(
+            quads = listOf(Annotation.newQuad(Annotation.Kind.DOOR)))
+        assertEquals(false, only.isEmpty)
+        assertEquals(true, Annotation.FaceAnnotations().isEmpty)
+    }
 }

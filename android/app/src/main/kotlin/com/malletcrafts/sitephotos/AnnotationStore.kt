@@ -63,10 +63,21 @@ class AnnotationStore(context: Context) {
                     put(JSONObject().put("x", it.x).put("y", it.y).put("text", it.text))
                 }
             })
+            .put("quads", JSONArray().apply {
+                ann.quads.forEach {
+                    put(JSONObject()
+                        .put("x1", it.x1).put("y1", it.y1)
+                        .put("x2", it.x2).put("y2", it.y2)
+                        .put("x3", it.x3).put("y3", it.y3)
+                        .put("x4", it.x4).put("y4", it.y4)
+                        .put("kind", it.kind).put("note", it.note))
+                }
+            })
 
         fun decode(o: JSONObject): Annotation.FaceAnnotations {
             val lines = mutableListOf<Annotation.Line>()
             val pins = mutableListOf<Annotation.Pin>()
+            val quads = mutableListOf<Annotation.Quad>()
             o.optJSONArray("lines")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val l = arr.getJSONObject(i)
@@ -81,7 +92,19 @@ class AnnotationStore(context: Context) {
                         p.getString("text"))
                 }
             }
-            return Annotation.FaceAnnotations(lines, pins)
+            o.optJSONArray("quads")?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    val q = arr.getJSONObject(i)
+                    quads += Annotation.Quad(
+                        q.getDouble("x1"), q.getDouble("y1"),
+                        q.getDouble("x2"), q.getDouble("y2"),
+                        q.getDouble("x3"), q.getDouble("y3"),
+                        q.getDouble("x4"), q.getDouble("y4"),
+                        q.optString("kind", Annotation.Kind.OPENING.tag),
+                        q.optString("note", ""))
+                }
+            }
+            return Annotation.FaceAnnotations(lines, pins, quads)
         }
     }
 }

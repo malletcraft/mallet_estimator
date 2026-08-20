@@ -239,7 +239,10 @@ def save_annotations(name, face, data):
     if not doc.meta.has_field("face_annotations"):
         frappe.throw(_("This bench has not migrated the face_annotations field yet"))
     allfaces = json.loads(doc.face_annotations or "{}")
-    if data.get("lines") or data.get("pins"):
+    # quads are the TAGGED openings (window/door/column/beam) — a face that
+    # carries only those is annotated, and forgetting them here would drop
+    # exactly the marks the room model is built from.
+    if data.get("lines") or data.get("pins") or data.get("quads"):
         allfaces[face] = data
     else:
         allfaces.pop(face, None)   # emptied on the device = removed here
