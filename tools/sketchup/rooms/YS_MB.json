@@ -1,0 +1,113 @@
+{
+  "schema": "mcft.room.v1",
+  "project": "Yogesh Sahasrabudhe",
+  "room": "Master Bedroom",
+  "room_token": "YS_MB",
+  "units": "mm",
+  "source": {
+    "kind": "imagemeter",
+    "faces": "YS_MB_{bottom,back,right}.jpg \u2014 ImageMeter annotations on MCFT 360 faces",
+    "read_on": "2026-08-20",
+    "cross_checks": [
+      "floor perimeter 13955 = 3486+3030+3944+2975+450+70 (ImageMeter P: 1395.50 cm)",
+      "back-wall perimeter 13245 = 3812+2353+3944+2673+140+323 (ImageMeter P: 1324.50 cm)",
+      "back wall bottom 3944 == floor long side 3944",
+      "right wall bottom 3031 == floor short side 3030 (1 mm)"
+    ]
+  },
+  "ceiling_height": 2670,
+  "floor_polygon": [
+    [
+      0,
+      0
+    ],
+    [
+      3944,
+      0
+    ],
+    [
+      3944,
+      3030
+    ],
+    [
+      458,
+      3030
+    ],
+    [
+      458,
+      2960
+    ],
+    [
+      0,
+      2960
+    ]
+  ],
+  "walls": [
+    {
+      "id": "back",
+      "edge": 0,
+      "note": "main door wall; 3944 at floor, 3812 at ceiling"
+    },
+    {
+      "id": "right",
+      "edge": 1,
+      "note": "second door (bathroom/wardrobe); 3031 at floor"
+    },
+    {
+      "id": "front",
+      "edge": 2,
+      "note": "window/balcony side \u2014 not yet read"
+    },
+    {
+      "id": "left",
+      "edge": 3,
+      "note": "not yet read"
+    }
+  ],
+  "openings": [
+    {
+      "kind": "door",
+      "wall": "back",
+      "from_start": 120,
+      "width": 890,
+      "sill": 0,
+      "height": 2051,
+      "note": "measured 890 x 2051; distance along wall is ASSUMED, see caveats"
+    },
+    {
+      "kind": "door",
+      "wall": "right",
+      "from_start": 1549,
+      "width": 690,
+      "sill": 0,
+      "height": 2006,
+      "note": "1549 mm measured from the wall's left edge in the face photo"
+    }
+  ],
+  "features": [
+    {
+      "kind": "beam",
+      "at_corner": [
+        "back",
+        "right"
+      ],
+      "drop": 320,
+      "width": 140,
+      "note": "back wall drops 2673 -> 2353 and right wall 2665 -> 2342 at this corner"
+    },
+    {
+      "kind": "socket",
+      "wall": "right",
+      "from_start": 1299,
+      "sill": 1081,
+      "width": 250,
+      "height": 85
+    }
+  ],
+  "caveats": [
+    "Wall-to-compass orientation is inferred: the floor face gives lengths, not bearings.",
+    "The 450 x 70 notch is placed at the left/front corner; ImageMeter gives its size, not which corner.",
+    "Main door position along the back wall is a placeholder (120 mm from the corner) \u2014 only its size was measured.",
+    "front and left walls were not read; openings on them are missing."
+  ]
+}
