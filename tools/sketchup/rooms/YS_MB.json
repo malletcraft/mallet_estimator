@@ -6,13 +6,18 @@
   "units": "mm",
   "source": {
     "kind": "imagemeter",
-    "faces": "YS_MB_{bottom,back,right}.jpg \u2014 ImageMeter annotations on MCFT 360 faces",
+    "faces": "YS_MB_{bottom,back,right,front,left}.jpg \u2014 ImageMeter annotations on MCFT 360 faces",
     "read_on": "2026-08-20",
     "cross_checks": [
       "floor perimeter 13955 = 3486+3030+3944+2975+450+70 (ImageMeter P: 1395.50 cm)",
       "back-wall perimeter 13245 = 3812+2353+3944+2673+140+323 (ImageMeter P: 1324.50 cm)",
       "back wall bottom 3944 == floor long side 3944",
-      "right wall bottom 3031 == floor short side 3030 (1 mm)"
+      "right wall bottom 3031 == floor short side 3030 (1 mm apart)",
+      "ceiling agrees on three faces: 2673 back, 2665 right, 2667 front",
+      "beam drop agrees on three faces: 2353 back, 2342 right, 2359 front"
+    ],
+    "data_quality": [
+      "Several labels on the front and right faces read 'cm' where the value is plainly mm \u2014 a wall is not 2667 cm tall. The NUMBERS are consistent with every other face; only ImageMeter's unit setting was wrong when they were keyed. Treated as mm throughout."
     ]
   },
   "ceiling_height": 2670,
@@ -46,22 +51,22 @@
     {
       "id": "back",
       "edge": 0,
-      "note": "main door wall; 3944 at floor, 3812 at ceiling"
+      "note": "main door wall \u2014 3944 floor, 3812 ceiling, 2673 high"
     },
     {
       "id": "right",
       "edge": 1,
-      "note": "second door (bathroom/wardrobe); 3031 at floor"
+      "note": "second door \u2014 3031 floor, 2981 ceiling, 2665 high"
     },
     {
       "id": "front",
       "edge": 2,
-      "note": "window/balcony side \u2014 not yet read"
+      "note": "blank wall, two switchboards \u2014 3808 ceiling, 2667 high"
     },
     {
       "id": "left",
-      "edge": 3,
-      "note": "not yet read"
+      "edge": 5,
+      "note": "BALCONY wall \u2014 sliding door visible, NOT measured"
     }
   ],
   "openings": [
@@ -72,7 +77,7 @@
       "width": 890,
       "sill": 0,
       "height": 2051,
-      "note": "measured 890 x 2051; distance along wall is ASSUMED, see caveats"
+      "note": "890 x 2051 measured; distance along the wall is a placeholder"
     },
     {
       "kind": "door",
@@ -81,19 +86,18 @@
       "width": 690,
       "sill": 0,
       "height": 2006,
-      "note": "1549 mm measured from the wall's left edge in the face photo"
+      "note": "1549 mm measured from the wall's near edge"
     }
   ],
   "features": [
     {
       "kind": "beam",
       "at_corner": [
-        "back",
-        "right"
+        "left"
       ],
       "drop": 320,
-      "width": 140,
-      "note": "back wall drops 2673 -> 2353 and right wall 2665 -> 2342 at this corner"
+      "width": 135,
+      "note": "runs along the balcony wall: the ends of back (2353), right (2342) and front (2359) that meet it all drop ~320 from the 2670 ceiling"
     },
     {
       "kind": "socket",
@@ -102,12 +106,30 @@
       "sill": 1081,
       "width": 250,
       "height": 85
+    },
+    {
+      "kind": "socket",
+      "wall": "front",
+      "from_start": 317,
+      "sill": 498,
+      "width": 250,
+      "height": 90
+    },
+    {
+      "kind": "socket",
+      "wall": "front",
+      "sill": 493,
+      "width": 120,
+      "height": 90,
+      "from_start": 2694,
+      "note": "measured 672 mm from the far end of the front wall"
     }
   ],
   "caveats": [
-    "Wall-to-compass orientation is inferred: the floor face gives lengths, not bearings.",
-    "The 450 x 70 notch is placed at the left/front corner; ImageMeter gives its size, not which corner.",
-    "Main door position along the back wall is a placeholder (120 mm from the corner) \u2014 only its size was measured.",
-    "front and left walls were not read; openings on them are missing."
+    "The BALCONY OPENING IS MISSING: the left face carries the sliding door but was never annotated, so its width, height and sill are unknown. Three numbers fix it.",
+    "Wall-to-compass orientation is inferred: a face gives lengths, not bearings.",
+    "The 450 x 70 notch is placed at the front/left corner; ImageMeter gives its size, not which corner it is on.",
+    "The main door's position along the back wall is a placeholder (120 mm) \u2014 only its size was measured.",
+    "The front wall's floor edge was left unmeasured ('?'), so the floor's 3944 is used."
   ]
 }
