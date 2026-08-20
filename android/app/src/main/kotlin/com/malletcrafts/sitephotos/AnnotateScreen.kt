@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -166,6 +168,27 @@ fun AnnotateScreen(
     var tagFor by remember { mutableStateOf<Int?>(null) }
     var openingMenu by remember { mutableStateOf(false) }
 
+    // The laser. Its whole contract is "the value lands in the SELECTED
+    // measure" — which is why the selection model had to come first.
+    val disto = remember { DistoClient(context) }
+    var distoState by remember { mutableStateOf(DistoClient.State.OFF) }
+    var distoNote by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(Unit) { onDispose { disto.stop() } }
+    // Android 12+ gates a BLE scan behind runtime permission; without it the
+    // scan fails silently, which would look exactly like a flat meter.
+    val blePerms = remember {
+        if (android.os.Build.VERSION.SDK_INT >= 31)
+            arrayOf(android.Manifest.permission.BLUETOOTH_SCAN,
+                android.Manifest.permission.BLUETOOTH_CONNECT)
+        else arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+    val askBle = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        if (granted.values.all { it }) disto.start()
+        else distoNote = "Bluetooth permission refused — the laser can't connect"
+    }
+
     // --- viewport maths -------------------------------------------------
     val imgW = (bitmap?.width ?: 1).toFloat()
     val imgH = (bitmap?.height ?: 1).toFloat()
@@ -208,6 +231,30 @@ fun AnnotateScreen(
         SyncWorker.syncNow(context)
     }
 
+    // A laser reading lands on the selected measure — no dialog, nothing to
+    // confirm, because the person is holding a meter and standing on site.
+    // With nothing selected it is deliberately ignored rather than guessed
+    // at: a number on the wrong wall is worse than no number.
+    disto.onState = { s, note -> distoState = s; distoNote = note }
+    disto.onReading = { r ->
+        val s = selected
+        if (s is Sel.L) {
+            persist(ann.copy(lines = ann.lines.toMutableList().also {
+                if (s.i in it.indices) it[s.i] = it[s.i].copy(mm = r.mm)
+            }))
+            // Honour the meter's own display when it is imperial: Amit's
+            // "using the laser meter unit while keying in measurements".
+            if (r.deviceImperial && !showImperial) {
+                showImperial = true
+                context.getSharedPreferences("capture", Context.MODE_PRIVATE)
+                    .edit().putBoolean("imperial", true).apply()
+            }
+            distoNote = "Measured ${Annotation.label(r.mm, showImperial)}"
+        } else {
+            distoNote = "Select a measure first"
+        }
+    }
+
     /** Endpoint snapping: a wall corner shared by two measurements should be
      *  ONE point, not two a few pixels apart — the model is built from these. */
     fun snap(nx: Double, ny: Double, skipLine: Int, skipEnd: Int): Pair<Double, Double> {
@@ -230,6 +277,17 @@ fun AnnotateScreen(
                 title = { Text(Handover.FACE_LABELS[face] ?: face) },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
+                    TextButton(onClick = {
+                        if (distoState == DistoClient.State.OFF) askBle.launch(blePerms)
+                        else disto.measure()
+                    }) {
+                        Text(when (distoState) {
+                            DistoClient.State.OFF -> "Laser"
+                            DistoClient.State.SCANNING -> "Finding…"
+                            DistoClient.State.CONNECTING -> "Linking…"
+                            DistoClient.State.READY -> "Shoot"
+                        })
+                    }
                     if (undo.isNotEmpty()) {
                         TextButton(onClick = {
                             val prev = undo.removeAt(undo.size - 1)
@@ -330,10 +388,10 @@ fun AnnotateScreen(
             return@Scaffold
         }
         Column(Modifier.padding(pad)) {
-            Text(when (selected) {
+            Text(distoNote ?: when (selected) {
                     null -> "Pinch to zoom · tap something to select it"
                     is Sel.Q -> "Drag the 4 corners onto the opening · Tag says what it is"
-                    else -> "Drag the ends onto the wall · Value sets the dimension"
+                    else -> "Drag the ends onto the wall · Value, or shoot the laser"
                 },
                 Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall)

@@ -10,6 +10,25 @@
          installer. Android still requires the person to tap Install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- The Leica DISTO over Bluetooth LE. neverForLocation is honest and it
+         matters: we scan for one laser meter by its service UUID and have no
+         interest in where anybody is, so on Android 12+ this asks for no
+         location permission at all. The legacy entries below exist only for
+         Android 11 and older, where a BLE scan was impossible without them. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-feature android:name="android.hardware.bluetooth_le"
+        android:required="false" />
+
     <!-- tools:replace: the Insta360 SDK's library manifest ships its own
          android:label; ours wins, by declaration rather than by luck. -->
     <application
