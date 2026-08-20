@@ -253,6 +253,18 @@ jobs:
             com.arashivision.sdkcamera.camera.callback.ICaptureStatusListener || true
           javap -classpath "$RUNNER_TEMP/sdkmedia-x/classes.jar" \
             com.arashivision.sdkmedia.export.IExportCallback || true
+      # Prints what a phone checks before installing: cert fingerprint,
+      # version, min/target sdk, native ABIs — plus sha256 to compare against
+      # a downloaded copy. Diagnosing "App wasn't installed" without a device.
+      - name: Verify the camera APK (certs, badging, sha256)
+        if: steps.sdk.outputs.present == 'true'
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/apksigner" verify --print-certs "$APK" | head -6
+          "$BT/aapt" dump badging "$APK" | grep -E "^package:|sdkVersion|targetSdkVersion|native-code" || true
+          sha256sum "$APK"
+          ls -la "$APK"
       - name: Upload the camera APK (Actions artifact only — NOT the public release)
         if: steps.sdk.outputs.present == 'true'
         uses: actions/upload-artifact@v4
