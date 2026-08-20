@@ -74,6 +74,21 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertEqual(doc.status, "Pending")   # nothing to split yet
         self.assertTrue(doc.name.startswith("MEST-PH-"), doc.name)
 
+    def test_capture_records_the_phones_app_version(self):
+        # The fleet's version ledger: "which build is that phone running"
+        # answered server-side, one row per capture.
+        made = sitephoto.create_capture(
+            project=_project(), room=_room(), app_version="0.3.41")
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", made["name"],
+                                "device_app_version"),
+            "0.3.41")
+        # Absent stays empty, never invented.
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        self.assertFalse(
+            frappe.db.get_value("Site Photo 360", made["name"],
+                                "device_app_version"))
+
     def test_an_absurd_fov_is_clamped_not_obeyed(self):
         made = sitephoto.create_capture(project=_project(), room=_room(), fov=999)
         self.assertEqual(frappe.db.get_value("Site Photo 360", made["name"], "fov"),

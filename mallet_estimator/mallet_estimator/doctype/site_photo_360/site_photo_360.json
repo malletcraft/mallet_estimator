@@ -13,6 +13,7 @@
   "capture_date",
   "stage",
   "device_capture_id",
+  "device_app_version",
   "column_break_how",
   "fov",
   "face_px",
@@ -85,6 +86,14 @@
    "unique": 1,
    "no_copy": 1,
    "description": "Set by the phone app at capture time (MCAP-\u2026). The faces reach ImageMeter under this id because the server has not named the capture yet, so it is how an annotated face finds its way home."
+  },
+  {
+   "fieldname": "device_app_version",
+   "fieldtype": "Data",
+   "label": "Device App Version",
+   "read_only": 1,
+   "hidden": 1,
+   "description": "App versionName the phone reported when this capture synced - the fleet's version ledger, one row per capture."
   },
   {
    "fieldname": "column_break_how",
@@ -229,7 +238,7 @@
   }
  ],
  "links": [],
- "modified": "2026-08-17 13:00:00.000000",
+ "modified": "2026-08-20 11:45:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Site Photo 360",

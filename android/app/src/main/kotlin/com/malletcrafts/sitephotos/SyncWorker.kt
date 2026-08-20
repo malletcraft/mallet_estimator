@@ -54,7 +54,11 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 val made = client.createCapture(
                     project = projectId, room = c.room,
                     captureDate = c.captureDate, stage = c.stage,
-                    deviceCaptureId = c.deviceId)
+                    deviceCaptureId = c.deviceId,
+                    appVersion = runCatching {
+                        applicationContext.packageManager.getPackageInfo(
+                            applicationContext.packageName, 0).versionName ?: ""
+                    }.getOrDefault(""))
                 val name = made.getString("name")
 
                 val pano = File(c.panoPath)

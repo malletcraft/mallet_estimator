@@ -61,13 +61,18 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         post("mallet_estimator.sitephoto.bootstrap", JSONObject())
 
     fun createCapture(project: String, room: String, captureDate: String,
-                      stage: String, deviceCaptureId: String): JSONObject =
+                      stage: String, deviceCaptureId: String,
+                      appVersion: String = ""): JSONObject =
         post("mallet_estimator.sitephoto.create_capture", JSONObject()
             .put("project", project)
             .put("room", room)
             .put("capture_date", captureDate)
             .put("stage", stage)
-            .put("device_capture_id", deviceCaptureId))
+            .put("device_capture_id", deviceCaptureId)
+            // The fleet's version ledger: the server records which build
+            // synced this capture, so "did the phone update?" is a server
+            // query instead of a hands-on-device check.
+            .put("app_version", appVersion))
 
     /** Returns the private file_url the server stored the pano under. */
     fun uploadPano(docname: String, pano: File): String {

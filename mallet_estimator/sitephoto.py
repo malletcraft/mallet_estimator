@@ -63,7 +63,7 @@ def bootstrap():
 
 @frappe.whitelist()
 def create_capture(project, room, capture_date=None, stage=None, fov=None,
-                   device_capture_id=None):
+                   device_capture_id=None, app_version=None):
     """Step 1 of a capture: the record. The phone then uploads the pano
     against this docname and calls bind_pano().
 
@@ -92,6 +92,11 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
         "fov": cint(fov) or int(panorama.DEFAULT_FOV),
         "device_capture_id": device_capture_id,
     })
+    # The phone reports its versionName with every capture — the server-side
+    # answer to "which build is that phone actually running". Guarded: a
+    # bench that has not migrated yet simply drops it.
+    if app_version and frappe.get_meta(DOCTYPE).has_field("device_app_version"):
+        doc.device_app_version = str(app_version)[:40]
     doc.insert()
     return {"name": doc.name, "status": doc.status}
 
