@@ -6,130 +6,72 @@
   "units": "mm",
   "source": {
     "kind": "imagemeter",
-    "faces": "YS_MB_{bottom,back,right,front,left}.jpg \u2014 ImageMeter annotations on MCFT 360 faces",
+    "faces": "YS_MB_{bottom,back,right,front,left}.jpg — ImageMeter annotations on MCFT 360 faces",
     "read_on": "2026-08-20",
     "cross_checks": [
       "floor perimeter 13955 = 3486+3030+3944+2975+450+70 (ImageMeter P: 1395.50 cm)",
       "back-wall perimeter 13245 = 3812+2353+3944+2673+140+323 (ImageMeter P: 1324.50 cm)",
-      "back wall bottom 3944 == floor long side 3944",
-      "right wall bottom 3031 == floor short side 3030 (1 mm apart)",
-      "ceiling agrees on three faces: 2673 back, 2665 right, 2667 front",
-      "beam drop agrees on three faces: 2353 back, 2342 right, 2359 front"
+      "back wall floor edge 3944 == floor's long side",
+      "right wall floor edge 3031 == floor's short side 3030",
+      "opposite walls differ by the notch: back 3944 - front 3486 = 458; right 3030 - left 2960 = 70"
     ],
-    "data_quality": [
-      "Several labels on the front and right faces read 'cm' where the value is plainly mm \u2014 a wall is not 2667 cm tall. The NUMBERS are consistent with every other face; only ImageMeter's unit setting was wrong when they were keyed. Treated as mm throughout."
+    "orientation": [
+      "The faces are a cubemap from ONE camera, so their order is fixed by yaw:",
+      "front 0deg, right 90, back 180, left 270. Walking front -> right -> back -> left",
+      "is therefore a real rotational direction, not a guess, and the floor polygon",
+      "is now traversed in exactly that order. The first version ran the other way,",
+      "which mirrored the room and put both doors on the wrong side.",
+      "Facing any wall, the RIGHT of that photo is the next face clockwise in yaw:",
+      "in the back photo the balcony sits at the right, and 180+90 = 270 = left face,",
+      "so the left face IS the balcony wall. The front photo agrees: balcony at its",
+      "left, and 0-90 = 270. Two independent faces, same answer."
     ]
   },
+
   "ceiling_height": 2670,
+
   "floor_polygon": [
-    [
-      0,
-      0
-    ],
-    [
-      3944,
-      0
-    ],
-    [
-      3944,
-      3030
-    ],
-    [
-      458,
-      3030
-    ],
-    [
-      458,
-      2960
-    ],
-    [
-      0,
-      2960
-    ]
+    [0, 0],
+    [3486, 0],
+    [3486, 3030],
+    [-458, 3030],
+    [-458, 2960],
+    [0, 2960]
   ],
+
   "walls": [
-    {
-      "id": "back",
-      "edge": 0,
-      "note": "main door wall \u2014 3944 floor, 3812 ceiling, 2673 high"
-    },
-    {
-      "id": "right",
-      "edge": 1,
-      "note": "second door \u2014 3031 floor, 2981 ceiling, 2665 high"
-    },
-    {
-      "id": "front",
-      "edge": 2,
-      "note": "blank wall, two switchboards \u2014 3808 ceiling, 2667 high"
-    },
-    {
-      "id": "left",
-      "edge": 5,
-      "note": "BALCONY wall \u2014 sliding door visible, NOT measured"
-    }
+    {"id": "front", "edge": 0, "note": "3486 — blank wall, two switchboards"},
+    {"id": "right", "edge": 1, "note": "3030 — second door (bathroom)"},
+    {"id": "back",  "edge": 2, "note": "3944 — main door"},
+    {"id": "notch_a", "edge": 3, "note": "70 — side of the column notch"},
+    {"id": "notch_b", "edge": 4, "note": "458 — face of the column notch"},
+    {"id": "left",  "edge": 5, "note": "2960 — BALCONY wall, sliding door not measured"}
   ],
+
   "openings": [
-    {
-      "kind": "door",
-      "wall": "back",
-      "from_start": 120,
-      "width": 890,
-      "sill": 0,
-      "height": 2051,
-      "note": "890 x 2051 measured; distance along the wall is a placeholder"
-    },
-    {
-      "kind": "door",
-      "wall": "right",
-      "from_start": 1549,
-      "width": 690,
-      "sill": 0,
-      "height": 2006,
-      "note": "1549 mm measured from the wall's near edge"
-    }
+    {"kind": "door", "wall": "right", "from_start": 1549, "width": 690,
+     "sill": 0, "height": 2006,
+     "note": "1549 measured from the photo's left edge; facing the right wall, the photo's left is the FRONT corner, which is where this edge starts"},
+    {"kind": "door", "wall": "back", "from_start": 60, "width": 890,
+     "sill": 0, "height": 2051,
+     "note": "890 x 2051 measured. In the back photo the door sits hard against the corner OPPOSITE the balcony; facing back, the photo's left is the RIGHT-wall corner, which is where this edge starts. 60 mm return is estimated, the end it sits at is not"}
   ],
+
   "features": [
-    {
-      "kind": "beam",
-      "at_corner": [
-        "left"
-      ],
-      "drop": 320,
-      "width": 135,
-      "note": "runs along the balcony wall: the ends of back (2353), right (2342) and front (2359) that meet it all drop ~320 from the 2670 ceiling"
-    },
-    {
-      "kind": "socket",
-      "wall": "right",
-      "from_start": 1299,
-      "sill": 1081,
-      "width": 250,
-      "height": 85
-    },
-    {
-      "kind": "socket",
-      "wall": "front",
-      "from_start": 317,
-      "sill": 498,
-      "width": 250,
-      "height": 90
-    },
-    {
-      "kind": "socket",
-      "wall": "front",
-      "sill": 493,
-      "width": 120,
-      "height": 90,
-      "from_start": 2694,
-      "note": "measured 672 mm from the far end of the front wall"
-    }
+    {"kind": "beam", "at_corner": ["left"], "drop": 320, "width": 135,
+     "note": "the back photo puts its notch at the balcony end and the front photo puts its notch at the balcony end too, so the beam runs along the balcony wall. The right face also shows a notch, which this does not explain — see caveats"},
+    {"kind": "socket", "wall": "right", "from_start": 1299, "sill": 1081,
+     "width": 250, "height": 85},
+    {"kind": "socket", "wall": "front", "from_start": 317, "sill": 498,
+     "width": 250, "height": 90},
+    {"kind": "socket", "wall": "front", "from_start": 2694, "sill": 493,
+     "width": 120, "height": 90}
   ],
+
   "caveats": [
-    "The BALCONY OPENING IS MISSING: the left face carries the sliding door but was never annotated, so its width, height and sill are unknown. Three numbers fix it.",
-    "Wall-to-compass orientation is inferred: a face gives lengths, not bearings.",
-    "The 450 x 70 notch is placed at the front/left corner; ImageMeter gives its size, not which corner it is on.",
-    "The main door's position along the back wall is a placeholder (120 mm) \u2014 only its size was measured.",
-    "The front wall's floor edge was left unmeasured ('?'), so the floor's 3944 is used."
+    "The BALCONY OPENING IS MISSING — the left face was never annotated, so the sliding door has no width, height or sill anywhere.",
+    "The right face shows a ceiling notch its position cannot explain if the beam runs along the balcony wall. Either there is a second beam over the bathroom door, or one of the three notch readings belongs to something else.",
+    "The main door's 60 mm return from the corner is estimated; which corner it sits against is not.",
+    "The front wall's floor edge was marked '?' and is taken from the floor face."
   ]
 }

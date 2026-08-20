@@ -56,6 +56,9 @@ def build(room):
     faces.append(([(x, y, 0.0) for x, y in poly], "floor"))
 
     edge_of = {w["id"]: w["edge"] for w in room.get("walls", [])}
+    for i in range(n):
+        if i not in edge_of.values():
+            edge_of[f"edge{i}"] = i          # unnamed is still a wall
     by_wall = {}
     for op in room.get("openings", []):
         by_wall.setdefault(op["wall"], []).append({
@@ -323,6 +326,9 @@ def plan(room, out, size=(1100, 1050)):
     d.polygon([P(*p) for p in poly], fill=(233, 228, 216), outline=(40, 40, 40))
 
     edge_of = {w["id"]: w["edge"] for w in room.get("walls", [])}
+    for i in range(n):
+        if i not in edge_of.values():
+            edge_of[f"edge{i}"] = i          # unnamed is still a wall
     name_of = {v: k for k, v in edge_of.items()}
 
     for i in range(n):
@@ -371,7 +377,24 @@ def plan(room, out, size=(1100, 1050)):
     return out
 
 
-def selftest(faces):
+def _inside(pt, poly):
+    """Ray casting. Needed because a room with a notch is not convex, and
+    'is the centre on this side of the wall' quietly gives the wrong answer
+    for the notch walls."""
+    x, y = pt
+    n = len(poly)
+    hit = False
+    for i in range(n):
+        x0, y0 = poly[i]
+        x1, y1 = poly[(i + 1) % n]
+        if (y0 > y) != (y1 > y):
+            xx = x0 + (y - y0) * (x1 - x0) / (y1 - y0)
+            if x < xx:
+                hit = not hit
+    return hit
+
+
+def selftest(faces, floor_polygon=None):
     """Two checks that would have caught the first broken export.
 
     A triangle fan silently produced triangles outside the room because the
@@ -383,9 +406,6 @@ def selftest(faces):
     problems = []
     if not faces:
         return ["no faces"]
-    pts = [p for f, _ in faces for p in f]
-    cx = sum(p[0] for p in pts) / len(pts)
-    cy = sum(p[1] for p in pts) / len(pts)
 
     for poly, kind in faces:
         flat, nrm = _plane_2d(poly)
@@ -401,11 +421,15 @@ def selftest(faces):
 
         if kind == "floor" and nrm[2] < 0.9:
             problems.append("floor does not face up")
-        if kind == "wall":
+        if kind == "wall" and floor_polygon:
             fx = sum(p[0] for p in poly) / len(poly)
             fy = sum(p[1] for p in poly) / len(poly)
-            if nrm[0] * (cx - fx) + nrm[1] * (cy - fy) < 0:
-                problems.append("a wall faces out of the room, not into it")
+            # Step off the wall along its own normal: if that lands inside
+            # the floor outline, the wall faces the room.
+            probe = (fx + nrm[0] * 2.0, fy + nrm[1] * 2.0)
+            if not _inside(probe, floor_polygon):
+                problems.append(
+                    f"wall at ({fx:.0f},{fy:.0f}) faces out of the room")
     return problems
 
 
@@ -413,7 +437,7 @@ if __name__ == "__main__":
     src = sys.argv[1] if len(sys.argv) > 1 else "tools/sketchup/rooms/YS_MB.json"
     room = load(src)
     faces = build(room)
-    bad = selftest(faces)
+    bad = selftest(faces, room["floor_polygon"])
     if bad:
         print("MESH PROBLEMS — do not import this:")
         for b in bad:
