@@ -80,6 +80,12 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("face", face)
             .put("data", data.toString()))
 
+    /** Every face's annotations for one capture — what somebody else's
+     *  phone measured. Keyed by face name. */
+    fun getAnnotations(docname: String): JSONObject =
+        post("mallet_estimator.sitephoto.get_annotations", JSONObject()
+            .put("name", docname)).optJSONObject("message") ?: JSONObject()
+
     fun appUpdateInfo(): JSONObject =
         post("mallet_estimator.app_update.app_update_info", JSONObject())
 

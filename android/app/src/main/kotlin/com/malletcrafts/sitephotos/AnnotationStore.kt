@@ -35,6 +35,25 @@ class AnnotationStore(context: Context) {
         dirtyOf(deviceId, face).writeText("")   // empty still syncs: it deletes
     }
 
+    /**
+     * Write what the server holds, WITHOUT marking it dirty — this came
+     * from the server, so it is not owed back to it.
+     *
+     * Refuses to touch a face this phone has unsent edits on. That is the
+     * whole conflict rule: a face someone is still working on is never
+     * overwritten by a pull, and once it has been sent, the newest write
+     * wins — which is correct, because a second measurement of the same
+     * wall means somebody went back and measured it again.
+     */
+    fun acceptFromServer(
+        deviceId: String, face: String, ann: Annotation.FaceAnnotations,
+    ): Boolean {
+        if (dirtyOf(deviceId, face).exists()) return false
+        val f = fileOf(deviceId, face)
+        if (ann.isEmpty) f.delete() else f.writeText(encode(ann).toString())
+        return true
+    }
+
     /** Faces of this capture whose annotations the server hasn't seen. */
     fun dirtyFaces(deviceId: String): List<String> =
         dir.listFiles { f -> f.name.startsWith("${deviceId}_") && f.name.endsWith(".dirty") }

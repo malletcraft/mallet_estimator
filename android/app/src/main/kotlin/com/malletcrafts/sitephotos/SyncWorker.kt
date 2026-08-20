@@ -112,6 +112,25 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     failures += 1   // retry later; dirty marker stays
                 }
             }
+
+            // ...and PULL, so a capture annotated on somebody else's phone
+            // opens here with their measurements on it. Amit's "sync of
+            // images across devices": the photos already travel, this is
+            // what makes the marks travel with them. Faces this phone has
+            // unsent edits on are left alone — acceptFromServer refuses
+            // them — so a pull can never eat work in progress.
+            try {
+                val remote = client.getAnnotations(serverName)
+                val faces = remote.keys()
+                while (faces.hasNext()) {
+                    val face = faces.next()
+                    val obj = remote.optJSONObject(face) ?: continue
+                    annStore.acceptFromServer(c.deviceId, face,
+                        AnnotationStore.decode(obj))
+                }
+            } catch (e: Exception) {
+                failures += 1   // a failed pull just means stale, not lost
+            }
         }
 
         // Update check rides the sync too: when the server holds a newer
