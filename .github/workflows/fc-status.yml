@@ -5,6 +5,11 @@ name: FC status (read-only)
 # what commit the bench currently carries.
 on:
   workflow_dispatch:
+    inputs:
+      agent_job:
+        description: "Optional Agent Job name - prints its steps and traceback"
+        required: false
+        default: ""
 
 jobs:
   status:
@@ -59,3 +64,18 @@ jobs:
           probe press.api.site.get "{\"name\":\"$FC_SITE\"}"
           probe press.api.site.overview "{\"name\":\"$FC_SITE\"}"
           probe press.api.client.get_list "{\"doctype\":\"Agent Job\",\"filters\":{\"site\":\"$FC_SITE\"},\"fields\":[\"name\",\"job_type\",\"status\",\"creation\"],\"limit\":8,\"order_by\":\"creation desc\"}"
+      - name: Agent job detail (when asked)
+        if: github.event.inputs.agent_job != ''
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+          JOB: ${{ github.event.inputs.agent_job }}
+        run: |
+          set -uo pipefail
+          # The steps of one agent job carry the output/traceback of a
+          # failed migrate - the only surviving record after FC rolls the
+          # site back.
+          curl -sSL --max-time 30 -X POST "https://$FC_HOST/api/method/press.api.client.get_list" \
+            -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
+            -d "{\"doctype\":\"Agent Job Step\",\"filters\":{\"agent_job\":\"$JOB\"},\"fields\":[\"step_name\",\"status\",\"output\"],\"limit\":20}" | head -c 30000; echo
