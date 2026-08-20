@@ -36,6 +36,7 @@ on:
       # The Android app ships through android-app.yml (release + Play), not
       # through the bench — an android-only commit has nothing to deploy.
       - 'android/**'
+      - 'tools/**'
       - '.gitignore'
   workflow_dispatch:   # manual "deploy now" button
     inputs:
