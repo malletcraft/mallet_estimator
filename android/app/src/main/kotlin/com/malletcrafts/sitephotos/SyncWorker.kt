@@ -88,8 +88,25 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             val serverName = c.serverName ?: continue
             for (face in annStore.dirtyFaces(c.deviceId)) {
                 try {
+                    var ann = annStore.load(c.deviceId, face)
+                    // Voice clips go up FIRST and their urls go into the JSON,
+                    // so an annotation never references a recording the server
+                    // hasn't got. A clip recorded with no signal simply waits
+                    // here until there is some.
+                    if (ann.pins.any { it.audioPending }) {
+                        val pins = ann.pins.map { p ->
+                            if (!p.audioPending) p else {
+                                val f = VoiceNotes.file(applicationContext, p.audio)
+                                if (f.exists())
+                                    p.copy(audioUrl = client.uploadAudioNote(serverName, f))
+                                else p.copy(audio = "")   // clip is gone; forget it
+                            }
+                        }
+                        ann = ann.copy(pins = pins)
+                        annStore.save(c.deviceId, face, ann)
+                    }
                     client.saveAnnotations(serverName, face,
-                        AnnotationStore.encode(annStore.load(c.deviceId, face)))
+                        AnnotationStore.encode(ann))
                     annStore.markSynced(c.deviceId, face)
                 } catch (e: Exception) {
                     failures += 1   // retry later; dirty marker stays

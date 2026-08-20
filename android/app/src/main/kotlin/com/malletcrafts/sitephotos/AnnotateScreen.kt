@@ -609,12 +609,17 @@ fun AnnotateScreen(
                     val col = if (on) Color(0xFF00E5FF) else Color(0xFF2962FF)
                     drawCircle(col, if (on) 22f else 16f, at)
                     if (on) drawCircle(col, HANDLE_PX / 2f, at, style = Stroke(4f))
+                    // A voice note wears a ring, so a silent pin and a spoken
+                    // one are told apart without opening either.
+                    if (p.hasAudio) drawCircle(col, 30f, at, style = Stroke(4f))
                     drawContext.canvas.nativeCanvas.apply {
                         val paint = android.graphics.Paint().apply {
                             textSize = 36f; color = android.graphics.Color.WHITE
                             setShadowLayer(6f, 0f, 0f, android.graphics.Color.BLACK)
                         }
-                        drawText(p.text.take(24), at.x + 26f, at.y + 12f, paint)
+                        val label = (if (p.hasAudio) "▶ " else "") +
+                            (if (p.text.isBlank()) "voice note" else p.text.take(24))
+                        drawText(label, at.x + 36f, at.y + 12f, paint)
                     }
                 }
 
@@ -676,19 +681,31 @@ fun AnnotateScreen(
     }
 
     noteFor?.let { idx ->
+        val pin = ann.pins.getOrNull(idx)
         NoteDialog(
-            initial = ann.pins.getOrNull(idx)?.text ?: "",
+            initial = pin?.text ?: "",
+            audioName = pin?.audio ?: "",
+            audioUrl = pin?.audioUrl ?: "",
+            deviceId = deviceId,
+            face = face,
             onDismiss = {
-                // A pin dropped and abandoned without words is noise.
-                if (ann.pins.getOrNull(idx)?.text.isNullOrBlank()) {
+                // A pin dropped and abandoned — no words, no voice — is noise.
+                val p = ann.pins.getOrNull(idx)
+                if (p != null && p.text.isBlank() && !p.hasAudio) {
                     persist(ann.copy(pins = ann.pins.filterIndexed { i, _ -> i != idx }))
                     selected = null
                 }
                 noteFor = null
             },
-            onSave = { text ->
-                persist(ann.copy(pins = ann.pins.toMutableList()
-                    .also { it[idx] = it[idx].copy(text = text) }))
+            onSave = { text, audioName ->
+                persist(ann.copy(pins = ann.pins.toMutableList().also {
+                    it[idx] = it[idx].copy(
+                        text = text,
+                        audio = audioName,
+                        // A re-record invalidates whatever was uploaded.
+                        audioUrl = if (audioName != it[idx].audio) ""
+                                   else it[idx].audioUrl)
+                }))
                 noteFor = null
             })
     }
@@ -784,24 +801,82 @@ private fun TagDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
+/** A note: typed, spoken, or both. Speaking exists because on site there is
+ *  often no free hand — you are holding a laser, a tape, or a torch. */
 @Composable
 private fun NoteDialog(
     initial: String,
+    audioName: String,
+    audioUrl: String,
+    deviceId: String,
+    face: String,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
+    onSave: (String, String) -> Unit,
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var text by remember { mutableStateOf(initial) }
+    var clip by remember { mutableStateOf(audioName) }
+    var recording by remember { mutableStateOf(false) }
+    val recorder = remember { VoiceNotes.Recorder(context) }
+    DisposableEffect(Unit) {
+        onDispose { recorder.cancel(); VoiceNotes.stopPlayback() }
+    }
+    val askMic = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val name = VoiceNotes.newName(deviceId, face)
+            if (recorder.start(name)) recording = true
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Note") },
         text = {
-            OutlinedTextField(value = text, onValueChange = { text = it },
-                label = { Text("What's here?") })
+            Column {
+                OutlinedTextField(value = text, onValueChange = { text = it },
+                    label = { Text("What's here?") })
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = {
+                        if (recording) {
+                            val f = recorder.stop()
+                            recording = false
+                            if (f != null) clip = f.name
+                        } else {
+                            askMic.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    }) { Text(if (recording) "Stop" else "Record") }
+                    if (clip.isNotBlank() || audioUrl.isNotBlank()) {
+                        TextButton(onClick = {
+                            val local = VoiceNotes.file(context, clip)
+                            if (clip.isNotBlank() && local.exists())
+                                VoiceNotes.play(local.absolutePath)
+                        }) { Text("Play") }
+                        TextButton(onClick = {
+                            if (clip.isNotBlank())
+                                VoiceNotes.file(context, clip).delete()
+                            clip = ""
+                        }) { Text("Clear") }
+                    }
+                }
+                if (recording) {
+                    Text("Recording — say what a carpenter needs to know",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
         },
         confirmButton = {
-            TextButton(onClick = { if (text.isNotBlank()) onSave(text.trim()) }) {
-                Text("Save")
-            }
+            TextButton(onClick = {
+                // Stopping here too: a person who taps Save while still
+                // talking means to keep the recording, not lose it.
+                if (recording) {
+                    recorder.stop()?.let { clip = it.name }
+                    recording = false
+                }
+                if (text.isNotBlank() || clip.isNotBlank())
+                    onSave(text.trim(), clip)
+            }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }

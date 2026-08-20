@@ -60,7 +60,9 @@ class AnnotationStore(context: Context) {
             })
             .put("pins", JSONArray().apply {
                 ann.pins.forEach {
-                    put(JSONObject().put("x", it.x).put("y", it.y).put("text", it.text))
+                    put(JSONObject().put("x", it.x).put("y", it.y)
+                        .put("text", it.text)
+                        .put("audio", it.audio).put("audio_url", it.audioUrl))
                 }
             })
             .put("quads", JSONArray().apply {
@@ -89,7 +91,8 @@ class AnnotationStore(context: Context) {
                 for (i in 0 until arr.length()) {
                     val p = arr.getJSONObject(i)
                     pins += Annotation.Pin(p.getDouble("x"), p.getDouble("y"),
-                        p.getString("text"))
+                        p.optString("text", ""),
+                        p.optString("audio", ""), p.optString("audio_url", ""))
                 }
             }
             o.optJSONArray("quads")?.let { arr ->

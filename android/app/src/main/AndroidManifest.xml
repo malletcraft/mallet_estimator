@@ -29,6 +29,9 @@
     <uses-feature android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
+    <!-- Voice notes: on site there is often no free hand for typing. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- tools:replace: the Insta360 SDK's library manifest ships its own
          android:label; ours wins, by declaration rather than by luck. -->
     <application

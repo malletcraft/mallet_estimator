@@ -78,6 +78,26 @@ class AnnotationTest {
     }
 
     @Test
+    fun `a voice note is owed to the server until it has a url`() {
+        val justRecorded = Annotation.Pin(0.5, 0.5, "", audio = "clip.m4a")
+        assertEquals(true, justRecorded.hasAudio)
+        assertEquals(true, justRecorded.audioPending)
+
+        val uploaded = justRecorded.copy(audioUrl = "/private/files/clip.m4a")
+        assertEquals(false, uploaded.audioPending)
+
+        // Arrived from another device: playable, and nothing owed.
+        val fromElsewhere = Annotation.Pin(0.5, 0.5, "",
+            audioUrl = "/private/files/other.m4a")
+        assertEquals(true, fromElsewhere.hasAudio)
+        assertEquals(false, fromElsewhere.audioPending)
+
+        val typedOnly = Annotation.Pin(0.5, 0.5, "damp patch")
+        assertEquals(false, typedOnly.hasAudio)
+        assertEquals(false, typedOnly.audioPending)
+    }
+
+    @Test
     fun `a face holding only openings is not empty`() {
         val only = Annotation.FaceAnnotations(
             quads = listOf(Annotation.newQuad(Annotation.Kind.DOOR)))

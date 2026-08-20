@@ -115,6 +115,26 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         return call(req).getJSONObject("message").getString("file_url")
     }
 
+    /** A voice note, attached to its capture. Multipart like the pano and
+     *  for the same reason: audio is binary, and base64 in a JSON body is
+     *  a third bigger for no gain. Returns the private file_url the pin
+     *  will point at. */
+    fun uploadAudioNote(docname: String, clip: File): String {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", clip.name,
+                clip.asRequestBody("audio/mp4".toMediaType()))
+            .addFormDataPart("is_private", "1")
+            .addFormDataPart("doctype", "Site Photo 360")
+            .addFormDataPart("docname", docname)
+            .build()
+        val req = Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/api/method/upload_file")
+            .header("Authorization", "token $key:$secret")
+            .post(body)
+            .build()
+        return call(req).getJSONObject("message").getString("file_url")
+    }
+
     fun bindPano(docname: String, fileUrl: String): JSONObject =
         post("mallet_estimator.sitephoto.bind_pano", JSONObject()
             .put("name", docname)

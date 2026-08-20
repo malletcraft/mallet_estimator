@@ -22,7 +22,28 @@ object Annotation {
         val mm: Int,
     )
 
-    data class Pin(val x: Double, val y: Double, val text: String)
+    /**
+     * A note pinned to a spot on the face. It carries typed text, a voice
+     * clip, or both — a person holding a laser in one hand often cannot
+     * type, which is the whole reason audio exists.
+     *
+     * Two audio fields, deliberately: [audio] is the clip's file name on
+     * THIS phone and [audioUrl] is where it lives on the server once it has
+     * been uploaded. Keeping both means a note recorded with no signal is
+     * still playable on the spot, and still uploads later; and a note
+     * arriving from another device plays from the server without pretending
+     * a local file exists.
+     */
+    data class Pin(
+        val x: Double, val y: Double, val text: String,
+        val audio: String = "",
+        val audioUrl: String = "",
+    ) {
+        val hasAudio: Boolean get() = audio.isNotBlank() || audioUrl.isNotBlank()
+
+        /** Uploaded already, or still owed to the server? */
+        val audioPending: Boolean get() = audio.isNotBlank() && audioUrl.isBlank()
+    }
 
     /** What a tagged rectangle can BE. Deliberately small and closed: the
      *  tag is what the model reads, so it has to stay machine-readable —
