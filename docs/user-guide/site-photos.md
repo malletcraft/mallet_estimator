@@ -1,4 +1,4 @@
-# MCFT Site Photos — capture on site, annotate in ImageMeter, keep in ERPNext
+# MCFT Site Photos — capture on site, annotate in the app, keep in ERPNext
 
 *The Android app, for phones and Chromebooks. Built for sites with no
 signal: everything works offline and syncs itself when the network
@@ -51,19 +51,68 @@ Each capture card shows its life honestly: *on this phone* → *uploading* →
 
 ## Annotating in the app (new — replaces ImageMeter)
 
-Tap any capture card → its six faces → tap a face to annotate:
+Tap any capture card → its six faces → tap a face to annotate.
 
-- **Measure**: tap the two ends of what you're measuring, key the value in
-  mm/cm/m/in/ft — the label shows metric (and imperial too, via the `m · ft`
-  chip). Drag an endpoint to fine-tune; a **magnifier loupe** follows your
-  finger so the point lands exactly on the wall edge.
-- **Notes**: long-press drops a text pin ("damp patch", "switchboard").
-- Annotations are data, never burned into the photo — they sync to ERPNext
-  with the capture and follow it to every device. Tap a label to correct a
-  value; the photo never needs re-shooting.
+**Get close first.** Pinch to zoom (up to 10×) and drag the photo around.
+Marking a wall edge accurately at full-room zoom is guesswork; zoom in and
+it takes one try. Nothing you place moves when you zoom — the marks live on
+the photo, not on the screen.
+
+**Everything works the same way: drop it, then drag it into place.**
+
+- **+ Measure** drops a line across the middle of the view. Drag each end
+  onto what you're measuring — a **loupe** appears in the top corner
+  showing the exact pixel under your finger, so your thumb never hides the
+  point. Ends snap to ends, so a corner shared by two measurements stays
+  one corner. Then **Value** to key the number in mm/cm/m/in/ft, or shoot
+  it with the laser (below). The `m · ft` chip shows metric and imperial
+  together.
+- **+ Opening** drops a rectangle — choose **Window, Door, Column, Beam**
+  or **Opening** — and you drag its **four** corners onto the real ones.
+  Four, not two, because a window seen from an angle is not a square on the
+  photo, and keeping its true shape is what lets the model place it
+  correctly. **Tag** changes what it is or adds a note.
+- **+ Note** drops a text pin ("damp patch", "switchboard").
+- **Tap** anything to select it; handles appear only on the selection, so
+  nothing gets nudged by accident. **Delete** removes the selection,
+  **Undo** takes back the last change.
+
+### The laser (Leica DISTO D2)
+
+Tap **Laser** once — it finds the meter and connects. Then, for each
+measurement: **select the measure first, then press the button on the
+meter.** The number lands on the selected line; there is nothing to
+confirm and nothing to type. If the meter is set to feet and inches, the
+app switches to showing both units.
+
+Two things to know, both from Leica's own documentation:
+
+- **Do not pair the D2 in Android's Bluetooth settings.** This meter is
+  designed to connect without pairing, and pairing it stops it working. If
+  it is already paired, unpair it.
+- Only one app can hold the meter at a time. If Leica's own DISTO app is
+  running in the background, close it.
+
+The meter switches itself off after a few minutes to save battery — that's
+normal. Tap **Laser** again to reconnect.
+
+Annotations are data, never burned into the photo — they sync to ERPNext
+with the capture and follow it to every device. Correct a value any time;
+the photo never needs re-shooting.
 
 Annotate every wall face: the measured faces are what the SketchUp room
 model gets built from.
+
+### The room's baseline
+
+The first properly-marked capture of a room is its **geometry baseline** —
+the one the SketchUp model gets built from. Mark it in ERPNext
+(**Geometry baseline** on the capture), and once the six faces are right,
+**freeze** it. After freezing, its annotations stop changing, so re-running
+the model always produces the same room. Later captures of that room are
+progress photos: annotate them freely, they never affect the model. If
+something real changes on site — a wall comes down — capture the room
+again and make the new capture the baseline.
 
 ## Annotating in ImageMeter (legacy, until audio notes land in-app)
 
