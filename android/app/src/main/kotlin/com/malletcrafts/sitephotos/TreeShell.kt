@@ -3,13 +3,8 @@ package com.malletcrafts.sitephotos
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.filled.Search
+import androidx.annotation.DrawableRes
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.foundation.horizontalScroll
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
@@ -36,8 +31,11 @@ data class DrawerLine(
     val value: String? = null,
     val toggled: Boolean? = null,
     /** Every row carries one. A drawer of bare text is a wall of words, and
-     *  the icon is what you actually aim at when scanning it one-handed. */
-    val icon: ImageVector? = null,
+     *  the icon is what you actually aim at when scanning it one-handed.
+     *  A drawable res, not an ImageVector: these are the prototype's own
+     *  icons (res/drawable/ic_mcft_*), because the core Material set had no
+     *  honest stand-in for Wi-Fi-only, field of view, or keep-the-original. */
+    @DrawableRes val icon: Int? = null,
     val onClick: (() -> Unit)? = null,
 )
 
@@ -68,8 +66,9 @@ fun SettingsDrawerContent(
                     modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp))
                 g.lines.forEach { line ->
                     NavigationDrawerItem(
-                        icon = line.icon?.let { iv ->
-                            { Icon(iv, contentDescription = null) }
+                        icon = line.icon?.let { res ->
+                            { Icon(painterResource(res), contentDescription = null,
+                                   modifier = Modifier.size(20.dp)) }
                         },
                         label = {
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -123,12 +122,14 @@ fun TreeTopBar(
         },
         navigationIcon = {
             IconButton(onClick = onMenu) {
-                Icon(Icons.Filled.Menu, contentDescription = "Settings")
+                Icon(painterResource(R.drawable.ic_mcft_menu),
+                    contentDescription = "Settings")
             }
         },
         actions = {
             IconButton(onClick = onSearch) {
-                Icon(Icons.Filled.Search, contentDescription = "Search")
+                Icon(painterResource(R.drawable.ic_mcft_search),
+                    contentDescription = "Search")
             }
         })
 }
@@ -161,6 +162,10 @@ fun Banner(text: String, warn: Boolean = true) {
 @Composable
 fun StageSheet(
     stages: List<Catalogue.Stage>,
+    /** Every stage in the master, whatever the job type. The picker offers
+     *  the job type's slice by default and this on request — "I cannot see
+     *  all the stages" has to have an answer ON the screen, not in a doc. */
+    allStages: List<Catalogue.Stage> = stages,
     current: String,
     jobType: String,
     /** "Move the project to" or "Stage of this photo" — the same list, two
@@ -169,22 +174,49 @@ fun StageSheet(
     onPick: (Catalogue.Stage) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var showAll by remember { mutableStateOf(false) }
+    val shown = if (showAll) allStages else stages
+    val hidden = allStages.size - stages.size
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle("$heading · $jobType · ${stages.size} stages")
+        SheetTitle("$heading · $jobType · ${shown.size} stages")
+        // Repair and Supply & install are a SLICE of the same sequence, not a
+        // different one, so a picker narrowed to the job type is right — and
+        // silently dropping fifteen rows is not. The count says what is
+        // missing and the row unhides it.
+        if (hidden > 0) {
+            ListItem(
+                headlineContent = {
+                    Text(if (showAll) "Showing all ${allStages.size} stages"
+                         else "$hidden more a $jobType job does not normally reach")
+                },
+                supportingContent = {
+                    Text(if (showAll) "tap to go back to the $jobType stages"
+                         else "tap to show every stage in the master")
+                },
+                colors = ListItemDefaults.colors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                modifier = Modifier.clickableRow { showAll = !showAll })
+        }
         // A plain scrolling Column, not a LazyColumn. Thirty-nine rows do not
         // need laziness, and a lazy list composes out of order — which breaks
         // any "print the heading when the phase changes" logic in a way that
         // only shows up as a missing heading halfway down.
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-            stages.groupBy { it.phase }.forEach { (phase, rows) ->
+            shown.groupBy { it.phase }.forEach { (phase, rows) ->
                 Text(phase.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 2.dp))
                 rows.forEach { s ->
+                    val reachable = stages.any { it.name == s.name }
                     ListItem(
                         headlineContent = { Text(s.name) },
+                        supportingContent = if (reachable) null else ({
+                            Text("not a $jobType stage",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }),
                         colors = if (s.name == current)
                             ListItemDefaults.colors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -368,24 +400,28 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
         NavigationBarItem(
             selected = current == "work",
             onClick = { onTab("work") },
-            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+            icon = { Icon(painterResource(R.drawable.ic_mcft_home),
+                          contentDescription = null) },
             label = { Text("Work") })
         NavigationBarItem(
             selected = current == "browse",
             onClick = { onTab("browse") },
-            icon = { Icon(Icons.Filled.List, contentDescription = null) },
+            icon = { Icon(painterResource(R.drawable.ic_mcft_folder),
+                          contentDescription = null) },
             label = { Text("Browse") })
         NavigationBarItem(
             selected = current == "queue",
             onClick = { onTab("queue") },
             icon = {
-                if (queued > 0) {
-                    BadgedBox(badge = { Badge { Text("$queued") } }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = null)
-                    }
-                } else {
-                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                // The cloud, not a refresh arrow: the queue answers "did that
+                // actually go", which is about the server, not about reloading.
+                val cloud = @Composable {
+                    Icon(painterResource(R.drawable.ic_mcft_cloud),
+                        contentDescription = null)
                 }
+                if (queued > 0) {
+                    BadgedBox(badge = { Badge { Text("$queued") } }) { cloud() }
+                } else cloud()
             },
             label = { Text("Queue") })
     }

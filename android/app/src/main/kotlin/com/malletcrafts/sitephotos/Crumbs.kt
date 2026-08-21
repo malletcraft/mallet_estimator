@@ -5,12 +5,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -139,7 +138,7 @@ private fun CrumbPill(label: String, current: Boolean, onClick: () -> Unit) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 180.dp))
             if (current) {
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = "Switch",
+                Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = "Switch",
                     modifier = Modifier.size(18.dp))
             }
         }

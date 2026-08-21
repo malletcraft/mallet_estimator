@@ -1,0 +1,23 @@
+<!-- Transcribed from the approved prototype's SVG, path for path.
+     The core Material set had no honest stand-in for half of these: "Warning"
+     was standing in for Wi-Fi and "Star" for keep-the-original 360. An icon
+     that means something else is worse than no icon at all, and these cost
+     nothing but XML — no icon dependency is added to the build.
+     Colour is left to Compose: Icon(painter, tint = ...) recolours both the
+     fills and the strokes, so no android:tint is set here. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M14 5H6a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8" />
+    <path android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M17 9l3 3-3 3M20 12H10" />
+</vector>

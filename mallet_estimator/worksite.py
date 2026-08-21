@@ -60,12 +60,17 @@ def _one_article(code, name, jobs):
         return 0
     doc = frappe.get_doc({"doctype": "Mallet Article", "article_code": code,
                           "article_name": name, "job_types": jobs})
-    # "Nos" is not guaranteed to exist yet: it is created by
-    # ensure_manufacturing_masters, which after_install runs AFTER this. A
-    # unit that does not exist yet is not a reason to refuse a master — the
-    # article is the record and the unit is a convenience on top of it.
-    if frappe.db.exists("UOM", "Nos"):
-        doc.default_uom = "Nos"
+    # CLEARED, not merely left unset. The doctype JSON carries
+    # `"default": "Nos"` on default_uom, so frappe fills the field itself and
+    # a guard that only declines to SET it changes nothing — which is exactly
+    # why the first attempt at this fix did not work and CI came back with
+    # the same "Could not find Default UOM: Nos" on all 26 rows.
+    #
+    # "Nos" is not guaranteed to exist on a fresh site: nothing creates it
+    # before the articles are seeded. A unit that does not exist yet is not a
+    # reason to refuse a master — the article is the record and the unit is a
+    # convenience on top of it.
+    doc.default_uom = "Nos" if frappe.db.exists("UOM", "Nos") else None
     doc.insert(ignore_permissions=True)
     return 1
 

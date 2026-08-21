@@ -11,13 +11,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -102,7 +100,7 @@ private fun FolderRow(
                 Text("$count", style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null,
+            Icon(painterResource(R.drawable.ic_mcft_chev), contentDescription = null,
                 tint = MaterialTheme.colorScheme.outline)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -134,7 +132,7 @@ private fun NewRow(title: String, subtitle: String, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Add, contentDescription = null,
+            Icon(painterResource(R.drawable.ic_mcft_plus), contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.width(14.dp))

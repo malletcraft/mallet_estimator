@@ -20,20 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -53,6 +39,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -487,6 +474,7 @@ private fun AppScreen() {
         if (showStagePicker && proj != null) {
             StageSheet(
                 stages = cat.stages(masters, proj.jobType),
+                allStages = cat.stages(masters),
                 current = proj.stage,
                 jobType = proj.jobType,
                 onDismiss = { showStagePicker = false },
@@ -718,6 +706,7 @@ private fun AppScreen() {
             val job = navProject?.jobType ?: Catalogue.JOB_NEW
             StageSheet(
                 stages = cat.stages(masters, job),
+                allStages = cat.stages(masters),
                 current = cap.workStage,
                 jobType = job,
                 heading = "Stage of this photo",
@@ -796,6 +785,7 @@ private fun AppScreen() {
         val p = navProject!!
         StageSheet(
             stages = cat.stages(masters, p.jobType),
+            allStages = cat.stages(masters),
             current = stage.ifBlank { p.stage },
             jobType = p.jobType,
             heading = "Stage for new photos",
@@ -881,7 +871,8 @@ private fun AppScreen() {
             floatingActionButton = {
                 ExtendedFloatingActionButton(
                     onClick = { showCaptureSheet = true },
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    icon = { Icon(painterResource(R.drawable.ic_mcft_cam),
+                                  contentDescription = null) },
                     text = { Text("Capture 360") })
             },
         ) { pad ->
@@ -1099,38 +1090,38 @@ private fun drawerGroups(
     DrawerGroup("Sync", listOf(
         DrawerLine("Sync now",
             value = if (queued == 0) lastSync else "$queued waiting",
-            icon = Icons.Filled.Refresh, onClick = onSyncNow),
+            icon = R.drawable.ic_mcft_cloud, onClick = onSyncNow),
         // Real, not decorative: this is the WorkManager constraint the
         // uploader runs under. A 20 MB pano on a site's mobile data is
         // somebody's bill.
         DrawerLine("Upload on Wi-Fi only", toggled = prefs.wifiOnly,
-            icon = Icons.Filled.Warning, onClick = { onToggle("wifi_only") }),
+            icon = R.drawable.ic_mcft_wifi, onClick = { onToggle("wifi_only") }),
     )),
     DrawerGroup("ImageMeter", listOf(
-        DrawerLine("Pull annotations now", icon = Icons.Filled.Edit,
+        DrawerLine("Pull annotations now", icon = R.drawable.ic_mcft_link,
             onClick = onImageMeterSync),
         DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,
-            icon = Icons.Filled.Check, onClick = { onToggle("pull_annotated") }),
+            icon = R.drawable.ic_mcft_pen, onClick = { onToggle("pull_annotated") }),
     )),
     DrawerGroup("Capture", listOf(
-        DrawerLine("Field of view", value = fov, icon = Icons.Filled.Place),
+        DrawerLine("Field of view", value = fov, icon = R.drawable.ic_mcft_cam),
         // Off means the bench does the split instead. The projection contract
         // in CI is what makes the two agree, so this is a real choice rather
         // than a quality trade.
         DrawerLine("Split faces on device", toggled = prefs.splitOnDevice,
-            icon = Icons.Filled.Share, onClick = { onToggle("split_on_device") }),
+            icon = R.drawable.ic_mcft_folder, onClick = { onToggle("split_on_device") }),
         DrawerLine("Keep the original 360", toggled = prefs.keepOriginal,
-            icon = Icons.Filled.Star, onClick = { onToggle("keep_original") }),
+            icon = R.drawable.ic_mcft_cube, onClick = { onToggle("keep_original") }),
     )),
     DrawerGroup("Display", listOf(
         DrawerLine("Units", value = if (prefs.imperial) "mm · ft-in" else "mm",
-            icon = Icons.Filled.Create, onClick = { onToggle("imperial") }),
+            icon = R.drawable.ic_mcft_ruler, onClick = { onToggle("imperial") }),
     )),
     DrawerGroup("Storage & app", listOf(
-        DrawerLine("Cached photos", value = cached, icon = Icons.Filled.Delete,
+        DrawerLine("Cached photos", value = cached, icon = R.drawable.ic_mcft_disk,
             onClick = { onToggle("clear_cache") }),
-        DrawerLine("Version", value = version, icon = Icons.Filled.Info),
-        DrawerLine("Sign out", icon = Icons.Filled.ExitToApp, onClick = onSignOut),
+        DrawerLine("Version", value = version, icon = R.drawable.ic_mcft_info),
+        DrawerLine("Sign out", icon = R.drawable.ic_mcft_out, onClick = onSignOut),
     )),
 )
 

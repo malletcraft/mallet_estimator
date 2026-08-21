@@ -7,15 +7,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -94,7 +90,8 @@ fun WorkScreen(
             ) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (synced) Icons.Filled.CheckCircle else Icons.Filled.Refresh,
+                    Icon(painterResource(if (synced) R.drawable.ic_mcft_cloud
+                                        else R.drawable.ic_mcft_wifi),
                         contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(if (synced) "Everything on this phone has been sent"
@@ -274,7 +271,7 @@ fun SearchOverlay(
         Row(Modifier.fillMaxWidth().padding(6.dp, 8.dp, 12.dp, 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Close search")
+                Icon(painterResource(R.drawable.ic_mcft_back), contentDescription = "Close search")
             }
             TextField(
                 value = query,
@@ -301,7 +298,7 @@ fun SearchOverlay(
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Filled.Search, contentDescription = null,
+                        Icon(painterResource(R.drawable.ic_mcft_search), contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(14.dp))
                         Text(t, style = MaterialTheme.typography.bodyLarge)
