@@ -839,3 +839,77 @@ class TestSiteLevelAndStages(MalletTestCase):
         never offered."""
         self.assertTrue(sitephoto.bootstrap()["can_restage"],
                         "Administrator can write a capture")
+
+    # ---- work the SITE says is needed ------------------------------------
+
+    def test_the_site_can_record_work_before_anyone_leaves(self):
+        """Amit: "idea is to have a SKU / service discussed quickly with client
+        when measuring the site so that what high level required is captured."
+
+        Not the office transcribing an estimate — the person standing in the
+        room saying this wall needs POP, 120 sqft."""
+        out = sitephoto.ensure_site("ZZ Sku Site Client", "ZZ Sku Site Project",
+                                    site_name="ZZ Sku Site Flat")
+        made = sitephoto.create_sku(out["project"], _room(), "POP", qty=120)
+        self.assertFalse(made["already"])
+        self.assertEqual(made["basis"], "Sqft")
+        self.assertEqual(made["kind"], "Subcontract")
+        doc = frappe.get_doc("Estimate SKU", made["name"])
+        self.assertEqual(doc.site_qty, 120)
+        self.assertEqual(doc.mallet_article, "POP")
+
+    def test_the_code_is_generated_not_typed(self):
+        """Two people describing the same wall have to produce the same code,
+        or the grammar is decorative."""
+        out = sitephoto.ensure_site("Yogesh Sahasrabudhe", "ZZ Code Project",
+                                    site_name="ZZ Code Flat")
+        made = sitephoto.create_sku(out["project"], _room(), "WAR")
+        self.assertTrue(made["code"].startswith("YS_"),
+                        f"customer initials missing: {made['code']}")
+        self.assertTrue(made["code"].endswith("_WAR"),
+                        f"article token missing: {made['code']}")
+
+    def test_recording_the_same_work_twice_makes_one_sku(self):
+        """A tap that lands twice, or a queue retrying after a dropped
+        acknowledgement, must not leave the project carrying the same wardrobe
+        three times."""
+        out = sitephoto.ensure_site("ZZ Twice Client", "ZZ Twice Project",
+                                    site_name="ZZ Twice Flat")
+        a = sitephoto.create_sku(out["project"], _room(), "WAR")
+        b = sitephoto.create_sku(out["project"], _room(), "WAR")
+        self.assertTrue(b["already"])
+        self.assertEqual(a["name"], b["name"])
+
+    def test_an_unknown_article_is_refused(self):
+        """The picker offers a master. Anything else arriving here is a bug or
+        a stale phone, and inventing an article to accept it would put work on
+        a project that nobody can price."""
+        out = sitephoto.ensure_site("ZZ Bad Art Client", "ZZ Bad Art Project",
+                                    site_name="ZZ Bad Art Flat")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.create_sku(out["project"], _room(), "ZZZ")
+
+    def test_a_built_article_carries_dimensions_and_a_service_carries_area(self):
+        """A wardrobe has three dimensions; POP has an area and no shape."""
+        out = sitephoto.ensure_site("ZZ Dim Client", "ZZ Dim Project",
+                                    site_name="ZZ Dim Flat")
+        war = sitephoto.create_sku(out["project"], _room(), "WAR",
+                                   width_mm=2400, height_mm=2100, depth_mm=600)
+        w = frappe.get_doc("Estimate SKU", war["name"])
+        self.assertEqual((w.site_width_mm, w.site_height_mm, w.site_depth_mm),
+                         (2400, 2100, 600))
+
+        pop = sitephoto.create_sku(out["project"], _room(), "POP", qty=95.5)
+        p = frappe.get_doc("Estimate SKU", pop["name"])
+        self.assertEqual(p.site_qty, 95.5)
+        self.assertFalse(p.site_width_mm, "an area has no width")
+
+    def test_the_article_master_ships_kind_and_basis_to_the_phone(self):
+        """The phone asks for 'sqft' rather than a bare number, which it can
+        only do if the unit rides with the master."""
+        rows = {r["code"]: r for r in sitephoto.article_master()}
+        self.assertEqual(rows["ELP"]["basis"], "Point")
+        self.assertEqual(rows["ELW"]["basis"], "Rft")
+        self.assertEqual(rows["ELF"]["basis"], "Nos")
+        self.assertEqual(rows["POP"]["kind"], "Subcontract")
+        self.assertEqual(rows["WAR"]["kind"], "Build")

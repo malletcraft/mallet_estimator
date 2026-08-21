@@ -25,9 +25,11 @@ def execute():
     # The stage-history table is new; nothing to backfill, but the migrate
     # this patch forces is what creates it at all.
 
-    # Re-run the seed now that it creates its own unit. On a site where it
-    # already succeeded this is a no-op; on one where it silently seeded
-    # nothing, this is the repair.
+    # Re-run the seed. Three jobs in one call now: it creates its own UOM,
+    # it back-fills kind and basis onto the 26 articles that predate those
+    # columns, and it adds the fifteen subcontract trades — POP, tiling,
+    # plaster, the three electrical lines — that the site needs somewhere to
+    # put. A site where it already succeeded gets a no-op.
     out = worksite.ensure_articles()
     frappe.db.commit()
     if out.get("errors"):

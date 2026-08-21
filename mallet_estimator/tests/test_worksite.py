@@ -118,24 +118,24 @@ class TestJobTypes(unittest.TestCase):
 class TestArticles(unittest.TestCase):
 
     def test_codes_are_unique_and_shaped_like_sku_tokens(self):
-        codes = [c for c, _n, _j in W.ARTICLES]
+        codes = [a[0] for a in W.ARTICLES]
         self.assertEqual(len(codes), len(set(codes)))
         for c in codes:
             self.assertRegex(c, r"^[A-Z0-9]{2,6}$")
 
     def test_every_article_names_only_real_job_types(self):
-        for code, _name, j in W.ARTICLES:
+        for code, _name, j, _k, _b in W.ARTICLES:
             for name in jobs(j):
                 self.assertIn(name, W.JOB_TYPES, code)
 
     def test_every_job_type_has_articles_to_pick_from(self):
         for job in W.JOB_TYPES:
-            self.assertTrue([c for c, _n, j in W.ARTICLES if job in jobs(j)], job)
+            self.assertTrue([a[0] for a in W.ARTICLES if job in jobs(a[2])], job)
 
     def test_the_codes_the_estimator_already_uses_survive(self):
         # YS_MB_WAR and friends are live SKU codes; dropping WAR would orphan
         # every wardrobe ever priced.
-        codes = {c for c, _n, _j in W.ARTICLES}
+        codes = {a[0] for a in W.ARTICLES}
         for c in ("WAR", "BED", "LOF", "STU", "TVU"):
             self.assertIn(c, codes)
 
@@ -165,7 +165,7 @@ class TestArticleCodeOwnsTheSkuToken(unittest.TestCase):
 
     def test_the_seeded_codes_produce_the_codes_the_shop_already_writes(self):
         from mallet_estimator.estimator import sku_code
-        by_name = {n: c for c, n, _j in W.ARTICLES}
+        by_name = {a[1]: a[0] for a in W.ARTICLES}
         cases = [
             ("Yogesh Sahasrabudhe", "Master Bedroom", "Wardrobe",  "YS_MB_WAR"),
             ("Yogesh Sahasrabudhe", "Master Bedroom", "Bed",       "YS_MB_BED"),
@@ -182,7 +182,7 @@ class TestArticleCodeOwnsTheSkuToken(unittest.TestCase):
         # Two articles with one token would collide in the SKU code the moment
         # they landed in the same room, and _unique_code would quietly suffix
         # one of them — a code nobody can read back.
-        codes = [c for c, _n, _j in W.ARTICLES]
+        codes = [a[0] for a in W.ARTICLES]
         self.assertEqual(len(codes), len(set(codes)))
 
 
@@ -228,3 +228,71 @@ class TestSiteKey(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestArticleKindAndBasis(unittest.TestCase):
+    """Who does the work, and what unit it is quoted in.
+
+    Amit, 2026-08-21: "pop work is esimated by sqft, electrical work by
+    number of points, running feet of wire installations, number of fan and
+    light installations, tile work is done by sqft ... depending on the volume
+    of the work it can be estimated lumpsum as well depending on vendor."
+    """
+
+    def test_every_article_declares_a_kind_and_a_basis(self):
+        for a in W.ARTICLES:
+            self.assertEqual(len(a), 5, f"{a[0]} is not (code, name, jobs, kind, basis)")
+            self.assertIn(a[3], W.KINDS, a[0])
+            self.assertIn(a[4], W.BASES, a[0])
+
+    def test_electrical_is_three_articles_not_one_with_three_numbers(self):
+        """That is how the vendor quotes it — so many points, so many feet of
+        wire, so many fittings hung. Splitting it keeps ONE number per line,
+        which keeps the site UI a single field instead of a spreadsheet in a
+        dusty flat."""
+        by_code = {a[0]: a for a in W.ARTICLES}
+        self.assertEqual(by_code["ELP"][4], W.POINT, "points are counted")
+        self.assertEqual(by_code["ELW"][4], W.RFT, "wire runs in feet")
+        self.assertEqual(by_code["ELF"][4], W.NOS, "fittings are counted")
+
+    def test_the_trades_that_are_given_away_are_subcontract(self):
+        """POP, tiling, plaster, wiring and paint are not made in the shop.
+        The kind is not a label: it decides whether an SKU needs a cut list
+        and a Work Order at all."""
+        by_code = {a[0]: a for a in W.ARTICLES}
+        for code in ("POP", "TIL", "PNT", "PLS", "ELP", "ELW", "PLM", "DEM"):
+            self.assertEqual(by_code[code][3], W.SUBCONTRACT, code)
+
+    def test_the_shops_own_work_is_build(self):
+        by_code = {a[0]: a for a in W.ARTICLES}
+        for code in ("WAR", "BED", "KIT", "LOF", "TVU"):
+            self.assertEqual(by_code[code][3], W.BUILD, code)
+
+    def test_a_lumpsum_escape_exists(self):
+        """A vendor who prices a whole flat's wiring as one figure is not a
+        measurement error — it is how the deal was struck."""
+        by_code = {a[0]: a for a in W.ARTICLES}
+        self.assertEqual(by_code["SUB"][4], W.LUMPSUM)
+        self.assertEqual(by_code["SUB"][3], W.SUBCONTRACT)
+
+    def test_area_work_is_quoted_by_area(self):
+        by_code = {a[0]: a for a in W.ARTICLES}
+        for code in ("POP", "TIL", "PNT", "WIN", "GRL", "WLP"):
+            self.assertEqual(by_code[code][4], W.SQFT, code)
+
+    def test_every_kind_and_every_basis_is_actually_used(self):
+        """A vocabulary with an unused word in it is a vocabulary somebody
+        will misuse."""
+        kinds = {a[3] for a in W.ARTICLES}
+        bases = {a[4] for a in W.ARTICLES}
+        self.assertEqual(kinds, set(W.KINDS))
+        self.assertEqual(bases, set(W.BASES))
+
+    def test_a_subcontract_article_still_reaches_the_stages_it_belongs_to(self):
+        """Filing is the point: a wall that needs POP must have somewhere to
+        put it, on a job type that actually reaches POP's stage."""
+        by_code = {a[0]: a for a in W.ARTICLES}
+        jobs = [j.strip() for j in by_code["POP"][2].split(",")]
+        self.assertIn(W.NEW, jobs)
+        reach = [s for s in W.WORK_STAGES if "POP" in s[2] and W.NEW in s[3]]
+        self.assertTrue(reach, "no New-work stage covers POP")

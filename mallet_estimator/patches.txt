@@ -114,3 +114,9 @@ mallet_estimator.patches.grant_tree_masters
 # the article re-seed needs the doctype synced too. Also the forced migrate
 # that carries both to the database at all — a Python-only deploy runs none.
 mallet_estimator.patches.photo_kind_and_article_units
+# post_model_sync: kind and basis must EXIST as columns before ensure_articles
+# can write them. Its own entry rather than an edit to the patch above,
+# because that one has already run on staging and Frappe never repeats a
+# patch — retrofitting work into a spent patch is how a migration silently
+# does nothing.
+mallet_estimator.patches.article_kind_and_basis

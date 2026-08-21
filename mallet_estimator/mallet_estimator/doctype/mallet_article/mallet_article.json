@@ -5,22 +5,82 @@
  "creation": "2026-08-21 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
- "field_order": ["article_code", "article_name", "column_break_head",
-                 "job_types", "default_uom", "disabled"],
+ "field_order": [
+  "article_code",
+  "article_name",
+  "column_break_head",
+  "job_types",
+  "kind",
+  "basis",
+  "default_uom",
+  "disabled"
+ ],
  "fields": [
-  {"fieldname": "article_code", "fieldtype": "Data", "label": "Code", "reqd": 1,
-   "unique": 1, "in_list_view": 1, "length": 6,
-   "description": "The third token of an SKU code — WAR, PVC, HNG. Uppercase, three letters by convention."},
-  {"fieldname": "article_name", "fieldtype": "Data", "label": "Article", "reqd": 1,
-   "in_list_view": 1},
-  {"fieldname": "column_break_head", "fieldtype": "Column Break"},
-  {"fieldname": "job_types", "fieldtype": "Data", "label": "Job Types", "reqd": 1,
-   "default": "New work", "in_list_view": 1, "in_standard_filter": 1,
-   "description": "Comma-separated: New work, Repair, Supply & install. Which job types may pick this article."},
-  {"fieldname": "default_uom", "fieldtype": "Link", "label": "Default UOM",
-   "options": "UOM", "default": "Nos"},
-  {"fieldname": "disabled", "fieldtype": "Check", "label": "Disabled", "default": "0",
-   "description": "Hidden from the pickers. Never delete an article — SKU codes already refer to it."}
+  {
+   "fieldname": "article_code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "length": 6,
+   "description": "The third token of an SKU code — WAR, PVC, HNG. Uppercase, three letters by convention."
+  },
+  {
+   "fieldname": "article_name",
+   "fieldtype": "Data",
+   "label": "Article",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "job_types",
+   "fieldtype": "Data",
+   "label": "Job Types",
+   "reqd": 1,
+   "default": "New work",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Comma-separated: New work, Repair, Supply & install. Which job types may pick this article."
+  },
+  {
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "label": "Kind",
+   "options": "Build\nInstall\nSubcontract",
+   "default": "Build",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Who does the work. Build gets a cut list and a Work Order; Install gets a bought Item and fitting labour; Subcontract gets a vendor rate and nothing from the shop floor."
+  },
+  {
+   "fieldname": "basis",
+   "fieldtype": "Select",
+   "label": "Estimating Basis",
+   "options": "Nos\nSqft\nRft\nPoint\nLumpsum",
+   "default": "Nos",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "The unit this work is quoted in. POP by sqft, electrical points by point, wiring by running feet."
+  },
+  {
+   "fieldname": "default_uom",
+   "fieldtype": "Link",
+   "label": "Default UOM",
+   "options": "UOM",
+   "default": "Nos"
+  },
+  {
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled",
+   "default": "0",
+   "description": "Hidden from the pickers. Never delete an article — SKU codes already refer to it."
+  }
  ],
  "links": [],
  "modified": "2026-08-21 00:00:00.000000",
@@ -29,9 +89,34 @@
  "name": "Mallet Article",
  "owner": "Administrator",
  "permissions": [
-  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "System Manager", "share": 1, "write": 1},
-  {"create": 1, "delete": 1, "email": 1, "export": 1, "print": 1, "read": 1, "report": 1, "role": "Manufacturing Manager", "share": 1, "write": 1},
-  {"read": 1, "role": "Manufacturing User"}
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Manufacturing User"
+  }
  ],
  "search_fields": "article_name,job_types",
  "show_title_field_in_link": 1,

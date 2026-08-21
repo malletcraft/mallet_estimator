@@ -8,7 +8,6 @@
  "title_field": "sku_code",
  "field_order": [
   "identity_section",
-  "mallet_article",
   "article_name",
   "room",
   "multi_room",
@@ -119,7 +118,16 @@
   "client_material",
   "client_design_exec",
   "client_total",
-  "est_days"
+  "est_days",
+  "mallet_article",
+  "site_measure_section",
+  "site_qty",
+  "site_qty_basis",
+  "column_break_site_measure",
+  "site_width_mm",
+  "site_height_mm",
+  "site_depth_mm",
+  "site_note"
  ],
  "fields": [
   {
@@ -850,6 +858,53 @@
    "options": "Mallet Article",
    "in_standard_filter": 1,
    "description": "The article master. Its code owns the third token of the SKU code — PVC, not PVC_BAT_DOO. Leave blank and the token is derived from the article name as before."
+  },
+  {
+   "fieldname": "site_measure_section",
+   "fieldtype": "Section Break",
+   "label": "Site Measure",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "site_qty",
+   "fieldtype": "Float",
+   "label": "Quantity",
+   "precision": "2",
+   "description": "What the site measured, in the article's own unit. One number per line: POP in sqft, electrical points by the point, wiring in running feet."
+  },
+  {
+   "fieldname": "site_qty_basis",
+   "fieldtype": "Data",
+   "label": "Unit",
+   "read_only": 1,
+   "fetch_from": "mallet_article.basis",
+   "description": "Comes from the article. The unit is the article's, never a choice made at quoting time."
+  },
+  {
+   "fieldname": "column_break_site_measure",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site_width_mm",
+   "fieldtype": "Int",
+   "label": "Width (mm)",
+   "description": "Outer size, for work that is BUILT. A wardrobe has three dimensions; POP has an area and no shape."
+  },
+  {
+   "fieldname": "site_height_mm",
+   "fieldtype": "Int",
+   "label": "Height (mm)"
+  },
+  {
+   "fieldname": "site_depth_mm",
+   "fieldtype": "Int",
+   "label": "Depth (mm)"
+  },
+  {
+   "fieldname": "site_note",
+   "fieldtype": "Small Text",
+   "label": "Site Note",
+   "description": "What the person standing there wanted the designer to know."
   }
  ],
  "links": [],

@@ -16,7 +16,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, now_datetime, today
 
-from mallet_estimator import handover, panorama, worksite
+from mallet_estimator import estimator, handover, panorama, worksite
 
 DOCTYPE = "Site Photo 360"
 STAGES = ("Baseline", "Civil", "Wiring", "Carpentry", "Finishing", "Handover")
@@ -168,15 +168,27 @@ def article_master(job_type=None):
     """The article master — the third token of an SKU code, as a picker."""
     if not frappe.db.exists("DocType", "Mallet Article"):
         return []
+    meta = frappe.get_meta("Mallet Article")
+    fields = ["name", "article_code", "article_name", "job_types"]
+    # Guarded: a bench that has not migrated past this batch still answers,
+    # it just answers without the two new columns.
+    for f in ("kind", "basis"):
+        if meta.has_field(f):
+            fields.append(f)
     rows = frappe.get_all(
-        "Mallet Article", filters={"disabled": 0},
-        fields=["name", "article_code", "article_name", "job_types"],
+        "Mallet Article", filters={"disabled": 0}, fields=fields,
         order_by="article_code asc", limit_page_length=0)
     if job_type:
         rows = [r for r in rows
                 if job_type in [x.strip() for x in (r.job_types or "").split(",")]]
     return [{"code": r.article_code, "article": r.article_name,
-             "job_types": r.job_types} for r in rows]
+             "job_types": r.job_types,
+             # The KIND groups the picker — you make it, you fit it, or an
+             # agency does it — and the BASIS is the unit the site is asked
+             # for. Sending them with the master is what lets the phone ask
+             # for "sqft" rather than a bare number.
+             "kind": r.get("kind") or worksite.BUILD,
+             "basis": r.get("basis") or worksite.NOS} for r in rows]
 
 
 @frappe.whitelist()
@@ -386,6 +398,65 @@ def set_capture_tags(name, work_stage=None, sku=None):
         "work_stage": doc.get("work_stage") or "",
         "sku": doc.get("sku") or "",
     }
+
+
+@frappe.whitelist()
+def create_sku(project, room, article_code, qty=None, width_mm=None,
+               height_mm=None, depth_mm=None, note=None):
+    """Record a piece of WORK the site says is needed, before anyone leaves.
+
+    Amit, 2026-08-21: "idea is to have a SKU / service discussed quickly with
+    client when measuring the site so that what high level required is
+    captured." So this is not the office transcribing an estimate — it is the
+    person standing in the room saying "this wall needs POP, 120 sqft", and
+    the estimate being built from that afterwards.
+
+    The code is GENERATED, never typed: customer initials + room + article, the
+    grammar the estimator already uses. Two people describing the same wall
+    have to produce the same code or the whole scheme is decorative.
+
+    Idempotent on that code. A technician who taps twice, or a queue that
+    retries after a dropped acknowledgement, gets one SKU — the alternative is
+    a project quietly carrying the same wardrobe three times.
+    """
+    frappe.has_permission(DOCTYPE, "create", throw=True)
+    code = (article_code or "").strip().upper()
+    if not frappe.db.exists("Mallet Article", code):
+        frappe.throw(_("No such article: {0}").format(code))
+    art = frappe.db.get_value("Mallet Article", code,
+                              ["article_name", "kind", "basis"], as_dict=True)
+
+    customer = frappe.db.get_value("Project", project, "customer")
+    if not customer:
+        frappe.throw(_("{0} has no customer, so an SKU code cannot be built")
+                     .format(project))
+    customer_name = frappe.db.get_value("Customer", customer, "customer_name") \
+        or customer
+    want = estimator.sku_code(customer_name, room, art.article_name, code)
+
+    existing = frappe.db.get_value(
+        "Estimate SKU", {"project": project, "sku_code": want}, "name")
+    if existing:
+        return {"name": existing, "code": want, "already": True}
+
+    doc = frappe.get_doc({
+        "doctype": "Estimate SKU", "project": project, "room": room,
+        "article_name": art.article_name,
+    })
+    meta = doc.meta
+    if meta.has_field("mallet_article"):
+        doc.mallet_article = code
+    # Guarded one by one: a bench that has not migrated past this batch still
+    # takes the SKU, it just takes it without the measure.
+    for field, value in (("site_qty", qty), ("site_width_mm", width_mm),
+                         ("site_height_mm", height_mm),
+                         ("site_depth_mm", depth_mm), ("site_note", note)):
+        if value not in (None, "") and meta.has_field(field):
+            doc.set(field, value)
+    doc.insert(ignore_permissions=True)
+    return {"name": doc.name, "code": doc.get("sku_code") or want,
+            "article": art.article_name, "kind": art.kind, "basis": art.basis,
+            "already": False}
 
 
 def _log_stage_change(doc, new_stage):

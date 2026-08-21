@@ -640,6 +640,21 @@ def verify_setup():
     n_art = frappe.db.count("Mallet Article")
     chk("Articles", n_art >= len(worksite.ARTICLES),
         f"{n_art} of {len(worksite.ARTICLES)} seeded")
+    # The KIND decides whether an SKU needs a cut list at all and the BASIS
+    # decides which unit the site is asked for. An article missing either is
+    # one the phone cannot offer, which shows up as a picker with holes in it
+    # rather than as an error.
+    if frappe.db.exists("DocType", "Mallet Article") and \
+            frappe.get_meta("Mallet Article").has_field("basis"):
+        vague = frappe.get_all(
+            "Mallet Article",
+            filters={"disabled": 0},
+            or_filters=[{"kind": ("in", ["", None])},
+                        {"basis": ("in", ["", None])}],
+            pluck="name", limit_page_length=8)
+        chk("Articles know their kind and unit", not vague,
+            ("no kind/unit on: " + ", ".join(vague)) if vague
+            else f"{len(worksite.KINDS)} kinds, {len(worksite.BASES)} units")
     n_stage = frappe.db.count("Mallet Work Stage")
     chk("Work stages", n_stage >= len(worksite.WORK_STAGES),
         f"{n_stage} of {len(worksite.WORK_STAGES)} seeded, "

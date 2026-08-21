@@ -24,8 +24,9 @@ import frappe
 from frappe import _
 
 from mallet_estimator.worksite_data import (      # noqa: F401  (re-exported)
-    ALL, ARTICLES, DEFAULT_SITE_NAME, INSTALL, JOB_TYPES, NEW, PHASES,
-    REPAIR, STAGE_RENAMES, WORK_STAGES, site_key,
+    ALL, ARTICLES, BASES, BUILD, DEFAULT_SITE_NAME, INSTALL, INSTALL_KIND,
+    JOB_TYPES, KINDS, LUMPSUM, NEW, NOS, PHASES, POINT, REPAIR, RFT, SQFT,
+    STAGE_RENAMES, SUBCONTRACT, WORK_STAGES, site_key,
 )
 
 
@@ -37,9 +38,9 @@ def ensure_articles():
     widen; the name is not touched because somebody may have corrected it."""
     _ensure_nos()
     made, errors = 0, []
-    for code, name, jobs in ARTICLES:
+    for code, name, jobs, kind, basis in ARTICLES:
         try:
-            made += _one_article(code, name, jobs)
+            made += _one_article(code, name, jobs, kind, basis)
         except Exception as exc:
             # PER ROW, not per master. The whole loop used to sit inside one
             # _safe() in after_install, so the first row that threw left the
@@ -53,14 +54,25 @@ def ensure_articles():
             "total": frappe.db.count("Mallet Article")}
 
 
-def _one_article(code, name, jobs):
+def _one_article(code, name, jobs, kind, basis):
     """One article. Returns 1 if it was created, 0 if it already existed."""
     if frappe.db.exists("Mallet Article", code):
-        if frappe.db.get_value("Mallet Article", code, "job_types") != jobs:
-            frappe.db.set_value("Mallet Article", code, "job_types", jobs)
+        # job types, kind and basis are the MODEL and are kept in step on
+        # every migrate — the same rule the stage sequence follows. The name
+        # is left alone because somebody may have corrected it. A hand-edited
+        # basis is a mistake rather than a preference: it decides which unit
+        # the site is asked for, and two articles disagreeing about that is
+        # how a quantity ends up meaning nothing.
+        current = frappe.db.get_value(
+            "Mallet Article", code, ["job_types", "kind", "basis"], as_dict=True)
+        want = {"job_types": jobs, "kind": kind, "basis": basis}
+        drift = {k: v for k, v in want.items() if (current or {}).get(k) != v}
+        if drift:
+            frappe.db.set_value("Mallet Article", code, drift)
         return 0
     doc = frappe.get_doc({"doctype": "Mallet Article", "article_code": code,
-                          "article_name": name, "job_types": jobs})
+                          "article_name": name, "job_types": jobs,
+                          "kind": kind, "basis": basis})
     doc.insert(ignore_permissions=True)
     return 1
 

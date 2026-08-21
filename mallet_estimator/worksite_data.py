@@ -35,34 +35,87 @@ PHASES = ("Survey", "Civil", "First fix", "Ceiling", "Surfaces",
           "Delivery", "Joinery", "Second fix", "Finishing", "Closing")
 
 # (code, article, job types)
+# WHO DOES THE WORK. The three kinds are not a label — they decide which
+# machinery an SKU needs downstream. A Build article gets a cut list, a BOM
+# and a Work Order; an Install article gets a bought Item and fitting labour;
+# a Subcontract article gets a vendor rate and nothing from the shop floor.
+BUILD, INSTALL_KIND, SUBCONTRACT = "Build", "Install", "Subcontract"
+KINDS = (BUILD, INSTALL_KIND, SUBCONTRACT)
+
+# HOW IT IS ESTIMATED. Amit, 2026-08-21: "pop work is esimated by sqft,
+# electrical work by number of points, running feet of wire installations,
+# number of fan and light installations, tile work is done by sqft ... and
+# depending on the volume of the work it can be estimated lumpsum as well
+# depending on vendor."
+#
+# So the unit belongs to the ARTICLE, not to the project and not to a guess
+# at quoting time. One number per line, in the article's own unit — which is
+# why electrical is three articles rather than one with three numbers. That
+# is how it is actually quoted, and a phone in a dusty flat is the wrong
+# place for a mini-spreadsheet.
+SQFT, RFT, POINT, NOS, LUMPSUM = "Sqft", "Rft", "Point", "Nos", "Lumpsum"
+BASES = (SQFT, RFT, POINT, NOS, LUMPSUM)
+
+# (code, name, job types, kind, estimating basis)
 ARTICLES = [
-    ("WAR", "Wardrobe",              f"{NEW}, {REPAIR}"),
-    ("BED", "Bed",                   f"{NEW}, {REPAIR}"),
-    ("LOF", "Loft",                  NEW),
-    ("STU", "Study table",           NEW),
-    ("TVU", "TV unit",               NEW),
-    ("CRD", "Crockery unit",         NEW),
-    ("KIT", "Kitchen base",          f"{NEW}, {REPAIR}"),
-    ("KWL", "Kitchen wall unit",     NEW),
-    ("VAN", "Vanity",                NEW),
-    ("SHO", "Shoe rack",             NEW),
-    ("PAR", "Partition",             NEW),
-    ("PUJ", "Pooja unit",            NEW),
-    ("STO", "Storage",               NEW),
-    ("SHT", "Shutter",               REPAIR),
-    ("DRW", "Drawer set",            REPAIR),
-    ("HNG", "Hinges & hardware",     REPAIR),
-    ("LAM", "Laminate patch",        REPAIR),
-    ("DOR", "Flush door",            f"{REPAIR}, {INSTALL}"),
-    ("FRM", "Door frame",            INSTALL),
-    ("PVC", "PVC bathroom door",     INSTALL),
-    ("WIN", "Window",                INSTALL),
-    ("MSH", "Mosquito mesh",         INSTALL),
-    ("GRL", "Safety grill",          INSTALL),
-    ("BLD", "Blinds",                INSTALL),
-    ("WLP", "Wallpaper",             INSTALL),
-    ("FCL", "False ceiling",         INSTALL),
+    # --- built in the shop --------------------------------------------
+    ("WAR", "Wardrobe",              f"{NEW}, {REPAIR}", BUILD, NOS),
+    ("BED", "Bed",                   f"{NEW}, {REPAIR}", BUILD, NOS),
+    ("LOF", "Loft",                  NEW,                BUILD, NOS),
+    ("STU", "Study table",           NEW,                BUILD, NOS),
+    ("TVU", "TV unit",               NEW,                BUILD, NOS),
+    ("CRD", "Crockery unit",         NEW,                BUILD, NOS),
+    ("KIT", "Kitchen base",          f"{NEW}, {REPAIR}", BUILD, RFT),
+    ("KWL", "Kitchen wall unit",     NEW,                BUILD, RFT),
+    ("VAN", "Vanity",                NEW,                BUILD, NOS),
+    ("SHO", "Shoe rack",             NEW,                BUILD, NOS),
+    ("PAR", "Partition",             NEW,                BUILD, SQFT),
+    ("PUJ", "Pooja unit",            NEW,                BUILD, NOS),
+    ("STO", "Storage",               NEW,                BUILD, NOS),
+    ("SHT", "Shutter",               REPAIR,             BUILD, NOS),
+    ("DRW", "Drawer set",            REPAIR,             BUILD, NOS),
+    ("HNG", "Hinges & hardware",     REPAIR,             BUILD, NOS),
+    ("LAM", "Laminate patch",        REPAIR,             BUILD, SQFT),
+
+    # --- bought and fitted --------------------------------------------
+    ("DOR", "Flush door",            f"{REPAIR}, {INSTALL}", INSTALL_KIND, NOS),
+    ("FRM", "Door frame",            INSTALL,            INSTALL_KIND, NOS),
+    ("PVC", "PVC bathroom door",     INSTALL,            INSTALL_KIND, NOS),
+    ("WIN", "Window",                INSTALL,            INSTALL_KIND, SQFT),
+    ("MSH", "Mosquito mesh",         INSTALL,            INSTALL_KIND, SQFT),
+    ("GRL", "Safety grill",          INSTALL,            INSTALL_KIND, SQFT),
+    ("BLD", "Blinds",                INSTALL,            INSTALL_KIND, SQFT),
+    ("WLP", "Wallpaper",             INSTALL,            INSTALL_KIND, SQFT),
+    ("FCL", "False ceiling",         INSTALL,            INSTALL_KIND, SQFT),
+
+    # --- given to an agency -------------------------------------------
+    # The work MCFT does not do itself but still has to capture on site,
+    # quote, and photograph the progress of. Without these the app can
+    # record a wall that needs POP and have nowhere to put it.
+    ("POP", "POP / gypsum ceiling",  f"{NEW}, {REPAIR}", SUBCONTRACT, SQFT),
+    ("PNT", "Painting",              f"{NEW}, {REPAIR}", SUBCONTRACT, SQFT),
+    ("TIL", "Tiling",                f"{NEW}, {REPAIR}", SUBCONTRACT, SQFT),
+    ("STN", "Stone & marble",        NEW,                SUBCONTRACT, SQFT),
+    ("MAS", "Masonry & block work",  NEW,                SUBCONTRACT, SQFT),
+    ("DEM", "Demolition",            f"{NEW}, {REPAIR}", SUBCONTRACT, SQFT),
+    ("PLS", "Plaster & waterproofing", f"{NEW}, {REPAIR}", SUBCONTRACT, SQFT),
+    # Electrical is THREE articles, not one with three numbers, because that
+    # is how the vendor quotes it: so many points, so many feet of wire, so
+    # many fittings hung. Splitting it keeps one number per line and keeps
+    # the site UI a single field.
+    ("ELP", "Electrical points",     f"{NEW}, {REPAIR}", SUBCONTRACT, POINT),
+    ("ELW", "Electrical wiring",     f"{NEW}, {REPAIR}", SUBCONTRACT, RFT),
+    ("ELF", "Light & fan fitting",   ALL,                SUBCONTRACT, NOS),
+    ("PLM", "Plumbing",              f"{NEW}, {REPAIR}", SUBCONTRACT, POINT),
+    ("HVC", "HVAC / AC piping",      NEW,                SUBCONTRACT, POINT),
+    ("GLS", "Glass & mirrors",       ALL,                SUBCONTRACT, SQFT),
+    ("CLN", "Deep clean",            ALL,                SUBCONTRACT, SQFT),
+    # The escape hatch, and it is deliberate rather than lazy: a vendor who
+    # prices a whole flat's wiring as one figure is not a measurement error,
+    # it is how the deal was struck.
+    ("SUB", "Subcontract (lumpsum)", ALL,                SUBCONTRACT, LUMPSUM),
 ]
+
 
 # (sequence, phase, stage, job types, why it sits here)
 #
