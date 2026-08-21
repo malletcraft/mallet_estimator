@@ -90,7 +90,22 @@ class Catalogue(context: Context) {
         val jobTypes: List<String>,
     )
 
-    data class Article(val code: String, val name: String, val jobTypes: List<String>)
+    data class Article(
+        val code: String,
+        val name: String,
+        val jobTypes: List<String>,
+        /** Build / Install / Subcontract — who does the work. */
+        val kind: String = KIND_BUILD,
+        /** Sqft / Rft / Point / Nos / Lumpsum — the unit it is QUOTED in,
+         *  and therefore the unit the site is asked for. */
+        val basis: String = BASIS_NOS,
+    ) {
+        /** A wardrobe has three dimensions; POP has an area and no shape. */
+        val wantsDimensions: Boolean get() = kind == KIND_BUILD
+        /** Lumpsum is a deal, not a measurement — asking for a number would
+         *  invite somebody to invent one. */
+        val wantsQuantity: Boolean get() = basis != BASIS_LUMPSUM
+    }
 
     data class Sku(val name: String, val code: String, val room: String, val article: String)
 
@@ -99,6 +114,27 @@ class Catalogue(context: Context) {
     private data class Local(
         val client: String, val site: String, val project: String,
         val siteType: String, val jobType: String,
+    )
+
+    /** Work the SITE said was needed, before the bench knew about it.
+     *
+     *  Kept beside the offline sites rather than in the capture database: it
+     *  is a small list that syncs and disappears, and the captures table has
+     *  no migration path worth spending on a queue that empties itself. */
+    data class LocalSku(
+        val deviceId: String,
+        val client: String,
+        val projectTitle: String,
+        val projectId: String,
+        val room: String,
+        val articleCode: String,
+        val articleName: String,
+        val basis: String,
+        val qty: Double?,
+        val widthMm: Int?,
+        val heightMm: Int?,
+        val depthMm: Int?,
+        val note: String,
     )
 
     private fun locals(): List<Local> {
@@ -149,7 +185,68 @@ class Catalogue(context: Context) {
         })
     }
 
-    fun pendingCount(): Int = locals().size
+    // ---- work recorded on site ------------------------------------------
+
+    fun localSkus(): List<LocalSku> {
+        val raw = prefs.getString("local_skus", "[]") ?: "[]"
+        val arr = runCatching { JSONArray(raw) }.getOrDefault(JSONArray())
+        return (0 until arr.length()).mapNotNull { i ->
+            val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val id = o.optString("device_id").trim()
+            if (id.isEmpty()) return@mapNotNull null
+            LocalSku(
+                deviceId = id,
+                client = o.optString("client"),
+                projectTitle = o.optString("project_title"),
+                projectId = o.optString("project"),
+                room = o.optString("room"),
+                articleCode = o.optString("article_code"),
+                articleName = o.optString("article_name"),
+                basis = o.optString("basis").ifEmpty { BASIS_NOS },
+                qty = if (o.has("qty")) o.optDouble("qty") else null,
+                widthMm = if (o.has("w")) o.optInt("w") else null,
+                heightMm = if (o.has("h")) o.optInt("h") else null,
+                depthMm = if (o.has("d")) o.optInt("d") else null,
+                note = o.optString("note"))
+        }
+    }
+
+    private fun writeLocalSkus(list: List<LocalSku>) {
+        val arr = JSONArray()
+        list.forEach { k ->
+            val o = JSONObject()
+                .put("device_id", k.deviceId).put("client", k.client)
+                .put("project_title", k.projectTitle).put("project", k.projectId)
+                .put("room", k.room).put("article_code", k.articleCode)
+                .put("article_name", k.articleName).put("basis", k.basis)
+                .put("note", k.note)
+            k.qty?.let { o.put("qty", it) }
+            k.widthMm?.let { o.put("w", it) }
+            k.heightMm?.let { o.put("h", it) }
+            k.depthMm?.let { o.put("d", it) }
+            arr.put(o)
+        }
+        prefs.edit().putString("local_skus", arr.toString()).apply()
+    }
+
+    fun addLocalSku(sku: LocalSku) {
+        // Keyed on the device id, exactly as the bench is: two wardrobes in
+        // one room are two real SKUs, so nothing here may collapse them.
+        if (localSkus().any { it.deviceId == sku.deviceId }) return
+        writeLocalSkus(localSkus() + sku)
+    }
+
+    fun forgetLocalSku(deviceId: String) {
+        writeLocalSkus(localSkus().filterNot { it.deviceId == deviceId })
+    }
+
+    /** What this project has recorded on site and not yet sent. */
+    fun localSkusOf(projectTitle: String): List<LocalSku> =
+        localSkus().filter { same(it.projectTitle, projectTitle) }
+
+    /** Offline sites AND offline SKUs — both are work the bench has not seen,
+     *  and the Queue badge must never be optimistic about either. */
+    fun pendingCount(): Int = locals().size + localSkus().size
 
     /** What was typed for this client and project while there was no signal.
      *
@@ -302,7 +399,9 @@ class Catalogue(context: Context) {
             val o = arr.optJSONObject(i) ?: continue
             val jobs = splitJobs(o.optString("job_types"))
             if (jobType != null && jobType !in jobs) continue
-            out.add(Article(o.optString("code"), o.optString("article"), jobs))
+            out.add(Article(o.optString("code"), o.optString("article"), jobs,
+                kind = o.optString("kind").ifBlank { KIND_BUILD },
+                basis = o.optString("basis").ifBlank { BASIS_NOS }))
         }
         return out.sortedBy { it.code }
     }
@@ -348,6 +447,14 @@ class Catalogue(context: Context) {
         const val JOB_NEW = "New work"
         const val JOB_REPAIR = "Repair"
         const val JOB_INSTALL = "Supply & install"
+        const val KIND_BUILD = "Build"
+        const val KIND_INSTALL = "Install"
+        const val KIND_SUBCONTRACT = "Subcontract"
+        const val BASIS_NOS = "Nos"
+        const val BASIS_LUMPSUM = "Lumpsum"
+        /** The order the picker groups by: the shop's own work first, then
+         *  what it fits, then what it gives away. */
+        val KIND_ORDER = listOf(KIND_BUILD, KIND_INSTALL, KIND_SUBCONTRACT)
 
         private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")

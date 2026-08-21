@@ -115,6 +115,9 @@ private fun AppScreen() {
     var faceMode by remember { mutableStateOf(true) }   // true = annotated
     var showSkus by remember { mutableStateOf(false) }
     var showDetail by remember { mutableStateOf(false) }
+    // Work the site says is needed. Opened from the room's SKU list and from
+    // a photo's tag row, because both are moments when somebody notices.
+    var addSkuFor by remember { mutableStateOf<String?>(null) }
     // The two pickers that re-file ONE photo, as opposed to moving the whole
     // project. Same stage list, quite different consequence.
     var retagStage by remember { mutableStateOf(false) }
@@ -139,6 +142,10 @@ private fun AppScreen() {
     var busy by remember { mutableStateOf<String?>(null) }
     var lastResult by remember { mutableStateOf<String?>(null) }
     var queue by remember { mutableStateOf(store.all()) }
+    // Captures AND recorded work. The Queue badge is the one number in the
+    // app that must never be optimistic, and an SKU sitting unsent on a
+    // phone is exactly as lost as a photograph would be.
+    val unsent = queue.count { it.state != "SYNCED" } + cat.localSkus().size
 
     // Annotation navigation: a capture opens its face list; a face opens
     // the editor. Plain state instead of a nav library — two levels deep.
@@ -300,6 +307,40 @@ private fun AppScreen() {
         }
     }
 
+    addSkuFor?.let { skuRoom ->
+        val proj = navProject
+        AddSkuSheet(
+            articles = cat.articles(masters, proj?.jobType),
+            client = proj?.client.orEmpty(),
+            room = skuRoom,
+            onDismiss = { addSkuFor = null },
+            onAdd = { art, qty, w, h, d, note ->
+                // Minted here, at the tap, exactly as a capture id is: it is
+                // what lets the queue retry after a dropped acknowledgement
+                // without leaving the project carrying the same wardrobe
+                // twice. Two REAL wardrobes get two taps and two ids.
+                val id = "msku-" + Handover.mintDeviceId(
+                    ByteArray(6).also { SecureRandom().nextBytes(it) })
+                    .removePrefix("MCAP-")
+                cat.addLocalSku(Catalogue.LocalSku(
+                    deviceId = id,
+                    client = proj?.client.orEmpty(),
+                    projectTitle = proj?.title.orEmpty(),
+                    projectId = proj?.serverId.orEmpty(),
+                    room = skuRoom,
+                    articleCode = art.code,
+                    articleName = art.name,
+                    basis = art.basis,
+                    qty = qty, widthMm = w, heightMm = h, depthMm = d,
+                    note = note))
+                addSkuFor = null
+                lastResult = previewCode(proj?.client.orEmpty(), skuRoom, art.code) +
+                    " recorded" + (qty?.let { " · $it ${art.basis}" } ?: "")
+                SyncWorker.syncNow(context)
+                queue = store.all()
+            })
+    }
+
     if (showFov) {
         AlertDialog(
             onDismissRequest = { showFov = false },
@@ -367,7 +408,7 @@ private fun AppScreen() {
             user = FrappeClient.savedUrl(context).ifBlank { "Site Photos" },
             server = FrappeClient.savedUrl(context),
             groups = drawerGroups(
-                queued = queue.count { it.state != "SYNCED" },
+                queued = unsent,
                 lastSync = if (queue.isEmpty()) "nothing yet" else "all sent",
                 fov = roomSizeLabel(roomSize),
                 version = appVersion(context),
@@ -465,12 +506,12 @@ private fun AppScreen() {
                     TreeTopBar(
                         title = if (tab == "work") "Work" else "Sync queue",
                         subtitle = if (tab == "work") "Woodugift · site photos"
-                                   else plural(queue.count { it.state != "SYNCED" }, "waiting"),
+                                   else plural(unsent, "waiting"),
                         onMenu = { scopeTab.launch { drawerState.open() } },
                         onSearch = { showSearch = true; searchQuery = "" })
                 },
                 bottomBar = {
-                    BottomBar(tab, queue.count { it.state != "SYNCED" }) { tab = it }
+                    BottomBar(tab, unsent) { tab = it }
                 },
             ) { pad ->
                 Box(Modifier.padding(pad)) {
@@ -478,8 +519,8 @@ private fun AppScreen() {
                         WorkScreen(
                             resume = recents.firstOrNull(),
                             recents = recents.drop(1).take(5),
-                            synced = queue.none { it.state != "SYNCED" },
-                            queued = queue.count { it.state != "SYNCED" },
+                            synced = unsent == 0,
+                            queued = unsent,
                             onOpen = { r ->
                                 tab = "browse"
                                 navClient = r.client
@@ -491,7 +532,8 @@ private fun AppScreen() {
                             })
                     } else {
                         QueueScreen(
-                            waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(it) },
+                            waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(it) } +
+                                cat.localSkus().map { skuQueueRow(it) },
                             sent = queue.filter { it.state == "SYNCED" }.take(12).map { queueRow(it) },
                             wifiOnly = AppPrefs.read(capturePrefs).wifiOnly)
                     }
@@ -600,6 +642,16 @@ private fun AppScreen() {
         }
         if (showSkus && proj != null) {
             SkuSheet(skus = cat.skusOf(masters, proj.serverId),
+                onAdd = {
+                    showSkus = false
+                    // From the project level there is no room in hand yet, so
+                    // it opens on the first room that has been photographed —
+                    // the one somebody is most likely standing in.
+                    addSkuFor = rooms.firstOrNull { r ->
+                        queue.any { it.room == r &&
+                            it.projectTitle.equals(proj.title, true) }
+                    } ?: rooms.firstOrNull().orEmpty()
+                },
                 onDismiss = { showSkus = false })
         }
         if (showDetail && proj != null) {
@@ -627,7 +679,7 @@ private fun AppScreen() {
                     }
                 },
                 bottomBar = {
-                    BottomBar(tab, queue.count { it.state != "SYNCED" }) { tab = it }
+                    BottomBar(tab, unsent) { tab = it }
                 },
             ) { pad ->
                 Column(Modifier.padding(pad).fillMaxSize()) {
@@ -899,6 +951,7 @@ private fun AppScreen() {
                 skus = cat.skusOf(masters, navProject?.serverId.orEmpty()),
                 room = navRoom.orEmpty(),
                 current = cap.sku,
+                onAdd = { retagSku = false; addSkuFor = navRoom.orEmpty() },
                 onDismiss = { retagSku = false },
                 onPick = { code -> retagSku = false; retag(null, code) })
         }
@@ -1062,7 +1115,7 @@ private fun AppScreen() {
                 }
             },
             bottomBar = {
-                BottomBar(tab, queue.count { it.state != "SYNCED" }) {
+                BottomBar(tab, unsent) {
                     tab = it; navRoom = null
                 }
             },
@@ -1415,6 +1468,20 @@ private fun recentRooms(
     }
     return seen.values.toList()
 }
+
+/** Work recorded on site and not yet sent. It belongs in the queue for the
+ *  same reason a capture does: the tab answers "did that actually go", and a
+ *  thing missing from it is a thing nobody knows is missing. */
+private fun skuQueueRow(k: Catalogue.LocalSku) = QueueRow(
+    token = RoomToken.of(k.room),
+    title = previewCode(k.client, k.room, k.articleCode) +
+        (k.qty?.let { q ->
+            " · " + (if (q % 1.0 == 0.0) q.toInt().toString() else q.toString()) +
+            " ${k.basis}"
+        } ?: ""),
+    subtitle = listOf(k.articleName, k.projectTitle).filter { it.isNotBlank() }
+        .joinToString(" / "),
+    state = "LOCAL")
 
 private fun queueRow(c: CaptureStore.Capture) = QueueRow(
     token = RoomToken.of(c.room),

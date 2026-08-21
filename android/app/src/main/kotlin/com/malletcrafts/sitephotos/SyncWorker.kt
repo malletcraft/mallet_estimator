@@ -155,6 +155,34 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             }
         }
 
+        // Work the site recorded. Sent AFTER the captures, because an SKU
+        // needs the project to exist and a brand-new site only becomes real
+        // when its first capture syncs.
+        for (k in cat.localSkus()) {
+            try {
+                val projectId = k.projectId.ifBlank {
+                    client.ensureSite(k.client, k.projectTitle,
+                        cat.localSiteFor(k.client, k.projectTitle),
+                        cat.localJobTypeFor(k.client, k.projectTitle))
+                        .optJSONObject("message")?.optString("project").orEmpty()
+                }
+                if (projectId.isBlank()) { failures += 1; continue }
+                client.createSku(
+                    project = projectId, room = k.room,
+                    articleCode = k.articleCode,
+                    // The whole reason this loop is safe to run twice.
+                    deviceSkuId = k.deviceId,
+                    qty = k.qty, widthMm = k.widthMm, heightMm = k.heightMm,
+                    depthMm = k.depthMm, note = k.note)
+                cat.forgetLocalSku(k.deviceId)
+            } catch (e: Exception) {
+                // Kept, not dropped: the queue is the record of what the site
+                // said, and losing it silently is the one failure this whole
+                // mechanism exists to prevent.
+                failures += 1
+            }
+        }
+
         // Update check rides the sync too: when the server holds a newer
         // camera build, remember it so the screen can offer the install.
         runCatching {

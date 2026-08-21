@@ -192,6 +192,35 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         return post("mallet_estimator.sitephoto.set_capture_tags", body)
     }
 
+    /** Record work the SITE says is needed.
+     *
+     *  deviceSkuId is what makes this safe to retry: the bench returns the
+     *  SAME SKU for an id it has seen. It cannot key on the code, because two
+     *  wardrobes in one room legitimately compute the same one. */
+    fun createSku(
+        project: String,
+        room: String,
+        articleCode: String,
+        deviceSkuId: String,
+        qty: Double? = null,
+        widthMm: Int? = null,
+        heightMm: Int? = null,
+        depthMm: Int? = null,
+        note: String = "",
+    ): JSONObject {
+        val body = JSONObject()
+            .put("project", project)
+            .put("room", room)
+            .put("article_code", articleCode)
+            .put("device_sku_id", deviceSkuId)
+        qty?.let { body.put("qty", it) }
+        widthMm?.let { body.put("width_mm", it) }
+        heightMm?.let { body.put("height_mm", it) }
+        depthMm?.let { body.put("depth_mm", it) }
+        if (note.isNotBlank()) body.put("note", note)
+        return post("mallet_estimator.sitephoto.create_sku", body)
+    }
+
     /** Turn a client/site/project typed offline at a NEW site into real
      *  masters — or, far more often, match them against masters that already
      *  exist. The server matches insensitively before it ever creates.
