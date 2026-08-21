@@ -46,6 +46,12 @@ READONLY_DOCTYPES = (
     "Site Photo 360",
     "Site Photo Settings",
     "Site Photo Inbox",
+    # The site level and the two masters under it. A reader that cannot see
+    # them cannot check whether a deploy actually seeded them, which is the
+    # one thing a green deploy does not prove.
+    "Mallet Site",
+    "Mallet Article",
+    "Mallet Work Stage",
 )
 
 # Desk UI metadata, not business data: reading these lets the reader RENDER a
@@ -300,7 +306,13 @@ STEWARD_RWC_DOCTYPES = ("Estimate", "Estimate SKU", "Mallet Decor",
                         # The steward operates the Drive sync, so it configures
                         # it and works its inbox. Neither holds money.
                         "Site Photo Settings", "Site Photo Inbox")
-STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM")
+STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM",
+                       # A site name typed one-handed on a roof is exactly the
+                       # kind of operational typo the steward exists to fix.
+                       "Mallet Site")
+# Configuration rather than operational data: the trade order and the article
+# list are changed by a person at a desk, not by a data fix. Read, never write.
+STEWARD_RO_DOCTYPES = ("Mallet Article", "Mallet Work Stage")
 # Money: LISTED here so the exclusion is explicit and asserted, not implied.
 STEWARD_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price")
 
@@ -340,6 +352,8 @@ def ensure_steward_role():
                  "amend", "export", "report"))
     for dt in STEWARD_RW_DOCTYPES:
         pin(dt, ("read", "write", "create", "export", "report"))
+    for dt in STEWARD_RO_DOCTYPES:
+        pin(dt, ("read", "export", "report"))
     for dt in STEWARD_FORBIDDEN:
         pin(dt, ())        # a row of explicit zeros, on purpose
     # Desk rendering, same read-only grants as the reader.
@@ -447,7 +461,12 @@ def create_steward_api_user(email=None, full_name="Mallet Data Steward", regener
 # hand to a phone.
 PHOTOGRAPHER_ROLE = "Mallet Site Photographer"
 PHOTOGRAPHER_RWC = ("Site Photo 360", "File")
-PHOTOGRAPHER_RO = ("Project", "Customer", "Estimate Room", "Site Photo Inbox")
+PHOTOGRAPHER_RO = ("Project", "Customer", "Estimate Room", "Site Photo Inbox",
+                   # Everything bootstrap() hands the phone. Without these the
+                   # app opens on an empty tree with no error to explain it,
+                   # which reads as a broken app rather than a missing grant.
+                   "Mallet Site", "Mallet Article", "Mallet Work Stage",
+                   "Estimate SKU")
 PHOTOGRAPHER_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Item Price",
                           "User", "Role")
 

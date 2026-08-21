@@ -255,8 +255,15 @@ def set_project_stage(project, work_stage, remark=None):
     recorded when it happens rather than reconstructed afterwards from photo
     timestamps — which only ever tells you when somebody remembered to take
     a picture."""
+    # Gated on the CAPTURE permission, not on Project write, and then written
+    # with ignore_permissions — the same gate and the same reasoning as
+    # ensure_site. A site photographer holds Project read and nothing more, by
+    # design: handing a phone blanket write on Project would hand it the
+    # costing fields too. But the person standing in the flat is the one who
+    # knows carpentry started, so this endpoint is the narrow hole they move
+    # the stage through. What it changes is a word, not a rate.
+    frappe.has_permission(DOCTYPE, "create", throw=True)
     doc = frappe.get_doc("Project", project)
-    doc.check_permission("write")
     if not frappe.db.exists("Mallet Work Stage", work_stage):
         frappe.throw(_("No such work stage: {0}").format(work_stage))
 
@@ -274,7 +281,7 @@ def set_project_stage(project, work_stage, remark=None):
         doc.append("mallet_stage_log", {
             "stage": work_stage, "on_date": today(),
             "moved_by": frappe.session.user, "remark": (remark or "")[:140]})
-    doc.save()
+    doc.save(ignore_permissions=True)
     return {"project": doc.name, "stage": work_stage,
             "phase": frappe.db.get_value("Mallet Work Stage", work_stage, "phase"),
             "changed": True}

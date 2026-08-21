@@ -107,3 +107,6 @@ mallet_estimator.patches.note_baseline_hidden
 # Project.mallet_site and Site Photo 360.work_stage, and neither field exists
 # until the model sync has created them.
 mallet_estimator.patches.site_level_and_stages
+# Forces the migrate that re-pins reader/steward/photographer onto the three
+# new masters. Without it the phone reads an empty tree and says nothing.
+mallet_estimator.patches.grant_tree_masters

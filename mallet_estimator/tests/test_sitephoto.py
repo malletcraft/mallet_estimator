@@ -571,6 +571,28 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertEqual(doc.work_stage, "Deep clean")
         self.assertEqual(doc.stage, "Finishing")
 
+    def test_the_phone_can_move_the_stage_without_project_write(self):
+        # A site photographer holds Project READ and nothing more, by design.
+        # If this endpoint demanded Project write, the stage bar -- the whole
+        # point of the room screen -- would fail with a permission error on
+        # every phone in the field while passing every test run as
+        # Administrator.
+        from mallet_estimator import integration
+        rows = frappe.get_all(
+            "Custom DocPerm",
+            filters={"role": integration.PHOTOGRAPHER_ROLE, "parent": "Project"},
+            fields=["read", "write"])
+        if rows:
+            self.assertFalse(rows[0].write,
+                             "a phone must not hold blanket Project write")
+        for dt in ("Mallet Site", "Mallet Article", "Mallet Work Stage"):
+            perm = frappe.get_all(
+                "Custom DocPerm",
+                filters={"role": integration.PHOTOGRAPHER_ROLE, "parent": dt},
+                fields=["read"])
+            self.assertTrue(perm and perm[0].read,
+                            f"the phone cannot read {dt}, so its tree is empty")
+
     # ---- SKU tagging -----------------------------------------------------
 
     def test_a_capture_refuses_another_projects_sku(self):

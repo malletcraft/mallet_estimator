@@ -649,6 +649,18 @@ def verify_setup():
         ("no stages for: " + ", ".join(orphan)) if orphan else
         ", ".join(worksite.JOB_TYPES))
 
+    # The phone browses the tree through the photographer role. A missing
+    # grant shows up as an EMPTY tree with no error attached, which reads as a
+    # broken app rather than a missing permission — so it is asserted here.
+    from mallet_estimator import integration
+    blind = [dt for dt in ("Mallet Site", "Mallet Article", "Mallet Work Stage")
+             if frappe.db.exists("DocType", dt)
+             and not frappe.db.exists("Custom DocPerm", {
+                 "role": integration.PHOTOGRAPHER_ROLE, "parent": dt, "read": 1})]
+    chk("Phone can read the tree", not blind,
+        ("photographer cannot read: " + ", ".join(blind)) if blind
+        else "site + article + work stage ✓")
+
     pmeta = frappe.get_meta("Project")
     pf = ["mallet_site", "mallet_job_type", "mallet_stage", "mallet_stage_log"]
     m = [f for f in pf if not pmeta.has_field(f)]
