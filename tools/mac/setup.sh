@@ -24,7 +24,13 @@ cat > "$PLIST" <<PL
     <string>/bin/bash</string>
     <string>$DEST/mcft-auto-update.sh</string>
   </array>
-  <key>StartInterval</key><integer>1800</integer>
+  <!-- 60 s, not 30 min. Amit, 2026-08-21: 'always push latest apk moment
+       its available. no need to wait for 30 minutes window.' A poll is one
+       cheap `gh run list` call and it exits immediately when the newest
+       green run is the one already installed, so the cost of asking often
+       is close to nothing — while half an hour of waiting to find out a
+       build is broken is not. -->
+  <key>StartInterval</key><integer>60</integer>
   <key>RunAtLoad</key><true/>
   <key>EnvironmentVariables</key><dict>
     <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
