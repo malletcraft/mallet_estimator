@@ -2,6 +2,8 @@ package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -143,7 +145,7 @@ fun CaptureScreen(
     folder: String,
     onOpenFace: (Int) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().verticalScrollState()) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // Not clickable: the 360 is the record, and there is nothing useful to
         // open it into yet. A large image that does nothing when tapped reads
         // as a broken app, so it does not invite the tap.
@@ -221,12 +223,6 @@ fun CaptureScreen(
         Spacer(Modifier.height(28.dp))
     }
 }
-
-/** Column scroll, kept in one place so the import stays out of call sites. */
-@Composable
-private fun Modifier.verticalScrollState(): Modifier =
-    this.then(androidx.compose.foundation.verticalScroll(
-        androidx.compose.foundation.rememberScrollState()))
 
 /**
  * One face, full screen, with the Original ⇄ Annotated toggle.
