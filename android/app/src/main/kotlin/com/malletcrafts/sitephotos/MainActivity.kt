@@ -149,12 +149,18 @@ private fun AppScreen() {
     var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
+    // EVERY branch below returns early, so each one needs its own
+    // BackHandler — a branch without one falls through to Android's default,
+    // which is "leave the app". That is how back came to close Site Photos
+    // from a photograph instead of going up one level.
     annotating?.let { (devId, face) ->
+        BackHandler { annotating = null }
         AnnotateScreen(deviceId = devId, face = face, store = annStore,
             onBack = { annotating = null })
         return
     }
     facesFor?.let { cap ->
+        BackHandler { facesFor = null }
         FacesScreen(capture = cap, annStore = annStore,
             onFace = { face -> annotating = cap.deviceId to face },
             onBack = { facesFor = null })
@@ -421,6 +427,7 @@ private fun AppScreen() {
 
     // ---- search: the escape hatch from four levels ----------------------
     if (showSearch) {
+        BackHandler { showSearch = false }
         val hits = remember(searchQuery, masters) {
             searchTree(cat, masters, searchQuery)
         }
@@ -444,6 +451,9 @@ private fun AppScreen() {
 
     // ---- Work and Queue ---------------------------------------------------
     if (tab != "browse") {
+        // Browse is the landing tab, so back from Work or Queue returns
+        // there rather than leaving. Only Browse's own root exits.
+        BackHandler { tab = "browse" }
         val scopeTab = rememberCoroutineScope()
         val recents = remember(queue) { recentRooms(cat, masters, queue) }
         ModalNavigationDrawer(
@@ -684,6 +694,11 @@ private fun AppScreen() {
 
     // ---- one capture, and one face of it -------------------------------
     navCapture?.let { cap ->
+        // Two levels in one branch: a face closes back to the capture, the
+        // capture closes back to the room.
+        BackHandler {
+            if (navFace != null) navFace = null else navCapture = null
+        }
         val faces = remember(cap.deviceId) { LocalFaces.of(context, cap.deviceId) }
         // Annotated copies come from the bench, where the Drive round trip
         // already attached them to this capture by face. Cached to a file so
