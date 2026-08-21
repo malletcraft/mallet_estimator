@@ -771,3 +771,48 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertEqual(
             frappe.db.get_value("Site Photo 360", cap["name"], "capture_kind"),
             "360")
+
+    def test_re_staging_a_photo_needs_more_than_the_camera(self):
+        """Tagging a photo to a SKU is the technician's job. Re-staging one
+        is not.
+
+        The stage is WHEN the work happened, and it is what progress gets
+        read from months later — a wall quietly moved from First fix to
+        Joinery rewrites the record of the job. So it takes the same
+        authority that moves the project itself: write on Project, which the
+        site-photographer role deliberately does not carry."""
+        from mallet_estimator import integration
+        out = sitephoto.ensure_site("ZZ Lock Client", "ZZ Lock Project",
+                                    site_name="ZZ Lock Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+
+        user = "zz-photographer@example.com"
+        if not frappe.db.exists("User", user):
+            u = frappe.get_doc({
+                "doctype": "User", "email": user, "first_name": "ZZ Shooter",
+                "send_welcome_email": 0,
+            })
+            u.insert(ignore_permissions=True)
+            u.add_roles(integration.PHOTOGRAPHER_ROLE)
+
+        frappe.set_user(user)
+        try:
+            self.assertFalse(frappe.has_permission("Project", "write"),
+                             "a photographer must not hold Project write")
+            with self.assertRaises(frappe.PermissionError):
+                sitephoto.set_capture_tags(cap["name"],
+                                           work_stage="Modular carpentry install")
+        finally:
+            frappe.set_user("Administrator")
+
+        # The office can, and that is the whole distinction.
+        moved = sitephoto.set_capture_tags(cap["name"],
+                                           work_stage="Modular carpentry install")
+        self.assertIn("stage", moved["changed"])
+
+    def test_bootstrap_says_whether_this_user_may_re_stage(self):
+        """Asked once, so the phone never offers a picker the bench will
+        refuse. An affordance that fails on use is worse than one that was
+        never offered."""
+        self.assertTrue(sitephoto.bootstrap()["can_restage"],
+                        "Administrator holds Project write")

@@ -273,6 +273,18 @@ class Catalogue(context: Context) {
      *  the thirty-nine — which is exactly what a capture taken before the
      *  master existed carries, and why this returns blank rather than
      *  throwing. Its caller falls back to the stored word. */
+    /** Whether this user may re-stage a photograph, as the bench answered on
+     *  the last bootstrap. Absent (an older bench) means NO: refusing an act
+     *  the server would refuse anyway is the safe way to be wrong. */
+    fun canRestage(masters: JSONObject?): Boolean =
+        masters?.optBoolean("can_restage", false) ?: false
+
+    /** Trade order for a stage name. Unknown words sort to the BOTTOM, not
+     *  the top, so a capture from before the master existed cannot push
+     *  today's work off the screen. */
+    fun stageOrder(masters: JSONObject?, stage: String): Int =
+        stages(masters).firstOrNull { it.name.equals(stage, true) }?.sequence ?: -1
+
     fun phaseOfStage(masters: JSONObject?, stage: String): String {
         if (stage.isBlank()) return ""
         return stages(masters).firstOrNull { it.name.equals(stage, true) }?.phase ?: ""

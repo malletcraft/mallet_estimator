@@ -94,6 +94,11 @@ def bootstrap():
     rooms = [r.name for r in frappe.get_list(
         "Estimate Room", fields=["name"], order_by="name", limit_page_length=200)]
     return {
+        # Whether THIS user may re-stage a photograph. Asked once, here,
+        # rather than discovered as a permission error after somebody has
+        # already picked a stage — an affordance that fails on use is worse
+        # than one that was never offered.
+        "can_restage": bool(frappe.has_permission("Project", "write")),
         "projects": projects,
         "sites": [dict(v) for v in sites.values()],
         "rooms": rooms,
@@ -329,6 +334,21 @@ def set_capture_tags(name, work_stage=None, sku=None):
     changed = []
 
     if work_stage is not None:
+        # TWO DIFFERENT ACTS, two different authorities.
+        #
+        # Tagging a photo to a SKU is the technician's job — it is the whole
+        # reason they are standing in the room. RE-STAGING one is not: the
+        # stage is when the work happened, it is what progress is read from
+        # afterwards, and a wall quietly moved from First fix to Joinery
+        # changes the record of the job. So it needs the same authority that
+        # moves the project itself: write on Project, which the site
+        # photographer role deliberately does not have.
+        #
+        # Note this is STRICTER than set_project_stage, on purpose. Moving the
+        # project forward is a statement about today, and the person in the
+        # flat is the one who knows carpentry started. Re-labelling a
+        # photograph is a statement about the past.
+        frappe.has_permission("Project", "write", doc=doc.project, throw=True)
         stage = (work_stage or "").strip()
         if stage:
             if not frappe.db.exists("Mallet Work Stage", stage):

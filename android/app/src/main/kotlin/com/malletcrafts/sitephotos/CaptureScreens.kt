@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,17 +82,29 @@ private fun PenBadge(modifier: Modifier = Modifier, label: String? = null) {
 }
 
 /**
- * Level 5 — the captures in one room, newest first.
+ * Level 5 — the captures in one room, STAGE first and dates under it.
  *
- * The chip row filters by PHASE, not by stage. Thirty-nine stages is a wall
- * of chips nobody reads; ten phases is a filter. And the question actually
- * asked here is the coarse one — "show me the ones from before the ceiling
- * went in" — which is a phase question.
+ * A flat grid newest-first was the wrong shape for how a site actually runs.
+ * Amit: "stage should come first and then its fotos on a particular date
+ * because same stage can linger for many days but foto will keep
+ * progressing." Exactly — a flat sits at Plaster & waterproofing for a week
+ * and gets photographed every morning, and what you want to see is that
+ * week's progress GROUPED under the thing that was happening, not eight
+ * dates in a row with the same word stamped on each tile.
+ *
+ * Stages run newest-work-first (highest sequence at the top), which is where
+ * the job is now; dates inside a stage run newest-first too. A capture whose
+ * stage predates the master falls into its own group at the bottom rather
+ * than being dropped.
  */
 @Composable
 fun CapturesScreen(
     captures: List<CaptureCard>,
     phases: List<String>,
+    /** Trade order for a stage name — higher is later in the build. Unknown
+     *  words sort to the bottom rather than to the top, where they would push
+     *  today's work off the screen. */
+    stageOrder: (String) -> Int,
     onOpen: (CaptureCard) -> Unit,
 ) {
     if (captures.isEmpty()) {
@@ -108,66 +121,118 @@ fun CapturesScreen(
     val shown = picked?.let { p -> captures.filter { it.stage.equals(p, true) } }
         ?: captures
 
+    // stage -> date -> photos, both newest first.
+    val grouped = remember(shown) {
+        shown.groupBy { it.workStage.ifBlank { it.stage.ifBlank { "No stage" } } }
+            .toList()
+            .sortedByDescending { (stage, _) -> stageOrder(stage) }
+            .map { (stage, rows) ->
+                stage to rows.groupBy { it.date }.toList().sortedByDescending { it.first }
+            }
+    }
+
     Column(Modifier.fillMaxSize()) {
-    if (present.size > 1) {
-        Row(
-            Modifier.fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            FilterChip(selected = picked == null, onClick = { picked = null },
-                label = { Text("All ${captures.size}") })
-            present.forEach { p ->
-                FilterChip(selected = picked == p, onClick = { picked = p },
-                    label = { Text(p) })
-            }
-        }
-    }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        contentPadding = PaddingValues(2.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        items(shown, key = { it.deviceId }) { c ->
-            Box(
-                Modifier
-                    .aspectRatio(4f / 3f)
-                    .clickable { onOpen(c) },
+        if (present.size > 1) {
+            Row(
+                Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
-                Thumb(ThumbSource.LocalFile(c.panoPath), Modifier.fillMaxSize(),
-                    target = 400, contentDescription = "${c.date} ${c.stage}")
-                Scrim()
-                if (c.stage.isNotBlank()) {
-                    Text(c.stage.uppercase(), color = Color.White,
-                        fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .align(Alignment.TopStart).padding(6.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = .55f))
-                            .padding(horizontal = 5.dp, vertical = 3.dp))
+                FilterChip(selected = picked == null, onClick = { picked = null },
+                    label = { Text("All ${captures.size}") })
+                present.forEach { p ->
+                    FilterChip(selected = picked == p, onClick = { picked = p },
+                        label = { Text(p) })
                 }
-                if (c.annotated > 0) {
-                    PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp),
-                        "${c.annotated}/6")
+            }
+        }
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(2.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            grouped.forEach { (stage, byDate) ->
+                val total = byDate.sumOf { it.second.size }
+                item(key = "stage:$stage", span = { GridItemSpan(maxLineSpan) }) {
+                    StageHeading(stage, total, byDate.size)
                 }
-                Row(
-                    Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                        .padding(horizontal = 7.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(c.date, color = Color.White, fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium)
-                    Text(if (c.sku.isNotBlank()) c.sku.substringAfterLast('_')
-                         else if (c.state == "SYNCED") "synced" else "on phone",
-                        color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
+                byDate.forEach { (date, rows) ->
+                    // The date sub-head is dropped when the stage held only
+                    // one day: a heading that never varies is furniture.
+                    if (byDate.size > 1) {
+                        item(key = "date:$stage:$date", span = { GridItemSpan(maxLineSpan) }) {
+                            Text(date,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(
+                                    start = 14.dp, top = 8.dp, bottom = 2.dp))
+                        }
+                    }
+                    items(rows, key = { it.deviceId }) { c -> CaptureTile(c, onOpen) }
                 }
             }
         }
     }
+}
+
+/** The stage a run of photographs belongs to, with how long it ran. */
+@Composable
+private fun StageHeading(stage: String, photos: Int, days: Int) {
+    Column(Modifier.fillMaxWidth()
+        .background(MaterialTheme.colorScheme.secondaryContainer)
+        .padding(horizontal = 14.dp, vertical = 8.dp)) {
+        Text(stage.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2, overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Text(plural(photos, "photo") +
+             (if (days > 1) " over ${plural(days, "day")}" else ""),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+}
+
+@Composable
+private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit) {
+    Box(
+        Modifier
+            .aspectRatio(4f / 3f)
+            .clickable { onOpen(c) },
+    ) {
+        Thumb(ThumbSource.LocalFile(c.panoPath), Modifier.fillMaxSize(),
+            target = 400, contentDescription = "${c.date} ${c.stage}")
+        Scrim()
+        // The stage is the HEADING now, so the tile no longer repeats it —
+        // it says what kind of capture this is instead, which is the thing
+        // you cannot tell from a thumbnail.
+        if (c.kind == "Photo") {
+            Text("PHOTO", color = Color.White,
+                fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .align(Alignment.TopStart).padding(6.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color.Black.copy(alpha = .55f))
+                    .padding(horizontal = 5.dp, vertical = 3.dp))
+        }
+        if (c.annotated > 0) {
+            PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp),
+                "${c.annotated}/6")
+        }
+        Row(
+            Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                .padding(horizontal = 7.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(c.date, color = Color.White, fontSize = 10.sp,
+                fontWeight = FontWeight.Medium)
+            Text(if (c.sku.isNotBlank()) c.sku.substringAfterLast('_')
+                 else if (c.state == "SYNCED") "synced" else "on phone",
+                color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
+        }
     }
 }
 
@@ -227,6 +292,9 @@ fun CaptureScreen(
     onOpenFace: (Int) -> Unit,
     onPickStage: () -> Unit,
     onPickSku: () -> Unit,
+    /** Whether this user may re-stage the photograph. False makes the row a
+     *  statement of fact rather than a control. */
+    canRestage: Boolean = false,
     onDelete: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -239,9 +307,8 @@ fun CaptureScreen(
             lead = "STG",
             title = capture.workStage.ifBlank {
                 capture.stage.ifBlank { "No stage set" } },
-            subtitle = if (capture.workStage.isBlank() && capture.stage.isBlank())
-                           "tap to choose"
-                       else "${capture.stage.ifBlank { "no phase" }} · tap to change",
+            subtitle = capture.stage.ifBlank { "no phase" } +
+                (if (canRestage) " · tap to change" else " · set when it was taken"),
             dim = capture.workStage.isBlank() && capture.stage.isBlank(),
             onClick = onPickStage)
         // ONLY on a flat photo. A 360 is the record of a whole ROOM, and a
