@@ -417,6 +417,10 @@ class TestSiteLevelAndStages(MalletTestCase):
         # classes do not run in a guaranteed order, so this class cannot rely
         # on another having made the company first.
         _company()
+        # The role is minted on migrate, and test classes have no guaranteed
+        # order — the same trap the company hit. Make the precondition here.
+        from mallet_estimator import integration
+        integration.ensure_photographer_role()
         worksite.ensure_articles()
         worksite.ensure_work_stages()
         install.ensure_project_customization()

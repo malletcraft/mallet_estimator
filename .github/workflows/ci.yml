@@ -149,8 +149,13 @@ jobs:
           # failure it had successfully found (2026-08-17).
           sed -e 's/\x1b\[[0-9;]*m//g' /tmp/mallet-tests.log > /tmp/plain.log
           echo "===== summary ====="
-          grep -nE "^(FAIL|ERROR):|^Ran [0-9]+ tests|^(FAILED|OK)" /tmp/plain.log \
-            || echo "(no unittest summary lines found)"
+          # Frappe's runner prints " FAIL  test_x (mod.Class.test_x)" -- leading
+          # space, no colon -- while plain unittest prints "FAIL: test_x". The
+          # old pattern anchored on "^FAIL:" and so matched NEITHER, which is
+          # how a red run came back with an empty summary and no annotations
+          # (2026-08-21). Both shapes now.
+          grep -nE "^[[:space:]]*(FAIL|ERROR)[[:space:]:]+[A-Za-z_]|^Ran [0-9]+ tests|^(FAILED|OK)" \
+            /tmp/plain.log || echo "(no unittest summary lines found)"
 
           # Also as ANNOTATIONS. A red run's log is ~4000 lines and the
           # runner appends ~250 lines of service-container noise after the
@@ -158,7 +163,8 @@ jobs:
           # reasonable tail — twice now they have had to be dug out by
           # fetching hundreds of lines. An ::error:: line lands in the check
           # run itself, where one small API call reads it.
-          grep -E "^(FAIL|ERROR): " /tmp/plain.log | while read -r line; do
+          grep -E "^[[:space:]]*(FAIL|ERROR)[[:space:]:]+[A-Za-z_]" /tmp/plain.log \
+            | while read -r line; do
             echo "::error title=mallet tests::${line}"
           done
           echo

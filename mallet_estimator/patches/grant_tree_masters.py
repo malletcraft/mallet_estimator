@@ -11,10 +11,21 @@ This patch exists to FORCE THE MIGRATE. A Python-only deploy runs none, so
 after_migrate never fires and role grants sit in the source doing nothing.
 """
 
+import frappe
+
 from mallet_estimator import integration
 
 
 def execute():
-    integration.ensure_readonly_role()
-    integration.ensure_steward_role()
+    # Re-pin where the role EXISTS; never mint one on a site that merely
+    # upgraded. install.sync_readonly_role states that rule and this patch
+    # has to honour it: a studio that reads nothing should not acquire an
+    # integration identity because it took a deploy.
+    if frappe.db.exists("Role", integration.READONLY_ROLE):
+        integration.ensure_readonly_role()
+    if frappe.db.exists("Role", integration.STEWARD_ROLE):
+        integration.ensure_steward_role()
+    # The photographer is a PERSON's role, kept in step unconditionally --
+    # same contract as sync_readonly_role, and the reason the phone can see
+    # the tree at all.
     integration.ensure_photographer_role()
