@@ -183,8 +183,11 @@ object StampScan {
         val opts = BitmapFactory.Options().apply { inSampleSize = sample }
 
         context.contentResolver.openInputStream(uri)!!.use { stream ->
+            // Platform type, and genuinely nullable: newInstance returns null
+            // for anything it cannot region-decode. A gallery has plenty of
+            // those, so this is an ordinary miss, not an error.
             val decoder = android.graphics.BitmapRegionDecoder.newInstance(
-                stream, false)
+                stream, false) ?: return@use null
             try {
                 val top = (h * 0.78).toInt().coerceIn(0, h - 1)
                 decoder.decodeRegion(
