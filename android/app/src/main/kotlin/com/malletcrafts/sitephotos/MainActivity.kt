@@ -21,11 +21,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
@@ -116,6 +122,12 @@ private fun AppScreen() {
 
     var showNewSite by remember { mutableStateOf(false) }
     var showStagePicker by remember { mutableStateOf(false) }
+    // Work | Browse | Queue. Browse is the landing tab: Amit asked for the
+    // app to open on Clients, ImageMeter-style.
+    var tab by remember { mutableStateOf("browse") }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var prefsTick by remember { mutableStateOf(0) }
     // Capture and face sit BELOW the room, and are plain state rather than
     // crumb levels: six crumbs will not fit a phone, and a photo you are
     // looking at is a view, not a folder.
@@ -273,6 +285,129 @@ private fun AppScreen() {
             })
     }
 
+    // One drawer, shared by every tab: the settings are the app's, not a
+    // screen's, and building it twice would let the two drift.
+    val drawerContent: @Composable () -> Unit = {
+        SettingsDrawerContent(
+            user = FrappeClient.savedUrl(context).ifBlank { "Site Photos" },
+            server = FrappeClient.savedUrl(context),
+            groups = drawerGroups(
+                queued = queue.count { it.state != "SYNCED" },
+                lastSync = if (queue.isEmpty()) "nothing yet" else "all sent",
+                fov = roomSizeLabel(roomSize),
+                version = appVersion(context),
+                cached = cacheSize(context),
+                prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
+                onToggle = { key ->
+                    if (key == "clear_cache") {
+                        context.cacheDir.resolve("ann").deleteRecursively()
+                        lastResult = "Cached annotated copies cleared"
+                    } else {
+                        AppPrefs.flip(capturePrefs, key)
+                        // The Wi-Fi choice is a WorkManager constraint,
+                        // so the worker has to be re-scheduled to pick
+                        // it up — a toggle that only changes a boolean
+                        // would be decoration.
+                        if (key == "wifi_only") SyncWorker.schedule(context)
+                    }
+                    prefsTick++
+                },
+                onSignOut = {
+                    FrappeClient.forget(context)
+                    configured = false
+                    showSettings = true
+                },
+                onImageMeterSync = {
+                    busy = "Pulling annotations from ImageMeter…"
+                    scope.launch(Dispatchers.IO) {
+                        val out = runCatching {
+                            FrappeClient.load(context)?.imagemeterSync()
+                        }
+                        withContext(Dispatchers.Main) {
+                            busy = null
+                            lastResult = out.fold(
+                                { "ImageMeter sync done" },
+                                { "ImageMeter sync failed: ${it.message}" })
+                        }
+                    }
+                },
+                onSyncNow = { SyncWorker.syncNow(context) },
+                onServer = { showSettings = true },
+            ))
+    }
+
+    // ---- search: the escape hatch from four levels ----------------------
+    if (showSearch) {
+        val hits = remember(searchQuery, masters) {
+            searchTree(cat, masters, searchQuery)
+        }
+        SearchOverlay(
+            query = searchQuery,
+            hits = hits,
+            recents = listOf("MB", "KIT", "Kothrud"),
+            onQuery = { searchQuery = it },
+            onPick = { h ->
+                tab = "browse"
+                navClient = h.client.ifBlank { null }
+                navSite = h.site.ifBlank { null }
+                navProject = cat.projects(masters).firstOrNull { it.key == h.projectKey }
+                navRoom = h.room.ifBlank { null }
+                navCapture = null; navFace = null
+                showSearch = false
+            },
+            onClose = { showSearch = false })
+        return
+    }
+
+    // ---- Work and Queue ---------------------------------------------------
+    if (tab != "browse") {
+        val scopeTab = rememberCoroutineScope()
+        val recents = remember(queue) { recentRooms(cat, masters, queue) }
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = { drawerContent() },
+        ) {
+            Scaffold(
+                topBar = {
+                    TreeTopBar(
+                        title = if (tab == "work") "Work" else "Sync queue",
+                        subtitle = if (tab == "work") "Woodugift · site photos"
+                                   else plural(queue.count { it.state != "SYNCED" }, "waiting"),
+                        onMenu = { scopeTab.launch { drawerState.open() } },
+                        onSearch = { showSearch = true; searchQuery = "" })
+                },
+                bottomBar = {
+                    BottomBar(tab, queue.count { it.state != "SYNCED" }) { tab = it }
+                },
+            ) { pad ->
+                Box(Modifier.padding(pad)) {
+                    if (tab == "work") {
+                        WorkScreen(
+                            resume = recents.firstOrNull(),
+                            recents = recents.drop(1).take(5),
+                            synced = queue.none { it.state != "SYNCED" },
+                            queued = queue.count { it.state != "SYNCED" },
+                            onOpen = { r ->
+                                tab = "browse"
+                                navClient = r.client
+                                navSite = r.site
+                                navProject = cat.projects(masters)
+                                    .firstOrNull { it.key == r.projectKey }
+                                navRoom = r.room
+                                navCapture = null; navFace = null
+                            })
+                    } else {
+                        QueueScreen(
+                            waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(it) },
+                            sent = queue.filter { it.state == "SYNCED" }.take(12).map { queueRow(it) },
+                            wifiOnly = AppPrefs.read(capturePrefs).wifiOnly)
+                    }
+                }
+            }
+        }
+        return
+    }
+
     // ---- the four folder levels, one shell ------------------------------
     if (navRoom == null) {
         val proj = navProject
@@ -376,42 +511,21 @@ private fun AppScreen() {
 
         ModalNavigationDrawer(
             drawerState = drawerState,
-            drawerContent = {
-                SettingsDrawerContent(
-                    user = FrappeClient.savedUrl(context).ifBlank { "Site Photos" },
-                    server = FrappeClient.savedUrl(context),
-                    groups = drawerGroups(
-                        queued = queue.count { it.state != "SYNCED" },
-                        pendingSites = cat.pendingCount(),
-                        fov = roomSizeLabel(roomSize),
-                        version = appVersion(context),
-                        onImageMeterSync = {
-                            busy = "Pulling annotations from ImageMeter…"
-                            scope.launch(Dispatchers.IO) {
-                                val out = runCatching {
-                                    FrappeClient.load(context)?.imagemeterSync()
-                                }
-                                withContext(Dispatchers.Main) {
-                                    busy = null
-                                    lastResult = out.fold(
-                                        { "ImageMeter sync done" },
-                                        { "ImageMeter sync failed: ${it.message}" })
-                                }
-                            }
-                        },
-                        onSyncNow = { SyncWorker.syncNow(context) },
-                        onServer = { showSettings = true },
-                    ))
-            },
+            drawerContent = { drawerContent()             },
         ) {
-            Scaffold(topBar = {
-                Column {
-                    TreeTopBar(title, subtitle,
-                        onMenu = { scopeDrawer.launch { drawerState.open() } },
-                        onSearch = { showSettings = true })
-                    CrumbRail(crumbs)
-                }
-            }) { pad ->
+            Scaffold(
+                topBar = {
+                    Column {
+                        TreeTopBar(title, subtitle,
+                            onMenu = { scopeDrawer.launch { drawerState.open() } },
+                            onSearch = { showSearch = true; searchQuery = "" })
+                        CrumbRail(crumbs)
+                    }
+                },
+                bottomBar = {
+                    BottomBar(tab, queue.count { it.state != "SYNCED" }) { tab = it }
+                },
+            ) { pad ->
                 Column(Modifier.padding(pad).fillMaxSize()) {
                     if (!configured) {
                         Banner("Set the server and API key in Settings to begin.")
@@ -896,31 +1010,190 @@ private fun roomSizeLabel(index: Int): String =
  *  mid-shoot belongs on the screen, not three lines away. */
 private fun drawerGroups(
     queued: Int,
-    pendingSites: Int,
+    lastSync: String,
     fov: String,
     version: String,
+    cached: String,
+    prefs: AppPrefs,
     onSyncNow: () -> Unit,
     onImageMeterSync: () -> Unit,
+    onToggle: (String) -> Unit,
     onServer: () -> Unit,
+    onSignOut: () -> Unit,
 ): List<DrawerGroup> = listOf(
     DrawerGroup("Sync", listOf(
-        DrawerLine("Sync now", value = if (queued == 0) "all sent" else "$queued waiting",
+        DrawerLine("Sync now",
+            value = if (queued == 0) lastSync else "$queued waiting",
             icon = Icons.Filled.Refresh, onClick = onSyncNow),
-        DrawerLine("Sites not in ERP yet", value = "$pendingSites",
-            icon = Icons.Filled.Warning),
+        // Real, not decorative: this is the WorkManager constraint the
+        // uploader runs under. A 20 MB pano on a site's mobile data is
+        // somebody's bill.
+        DrawerLine("Upload on Wi-Fi only", toggled = prefs.wifiOnly,
+            icon = Icons.Filled.Warning, onClick = { onToggle("wifi_only") }),
     )),
     DrawerGroup("ImageMeter", listOf(
-        // The round trip runs on the bench over Drive: faces out, annotated
-        // copies back, attached to the capture they came from. This is the
-        // button that stops you waiting an hour for the scheduler.
         DrawerLine("Pull annotations now", icon = Icons.Filled.Edit,
             onClick = onImageMeterSync),
+        DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,
+            icon = Icons.Filled.Check, onClick = { onToggle("pull_annotated") }),
     )),
     DrawerGroup("Capture", listOf(
         DrawerLine("Field of view", value = fov, icon = Icons.Filled.Place),
+        // Off means the bench does the split instead. The projection contract
+        // in CI is what makes the two agree, so this is a real choice rather
+        // than a quality trade.
+        DrawerLine("Split faces on device", toggled = prefs.splitOnDevice,
+            icon = Icons.Filled.Share, onClick = { onToggle("split_on_device") }),
+        DrawerLine("Keep the original 360", toggled = prefs.keepOriginal,
+            icon = Icons.Filled.Star, onClick = { onToggle("keep_original") }),
     )),
-    DrawerGroup("Server", listOf(
-        DrawerLine("Server & API key", icon = Icons.Filled.Settings, onClick = onServer),
+    DrawerGroup("Display", listOf(
+        DrawerLine("Units", value = if (prefs.imperial) "mm · ft-in" else "mm",
+            icon = Icons.Filled.Create, onClick = { onToggle("imperial") }),
+    )),
+    DrawerGroup("Storage & app", listOf(
+        DrawerLine("Cached photos", value = cached, icon = Icons.Filled.Delete,
+            onClick = { onToggle("clear_cache") }),
         DrawerLine("Version", value = version, icon = Icons.Filled.Info),
+        DrawerLine("Sign out", icon = Icons.Filled.ExitToApp, onClick = onSignOut),
     )),
 )
+
+/**
+ * The settings that are set once and then forgotten, and which actually do
+ * something. Kept in the same prefs file the FOV picker already uses.
+ */
+data class AppPrefs(
+    val wifiOnly: Boolean,
+    val pullAnnotated: Boolean,
+    val splitOnDevice: Boolean,
+    val keepOriginal: Boolean,
+    val imperial: Boolean,
+) {
+    companion object {
+        fun read(p: android.content.SharedPreferences) = AppPrefs(
+            wifiOnly = p.getBoolean("wifi_only", false),
+            pullAnnotated = p.getBoolean("pull_annotated", true),
+            splitOnDevice = p.getBoolean("split_on_device", true),
+            keepOriginal = p.getBoolean("keep_original", true),
+            imperial = p.getBoolean("imperial", true))
+
+        fun flip(p: android.content.SharedPreferences, key: String) {
+            val now = when (key) {
+                "wifi_only" -> p.getBoolean(key, false)
+                "pull_annotated", "split_on_device", "keep_original", "imperial" ->
+                    p.getBoolean(key, true)
+                else -> return
+            }
+            p.edit().putBoolean(key, !now).apply()
+        }
+    }
+}
+
+// ---- what the Work, Queue and Search tabs read ---------------------------
+
+/**
+ * Rooms this phone has shot, newest first.
+ *
+ * Built from the capture QUEUE rather than from the server, because Work has
+ * to answer "where was I" on a phone with no signal — which is the only time
+ * anyone asks it.
+ */
+private fun recentRooms(
+    cat: Catalogue,
+    masters: JSONObject?,
+    queue: List<CaptureStore.Capture>,
+): List<RecentRoom> {
+    val projects = cat.projects(masters)
+    val seen = LinkedHashMap<String, RecentRoom>()
+    for (c in queue) {                       // store returns newest first
+        val key = "${c.projectTitle.lowercase()}|${c.room.lowercase()}"
+        val p = projects.firstOrNull { it.title.equals(c.projectTitle, true) }
+        val existing = seen[key]
+        if (existing != null) {
+            seen[key] = existing.copy(count = existing.count + 1)
+            continue
+        }
+        seen[key] = RecentRoom(
+            client = p?.client ?: c.customerName,
+            site = p?.site ?: Catalogue.DEFAULT_SITE,
+            projectKey = p?.key ?: c.projectTitle,
+            projectTitle = c.projectTitle,
+            room = c.room,
+            count = 1,
+            panoPath = c.panoPath,
+            lastDate = c.captureDate)
+    }
+    return seen.values.toList()
+}
+
+private fun queueRow(c: CaptureStore.Capture) = QueueRow(
+    token = RoomToken.of(c.room),
+    title = "${c.room} · ${c.captureDate}",
+    subtitle = listOf(c.customerName, c.projectTitle).filter { it.isNotBlank() }
+        .joinToString(" / ")
+        .let { if (c.state == "ERROR" && !c.error.isNullOrBlank()) "$it — ${c.error}" else it },
+    state = c.state)
+
+/**
+ * Search across every level at once, including SKU codes.
+ *
+ * Case-insensitive contains, except for the room token, which matches from
+ * the START — typing "MB" should find Master Bedroom, not every room whose
+ * name happens to contain those letters.
+ */
+private fun searchTree(
+    cat: Catalogue,
+    masters: JSONObject?,
+    query: String,
+): List<SearchHit> {
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return emptyList()
+    val out = mutableListOf<SearchHit>()
+    val projects = cat.projects(masters)
+
+    cat.clients(masters).forEach { c ->
+        if (c.lowercase().contains(q)) {
+            out.add(SearchHit(initials(c), c, "Client", c, "", "", ""))
+        }
+    }
+    projects.forEach { p ->
+        if (p.site.lowercase().contains(q) &&
+            out.none { it.label == p.site && it.client == p.client }) {
+            out.add(SearchHit("SITE", p.site, "${p.client} · site",
+                p.client, p.site, "", ""))
+        }
+        if (p.title.lowercase().contains(q)) {
+            out.add(SearchHit("PRJ", p.title, "${p.client} / ${p.site} · ${p.jobType}",
+                p.client, p.site, p.key, ""))
+        }
+        cat.skusOf(masters, p.serverId).forEach { sku ->
+            if (sku.code.lowercase().contains(q) || sku.article.lowercase().contains(q)) {
+                out.add(SearchHit(sku.article.take(3).uppercase().ifBlank { "SKU" },
+                    sku.code, "${sku.article} · ${p.title}",
+                    p.client, p.site, p.key, sku.room))
+            }
+        }
+        cat.rooms(masters).forEach { r ->
+            val tok = RoomToken.of(r).lowercase()
+            if (tok.startsWith(q) || r.lowercase().contains(q)) {
+                out.add(SearchHit(RoomToken.of(r), r, "${p.site} / ${p.title}",
+                    p.client, p.site, p.key, r))
+            }
+        }
+    }
+    return out.take(30)
+}
+
+/** Roughly how much disk the cached annotated copies hold. */
+private fun cacheSize(context: android.content.Context): String {
+    val bytes = runCatching {
+        context.cacheDir.resolve("ann").walkTopDown()
+            .filter { it.isFile }.sumOf { it.length() }
+    }.getOrDefault(0L)
+    return when {
+        bytes <= 0 -> "empty"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> String.format("%.1f MB", bytes / 1024.0 / 1024.0)
+    }
+}

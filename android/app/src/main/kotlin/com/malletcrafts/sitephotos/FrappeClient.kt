@@ -209,6 +209,13 @@ class FrappeClient(private val baseUrl: String, private val key: String,
 
         fun configured(context: Context): Boolean = load(context) != null
 
+        /** Sign out: drop the credentials, keep the queue. A technician
+         *  handing the phone on should not take unsent captures with them. */
+        fun forget(context: Context) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .remove("key").remove("secret").apply()
+        }
+
         fun savedUrl(context: Context): String =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString("url", "https://mcft-stg.frappe.cloud") ?: ""

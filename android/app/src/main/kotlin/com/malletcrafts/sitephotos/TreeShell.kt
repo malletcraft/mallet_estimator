@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -214,5 +217,43 @@ fun SkuSheet(
                 })
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Work | Browse | Queue.
+ *
+ * Three destinations, which is where Material's bottom bar stops being a
+ * menu and starts being a place: the filing cabinet, today's work, and the
+ * honest answer to "did that actually go?". The Queue badge is the only
+ * number in the app that must never be optimistic.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
+    NavigationBar {
+        NavigationBarItem(
+            selected = current == "work",
+            onClick = { onTab("work") },
+            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+            label = { Text("Work") })
+        NavigationBarItem(
+            selected = current == "browse",
+            onClick = { onTab("browse") },
+            icon = { Icon(Icons.Filled.List, contentDescription = null) },
+            label = { Text("Browse") })
+        NavigationBarItem(
+            selected = current == "queue",
+            onClick = { onTab("queue") },
+            icon = {
+                if (queued > 0) {
+                    BadgedBox(badge = { Badge { Text("$queued") } }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = null)
+                    }
+                } else {
+                    Icon(Icons.Filled.Refresh, contentDescription = null)
+                }
+            },
+            label = { Text("Queue") })
     }
 }

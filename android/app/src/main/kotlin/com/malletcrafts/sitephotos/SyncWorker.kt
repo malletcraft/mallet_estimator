@@ -178,12 +178,22 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         }
 
         fun schedule(context: Context) {
+            // The Wi-Fi-only setting IS this constraint. A 20 MB pano going
+            // out over a site's mobile data is somebody's bill, so the toggle
+            // has to reach WorkManager rather than just a boolean — and the
+            // policy is UPDATE, not KEEP, or flipping it would change nothing
+            // until the app was reinstalled.
+            val wifiOnly = context
+                .getSharedPreferences("capture", Context.MODE_PRIVATE)
+                .getBoolean("wifi_only", false)
             val req = PeriodicWorkRequestBuilder<SyncWorker>(1, TimeUnit.HOURS)
                 .setConstraints(Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED).build())
+                    .setRequiredNetworkType(
+                        if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+                    .build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                "mcft-sync-hourly", ExistingPeriodicWorkPolicy.KEEP, req)
+                "mcft-sync-hourly", ExistingPeriodicWorkPolicy.UPDATE, req)
         }
     }
 }
