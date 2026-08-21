@@ -5,7 +5,11 @@ name: UI Tests (Cypress)
 # than the server CI, so it's a separate workflow and is NOT a required check.
 on:
   push:
-    branches: [main]
+    # batch-next as well as main, for the same reason ci.yml watches it: this
+    # workflow went red on dbcf5ce and stayed red through two more batches
+    # because nothing ran it until the code had already reached main. A check
+    # that only speaks after the merge is a check that reports history.
+    branches: [main, batch-next]
   pull_request:
   workflow_dispatch:
 
