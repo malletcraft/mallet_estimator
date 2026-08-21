@@ -10,6 +10,8 @@
   "column_break_who",
   "capture_date",
   "stage",
+  "work_stage",
+  "sku",
   "device_capture_id",
   "device_app_version",
   "face_annotations",
@@ -35,7 +37,8 @@
   "face_up",
   "face_down",
   "annotations_section",
-  "annotations"
+  "annotations",
+  "mallet_stage_legacy"
  ],
  "fields": [
   {
@@ -48,7 +51,7 @@
    "reqd": 1
   },
   {
-   "description": "The same room master the SKU codes use \u2014 MB photos sit beside YS_MB_* SKUs.",
+   "description": "The same room master the SKU codes use — MB photos sit beside YS_MB_* SKUs.",
    "fieldname": "room",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -74,8 +77,9 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Site Stage",
-   "options": "\nBaseline\nCivil\nWiring\nCarpentry\nFinishing\nHandover"
+   "label": "Phase",
+   "options": "\nSurvey\nCivil\nFirst fix\nCeiling\nSurfaces\nDelivery\nJoinery\nSecond fix\nFinishing\nClosing",
+   "description": "The coarse phase, used as the filter. The fine-grained stage is in Work Stage beside it."
   },
   {
    "description": "The one capture whose annotations the SketchUp model is built from. Only one per project + room.",
@@ -110,7 +114,7 @@
    "read_only": 1
   },
   {
-   "description": "Set by the phone app at capture time (MCAP-\u2026). The faces reach ImageMeter under this id because the server has not named the capture yet, so it is how an annotated face finds its way home.",
+   "description": "Set by the phone app at capture time (MCAP-…). The faces reach ImageMeter under this id because the server has not named the capture yet, so it is how an annotated face finds its way home.",
    "fieldname": "device_capture_id",
    "fieldtype": "Data",
    "label": "Device Capture ID",
@@ -141,10 +145,10 @@
   },
   {
    "default": "110",
-   "description": "Faces sit 90\u00b0 apart, so 110\u00b0 gives ~20\u00b0 overlap per edge \u2014 corners show on both adjacent faces. Change and save to re-split.",
+   "description": "Faces sit 90° apart, so 110° gives ~20° overlap per edge — corners show on both adjacent faces. Change and save to re-split.",
    "fieldname": "fov",
    "fieldtype": "Int",
-   "label": "Face FOV (\u00b0)"
+   "label": "Face FOV (°)"
   },
   {
    "default": "1600",
@@ -170,7 +174,7 @@
    "read_only": 1
   },
   {
-   "description": "pano|fov|face_px the current faces were generated from \u2014 the re-split trigger.",
+   "description": "pano|fov|face_px the current faces were generated from — the re-split trigger.",
    "fieldname": "split_signature",
    "fieldtype": "Data",
    "hidden": 1,
@@ -190,7 +194,7 @@
    "label": "360 Photo"
   },
   {
-   "description": "The full 360 as exported by the camera (width = 2 \u00d7 height). Source of truth \u2014 faces are derived and regenerable.",
+   "description": "The full 360 as exported by the camera (width = 2 × height). Source of truth — faces are derived and regenerable.",
    "fieldname": "pano",
    "fieldtype": "Attach",
    "label": "360 Photo (equirectangular)"
@@ -275,6 +279,31 @@
    "fieldname": "gallery_html",
    "fieldtype": "HTML",
    "label": "Gallery"
+  },
+  {
+   "fieldname": "work_stage",
+   "fieldtype": "Link",
+   "label": "Work Stage",
+   "options": "Mallet Work Stage",
+   "in_standard_filter": 1,
+   "description": "One of the 39 stages, filtered by the project's job type. Defaults to the stage the project is currently at."
+  },
+  {
+   "fieldname": "sku",
+   "fieldtype": "Link",
+   "label": "SKU",
+   "options": "Estimate SKU",
+   "in_standard_filter": 1,
+   "description": "Optional. Tagging the photo to an article puts it beside the estimate line — most useful on repairs and installs, where one room can hold two unrelated jobs."
+  },
+  {
+   "fieldname": "mallet_stage_legacy",
+   "fieldtype": "Data",
+   "label": "Stage (legacy)",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The pre-2026-08-21 stage word. Hidden, never deleted."
   }
  ],
  "image_field": "face_front",

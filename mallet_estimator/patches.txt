@@ -103,3 +103,7 @@ mallet_estimator.patches.note_geometry_baseline
 # forces the migrate that hides the geometry-baseline fields on Site Photo 360
 # (the SketchUp room-builder was stopped; fields hidden, never deleted)
 mallet_estimator.patches.note_baseline_hidden
+# Client -> SITE -> Project -> Room. post_model_sync because it writes to
+# Project.mallet_site and Site Photo 360.work_stage, and neither field exists
+# until the model sync has created them.
+mallet_estimator.patches.site_level_and_stages

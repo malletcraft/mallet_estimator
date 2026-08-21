@@ -1580,14 +1580,27 @@ class EstimateSKU(Document):
         # Every article is built for a specific customer, so the code always
         # carries the customer initials as a prefix.
         ci = customer_initials(self.customer_display_name())
+        code = self._article_code()
         if self.auto_name:
             room_token = "All Rooms" if self.get("multi_room") else self.room
-            self.sku_code = sku_code(self.customer_display_name(), room_token, self.article_name)
+            self.sku_code = sku_code(self.customer_display_name(), room_token,
+                                     self.article_name, code)
         elif self.sku_code and ci and not self.sku_code.upper().startswith(ci):
             self.sku_code = f"{ci}_{self.sku_code}"
         if not self.sku_code:
             self.sku_code = "_".join(x for x in [ci, self.article_name] if x) or self.name
         self.sku_code = self._unique_code(self.sku_code)
+
+    def _article_code(self):
+        """The master's token for this article, when one is linked.
+
+        Guarded on both the field and the row: a bench that has not migrated
+        yet has neither, and an SKU whose article was deleted from the master
+        must keep pricing rather than throw while somebody is editing it."""
+        if not self.meta.has_field("mallet_article") or not self.get("mallet_article"):
+            return None
+        return frappe.db.get_value("Mallet Article", self.mallet_article,
+                                   "article_code")
 
     def _unique_code(self, code):
         """Two wardrobes for one customer in one room compute the SAME code —

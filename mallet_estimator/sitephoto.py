@@ -16,7 +16,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, today
 
-from mallet_estimator import handover, panorama
+from mallet_estimator import handover, panorama, worksite
 
 DOCTYPE = "Site Photo 360"
 STAGES = ("Baseline", "Civil", "Wiring", "Carpentry", "Finishing", "Handover")
@@ -30,29 +30,70 @@ LIST_FIELDS = ["name", "project", "room", "capture_date", "stage", "status",
 
 @frappe.whitelist()
 def bootstrap():
-    """Everything the pickers need. A capture can only ever land on a REAL
+    """Everything the pickers need, as the four-level tree the app browses:
+    Client → SITE → Project → Room. A capture can only ever land on a REAL
     project and a REAL room because both lists come from the masters — the
     room list is the same Estimate Room master the SKU codes use, so a photo
     files itself beside YS_MB_WAR rather than beside a free-text 'master
-    bedrm' someone typed on site."""
+    bedrm' someone typed on site.
+
+    Stages ride along per job type rather than as one flat list: a repair has
+    no Wiring stage and an installation has no Carpentry stage, and offering
+    them is how a picker becomes a wall of thirty-nine rows nobody reads."""
+    sites = {}
+    if frappe.db.exists("DocType", "Mallet Site"):
+        for st in frappe.get_list(
+                "Mallet Site", fields=["name", "site_name", "customer",
+                                       "customer_name", "site_type", "city"],
+                order_by="modified desc", limit_page_length=500):
+            sites[st.name] = st
+
+    pmeta = frappe.get_meta("Project")
+    has_site = pmeta.has_field("mallet_site")
+    pfields = ["name", "project_name", "customer"]
+    for f in ("mallet_site", "mallet_job_type", "mallet_stage"):
+        if pmeta.has_field(f):
+            pfields.append(f)
+
+    rows = frappe.get_list(
+        "Project", filters={"status": ("!=", "Cancelled")},
+        fields=pfields, order_by="modified desc", limit_page_length=200)
+    # One query for every project's SKUs, not one per project. Two hundred
+    # round trips is not a slow bootstrap, it is a phone on 3G at a site
+    # visit deciding the app is broken.
+    skus = _skus_by_project([p.name for p in rows])
+
     projects = []
-    for p in frappe.get_list(
-            "Project", filters={"status": ("!=", "Cancelled")},
-            fields=["name", "project_name", "customer"],
-            order_by="modified desc", limit_page_length=200):
+    for p in rows:
+        site = sites.get(p.get("mallet_site")) if has_site else None
         projects.append({
             "project": p.name,
             "title": p.project_name or p.name,
             "customer": p.customer or "",
             "customer_name": (frappe.db.get_value("Customer", p.customer, "customer_name")
                               if p.customer else "") or "",
+            "site": p.get("mallet_site") or "",
+            "site_name": (site.site_name if site else ""),
+            "site_type": (site.site_type if site else ""),
+            "site_city": (site.city if site else ""),
+            "job_type": p.get("mallet_job_type") or worksite.NEW,
+            "stage": p.get("mallet_stage") or "",
+            "skus": skus.get(p.name, []),
         })
+
     rooms = [r.name for r in frappe.get_list(
         "Estimate Room", fields=["name"], order_by="name", limit_page_length=200)]
     return {
         "projects": projects,
+        "sites": [dict(v) for v in sites.values()],
         "rooms": rooms,
-        "stages": list(STAGES),
+        "job_types": list(worksite.JOB_TYPES),
+        "phases": list(worksite.PHASES),
+        "stages": stage_master(),
+        "articles": article_master(),
+        # The six old words, still answered so a phone that has not updated
+        # yet keeps working through one release. Removed next batch.
+        "legacy_stages": list(STAGES),
         "faces": list(panorama.FACE_NAMES),
         "default_fov": int(panorama.DEFAULT_FOV),
         "fov_min": int(panorama.FOV_MIN),
@@ -62,9 +103,70 @@ def bootstrap():
     }
 
 
+def _skus_by_project(projects):
+    """Every listed project's SKUs, in one query, keyed by project.
+
+    They ride bootstrap because the phone needs them the moment it LOSES
+    signal — a technician tagging a photo to YS_MB_WAR in a basement cannot
+    fetch a picker. A project has a handful of SKUs, so the whole set is
+    small enough to carry."""
+    if not projects or not frappe.db.exists("DocType", "Estimate SKU"):
+        return {}
+    fields = ["name", "project", "sku_code"]
+    meta = frappe.get_meta("Estimate SKU")
+    for f in ("room", "article_name", "mallet_article"):
+        if meta.has_field(f):
+            fields.append(f)
+    out = {}
+    for r in frappe.get_all("Estimate SKU", filters={"project": ("in", projects)},
+                            fields=fields, limit_page_length=0):
+        out.setdefault(r.project, []).append({
+            "name": r.name, "code": r.get("sku_code") or r.name,
+            "room": r.get("room") or "",
+            "article": r.get("article_name") or "",
+            "article_code": r.get("mallet_article") or ""})
+    return out
+
+
+def _project_skus(project):
+    """One project's SKUs. Kept as its own name because the app and the tests
+    both ask that question directly."""
+    return _skus_by_project([project]).get(project, [])
+
+
+@frappe.whitelist()
+def stage_master(job_type=None):
+    """The work-stage master, in trade order, optionally narrowed to one job
+    type. A repair and an installation are a SLICE of the same sequence, not
+    a different one, so this is one list with job types ticked on it."""
+    if not frappe.db.exists("DocType", "Mallet Work Stage"):
+        return []
+    from mallet_estimator.mallet_estimator.doctype.mallet_work_stage.mallet_work_stage \
+        import stages_for
+    return [{"stage": r.name, "phase": r.phase, "sequence": r.sequence,
+             "job_types": r.job_types} for r in stages_for(job_type)]
+
+
+@frappe.whitelist()
+def article_master(job_type=None):
+    """The article master — the third token of an SKU code, as a picker."""
+    if not frappe.db.exists("DocType", "Mallet Article"):
+        return []
+    rows = frappe.get_all(
+        "Mallet Article", filters={"disabled": 0},
+        fields=["name", "article_code", "article_name", "job_types"],
+        order_by="article_code asc", limit_page_length=0)
+    if job_type:
+        rows = [r for r in rows
+                if job_type in [x.strip() for x in (r.job_types or "").split(",")]]
+    return [{"code": r.article_code, "article": r.article_name,
+             "job_types": r.job_types} for r in rows]
+
+
 @frappe.whitelist()
 def create_capture(project, room, capture_date=None, stage=None, fov=None,
-                   device_capture_id=None, app_version=None):
+                   device_capture_id=None, app_version=None, work_stage=None,
+                   sku=None):
     """Step 1 of a capture: the record. The phone then uploads the pano
     against this docname and calls bind_pano().
 
@@ -84,6 +186,11 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
             return {"name": existing.name, "status": existing.status,
                     "already_synced": True}
 
+    # The stage the project has actually reached is the right default, and
+    # it is the reason stage lives on the Project at all: nobody standing in
+    # a dusty flat should be picking from thirty-nine rows to file one photo.
+    work_stage, stage = _resolve_stage(project, work_stage, stage)
+
     doc = frappe.get_doc({
         "doctype": DOCTYPE,
         "project": project,
@@ -93,6 +200,16 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
         "fov": cint(fov) or int(panorama.DEFAULT_FOV),
         "device_capture_id": device_capture_id,
     })
+    meta = frappe.get_meta(DOCTYPE)
+    if work_stage and meta.has_field("work_stage"):
+        doc.work_stage = work_stage
+    if sku and meta.has_field("sku"):
+        # Refused rather than silently dropped: a photo tagged to another
+        # project's SKU would file itself beside the wrong estimate line, and
+        # nothing downstream would ever question it.
+        if frappe.db.get_value("Estimate SKU", sku, "project") != project:
+            frappe.throw(_("{0} does not belong to project {1}").format(sku, project))
+        doc.sku = sku
     # The phone reports its versionName with every capture — the server-side
     # answer to "which build is that phone actually running". Guarded: a
     # bench that has not migrated yet simply drops it.
@@ -100,6 +217,60 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
         doc.device_app_version = str(app_version)[:40]
     doc.insert()
     return {"name": doc.name, "status": doc.status}
+
+
+def _resolve_stage(project, work_stage=None, stage=None):
+    """Work out (work_stage, phase) for a capture.
+
+    Precedence is deliberate: what the phone explicitly chose beats what the
+    project is at, which beats nothing. The phase is always DERIVED from the
+    stage rather than trusted from the caller — two fields that can disagree
+    are two fields that eventually will."""
+    if not frappe.db.exists("DocType", "Mallet Work Stage"):
+        return None, stage          # bench that has not migrated yet
+    if not work_stage:
+        work_stage = frappe.db.get_value("Project", project, "mallet_stage") \
+            if frappe.get_meta("Project").has_field("mallet_stage") else None
+    if not work_stage:
+        return None, stage
+    phase = frappe.db.get_value("Mallet Work Stage", work_stage, "phase")
+    if not phase:
+        return None, stage          # a stage that no longer exists: keep the phase given
+    return work_stage, phase
+
+
+@frappe.whitelist()
+def set_project_stage(project, work_stage, remark=None):
+    """Move a project to a stage, and write the move down.
+
+    The log is the point. 'When did carpentry actually start' is a question
+    every one of these jobs eventually asks, and the honest answer has to be
+    recorded when it happens rather than reconstructed afterwards from photo
+    timestamps — which only ever tells you when somebody remembered to take
+    a picture."""
+    doc = frappe.get_doc("Project", project)
+    doc.check_permission("write")
+    if not frappe.db.exists("Mallet Work Stage", work_stage):
+        frappe.throw(_("No such work stage: {0}").format(work_stage))
+
+    job = doc.get("mallet_job_type") or worksite.NEW
+    jobs = frappe.db.get_value("Mallet Work Stage", work_stage, "job_types") or ""
+    if job not in [j.strip() for j in jobs.split(",")]:
+        frappe.throw(_("{0} is not a stage a {1} job reaches").format(work_stage, job))
+
+    if doc.get("mallet_stage") == work_stage:
+        return {"project": doc.name, "stage": work_stage, "changed": False}
+
+    doc.mallet_stage = work_stage
+    doc.mallet_stage_since = today()
+    if doc.meta.has_field("mallet_stage_log"):
+        doc.append("mallet_stage_log", {
+            "stage": work_stage, "on_date": today(),
+            "moved_by": frappe.session.user, "remark": (remark or "")[:140]})
+    doc.save()
+    return {"project": doc.name, "stage": work_stage,
+            "phase": frappe.db.get_value("Mallet Work Stage", work_stage, "phase"),
+            "changed": True}
 
 
 def _site_key(text):
@@ -111,8 +282,9 @@ def _site_key(text):
 
 
 @frappe.whitelist()
-def ensure_site(customer_name, project_title):
-    """Resolve — or create — the client and project a device capture named.
+def ensure_site(customer_name, project_title, site_name=None, site_type=None,
+                job_type=None):
+    """Resolve — or create — the client, SITE and project a device capture named.
 
     A technician arriving at a NEW site has no signal and no project row, so
     the app lets them type the client and project offline; this is the sync
@@ -131,6 +303,7 @@ def ensure_site(customer_name, project_title):
 
     customer_name = (customer_name or "").strip()
     project_title = (project_title or "").strip()
+    site_name = (site_name or "").strip()
     if not customer_name or not project_title:
         frappe.throw(_("Both a client name and a project name are needed."))
 
@@ -142,8 +315,14 @@ def ensure_site(customer_name, project_title):
         if _site_key(p.project_name) == pkey:
             cust = (frappe.db.get_value("Customer", p.customer, "customer_name")
                     if p.customer else "") or ""
+            # An existing project may predate the site level, or may have been
+            # created before this phone knew which site it was standing in.
+            # Filling the gap is safe; overwriting a site the office chose is
+            # not, so this only ever fills a blank.
+            site = _attach_site(p.name, p.customer, site_name, site_type,
+                                fill_only=True)
             return {"project": p.name, "project_title": p.project_name,
-                    "customer_name": cust, "created": False}
+                    "customer_name": cust, "site": site, "created": False}
 
     ckey = _site_key(customer_name)
     customer = None
@@ -169,12 +348,32 @@ def ensure_site(customer_name, project_title):
         "doctype": "Project", "project_name": project_title,
         "customer": customer, "company": company,
     })
+    if project.meta.has_field("mallet_job_type"):
+        project.mallet_job_type = job_type or worksite.NEW
     project.insert(ignore_permissions=True)
+    site = _attach_site(project.name, customer, site_name, site_type)
     frappe.db.commit()
     return {"project": project.name, "project_title": project.project_name,
             "customer_name": frappe.db.get_value("Customer", customer,
                                                  "customer_name") or "",
-            "created": True}
+            "site": site, "created": True}
+
+
+def _attach_site(project, customer, site_name, site_type=None, fill_only=False):
+    """Point a project at a site, creating the site if the office has none by
+    that name. Returns the site docname, or "" on a bench whose model sync has
+    not created the field yet — the app treats a blank site as 'not synced'
+    rather than as an error, so an old bench keeps working."""
+    if not frappe.get_meta("Project").has_field("mallet_site") or not customer:
+        return ""
+    have = frappe.db.get_value("Project", project, "mallet_site")
+    if have and fill_only:
+        return have
+    site = worksite.ensure_site(customer, site_name or worksite.DEFAULT_SITE_NAME,
+                                site_type)
+    frappe.db.set_value("Project", project, "mallet_site", site,
+                        update_modified=False)
+    return site
 
 
 def _leaf_default(single, field, doctype):
@@ -357,22 +556,30 @@ def delete_annotation(photo, idx):
 
 @frappe.whitelist()
 def tree():
-    """Client → project → room, the way ImageMeter's own folders read.
+    """Client → SITE → project → room, the way the app's folders read.
 
     Built from the captures that exist rather than from the masters: a room
-    nobody has photographed is not a folder, it is noise. Counts come from one
-    grouped query so the browser stays fast as the history grows."""
+    nobody has photographed is not a folder, it is noise. The site level is
+    the one ERPNext has no concept of, so a project without one is filed
+    under a single '(no site)' bucket rather than being dropped — an
+    invisible photo is worse than an awkwardly-named folder."""
     rows = frappe.get_list(
         DOCTYPE, fields=["project", "room", "capture_date", "name", "status"],
         order_by="capture_date desc, creation desc", limit_page_length=5000)
     if not rows:
         return {"clients": []}
 
+    pmeta = frappe.get_meta("Project")
+    pfields = ["name", "project_name", "customer"]
+    for f in ("mallet_site", "mallet_job_type", "mallet_stage"):
+        if pmeta.has_field(f):
+            pfields.append(f)
     projects = {}
     for p in frappe.get_all(
             "Project", filters={"name": ("in", list({r.project for r in rows if r.project}))},
-            fields=["name", "project_name", "customer"]):
+            fields=pfields):
         projects[p.name] = p
+
     cust_names = {}
     for c in frappe.get_all(
             "Customer",
@@ -380,13 +587,24 @@ def tree():
             fields=["name", "customer_name"]):
         cust_names[c.name] = c.customer_name or c.name
 
+    site_rows = {}
+    site_ids = {p.get("mallet_site") for p in projects.values() if p.get("mallet_site")}
+    if site_ids and frappe.db.exists("DocType", "Mallet Site"):
+        for st in frappe.get_all("Mallet Site", filters={"name": ("in", list(site_ids))},
+                                 fields=["name", "site_name", "site_type", "city"]):
+            site_rows[st.name] = st
+
+    NO_SITE = ("", "(no site)", "")
     tree_ = {}
     for r in rows:
         p = projects.get(r.project)
         client = cust_names.get(p.customer if p else None) or "(no client)"
+        st = site_rows.get(p.get("mallet_site")) if p else None
+        site = (st.name, st.site_name, st.site_type) if st else NO_SITE
         ptitle = (p.project_name if p else None) or r.project or "(no project)"
         c = tree_.setdefault(client, {})
-        pr = c.setdefault((r.project, ptitle), {})
+        sdict = c.setdefault(site, {})
+        pr = sdict.setdefault((r.project, ptitle), {})
         room = pr.setdefault(r.room or "(no room)", {"captures": 0, "latest": None})
         room["captures"] += 1
         if not room["latest"] or str(r.capture_date or "") > room["latest"]:
@@ -394,18 +612,29 @@ def tree():
 
     out = []
     for client in sorted(tree_):
-        plist = []
-        for (pname, ptitle) in sorted(tree_[client], key=lambda x: x[1]):
-            rooms = tree_[client][(pname, ptitle)]
-            plist.append({
-                "project": pname, "title": ptitle,
-                "captures": sum(v["captures"] for v in rooms.values()),
-                "rooms": [{"room": k, **v} for k, v in
-                          sorted(rooms.items(), key=lambda kv: kv[0])],
-            })
+        slist = []
+        # '(no site)' sorts last on purpose: it is a bucket, not a place, and
+        # a real site should never be pushed below it.
+        for site in sorted(tree_[client], key=lambda x: (x[0] == "", x[1].lower())):
+            plist = []
+            for (pname, ptitle) in sorted(tree_[client][site], key=lambda x: x[1]):
+                rooms = tree_[client][site][(pname, ptitle)]
+                proj = projects.get(pname) or {}
+                plist.append({
+                    "project": pname, "title": ptitle,
+                    "job_type": proj.get("mallet_job_type") or worksite.NEW,
+                    "stage": proj.get("mallet_stage") or "",
+                    "captures": sum(v["captures"] for v in rooms.values()),
+                    "rooms": [{"room": k, **v} for k, v in
+                              sorted(rooms.items(), key=lambda kv: kv[0])],
+                })
+            slist.append({"site": site[0], "site_name": site[1],
+                          "site_type": site[2],
+                          "captures": sum(p["captures"] for p in plist),
+                          "projects": plist})
         out.append({"client": client,
-                    "captures": sum(p["captures"] for p in plist),
-                    "projects": plist})
+                    "captures": sum(s["captures"] for s in slist),
+                    "sites": slist})
     return {"clients": out}
 
 

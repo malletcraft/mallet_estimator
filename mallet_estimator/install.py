@@ -13,6 +13,7 @@ from mallet_estimator.estimator import (
 # workstation until the rework patch rebuilds it; never auto-stripped.
 LEGACY_WS_COMPONENTS = ("Wages", "Machinery")
 from mallet_estimator import inventory
+from mallet_estimator import worksite
 from mallet_estimator.inventory import (
     ensure_inventory_masters, ensure_warehouses, ensure_pricing_masters,
 )
@@ -40,6 +41,12 @@ OPERATION_CUSTOM_FIELDS = {
 # F4 — a per-Project map from abstract material code (a/b/c, generic hardware) to
 # the client's actual chosen Item + vendor + negotiated rate. Table + Section Break
 # add no column to the Project table, so this is light enough for after_migrate.
+#
+# S-level (2026-08-21) adds the site and the job type. ERPNext links a Project
+# straight to a Customer, which was fine while one client meant one place —
+# people own more than one flat, and a project belongs to a building rather
+# than to a person. mallet_site sits BESIDE the customer link rather than
+# replacing it, so everything that reads Project today keeps working.
 PROJECT_CUSTOM_FIELDS = {
     "Project": [
         {"fieldname": "mallet_choices_section", "fieldtype": "Section Break",
@@ -48,12 +55,36 @@ PROJECT_CUSTOM_FIELDS = {
          "label": "Material Choices", "options": "Project Material Choice",
          "insert_after": "mallet_choices_section",
          "description": "Abstract code → chosen Item + vendor + actual rate. 'Apply choices' pushes the actual to procurement; the estimate keeps valuing at the assumed rate."},
+
+        {"fieldname": "mallet_site_section", "fieldtype": "Section Break",
+         "label": "Mallet — Site & Stage", "insert_after": "mallet_material_choices",
+         "collapsible": 0},
+        {"fieldname": "mallet_site", "fieldtype": "Link", "label": "Site",
+         "options": "Mallet Site", "insert_after": "mallet_site_section",
+         "in_standard_filter": 1,
+         "description": "Which of the client's places this job is at. Photos are filed Client → Site → Project → Room."},
+        {"fieldname": "mallet_job_type", "fieldtype": "Select", "label": "Job Type",
+         "options": "New work\nRepair\nSupply & install", "default": "New work",
+         "insert_after": "mallet_site", "in_standard_filter": 1,
+         "description": "Decides which work stages this project can reach, which articles its SKUs may use, and whether a cut list is expected at all."},
+        {"fieldname": "mallet_stage_column", "fieldtype": "Column Break",
+         "insert_after": "mallet_job_type"},
+        {"fieldname": "mallet_stage", "fieldtype": "Link", "label": "Current Stage",
+         "options": "Mallet Work Stage", "insert_after": "mallet_stage_column",
+         "in_standard_filter": 1,
+         "description": "Where the work has actually reached. New captures default to it, so nobody picks from 39 stages standing in a dusty flat."},
+        {"fieldname": "mallet_stage_since", "fieldtype": "Date", "label": "At Stage Since",
+         "read_only": 1, "insert_after": "mallet_stage"},
+        {"fieldname": "mallet_stage_log", "fieldtype": "Table", "label": "Stage Log",
+         "options": "Project Stage Log", "insert_after": "mallet_stage_since",
+         "description": "Every move, with its date and who made it — the progress timeline nobody had to type."},
     ]
 }
 
 
 def ensure_project_customization():
-    """F4 — the Project 'Material Choices' child table custom field. Idempotent."""
+    """F4 + S-level — the Project custom fields (material choices, site, job
+    type, current stage and its log). Idempotent."""
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
     create_custom_fields(PROJECT_CUSTOM_FIELDS, ignore_validate=True)
     frappe.db.commit()
@@ -213,6 +244,8 @@ DEFAULT_ROOMS = [
 def after_install():
     seed_settings()
     _safe(ensure_rooms)
+    _safe(worksite.ensure_articles)
+    _safe(worksite.ensure_work_stages)
     _safe(ensure_inventory_masters)
     _safe(ensure_warehouses)
     _safe(ensure_pricing_masters)
@@ -231,6 +264,9 @@ def after_migrate():
     # refresh manufacturing masters" button, NOT here, so a deploy's site-migration
     # step never stalls on them.
     _safe(ensure_rooms)
+    # Both are light: two flat masters with no Item/Project schema behind them.
+    _safe(worksite.ensure_articles)
+    _safe(worksite.ensure_work_stages)
     _safe(ensure_pricing_masters)          # F5 — light: one Price List, no Item schema
     _safe(ensure_project_customization)    # F4 — light: Table + Section, no Project column
     _safe(inventory.ensure_vendor_masters) # S1 — light: Manufacturer/Brand/Supplier records
@@ -488,6 +524,8 @@ def setup():
         frappe.throw("Not permitted")
     seed_settings()
     _safe(ensure_rooms)
+    _safe(worksite.ensure_articles)
+    _safe(worksite.ensure_work_stages)
     inv, wh = {}, {}
     try:
         inv = ensure_inventory_masters()
@@ -586,6 +624,36 @@ def verify_setup():
         and frappe.get_meta("Operation").has_field("mallet_batch_tiers"),
         "Operation.mallet_batch_tiers → Mallet Operation Batch Tier")
     chk("Routing", frappe.db.exists("Routing", ROUTING_NAME), ROUTING_NAME)
+
+    # Client → Site → Project → Room. The site level is the one ERPNext has no
+    # concept of, so its absence is silent until a photo files itself under the
+    # wrong folder — checked here rather than discovered there.
+    chk("Mallet Site", bool(frappe.db.exists("DocType", "Mallet Site")),
+        "Client → Site → Project → Room")
+    n_art = frappe.db.count("Mallet Article")
+    chk("Articles", n_art >= len(worksite.ARTICLES),
+        f"{n_art} of {len(worksite.ARTICLES)} seeded")
+    n_stage = frappe.db.count("Mallet Work Stage")
+    chk("Work stages", n_stage >= len(worksite.WORK_STAGES),
+        f"{n_stage} of {len(worksite.WORK_STAGES)} seeded, "
+        f"{len(worksite.PHASES)} phases")
+    # A stage nobody can reach is a seeding bug that only shows up as an empty
+    # picker on a phone, which is the worst place to discover it.
+    orphan = []
+    for job in worksite.JOB_TYPES:
+        if not frappe.get_all("Mallet Work Stage",
+                              filters={"job_types": ("like", f"%{job}%"), "disabled": 0},
+                              limit_page_length=1):
+            orphan.append(job)
+    chk("Every job type has stages", not orphan,
+        ("no stages for: " + ", ".join(orphan)) if orphan else
+        ", ".join(worksite.JOB_TYPES))
+
+    pmeta = frappe.get_meta("Project")
+    pf = ["mallet_site", "mallet_job_type", "mallet_stage", "mallet_stage_log"]
+    m = [f for f in pf if not pmeta.has_field(f)]
+    chk("Project site & stage fields", not m,
+        ("missing: " + ", ".join(m)) if m else "site + job type + stage + log ✓")
     chk("Print format", frappe.db.exists("Print Format", PRINT_FORMAT_NAME), PRINT_FORMAT_NAME)
     chk("Job Card print", frappe.db.exists("Print Format", JOB_CARD_PRINT_FORMAT_NAME), JOB_CARD_PRINT_FORMAT_NAME)
     chk("Execution print", frappe.db.exists("Print Format", EXECUTION_PRINT_FORMAT_NAME), EXECUTION_PRINT_FORMAT_NAME)

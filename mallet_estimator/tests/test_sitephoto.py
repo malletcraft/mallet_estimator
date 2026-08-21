@@ -4,7 +4,7 @@
 # additive).
 import frappe
 
-from mallet_estimator import panorama, sitephoto
+from mallet_estimator import install, panorama, sitephoto
 
 try:
     from frappe.tests import IntegrationTestCase as MalletTestCase
@@ -384,3 +384,199 @@ class TestSitePhotoApi(MalletTestCase):
         for guard in ("r.ok", "r.type === 'basic'", "!r.redirected"):
             self.assertIn(guard, sw,
                           f"the shell cache must be guarded by {guard}")
+
+
+class TestSiteLevelAndStages(MalletTestCase):
+    """Client → SITE → Project → Room, and the work-stage master under it.
+
+    ERPNext links a Project straight to a Customer, so the site is the one
+    level with nothing native behind it — which is exactly why it needs
+    tests: its absence is silent until a photo files itself under the wrong
+    folder, months later, on somebody's phone."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from mallet_estimator import worksite
+        worksite.ensure_articles()
+        worksite.ensure_work_stages()
+        install.ensure_project_customization()
+        frappe.clear_cache(doctype="Project")
+
+    # ---- the masters -----------------------------------------------------
+
+    def test_the_stage_master_is_seeded_in_trade_order(self):
+        from mallet_estimator import worksite
+        rows = sitephoto.stage_master()
+        self.assertGreaterEqual(len(rows), len(worksite.WORK_STAGES))
+        seqs = [r["sequence"] for r in rows]
+        self.assertEqual(seqs, sorted(seqs), "stage master came back out of order")
+
+    def test_a_repair_reaches_fewer_stages_than_new_work(self):
+        from mallet_estimator import worksite
+        new = sitephoto.stage_master(worksite.NEW)
+        rep = sitephoto.stage_master(worksite.REPAIR)
+        ins = sitephoto.stage_master(worksite.INSTALL)
+        self.assertTrue(rep and ins)
+        self.assertLess(len(rep), len(new))
+        self.assertLess(len(ins), len(new))
+        # ...and it is a SLICE of the same sequence, not a separate list.
+        new_names = {r["stage"] for r in new}
+        self.assertTrue({r["stage"] for r in rep} & new_names)
+        self.assertTrue({r["stage"] for r in ins} & new_names)
+
+    def test_a_repair_only_stage_is_hidden_from_new_work(self):
+        from mallet_estimator import worksite
+        names = {r["stage"] for r in sitephoto.stage_master(worksite.NEW)}
+        self.assertNotIn("Defect recorded", names)
+        self.assertIn("Defect recorded",
+                      {r["stage"] for r in sitephoto.stage_master(worksite.REPAIR)})
+
+    def test_articles_are_offered_per_job_type(self):
+        from mallet_estimator import worksite
+        ins = {a["code"] for a in sitephoto.article_master(worksite.INSTALL)}
+        self.assertIn("PVC", ins)
+        self.assertNotIn("LOF", ins, "a loft is not a supply-and-install article")
+
+    # ---- the site level --------------------------------------------------
+
+    def test_a_site_typed_on_a_phone_lands_under_the_client(self):
+        out = sitephoto.ensure_site("ZZ Site Client", "ZZ Site Project A",
+                                    site_name="ZZ Kothrud Flat", site_type="Flat")
+        self.assertTrue(out["site"], "no site created")
+        site = frappe.get_doc("Mallet Site", out["site"])
+        self.assertEqual(site.site_name, "ZZ Kothrud Flat")
+        self.assertEqual(frappe.db.get_value("Project", out["project"], "mallet_site"),
+                         site.name)
+        self.assertEqual(frappe.db.get_value("Customer", site.customer, "customer_name"),
+                         "ZZ Site Client")
+
+    def test_the_same_site_typed_twice_is_one_site(self):
+        a = sitephoto.ensure_site("ZZ Site Client 2", "ZZ Site Project B",
+                                  site_name="ZZ Baner Flat")
+        b = sitephoto.ensure_site("ZZ Site Client 2", "ZZ Site Project C",
+                                  site_name="zz  baner_flat")
+        self.assertEqual(a["site"], b["site"],
+                         "spacing and case made a second folder")
+        self.assertNotEqual(a["project"], b["project"],
+                            "two projects at one site collapsed into one")
+
+    def test_one_client_can_hold_two_sites(self):
+        a = sitephoto.ensure_site("ZZ Two Homes", "ZZ Flat Job",
+                                  site_name="ZZ City Flat")
+        b = sitephoto.ensure_site("ZZ Two Homes", "ZZ Hill Job",
+                                  site_name="ZZ Hill Bungalow", site_type="Bungalow")
+        self.assertNotEqual(a["site"], b["site"])
+        cust = frappe.db.get_value("Mallet Site", a["site"], "customer")
+        self.assertEqual(cust, frappe.db.get_value("Mallet Site", b["site"], "customer"))
+
+    def test_two_sites_of_one_name_under_one_client_are_refused(self):
+        out = sitephoto.ensure_site("ZZ Dup Client", "ZZ Dup Project",
+                                    site_name="ZZ Dup Flat")
+        customer = frappe.db.get_value("Mallet Site", out["site"], "customer")
+        with self.assertRaises(frappe.ValidationError):
+            frappe.get_doc({"doctype": "Mallet Site", "customer": customer,
+                            "site_name": "ZZ Dup Flat"}).insert(ignore_permissions=True)
+
+    def test_the_tree_carries_the_site_level(self):
+        out = sitephoto.ensure_site("ZZ Tree Client", "ZZ Tree Project",
+                                    site_name="ZZ Tree Flat")
+        sitephoto.create_capture(out["project"], _room())
+        tree = sitephoto.tree()
+        client = [c for c in tree["clients"] if c["client"] == "ZZ Tree Client"]
+        self.assertTrue(client, "client missing from the tree")
+        sites = client[0]["sites"]
+        self.assertTrue(sites, "no site level in the tree")
+        names = {s["site_name"] for s in sites}
+        self.assertIn("ZZ Tree Flat", names)
+        projects = [p for s in sites for p in s["projects"]]
+        self.assertIn(out["project"], {p["project"] for p in projects})
+
+    def test_bootstrap_carries_site_job_type_and_stages(self):
+        sitephoto.ensure_site("ZZ Boot Client", "ZZ Boot Project",
+                              site_name="ZZ Boot Flat")
+        boot = sitephoto.bootstrap()
+        for key in ("sites", "job_types", "phases", "stages", "articles"):
+            self.assertIn(key, boot, f"bootstrap missing {key}")
+        row = [p for p in boot["projects"] if p["title"] == "ZZ Boot Project"]
+        self.assertTrue(row)
+        self.assertTrue(row[0]["site"], "project came back with no site")
+        self.assertEqual(row[0]["site_name"], "ZZ Boot Flat")
+        self.assertTrue(row[0]["job_type"])
+
+    # ---- stage on the project -------------------------------------------
+
+    def test_moving_a_project_stage_is_logged(self):
+        from mallet_estimator import worksite
+        out = sitephoto.ensure_site("ZZ Stage Client", "ZZ Stage Project",
+                                    site_name="ZZ Stage Flat")
+        res = sitephoto.set_project_stage(out["project"], "Modular carpentry install")
+        self.assertTrue(res["changed"])
+        self.assertEqual(res["phase"], "Joinery")
+        doc = frappe.get_doc("Project", out["project"])
+        self.assertEqual(doc.mallet_stage, "Modular carpentry install")
+        self.assertEqual(len(doc.mallet_stage_log), 1)
+        self.assertEqual(doc.mallet_stage_log[0].stage, "Modular carpentry install")
+        # Setting the same stage again is a no-op, not a second log row —
+        # otherwise a phone retrying a sync writes the history twice.
+        again = sitephoto.set_project_stage(out["project"], "Modular carpentry install")
+        self.assertFalse(again["changed"])
+        self.assertEqual(len(frappe.get_doc("Project", out["project"]).mallet_stage_log), 1)
+
+    def test_a_project_cannot_move_to_a_stage_its_job_type_never_reaches(self):
+        from mallet_estimator import worksite
+        out = sitephoto.ensure_site("ZZ Job Client", "ZZ Install Project",
+                                    site_name="ZZ Install Flat",
+                                    job_type=worksite.INSTALL)
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.set_project_stage(out["project"], "Demolition & debris removal")
+
+    def test_a_capture_inherits_the_projects_stage(self):
+        out = sitephoto.ensure_site("ZZ Inherit Client", "ZZ Inherit Project",
+                                    site_name="ZZ Inherit Flat")
+        sitephoto.set_project_stage(out["project"], "Wall moulding & trims")
+        cap = sitephoto.create_capture(out["project"], _room())
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual(doc.work_stage, "Wall moulding & trims")
+        # The phase is DERIVED, never trusted from the caller: two fields that
+        # can disagree are two fields that eventually will.
+        self.assertEqual(doc.stage, "Joinery")
+
+    def test_an_explicit_stage_beats_the_projects(self):
+        out = sitephoto.ensure_site("ZZ Explicit Client", "ZZ Explicit Project",
+                                    site_name="ZZ Explicit Flat")
+        sitephoto.set_project_stage(out["project"], "Wall moulding & trims")
+        cap = sitephoto.create_capture(out["project"], _room(),
+                                       work_stage="Deep clean")
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual(doc.work_stage, "Deep clean")
+        self.assertEqual(doc.stage, "Finishing")
+
+    # ---- SKU tagging -----------------------------------------------------
+
+    def test_a_capture_refuses_another_projects_sku(self):
+        a = sitephoto.ensure_site("ZZ Sku Client", "ZZ Sku Project A",
+                                  site_name="ZZ Sku Flat")
+        b = sitephoto.ensure_site("ZZ Sku Client", "ZZ Sku Project B",
+                                  site_name="ZZ Sku Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": b["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.create_capture(a["project"], _room(), sku=sku.name)
+
+    def test_a_capture_accepts_its_own_projects_sku(self):
+        out = sitephoto.ensure_site("ZZ Sku Own Client", "ZZ Sku Own Project",
+                                    site_name="ZZ Sku Own Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        cap = sitephoto.create_capture(out["project"], _room(), sku=sku.name)
+        self.assertEqual(frappe.db.get_value("Site Photo 360", cap["name"], "sku"),
+                         sku.name)
+        self.assertIn(sku.name,
+                      {s["name"] for s in sitephoto._project_skus(out["project"])})

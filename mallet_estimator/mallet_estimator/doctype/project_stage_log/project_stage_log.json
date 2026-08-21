@@ -1,0 +1,29 @@
+{
+ "actions": [],
+ "creation": "2026-08-21 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": ["stage", "phase", "on_date", "moved_by", "remark"],
+ "fields": [
+  {"fieldname": "stage", "fieldtype": "Link", "label": "Stage",
+   "options": "Mallet Work Stage", "reqd": 1, "in_list_view": 1, "columns": 3},
+  {"fieldname": "phase", "fieldtype": "Data", "label": "Phase",
+   "fetch_from": "stage.phase", "read_only": 1, "in_list_view": 1, "columns": 2},
+  {"fieldname": "on_date", "fieldtype": "Date", "label": "On", "reqd": 1,
+   "in_list_view": 1, "columns": 2},
+  {"fieldname": "moved_by", "fieldtype": "Link", "label": "By", "options": "User",
+   "read_only": 1, "in_list_view": 1, "columns": 2},
+  {"fieldname": "remark", "fieldtype": "Data", "label": "Remark", "columns": 2}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-21 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Project Stage Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

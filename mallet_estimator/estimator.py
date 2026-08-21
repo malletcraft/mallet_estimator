@@ -394,8 +394,22 @@ def customer_initials(customer_name):
     return (cf + cl).upper()
 
 
-def sku_code(customer_name, room, article_name):
-    return "_".join(x for x in [customer_initials(customer_name), room_abbr(room), abbr(article_name)] if x)
+def article_token(article_name, article_code=None):
+    """The article half of an SKU code.
+
+    A code from the Mallet Article master wins outright over one derived from
+    the article's prose name, and that is the whole reason the master exists.
+    abbr() reads 'PVC bathroom door' as three words and answers
+    PVC_BAT_DOO — correct by its own rule, and useless as a token. The master
+    says PVC. Anything with no master row keeps the derived form, so an
+    article typed in a hurry still produces a code."""
+    code = (article_code or "").strip().upper()
+    return code or abbr(article_name)
+
+
+def sku_code(customer_name, room, article_name, article_code=None):
+    return "_".join(x for x in [customer_initials(customer_name), room_abbr(room),
+                                article_token(article_name, article_code)] if x)
 
 
 # Default operation standards: which material driver fills each operation's Qty
