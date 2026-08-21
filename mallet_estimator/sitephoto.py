@@ -402,7 +402,7 @@ def set_capture_tags(name, work_stage=None, sku=None):
 
 @frappe.whitelist()
 def create_sku(project, room, article_code, qty=None, width_mm=None,
-               height_mm=None, depth_mm=None, note=None):
+               height_mm=None, depth_mm=None, note=None, device_sku_id=None):
     """Record a piece of WORK the site says is needed, before anyone leaves.
 
     Amit, 2026-08-21: "idea is to have a SKU / service discussed quickly with
@@ -415,11 +415,26 @@ def create_sku(project, room, article_code, qty=None, width_mm=None,
     grammar the estimator already uses. Two people describing the same wall
     have to produce the same code or the whole scheme is decorative.
 
-    Idempotent on that code. A technician who taps twice, or a queue that
-    retries after a dropped acknowledgement, gets one SKU — the alternative is
-    a project quietly carrying the same wardrobe three times.
+    Idempotent on the DEVICE ID, not on the code — the same distinction
+    create_capture already makes. Two wardrobes in one master bedroom is a
+    real thing, and Estimate SKU supports it deliberately: they compute the
+    same code and the second takes a numeric suffix. So "already recorded"
+    cannot mean "a wardrobe exists in this room", or the second one could
+    never be added. It means "this exact tap has been seen before", which is
+    what makes an offline queue safe to retry after a dropped acknowledgement.
     """
     frappe.has_permission(DOCTYPE, "create", throw=True)
+    device_sku_id = (device_sku_id or "").strip() or None
+    if device_sku_id:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]{5,63}", device_sku_id):
+            frappe.throw(_("Not a device SKU id: {0}").format(device_sku_id))
+        if frappe.get_meta("Estimate SKU").has_field("device_sku_id"):
+            seen = frappe.db.get_value(
+                "Estimate SKU", {"device_sku_id": device_sku_id},
+                ["name", "sku_code"], as_dict=True)
+            if seen:
+                return {"name": seen.name, "code": seen.sku_code,
+                        "already": True}
     code = (article_code or "").strip().upper()
     if not frappe.db.exists("Mallet Article", code):
         frappe.throw(_("No such article: {0}").format(code))
@@ -434,11 +449,6 @@ def create_sku(project, room, article_code, qty=None, width_mm=None,
         or customer
     want = estimator.sku_code(customer_name, room, art.article_name, code)
 
-    existing = frappe.db.get_value(
-        "Estimate SKU", {"project": project, "sku_code": want}, "name")
-    if existing:
-        return {"name": existing, "code": want, "already": True}
-
     doc = frappe.get_doc({
         "doctype": "Estimate SKU", "project": project, "room": room,
         "article_name": art.article_name,
@@ -450,7 +460,8 @@ def create_sku(project, room, article_code, qty=None, width_mm=None,
     # takes the SKU, it just takes it without the measure.
     for field, value in (("site_qty", qty), ("site_width_mm", width_mm),
                          ("site_height_mm", height_mm),
-                         ("site_depth_mm", depth_mm), ("site_note", note)):
+                         ("site_depth_mm", depth_mm), ("site_note", note),
+                         ("device_sku_id", device_sku_id)):
         if value not in (None, "") and meta.has_field(field):
             doc.set(field, value)
     doc.insert(ignore_permissions=True)

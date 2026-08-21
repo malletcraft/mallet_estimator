@@ -127,7 +127,8 @@
   "site_width_mm",
   "site_height_mm",
   "site_depth_mm",
-  "site_note"
+  "site_note",
+  "device_sku_id"
  ],
  "fields": [
   {
@@ -905,6 +906,17 @@
    "fieldtype": "Small Text",
    "label": "Site Note",
    "description": "What the person standing there wanted the designer to know."
+  },
+  {
+   "fieldname": "device_sku_id",
+   "fieldtype": "Data",
+   "label": "Device SKU Id",
+   "read_only": 1,
+   "hidden": 1,
+   "unique": 1,
+   "no_copy": 1,
+   "length": 64,
+   "description": "The id the phone minted when somebody tapped Add SKU. Passing it again returns the SAME SKU — which is what makes an offline queue safe to retry. Two genuine wardrobes in one room carry two different ids."
   }
  ],
  "links": [],

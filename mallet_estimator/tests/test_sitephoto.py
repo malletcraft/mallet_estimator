@@ -869,16 +869,46 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertTrue(made["code"].endswith("_WAR"),
                         f"article token missing: {made['code']}")
 
-    def test_recording_the_same_work_twice_makes_one_sku(self):
-        """A tap that lands twice, or a queue retrying after a dropped
-        acknowledgement, must not leave the project carrying the same wardrobe
-        three times."""
+    def test_the_same_tap_arriving_twice_makes_one_sku(self):
+        """A queue retrying after a dropped acknowledgement must not leave the
+        project carrying the same wardrobe three times.
+
+        Keyed on the DEVICE ID, not the code — the same distinction
+        create_capture makes."""
         out = sitephoto.ensure_site("ZZ Twice Client", "ZZ Twice Project",
                                     site_name="ZZ Twice Flat")
-        a = sitephoto.create_sku(out["project"], _room(), "WAR")
-        b = sitephoto.create_sku(out["project"], _room(), "WAR")
+        a = sitephoto.create_sku(out["project"], _room(), "WAR",
+                                 device_sku_id="msku-aaaabbbbcccc")
+        b = sitephoto.create_sku(out["project"], _room(), "WAR",
+                                 device_sku_id="msku-aaaabbbbcccc")
         self.assertTrue(b["already"])
         self.assertEqual(a["name"], b["name"])
+
+    def test_two_real_wardrobes_in_one_room_are_two_skus(self):
+        """And this is why idempotency cannot key on the code. Estimate SKU
+        supports two wardrobes in one master bedroom deliberately — they
+        compute the same code and the second takes a numeric suffix. If
+        "already recorded" meant "a wardrobe exists in this room", the second
+        one could never be added at all."""
+        out = sitephoto.ensure_site("ZZ Pair Client", "ZZ Pair Project",
+                                    site_name="ZZ Pair Flat")
+        a = sitephoto.create_sku(out["project"], _room(), "WAR",
+                                 device_sku_id="msku-111111111111")
+        b = sitephoto.create_sku(out["project"], _room(), "WAR",
+                                 device_sku_id="msku-222222222222")
+        self.assertFalse(b["already"])
+        self.assertNotEqual(a["name"], b["name"])
+        self.assertNotEqual(a["code"], b["code"],
+                            "the second must take its own code, not share one")
+
+    def test_a_made_up_device_sku_id_is_refused(self):
+        """The id is minted by the app. Anything else is a bug or a probe, and
+        accepting it would let one caller overwrite another's idempotency."""
+        out = sitephoto.ensure_site("ZZ Badid Client", "ZZ Badid Project",
+                                    site_name="ZZ Badid Flat")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.create_sku(out["project"], _room(), "WAR",
+                                 device_sku_id="../../etc")
 
     def test_an_unknown_article_is_refused(self):
         """The picker offers a master. Anything else arriving here is a bug or
