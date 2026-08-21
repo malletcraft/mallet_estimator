@@ -146,13 +146,31 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("name", docname)
             .put("file_url", fileUrl))
 
-    /** Turn a client/project typed offline at a NEW site into real masters —
-     *  or, far more often, match them against masters that already exist.
-     *  The server matches insensitively before it ever creates. */
-    fun ensureSite(customerName: String, projectTitle: String): JSONObject =
-        post("mallet_estimator.sitephoto.ensure_site", JSONObject()
-            .put("customer_name", customerName)
-            .put("project_title", projectTitle))
+    /** Move a project to a stage. The server refuses a stage the project's
+     *  job type never reaches, so a phone carrying a stale master list gets
+     *  a refusal rather than a wrong stage. */
+    fun setProjectStage(project: String, workStage: String): JSONObject =
+        post("mallet_estimator.sitephoto.set_project_stage",
+            JSONObject().put("project", project).put("work_stage", workStage))
+
+    /** Turn a client/site/project typed offline at a NEW site into real
+     *  masters — or, far more often, match them against masters that already
+     *  exist. The server matches insensitively before it ever creates.
+     *
+     *  The site and job type are optional so an older bench, which knows
+     *  neither, still answers instead of erroring on an unexpected argument. */
+    fun ensureSite(
+        customerName: String,
+        projectTitle: String,
+        siteName: String = "",
+        jobType: String = "",
+    ): JSONObject = post("mallet_estimator.sitephoto.ensure_site", JSONObject()
+        .put("customer_name", customerName)
+        .put("project_title", projectTitle)
+        .apply {
+            if (siteName.isNotBlank()) put("site_name", siteName)
+            if (jobType.isNotBlank()) put("job_type", jobType)
+        })
 
     companion object {
         private const val PREFS = "mcft_settings"

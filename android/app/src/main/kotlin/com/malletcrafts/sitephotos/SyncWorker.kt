@@ -32,6 +32,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
 
         // Masters first: a phone that syncs captures but shows week-old rooms
         // files tomorrow's photo against the wrong wall.
+        val cat = Catalogue(applicationContext)
         runCatching { store.saveMasters(client.bootstrap()) }
 
         var failures = 0
@@ -46,9 +47,21 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 // on one project however the names were typed.
                 var projectId = c.project
                 if (projectId.isBlank()) {
-                    val site = client.ensureSite(c.customerName, c.projectTitle)
-                    projectId = site.getString("project")
+                    // The site and job type are read back from the catalogue
+                    // rather than carried on the capture row: the captures
+                    // table has no migration path, and the catalogue is where
+                    // the phone already remembers what was typed.
+                    val resolved = client.ensureSite(
+                        c.customerName, c.projectTitle,
+                        siteName = cat.localSiteFor(c.customerName, c.projectTitle),
+                        jobType = cat.localJobTypeFor(c.customerName, c.projectTitle))
+                    projectId = resolved.getString("project")
                     store.setProject(c.deviceId, projectId)
+                    // ERP has it now, so the local copy is redundant. Dropping
+                    // it is what stops the same folder appearing twice.
+                    cat.forgetLocal(c.customerName,
+                        cat.localSiteFor(c.customerName, c.projectTitle),
+                        c.projectTitle)
                 }
 
                 val made = client.createCapture(

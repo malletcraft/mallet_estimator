@@ -5,6 +5,7 @@ package com.malletcrafts.sitephotos
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
@@ -19,6 +20,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -43,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.malletcrafts.sitephotos.BuildConfig
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
@@ -89,14 +98,18 @@ private fun AppScreen() {
     var configured by remember { mutableStateOf(FrappeClient.configured(context)) }
     var showSettings by remember { mutableStateOf(!FrappeClient.configured(context)) }
 
-    // Where we are in the folder tree: client > project > room. Null means
-    // "not that deep yet", which is also what the Back buttons unwind.
+    // Where we are in the folder tree: client > SITE > project > room. Null
+    // means "not that deep yet", which is also what Back unwinds.
     val cat = remember { Catalogue(context) }
     var navClient by remember { mutableStateOf<String?>(null) }
+    var navSite by remember { mutableStateOf<String?>(null) }
     var navProject by remember { mutableStateOf<Catalogue.Project?>(null) }
     var navRoom by remember { mutableStateOf<String?>(null) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     var showNewSite by remember { mutableStateOf(false) }
+    var showStagePicker by remember { mutableStateOf(false) }
+    var showSkus by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf("") }
     // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
     // extra "server default" entry at the end. Remembered across launches —
@@ -232,48 +245,193 @@ private fun AppScreen() {
     // ---- the folder tree ------------------------------------------------
     if (showNewSite) {
         NewSiteDialog(
+            client = navClient.orEmpty(),
+            site = navSite.orEmpty(),
+            jobTypes = cat.jobTypes(masters),
             onDismiss = { showNewSite = false },
-            onSave = { client, proj ->
-                cat.addLocalSite(client, proj)
+            onSave = { client, site, proj, jobType ->
+                cat.addLocal(client, site, proj, jobType = jobType)
                 showNewSite = false
                 navClient = client
-                navProject = Catalogue.Project(client, proj, "", local = true)
+                navSite = site
+                navProject = Catalogue.Project(
+                    client = client, site = site, siteId = "", title = proj,
+                    serverId = "", jobType = jobType, stage = "", local = true)
             })
     }
 
+    // ---- the four folder levels, one shell ------------------------------
     if (navRoom == null) {
         val proj = navProject
         val client = navClient
+        val site = navSite
+        val scopeDrawer = rememberCoroutineScope()
+
+        // Descending through a single child is a level nobody chose from, so
+        // it is filled in rather than presented — and Back skips it again on
+        // the way out, or the two directions disagree.
+        fun openClient(c: String) {
+            navClient = c; navSite = null; navProject = null
+            val ss = cat.sitesOf(masters, c)
+            if (ss.size == 1) openSiteInto(cat, masters, ss[0].name) { s2, p2 ->
+                navSite = s2; navProject = p2
+            }
+        }
+
+        // System back unwinds the tree, and skips exactly the levels the way
+        // DOWN skipped. Without this, back exits the app from four levels
+        // deep — which on a phone reads as the app crashing.
+        BackHandler(enabled = client != null) {
+            when {
+                proj != null -> {
+                    val siblings = cat.projectsOf(masters, client ?: "", site ?: "")
+                    if (siblings.size == 1) {
+                        if (cat.sitesOf(masters, client ?: "").size == 1) {
+                            navClient = null; navSite = null
+                        } else navSite = null
+                        navProject = null
+                    } else navProject = null
+                }
+                site != null ->
+                    if (cat.sitesOf(masters, client ?: "").size == 1) {
+                        navClient = null; navSite = null
+                    } else navSite = null
+                else -> navClient = null
+            }
+        }
+
+        val crumbs = buildList {
+            add(Crumb(
+                label = "Clients",
+                onUp = { navClient = null; navSite = null; navProject = null }))
+            if (client != null) add(Crumb(
+                label = shortName(client),
+                siblings = cat.clients(masters).map { it to it },
+                onUp = { navSite = null; navProject = null },
+                onSibling = { openClient(it) }))
+            if (client != null && site != null) add(Crumb(
+                label = site,
+                siblings = cat.sitesOf(masters, client).map { it.name to it.name },
+                onUp = { navProject = null },
+                onSibling = { navSite = it; navProject = null }))
+            if (proj != null) add(Crumb(
+                label = proj.title,
+                siblings = cat.projectsOf(masters, client ?: "", site ?: "")
+                    .map { it.key to it.title },
+                onUp = { navProject = null },
+                onSibling = { k ->
+                    navProject = cat.projectsOf(masters, client ?: "", site ?: "")
+                        .firstOrNull { it.key == k }
+                }))
+        }
+
+        val title: String
+        val subtitle: String
         when {
-            proj != null -> RoomsScreen(
-                project = proj, rooms = rooms,
-                captureCount = { r ->
-                    queue.count { it.room == r &&
-                        it.projectTitle.equals(proj.title, true) }
-                },
-                onOpen = { navRoom = it },
-                onBack = { navProject = null })
-            client != null -> ProjectsScreen(
-                client = client,
-                projects = cat.projectsOf(masters, client),
-                onOpen = { navProject = it },
-                onNewSite = { showNewSite = true },
-                onBack = { navClient = null })
-            else -> ClientsScreen(
-                clients = cat.clients(masters),
-                projectCount = { c -> cat.projectsOf(masters, c).size },
-                onOpen = { navClient = it },
-                onNewSite = { showNewSite = true },
-                onSettings = { showSettings = true },
-                banner = {
-                    if (!configured) {
-                        Text("Set the server and API key in Settings to begin.",
-                            Modifier.padding(16.dp))
-                    } else if (masters == null) {
-                        Text("Waiting for the first master list — go online once.",
-                            Modifier.padding(16.dp))
+            proj != null -> { title = proj.title; subtitle = "${proj.jobType} · ${site.orEmpty()}" }
+            site != null -> { title = site; subtitle = client.orEmpty() }
+            client != null -> { title = client
+                subtitle = plural(cat.sitesOf(masters, client).size, "site") }
+            else -> { title = "Clients"
+                subtitle = plural(cat.clients(masters).size, "client") }
+        }
+
+        if (showStagePicker && proj != null) {
+            StageSheet(
+                stages = cat.stages(masters, proj.jobType),
+                current = proj.stage,
+                jobType = proj.jobType,
+                onDismiss = { showStagePicker = false },
+                onPick = { st ->
+                    showStagePicker = false
+                    // Optimistic locally, authoritative on the server: the
+                    // grid must repaint now, on a phone that may have no
+                    // signal, and the sync is what makes it true.
+                    navProject = proj.copy(stage = st.name)
+                    if (proj.synced) scope.launch(Dispatchers.IO) {
+                        runCatching {
+                            FrappeClient.load(context)
+                                ?.setProjectStage(proj.serverId, st.name)
+                        }
                     }
                 })
+        }
+        if (showSkus && proj != null) {
+            SkuSheet(skus = cat.skusOf(masters, proj.serverId),
+                onDismiss = { showSkus = false })
+        }
+
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                SettingsDrawerContent(
+                    user = FrappeClient.savedUrl(context).ifBlank { "Site Photos" },
+                    server = FrappeClient.savedUrl(context),
+                    groups = drawerGroups(
+                        queued = queue.count { it.state != "SYNCED" },
+                        pendingSites = cat.pendingCount(),
+                        fov = roomSizeLabel(roomSize),
+                        onSyncNow = { SyncWorker.syncNow(context) },
+                        onServer = { showSettings = true },
+                    ))
+            },
+        ) {
+            Scaffold(topBar = {
+                Column {
+                    TreeTopBar(title, subtitle,
+                        onMenu = { scopeDrawer.launch { drawerState.open() } },
+                        onSearch = { showSettings = true })
+                    CrumbRail(crumbs)
+                }
+            }) { pad ->
+                Column(Modifier.padding(pad).fillMaxSize()) {
+                    if (!configured) {
+                        Banner("Set the server and API key in Settings to begin.")
+                    } else if (masters == null) {
+                        Banner("Waiting for the first master list — go online once.")
+                    }
+                    when {
+                        proj != null -> RoomsScreen(
+                            project = proj, rooms = rooms,
+                            captureCount = { r ->
+                                queue.count { it.room == r &&
+                                    it.projectTitle.equals(proj.title, true) }
+                            },
+                            shotAtStage = { r ->
+                                proj.stage.isBlank() || queue.any {
+                                    it.room == r &&
+                                    it.projectTitle.equals(proj.title, true) &&
+                                    it.stage.equals(proj.stage, true)
+                                }
+                            },
+                            onOpen = { navRoom = it },
+                            onStage = { showStagePicker = true },
+                            onSkus = { showSkus = true })
+                        site != null && client != null -> ProjectsScreen(
+                            projects = cat.projectsOf(masters, client, site),
+                            captureCount = { p ->
+                                queue.count { it.projectTitle.equals(p.title, true) }
+                            },
+                            onOpen = { navProject = it },
+                            onNew = { showNewSite = true })
+                        client != null -> SitesScreen(
+                            sites = cat.sitesOf(masters, client),
+                            projectCount = { st ->
+                                cat.projectsOf(masters, client, st.name).size
+                            },
+                            onOpen = { navSite = it.name },
+                            onNew = { showNewSite = true })
+                        else -> ClientsScreen(
+                            clients = cat.clients(masters),
+                            siteCount = { c -> cat.sitesOf(masters, c).size },
+                            projectCount = { c ->
+                                cat.projects(masters).count { it.client.equals(c, true) }
+                            },
+                            onOpen = { openClient(it) },
+                            onNew = { showNewSite = true })
+                    }
+                }
+            }
         }
         return
     }
@@ -509,33 +667,109 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
 }
 
 @Composable
-private fun NewSiteDialog(onDismiss: () -> Unit,
-                          onSave: (String, String) -> Unit) {
-    var client by remember { mutableStateOf("") }
+private fun NewSiteDialog(
+    client: String,
+    site: String,
+    jobTypes: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String) -> Unit,
+) {
+    // Prefilled from wherever the button was pressed. Someone standing at a
+    // known client's known flat should be typing ONE field, not four.
+    var clientName by remember { mutableStateOf(client) }
+    var siteName by remember { mutableStateOf(site) }
     var projectName by remember { mutableStateOf("") }
+    var jobType by remember { mutableStateOf(jobTypes.firstOrNull() ?: Catalogue.JOB_NEW) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("New site") },
         text = {
-            Column {
-                OutlinedTextField(client, { client = it },
-                    label = { Text("Client name") }, singleLine = true)
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(clientName, { clientName = it },
+                    label = { Text("Client") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(siteName, { siteName = it },
+                    label = { Text("Site — the flat or bungalow") },
+                    placeholder = { Text(Catalogue.DEFAULT_SITE) }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(projectName, { projectName = it },
-                    label = { Text("Project name") }, singleLine = true)
-                Spacer(Modifier.height(8.dp))
+                    label = { Text("Project") }, singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                Text("Job type", style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    jobTypes.forEach { j ->
+                        FilterChip(selected = j == jobType, onClick = { jobType = j },
+                            label = { Text(j, style = MaterialTheme.typography.labelSmall) })
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
                 Text("Works offline. When the phone syncs, these become the " +
-                    "real client and project in ERPNext — or match ones that " +
-                    "already exist, however the names were spelled.",
+                    "real client, site and project in ERPNext — or match ones " +
+                    "that already exist, however the names were spelled.",
                     style = MaterialTheme.typography.bodySmall)
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(client.trim(), projectName.trim()) },
-                enabled = client.isNotBlank() && projectName.isNotBlank(),
+                onClick = {
+                    onSave(clientName.trim(),
+                        siteName.trim().ifEmpty { Catalogue.DEFAULT_SITE },
+                        projectName.trim(), jobType)
+                },
+                enabled = clientName.isNotBlank() && projectName.isNotBlank(),
             ) { Text("Use this site") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+
+/** A client name in a breadcrumb has ~180dp. "Yogesh S." fits; the full name
+ *  does not, and an ellipsis in the middle of a crumb reads as a bug. */
+private fun shortName(full: String): String {
+    val parts = full.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    if (parts.size < 2) return full
+    return parts[0] + " " + parts.last().first() + "."
+}
+
+/** Descend into a site, and through it if that site has exactly one project.
+ *  Skipping a level nobody chose from is what keeps four levels walkable. */
+private fun openSiteInto(
+    cat: Catalogue,
+    masters: JSONObject?,
+    site: String,
+    apply: (String, Catalogue.Project?) -> Unit,
+) {
+    val client = cat.projects(masters).firstOrNull { it.site.equals(site, true) }?.client
+    val ps = if (client == null) emptyList() else cat.projectsOf(masters, client, site)
+    apply(site, if (ps.size == 1) ps[0] else null)
+}
+
+private fun roomSizeLabel(index: Int): String =
+    CaptureGeometry.PRESETS.getOrNull(index)?.let { "${it.fov.toInt()}°" }
+        ?: "server default"
+
+/** The drawer holds only what you set once and forget. Anything needed
+ *  mid-shoot belongs on the screen, not three lines away. */
+private fun drawerGroups(
+    queued: Int,
+    pendingSites: Int,
+    fov: String,
+    onSyncNow: () -> Unit,
+    onServer: () -> Unit,
+): List<DrawerGroup> = listOf(
+    DrawerGroup("Sync", listOf(
+        DrawerLine("Sync now", value = if (queued == 0) "all sent" else "$queued waiting",
+            onClick = onSyncNow),
+        DrawerLine("Sites not in ERP yet", value = "$pendingSites"),
+    )),
+    DrawerGroup("Capture", listOf(
+        DrawerLine("Field of view", value = fov),
+    )),
+    DrawerGroup("Server", listOf(
+        DrawerLine("Server & API key", onClick = onServer),
+        DrawerLine("Version", value = BuildConfig.VERSION_NAME),
+    )),
+)
