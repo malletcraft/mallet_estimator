@@ -351,6 +351,13 @@ def ensure_site(customer_name, project_title, site_name=None, site_type=None,
 
     company = frappe.db.get_single_value("Global Defaults", "default_company") \
         or frappe.db.get_value("Company", {}, "name")
+    if not company:
+        # Company is mandatory on Project, and without this the phone gets a
+        # MandatoryError raised three frames down inside frappe — true, and
+        # useless to whoever is standing at the site wondering why the sync
+        # failed.
+        frappe.throw(_("This site has no Company yet, so a project cannot be "
+                       "created. Ask the office to set one up first."))
     project = frappe.get_doc({
         "doctype": "Project", "project_name": project_title,
         "customer": customer, "company": company,

@@ -151,6 +151,16 @@ jobs:
           echo "===== summary ====="
           grep -nE "^(FAIL|ERROR):|^Ran [0-9]+ tests|^(FAILED|OK)" /tmp/plain.log \
             || echo "(no unittest summary lines found)"
+
+          # Also as ANNOTATIONS. A red run's log is ~4000 lines and the
+          # runner appends ~250 lines of service-container noise after the
+          # last step, so the failure names are unreachable from any
+          # reasonable tail — twice now they have had to be dug out by
+          # fetching hundreds of lines. An ::error:: line lands in the check
+          # run itself, where one small API call reads it.
+          grep -E "^(FAIL|ERROR): " /tmp/plain.log | while read -r line; do
+            echo "::error title=mallet tests::${line}"
+          done
           echo
           echo "===== integration phase (runs first, where failures land) ====="
           # The integration phase finishes long before the unit phase, so its

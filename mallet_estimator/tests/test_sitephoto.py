@@ -413,6 +413,10 @@ class TestSiteLevelAndStages(MalletTestCase):
     def setUpClass(cls):
         super().setUpClass()
         from mallet_estimator import worksite
+        # ensure_site creates a Project, and Company is mandatory on one. Test
+        # classes do not run in a guaranteed order, so this class cannot rely
+        # on another having made the company first.
+        _company()
         worksite.ensure_articles()
         worksite.ensure_work_stages()
         install.ensure_project_customization()
