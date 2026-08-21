@@ -7,7 +7,11 @@ name: CI (tests)
 #                   Items + UOMs + warehouses, and the Estimate SKU flow).
 on:
   push:
-    branches: [main]
+    # batch-next as well as main. Development happens on batch-next, and a
+    # branch CI does not watch is a branch where red sits unnoticed until
+    # somebody merges it (2026-08-21: a batch sat red for an hour because
+    # nothing had tested it). Deploys still only follow main.
+    branches: [main, batch-next]
   pull_request:
   workflow_dispatch:
 

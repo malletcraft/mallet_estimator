@@ -65,14 +65,29 @@ class TestSitePhotoApi(MalletTestCase):
     def test_create_capture_records_where_it_belongs(self):
         made = sitephoto.create_capture(
             project=_project(), room=_room(), capture_date="2026-08-15",
-            stage="Carpentry", fov=110)
+            stage="Joinery", fov=110)
         doc = frappe.get_doc("Site Photo 360", made["name"])
         self.assertEqual(doc.project, _project())
         self.assertEqual(doc.room, _room())
-        self.assertEqual(doc.stage, "Carpentry")
+        self.assertEqual(doc.stage, "Joinery")
         self.assertEqual(doc.fov, 110)
         self.assertEqual(doc.status, "Pending")   # nothing to split yet
         self.assertTrue(doc.name.startswith("MEST-PH-"), doc.name)
+
+    def test_a_phone_on_yesterdays_build_still_syncs(self):
+        # An unupdated phone sends one of the six old stage words. They were
+        # PHASES all along, so they are translated rather than refused —
+        # refusing would mean every phone that has not updated silently
+        # failing to sync at a site visit, which is the one failure the whole
+        # offline queue exists to prevent.
+        for old, new in (("Carpentry", "Joinery"), ("Wiring", "First fix"),
+                         ("Baseline", "Survey"), ("Handover", "Closing")):
+            made = sitephoto.create_capture(
+                project=_project(), room=_room(), capture_date="2026-08-15",
+                stage=old, fov=110)
+            self.assertEqual(
+                frappe.db.get_value("Site Photo 360", made["name"], "stage"),
+                new, f"{old} should land as {new}")
 
     def test_capture_records_the_phones_app_version(self):
         # The fleet's version ledger: "which build is that phone running"

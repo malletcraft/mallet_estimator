@@ -109,7 +109,7 @@ def _split_capture():
     """A capture that looks as though the splitter already ran."""
     doc = frappe.get_doc({
         "doctype": "Site Photo 360", "project": _project(), "room": _room(),
-        "capture_date": "2026-08-15", "stage": "Carpentry", "fov": 110,
+        "capture_date": "2026-08-15", "stage": "Joinery", "fov": 110,
         "face_px": 400}).insert(ignore_permissions=True)
     for face in ("front", "right", "back", "left", "up", "down"):
         f = frappe.get_doc({

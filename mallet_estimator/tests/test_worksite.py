@@ -197,6 +197,12 @@ class TestStageRenames(unittest.TestCase):
                          ["Baseline", "Carpentry", "Civil", "Finishing",
                           "Handover", "Wiring"])
 
+    def test_an_unknown_word_passes_through_untouched(self):
+        # The map is applied with .get(x, x) on every incoming stage, so a
+        # value that is already a new phase name must not be mangled.
+        for phase in W.PHASES:
+            self.assertEqual(W.STAGE_RENAMES.get(phase, phase), phase)
+
     def test_the_map_does_not_collapse_two_words_into_one_phase(self):
         # A collapse would make the rename lossy, and the legacy field the
         # only record of which of the two a photo used to be.

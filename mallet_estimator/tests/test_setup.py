@@ -295,20 +295,29 @@ class TestMasters(MalletTestCase):
         self.assertIn("delegate_permission/common.handle_all_urls", links[0]["relation"])
         self.assertTrue(A.SitePhotoAssetRenderer(path=".well-known/assetlinks.json").can_render())
 
-    def test_the_photo_browser_exists_and_reads_client_project_room(self):
+    def test_the_photo_browser_exists_and_reads_client_site_project_room(self):
         # "Easy folder structure like ImageMeter" — the tree is built from
         # captures that exist, so a room nobody photographed is not a folder.
+        # Four levels since 2026-08-21: a client owns several places, and a
+        # project belongs to a building rather than to a person.
         self.assertTrue(frappe.db.exists("Page", "site-photo-browser"))
         from mallet_estimator import sitephoto
         t = sitephoto.tree()
         self.assertIn("clients", t)
         for c in t["clients"]:
-            self.assertIn("projects", c)
-            for p in c["projects"]:
-                self.assertIn("rooms", p)
-                self.assertEqual(p["captures"], sum(r["captures"] for r in p["rooms"]))
-                for r in p["rooms"]:
-                    self.assertGreater(r["captures"], 0, "an empty room is not a folder")
+            self.assertIn("sites", c)
+            self.assertEqual(c["captures"], sum(s["captures"] for s in c["sites"]))
+            for st in c["sites"]:
+                self.assertIn("projects", st)
+                self.assertEqual(st["captures"],
+                                 sum(p["captures"] for p in st["projects"]))
+                for p in st["projects"]:
+                    self.assertIn("rooms", p)
+                    self.assertEqual(p["captures"],
+                                     sum(r["captures"] for r in p["rooms"]))
+                    for r in p["rooms"]:
+                        self.assertGreater(r["captures"], 0,
+                                           "an empty room is not a folder")
 
     def test_a_site_photographer_gets_the_camera_and_nothing_else(self):
         # A technician with a phone needs real permissions, but handing them a

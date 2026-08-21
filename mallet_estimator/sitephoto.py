@@ -225,7 +225,14 @@ def _resolve_stage(project, work_stage=None, stage=None):
     Precedence is deliberate: what the phone explicitly chose beats what the
     project is at, which beats nothing. The phase is always DERIVED from the
     stage rather than trusted from the caller — two fields that can disagree
-    are two fields that eventually will."""
+    are two fields that eventually will.
+
+    A phone still running yesterday's build sends one of the six old words.
+    They were phases all along, so they are TRANSLATED rather than refused:
+    'Carpentry' becomes 'Joinery' and the capture lands. Refusing it would
+    mean every unupdated phone silently failing to sync at a site visit,
+    which is the one failure this whole queue exists to prevent."""
+    stage = worksite.STAGE_RENAMES.get(stage, stage)
     if not frappe.db.exists("DocType", "Mallet Work Stage"):
         return None, stage          # bench that has not migrated yet
     if not work_stage:

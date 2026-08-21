@@ -51,7 +51,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.malletcrafts.sitephotos.BuildConfig
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
@@ -371,6 +370,7 @@ private fun AppScreen() {
                         queued = queue.count { it.state != "SYNCED" },
                         pendingSites = cat.pendingCount(),
                         fov = roomSizeLabel(roomSize),
+                        version = appVersion(context),
                         onSyncNow = { SyncWorker.syncNow(context) },
                         onServer = { showSettings = true },
                     ))
@@ -747,6 +747,15 @@ private fun openSiteInto(
     apply(site, if (ps.size == 1) ps[0] else null)
 }
 
+/** The installed versionName, read from the package rather than from
+ *  BuildConfig — the app does not generate BuildConfig (only the compose
+ *  build feature is on), and this is the same call SyncWorker already makes
+ *  to stamp a capture with the build that took it. */
+private fun appVersion(context: android.content.Context): String =
+    runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+    }.getOrDefault("?")
+
 private fun roomSizeLabel(index: Int): String =
     CaptureGeometry.PRESETS.getOrNull(index)?.let { "${it.fov.toInt()}°" }
         ?: "server default"
@@ -757,6 +766,7 @@ private fun drawerGroups(
     queued: Int,
     pendingSites: Int,
     fov: String,
+    version: String,
     onSyncNow: () -> Unit,
     onServer: () -> Unit,
 ): List<DrawerGroup> = listOf(
@@ -770,6 +780,6 @@ private fun drawerGroups(
     )),
     DrawerGroup("Server", listOf(
         DrawerLine("Server & API key", onClick = onServer),
-        DrawerLine("Version", value = BuildConfig.VERSION_NAME),
+        DrawerLine("Version", value = version),
     )),
 )
