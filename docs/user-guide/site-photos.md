@@ -127,14 +127,36 @@ progress photos: annotate them freely, they never affect the model. If
 something real changes on site — a wall comes down — capture the room
 again and make the new capture the baseline.
 
-## Annotating in ImageMeter (legacy, until audio notes land in-app)
+## Annotating in ImageMeter
 
-Open ImageMeter → your project/room folder → **add photos** → pick from
-Google Photos — the album named `<Project> — <Room>` is the one the app just
-wrote. Annotate as usual. ImageMeter's own Drive sync carries the annotated
-copies back; the server matches them to the right capture and face by
-filename (`MCAP-…`/`MEST-PH-…`) every hour. Anything it cannot prove goes to
-a review queue in ERPNext rather than being guessed.
+Open a face (or a flat photo) → **Annotate in ImageMeter** → mark it up →
+save. ImageMeter puts its export wherever it likes — its own root folder,
+usually, and you can move it into any ImageMeter folder afterwards. That does
+not matter any more.
+
+**You do not have to attach anything.** Come back to the app and the photo is
+already marked *Annotated*, and already on its way to ERPNext.
+
+**How it finds it again.** Every face this app writes carries a small QR in
+its caption strip — the black bar along the bottom — naming the capture and
+the face. ImageMeter draws *on top of* the picture, so the strip and its code
+survive whatever it does, including renaming the file (its exports come back
+called things like `image_from_19._Aug_2026.jpg`, which is why matching on the
+filename never worked). When you return to the app it reads the code back out
+of your gallery, works out which face the drawing belongs to, and uploads it
+against that face.
+
+**One switch has to be on, once:** ImageMeter → Settings → Storage → **Show
+images in gallery**. Without it, ImageMeter keeps its exports in
+`/Android/data/…`, which Android forbids any other app from reading — there
+is no permission that opens that door, so this is the one route that exists.
+
+The annotated copy is a *layer*: the generated face itself is never
+overwritten, several people can annotate the same face, and re-splitting the
+360 at a different field of view destroys nobody's markup.
+
+**Pull annotations now** (drawer) re-reads the gallery from scratch and also
+runs the server's own Drive round trip. You should not normally need it.
 
 ## Seeing it all in ERPNext
 

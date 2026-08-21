@@ -29,6 +29,17 @@ FACES = (
 )
 FACE_NAMES = tuple(f[0] for f in FACES)
 
+# A flat photograph — a phone snap of one wall, taken instead of a 360 — is
+# its own single "face". It is NOT one of the six and must never be projected
+# like one, but everything downstream of the split (annotating it, attaching a
+# marked-up copy, filing it against a face) treats it exactly the same way.
+# The Android side writes this same token (FaceWriter.PHOTO_FACE).
+PHOTO_FACE = "photo"
+
+# What a face token is allowed to be wherever an ANNOTATION is concerned.
+# Kept apart from FACE_NAMES on purpose: the splitter must still see six.
+ANNOTATABLE_FACES = FACE_NAMES + (PHOTO_FACE,)
+
 # Guard rails: below 30° a face is a keyhole, above 160° the gnomonic plane
 # stretches to uselessness (180° is mathematically infinite).
 FOV_MIN, FOV_MAX = 30.0, 160.0

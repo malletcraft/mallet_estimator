@@ -11,6 +11,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
+import com.malletcrafts.sitephotos.pano.Stamp
 import java.io.File
 
 /**
@@ -90,7 +91,7 @@ object FaceWriter {
         for ((face, yaw, pitch) in Panorama.FACES) {
             val img = Panorama.faceFromEquirect(pano, yaw, pitch, fov, facePx)
             val captioned = captioned(img, Handover.captionText(
-                deviceId, room, face, captureDate, stage))
+                deviceId, room, face, captureDate, stage), deviceId, face)
             try {
                 saveToGallery(context, captioned, relPath,
                     Handover.filename(deviceId, face))
@@ -162,7 +163,8 @@ object FaceWriter {
 
         val relPath = Handover.relativePath(customerName, projectTitle, room)
         val captioned = captionedBitmap(bitmap, Handover.captionText(
-            deviceId, room, PHOTO_FACE, captureDate, stage))
+            deviceId, room, PHOTO_FACE, captureDate, stage),
+            deviceId, PHOTO_FACE)
         try {
             saveToGallery(context, captioned, relPath, "${deviceId}_$PHOTO_FACE.jpg")
         } finally {
@@ -194,10 +196,50 @@ object FaceWriter {
         return uri
     }
 
+
+    /**
+     * The QR that lets a photograph name itself after ImageMeter has drawn on
+     * it. Painted into the caption bar, at the right, on a white tile so it
+     * reads against the dark strip.
+     *
+     * Sized off the strip and floored at MIN_STAMP_PX: a QR whose modules are
+     * a pixel or two across does not survive a re-encode, and a stamp that
+     * cannot be read is worse than no stamp because it looks like one.
+     */
+    private fun drawStamp(canvas: Canvas, captureId: String, face: String,
+                          left: Float, top: Float, box: Int) {
+        val m = runCatching {
+            Stamp.matrix(Stamp.payload(captureId, face), box)
+        }.getOrNull() ?: return
+        val modules = m.size
+        if (modules == 0) return
+        val scale = box.toFloat() / modules
+        val white = Paint().apply { color = Color.WHITE }
+        canvas.drawRect(left, top, left + box, top + box, white)
+        val dark = Paint().apply { color = Color.BLACK }
+        for (y in 0 until modules) {
+            for (x in 0 until modules) {
+                if (!m[y][x]) continue
+                canvas.drawRect(
+                    left + x * scale, top + y * scale,
+                    left + (x + 1) * scale, top + (y + 1) * scale, dark)
+            }
+        }
+    }
+
+    /** Below this a QR stops surviving JPEG, so the strip grows instead. */
+    private const val MIN_STAMP_PX = 108
+
     /** The caption strip is ADDED BELOW the face, never painted over it —
      *  same rule as the server: annotation space is sacred. */
-    private fun captioned(face: Panorama.Image, text: String): Bitmap {
+    private fun captioned(face: Panorama.Image, text: String,
+                          captureId: String = "", faceName: String = ""): Bitmap {
+        val stamped = captureId.isNotBlank() && faceName.isNotBlank()
+        // The strip GROWS to fit a readable stamp rather than shrinking the
+        // stamp to fit the strip. Six extra percent of one edge is cheap; an
+        // unreadable QR costs the entire mechanism.
         val strip = (face.height * 0.052).toInt().coerceAtLeast(28)
+            .let { if (stamped) maxOf(it, MIN_STAMP_PX + 12) else it }
         val out = Bitmap.createBitmap(face.width, face.height + strip,
             Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
@@ -224,6 +266,12 @@ object FaceWriter {
         }
         val y = face.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
         canvas.drawText(text, face.width * 0.02f, y, paint)
+        if (stamped) {
+            val box = (strip * 0.82f).toInt().coerceAtLeast(MIN_STAMP_PX)
+            drawStamp(canvas, captureId, faceName,
+                face.width - box - strip * 0.09f,
+                face.height + (strip - box) / 2f, box)
+        }
         return out
     }
 
@@ -231,8 +279,11 @@ object FaceWriter {
      *  Split from captioned() rather than shared through a common type: the
      *  face path owns a pixel array and this one owns a Bitmap, and the
      *  conversion between them would cost a full-size copy for nothing. */
-    private fun captionedBitmap(src: Bitmap, text: String): Bitmap {
+    private fun captionedBitmap(src: Bitmap, text: String,
+                                captureId: String = "", faceName: String = ""): Bitmap {
+        val stamped = captureId.isNotBlank() && faceName.isNotBlank()
         val strip = (src.height * 0.052).toInt().coerceAtLeast(28)
+            .let { if (stamped) maxOf(it, MIN_STAMP_PX + 12) else it }
         val out = Bitmap.createBitmap(src.width, src.height + strip,
             Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
@@ -251,6 +302,12 @@ object FaceWriter {
         }
         val y = src.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
         canvas.drawText(text, src.width * 0.02f, y, paint)
+        if (stamped) {
+            val box = (strip * 0.82f).toInt().coerceAtLeast(MIN_STAMP_PX)
+            drawStamp(canvas, captureId, faceName,
+                src.width - box - strip * 0.09f,
+                src.height + (strip - box) / 2f, box)
+        }
         return out
     }
 

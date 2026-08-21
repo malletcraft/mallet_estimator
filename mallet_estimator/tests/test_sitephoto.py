@@ -210,6 +210,18 @@ class TestSitePhotoApi(MalletTestCase):
         # the face field itself is untouched by annotating
         self.assertFalse(doc["face_front"])
 
+    def test_a_flat_photo_can_be_annotated(self):
+        # A phone snap taken instead of a 360 — a repair job, a single wall —
+        # is its own single face, token "photo". Refusing it here is what left
+        # such a photograph with no way home: the app could hand it to
+        # ImageMeter and then had nowhere to put what came back.
+        made = sitephoto.create_capture(project=_project(), room=_room())
+        out = sitephoto.annotate(made["name"], "photo", "/private/files/p.jpg",
+                                 "skirting damaged")
+        self.assertEqual(out["count"], 1)
+        sitephoto.save_annotations(made["name"], "photo", {"lines": []})
+        self.assertIn("photo", sitephoto.get_annotations(made["name"]))
+
     def test_an_unknown_face_is_refused(self):
         made = sitephoto.create_capture(project=_project(), room=_room())
         with self.assertRaises(frappe.ValidationError):

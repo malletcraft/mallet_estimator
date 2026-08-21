@@ -638,7 +638,7 @@ def save_annotations(name, face, data):
         frappe.throw(_("{0} is a frozen geometry baseline — annotations "
                        "cannot change. Capture the room again and make the "
                        "new capture the baseline.").format(doc.name))
-    if face not in panorama.FACE_NAMES:
+    if face not in panorama.ANNOTATABLE_FACES:
         frappe.throw(_("Not a face: {0}").format(face))
     if isinstance(data, str):
         try:
@@ -755,8 +755,12 @@ def annotate(photo, face, file_url, note=None):
     """Attach a marked-up COPY. The generated faces stay pristine — annotation
     is a layer, so a re-split at a different FOV never destroys someone's
     markup, and the same face can carry several people's notes."""
-    if face not in panorama.FACE_NAMES:
-        frappe.throw(f"unknown face '{face}' — expected one of {', '.join(panorama.FACE_NAMES)}")
+    # ANNOTATABLE, not the six: a flat photo carries the single token "photo",
+    # and refusing it here is what left a phone snap with no way home at all —
+    # the app could hand it to ImageMeter and never attach what came back.
+    if face not in panorama.ANNOTATABLE_FACES:
+        frappe.throw(f"unknown face '{face}' — expected one of "
+                     f"{', '.join(panorama.ANNOTATABLE_FACES)}")
     doc = frappe.get_doc(DOCTYPE, photo)
     doc.check_permission("write")
     doc.append("annotations", {"face": face, "image": file_url, "note": note})

@@ -15,8 +15,9 @@
   {
    "fieldname": "face",
    "fieldtype": "Select",
-   "options": "front\nright\nback\nleft\nup\ndown",
+   "options": "front\nright\nback\nleft\nup\ndown\nphoto",
    "label": "Face",
+   "description": "One of the six faces of a 360, or \"photo\" for a flat photograph \u2014 a phone snap of one wall, which is its own single face.",
    "reqd": 1,
    "in_list_view": 1
   },

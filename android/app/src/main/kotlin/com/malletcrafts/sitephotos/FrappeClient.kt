@@ -153,6 +153,41 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         return call(req).getJSONObject("message").getString("file_url")
     }
 
+    /**
+     * A marked-up copy home, and filed against the face it belongs to.
+     *
+     * Two calls because Frappe splits them: upload_file stores the bytes,
+     * sitephoto.annotate appends the row that says which face they are. The
+     * generated face itself is never overwritten — annotation is a LAYER, so
+     * a re-split at a different FOV cannot destroy somebody's markup.
+     *
+     * This is the leg the Drive round trip could not do. ImageMeter renames
+     * what it exports, so the bench had no way to tell which capture a
+     * returned file belonged to and 88 of them queued for a human to guess.
+     * The phone knows, because it read its own stamp out of the picture.
+     */
+    fun uploadAnnotation(docname: String, face: String, image: File,
+                         note: String? = null): JSONObject {
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart("file", image.name,
+                image.asRequestBody("image/jpeg".toMediaType()))
+            .addFormDataPart("is_private", "1")
+            .addFormDataPart("doctype", "Site Photo 360")
+            .addFormDataPart("docname", docname)
+            .build()
+        val req = Request.Builder()
+            .url("${baseUrl.trimEnd('/')}/api/method/upload_file")
+            .header("Authorization", "token $key:$secret")
+            .post(body)
+            .build()
+        val fileUrl = call(req).getJSONObject("message").getString("file_url")
+        return post("mallet_estimator.sitephoto.annotate", JSONObject()
+            .put("photo", docname)
+            .put("face", face)
+            .put("file_url", fileUrl)
+            .put("note", note))
+    }
+
     fun bindPano(docname: String, fileUrl: String): JSONObject =
         post("mallet_estimator.sitephoto.bind_pano", JSONObject()
             .put("name", docname)

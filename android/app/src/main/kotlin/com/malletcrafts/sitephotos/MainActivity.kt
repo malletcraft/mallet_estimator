@@ -413,6 +413,12 @@ private fun AppScreen() {
                 onImageMeterSync = {
                     busy = "Pulling annotations from ImageMeter…"
                     scope.launch(Dispatchers.IO) {
+                        // "Now" means now: drop the remembered misses so the
+                        // gallery is read fresh. A picture scanned before it
+                        // was annotated is cached as "nothing here", and the
+                        // one button whose whole meaning is "go and look" is
+                        // the right place to make that stop being true.
+                        StampScan.forget(context)
                         // Queue it, then WAIT and read what it did. "Queued"
                         // on its own says the button worked, not that
                         // anything came back — which is exactly what somebody
@@ -782,9 +788,42 @@ private fun AppScreen() {
                     // gallery" switch is the one route that can work, and a
                     // second half-route was a setting to explain rather than
                     // a capability to use.
-                    LocalFaces.annotatedOf(context, cap.deviceId)
+                    //
+                    // The STAMP is what finds it. ImageMeter renames what it
+                    // exports — MCAP-…_front.jpg comes back as
+                    // image_from_19._Aug_2026.jpg — so the name cannot be the
+                    // key, and 88 rows in the server inbox saying "no capture
+                    // id in the filename" are the proof. Amit, 2026-08-21:
+                    // "site foto app written footer is the key to identify the
+                    // foto and replace it with annotated image from gallery."
+                    // The QR we burn into the caption bar rides along inside
+                    // the picture, and ImageMeter draws on top of it, so it
+                    // survives. The name match stays as a second pass for the
+                    // rare exporter that keeps our filename; the stamp wins
+                    // where both answer.
+                    val byName = LocalFaces.annotatedOf(context, cap.deviceId)
+                    byName + StampScan.annotatedFor(context, cap.deviceId)
                 }
             }.onSuccess { annotatedLocal = it }
+        }
+        // …and straight home. The office should not have to be told a wall
+        // was marked up; the phone knows which face it is, which is exactly
+        // what the bench could not work out from a renamed file. Silent when
+        // there is nothing new, because there usually is nothing new.
+        LaunchedEffect(annotatedLocal, cap.deviceId) {
+            if (annotatedLocal.isEmpty()) return@LaunchedEffect
+            val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
+            if (server.isNullOrBlank()) return@LaunchedEffect
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    AnnotationPush.push(context, server, cap.deviceId, annotatedLocal)
+                }
+            }.onSuccess { n ->
+                if (n > 0) lastResult = "Sent $n annotated " +
+                    (if (n == 1) "face" else "faces") + " to $server"
+            }.onFailure {
+                lastResult = "Could not send the annotation: ${it.message}"
+            }
         }
         LaunchedEffect(cap.deviceId) {
             val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
