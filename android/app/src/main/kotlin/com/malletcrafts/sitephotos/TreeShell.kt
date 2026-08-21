@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +29,9 @@ data class DrawerLine(
     val label: String,
     val value: String? = null,
     val toggled: Boolean? = null,
+    /** Every row carries one. A drawer of bare text is a wall of words, and
+     *  the icon is what you actually aim at when scanning it one-handed. */
+    val icon: ImageVector? = null,
     val onClick: (() -> Unit)? = null,
 )
 
@@ -58,6 +62,9 @@ fun SettingsDrawerContent(
                     modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 6.dp))
                 g.lines.forEach { line ->
                     NavigationDrawerItem(
+                        icon = line.icon?.let { iv ->
+                            { Icon(iv, contentDescription = null) }
+                        },
                         label = {
                             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text(line.label, Modifier.weight(1f),

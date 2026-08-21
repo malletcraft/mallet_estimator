@@ -146,6 +146,17 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("name", docname)
             .put("file_url", fileUrl))
 
+    /** Run the ImageMeter round trip now instead of waiting for the hourly
+     *  scheduler: faces out to the Drive handover folder, annotated copies
+     *  back onto the capture they came from. */
+    fun imagemeterSync(): JSONObject =
+        post("mallet_estimator.imagemeter_sync.sync", JSONObject())
+
+    /** One capture in full, including the annotated images ImageMeter
+     *  returned, keyed by face. */
+    fun captureDetail(docname: String): JSONObject =
+        post("mallet_estimator.sitephoto.detail", JSONObject().put("name", docname))
+
     /** Move a project to a stage. The server refuses a stage the project's
      *  job type never reaches, so a phone carrying a stale master list gets
      *  a refusal rather than a wrong stage. */

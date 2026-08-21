@@ -20,6 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
@@ -108,6 +116,12 @@ private fun AppScreen() {
 
     var showNewSite by remember { mutableStateOf(false) }
     var showStagePicker by remember { mutableStateOf(false) }
+    // Capture and face sit BELOW the room, and are plain state rather than
+    // crumb levels: six crumbs will not fit a phone, and a photo you are
+    // looking at is a view, not a folder.
+    var navCapture by remember { mutableStateOf<CaptureCard?>(null) }
+    var navFace by remember { mutableStateOf<Int?>(null) }
+    var faceMode by remember { mutableStateOf(true) }   // true = annotated
     var showSkus by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf("") }
     // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
@@ -371,6 +385,20 @@ private fun AppScreen() {
                         pendingSites = cat.pendingCount(),
                         fov = roomSizeLabel(roomSize),
                         version = appVersion(context),
+                        onImageMeterSync = {
+                            busy = "Pulling annotations from ImageMeter…"
+                            scope.launch(Dispatchers.IO) {
+                                val out = runCatching {
+                                    FrappeClient.load(context)?.imagemeterSync()
+                                }
+                                withContext(Dispatchers.Main) {
+                                    busy = null
+                                    lastResult = out.fold(
+                                        { "ImageMeter sync done" },
+                                        { "ImageMeter sync failed: ${it.message}" })
+                                }
+                            }
+                        },
                         onSyncNow = { SyncWorker.syncNow(context) },
                         onServer = { showSettings = true },
                     ))
@@ -436,6 +464,92 @@ private fun AppScreen() {
         return
     }
 
+    // ---- one capture, and one face of it -------------------------------
+    navCapture?.let { cap ->
+        val faces = remember(cap.deviceId) { LocalFaces.of(context, cap.deviceId) }
+        // Annotated copies come from the bench, where the Drive round trip
+        // already attached them to this capture by face. Cached to a file so
+        // a second look costs nothing and still works with no signal.
+        var annotated by remember(cap.deviceId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+        LaunchedEffect(cap.deviceId) {
+            val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
+            if (server.isNullOrBlank()) return@LaunchedEffect
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val out = HashMap<String, String>()
+                    val c = FrappeClient.load(context) ?: return@withContext out
+                    val msg = c.captureDetail(server).optJSONObject("message")
+                        ?: return@withContext out
+                    val arr = msg.optJSONArray("annotations") ?: return@withContext out
+                    for (i in 0 until arr.length()) {
+                        val a = arr.optJSONObject(i) ?: continue
+                        val face = a.optString("face")
+                        val url = a.optString("image")
+                        if (face.isBlank() || url.isBlank()) continue
+                        val dest = File(context.cacheDir, "ann/${cap.deviceId}_$face.jpg")
+                        if (!dest.exists()) {
+                            dest.parentFile?.mkdirs()
+                            c.downloadPrivate(url, dest)
+                        }
+                        out[face] = dest.absolutePath
+                    }
+                    out as Map<String, String>
+                }
+            }.onSuccess { annotated = it }
+        }
+
+        val faceIdx = navFace
+        if (faceIdx != null && faceIdx in faces.indices) {
+            val f = faces[faceIdx]
+            FaceViewer(
+                title = f.name.replaceFirstChar { it.uppercase() },
+                subtitle = "${cap.deviceId} · ${cap.date}" +
+                    (if (cap.stage.isNotBlank()) " · ${cap.stage}" else ""),
+                source = ThumbSource.Content(f.uri),
+                annotatedSource = annotated[f.name]?.let { ThumbSource.LocalFile(it) },
+                showAnnotated = faceMode,
+                onToggle = { faceMode = it },
+                onEditInImageMeter = {
+                    // Hand the face to whatever can annotate it. ImageMeter
+                    // registers for image/*, so the chooser lands on it.
+                    runCatching {
+                        context.startActivity(android.content.Intent.createChooser(
+                            android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                .setDataAndType(f.uri, "image/jpeg")
+                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
+                            "Annotate with"))
+                    }.onFailure { lastResult = "No app to open the face: ${it.message}" }
+                },
+                faces = faces,
+                current = faceIdx,
+                onPickFace = { navFace = it },
+                onClose = { navFace = null })
+            return
+        }
+
+        Scaffold(topBar = {
+            TreeTopBar(
+                title = "${cap.date} · ${cap.stage.ifBlank { "no stage" }}",
+                subtitle = RoomToken.label(navRoom ?: "") + " · " + cap.deviceId,
+                onMenu = { navCapture = null },
+                onSearch = { showSettings = true })
+        }) { pad ->
+            Box(Modifier.padding(pad)) {
+                CaptureScreen(
+                    capture = cap,
+                    faces = faces,
+                    annotatedFaces = annotated.keys,
+                    folder = Handover.relativePath(
+                        queue.firstOrNull { q -> q.deviceId == cap.deviceId }
+                            ?.customerName ?: "",
+                        navProject?.title ?: "",
+                        navRoom ?: "") + Handover.filename(cap.deviceId, "front"),
+                    onOpenFace = { navFace = it; faceMode = true })
+            }
+        }
+        return
+    }
+
     Scaffold(topBar = {
         TopAppBar(
             title = {
@@ -456,6 +570,24 @@ private fun AppScreen() {
             }
             if (masters == null && configured) {
                 Text("Waiting for the first master list — go online once.")
+                Spacer(Modifier.height(12.dp))
+            }
+
+            // The photographs, as photographs. This room's captures were a
+            // list of dates you had to open one at a time to find out which
+            // wall you were looking at. Height-capped so the capture controls
+            // below stay reachable without scrolling past a long history.
+            val roomCaptures = queue.filter {
+                it.room == navRoom &&
+                    it.projectTitle.equals(navProject?.title ?: "", true)
+            }.map {
+                CaptureCard(deviceId = it.deviceId, date = it.captureDate,
+                    stage = it.stage, panoPath = it.panoPath, state = it.state)
+            }
+            if (roomCaptures.isNotEmpty()) {
+                Box(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                    CapturesScreen(roomCaptures) { navCapture = it; navFace = null }
+                }
                 Spacer(Modifier.height(12.dp))
             }
 
@@ -768,18 +900,27 @@ private fun drawerGroups(
     fov: String,
     version: String,
     onSyncNow: () -> Unit,
+    onImageMeterSync: () -> Unit,
     onServer: () -> Unit,
 ): List<DrawerGroup> = listOf(
     DrawerGroup("Sync", listOf(
         DrawerLine("Sync now", value = if (queued == 0) "all sent" else "$queued waiting",
-            onClick = onSyncNow),
-        DrawerLine("Sites not in ERP yet", value = "$pendingSites"),
+            icon = Icons.Filled.Refresh, onClick = onSyncNow),
+        DrawerLine("Sites not in ERP yet", value = "$pendingSites",
+            icon = Icons.Filled.Warning),
+    )),
+    DrawerGroup("ImageMeter", listOf(
+        // The round trip runs on the bench over Drive: faces out, annotated
+        // copies back, attached to the capture they came from. This is the
+        // button that stops you waiting an hour for the scheduler.
+        DrawerLine("Pull annotations now", icon = Icons.Filled.Edit,
+            onClick = onImageMeterSync),
     )),
     DrawerGroup("Capture", listOf(
-        DrawerLine("Field of view", value = fov),
+        DrawerLine("Field of view", value = fov, icon = Icons.Filled.Place),
     )),
     DrawerGroup("Server", listOf(
-        DrawerLine("Server & API key", onClick = onServer),
-        DrawerLine("Version", value = version),
+        DrawerLine("Server & API key", icon = Icons.Filled.Settings, onClick = onServer),
+        DrawerLine("Version", value = version, icon = Icons.Filled.Info),
     )),
 )
