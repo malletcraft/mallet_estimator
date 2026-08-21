@@ -465,6 +465,10 @@ fun CaptureSheet(
     onPick: () -> Unit,
     onCamera: () -> Unit,
     onShoot: () -> Unit,
+    /** A flat photograph, straight off the phone camera. */
+    onTakePhoto: () -> Unit,
+    /** A flat photograph from the gallery. */
+    onPickPhoto: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -529,6 +533,23 @@ fun CaptureSheet(
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             ) { Text("Pick a 360 from the gallery") }
+
+            // Not every capture is a 360. A repair is a close-up of one
+            // hinge; a snag list is a dozen of them. These file a single
+            // photograph under the same client, site, room and stage — the
+            // filing is the point, not the projection.
+            Text("A SINGLE PHOTO",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, top = 20.dp, bottom = 6.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onTakePhoto, enabled = !busy,
+                    modifier = Modifier.weight(1f)) { Text("Camera") }
+                OutlinedButton(onClick = onPickPhoto, enabled = !busy,
+                    modifier = Modifier.weight(1f)) { Text("Gallery") }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }

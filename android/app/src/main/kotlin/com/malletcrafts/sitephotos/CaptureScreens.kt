@@ -227,6 +227,7 @@ fun CaptureScreen(
     onOpenFace: (Int) -> Unit,
     onPickStage: () -> Unit,
     onPickSku: () -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // The two rows that make a photo findable a month later, and the two
@@ -243,14 +244,40 @@ fun CaptureScreen(
                        else "${capture.stage.ifBlank { "no phase" }} · tap to change",
             dim = capture.workStage.isBlank() && capture.stage.isBlank(),
             onClick = onPickStage)
-        DetailRow(
-            lead = capture.sku.substringAfterLast('_').ifBlank { "—" },
-            title = capture.sku.ifBlank { "Not tagged to a SKU" },
-            subtitle = if (capture.sku.isNotBlank())
-                           "this photo sits beside the estimate line"
-                       else "optional — tag it to an article",
-            dim = capture.sku.isBlank(),
-            onClick = onPickSku)
+        // ONLY on a flat photo. A 360 is the record of a whole ROOM, and a
+        // room is not one article — you cannot say "this 360 is the
+        // wardrobe". What CAN carry a SKU is a single wall, floor or
+        // ceiling, which is what a flat photo is and what each of the six
+        // faces is. Per-face tagging is the next batch; until it exists,
+        // offering a capture-level SKU on a 360 would teach the wrong model.
+        if (capture.kind == "Photo") {
+            DetailRow(
+                lead = capture.sku.substringAfterLast('_').ifBlank { "—" },
+                title = capture.sku.ifBlank { "Not tagged to a SKU" },
+                subtitle = if (capture.sku.isNotBlank())
+                               "what is expected on this wall"
+                           else "optional — what work is expected here",
+                dim = capture.sku.isBlank(),
+                onClick = onPickSku)
+        }
+
+        if (capture.kind == "Photo") {
+            Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)
+                .clickable { onOpenFace(0) }) {
+                Thumb(ThumbSource.LocalFile(capture.panoPath), Modifier.fillMaxSize(),
+                    target = 1200, contentDescription = "the photograph")
+            }
+            Text("FILED AT", style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp))
+            Text(folder, Modifier.padding(horizontal = 16.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            onDelete?.let { DeleteRow(it) }
+            Spacer(Modifier.height(28.dp))
+            return@Column
+        }
 
         // Not clickable: the 360 is the record, and there is nothing useful to
         // open it into yet. A large image that does nothing when tapped reads
@@ -326,8 +353,41 @@ fun CaptureScreen(
         Text(folder, Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        onDelete?.let { DeleteRow(it) }
         Spacer(Modifier.height(28.dp))
     }
+}
+
+/** The only way to undo a shutter pressed by accident. Deliberately at the
+ *  BOTTOM of the screen and behind a confirm: it is the one control here
+ *  that destroys something. */
+@Composable
+private fun DeleteRow(onDelete: () -> Unit) {
+    var confirm by remember { mutableStateOf(false) }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Delete this capture?") },
+            text = {
+                Text("It goes from this phone — the queue row, the original, " +
+                     "and the faces in the gallery. A capture that has already " +
+                     "reached the server stays there; removing it from ERPNext " +
+                     "is a desk job, not a phone one.")
+            },
+            confirmButton = {
+                TextButton(onClick = { confirm = false; onDelete() }) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) { Text("Keep") }
+            })
+    }
+    Spacer(Modifier.height(20.dp))
+    OutlinedButton(
+        onClick = { confirm = true },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) { Text("Delete this capture") }
 }
 
 /**

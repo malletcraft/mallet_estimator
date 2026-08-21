@@ -302,6 +302,29 @@ def sync(push=True, pull=True):
     return result
 
 
+@frappe.whitelist()
+def sync_async():
+    """Queue the Drive round trip instead of doing it inside the request.
+
+    sync() pushes up to 25 captures' faces to Drive and pulls up to 400 files
+    back, all synchronously. The phone's read timeout is 120 s, so "Pull
+    annotations now" reliably TIMED OUT on any site with real traffic — and a
+    timeout reads as "it is broken" when the work was in fact starting fine
+    and then being abandoned by the caller.
+
+    A long job belongs on a queue. The button now returns immediately and the
+    annotations appear when the job lands, which is the same contract the
+    hourly scheduled_sync has always had."""
+    s = _settings()
+    if not s.sync_enabled:
+        return {"queued": False, "skipped": "sync disabled in Site Photo Settings"}
+    if not (s.handover_folder_id or "").strip():
+        return {"queued": False, "skipped": "no handover folder configured"}
+    frappe.enqueue("mallet_estimator.imagemeter_sync.sync",
+                   queue="long", timeout=1500, push=True, pull=True)
+    return {"queued": True, "last_sync": str(s.get("last_sync") or "")}
+
+
 def scheduled_sync():
     """Hourly. Silent when disabled or unconfigured — a site without Drive
     wiring must not fill its error log every hour."""

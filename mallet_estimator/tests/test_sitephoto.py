@@ -729,3 +729,45 @@ class TestSiteLevelAndStages(MalletTestCase):
                    if p["project"] == out["project"])
         for f in ("start", "end", "stage_since"):
             self.assertEqual(row[f], "", f"{f} should be empty, got {row[f]!r}")
+
+    # ---- a flat photograph is a capture too ------------------------------
+
+    def test_a_flat_photo_is_a_first_class_capture(self):
+        """A repair job is a close-up of one broken hinge.
+
+        Forcing that through the equirect splitter is nonsense, and having no
+        route for it at all is why people fall back to the phone's own camera
+        app — and lose the client, site, room and stage along with the
+        picture. It files exactly like a 360 and is born Split, because there
+        is nothing to split and a queue of work that will never happen is a
+        queue that stops meaning anything."""
+        out = sitephoto.ensure_site("ZZ Photo Client", "ZZ Photo Project",
+                                    site_name="ZZ Photo Flat")
+        cap = sitephoto.create_capture(out["project"], _room(),
+                                       capture_kind="Photo")
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual(doc.capture_kind, "Photo")
+        self.assertEqual(doc.status, "Split")
+
+    def test_a_capture_with_no_kind_is_a_360(self):
+        """Every capture made before the field existed was a 360, and every
+        phone that has not updated still sends nothing. Both must land as
+        360s rather than as a blank later code has to guess about."""
+        out = sitephoto.ensure_site("ZZ Kind Client", "ZZ Kind Project",
+                                    site_name="ZZ Kind Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", cap["name"], "capture_kind"),
+            "360")
+
+    def test_a_made_up_capture_kind_falls_back_rather_than_throwing(self):
+        """The phone is the least trustworthy caller and the one that must
+        never fail to file. An unknown word becomes a 360; refusing the
+        capture would lose the photograph."""
+        out = sitephoto.ensure_site("ZZ Kind X Client", "ZZ Kind X Project",
+                                    site_name="ZZ Kind X Flat")
+        cap = sitephoto.create_capture(out["project"], _room(),
+                                       capture_kind="hologram")
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", cap["name"], "capture_kind"),
+            "360")

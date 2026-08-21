@@ -14,7 +14,7 @@ import java.io.File
  * basement.
  */
 class CaptureStore(context: Context) :
-    SQLiteOpenHelper(context, "captures.db", null, 2) {
+    SQLiteOpenHelper(context, "captures.db", null, 3) {
 
     private val mastersFile = File(context.filesDir, "masters.json")
 
@@ -33,7 +33,8 @@ class CaptureStore(context: Context) :
                  state TEXT NOT NULL DEFAULT 'LOCAL',
                  server_name TEXT,
                  error TEXT,
-                 sku TEXT NOT NULL DEFAULT ''
+                 sku TEXT NOT NULL DEFAULT '',
+                 kind TEXT NOT NULL DEFAULT '360'
                )"""
         )
     }
@@ -49,6 +50,11 @@ class CaptureStore(context: Context) :
         if (old < 2) {
             runCatching {
                 db.execSQL("ALTER TABLE captures ADD COLUMN sku TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        if (old < 3) {
+            runCatching {
+                db.execSQL("ALTER TABLE captures ADD COLUMN kind TEXT NOT NULL DEFAULT '360'")
             }
         }
     }
@@ -69,6 +75,9 @@ class CaptureStore(context: Context) :
         /** The Estimate SKU this photo is filed against, or "" for a room
          *  shot. Local until the next sync carries it up. */
         val sku: String = "",
+        /** "360" or "Photo". A repair job is a close-up of a broken hinge;
+         *  splitting that into six faces would be nonsense. */
+        val kind: String = "360",
     )
 
     fun insert(c: Capture) {
@@ -84,7 +93,21 @@ class CaptureStore(context: Context) :
             put("created_at", c.createdAt)
             put("state", c.state)
             put("sku", c.sku)
+            put("kind", c.kind)
         })
+    }
+
+    /**
+     * Remove one capture from this phone.
+     *
+     * Nothing in the app could delete anything, so a room typed wrong or a
+     * shutter pressed by accident was permanent. Deleting the ROW is this
+     * class's job; the files are the caller's, because MediaStore entries and
+     * app-private files are deleted through different APIs and pretending
+     * otherwise here would hide a failure.
+     */
+    fun delete(deviceId: String) {
+        writableDatabase.delete("captures", "device_id = ?", arrayOf(deviceId))
     }
 
     /** Re-file a capture: its stage, its SKU, or both.
@@ -142,6 +165,7 @@ class CaptureStore(context: Context) :
                     serverName = cur.getString(ix("server_name")),
                     error = cur.getString(ix("error")),
                     sku = cur.getString(ix("sku")) ?: "",
+                    kind = cur.getString(ix("kind")) ?: "360",
                 ))
             }
         }

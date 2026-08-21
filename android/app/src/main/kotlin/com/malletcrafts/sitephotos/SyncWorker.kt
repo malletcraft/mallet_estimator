@@ -79,7 +79,8 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                         applicationContext.packageManager.getPackageInfo(
                             applicationContext.packageName, 0).versionName ?: ""
                     }.getOrDefault(""),
-                    sku = c.sku)
+                    sku = c.sku,
+                    captureKind = c.kind)
                 val name = made.getString("name")
 
                 val pano = File(c.panoPath)

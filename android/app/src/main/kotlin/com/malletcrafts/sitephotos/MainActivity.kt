@@ -120,6 +120,7 @@ private fun AppScreen() {
     var retagStage by remember { mutableStateOf(false) }
     var retagSku by remember { mutableStateOf(false) }
     var showCaptureSheet by remember { mutableStateOf(false) }
+    var showFov by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf("") }
     // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
     // extra "server default" entry at the end. Remembered across launches —
@@ -195,7 +196,7 @@ private fun AppScreen() {
 
     // One ingest path for BOTH capture routes: gallery-pick and the direct
     // X3 connection hand the same equirect JPG to the same split + queue.
-    fun ingest(uri: Uri) {
+    fun ingest(uri: Uri, kind: String = "360") {
         val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
         if (p == null || r == null) return
@@ -203,7 +204,8 @@ private fun AppScreen() {
         // nine times in ten and is exactly what the server would have filled
         // in anyway — writing it locally is what lets the phone SHOW it.
         val stageNow = stage.ifBlank { navProject?.stage.orEmpty() }
-        busy = "Splitting the 360 into six faces…"
+        busy = if (kind == "Photo") "Filing the photo…"
+               else "Splitting the 360 into six faces…"
         lastResult = null
         scope.launch(Dispatchers.Default) {
             val outcome = runCatching {
@@ -213,17 +215,24 @@ private fun AppScreen() {
                 val fov = CaptureGeometry.PRESETS.getOrNull(roomSize)?.fov
                     ?: masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
                     ?: Panorama.DEFAULT_FOV
-                val (result, pano) = FaceWriter.split(
-                    context = context, source = uri, deviceId = id,
-                    customerName = p.customer, projectTitle = p.title,
-                    room = r, captureDate = today, stage = stageNow, fov = fov,
-                    panoDir = File(context.filesDir, "panos"))
+                val (result, pano) = if (kind == "Photo")
+                    FaceWriter.single(
+                        context = context, source = uri, deviceId = id,
+                        customerName = p.customer, projectTitle = p.title,
+                        room = r, captureDate = today, stage = stageNow,
+                        panoDir = File(context.filesDir, "panos"))
+                else
+                    FaceWriter.split(
+                        context = context, source = uri, deviceId = id,
+                        customerName = p.customer, projectTitle = p.title,
+                        room = r, captureDate = today, stage = stageNow, fov = fov,
+                        panoDir = File(context.filesDir, "panos"))
                 store.insert(CaptureStore.Capture(
                     deviceId = id, project = p.name, projectTitle = p.title,
                     customerName = p.customer, room = r, stage = stageNow,
                     captureDate = today, panoPath = pano.path,
                     createdAt = System.currentTimeMillis(), state = "LOCAL",
-                    serverName = null, error = null))
+                    serverName = null, error = null, kind = kind))
                 result
             }
             withContext(Dispatchers.Main) {
@@ -231,8 +240,11 @@ private fun AppScreen() {
                 lastResult = outcome.fold(
                     onSuccess = {
                         SyncWorker.syncNow(context)
-                        "${it.faceCount} faces saved to ${it.relativePath}\n" +
-                            "Open ImageMeter → the room folder → add photos."
+                        if (kind == "Photo")
+                            "Photo filed in ${it.relativePath}"
+                        else
+                            "${it.faceCount} faces saved to ${it.relativePath}\n" +
+                                "Open ImageMeter → the room folder → add photos."
                     },
                     onFailure = { "Could not split: ${it.message}" })
                 refreshQueue()
@@ -243,6 +255,20 @@ private fun AppScreen() {
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> if (uri != null) ingest(uri) }
+
+    // A FLAT photograph, from the gallery or straight off the phone camera.
+    // A repair job is a close-up of a broken hinge and a snag list is a dozen
+    // of them; forcing those through the 360 splitter is nonsense, and having
+    // no route at all is why people fall back to the phone's camera app and
+    // lose the client, site, room and stage along with the picture.
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? -> if (uri != null) ingest(uri, kind = "Photo") }
+
+    var shotUri by remember { mutableStateOf<Uri?>(null) }
+    val camera = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { ok: Boolean -> if (ok) shotUri?.let { ingest(it, kind = "Photo") } }
 
     // The one-time grant that lets the app read ImageMeter's own folder, so a
     // photo annotated on THIS phone is visible immediately instead of after a
@@ -266,6 +292,36 @@ private fun AppScreen() {
                 }
             }
         }
+    }
+
+    if (showFov) {
+        AlertDialog(
+            onDismissRequest = { showFov = false },
+            title = { Text("Field of view") },
+            text = {
+                Column {
+                    Text("A small room needs a wider face, or the split cuts " +
+                         "the walls off at the corners.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.height(10.dp))
+                    (CaptureGeometry.PRESETS.map { "${it.label} — ${it.fov.toInt()}°" }
+                        + "Server default").forEachIndexed { i, label ->
+                        Row(Modifier.fillMaxWidth().clickableRow {
+                                roomSize = i
+                                capturePrefs.edit().putInt("room_size", i).apply()
+                                prefsTick++
+                                showFov = false
+                            }.padding(vertical = 10.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Text(if (i == roomSize) "●  " else "○  ")
+                            Text(label)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFov = false }) { Text("Close") }
+            })
     }
 
     if (showSettings) {
@@ -314,6 +370,7 @@ private fun AppScreen() {
                 server = FrappeClient.savedUrl(context),
                 annotationFolder = remember(prefsTick) { annFolder.label },
                 onPickFolder = { folderPicker.launch(null) },
+                onPickFov = { showFov = true },
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()
@@ -342,7 +399,17 @@ private fun AppScreen() {
                         withContext(Dispatchers.Main) {
                             busy = null
                             lastResult = out.fold(
-                                { "ImageMeter sync done" },
+                                { r ->
+                                    val msg = r?.optJSONObject("message")
+                                    when {
+                                        msg == null -> "ImageMeter sync queued"
+                                        msg.optBoolean("queued") ->
+                                            "ImageMeter sync queued — annotations " +
+                                            "appear when the job finishes"
+                                        else -> "Not synced: " +
+                                            msg.optString("skipped", "Drive not configured")
+                                    }
+                                },
                                 { "ImageMeter sync failed: ${it.message}" })
                         }
                     }
@@ -742,7 +809,29 @@ private fun AppScreen() {
                         navRoom ?: "") + Handover.filename(cap.deviceId, "front"),
                     onOpenFace = { navFace = it; faceMode = true },
                     onPickStage = { retagStage = true },
-                    onPickSku = { retagSku = true })
+                    onPickSku = { retagSku = true },
+                    onDelete = {
+                        // The row and the files, then back to the room. Files
+                        // first would leave a queue row pointing at nothing if
+                        // the delete were interrupted; the row first leaves an
+                        // orphan file, which costs disk and nothing else.
+                        val q = queue.firstOrNull { it.deviceId == cap.deviceId }
+                        store.delete(cap.deviceId)
+                        runCatching { File(q?.panoPath ?: "").delete() }
+                        runCatching {
+                            context.contentResolver.delete(
+                                android.provider.MediaStore.Images.Media
+                                    .EXTERNAL_CONTENT_URI,
+                                "${android.provider.MediaStore.Images.Media.DISPLAY_NAME} LIKE ?",
+                                arrayOf("${cap.deviceId}%"))
+                        }
+                        navCapture = null; navFace = null
+                        refreshQueue()
+                        lastResult = if (q?.state == "SYNCED")
+                            "Removed from this phone. The server copy stays — " +
+                            "delete it in ERPNext if you meant that too."
+                        else "Capture deleted"
+                    })
             }
         }
 
@@ -829,6 +918,7 @@ private fun AppScreen() {
             workStage = c.stage,
             panoPath = c.panoPath,
             state = c.state,
+            kind = c.kind,
             sku = projSkus.firstOrNull { it.name == c.sku }?.code ?: c.sku)
     }
 
@@ -915,6 +1005,22 @@ private fun AppScreen() {
                     }
                 }
                 }
+            },
+            onTakePhoto = {
+                showCaptureSheet = false
+                val dir = File(context.filesDir, "shots").apply { mkdirs() }
+                val f = File(dir, "shot-${System.currentTimeMillis()}.jpg")
+                val u = androidx.core.content.FileProvider.getUriForFile(
+                    context, "com.malletcrafts.sitephotos.fileprovider", f)
+                shotUri = u
+                runCatching { camera.launch(u) }.onFailure {
+                    lastResult = "No camera app answered: ${it.message}"
+                }
+            },
+            onPickPhoto = {
+                showCaptureSheet = false
+                photoPicker.launch(PickVisualMediaRequest(
+                    ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onDismiss = { showCaptureSheet = false })
     }
@@ -1158,6 +1264,7 @@ private fun drawerGroups(
     server: String,
     annotationFolder: String,
     onPickFolder: () -> Unit,
+    onPickFov: () -> Unit,
     onSyncNow: () -> Unit,
     onImageMeterSync: () -> Unit,
     onToggle: (String) -> Unit,
@@ -1190,7 +1297,12 @@ private fun drawerGroups(
             icon = R.drawable.ic_mcft_pen, onClick = { onToggle("pull_annotated") }),
     )),
     DrawerGroup("Capture", listOf(
-        DrawerLine("Field of view", value = fov, icon = R.drawable.ic_mcft_cam),
+        // Was a dead row for two builds: it displayed the setting and could
+        // not change it, while the only real control was buried in the
+        // capture sheet. A settings row that shows a value you cannot edit
+        // reads as broken.
+        DrawerLine("Field of view", value = fov, icon = R.drawable.ic_mcft_cam,
+            onClick = onPickFov),
         // Off means the bench does the split instead. The projection contract
         // in CI is what makes the two agree, so this is a real choice rather
         // than a quality trade.

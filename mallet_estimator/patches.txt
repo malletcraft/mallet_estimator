@@ -110,3 +110,7 @@ mallet_estimator.patches.site_level_and_stages
 # Forces the migrate that re-pins reader/steward/photographer onto the three
 # new masters. Without it the phone reads an empty tree and says nothing.
 mallet_estimator.patches.grant_tree_masters
+# post_model_sync: capture_kind must EXIST before the backfill can set it, and
+# the article re-seed needs the doctype synced too. Also the forced migrate
+# that carries both to the database at all — a Python-only deploy runs none.
+mallet_estimator.patches.photo_kind_and_article_units

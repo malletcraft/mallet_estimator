@@ -176,7 +176,7 @@ def article_master(job_type=None):
 @frappe.whitelist()
 def create_capture(project, room, capture_date=None, stage=None, fov=None,
                    device_capture_id=None, app_version=None, work_stage=None,
-                   sku=None):
+                   sku=None, capture_kind=None):
     """Step 1 of a capture: the record. The phone then uploads the pano
     against this docname and calls bind_pano().
 
@@ -211,6 +211,18 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
         "device_capture_id": device_capture_id,
     })
     meta = frappe.get_meta(DOCTYPE)
+    # A flat photograph is a first-class capture, not a degraded 360. A repair
+    # job is a close-up of a broken hinge; splitting that into six faces would
+    # be nonsense, and refusing to file it at all is why people fall back to
+    # the phone's own camera app and lose the filing.
+    kind = (capture_kind or "").strip() or "360"
+    if meta.has_field("capture_kind"):
+        doc.capture_kind = kind if kind in ("360", "Photo") else "360"
+    if kind == "Photo":
+        # Nothing to split, so it is born finished rather than Pending — a
+        # queue of things that will never be processed is a queue that stops
+        # meaning anything.
+        doc.status = "Split"
     if work_stage and meta.has_field("work_stage"):
         doc.work_stage = work_stage
     if sku and meta.has_field("sku"):

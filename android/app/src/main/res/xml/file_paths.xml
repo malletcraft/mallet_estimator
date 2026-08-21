@@ -3,4 +3,9 @@
      through this provider grant and nowhere else. -->
 <paths>
     <files-path name="updates" path="updates/" />
+    <!-- Where the phone camera writes a flat photo before it is filed. The
+         camera app needs a WRITE grant to a file we own, and MediaStore is
+         the wrong home for it: the picture only belongs in the gallery once
+         it has been captioned and filed under the room. -->
+    <files-path name="shots" path="shots/" />
 </paths>

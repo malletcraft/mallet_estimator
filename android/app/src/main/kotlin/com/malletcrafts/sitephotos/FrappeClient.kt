@@ -63,7 +63,7 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     fun createCapture(project: String, room: String, captureDate: String,
                       stage: String, deviceCaptureId: String,
                       appVersion: String = "", sku: String = "",
-                      workStage: String = ""): JSONObject =
+                      workStage: String = "", captureKind: String = "360"): JSONObject =
         post("mallet_estimator.sitephoto.create_capture", JSONObject()
             .put("project", project)
             .put("room", room)
@@ -74,6 +74,7 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             // the phone's choice as work_stage or it is silently replaced by
             // whatever the project happened to be at.
             .put("work_stage", workStage)
+            .put("capture_kind", captureKind)
             .put("stage", stage)
             // A SKU tagged on the phone before the capture ever left it. Sent
             // blank rather than omitted so an older bench, which ignores the
@@ -160,8 +161,11 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     /** Run the ImageMeter round trip now instead of waiting for the hourly
      *  scheduler: faces out to the Drive handover folder, annotated copies
      *  back onto the capture they came from. */
+    /** QUEUED, not done inline. sync() pushes and pulls hundreds of Drive
+     *  files inside the request; the read timeout here is 120 s, so the
+     *  button reliably timed out while the work was in fact starting. */
     fun imagemeterSync(): JSONObject =
-        post("mallet_estimator.imagemeter_sync.sync", JSONObject())
+        post("mallet_estimator.imagemeter_sync.sync_async", JSONObject())
 
     /** One capture in full, including the annotated images ImageMeter
      *  returned, keyed by face. */

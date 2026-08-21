@@ -113,6 +113,68 @@ object FaceWriter {
         return Result(written, relPath) to panoFile
     }
 
+    /**
+     * A FLAT photograph — one image, no split.
+     *
+     * A repair job is a close-up of a broken hinge, and a snag list is a
+     * dozen of them. Putting those through the equirect splitter is nonsense,
+     * and refusing to file them at all is why people fall back to the phone's
+     * own camera app and lose the client, site, room and stage along with it.
+     *
+     * Everything else is identical to a face: the same gallery folder, the
+     * same burned caption, the same MCAP-<id>_<face> naming — so ImageMeter
+     * imports it the same way and the annotation comes home the same way.
+     * The face token is "photo", which is not one of the six, which is
+     * exactly what makes it recognisable as not-a-face downstream.
+     */
+    fun single(
+        context: Context,
+        source: Uri,
+        deviceId: String,
+        customerName: String,
+        projectTitle: String,
+        room: String,
+        captureDate: String,
+        stage: String,
+        panoDir: File,
+    ): Pair<Result, File> {
+        val resolver = context.contentResolver
+        // Kept app-private for the sync worker exactly as a pano is: the
+        // picked Uri's read grant does not survive process death, and the
+        // upload may be days away.
+        panoDir.mkdirs()
+        val file = File(panoDir, "$deviceId.jpg")
+        resolver.openInputStream(source).use { input ->
+            requireNotNull(input) { "could not open the selected photo" }
+            file.outputStream().use { input.copyTo(it) }
+        }
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        require(bounds.outWidth > 0) { "not a decodable image" }
+        var sample = 1
+        while (bounds.outWidth / sample > MAX_DECODE_WIDTH) sample *= 2
+        val bitmap = BitmapFactory.decodeFile(file.path,
+            BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }) ?: error("could not decode the photo")
+
+        val relPath = Handover.relativePath(customerName, projectTitle, room)
+        val captioned = captionedBitmap(bitmap, Handover.captionText(
+            deviceId, room, PHOTO_FACE, captureDate, stage))
+        try {
+            saveToGallery(context, captioned, relPath, "${deviceId}_$PHOTO_FACE.jpg")
+        } finally {
+            if (captioned !== bitmap) captioned.recycle()
+            bitmap.recycle()
+        }
+        return Result(1, relPath) to file
+    }
+
+    /** The face token a flat photo carries. Deliberately not one of the six. */
+    const val PHOTO_FACE = "photo"
+
     /** Copy bytes straight into the gallery folder without decoding them —
      *  an 11K pano must not be inflated into the heap just to be filed. */
     private fun saveStreamToGallery(
@@ -162,6 +224,33 @@ object FaceWriter {
         }
         val y = face.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
         canvas.drawText(text, face.width * 0.02f, y, paint)
+        return out
+    }
+
+    /** The same strip, under a plain Bitmap rather than a projected face.
+     *  Split from captioned() rather than shared through a common type: the
+     *  face path owns a pixel array and this one owns a Bitmap, and the
+     *  conversion between them would cost a full-size copy for nothing. */
+    private fun captionedBitmap(src: Bitmap, text: String): Bitmap {
+        val strip = (src.height * 0.052).toInt().coerceAtLeast(28)
+        val out = Bitmap.createBitmap(src.width, src.height + strip,
+            Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        canvas.drawBitmap(src, 0f, 0f, null)
+
+        val bar = Paint().apply { color = Color.rgb(17, 24, 31) }
+        canvas.drawRect(0f, src.height.toFloat(), src.width.toFloat(),
+            (src.height + strip).toFloat(), bar)
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = strip * 0.62f
+        }
+        while (paint.measureText(text) > src.width * 0.96f && paint.textSize > 8f) {
+            paint.textSize -= 1f
+        }
+        val y = src.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
+        canvas.drawText(text, src.width * 0.02f, y, paint)
         return out
     }
 
