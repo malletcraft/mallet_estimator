@@ -49,6 +49,24 @@ def _cached_file(version_code):
         ["name", "file_url"], as_dict=True)
 
 
+def _repair_attachment(file_name):
+    """Hang an already-mirrored file off the settings single.
+
+    Rows written before the attachment was added are invisible to every
+    caller but their owner, and re-mirroring will not happen because the row
+    exists. Repairing in place is cheaper than a patch and fixes the phone on
+    its next sync rather than on the next deploy."""
+    try:
+        frappe.db.set_value("File", file_name, {
+            "attached_to_doctype": SETTINGS,
+            "attached_to_name": SETTINGS,
+        }, update_modified=False)
+        frappe.db.commit()
+        frappe.clear_document_cache("File", file_name)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "app_update: repair attachment")
+
+
 @frappe.whitelist()
 def app_update_info():
     """The newest camera build, per the Drive manifest. status:
@@ -73,7 +91,21 @@ def app_update_info():
            "version_code": version_code}
     cached = _cached_file(version_code)
     if cached:
-        out.update({"status": "ready", "file_url": cached.file_url})
+        # _cached_file reads the row straight from the database, which sees
+        # everything. Whether the PHONE may fetch it is a different question,
+        # and the answer used to be no: Frappe serves a private file only to
+        # its owner or through a document the caller can read, and a bare
+        # db_insert row is neither. The app dutifully showed an update card
+        # for a file that always 403'd. So the permission is checked here,
+        # with the caller's own identity, before anything is promised.
+        if not frappe.has_permission("File", "read", doc=cached.name):
+            _repair_attachment(cached.name)   # rows mirrored before this fix
+        if frappe.has_permission("File", "read", doc=cached.name):
+            out.update({"status": "ready", "file_url": cached.file_url})
+        else:
+            out["status"] = "unreachable"
+            out["detail"] = ("the build is mirrored but this user cannot read "
+                             "the file — install from the Mac dock instead")
         return out
     last_error = frappe.cache().get_value(MIRROR_ERR_KEY)
     if last_error:
@@ -128,6 +160,13 @@ def mirror_apk(apk_name, version_code):
             "folder": "Home",
             "file_size": os.path.getsize(path),
             "content_hash": md5,
+            # Attached to the settings single on purpose. Frappe grants read
+            # on a private file when the caller can read the document it
+            # hangs off; unattached, it is visible to its owner alone and the
+            # phone gets a 403 no matter what role it holds.
+            "attached_to_doctype": SETTINGS,
+            "attached_to_name": SETTINGS,
+            "owner": "Administrator",
         })
         doc.name = frappe.generate_hash(length=10)
         doc.db_insert()
