@@ -59,6 +59,45 @@ object LocalFaces {
     }
 
     /**
+     * A FLAT photograph, as a one-entry face list.
+     *
+     * The viewer, the Original/Annotated toggle and the "Annotate in
+     * ImageMeter" button are all driven by this list — so a Photo returning
+     * an EMPTY list is exactly why a single photo had no way to reach
+     * ImageMeter at all. It is not a face and must never appear among the
+     * six, which is why faceOf() still rejects the token; it is looked up
+     * explicitly instead.
+     */
+    fun photoOf(context: Context, captureId: String): List<Face> {
+        if (!Handover.isDeviceId(captureId)) return emptyList()
+        var found: Face? = null
+        runCatching {
+            context.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Images.Media._ID,
+                        MediaStore.Images.Media.DISPLAY_NAME,
+                        MediaStore.Images.Media.RELATIVE_PATH),
+                "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?",
+                arrayOf("${captureId}_$PHOTO%"),
+                "${MediaStore.Images.Media.DATE_ADDED} ASC",
+            )?.use { c ->
+                while (c.moveToNext() && found == null) {
+                    // OURS, not a copy something else re-exported: the first
+                    // one written, in our own folder.
+                    if (!(c.getString(2) ?: "").contains(OUR_FOLDER, true)) continue
+                    found = Face(PHOTO, ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        c.getLong(0)), c.getString(1) ?: "")
+                }
+            }
+        }
+        return listOfNotNull(found)
+    }
+
+    /** The token a flat photograph carries. Deliberately not one of the six. */
+    const val PHOTO = "photo"
+
+    /**
      * The ANNOTATED copy of each face, from the gallery, with no folder grant.
      *
      * ImageMeter's data directory is /Android/data/de.dirkfarin.imagemeter/…,
@@ -95,7 +134,12 @@ object LocalFaces {
             )?.use { c ->
                 while (c.moveToNext()) {
                     val display = c.getString(1) ?: continue
-                    val face = faceOf(display) ?: continue
+                    // A flat photo's annotated copy carries "photo", which
+                    // faceOf() rejects by design — accepted explicitly here
+                    // so the toggle lights up on a single photograph too.
+                    val face = faceOf(display)
+                        ?: PHOTO.takeIf { display.contains("_$PHOTO") }
+                        ?: continue
                     if (face in out) continue
                     // Ours lives under Pictures/MCFT Site Photos/… — anything
                     // there is the original we wrote, never an annotation.

@@ -12,6 +12,8 @@
 # What it will NOT do is guess. A returning file that does not name a capture
 # goes to Site Photo Inbox for a person; attaching a stranger's photo to a
 # client's room is worse than asking.
+import json
+
 import frappe
 from frappe.utils import get_datetime, now_datetime
 
@@ -323,6 +325,42 @@ def sync_async():
     frappe.enqueue("mallet_estimator.imagemeter_sync.sync",
                    queue="long", timeout=1500, push=True, pull=True)
     return {"queued": True, "last_sync": str(s.get("last_sync") or "")}
+
+
+@frappe.whitelist()
+def status():
+    """What the last Drive round trip actually did.
+
+    "Queued" is true and useless: it says the button worked, not that
+    anything came back. A person who presses Pull annotations and sees no
+    change on any photograph needs to know WHICH of the three things is
+    happening — Drive is not wired, the job ran and found nothing, or files
+    came back and could not be matched to a capture."""
+    s = _settings()
+    configured = bool((s.handover_folder_id or "").strip())
+    out = {
+        "enabled": bool(s.sync_enabled),
+        "configured": configured,
+        "last_sync": str(s.get("last_sync") or ""),
+        "pushed": 0, "pulled": 0, "unmatched": 0, "errors": 0,
+    }
+    raw = s.get("last_summary")
+    if raw:
+        try:
+            last = json.loads(raw)
+        except Exception:
+            last = {}
+        push = last.get("push") or {}
+        pull = last.get("pull") or {}
+        out["pushed"] = int(push.get("uploaded") or 0)
+        out["pulled"] = int(pull.get("attached") or 0)
+        # A returning file that names no capture is not a failure of the sync
+        # — it is a file a person has to look at. Counting it separately is
+        # the difference between "nothing came back" and "things came back
+        # that nobody can file".
+        out["unmatched"] = int(pull.get("queued") or pull.get("inbox") or 0)
+        out["errors"] = len(push.get("errors") or []) + len(pull.get("errors") or [])
+    return out
 
 
 def scheduled_sync():

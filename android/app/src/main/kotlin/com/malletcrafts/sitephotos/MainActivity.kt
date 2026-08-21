@@ -92,7 +92,6 @@ private fun AppScreen() {
     // Where we are in the folder tree: client > SITE > project > room. Null
     // means "not that deep yet", which is also what Back unwinds.
     val cat = remember { Catalogue(context) }
-    val annFolder = remember { AnnotationFolder(context) }
     var navClient by remember { mutableStateOf<String?>(null) }
     var navSite by remember { mutableStateOf<String?>(null) }
     var navProject by remember { mutableStateOf<Catalogue.Project?>(null) }
@@ -283,30 +282,6 @@ private fun AppScreen() {
         ActivityResultContracts.TakePicture()
     ) { ok: Boolean -> if (ok) shotUri?.let { ingest(it, kind = "Photo") } }
 
-    // The one-time grant that lets the app read ImageMeter's own folder, so a
-    // photo annotated on THIS phone is visible immediately instead of after a
-    // trip to Drive and back. Android will not let one app browse another's
-    // files without the person saying so; this is them saying so.
-    val folderPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            annFolder.link(uri)
-            prefsTick++
-            scope.launch(Dispatchers.IO) {
-                val r = annFolder.scan()
-                withContext(Dispatchers.Main) {
-                    // Counts, not a tick. A grant that found nothing looks
-                    // exactly like one that was never made, and the person
-                    // who just picked a folder is the only one who can tell
-                    // us it was the wrong one.
-                    lastResult = "ImageMeter folder linked: ${r.images} images in " +
-                        "${r.folders} folders, ${r.ours} of them ours"
-                }
-            }
-        }
-    }
-
     addSkuFor?.let { skuRoom ->
         val proj = navProject
         AddSkuSheet(
@@ -415,8 +390,6 @@ private fun AppScreen() {
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
                 server = FrappeClient.savedUrl(context),
-                annotationFolder = remember(prefsTick) { annFolder.label },
-                onPickFolder = { folderPicker.launch(null) },
                 onPickFov = { showFov = true },
                 onToggle = { key ->
                     if (key == "clear_cache") {
@@ -440,24 +413,42 @@ private fun AppScreen() {
                 onImageMeterSync = {
                     busy = "Pulling annotations from ImageMeter…"
                     scope.launch(Dispatchers.IO) {
+                        // Queue it, then WAIT and read what it did. "Queued"
+                        // on its own says the button worked, not that
+                        // anything came back — which is exactly what somebody
+                        // sees when Drive is not wired: a cheerful message
+                        // and no change on any photograph.
                         val out = runCatching {
-                            FrappeClient.load(context)?.imagemeterSync()
+                            val c = FrappeClient.load(context)
+                            val q = c?.imagemeterSync()?.optJSONObject("message")
+                            if (q?.optBoolean("queued") != true) {
+                                "Not synced: " +
+                                    (q?.optString("skipped") ?: "no server configured")
+                            } else {
+                                Thread.sleep(6000)
+                                val st = c.imagemeterStatus().optJSONObject("message")
+                                when {
+                                    st == null -> "Queued — no status yet"
+                                    !st.optBoolean("configured") ->
+                                        "Queued, but no ImageMeter Drive folder is " +
+                                        "set on the server — nothing can come back"
+                                    st.optInt("pulled") > 0 ->
+                                        "${st.optInt("pulled")} annotated faces pulled"
+                                    st.optInt("unmatched") > 0 ->
+                                        "${st.optInt("unmatched")} files came back that " +
+                                        "name no capture — the office has to file them"
+                                    else ->
+                                        "Ran, nothing new. Annotations reach the " +
+                                        "server through ImageMeter's own Drive sync; " +
+                                        "on this phone the gallery route is faster."
+                                }
+                            }
                         }
                         withContext(Dispatchers.Main) {
                             busy = null
-                            lastResult = out.fold(
-                                { r ->
-                                    val msg = r?.optJSONObject("message")
-                                    when {
-                                        msg == null -> "ImageMeter sync queued"
-                                        msg.optBoolean("queued") ->
-                                            "ImageMeter sync queued — annotations " +
-                                            "appear when the job finishes"
-                                        else -> "Not synced: " +
-                                            msg.optString("skipped", "Drive not configured")
-                                    }
-                                },
-                                { "ImageMeter sync failed: ${it.message}" })
+                            lastResult = out.getOrElse {
+                                "ImageMeter sync failed: ${it.message}"
+                            }
                         }
                     }
                 },
@@ -751,7 +742,15 @@ private fun AppScreen() {
         BackHandler {
             if (navFace != null) navFace = null else navCapture = null
         }
-        val faces = remember(cap.deviceId) { LocalFaces.of(context, cap.deviceId) }
+        // A 360 has six faces; a flat photo has ONE entry, itself. The
+        // viewer, the Original/Annotated toggle and the "Annotate in
+        // ImageMeter" button are all driven by this list, so returning an
+        // empty one for a photo is exactly why a single photograph had no
+        // route into ImageMeter at all.
+        val faces = remember(cap.deviceId, cap.kind) {
+            if (cap.kind == "Photo") LocalFaces.photoOf(context, cap.deviceId)
+            else LocalFaces.of(context, cap.deviceId)
+        }
         // Annotated copies come from the bench, where the Drive round trip
         // already attached them to this capture by face. Cached to a file so
         // a second look costs nothing and still works with no signal.
@@ -777,18 +776,13 @@ private fun AppScreen() {
         LaunchedEffect(cap.deviceId, prefsTick, annTick) {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    // The gallery first, because it needs no grant and it is
-                    // the route that actually works: ImageMeter's data
+                    // The gallery, and only the gallery. ImageMeter's data
                     // directory sits under /Android/data, which Android will
-                    // not let any app be granted. Its "Show images in
-                    // gallery" switch is what puts the annotated copy
-                    // somewhere we can legally read it.
-                    val gallery = LocalFaces.annotatedOf(context, cap.deviceId)
-                    // A granted folder still helps for exports sent somewhere
-                    // ordinary, so it fills whatever the gallery did not.
-                    val folder = if (annFolder.linked)
-                        annFolder.annotatedFor(cap.deviceId) else emptyMap()
-                    folder + gallery
+                    // not let any app be granted — so its "Show images in
+                    // gallery" switch is the one route that can work, and a
+                    // second half-route was a setting to explain rather than
+                    // a capability to use.
+                    LocalFaces.annotatedOf(context, cap.deviceId)
                 }
             }.onSuccess { annotatedLocal = it }
         }
@@ -1334,8 +1328,6 @@ private fun drawerGroups(
     cached: String,
     prefs: AppPrefs,
     server: String,
-    annotationFolder: String,
-    onPickFolder: () -> Unit,
     onPickFov: () -> Unit,
     onSyncNow: () -> Unit,
     onImageMeterSync: () -> Unit,
@@ -1354,15 +1346,13 @@ private fun drawerGroups(
             icon = R.drawable.ic_mcft_wifi, onClick = { onToggle("wifi_only") }),
     )),
     DrawerGroup("ImageMeter", listOf(
-        // Optional, and deliberately second. ImageMeter's OWN data directory
-        // (/Android/data/de.dirkfarin.imagemeter/files/projects) cannot be
-        // granted to anybody — Android 11 removed it from the directory
-        // picker and Android 13 shut the last way round. This row is for a
-        // folder you EXPORT to, which is an ordinary folder and can be. The
-        // switch that matters is inside ImageMeter: Storage → Show images in
-        // gallery.
-        DrawerLine("Exported-annotations folder", value = annotationFolder,
-            icon = R.drawable.ic_mcft_link, onClick = onPickFolder),
+        // The "Exported-annotations folder" row lived here and is GONE. It
+        // was a folder grant for the case where somebody exports an annotated
+        // image to an ordinary folder by hand — which nobody does, because
+        // ImageMeter's "Show images in gallery" covers the same ground with
+        // one tick and no picker. A setting that takes two paragraphs to
+        // explain and answers a question nobody asked is clutter, and it cost
+        // Amit two questions before it earned its removal.
         DrawerLine("Pull annotations now", icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
         DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,

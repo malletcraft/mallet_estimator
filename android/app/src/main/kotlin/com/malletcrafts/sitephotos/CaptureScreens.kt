@@ -332,11 +332,21 @@ fun CaptureScreen(
         }
 
         if (capture.kind == "Photo") {
+            // Tapping opens the SAME viewer a face opens — which is where
+            // Original/Annotated and "Annotate in ImageMeter" live. A photo
+            // you cannot annotate is half a feature.
             Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)
                 .clickable { onOpenFace(0) }) {
                 Thumb(ThumbSource.LocalFile(capture.panoPath), Modifier.fillMaxSize(),
                     target = 1200, contentDescription = "the photograph")
+                if (annotatedFaces.isNotEmpty()) {
+                    PenBadge(Modifier.align(Alignment.TopEnd).padding(8.dp), "marked")
+                }
             }
+            Text("Tap to open, measure in ImageMeter, or see the annotated copy",
+                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("FILED AT", style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

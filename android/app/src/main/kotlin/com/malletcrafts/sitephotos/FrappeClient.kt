@@ -167,6 +167,11 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     fun imagemeterSync(): JSONObject =
         post("mallet_estimator.imagemeter_sync.sync_async", JSONObject())
 
+    /** What the last Drive round trip actually did. "Queued" says the button
+     *  worked; this says whether anything came back. */
+    fun imagemeterStatus(): JSONObject =
+        post("mallet_estimator.imagemeter_sync.status", JSONObject())
+
     /** One capture in full, including the annotated images ImageMeter
      *  returned, keyed by face. */
     fun captureDetail(docname: String): JSONObject =
