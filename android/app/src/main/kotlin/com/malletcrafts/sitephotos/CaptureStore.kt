@@ -14,7 +14,7 @@ import java.io.File
  * basement.
  */
 class CaptureStore(context: Context) :
-    SQLiteOpenHelper(context, "captures.db", null, 1) {
+    SQLiteOpenHelper(context, "captures.db", null, 2) {
 
     private val mastersFile = File(context.filesDir, "masters.json")
 
@@ -32,12 +32,26 @@ class CaptureStore(context: Context) :
                  created_at INTEGER NOT NULL,
                  state TEXT NOT NULL DEFAULT 'LOCAL',
                  server_name TEXT,
-                 error TEXT
+                 error TEXT,
+                 sku TEXT NOT NULL DEFAULT ''
                )"""
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) = Unit
+    /** ADD COLUMN, never a rebuild.
+     *
+     *  This table IS the offline queue, and the phones that most need an
+     *  upgrade are the ones carrying unsent captures. A drop-and-recreate
+     *  migration would throw those away on the version that finally fixed
+     *  the thing they were waiting for, so every future change to this
+     *  schema has to be additive in exactly this shape. */
+    override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
+        if (old < 2) {
+            runCatching {
+                db.execSQL("ALTER TABLE captures ADD COLUMN sku TEXT NOT NULL DEFAULT ''")
+            }
+        }
+    }
 
     data class Capture(
         val deviceId: String,
@@ -52,6 +66,9 @@ class CaptureStore(context: Context) :
         val state: String,
         val serverName: String?,
         val error: String?,
+        /** The Estimate SKU this photo is filed against, or "" for a room
+         *  shot. Local until the next sync carries it up. */
+        val sku: String = "",
     )
 
     fun insert(c: Capture) {
@@ -66,7 +83,22 @@ class CaptureStore(context: Context) :
             put("pano_path", c.panoPath)
             put("created_at", c.createdAt)
             put("state", c.state)
+            put("sku", c.sku)
         })
+    }
+
+    /** Re-file a capture: its stage, its SKU, or both.
+     *
+     *  Both are set at the shutter from what the project was at, and both
+     *  are routinely wrong by the time anyone looks. Passing null leaves a
+     *  field alone — a stage move must not silently drop the SKU. */
+    fun setTags(deviceId: String, stage: String? = null, sku: String? = null) {
+        val values = ContentValues().apply {
+            if (stage != null) put("stage", stage)
+            if (sku != null) put("sku", sku)
+        }
+        if (values.size() == 0) return
+        writableDatabase.update("captures", values, "device_id = ?", arrayOf(deviceId))
     }
 
     /** The sync step that adopts a device-typed site: once the server has
@@ -109,6 +141,7 @@ class CaptureStore(context: Context) :
                     state = cur.getString(ix("state")),
                     serverName = cur.getString(ix("server_name")),
                     error = cur.getString(ix("error")),
+                    sku = cur.getString(ix("sku")) ?: "",
                 ))
             }
         }

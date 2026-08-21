@@ -2,6 +2,7 @@ package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -11,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,11 +38,18 @@ import androidx.compose.ui.unit.sp
 data class CaptureCard(
     val deviceId: String,
     val date: String,
+    /** The PHASE the photo is filed under — one of the ten, the word the
+     *  capture doctype stores. The stage that produced it is [workStage]. */
     val stage: String,
     val panoPath: String,
     val state: String,
     /** How many of the six faces have come back annotated from ImageMeter. */
     val annotated: Int = 0,
+    /** The Estimate SKU code this photo is filed against, or "". */
+    val sku: String = "",
+    /** The work stage the photo was filed at — one of the thirty-nine. Blank
+     *  on a capture taken before the master existed, which still has a phase. */
+    val workStage: String = "",
 )
 
 private val YELLOW = Color(0xFFE9FF3A)
@@ -73,10 +82,18 @@ private fun PenBadge(modifier: Modifier = Modifier, label: String? = null) {
     }
 }
 
-/** Level 5 — the captures in one room, newest first. */
+/**
+ * Level 5 — the captures in one room, newest first.
+ *
+ * The chip row filters by PHASE, not by stage. Thirty-nine stages is a wall
+ * of chips nobody reads; ten phases is a filter. And the question actually
+ * asked here is the coarse one — "show me the ones from before the ceiling
+ * went in" — which is a phase question.
+ */
 @Composable
 fun CapturesScreen(
     captures: List<CaptureCard>,
+    phases: List<String>,
     onOpen: (CaptureCard) -> Unit,
 ) {
     if (captures.isEmpty()) {
@@ -86,6 +103,29 @@ fun CapturesScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
+    var picked by remember { mutableStateOf<String?>(null) }
+    // Only phases that actually have photos in THIS room. A chip that
+    // filters to nothing is a chip that looks broken.
+    val present = phases.filter { p -> captures.any { it.stage.equals(p, true) } }
+    val shown = picked?.let { p -> captures.filter { it.stage.equals(p, true) } }
+        ?: captures
+
+    Column(Modifier.fillMaxSize()) {
+    if (present.size > 1) {
+        Row(
+            Modifier.fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            FilterChip(selected = picked == null, onClick = { picked = null },
+                label = { Text("All ${captures.size}") })
+            present.forEach { p ->
+                FilterChip(selected = picked == p, onClick = { picked = p },
+                    label = { Text(p) })
+            }
+        }
+    }
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -93,7 +133,7 @@ fun CapturesScreen(
         contentPadding = PaddingValues(2.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        items(captures, key = { it.deviceId }) { c ->
+        items(shown, key = { it.deviceId }) { c ->
             Box(
                 Modifier
                     .aspectRatio(4f / 3f)
@@ -123,11 +163,54 @@ fun CapturesScreen(
                 ) {
                     Text(c.date, color = Color.White, fontSize = 10.sp,
                         fontWeight = FontWeight.Medium)
-                    Text(if (c.state == "SYNCED") "synced" else "on phone",
+                    Text(if (c.sku.isNotBlank()) c.sku.substringAfterLast('_')
+                         else if (c.state == "SYNCED") "synced" else "on phone",
                         color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
                 }
             }
         }
+    }
+    }
+}
+
+/** One tappable fact about a capture: a square token, a title, a reason. */
+@Composable
+private fun DetailRow(
+    lead: String,
+    title: String,
+    subtitle: String,
+    dim: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(RoundedCornerShape(9.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(lead.take(4), style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (dim) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -144,8 +227,33 @@ fun CaptureScreen(
     annotatedFaces: Set<String>,
     folder: String,
     onOpenFace: (Int) -> Unit,
+    onPickStage: () -> Unit,
+    onPickSku: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        // The two rows that make a photo findable a month later, and the two
+        // that are most often wrong: the stage is inherited from whatever the
+        // project was at when the shutter fired, and the SKU is usually not
+        // set at all. Both are one tap from here, because a tag that can only
+        // be fixed at a desk is a tag nobody fixes.
+        DetailRow(
+            lead = "STG",
+            title = capture.workStage.ifBlank {
+                capture.stage.ifBlank { "No stage set" } },
+            subtitle = if (capture.workStage.isBlank() && capture.stage.isBlank())
+                           "tap to choose"
+                       else "${capture.stage.ifBlank { "no phase" }} · tap to change",
+            dim = capture.workStage.isBlank() && capture.stage.isBlank(),
+            onClick = onPickStage)
+        DetailRow(
+            lead = capture.sku.substringAfterLast('_').ifBlank { "—" },
+            title = capture.sku.ifBlank { "Not tagged to a SKU" },
+            subtitle = if (capture.sku.isNotBlank())
+                           "this photo sits beside the estimate line"
+                       else "optional — tag it to an article",
+            dim = capture.sku.isBlank(),
+            onClick = onPickSku)
+
         // Not clickable: the 360 is the record, and there is nothing useful to
         // open it into yet. A large image that does nothing when tapped reads
         // as a broken app, so it does not invite the tap.

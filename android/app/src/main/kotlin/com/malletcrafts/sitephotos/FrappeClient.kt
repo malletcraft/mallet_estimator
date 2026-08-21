@@ -62,12 +62,23 @@ class FrappeClient(private val baseUrl: String, private val key: String,
 
     fun createCapture(project: String, room: String, captureDate: String,
                       stage: String, deviceCaptureId: String,
-                      appVersion: String = ""): JSONObject =
+                      appVersion: String = "", sku: String = "",
+                      workStage: String = ""): JSONObject =
         post("mallet_estimator.sitephoto.create_capture", JSONObject()
             .put("project", project)
             .put("room", room)
             .put("capture_date", captureDate)
+            // Two fields, on purpose. work_stage is one of the thirty-nine and
+            // is what the server files against; stage is the PHASE, and is the
+            // only thing a bench without the stage master can understand. Send
+            // the phone's choice as work_stage or it is silently replaced by
+            // whatever the project happened to be at.
+            .put("work_stage", workStage)
             .put("stage", stage)
+            // A SKU tagged on the phone before the capture ever left it. Sent
+            // blank rather than omitted so an older bench, which ignores the
+            // argument entirely, behaves the same either way.
+            .put("sku", sku)
             .put("device_capture_id", deviceCaptureId)
             // The fleet's version ledger: the server records which build
             // synced this capture, so "did the phone update?" is a server
@@ -163,6 +174,19 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     fun setProjectStage(project: String, workStage: String): JSONObject =
         post("mallet_estimator.sitephoto.set_project_stage",
             JSONObject().put("project", project).put("work_stage", workStage))
+
+    /** Re-file one capture: its stage, its SKU, or both.
+     *
+     *  Null means "leave alone", "" means "clear". Both distinctions matter:
+     *  moving a photo's stage must not silently drop its SKU, and untagging
+     *  a photo is a real thing to want. */
+    fun setCaptureTags(name: String, workStage: String? = null,
+                       sku: String? = null): JSONObject {
+        val body = JSONObject().put("name", name)
+        if (workStage != null) body.put("work_stage", workStage)
+        if (sku != null) body.put("sku", sku)
+        return post("mallet_estimator.sitephoto.set_capture_tags", body)
+    }
 
     /** Turn a client/site/project typed offline at a NEW site into real
      *  masters — or, far more often, match them against masters that already

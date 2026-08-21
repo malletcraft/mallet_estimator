@@ -11,6 +11,9 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.foundation.horizontalScroll
+import com.malletcrafts.sitephotos.pano.CaptureGeometry
+import com.malletcrafts.sitephotos.pano.RoomToken
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -160,11 +163,14 @@ fun StageSheet(
     stages: List<Catalogue.Stage>,
     current: String,
     jobType: String,
+    /** "Move the project to" or "Stage of this photo" — the same list, two
+     *  quite different consequences, and the heading is the only warning. */
+    heading: String = "Move the project to",
     onPick: (Catalogue.Stage) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle("Project stage · $jobType · ${stages.size} stages")
+        SheetTitle("$heading · $jobType · ${stages.size} stages")
         // A plain scrolling Column, not a LazyColumn. Thirty-nine rows do not
         // need laziness, and a lazy list composes out of order — which breaks
         // any "print the heading when the phase changes" logic in a way that
@@ -221,6 +227,133 @@ fun SkuSheet(
 }
 
 /**
+ * Tag ONE photo to a SKU, or untag it.
+ *
+ * The SKUs of the room you are standing in come first, because that is what
+ * you almost always want; the rest of the project is under them rather than
+ * hidden, because a wardrobe photographed from the passage is a real thing.
+ * And "none" is a first-class choice — a room shot filed against a wardrobe
+ * is worse than one filed against nothing.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CaptureSkuSheet(
+    skus: List<Catalogue.Sku>,
+    room: String,
+    current: String,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val mine = skus.filter { it.room.equals(room, true) }
+    val others = skus.filter { !it.room.equals(room, true) }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle("Tag this photo to a SKU")
+        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            if (skus.isEmpty()) {
+                Text("This project has no SKUs yet. The office adds them from " +
+                     "the estimate, and they arrive on the next sync.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            }
+            if (mine.isNotEmpty()) {
+                SheetGroup("In ${RoomToken.of(room)}")
+                mine.forEach { SkuLine(it, current, onPick) }
+            }
+            if (others.isNotEmpty()) {
+                SheetGroup("Elsewhere on this project")
+                others.forEach { SkuLine(it, current, onPick) }
+            }
+            ListItem(
+                headlineContent = { Text("— none —") },
+                supportingContent = { Text("a room photo, not tied to one article") },
+                colors = if (current.isBlank())
+                    ListItemDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                else ListItemDefaults.colors(),
+                modifier = Modifier.clickableRow { onPick("") })
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun SkuLine(s: Catalogue.Sku, current: String, onPick: (String) -> Unit) {
+    ListItem(
+        headlineContent = { Text(s.code) },
+        supportingContent = { Text(s.article.ifBlank { s.room }) },
+        trailingContent = { if (s.room.isNotBlank()) Pill(s.room, warn = false) },
+        colors = if (s.code == current || s.name == current)
+            ListItemDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        else ListItemDefaults.colors(),
+        modifier = Modifier.clickableRow { onPick(s.name.ifBlank { s.code }) })
+}
+
+@Composable
+private fun SheetGroup(title: String) {
+    Text(title.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 2.dp))
+}
+
+/**
+ * Everything the app knows about one project, on one sheet.
+ *
+ * The projects row and the room grid both had to choose two facts out of
+ * ten. This is where the other eight live, so neither of those screens has
+ * to grow a third line to carry them.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProjectSheet(
+    project: Catalogue.Project,
+    phase: String,
+    phases: List<String>,
+    stageCount: Int,
+    photos: Int,
+    onDismiss: () -> Unit,
+) {
+    val rows = buildList {
+        add("At stage" to project.stage.ifBlank { "not set" })
+        add("Phase" to listOfNotNull(
+            phase.ifBlank { null },
+            project.stageSince.ifBlank { null }?.let { "since ${Catalogue.day(it)}" },
+        ).joinToString(" · ").ifBlank { "—" })
+        add("Job type" to project.jobType)
+        add("Status" to when {
+            project.local -> "Not synced — still only on this phone"
+            project.status.isBlank() -> "—"
+            else -> project.status
+        })
+        add("ERP id" to project.serverId.ifBlank { "—" })
+        add("Site" to project.site)
+        add("Client" to project.client)
+        add("Starts" to project.start.ifBlank { "—" })
+        add("Ends" to project.end.ifBlank { "—" })
+        add("Phases" to phases.joinToString(" · ").ifBlank { "—" })
+        add("Stages" to "$stageCount in the master for this job type")
+        add("Photos" to "$photos on this phone")
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle(project.title)
+        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            rows.forEach { (k, v) ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 5.dp)) {
+                    Text(k, Modifier.width(96.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(v, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+/**
  * Work | Browse | Queue.
  *
  * Three destinations, which is where Material's bottom bar stops being a
@@ -255,5 +388,98 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
                 }
             },
             label = { Text("Queue") })
+    }
+}
+
+/**
+ * Everything the shutter needs, behind the FAB.
+ *
+ * It used to be a third of the room screen: two dropdowns, a paragraph of
+ * levelling advice and two buttons, all sitting permanently above the photos
+ * you came to look at. None of it is read twice — the room size is chosen
+ * once a morning, the advice once ever — so it belongs in a sheet you open
+ * when you are about to shoot and never see when you are not.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CaptureSheet(
+    stage: String,
+    roomSize: Int,
+    /** Null on the public build, which has no SDK and no 360 camera. */
+    hasCamera: Boolean,
+    cameraConnected: Boolean,
+    cameraNote: String?,
+    busy: Boolean,
+    onStage: () -> Unit,
+    onRoomSize: (Int) -> Unit,
+    onPick: () -> Unit,
+    onCamera: () -> Unit,
+    onShoot: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle("Capture 360")
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            ListItem(
+                headlineContent = { Text(stage.ifBlank { "No stage set" }) },
+                overlineContent = { Text("FILED AT") },
+                supportingContent = { Text("tap to change — it can be corrected on the photo too") },
+                modifier = Modifier.clickableRow(onStage))
+
+            Text("ROOM SIZE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp))
+            // Small rooms need wider faces or the split truncates the walls.
+            // The geometry, and these presets, live in CaptureGeometry.
+            Row(
+                Modifier.fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                CaptureGeometry.PRESETS.forEachIndexed { i, p ->
+                    FilterChip(selected = roomSize == i, onClick = { onRoomSize(i) },
+                        label = { Text("${p.label} ${p.fov.toInt()}°") })
+                }
+                FilterChip(
+                    selected = roomSize >= CaptureGeometry.PRESETS.size,
+                    onClick = { onRoomSize(CaptureGeometry.PRESETS.size) },
+                    label = { Text("Server default") })
+            }
+
+            Text(
+                "Shoot from the room centre, camera LEVEL at half ceiling height " +
+                "(≈4 ft 9 in under a 9½ ft ceiling) — then every wall keeps all " +
+                "four corners after the split.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp))
+
+            if (hasCamera) {
+                ListItem(
+                    headlineContent = {
+                        Text(if (cameraConnected) "X3 connected" else "X3 not connected")
+                    },
+                    supportingContent = {
+                        Text(cameraNote ?: if (cameraConnected) "ready to shoot"
+                             else "join the camera's Wi-Fi first, then tap")
+                    },
+                    modifier = Modifier.clickableRow(onCamera))
+                Button(
+                    onClick = onShoot,
+                    enabled = !busy && cameraConnected,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                ) { Text("Shoot 360 on the X3") }
+                Spacer(Modifier.height(8.dp))
+            }
+            OutlinedButton(
+                onClick = onPick,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            ) { Text("Pick a 360 from the gallery") }
+            Spacer(Modifier.height(24.dp))
+        }
     }
 }

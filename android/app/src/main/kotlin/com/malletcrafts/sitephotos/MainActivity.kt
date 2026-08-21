@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Delete
@@ -49,6 +50,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -87,20 +91,6 @@ class MainActivity : ComponentActivity() {
 
 private data class ProjectRow(val name: String, val title: String, val customer: String)
 
-private fun projects(masters: JSONObject?): List<ProjectRow> {
-    val arr = masters?.optJSONArray("projects") ?: return emptyList()
-    return (0 until arr.length()).map { i ->
-        val p = arr.getJSONObject(i)
-        ProjectRow(p.getString("project"), p.optString("title"),
-            p.optString("customer_name"))
-    }
-}
-
-private fun strings(masters: JSONObject?, key: String): List<String> {
-    val arr = masters?.optJSONArray(key) ?: return emptyList()
-    return (0 until arr.length()).map { arr.getString(it) }
-}
-
 @Composable
 private fun AppScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -135,6 +125,12 @@ private fun AppScreen() {
     var navFace by remember { mutableStateOf<Int?>(null) }
     var faceMode by remember { mutableStateOf(true) }   // true = annotated
     var showSkus by remember { mutableStateOf(false) }
+    var showDetail by remember { mutableStateOf(false) }
+    // The two pickers that re-file ONE photo, as opposed to moving the whole
+    // project. Same stage list, quite different consequence.
+    var retagStage by remember { mutableStateOf(false) }
+    var retagSku by remember { mutableStateOf(false) }
+    var showCaptureSheet by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf("") }
     // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
     // extra "server default" entry at the end. Remembered across launches —
@@ -156,6 +152,9 @@ private fun AppScreen() {
 
     // Annotation navigation: a capture opens its face list; a face opens
     // the editor. Plain state instead of a nav library — two levels deep.
+    // Nothing sets facesFor today: the in-app annotator is parked behind the
+    // ImageMeter round trip (task 33), and this is the hook it comes back
+    // through. Kept deliberately rather than deleted and rewritten later.
     val annStore = remember { AnnotationStore(context) }
     var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -192,9 +191,7 @@ private fun AppScreen() {
         }
     }
 
-    val projectRows = projects(masters)
     val rooms = cat.rooms(masters)
-    val stages = strings(masters, "stages")
 
     // The tree drives the capture target; nothing is pre-selected, because
     // a photo filed against whatever happened to be first in a list is the
@@ -213,7 +210,10 @@ private fun AppScreen() {
         val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
         if (p == null || r == null) return
-        val stageNow = stage
+        // Nothing chosen means "whatever the project is at", which is right
+        // nine times in ten and is exactly what the server would have filled
+        // in anyway — writing it locally is what lets the phone SHOW it.
+        val stageNow = stage.ifBlank { navProject?.stage.orEmpty() }
         busy = "Splitting the 360 into six faces…"
         lastResult = null
         scope.launch(Dispatchers.Default) {
@@ -508,6 +508,16 @@ private fun AppScreen() {
             SkuSheet(skus = cat.skusOf(masters, proj.serverId),
                 onDismiss = { showSkus = false })
         }
+        if (showDetail && proj != null) {
+            val all = cat.stages(masters, proj.jobType)
+            ProjectSheet(
+                project = proj,
+                phase = all.firstOrNull { it.name == proj.stage }?.phase.orEmpty(),
+                phases = all.map { it.phase }.distinct(),
+                stageCount = all.size,
+                photos = queue.count { it.projectTitle.equals(proj.title, true) },
+                onDismiss = { showDetail = false })
+        }
 
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -546,9 +556,19 @@ private fun AppScreen() {
                                     it.stage.equals(proj.stage, true)
                                 }
                             },
+                            // The newest 360 in that room, which is already on
+                            // this phone — so the grid fills with no network.
+                            lastPano = { r ->
+                                queue.firstOrNull {
+                                    it.room == r &&
+                                    it.projectTitle.equals(proj.title, true)
+                                }?.panoPath
+                            },
+                            skuCount = cat.skusOf(masters, proj.serverId).size,
                             onOpen = { navRoom = it },
                             onStage = { showStagePicker = true },
-                            onSkus = { showSkus = true })
+                            onSkus = { showSkus = true },
+                            onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(
                             projects = cat.projectsOf(masters, client, site),
                             captureCount = { p ->
@@ -658,220 +678,275 @@ private fun AppScreen() {
                             ?.customerName ?: "",
                         navProject?.title ?: "",
                         navRoom ?: "") + Handover.filename(cap.deviceId, "front"),
-                    onOpenFace = { navFace = it; faceMode = true })
+                    onOpenFace = { navFace = it; faceMode = true },
+                    onPickStage = { retagStage = true },
+                    onPickSku = { retagSku = true })
             }
+        }
+
+        // Re-filing ONE photo. Both write locally first and to the bench
+        // second: the correction has to survive a basement, and the row on
+        // screen has to change the instant it is made or nobody trusts it.
+        val serverName = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
+        fun retag(newStage: String?, newSku: String?) {
+            store.setTags(cap.deviceId, stage = newStage, sku = newSku)
+            refreshQueue()
+            // The column holds the Estimate SKU DOCNAME; the card shows the
+            // code. Resolving here keeps the two from drifting the moment a
+            // tag is changed.
+            val shownSku = newSku?.let { n ->
+                if (n.isBlank()) "" else
+                    cat.skusOf(masters, navProject?.serverId.orEmpty())
+                        .firstOrNull { it.name == n }?.code ?: n
+            }
+            navCapture = cap.copy(
+                workStage = newStage ?: cap.workStage,
+                stage = newStage?.let { cat.phaseOfStage(masters, it).ifBlank { it } }
+                    ?: cap.stage,
+                sku = shownSku ?: cap.sku)
+            if (!serverName.isNullOrBlank()) scope.launch(Dispatchers.IO) {
+                val out = runCatching {
+                    FrappeClient.load(context)
+                        ?.setCaptureTags(serverName, workStage = newStage, sku = newSku)
+                }
+                withContext(Dispatchers.Main) {
+                    out.onFailure { lastResult = "Could not re-file on the bench: ${it.message}" }
+                }
+            }
+        }
+        if (retagStage) {
+            val job = navProject?.jobType ?: Catalogue.JOB_NEW
+            StageSheet(
+                stages = cat.stages(masters, job),
+                current = cap.workStage,
+                jobType = job,
+                heading = "Stage of this photo",
+                onDismiss = { retagStage = false },
+                onPick = { st -> retagStage = false; retag(st.name, null) })
+        }
+        if (retagSku) {
+            CaptureSkuSheet(
+                skus = cat.skusOf(masters, navProject?.serverId.orEmpty()),
+                room = navRoom.orEmpty(),
+                current = cap.sku,
+                onDismiss = { retagSku = false },
+                onPick = { code -> retagSku = false; retag(null, code) })
         }
         return
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = {
-                Text("${navProject?.title ?: ""} · " +
-                    RoomToken.label(navRoom ?: ""))
-            },
-            navigationIcon = {
-                TextButton(onClick = { navRoom = null }) { Text("< Rooms") }
-            },
-            actions = {
-                TextButton(onClick = { showSettings = true }) { Text("Settings") }
-            })
-    }) { pad ->
-        Column(Modifier.padding(pad).padding(16.dp).fillMaxSize()) {
-            if (!configured) {
-                Text("Set the server and API key in Settings to begin.")
-                Spacer(Modifier.height(12.dp))
-            }
-            if (masters == null && configured) {
-                Text("Waiting for the first master list — go online once.")
-                Spacer(Modifier.height(12.dp))
-            }
-
-            // The photographs, as photographs. This room's captures were a
-            // list of dates you had to open one at a time to find out which
-            // wall you were looking at. Height-capped so the capture controls
-            // below stay reachable without scrolling past a long history.
-            val roomCaptures = queue.filter {
-                it.room == navRoom &&
-                    it.projectTitle.equals(navProject?.title ?: "", true)
-            }.map {
-                CaptureCard(deviceId = it.deviceId, date = it.captureDate,
-                    stage = it.stage, panoPath = it.panoPath, state = it.state)
-            }
-            if (roomCaptures.isNotEmpty()) {
-                Box(Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
-                    CapturesScreen(roomCaptures) { navCapture = it; navFace = null }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
-            updateJson?.let { uj ->
-                val info = org.json.JSONObject(uj)
-                Card(onClick = {
-                    busy = "Downloading update ${info.optString("version_name")}…"
-                    scope.launch(Dispatchers.IO) {
-                        val outcome = runCatching {
-                            val dest = File(context.filesDir, "updates/update.apk")
-                            FrappeClient.load(context)!!.downloadPrivate(
-                                info.getString("file_url"), dest)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context, "com.malletcrafts.sitephotos.fileprovider", dest)
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW)
-                                .setDataAndType(uri,
-                                    "application/vnd.android.package-archive")
-                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                    or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        }
-                        withContext(Dispatchers.Main) {
-                            busy = null
-                            outcome.onFailure {
-                                lastResult = "Update failed: ${it.message}"
-                            }
-                        }
-                    }
-                }, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-                    Text("Update available: ${info.optString("version_name")} — " +
-                        "tap to download & install",
-                        Modifier.padding(12.dp))
-                }
-            }
-            Picker("Stage", listOf("(none)") + stages,
-                stage.ifBlank { "(none)" }) { i ->
-                stage = if (i == 0) "" else stages[i - 1]
-            }
-            Spacer(Modifier.height(8.dp))
-            // Small rooms need wider faces or the split truncates the walls —
-            // the geometry (and the presets) live in CaptureGeometry.
-            val sizeOptions = CaptureGeometry.PRESETS.map {
-                "${it.label} — ${it.fov.toInt()}°"
-            } + "Server default"
-            Picker("Room size", sizeOptions,
-                sizeOptions[roomSize.coerceIn(0, sizeOptions.size - 1)]) { i ->
-                roomSize = i
-                capturePrefs.edit().putInt("room_size", i).apply()
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Shoot from the room centre, camera LEVEL at half ceiling " +
-                    "height (≈4 ft 9 in under a 9½ ft ceiling) — " +
-                    "then every wall keeps all four corners after the split.",
-                style = MaterialTheme.typography.bodySmall)
-
-            Spacer(Modifier.height(16.dp))
-            CameraCapability.port?.let { cam ->
-                var x3Connected by remember { mutableStateOf(cam.connected) }
-                var x3Note by remember { mutableStateOf<String?>(null) }
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text((if (x3Connected) "X3 connected" else "X3 not connected")
-                        + (x3Note?.let { " — $it" } ?: ""),
-                        style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = {
-                        if (x3Connected) { cam.disconnect(); x3Connected = false }
-                        else cam.connect { ok, err ->
-                            scope.launch(Dispatchers.Main) {
-                                x3Connected = ok; x3Note = err
-                            }
-                        }
-                    }) { Text(if (x3Connected) "Disconnect" else "Connect X3 (join its Wi-Fi first)") }
-                }
-                Button(
-                    onClick = {
-                        busy = "Shooting on the X3…"
-                        lastResult = null
-                        val out = File(context.filesDir,
-                            "x3-${System.currentTimeMillis()}.jpg")
-                        cam.shootAndExport(out.path) { result ->
-                            scope.launch(Dispatchers.Main) {
-                                busy = null
-                                result.fold(
-                                    onSuccess = { path -> ingest(Uri.fromFile(File(path))) },
-                                    onFailure = { lastResult = "X3 capture failed: ${it.message}" })
-                            }
-                        }
-                    },
-                    enabled = busy == null && x3Connected
-                        && (project != null || newSite != null) && room != null,
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text("Shoot 360 on X3") }
-                Spacer(Modifier.height(8.dp))
-            }
-            Button(
-                onClick = {
-                    picker.launch(PickVisualMediaRequest(
-                        ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
-                enabled = busy == null && (project != null || newSite != null)
-                    && room != null,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Pick 360 photo") }
-
-            busy?.let {
-                Spacer(Modifier.height(12.dp))
-                Row {
-                    CircularProgressIndicator(Modifier.width(20.dp).height(20.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text(it)
-                }
-            }
-            lastResult?.let {
-                Spacer(Modifier.height(12.dp))
-                Card { Text(it, Modifier.padding(12.dp)) }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Captures", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = {
-                    SyncWorker.syncNow(context)
-                    refreshQueue()
-                }) { Text("Sync now") }
-            }
-            LazyColumn {
-                val here = queue.filter {
-                    it.room == navRoom &&
-                        it.projectTitle.equals(navProject?.title ?: "", true)
-                }
-                items(here, key = { it.deviceId }) { c ->
-                    Card(onClick = { facesFor = c },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Column(Modifier.padding(10.dp)) {
-                            Text((if (c.customerName.isNotBlank()) "${c.customerName} · " else "")
-                                + "${c.projectTitle} — ${c.room}"
-                                + (if (c.stage.isNotBlank()) " · ${c.stage}" else ""))
-                            Text(
-                                when (c.state) {
-                                    "SYNCED" -> "Synced as ${c.serverName}"
-                                    "ERROR" -> "Waiting to retry: ${c.error}"
-                                    "SYNCING" -> "Uploading…"
-                                    else -> "On this phone, will upload when online"
-                                },
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        }
+    // ---- level 5: the captures in one room ------------------------------
+    //
+    // The one screen the redesign had not reached. It kept a legacy app bar
+    // with a "< Rooms" text button, two dropdowns, and — UNDER the grid of
+    // photographs — the same captures again as a list of cards. Amit reported
+    // the thumbnails missing; they were there, with the thing they replaced
+    // still sitting beneath them, which is worse than either alone.
+    //
+    // Now it is the prototype: the same shell as every other level, the grid
+    // filling the screen, phase chips over it, and one FAB. Everything the
+    // shutter needs moved behind that FAB, because none of it is worth a
+    // third of the screen when you are looking for a photo you already took.
+    val roomName = navRoom.orEmpty()
+    val scopeRoom = rememberCoroutineScope()
+    val cam = CameraCapability.port
+    var camConnected by remember { mutableStateOf(cam?.connected == true) }
+    var camNote by remember { mutableStateOf<String?>(null) }
+    val projSkus = cat.skusOf(masters, navProject?.serverId.orEmpty())
+    val roomCaptures = queue.filter {
+        it.room == roomName &&
+            it.projectTitle.equals(navProject?.title ?: "", true)
+    }.map { c ->
+        CaptureCard(
+            deviceId = c.deviceId,
+            date = c.captureDate,
+            // The card wears the PHASE — ten words the chip row can filter on
+            // — and remembers the stage behind it for the detail screen.
+            stage = cat.phaseOfStage(masters, c.stage).ifBlank { c.stage },
+            workStage = c.stage,
+            panoPath = c.panoPath,
+            state = c.state,
+            sku = projSkus.firstOrNull { it.name == c.sku }?.code ?: c.sku)
     }
 
+    BackHandler { navRoom = null }
 
-}
-
-@Composable
-private fun Picker(label: String, options: List<String>, selected: String,
-                   onPick: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        OutlinedButton(onClick = { open = true }, Modifier.fillMaxWidth()) {
-            Text("$label: $selected")
+    val roomCrumbs = buildList {
+        add(Crumb(label = "Clients", onUp = {
+            navClient = null; navSite = null; navProject = null; navRoom = null
+        }))
+        navClient?.let { c ->
+            add(Crumb(label = shortName(c),
+                onUp = { navSite = null; navProject = null; navRoom = null }))
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEachIndexed { i, opt ->
-                DropdownMenuItem(text = { Text(opt) },
-                    onClick = { onPick(i); open = false })
+        navSite?.let { st ->
+            add(Crumb(label = st, onUp = { navProject = null; navRoom = null }))
+        }
+        navProject?.let { p ->
+            add(Crumb(label = p.title, onUp = { navRoom = null }))
+        }
+        add(Crumb(
+            label = RoomToken.of(roomName),
+            siblings = rooms.map { it to it },
+            onUp = { },
+            onSibling = { navRoom = it }))
+    }
+
+    if (showStagePicker && navProject != null) {
+        val p = navProject!!
+        StageSheet(
+            stages = cat.stages(masters, p.jobType),
+            current = stage.ifBlank { p.stage },
+            jobType = p.jobType,
+            heading = "Stage for new photos",
+            onDismiss = { showStagePicker = false },
+            onPick = { st -> stage = st.name; showStagePicker = false })
+    }
+
+    if (showCaptureSheet) {
+        CaptureSheet(
+            stage = stage.ifBlank { navProject?.stage.orEmpty() },
+            roomSize = roomSize,
+            hasCamera = cam != null,
+            cameraConnected = camConnected,
+            cameraNote = camNote,
+            busy = busy != null,
+            onStage = { showCaptureSheet = false; showStagePicker = true },
+            onRoomSize = { i ->
+                roomSize = i
+                capturePrefs.edit().putInt("room_size", i).apply()
+            },
+            onPick = {
+                showCaptureSheet = false
+                picker.launch(PickVisualMediaRequest(
+                    ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onCamera = {
+                cam?.let { c ->
+                    if (camConnected) {
+                        c.disconnect(); camConnected = false; camNote = null
+                    } else {
+                        // The SDK calls back on whatever thread it likes;
+                        // Compose state has to be written on the main one.
+                        c.connect { ok, err ->
+                            scopeRoom.launch(Dispatchers.Main) {
+                                camConnected = ok; camNote = err
+                            }
+                        }
+                    }
+                }
+            },
+            onShoot = {
+                cam?.let { c ->
+                showCaptureSheet = false
+                busy = "Shooting on the X3…"
+                lastResult = null
+                val out = File(context.filesDir, "x3-${System.currentTimeMillis()}.jpg")
+                c.shootAndExport(out.path) { result ->
+                    scopeRoom.launch(Dispatchers.Main) {
+                        busy = null
+                        result.fold(
+                            onSuccess = { path -> ingest(Uri.fromFile(File(path))) },
+                            onFailure = { lastResult = "X3 capture failed: ${it.message}" })
+                    }
+                }
+                }
+            },
+            onDismiss = { showCaptureSheet = false })
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = { drawerContent() },
+    ) {
+        Scaffold(
+            topBar = {
+                Column {
+                    TreeTopBar(
+                        title = RoomToken.label(roomName),
+                        subtitle = listOfNotNull(
+                            navProject?.title,
+                            plural(roomCaptures.size, "capture"),
+                        ).joinToString(" · "),
+                        onMenu = { scopeRoom.launch { drawerState.open() } },
+                        onSearch = { showSearch = true; searchQuery = "" })
+                    CrumbRail(roomCrumbs)
+                }
+            },
+            bottomBar = {
+                BottomBar(tab, queue.count { it.state != "SYNCED" }) {
+                    tab = it; navRoom = null
+                }
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = { showCaptureSheet = true },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    text = { Text("Capture 360") })
+            },
+        ) { pad ->
+            Column(Modifier.padding(pad).fillMaxSize()) {
+                busy?.let {
+                    Row(Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.width(18.dp).height(18.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                lastResult?.let {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                            .clickableRow { lastResult = null },
+                    ) {
+                        Text(it, Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                updateJson?.let { uj ->
+                    val info = org.json.JSONObject(uj)
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.fillMaxWidth().clickableRow {
+                            busy = "Downloading update ${info.optString("version_name")}…"
+                            scopeRoom.launch(Dispatchers.IO) {
+                                val outcome = runCatching {
+                                    val dest = File(context.filesDir, "updates/update.apk")
+                                    FrappeClient.load(context)!!.downloadPrivate(
+                                        info.getString("file_url"), dest)
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context, "com.malletcrafts.sitephotos.fileprovider", dest)
+                                    context.startActivity(
+                                        android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                            .setDataAndType(uri,
+                                                "application/vnd.android.package-archive")
+                                            .addFlags(
+                                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                                    or android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                                }
+                                withContext(Dispatchers.Main) {
+                                    busy = null
+                                    outcome.onFailure {
+                                        lastResult = "Update failed: ${it.message}"
+                                    }
+                                }
+                            }
+                        },
+                    ) {
+                        Text("Update available: ${info.optString("version_name")} — " +
+                             "tap to download and install",
+                            Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                CapturesScreen(
+                    captures = roomCaptures,
+                    phases = cat.phases(masters, navProject?.jobType),
+                ) { navCapture = it; navFace = null }
             }
         }
     }

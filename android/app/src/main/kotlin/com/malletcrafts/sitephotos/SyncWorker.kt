@@ -64,14 +64,22 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                         c.projectTitle)
                 }
 
+                // The queue stores the WORK STAGE; the phase is derived from
+                // the master so a bench that has it files against the stage and
+                // one that does not still gets a phase it understands.
+                val masters = store.masters()
+                val workStage = if (cat.isWorkStage(masters, c.stage)) c.stage else ""
+                val phase = cat.phaseOfStage(masters, c.stage).ifBlank { c.stage }
                 val made = client.createCapture(
                     project = projectId, room = c.room,
-                    captureDate = c.captureDate, stage = c.stage,
+                    captureDate = c.captureDate, stage = phase,
+                    workStage = workStage,
                     deviceCaptureId = c.deviceId,
                     appVersion = runCatching {
                         applicationContext.packageManager.getPackageInfo(
                             applicationContext.packageName, 0).versionName ?: ""
-                    }.getOrDefault(""))
+                    }.getOrDefault(""),
+                    sku = c.sku)
                 val name = made.getString("name")
 
                 val pano = File(c.panoPath)

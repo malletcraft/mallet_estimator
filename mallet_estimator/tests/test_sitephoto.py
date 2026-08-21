@@ -625,3 +625,107 @@ class TestSiteLevelAndStages(MalletTestCase):
                          sku.name)
         self.assertIn(sku.name,
                       {s["name"] for s in sitephoto._project_skus(out["project"])})
+
+    # ---- re-filing a capture after the fact ------------------------------
+
+    def test_a_capture_can_be_moved_to_another_stage(self):
+        """The stage set at the shutter is a default, not a verdict.
+
+        Every capture inherits whatever the project was at, which is right
+        nine times out of ten and wrong the tenth — the wardrobe photo taken
+        on the way past belongs to Joinery even though the flat is still at
+        First fix. If that is not fixable on the phone it is not fixed at
+        all, and the stage stops meaning anything."""
+        from mallet_estimator import worksite
+        out = sitephoto.ensure_site("ZZ Retag Client", "ZZ Retag Project",
+                                    site_name="ZZ Retag Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        target = "Modular carpentry install"
+        moved = sitephoto.set_capture_tags(cap["name"], work_stage=target)
+        self.assertIn("stage", moved["changed"])
+        self.assertEqual(moved["work_stage"], target)
+        # The PHASE is derived, never taken from the caller.
+        self.assertEqual(
+            moved["stage"],
+            frappe.db.get_value("Mallet Work Stage", target, "phase"))
+        self.assertIn(moved["stage"], worksite.PHASES)
+
+    def test_a_capture_refuses_a_stage_that_does_not_exist(self):
+        out = sitephoto.ensure_site("ZZ Retag Bad Client", "ZZ Retag Bad Project",
+                                    site_name="ZZ Retag Bad Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.set_capture_tags(cap["name"], work_stage="Sanding the moon")
+
+    def test_a_capture_can_be_tagged_and_untagged_from_a_sku(self):
+        """Passing "" clears; passing None leaves alone.
+
+        'Untag this photo' is a real thing to want — a room shot filed against
+        a wardrobe is worse than one filed against nothing — so the picker
+        needs a way back out, and the endpoint has to tell the two apart."""
+        out = sitephoto.ensure_site("ZZ Retag Sku Client", "ZZ Retag Sku Project",
+                                    site_name="ZZ Retag Sku Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        cap = sitephoto.create_capture(out["project"], _room())
+
+        sitephoto.set_capture_tags(cap["name"], sku=sku.name)
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", cap["name"], "sku"), sku.name)
+
+        # None means "leave it alone" — a stage move must not drop the SKU.
+        sitephoto.set_capture_tags(cap["name"], work_stage="Modular carpentry install")
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", cap["name"], "sku"), sku.name)
+
+        sitephoto.set_capture_tags(cap["name"], sku="")
+        self.assertFalse(
+            frappe.db.get_value("Site Photo 360", cap["name"], "sku"))
+
+    def test_a_capture_refuses_a_sku_from_another_project(self):
+        a = sitephoto.ensure_site("ZZ Retag X Client", "ZZ Retag X Project A",
+                                  site_name="ZZ Retag X Flat")
+        b = sitephoto.ensure_site("ZZ Retag X Client", "ZZ Retag X Project B",
+                                  site_name="ZZ Retag X Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": b["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        cap = sitephoto.create_capture(a["project"], _room())
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.set_capture_tags(cap["name"], sku=sku.name)
+
+    def test_bootstrap_carries_the_dates_a_project_row_shows(self):
+        """The projects list shows 'New work · 12 Aug → 30 Sep · Active'.
+
+        Every part of that has to arrive in the one bootstrap call, because
+        the list is drawn from cached masters on a phone with no signal — a
+        field fetched lazily is a field that is blank exactly when it is
+        needed."""
+        out = sitephoto.ensure_site("ZZ Dates Client", "ZZ Dates Project",
+                                    site_name="ZZ Dates Flat")
+        proj = frappe.get_doc("Project", out["project"])
+        proj.expected_start_date = "2026-08-12"
+        proj.expected_end_date = "2026-09-30"
+        proj.save(ignore_permissions=True)
+
+        row = next(p for p in sitephoto.bootstrap()["projects"]
+                   if p["project"] == out["project"])
+        self.assertEqual(row["start"], "2026-08-12")
+        self.assertEqual(row["end"], "2026-09-30")
+        self.assertTrue(row["status"], "a project row with no status has no pill")
+
+    def test_a_project_with_no_dates_reports_blanks_not_none(self):
+        """The app reads these as strings. A JSON null becomes the literal
+        "null" in a Kotlin optString, which is how a project with no end date
+        ends up displaying one."""
+        out = sitephoto.ensure_site("ZZ Nodate Client", "ZZ Nodate Project",
+                                    site_name="ZZ Nodate Flat")
+        row = next(p for p in sitephoto.bootstrap()["projects"]
+                   if p["project"] == out["project"])
+        for f in ("start", "end", "stage_since"):
+            self.assertEqual(row[f], "", f"{f} should be empty, got {row[f]!r}")

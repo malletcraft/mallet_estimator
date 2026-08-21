@@ -48,10 +48,39 @@ class Catalogue(context: Context) {
         val jobType: String,
         val stage: String,
         val local: Boolean,
+        /** ERPNext's Project.status — Open, Completed, Cancelled. */
+        val status: String = "",
+        val start: String = "",
+        val end: String = "",
+        /** When the project last moved stage, as the server recorded it. */
+        val stageSince: String = "",
     ) {
         val synced: Boolean get() = serverId.isNotBlank()
         /** Stable across a sync only for ERP rows; local rows key on names. */
         val key: String get() = if (synced) serverId else keyOf(client, site, title)
+
+        /** "12 Aug → 30 Sep", or one end of it, or nothing. A range with one
+         *  date missing still says more than no range at all. */
+        val dateRange: String get() = when {
+            start.isNotBlank() && end.isNotBlank() -> "${Catalogue.day(start)} → ${Catalogue.day(end)}"
+            start.isNotBlank() -> "from ${Catalogue.day(start)}"
+            end.isNotBlank() -> "due ${Catalogue.day(end)}"
+            else -> ""
+        }
+
+        /** The word on the pill. A project that never reached ERP says so
+         *  first — that is the fact that changes what you do next. */
+        val statusLabel: String get() = when {
+            local -> "offline"
+            status.equals("Completed", true) -> "done"
+            status.equals("Cancelled", true) -> "cancelled"
+            status.isBlank() -> ""
+            else -> "active"
+        }
+
+        /** Amber, not grey: offline and cancelled are both things somebody
+         *  has to act on, and an active project needs no colour at all. */
+        val statusWarn: Boolean get() = local || status.equals("Cancelled", true)
     }
 
     data class Stage(
@@ -157,7 +186,11 @@ class Catalogue(context: Context) {
                 serverId = o.optString("project"),
                 jobType = o.optString("job_type").ifBlank { JOB_NEW },
                 stage = o.optString("stage"),
-                local = false))
+                local = false,
+                status = o.optString("status"),
+                start = o.optString("start"),
+                end = o.optString("end"),
+                stageSince = o.optString("stage_since")))
         }
         return out
     }
@@ -236,6 +269,20 @@ class Catalogue(context: Context) {
     fun phases(masters: JSONObject?, jobType: String? = null): List<String> =
         stages(masters, jobType).map { it.phase }.distinct()
 
+    /** The phase a work stage belongs to, or "" when the word is not one of
+     *  the thirty-nine — which is exactly what a capture taken before the
+     *  master existed carries, and why this returns blank rather than
+     *  throwing. Its caller falls back to the stored word. */
+    fun phaseOfStage(masters: JSONObject?, stage: String): String {
+        if (stage.isBlank()) return ""
+        return stages(masters).firstOrNull { it.name.equals(stage, true) }?.phase ?: ""
+    }
+
+    /** True when this word IS one of the thirty-nine, so it can be sent as
+     *  work_stage rather than as a bare phase. */
+    fun isWorkStage(masters: JSONObject?, stage: String): Boolean =
+        stage.isNotBlank() && stages(masters).any { it.name.equals(stage, true) }
+
     fun articles(masters: JSONObject?, jobType: String? = null): List<Article> {
         val arr = masters?.optJSONArray("articles") ?: return emptyList()
         val out = mutableListOf<Article>()
@@ -289,6 +336,22 @@ class Catalogue(context: Context) {
         const val JOB_NEW = "New work"
         const val JOB_REPAIR = "Repair"
         const val JOB_INSTALL = "Supply & install"
+
+        private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+        /** "2026-08-12" → "12 Aug". ISO dates are for machines; a date on a
+         *  phone row is read at a glance and the year is almost always this
+         *  one. Anything that is not an ISO date is passed through untouched
+         *  rather than mangled. */
+        fun day(iso: String): String {
+            val p = iso.split("-")
+            if (p.size != 3) return iso
+            val m = p[1].toIntOrNull() ?: return iso
+            val d = p[2].toIntOrNull() ?: return iso
+            if (m !in 1..12) return iso
+            return "$d ${MONTHS[m - 1]}"
+        }
 
         fun keyOf(client: String, site: String, project: String) =
             listOf(client, site, project)

@@ -50,8 +50,14 @@ def bootstrap():
 
     pmeta = frappe.get_meta("Project")
     has_site = pmeta.has_field("mallet_site")
-    pfields = ["name", "project_name", "customer"]
-    for f in ("mallet_site", "mallet_job_type", "mallet_stage"):
+    pfields = ["name", "project_name", "customer", "status"]
+    # The dates and the status are what turn a project row from a name into a
+    # thing with a shape — "Active, 12 Aug → 30 Sep" answers on the list what
+    # otherwise costs a tap and a round trip. They are read defensively
+    # because a Project doctype can be customised out from under us.
+    for f in ("expected_start_date", "expected_end_date",
+              "mallet_site", "mallet_job_type", "mallet_stage",
+              "mallet_stage_since"):
         if pmeta.has_field(f):
             pfields.append(f)
 
@@ -78,6 +84,10 @@ def bootstrap():
             "site_city": (site.city if site else ""),
             "job_type": p.get("mallet_job_type") or worksite.NEW,
             "stage": p.get("mallet_stage") or "",
+            "stage_since": str(p.get("mallet_stage_since") or ""),
+            "status": p.get("status") or "",
+            "start": str(p.get("expected_start_date") or ""),
+            "end": str(p.get("expected_end_date") or ""),
             "skus": skus.get(p.name, []),
         })
 
@@ -285,6 +295,67 @@ def set_project_stage(project, work_stage, remark=None):
     return {"project": doc.name, "stage": work_stage,
             "phase": frappe.db.get_value("Mallet Work Stage", work_stage, "phase"),
             "changed": True}
+
+
+@frappe.whitelist()
+def set_capture_tags(name, work_stage=None, sku=None):
+    """Re-file one capture: its stage, its SKU, or both.
+
+    Both are set at the shutter from what the project is at, and both are
+    routinely wrong by the time anyone looks — the photo of the wardrobe was
+    taken on the way past while the project sat at First fix, and it belongs
+    to YS_MB_WAR rather than to the room at large. Making them fixable on the
+    phone is what stops the alternative, which is nobody fixing them at all.
+
+    Passing None leaves a field alone; passing "" clears it. That distinction
+    matters: "untag this photo" is a real thing to want, and a picker whose
+    only options are 'some SKU' is a trap.
+    """
+    frappe.has_permission(DOCTYPE, "write", doc=name, throw=True)
+    doc = frappe.get_doc(DOCTYPE, name)
+    meta = frappe.get_meta(DOCTYPE)
+    changed = []
+
+    if work_stage is not None:
+        stage = (work_stage or "").strip()
+        if stage:
+            if not frappe.db.exists("Mallet Work Stage", stage):
+                frappe.throw(_("No such work stage: {0}").format(stage))
+            # The phase is derived, never trusted — the same rule the shutter
+            # path follows, for the same reason: two fields that can disagree
+            # are two fields that eventually will.
+            resolved, phase = _resolve_stage(doc.project, stage, None)
+            if meta.has_field("work_stage"):
+                doc.work_stage = resolved or stage
+            doc.stage = phase or doc.stage
+        else:
+            if meta.has_field("work_stage"):
+                doc.work_stage = None
+        changed.append("stage")
+
+    if sku is not None:
+        code = (sku or "").strip()
+        if code:
+            if not meta.has_field("sku"):
+                frappe.throw(_("This bench has no SKU field on a capture yet"))
+            if frappe.db.get_value("Estimate SKU", code, "project") != doc.project:
+                frappe.throw(
+                    _("{0} does not belong to project {1}").format(code, doc.project))
+            doc.sku = code
+        elif meta.has_field("sku"):
+            doc.sku = None
+        changed.append("sku")
+
+    if not changed:
+        return {"name": doc.name, "changed": []}
+    doc.save()
+    return {
+        "name": doc.name,
+        "changed": changed,
+        "stage": doc.get("stage") or "",
+        "work_stage": doc.get("work_stage") or "",
+        "sku": doc.get("sku") or "",
+    }
 
 
 def _site_key(text):

@@ -2,6 +2,8 @@ package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +69,7 @@ private fun FolderRow(
     subtitle: String,
     count: Int? = null,
     pill: String? = null,
+    warn: Boolean = true,
     muted: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -91,7 +95,7 @@ private fun FolderRow(
             }
             if (pill != null) {
                 Spacer(Modifier.width(8.dp))
-                Pill(pill)
+                Pill(pill, warn)
             }
             if (count != null) {
                 Spacer(Modifier.width(8.dp))
@@ -216,13 +220,17 @@ fun ProjectsScreen(
             FolderRow(
                 badge = "PRJ",
                 title = p.title,
-                subtitle = listOf(
+                // Job type, then the dates, then where it has got to. That is
+                // the order the question is asked in — what kind of job, is it
+                // running now, and how far along.
+                subtitle = listOfNotNull(
                     p.jobType,
-                    if (p.stage.isNotBlank()) p.stage else null,
-                    if (p.synced) p.serverId else "not synced yet",
-                ).filterNotNull().joinToString(" · "),
+                    p.dateRange.ifBlank { null },
+                    p.stage.ifBlank { null },
+                ).joinToString(" · "),
                 count = captureCount(p),
-                pill = if (p.local) "offline" else null,
+                pill = p.statusLabel.ifBlank { null },
+                warn = p.statusWarn,
                 muted = true,
                 onClick = { onOpen(p) })
         }
@@ -241,9 +249,13 @@ fun RoomsScreen(
     rooms: List<String>,
     captureCount: (String) -> Int,
     shotAtStage: (String) -> Boolean,
+    /** The newest 360 in that room, on this phone. The tile wears it. */
+    lastPano: (String) -> String?,
+    skuCount: Int,
     onOpen: (String) -> Unit,
     onStage: () -> Unit,
     onSkus: () -> Unit,
+    onDetail: () -> Unit,
 ) {
     var showAll by remember { mutableStateOf(false) }
     val shot = rooms.filter { captureCount(it) > 0 }
@@ -252,10 +264,22 @@ fun RoomsScreen(
 
     Column(Modifier.fillMaxSize()) {
         StageBar(project, pending, onStage)
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = onSkus, label = { Text("SKUs") })
-            AssistChip(onClick = onStage, label = { Text(project.jobType) })
+        // Four facts, each a tap to the thing behind it. The dates chip is
+        // not decoration: "is this job even running this week" is asked more
+        // often on site than anything else on the screen.
+        Row(
+            Modifier.fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            AssistChip(onClick = { }, enabled = false,
+                label = { Text(plural(shot.size, "room") + " shot") })
+            AssistChip(onClick = onSkus, label = { Text(plural(skuCount, "SKU")) })
+            AssistChip(onClick = onDetail, label = { Text(project.jobType) })
+            if (project.dateRange.isNotBlank()) {
+                AssistChip(onClick = onDetail, label = { Text(project.dateRange) })
+            }
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -265,7 +289,7 @@ fun RoomsScreen(
             contentPadding = PaddingValues(2.dp),
         ) {
             items(shot) { r ->
-                RoomTile(r, captureCount(r), shotAtStage(r)) { onOpen(r) }
+                RoomTile(r, captureCount(r), shotAtStage(r), lastPano(r)) { onOpen(r) }
             }
             item {
                 Box(
@@ -281,7 +305,7 @@ fun RoomsScreen(
                 }
             }
             if (showAll) {
-                items(rest) { r -> RoomTile(r, 0, false) { onOpen(r) } }
+                items(rest) { r -> RoomTile(r, 0, false, null) { onOpen(r) } }
             }
         }
     }
@@ -300,16 +324,35 @@ private fun StageBar(project: Catalogue.Project, pending: Int, onClick: () -> Un
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                if (pending > 0) "${plural(pending, "room")} not shot at this stage"
-                else "every photographed room is current",
+                listOfNotNull(
+                    project.stageSince.ifBlank { null }
+                        ?.let { "since ${Catalogue.day(it)}" },
+                    if (pending > 0) "${plural(pending, "room")} not shot at this stage"
+                    else "every photographed room is current",
+                ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
+/**
+ * A room, wearing its most recent 360.
+ *
+ * A grid of coloured squares with three-letter tokens is a menu; a grid of
+ * the actual rooms is recognition, and recognition is the whole reason the
+ * rooms stopped being a list. The photo is already on the phone, so this
+ * costs no network and works in a basement.
+ */
 @Composable
-private fun RoomTile(room: String, count: Int, current: Boolean, onClick: () -> Unit) {
+private fun RoomTile(
+    room: String,
+    count: Int,
+    current: Boolean,
+    pano: String?,
+    onClick: () -> Unit,
+) {
     val shot = count > 0
+    val photo = shot && pano != null
     Box(
         Modifier
             .aspectRatio(1f)
@@ -318,11 +361,24 @@ private fun RoomTile(room: String, count: Int, current: Boolean, onClick: () -> 
                 else MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onClick),
     ) {
+        if (photo) {
+            Thumb(ThumbSource.LocalFile(pano!!), Modifier.fillMaxSize(),
+                target = 260, contentDescription = room)
+            // Without the wash the white token vanishes into a bright wall.
+            Box(Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = .34f),
+                    .45f to Color.Transparent,
+                    1f to Color.Black.copy(alpha = .50f))))
+        }
         Text(RoomToken.of(room),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = if (shot) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = when {
+                photo -> Color.White
+                shot -> MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
         if (shot) {
             // Green means this room has been shot at the stage the project is
@@ -336,13 +392,17 @@ private fun RoomTile(room: String, count: Int, current: Boolean, onClick: () -> 
                     .clip(RoundedCornerShape(5.dp))
                     .background(if (current) Color(0xFF3F8F5B) else Color(0xFFB0740E)))
             Text("$count", style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = if (photo) Color.White
+                        else MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(7.dp))
         }
         Text(room, style = MaterialTheme.typography.labelSmall,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
-            color = if (shot) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = when {
+                photo -> Color.White
+                shot -> MaterialTheme.colorScheme.onSecondaryContainer
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.align(Alignment.BottomStart).padding(7.dp).fillMaxWidth(0.72f))
     }
 }
