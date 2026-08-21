@@ -219,7 +219,12 @@ class TestSitePhotoApi(MalletTestCase):
         out = sitephoto.annotate(made["name"], "photo", "/private/files/p.jpg",
                                  "skirting damaged")
         self.assertEqual(out["count"], 1)
-        sitephoto.save_annotations(made["name"], "photo", {"lines": []})
+        # A REAL line, not an empty payload: an empty one deletes the face by
+        # design ("emptied on the device = removed here"), so asserting it
+        # survives tests the opposite of what the code promises.
+        sitephoto.save_annotations(made["name"], "photo",
+                                   {"lines": [{"x1": 0, "y1": 0,
+                                               "x2": 1, "y2": 1, "mm": 1200}]})
         self.assertIn("photo", sitephoto.get_annotations(made["name"]))
 
     def test_an_unknown_face_is_refused(self):
