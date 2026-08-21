@@ -242,10 +242,17 @@ DEFAULT_ROOMS = [
 
 
 def after_install():
+    from mallet_estimator import integration
     seed_settings()
     _safe(ensure_rooms)
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
+    # A PERSON's role, not an integration's — the same policy after_migrate
+    # already applies through sync_readonly_role, which is why it is minted
+    # unconditionally rather than only re-pinned where it exists. Doing it on
+    # install too is what stops a fresh site (a UI-test bench, a new
+    # deployment) from having the tree doctypes with nobody able to read them.
+    _safe(integration.ensure_photographer_role)
     _safe(ensure_inventory_masters)
     _safe(ensure_warehouses)
     _safe(ensure_pricing_masters)
@@ -834,7 +841,14 @@ def verify_setup():
         ("'All' can still reach " + ", ".join(sorted(set(_open)))) if _open
         else "only System Manager and the photographer role ✓")
 
-    failed = [c["name"] for c in checks if not c["ok"]]
+    # The NAME alone is not enough to act on. "Articles" tells you a check is
+    # red; "Articles: 0 of 26 seeded" tells you which of two very different
+    # bugs it is, without a second CI round trip to find out. Every detail
+    # string was already written for exactly this moment; it just was not
+    # being carried out of the function (2026-08-21: two red UI runs sat
+    # unexplained because the failure list was a list of headings).
+    failed = [f"{c['name']}: {c['detail']}" if c["detail"] else c["name"]
+              for c in checks if not c["ok"]]
     return {"checks": checks, "all_ok": not failed, "failed": failed}
 
 
