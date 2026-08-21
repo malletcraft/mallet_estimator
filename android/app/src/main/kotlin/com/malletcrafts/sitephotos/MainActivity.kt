@@ -48,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -91,6 +92,7 @@ private fun AppScreen() {
     // Where we are in the folder tree: client > SITE > project > room. Null
     // means "not that deep yet", which is also what Back unwinds.
     val cat = remember { Catalogue(context) }
+    val annFolder = remember { AnnotationFolder(context) }
     var navClient by remember { mutableStateOf<String?>(null) }
     var navSite by remember { mutableStateOf<String?>(null) }
     var navProject by remember { mutableStateOf<Catalogue.Project?>(null) }
@@ -242,6 +244,30 @@ private fun AppScreen() {
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> if (uri != null) ingest(uri) }
 
+    // The one-time grant that lets the app read ImageMeter's own folder, so a
+    // photo annotated on THIS phone is visible immediately instead of after a
+    // trip to Drive and back. Android will not let one app browse another's
+    // files without the person saying so; this is them saying so.
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            annFolder.link(uri)
+            prefsTick++
+            scope.launch(Dispatchers.IO) {
+                val r = annFolder.scan()
+                withContext(Dispatchers.Main) {
+                    // Counts, not a tick. A grant that found nothing looks
+                    // exactly like one that was never made, and the person
+                    // who just picked a folder is the only one who can tell
+                    // us it was the wrong one.
+                    lastResult = "ImageMeter folder linked: ${r.images} images in " +
+                        "${r.folders} folders, ${r.ours} of them ours"
+                }
+            }
+        }
+    }
+
     if (showSettings) {
         SettingsDialog(
             initialUrl = FrappeClient.savedUrl(context),
@@ -285,6 +311,8 @@ private fun AppScreen() {
                 version = appVersion(context),
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
+                annotationFolder = remember(prefsTick) { annFolder.label },
+                onPickFolder = { folderPicker.launch(null) },
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()
@@ -593,6 +621,30 @@ private fun AppScreen() {
         // already attached them to this capture by face. Cached to a file so
         // a second look costs nothing and still works with no signal.
         var annotated by remember(cap.deviceId) { mutableStateOf<Map<String, String>>(emptyMap()) }
+        // Local first, and on its own effect so it lands whether or not the
+        // capture has ever reached the bench. A photo annotated in a basement
+        // is visible in the basement.
+        var annotatedLocal by remember(cap.deviceId) {
+            mutableStateOf<Map<String, android.net.Uri>>(emptyMap())
+        }
+        // Re-scanned on every RESUME, not once: the whole point is that you
+        // leave for ImageMeter, draw on the wall, and come back — and coming
+        // back is the only moment the app can know something changed.
+        var annTick by remember(cap.deviceId) { mutableStateOf(0) }
+        val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) annTick++
+            }
+            lifecycleOwner.lifecycle.addObserver(obs)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+        }
+        LaunchedEffect(cap.deviceId, prefsTick, annTick) {
+            if (!annFolder.linked) return@LaunchedEffect
+            runCatching {
+                withContext(Dispatchers.IO) { annFolder.annotatedFor(cap.deviceId) }
+            }.onSuccess { annotatedLocal = it }
+        }
         LaunchedEffect(cap.deviceId) {
             val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
             if (server.isNullOrBlank()) return@LaunchedEffect
@@ -628,7 +680,11 @@ private fun AppScreen() {
                 subtitle = "${cap.deviceId} · ${cap.date}" +
                     (if (cap.stage.isNotBlank()) " · ${cap.stage}" else ""),
                 source = ThumbSource.Content(f.uri),
-                annotatedSource = annotated[f.name]?.let { ThumbSource.LocalFile(it) },
+                // The local copy wins. It is the same annotation, it is
+                // already here, and it is newer than anything the round trip
+                // could have brought back.
+                annotatedSource = annotatedLocal[f.name]?.let { ThumbSource.Content(it) }
+                    ?: annotated[f.name]?.let { ThumbSource.LocalFile(it) },
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
                 onEditInImageMeter = {
@@ -660,7 +716,7 @@ private fun AppScreen() {
                 CaptureScreen(
                     capture = cap,
                     faces = faces,
-                    annotatedFaces = annotated.keys,
+                    annotatedFaces = annotated.keys + annotatedLocal.keys,
                     folder = Handover.relativePath(
                         queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                             ?.customerName ?: "",
@@ -1081,6 +1137,8 @@ private fun drawerGroups(
     version: String,
     cached: String,
     prefs: AppPrefs,
+    annotationFolder: String,
+    onPickFolder: () -> Unit,
     onSyncNow: () -> Unit,
     onImageMeterSync: () -> Unit,
     onToggle: (String) -> Unit,
@@ -1098,7 +1156,11 @@ private fun drawerGroups(
             icon = R.drawable.ic_mcft_wifi, onClick = { onToggle("wifi_only") }),
     )),
     DrawerGroup("ImageMeter", listOf(
-        DrawerLine("Pull annotations now", icon = R.drawable.ic_mcft_link,
+        // The local half of the round trip. Linked, an annotation made on
+        // this phone shows up with no network at all.
+        DrawerLine("Annotation folder", value = annotationFolder,
+            icon = R.drawable.ic_mcft_link, onClick = onPickFolder),
+        DrawerLine("Pull annotations now", icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
         DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,
             icon = R.drawable.ic_mcft_pen, onClick = { onToggle("pull_annotated") }),

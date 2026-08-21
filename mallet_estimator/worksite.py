@@ -35,6 +35,7 @@ def ensure_articles():
     """Seed the article master. Existing rows are left alone apart from the
     job-type list, which is the one field a later batch may legitimately
     widen; the name is not touched because somebody may have corrected it."""
+    _ensure_nos()
     made, errors = 0, []
     for code, name, jobs in ARTICLES:
         try:
@@ -60,19 +61,33 @@ def _one_article(code, name, jobs):
         return 0
     doc = frappe.get_doc({"doctype": "Mallet Article", "article_code": code,
                           "article_name": name, "job_types": jobs})
-    # CLEARED, not merely left unset. The doctype JSON carries
-    # `"default": "Nos"` on default_uom, so frappe fills the field itself and
-    # a guard that only declines to SET it changes nothing — which is exactly
-    # why the first attempt at this fix did not work and CI came back with
-    # the same "Could not find Default UOM: Nos" on all 26 rows.
-    #
-    # "Nos" is not guaranteed to exist on a fresh site: nothing creates it
-    # before the articles are seeded. A unit that does not exist yet is not a
-    # reason to refuse a master — the article is the record and the unit is a
-    # convenience on top of it.
-    doc.default_uom = "Nos" if frappe.db.exists("UOM", "Nos") else None
     doc.insert(ignore_permissions=True)
     return 1
+
+
+def _ensure_nos():
+    """The unit the article master needs, made by the master that needs it.
+
+    Three attempts and two red CI days went into this one function, so the
+    reasoning is worth keeping. mallet_article.json carries
+    `"default": "Nos"` on default_uom, and nothing creates that UOM before
+    after_install seeds the articles. The first fix declined to SET the field
+    — useless, because frappe fills defaults itself. The second set it to
+    None — also useless, because Document.insert() runs _set_defaults() and
+    update_if_missing() treats None as missing and puts "Nos" straight back.
+
+    A default cannot be argued out of existence, so the dependency is simply
+    made real. A master that declares a unit should not be at the mercy of
+    which order somebody wired the install hooks in."""
+    try:
+        if not frappe.db.exists("UOM", "Nos"):
+            frappe.get_doc({"doctype": "UOM", "uom_name": "Nos"}).insert(
+                ignore_permissions=True)
+    except Exception:
+        # A site whose UOM doctype is missing or whose "Nos" was created by a
+        # racing job: seeding carries on, and the per-row errors report what
+        # actually happened rather than this guess about it.
+        pass
 
 
 def ensure_work_stages():
