@@ -58,6 +58,61 @@ object LocalFaces {
         return Panorama.FACES.map { it.first }.mapNotNull { found[it] }
     }
 
+    /**
+     * The ANNOTATED copy of each face, from the gallery, with no folder grant.
+     *
+     * ImageMeter's data directory is /Android/data/de.dirkfarin.imagemeter/…,
+     * which no app can be granted access to: Android 11 removed
+     * ACTION_OPEN_DOCUMENT_TREE for /Android/data and Android 13 closed the
+     * subdirectory loophole. A directory grant simply cannot reach it, so
+     * that is not the road.
+     *
+     * The road is ImageMeter's own "Show images in gallery" switch. With it
+     * on, ImageMeter publishes to MediaStore — which we can already read,
+     * with the permission the app already holds. Its copy carries the same
+     * name we handed over, so it lands as a SECOND row for a face we wrote
+     * once, and the one that is NOT in our own folder is the annotated one.
+     *
+     * of() takes the first match per face on purpose (ours); this takes the
+     * others. Same query, opposite half.
+     */
+    fun annotatedOf(context: Context, captureId: String): Map<String, Uri> {
+        if (!Handover.isDeviceId(captureId)) return emptyMap()
+        val out = HashMap<String, Uri>()
+        val projection = arrayOf(MediaStore.Images.Media._ID,
+                                 MediaStore.Images.Media.DISPLAY_NAME,
+                                 MediaStore.Images.Media.RELATIVE_PATH,
+                                 MediaStore.Images.Media.DATE_ADDED)
+        runCatching {
+            context.contentResolver.query(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                projection,
+                "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ?",
+                arrayOf("$captureId%"),
+                // Newest first: if ImageMeter has published a face twice, the
+                // later drawing is the one that counts.
+                "${MediaStore.Images.Media.DATE_ADDED} DESC",
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val display = c.getString(1) ?: continue
+                    val face = faceOf(display) ?: continue
+                    if (face in out) continue
+                    // Ours lives under Pictures/MCFT Site Photos/… — anything
+                    // there is the original we wrote, never an annotation.
+                    val path = c.getString(2) ?: ""
+                    if (path.contains(OUR_FOLDER, ignoreCase = true)) continue
+                    out[face] = ContentUris.withAppendedId(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, c.getLong(0))
+                }
+            }
+        }
+        return out
+    }
+
+    /** The folder FaceWriter writes into. Matching on it is what separates
+     *  our original from somebody else's copy of it. */
+    private const val OUR_FOLDER = "MCFT Site Photos"
+
     /** MCAP-…_front.jpg -> "front". Tolerates whatever suffix an exporter
      *  bolted on, because the face token is what matters, not the extension. */
     fun faceOf(displayName: String): String? {

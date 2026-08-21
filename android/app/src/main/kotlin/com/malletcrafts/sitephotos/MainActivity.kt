@@ -641,9 +641,21 @@ private fun AppScreen() {
             onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
         }
         LaunchedEffect(cap.deviceId, prefsTick, annTick) {
-            if (!annFolder.linked) return@LaunchedEffect
             runCatching {
-                withContext(Dispatchers.IO) { annFolder.annotatedFor(cap.deviceId) }
+                withContext(Dispatchers.IO) {
+                    // The gallery first, because it needs no grant and it is
+                    // the route that actually works: ImageMeter's data
+                    // directory sits under /Android/data, which Android will
+                    // not let any app be granted. Its "Show images in
+                    // gallery" switch is what puts the annotated copy
+                    // somewhere we can legally read it.
+                    val gallery = LocalFaces.annotatedOf(context, cap.deviceId)
+                    // A granted folder still helps for exports sent somewhere
+                    // ordinary, so it fills whatever the gallery did not.
+                    val folder = if (annFolder.linked)
+                        annFolder.annotatedFor(cap.deviceId) else emptyMap()
+                    folder + gallery
+                }
             }.onSuccess { annotatedLocal = it }
         }
         LaunchedEffect(cap.deviceId) {
@@ -1163,9 +1175,14 @@ private fun drawerGroups(
             icon = R.drawable.ic_mcft_wifi, onClick = { onToggle("wifi_only") }),
     )),
     DrawerGroup("ImageMeter", listOf(
-        // The local half of the round trip. Linked, an annotation made on
-        // this phone shows up with no network at all.
-        DrawerLine("Annotation folder", value = annotationFolder,
+        // Optional, and deliberately second. ImageMeter's OWN data directory
+        // (/Android/data/de.dirkfarin.imagemeter/files/projects) cannot be
+        // granted to anybody — Android 11 removed it from the directory
+        // picker and Android 13 shut the last way round. This row is for a
+        // folder you EXPORT to, which is an ordinary folder and can be. The
+        // switch that matters is inside ImageMeter: Storage → Show images in
+        // gallery.
+        DrawerLine("Exported-annotations folder", value = annotationFolder,
             icon = R.drawable.ic_mcft_link, onClick = onPickFolder),
         DrawerLine("Pull annotations now", icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
