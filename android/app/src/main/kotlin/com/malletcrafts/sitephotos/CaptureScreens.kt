@@ -295,9 +295,6 @@ fun CaptureScreen(
     onOpenFace: (Int) -> Unit,
     onPickStage: () -> Unit,
     onPickSku: () -> Unit,
-    /** Whether this user may re-stage the photograph. False makes the row a
-     *  statement of fact rather than a control. */
-    canRestage: Boolean = false,
     onDelete: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -310,8 +307,11 @@ fun CaptureScreen(
             lead = "STG",
             title = capture.workStage.ifBlank {
                 capture.stage.ifBlank { "No stage set" } },
+            // "recorded", not "tap to change": changing it is allowed, and
+            // saying that the change is kept is what makes somebody choose
+            // right at the shutter instead of fixing it later.
             subtitle = capture.stage.ifBlank { "no phase" } +
-                (if (canRestage) " · tap to change" else " · set when it was taken"),
+                " · tap to correct (recorded)",
             dim = capture.workStage.isBlank() && capture.stage.isBlank(),
             onClick = onPickStage)
         // ONLY on a flat photo. A 360 is the record of a whole ROOM, and a

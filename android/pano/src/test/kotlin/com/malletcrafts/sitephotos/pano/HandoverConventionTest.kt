@@ -3,6 +3,7 @@ package com.malletcrafts.sitephotos.pano
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 /**
  * Holds the device's naming to the server's. The filename is the only
@@ -72,5 +73,42 @@ class HandoverConventionTest {
     fun `an unknown client still yields a usable folder`() {
         val p = Handover.relativePath("", "P", "Master Bedroom")
         assertTrue(p.endsWith("/MB/"), p)
+    }
+
+    @Test
+    fun `a caption survives a token that is not one of the six faces`() {
+        // A FLAT photograph carries "photo", which is deliberately not a
+        // face. captionText used to throw on it, and because both the Camera
+        // and the Gallery route go through this one helper, the whole
+        // single-photo feature was dead on arrival — shipped and never run.
+        val text = Handover.captionText(
+            "MCAP-0123456789ab", "Master Bedroom", "photo", "2026-08-21",
+            "Modular carpentry install")
+        assertTrue(text.contains("MCAP-0123456789ab"))
+        // Raw, exactly as handover.py writes it — this class holds the two
+        // implementations to the same string.
+        assertTrue(text.contains("photo"), "the token should read back: $text")
+        assertTrue(text.contains("Master Bedroom"))
+    }
+
+    @Test
+    fun `the six faces still read as their proper labels`() {
+        // The passthrough must not have cost the mapping: "up" is TOP on this
+        // Drive, and 42 hand-made files already say so.
+        assertTrue(Handover.captionText("MCAP-0123456789ab", "Kitchen", "up")
+            .contains("Top"))
+        assertTrue(Handover.captionText("MCAP-0123456789ab", "Kitchen", "down")
+            .contains("Bottom"))
+    }
+
+    @Test
+    fun `a filename still refuses a token that is not a face`() {
+        // Strict HERE on purpose, and the asymmetry is the point: a bogus
+        // token in a FILENAME writes a file nothing can ever match again,
+        // while a bogus token in a caption is just an odd word under a
+        // picture. The single-photo path builds its own name for this reason.
+        assertFailsWith<IllegalStateException> {
+            Handover.filename("MCAP-0123456789ab", "photo")
+        }
     }
 }

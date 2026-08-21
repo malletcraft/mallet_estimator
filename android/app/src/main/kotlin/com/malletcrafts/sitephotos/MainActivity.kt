@@ -823,20 +823,11 @@ private fun AppScreen() {
                         navProject?.title ?: "",
                         navRoom ?: "") + Handover.filename(cap.deviceId, "front"),
                     onOpenFace = { navFace = it; faceMode = true },
-                    onPickStage = {
-                        // Re-staging is a statement about the PAST — when the
-                        // work happened, which is what progress is read from
-                        // later. It needs the office's authority, not the
-                        // technician's, and the bench refuses it either way;
-                        // saying so here beats a permission error after
-                        // somebody has already chosen from a picker.
-                        if (cat.canRestage(masters)) retagStage = true
-                        else lastResult = "The stage is set when the photo is " +
-                            "taken. Changing it afterwards is an office job — " +
-                            "ask them to re-file this one."
-                    },
+                    // Allowed, and written down. A hard block produces the
+                    // worse failure: a photo permanently mis-staged because
+                    // the only person who noticed cannot fix it.
+                    onPickStage = { retagStage = true },
                     onPickSku = { retagSku = true },
-                    canRestage = cat.canRestage(masters),
                     onDelete = {
                         // The row and the files, then back to the room. Files
                         // first would leave a queue row pointing at nothing if

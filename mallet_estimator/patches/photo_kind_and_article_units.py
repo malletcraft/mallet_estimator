@@ -22,6 +22,9 @@ def execute():
              WHERE capture_kind IS NULL OR capture_kind = ''
         """)
 
+    # The stage-history table is new; nothing to backfill, but the migrate
+    # this patch forces is what creates it at all.
+
     # Re-run the seed now that it creates its own unit. On a site where it
     # already succeeded this is a no-op; on one where it silently seeded
     # nothing, this is the repair.

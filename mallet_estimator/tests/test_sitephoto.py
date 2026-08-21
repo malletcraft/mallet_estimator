@@ -785,47 +785,57 @@ class TestSiteLevelAndStages(MalletTestCase):
             frappe.db.get_value("Site Photo 360", cap["name"], "capture_kind"),
             "360")
 
-    def test_re_staging_a_photo_needs_more_than_the_camera(self):
-        """Tagging a photo to a SKU is the technician's job. Re-staging one
-        is not.
+    def test_re_staging_a_photo_is_allowed_and_written_down(self):
+        """Logged, not locked.
 
-        The stage is WHEN the work happened, and it is what progress gets
-        read from months later — a wall quietly moved from First fix to
-        Joinery rewrites the record of the job. So it takes the same
-        authority that moves the project itself: write on Project, which the
-        site-photographer role deliberately does not carry."""
-        from mallet_estimator import integration
-        out = sitephoto.ensure_site("ZZ Lock Client", "ZZ Lock Project",
-                                    site_name="ZZ Lock Flat")
+        An earlier build refused the change unless the caller held write on
+        Project. Amit: "let user alter the stage as it can be by mistake" —
+        and a hard block produces the worse failure, a photo permanently
+        mis-staged because the only person who noticed cannot fix it. So the
+        change goes through and the trail is permanent."""
+        out = sitephoto.ensure_site("ZZ Log Client", "ZZ Log Project",
+                                    site_name="ZZ Log Flat")
         cap = sitephoto.create_capture(out["project"], _room())
+        before = frappe.db.get_value("Site Photo 360", cap["name"], "work_stage")
 
-        user = "zz-photographer@example.com"
-        if not frappe.db.exists("User", user):
-            u = frappe.get_doc({
-                "doctype": "User", "email": user, "first_name": "ZZ Shooter",
-                "send_welcome_email": 0,
-            })
-            u.insert(ignore_permissions=True)
-            u.add_roles(integration.PHOTOGRAPHER_ROLE)
+        sitephoto.set_capture_tags(cap["name"],
+                                   work_stage="Modular carpentry install")
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual(doc.work_stage, "Modular carpentry install")
+        self.assertEqual(len(doc.stage_log), 1)
+        row = doc.stage_log[0]
+        self.assertEqual(row.stage, "Modular carpentry install")
+        self.assertEqual(row.from_stage, before or "(none)")
+        self.assertTrue(row.changed_by)
+        self.assertTrue(row.changed_on)
 
-        frappe.set_user(user)
-        try:
-            self.assertFalse(frappe.has_permission("Project", "write"),
-                             "a photographer must not hold Project write")
-            with self.assertRaises(frappe.PermissionError):
-                sitephoto.set_capture_tags(cap["name"],
-                                           work_stage="Modular carpentry install")
-        finally:
-            frappe.set_user("Administrator")
+    def test_re_staging_to_the_same_stage_writes_nothing(self):
+        """An audit trail padded with non-events is one nobody reads."""
+        out = sitephoto.ensure_site("ZZ Log Same Client", "ZZ Log Same Project",
+                                    site_name="ZZ Log Same Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        sitephoto.set_capture_tags(cap["name"], work_stage="Defect recorded")
+        sitephoto.set_capture_tags(cap["name"], work_stage="Defect recorded")
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual(len(doc.stage_log), 1)
 
-        # The office can, and that is the whole distinction.
-        moved = sitephoto.set_capture_tags(cap["name"],
-                                           work_stage="Modular carpentry install")
-        self.assertIn("stage", moved["changed"])
+    def test_every_move_is_kept_not_just_the_last(self):
+        """Two corrections leave two rows. The question the trail answers is
+        'what has this photograph been called', not 'what was it called
+        once'."""
+        out = sitephoto.ensure_site("ZZ Log Two Client", "ZZ Log Two Project",
+                                    site_name="ZZ Log Two Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        sitephoto.set_capture_tags(cap["name"], work_stage="Defect recorded")
+        sitephoto.set_capture_tags(cap["name"],
+                                   work_stage="Modular carpentry install")
+        doc = frappe.get_doc("Site Photo 360", cap["name"])
+        self.assertEqual([r.stage for r in doc.stage_log],
+                         ["Defect recorded", "Modular carpentry install"])
 
     def test_bootstrap_says_whether_this_user_may_re_stage(self):
         """Asked once, so the phone never offers a picker the bench will
         refuse. An affordance that fails on use is worse than one that was
         never offered."""
         self.assertTrue(sitephoto.bootstrap()["can_restage"],
-                        "Administrator holds Project write")
+                        "Administrator can write a capture")

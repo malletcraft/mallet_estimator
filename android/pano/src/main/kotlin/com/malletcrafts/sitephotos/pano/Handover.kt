@@ -50,7 +50,18 @@ object Handover {
         captureDate: String? = null,
         stage: String? = null,
     ): String {
-        val label = FACE_LABELS[face] ?: error("unknown face: $face")
+        // PASSED THROUGH, not refused. filename() is strict because a bogus
+        // token there would write a file nothing can ever match again; a
+        // CAPTION is just words burned under a picture, and being strict here
+        // bought nothing and cost everything — a flat photograph carries the
+        // token "photo", which is deliberately not one of the six, and this
+        // line threw on it. Both the Camera and Gallery paths died in the
+        // same place, which is what a shared helper crashing looks like.
+        // Passed through RAW, not prettified: the Python side has always
+        // used FACE_LABELS.get(face, face), and this class exists to hold the
+        // device's naming to the server's. A nicer-looking caption that
+        // disagreed with the bench would defeat the whole point of the file.
+        val label = FACE_LABELS[face] ?: face
         val parts = mutableListOf(captureId, room, label)
         val tail = listOfNotNull(
             captureDate?.takeIf { it.isNotBlank() },

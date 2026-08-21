@@ -43,7 +43,9 @@
   "gallery_html",
   "work_stage",
   "sku",
-  "mallet_stage_legacy"
+  "mallet_stage_legacy",
+  "stage_history_section",
+  "stage_log"
  ],
  "fields": [
   {
@@ -318,6 +320,20 @@
    "read_only": 1,
    "no_copy": 1,
    "description": "The pre-2026-08-21 stage word. Hidden, never deleted."
+  },
+  {
+   "fieldname": "stage_history_section",
+   "fieldtype": "Section Break",
+   "label": "Stage History",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "stage_log",
+   "fieldtype": "Table",
+   "options": "Site Photo Stage Log",
+   "label": "Stage Changes",
+   "read_only": 1,
+   "description": "Every stage this photograph has been filed under, and who moved it. Correcting a mistake is cheap; the correction is permanent."
   }
  ],
  "image_field": "face_front",
