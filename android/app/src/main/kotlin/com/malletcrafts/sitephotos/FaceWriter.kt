@@ -261,7 +261,13 @@ object FaceWriter {
         }
         // Shrink to fit rather than clip: the id at the front is the part a
         // person needs, but a truncated room name helps nobody.
-        while (paint.measureText(text) > face.width * 0.96f && paint.textSize > 8f) {
+        // The room left of the stamp, not the whole bar. The QR is drawn
+        // last on an opaque tile, so a caption that ran under it would be
+        // silently beheaded rather than shrunk.
+        val textRoom = face.width * 0.96f -
+            (if (stamped) (strip * 0.82f).coerceAtLeast(MIN_STAMP_PX.toFloat()) +
+                strip * 0.18f else 0f)
+        while (paint.measureText(text) > textRoom && paint.textSize > 8f) {
             paint.textSize -= 1f
         }
         val y = face.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
@@ -297,7 +303,13 @@ object FaceWriter {
             color = Color.WHITE
             textSize = strip * 0.62f
         }
-        while (paint.measureText(text) > src.width * 0.96f && paint.textSize > 8f) {
+        // The room left of the stamp, not the whole bar. The QR is drawn
+        // last on an opaque tile, so a caption that ran under it would be
+        // silently beheaded rather than shrunk.
+        val textRoom = src.width * 0.96f -
+            (if (stamped) (strip * 0.82f).coerceAtLeast(MIN_STAMP_PX.toFloat()) +
+                strip * 0.18f else 0f)
+        while (paint.measureText(text) > textRoom && paint.textSize > 8f) {
             paint.textSize -= 1f
         }
         val y = src.height + strip / 2f - (paint.descent() + paint.ascent()) / 2f
