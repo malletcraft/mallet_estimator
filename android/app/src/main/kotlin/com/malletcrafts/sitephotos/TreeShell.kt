@@ -105,8 +105,15 @@ fun SettingsDrawerContent(
 fun TreeTopBar(
     title: String,
     subtitle: String,
-    onMenu: () -> Unit,
+    /** Unused on a screen that passes [onBack] — there is no hamburger to
+     *  press. Defaulted rather than required so those call sites do not have
+     *  to hand over a lambda nothing can reach. */
+    onMenu: () -> Unit = {},
     onSearch: () -> Unit,
+    /** Set on screens that are a VIEW rather than a level — one capture, one
+     *  face. They get a back arrow; the hamburger stays the settings drawer
+     *  everywhere, which is the only way it means one thing. */
+    onBack: (() -> Unit)? = null,
 ) {
     TopAppBar(
         title = {
@@ -121,9 +128,16 @@ fun TreeTopBar(
             }
         },
         navigationIcon = {
-            IconButton(onClick = onMenu) {
-                Icon(painterResource(R.drawable.ic_mcft_menu),
-                    contentDescription = "Settings")
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(painterResource(R.drawable.ic_mcft_back),
+                        contentDescription = "Back")
+                }
+            } else {
+                IconButton(onClick = onMenu) {
+                    Icon(painterResource(R.drawable.ic_mcft_menu),
+                        contentDescription = "Settings")
+                }
             }
         },
         actions = {

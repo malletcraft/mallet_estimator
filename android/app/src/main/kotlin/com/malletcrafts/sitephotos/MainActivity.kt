@@ -311,6 +311,7 @@ private fun AppScreen() {
                 version = appVersion(context),
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
+                server = FrappeClient.savedUrl(context),
                 annotationFolder = remember(prefsTick) { annFolder.label },
                 onPickFolder = { folderPicker.launch(null) },
                 onToggle = { key ->
@@ -709,8 +710,13 @@ private fun AppScreen() {
             TreeTopBar(
                 title = "${cap.date} · ${cap.stage.ifBlank { "no stage" }}",
                 subtitle = RoomToken.label(navRoom ?: "") + " · " + cap.deviceId,
-                onMenu = { navCapture = null },
-                onSearch = { showSettings = true })
+                // The magnifier used to open the API-KEY dialog from here.
+                // That is the worst thing a button can do: a search icon that
+                // shows somebody your server credentials. It searches, and
+                // the lead icon is Back, because this screen is a view of one
+                // photograph and not a level of the tree.
+                onSearch = { showSearch = true; searchQuery = "" },
+                onBack = { navCapture = null })
         }) { pad ->
             Box(Modifier.padding(pad)) {
                 CaptureScreen(
@@ -1137,6 +1143,7 @@ private fun drawerGroups(
     version: String,
     cached: String,
     prefs: AppPrefs,
+    server: String,
     annotationFolder: String,
     onPickFolder: () -> Unit,
     onSyncNow: () -> Unit,
@@ -1182,6 +1189,12 @@ private fun drawerGroups(
     DrawerGroup("Storage & app", listOf(
         DrawerLine("Cached photos", value = cached, icon = R.drawable.ic_mcft_disk,
             onClick = { onToggle("clear_cache") }),
+        // The API-key dialog had NO row: onServer was handed to this function
+        // and no line ever called it, so the only way in was the search
+        // button, which is how a magnifier came to be showing people their
+        // server credentials. One route, and it is a settings row.
+        DrawerLine("Server", value = server.ifBlank { "not set" },
+            icon = R.drawable.ic_mcft_link, onClick = onServer),
         DrawerLine("Version", value = version, icon = R.drawable.ic_mcft_info),
         DrawerLine("Sign out", icon = R.drawable.ic_mcft_out, onClick = onSignOut),
     )),
