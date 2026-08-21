@@ -35,28 +35,39 @@ def ensure_articles():
     """Seed the article master. Existing rows are left alone apart from the
     job-type list, which is the one field a later batch may legitimately
     widen; the name is not touched because somebody may have corrected it."""
-    made = 0
+    made, errors = 0, []
     for code, name, jobs in ARTICLES:
-        if frappe.db.exists("Mallet Article", code):
-            if frappe.db.get_value("Mallet Article", code, "job_types") != jobs:
-                frappe.db.set_value("Mallet Article", code, "job_types", jobs)
-            continue
-        doc = frappe.get_doc({"doctype": "Mallet Article", "article_code": code,
-                              "article_name": name, "job_types": jobs})
-        # "Nos" is not guaranteed to exist yet. It is created by
-        # ensure_manufacturing_masters, which after_install runs AFTER this —
-        # so on a FRESH site the link validation threw on the first article,
-        # _safe swallowed it, and the master seeded ZERO rows while every
-        # bench test passed because they seed it by hand. Two red UI runs
-        # (2026-08-21) said only "Articles". A UOM that does not exist yet is
-        # not a reason to refuse a master; the article is the record, and the
-        # unit is a convenience on top of it.
-        if frappe.db.exists("UOM", "Nos"):
-            doc.default_uom = "Nos"
-        doc.insert(ignore_permissions=True)
-        made += 1
+        try:
+            made += _one_article(code, name, jobs)
+        except Exception as exc:
+            # PER ROW, not per master. The whole loop used to sit inside one
+            # _safe() in after_install, so the first row that threw left the
+            # master EMPTY and said so nowhere anyone reads — a phone with an
+            # empty article picker, and a green deploy (2026-08-21).
+            errors.append(f"{code}: {exc}")
     frappe.db.commit()
-    return made
+    if errors:
+        frappe.log_error("\n".join(errors), "mallet_estimator ensure_articles")
+    return {"made": made, "errors": errors,
+            "total": frappe.db.count("Mallet Article")}
+
+
+def _one_article(code, name, jobs):
+    """One article. Returns 1 if it was created, 0 if it already existed."""
+    if frappe.db.exists("Mallet Article", code):
+        if frappe.db.get_value("Mallet Article", code, "job_types") != jobs:
+            frappe.db.set_value("Mallet Article", code, "job_types", jobs)
+        return 0
+    doc = frappe.get_doc({"doctype": "Mallet Article", "article_code": code,
+                          "article_name": name, "job_types": jobs})
+    # "Nos" is not guaranteed to exist yet: it is created by
+    # ensure_manufacturing_masters, which after_install runs AFTER this. A
+    # unit that does not exist yet is not a reason to refuse a master — the
+    # article is the record and the unit is a convenience on top of it.
+    if frappe.db.exists("UOM", "Nos"):
+        doc.default_uom = "Nos"
+    doc.insert(ignore_permissions=True)
+    return 1
 
 
 def ensure_work_stages():

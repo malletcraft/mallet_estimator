@@ -91,6 +91,13 @@ jobs:
           # create every mallet master so verify_setup is all-green
           bench --site test_site execute mallet_estimator.install.ensure_demo_company
           bench --site test_site execute mallet_estimator.install.setup
+          # Print the seed result. install.setup wraps every seeder in _safe,
+          # which logs to a table nobody reads from CI — so a master that came
+          # back EMPTY looked exactly like one that came back full, and the
+          # only signal was verify_setup going red three steps later with a
+          # heading and no reason (2026-08-21). ensure_articles now returns
+          # its per-row errors; this is where they get printed.
+          bench --site test_site execute mallet_estimator.worksite.ensure_articles
           bench --site test_site set-config allow_tests true
           bench build --app frappe --app mallet_estimator
 
