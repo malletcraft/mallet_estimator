@@ -106,8 +106,23 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // push goes up now — measurement edits after the capture synced
         // included. Empty payloads delete server-side, mirroring the device.
         val annStore = AnnotationStore(applicationContext)
+        // The gallery, read ONCE for the whole queue. Every face this app
+        // wrote carries a QR in its caption bar naming its capture, so an
+        // annotated copy ImageMeter published can be traced back to the
+        // photograph it was drawn on — which the filename cannot do, because
+        // ImageMeter renames its exports. Done here as well as on the capture
+        // screen so a markup goes home whether or not anybody opens it.
+        val marks = runCatching {
+            StampScan.allMarks(applicationContext)
+        }.getOrDefault(emptyMap())
         for (c in store.all()) {
             val serverName = c.serverName ?: continue
+            marks[c.deviceId]?.let { found ->
+                runCatching {
+                    AnnotationPush.push(applicationContext, serverName,
+                        c.deviceId, found)
+                }.onFailure { failures += 1 }
+            }
             for (face in annStore.dirtyFaces(c.deviceId)) {
                 try {
                     var ann = annStore.load(c.deviceId, face)

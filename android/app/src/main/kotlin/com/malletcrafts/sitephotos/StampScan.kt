@@ -55,15 +55,16 @@ object StampScan {
         context.getSharedPreferences("stampscan", Context.MODE_PRIVATE)
 
     /**
-     * Every annotated face of one capture that this phone can see.
+     * Every stamped image the gallery can show us, as capture → face → uri.
      *
-     * Returns face → uri. A face we wrote ourselves is never a candidate:
-     * ours live under Pictures/MCFT Site Photos, and the original is not an
-     * annotation of itself.
+     * ONE pass, not one per capture: the sync worker asks about every capture
+     * on the phone, and re-walking the cursor for each of them would be the
+     * same work multiplied by the queue. A face we wrote ourselves is never a
+     * candidate — ours live under Pictures/MCFT Site Photos, and the original
+     * is not an annotation of itself.
      */
-    fun annotatedFor(context: Context, captureId: String,
-                     notBefore: Long = 0L): Map<String, Uri> {
-        val out = HashMap<String, Uri>()
+    fun allMarks(context: Context, notBefore: Long = 0L): Map<String, Map<String, Uri>> {
+        val out = HashMap<String, HashMap<String, Uri>>()
         val seen = cache(context)
         val edit = seen.edit()
         var decoded = 0
@@ -105,9 +106,12 @@ object StampScan {
                         decoded += 1
                         Stamp.parse(text)
                     }
-                    if (mark != null && mark.captureId == captureId &&
-                        mark.face !in out) {
-                        out[mark.face] = ContentUris.withAppendedId(
+                    if (mark == null) continue
+                    // Newest first, so the first answer for a face is the
+                    // latest drawing of it and later rows must not overwrite.
+                    val faces = out.getOrPut(mark.captureId) { HashMap() }
+                    if (mark.face !in faces) {
+                        faces[mark.face] = ContentUris.withAppendedId(
                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
                     }
                 }
@@ -116,6 +120,11 @@ object StampScan {
         if (decoded > 0) edit.apply()
         return out
     }
+
+    /** Every annotated face of ONE capture. Face → uri. */
+    fun annotatedFor(context: Context, captureId: String,
+                     notBefore: Long = 0L): Map<String, Uri> =
+        allMarks(context, notBefore)[captureId] ?: emptyMap()
 
     /** What one pass would have to look at — for the drawer, so "found
      *  nothing" can be told apart from "never looked". */
