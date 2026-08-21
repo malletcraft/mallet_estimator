@@ -223,11 +223,10 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
     kind = (capture_kind or "").strip() or "360"
     if meta.has_field("capture_kind"):
         doc.capture_kind = kind if kind in ("360", "Photo") else "360"
-    if kind == "Photo":
-        # Nothing to split, so it is born finished rather than Pending — a
-        # queue of things that will never be processed is a queue that stops
-        # meaning anything.
-        doc.status = "Split"
+    # NOT set here. validate() forces Pending while no image is attached, and
+    # it is right to: at this point the picture has not been uploaded yet.
+    # A flat photo reaches Split when its image arrives (on_update), which is
+    # the same moment a 360 would have started splitting.
     if work_stage and meta.has_field("work_stage"):
         doc.work_stage = work_stage
     if sku and meta.has_field("sku"):

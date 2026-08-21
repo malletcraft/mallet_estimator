@@ -49,6 +49,9 @@ data class CaptureCard(
     /** The work stage the photo was filed at — one of the thirty-nine. Blank
      *  on a capture taken before the master existed, which still has a phase. */
     val workStage: String = "",
+    /** "360" or "Photo". A 360 is the record of a whole room and splits into
+     *  six faces; a Photo is one wall, floor or ceiling and has none. */
+    val kind: String = "360",
 )
 
 private val YELLOW = Color(0xFFE9FF3A)

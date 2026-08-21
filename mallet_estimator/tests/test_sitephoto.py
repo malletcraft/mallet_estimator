@@ -747,7 +747,20 @@ class TestSiteLevelAndStages(MalletTestCase):
                                        capture_kind="Photo")
         doc = frappe.get_doc("Site Photo 360", cap["name"])
         self.assertEqual(doc.capture_kind, "Photo")
-        self.assertEqual(doc.status, "Split")
+        # Pending until its image arrives, exactly like a 360: at creation
+        # time nothing has been uploaded yet, and validate() says so.
+        self.assertEqual(doc.status, "Pending")
+
+        # Once the image lands it is FINISHED, not queued. Sending a flat
+        # photograph to the equirect splitter would fail the 2:1 check and
+        # park it at Failed, which is a lie about a perfectly good picture.
+        doc.pano = "/files/zz-photo.jpg"
+        doc.save(ignore_permissions=True)
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", doc.name, "status"), "Split")
+        self.assertFalse(
+            frappe.db.get_value("Site Photo 360", doc.name, "split_signature"),
+            "a flat photo must never enter the splitter")
 
     def test_a_capture_with_no_kind_is_a_360(self):
         """Every capture made before the field existed was a 360, and every

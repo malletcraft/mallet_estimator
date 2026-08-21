@@ -42,7 +42,17 @@ class SitePhoto360(Document):
                          .format(other, self.project, self.room))
 
     def on_update(self):
-        if self.pano and self._signature() != (self.split_signature or ""):
+        if not self.pano:
+            return
+        # A FLAT photograph has nothing to split. Sending it to the equirect
+        # splitter would fail on the 2:1 check and park it at Failed, which
+        # is a lie about a perfectly good picture — so it is simply finished
+        # the moment its image arrives.
+        if (self.get("capture_kind") or "360") == "Photo":
+            if self.status != "Split":
+                self.db_set("status", "Split", update_modified=False)
+            return
+        if self._signature() != (self.split_signature or ""):
             self.queue_split()
 
     def _signature(self):
