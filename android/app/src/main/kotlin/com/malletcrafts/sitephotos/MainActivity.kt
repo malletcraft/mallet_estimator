@@ -211,6 +211,8 @@ private fun AppScreen() {
 
     fun refreshQueue() = reload()
 
+
+
     // First composition with credentials: pull fresh masters in the
     // background so the pickers are not a week old.
     LaunchedEffect(configured) {
@@ -361,6 +363,109 @@ private fun AppScreen() {
         // already findable rather than failing silently and needing a second
         // trip through the drawer.
         if (!StampScan.canRead(context)) askMedia.launch(StampScan.MEDIA_PERMISSION)
+    }
+
+    // ONE implementation, reachable from the drawer AND from the viewer a
+    // person is looking at when they come back from ImageMeter. A feature
+    // that only exists in a menu is a feature nobody finds twice.
+    fun importFromImageMeter() {
+                    busy = "Importing from ImageMeter…"
+                    scope.launch(Dispatchers.IO) {
+                        // "Now" means now: drop the remembered misses so the
+                        // gallery is read fresh. A picture scanned before it
+                        // was annotated is cached as "nothing here", and the
+                        // one button whose whole meaning is "go and look" is
+                        // the right place to make that stop being true.
+                        StampScan.forget(context)
+                        if (!StampScan.canRead(context)) {
+                            withContext(Dispatchers.Main) {
+                                askMedia.launch(StampScan.MEDIA_PERMISSION)
+                            }
+                        }
+
+                        // THE GALLERY FIRST, and reported in numbers.
+                        //
+                        // Amit, 2026-08-22: "thats not the intend to have it
+                        // from google drive. i need to have local files
+                        // annoated via imagemeter from gallery in my apk."
+                        // Quite right — Drive was the mechanism that could
+                        // never identify anything. This button now does the
+                        // local route and only mentions Drive afterwards.
+                        //
+                        // The counts are the point. "Nothing new" is three
+                        // different situations — no pictures looked at, none
+                        // carrying our mark, or marks already sent — and they
+                        // need three different answers.
+                        val local = runCatching {
+                            val scan = StampScan.scan(context)
+                            var sent = 0
+                            var waiting = 0
+                            if (FrappeClient.load(context) != null) {
+                                for (row in queue) {
+                                    val found = scan.marks[row.deviceId] ?: continue
+                                    val server = row.serverName
+                                    if (server.isNullOrBlank()) { waiting += found.size; continue }
+                                    sent += AnnotationPush.push(
+                                        context, server, row.deviceId, found)
+                                }
+                            }
+                            Triple(scan, sent, waiting)
+                        }.getOrNull()
+                        val localLine = local?.let { (scan, sent, waiting) ->
+                            when {
+                                !scan.allowed ->
+                                    "Android is hiding other apps' photos from " +
+                                    "this app — grant Photos access and press " +
+                                    "this again."
+                                sent > 0 -> "Sent $sent annotated " +
+                                    (if (sent == 1) "face" else "faces") + " from the gallery."
+                                scan.stamped > 0 && waiting > 0 ->
+                                    "${scan.stamped} annotated, but their captures " +
+                                    "have not reached the server yet — sync first."
+                                scan.stamped > 0 ->
+                                    "${scan.stamped} annotated already sent, nothing new."
+                                scan.looked == 0 ->
+                                    "No photos in the gallery to look at."
+                                else ->
+                                    "Looked at ${scan.looked} gallery photos, none " +
+                                    "carrying this app's stamp. Only faces captured " +
+                                    "with 0.3.93 or later are stamped — re-shoot and " +
+                                    "annotate that one."
+                            }
+                        } ?: "Could not read the gallery."
+                        // Queue it, then WAIT and read what it did. "Queued"
+                        // on its own says the button worked, not that
+                        // anything came back — which is exactly what somebody
+                        // sees when Drive is not wired: a cheerful message
+                        // and no change on any photograph.
+                        val out = runCatching {
+                            val c = FrappeClient.load(context)
+                            val q = c?.imagemeterSync()
+                            // Terse on purpose — this is now a SUFFIX to the
+                            // gallery line, not the answer. Drive is the slow
+                            // secondary path and is expected to find nothing.
+                            if (q?.optBoolean("queued") != true) {
+                                q?.optString("skipped") ?: "no server configured"
+                            } else {
+                                Thread.sleep(6000)
+                                val st = c.imagemeterStatus()
+                                when {
+                                    !st.optBoolean("configured") -> "no folder set"
+                                    st.optInt("pulled") > 0 ->
+                                        "${st.optInt("pulled")} pulled"
+                                    st.optInt("unmatched") > 0 ->
+                                        "${st.optInt("unmatched")} unmatched"
+                                    else -> "nothing new"
+                                }
+                            }
+                        }
+                        withContext(Dispatchers.Main) {
+                            busy = null
+                            lastResult = localLine + "  •  Drive: " + out.getOrElse {
+                                "sync failed: ${it.message}"
+                            }
+                        }
+                    }
     }
 
     var shotUri by remember { mutableStateOf<Uri?>(null) }
@@ -556,105 +661,7 @@ private fun AppScreen() {
                     configured = false
                     showSettings = true
                 },
-                onImageMeterSync = {
-                    busy = "Looking for annotated photos…"
-                    scope.launch(Dispatchers.IO) {
-                        // "Now" means now: drop the remembered misses so the
-                        // gallery is read fresh. A picture scanned before it
-                        // was annotated is cached as "nothing here", and the
-                        // one button whose whole meaning is "go and look" is
-                        // the right place to make that stop being true.
-                        StampScan.forget(context)
-                        if (!StampScan.canRead(context)) {
-                            withContext(Dispatchers.Main) {
-                                askMedia.launch(StampScan.MEDIA_PERMISSION)
-                            }
-                        }
-
-                        // THE GALLERY FIRST, and reported in numbers.
-                        //
-                        // Amit, 2026-08-22: "thats not the intend to have it
-                        // from google drive. i need to have local files
-                        // annoated via imagemeter from gallery in my apk."
-                        // Quite right — Drive was the mechanism that could
-                        // never identify anything. This button now does the
-                        // local route and only mentions Drive afterwards.
-                        //
-                        // The counts are the point. "Nothing new" is three
-                        // different situations — no pictures looked at, none
-                        // carrying our mark, or marks already sent — and they
-                        // need three different answers.
-                        val local = runCatching {
-                            val scan = StampScan.scan(context)
-                            var sent = 0
-                            var waiting = 0
-                            if (FrappeClient.load(context) != null) {
-                                for (row in queue) {
-                                    val found = scan.marks[row.deviceId] ?: continue
-                                    val server = row.serverName
-                                    if (server.isNullOrBlank()) { waiting += found.size; continue }
-                                    sent += AnnotationPush.push(
-                                        context, server, row.deviceId, found)
-                                }
-                            }
-                            Triple(scan, sent, waiting)
-                        }.getOrNull()
-                        val localLine = local?.let { (scan, sent, waiting) ->
-                            when {
-                                !scan.allowed ->
-                                    "Android is hiding other apps' photos from " +
-                                    "this app — grant Photos access and press " +
-                                    "this again."
-                                sent > 0 -> "Sent $sent annotated " +
-                                    (if (sent == 1) "face" else "faces") + " from the gallery."
-                                scan.stamped > 0 && waiting > 0 ->
-                                    "${scan.stamped} annotated, but their captures " +
-                                    "have not reached the server yet — sync first."
-                                scan.stamped > 0 ->
-                                    "${scan.stamped} annotated already sent, nothing new."
-                                scan.looked == 0 ->
-                                    "No photos in the gallery to look at."
-                                else ->
-                                    "Looked at ${scan.looked} gallery photos, none " +
-                                    "carrying this app's stamp. Only faces captured " +
-                                    "with 0.3.93 or later are stamped — re-shoot and " +
-                                    "annotate that one."
-                            }
-                        } ?: "Could not read the gallery."
-                        // Queue it, then WAIT and read what it did. "Queued"
-                        // on its own says the button worked, not that
-                        // anything came back — which is exactly what somebody
-                        // sees when Drive is not wired: a cheerful message
-                        // and no change on any photograph.
-                        val out = runCatching {
-                            val c = FrappeClient.load(context)
-                            val q = c?.imagemeterSync()
-                            // Terse on purpose — this is now a SUFFIX to the
-                            // gallery line, not the answer. Drive is the slow
-                            // secondary path and is expected to find nothing.
-                            if (q?.optBoolean("queued") != true) {
-                                q?.optString("skipped") ?: "no server configured"
-                            } else {
-                                Thread.sleep(6000)
-                                val st = c.imagemeterStatus()
-                                when {
-                                    !st.optBoolean("configured") -> "no folder set"
-                                    st.optInt("pulled") > 0 ->
-                                        "${st.optInt("pulled")} pulled"
-                                    st.optInt("unmatched") > 0 ->
-                                        "${st.optInt("unmatched")} unmatched"
-                                    else -> "nothing new"
-                                }
-                            }
-                        }
-                        withContext(Dispatchers.Main) {
-                            busy = null
-                            lastResult = localLine + "  •  Drive: " + out.getOrElse {
-                                "sync failed: ${it.message}"
-                            }
-                        }
-                    }
-                },
+                onImageMeterSync = { importFromImageMeter() },
                 onSyncNow = { SyncWorker.syncNow(context) },
                 onServer = { showSettings = true },
             ))
@@ -1083,17 +1090,7 @@ private fun AppScreen() {
                     ?: annotated[f.name]?.let { ThumbSource.LocalFile(it) },
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
-                onEditInImageMeter = {
-                    // Hand the face to whatever can annotate it. ImageMeter
-                    // registers for image/*, so the chooser lands on it.
-                    runCatching {
-                        context.startActivity(android.content.Intent.createChooser(
-                            android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                .setDataAndType(f.uri, "image/jpeg")
-                                .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
-                            "Annotate with"))
-                    }.onFailure { lastResult = "No app to open the face: ${it.message}" }
-                },
+                onImport = { importFromImageMeter() },
                 faces = faces,
                 current = faceIdx,
                 onPickFace = { navFace = it },
@@ -1626,10 +1623,14 @@ private fun drawerGroups(
         // one tick and no picker. A setting that takes two paragraphs to
         // explain and answers a question nobody asked is clutter, and it cost
         // Amit two questions before it earned its removal.
-        // Named for what it does now. "Pull" described the Drive round trip,
-        // which is the half that cannot identify anything; the gallery on this
-        // phone is where an annotation is actually found.
-        DrawerLine("Find annotated photos", icon = R.drawable.ic_mcft_cloud,
+        // The ONE direction that exists now. The app writes stamped images
+        // into Pictures/MCFT Site Photos; a person adds them to ImageMeter
+        // from the gallery and marks them up; this reads them back by the
+        // stamp and files each against the capture and face it names. Amit,
+        // 2026-08-22: "a simple import from imagemeter button should simply
+        // import the images back to apk as the stamp is genrated by apk and
+        // it should know where to put what."
+        DrawerLine("Import from ImageMeter", icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
         DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,
             icon = R.drawable.ic_mcft_pen, onClick = { onToggle("pull_annotated") }),

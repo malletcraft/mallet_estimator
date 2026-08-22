@@ -348,7 +348,8 @@ fun CaptureScreen(
                     PenBadge(Modifier.align(Alignment.TopEnd).padding(8.dp), "marked")
                 }
             }
-            Text("Tap to open, measure in ImageMeter, or see the annotated copy",
+            Text("Tap to open. To mark it up: add it to ImageMeter from your " +
+                 "gallery, then Import from ImageMeter here.",
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -483,8 +484,19 @@ private fun DeleteRow(onDelete: () -> Unit) {
  * the Drive round trip already attaches it to the capture by face — and is
  * cached on disk so a second look costs nothing and works offline.
  *
- * ImageMeter is one button, and it is only there for when something needs to
- * change.
+ * ONE DIRECTION ONLY. There used to be a button here that handed the face to
+ * ImageMeter, and it was wrong twice over: it created a fresh copy in
+ * ImageMeter on every tap, so one wall accumulated duplicates, and coming
+ * back it left the app showing nothing useful. Amit, 2026-08-22: "lets drop
+ * any edit in imageter button in apk. and i am ok to import the split /
+ * captured stamped (by apk) images in imageter myself."
+ *
+ * That is the better shape. The app writes stamped images into
+ * Pictures/MCFT Site Photos, a person adds them to ImageMeter from the
+ * gallery once, and the only traffic back this way is an IMPORT that matches
+ * on the stamp. Re-annotating the same photograph later just produces a newer
+ * export, which the next import picks up — no duplicates, and nothing to keep
+ * in step.
  */
 @Composable
 fun FaceViewer(
@@ -494,7 +506,7 @@ fun FaceViewer(
     annotatedSource: ThumbSource?,
     showAnnotated: Boolean,
     onToggle: (Boolean) -> Unit,
-    onEditInImageMeter: () -> Unit,
+    onImport: (() -> Unit)? = null,
     faces: List<LocalFaces.Face>,
     current: Int,
     onPickFace: (Int) -> Unit,
@@ -531,11 +543,17 @@ fun FaceViewer(
                     onToggle(true)
                 }
             }
-            OutlinedButton(onClick = onEditInImageMeter, modifier = Modifier.fillMaxWidth()) {
-                Icon(painterResource(R.drawable.ic_mcft_pen), contentDescription = null,
-                    modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(7.dp))
-                Text(if (hasAnnotated) "Edit in ImageMeter" else "Annotate in ImageMeter")
+            // Where the "Edit in ImageMeter" button used to be, doing the
+            // opposite. This is the screen a person is on when they come back
+            // from marking something up, so it is the one place the import is
+            // worth a tap rather than a trip through the drawer.
+            if (onImport != null) {
+                OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                    Icon(painterResource(R.drawable.ic_mcft_pen), contentDescription = null,
+                        modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Import from ImageMeter")
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 faces.forEachIndexed { i, f ->

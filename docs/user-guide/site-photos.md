@@ -129,13 +129,23 @@ again and make the new capture the baseline.
 
 ## Annotating in ImageMeter
 
-Open a face (or a flat photo) → **Annotate in ImageMeter** → mark it up →
-save. ImageMeter puts its export wherever it likes — its own root folder,
-usually, and you can move it into any ImageMeter folder afterwards. That does
-not matter any more.
+The app writes every face and flat photo into your gallery, under
+`Pictures/MCFT Site Photos/<client>/<project>/<room>/`. Add those to
+ImageMeter yourself — its own **add photos** from the gallery — mark them up
+and save. Put the result in whatever ImageMeter folder you like; it does not
+matter.
 
-**You do not have to attach anything.** Come back to the app and the photo is
-already marked *Annotated*, and already on its way to ERPNext.
+Then in the app: **Import from ImageMeter**, on the photo's own screen or in
+the drawer. It reads the marks back and files each against the capture and
+face it belongs to. Nothing to attach, nothing to name.
+
+Re-annotate the same photograph later and the next import picks up the newer
+version — annotations are layers, so nothing is lost and nothing duplicates.
+
+*(The app used to have an "Annotate in ImageMeter" button that pushed a face
+across. It sent a fresh copy on every tap, so one wall accumulated duplicates
+in ImageMeter. It is gone: the traffic goes one way now, and it is an
+import.)*
 
 **How it finds it again.** Every face this app writes carries a small QR in
 its caption strip — the black bar along the bottom — naming the capture and
