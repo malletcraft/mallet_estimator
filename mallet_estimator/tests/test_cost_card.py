@@ -189,3 +189,22 @@ class TestEstimatePreview(MalletTestCase):
         before = frappe.db.count("Estimate SKU")
         api.estimate_preview(self.CSV)
         self.assertEqual(frappe.db.count("Estimate SKU"), before)
+
+    def test_a_zero_assembly_count_is_not_an_override(self):
+        """A model with no ASMBL component sends 0 — that is an absence, not
+        an instruction. Badging it "plugin:ASMBL count" while pricing the line
+        off ERP's own rule puts a contradiction on one screen."""
+        out = api.estimate_preview(self.CSV, assembly_count=0)
+        self.assertIn("erp:", out["assembly_source"])
+        self.assertIn("no ASMBL", out["assembly_source"])
+        # The count shown is the count PRICED, so it agrees with the row.
+        asm = next(l for l in out["labour"] if l["name"] == "Assembly")
+        self.assertEqual(out["assembly_count"], asm["qty"])
+
+    def test_the_headline_count_always_matches_the_assembly_row(self):
+        """Whichever of the three sources answered, the number printed beside
+        the header is the number the Assembly line was costed at."""
+        for kwargs in ({}, {"assembly_count": 0}, {"assembly_count": 5}):
+            out = api.estimate_preview(self.CSV, **kwargs)
+            asm = next(l for l in out["labour"] if l["name"] == "Assembly")
+            self.assertEqual(out["assembly_count"], asm["qty"], msg=str(kwargs))

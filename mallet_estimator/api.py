@@ -660,11 +660,28 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # time assembly can take." A count supplied by the plugin wins; failing
     # that we count ASMBL part names in the CSV itself, so the rule holds even
     # for a caller that does not send one.
+    #
+    # A count of ZERO is not a count — it is a model with no ASMBL components
+    # in it, which is exactly what a first run looks like before anyone has
+    # adopted the naming. Treating it as an override would badge the line
+    # "plugin:ASMBL count" and then, because the override is skipped, price it
+    # off ERP's own rule anyway: the screen would read "0 assemblies (plugin:
+    # ASMBL count)" directly above an Assembly line costed for one. So zero
+    # falls through to the ERP rule and SAYS it did.
     counted = _asmbl_count(rows)
+    sent = None
     if assembly_count not in (None, ""):
-        counted = int(float(assembly_count))
-    assembly_source = "plugin:ASMBL count" if assembly_count not in (None, "") \
-        else ("csv:ASMBL count" if counted else "erp:1 + drawer rails")
+        sent = int(float(assembly_count))
+    if sent:
+        counted = sent
+        assembly_source = "plugin:ASMBL count"
+    elif sent == 0:
+        assembly_source = "erp:1 + drawer rails (no ASMBL component in model)"
+        counted = 0
+    elif counted:
+        assembly_source = "csv:ASMBL count"
+    else:
+        assembly_source = "erp:1 + drawer rails"
     if counted:
         for op in ("Assembly", "Disassembly", "Packing", "Loading", "Transport",
                    "Unloading", "Assembly (on-site)", "Installation"):
@@ -703,7 +720,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         "wastage": card["wastage"],
         "parts": len(rows),
         "panels": part_count,
-        "assembly_count": counted,
+        # What the Assembly line was actually PRICED at, not what was sent.
+        # These differ whenever the fallback ran, and the screen shows this
+        # number beside that line — printing the input there would contradict
+        # the row underneath it.
+        "assembly_count": int(qty.get("Assembly", counted) or 0),
         "assembly_source": assembly_source,
         "materials": material_rows,
         "labour": labour_rows,
