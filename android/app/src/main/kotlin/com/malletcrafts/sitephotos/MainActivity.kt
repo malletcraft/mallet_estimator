@@ -426,15 +426,14 @@ private fun AppScreen() {
                         // and no change on any photograph.
                         val out = runCatching {
                             val c = FrappeClient.load(context)
-                            val q = c?.imagemeterSync()?.optJSONObject("message")
+                            val q = c?.imagemeterSync()
                             if (q?.optBoolean("queued") != true) {
                                 "Not synced: " +
                                     (q?.optString("skipped") ?: "no server configured")
                             } else {
                                 Thread.sleep(6000)
-                                val st = c.imagemeterStatus().optJSONObject("message")
+                                val st = c.imagemeterStatus()
                                 when {
-                                    st == null -> "Queued — no status yet"
                                     !st.optBoolean("configured") ->
                                         "Queued, but no ImageMeter Drive folder is " +
                                         "set on the server — nothing can come back"
@@ -444,9 +443,10 @@ private fun AppScreen() {
                                         "${st.optInt("unmatched")} files came back that " +
                                         "name no capture — the office has to file them"
                                     else ->
-                                        "Ran, nothing new. Annotations reach the " +
-                                        "server through ImageMeter's own Drive sync; " +
-                                        "on this phone the gallery route is faster."
+                                        "Ran, nothing new from Drive — and normally " +
+                                        "there won't be: an annotation is matched on " +
+                                        "this phone, by the stamp in its caption bar, " +
+                                        "and uploaded from here."
                                 }
                             }
                         }
@@ -832,9 +832,8 @@ private fun AppScreen() {
                 withContext(Dispatchers.IO) {
                     val out = HashMap<String, String>()
                     val c = FrappeClient.load(context) ?: return@withContext out
-                    val msg = c.captureDetail(server).optJSONObject("message")
-                        ?: return@withContext out
-                    val arr = msg.optJSONArray("annotations") ?: return@withContext out
+                    val arr = c.captureDetail(server)
+                        .optJSONArray("annotations") ?: return@withContext out
                     for (i in 0 until arr.length()) {
                         val a = arr.optJSONObject(i) ?: continue
                         val face = a.optString("face")

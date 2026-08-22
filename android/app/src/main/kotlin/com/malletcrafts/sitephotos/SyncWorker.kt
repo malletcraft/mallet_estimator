@@ -179,7 +179,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     client.ensureSite(k.client, k.projectTitle,
                         cat.localSiteFor(k.client, k.projectTitle),
                         cat.localJobTypeFor(k.client, k.projectTitle))
-                        .optJSONObject("message")?.optString("project").orEmpty()
+                        .optString("project")
                 }
                 if (projectId.isBlank()) { failures += 1; continue }
                 client.createSku(

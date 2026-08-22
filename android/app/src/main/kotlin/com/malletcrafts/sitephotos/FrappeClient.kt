@@ -48,6 +48,17 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         }
     }
 
+    /**
+     * A whitelisted call, ALREADY UNWRAPPED.
+     *
+     * Frappe wraps every reply as {"message": ...} and this returns the
+     * inside, not the envelope. Said here because forgetting it does not
+     * fail loudly: a second .optJSONObject("message") yields null, every
+     * caller has a graceful path for null, and the feature simply never
+     * works. Five call sites had it, and the cross-device annotation pull
+     * was one of them — it had been returning an empty map since the day it
+     * was written.
+     */
     private fun post(method: String, payload: JSONObject): JSONObject {
         val req = Request.Builder()
             .url("${baseUrl.trimEnd('/')}/api/method/$method")
@@ -96,7 +107,7 @@ class FrappeClient(private val baseUrl: String, private val key: String,
      *  phone measured. Keyed by face name. */
     fun getAnnotations(docname: String): JSONObject =
         post("mallet_estimator.sitephoto.get_annotations", JSONObject()
-            .put("name", docname)).optJSONObject("message") ?: JSONObject()
+            .put("name", docname))
 
     fun appUpdateInfo(): JSONObject =
         post("mallet_estimator.app_update.app_update_info", JSONObject())
