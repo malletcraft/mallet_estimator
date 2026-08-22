@@ -426,8 +426,22 @@ def _op_minutes(op_name, default):
 
 
 @frappe.whitelist()
-def cost_card(codes=None):
-    """Labour and material rates for the plugin, live from this bench."""
+def cost_card(codes=None, create_missing=0):
+    """Labour and material rates for the plugin, live from this bench.
+
+    create_missing=1 CREATES an Item for any OpenCutList code ERP has never
+    seen, instead of reporting it absent. Amit, 2026-08-22: "ADD material TO
+    ERP." That is the right direction — ERP is the master, so a material the
+    model knows about and ERP does not is a gap in ERP, not a reason to quote
+    from the plugin's own figure.
+
+    What it creates carries NO rate. ensure_material_item sets the group, the
+    stock and purchase UOMs and the dimensions; pricing stays a human act on
+    the Estimation (Assumed) price list, exactly as it does for every other
+    material. So a newly created line comes back quotable=false with source
+    erp:unset — visible, named, and waiting for a rate rather than silently
+    carrying one from the wrong place.
+    """
     from mallet_estimator import estimator, inventory
 
     settings = frappe.get_single("Estimate Settings")
@@ -463,8 +477,25 @@ def cost_card(codes=None):
         })
 
     materials = []
+    created = []
+    want_create = str(create_missing) not in ("", "0", "False", "false", "None")
     for code in _split_codes(codes):
         item = _item_for_code(code)
+        if not item and want_create and inventory.is_material_code(code):
+            # Created with no rate: the Item is a fact about what the model
+            # uses, the rate is a decision somebody has to make. Guarded on
+            # is_material_code so a typo in a component name cannot mint an
+            # Item — the grammar is the gate.
+            try:
+                item, _rate, _src = inventory.ensure_material_item(code)
+                created.append(item)
+            except Exception as exc:
+                frappe.log_error(frappe.get_traceback(), f"cost_card create {code}")
+                materials.append({"code": code, "item_code": "", "base_rate": 0.0,
+                                  "gst_pct": 0.0, "landed_rate": 0.0,
+                                  "source": f"could not create: {exc}",
+                                  "quotable": False})
+                continue
         if not item:
             # Named rather than skipped: a material the plugin priced itself
             # and ERP has never heard of is exactly the case a person needs to
@@ -500,6 +531,10 @@ def cost_card(codes=None):
         "workstations": stations,
         "operations": operations,
         "materials": materials,
+        # Items this call MINTED. Named so the plugin can say "3 new materials
+        # went to ERP and need a rate" rather than leaving somebody to wonder
+        # why a line is suddenly not quotable.
+        "created_items": created,
         # The assemblies line, declared rather than hardcoded on the plugin
         # side. Amit, 2026-08-22: "the component which starts with ASMBL is the
         # assembly ... aggregate number of ASMBL components into that line and
@@ -517,6 +552,11 @@ def cost_card(codes=None):
         # labor and no transport installation etc will come over there."
         "excludes": ["transport trip charges", "allowances", "markup",
                      "installation charges beyond the operation minutes"],
+        # Amit, 2026-08-22: "wastage treatment - charge full board." Material
+        # is priced by the BOARDS consumed, not by the area the parts occupy —
+        # the offcut is bought and paid for whether or not it is used. On the
+        # plugin side that is OCL's total_cost, never total_used_cost.
+        "wastage": "full board — price whole boards consumed, not used area",
     }
 
 
