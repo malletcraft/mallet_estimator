@@ -588,3 +588,149 @@ def _item_for_code(code):
         if hit:
             return hit
     return None
+
+
+# ---------------------------------------------------------------------------
+# The on-the-fly estimate — priced entirely by ERP, from the part list the
+# SketchUp model already knows how to produce.
+#
+#   POST /api/method/mallet_estimator.api.estimate_preview
+#        {csv_content, assembly_min?, assembly_count?}
+#
+# WHY THE SERVER AND NOT THE PLUGIN. The plugin could derive its own labour
+# quantities in Ruby, and then there would be two implementations of the same
+# rules drifting apart the moment either changed. Everything needed already
+# lives here: opencutlist.aggregate turns the CSV into material lines and
+# operation drivers, estimate_pdf.operation_quantities turns those into the
+# seventeen quantities, and inventory.landed_rate prices them. The plugin
+# posts the CSV it already builds for import_parts_csv and renders the answer.
+#
+# Amit, 2026-08-22: "so erp cost data is base for estimating in plugin as
+# well" and "sketchup model plugin will give quick printable estimate on the
+# fly". Nothing here is stored, nothing is created, no SKU is touched — it is
+# a quotation-shaped answer to "what would this cost", computed the same way
+# the real estimate computes it.
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
+                     create_missing=0):
+    """Material + labour for one SKU, priced from ERP. Saves nothing."""
+    from mallet_estimator import estimate_pdf, estimator, inventory, opencutlist
+
+    rows = opencutlist.parse_opencutlist_csv(csv_content or "")
+    if not rows:
+        frappe.throw(_("No part rows in that CSV."))
+    agg = opencutlist.aggregate(rows)
+    lines, drivers = agg["lines"], agg["drivers"]
+    part_count = drivers.get("panels", 0)
+
+    card = cost_card(codes=[opencutlist.item_code_for(l) for l in lines],
+                     create_missing=create_missing)
+    rate_by_code = {m["code"]: m for m in card["materials"]}
+
+    # ---- material, at FULL BOARD ------------------------------------------
+    # aggregate() already returns whole sheets, so the offcut is in the number.
+    # Amit: "wastage treatment - charge full board."
+    material_rows, material_total, unpriced = [], 0.0, 0
+    for l in lines:
+        code = opencutlist.item_code_for(l)
+        m = rate_by_code.get(code, {})
+        rate = float(m.get("landed_rate") or 0)
+        amount = rate * float(l["qty"] or 0)
+        if not m.get("quotable"):
+            unpriced += 1
+        material_rows.append({
+            "kind": l["kind"], "code": code, "desc": l["desc"],
+            "qty": l["qty"], "uom": l["uom"],
+            "rate": rate, "amount": round(amount, 2),
+            "source": m.get("source", "not in erp"),
+            "quotable": bool(m.get("quotable")),
+        })
+        material_total += amount
+
+    # ---- labour, all seventeen --------------------------------------------
+    qty = estimate_pdf.operation_quantities(lines, part_count)
+
+    # THE ASSEMBLIES LINE. The default rule is 1 + drawer rails, which is a
+    # guess at how many things get assembled. The MODEL knows: Amit, 2026-08-22,
+    # "the component which starts with ASMBL is the assembly ... aggregate
+    # number of ASMBL components into that line and then let me modify how much
+    # time assembly can take." A count supplied by the plugin wins; failing
+    # that we count ASMBL part names in the CSV itself, so the rule holds even
+    # for a caller that does not send one.
+    counted = _asmbl_count(rows)
+    if assembly_count not in (None, ""):
+        counted = int(float(assembly_count))
+    assembly_source = "plugin:ASMBL count" if assembly_count not in (None, "") \
+        else ("csv:ASMBL count" if counted else "erp:1 + drawer rails")
+    if counted:
+        for op in ("Assembly", "Disassembly", "Packing", "Loading", "Transport",
+                   "Unloading", "Assembly (on-site)", "Installation"):
+            # These all follow the assembly count in operation_quantities; if
+            # the count changes, they change with it or the chain lies.
+            qty[op] = counted
+
+    ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
+    labour_rows, labour_total = [], 0.0
+    for op in card["operations"]:
+        name = op["name"]
+        mins = float(op["min_per_unit"])
+        if name == "Assembly" and assembly_min not in (None, ""):
+            mins = float(assembly_min)
+        q = float(qty.get(name, 0) or 0)
+        hours = (q * mins) / 60.0
+        rate = float(ws_rate.get(op["workstation"], 0))
+        amount = hours * rate
+        labour_rows.append({
+            "seq": op["seq"], "name": name, "workstation": op["workstation"],
+            "qty": q, "min_per_unit": mins, "hours": round(hours, 3),
+            "hour_rate": rate, "amount": round(amount, 2),
+            "min_source": ("plugin:edited" if (name == "Assembly" and
+                                               assembly_min not in (None, ""))
+                           else op["min_source"]),
+            "rate_source": op["rate_source"],
+        })
+        labour_total += amount
+
+    return {
+        "authority": "erp",
+        "site": frappe.local.site,
+        "as_of": str(frappe.utils.now()),
+        "price_list": card["price_list"],
+        "rates_are": card["rates_are"],
+        "wastage": card["wastage"],
+        "parts": len(rows),
+        "panels": part_count,
+        "assembly_count": counted,
+        "assembly_source": assembly_source,
+        "materials": material_rows,
+        "labour": labour_rows,
+        "material_total": round(material_total, 2),
+        "labour_total": round(labour_total, 2),
+        "total": round(material_total + labour_total, 2),
+        # Loud on purpose. A total that quietly omits three unpriced boards is
+        # worse than no total: it looks like an answer.
+        "unpriced_lines": unpriced,
+        "created_items": card.get("created_items", []),
+        "excludes": card["excludes"],
+    }
+
+
+def _asmbl_count(rows):
+    """How many DISTINCT assemblies the model carries.
+
+    Distinct, not total: two copies of one assembly are two units of the same
+    thing and both are counted, but the same component appearing on twenty
+    part rows is still one assembly. Case-insensitive because SketchUp names
+    are typed by people.
+    """
+    seen = set()
+    for r in rows:
+        for key in ("name", "designation", "part", "Name", "Designation"):
+            v = str((r.get(key) if hasattr(r, "get") else "") or "").strip()
+            if v.upper().startswith("ASMBL"):
+                seen.add(v.upper())
+                break
+    return len(seen)

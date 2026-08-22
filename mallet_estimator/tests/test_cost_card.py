@@ -116,3 +116,76 @@ class TestCostCard(MalletTestCase):
         self.assertEqual(len(api.cost_card(codes="A_ONE,A_TWO")["materials"]), 2)
         self.assertEqual(len(api.cost_card(codes='["A_ONE","A_TWO"]')["materials"]), 2)
         self.assertEqual(len(api.cost_card(codes=["A_ONE"])["materials"]), 1)
+
+
+class TestEstimatePreview(MalletTestCase):
+    """The on-the-fly estimate. Priced by ERP end to end, saving nothing."""
+
+    CSV = (
+        "No.;Designation;Material name;Material type;Length;Width;Thickness;"
+        "Area - final;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tag\n"
+        "1;ASMBL_Carcass;SG_PLY_V0_a_a;Sheet Goods;600;400;16;0.24;"
+        "EB_PVC_IN_a (1 mm x 22 mm);;EB_PVC_IN_a (1 mm x 22 mm);;;;shelf\n"
+        "2;ASMBL_Drawer;SG_PLY_V0_a_a;Sheet Goods;800;500;16;0.40;;;;;"
+        "SG_LAM_V0_a_a;;door\n"
+        "3;Hinge;HWD_Hinge;Hardware;;;;;;;;;;;\n"
+    )
+
+    def test_it_prices_material_and_all_seventeen_operations(self):
+        out = api.estimate_preview(self.CSV)
+        self.assertEqual(out["authority"], "erp")
+        self.assertEqual(len(out["labour"]), 17)
+        self.assertTrue(out["materials"], "no material lines")
+        # total is the two halves, not something else
+        self.assertAlmostEqual(
+            out["total"], out["material_total"] + out["labour_total"], places=2)
+
+    def test_every_line_says_where_its_number_came_from(self):
+        out = api.estimate_preview(self.CSV)
+        for m in out["materials"]:
+            self.assertTrue(m["source"], f"{m['code']} has no source")
+        for l in out["labour"]:
+            self.assertIn(l["min_source"], ("erp:Operation", "code default",
+                                            "plugin:edited"))
+
+    def test_unpriced_lines_are_counted_loudly(self):
+        # A total that quietly omits boards ERP cannot price looks like an
+        # answer and is not one.
+        out = api.estimate_preview(self.CSV)
+        self.assertIn("unpriced_lines", out)
+        self.assertEqual(
+            out["unpriced_lines"],
+            sum(1 for m in out["materials"] if not m["quotable"]))
+
+    def test_the_assembly_count_comes_from_the_model_when_given(self):
+        # Amit, 2026-08-22: "aggregate number of ASMBL components into that
+        # line and then let me modify how much time assembly can take."
+        out = api.estimate_preview(self.CSV, assembly_count=7)
+        self.assertEqual(out["assembly_count"], 7)
+        self.assertEqual(out["assembly_source"], "plugin:ASMBL count")
+        asm = next(l for l in out["labour"] if l["name"] == "Assembly")
+        self.assertEqual(asm["qty"], 7)
+        # …and the chain that follows assemblies follows it too, or the
+        # downstream lines quietly contradict the one above them.
+        for name in ("Disassembly", "Packing", "Installation"):
+            self.assertEqual(
+                next(l for l in out["labour"] if l["name"] == name)["qty"], 7)
+
+    def test_the_assembly_minutes_are_editable_and_say_so(self):
+        base = api.estimate_preview(self.CSV, assembly_count=2)
+        edited = api.estimate_preview(self.CSV, assembly_count=2, assembly_min=99)
+        a0 = next(l for l in base["labour"] if l["name"] == "Assembly")
+        a1 = next(l for l in edited["labour"] if l["name"] == "Assembly")
+        self.assertEqual(a1["min_per_unit"], 99)
+        self.assertEqual(a1["min_source"], "plugin:edited")
+        self.assertNotEqual(a0["min_per_unit"], a1["min_per_unit"])
+
+    def test_an_empty_csv_is_refused_rather_than_priced_at_zero(self):
+        with self.assertRaises(frappe.ValidationError):
+            api.estimate_preview("")
+
+    def test_it_saves_nothing(self):
+        before = frappe.db.count("Estimate SKU")
+        api.estimate_preview(self.CSV)
+        self.assertEqual(frappe.db.count("Estimate SKU"), before)
