@@ -121,15 +121,19 @@ class TestCostCard(MalletTestCase):
 class TestEstimatePreview(MalletTestCase):
     """The on-the-fly estimate. Priced by ERP end to end, saving nothing."""
 
+    # The EXACT header set the plugin sends (McftPushWorker::CSV_HEADERS) —
+    # part-list columns, a Quantity column, and NO "Area - final". The first
+    # version of these tests invented a CSV with an area column, which no
+    # caller produces, and so tested a code path the plugin never reaches.
     CSV = (
-        "No.;Designation;Material name;Material type;Length;Width;Thickness;"
-        "Area - final;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
-        "Frontside;Backside;Tag\n"
-        "1;ASMBL_Carcass;SG_PLY_V0_a_a;Sheet Goods;600;400;16;0.24;"
-        "EB_PVC_IN_a (1 mm x 22 mm);;EB_PVC_IN_a (1 mm x 22 mm);;;;shelf\n"
-        "2;ASMBL_Drawer;SG_PLY_V0_a_a;Sheet Goods;800;500;16;0.40;;;;;"
-        "SG_LAM_V0_a_a;;door\n"
-        "3;Hinge;HWD_Hinge;Hardware;;;;;;;;;;;\n"
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;ASMBL_Carcass;2;2100;600;16;Sheet Goods;SG_PLY_V0_a_a;"
+        "EB_PVC_IN_a (1 mm x 22 mm);;;;;;carcass_vert\n"
+        "2;ASMBL_Drawer;3;1140;580;16;Sheet Goods;SG_PLY_V0_a_a;"
+        "EB_PVC_IN_a (1 mm x 22 mm);;;;SG_LAM_V0_a_a;;drawer_side\n"
+        "3;HWD_AH_SC_0;4;;;;Hardware;HWD_Hinge;;;;;;;\n"
     )
 
     def test_it_prices_material_and_all_seventeen_operations(self):
@@ -215,12 +219,12 @@ class TestEstimatePreview(MalletTestCase):
     # from the wrong source entirely. Stripping ASMBL is what leaves _hw as
     # the only thing that can answer.
     CSV_HARDWARE = (
-        "No.;Designation;Material name;Material type;Length;Width;Thickness;"
-        "Area - final;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
-        "Frontside;Backside;Tag\n"
-        "1;Side;SG_PLY_V0_a_a;Sheet Goods;600;400;16;0.24;;;;;;;\n"
-        "2;Hinge;HWD_Hinge;Hardware;;;;;;;;;;;\n"
-        "3;Rail;HWD_Rail;Hardware;;;;;;;;;;;\n"
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;Side;1;600;400;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+        "2;HWD_AH_SC_0;1;;;;Hardware;HWD_Hinge;;;;;;;\n"
+        "3;HWD_DR_TANDEM;1;;;;Hardware;HWD_Rail;;;;;;;\n"
     )
 
     def test_hardware_is_recognised_through_the_shape_adapter(self):
@@ -246,3 +250,49 @@ class TestEstimatePreview(MalletTestCase):
         for name in ("Sheet Cutting", "Sheet Lamination", "Sheet Tape Removal"):
             row = next(l for l in out["labour"] if l["name"] == name)
             self.assertGreater(row["qty"], 0, "%s saw no sheets" % name)
+
+    def test_boards_are_nested_not_divided_by_area(self):
+        """THE bug this endpoint shipped with, 2026-08-22.
+
+        opencutlist.aggregate() derives sheets from an "Area - final" column.
+        The plugin's part-list CSV does not have one, so every sheet measured
+        0 m², every board count came out 0, and the screen showed material
+        lines priced at nothing beside OpenCutList's own table saying 2 + 2
+        boards. Nothing raised — a zero quantity is a perfectly valid number.
+
+        So this asserts on the one thing the area path could never produce:
+        a board count above zero from a CSV that carries no area at all."""
+        out = api.estimate_preview(self.CSV)
+        sheets = [m for m in out["materials"] if m["kind"] == "sheet"]
+        self.assertTrue(sheets, "no sheet lines at all")
+        for m in sheets:
+            self.assertGreater(m["qty"], 0, "%s nested to zero boards" % m["code"])
+
+    def test_a_row_stands_for_its_quantity_not_for_one_piece(self):
+        """The same failure's quieter half. OpenCutList groups identical parts
+        onto ONE row with the count in `Quantity`; aggregate() incremented by
+        one per row, so 24 MiniFix on a single row priced as one. That is not
+        a visibly broken number the way a zero is — it is just a cheap
+        estimate, which is worse."""
+        out = api.estimate_preview(self.CSV)
+        hw = [m for m in out["materials"] if m["kind"] == "hardware"]
+        self.assertTrue(hw, "no hardware lines")
+        # The CSV says Quantity 4 on the hinge row.
+        self.assertEqual(sum(m["qty"] for m in hw), 4)
+
+    def test_edge_banding_is_priced_by_the_roll_it_is_bought_in(self):
+        """Edge banding is stocked in metres and bought in whole rolls. The
+        line quantity is rolls, so the rate must be scaled by the roll length
+        or the amount lands 50x under."""
+        from mallet_estimator import inventory
+        out = api.estimate_preview(self.CSV)
+        edge = [m for m in out["materials"] if m["kind"] == "edge"]
+        self.assertTrue(edge, "the CSV bands three edges — no edge line appeared")
+        for m in edge:
+            self.assertEqual(m["uom"], "Roll")
+            if m["quotable"]:
+                self.assertAlmostEqual(
+                    m["amount"], m["rate"] * m["qty"], places=2)
+                # rate is per ROLL, i.e. metre-rate x roll length
+                self.assertGreater(m["rate"], 0)
+        self.assertGreater(inventory.EDGE_ROLL_METERS, 1)

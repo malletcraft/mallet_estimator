@@ -617,27 +617,93 @@ def _item_for_code(code):
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
-    from mallet_estimator import estimate_pdf, estimator, inventory, opencutlist
+    from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
+                                  nesting, opencutlist)
 
     rows = opencutlist.parse_opencutlist_csv(csv_content or "")
     if not rows:
         frappe.throw(_("No part rows in that CSV."))
-    agg = opencutlist.aggregate(rows)
-    lines, drivers = agg["lines"], agg["drivers"]
-    part_count = drivers.get("panels", 0)
+
+    # THE NESTING ENGINE, not the area one. The first version of this called
+    # opencutlist.aggregate(), which divides "Area - final" by the sheet area
+    # — and the plugin's part-list CSV has no such column, so every sheet
+    # measured 0 m², every board count came out 0, and the screen showed four
+    # material lines priced at nothing while OpenCutList's own table beside it
+    # said 2 + 2 boards. Only hardware looked right, because hardware is
+    # COUNTED rather than measured.
+    #
+    # aggregate() is for the OCL estimate PDF export. The part-list CSV is
+    # nest_import's input, and nest_import is what the real CSV-Nest import
+    # runs — the path whose material numbers Amit already trusts. Same
+    # functions here, same answers, nothing saved.
+    ply, lam, edges, hw, banded_edges, faces = nest_import.collect(rows)
+    if not ply:
+        frappe.throw(_("No sheet-good parts found in the CSV."))
+
+    SQFT_MM2 = 92903.04
+    sheet_sqft = nesting.SHEET_L * nesting.SHEET_W / SQFT_MM2
+    lines, panel_sheets = [], {}
+
+    # Sheets: really packed, so the count is the count the shop will buy.
+    # Wastage is inside it by construction — whole boards in, parts out —
+    # which is the rule Amit set: "wastage treatment - charge full board."
+    for (code, th), parts in sorted(ply.items()):
+        r = nesting.pack_sheets(parts, kerf=nest_import.KERF_MM,
+                                trim=nest_import.TRIM_MM, allow_rotate=False)
+        panel_sheets[(code, th)] = r["sheets"]
+        used_sqft = sum(l * w for (l, w) in parts) / SQFT_MM2
+        waste_sqft = max(0.0, r["sheets"] * sheet_sqft - used_sqft)
+        lines.append({
+            "kind": "sheet", "material": code, "thickness": th,
+            "qty": r["sheets"], "uom": "Nos", "rate_factor": 1,
+            "desc": "%s — %d parts → %d sheet(s) (%.0f%% used, waste %.1f sqft)"
+                    % (code, len(parts), r["sheets"], r["utilization"] * 100, waste_sqft),
+        })
+
+    # Laminate follows the BOARD, not its own nest: it is pressed onto the
+    # whole panel before the saw runs, so it is one sheet per laminated face.
+    for code, sheets in sorted(nesting.laminate_from_panels(panel_sheets, faces).items()):
+        if not sheets:
+            continue
+        lines.append({
+            "kind": "laminate", "material": code, "thickness": 0,
+            "qty": sheets, "uom": "Nos", "rate_factor": 1,
+            "desc": "%s — %d sheet(s), one per board face" % (code, sheets),
+        })
+
+    # Edge banding is stocked in metres and BOUGHT in whole rolls, so the rate
+    # has to be multiplied by the roll length or the line is out by 50x.
+    for code, meters in sorted(edges.items()):
+        rolls = nesting.edge_rolls(meters)
+        lines.append({
+            "kind": "edge", "material": code, "thickness": 0,
+            "qty": rolls, "uom": "Roll", "rate_factor": inventory.EDGE_ROLL_METERS,
+            "desc": "%s — %.2f m banding → %d roll(s) of %g m"
+                    % (code, meters, rolls, inventory.EDGE_ROLL_METERS),
+        })
+
+    for h in hw:
+        lines.append({
+            "kind": "hardware", "material": h["code"], "thickness": 0,
+            "qty": h["qty"], "uom": "Nos", "rate_factor": 1,
+            "category": h.get("category"),
+            "desc": "%s — %d nos" % (h["code"], h["qty"]),
+        })
+
+    # Edge Banding's operation qty is the banded-EDGE count, which is what
+    # nest_import passes as part_count. Matching it keeps the two paths from
+    # quoting different labour for the same model.
+    part_count = banded_edges
 
     card = cost_card(codes=[opencutlist.item_code_for(l) for l in lines],
                      create_missing=create_missing)
     rate_by_code = {m["code"]: m for m in card["materials"]}
 
-    # ---- material, at FULL BOARD ------------------------------------------
-    # aggregate() already returns whole sheets, so the offcut is in the number.
-    # Amit: "wastage treatment - charge full board."
     material_rows, material_total, unpriced = [], 0.0, 0
     for l in lines:
         code = opencutlist.item_code_for(l)
         m = rate_by_code.get(code, {})
-        rate = float(m.get("landed_rate") or 0)
+        rate = float(m.get("landed_rate") or 0) * (l.get("rate_factor") or 1)
         amount = rate * float(l["qty"] or 0)
         if not m.get("quotable"):
             unpriced += 1
@@ -662,7 +728,13 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # against it ("hinge", "rail", "minifix"), and "Assembly" is 1 + rails. The
     # OCL code carries that word — HWD_Rail lowercases to "hwd_rail" — which is
     # the same thing nest_import relies on when it passes a category or a code.
-    shaped = [{"name": l["material"], "kind": l["kind"],
+    # Hardware carries its CATEGORY here, exactly as nest_import's mats_shape
+    # does: _hw matches substrings ("hinge", "rail", "minifix") and a real
+    # designation like HWD_AH_SC_0 contains none of them, so pricing the
+    # labour off the raw code would silently count zero hinges.
+    shaped = [{"name": (l.get("category") or l["material"]) if l["kind"] == "hardware"
+                       else l["material"],
+               "kind": l["kind"],
                "thickness": l.get("thickness") or 0, "qty": l["qty"]}
               for l in lines]
     qty = estimate_pdf.operation_quantities(shaped, part_count)
