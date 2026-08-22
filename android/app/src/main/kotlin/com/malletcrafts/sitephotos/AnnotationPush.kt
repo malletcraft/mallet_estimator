@@ -80,6 +80,33 @@ object AnnotationPush {
         return filed
     }
 
+    /**
+     * One face, chosen by a person, sent now.
+     *
+     * Not routed through push(): that one is keyed on "already sent this
+     * exact image", which is right for a scan that runs on every resume and
+     * wrong here. Picking a file is a deliberate act, and doing it again
+     * means "no, THIS one" — so it always goes.
+     */
+    fun pushOne(context: Context, docname: String, captureId: String,
+                face: String, uri: Uri): Boolean {
+        val client = FrappeClient.load(context) ?: return false
+        val tmp = File(context.cacheDir, "annpush/${captureId}_$face.jpg")
+        return try {
+            tmp.parentFile?.mkdirs()
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                tmp.outputStream().use { out -> input.copyTo(out) }
+            } ?: error("could not read the picked image")
+            client.uploadAnnotation(docname, face, tmp,
+                "Annotated in ImageMeter; attached by hand from the phone")
+            sent(context).edit()
+                .putBoolean(key(captureId, face, uri), true).apply()
+            true
+        } finally {
+            tmp.delete()
+        }
+    }
+
     fun forget(context: Context) {
         sent(context).edit().clear().apply()
     }

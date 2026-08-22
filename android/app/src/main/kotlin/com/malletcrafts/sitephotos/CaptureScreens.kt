@@ -303,6 +303,22 @@ fun CaptureScreen(
         // project was at when the shutter fired, and the SKU is usually not
         // set at all. Both are one tap from here, because a tag that can only
         // be fixed at a desk is a tag nobody fixes.
+        // THE SKU COMES FIRST on a flat photo. Amit, 2026-08-22: "Sku is
+        // function of a single foto. We must be able to clearly show on foto
+        // screen what sku or service goes on that foto." A photograph of a
+        // wall exists to say what work that wall needs; the stage is when,
+        // which matters less than what. Below the picture it was something to
+        // scroll past.
+        if (capture.kind == "Photo") {
+            DetailRow(
+                lead = capture.sku.substringAfterLast('_').ifBlank { "SKU" },
+                title = capture.sku.ifBlank { "Not tagged to a SKU" },
+                subtitle = if (capture.sku.isNotBlank())
+                               "the work expected on this wall · tap to change"
+                           else "tap to say what work is expected here",
+                dim = capture.sku.isBlank(),
+                onClick = onPickSku)
+        }
         DetailRow(
             lead = "STG",
             title = capture.workStage.ifBlank {
@@ -320,17 +336,6 @@ fun CaptureScreen(
         // ceiling, which is what a flat photo is and what each of the six
         // faces is. Per-face tagging is the next batch; until it exists,
         // offering a capture-level SKU on a 360 would teach the wrong model.
-        if (capture.kind == "Photo") {
-            DetailRow(
-                lead = capture.sku.substringAfterLast('_').ifBlank { "—" },
-                title = capture.sku.ifBlank { "Not tagged to a SKU" },
-                subtitle = if (capture.sku.isNotBlank())
-                               "what is expected on this wall"
-                           else "optional — what work is expected here",
-                dim = capture.sku.isBlank(),
-                onClick = onPickSku)
-        }
-
         if (capture.kind == "Photo") {
             // Tapping opens the SAME viewer a face opens — which is where
             // Original/Annotated and "Annotate in ImageMeter" live. A photo
@@ -490,6 +495,7 @@ fun FaceViewer(
     showAnnotated: Boolean,
     onToggle: (Boolean) -> Unit,
     onEditInImageMeter: () -> Unit,
+    onAttachAnnotated: (() -> Unit)? = null,
     faces: List<LocalFaces.Face>,
     current: Int,
     onPickFace: (Int) -> Unit,
@@ -531,6 +537,28 @@ fun FaceViewer(
                     modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(if (hasAnnotated) "Edit in ImageMeter" else "Annotate in ImageMeter")
+            }
+            // THE ROUTE THAT CANNOT FAIL.
+            //
+            // The automatic one reads the app's stamp back out of the gallery
+            // and is right when it works — but it depends on ImageMeter
+            // publishing a copy somewhere MediaStore can see, and on that
+            // copy still carrying a readable mark. When either is untrue the
+            // app can only say "found nothing", which from where a person is
+            // standing is indistinguishable from broken.
+            //
+            // Here there is no identification to get wrong: this screen IS
+            // one face of one capture, so a file picked here belongs to it by
+            // construction. Amit, 2026-08-22: "Why its so hard to match ids
+            // of foto when its clearly printed on fotos." It should not be —
+            // and when the automatic route cannot reach the file, one tap
+            // beats another round of diagnosis.
+            if (onAttachAnnotated != null) {
+                TextButton(onClick = onAttachAnnotated,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (hasAnnotated) "Replace with a picked file"
+                         else "Pick the annotated copy myself")
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 faces.forEachIndexed { i, f ->

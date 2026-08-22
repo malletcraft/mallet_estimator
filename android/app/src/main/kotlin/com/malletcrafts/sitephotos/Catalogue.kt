@@ -110,7 +110,10 @@ class Catalogue(context: Context) {
         val wantsQuantity: Boolean get() = basis != BASIS_LUMPSUM
     }
 
-    data class Sku(val name: String, val code: String, val room: String, val article: String)
+    data class Sku(val name: String, val code: String, val room: String,
+                   val article: String,
+                   /** Recorded on site and not yet in ERP. */
+                   val local: Boolean = false)
 
     // ---- what was typed on site, before ERP knew about it ---------------
 
@@ -523,20 +526,47 @@ class Catalogue(context: Context) {
 
     /** The SKUs a capture on this project may be tagged to. They ride
      *  bootstrap so a technician in a basement can still tag a photo. */
-    fun skusOf(masters: JSONObject?, projectServerId: String): List<Sku> {
-        if (projectServerId.isBlank()) return emptyList()
-        val arr = masters?.optJSONArray("projects") ?: return emptyList()
-        for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i) ?: continue
-            if (o.optString("project") != projectServerId) continue
-            val skus = o.optJSONArray("skus") ?: return emptyList()
-            return (0 until skus.length()).mapNotNull { j ->
-                val s = skus.optJSONObject(j) ?: return@mapNotNull null
-                Sku(s.optString("name"), s.optString("code"),
-                    s.optString("room"), s.optString("article"))
+    /**
+     * Every SKU on a project — ERP's AND the ones recorded here.
+     *
+     * The local half was missing entirely, which read on the phone as "adding
+     * a SKU does not refresh". It was worse than that: a SKU typed on site
+     * did not appear in this list at all until it had synced AND the masters
+     * had been fetched again, so the work somebody had just recorded looked
+     * like it had not been taken. Amit, 2026-08-22: "Adding a sku is also not
+     * quick refresh."
+     *
+     * Takes the whole Project rather than its server id, because a project
+     * that has not synced HAS no server id — and that is exactly the case
+     * where every SKU on it is local.
+     */
+    fun skusOf(masters: JSONObject?, project: Project?): List<Sku> {
+        if (project == null) return emptyList()
+        val erp = mutableListOf<Sku>()
+        val arr = masters?.optJSONArray("projects")
+        if (arr != null && project.serverId.isNotBlank()) {
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optString("project") != project.serverId) continue
+                val skus = o.optJSONArray("skus") ?: break
+                for (j in 0 until skus.length()) {
+                    val s = skus.optJSONObject(j) ?: continue
+                    erp.add(Sku(s.optString("name"), s.optString("code"),
+                        s.optString("room"), s.optString("article")))
+                }
+                break
             }
         }
-        return emptyList()
+        // A local row loses to an ERP one for the same article in the same
+        // room: once the bench has it, the bench's code is the real one.
+        val taken = erp.map { key(it.room) + "\u0000" + key(it.article) }.toSet()
+        val locals = localSkusOf(project.title).filterNot {
+            key(it.room) + "\u0000" + key(it.articleName) in taken
+        }.map {
+            Sku(name = "", code = previewCode(project.client, it.room, it.articleCode),
+                room = it.room, article = it.articleName, local = true)
+        }
+        return erp + locals
     }
 
     fun jobTypes(masters: JSONObject?): List<String> {

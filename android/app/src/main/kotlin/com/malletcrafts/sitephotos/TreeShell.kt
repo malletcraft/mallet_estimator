@@ -255,8 +255,9 @@ fun SkuSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         SheetTitle(if (skus.isEmpty()) "No SKUs yet" else "${skus.size} SKUs on this project")
         if (skus.isEmpty()) {
-            Text("The office adds these from the estimate. They arrive on the " +
-                 "next sync.",
+            Text("Nothing recorded yet. Add what the site says is needed — it " +
+                 "works with no signal, and the office's own SKUs arrive on " +
+                 "the next sync.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -267,7 +268,16 @@ fun SkuSheet(
                 supportingContent = {
                     Text(listOf(s.article, s.room).filter { it.isNotBlank() }
                         .joinToString(" · "))
-                })
+                },
+                // A SKU recorded here says so until the bench has it. The
+                // code shown for a local one is a PREVIEW — the bench appends
+                // a suffix when the room already holds another of the same
+                // article — so claiming it as final would be a small lie that
+                // surfaces later as a mismatch.
+                // Always supplied, empty when it does not apply: a nullable
+                // composable lambda in an if-expression is a type-inference
+                // trap for no gain.
+                trailingContent = { if (s.local) Pill("offline") })
         }
         // The office usually adds these, but a technician standing in a
         // bathroom that turns out to need two doors should not have to phone
@@ -606,6 +616,7 @@ fun AddSkuSheet(
     onDismiss: () -> Unit,
 ) {
     var picked by remember { mutableStateOf<Catalogue.Article?>(null) }
+    var find by remember { mutableStateOf("") }
     var qty by remember { mutableStateOf("") }
     var w by remember { mutableStateOf("") }
     var h by remember { mutableStateOf("") }
@@ -616,9 +627,43 @@ fun AddSkuSheet(
         val art = picked
         if (art == null) {
             SheetTitle("What work is needed in ${RoomToken.label(room)}?")
+            // Forty-one articles across three kinds, and growing every time a
+            // new trade is subcontracted. Amit, 2026-08-22: "Add sku screen
+            // needs search, we are offering lot of sku services." Scrolling a
+            // list to find "Electrical points" is not a way to work on site.
+            //
+            // Matches the CODE as well as the name, because the codes are how
+            // they are spoken in the shop — somebody looking for POP types
+            // "pop", not "gypsum ceiling".
+            OutlinedTextField(
+                value = find,
+                onValueChange = { find = it },
+                singleLine = true,
+                label = { Text("Search work") },
+                placeholder = { Text("wardrobe, POP, electrical…") },
+                trailingIcon = {
+                    if (find.isNotEmpty()) {
+                        TextButton(onClick = { find = "" }) { Text("Clear") }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            )
+            val q = find.trim()
+            val hits = if (q.isBlank()) articles else articles.filter {
+                it.name.contains(q, true) || it.code.contains(q, true) ||
+                    it.basis.contains(q, true) || it.kind.contains(q, true)
+            }
             Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                if (hits.isEmpty()) {
+                    Text("Nothing matches \"$q\". The list is the article " +
+                         "master — if the work is genuinely new, the office " +
+                         "has to add it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(24.dp))
+                }
                 Catalogue.KIND_ORDER.forEach { kind ->
-                    val rows = articles.filter { it.kind == kind }
+                    val rows = hits.filter { it.kind == kind }
                     if (rows.isEmpty()) return@forEach
                     Text(kindHeading(kind),
                         style = MaterialTheme.typography.labelSmall,

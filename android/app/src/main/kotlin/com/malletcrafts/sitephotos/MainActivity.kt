@@ -115,6 +115,10 @@ private fun AppScreen() {
     // Bumped by every local create/rename/delete. The catalogue's locals live
     // in preferences, which Compose has no way to observe.
     var dataTick by remember { mutableStateOf(0) }
+    // Bumped when a person hand-picks an annotated copy. The capture screen's
+    // annotation lookup keys on it, so the toggle lights up the moment the
+    // picker returns rather than on the next resume.
+    var attachTick by remember { mutableStateOf(0) }
     // Capture and face sit BELOW the room, and are plain state rather than
     // crumb levels: six crumbs will not fit a phone, and a photo you are
     // looking at is a view, not a folder.
@@ -336,6 +340,42 @@ private fun AppScreen() {
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> if (uri != null) ingest(uri, kind = "Photo") }
+
+    // Which capture+face a hand-picked annotated copy belongs to. Set the
+    // moment the picker is launched from the viewer, so the callback knows
+    // where the answer goes without threading state through the picker.
+    var attachTo by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val annotatedPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        val target = attachTo
+        attachTo = null
+        if (uri != null && target != null) {
+            val (devId, faceName) = target
+            busy = "Attaching the annotated copy…"
+            scope.launch(Dispatchers.IO) {
+                val res = runCatching {
+                    // Remembered locally FIRST, so the toggle lights up even
+                    // with no signal — the picture is on this phone and the
+                    // person can see it is attached.
+                    PickedAnnotations.put(context, devId, faceName, uri)
+                    val server = queue.firstOrNull { it.deviceId == devId }?.serverName
+                    if (!server.isNullOrBlank()) {
+                        AnnotationPush.pushOne(context, server, devId, faceName, uri)
+                    } else null
+                }
+                withContext(Dispatchers.Main) {
+                    busy = null
+                    attachTick += 1
+                    res.onSuccess { sent ->
+                        lastResult = if (sent == true)
+                            "Attached and sent to the server."
+                        else "Attached. It goes up with the next sync."
+                    }.onFailure { lastResult = "Could not attach: ${it.message}" }
+                }
+            }
+        }
+    }
 
     var shotUri by remember { mutableStateOf<Uri?>(null) }
     val camera = rememberLauncherForActivityResult(
@@ -800,7 +840,8 @@ private fun AppScreen() {
                 })
         }
         if (showSkus && proj != null) {
-            SkuSheet(skus = cat.skusOf(masters, proj.serverId),
+            SkuSheet(skus = remember(masters, dataTick, proj) {
+                        cat.skusOf(masters, proj) },
                 onAdd = {
                     showSkus = false
                     // From the project level there is no room in hand yet, so
@@ -869,7 +910,7 @@ private fun AppScreen() {
                                     it.projectTitle.equals(proj.title, true)
                                 }?.panoPath
                             },
-                            skuCount = cat.skusOf(masters, proj.serverId).size,
+                            skuCount = cat.skusOf(masters, proj).size,
                             onOpen = { navRoom = it },
                             onStage = { showStagePicker = true },
                             onSkus = { showSkus = true },
@@ -955,7 +996,7 @@ private fun AppScreen() {
             lifecycleOwner.lifecycle.addObserver(obs)
             onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
         }
-        LaunchedEffect(cap.deviceId, prefsTick, annTick) {
+        LaunchedEffect(cap.deviceId, prefsTick, annTick, attachTick) {
             runCatching {
                 withContext(Dispatchers.IO) {
                     // The gallery, and only the gallery. ImageMeter's data
@@ -981,6 +1022,9 @@ private fun AppScreen() {
                     byName + StampScan.annotatedFor(context, cap.deviceId)
                 }
             }.onSuccess { annotatedLocal = it }
+        }
+        val picked = remember(cap.deviceId, attachTick) {
+            PickedAnnotations.of(context, cap.deviceId)
         }
         // …and straight home. The office should not have to be told a wall
         // was marked up; the phone knows which face it is, which is exactly
@@ -1032,13 +1076,18 @@ private fun AppScreen() {
             val f = faces[faceIdx]
             FaceViewer(
                 title = f.name.replaceFirstChar { it.uppercase() },
-                subtitle = "${cap.deviceId} · ${cap.date}" +
+                subtitle = (if (cap.sku.isNotBlank()) "${cap.sku} · " else "") +
+                    "${cap.deviceId} · ${cap.date}" +
                     (if (cap.stage.isNotBlank()) " · ${cap.stage}" else ""),
                 source = ThumbSource.Content(f.uri),
                 // The local copy wins. It is the same annotation, it is
                 // already here, and it is newer than anything the round trip
                 // could have brought back.
-                annotatedSource = annotatedLocal[f.name]?.let { ThumbSource.Content(it) }
+                // Order of trust: what a PERSON pointed at, then what the
+                // stamp scan found here, then what the server sent back. A
+                // deliberate choice must never lose to a guess.
+                annotatedSource = picked[f.name]?.let { ThumbSource.Content(it) }
+                    ?: annotatedLocal[f.name]?.let { ThumbSource.Content(it) }
                     ?: annotated[f.name]?.let { ThumbSource.LocalFile(it) },
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
@@ -1052,6 +1101,11 @@ private fun AppScreen() {
                                 .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
                             "Annotate with"))
                     }.onFailure { lastResult = "No app to open the face: ${it.message}" }
+                },
+                onAttachAnnotated = {
+                    attachTo = cap.deviceId to f.name
+                    annotatedPicker.launch(PickVisualMediaRequest(
+                        ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
                 faces = faces,
                 current = faceIdx,
@@ -1125,7 +1179,7 @@ private fun AppScreen() {
             // tag is changed.
             val shownSku = newSku?.let { n ->
                 if (n.isBlank()) "" else
-                    cat.skusOf(masters, navProject?.serverId.orEmpty())
+                    cat.skusOf(masters, navProject)
                         .firstOrNull { it.name == n }?.code ?: n
             }
             navCapture = cap.copy(
@@ -1156,7 +1210,7 @@ private fun AppScreen() {
         }
         if (retagSku) {
             CaptureSkuSheet(
-                skus = cat.skusOf(masters, navProject?.serverId.orEmpty()),
+                skus = cat.skusOf(masters, navProject),
                 room = navRoom.orEmpty(),
                 current = cap.sku,
                 onAdd = { retagSku = false; addSkuFor = navRoom.orEmpty() },
@@ -1183,7 +1237,7 @@ private fun AppScreen() {
     val cam = CameraCapability.port
     var camConnected by remember { mutableStateOf(cam?.connected == true) }
     var camNote by remember { mutableStateOf<String?>(null) }
-    val projSkus = cat.skusOf(masters, navProject?.serverId.orEmpty())
+    val projSkus = cat.skusOf(masters, navProject)
     val roomCaptures = queue.filter {
         it.room == roomName &&
             it.projectTitle.equals(navProject?.title ?: "", true)
@@ -1748,7 +1802,7 @@ private fun searchTree(
             out.add(SearchHit("PRJ", p.title, "${p.client} / ${p.site} · ${p.jobType}",
                 p.client, p.site, p.key, ""))
         }
-        cat.skusOf(masters, p.serverId).forEach { sku ->
+        cat.skusOf(masters, p).forEach { sku ->
             if (sku.code.lowercase().contains(q) || sku.article.lowercase().contains(q)) {
                 out.add(SearchHit(sku.article.take(3).uppercase().ifBlank { "SKU" },
                     sku.code, "${sku.article} · ${p.title}",
