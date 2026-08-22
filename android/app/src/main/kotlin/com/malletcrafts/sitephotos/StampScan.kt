@@ -63,11 +63,24 @@ object StampScan {
      * candidate — ours live under Pictures/MCFT Site Photos, and the original
      * is not an annotation of itself.
      */
-    fun allMarks(context: Context, notBefore: Long = 0L): Map<String, Map<String, Uri>> {
+    /**
+     * What one pass saw. Counts, not just answers — a scan that reports only
+     * its findings cannot tell "looked at 240 pictures, none carried a mark"
+     * apart from "never looked", and those need completely different advice.
+     */
+    data class Scan(val looked: Int, val stamped: Int,
+                    val marks: Map<String, Map<String, Uri>>)
+
+    fun allMarks(context: Context, notBefore: Long = 0L): Map<String, Map<String, Uri>> =
+        scan(context, notBefore).marks
+
+    fun scan(context: Context, notBefore: Long = 0L): Scan {
         val out = HashMap<String, HashMap<String, Uri>>()
         val seen = cache(context)
         val edit = seen.edit()
         var decoded = 0
+        var looked = 0
+        var stamped = 0
         runCatching {
             context.contentResolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -82,14 +95,14 @@ object StampScan {
                 // The window is enforced by counting rows instead.
                 "${MediaStore.Images.Media.DATE_ADDED} DESC",
             )?.use { c ->
-                var looked = 0
                 while (c.moveToNext()) {
-                    if (looked++ >= WINDOW) break
+                    if (looked >= WINDOW) break
                     val id = c.getLong(0)
                     val path = c.getString(1) ?: ""
                     // Ours by definition, and never an annotation of itself.
                     if (path.contains(OUR_FOLDER, ignoreCase = true)) continue
                     if (notBefore > 0 && c.getLong(2) < notBefore) continue
+                    looked += 1
 
                     val key = "m$id"
                     val known = seen.getString(key, null)
@@ -107,6 +120,7 @@ object StampScan {
                         Stamp.parse(text)
                     }
                     if (mark == null) continue
+                    stamped += 1
                     // Newest first, so the first answer for a face is the
                     // latest drawing of it and later rows must not overwrite.
                     val faces = out.getOrPut(mark.captureId) { HashMap() }
@@ -118,7 +132,7 @@ object StampScan {
             }
         }
         if (decoded > 0) edit.apply()
-        return out
+        return Scan(looked, stamped, out)
     }
 
     /** Every annotated face of ONE capture. Face → uri. */
@@ -146,8 +160,19 @@ object StampScan {
      * foot of a photograph of a wall. The magic string in the payload is what
      * makes it certain; this just makes it quick.
      */
-    private fun readStamp(context: Context, uri: Uri): String? {
-        val bmp = stripOf(context, uri) ?: return null
+    private fun readStamp(context: Context, uri: Uri): String? =
+        decode(stripOf(context, uri))
+            // The strip crop is an optimisation, not the contract. It assumes
+            // the caption bar is still at the bottom of the raw pixels, and an
+            // exporter is free to break that — rotate via EXIF (which region
+            // decoding ignores), crop, letterbox, pad. When the cheap read
+            // misses, look at the whole picture before believing there is
+            // nothing there. It costs a second decode only on images that have
+            // already failed, and the answer is cached either way.
+            ?: decode(wholeOf(context, uri))
+
+    private fun decode(bmp: Bitmap?): String? {
+        if (bmp == null) return null
         return try {
             val w = bmp.width
             val h = bmp.height
@@ -168,6 +193,24 @@ object StampScan {
             bmp.recycle()
         }
     }
+
+    /** The whole image, downsampled — the fallback when the strip misses. */
+    private fun wholeOf(context: Context, uri: Uri): Bitmap? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        context.contentResolver.openInputStream(uri).use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        val w = bounds.outWidth
+        if (w <= 0) return null
+        var sample = 1
+        // Wider than the strip pass: a QR that is a small part of a whole
+        // frame needs more pixels per module to survive the downsample.
+        while (w / sample > DECODE_WIDTH * 2) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        context.contentResolver.openInputStream(uri).use {
+            BitmapFactory.decodeStream(it, null, opts)
+        }
+    }.getOrNull()
 
     /** The bottom fifth of an image, downsampled. */
     private fun stripOf(context: Context, uri: Uri): Bitmap? = runCatching {
