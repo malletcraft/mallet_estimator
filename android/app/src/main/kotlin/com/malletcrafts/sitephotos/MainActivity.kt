@@ -106,6 +106,9 @@ private fun AppScreen() {
     var showSearch by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var prefsTick by remember { mutableStateOf(0) }
+    // Bumped by every local create/rename/delete. The catalogue's locals live
+    // in preferences, which Compose has no way to observe.
+    var dataTick by remember { mutableStateOf(0) }
     // Capture and face sit BELOW the room, and are plain state rather than
     // crumb levels: six crumbs will not fit a phone, and a photo you are
     // looking at is a view, not a folder.
@@ -173,10 +176,34 @@ private fun AppScreen() {
         return
     }
 
-    fun refreshQueue() {
+    /**
+     * Re-read everything the screens draw from.
+     *
+     * THE RULE, Amit 2026-08-22: "anything CRUD at app level should effect
+     * locally immediately." Compose cannot see a SharedPreferences write or a
+     * background worker's database write, so that rule is not automatic — it
+     * has to be made true, deliberately, at every point where data changes.
+     *
+     * This is what was missing. `masters` was read once, in a
+     * LaunchedEffect(configured) that never ran again, while SyncWorker kept
+     * writing fresh masters underneath it. The visible result was worse than
+     * staleness: a new project would sync, the worker would drop its local
+     * copy (correctly — ERP has it now), and the project then existed only in
+     * data this screen was not re-reading. So it DISAPPEARED until the app
+     * was restarted.
+     *
+     * dataTick covers what masters and queue cannot: the locals live in
+     * preferences, which no state object observes, so a bump is the only way
+     * to tell Compose that a typed-in client is now real.
+     */
+    fun reload() {
+        masters = store.masters()
         queue = store.all()
         updateJson = capturePrefs.getString("update_available", null)
+        dataTick += 1
     }
+
+    fun refreshQueue() = reload()
 
     // First composition with credentials: pull fresh masters in the
     // background so the pickers are not a week old.
@@ -192,6 +219,33 @@ private fun AppScreen() {
             masters = store.masters()
         }
     }
+
+    // Back from the camera, from ImageMeter, from anywhere: re-read. A phone
+    // that was in another app while a sync landed must not come back to a
+    // tree drawn from before it.
+    // Same accessor the capture screen already uses — the lifecycle-compose
+    // one is not on this module's compile classpath.
+    val appLifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(appLifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) reload()
+        }
+        appLifecycle.addObserver(obs)
+        onDispose { appLifecycle.removeObserver(obs) }
+    }
+
+    // …and the moment a sync finishes, without waiting to be resumed. This is
+    // the transition that used to lose a project: the worker replaces the
+    // local row with ERP's copy, and until this ran, the screen held neither.
+    LaunchedEffect(Unit) {
+        androidx.work.WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWorkFlow("mcft-sync")
+            .collect { infos -> if (infos.any { it.state.isFinished }) reload() }
+    }
+
+    // ONE parse per data change, not one per row per frame. Keyed on both
+    // masters (what the server sent) and dataTick (what was typed here).
+    val cs = remember(masters, dataTick) { cat.snapshot(masters) }
 
     val rooms = cat.rooms(masters)
 
@@ -309,10 +363,10 @@ private fun AppScreen() {
                     qty = qty, widthMm = w, heightMm = h, depthMm = d,
                     note = note))
                 addSkuFor = null
+                reload()
                 lastResult = previewCode(proj?.client.orEmpty(), skuRoom, art.code) +
                     " recorded" + (qty?.let { " · $it ${art.basis}" } ?: "")
                 SyncWorker.syncNow(context)
-                queue = store.all()
             })
     }
 
@@ -367,6 +421,7 @@ private fun AppScreen() {
             onDismiss = { showNewSite = false },
             onSave = { client, site, proj, jobType ->
                 cat.addLocal(client, site, proj, jobType = jobType)
+                reload()          // the rule: it is on screen before this returns
                 showNewSite = false
                 navClient = client
                 navSite = site
@@ -508,7 +563,7 @@ private fun AppScreen() {
     // ---- search: the escape hatch from four levels ----------------------
     if (showSearch) {
         BackHandler { showSearch = false }
-        val hits = remember(searchQuery, masters) {
+        val hits = remember(searchQuery, masters, dataTick) {
             searchTree(cat, masters, searchQuery)
         }
         SearchOverlay(
@@ -520,7 +575,7 @@ private fun AppScreen() {
                 tab = "browse"
                 navClient = h.client.ifBlank { null }
                 navSite = h.site.ifBlank { null }
-                navProject = cat.projects(masters).firstOrNull { it.key == h.projectKey }
+                navProject = cs.projects.firstOrNull { it.key == h.projectKey }
                 navRoom = h.room.ifBlank { null }
                 navCapture = null; navFace = null
                 showSearch = false
@@ -535,7 +590,7 @@ private fun AppScreen() {
         // there rather than leaving. Only Browse's own root exits.
         BackHandler { tab = "browse" }
         val scopeTab = rememberCoroutineScope()
-        val recents = remember(queue) { recentRooms(cat, masters, queue) }
+        val recents = remember(queue, masters, dataTick) { recentRooms(cat, masters, queue) }
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = { drawerContent() },
@@ -564,7 +619,7 @@ private fun AppScreen() {
                                 tab = "browse"
                                 navClient = r.client
                                 navSite = r.site
-                                navProject = cat.projects(masters)
+                                navProject = cs.projects
                                     .firstOrNull { it.key == r.projectKey }
                                 navRoom = r.room
                                 navCapture = null; navFace = null
@@ -594,7 +649,7 @@ private fun AppScreen() {
         // the way out, or the two directions disagree.
         fun openClient(c: String) {
             navClient = c; navSite = null; navProject = null
-            val ss = cat.sitesOf(masters, c)
+            val ss = cs.sitesOf(c)
             if (ss.size == 1) openSiteInto(cat, masters, ss[0].name) { s2, p2 ->
                 navSite = s2; navProject = p2
             }
@@ -606,16 +661,16 @@ private fun AppScreen() {
         BackHandler(enabled = client != null) {
             when {
                 proj != null -> {
-                    val siblings = cat.projectsOf(masters, client ?: "", site ?: "")
+                    val siblings = cs.projectsOf(client ?: "", site ?: "")
                     if (siblings.size == 1) {
-                        if (cat.sitesOf(masters, client ?: "").size == 1) {
+                        if (cs.siteCount(client ?: "") == 1) {
                             navClient = null; navSite = null
                         } else navSite = null
                         navProject = null
                     } else navProject = null
                 }
                 site != null ->
-                    if (cat.sitesOf(masters, client ?: "").size == 1) {
+                    if (cs.siteCount(client ?: "") == 1) {
                         navClient = null; navSite = null
                     } else navSite = null
                 else -> navClient = null
@@ -628,21 +683,21 @@ private fun AppScreen() {
                 onUp = { navClient = null; navSite = null; navProject = null }))
             if (client != null) add(Crumb(
                 label = shortName(client),
-                siblings = cat.clients(masters).map { it to it },
+                siblings = cs.clients.map { it to it },
                 onUp = { navSite = null; navProject = null },
                 onSibling = { openClient(it) }))
             if (client != null && site != null) add(Crumb(
                 label = site,
-                siblings = cat.sitesOf(masters, client).map { it.name to it.name },
+                siblings = cs.sitesOf(client).map { it.name to it.name },
                 onUp = { navProject = null },
                 onSibling = { navSite = it; navProject = null }))
             if (proj != null) add(Crumb(
                 label = proj.title,
-                siblings = cat.projectsOf(masters, client ?: "", site ?: "")
+                siblings = cs.projectsOf(client ?: "", site ?: "")
                     .map { it.key to it.title },
                 onUp = { navProject = null },
                 onSibling = { k ->
-                    navProject = cat.projectsOf(masters, client ?: "", site ?: "")
+                    navProject = cs.projectsOf(client ?: "", site ?: "")
                         .firstOrNull { it.key == k }
                 }))
         }
@@ -653,9 +708,9 @@ private fun AppScreen() {
             proj != null -> { title = proj.title; subtitle = "${proj.jobType} · ${site.orEmpty()}" }
             site != null -> { title = site; subtitle = client.orEmpty() }
             client != null -> { title = client
-                subtitle = plural(cat.sitesOf(masters, client).size, "site") }
+                subtitle = plural(cs.siteCount(client), "site") }
             else -> { title = "Clients"
-                subtitle = plural(cat.clients(masters).size, "client") }
+                subtitle = plural(cs.clients.size, "client") }
         }
 
         if (showStagePicker && proj != null) {
@@ -755,24 +810,24 @@ private fun AppScreen() {
                             onSkus = { showSkus = true },
                             onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(
-                            projects = cat.projectsOf(masters, client, site),
+                            projects = cs.projectsOf(client, site),
                             captureCount = { p ->
                                 queue.count { it.projectTitle.equals(p.title, true) }
                             },
                             onOpen = { navProject = it },
                             onNew = { showNewSite = true })
                         client != null -> SitesScreen(
-                            sites = cat.sitesOf(masters, client),
+                            sites = cs.sitesOf(client),
                             projectCount = { st ->
-                                cat.projectsOf(masters, client, st.name).size
+                                cs.projectsOf(client, st.name).size
                             },
                             onOpen = { navSite = it.name },
                             onNew = { showNewSite = true })
                         else -> ClientsScreen(
-                            clients = cat.clients(masters),
-                            siteCount = { c -> cat.sitesOf(masters, c).size },
+                            clients = cs.clients,
+                            siteCount = { c -> cs.siteCount(c) },
                             projectCount = { c ->
-                                cat.projects(masters).count { it.client.equals(c, true) }
+                                cs.projectCount(c)
                             },
                             onOpen = { openClient(it) },
                             onNew = { showNewSite = true })

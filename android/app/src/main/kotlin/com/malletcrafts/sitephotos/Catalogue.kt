@@ -335,6 +335,80 @@ class Catalogue(context: Context) {
     fun projectsOf(masters: JSONObject?, client: String, site: String): List<Project> =
         projects(masters).filter { same(it.client, client) && same(it.site, site) }
 
+    // ---- one read, many questions ---------------------------------------
+
+    /**
+     * The whole tree, computed ONCE.
+     *
+     * Every one of the functions above re-parses the masters JSON and the
+     * locals blob from scratch. A screen that asks for the clients, then each
+     * client's sites, then each client's project count, pays for that whole
+     * parse once per question — and the tree asks a question per row, on
+     * every recomposition. Amit, 2026-08-22: "refresh of data is very slow."
+     * That is where the time went.
+     *
+     * A snapshot answers all of it from maps built in a single pass. It is
+     * also the honest shape for Compose: an immutable value that can be
+     * remembered, so the screen recomposes when the DATA changed rather than
+     * whenever something happened to call a function.
+     */
+    class Snapshot internal constructor(
+        val projects: List<Project>,
+        val clients: List<String>,
+        private val sites: Map<String, List<Site>>,
+        private val bySite: Map<String, List<Project>>,
+        private val counts: Map<String, Int>,
+    ) {
+        fun sitesOf(client: String): List<Site> = sites[k(client)] ?: emptyList()
+        fun projectsOf(client: String, site: String): List<Project> =
+            bySite[k(client) + "\u0000" + k(site)] ?: emptyList()
+        fun projectCount(client: String): Int = counts[k(client)] ?: 0
+        fun siteCount(client: String): Int = sitesOf(client).size
+
+        private companion object {
+            fun k(s: String) = s.trim().lowercase().replace(Regex("[\\s_]+"), " ")
+        }
+    }
+
+    fun snapshot(masters: JSONObject?): Snapshot {
+        val all = projects(masters)
+        val locals = locals()
+        val typeOf = locals.associate { key(it.site) to it.siteType }
+
+        val byClient = LinkedHashMap<String, MutableList<Project>>()
+        val bySite = LinkedHashMap<String, MutableList<Project>>()
+        for (p in all) {
+            byClient.getOrPut(key(p.client)) { mutableListOf() }.add(p)
+            bySite.getOrPut(key(p.client) + "\u0000" + key(p.site)) { mutableListOf() }.add(p)
+        }
+
+        val sites = LinkedHashMap<String, List<Site>>()
+        for ((ck, ps) in byClient) {
+            val grouped = LinkedHashMap<String, MutableList<Project>>()
+            for (p in ps) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
+            sites[ck] = grouped.map { (sk, sps) ->
+                Site(
+                    client = sps.first().client,
+                    name = sps.first().site,
+                    serverId = sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "",
+                    type = typeOf[sk] ?: "",
+                    city = "",
+                    // Same pessimism as sitesOf: a folder that says synced
+                    // while one project inside it never left the phone is the
+                    // lie that loses a capture.
+                    local = sps.any { it.local })
+            }.sortedWith(compareBy({ siteOrder(it.name) }, { it.name.lowercase() }))
+        }
+
+        return Snapshot(
+            projects = all,
+            clients = all.map { it.client }.distinctBy { it.lowercase() }.sorted(),
+            sites = sites,
+            bySite = bySite,
+            counts = byClient.mapValues { (_, v) -> v.size },
+        )
+    }
+
     /** The room master, with a usable fallback: a phone that has never been
      *  online still has to be able to file a capture somewhere sensible. */
     fun rooms(masters: JSONObject?): List<String> {
