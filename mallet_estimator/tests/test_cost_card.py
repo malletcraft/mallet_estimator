@@ -296,3 +296,88 @@ class TestEstimatePreview(MalletTestCase):
                 # rate is per ROLL, i.e. metre-rate x roll length
                 self.assertGreater(m["rate"], 0)
         self.assertGreater(inventory.EDGE_ROLL_METERS, 1)
+
+    def test_every_number_rounds_up_to_one_decimal(self):
+        """Amit, 2026-08-22: "all number should be rounded to one decimal like
+        3.333 should 3.4." 3.333 to one decimal is 3.3 by arithmetic — what he
+        described is rounding UP, which is the right way round for a quote:
+        the fraction lands on the shop's side, never the client's."""
+        out = api.estimate_preview(self.CSV)
+        for l in out["labour"]:
+            for k in ("qty", "min_per_unit", "hours"):
+                v = l[k]
+                self.assertAlmostEqual(v, round(v, 1), places=9,
+                                       msg="%s %s = %r is not one decimal" % (l["name"], k, v))
+        self.assertAlmostEqual(out["days"], round(out["days"], 1), places=9)
+
+    def test_days_come_off_a_six_hour_working_day(self):
+        """Amit: "Also need number of days required to make that happen.
+        assume 6 hours working day." Same six-hour productive day the bench
+        already costs with (est_days = minutes / 360)."""
+        out = api.estimate_preview(self.CSV)
+        self.assertEqual(out["hours_per_day"], 6)
+        hours = sum(l["hours"] for l in out["labour"])
+        self.assertGreater(out["days"], 0)
+        # rounded UP off the same hours the rows show
+        self.assertLess(abs(out["days"] - hours / 6.0), 0.1)
+
+    def test_grooving_takes_both_a_count_and_a_time(self):
+        """"7. Grooving - quanity along with time will be decided by designer
+        as article decide how many grooving are required.\""""
+        out = api.estimate_preview(self.CSV, overrides={"Grooving": {"qty": 5, "min": 12}})
+        g = next(l for l in out["labour"] if l["name"] == "Grooving")
+        self.assertEqual(g["qty"], 5)
+        self.assertEqual(g["min_per_unit"], 12)
+        self.assertEqual(g["qty_source"], "plugin:edited")
+        self.assertEqual(g["min_source"], "plugin:edited")
+
+    def test_steps_eight_to_seventeen_take_a_time_but_not_a_count(self):
+        """"8 to 17 steps number should be editable for time as its carpenters
+        judgment how much time it takes to that operation but quantity should
+        not be editable." Install Hardware (9) is the one that matters most:
+        its count is hinges + rails + handles + shelf supports off the model,
+        and a hand-typed number would unhook it silently."""
+        out = api.estimate_preview(self.CSV, overrides={"Installation": {"min": 45}})
+        i = next(l for l in out["labour"] if l["name"] == "Installation")
+        self.assertEqual(i["min_per_unit"], 45)
+        with self.assertRaises(frappe.ValidationError):
+            api.estimate_preview(self.CSV, overrides={"Install Hardware": {"qty": 99}})
+
+    def test_the_first_six_steps_refuse_a_hand_typed_time(self):
+        """They are computed from the cut list itself; a person overruling
+        them is overruling the model, which is what step 17 exists for."""
+        with self.assertRaises(frappe.ValidationError):
+            api.estimate_preview(self.CSV, overrides={"Sheet Cutting": {"min": 99}})
+
+    def test_the_screen_is_told_which_cells_are_editable(self):
+        """The rule lives on the server; the plugin renders what it is told,
+        so the two cannot drift into offering an input that is refused."""
+        out = api.estimate_preview(self.CSV)
+        by = {l["name"]: l for l in out["labour"]}
+        self.assertTrue(by["Grooving"]["qty_editable"])
+        self.assertTrue(by["Grooving"]["min_editable"])
+        self.assertFalse(by["Install Hardware"]["qty_editable"])
+        self.assertTrue(by["Install Hardware"]["min_editable"])
+        self.assertFalse(by["Sheet Cutting"]["min_editable"])
+        self.assertFalse(by["Sheet Cutting"]["qty_editable"])
+
+    def test_loading_is_costed_in_the_factory(self):
+        """Amit: "12. Loading On-Site should be in factory as loading is done
+        at factory for packed articles." The workstation is what carries the
+        rate, so this is a price change, not a label."""
+        out = api.estimate_preview(self.CSV)
+        loading = next(l for l in out["labour"] if l["name"] == "Loading")
+        self.assertNotEqual(loading["workstation"], "On-Site")
+        unloading = next(l for l in out["labour"] if l["name"] == "Unloading")
+        self.assertEqual(unloading["workstation"], "On-Site",
+                         "unloading genuinely happens at the site")
+
+    def test_no_printable_line_mentions_markup_or_margin(self):
+        """A RULE, Amit 2026-08-22: "never mention about any markup or profit
+        margin on any printable document." Naming it in a list of exclusions
+        was the worst place for it — it tells a client a markup exists and
+        that this figure is not the whole of it."""
+        out = api.estimate_preview(self.CSV)
+        printable = " ".join(out["excludes"]) + " " + out["wastage"] + " " + out["rates_are"]
+        for word in ("markup", "mark-up", "margin", "profit"):
+            self.assertNotIn(word, printable.lower(), "%r reaches a printed page" % word)

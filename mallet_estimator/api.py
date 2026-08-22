@@ -550,7 +550,13 @@ def cost_card(codes=None, create_missing=0):
         # Labour only, and explicitly so: this is a gauge to walk a client
         # through while designing, not a quotation. Amit: "it will be pure
         # labor and no transport installation etc will come over there."
-        "excludes": ["transport trip charges", "allowances", "markup",
+        # A RULE, Amit 2026-08-22: "never mention about any markup or profit
+        # margin on any printable document." This list is printed, so the word
+        # goes — and naming it in a list of exclusions is the worst place for
+        # it, since it tells a client a markup exists and that this number is
+        # not the whole of it. What is excluded here is stated as WORK not
+        # priced, which is the true and sufficient statement.
+        "excludes": ["transport trip charges", "allowances",
                      "installation charges beyond the operation minutes"],
         # Amit, 2026-08-22: "wastage treatment - charge full board." Material
         # is priced by the BOARDS consumed, not by the area the parts occupy —
@@ -614,8 +620,34 @@ def _item_for_code(code):
 
 
 @frappe.whitelist()
+# Amit, 2026-08-22: "all number should be rounded to one decimal like 3.333
+# should 3.4" — 3.333 to one decimal is 3.3 by arithmetic, so what he described
+# is not rounding but rounding UP. That is the right way round for a quote:
+# every fraction of an hour lands on the shop's side of the line, never the
+# client's, and a number can never read lower than the work it stands for.
+def _up1(v):
+    import math
+    return math.ceil((float(v or 0)) * 10.0 - 1e-9) / 10.0
+
+
+# Which of the seventeen a person may overrule, and in which column.
+#
+# Amit, 2026-08-22: "7. Grooving - quanity along with time will be decided by
+# designer as article decide how many grooving are required ... 8 to 17 steps
+# number should be editable for time as its carpenters judgment how much time
+# it takes to that operation but quantity should not be editable."
+#
+# So: 1-6 are computed outright, 7 is the designer's call on both counts, and
+# 8-17 take the carpenter's minutes over a quantity the model already knows.
+# Install Hardware (9) keeps its computed quantity deliberately — it is
+# hinges + rails + handles + shelf supports off the hardware lines, the rule
+# stated earlier, and hand-editing it would silently unhook it from the model.
+QTY_EDITABLE = {"Grooving"}
+MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
+
+
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
-                     create_missing=0):
+                     create_missing=0, overrides=None, hours_per_day=6):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
                                   nesting, opencutlist)
@@ -775,25 +807,58 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # the count changes, they change with it or the chain lies.
             qty[op] = counted
 
+    # Per-operation overrides from the estimate screen: {"Grooving": {"qty": 4,
+    # "min": 12}}. Refused rather than silently ignored where the column is not
+    # editable — a number a person typed that does nothing is worse than an
+    # error, because the total moves on without them.
+    if isinstance(overrides, str):
+        overrides = json.loads(overrides or "{}")
+    overrides = overrides or {}
+
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
     labour_rows, labour_total = [], 0.0
     for op in card["operations"]:
         name = op["name"]
+        seq = int(op["seq"])
+        qty_editable = name in QTY_EDITABLE
+        min_editable = seq >= MIN_EDITABLE_FROM_SEQ
+
         mins = float(op["min_per_unit"])
+        min_source = op["min_source"]
+        q = float(qty.get(name, 0) or 0)
+        qty_source = "erp:rule"
+
+        # Assembly minutes keep their own older door, so a plugin that has not
+        # updated yet still works.
         if name == "Assembly" and assembly_min not in (None, ""):
             mins = float(assembly_min)
-        q = float(qty.get(name, 0) or 0)
+            min_source = "plugin:edited"
+
+        ov = overrides.get(name) or {}
+        if ov.get("min") not in (None, ""):
+            if not min_editable:
+                frappe.throw(_("{0}'s time is computed and cannot be edited.").format(name))
+            mins = float(ov["min"])
+            min_source = "plugin:edited"
+        if ov.get("qty") not in (None, ""):
+            if not qty_editable:
+                frappe.throw(_("{0}'s quantity comes from the model and cannot "
+                               "be edited.").format(name))
+            q = float(ov["qty"])
+            qty_source = "plugin:edited"
+
         hours = (q * mins) / 60.0
         rate = float(ws_rate.get(op["workstation"], 0))
         amount = hours * rate
         labour_rows.append({
-            "seq": op["seq"], "name": name, "workstation": op["workstation"],
-            "qty": q, "min_per_unit": mins, "hours": round(hours, 3),
+            "seq": seq, "name": name, "workstation": op["workstation"],
+            "qty": _up1(q), "min_per_unit": _up1(mins), "hours": _up1(hours),
             "hour_rate": rate, "amount": round(amount, 2),
-            "min_source": ("plugin:edited" if (name == "Assembly" and
-                                               assembly_min not in (None, ""))
-                           else op["min_source"]),
+            "min_source": min_source, "qty_source": qty_source,
             "rate_source": op["rate_source"],
+            # What the screen may turn into an input. Sent rather than
+            # re-derived on the plugin side, so the rule lives in one place.
+            "min_editable": min_editable, "qty_editable": qty_editable,
         })
         labour_total += amount
 
@@ -814,6 +879,15 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         "assembly_source": assembly_source,
         "materials": material_rows,
         "labour": labour_rows,
+        # Amit, 2026-08-22: "Also need number of days required to make that
+        # happen. assume 6 hours working day." Rounded UP like everything else
+        # — half a day of work still occupies a day on a calendar, and a
+        # promise that reads shorter than the work is the one that gets
+        # broken. Six hours is the same productive day the bench costs with
+        # (est_days = minutes / 360).
+        "hours_per_day": float(hours_per_day or 6),
+        "labour_hours": _up1(sum(l["hours"] for l in labour_rows)),
+        "days": _up1(sum(l["hours"] for l in labour_rows) / float(hours_per_day or 6)),
         "material_total": round(material_total, 2),
         "labour_total": round(labour_total, 2),
         "total": round(material_total + labour_total, 2),

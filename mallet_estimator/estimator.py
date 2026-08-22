@@ -32,7 +32,11 @@ STEP_TEMPLATE = [
     {"phase": "Install Hardware",     "machine": "assembly",    "in_factory": 1},
     {"phase": "Disassembly",          "machine": "assembly",    "in_factory": 1},
     {"phase": "Packing",              "machine": "packing",     "in_factory": 1},
-    {"phase": "Loading",              "machine": None,          "in_factory": 0},
+    # Amit, 2026-08-22: "12. Loading On-Site should be in factory as loading is
+    # done at factory for packed articles." Packed articles go onto the vehicle
+    # before it leaves the works, so both the minutes and the RATE are factory
+    # ones. Unloading stays off-site — that half genuinely happens at the site.
+    {"phase": "Loading",              "machine": "packing",     "in_factory": 1},
     {"phase": "Transport",            "machine": None,          "in_factory": 0},
     {"phase": "Unloading",            "machine": None,          "in_factory": 0},
     {"phase": "Assembly (on-site)",   "machine": None,          "in_factory": 0},
@@ -92,7 +96,7 @@ OPERATION_WORKSTATION = {
     "Install Hardware": "Assembly Station",
     "Disassembly": "Assembly Station",
     "Packing": "Pasting Station",
-    "Loading": "On-Site",
+    "Loading": "Pasting Station",
     "Transport": "On-Site",
     "Unloading": "On-Site",
     "Assembly (on-site)": "On-Site",

@@ -124,3 +124,9 @@ mallet_estimator.patches.article_kind_and_basis
 # copy anything into it, and reload_doc inside the patch is what guarantees
 # the column lands even when the deploy would otherwise skip a migrate.
 mallet_estimator.patches.site_address_field
+# post_model_sync: the Workstation and Operation masters are seeded by
+# install.after_migrate, so this runs where both already exist. It is a PRICE
+# change — the workstation is what carries the hourly rate — which is why it
+# ships as a patch rather than relying on the source map alone: these
+# Operations were created months ago and are never re-read from it.
+mallet_estimator.patches.loading_is_factory_work
