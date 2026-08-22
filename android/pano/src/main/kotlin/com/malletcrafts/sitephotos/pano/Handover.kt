@@ -71,12 +71,14 @@ object Handover {
         return parts.joinToString(SEP)
     }
 
-    /** Pictures/<app>/<client>/<project>/<project> — <room>.
+    /** Pictures/<app>/<client>/<project>/<initials>_<room> — <project>.
      *
-     * The leaf carries the project because Google Photos names device albums
-     * by LEAF FOLDER ONLY, and every project has a "Kids Bedroom" — an album
-     * named just for the room files photos against whichever project the
-     * picker happened to show first. */
+     * The leaf carries the project because Android names device albums by
+     * LEAF FOLDER ONLY, and one client can have two projects with the same
+     * room in them. Until 2026-08-22 this KDoc claimed the leaf carried the
+     * project while the code made it "YS_MB" — so two projects showed as two
+     * identically named albums in the picker ImageMeter imports from, and
+     * choosing the wrong one gave no sign. */
     fun relativePath(client: String, projectTitle: String, room: String): String {
         val c = safe(client.ifBlank { "Unfiled" })
         val p = safe(projectTitle)
@@ -89,7 +91,7 @@ object Handover {
         // after the LEAF folder, so a bare "MB" would collide with every
         // other project's master bedroom in the picker ImageMeter imports
         // from. That is what the old "<project> — <room>" leaf was for.
-        val r = safe(RoomToken.folder(client, room))
+        val r = safe(RoomToken.folder(client, room, projectTitle))
         return "Pictures/MCFT Site Photos/$c/$p/$r/"
     }
 

@@ -20,6 +20,11 @@ object RoomToken {
     private val WORD_SPLIT = Regex("[\\s_\\-]+")
     private const val LETTERS_PER_WORD = 3
 
+    /** How much of the project name rides in the album name. Long enough to
+     *  tell two of Amit's projects apart, short enough that a picker showing
+     *  one line still reveals the part that differs. */
+    private const val PROJECT_CHARS = 28
+
     /** "Master Bedroom" -> MB, "Kitchen" -> KIT, "Living Room" -> LR. */
     fun of(room: String?): String {
         val words = WORD_SPLIT.split((room ?: "").trim()).filter { it.isNotEmpty() }
@@ -51,10 +56,31 @@ object RoomToken {
      * after the LEAF folder, so a bare "MB" would collide with every other
      * project's master bedroom in the picker ImageMeter imports from.
      */
-    fun folder(customerName: String?, room: String): String {
+    fun folder(customerName: String?, room: String,
+               projectTitle: String? = null): String {
         val i = initials(customerName)
         val t = of(room).ifBlank { room }
-        return if (i.isBlank()) t else "${i}_$t"
+        val base = if (i.isBlank()) t else "${i}_$t"
+        // THE PROJECT HAS TO BE IN THE LEAF, not only in the parent folder.
+        //
+        // Amit, 2026-08-22: "when a same client have multiple projects which
+        // will have same room names under same site, what will happen ...
+        // While Importing images to imagemeter for editing, i need to clearly
+        // know what fotos i m importing by looking at the name of the folder
+        // as its manual operation."
+        //
+        // The files never collided — .../Client/Project A/YS_MB/ and
+        // .../Client/Project B/YS_MB/ are different directories. What collided
+        // is what a PERSON sees: Android names a gallery album after its LEAF
+        // folder alone, so both projects appeared in ImageMeter's picker as
+        // two albums called "YS_MB", indistinguishable, and picking the wrong
+        // one is silent. Readable rather than tokenised, because this name
+        // exists to be read by someone importing by hand.
+        val proj = (projectTitle ?: "").trim()
+        if (proj.isEmpty()) return base
+        val short = if (proj.length > PROJECT_CHARS)
+            proj.take(PROJECT_CHARS).trimEnd() + "…" else proj
+        return "$base — $short"
     }
 
     /** What the tree shows: the token a person says, with the full name

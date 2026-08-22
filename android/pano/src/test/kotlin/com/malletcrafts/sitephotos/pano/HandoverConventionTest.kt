@@ -64,7 +64,7 @@ class HandoverConventionTest {
                                       "Kids Bedroom")
         assertEquals(
             "Pictures/MCFT Site Photos/Yogesh Sahasrabudhe/YS_1402_SKYI_INTERIOR/" +
-                "YS_KB/", p)
+                "YS_KB — YS_1402_SKYI_INTERIOR/", p)
         // Path metacharacters must not become directories.
         assertTrue(!Handover.relativePath("A/B", "P:1", "R?").contains("A/B"))
     }
@@ -72,7 +72,7 @@ class HandoverConventionTest {
     @Test
     fun `an unknown client still yields a usable folder`() {
         val p = Handover.relativePath("", "P", "Master Bedroom")
-        assertTrue(p.endsWith("/MB/"), p)
+        assertTrue(p.endsWith("/MB — P/"), p)
     }
 
     @Test
@@ -110,5 +110,39 @@ class HandoverConventionTest {
         assertFailsWith<IllegalStateException> {
             Handover.filename("MCAP-0123456789ab", "photo")
         }
+    }
+
+    @Test
+    fun `two projects of one client with the same room get different albums`() {
+        // Amit, 2026-08-22: "when a same client have multiple projects which
+        // will have same room names under same site, what will happen."
+        //
+        // The FILES never collided — these are different directories. What
+        // collided is what a person sees: Android names a gallery album after
+        // its LEAF folder alone, so both showed in ImageMeter's picker as
+        // "YS_MB", and picking the wrong one is silent.
+        val a = Handover.relativePath("Yogesh Sahasrabudhe", "Kids bed and master bed",
+                                      "Master Bedroom")
+        val b = Handover.relativePath("Yogesh Sahasrabudhe", "Wardrobe refit",
+                                      "Master Bedroom")
+        val leafA = a.trimEnd('/').substringAfterLast('/')
+        val leafB = b.trimEnd('/').substringAfterLast('/')
+        assertTrue(leafA != leafB, "both projects still land in an album called $leafA")
+        // and the leaf still SAYS which is which, in words, because the
+        // import is done by hand
+        assertTrue(leafA.contains("Kids bed"), leafA)
+        assertTrue(leafB.contains("Wardrobe"), leafB)
+        // the token prefix survives, so the album still matches the SKU code
+        assertTrue(leafA.startsWith("YS_MB"), leafA)
+    }
+
+    @Test
+    fun `a very long project name does not run away with the album name`() {
+        val leaf = Handover.relativePath(
+            "Yogesh Sahasrabudhe",
+            "Complete interior fitout including wardrobes beds and lofts",
+            "Master Bedroom").trimEnd('/').substringAfterLast('/')
+        assertTrue(leaf.length <= "YS_MB — ".length + 29, "album name too long: $leaf")
+        assertTrue(leaf.endsWith("…"), leaf)
     }
 }
