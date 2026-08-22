@@ -380,3 +380,171 @@ def apply_decor(sku):
     unmapped = sum(1 for m in (doc.materials or [])
                    if "NOT MAPPED" in str(m.get("remarks") or ""))
     return {"applied": 1, "unmapped": unmapped, "lines": len(doc.materials or [])}
+
+
+# ---------------------------------------------------------------------------
+# The cost card — everything the SketchUp plugin needs to price a SKU on the
+# spot, with ERP as the only authority for money.
+#
+#   GET /api/method/mallet_estimator.api.cost_card
+#       ?codes=SG_PLY_V1_a_b_18mm,SG_LAM_V1_1mm_a_a,EB_...
+#
+# Amit, 2026-08-22, as the rule: "always pull data of cost for labor and
+# material from erp ... plugin own cost data which is material linked or part
+# linked should get overriden ... i should clearly know from where cost data
+# is coming erp or plugin as plugin also have capability to store material
+# cost data."
+#
+# So every number here carries its own provenance, and the envelope is stamped
+# as ERP's. The plugin overrides its stored rates with these and shows the
+# badge; anything ERP could not price comes back with source "unset" and rate
+# 0 rather than silently letting the plugin's own figure through — an estimate
+# quoted from the wrong price list is worse than one that says it is missing.
+#
+# The split of responsibility, in one line: ERP owns the masters — the 17
+# operations, their standard minutes, the workstation hour rates and the
+# material prices — and the MODEL owns the quantities.
+# ---------------------------------------------------------------------------
+
+
+def _op_minutes(op_name, default):
+    """Standard minutes for one operation.
+
+    The Operation master wins: CLAUDE.md makes mallet_min_per_unit the source
+    of truth, and the dict in estimator.py is the seed that populated it. A
+    tuned number in ERP must reach the plugin, or the two quote differently
+    for the same wardrobe.
+    """
+    if not frappe.db.exists("DocType", "Operation"):
+        return float(default), "code default"
+    if not frappe.get_meta("Operation").has_field("mallet_min_per_unit"):
+        return float(default), "code default"
+    v = frappe.db.get_value("Operation", op_name, "mallet_min_per_unit")
+    if v in (None, "", 0):
+        return float(default), "code default"
+    return float(v), "erp:Operation"
+
+
+@frappe.whitelist()
+def cost_card(codes=None):
+    """Labour and material rates for the plugin, live from this bench."""
+    from mallet_estimator import estimator, inventory
+
+    settings = frappe.get_single("Estimate Settings")
+    rates = estimator.live_workstation_rates(settings)
+
+    stations = []
+    for name, r in sorted(rates.items()):
+        stations.append({
+            "name": name,
+            "hour_rate": round(float(r.get("net_hr") or 0), 2),
+            "components": [[c, round(float(v), 2)] for c, v in (r.get("components") or [])],
+            "source": "erp:Workstation",
+        })
+    by_station = {s["name"]: s["hour_rate"] for s in stations}
+
+    # ALL SEVENTEEN, in process order — pasting through installation, nothing
+    # dropped. Amit, 2026-08-22: "keep all 17 operations as is . no drop."
+    # Python preserves insertion order, and the dict is written in the order
+    # the shop actually works, so seq is simply its position.
+    operations = []
+    for seq, (op, std) in enumerate(estimator.OPERATION_STANDARDS.items(), start=1):
+        ws = estimator.OPERATION_WORKSTATION.get(op, "")
+        mins, min_src = _op_minutes(op, std["min_per_unit"])
+        operations.append({
+            "seq": seq,
+            "name": op,
+            "workstation": ws,
+            "hour_rate": by_station.get(ws, 0.0),
+            "qty_source": std["qty_source"],
+            "min_per_unit": mins,
+            "min_source": min_src,
+            "rate_source": "erp:Workstation" if ws in by_station else "unset",
+        })
+
+    materials = []
+    for code in _split_codes(codes):
+        item = _item_for_code(code)
+        if not item:
+            # Named rather than skipped: a material the plugin priced itself
+            # and ERP has never heard of is exactly the case a person needs to
+            # see, not the case to paper over.
+            materials.append({"code": code, "item_code": "", "base_rate": 0.0,
+                              "gst_pct": 0.0, "landed_rate": 0.0,
+                              "source": "not in erp", "quotable": False})
+            continue
+        landed, base, gst, src = inventory.landed_rate(item)
+        materials.append({
+            "code": code,
+            "item_code": item,
+            "uom": frappe.db.get_value("Item", item, "stock_uom") or "",
+            "base_rate": round(float(base), 4),
+            "gst_pct": round(float(gst), 2),
+            "landed_rate": round(float(landed), 4),
+            "source": f"erp:{src}",
+            # The same gate the ERP estimate uses: rate 0 with source 'unset'
+            # is NOT quotable, and saying so is the whole point of sending the
+            # source along with the number.
+            "quotable": bool(base) and src != "unset",
+        })
+
+    return {
+        # The envelope says who is speaking. The plugin shows this against
+        # every line it overrode.
+        "authority": "erp",
+        "site": frappe.local.site,
+        "as_of": str(frappe.utils.now()),
+        "price_list": inventory.ESTIMATION_PRICE_LIST,
+        "rates_are": "post-tax (landed = base + GST)",
+        "productive_min_per_day": estimator.PRODUCTIVE_MIN_PER_DAY,
+        "workstations": stations,
+        "operations": operations,
+        "materials": materials,
+        # The assemblies line, declared rather than hardcoded on the plugin
+        # side. Amit, 2026-08-22: "the component which starts with ASMBL is the
+        # assembly ... aggregate number of ASMBL components into that line and
+        # then let me modify how much time assembly can take."
+        "assembly_rule": {
+            "operation": "Assembly",
+            "component_prefix": "ASMBL",
+            "counts": "distinct components whose name starts with the prefix",
+            "min_per_unit": _op_minutes("Assembly",
+                                        estimator.OPERATION_STANDARDS["Assembly"]["min_per_unit"])[0],
+            "editable": True,
+        },
+        # Labour only, and explicitly so: this is a gauge to walk a client
+        # through while designing, not a quotation. Amit: "it will be pure
+        # labor and no transport installation etc will come over there."
+        "excludes": ["transport trip charges", "allowances", "markup",
+                     "installation charges beyond the operation minutes"],
+    }
+
+
+def _split_codes(codes):
+    if not codes:
+        return []
+    if isinstance(codes, str):
+        try:
+            parsed = json.loads(codes)
+            if isinstance(parsed, list):
+                return [str(c).strip() for c in parsed if str(c).strip()]
+        except Exception:
+            pass
+        return [c.strip() for c in codes.split(",") if c.strip()]
+    return [str(c).strip() for c in codes if str(c).strip()]
+
+
+def _item_for_code(code):
+    """An OCL code, or an Item code, or nothing.
+
+    The plugin speaks OpenCutList grammar (SG_PLY_V1_...); ERP stores that on
+    Item.mallet_oc_code and usually names the Item the same. Both are tried so
+    a caller does not have to know which world its string came from.
+    """
+    if frappe.db.exists("Item", code):
+        return code
+    if frappe.get_meta("Item").has_field("mallet_oc_code"):
+        hit = frappe.db.get_value("Item", {"mallet_oc_code": code}, "name")
+        if hit:
+            return hit
+    return None
