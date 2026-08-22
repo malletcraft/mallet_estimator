@@ -849,8 +849,6 @@ def room_baseline(project, room):
         "frozen": bool(doc.baseline_frozen),
         "annotations": json.loads(doc.face_annotations or "{}")
         if doc.meta.has_field("face_annotations") else {},
-        "face_skus": json.loads(doc.face_skus or "{}")
-        if doc.meta.has_field("face_skus") else {},
     }
 
 
@@ -877,6 +875,11 @@ def detail(name):
          "owner": a.owner, "creation": str(a.creation)}
         for a in (doc.annotations or [])
     ]
+    # What work each face is expected to carry. HERE, not on the baseline
+    # getter — this is the call the phone makes for one capture, and the
+    # baseline is about frozen geometry, not about tags.
+    out["face_skus"] = (json.loads(doc.face_skus or "{}")
+                        if doc.meta.has_field("face_skus") else {})
     return out
 
 
