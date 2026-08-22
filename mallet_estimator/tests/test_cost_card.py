@@ -208,3 +208,41 @@ class TestEstimatePreview(MalletTestCase):
             out = api.estimate_preview(self.CSV, **kwargs)
             asm = next(l for l in out["labour"] if l["name"] == "Assembly")
             self.assertEqual(out["assembly_count"], asm["qty"], msg=str(kwargs))
+
+    # No ASMBL designation anywhere, deliberately: with one present the CSV
+    # fallback supplies the assembly count and OVERRIDES the 1-plus-rails
+    # arithmetic, so a test written on the base CSV would assert 2 and get 2
+    # from the wrong source entirely. Stripping ASMBL is what leaves _hw as
+    # the only thing that can answer.
+    CSV_HARDWARE = (
+        "No.;Designation;Material name;Material type;Length;Width;Thickness;"
+        "Area - final;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tag\n"
+        "1;Side;SG_PLY_V0_a_a;Sheet Goods;600;400;16;0.24;;;;;;;\n"
+        "2;Hinge;HWD_Hinge;Hardware;;;;;;;;;;;\n"
+        "3;Rail;HWD_Rail;Hardware;;;;;;;;;;;\n"
+    )
+
+    def test_hardware_is_recognised_through_the_shape_adapter(self):
+        """operation_quantities reads m["name"]; aggregate() writes "material".
+        estimate_preview adapts between them, and if that adapter ever stops
+        carrying the hardware NAME the quantities go quietly to zero rather
+        than raising — _hw matches substrings, and a name it cannot read simply
+        matches nothing. So assert on quantities only a readable name yields."""
+        out = api.estimate_preview(self.CSV_HARDWARE)
+        # Nothing overrode it, so this IS 1 + drawer rails ...
+        self.assertEqual(out["assembly_source"], "erp:1 + drawer rails")
+        asm = next(l for l in out["labour"] if l["name"] == "Assembly")
+        self.assertEqual(asm["qty"], 2, "the HWD_Rail line was not recognised")
+        # ... and Install Hardware is hinges + rails + handles + shelf, which
+        # is 2 here and 0 if the names did not survive the adapter.
+        ih = next(l for l in out["labour"] if l["name"] == "Install Hardware")
+        self.assertEqual(ih["qty"], 2)
+
+    def test_sheet_operations_count_whole_boards(self):
+        """The other half of the same adapter: kind must survive too, or the
+        three sheet operations silently cost nothing."""
+        out = api.estimate_preview(self.CSV)
+        for name in ("Sheet Cutting", "Sheet Lamination", "Sheet Tape Removal"):
+            row = next(l for l in out["labour"] if l["name"] == name)
+            self.assertGreater(row["qty"], 0, "%s saw no sheets" % name)

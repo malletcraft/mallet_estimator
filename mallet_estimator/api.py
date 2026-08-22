@@ -651,7 +651,21 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         material_total += amount
 
     # ---- labour, all seventeen --------------------------------------------
-    qty = estimate_pdf.operation_quantities(lines, part_count)
+    # operation_quantities() reads m["name"]; aggregate() calls that key
+    # "material". They do not share a shape and never did — every other caller
+    # adapts before calling (nest_import builds mats_shape, estimate_sku builds
+    # materials), and so does this one. Passing aggregate()'s lines straight in
+    # raised KeyError: 'name' the moment a hardware line existed, which is the
+    # first thing _hw touches.
+    #
+    # The hardware name matters beyond being present: _hw matches SUBSTRINGS
+    # against it ("hinge", "rail", "minifix"), and "Assembly" is 1 + rails. The
+    # OCL code carries that word — HWD_Rail lowercases to "hwd_rail" — which is
+    # the same thing nest_import relies on when it passes a category or a code.
+    shaped = [{"name": l["material"], "kind": l["kind"],
+               "thickness": l.get("thickness") or 0, "qty": l["qty"]}
+              for l in lines]
+    qty = estimate_pdf.operation_quantities(shaped, part_count)
 
     # THE ASSEMBLIES LINE. The default rule is 1 + drawer rails, which is a
     # guess at how many things get assembled. The MODEL knows: Amit, 2026-08-22,
