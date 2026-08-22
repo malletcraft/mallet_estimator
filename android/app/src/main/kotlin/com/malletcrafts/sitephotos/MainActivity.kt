@@ -115,6 +115,10 @@ private fun AppScreen() {
     // Bumped by every local create/rename/delete. The catalogue's locals live
     // in preferences, which Compose has no way to observe.
     var dataTick by remember { mutableStateOf(0) }
+    // A face tagged with the work expected on it. Held per (capture, face)
+    // because a 360 is a whole room and only its faces are single walls.
+    var faceSkuTick by remember { mutableStateOf(0) }
+    var faceSkuFor by remember { mutableStateOf<Pair<String, String>?>(null) }
     // Capture and face sit BELOW the room, and are plain state rather than
     // crumb levels: six crumbs will not fit a phone, and a photo you are
     // looking at is a view, not a folder.
@@ -1070,6 +1074,24 @@ private fun AppScreen() {
             }.onSuccess { annotated = it }
         }
 
+        // Local first: the moment somebody decides what a wall needs is the
+        // moment they are standing in front of it, which is rarely the moment
+        // there is signal.
+        val faceSkuMap = remember(cap.deviceId, faceSkuTick) {
+            FaceSkus.of(context, cap.deviceId)
+        }
+        LaunchedEffect(cap.deviceId, prefsTick) {
+            val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
+            if (server.isNullOrBlank()) return@LaunchedEffect
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val remote = FrappeClient.load(context)
+                        ?.captureDetail(server)?.optJSONObject("face_skus")
+                    if (remote != null) FaceSkus.acceptFromServer(context, cap.deviceId, remote)
+                }
+            }.onSuccess { faceSkuTick += 1 }
+        }
+
         val faceIdx = navFace
         if (faceIdx != null && faceIdx in faces.indices) {
             val f = faces[faceIdx]
@@ -1091,6 +1113,8 @@ private fun AppScreen() {
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
                 onImport = { importFromImageMeter() },
+                faceSku = faceSkuMap[f.name].orEmpty(),
+                onPickFaceSku = { faceSkuFor = cap.deviceId to f.name },
                 faces = faces,
                 current = faceIdx,
                 onPickFace = { navFace = it },
@@ -1200,6 +1224,35 @@ private fun AppScreen() {
                 onAdd = { retagSku = false; addSkuFor = navRoom.orEmpty() },
                 onDismiss = { retagSku = false },
                 onPick = { code -> retagSku = false; retag(null, code) })
+        }
+        // The SAME picker, for ONE face. A 360 is a whole room and cannot be
+        // one article; each of its faces is a single wall, and that is what a
+        // SKU describes.
+        faceSkuFor?.let { (devId, face) ->
+            CaptureSkuSheet(
+                skus = cat.skusOf(masters, navProject),
+                room = navRoom.orEmpty(),
+                current = faceSkuMap[face].orEmpty(),
+                onAdd = { faceSkuFor = null; addSkuFor = navRoom.orEmpty() },
+                onDismiss = { faceSkuFor = null },
+                onPick = { code ->
+                    faceSkuFor = null
+                    // Written here FIRST so the row changes under the thumb,
+                    // then pushed. The rule: a change made on the phone shows
+                    // immediately, with or without signal.
+                    FaceSkus.set(context, devId, face, code)
+                    faceSkuTick += 1
+                    val server = queue.firstOrNull { it.deviceId == devId }?.serverName
+                    if (!server.isNullOrBlank()) {
+                        scope.launch(Dispatchers.IO) {
+                            runCatching {
+                                FrappeClient.load(context)?.setFaceSku(server, face, code)
+                            }.onSuccess { FaceSkus.markSynced(context, devId, face) }
+                        }
+                    }
+                    lastResult = if (code.isBlank()) "Cleared the work on this face"
+                                 else "$code on this face"
+                })
         }
         return
     }

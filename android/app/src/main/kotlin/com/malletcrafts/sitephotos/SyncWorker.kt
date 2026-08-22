@@ -170,6 +170,21 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             }
         }
 
+        // Faces tagged with the work expected on them, while there was no
+        // signal. Sent after the captures for the same reason as everything
+        // else here: a face cannot be tagged on the bench until its capture
+        // exists there.
+        for ((devId, face, sku) in FaceSkus.pending(applicationContext)) {
+            val serverName = store.all().firstOrNull { it.deviceId == devId }?.serverName
+            if (serverName.isNullOrBlank()) continue
+            try {
+                client.setFaceSku(serverName, face, sku)
+                FaceSkus.markSynced(applicationContext, devId, face)
+            } catch (e: Exception) {
+                failures += 1   // the dirty marker stays; it goes next time
+            }
+        }
+
         // Work the site recorded. Sent AFTER the captures, because an SKU
         // needs the project to exist and a brand-new site only becomes real
         // when its first capture syncs.

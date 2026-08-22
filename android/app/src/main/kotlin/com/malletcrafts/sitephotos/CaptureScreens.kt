@@ -507,6 +507,8 @@ fun FaceViewer(
     showAnnotated: Boolean,
     onToggle: (Boolean) -> Unit,
     onImport: (() -> Unit)? = null,
+    faceSku: String = "",
+    onPickFaceSku: (() -> Unit)? = null,
     faces: List<LocalFaces.Face>,
     current: Int,
     onPickFace: (Int) -> Unit,
@@ -523,6 +525,27 @@ fun FaceViewer(
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(subtitle, color = Color(0xFF9AA29E), fontSize = 11.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+
+        // THE SKU FOR THIS FACE, on the face. Amit, 2026-08-22: "why no sku
+        // per foto?" — it was on the capture, and a capture is usually a 360,
+        // which is a whole room and cannot be one article. This wall can.
+        if (onPickFaceSku != null) {
+            Row(Modifier.fillMaxWidth()
+                .clickable(onClick = onPickFaceSku)
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.ic_mcft_tag), contentDescription = null,
+                    tint = if (faceSku.isBlank()) Color(0xFF6B7280) else Color(0xFFB9F227),
+                    modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    faceSku.ifBlank { "No work tagged on this face — tap to say what" },
+                    color = if (faceSku.isBlank()) Color(0xFF9AA29E) else Color(0xFFEDEFEA),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f))
             }
         }
 

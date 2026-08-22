@@ -18,6 +18,7 @@
   "device_capture_id",
   "device_app_version",
   "face_annotations",
+  "face_skus",
   "column_break_how",
   "fov",
   "face_px",
@@ -152,6 +153,15 @@
    "fieldtype": "Code",
    "hidden": 1,
    "label": "Face Annotations",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "description": "face \u2192 Estimate SKU. A 360 is the record of a whole ROOM and cannot be one article \u2014 but each of its six faces is a single wall, floor or ceiling, and that CAN carry the work expected on it.",
+   "fieldname": "face_skus",
+   "fieldtype": "Code",
+   "hidden": 1,
+   "label": "Face SKUs",
    "options": "JSON",
    "read_only": 1
   },

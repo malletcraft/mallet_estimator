@@ -744,6 +744,53 @@ def save_annotations(name, face, data):
 
 
 @frappe.whitelist()
+def set_face_sku(name, face, sku=None):
+    """What work is expected on ONE face of a capture.
+
+    Amit, 2026-08-22: "why no sku per foto?" — because the SKU was on the
+    capture, and a capture is often a 360. A 360 is the record of a whole
+    ROOM and cannot be one article; you cannot say "this 360 is the wardrobe".
+    Each of its six faces, though, IS a single wall, floor or ceiling, and
+    that is exactly the thing a SKU describes. A flat photo is the same case
+    with one face.
+
+    Blank clears the tag. Kept as a face -> SKU map beside face_annotations
+    rather than as a child table, for the same reason that one is: the desk
+    never edits it by hand, and a map is what the phone sends and reads.
+    """
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("write")
+    face = (face or "").strip().lower()
+    if face not in panorama.ANNOTATABLE_FACES:
+        frappe.throw(_("Not a face: {0}").format(face))
+    if not doc.meta.has_field("face_skus"):
+        frappe.throw(_("This bench has not migrated the face_skus field yet"))
+
+    sku = (sku or "").strip()
+    if sku and not frappe.db.exists("Estimate SKU", sku):
+        frappe.throw(_("No such SKU: {0}").format(sku))
+
+    faces = json.loads(doc.face_skus or "{}")
+    if sku:
+        faces[face] = sku
+    else:
+        faces.pop(face, None)
+    doc.db_set("face_skus", json.dumps(faces, separators=(",", ":")),
+               update_modified=True)
+    return {"name": doc.name, "faces": faces}
+
+
+@frappe.whitelist()
+def get_face_skus(name):
+    """The face -> SKU map for one capture."""
+    doc = frappe.get_doc(DOCTYPE, name)
+    doc.check_permission("read")
+    if not doc.meta.has_field("face_skus"):
+        return {}
+    return json.loads(doc.face_skus or "{}")
+
+
+@frappe.whitelist()
 def get_annotations(name):
     """Cross-device pull: every face's annotation JSON for one capture."""
     doc = frappe.get_doc(DOCTYPE, name)
@@ -795,6 +842,8 @@ def room_baseline(project, room):
         "frozen": bool(doc.baseline_frozen),
         "annotations": json.loads(doc.face_annotations or "{}")
         if doc.meta.has_field("face_annotations") else {},
+        "face_skus": json.loads(doc.face_skus or "{}")
+        if doc.meta.has_field("face_skus") else {},
     }
 
 

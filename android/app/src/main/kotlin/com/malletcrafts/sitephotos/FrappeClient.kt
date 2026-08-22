@@ -207,6 +207,13 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         post("mallet_estimator.sitephoto.rename_node", JSONObject()
             .put("kind", kind).put("name", name).put("new_name", newName))
 
+    /** What work is expected on ONE face. Blank clears it. A 360 is a whole
+     *  room and cannot be one article; each of its faces is one wall, and
+     *  that is what a SKU describes. */
+    fun setFaceSku(docname: String, face: String, sku: String): JSONObject =
+        post("mallet_estimator.sitephoto.set_face_sku", JSONObject()
+            .put("name", docname).put("face", face).put("sku", sku))
+
     fun bindPano(docname: String, fileUrl: String): JSONObject =
         post("mallet_estimator.sitephoto.bind_pano", JSONObject()
             .put("name", docname)
