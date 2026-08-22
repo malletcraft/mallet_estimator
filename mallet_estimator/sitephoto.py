@@ -767,8 +767,15 @@ def set_face_sku(name, face, sku=None):
         frappe.throw(_("This bench has not migrated the face_skus field yet"))
 
     sku = (sku or "").strip()
-    if sku and not frappe.db.exists("Estimate SKU", sku):
-        frappe.throw(_("No such SKU: {0}").format(sku))
+    if sku:
+        if not frappe.db.exists("Estimate SKU", sku):
+            frappe.throw(_("No such SKU: {0}").format(sku))
+        # The same rule create_capture enforces for the capture-level SKU, and
+        # for the same reason: a wall in one client's flat cannot be tagged
+        # with work quoted on another's project. A tag that can point anywhere
+        # is not a tag.
+        if frappe.db.get_value("Estimate SKU", sku, "project") != doc.project:
+            frappe.throw(_("{0} does not belong to project {1}").format(sku, doc.project))
 
     faces = json.loads(doc.face_skus or "{}")
     if sku:

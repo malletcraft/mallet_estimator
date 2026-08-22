@@ -267,16 +267,28 @@ class TestSitePhotoApi(MalletTestCase):
         with self.assertRaises(frappe.ValidationError):
             sitephoto.rename_node("project", "PROJ-does-not-exist", "Nope")
 
+    def _sku_and_capture(self, tag, kind=None):
+        """A project, a SKU on it, and a capture in it — all this test's own.
+        Borrowing whatever SKU happened to exist made the test depend on the
+        order the suite runs in, and on that SKU belonging to the right
+        project, which it need not."""
+        out = sitephoto.ensure_site(f"ZZ Face {tag} Client",
+                                    f"ZZ Face {tag} Project",
+                                    site_name=f"ZZ Face {tag} Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        cap = sitephoto.create_capture(out["project"], _room(), capture_kind=kind)
+        return sku.name, cap["name"], out["project"]
+
     def test_a_sku_belongs_to_a_face_not_to_the_whole_360(self):
         # Amit, 2026-08-22: "why no sku per foto?" A 360 is a whole ROOM and
         # cannot be one article; each of its six faces is one wall, and that
         # is what a SKU describes.
-        made = sitephoto.create_capture(project=_project(), room=_room())
-        name = made["name"]
+        sku, name, _proj = self._sku_and_capture("A")
         self.assertEqual(sitephoto.get_face_skus(name), {})
-        sku = frappe.db.get_value("Estimate SKU", {}, "name")
-        if not sku:
-            self.skipTest("no SKU on this bench")
         sitephoto.set_face_sku(name, "front", sku)
         sitephoto.set_face_sku(name, "left", sku)
         self.assertEqual(sitephoto.get_face_skus(name), {"front": sku, "left": sku})
@@ -285,21 +297,22 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertEqual(sitephoto.get_face_skus(name), {"left": sku})
         self.assertEqual(sitephoto.detail(name)["face_skus"], {"left": sku})
 
-    def test_a_face_sku_refuses_a_bad_face_or_a_sku_that_does_not_exist(self):
-        made = sitephoto.create_capture(project=_project(), room=_room())
+    def test_a_face_refuses_a_bad_face_a_missing_sku_or_another_projects_sku(self):
+        sku, name, _proj = self._sku_and_capture("B")
         with self.assertRaises(frappe.ValidationError):
-            sitephoto.set_face_sku(made["name"], "sideways", "")
+            sitephoto.set_face_sku(name, "sideways", "")
         with self.assertRaises(frappe.ValidationError):
-            sitephoto.set_face_sku(made["name"], "front", "MEST-SKU-nonexistent")
+            sitephoto.set_face_sku(name, "front", "MEST-SKU-nonexistent")
+        # A wall in one client's flat cannot carry work quoted on another's
+        # project — the same rule create_capture enforces on the capture.
+        other_sku, _other_name, _p = self._sku_and_capture("C")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.set_face_sku(name, "front", other_sku)
 
     def test_a_flat_photo_tags_its_single_face(self):
-        made = sitephoto.create_capture(project=_project(), room=_room(),
-                                        capture_kind="Photo")
-        sku = frappe.db.get_value("Estimate SKU", {}, "name")
-        if not sku:
-            self.skipTest("no SKU on this bench")
-        sitephoto.set_face_sku(made["name"], "photo", sku)
-        self.assertEqual(sitephoto.get_face_skus(made["name"]), {"photo": sku})
+        sku, name, _proj = self._sku_and_capture("D", kind="Photo")
+        sitephoto.set_face_sku(name, "photo", sku)
+        self.assertEqual(sitephoto.get_face_skus(name), {"photo": sku})
 
     def test_an_unknown_face_is_refused(self):
         made = sitephoto.create_capture(project=_project(), room=_room())
