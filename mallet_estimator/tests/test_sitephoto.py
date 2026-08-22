@@ -227,6 +227,46 @@ class TestSitePhotoApi(MalletTestCase):
                                                "x2": 1, "y2": 1, "mm": 1200}]})
         self.assertIn("photo", sitephoto.get_annotations(made["name"]))
 
+    def test_a_name_typed_on_site_can_be_corrected(self):
+        made = sitephoto.ensure_site("Renamable Client XYZ", "Renamable Project XYZ",
+                                     site_name="Renamable Site XYZ")
+        proj = made["project"]
+        out = sitephoto.rename_node("project", proj, "Corrected Project XYZ")
+        self.assertTrue(out["renamed"])
+        self.assertEqual(frappe.db.get_value("Project", proj, "project_name"),
+                         "Corrected Project XYZ")
+        if made.get("site"):
+            sitephoto.rename_node("site", made["site"], "Corrected Site XYZ")
+            self.assertEqual(
+                frappe.db.get_value("Mallet Site", made["site"], "site_name"),
+                "Corrected Site XYZ")
+
+    def test_a_rename_onto_another_records_spelling_is_refused(self):
+        # Two customers becoming one folder is the failure ensure_site's
+        # insensitive matching exists to prevent; a rename must not open the
+        # same door from the other side.
+        a = sitephoto.ensure_site("Clash Client Alpha", "Clash Project Alpha")
+        sitephoto.ensure_site("Clash Client Beta", "Clash Project Beta")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.rename_node("project", a["project"], "clash_project beta")
+
+    def test_a_capitalisation_fix_is_a_real_edit_not_a_clash_with_itself(self):
+        made = sitephoto.ensure_site("Case Client", "case project lower")
+        out = sitephoto.rename_node("project", made["project"], "Case Project Lower")
+        self.assertTrue(out["renamed"])
+        self.assertEqual(frappe.db.get_value("Project", made["project"],
+                                             "project_name"),
+                         "Case Project Lower")
+
+    def test_rename_refuses_junk(self):
+        made = sitephoto.ensure_site("Junk Client", "Junk Project")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.rename_node("project", made["project"], "   ")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.rename_node("elephant", made["project"], "Nope")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.rename_node("project", "PROJ-does-not-exist", "Nope")
+
     def test_an_unknown_face_is_refused(self):
         made = sitephoto.create_capture(project=_project(), room=_room())
         with self.assertRaises(frappe.ValidationError):

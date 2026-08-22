@@ -2,6 +2,8 @@ package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
@@ -60,6 +62,9 @@ private fun Badge(text: String, muted: Boolean = false) {
     }
 }
 
+// combinedClickable is still experimental in foundation 1.7; the opt-in is
+// the whole cost of having a long-press at all.
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FolderRow(
     badge: String,
@@ -70,13 +75,18 @@ private fun FolderRow(
     warn: Boolean = true,
     muted: Boolean = false,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     Column {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = ROW_HEIGHT)
-                .clickable(onClick = onClick)
+                // Hold to rename. A correction is not a primary action and
+                // must not sit where a scrolling thumb can hit it, but it
+                // also must not be somewhere else entirely — the name is
+                // wrong HERE, and this is where a person is looking at it.
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -159,6 +169,7 @@ fun ClientsScreen(
     siteCount: (String) -> Int,
     projectCount: (String) -> Int,
     onOpen: (String) -> Unit,
+    onRename: (String) -> Unit,
     onNew: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
@@ -175,7 +186,8 @@ fun ClientsScreen(
                 badge = initials(c),
                 title = c,
                 subtitle = "${plural(s, "site")} · ${plural(p, "project")}",
-                onClick = { onOpen(c) })
+                onClick = { onOpen(c) },
+                onLongClick = { onRename(c) })
         }
         item { NewRow("New client", "works with no signal", onNew) }
     }
@@ -187,6 +199,7 @@ fun SitesScreen(
     sites: List<Catalogue.Site>,
     projectCount: (Catalogue.Site) -> Int,
     onOpen: (Catalogue.Site) -> Unit,
+    onRename: (Catalogue.Site) -> Unit,
     onNew: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
@@ -199,7 +212,8 @@ fun SitesScreen(
                 count = projectCount(s),
                 pill = if (s.local) "offline" else null,
                 muted = true,
-                onClick = { onOpen(s) })
+                onClick = { onOpen(s) },
+                onLongClick = { onRename(s) })
         }
         item { NewRow("New site", "a flat, bungalow or office", onNew) }
     }
@@ -211,6 +225,7 @@ fun ProjectsScreen(
     projects: List<Catalogue.Project>,
     captureCount: (Catalogue.Project) -> Int,
     onOpen: (Catalogue.Project) -> Unit,
+    onRename: (Catalogue.Project) -> Unit,
     onNew: () -> Unit,
 ) {
     LazyColumn(Modifier.fillMaxSize()) {
@@ -230,7 +245,8 @@ fun ProjectsScreen(
                 pill = p.statusLabel.ifBlank { null },
                 warn = p.statusWarn,
                 muted = true,
-                onClick = { onOpen(p) })
+                onClick = { onOpen(p) },
+                onLongClick = { onRename(p) })
         }
         item { NewRow("New project", "job type, dates, scope", onNew) }
     }

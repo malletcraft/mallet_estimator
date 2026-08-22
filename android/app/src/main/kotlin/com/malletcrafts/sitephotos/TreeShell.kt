@@ -722,3 +722,67 @@ private fun kindHeading(kind: String) = when (kind) {
 fun previewCode(client: String, room: String, articleCode: String): String =
     listOf(initials(client), RoomToken.of(room), articleCode)
         .filter { it.isNotBlank() }.joinToString("_")
+
+/**
+ * Correct a name.
+ *
+ * Amit, 2026-08-22: "need to have ability to update edit names like client /
+ * project / site etc." A name is keyed once, in a hurry, standing in
+ * somebody's flat — and it is then the label on every photograph of that job.
+ * Until now the only way to fix one was the desk, which is not where the
+ * person who typed it is standing.
+ *
+ * The dialog says whether the change is local or goes to the server, because
+ * those have different consequences and the person deserves to know which
+ * they are about to do: a local row is words on this phone, an ERP row is the
+ * office's record and every other device's view of it.
+ */
+@Composable
+fun RenameDialog(
+    what: String,          // "client" | "site" | "project"
+    current: String,
+    onServer: Boolean,
+    busy: Boolean = false,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var text by remember(current) { mutableStateOf(current) }
+    val changed = text.trim().isNotEmpty() && text.trim() != current
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Rename ${what}") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    enabled = !busy,
+                    label = { Text(what.replaceFirstChar { it.uppercase() } + " name") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (onServer)
+                        "This ${what} is on the server, so the new name reaches " +
+                        "ERP and every other device. Photos already filed under " +
+                        "it keep their place — only the label changes."
+                    else
+                        "This ${what} has not synced yet, so this is a change on " +
+                        "this phone. It will go up under the corrected name.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = changed && !busy,
+                onClick = { onSave(text.trim()) }) {
+                Text(if (busy) "Saving…" else "Save")
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}

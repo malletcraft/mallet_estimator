@@ -493,6 +493,80 @@ def _site_key(text):
     return re.sub(r"[\s_]+", " ", (text or "").strip()).casefold()
 
 
+# The three things a person names, and where the name actually lives. All
+# three doctypes are series-named with a separate TITLE field — verified
+# against the staging bench, not assumed — so renaming one is a field update:
+# no document rename, no links to rewrite, nothing to break.
+RENAMEABLE = {
+    "client": ("Customer", "customer_name"),
+    "site": ("Mallet Site", "site_name"),
+    "project": ("Project", "project_name"),
+}
+
+
+@frappe.whitelist()
+def rename_node(kind, name, new_name):
+    """Correct a name typed on site.
+
+    A name is keyed once, in a hurry, standing in somebody's flat — and it is
+    then the label on every photograph of that job. Without this the only fix
+    was the desk, which is not where the person who typed it is standing.
+    Amit, 2026-08-22: "need to have ability to update edit names like client /
+    project / site etc."
+
+    Gated on the same capture-create permission as ensure_site, and for the
+    same reason: the photographer role may mint a client and a project because
+    those are NAMES, not money. Correcting one is strictly smaller than
+    creating it.
+
+    Refuses a name another record already holds, under the same insensitive
+    comparison ensure_site matches on — renaming one client onto another's
+    spelling is how two customers become one folder, which is exactly the
+    failure that matching rule exists to prevent.
+    """
+    frappe.has_permission(DOCTYPE, "create", throw=True)
+    kind = (kind or "").strip().lower()
+    if kind not in RENAMEABLE:
+        frappe.throw(_("Not something that can be renamed: {0}").format(kind))
+    doctype, field = RENAMEABLE[kind]
+
+    new_name = (new_name or "").strip()
+    if not new_name:
+        frappe.throw(_("A name cannot be empty."))
+    if len(new_name) > 140:
+        frappe.throw(_("That name is too long."))
+    if not frappe.db.exists(doctype, name):
+        frappe.throw(_("No such {0}: {1}").format(doctype, name))
+
+    was = frappe.db.get_value(doctype, name, field) or ""
+    if _site_key(was) == _site_key(new_name):
+        # Same name in different clothes — a capitalisation fix is a real
+        # edit and must go through, but it is not a clash with itself.
+        frappe.db.set_value(doctype, name, field, new_name)
+        frappe.db.commit()
+        return {"name": name, "renamed": was != new_name, "title": new_name}
+
+    key = _site_key(new_name)
+    for row in frappe.get_all(doctype, fields=["name", field],
+                              limit_page_length=0):
+        if row.name != name and _site_key(row.get(field)) == key:
+            frappe.throw(_("{0} already has a {1} called \"{2}\".").format(
+                doctype, field.replace("_", " "), new_name))
+
+    frappe.db.set_value(doctype, name, field, new_name)
+    # The title is denormalised onto rows that display it. Frappe only
+    # refreshes a fetched value when its own document is saved, so a rename
+    # would otherwise show through everywhere EXCEPT the places that cached
+    # it — the worst of both.
+    if kind == "client":
+        for site in frappe.get_all("Mallet Site", filters={"customer": name},
+                                   pluck="name"):
+            frappe.db.set_value("Mallet Site", site, "customer_name", new_name,
+                                update_modified=False)
+    frappe.db.commit()
+    return {"name": name, "renamed": True, "title": new_name}
+
+
 @frappe.whitelist()
 def ensure_site(customer_name, project_title, site_name=None, site_type=None,
                 job_type=None):

@@ -199,6 +199,14 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("note", note))
     }
 
+    /** Correct a client, site or project name. kind is "client" | "site" |
+     *  "project"; name is the ERP docname. The server refuses a name another
+     *  record already holds, so a clash comes back as a message rather than
+     *  as two customers quietly becoming one. */
+    fun renameNode(kind: String, name: String, newName: String): JSONObject =
+        post("mallet_estimator.sitephoto.rename_node", JSONObject()
+            .put("kind", kind).put("name", name).put("new_name", newName))
+
     fun bindPano(docname: String, fileUrl: String): JSONObject =
         post("mallet_estimator.sitephoto.bind_pano", JSONObject()
             .put("name", docname)

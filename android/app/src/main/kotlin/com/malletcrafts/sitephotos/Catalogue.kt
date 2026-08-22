@@ -45,6 +45,9 @@ class Catalogue(context: Context) {
         val title: String,
         /** ERP's Project name (PROJ-0004). Empty until this site syncs. */
         val serverId: String,
+        /** ERP's Customer docname. Needed to rename the client, and already
+         *  in the bootstrap payload — it was simply never read. */
+        val clientId: String = "",
         val jobType: String,
         val stage: String,
         val local: Boolean,
@@ -177,6 +180,42 @@ class Catalogue(context: Context) {
         writeLocals(have + Local(c, s, p, siteType, jobType))
     }
 
+    /**
+     * Correct a name that has not reached ERP yet.
+     *
+     * A local row is only words in this phone's preferences, so fixing one is
+     * a local edit and must work with no signal at all — which is the state
+     * the person is usually in when they notice the typo. The ERP-backed case
+     * goes through sitephoto.rename_node instead; the caller picks by whether
+     * the row still has a local copy.
+     *
+     * kind: "client" renames it everywhere on this phone, "site" within that
+     * client, "project" within that client and site.
+     */
+    fun renameLocal(kind: String, client: String, site: String, project: String,
+                    newName: String): Boolean {
+        val n = newName.trim()
+        if (n.isEmpty()) return false
+        var touched = false
+        val next = locals().map { l ->
+            when (kind) {
+                "client" -> if (same(l.client, client)) {
+                    touched = true; l.copy(client = n)
+                } else l
+                "site" -> if (same(l.client, client) && same(l.site, site)) {
+                    touched = true; l.copy(site = n)
+                } else l
+                "project" -> if (same(l.client, client) && same(l.site, site) &&
+                    same(l.project, project)) {
+                    touched = true; l.copy(project = n)
+                } else l
+                else -> l
+            }
+        }
+        if (touched) writeLocals(next)
+        return touched
+    }
+
     /** Once ERP has the site, its local copy is redundant — dropping it is
      *  what stops the same folder appearing twice after a sync. */
     fun forgetLocal(client: String, site: String, project: String) {
@@ -281,6 +320,7 @@ class Catalogue(context: Context) {
                 siteId = o.optString("site"),
                 title = title,
                 serverId = o.optString("project"),
+                clientId = o.optString("customer"),
                 jobType = o.optString("job_type").ifBlank { JOB_NEW },
                 stage = o.optString("stage"),
                 local = false,
@@ -302,7 +342,8 @@ class Catalogue(context: Context) {
         for (l in locals()) {
             if (keyOf(l.client, l.site, l.project) in seen) continue
             if (keyOf(l.client, "", l.project) in erpTitles) continue
-            out.add(Project(l.client, l.site, "", l.project, "", l.jobType, "", local = true))
+            out.add(Project(l.client, l.site, "", l.project, "",
+                clientId = "", jobType = l.jobType, stage = "", local = true))
             seen.add(keyOf(l.client, l.site, l.project))
         }
         return out.sortedWith(compareBy({ it.client.lowercase() },

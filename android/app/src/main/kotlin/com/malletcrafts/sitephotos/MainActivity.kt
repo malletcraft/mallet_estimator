@@ -99,6 +99,12 @@ private fun AppScreen() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     var showNewSite by remember { mutableStateOf(false) }
+    // what to rename: kind, the current name, the project row it came from
+    // (which carries the ERP docnames), and whether it lives on the server.
+    var renaming by remember {
+        mutableStateOf<RenameTarget?>(null)
+    }
+    var renameBusy by remember { mutableStateOf(false) }
     var showStagePicker by remember { mutableStateOf(false) }
     // Work | Browse | Queue. Browse is the landing tab: Amit asked for the
     // app to open on Clients, ImageMeter-style.
@@ -410,6 +416,65 @@ private fun AppScreen() {
                 showSettings = false
                 SyncWorker.syncNow(context)
             })
+    }
+
+    renaming?.let { t ->
+        BackHandler { if (!renameBusy) renaming = null }
+        RenameDialog(
+            what = t.kind, current = t.current, onServer = t.serverId.isNotBlank(),
+            busy = renameBusy,
+            onDismiss = { renaming = null },
+            onSave = { newName ->
+                // A local row is words in this phone's preferences, so it is
+                // corrected here and now, with no signal. An ERP row is the
+                // office's record and has to go to the server — and must not
+                // be reported as done until the server says so.
+                if (t.serverId.isBlank()) {
+                    cat.renameLocal(t.kind, t.client, t.site, t.project, newName)
+                    reload()
+                    // Follow the rename: a person renaming the thing they are
+                    // standing in should not be thrown back to the root.
+                    when (t.kind) {
+                        "client" -> { navClient = newName; navSite = null; navProject = null }
+                        "site" -> { navSite = newName; navProject = null }
+                        else -> navProject = null
+                    }
+                    lastResult = "Renamed to $newName"
+                    renaming = null
+                } else {
+                    renameBusy = true
+                    scope.launch(Dispatchers.IO) {
+                        val res = runCatching {
+                            FrappeClient.load(context)
+                                ?.renameNode(t.kind, t.serverId, newName)
+                                ?: error("no server configured")
+                            // Pull the masters back immediately rather than
+                            // waiting for the next sync: the rule is that a
+                            // change is visible at once, and a rename that
+                            // needs a sync to appear is the same bug again.
+                            FrappeClient.load(context)?.bootstrap()?.let {
+                                store.saveMasters(it)
+                            }
+                        }
+                        withContext(Dispatchers.Main) {
+                            renameBusy = false
+                            reload()
+                            res.onSuccess {
+                                when (t.kind) {
+                                    "client" -> { navClient = newName; navSite = null; navProject = null }
+                                    "site" -> { navSite = newName; navProject = null }
+                                    else -> navProject = null
+                                }
+                                lastResult = "Renamed to $newName"
+                                renaming = null
+                            }.onFailure {
+                                lastResult = "Could not rename: ${it.message}"
+                            }
+                        }
+                    }
+                }
+            })
+        return
     }
 
     // ---- the folder tree ------------------------------------------------
@@ -810,6 +875,9 @@ private fun AppScreen() {
                             onSkus = { showSkus = true },
                             onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(
+                            onRename = { p -> renaming = RenameTarget(
+                                "project", p.title, p.client, p.site, p.title,
+                                p.serverId) },
                             projects = cs.projectsOf(client, site),
                             captureCount = { p ->
                                 queue.count { it.projectTitle.equals(p.title, true) }
@@ -817,6 +885,8 @@ private fun AppScreen() {
                             onOpen = { navProject = it },
                             onNew = { showNewSite = true })
                         client != null -> SitesScreen(
+                            onRename = { st -> renaming = RenameTarget(
+                                "site", st.name, client, st.name, "", st.serverId) },
                             sites = cs.sitesOf(client),
                             projectCount = { st ->
                                 cs.projectsOf(client, st.name).size
@@ -824,6 +894,15 @@ private fun AppScreen() {
                             onOpen = { navSite = it.name },
                             onNew = { showNewSite = true })
                         else -> ClientsScreen(
+                            onRename = { c -> renaming = RenameTarget(
+                                "client", c, c, "", "",
+                                // A client's ERP identity lives on its
+                                // projects; a client with none is local by
+                                // definition and renames on the phone.
+                                cs.projectsOf(c, "").firstOrNull()?.clientId
+                                    ?: cs.projects.firstOrNull {
+                                        it.client.equals(c, true) && it.clientId.isNotBlank()
+                                    }?.clientId ?: "") },
                             clients = cs.clients,
                             siteCount = { c -> cs.siteCount(c) },
                             projectCount = { c ->
@@ -1358,6 +1437,24 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/**
+ * What a long-press is asking to rename.
+ *
+ * Carries BOTH identities on purpose: the names, which is how a local row is
+ * found in preferences, and the ERP docname, which is how a synced one is
+ * found on the server. Which of the two is used is decided by whether
+ * serverId is blank — the same test the tree already uses to draw the
+ * "offline" pill, so the dialog and the badge can never disagree.
+ */
+data class RenameTarget(
+    val kind: String,          // "client" | "site" | "project"
+    val current: String,
+    val client: String,
+    val site: String,
+    val project: String,
+    val serverId: String,
+)
 
 @Composable
 private fun NewSiteDialog(
