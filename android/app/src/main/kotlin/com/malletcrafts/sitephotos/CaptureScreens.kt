@@ -495,7 +495,6 @@ fun FaceViewer(
     showAnnotated: Boolean,
     onToggle: (Boolean) -> Unit,
     onEditInImageMeter: () -> Unit,
-    onAttachAnnotated: (() -> Unit)? = null,
     faces: List<LocalFaces.Face>,
     current: Int,
     onPickFace: (Int) -> Unit,
@@ -537,28 +536,6 @@ fun FaceViewer(
                     modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(7.dp))
                 Text(if (hasAnnotated) "Edit in ImageMeter" else "Annotate in ImageMeter")
-            }
-            // THE ROUTE THAT CANNOT FAIL.
-            //
-            // The automatic one reads the app's stamp back out of the gallery
-            // and is right when it works — but it depends on ImageMeter
-            // publishing a copy somewhere MediaStore can see, and on that
-            // copy still carrying a readable mark. When either is untrue the
-            // app can only say "found nothing", which from where a person is
-            // standing is indistinguishable from broken.
-            //
-            // Here there is no identification to get wrong: this screen IS
-            // one face of one capture, so a file picked here belongs to it by
-            // construction. Amit, 2026-08-22: "Why its so hard to match ids
-            // of foto when its clearly printed on fotos." It should not be —
-            // and when the automatic route cannot reach the file, one tap
-            // beats another round of diagnosis.
-            if (onAttachAnnotated != null) {
-                TextButton(onClick = onAttachAnnotated,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(if (hasAnnotated) "Replace with a picked file"
-                         else "Pick the annotated copy myself")
-                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 faces.forEachIndexed { i, f ->

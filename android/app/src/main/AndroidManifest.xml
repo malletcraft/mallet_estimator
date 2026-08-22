@@ -2,10 +2,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The only permission. Storage needs none: minSdk 29 means scoped
-         storage, and an app writing its OWN images into Pictures/ is allowed
-         outright. The photo picker grants per-file read on the chosen 360. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- READING the gallery. Writing our own images into Pictures/ needs no
+         permission and never did — which is what the note here used to say,
+         and it was true and beside the point.
+
+         Finding an ANNOTATED COPY is the opposite case: that file belongs to
+         ImageMeter, and from Android 13 a query against MediaStore without
+         READ_MEDIA_IMAGES returns ONLY the app's own media. So the scan that
+         looks for the app's stamp in the gallery was searching a set that
+         could not contain the answer — every foreign image invisible, our own
+         ones skipped by design as "not an annotation of itself". It reported
+         "found nothing" perfectly correctly, and could never have reported
+         anything else.
+
+         Amit, 2026-08-22: "you have ids local gallery access . if human can
+         see it, so you must." Quite right — and it did not have that access.
+         READ_EXTERNAL_STORAGE covers Android 12 and below, where the newer
+         permission does not exist. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:targetApi="tiramisu" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <!-- Self-update: the app hands its own next APK to the system
          installer. Android still requires the person to tap Install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />

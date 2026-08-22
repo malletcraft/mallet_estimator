@@ -69,12 +69,32 @@ object StampScan {
      * apart from "never looked", and those need completely different advice.
      */
     data class Scan(val looked: Int, val stamped: Int,
-                    val marks: Map<String, Map<String, Uri>>)
+                    val marks: Map<String, Map<String, Uri>>,
+                    /** False when Android is hiding other apps' images from
+                     *  us. Reported separately because "looked at 0" and "not
+                     *  allowed to look" need completely different answers. */
+                    val allowed: Boolean = true)
+
+    /** The permission that decides whether a foreign image exists as far as
+     *  this app is concerned. */
+    val MEDIA_PERMISSION: String
+        get() = if (android.os.Build.VERSION.SDK_INT >= 33)
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        else android.Manifest.permission.READ_EXTERNAL_STORAGE
+
+    fun canRead(context: Context): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(
+            context, MEDIA_PERMISSION) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
 
     fun allMarks(context: Context, notBefore: Long = 0L): Map<String, Map<String, Uri>> =
         scan(context, notBefore).marks
 
     fun scan(context: Context, notBefore: Long = 0L): Scan {
+        // Without this, MediaStore answers with our own images only — so the
+        // scan would run, look busy, and be structurally incapable of finding
+        // an annotation. Saying so beats searching an empty set politely.
+        if (!canRead(context)) return Scan(0, 0, emptyMap(), allowed = false)
         val out = HashMap<String, HashMap<String, Uri>>()
         val seen = cache(context)
         val edit = seen.edit()
@@ -132,7 +152,7 @@ object StampScan {
             }
         }
         if (decoded > 0) edit.apply()
-        return Scan(looked, stamped, out)
+        return Scan(looked, stamped, out, allowed = true)
     }
 
     /** Every annotated face of ONE capture. Face → uri. */

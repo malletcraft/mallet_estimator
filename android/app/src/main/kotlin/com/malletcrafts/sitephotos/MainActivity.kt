@@ -115,10 +115,6 @@ private fun AppScreen() {
     // Bumped by every local create/rename/delete. The catalogue's locals live
     // in preferences, which Compose has no way to observe.
     var dataTick by remember { mutableStateOf(0) }
-    // Bumped when a person hand-picks an annotated copy. The capture screen's
-    // annotation lookup keys on it, so the toggle lights up the moment the
-    // picker returns rather than on the next resume.
-    var attachTick by remember { mutableStateOf(0) }
     // Capture and face sit BELOW the room, and are plain state rather than
     // crumb levels: six crumbs will not fit a phone, and a photo you are
     // looking at is a view, not a folder.
@@ -341,40 +337,30 @@ private fun AppScreen() {
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? -> if (uri != null) ingest(uri, kind = "Photo") }
 
-    // Which capture+face a hand-picked annotated copy belongs to. Set the
-    // moment the picker is launched from the viewer, so the callback knows
-    // where the answer goes without threading state through the picker.
-    var attachTo by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val annotatedPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        val target = attachTo
-        attachTo = null
-        if (uri != null && target != null) {
-            val (devId, faceName) = target
-            busy = "Attaching the annotated copy…"
-            scope.launch(Dispatchers.IO) {
-                val res = runCatching {
-                    // Remembered locally FIRST, so the toggle lights up even
-                    // with no signal — the picture is on this phone and the
-                    // person can see it is attached.
-                    PickedAnnotations.put(context, devId, faceName, uri)
-                    val server = queue.firstOrNull { it.deviceId == devId }?.serverName
-                    if (!server.isNullOrBlank()) {
-                        AnnotationPush.pushOne(context, server, devId, faceName, uri)
-                    } else null
-                }
-                withContext(Dispatchers.Main) {
-                    busy = null
-                    attachTick += 1
-                    res.onSuccess { sent ->
-                        lastResult = if (sent == true)
-                            "Attached and sent to the server."
-                        else "Attached. It goes up with the next sync."
-                    }.onFailure { lastResult = "Could not attach: ${it.message}" }
-                }
-            }
-        }
+    // A gallery read this app is ALLOWED to do. Requested rather than
+    // assumed: without it MediaStore hides every image another app wrote, so
+    // the annotation scan searches a set that cannot contain the answer.
+    //
+    // No manual "pick the file yourself" fallback. Amit, 2026-08-22: "no
+    // manual pick whtsover. you have ids local gallery access . if human can
+    // see it, so you must." He is right — a picker would have been a way to
+    // live with the bug instead of fixing it.
+    var mediaTick by remember { mutableStateOf(0) }
+    val askMedia = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        mediaTick += 1
+        lastResult = if (granted) "Gallery access granted — looking for annotations now."
+                     else "Without gallery access the app cannot see what " +
+                          "ImageMeter wrote. Settings → Apps → MCFT Site " +
+                          "Photos → Permissions → Photos."
+        if (granted) SyncWorker.syncNow(context)
+    }
+    LaunchedEffect(configured) {
+        // Asked once, on the way in, so the first annotation someone makes is
+        // already findable rather than failing silently and needing a second
+        // trip through the drawer.
+        if (!StampScan.canRead(context)) askMedia.launch(StampScan.MEDIA_PERMISSION)
     }
 
     var shotUri by remember { mutableStateOf<Uri?>(null) }
@@ -579,6 +565,11 @@ private fun AppScreen() {
                         // one button whose whole meaning is "go and look" is
                         // the right place to make that stop being true.
                         StampScan.forget(context)
+                        if (!StampScan.canRead(context)) {
+                            withContext(Dispatchers.Main) {
+                                askMedia.launch(StampScan.MEDIA_PERMISSION)
+                            }
+                        }
 
                         // THE GALLERY FIRST, and reported in numbers.
                         //
@@ -610,6 +601,10 @@ private fun AppScreen() {
                         }.getOrNull()
                         val localLine = local?.let { (scan, sent, waiting) ->
                             when {
+                                !scan.allowed ->
+                                    "Android is hiding other apps' photos from " +
+                                    "this app — grant Photos access and press " +
+                                    "this again."
                                 sent > 0 -> "Sent $sent annotated " +
                                     (if (sent == 1) "face" else "faces") + " from the gallery."
                                 scan.stamped > 0 && waiting > 0 ->
@@ -996,7 +991,7 @@ private fun AppScreen() {
             lifecycleOwner.lifecycle.addObserver(obs)
             onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
         }
-        LaunchedEffect(cap.deviceId, prefsTick, annTick, attachTick) {
+        LaunchedEffect(cap.deviceId, prefsTick, annTick, mediaTick) {
             runCatching {
                 withContext(Dispatchers.IO) {
                     // The gallery, and only the gallery. ImageMeter's data
@@ -1022,9 +1017,6 @@ private fun AppScreen() {
                     byName + StampScan.annotatedFor(context, cap.deviceId)
                 }
             }.onSuccess { annotatedLocal = it }
-        }
-        val picked = remember(cap.deviceId, attachTick) {
-            PickedAnnotations.of(context, cap.deviceId)
         }
         // …and straight home. The office should not have to be told a wall
         // was marked up; the phone knows which face it is, which is exactly
@@ -1083,11 +1075,11 @@ private fun AppScreen() {
                 // The local copy wins. It is the same annotation, it is
                 // already here, and it is newer than anything the round trip
                 // could have brought back.
-                // Order of trust: what a PERSON pointed at, then what the
-                // stamp scan found here, then what the server sent back. A
-                // deliberate choice must never lose to a guess.
-                annotatedSource = picked[f.name]?.let { ThumbSource.Content(it) }
-                    ?: annotatedLocal[f.name]?.let { ThumbSource.Content(it) }
+                // What the stamp scan found on this phone, then what the
+                // server sent back. The local copy wins: same annotation,
+                // already here, and newer than anything the round trip could
+                // have brought.
+                annotatedSource = annotatedLocal[f.name]?.let { ThumbSource.Content(it) }
                     ?: annotated[f.name]?.let { ThumbSource.LocalFile(it) },
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
@@ -1101,11 +1093,6 @@ private fun AppScreen() {
                                 .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION),
                             "Annotate with"))
                     }.onFailure { lastResult = "No app to open the face: ${it.message}" }
-                },
-                onAttachAnnotated = {
-                    attachTo = cap.deviceId to f.name
-                    annotatedPicker.launch(PickVisualMediaRequest(
-                        ActivityResultContracts.PickVisualMedia.ImageOnly))
                 },
                 faces = faces,
                 current = faceIdx,
