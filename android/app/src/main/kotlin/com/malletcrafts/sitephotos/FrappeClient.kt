@@ -298,13 +298,30 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         projectTitle: String,
         siteName: String = "",
         jobType: String = "",
+        siteType: String = "",
+        siteAddress: String = "",
     ): JSONObject = post("mallet_estimator.sitephoto.ensure_site", JSONObject()
         .put("customer_name", customerName)
         .put("project_title", projectTitle)
         .apply {
             if (siteName.isNotBlank()) put("site_name", siteName)
             if (jobType.isNotBlank()) put("job_type", jobType)
+            // Blank is omitted, not sent: the server FILLS blanks rather than
+            // overwriting, and sending "" would ask it to fill nothing while
+            // still looking like an answer.
+            if (siteType.isNotBlank()) put("site_type", siteType)
+            if (siteAddress.isNotBlank()) put("site_address", siteAddress)
         })
+
+    /** Set a site's type and address deliberately — an edit, not a guess
+     *  carried by a capture, so the server overwrites what is there. */
+    fun setSiteDetails(site: String, siteType: String?, siteAddress: String?): JSONObject =
+        post("mallet_estimator.sitephoto.set_site_details", JSONObject()
+            .put("site", site)
+            .apply {
+                if (siteType != null) put("site_type", siteType)
+                if (siteAddress != null) put("site_address", siteAddress)
+            })
 
     companion object {
         private const val PREFS = "mcft_settings"

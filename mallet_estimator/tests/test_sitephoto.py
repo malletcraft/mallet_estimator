@@ -4,7 +4,7 @@
 # additive).
 import frappe
 
-from mallet_estimator import install, panorama, sitephoto
+from mallet_estimator import install, panorama, sitephoto, worksite
 
 try:
     from frappe.tests import IntegrationTestCase as MalletTestCase
@@ -1047,3 +1047,90 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertEqual(rows["ELF"]["basis"], "Nos")
         self.assertEqual(rows["POP"]["kind"], "Subcontract")
         self.assertEqual(rows["WAR"]["kind"], "Build")
+
+
+class TestSiteTypeAndAddress(MalletTestCase):
+    """Amit, 2026-08-22: "site should be selectable like flat, bunglow, shop
+    etc, address should be one more separate field where address of taht site
+    will be keyed in."
+
+    The type already existed on the doctype and in the app's data model — what
+    was missing was any way to CHOOSE it, and any field to type an address
+    into. The old `address` was a Link to ERPNext's Address doctype, which
+    nothing on a phone can create."""
+
+    def _customer(self):
+        name = "TypeAddr Client"
+        if not frappe.db.exists("Customer", {"customer_name": name}):
+            frappe.get_doc({"doctype": "Customer", "customer_name": name,
+                            "customer_type": "Individual"}).insert(ignore_permissions=True)
+        return frappe.db.get_value("Customer", {"customer_name": name}, "name")
+
+    def test_the_type_list_comes_off_the_doctype(self):
+        """The app renders these as chips and must not hold its own copy: a
+        type added to the Select and not to the phone is one nobody can pick,
+        and a phone with its own list goes on offering a retired one."""
+        got = worksite.site_types()
+        self.assertIn("Flat", got)
+        self.assertIn("Shop", got)
+        options = frappe.get_meta("Mallet Site").get_field("site_type").options
+        self.assertEqual(got, [o for o in options.split("\n") if o.strip()])
+
+    def test_a_new_site_keeps_the_type_and_address_it_was_given(self):
+        c = self._customer()
+        site = worksite.ensure_site(c, "Kothrud Duplex", "Bungalow",
+                                    site_address="12 Paud Road, Kothrud, Pune")
+        doc = frappe.get_doc("Mallet Site", site)
+        self.assertEqual(doc.site_type, "Bungalow")
+        self.assertEqual(doc.site_address, "12 Paud Road, Kothrud, Pune")
+
+    def test_sync_fills_a_blank_but_never_overwrites(self):
+        """The phone carries what it was told; the office's record wins. A
+        capture syncing an hour later must not revert a desk correction."""
+        c = self._customer()
+        site = worksite.ensure_site(c, "Baner Flat", "Flat")
+        frappe.db.set_value("Mallet Site", site, "site_address", "Corrected at the desk")
+        again = worksite.ensure_site(c, "Baner Flat", "Shop",
+                                     site_address="typed on the phone")
+        self.assertEqual(again, site, "a second visit minted a second site")
+        doc = frappe.get_doc("Mallet Site", site)
+        self.assertEqual(doc.site_address, "Corrected at the desk")
+        self.assertEqual(doc.site_type, "Flat", "an existing type was overwritten")
+
+    def test_a_blank_address_is_filled_by_the_phone(self):
+        """The other half of the rule: the site is often where the address is
+        first known, and refusing to record it sends someone to the desk to
+        retype what they already typed standing in the doorway."""
+        c = self._customer()
+        site = worksite.ensure_site(c, "Blank Addr Flat", "Flat")
+        worksite.ensure_site(c, "Blank Addr Flat", site_address="9 Fill Me Road")
+        self.assertEqual(
+            frappe.db.get_value("Mallet Site", site, "site_address"),
+            "9 Fill Me Road")
+
+    def test_an_edit_from_the_phone_does_overwrite(self):
+        """set_site_details is a deliberate edit, not a guess riding along on
+        a capture, so it replaces what is there."""
+        c = self._customer()
+        site = worksite.ensure_site(c, "Wakad Shop", "Flat",
+                                    site_address="wrong address")
+        out = sitephoto.set_site_details(site, site_type="Shop",
+                                         site_address="Shop 4, Wakad")
+        self.assertEqual(out["site_type"], "Shop")
+        self.assertEqual(out["site_address"], "Shop 4, Wakad")
+
+    def test_an_unknown_type_is_refused(self):
+        c = self._customer()
+        site = worksite.ensure_site(c, "Hinjewadi Flat", "Flat")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.set_site_details(site, site_type="Houseboat")
+
+    def test_the_masters_payload_offers_the_types_and_the_address(self):
+        c = self._customer()
+        worksite.ensure_site(c, "Masters Flat", "Flat",
+                             site_address="1 Test Lane")
+        m = sitephoto.masters()
+        self.assertIn("Flat", m["site_types"])
+        row = next((s for s in m["sites"] if s.get("site_name") == "Masters Flat"), None)
+        self.assertIsNotNone(row, "the site is missing from masters")
+        self.assertEqual(row.get("site_address"), "1 Test Lane")

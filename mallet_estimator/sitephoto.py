@@ -44,7 +44,8 @@ def bootstrap():
     if frappe.db.exists("DocType", "Mallet Site"):
         for st in frappe.get_list(
                 "Mallet Site", fields=["name", "site_name", "customer",
-                                       "customer_name", "site_type", "city"],
+                                       "customer_name", "site_type", "city",
+                                       "site_address"],
                 order_by="modified desc", limit_page_length=500):
             sites[st.name] = st
 
@@ -104,6 +105,10 @@ def bootstrap():
         "sites": [dict(v) for v in sites.values()],
         "rooms": rooms,
         "job_types": list(worksite.JOB_TYPES),
+        # Read off the doctype, never restated on the phone: a type added to
+        # the Select and not to the app is one nobody can pick, and an app
+        # carrying its own list goes on offering types the server has dropped.
+        "site_types": worksite.site_types(),
         "phases": list(worksite.PHASES),
         "stages": stage_master(),
         "articles": article_master(),
@@ -569,7 +574,7 @@ def rename_node(kind, name, new_name):
 
 @frappe.whitelist()
 def ensure_site(customer_name, project_title, site_name=None, site_type=None,
-                job_type=None):
+                job_type=None, site_address=None):
     """Resolve — or create — the client, SITE and project a device capture named.
 
     A technician arriving at a NEW site has no signal and no project row, so
@@ -606,7 +611,7 @@ def ensure_site(customer_name, project_title, site_name=None, site_type=None,
             # Filling the gap is safe; overwriting a site the office chose is
             # not, so this only ever fills a blank.
             site = _attach_site(p.name, p.customer, site_name, site_type,
-                                fill_only=True)
+                                fill_only=True, site_address=site_address)
             return {"project": p.name, "project_title": p.project_name,
                     "customer_name": cust, "site": site, "created": False}
 
@@ -652,7 +657,8 @@ def ensure_site(customer_name, project_title, site_name=None, site_type=None,
             "site": site, "created": True}
 
 
-def _attach_site(project, customer, site_name, site_type=None, fill_only=False):
+def _attach_site(project, customer, site_name, site_type=None, fill_only=False,
+                 site_address=None):
     """Point a project at a site, creating the site if the office has none by
     that name. Returns the site docname, or "" on a bench whose model sync has
     not created the field yet — the app treats a blank site as 'not synced'
@@ -661,9 +667,13 @@ def _attach_site(project, customer, site_name, site_type=None, fill_only=False):
         return ""
     have = frappe.db.get_value("Project", project, "mallet_site")
     if have and fill_only:
+        # The project already points somewhere; still let a blank type or
+        # address on THAT site be filled from what the phone carries.
+        worksite._fill_blanks(have, site_type=site_type,
+                              site_address=site_address)
         return have
     site = worksite.ensure_site(customer, site_name or worksite.DEFAULT_SITE_NAME,
-                                site_type)
+                                site_type, site_address=site_address)
     frappe.db.set_value("Project", project, "mallet_site", site,
                         update_modified=False)
     return site
@@ -741,6 +751,39 @@ def save_annotations(name, face, data):
     doc.db_set("face_annotations", json.dumps(allfaces, separators=(",", ":")),
                update_modified=True)
     return {"name": doc.name, "faces": sorted(allfaces)}
+
+
+@frappe.whitelist()
+def set_site_details(site, site_type=None, site_address=None):
+    """Set a site's TYPE and ADDRESS from the phone.
+
+    Amit, 2026-08-22: "site should be selectable like flat, bunglow, shop etc,
+    address should be one more separate field where address of taht site will
+    be keyed in."
+
+    Unlike the sync path this OVERWRITES, because it is a deliberate edit
+    rather than a guess carried along by a capture: someone opened the site
+    and corrected it. Passing a field as None leaves it untouched; passing ""
+    clears it, which is the only way to undo a typo from the phone."""
+    frappe.has_permission(DOCTYPE, "write", throw=True)
+    if not frappe.db.exists("Mallet Site", site):
+        frappe.throw(_("No such site: {0}").format(site))
+    meta = frappe.get_meta("Mallet Site")
+    changed = []
+    if site_type is not None:
+        allowed = worksite.site_types()
+        if site_type and site_type not in allowed:
+            frappe.throw(_("{0} is not a site type. One of: {1}").format(
+                site_type, ", ".join(allowed)))
+        frappe.db.set_value("Mallet Site", site, "site_type", site_type)
+        changed.append("site_type")
+    if site_address is not None and meta.has_field("site_address"):
+        frappe.db.set_value("Mallet Site", site, "site_address", site_address)
+        changed.append("site_address")
+    return {"site": site, "changed": changed,
+            "site_type": frappe.db.get_value("Mallet Site", site, "site_type"),
+            "site_address": (frappe.db.get_value("Mallet Site", site, "site_address")
+                             if meta.has_field("site_address") else "")}
 
 
 @frappe.whitelist()

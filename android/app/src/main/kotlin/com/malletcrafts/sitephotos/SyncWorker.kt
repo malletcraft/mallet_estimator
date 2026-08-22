@@ -51,10 +51,16 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     // rather than carried on the capture row: the captures
                     // table has no migration path, and the catalogue is where
                     // the phone already remembers what was typed.
+                    val siteName = cat.localSiteFor(c.customerName, c.projectTitle)
                     val resolved = client.ensureSite(
                         c.customerName, c.projectTitle,
-                        siteName = cat.localSiteFor(c.customerName, c.projectTitle),
-                        jobType = cat.localJobTypeFor(c.customerName, c.projectTitle))
+                        siteName = siteName,
+                        jobType = cat.localJobTypeFor(c.customerName, c.projectTitle),
+                        siteType = cat.localSiteType(siteName),
+                        // Typed on site with no signal. If it does not ride
+                        // out with the capture it is only ever a note in this
+                        // phone's preferences, which is where it dies.
+                        siteAddress = cat.localAddress(siteName))
                     projectId = resolved.getString("project")
                     store.setProject(c.deviceId, projectId)
                     // ERP has it now, so the local copy is redundant. Dropping

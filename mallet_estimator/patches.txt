@@ -120,3 +120,7 @@ mallet_estimator.patches.photo_kind_and_article_units
 # patch — retrofitting work into a spent patch is how a migration silently
 # does nothing.
 mallet_estimator.patches.article_kind_and_basis
+# post_model_sync: the site_address COLUMN must exist before the patch can
+# copy anything into it, and reload_doc inside the patch is what guarantees
+# the column lands even when the deploy would otherwise skip a migrate.
+mallet_estimator.patches.site_address_field

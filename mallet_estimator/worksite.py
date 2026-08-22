@@ -136,7 +136,28 @@ def find_site(customer, site_name):
     return None
 
 
-def ensure_site(customer, site_name=None, site_type=None, city=None):
+SITE_TYPES = ("Flat", "Bungalow", "Row House", "Office", "Shop", "Other")
+
+
+def site_types():
+    """The Site Type options, read from the doctype rather than restated here.
+
+    The app shows these as chips and must not carry its own copy: a list added
+    in the Select and not in the phone is a type nobody can pick, and the
+    phone would go on offering a type the server has dropped."""
+    try:
+        for f in frappe.get_meta("Mallet Site").fields:
+            if f.fieldname == "site_type" and f.options:
+                got = [o.strip() for o in f.options.split("\n") if o.strip()]
+                if got:
+                    return got
+    except Exception:
+        pass
+    return list(SITE_TYPES)
+
+
+def ensure_site(customer, site_name=None, site_type=None, city=None,
+                site_address=None):
     """Resolve — or create — a site. Matching comes first, always: a
     technician on a roof with one bar of signal types a name, and the job
     here is to land on the office's existing row rather than to make a
@@ -146,9 +167,30 @@ def ensure_site(customer, site_name=None, site_type=None, city=None):
     site_name = (site_name or "").strip() or DEFAULT_SITE_NAME
     found = find_site(customer, site_name)
     if found:
+        # An existing site is never renamed or retyped from here, but a BLANK
+        # address or type is filled: the phone is often where those are first
+        # known, and refusing to record them would send someone to the desk to
+        # retype what they already typed on site.
+        _fill_blanks(found, site_type=site_type, city=city,
+                     site_address=site_address)
         return found
     doc = frappe.get_doc({
         "doctype": "Mallet Site", "customer": customer, "site_name": site_name,
         "site_type": site_type or "Flat", "city": city or ""})
+    if site_address and doc.meta.has_field("site_address"):
+        doc.site_address = site_address
     doc.insert(ignore_permissions=True)
     return doc.name
+
+
+def _fill_blanks(site, site_type=None, city=None, site_address=None):
+    """Fill only what is EMPTY. Overwriting is how a phone with a stale copy
+    silently reverts what the office corrected an hour ago."""
+    meta = frappe.get_meta("Mallet Site")
+    for field, value in (("site_type", site_type), ("city", city),
+                         ("site_address", site_address)):
+        if not value or not meta.has_field(field):
+            continue
+        if not frappe.db.get_value("Mallet Site", site, field):
+            frappe.db.set_value("Mallet Site", site, field, value,
+                                update_modified=False)

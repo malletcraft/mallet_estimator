@@ -33,6 +33,8 @@ class Catalogue(context: Context) {
         val serverId: String,
         val type: String,
         val city: String,
+        /** Free text, keyed on site or at the desk. Blank until someone types one. */
+        val address: String = "",
         val local: Boolean,
     ) {
         val synced: Boolean get() = serverId.isNotBlank()
@@ -120,6 +122,8 @@ class Catalogue(context: Context) {
     private data class Local(
         val client: String, val site: String, val project: String,
         val siteType: String, val jobType: String,
+        /** Typed on site; carried to ERP on the next sync. */
+        val address: String = "",
     )
 
     /** Work the SITE said was needed, before the bench knew about it.
@@ -155,7 +159,8 @@ class Catalogue(context: Context) {
                 o.optString("site").trim().ifEmpty { DEFAULT_SITE },
                 p,
                 o.optString("site_type").ifEmpty { "Flat" },
-                o.optString("job_type").ifEmpty { JOB_NEW })
+                o.optString("job_type").ifEmpty { JOB_NEW },
+                o.optString("address"))
         }
     }
 
@@ -165,7 +170,7 @@ class Catalogue(context: Context) {
             arr.put(JSONObject()
                 .put("client", it.client).put("site", it.site)
                 .put("project", it.project).put("site_type", it.siteType)
-                .put("job_type", it.jobType))
+                .put("job_type", it.jobType).put("address", it.address))
         }
         prefs.edit().putString("local_sites", arr.toString()).apply()
     }
@@ -173,15 +178,35 @@ class Catalogue(context: Context) {
     /** Remember a site typed on site. Idempotent, and case-insensitive so a
      *  second visit does not create a second folder. */
     fun addLocal(client: String, site: String, project: String,
-                 siteType: String = "Flat", jobType: String = JOB_NEW) {
+                 siteType: String = "Flat", jobType: String = JOB_NEW,
+                 address: String = "") {
         val c = client.trim()
         val s = site.trim().ifEmpty { DEFAULT_SITE }
         val p = project.trim()
         if (c.isEmpty() || p.isEmpty()) return
         val have = locals()
-        if (have.any { same(it.client, c) && same(it.site, s) && same(it.project, p) }) return
-        writeLocals(have + Local(c, s, p, siteType, jobType))
+        // A second visit must not mint a second folder — but it MAY carry an
+        // address or a type the first visit did not know, so an existing row
+        // has its blanks filled instead of being left alone.
+        val at = have.indexOfFirst { same(it.client, c) && same(it.site, s) && same(it.project, p) }
+        if (at >= 0) {
+            val old = have[at]
+            val merged = old.copy(
+                siteType = if (siteType.isNotBlank()) siteType else old.siteType,
+                address = if (old.address.isBlank()) address else old.address)
+            if (merged != old) writeLocals(have.toMutableList().also { it[at] = merged })
+            return
+        }
+        writeLocals(have + Local(c, s, p, siteType, jobType, address))
     }
+
+    /** The address typed for a site that has not reached ERP yet. */
+    fun localAddress(site: String): String =
+        locals().firstOrNull { same(it.site, site) }?.address ?: ""
+
+    /** The type chosen for a site that has not reached ERP yet. */
+    fun localSiteType(site: String): String =
+        locals().firstOrNull { same(it.site, site) }?.siteType ?: ""
 
     /**
      * Correct a name that has not reached ERP yet.
@@ -359,6 +384,8 @@ class Catalogue(context: Context) {
     fun sitesOf(masters: JSONObject?, client: String): List<Site> {
         val mine = projects(masters).filter { same(it.client, client) }
         val typeOf = locals().associate { key(it.site) to it.siteType }
+        val addrOf = locals().associate { key(it.site) to it.address }
+        val erp = serverSites(masters)
         val grouped = LinkedHashMap<String, MutableList<Project>>()
         for (p in mine) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
         return grouped.map { (k, ps) ->
@@ -366,8 +393,13 @@ class Catalogue(context: Context) {
                 client = client,
                 name = ps.first().site,
                 serverId = ps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "",
-                type = typeOf[k] ?: "",
-                city = "",
+                // ERP first, the phone's own note second: the office's record
+                // beats the site's memory of it, which is the same order the
+                // sync uses when it refuses to overwrite a filled field.
+                type = erp[k]?.optString("site_type").orEmpty().ifEmpty { typeOf[k] ?: "" },
+                city = erp[k]?.optString("city").orEmpty(),
+                address = erp[k]?.optString("site_address").orEmpty()
+                    .ifEmpty { addrOf[k] ?: "" },
                 // A site shows the offline badge when ANYTHING under it has
                 // not reached ERP. A folder that says synced while one project
                 // inside it never left the phone is the lie that loses a
@@ -418,6 +450,8 @@ class Catalogue(context: Context) {
         val all = projects(masters)
         val locals = locals()
         val typeOf = locals.associate { key(it.site) to it.siteType }
+        val addrOf = locals.associate { key(it.site) to it.address }
+        val erp = serverSites(masters)
 
         val byClient = LinkedHashMap<String, MutableList<Project>>()
         val bySite = LinkedHashMap<String, MutableList<Project>>()
@@ -435,8 +469,10 @@ class Catalogue(context: Context) {
                     client = sps.first().client,
                     name = sps.first().site,
                     serverId = sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "",
-                    type = typeOf[sk] ?: "",
-                    city = "",
+                    type = erp[sk]?.optString("site_type").orEmpty().ifEmpty { typeOf[sk] ?: "" },
+                    city = erp[sk]?.optString("city").orEmpty(),
+                    address = erp[sk]?.optString("site_address").orEmpty()
+                        .ifEmpty { addrOf[sk] ?: "" },
                     // Same pessimism as sitesOf: a folder that says synced
                     // while one project inside it never left the phone is the
                     // lie that loses a capture.
@@ -569,6 +605,30 @@ class Catalogue(context: Context) {
         return erp + locals
     }
 
+    /** ERP's own site rows, keyed the same way site names are matched.
+     *
+     *  Without this the type and address were read from the OFFLINE list
+     *  only, so a site the office created — the common case — showed neither,
+     *  and typing them on the phone looked like it had not saved. */
+    private fun serverSites(masters: JSONObject?): Map<String, JSONObject> {
+        val arr = masters?.optJSONArray("sites") ?: return emptyMap()
+        val out = LinkedHashMap<String, JSONObject>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val n = o.optString("site_name").trim()
+            if (n.isNotEmpty()) out[key(n)] = o
+        }
+        return out
+    }
+
+    /** The Site Type options the SERVER offers. Never a list held here: a
+     *  type added to the doctype and not to the app is one nobody can pick. */
+    fun siteTypes(masters: JSONObject?): List<String> {
+        val arr = masters?.optJSONArray("site_types") ?: return DEFAULT_SITE_TYPES
+        val out = (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }
+        return out.ifEmpty { DEFAULT_SITE_TYPES }
+    }
+
     fun jobTypes(masters: JSONObject?): List<String> {
         val arr = masters?.optJSONArray("job_types") ?: return listOf(JOB_NEW, JOB_REPAIR, JOB_INSTALL)
         val out = (0 until arr.length()).map { arr.optString(it) }.filter { it.isNotBlank() }
@@ -588,6 +648,12 @@ class Catalogue(context: Context) {
 
     companion object {
         const val DEFAULT_SITE = "Main site"
+
+        /** Only a fallback for a phone that has never synced. The live list
+         *  comes from the server (masters.site_types) so the doctype stays the
+         *  one place a type is added or retired. */
+        val DEFAULT_SITE_TYPES = listOf(
+            "Flat", "Bungalow", "Row House", "Office", "Shop", "Other")
         const val NO_SITE = "(no site)"
         const val JOB_NEW = "New work"
         const val JOB_REPAIR = "Repair"

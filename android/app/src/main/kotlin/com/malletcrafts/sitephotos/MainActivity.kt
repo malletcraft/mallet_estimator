@@ -618,9 +618,11 @@ private fun AppScreen() {
             client = navClient.orEmpty(),
             site = navSite.orEmpty(),
             jobTypes = cat.jobTypes(masters),
+            siteTypes = cat.siteTypes(masters),
             onDismiss = { showNewSite = false },
-            onSave = { client, site, proj, jobType ->
-                cat.addLocal(client, site, proj, jobType = jobType)
+            onSave = { client, site, proj, jobType, siteType, address ->
+                cat.addLocal(client, site, proj, siteType = siteType,
+                    jobType = jobType, address = address)
                 reload()          // the rule: it is on screen before this returns
                 showNewSite = false
                 navClient = client
@@ -1552,8 +1554,9 @@ private fun NewSiteDialog(
     client: String,
     site: String,
     jobTypes: List<String>,
+    siteTypes: List<String>,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String) -> Unit,
+    onSave: (String, String, String, String, String, String) -> Unit,
 ) {
     // Prefilled from wherever the button was pressed. Someone standing at a
     // known client's known flat should be typing ONE field, not four.
@@ -1561,6 +1564,11 @@ private fun NewSiteDialog(
     var siteName by remember { mutableStateOf(site) }
     var projectName by remember { mutableStateOf("") }
     var jobType by remember { mutableStateOf(jobTypes.firstOrNull() ?: Catalogue.JOB_NEW) }
+    // Amit, 2026-08-22: "site should be selectable like flat, bunglow, shop
+    // etc, address should be one more separate field where address of taht
+    // site will be keyed in."
+    var siteType by remember { mutableStateOf(siteTypes.firstOrNull() ?: "Flat") }
+    var address by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1571,8 +1579,31 @@ private fun NewSiteDialog(
                     label = { Text("Client") }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(siteName, { siteName = it },
-                    label = { Text("Site — the flat or bungalow") },
+                    label = { Text("Site name") },
                     placeholder = { Text(Catalogue.DEFAULT_SITE) }, singleLine = true)
+                Spacer(Modifier.height(10.dp))
+                Text("Site type", style = MaterialTheme.typography.labelMedium)
+                // Chunked into rows of three rather than a FlowRow: six types
+                // do not fit one line on a phone, a chip pushed off the edge
+                // is a type nobody can choose, and chunking needs no
+                // experimental layout opt-in to say so.
+                siteTypes.chunked(3).forEach { row ->
+                    Row(Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { t ->
+                            FilterChip(selected = t == siteType, onClick = { siteType = t },
+                                label = { Text(t, style = MaterialTheme.typography.labelSmall) })
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(address, { address = it },
+                    label = { Text("Address") },
+                    placeholder = { Text("Flat / building, street, area, city") },
+                    // maxLines only. minLines is Compose 1.4+ and is used
+                    // nowhere else in this app; the field grows as it is
+                    // typed into, which is enough for an address.
+                    maxLines = 4)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(projectName, { projectName = it },
                     label = { Text("Project") }, singleLine = true)
@@ -1597,7 +1628,7 @@ private fun NewSiteDialog(
                 onClick = {
                     onSave(clientName.trim(),
                         siteName.trim().ifEmpty { Catalogue.DEFAULT_SITE },
-                        projectName.trim(), jobType)
+                        projectName.trim(), jobType, siteType, address.trim())
                 },
                 enabled = clientName.isNotBlank() && projectName.isNotBlank(),
             ) { Text("Use this site") }
