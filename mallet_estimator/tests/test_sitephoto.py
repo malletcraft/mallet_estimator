@@ -297,6 +297,66 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertEqual(sitephoto.get_face_skus(name), {"left": sku})
         self.assertEqual(sitephoto.detail(name)["face_skus"], {"left": sku})
 
+    def test_the_phone_may_name_a_sku_by_its_code_not_only_its_docname(self):
+        """The bug found on the phone on 2026-08-23.
+
+        The picker sends the docname when the bench has the row and the human
+        code when it does not — which is the point of carrying the SKU list
+        offline. A capture queued in a basement therefore arrives naming
+        ST_MB_STU, and the Link needs MEST-SKU-000nn. Before this, such an
+        item was refused with "does not belong to project PROJ-0009" while the
+        row sat in exactly that project under exactly that code, and it
+        retried forever.
+        """
+        sku, _name, project = self._sku_and_capture("D")
+        # Set rather than read: Estimate SKU generates its own code and may
+        # de-duplicate it, and this test is about RESOLVING a code, not about
+        # how one is minted. db.set_value goes round validate deliberately.
+        code = "ZZ_TEST_CODE_D"
+        frappe.db.set_value("Estimate SKU", sku, "sku_code", code)
+        self.assertNotEqual(code, sku, "docname and code must differ for this to mean anything")
+
+        # By code, on the capture...
+        made = sitephoto.create_capture(project, _room(), sku=code)
+        self.assertEqual(frappe.db.get_value(sitephoto.DOCTYPE, made["name"], "sku"), sku)
+
+        # ...and by code, on a face. Stored as the DOCNAME either way, so one
+        # capture cannot hold a code on one face and a docname on another.
+        cap = sitephoto.create_capture(project, _room())["name"]
+        sitephoto.set_face_sku(cap, "front", code)
+        sitephoto.set_face_sku(cap, "left", sku)
+        self.assertEqual(sitephoto.get_face_skus(cap), {"front": sku, "left": sku})
+
+    def test_a_code_is_resolved_within_its_project_and_nowhere_else(self):
+        # An sku_code is customer_room_article, so the same code can honestly
+        # belong to two projects of the same customer. Resolving globally
+        # would silently file the photo against whichever row came first.
+        code = "ZZ_TEST_SHARED_CODE"
+        mine, _n, project = self._sku_and_capture("E")
+        other, _on, other_project = self._sku_and_capture("F")
+        # The SAME code on two projects' SKUs, deliberately.
+        frappe.db.set_value("Estimate SKU", mine, "sku_code", code)
+        frappe.db.set_value("Estimate SKU", other, "sku_code", code)
+
+        self.assertEqual(
+            frappe.db.get_value(sitephoto.DOCTYPE,
+                                sitephoto.create_capture(project, _room(), sku=code)["name"],
+                                "sku"),
+            mine)
+        self.assertEqual(
+            frappe.db.get_value(sitephoto.DOCTYPE,
+                                sitephoto.create_capture(other_project, _room(), sku=code)["name"],
+                                "sku"),
+            other)
+
+    def test_a_code_that_matches_nothing_in_the_project_is_still_refused(self):
+        # Resolving by code must not become a way in for anything: a code the
+        # project does not have is as wrong as another project's docname, and
+        # the message says which project it looked in.
+        _sku, _name, project = self._sku_and_capture("G")
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.create_capture(project, _room(), sku="NOT_A_REAL_CODE")
+
     def test_a_face_refuses_a_bad_face_a_missing_sku_or_another_projects_sku(self):
         sku, name, _proj = self._sku_and_capture("B")
         with self.assertRaises(frappe.ValidationError):
@@ -788,6 +848,27 @@ class TestSiteLevelAndStages(MalletTestCase):
         sitephoto.set_capture_tags(cap["name"], sku="")
         self.assertFalse(
             frappe.db.get_value("Site Photo 360", cap["name"], "sku"))
+
+    def test_retagging_a_capture_also_takes_the_code_the_phone_sends(self):
+        # The retag path is the one the phone's SKU sheet actually calls, and
+        # its local variable was already named `code` while the lookup under
+        # it was by docname. Same wall, different endpoint.
+        out = sitephoto.ensure_site("ZZ Retag Code Client", "ZZ Retag Code Project",
+                                    site_name="ZZ Retag Code Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        })
+        sku.insert(ignore_permissions=True)
+        frappe.db.set_value("Estimate SKU", sku.name, "sku_code", "ZZ_RETAG_CODE")
+
+        cap = sitephoto.create_capture(out["project"], _room())
+        sitephoto.set_capture_tags(cap["name"], sku="ZZ_RETAG_CODE")
+        self.assertEqual(
+            frappe.db.get_value(sitephoto.DOCTYPE, cap["name"], "sku"), sku.name)
+        # Clearing still clears.
+        sitephoto.set_capture_tags(cap["name"], sku="")
+        self.assertFalse(frappe.db.get_value(sitephoto.DOCTYPE, cap["name"], "sku"))
 
     def test_a_capture_refuses_a_sku_from_another_project(self):
         a = sitephoto.ensure_site("ZZ Retag X Client", "ZZ Retag X Project A",

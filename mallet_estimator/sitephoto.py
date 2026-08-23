@@ -149,6 +149,60 @@ def _skus_by_project(projects):
     return out
 
 
+def _resolve_sku(sku, project):
+    """A SKU as the PHONE knows it, turned into the docname a Link needs.
+
+    The picker sends `s.name.ifBlank { s.code }` — the docname when the bench
+    already has the row, and the human code (`ST_MB_STU`) when it does not.
+    That fallback is deliberate and has to keep working: the whole reason the
+    SKU list rides bootstrap is that someone in a basement can tag a photo to
+    YS_MB_WAR before the bench has ever heard of it. By the time the queue
+    drains, the row usually DOES exist — under a naming-series docname like
+    MEST-SKU-00013 — and the code the phone recorded resolves to nothing.
+
+    That is the whole of the failure found on 2026-08-23: a queued capture
+    carrying `ST_MB_STU` against `PROJ-0009`, refused with "does not belong to
+    project PROJ-0009" while the row sat in that very project under that very
+    code. The check was not wrong about the project; it never got as far as
+    the project, because `get_value` by docname returned None and None is not
+    the project either. An error that names the right rule for the wrong
+    reason is worse than no error, and it retried forever.
+
+    Fixing this on the phone would not have been fixing it: every item already
+    queued carries a code, and only the bench can heal those.
+
+    The lookup is scoped to the PROJECT, and not merely out of caution — an
+    sku_code is customer_room_article, so the same code honestly belongs to
+    two projects of the same customer, and a global lookup would silently pick
+    one of them.
+    """
+    sku = (sku or "").strip()
+    if not sku:
+        return ""
+    if frappe.db.exists("Estimate SKU", sku):
+        # Already a docname. The project rule still applies, and still says
+        # what it always said: a wall in one client's flat cannot carry work
+        # quoted on another's project.
+        if frappe.db.get_value("Estimate SKU", sku, "project") != project:
+            frappe.throw(_("{0} does not belong to project {1}").format(sku, project))
+        return sku
+
+    if not frappe.get_meta("Estimate SKU").has_field("sku_code"):
+        frappe.throw(_("No SKU {0} in project {1}").format(sku, project))
+    by_code = frappe.get_all("Estimate SKU",
+                             filters={"sku_code": sku, "project": project},
+                             pluck="name", limit_page_length=0)
+    if len(by_code) == 1:
+        return by_code[0]
+    if len(by_code) > 1:
+        # Two rows with one code in one project is a data fault, not a thing
+        # to guess at: picking either would file the photo beside an estimate
+        # line nobody chose.
+        frappe.throw(_("{0} matches more than one SKU in project {1}: {2}")
+                     .format(sku, project, ", ".join(sorted(by_code))))
+    frappe.throw(_("No SKU {0} in project {1}").format(sku, project))
+
+
 def _project_skus(project):
     """One project's SKUs. Kept as its own name because the app and the tests
     both ask that question directly."""
@@ -250,10 +304,9 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
     if sku and meta.has_field("sku"):
         # Refused rather than silently dropped: a photo tagged to another
         # project's SKU would file itself beside the wrong estimate line, and
-        # nothing downstream would ever question it.
-        if frappe.db.get_value("Estimate SKU", sku, "project") != project:
-            frappe.throw(_("{0} does not belong to project {1}").format(sku, project))
-        doc.sku = sku
+        # nothing downstream would ever question it. Resolved first, because
+        # the phone may legitimately be naming the SKU by its code.
+        doc.sku = _resolve_sku(sku, project)
     # The phone reports its versionName with every capture — the server-side
     # answer to "which build is that phone actually running". Guarded: a
     # bench that has not migrated yet simply drops it.
@@ -385,10 +438,10 @@ def set_capture_tags(name, work_stage=None, sku=None):
         if code:
             if not meta.has_field("sku"):
                 frappe.throw(_("This bench has no SKU field on a capture yet"))
-            if frappe.db.get_value("Estimate SKU", code, "project") != doc.project:
-                frappe.throw(
-                    _("{0} does not belong to project {1}").format(code, doc.project))
-            doc.sku = code
+            # The variable was already called `code`, which is what the phone
+            # actually sends, while the lookup underneath it was by docname —
+            # so a retag from the phone hit the same wall create_capture did.
+            doc.sku = _resolve_sku(code, doc.project)
         elif meta.has_field("sku"):
             doc.sku = None
         changed.append("sku")
@@ -809,16 +862,13 @@ def set_face_sku(name, face, sku=None):
     if not doc.meta.has_field("face_skus"):
         frappe.throw(_("This bench has not migrated the face_skus field yet"))
 
-    sku = (sku or "").strip()
-    if sku:
-        if not frappe.db.exists("Estimate SKU", sku):
-            frappe.throw(_("No such SKU: {0}").format(sku))
-        # The same rule create_capture enforces for the capture-level SKU, and
-        # for the same reason: a wall in one client's flat cannot be tagged
-        # with work quoted on another's project. A tag that can point anywhere
-        # is not a tag.
-        if frappe.db.get_value("Estimate SKU", sku, "project") != doc.project:
-            frappe.throw(_("{0} does not belong to project {1}").format(sku, doc.project))
+    # The same rule create_capture enforces for the capture-level SKU, and for
+    # the same reason: a wall in one client's flat cannot be tagged with work
+    # quoted on another's project. A tag that can point anywhere is not a tag.
+    # Stored as the DOCNAME even though this is a JSON map and not a Link, so
+    # that one capture cannot end up holding a code on one face and a docname
+    # on another and comparing unequal to itself.
+    sku = _resolve_sku(sku, doc.project)
 
     faces = json.loads(doc.face_skus or "{}")
     if sku:

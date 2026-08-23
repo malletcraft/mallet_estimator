@@ -1082,6 +1082,14 @@ private fun AppScreen() {
         val faceSkuMap = remember(cap.deviceId, faceSkuTick) {
             FaceSkus.of(context, cap.deviceId)
         }
+        // A tag is STORED as the bench's docname so it means one thing, and
+        // SHOWN as the code a person wrote — nobody tagged a wall MEST-SKU-00013.
+        // The same mapping the capture-level SKU has always used; the face map
+        // was displaying whatever it held, which read as a docname whenever the
+        // desk had set it.
+        val faceSkuCodes = remember(masters, navProject) { cat.skusOf(masters, navProject) }
+        fun skuLabel(v: String) =
+            faceSkuCodes.firstOrNull { it.name == v }?.code ?: v
         LaunchedEffect(cap.deviceId, prefsTick) {
             val server = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
             if (server.isNullOrBlank()) return@LaunchedEffect
@@ -1115,7 +1123,7 @@ private fun AppScreen() {
                 showAnnotated = faceMode,
                 onToggle = { faceMode = it },
                 onImport = { importFromImageMeter() },
-                faceSku = faceSkuMap[f.name].orEmpty(),
+                faceSku = skuLabel(faceSkuMap[f.name].orEmpty()),
                 onPickFaceSku = { faceSkuFor = cap.deviceId to f.name },
                 faces = faces,
                 current = faceIdx,
