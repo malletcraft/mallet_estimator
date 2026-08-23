@@ -903,10 +903,15 @@ class TestSiteLevelAndStages(MalletTestCase):
             "doctype": "Estimate SKU", "project": out["project"],
             "room": _room(), "article_name": "Wardrobe",
         }).insert(ignore_permissions=True)
-        est = frappe.get_doc({
-            "doctype": "Estimate", "project": out["project"],
-            "skus": [{"estimate_sku": sku.name}],
-        }).insert(ignore_permissions=True)
+        # Built the way test_naming builds one: work_type is mandatory, and a
+        # dict-literal insert without it fails on the INSERT rather than on
+        # the assertion below, which would have made this test pass or fail
+        # for a reason that has nothing to do with deleting.
+        est = frappe.new_doc("Estimate")
+        est.project = out["project"]
+        est.work_type = "New Work"
+        est.append("skus", {"estimate_sku": sku.name})
+        est.insert(ignore_permissions=True)
         self.assertTrue(est.name)
 
         with self.assertRaises(frappe.ValidationError):
