@@ -562,6 +562,169 @@ RENAMEABLE = {
 }
 
 
+DELETABLE = ("capture", "sku", "project", "site")
+
+
+def _site_projects(site):
+    """Projects filed under one site. Guarded: a bench that has not migrated
+    the custom field yet has no way to answer, and must not answer 'none' —
+    that would let a site be deleted out from under its own projects."""
+    if not frappe.get_meta("Project").has_field("mallet_site"):
+        frappe.throw(_("This bench has not migrated the site field yet, so "
+                       "what belongs to this site cannot be checked."))
+    return frappe.get_all("Project", filters={"mallet_site": site},
+                          limit_page_length=0, pluck="name")
+
+
+def _sku_is_referenced(sku):
+    """Every reason an Estimate SKU must outlive a photograph.
+
+    A SKU on an estimate is a priced line somebody quoted. Deleting one
+    because a photo of the wall was tidied away would change a number a
+    client has already seen, which is not a cleanup — it is a silent edit to
+    a quotation.
+    """
+    for dt, field in (("Execution Estimate SKU", "estimate_sku"),
+                      ("Estimate SKU Intake", "existing_sku")):
+        if not frappe.db.exists("DocType", dt):
+            continue
+        if frappe.get_all(dt, filters={field: sku}, limit=1):
+            return _("{0} is on an estimate").format(sku)
+    meta = frappe.get_meta("Estimate SKU")
+    if meta.has_field("rates_frozen") and frappe.db.get_value(
+            "Estimate SKU", sku, "rates_frozen"):
+        return _("{0} has frozen rates").format(sku)
+    others = frappe.get_all(DOCTYPE, filters={"sku": sku}, limit_page_length=0,
+                            pluck="name")
+    if others:
+        return _("{0} is still tagged on {1} more capture(s)").format(
+            sku, len(others))
+    return None
+
+
+def _drop_sku_if_orphaned(sku, removed):
+    """Delete a SKU that nothing points at any more.
+
+    Amit, 2026-08-23: "when captures are deleted its sku is not getting
+    deleted." The app mints a SKU FOR a wall — that is what create_sku is for
+    — so a wall whose only photograph is gone leaves an article nobody can
+    reach and which clutters every picker afterwards.
+
+    Silent about refusals ON PURPOSE: this runs as a consequence of deleting
+    something else, and a referenced SKU staying put is the correct outcome,
+    not an error to throw in the face of somebody deleting a photo.
+    """
+    if not sku or not frappe.db.exists("Estimate SKU", sku):
+        return
+    if _sku_is_referenced(sku):
+        return
+    frappe.delete_doc("Estimate SKU", sku, ignore_permissions=True,
+                      delete_permanently=True)
+    removed.append("sku:%s" % sku)
+
+
+def _delete_capture(name, removed):
+    """One capture, its attachments and the SKU it leaves behind."""
+    for f in frappe.get_all("File",
+                            filters={"attached_to_doctype": DOCTYPE,
+                                     "attached_to_name": name},
+                            limit_page_length=0, pluck="name"):
+        try:
+            frappe.delete_doc("File", f, ignore_permissions=True,
+                              delete_permanently=True)
+        except Exception:
+            # A missing blob must not strand the record that points at it.
+            pass
+    sku = frappe.db.get_value(DOCTYPE, name, "sku")
+    frappe.delete_doc(DOCTYPE, name, ignore_permissions=True,
+                      delete_permanently=True)
+    removed.append("capture:%s" % name)
+    _drop_sku_if_orphaned(sku, removed)
+
+
+@frappe.whitelist()
+def delete_node(kind, name, cascade=0):
+    """Remove a capture, a SKU, a project or a site.
+
+    Amit, 2026-08-23: "I am not able to delete site , projects etc. i should
+    be able to delete." He could not, anywhere: the phone's delete removed the
+    local row and said so — "the server copy stays" — and nothing in the app
+    or this module could remove a site or a project at all. A tree that can
+    only grow fills with the wreckage of every mistyped site.
+
+    Permission is WRITE on the capture doctype, which is what the phone holds
+    and no read-only identity does. The deletes themselves run with
+    ignore_permissions, deliberately: the alternative was granting a PHONE
+    blanket DELETE on Project and Estimate SKU over plain REST, where nothing
+    would stand between a fat finger and a priced article. The guards below
+    are the safety, and they are specific, refuse loudly, and are tested.
+
+    Nothing cascades unless asked. A project with photographs in it is far
+    more likely to be a misclick than an intention, so the refusal names what
+    is in the way and the caller has to say again that it should go.
+    """
+    frappe.has_permission(DOCTYPE, "write", throw=True)
+    kind = (kind or "").strip().lower()
+    if kind not in DELETABLE:
+        frappe.throw(_("Not something that can be deleted: {0}").format(kind))
+    cascade = int(cascade or 0)
+    removed = []
+
+    if kind == "capture":
+        if not frappe.db.exists(DOCTYPE, name):
+            return {"removed": [], "already_gone": True}
+        _delete_capture(name, removed)
+
+    elif kind == "sku":
+        if not frappe.db.exists("Estimate SKU", name):
+            return {"removed": [], "already_gone": True}
+        why = _sku_is_referenced(name)
+        if why:
+            frappe.throw(_("Cannot delete: {0}.").format(why))
+        frappe.delete_doc("Estimate SKU", name, ignore_permissions=True,
+                          delete_permanently=True)
+        removed.append("sku:%s" % name)
+
+    elif kind == "project":
+        if not frappe.db.exists("Project", name):
+            return {"removed": [], "already_gone": True}
+        caps = frappe.get_all(DOCTYPE, filters={"project": name},
+                              limit_page_length=0, pluck="name")
+        if caps and not cascade:
+            frappe.throw(_("{0} still has {1} capture(s). Delete those too?")
+                         .format(name, len(caps)))
+        for c in caps:
+            _delete_capture(c, removed)
+        for sku in frappe.get_all("Estimate SKU", filters={"project": name},
+                                  limit_page_length=0, pluck="name"):
+            _drop_sku_if_orphaned(sku, removed)
+        # Frappe's own link check is the last guard and a better one than any
+        # list kept here: a Project reached by a Sales Order or a Work Order
+        # raises LinkExistsError, which is exactly the answer wanted.
+        frappe.delete_doc("Project", name, ignore_permissions=True,
+                          delete_permanently=True)
+        removed.append("project:%s" % name)
+
+    elif kind == "site":
+        if not frappe.db.exists("Mallet Site", name):
+            return {"removed": [], "already_gone": True}
+        projects = _site_projects(name)
+        if projects and not cascade:
+            frappe.throw(_("{0} still has {1} project(s). Delete those too?")
+                         .format(name, len(projects)))
+        for p in projects:
+            # Take the inner report with it. Appending "project:x" here and
+            # throwing away what the recursion removed would tell the caller a
+            # site cost one project and no photographs, which is never true.
+            removed.extend(delete_node("project", p, cascade=1)["removed"])
+        frappe.delete_doc("Mallet Site", name, ignore_permissions=True,
+                          delete_permanently=True)
+        removed.append("site:%s" % name)
+
+    frappe.db.commit()
+    return {"removed": removed, "already_gone": False}
+
+
 @frappe.whitelist()
 def rename_node(kind, name, new_name):
     """Correct a name typed on site.

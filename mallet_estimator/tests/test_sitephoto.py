@@ -849,6 +849,120 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertFalse(
             frappe.db.get_value("Site Photo 360", cap["name"], "sku"))
 
+    def test_a_capture_takes_its_orphaned_sku_with_it(self):
+        """Amit, 2026-08-23: "when captures are deleted its sku is not getting
+        deleted."
+
+        The app mints a SKU FOR a wall, so a wall whose only photograph is
+        gone leaves an article nobody can reach and which clutters every
+        picker afterwards.
+        """
+        out = sitephoto.ensure_site("ZZ Del Client", "ZZ Del Project",
+                                    site_name="ZZ Del Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        }).insert(ignore_permissions=True)
+        cap = sitephoto.create_capture(out["project"], _room(), sku=sku.name)
+
+        res = sitephoto.delete_node("capture", cap["name"])
+        self.assertIn("capture:%s" % cap["name"], res["removed"])
+        self.assertIn("sku:%s" % sku.name, res["removed"])
+        self.assertFalse(frappe.db.exists(sitephoto.DOCTYPE, cap["name"]))
+        self.assertFalse(frappe.db.exists("Estimate SKU", sku.name))
+
+    def test_a_sku_another_capture_still_uses_is_left_alone(self):
+        # The cleanup above must not become "deleting any photo deletes the
+        # article": two walls can carry the same work.
+        out = sitephoto.ensure_site("ZZ Del2 Client", "ZZ Del2 Project",
+                                    site_name="ZZ Del2 Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        }).insert(ignore_permissions=True)
+        a = sitephoto.create_capture(out["project"], _room(), sku=sku.name)
+        b = sitephoto.create_capture(out["project"], _room(), sku=sku.name)
+
+        res = sitephoto.delete_node("capture", a["name"])
+        self.assertNotIn("sku:%s" % sku.name, res["removed"])
+        self.assertTrue(frappe.db.exists("Estimate SKU", sku.name))
+        # ...and once the last one goes, so does the SKU.
+        res = sitephoto.delete_node("capture", b["name"])
+        self.assertIn("sku:%s" % sku.name, res["removed"])
+
+    def test_a_sku_on_an_estimate_is_never_deleted(self):
+        """The guard that makes ignore_permissions defensible.
+
+        A SKU on an estimate is a priced line somebody quoted. Removing one
+        because a photo was tidied away would change a number a client has
+        already seen — a silent edit to a quotation, not a cleanup.
+        """
+        out = sitephoto.ensure_site("ZZ Del3 Client", "ZZ Del3 Project",
+                                    site_name="ZZ Del3 Flat")
+        sku = frappe.get_doc({
+            "doctype": "Estimate SKU", "project": out["project"],
+            "room": _room(), "article_name": "Wardrobe",
+        }).insert(ignore_permissions=True)
+        est = frappe.get_doc({
+            "doctype": "Estimate", "project": out["project"],
+            "skus": [{"estimate_sku": sku.name}],
+        }).insert(ignore_permissions=True)
+        self.assertTrue(est.name)
+
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.delete_node("sku", sku.name)
+        self.assertTrue(frappe.db.exists("Estimate SKU", sku.name))
+
+        # And the capture cleanup leaves it alone rather than throwing: a
+        # referenced SKU staying put is the correct outcome of deleting a
+        # photo, not an error to put in the way of deleting one.
+        cap = sitephoto.create_capture(out["project"], _room(), sku=sku.name)
+        res = sitephoto.delete_node("capture", cap["name"])
+        self.assertNotIn("sku:%s" % sku.name, res["removed"])
+        self.assertTrue(frappe.db.exists("Estimate SKU", sku.name))
+
+    def test_a_project_with_photographs_refuses_until_asked_twice(self):
+        # A project full of photos is far more likely to be a misclick than an
+        # intention, so the refusal names what is in the way.
+        out = sitephoto.ensure_site("ZZ Del4 Client", "ZZ Del4 Project",
+                                    site_name="ZZ Del4 Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.delete_node("project", out["project"])
+        self.assertTrue(frappe.db.exists("Project", out["project"]))
+
+        res = sitephoto.delete_node("project", out["project"], cascade=1)
+        self.assertIn("capture:%s" % cap["name"], res["removed"])
+        self.assertIn("project:%s" % out["project"], res["removed"])
+        self.assertFalse(frappe.db.exists("Project", out["project"]))
+
+    def test_a_site_refuses_while_it_has_projects_then_takes_them_all(self):
+        out = sitephoto.ensure_site("ZZ Del5 Client", "ZZ Del5 Project",
+                                    site_name="ZZ Del5 Flat")
+        site = frappe.db.get_value("Project", out["project"], "mallet_site")
+        self.assertTrue(site, "the fixture project is not filed under a site")
+
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.delete_node("site", site)
+        self.assertTrue(frappe.db.exists("Mallet Site", site))
+
+        res = sitephoto.delete_node("site", site, cascade=1)
+        self.assertIn("site:%s" % site, res["removed"])
+        # The report carries what the recursion removed, not just the site.
+        self.assertIn("project:%s" % out["project"], res["removed"])
+        self.assertFalse(frappe.db.exists("Mallet Site", site))
+        self.assertFalse(frappe.db.exists("Project", out["project"]))
+
+    def test_deleting_something_already_gone_is_not_an_error(self):
+        # An offline queue retries. A delete that threw on the second attempt
+        # would leave the phone unable to ever agree it had finished.
+        res = sitephoto.delete_node("capture", "SP360-does-not-exist")
+        self.assertTrue(res["already_gone"])
+        self.assertEqual(res["removed"], [])
+        with self.assertRaises(frappe.ValidationError):
+            sitephoto.delete_node("galaxy", "anything")
+
     def test_retagging_a_capture_also_takes_the_code_the_phone_sends(self):
         # The retag path is the one the phone's SKU sheet actually calls, and
         # its local variable was already named `code` while the lookup under
@@ -1218,3 +1332,30 @@ class TestSiteTypeAndAddress(MalletTestCase):
         row = next((s for s in m["sites"] if s.get("site_name") == "Masters Flat"), None)
         self.assertIsNotNone(row, "the site is missing from masters")
         self.assertEqual(row.get("site_address"), "1 Test Lane")
+
+
+class TestPhoneEndpointsAreReachableOverHttp(MalletTestCase):
+    """Whitelisting is invisible to every other test in this file.
+
+    Each one calls sitephoto.x() in-process, where a missing or misplaced
+    @frappe.whitelist() changes nothing. The phone calls the same functions
+    over HTTP, where it changes everything — 403, with a green suite behind
+    it. That exact bug shipped once already: a helper inserted between the
+    decorator and its function took the decorator with it.
+    """
+
+    ENDPOINTS = (
+        "bootstrap", "create_capture", "bind_pano", "set_capture_tags",
+        "set_project_stage", "create_sku", "ensure_site", "rename_node",
+        "delete_node", "set_site_details", "set_face_sku", "get_face_skus",
+        "save_annotations", "get_annotations", "detail", "tree",
+        "room_captures", "timeline",
+    )
+
+    def test_every_endpoint_the_phone_calls_is_whitelisted(self):
+        for name in self.ENDPOINTS:
+            fn = getattr(sitephoto, name, None)
+            self.assertIsNotNone(fn, "sitephoto.%s has gone" % name)
+            self.assertIn(fn, frappe.whitelisted,
+                          "sitephoto.%s is not whitelisted — the phone gets a "
+                          "403 while every in-process test still passes" % name)
