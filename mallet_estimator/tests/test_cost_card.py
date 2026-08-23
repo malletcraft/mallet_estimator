@@ -407,3 +407,54 @@ class TestEndpointsAreReachableOverHttp(MalletTestCase):
             self.assertIn(fn, frappe.whitelisted,
                           "api.%s is not whitelisted — an HTTP caller gets 403 "
                           "while every in-process test still passes" % name)
+
+    # Three sizes, the convention Amit types in SketchUp.
+    CSV_SIZED = (
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;ASMBL_L_WAR;2;2100;600;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+        "2;ASMBL_M_DRW;2;600;400;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+        "3;ASMBL_S_SHELF;1;900;300;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+    )
+
+    def test_assemblies_are_counted_by_their_size_token(self):
+        """Amit, 2026-08-23: "I will use ASMBL_L_ WAR ASMBL_M_DRW and
+        ASMBL_S_SHELF ASMBL_L_BED like these convention.\""""
+        out = api.estimate_preview(self.CSV_SIZED)
+        self.assertEqual(out["assembly_sizes"],
+                         {"large": 1, "medium": 1, "small": 1})
+        self.assertEqual(out["assembly_count"], 3)
+
+    def test_only_large_assemblies_are_disassembled(self):
+        """"Only large assemblies should participate in disassembly." A
+        carcass comes apart to leave the works; a drawer or a shelf travels
+        assembled."""
+        out = api.estimate_preview(self.CSV_SIZED)
+        d = next(l for l in out["labour"] if l["name"] == "Disassembly")
+        self.assertEqual(d["qty"], 1, "disassembly counted more than the large one")
+        # everything else downstream still follows the whole set
+        for name in ("Packing", "Loading", "Installation"):
+            row = next(l for l in out["labour"] if l["name"] == name)
+            self.assertEqual(row["qty"], 3, "%s should cover every assembly" % name)
+
+    def test_each_size_takes_its_own_minutes(self):
+        out = api.estimate_preview(
+            self.CSV_SIZED,
+            assembly_min_by_size={"large": 120, "medium": 30, "small": 10})
+        a = next(l for l in out["labour"] if l["name"] == "Assembly")
+        # 1x120 + 1x30 + 1x10 = 160 min = 2.67 h, rounded up to one decimal
+        self.assertEqual(a["hours"], 2.7)
+        self.assertEqual(a["min_source"], "plugin:edited")
+        self.assertEqual(out["assembly_min_by_size"]["large"], 120)
+
+    def test_a_nameless_assembly_is_treated_as_large(self):
+        """Every model drawn before this convention says plain ASMBL_WAR, and
+        those are carcasses. Reading them as small would quietly shrink the
+        estimate of every existing model."""
+        out = api.estimate_preview(self.CSV)      # designations ASMBL_Carcass etc
+        self.assertGreater(out["assembly_unsized"], 0)
+        self.assertEqual(out["assembly_sizes"]["large"], out["assembly_count"])
+        d = next(l for l in out["labour"] if l["name"] == "Disassembly")
+        self.assertEqual(d["qty"], out["assembly_count"],
+                         "an unsized model lost its disassembly")

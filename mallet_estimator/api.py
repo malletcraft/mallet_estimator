@@ -13,6 +13,7 @@
 # ---------------------------------------------------------------------------
 
 import json
+import re
 
 import frappe
 from frappe import _
@@ -647,7 +648,8 @@ MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
-                     create_missing=0, overrides=None, hours_per_day=6):
+                     create_missing=0, overrides=None, hours_per_day=6,
+                     assembly_counts=None, assembly_min_by_size=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
                                   nesting, opencutlist)
@@ -786,26 +788,51 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # off ERP's own rule anyway: the screen would read "0 assemblies (plugin:
     # ASMBL count)" directly above an Assembly line costed for one. So zero
     # falls through to the ERP rule and SAYS it did.
-    counted = _asmbl_count(rows)
+    # Counts per size. The plugin sends them when it can see the model; the
+    # CSV designations are the fallback; ERP's own rule is the last resort.
+    if isinstance(assembly_counts, str):
+        assembly_counts = json.loads(assembly_counts or "{}")
+    sizes = dict(_asmbl_counts(rows))
+    if assembly_counts:
+        for k in ASSEMBLY_SIZES:
+            if assembly_counts.get(k) not in (None, ""):
+                sizes[k] = int(float(assembly_counts[k]))
+        sizes["unsized"] = int(float(assembly_counts.get("unsized") or 0))
+        assembly_source = "plugin:ASMBL size counts"
+    counted = sum(sizes[k] for k in ASSEMBLY_SIZES)
+
     sent = None
     if assembly_count not in (None, ""):
         sent = int(float(assembly_count))
-    if sent:
-        counted = sent
-        assembly_source = "plugin:ASMBL count"
-    elif sent == 0:
-        assembly_source = "erp:1 + drawer rails (no ASMBL component in model)"
-        counted = 0
-    elif counted:
-        assembly_source = "csv:ASMBL count"
-    else:
-        assembly_source = "erp:1 + drawer rails"
+    if not assembly_counts:
+        if sent:
+            # An older plugin sends one total and no sizes. Treated as all
+            # large, which is what it meant before sizes existed.
+            counted = sent
+            sizes = {"large": sent, "medium": 0, "small": 0, "unsized": sent}
+            assembly_source = "plugin:ASMBL count"
+        elif sent == 0:
+            assembly_source = "erp:1 + drawer rails (no ASMBL component in model)"
+            counted = 0
+            sizes = {k: 0 for k in ASSEMBLY_SIZES}
+            sizes["unsized"] = 0
+        elif counted:
+            assembly_source = "csv:ASMBL count"
+        else:
+            assembly_source = "erp:1 + drawer rails"
+
     if counted:
-        for op in ("Assembly", "Disassembly", "Packing", "Loading", "Transport",
+        for op in ("Assembly", "Packing", "Loading", "Transport",
                    "Unloading", "Assembly (on-site)", "Installation"):
             # These all follow the assembly count in operation_quantities; if
             # the count changes, they change with it or the chain lies.
             qty[op] = counted
+        # DISASSEMBLY IS LARGE ONLY. Amit, 2026-08-23: "Only large assemblies
+        # should participate in disassembly." A carcass comes apart to leave
+        # the works; a drawer or a shelf travels assembled. Unsized names are
+        # counted as large, so a model drawn before the convention keeps the
+        # behaviour it has always had.
+        qty["Disassembly"] = sizes["large"]
 
     # Per-operation overrides from the estimate screen: {"Grooving": {"qty": 4,
     # "min": 12}}. Refused rather than silently ignored where the column is not
@@ -814,6 +841,21 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     if isinstance(overrides, str):
         overrides = json.loads(overrides or "{}")
     overrides = overrides or {}
+
+    # Every size starts at ERP's own Assembly standard and is overruled from
+    # the screen. Seeding all three from one number is deliberate: the shop
+    # has one std time today, and inventing three different ones here would be
+    # putting numbers in Amit's mouth.
+    _erp_asm = next((float(o["min_per_unit"]) for o in card["operations"]
+                     if o["name"] == "Assembly"), 0.0)
+    size_min = {k: _erp_asm for k in ASSEMBLY_SIZES}
+    if isinstance(assembly_min_by_size, str):
+        assembly_min_by_size = json.loads(assembly_min_by_size or "{}")
+    for k in ASSEMBLY_SIZES:
+        v = (assembly_min_by_size or {}).get(k)
+        if v not in (None, ""):
+            size_min[k] = float(v)
+    assembly_min_used = dict(size_min)
 
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
     labour_rows, labour_total = [], 0.0
@@ -847,7 +889,25 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             q = float(ov["qty"])
             qty_source = "plugin:edited"
 
-        hours = (q * mins) / 60.0
+        # ASSEMBLY IS PRICED PER SIZE. Amit, 2026-08-23: a carcass, a drawer
+        # and a shelf are not the same job, and one averaged minute-figure
+        # cannot say so. The row stays ONE of the seventeen — the structure he
+        # asked be kept — but its hours are the three sizes summed, and the
+        # minutes it displays are the average those hours imply, so the column
+        # still reads honestly against the qty beside it.
+        size_hours = None
+        if name == "Assembly" and counted:
+            per = dict(size_min)
+            for k in ASSEMBLY_SIZES:
+                v = (ov.get("min_" + k) if ov else None)
+                if v not in (None, ""):
+                    per[k] = float(v)
+                    min_source = "plugin:edited"
+            size_hours = sum(sizes[k] * per[k] for k in ASSEMBLY_SIZES) / 60.0
+            assembly_min_used = per
+            mins = (size_hours * 60.0 / q) if q else mins
+
+        hours = size_hours if size_hours is not None else (q * mins) / 60.0
         rate = float(ws_rate.get(op["workstation"], 0))
         amount = hours * rate
         labour_rows.append({
@@ -876,6 +936,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # number beside that line — printing the input there would contradict
         # the row underneath it.
         "assembly_count": int(qty.get("Assembly", counted) or 0),
+        # The breakdown behind that number, and the minutes each size was
+        # costed at — so the screen can show "3 = 1 large + 1 medium + 1 small"
+        # rather than a total nobody can check.
+        "assembly_sizes": {k: sizes[k] for k in ASSEMBLY_SIZES},
+        "assembly_unsized": sizes.get("unsized", 0),
+        "assembly_min_by_size": assembly_min_used,
         "assembly_source": assembly_source,
         "materials": material_rows,
         "labour": labour_rows,
@@ -899,8 +965,22 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     }
 
 
-def _asmbl_count(rows):
-    """How many DISTINCT assemblies the model carries.
+ASSEMBLY_SIZES = ("large", "medium", "small")
+
+# ASMBL_L_WAR, ASMBL_M_DRW, ASMBL_S_SHELF — Amit, 2026-08-23: "we deal with
+# three size of assembly, Large - carcass, medium drawers , small like
+# shelfs ... so that i can do a better job of estimating the time."
+#
+# The size is the token straight after ASMBL. A name with no size token is
+# read as LARGE, deliberately: every model drawn before this convention
+# existed says plain ASMBL_WAR, and those are carcasses. Reading them as
+# small would quietly shrink the estimate of every existing model.
+_ASMBL_SIZE = re.compile(r"\AASMBL[_\-]?([LMS])(?:[_\-]|\Z)", re.I)
+_SIZE_OF = {"L": "large", "M": "medium", "S": "small"}
+
+
+def _asmbl_counts(rows):
+    """DISTINCT assemblies per size class.
 
     Distinct, not total: two copies of one assembly are two units of the same
     thing and both are counted, but the same component appearing on twenty
@@ -914,4 +994,21 @@ def _asmbl_count(rows):
             if v.upper().startswith("ASMBL"):
                 seen.add(v.upper())
                 break
-    return len(seen)
+    out = {k: 0 for k in ASSEMBLY_SIZES}
+    unsized = 0
+    for name in seen:
+        m = _ASMBL_SIZE.match(name)
+        if m:
+            out[_SIZE_OF[m.group(1).upper()]] += 1
+        else:
+            out["large"] += 1
+            unsized += 1
+    out["unsized"] = unsized
+    return out
+
+
+def _asmbl_count(rows):
+    """Total assemblies, whatever their size. Kept because a plugin that has
+    not updated yet still asks this question."""
+    c = _asmbl_counts(rows)
+    return sum(c[k] for k in ASSEMBLY_SIZES)
