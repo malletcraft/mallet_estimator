@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -98,6 +99,11 @@ fun ZoomableImage(
     Box(
         modifier
             .background(Color(0xFF0B0D0D))
+            // Compose does not clip by default, and a graphicsLayer scaled to
+            // 6x draws well outside the node it belongs to — without this the
+            // zoomed photo spills over the Original/Annotated buttons and the
+            // face strip underneath it.
+            .clipToBounds()
             .onSizeChanged { box = it }
             .pointerInput(bmp, box) {
                 detectTapGestures(onDoubleTap = { p ->
