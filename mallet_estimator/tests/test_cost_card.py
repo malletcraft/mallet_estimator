@@ -381,3 +381,29 @@ class TestEstimatePreview(MalletTestCase):
         printable = " ".join(out["excludes"]) + " " + out["wastage"] + " " + out["rates_are"]
         for word in ("markup", "mark-up", "margin", "profit"):
             self.assertNotIn(word, printable.lower(), "%r reaches a printed page" % word)
+
+
+class TestEndpointsAreReachableOverHttp(MalletTestCase):
+    """Every test in this file calls its endpoint as a plain Python function,
+    where @frappe.whitelist() is irrelevant. The plugin and the phone call it
+    over HTTP, where it is the only thing that matters.
+
+    That gap is not hypothetical. On 2026-08-23 a helper was inserted directly
+    above `def estimate_preview`, which put it BETWEEN the decorator and the
+    function — valid Python, so ast parsed it, and the whole suite stayed
+    green while the decorator quietly moved onto the helper. The live site
+    answered "Function mallet_estimator.api.estimate_preview is not
+    whitelisted" to the first real request after the deploy.
+
+    So: assert the decorator is on the function, for every endpoint something
+    outside this process calls."""
+
+    ENDPOINTS = ("estimate_preview", "cost_card", "import_parts_csv")
+
+    def test_the_endpoints_the_plugin_calls_are_whitelisted(self):
+        for name in self.ENDPOINTS:
+            fn = getattr(api, name, None)
+            self.assertIsNotNone(fn, "api.%s has gone" % name)
+            self.assertIn(fn, frappe.whitelisted,
+                          "api.%s is not whitelisted — an HTTP caller gets 403 "
+                          "while every in-process test still passes" % name)

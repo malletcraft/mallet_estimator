@@ -619,7 +619,6 @@ def _item_for_code(code):
 # ---------------------------------------------------------------------------
 
 
-@frappe.whitelist()
 # Amit, 2026-08-22: "all number should be rounded to one decimal like 3.333
 # should 3.4" — 3.333 to one decimal is 3.3 by arithmetic, so what he described
 # is not rounding but rounding UP. That is the right way round for a quote:
@@ -646,6 +645,7 @@ QTY_EDITABLE = {"Grooving"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 
+@frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0, overrides=None, hours_per_day=6):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
