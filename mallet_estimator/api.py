@@ -912,13 +912,7 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                     edited = True
             if edited:
                 min_source = "plugin:edited"
-            size_hours = sum(sizes[k] * per[k] for k in ASSEMBLY_SIZES) / 60.0
             assembly_min_used = per
-            # The minutes COLUMN shows what those hours imply against the
-            # quantity beside it, so the row reads honestly. When every size
-            # costs the same — the ordinary case, and what the old single
-            # number meant — that is exactly the number that was typed.
-            mins = (size_hours * 60.0 / q) if q else mins
 
             # ONE CHILD ROW PER SIZE. Amit, 2026-08-23: "this should split into
             # child rows and user should be able to key in directly minutes
@@ -931,24 +925,36 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # a box somewhere else makes the reader hold two numbers in their
             # head to check one line.
             children = []
+            ch_rate = float(ws_rate.get(op["workstation"], 0))
             for k in ASSEMBLY_SIZES:
-                ch_hours = sizes[k] * per[k] / 60.0
+                # Each child rounds UP on its own, then the PARENT is the sum
+                # of the children as shown. Rounding the true total once
+                # instead would print three rows that do not add up to the
+                # line above them — 0.1 + 0.1 + 0.1 under a parent reading
+                # 0.2 — which on a screen shared with a client is
+                # indefensible whatever the arithmetic behind it.
+                ch_hours = _up1(sizes[k] * per[k] / 60.0)
                 children.append({
                     "size": k,
                     "name": "Assembly — %s" % k.capitalize(),
                     "qty": _up1(sizes[k]),
                     "min_per_unit": _up1(per[k]),
-                    "hours": _up1(ch_hours),
-                    "amount": round(ch_hours * float(ws_rate.get(op["workstation"], 0)), 2),
+                    "hours": ch_hours,
+                    "amount": round(ch_hours * ch_rate, 2),
                     # The rule, per child: the count comes from the model, the
                     # time comes from the person.
                     "qty_editable": False,
                     "min_editable": True,
                 })
+            size_hours = sum(c["hours"] for c in children)
+            mins = (size_hours * 60.0 / q) if q else mins
 
         hours = size_hours if size_hours is not None else (q * mins) / 60.0
         rate = float(ws_rate.get(op["workstation"], 0))
-        amount = hours * rate
+        # Same reasoning for the money: a parent that is not its children's
+        # sum invites the one question nobody wants asked mid-quotation.
+        amount = (sum(c["amount"] for c in children) if children
+                  else hours * rate)
         labour_rows.append({
             "seq": seq, "name": name, "workstation": op["workstation"],
             "qty": _up1(q), "min_per_unit": _up1(mins), "hours": _up1(hours),

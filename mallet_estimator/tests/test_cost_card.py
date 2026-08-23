@@ -436,8 +436,13 @@ class TestEstimatePreview(MalletTestCase):
             self.assertFalse(c["qty_editable"], "%s offers an editable count" % c["name"])
         # the counts are the model's answer, not anyone's input
         self.assertEqual([c["qty"] for c in kids], [1, 1, 1])
-        # and the parent is exactly its children
-        self.assertAlmostEqual(sum(c["hours"] for c in kids), a["hours"], places=1)
+        # THE PARENT IS ITS CHILDREN, exactly — hours and money both. Each
+        # child rounds up on its own, so a parent computed from the true total
+        # would print three rows that do not add up to the line above them.
+        # On a screen shared with a client that is indefensible whatever the
+        # arithmetic behind it.
+        self.assertEqual(round(sum(c["hours"] for c in kids), 4), a["hours"])
+        self.assertEqual(round(sum(c["amount"] for c in kids), 2), a["amount"])
 
     def test_a_child_row_takes_its_own_minutes_in_line(self):
         out = api.estimate_preview(
