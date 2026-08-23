@@ -105,6 +105,10 @@ private fun AppScreen() {
         mutableStateOf<RenameTarget?>(null)
     }
     var renameBusy by remember { mutableStateOf(false) }
+    // The server's own words for why a delete was refused — "still has 3
+    // capture(s)". Cleared whenever the dialog target changes, so a refusal
+    // about one project never arms a cascade on the next.
+    var deleteBlocker by remember { mutableStateOf<String?>(null) }
     var showStagePicker by remember { mutableStateOf(false) }
     // Work | Browse | Queue. Browse is the landing tab: Amit asked for the
     // app to open on Clients, ImageMeter-style.
@@ -558,7 +562,7 @@ private fun AppScreen() {
         RenameDialog(
             what = t.kind, current = t.current, onServer = t.serverId.isNotBlank(),
             busy = renameBusy,
-            onDismiss = { renaming = null },
+            onDismiss = { renaming = null; deleteBlocker = null },
             onSave = { newName ->
                 // A local row is words in this phone's preferences, so it is
                 // corrected here and now, with no signal. An ERP row is the
@@ -608,7 +612,68 @@ private fun AppScreen() {
                         }
                     }
                 }
-            })
+            },
+            blocker = deleteBlocker,
+            // A client is a Customer and belongs to the office, not to a
+            // phone: it may be renamed here and must not be removed here.
+            // A node that never reached the bench is this phone's own words
+            // and is dropped locally.
+            // Wrapped in parentheses deliberately: `else { x -> ... }` parses
+            // as the else BLOCK of the if-expression, not as a lambda, and the
+            // arrow inside it is then a syntax error. Parentheses force it to
+            // be read as the lambda it is meant to be.
+            onDelete = if (t.kind == "client") null else ({ cascade: Boolean ->
+                if (t.serverId.isBlank()) {
+                    cat.removeLocal(t.kind, t.client, t.site, t.project)
+                    reload()
+                    when (t.kind) {
+                        "site" -> { navSite = null; navProject = null }
+                        else -> navProject = null
+                    }
+                    lastResult = "Removed from this phone"
+                    deleteBlocker = null
+                    renaming = null
+                } else {
+                    renameBusy = true
+                    scope.launch(Dispatchers.IO) {
+                        val res = runCatching {
+                            FrappeClient.load(context)
+                                ?.deleteNode(t.kind, t.serverId, cascade)
+                                ?: error("no server configured")
+                        }
+                        // The tree is rebuilt from the bench either way: a
+                        // partial cascade that removed three of five projects
+                        // must show what actually survived, not what was
+                        // asked for.
+                        runCatching {
+                            FrappeClient.load(context)?.bootstrap()?.let {
+                                store.saveMasters(it)
+                            }
+                        }
+                        withContext(Dispatchers.Main) {
+                            renameBusy = false
+                            reload()
+                            res.onSuccess {
+                                cat.removeLocal(t.kind, t.client, t.site, t.project)
+                                reload()
+                                when (t.kind) {
+                                    "site" -> { navSite = null; navProject = null }
+                                    else -> navProject = null
+                                }
+                                lastResult = "Deleted ${t.current}"
+                                deleteBlocker = null
+                                renaming = null
+                            }.onFailure { e ->
+                                // Kept in the dialog rather than thrown at the
+                                // snackbar: the refusal is the question, and
+                                // the button that answers it is right here.
+                                deleteBlocker = e.message
+                                    ?: "The server refused, without saying why"
+                            }
+                        }
+                    }
+                }
+            }))
         return
     }
 
@@ -1177,10 +1242,49 @@ private fun AppScreen() {
                         }
                         navCapture = null; navFace = null
                         refreshQueue()
-                        lastResult = if (q?.state == "SYNCED")
-                            "Removed from this phone. The server copy stays — " +
-                            "delete it in ERPNext if you meant that too."
-                        else "Capture deleted"
+                        lastResult = "Capture deleted"
+
+                        // And on the bench, if it ever got there. Amit,
+                        // 2026-08-23: "when captures are deleted its sku is
+                        // not getting deleted." It was not getting deleted
+                        // because the CAPTURE was not either — this used to
+                        // apologise instead ("the server copy stays, delete
+                        // it in ERPNext"), which is not a feature.
+                        //
+                        // Local first and unconditionally, as everywhere
+                        // else: the row has to leave the screen in a basement
+                        // too. The bench call is a follow-up, and a failed one
+                        // leaves a record the next delete will find and
+                        // remove, because delete_node treats an already-gone
+                        // capture as done rather than as an error.
+                        val server = q?.serverName
+                        if (!server.isNullOrBlank()) {
+                            scope.launch(Dispatchers.IO) {
+                                val res = runCatching {
+                                    FrappeClient.load(context)
+                                        ?.deleteNode("capture", server)
+                                }
+                                withContext(Dispatchers.Main) {
+                                    res.onSuccess { j ->
+                                        // post() has already unwrapped
+                                        // "message", so "removed" is at the
+                                        // top. Saying when a SKU went too is
+                                        // worth a line: an article vanishing
+                                        // from every picker should not be a
+                                        // thing somebody discovers later.
+                                        val gone = j?.optJSONArray("removed")
+                                        val tookSku = (0 until (gone?.length() ?: 0))
+                                            .any { gone!!.optString(it).startsWith("sku:") }
+                                        lastResult = if (tookSku)
+                                            "Capture deleted, and the SKU nobody else was using"
+                                        else "Capture deleted here and on the bench"
+                                    }.onFailure {
+                                        lastResult = "Deleted here. The bench copy " +
+                                            "did not go: ${it.message}"
+                                    }
+                                }
+                            }
+                        }
                     })
             }
         }
@@ -1299,7 +1403,12 @@ private fun AppScreen() {
             panoPath = c.panoPath,
             state = c.state,
             kind = c.kind,
-            sku = projSkus.firstOrNull { it.name == c.sku }?.code ?: c.sku)
+            // Matched on the DOCNAME, which is what the column holds, with the
+            // code as a fallback for a tag made before the bench had the row.
+            sku = projSkus.firstOrNull { it.name == c.sku }?.code ?: c.sku,
+            article = projSkus.firstOrNull {
+                it.name == c.sku || (it.code.isNotBlank() && it.code == c.sku)
+            }?.article.orEmpty())
     }
 
     BackHandler { navRoom = null }

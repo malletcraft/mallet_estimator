@@ -788,14 +788,24 @@ fun RenameDialog(
     current: String,
     onServer: Boolean,
     busy: Boolean = false,
+    /** What stands in the way of deleting this, from the server's last
+     *  refusal — "still has 3 capture(s)". Shown in place of the explanation,
+     *  and turns Delete into the deliberate second answer. */
+    blocker: String? = null,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
+    /** Null for a node that cannot be removed here (a client, which is a
+     *  Customer and belongs to the office). The flag is "yes, cascade". */
+    onDelete: ((Boolean) -> Unit)? = null,
 ) {
     var text by remember(current) { mutableStateOf(current) }
     val changed = text.trim().isNotEmpty() && text.trim() != current
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Rename ${what}") },
+        // The name is wrong HERE and the thing is unwanted HERE. Sending a
+        // person somewhere else to delete what they are already looking at is
+        // how a tree fills with the wreckage of every mistyped site.
+        title = { Text("Rename or remove ${what}") },
         text = {
             Column {
                 OutlinedTextField(
@@ -818,6 +828,38 @@ fun RenameDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (onDelete != null) {
+                    Spacer(Modifier.height(14.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(10.dp))
+                    // The server refused and said why. Repeating its words is
+                    // the whole point: "still has 3 capture(s)" is a fact a
+                    // person can act on, where "could not delete" is not.
+                    Text(
+                        blocker
+                            ?: "Deleting removes it from ERP for everyone. " +
+                               "Anything already quoted on an estimate is kept.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (blocker != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(
+                        enabled = !busy,
+                        onClick = { onDelete(blocker != null) },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text(when {
+                            busy -> "Working…"
+                            // Only after being told what is in the way. A
+                            // cascade offered before the refusal would be a
+                            // one-tap way to lose a job's whole history.
+                            blocker != null -> "Delete it and everything in it"
+                            else -> "Delete this ${what}"
+                        })
+                    }
+                }
             }
         },
         confirmButton = {

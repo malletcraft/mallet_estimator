@@ -207,6 +207,21 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         post("mallet_estimator.sitephoto.rename_node", JSONObject()
             .put("kind", kind).put("name", name).put("new_name", newName))
 
+    /** Remove a capture, a SKU, a project or a site from the bench.
+     *
+     *  kind is "capture" | "sku" | "project" | "site"; name is the ERP
+     *  docname. The server refuses rather than guessing: a SKU that sits on
+     *  an estimate, or a project that still holds photographs, comes back as
+     *  a message. Pass cascade=true only after a person has been told what is
+     *  in the way and said yes to it anyway.
+     *
+     *  The reply lists what actually went, which is worth showing — deleting
+     *  one capture can also take the SKU nobody else was using. */
+    fun deleteNode(kind: String, name: String, cascade: Boolean = false): JSONObject =
+        post("mallet_estimator.sitephoto.delete_node", JSONObject()
+            .put("kind", kind).put("name", name)
+            .put("cascade", if (cascade) 1 else 0))
+
     /** What work is expected on ONE face. Blank clears it. A 360 is a whole
      *  room and cannot be one article; each of its faces is one wall, and
      *  that is what a SKU describes. */

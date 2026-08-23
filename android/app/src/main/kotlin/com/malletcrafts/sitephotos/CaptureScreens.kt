@@ -46,6 +46,10 @@ data class CaptureCard(
     val annotated: Int = 0,
     /** The Estimate SKU code this photo is filed against, or "". */
     val sku: String = "",
+    /** The article that SKU names — "Wardrobe", "Study Table". The code alone
+     *  identifies the work; the article says what it IS, and a designer
+     *  reading a wall off a thumbnail needs the second one. */
+    val article: String = "",
     /** The work stage the photo was filed at — one of the thirty-nine. Blank
      *  on a capture taken before the master existed, which still has a phase. */
     val workStage: String = "",
@@ -199,42 +203,81 @@ private fun StageHeading(stage: String, photos: Int, days: Int) {
     }
 }
 
+/**
+ * One capture: the photograph, and under it the work it is a photograph OF.
+ *
+ * Amit, 2026-08-23: "every capture should be able to show me sku related to it
+ * just below it. currently its just showing as a tag on top which dose not
+ * help ... this sku is for designer so that he will understand what is to be
+ * designed on the wall for which this foto belongs."
+ *
+ * It used to be stamped on the image at 10sp against whatever the wall
+ * happened to be, and it showed substringAfterLast('_') — the last fragment of
+ * the code, not the work. Two failures in one: unreadable, and not the answer
+ * anyway. The caption below is on solid ground, carries the whole code and the
+ * article beside it, and says so plainly when a wall has no work on it yet —
+ * an untagged photo is a question for somebody, and it cannot ask it while it
+ * looks exactly like a tagged one.
+ */
 @Composable
 private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit) {
-    Box(
-        Modifier
-            .aspectRatio(4f / 3f)
-            .clickable { onOpen(c) },
-    ) {
-        Thumb(ThumbSource.LocalFile(c.panoPath), Modifier.fillMaxSize(),
-            target = 400, contentDescription = "${c.date} ${c.stage}")
-        Scrim()
-        // The stage is the HEADING now, so the tile no longer repeats it —
-        // it says what kind of capture this is instead, which is the thing
-        // you cannot tell from a thumbnail.
-        if (c.kind == "Photo") {
-            Text("PHOTO", color = Color.White,
-                fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.TopStart).padding(6.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Black.copy(alpha = .55f))
-                    .padding(horizontal = 5.dp, vertical = 3.dp))
-        }
-        if (c.annotated > 0) {
-            PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp),
-                "${c.annotated}/6")
-        }
-        Row(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(horizontal = 7.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+    Column(Modifier.clickable { onOpen(c) }) {
+        Box(
+            Modifier
+                .aspectRatio(4f / 3f),
         ) {
-            Text(c.date, color = Color.White, fontSize = 10.sp,
-                fontWeight = FontWeight.Medium)
-            Text(if (c.sku.isNotBlank()) c.sku.substringAfterLast('_')
-                 else if (c.state == "SYNCED") "synced" else "on phone",
-                color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
+            Thumb(ThumbSource.LocalFile(c.panoPath), Modifier.fillMaxSize(),
+                target = 400, contentDescription = "${c.date} ${c.stage}")
+            Scrim()
+            // The stage is the HEADING now, so the tile no longer repeats it —
+            // it says what kind of capture this is instead, which is the thing
+            // you cannot tell from a thumbnail.
+            if (c.kind == "Photo") {
+                Text("PHOTO", color = Color.White,
+                    fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopStart).padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = .55f))
+                        .padding(horizontal = 5.dp, vertical = 3.dp))
+            }
+            if (c.annotated > 0) {
+                PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp),
+                    "${c.annotated}/6")
+            }
+            Row(
+                Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                    .padding(horizontal = 7.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(c.date, color = Color.White, fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium)
+                // The SKU has moved below. What stays on the image is the one
+                // thing that is about the FILE rather than about the work.
+                Text(if (c.state == "SYNCED") "synced" else "on phone",
+                    color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
+            }
+        }
+        Column(Modifier.fillMaxWidth().padding(7.dp, 6.dp, 7.dp, 8.dp)) {
+            Text(
+                c.sku.ifBlank { "No work tagged" },
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = if (c.sku.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface)
+            val under = c.article.ifBlank {
+                if (c.sku.isBlank()) "tap to say what this wall needs" else ""
+            }
+            // Rendered only when it says something. An empty second line would
+            // hold its height and make every tagged tile look like it was missing
+            // a fact rather than not needing one.
+            if (under.isNotBlank()) {
+                Text(under,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

@@ -244,6 +244,30 @@ class Catalogue(context: Context) {
         return touched
     }
 
+    /**
+     * Drop a local row and everything filed under it.
+     *
+     * forgetLocal below is the SYNC case and is project-shaped: one row has
+     * reached the bench, so that row goes. This is the DELETE case, where a
+     * site must take its projects with it — leaving them behind would show a
+     * project under a site that no longer exists, which the tree draws as an
+     * orphan nobody can reach or remove.
+     *
+     * Local only. Whether the bench copy also goes is delete_node's decision,
+     * and it has guards this cannot see.
+     */
+    fun removeLocal(kind: String, client: String, site: String, project: String) {
+        writeLocals(locals().filterNot { l ->
+            when (kind) {
+                "client" -> same(l.client, client)
+                "site" -> same(l.client, client) && same(l.site, site)
+                "project" -> same(l.client, client) && same(l.site, site) &&
+                    same(l.project, project)
+                else -> false
+            }
+        })
+    }
+
     /** Once ERP has the site, its local copy is redundant — dropping it is
      *  what stops the same folder appearing twice after a sync. */
     fun forgetLocal(client: String, site: String, project: String) {
