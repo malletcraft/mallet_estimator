@@ -416,13 +416,22 @@ def _op_minutes(op_name, default):
     tuned number in ERP must reach the plugin, or the two quote differently
     for the same wardrobe.
     """
+    def fallback():
+        # A zero seed is not a standard that failed to arrive — it is the
+        # absence of one. Amit, 2026-08-23, on Miscellaneous - extra: "seed
+        # default - why this is not ERP Operation?" The Operation IS in ERP;
+        # what ERP has no opinion about is how long it takes, because the row
+        # exists precisely for work the other sixteen do not name. Saying
+        # "seed default" there blamed a fallback for a number nobody ever set.
+        return (float(default), "code default") if default else (0.0, "no standard")
+
     if not frappe.db.exists("DocType", "Operation"):
-        return float(default), "code default"
+        return fallback()
     if not frappe.get_meta("Operation").has_field("mallet_min_per_unit"):
-        return float(default), "code default"
+        return fallback()
     v = frappe.db.get_value("Operation", op_name, "mallet_min_per_unit")
     if v in (None, "", 0):
-        return float(default), "code default"
+        return fallback()
     return float(v), "erp:Operation"
 
 
@@ -642,7 +651,15 @@ def _up1(v):
 # Install Hardware (9) keeps its computed quantity deliberately — it is
 # hinges + rails + handles + shelf supports off the hardware lines, the rule
 # stated earlier, and hand-editing it would silently unhook it from the model.
-QTY_EDITABLE = {"Grooving"}
+#
+# Miscellaneous - extra (17) is the exception the rule above did not consider.
+# Amit, 2026-08-23: "not able to key in quantity. so result will always be
+# zero." It is right: the row exists to carry work the other sixteen do not
+# name, so the model has nothing to infer a quantity FROM — its qty_source is
+# "manual" and it comes back 0. A row whose quantity is fixed at zero can
+# never add anything to an estimate no matter what minutes are typed beside
+# it, which makes it decoration rather than a line.
+QTY_EDITABLE = {"Grooving", "Miscellaneous - extra"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 

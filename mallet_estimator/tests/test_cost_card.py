@@ -28,7 +28,8 @@ class TestCostCard(MalletTestCase):
         for o in api.cost_card()["operations"]:
             self.assertTrue(o["workstation"], f"{o['name']} has no workstation")
             self.assertIn(o["rate_source"], ("erp:Workstation", "unset"))
-            self.assertIn(o["min_source"], ("erp:Operation", "code default"))
+            self.assertIn(o["min_source"],
+                          ("erp:Operation", "code default", "no standard"))
 
     def test_the_envelope_names_erp_as_the_authority(self):
         # The plugin stores its own material rates and must override them with
@@ -151,7 +152,38 @@ class TestEstimatePreview(MalletTestCase):
             self.assertTrue(m["source"], f"{m['code']} has no source")
         for l in out["labour"]:
             self.assertIn(l["min_source"], ("erp:Operation", "code default",
-                                            "plugin:edited"))
+                                            "no standard", "plugin:edited"))
+
+    def test_the_catch_all_row_can_actually_be_used(self):
+        """Amit, 2026-08-23: "not able to key in quantity. so result will
+        always be zero."
+
+        Miscellaneous - extra exists to carry work the other sixteen do not
+        name, so the model has nothing to infer a quantity from and returns 0.
+        With the quantity locked, no minutes typed beside it could ever make
+        the row worth anything — it was decoration in the shape of a line.
+
+        And its badge said "seed default", blaming a fallback for a number
+        nobody had ever set. There is no standard time for unnamed work; the
+        row says so now instead.
+        """
+        out = api.estimate_preview(self.CSV)
+        row = [r for r in out["labour"] if r["name"] == "Miscellaneous - extra"]
+        self.assertEqual(len(row), 1)
+        row = row[0]
+        self.assertTrue(row["qty_editable"], "the catch-all needs a typeable quantity")
+        self.assertTrue(row["min_editable"])
+        self.assertEqual(row["min_source"], "no standard")
+
+        # And a typed quantity plus typed minutes actually reaches the total.
+        priced = api.estimate_preview(
+            self.CSV,
+            overrides={"Miscellaneous - extra": {"qty": 3, "min": 20}})
+        extra = [r for r in priced["labour"]
+                 if r["name"] == "Miscellaneous - extra"][0]
+        self.assertEqual(extra["qty"], 3.0)
+        self.assertEqual(extra["hours"], 1.0)          # 3 x 20 min
+        self.assertGreater(priced["labour_total"], out["labour_total"])
 
     def test_unpriced_lines_are_counted_loudly(self):
         # A total that quietly omits boards ERP cannot price looks like an
