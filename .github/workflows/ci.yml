@@ -197,7 +197,14 @@ jobs:
                   block.append(nxt)
               blocks.append("\n".join(block).strip())
           for b in blocks[:10]:
-              body = b[:3500]
+              # HEAD PLUS TAIL, not the first 3500 characters. Python dumps
+              # local variables into a traceback, and one estimate payload is
+              # thousands of characters -- so a head-only clip spent the whole
+              # budget on a dict and cut off the AssertionError, which is the
+              # only line anybody needs. 2026-08-23: it did exactly that.
+              if len(b) > 3000:
+                  b = b[:900] + "\n  ...[clipped]...\n" + b[-2000:]
+              body = b
               first = body.splitlines()[0][:110]
               print("::error title=%s::%s" % (
                   first, body.replace('%', '%25')

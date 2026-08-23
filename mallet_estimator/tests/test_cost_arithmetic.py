@@ -152,18 +152,32 @@ class TestTheMoneyIsRight(MalletTestCase):
         self.assertTrue(item, "no Item behind %s to price" % code)
 
         R.price(item, 1000.0)
+
+        # The planning rate is the BASE. The payload states its own contract —
+        # "rates_are: post-tax (landed = base + GST)" — so what a quote shows
+        # is the base grossed by that item's tax, and asserting the base
+        # against it was comparing two different numbers.
+        row = api.cost_card(codes=code)["materials"][0]
+        self.assertEqual(row["base_rate"], 1000.0)
+        # "erp:assumed", not "assumed": material_rate() returns the bare word
+        # and api.py prefixes every source on the way out.
+        self.assertEqual(row["source"], "erp:assumed")
+        self.assertAlmostEqual(
+            row["landed_rate"], 1000.0 * (1 + row["gst_pct"] / 100.0), places=2,
+            msg="landed is not the base plus this item's GST")
+
         priced = api.estimate_preview(CSV)
         line = [m for m in priced["materials"] if m["code"] == code][0]
 
-        self.assertEqual(line["rate"], 1000.0)
-        # "erp:assumed", not "assumed": material_rate() returns the bare word
-        # and api.py prefixes every source with erp: on the way out. Checked
-        # against a real payload rather than guessed a third time.
+        # Derived from the card rather than written as a constant: a hard 1180
+        # would bake an 18% rate into a test that is about the RELATIONSHIP,
+        # and would go red the day a material carried a different tax.
+        self.assertAlmostEqual(line["rate"], row["landed_rate"], places=2)
         self.assertEqual(line["source"], "erp:assumed")
         self.assertTrue(line["quotable"])
-        # Deliberately not asserting amount == qty x rate: wastage and landed
-        # cost sit between them, and inventing an expected total here would be
-        # asserting my reading of the code rather than its behaviour.
+        # Deliberately not asserting amount == qty x rate: wastage sits between
+        # them, and inventing an expected total here would assert my reading of
+        # the code rather than its behaviour.
         self.assertGreater(line["amount"], 0)
         self.assertGreater(priced["material_total"], 0)
 
