@@ -167,6 +167,43 @@ jobs:
             | while read -r line; do
             echo "::error title=mallet tests::${line}"
           done
+
+          # And the TRACEBACK, not just the name. A test name says which one
+          # broke; only the assertion says why, and without it a red build
+          # costs a round-trip per guess. On 2026-08-23 one test took four
+          # rounds — the answer turned out to be "erp:assumed" vs "assumed",
+          # which the message would have given away immediately.
+          #
+          # Newlines are escaped as %0A because that is the only way an
+          # annotation carries more than one line.
+          python3 - <<'EOF' || true
+          import re
+          log = open('/tmp/plain.log', errors='replace').read()
+          lines = log.splitlines()
+          blocks = []
+          for i, l in enumerate(lines):
+              if not re.match(r'^[ \t]*(FAIL|ERROR)[ :\t]+\S', l):
+                  continue
+              # From the header down to the next rule or the run summary. An
+              # earlier version used a lookahead and stopped at the ---- rule
+              # printed immediately UNDER the header, so it captured the name
+              # and nothing else -- the exact thing this step exists to add.
+              block = [l]
+              for nxt in lines[i + 1:i + 40]:
+                  if re.match(r'^={20,}\s*$', nxt):
+                      break
+                  if re.match(r'^(Ran \d+ test|OK\b|FAILED\b)', nxt):
+                      break
+                  block.append(nxt)
+              blocks.append("\n".join(block).strip())
+          for b in blocks[:10]:
+              body = b[:3500]
+              first = body.splitlines()[0][:110]
+              print("::error title=%s::%s" % (
+                  first, body.replace('%', '%25')
+                             .replace('\r', '')
+                             .replace('\n', '%0A')))
+          EOF
           echo
           echo "===== integration phase (runs first, where failures land) ====="
           # The integration phase finishes long before the unit phase, so its
