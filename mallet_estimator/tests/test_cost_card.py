@@ -422,6 +422,41 @@ class TestEstimatePreview(MalletTestCase):
         self.assertEqual(a["min_source"], "plugin:edited")
         self.assertEqual(out["assembly_min_by_size"]["large"], 120)
 
+    def test_assembly_splits_into_one_child_row_per_size(self):
+        """Amit, 2026-08-23: "this should split into child rows and user should
+        be able to key in directly minutes against the quantity, quantity is
+        inferred from our size model which should not get altered but minutes
+        should be changeable in line only.\""""
+        out = api.estimate_preview(self.CSV_SIZED)
+        a = next(l for l in out["labour"] if l["name"] == "Assembly")
+        kids = a["children"]
+        self.assertEqual([c["size"] for c in kids], ["large", "medium", "small"])
+        for c in kids:
+            self.assertTrue(c["min_editable"], "%s cannot take a time" % c["name"])
+            self.assertFalse(c["qty_editable"], "%s offers an editable count" % c["name"])
+        # the counts are the model's answer, not anyone's input
+        self.assertEqual([c["qty"] for c in kids], [1, 1, 1])
+        # and the parent is exactly its children
+        self.assertAlmostEqual(sum(c["hours"] for c in kids), a["hours"], places=1)
+
+    def test_a_child_row_takes_its_own_minutes_in_line(self):
+        out = api.estimate_preview(
+            self.CSV_SIZED,
+            overrides={"Assembly": {"min_large": 120, "min_medium": 30, "min_small": 10}})
+        a = next(l for l in out["labour"] if l["name"] == "Assembly")
+        got = {c["size"]: c["min_per_unit"] for c in a["children"]}
+        self.assertEqual(got, {"large": 120, "medium": 30, "small": 10})
+        self.assertEqual(a["hours"], 2.7)      # (120+30+10)/60, rounded up
+        self.assertEqual(a["min_source"], "plugin:edited")
+
+    def test_only_assembly_carries_children(self):
+        """Every other row sends none, so the screen renders one shape and
+        never branches on an operation's name."""
+        out = api.estimate_preview(self.CSV_SIZED)
+        for l in out["labour"]:
+            if l["name"] != "Assembly":
+                self.assertIsNone(l["children"], "%s grew children" % l["name"])
+
     def test_a_nameless_assembly_is_treated_as_large(self):
         """Every model drawn before this convention says plain ASMBL_WAR, and
         those are carcasses. Reading them as small would quietly shrink the

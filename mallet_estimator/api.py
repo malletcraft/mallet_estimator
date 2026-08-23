@@ -901,6 +901,7 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # minutes it displays are the average those hours imply, so the column
         # still reads honestly against the qty beside it.
         size_hours = None
+        children = None
         if name == "Assembly" and counted:
             per = dict(size_min)
             edited = assembly_edited
@@ -919,6 +920,32 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # number meant — that is exactly the number that was typed.
             mins = (size_hours * 60.0 / q) if q else mins
 
+            # ONE CHILD ROW PER SIZE. Amit, 2026-08-23: "this should split into
+            # child rows and user should be able to key in directly minutes
+            # against the quantity, quantity is inferred from our size model
+            # which should not get altered but minutes should be changeable in
+            # line only. no point in giving a box below on screen."
+            #
+            # The quantity is the model's answer and is not an input. The
+            # minutes are, and they belong beside the count they multiply —
+            # a box somewhere else makes the reader hold two numbers in their
+            # head to check one line.
+            children = []
+            for k in ASSEMBLY_SIZES:
+                ch_hours = sizes[k] * per[k] / 60.0
+                children.append({
+                    "size": k,
+                    "name": "Assembly — %s" % k.capitalize(),
+                    "qty": _up1(sizes[k]),
+                    "min_per_unit": _up1(per[k]),
+                    "hours": _up1(ch_hours),
+                    "amount": round(ch_hours * float(ws_rate.get(op["workstation"], 0)), 2),
+                    # The rule, per child: the count comes from the model, the
+                    # time comes from the person.
+                    "qty_editable": False,
+                    "min_editable": True,
+                })
+
         hours = size_hours if size_hours is not None else (q * mins) / 60.0
         rate = float(ws_rate.get(op["workstation"], 0))
         amount = hours * rate
@@ -931,6 +958,9 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # What the screen may turn into an input. Sent rather than
             # re-derived on the plugin side, so the rule lives in one place.
             "min_editable": min_editable, "qty_editable": qty_editable,
+            # Assembly alone carries children; every other row sends none, so
+            # the screen can render one shape and not branch on the name.
+            "children": children,
         })
         labour_total += amount
 
