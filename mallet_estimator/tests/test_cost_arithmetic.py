@@ -156,7 +156,10 @@ class TestTheMoneyIsRight(MalletTestCase):
         line = [m for m in priced["materials"] if m["code"] == code][0]
 
         self.assertEqual(line["rate"], 1000.0)
-        self.assertEqual(line["source"], "assumed")
+        # "erp:assumed", not "assumed": material_rate() returns the bare word
+        # and api.py prefixes every source with erp: on the way out. Checked
+        # against a real payload rather than guessed a third time.
+        self.assertEqual(line["source"], "erp:assumed")
         self.assertTrue(line["quotable"])
         # Deliberately not asserting amount == qty x rate: wastage and landed
         # cost sit between them, and inventing an expected total here would be
