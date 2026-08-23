@@ -1129,7 +1129,10 @@ class TestSiteTypeAndAddress(MalletTestCase):
         c = self._customer()
         worksite.ensure_site(c, "Masters Flat", "Flat",
                              site_address="1 Test Lane")
-        m = sitephoto.masters()
+        # bootstrap() is the call the phone makes for its masters — I wrote
+        # masters() from the shape of the payload rather than from the module,
+        # and CI caught it.
+        m = sitephoto.bootstrap()
         self.assertIn("Flat", m["site_types"])
         row = next((s for s in m["sites"] if s.get("site_name") == "Masters Flat"), None)
         self.assertIsNotNone(row, "the site is missing from masters")
