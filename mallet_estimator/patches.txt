@@ -130,3 +130,9 @@ mallet_estimator.patches.site_address_field
 # ships as a patch rather than relying on the source map alone: these
 # Operations were created months ago and are never re-read from it.
 mallet_estimator.patches.loading_is_factory_work
+# post_model_sync: the Operation master and its mallet_min_per_unit custom
+# field are both created by install.after_migrate, so this runs where they
+# already exist. It changes a QUOTED price — Minifix Boring was the biggest
+# line on the labour card at double its real time — and install.py refuses to
+# clobber a hand-tuned standard, so the correction cannot ride the seeder.
+mallet_estimator.patches.minifix_boring_std_time

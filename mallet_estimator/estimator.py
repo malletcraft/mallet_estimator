@@ -423,7 +423,13 @@ OPERATION_STANDARDS = {
     "Sheet Tape Removal":     {"qty_source": "sheets",          "min_per_unit": 3},
     "Sheet Cutting":          {"qty_source": "sheets",          "min_per_unit": 20},
     "Edge Banding":           {"qty_source": "edge_parts",      "min_per_unit": 3},
-    "Minifix Boring":         {"qty_source": "minifix",         "min_per_unit": 1},
+    # Amit, 2026-08-23: "minifix boaring is 15 min per unit." The 1 here was a
+    # placeholder nobody had measured; staging had been hand-tuned to 30, which
+    # made this the biggest line on the labour card at double its real time.
+    # Changing the seed only helps a FRESH install — existing sites are
+    # corrected by patches/minifix_boring_std_time.py, because the seeder
+    # deliberately refuses to overwrite a standard someone has already set.
+    "Minifix Boring":         {"qty_source": "minifix",         "min_per_unit": 15},
     "Drilling":               {"qty_source": "hinges",          "min_per_unit": 3},
     "Grooving":               {"qty_source": "manual",          "min_per_unit": 5},
     "Assembly":               {"qty_source": "panels",          "min_per_unit": 4},
