@@ -849,12 +849,22 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     _erp_asm = next((float(o["min_per_unit"]) for o in card["operations"]
                      if o["name"] == "Assembly"), 0.0)
     size_min = {k: _erp_asm for k in ASSEMBLY_SIZES}
+    assembly_edited = False
+
+    # The OLD single-number door still works, and now means "this many minutes
+    # for every size". A plugin that has not learnt about sizes sends it, and
+    # its estimate must not silently revert to ERP's standard.
+    if assembly_min not in (None, ""):
+        size_min = {k: float(assembly_min) for k in ASSEMBLY_SIZES}
+        assembly_edited = True
+
     if isinstance(assembly_min_by_size, str):
         assembly_min_by_size = json.loads(assembly_min_by_size or "{}")
     for k in ASSEMBLY_SIZES:
         v = (assembly_min_by_size or {}).get(k)
         if v not in (None, ""):
             size_min[k] = float(v)
+            assembly_edited = True
     assembly_min_used = dict(size_min)
 
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
@@ -870,11 +880,6 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         q = float(qty.get(name, 0) or 0)
         qty_source = "erp:rule"
 
-        # Assembly minutes keep their own older door, so a plugin that has not
-        # updated yet still works.
-        if name == "Assembly" and assembly_min not in (None, ""):
-            mins = float(assembly_min)
-            min_source = "plugin:edited"
 
         ov = overrides.get(name) or {}
         if ov.get("min") not in (None, ""):
@@ -898,13 +903,20 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         size_hours = None
         if name == "Assembly" and counted:
             per = dict(size_min)
+            edited = assembly_edited
             for k in ASSEMBLY_SIZES:
                 v = (ov.get("min_" + k) if ov else None)
                 if v not in (None, ""):
                     per[k] = float(v)
-                    min_source = "plugin:edited"
+                    edited = True
+            if edited:
+                min_source = "plugin:edited"
             size_hours = sum(sizes[k] * per[k] for k in ASSEMBLY_SIZES) / 60.0
             assembly_min_used = per
+            # The minutes COLUMN shows what those hours imply against the
+            # quantity beside it, so the row reads honestly. When every size
+            # costs the same — the ordinary case, and what the old single
+            # number meant — that is exactly the number that was typed.
             mins = (size_hours * 60.0 / q) if q else mins
 
         hours = size_hours if size_hours is not None else (q * mins) / 60.0
