@@ -167,6 +167,14 @@ class TestEstimatePreview(MalletTestCase):
         nobody had ever set. There is no standard time for unnamed work; the
         row says so now instead.
         """
+        # Own the precondition rather than inherit it. Saving an Estimate SKU
+        # writes its labour minutes back onto the Operation master, so whether
+        # this row has a standard time depends on what ran before it — and a
+        # test that passes or fails by suite order is not a test.
+        if frappe.db.exists("Operation", "Miscellaneous - extra"):
+            frappe.db.set_value("Operation", "Miscellaneous - extra",
+                                "mallet_min_per_unit", 0)
+
         out = api.estimate_preview(self.CSV)
         row = [r for r in out["labour"] if r["name"] == "Miscellaneous - extra"]
         self.assertEqual(len(row), 1)
@@ -183,7 +191,13 @@ class TestEstimatePreview(MalletTestCase):
                  if r["name"] == "Miscellaneous - extra"][0]
         self.assertEqual(extra["qty"], 3.0)
         self.assertEqual(extra["hours"], 1.0)          # 3 x 20 min
-        self.assertGreater(priced["labour_total"], out["labour_total"])
+
+        # HOURS, not money. Every workstation rate is 0 here by design — cost
+        # data never enters this repo — so a money assertion tests the empty
+        # rate table rather than the row, and fails on a bench that is behaving
+        # correctly. Hours are what the row actually contributes; the rate
+        # turns them into rupees somewhere that has rates.
+        self.assertGreater(priced["labour_hours"], out["labour_hours"])
 
     def test_unpriced_lines_are_counted_loudly(self):
         # A total that quietly omits boards ERP cannot price looks like an
