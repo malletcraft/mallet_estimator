@@ -497,6 +497,12 @@ private fun DeleteRow(onDelete: () -> Unit) {
  * on the stamp. Re-annotating the same photograph later just produces a newer
  * export, which the next import picks up — no duplicates, and nothing to keep
  * in step.
+ *
+ * And it is where you LOOK, which is why the photo zooms. Amit, 2026-08-23:
+ * "need pinch zoom on apk annotated fotos. hard to read it currently." What
+ * comes back from ImageMeter is dimension text, sized for the photograph
+ * rather than for a phone, and this screen was fitting the whole face into a
+ * hand and offering no way in.
  */
 @Composable
 fun FaceViewer(
@@ -551,8 +557,12 @@ fun FaceViewer(
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val shown = if (showAnnotated && hasAnnotated) annotatedSource else source
-            Thumb(shown, Modifier.fillMaxSize(), target = 1600,
-                contentDescription = title)
+            // Zoomable, and the reset is keyed on the FACE rather than on which
+            // of its two versions is showing: Original and Annotated are the
+            // same wall from the same place, so a person flicking between them
+            // to see what was marked keeps the region they were reading.
+            ZoomableImage(shown, Modifier.fillMaxSize(),
+                contentDescription = title, resetKey = current)
         }
 
         Column(Modifier.padding(12.dp, 10.dp, 12.dp, 14.dp),
