@@ -811,7 +811,14 @@ fun RenameDialog(
         // The name is wrong HERE and the thing is unwanted HERE. Sending a
         // person somewhere else to delete what they are already looking at is
         // how a tree fills with the wreckage of every mistyped site.
-        title = { Text("Rename or remove ${what}") },
+        //
+        // But a client offers no remove, and this title said "Rename or
+        // remove client" over a dialog holding only Cancel and Save. Amit,
+        // 2026-08-24, photographed exactly that while trying to delete the
+        // probe customer. A heading that names a control the dialog does not
+        // have reads as a broken button, not as a boundary — so it now says
+        // what this particular dialog can actually do.
+        title = { Text(if (onDelete != null) "Rename or remove $what" else "Rename $what") },
         text = {
             Column {
                 OutlinedTextField(
@@ -834,6 +841,20 @@ fun RenameDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Say WHY there is no delete here, rather than leaving its
+                // absence to be read as a bug. A missing control with no
+                // explanation is indistinguishable from a broken one, which is
+                // what sent Amit hunting for it on 2026-08-24.
+                if (onDelete == null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "A client is the office's customer record, so it is not " +
+                        "removed from a phone. Delete the sites under it here; " +
+                        "the customer itself is a desk job.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (onDelete != null) {
                     Spacer(Modifier.height(14.dp))
                     HorizontalDivider()
