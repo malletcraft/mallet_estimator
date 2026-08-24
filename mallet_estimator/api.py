@@ -994,6 +994,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "hour_rate": rate, "amount": round(amount, 2),
             "min_source": min_source, "qty_source": qty_source,
             "rate_source": op["rate_source"],
+            # Carried through from the card. The card had it and this did not,
+            # so the zone reached a test and never reached the screen — the
+            # plugin renders THESE rows, not cost_card's.
+            "zone": op.get("zone", ""),
             # What the screen may turn into an input. Sent rather than
             # re-derived on the plugin side, so the rule lives in one place.
             "min_editable": min_editable, "qty_editable": qty_editable,

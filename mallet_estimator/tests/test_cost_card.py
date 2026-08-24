@@ -217,6 +217,17 @@ class TestEstimatePreview(MalletTestCase):
         self.assertEqual(by_seq[12]["name"], "Loading")
         self.assertEqual(by_seq[12]["workstation"], "Assembly Station")
 
+        # AND on the estimate, which is the surface the plugin actually draws.
+        # Asserting only cost_card passed while every row on screen carried an
+        # empty zone — the field existed on the payload nobody renders.
+        rows = {r["seq"]: r for r in api.estimate_preview(self.CSV)["labour"]}
+        self.assertEqual(rows[1]["zone"], "factory")
+        self.assertEqual(rows[11]["zone"], "factory")
+        self.assertEqual(rows[12]["zone"], "logistics")
+        self.assertEqual(rows[14]["zone"], "logistics")
+        self.assertEqual(rows[15]["zone"], "on-site")
+        self.assertEqual(rows[16]["zone"], "on-site")
+
     def test_packing_and_loading_are_assembly_station_work(self):
         by_name = {o["name"]: o for o in api.cost_card()["operations"]}
         self.assertEqual(by_name["Packing"]["workstation"], "Assembly Station")
