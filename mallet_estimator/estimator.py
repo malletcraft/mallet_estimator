@@ -155,6 +155,7 @@ DESIGN_STANDARDS = {
     "Part List PDF (OCL)":                   {"qty_source": "manual", "min_per_unit": 15},
 }
 OPERATION_WORKSTATION.update({t["phase"]: "Design Desk" for t in DESIGN_STEP_TEMPLATE})
+# The hardware children are added further down, once their names exist.
 
 # Phase -> zone, built from the templates rather than restated, so a step that
 # moves cannot end up filed under one zone here and another there.
@@ -189,7 +190,7 @@ STEP_REMARKS = {
     "Minifix Boring": "Bore minifix housings (qty = minifix count).",
     "Drilling": "Pilot holes + screws — qty is the SCREW count.",
     "Assembly": "Specify what gets assembled here: typically carcass and/or drawer boxes.",
-    "Install Hardware": "Hinges, drawer rails, handles and shelf supports only (qty = their total).",
+    "Install Hardware": "Parent line — splits into one child per hardware TYPE (qty = their total).",
     "Disassembly": "Dismantle what must travel flat.",
     "Packing": "Dismantle where required before packing — a wardrobe carcass is dismantled, drawer boxes are not.",
     "Loading": "Load packed parts + hardware boxes.",
@@ -479,6 +480,75 @@ OPERATION_STANDARDS = {
 
 
 MISC_OPERATION = "Miscellaneous - extra"
+
+# --- Install Hardware, split by what is being installed --------------------
+#
+# Amit, 2026-08-24: "rather than a single install hardware line, let this be a
+# parent line and always divide the hardware by its type, like Install Hinges,
+# Install shelf buttons, install drawer rails etc. that way quantity will not
+# be editable but its time will be editable depending on type of hardware,
+# hardware always starts with HWD."
+#
+# One line reading "Install Hardware x 96 at 2 min" is a number nobody can
+# argue with, because it hides three kinds of work that take different times.
+# A soft-close hinge is not a shelf pin. So the parent keeps the total and each
+# TYPE gets its own row, its own standard time from its own Operation master,
+# and its own editable minutes.
+#
+# WHAT IS NOT HERE, and why. Two buckets that classify_hardware() returns are
+# deliberately absent, because both are already priced by a step of their own
+# and listing them again would charge the same fitting twice:
+#   minifix -> step 5 Minifix Boring, at the Drill Press. Amit settled this the
+#             same day: boring stays step 5, no install child.
+#   screws  -> step 6 Drilling, whose quantity IS the screw count.
+# The key is the bucket classify_hardware() returns, so the two stay in step by
+# construction rather than by a second list somebody has to keep equal.
+HARDWARE_INSTALL_TYPES = (
+    ("hinges",         "Hinges"),
+    ("rails",          "Drawer Rails"),
+    ("handles",        "Handles"),
+    ("shelf_supports", "Shelf Supports"),
+    ("locks",          "Locks & Tower Bolts"),
+    # The catch-all earns its place: a fitting nobody has taught the classifier
+    # about must still be installed by somebody, and a bucket that silently
+    # dropped it would quietly under-price every model containing one.
+    ("other",          "Other Hardware"),
+)
+HARDWARE_PARENT = "Install Hardware"
+
+
+def hardware_operation(kind):
+    """The Operation master name for one hardware type — "Install Hinges"."""
+    label = dict(HARDWARE_INSTALL_TYPES).get(kind)
+    return ("Install %s" % label) if label else None
+
+
+# Seed minutes per type. Every one is the old flat 2 min/unit except where a
+# fitting is obviously slower — these are STARTING points, tuned on the
+# Operation master like every other standard, never in code.
+HARDWARE_STANDARDS = {
+    "hinges": 4,            # bore-mount, adjust, close gaps
+    "rails": 6,             # a pair per drawer, squared and levelled
+    "handles": 3,
+    "shelf_supports": 1,
+    "locks": 5,
+    "other": 2,
+}
+
+# Every hardware child runs where its parent runs. DERIVED from the parent
+# rather than restated, so the day Install Hardware moves station its children
+# move with it — the alternative is six more places to forget, and the
+# workstation is a price.
+OPERATION_WORKSTATION.update({
+    hardware_operation(k): OPERATION_WORKSTATION[HARDWARE_PARENT]
+    for k, _ in HARDWARE_INSTALL_TYPES
+})
+# Same for the zone: a child cannot belong to a different part of the day than
+# the step it is part of.
+OPERATION_ZONE.update({
+    hardware_operation(k): OPERATION_ZONE[HARDWARE_PARENT]
+    for k, _ in HARDWARE_INSTALL_TYPES
+})
 
 
 def op_phase(row):
