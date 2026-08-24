@@ -960,6 +960,31 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertFalse(frappe.db.exists("Mallet Site", site))
         self.assertFalse(frappe.db.exists("Project", out["project"]))
 
+    def test_an_inbox_row_does_not_block_the_capture_it_produced(self):
+        # 2026-08-24, from a photograph of the phone: deleting the project
+        # "main door repair" came back with LinkExistsError naming Site Photo
+        # Inbox. It is the only doctype outside this cascade holding a Link to
+        # a capture, nothing cleared it, so Frappe refused and the project
+        # cascade aborted part-way — which is precisely what "delete on apk is
+        # not working" looked like from the outside.
+        out = sitephoto.ensure_site("ZZ Inbox Client", "ZZ Inbox Project",
+                                    site_name="ZZ Inbox Flat")
+        cap = sitephoto.create_capture(out["project"], _room())
+        inbox = frappe.get_doc({
+            "doctype": "Site Photo Inbox",
+            "photo": cap["name"],
+            "drive_file_id": "zz-inbox-guard",
+        }).insert(ignore_permissions=True)
+
+        res = sitephoto.delete_node("project", out["project"], cascade=1)
+        self.assertIn("inbox:%s" % inbox.name, res["removed"],
+                      "the inbox row has to be reported, not silently dropped")
+        self.assertFalse(frappe.db.exists("Site Photo Inbox", inbox.name))
+        self.assertFalse(frappe.db.exists(sitephoto.DOCTYPE, cap["name"]))
+        self.assertFalse(frappe.db.exists("Project", out["project"]),
+                         "the cascade must reach the project, not stop at the "
+                         "capture its inbox row was guarding")
+
     def test_a_deleted_project_can_still_be_read_back(self):
         # 2026-08-24. A delete aimed at one project ended with a DIFFERENT
         # site and its project destroyed, and there was nothing to restore

@@ -1,5 +1,6 @@
 package com.malletcrafts.sitephotos
 
+import com.malletcrafts.sitephotos.pano.ServerMessage
 import android.content.Context
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -37,12 +38,19 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         http.newCall(req).execute().use { resp ->
             val body = resp.body?.string() ?: ""
             if (!resp.isSuccessful) {
-                // Frappe puts the useful sentence in `exception`; the rest is
-                // traceback nobody can act on from a phone.
-                val hint = runCatching {
-                    JSONObject(body).optString("exception").take(200)
-                }.getOrNull().takeUnless { it.isNullOrBlank() } ?: "HTTP ${resp.code}"
-                throw ApiException(resp.code, hint)
+                // What this used to do was read `exception` and cut it at 200
+                // characters. Amit photographed the result on 2026-08-24: the
+                // dialog showed "frappe.exceptions.LinkExistsError: Cannot
+                // delete or cancel because Site Photo 360 <a href="https://…">
+                // MEST-PH-2026-00027</a> is linked with S" — a Python class
+                // name, raw markup, a URL nobody wants, and the cut landing
+                // exactly where the sentence was about to name the thing
+                // standing in the way.
+                //
+                // ServerMessage lives in :pano because that is the module CI
+                // tests, and an error path is precisely the code nobody
+                // exercises by hand until the day it matters.
+                throw ApiException(resp.code, ServerMessage.humanise(body, resp.code))
             }
             return JSONObject(body)
         }

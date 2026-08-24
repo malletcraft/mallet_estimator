@@ -623,7 +623,26 @@ def _drop_sku_if_orphaned(sku, removed):
 
 
 def _delete_capture(name, removed):
-    """One capture, its attachments and the SKU it leaves behind."""
+    """One capture, its attachments, its inbox rows and the SKU it leaves behind.
+
+    THE INBOX ROWS ARE WHY DELETE APPEARED BROKEN. Amit, 2026-08-24,
+    photographing the phone: deleting the project "main door repair" came back
+    with `LinkExistsError: Cannot delete or cancel because Site Photo 360
+    MEST-PH-2026-00027 is linked with Site Photo Inbox`. Site Photo Inbox is
+    the only doctype outside this cascade that holds a Link to a capture, and
+    nothing here ever cleared it — so Frappe's link check refused, the whole
+    project cascade aborted part-way, and what the person saw was a raw Python
+    exception with the useful half cut off.
+
+    An inbox row is a staging record for a file arriving from Drive. Once the
+    capture it produced is gone the row points at nothing and can only ever
+    block the next attempt, so it goes first, before the document it guards.
+    """
+    if frappe.db.exists("DocType", "Site Photo Inbox"):
+        for row in frappe.get_all("Site Photo Inbox", filters={"photo": name},
+                                  limit_page_length=0, pluck="name"):
+            frappe.delete_doc("Site Photo Inbox", row, ignore_permissions=True)
+            removed.append("inbox:%s" % row)
     for f in frappe.get_all("File",
                             filters={"attached_to_doctype": DOCTYPE,
                                      "attached_to_name": name},
