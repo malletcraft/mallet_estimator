@@ -205,7 +205,8 @@ class TestEstimatePreview(MalletTestCase):
 
         The zone is for the reader; in_factory is what the money is worked out
         from. Loading is the one that proves they are different questions: it
-        is logistics on the card and still charged at a factory workstation.
+        is logistics on the card and still charged at a factory workstation —
+        the Project Room, since 2026-08-24.
         """
         by_seq = {o["seq"]: o for o in api.cost_card()["operations"]}
         for seq in range(1, 12):
@@ -215,7 +216,7 @@ class TestEstimatePreview(MalletTestCase):
         for seq in (15, 16):
             self.assertEqual(by_seq[seq]["zone"], "on-site", by_seq[seq]["name"])
         self.assertEqual(by_seq[12]["name"], "Loading")
-        self.assertEqual(by_seq[12]["workstation"], "Assembly Station")
+        self.assertEqual(by_seq[12]["workstation"], "Project Room")
 
         # AND on the estimate, which is the surface the plugin actually draws.
         # Asserting only cost_card passed while every row on screen carried an
@@ -228,10 +229,19 @@ class TestEstimatePreview(MalletTestCase):
         self.assertEqual(rows[15]["zone"], "on-site")
         self.assertEqual(rows[16]["zone"], "on-site")
 
-    def test_packing_and_loading_are_assembly_station_work(self):
+    def test_the_staging_steps_are_project_room_work(self):
+        # Written this morning as ..._are_assembly_station_work, from "step 11
+        # and 12 happens at assembly station and not pasting station". He was
+        # ruling out the Pasting Station, not the Project Room, and settled it
+        # the same day against the bench: "keep it as per current erp setup."
+        #
+        # Asserted on the rendered card rather than on the constant, because
+        # the constant is already covered in test_estimator and what can go
+        # wrong here is different — the payload the plugin draws losing a
+        # workstation on its way out.
         by_name = {o["name"]: o for o in api.cost_card()["operations"]}
-        self.assertEqual(by_name["Packing"]["workstation"], "Assembly Station")
-        self.assertEqual(by_name["Loading"]["workstation"], "Assembly Station")
+        for step in ("Disassembly", "Packing", "Loading"):
+            self.assertEqual(by_name[step]["workstation"], "Project Room", step)
 
     def test_transport_is_counted_in_trips_a_person_types(self):
         # Amit, 2026-08-24: "Transport quantity should be editable as its

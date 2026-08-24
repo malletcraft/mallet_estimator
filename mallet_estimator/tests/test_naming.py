@@ -228,10 +228,9 @@ class TestAnArticleWithNoParts(MalletTestCase):
     def test_a_step_left_at_the_old_workstation_says_so(self):
         # Amit, 2026-08-24: "why workstation on mcft plug in and erp are not
         # consistent?" Because a labour row is a snapshot taken when the SKU
-        # was built, and the patch that moved Packing and Loading to the
-        # Assembly Station updated the Operation masters without rewriting
-        # existing rows — deliberately, so a quoted estimate is never silently
-        # re-priced.
+        # was built, and the patch that moved the staging steps to the Project
+        # Room updated the Operation masters without rewriting existing rows —
+        # deliberately, so a quoted estimate is never silently re-priced.
         #
         # The bug was the SILENCE. The workstation carries the hourly rate, so
         # a step left behind prices at the old rate, the total therefore does
