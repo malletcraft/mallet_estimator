@@ -20,28 +20,40 @@
 import math
 import re
 
+# Amit, 2026-08-24: "Step 1 to 11 happens in factory. steps 12,13,14 is
+# logistics. steps 15,16 happens at onsite."
+#
+# A ZONE is what the reader is told; in_factory is what the money is worked out
+# from, and they are not the same question. Loading is logistics to a person
+# reading the card and still happens at a factory workstation on factory time —
+# so it carries zone "logistics" and in_factory 1, and neither field has to lie
+# to keep the other honest.
+ZONE_FACTORY = "factory"
+ZONE_LOGISTICS = "logistics"
+ZONE_ONSITE = "on-site"
+
 STEP_TEMPLATE = [
-    {"phase": "Sheet Lamination",     "machine": None,          "in_factory": 1},
-    {"phase": "Sheet Tape Removal",   "machine": None,          "in_factory": 1},
-    {"phase": "Sheet Cutting",        "machine": "panel_saw",   "in_factory": 1},
-    {"phase": "Edge Banding",         "machine": "edge_bander", "in_factory": 1},
-    {"phase": "Minifix Boring",       "machine": "drill_press", "in_factory": 1},
-    {"phase": "Drilling",             "machine": "drill_press", "in_factory": 1},
-    {"phase": "Grooving",             "machine": "panel_saw",   "in_factory": 1},
-    {"phase": "Assembly",             "machine": "assembly",    "in_factory": 1},
-    {"phase": "Install Hardware",     "machine": "assembly",    "in_factory": 1},
-    {"phase": "Disassembly",          "machine": "assembly",    "in_factory": 1},
-    {"phase": "Packing",              "machine": "packing",     "in_factory": 1},
+    {"phase": "Sheet Lamination",     "machine": None,          "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Sheet Tape Removal",   "machine": None,          "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Sheet Cutting",        "machine": "panel_saw",   "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Edge Banding",         "machine": "edge_bander", "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Minifix Boring",       "machine": "drill_press", "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Drilling",             "machine": "drill_press", "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Grooving",             "machine": "panel_saw",   "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Assembly",             "machine": "assembly",    "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Install Hardware",     "machine": "assembly",    "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Disassembly",          "machine": "assembly",    "in_factory": 1, "zone": ZONE_FACTORY},
+    {"phase": "Packing",              "machine": "packing",     "in_factory": 1, "zone": ZONE_FACTORY},
     # Amit, 2026-08-22: "12. Loading On-Site should be in factory as loading is
     # done at factory for packed articles." Packed articles go onto the vehicle
     # before it leaves the works, so both the minutes and the RATE are factory
     # ones. Unloading stays off-site — that half genuinely happens at the site.
-    {"phase": "Loading",              "machine": "packing",     "in_factory": 1},
-    {"phase": "Transport",            "machine": None,          "in_factory": 0},
-    {"phase": "Unloading",            "machine": None,          "in_factory": 0},
-    {"phase": "Assembly (on-site)",   "machine": None,          "in_factory": 0},
-    {"phase": "Installation",         "machine": None,          "in_factory": 0},
-    {"phase": "Miscellaneous - extra", "machine": None,         "in_factory": 1, "is_misc": 1},
+    {"phase": "Loading",              "machine": "packing",     "in_factory": 1, "zone": ZONE_LOGISTICS},
+    {"phase": "Transport",            "machine": None,          "in_factory": 0, "zone": ZONE_LOGISTICS},
+    {"phase": "Unloading",            "machine": None,          "in_factory": 0, "zone": ZONE_LOGISTICS},
+    {"phase": "Assembly (on-site)",   "machine": None,          "in_factory": 0, "zone": ZONE_ONSITE},
+    {"phase": "Installation",         "machine": None,          "in_factory": 0, "zone": ZONE_ONSITE},
+    {"phase": "Miscellaneous - extra", "machine": None,         "in_factory": 1, "zone": ZONE_FACTORY, "is_misc": 1},
 ]
 
 # --- ERPNext Manufacturing masters -----------------------------------------
@@ -95,8 +107,11 @@ OPERATION_WORKSTATION = {
     "Assembly": "Assembly Station",
     "Install Hardware": "Assembly Station",
     "Disassembly": "Assembly Station",
-    "Packing": "Pasting Station",
-    "Loading": "Pasting Station",
+    # Amit, 2026-08-24: "step 11 and 12 happens at assembly station and not
+    # pasting station." The workstation carries the hourly RATE, so this is a
+    # price change and not a relabelling.
+    "Packing": "Assembly Station",
+    "Loading": "Assembly Station",
     "Transport": "On-Site",
     "Unloading": "On-Site",
     "Assembly (on-site)": "On-Site",
@@ -128,6 +143,11 @@ DESIGN_STANDARDS = {
     "Part List PDF (OCL)":                   {"qty_source": "manual", "min_per_unit": 15},
 }
 OPERATION_WORKSTATION.update({t["phase"]: "Design Desk" for t in DESIGN_STEP_TEMPLATE})
+
+# Phase -> zone, built from the templates rather than restated, so a step that
+# moves cannot end up filed under one zone here and another there.
+OPERATION_ZONE = {t["phase"]: t.get("zone", ZONE_FACTORY)
+                  for t in STEP_TEMPLATE + DESIGN_STEP_TEMPLATE}
 OPERATION_STANDARDS_DESIGN = DESIGN_STANDARDS  # alias for controllers
 
 # C1 — inward material trips (₹/trip, defaults; live values come from settings):
@@ -435,7 +455,8 @@ OPERATION_STANDARDS = {
     "Assembly":               {"qty_source": "panels",          "min_per_unit": 4},
     "Install Hardware":       {"qty_source": "hardware_total",  "min_per_unit": 2},
     "Disassembly":            {"qty_source": "manual",          "min_per_unit": 15},
-    "Packing":                {"qty_source": "sheets",          "min_per_unit": 8},
+    # Amit, 2026-08-24: "Packing default time is 30 minute per unit."
+    "Packing":                {"qty_source": "sheets",          "min_per_unit": 30},
     "Loading":                {"qty_source": "manual",          "min_per_unit": 30},
     "Transport":              {"qty_source": "manual",          "min_per_unit": 30},
     "Unloading":              {"qty_source": "manual",          "min_per_unit": 30},

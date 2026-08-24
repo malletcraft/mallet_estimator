@@ -484,6 +484,10 @@ def cost_card(codes=None, create_missing=0):
             "min_per_unit": mins,
             "min_source": min_src,
             "rate_source": "erp:Workstation" if ws in by_station else "unset",
+            # Factory / logistics / on-site. A grouping for the reader, not a
+            # rate: Loading is logistics and is still charged at a factory
+            # workstation.
+            "zone": estimator.OPERATION_ZONE.get(op, ""),
         })
 
     materials = []
@@ -659,14 +663,21 @@ def _up1(v):
 # "manual" and it comes back 0. A row whose quantity is fixed at zero can
 # never add anything to an estimate no matter what minutes are typed beside
 # it, which makes it decoration rather than a line.
-QTY_EDITABLE = {"Grooving", "Miscellaneous - extra"}
+#
+# Transport (13) is the third. Amit, 2026-08-24: "Transport quantity should be
+# editable as its related to number of trips so quantity here will be number of
+# trips than the assemblies itself." A tempo does not care how many wardrobes
+# are in it, and counting articles priced one trip per article — which is right
+# only when a trip carries exactly one.
+QTY_EDITABLE = {"Grooving", "Miscellaneous - extra", "Transport"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0, overrides=None, hours_per_day=6,
-                     assembly_counts=None, assembly_min_by_size=None):
+                     assembly_counts=None, assembly_min_by_size=None,
+                     misc_remarks=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
                                   nesting, opencutlist)
@@ -850,6 +861,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # counted as large, so a model drawn before the convention keeps the
         # behaviour it has always had.
         qty["Disassembly"] = sizes["large"]
+        # Amit, 2026-08-24: "steps 10 quantity is equal to 15 (whichever get
+        # disassembled get assembled)". On-site assembly is not the whole
+        # article count — a drawer that travelled assembled is not assembled
+        # again at the flat. It is exactly the carcasses that came apart.
+        qty["Assembly (on-site)"] = sizes["large"]
 
     # Per-operation overrides from the estimate screen: {"Grooving": {"qty": 4,
     # "min": 12}}. Refused rather than silently ignored where the column is not
@@ -1018,6 +1034,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # (est_days = minutes / 360).
         "hours_per_day": float(hours_per_day or 6),
         "labour_hours": _up1(sum(l["hours"] for l in labour_rows)),
+        # Amit, 2026-08-24: "Steps 17 is whatever we can not typically fit into
+        # like removal of existing furniture or special shaping of parts. get
+        # me box where i can comment it as remarks to understand what
+        # miscellaneous is." A line called Miscellaneous with a number beside
+        # it and no words is a number nobody can defend a month later.
+        "misc_remarks": (misc_remarks or "").strip()[:500],
         "days": _up1(sum(l["hours"] for l in labour_rows) / float(hours_per_day or 6)),
         "material_total": round(material_total, 2),
         "labour_total": round(labour_total, 2),

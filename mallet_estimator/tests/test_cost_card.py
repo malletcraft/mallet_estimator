@@ -199,6 +199,64 @@ class TestEstimatePreview(MalletTestCase):
         # turns them into rupees somewhere that has rates.
         self.assertGreater(priced["labour_hours"], out["labour_hours"])
 
+    def test_the_card_says_which_zone_each_step_belongs_to(self):
+        """Amit, 2026-08-24: "Step 1 to 11 happens in factory. steps 12,13,14
+        is logistics. steps 15,16 happens at onsite."
+
+        The zone is for the reader; in_factory is what the money is worked out
+        from. Loading is the one that proves they are different questions: it
+        is logistics on the card and still charged at a factory workstation.
+        """
+        by_seq = {o["seq"]: o for o in api.cost_card()["operations"]}
+        for seq in range(1, 12):
+            self.assertEqual(by_seq[seq]["zone"], "factory", by_seq[seq]["name"])
+        for seq in (12, 13, 14):
+            self.assertEqual(by_seq[seq]["zone"], "logistics", by_seq[seq]["name"])
+        for seq in (15, 16):
+            self.assertEqual(by_seq[seq]["zone"], "on-site", by_seq[seq]["name"])
+        self.assertEqual(by_seq[12]["name"], "Loading")
+        self.assertEqual(by_seq[12]["workstation"], "Assembly Station")
+
+    def test_packing_and_loading_are_assembly_station_work(self):
+        by_name = {o["name"]: o for o in api.cost_card()["operations"]}
+        self.assertEqual(by_name["Packing"]["workstation"], "Assembly Station")
+        self.assertEqual(by_name["Loading"]["workstation"], "Assembly Station")
+
+    def test_transport_is_counted_in_trips_a_person_types(self):
+        # Amit, 2026-08-24: "Transport quantity should be editable as its
+        # related to number of trips so quantity here will be number of trips
+        # than the assemblies itself." A tempo does not care how many wardrobes
+        # are in it.
+        out = api.estimate_preview(self.CSV)
+        row = [r for r in out["labour"] if r["name"] == "Transport"][0]
+        self.assertTrue(row["qty_editable"])
+
+        two = api.estimate_preview(self.CSV, overrides={"Transport": {"qty": 2}})
+        trip = [r for r in two["labour"] if r["name"] == "Transport"][0]
+        self.assertEqual(trip["qty"], 2.0)
+        self.assertGreater(two["labour_hours"], out["labour_hours"])
+
+    def test_what_comes_apart_is_what_goes_back_together(self):
+        # Amit, 2026-08-24: "steps 10 quantity is equal to 15 (whichever get
+        # disassembled get assembled)". A drawer that travelled assembled is
+        # not assembled again at the flat.
+        out = api.estimate_preview(self.CSV_SIZED)
+        by = {r["name"]: r for r in out["labour"]}
+        self.assertEqual(by["Assembly (on-site)"]["qty"], by["Disassembly"]["qty"])
+        # ...and that shared number is the LARGE count, not the total.
+        self.assertEqual(by["Disassembly"]["qty"],
+                         float(out["assembly_sizes"]["large"]))
+
+    def test_miscellaneous_carries_the_words_that_explain_it(self):
+        # Amit, 2026-08-24: "get me box where i can comment it as remarks to
+        # understand what miscellaneous is." A line called Miscellaneous with a
+        # number beside it and no words is a number nobody can defend later.
+        out = api.estimate_preview(
+            self.CSV, misc_remarks="  Removing the old wardrobe  ")
+        self.assertEqual(out["misc_remarks"], "Removing the old wardrobe")
+        # Absent by default rather than missing from the payload.
+        self.assertEqual(api.estimate_preview(self.CSV)["misc_remarks"], "")
+
     def test_unpriced_lines_are_counted_loudly(self):
         # A total that quietly omits boards ERP cannot price looks like an
         # answer and is not one.

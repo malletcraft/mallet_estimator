@@ -136,3 +136,10 @@ mallet_estimator.patches.loading_is_factory_work
 # line on the labour card at double its real time — and install.py refuses to
 # clobber a hand-tuned standard, so the correction cannot ride the seeder.
 mallet_estimator.patches.minifix_boring_std_time
+# post_model_sync: the Workstation and Operation masters are seeded by
+# install.after_migrate, so this runs where both already exist. Two PRICE
+# changes — Packing and Loading move to the Assembly Station, whose hourly rate
+# differs from the Pasting Station's, and Packing's standard time goes 8 -> 30
+# minutes. install.py refuses to clobber a standard already set, so neither can
+# ride the seeder.
+mallet_estimator.patches.packing_and_loading_at_assembly
