@@ -225,6 +225,38 @@ class TestAnArticleWithNoParts(MalletTestCase):
                          "joinery must follow laminate MATERIAL, not a labour row")
         self.assertFalse(sku.joinery_cost)
 
+    def test_a_step_left_at_the_old_workstation_says_so(self):
+        # Amit, 2026-08-24: "why workstation on mcft plug in and erp are not
+        # consistent?" Because a labour row is a snapshot taken when the SKU
+        # was built, and the patch that moved Packing and Loading to the
+        # Assembly Station updated the Operation masters without rewriting
+        # existing rows — deliberately, so a quoted estimate is never silently
+        # re-priced.
+        #
+        # The bug was the SILENCE. The workstation carries the hourly rate, so
+        # a step left behind prices at the old rate, the total therefore does
+        # not move, and the "rates have moved" hint that exists precisely to
+        # catch this never fired. This asserts it fires.
+        sku = self._bare_sku("Stale Station Wardrobe")
+        row = next((r for r in (sku.labor or []) if r.operation), None)
+        self.assertTrue(row, "the fixture SKU has no labour rows to test with")
+        master = frappe.db.get_value("Operation", row.operation, "workstation")
+        self.assertTrue(master,
+                        "Operation %s has no workstation, so nothing can be "
+                        "stale against it" % row.operation)
+
+        # In memory only — recompute never writes, which is the whole reason
+        # it can be called on every form open.
+        row.workstation = "ZZ Somewhere Else"
+        self.assertTrue(sku.recompute().get("stale"),
+                        "a step sitting at a workstation its master has left "
+                        "must be reported, or it prices at the old rate in "
+                        "silence")
+
+        row.workstation = master
+        self.assertFalse(sku.recompute().get("stale"),
+                         "an SKU that agrees with its masters must not nag")
+
     def test_an_estimate_cannot_be_approved_with_a_partless_sku(self):
         sku = self._bare_sku("Unapprovable Wardrobe")
         est = frappe.new_doc("Estimate")

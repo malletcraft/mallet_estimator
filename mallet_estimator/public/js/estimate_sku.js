@@ -64,7 +64,7 @@ frappe.ui.form.on("Estimate SKU", {
         // have moved since the last save, say so and let the user press Save.
         if (r && r.message && r.message.stale) {
           frm.dashboard.set_headline(
-            __("Prices or standard times have changed since this SKU was last saved — press Save to re-price it."),
+            __("Prices, standard times or workstations have changed since this SKU was last saved. Press Save to re-price it, or \u201cReset times from Operations\u201d to also move each step to its master\u2019s workstation."),
             "orange"
           );
         }

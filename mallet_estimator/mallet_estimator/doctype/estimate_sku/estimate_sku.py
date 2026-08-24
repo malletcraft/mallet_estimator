@@ -1847,10 +1847,53 @@ class EstimateSKU(Document):
             or before_std != [row.std_min for row in (self.labor or [])]
             or before_rates != [row.unit_cost for row in (self.materials or [])]
             or abs(float(self.get("est_days") or 0) - before_days) > 0.05
+            or self._workstations_have_moved()
         )
         # the in-memory changes are discarded with this document object
         return {"changed": False, "stale": bool(moved),
                 "client_total": float(self.client_total or 0)}
+
+    def _workstations_have_moved(self):
+        """Does any step still sit at the workstation it was BUILT at, when its
+        Operation master has since been moved somewhere else?
+
+        Amit, 2026-08-24, comparing the plugin's estimate against this form:
+        "why workstation on mcft plug in and erp are not consistent?" They were
+        not two rules. The plugin computes live and is always current; a labour
+        row here is a snapshot taken when the SKU was last built, and the patch
+        that moved Packing and Loading to the Assembly Station updated the
+        Operation masters WITHOUT rewriting existing rows — deliberately, since
+        rewriting a row silently re-prices an estimate somebody may already have
+        quoted.
+
+        The gap was that nothing SAID so. Std (master) is refreshed on every
+        open, so a changed standard time shows up as a divergence the person can
+        see; the workstation is not, and the workstation is what carries the
+        hourly rate. A step left at the old station prices at the old rate, the
+        total therefore does not move, and the "rates have moved" hint that
+        would have caught it never fires. Silence, and a wrong number.
+
+        Reports only. The remedy stays the deliberate one — "Reset times from
+        Operations" — because a re-price is the person's decision, not a side
+        effect of opening a form.
+        """
+        rows = [r for r in (self.labor or []) if r.operation]
+        if not rows:
+            return False
+        masters = {
+            d.name: d.workstation
+            for d in frappe.get_all(
+                "Operation",
+                filters={"name": ["in", sorted({r.operation for r in rows})]},
+                fields=["name", "workstation"])
+        }
+        for r in rows:
+            want = masters.get(r.operation)
+            # An Operation with no workstation of its own says nothing about
+            # where the step belongs, so it cannot make a row look stale.
+            if want and (r.workstation or "") != want:
+                return True
+        return False
 
     @frappe.whitelist()
     def refresh_rates(self):
