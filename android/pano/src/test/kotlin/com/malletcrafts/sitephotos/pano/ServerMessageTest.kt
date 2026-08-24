@@ -1,9 +1,9 @@
 package com.malletcrafts.sitephotos.pano
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ServerMessageTest {
 
@@ -18,20 +18,20 @@ class ServerMessageTest {
     @Test
     fun the_python_class_name_never_reaches_the_screen() {
         val out = ServerMessage.humanise(linkExists, 417)
-        assertFalse("a Python class name is not an error message: $out",
-            out.contains("frappe.exceptions"))
+        assertFalse(out.contains("frappe.exceptions"),
+            "a Python class name is not an error message: $out")
         assertTrue(out.startsWith("Cannot delete or cancel"))
     }
 
     @Test
     fun the_markup_goes_and_the_docname_stays() {
         val out = ServerMessage.humanise(linkExists, 417)
-        assertFalse("markup reached the screen: $out", out.contains("<a"))
+        assertFalse(out.contains("<a"), "markup reached the screen: $out")
         assertFalse(out.contains("href"))
-        assertFalse("the URL is noise; the docname is the point: $out",
-            out.contains("https://"))
-        assertTrue("the capture must still be named: $out",
-            out.contains("MEST-PH-2026-00027"))
+        assertFalse(out.contains("https://"),
+            "the URL is noise; the docname is the point: $out")
+        assertTrue(out.contains("MEST-PH-2026-00027"),
+            "the capture must still be named: $out")
     }
 
     @Test
@@ -39,8 +39,8 @@ class ServerMessageTest {
         // The original truncation fell after "linked with S", removing the only
         // part a person could act on.
         val out = ServerMessage.humanise(linkExists, 417)
-        assertTrue("the blocker must be named: $out",
-            out.contains("linked with Site Photo Inbox"))
+        assertTrue(out.contains("linked with Site Photo Inbox"),
+            "the blocker must be named: $out")
     }
 
     @Test
@@ -71,6 +71,6 @@ class ServerMessageTest {
         val long = "word ".repeat(200).trim()
         val out = ServerMessage.humanise("""{"exception":"$long"}""", 417)
         assertTrue(out.length <= ServerMessage.MAX + 1)
-        assertTrue("must end at a word: $out", out.endsWith("word…"))
+        assertTrue(out.endsWith("word…"), "must end at a word: $out")
     }
 }
