@@ -677,7 +677,7 @@ MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
-                     misc_remarks=None):
+                     misc_remarks=None, hardware_min_by_type=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
                                   nesting, opencutlist)
@@ -900,6 +900,35 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             assembly_edited = True
     assembly_min_used = dict(size_min)
 
+    # --- Install Hardware, per fitting type --------------------------------
+    #
+    # The counts come from the SAME shaped materials operation_quantities was
+    # given, so the children cannot disagree with the parent above them: both
+    # are the one bucketing of the one list.
+    hw_counts = {k: v for k, v in estimate_pdf.hardware_by_type(shaped).items()
+                 if k in dict(estimator.HARDWARE_INSTALL_TYPES)}
+
+    # Each type's standard comes from ITS OWN Operation master, not from a
+    # number here. Amit, 2026-08-24: "you have workstation / operation master
+    # data. use it." Assembly's three sizes deliberately share one seed because
+    # the shop has one assembly standard; hardware is the opposite case — a
+    # hinge and a shelf pin have never taken the same time, so each carries its
+    # own and the code default is only what a fresh site starts from.
+    hw_min, hw_min_source = {}, {}
+    for kind, _label in estimator.HARDWARE_INSTALL_TYPES:
+        op_name = estimator.hardware_operation(kind)
+        m, src = _op_minutes(op_name, estimator.HARDWARE_STANDARDS.get(kind, 0))
+        hw_min[kind] = m
+        hw_min_source[kind] = src
+
+    if isinstance(hardware_min_by_type, str):
+        hardware_min_by_type = json.loads(hardware_min_by_type or "{}")
+    for kind in list(hw_min):
+        v = (hardware_min_by_type or {}).get(kind)
+        if v not in (None, ""):
+            hw_min[kind] = float(v)
+            hw_min_source[kind] = "plugin:edited"
+
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
     labour_rows, labour_total = [], 0.0
     for op in card["operations"]:
@@ -982,6 +1011,47 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             size_hours = sum(c["hours"] for c in children)
             mins = (size_hours * 60.0 / q) if q else mins
 
+        # INSTALL HARDWARE IS PRICED PER FITTING TYPE, for the same reason and
+        # in the same shape. Amit, 2026-08-24: "always divide the hardware by
+        # its type ... that way quantity will not be editable but its time will
+        # be editable depending on type of hardware."
+        #
+        # Only the types actually PRESENT get a row. A model with no locks in
+        # it should not carry a "Install Locks & Tower Bolts x 0" line — an
+        # estimate reads as a list of what is being done, and a row for work
+        # nobody will do is noise a reader has to dismiss every single time.
+        if name == estimator.HARDWARE_PARENT and hw_counts:
+            children = []
+            ch_rate = float(ws_rate.get(op["workstation"], 0))
+            for kind, label in estimator.HARDWARE_INSTALL_TYPES:
+                n = int(hw_counts.get(kind, 0) or 0)
+                if not n:
+                    continue
+                per_min = hw_min.get(kind, 0.0)
+                ch_hours = _up1(n * per_min / 60.0)
+                children.append({
+                    "kind": kind,
+                    "name": "Install %s" % label,
+                    "qty": n,
+                    "min_per_unit": _up1(per_min),
+                    "hours": ch_hours,
+                    "amount": round(ch_hours * ch_rate, 2),
+                    # Same rule as Assembly's children, stated the other way
+                    # round: the model knows how many hinges there are and a
+                    # person does not; the person knows how long a hinge takes
+                    # and the model does not.
+                    "qty_editable": False,
+                    "min_editable": True,
+                    "min_source": hw_min_source.get(kind, "erp:Operation"),
+                })
+            if children:
+                # Each child rounds up on its own and the parent is their sum,
+                # exactly as Assembly does — three rows that do not add up to
+                # the line above them is indefensible on a shared screen
+                # whatever the arithmetic behind it.
+                size_hours = sum(c["hours"] for c in children)
+                mins = (size_hours * 60.0 / q) if q else mins
+
         hours = size_hours if size_hours is not None else (q * mins) / 60.0
         rate = float(ws_rate.get(op["workstation"], 0))
         # Same reasoning for the money: a parent that is not its children's
@@ -1028,6 +1098,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         "assembly_unsized": sizes.get("unsized", 0),
         "assembly_min_by_size": assembly_min_used,
         "assembly_source": assembly_source,
+        # The same two facts for hardware: what the model counted of each type,
+        # and the minutes each was costed at. Sent whether or not any type is
+        # present, so a plugin can prefill its boxes without having to guess
+        # which of the six exist in this model.
+        "hardware_counts": hw_counts,
+        "hardware_min_by_type": hw_min,
         "materials": material_rows,
         "labour": labour_rows,
         # Amit, 2026-08-22: "Also need number of days required to make that

@@ -12,6 +12,7 @@ from mallet_estimator.estimator import (
 # Legacy operating components (pre-OPS3 folded model) — still valid on a
 # workstation until the rework patch rebuilds it; never auto-stripped.
 LEGACY_WS_COMPONENTS = ("Wages", "Machinery")
+from mallet_estimator import estimator
 from mallet_estimator import inventory
 from mallet_estimator import worksite
 from mallet_estimator.inventory import (
@@ -362,6 +363,20 @@ def _op_name(phase):
     return phase.replace(" / ", " - ").replace("/", "-")
 
 
+def _hardware_standard(phase):
+    """Seed minutes for one of the Install <type> children, or 0.
+
+    Keyed by the OPERATION NAME rather than the bucket, because that is what
+    the seeding loop has in hand. Reversed off the same tuple the estimate
+    reads, so there is one list of hardware types in this app and not two.
+    """
+    from mallet_estimator import estimator as _e
+    for kind, _label in _e.HARDWARE_INSTALL_TYPES:
+        if _e.hardware_operation(kind) == phase:
+            return _e.HARDWARE_STANDARDS.get(kind, 0)
+    return 0
+
+
 def _ensure_operating_components():
     """Make sure the native 'Workstation Operating Component' masters
     (Rent/Wages/Electricity/Consumables) exist. ERPNext ships these, but create
@@ -471,10 +486,20 @@ def ensure_manufacturing_masters():
     op_meta = frappe.get_meta("Operation")
     has_min = op_meta.has_field("mallet_min_per_unit")
 
-    for t in STEP_TEMPLATE + DESIGN_STEP_TEMPLATE:
+    # The hardware children are Operations in their own right — that is the
+    # whole point of splitting the line. Each carries its own standard time and
+    # is tuned on its own master, so "Install Hinges" can be four minutes while
+    # "Install Shelf Supports" is one, which a single averaged figure could
+    # never say. Built from the same tuple the estimate reads, so a type added
+    # there appears here without a second edit.
+    hardware_steps = [{"phase": estimator.hardware_operation(k)}
+                      for k, _label in estimator.HARDWARE_INSTALL_TYPES]
+
+    for t in STEP_TEMPLATE + DESIGN_STEP_TEMPLATE + hardware_steps:
         op_name = _op_name(t["phase"])
         mins = OPERATION_STANDARDS.get(t["phase"], {}).get("min_per_unit", 0) \
-            or DESIGN_STANDARDS.get(t["phase"], {}).get("min_per_unit", 0)
+            or DESIGN_STANDARDS.get(t["phase"], {}).get("min_per_unit", 0) \
+            or _hardware_standard(t["phase"])
         ws = OPERATION_WORKSTATION.get(t["phase"])
         try:
             if frappe.db.exists("Operation", op_name):

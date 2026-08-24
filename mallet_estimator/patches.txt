@@ -160,3 +160,8 @@ mallet_estimator.patches.staging_steps_at_project_room
 # A role-list change is plain Python, so without this entry the grant would
 # reach the source and never the database.
 mallet_estimator.patches.steward_can_remove_a_customer
+# post_model_sync: one Operation per hardware type, so Install Hardware can
+# split into Install Hinges / Drawer Rails / Handles / Shelf Supports / Locks /
+# Other. The seeder only backfills what is unset and has never heard these
+# names on an existing bench, so the rows have to be created here.
+mallet_estimator.patches.hardware_install_operations

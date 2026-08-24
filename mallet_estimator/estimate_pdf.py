@@ -107,6 +107,53 @@ def _hw(materials):
     }
 
 
+def hardware_by_type(materials):
+    """Every HWD_ line bucketed by the classifier, as {bucket: qty}.
+
+    _hw() above sums by substring and its buckets OVERLAP and LEAK — a fitting
+    matching none of its seven words is counted nowhere, and one matching two
+    is counted twice. That is tolerable for the drivers it feeds, which each
+    want one specific word. It is not tolerable here, because these numbers
+    become the child ROWS under Install Hardware and their sum has to equal the
+    parent or the screen contradicts itself in front of a client.
+
+    So this goes through opencutlist.classify_hardware, which returns exactly
+    one bucket per line and has an "other" for everything it does not know.
+    Nothing is dropped and nothing is counted twice — which is the whole
+    difference between a total and a breakdown.
+
+    FEED IT THE CATEGORY, NOT THE CODE. The classifier matches words, and a
+    real OCL designation carries none of them: HWD_AH_SC_0 is an auto hinge,
+    soft close, 0 degrees, and contains no "hinge" anywhere. Passed raw it
+    lands in "other" — twenty-four hinges filed beside a magic corner, with
+    the total still correct so nothing looks wrong. api.py already shapes
+    hardware rows to the OCL "Material name" (HWD_Hinge) before calling
+    operation_quantities, and that is the shape this needs.
+    """
+    from mallet_estimator import opencutlist
+    out = {}
+    for m in materials:
+        if m.get("kind") != "hardware":
+            continue
+        bucket = opencutlist.classify_hardware(m.get("name") or "")
+        out[bucket] = out.get(bucket, 0) + (m.get("qty") or 0)
+    return out
+
+
+def hardware_install_total(materials):
+    """What Install Hardware's quantity is: every fitting that is INSTALLED.
+
+    Amit, 2026-08-24, on whether the widening was intended: "keep locks and
+    other". So the parent is no longer hinges + rails + handles + shelf — it is
+    every HWD_ line except the two buckets that another step already prices
+    (minifix at step 5, screws at step 6). The total went up, deliberately: a
+    tower bolt was always being fitted by somebody and never being charged.
+    """
+    from mallet_estimator.estimator import HARDWARE_INSTALL_TYPES
+    counts = hardware_by_type(materials)
+    return sum(counts.get(k, 0) for k, _ in HARDWARE_INSTALL_TYPES)
+
+
 def sheet_goods_sheets(materials):
     """Full plywood sheets from the 'Sheet goods' table only (excludes veneer/
     laminate). This is what gets cut/taped/laminated."""
@@ -130,8 +177,11 @@ def operation_quantities(materials, part_count):
         "Drilling": hw["screws"],
         "Grooving": 2,
         "Assembly": assembly,
-        # Install Hardware covers ONLY hinges / drawer rails / handles / shelf supports.
-        "Install Hardware": hw["hinges"] + hw["rails"] + hw["handles"] + hw["shelf"],
+        # Install Hardware is now every fitting that gets INSTALLED, not the
+        # old four — see hardware_install_total for which two are excluded and
+        # why. It is also the sum of the child rows shown under it, which is
+        # the property that matters on screen.
+        "Install Hardware": hardware_install_total(materials),
         "Disassembly": assembly,
         "Miscellaneous - extra": 0,
     }

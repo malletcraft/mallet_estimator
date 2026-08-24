@@ -704,3 +704,57 @@ class WorkstationsCarryWork(unittest.TestCase):
         # this one is a PRICE and it was got wrong twice in one day.
         for phase in ("Disassembly", "Packing", "Loading"):
             self.assertEqual(E.OPERATION_WORKSTATION[phase], "Project Room", phase)
+
+
+class HardwareSplit(unittest.TestCase):
+    """Install Hardware is a parent line with one child per fitting type.
+
+    Amit, 2026-08-24: "always divide the hardware by its type ... that way
+    quantity will not be editable but its time will be editable depending on
+    type of hardware."
+    """
+
+    def test_the_two_double_counted_buckets_are_absent(self):
+        # minifix is step 5 and screws ARE step 6's quantity. A child for
+        # either would charge the same fitting twice, and the bug would show
+        # up as a total that is merely a bit high — the hardest kind to spot.
+        kinds = {k for k, _ in E.HARDWARE_INSTALL_TYPES}
+        self.assertNotIn("minifix", kinds)
+        self.assertNotIn("screws", kinds)
+
+    def test_every_type_has_a_standard_and_an_operation(self):
+        for kind, label in E.HARDWARE_INSTALL_TYPES:
+            self.assertIn(kind, E.HARDWARE_STANDARDS, kind)
+            self.assertEqual(E.hardware_operation(kind), "Install %s" % label)
+
+    def test_no_standard_is_left_at_zero(self):
+        # A child seeded at zero prices its fittings at nothing and looks like
+        # a line that is simply free. Miscellaneous is allowed to be zero
+        # because it exists for work nobody has named; a hinge is not.
+        for kind, _ in E.HARDWARE_INSTALL_TYPES:
+            self.assertGreater(E.HARDWARE_STANDARDS[kind], 0, kind)
+
+    def test_the_children_run_where_the_parent_runs(self):
+        # Derived, not restated — the workstation is a price, and the day the
+        # parent moves station these have to move with it.
+        parent_ws = E.OPERATION_WORKSTATION[E.HARDWARE_PARENT]
+        parent_zone = E.OPERATION_ZONE[E.HARDWARE_PARENT]
+        for kind, _ in E.HARDWARE_INSTALL_TYPES:
+            op = E.hardware_operation(kind)
+            self.assertEqual(E.OPERATION_WORKSTATION[op], parent_ws, op)
+            self.assertEqual(E.OPERATION_ZONE[op], parent_zone, op)
+
+    def test_the_classifier_and_the_type_list_agree(self):
+        # Every bucket classify_hardware can return must either be a child or
+        # be excluded ON PURPOSE. A bucket that is neither would be counted in
+        # the parent and shown in no child, so the rows would not add up.
+        from mallet_estimator import opencutlist
+        buckets = set()
+        for name in ("HWD_Minifix", "HWD_Hinge", "HWD_Handle", "HWD_Rail",
+                     "HWD_Shelf Support", "HWD_Tower Bolt", "HWD_Screw",
+                     "HWD_Something Nobody Named"):
+            buckets.add(opencutlist.classify_hardware(name))
+        kinds = {k for k, _ in E.HARDWARE_INSTALL_TYPES}
+        unaccounted = buckets - kinds - {"minifix", "screws"}
+        self.assertEqual(unaccounted, set(),
+                         "bucket(s) counted in the parent but shown in no child")
