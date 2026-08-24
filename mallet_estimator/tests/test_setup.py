@@ -256,6 +256,43 @@ class TestMasters(MalletTestCase):
         ok, detail = integration.steward_is_rate_safe()
         self.assertTrue(ok, detail)
 
+    def test_the_steward_can_remove_a_customer_but_nothing_else_it_could_not(self):
+        # Amit, 2026-08-24, asked to remove a throwaway probe customer and told
+        # me to do it rather than do it himself: "1 - delete yourself." The
+        # steward could not — Customer was read/write only, so the identity
+        # that exists to clean up operational debris could create one and
+        # correct one but never remove one.
+        #
+        # The real guard is Frappe's link check, not this grant: a Customer
+        # reached by a Quotation, an Invoice, a Project, a Site or an SKU
+        # cannot be deleted at all. So what is asserted here is the narrowness
+        # of the widening — Customer gained delete, and nothing else did.
+        from mallet_estimator import integration
+        integration.ensure_steward_role()
+        self.assertIn("Customer", integration.STEWARD_RWD_DOCTYPES)
+        self.assertNotIn("Customer", integration.STEWARD_RW_DOCTYPES,
+                         "Customer must be in exactly one grant list")
+
+        perm = frappe.db.get_value(
+            "Custom DocPerm", {"role": integration.STEWARD_ROLE, "parent": "Customer"},
+            ["read", "write", "create", "delete", "submit", "cancel", "amend"],
+            as_dict=True)
+        self.assertTrue(perm and perm.delete, "the steward still cannot delete a Customer")
+        # Customer is not submittable, so these would be noise dressed as power.
+        for p in ("submit", "cancel", "amend"):
+            self.assertFalse(perm.get(p), f"Customer must never be {p}-able")
+
+        # The masters that carry history retire by `disabled`, never deletion,
+        # and this must not have quietly swept them along.
+        for dt in ("Item", "Manufacturer", "Project", "Mallet Site"):
+            row = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.STEWARD_ROLE, "parent": dt},
+                ["delete"], as_dict=True)
+            self.assertFalse(row and row.delete,
+                             f"{dt} gained delete along with Customer")
+        ok, detail = integration.steward_is_rate_safe()
+        self.assertTrue(ok, detail)
+
     def test_the_site_photo_screens_are_reachable_from_the_workspace(self):
         # A settings page only reachable by URL is a settings page nobody uses.
         ws = frappe.get_doc("Workspace", "Mallet Estimator")

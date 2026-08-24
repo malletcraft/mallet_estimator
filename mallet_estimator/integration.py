@@ -315,10 +315,28 @@ STEWARD_RWC_DOCTYPES = ("Estimate", "Estimate SKU", "Mallet Decor",
                         # The steward operates the Drive sync, so it configures
                         # it and works its inbox. Neither holds money.
                         "Site Photo Settings", "Site Photo Inbox")
-STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "Customer", "UOM",
+STEWARD_RW_DOCTYPES = ("Item", "Manufacturer", "Project", "UOM",
                        # A site name typed one-handed on a roof is exactly the
                        # kind of operational typo the steward exists to fix.
                        "Mallet Site")
+# Read/write/create AND delete. No submit/cancel/amend: Customer is not a
+# submittable doctype, so granting those would be noise rather than power.
+#
+# Amit, 2026-08-24, asked to remove a throwaway probe customer: "1 - delete
+# yourself." The steward could not — Customer sat in the RW list above, on the
+# reasoning that a steward fixes operational data and does not remove master
+# records.
+#
+# What makes this safe is not a list kept here. It is Frappe's own link check,
+# which is a better guard than any list could be: a Customer reached by a
+# Quotation, a Sales Invoice, a Project, a Mallet Site or an Estimate SKU
+# cannot be deleted AT ALL — the attempt raises LinkExistsError and names what
+# stands in the way. So the only customers this can remove are ones nothing
+# anywhere references, which is exactly the debris case: a probe record, a
+# duplicate typed twice, a name entered against the wrong person and corrected
+# by creating the right one. A customer with a single document behind it is out
+# of reach and stays that way.
+STEWARD_RWD_DOCTYPES = ("Customer",)
 # Configuration rather than operational data: the trade order and the article
 # list are changed by a person at a desk, not by a data fix. Read, never write.
 STEWARD_RO_DOCTYPES = ("Mallet Article", "Mallet Work Stage")
@@ -361,6 +379,8 @@ def ensure_steward_role():
                  "amend", "export", "report"))
     for dt in STEWARD_RW_DOCTYPES:
         pin(dt, ("read", "write", "create", "export", "report"))
+    for dt in STEWARD_RWD_DOCTYPES:
+        pin(dt, ("read", "write", "create", "delete", "export", "report"))
     for dt in STEWARD_RO_DOCTYPES:
         pin(dt, ("read", "export", "report"))
     for dt in STEWARD_FORBIDDEN:
@@ -453,6 +473,7 @@ def create_steward_api_user(email=None, full_name="Mallet Data Steward", regener
         "role": STEWARD_ROLE,
         "full_lifecycle": list(STEWARD_RWC_DOCTYPES),
         "read_write": list(STEWARD_RW_DOCTYPES),
+        "read_write_delete": list(STEWARD_RWD_DOCTYPES),
         "never": list(STEWARD_FORBIDDEN),
         "header": f"Authorization: token {api_key}:{api_secret}",
     }
