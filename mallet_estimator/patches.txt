@@ -148,3 +148,8 @@ mallet_estimator.patches.packing_and_loading_at_assembly
 # Python-only deploy runs no migrate — so without this entry the grant reaches
 # the source and never the database.
 mallet_estimator.patches.readonly_can_see_the_standards
+# post_model_sync: Disassembly, Packing and Loading move to the Project Room,
+# matching what the bench already had. Supersedes packing_and_loading_at_assembly
+# above — that patch has run, so its effect is undone by this new entry rather
+# than by editing it. A PRICE change: the workstation carries the hourly rate.
+mallet_estimator.patches.staging_steps_at_project_room

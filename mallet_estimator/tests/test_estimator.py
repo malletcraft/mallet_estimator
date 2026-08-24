@@ -662,3 +662,45 @@ class TestPurchasingIdentity(unittest.TestCase):
         self.assertEqual(decor.stock_base("EB_PVC_EX"), "EB_PVC_EX")
         self.assertEqual(decor.stock_base("HWD_Hinge"), "HWD_Hinge")
         self.assertEqual(decor.stock_base("SG_LAM"), "SG_LAM")
+
+
+class WorkstationsCarryWork(unittest.TestCase):
+    """THE RULE, recorded at Amit's instruction on 2026-08-24: "keep it as per
+    current erp setup. record it as rule as well."
+
+    A costed workstation with no operation assigned is not free. Rent is spread
+    across billable footprint, so a station in WORKSTATIONS takes its share
+    whether or not anything is billed to it — and if nothing is, that share is
+    computed and then charged to nothing at all. It simply disappears.
+
+    That is exactly what the Project Room was doing: 14x15 ft of a floor rented
+    whole, a fifth of the total footprint, and not one of the seventeen steps
+    pointed at it. The plugin therefore never showed it, ERP did, and the
+    difference looked like a bug in one of them when it was a hole in the
+    costing.
+    """
+
+    def test_every_costed_workstation_carries_work(self):
+        used = set(E.OPERATION_WORKSTATION.values())
+        for w in E.WORKSTATIONS:
+            self.assertIn(
+                w["name"], used,
+                "%s is in WORKSTATIONS, so it takes a share of the rent, but "
+                "no operation runs there — that share is charged to nothing. "
+                "Either give it work or take it out of the footprint."
+                % w["name"])
+
+    def test_every_operation_runs_at_a_station_that_exists(self):
+        # The other direction, and it is the one that fails silently: an
+        # operation pointing at a workstation nobody created prices at zero
+        # rather than refusing.
+        known = {w["name"] for w in E.WORKSTATIONS}
+        for phase, ws in E.OPERATION_WORKSTATION.items():
+            self.assertIn(ws, known,
+                          "%s runs at %r, which is not a workstation" % (phase, ws))
+
+    def test_the_staging_steps_are_in_the_project_room(self):
+        # Named explicitly rather than left to the two rules above, because
+        # this one is a PRICE and it was got wrong twice in one day.
+        for phase in ("Disassembly", "Packing", "Loading"):
+            self.assertEqual(E.OPERATION_WORKSTATION[phase], "Project Room", phase)

@@ -106,12 +106,24 @@ OPERATION_WORKSTATION = {
     "Grooving": "Panel Saw",
     "Assembly": "Assembly Station",
     "Install Hardware": "Assembly Station",
-    "Disassembly": "Assembly Station",
-    # Amit, 2026-08-24: "step 11 and 12 happens at assembly station and not
-    # pasting station." The workstation carries the hourly RATE, so this is a
-    # price change and not a relabelling.
-    "Packing": "Assembly Station",
-    "Loading": "Assembly Station",
+    # STEPS 10, 11 AND 12 RUN IN THE PROJECT ROOM. Amit, 2026-08-24, settling
+    # it against the live ERP setup: "keep it as per current erp setup. record
+    # it as rule as well."
+    #
+    # This supersedes his earlier message the same day — "step 11 and 12
+    # happens at assembly station and not pasting station" — which was
+    # correcting the Pasting Station, not choosing against the Project Room.
+    # The bench had it right and the code did not.
+    #
+    # THE RULE, and it is the reason this matters: the Project Room is 14x15
+    # ft of a floor that is rented whole, so it is in the rent spread whether
+    # or not anything is billed to it. A workstation with no operation is
+    # therefore not free — its share of the rent is computed and then charged
+    # to nothing, and it disappears. Every costed workstation must carry work,
+    # or its cost has to be deliberately allocated somewhere that does.
+    "Disassembly": "Project Room",
+    "Packing": "Project Room",
+    "Loading": "Project Room",
     "Transport": "On-Site",
     "Unloading": "On-Site",
     "Assembly (on-site)": "On-Site",
