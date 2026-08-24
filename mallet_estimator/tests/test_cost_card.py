@@ -231,10 +231,15 @@ class TestEstimatePreview(MalletTestCase):
         row = [r for r in out["labour"] if r["name"] == "Transport"][0]
         self.assertTrue(row["qty_editable"])
 
-        two = api.estimate_preview(self.CSV, overrides={"Transport": {"qty": 2}})
-        trip = [r for r in two["labour"] if r["name"] == "Transport"][0]
-        self.assertEqual(trip["qty"], 2.0)
-        self.assertGreater(two["labour_hours"], out["labour_hours"])
+        # Derived from the row's own default rather than written as 2. The
+        # model already inferred 2 trips for this CSV, so overriding with 2
+        # asserted that nothing changed — "10.2 not greater than 10.2", a test
+        # that passed no information either way.
+        want = row["qty"] + 3
+        more = api.estimate_preview(self.CSV, overrides={"Transport": {"qty": want}})
+        trip = [r for r in more["labour"] if r["name"] == "Transport"][0]
+        self.assertEqual(trip["qty"], want)
+        self.assertGreater(more["labour_hours"], out["labour_hours"])
 
     def test_what_comes_apart_is_what_goes_back_together(self):
         # Amit, 2026-08-24: "steps 10 quantity is equal to 15 (whichever get
