@@ -69,6 +69,32 @@ class TestMasters(MalletTestCase):
         ok, detail = integration.role_is_read_only()
         self.assertTrue(ok, detail)
 
+    def test_the_manufacturing_standards_are_readable_but_not_writable(self):
+        # 2026-08-24. Amit asked why the plugin and ERP disagreed about which
+        # workstation an operation runs at, and the answer lived in the
+        # Operation masters — which no assistant identity could read. The
+        # question could only be answered by a human opening the desk, which
+        # is the failure this role exists to prevent.
+        #
+        # A standard time and a workstation are not money, but they DECIDE
+        # money: the workstation carries the hourly rate. Reading them is what
+        # makes "this step is priced at the wrong station" a sentence anybody
+        # can say from outside.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        for dt in ("Operation", "Workstation"):
+            self.assertIn(dt, integration.READONLY_DOCTYPES, dt)
+            perm = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.READONLY_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            self.assertTrue(perm and perm.read, f"{dt} should be readable")
+            for p in ("write", "create", "delete"):
+                self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
+        # The standards decide prices, so the steward must not be able to move
+        # one any more than it can move a rate.
+        for dt in ("Operation", "Workstation"):
+            self.assertNotIn(dt, integration.STEWARD_RWC_DOCTYPES, dt)
+
     def test_the_cost_doctypes_are_readable_but_not_writable(self):
         # Being able to see a rate is what lets a reader say WHY a number is
         # wrong instead of only that it looks odd. Being able to change one

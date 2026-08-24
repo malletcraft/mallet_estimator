@@ -52,6 +52,15 @@ READONLY_DOCTYPES = (
     "Mallet Site",
     "Mallet Article",
     "Mallet Work Stage",
+    # The manufacturing standards. 2026-08-24: Amit asked why the plugin and
+    # ERP disagreed about which workstation an operation runs at, and the
+    # answer was in the Operation masters — which no assistant identity could
+    # read, so the question could not be answered from outside the desk at
+    # all. Same principle that opened Estimate Settings on 2026-08-09: a
+    # reader that cannot see the standard can only say a number looks odd,
+    # never why it is wrong. Read only, like everything else here.
+    "Operation",
+    "Workstation",
 )
 
 # Desk UI metadata, not business data: reading these lets the reader RENDER a

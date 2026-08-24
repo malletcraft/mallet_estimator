@@ -143,3 +143,8 @@ mallet_estimator.patches.minifix_boring_std_time
 # minutes. install.py refuses to clobber a standard already set, so neither can
 # ride the seeder.
 mallet_estimator.patches.packing_and_loading_at_assembly
+# post_model_sync: re-pins the read-only role after Operation and Workstation
+# joined READONLY_DOCTYPES. A role-list change is plain Python, and a
+# Python-only deploy runs no migrate — so without this entry the grant reaches
+# the source and never the database.
+mallet_estimator.patches.readonly_can_see_the_standards
