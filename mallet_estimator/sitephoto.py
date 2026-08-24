@@ -618,8 +618,7 @@ def _drop_sku_if_orphaned(sku, removed):
         return
     if _sku_is_referenced(sku):
         return
-    frappe.delete_doc("Estimate SKU", sku, ignore_permissions=True,
-                      delete_permanently=True)
+    frappe.delete_doc("Estimate SKU", sku, ignore_permissions=True)
     removed.append("sku:%s" % sku)
 
 
@@ -630,14 +629,15 @@ def _delete_capture(name, removed):
                                      "attached_to_name": name},
                             limit_page_length=0, pluck="name"):
         try:
+            # Permanent, unlike everything else here: a Deleted Document for a
+            # File preserves a path to a blob that has already been unlinked.
             frappe.delete_doc("File", f, ignore_permissions=True,
                               delete_permanently=True)
         except Exception:
             # A missing blob must not strand the record that points at it.
             pass
     sku = frappe.db.get_value(DOCTYPE, name, "sku")
-    frappe.delete_doc(DOCTYPE, name, ignore_permissions=True,
-                      delete_permanently=True)
+    frappe.delete_doc(DOCTYPE, name, ignore_permissions=True)
     removed.append("capture:%s" % name)
     _drop_sku_if_orphaned(sku, removed)
 
@@ -662,6 +662,19 @@ def delete_node(kind, name, cascade=0):
     Nothing cascades unless asked. A project with photographs in it is far
     more likely to be a misclick than an intention, so the refusal names what
     is in the way and the caller has to say again that it should go.
+
+    NOTHING HERE DELETES PERMANENTLY ANY MORE. It used to, and on 2026-08-24
+    that cost a real record: a delete test aimed at PROJ-0005 ended with
+    PROJ-0005 alive and Amit's OTHER site — MEST-SITE-0001 "Main site" and its
+    project PROJ-0004 "Balcony Renovation" — gone instead, and there was
+    nothing to restore it from. Whether the wrong id was sent or the wrong row
+    was tapped is a separate question and a separate fix; either way a confirm
+    dialog is a thin thing to have standing between a fat finger and the only
+    copy. Frappe writes a Deleted Document with the full JSON when
+    delete_permanently is not forced, and that costs a row.
+
+    The File attachments are the one exception, below: archiving the pointer
+    would not bring the blob back, so there is no copy to preserve.
     """
     frappe.has_permission(DOCTYPE, "write", throw=True)
     kind = (kind or "").strip().lower()
@@ -681,8 +694,7 @@ def delete_node(kind, name, cascade=0):
         why = _sku_is_referenced(name)
         if why:
             frappe.throw(_("Cannot delete: {0}.").format(why))
-        frappe.delete_doc("Estimate SKU", name, ignore_permissions=True,
-                          delete_permanently=True)
+        frappe.delete_doc("Estimate SKU", name, ignore_permissions=True)
         removed.append("sku:%s" % name)
 
     elif kind == "project":
@@ -701,8 +713,7 @@ def delete_node(kind, name, cascade=0):
         # Frappe's own link check is the last guard and a better one than any
         # list kept here: a Project reached by a Sales Order or a Work Order
         # raises LinkExistsError, which is exactly the answer wanted.
-        frappe.delete_doc("Project", name, ignore_permissions=True,
-                          delete_permanently=True)
+        frappe.delete_doc("Project", name, ignore_permissions=True)
         removed.append("project:%s" % name)
 
     elif kind == "site":
@@ -717,8 +728,7 @@ def delete_node(kind, name, cascade=0):
             # throwing away what the recursion removed would tell the caller a
             # site cost one project and no photographs, which is never true.
             removed.extend(delete_node("project", p, cascade=1)["removed"])
-        frappe.delete_doc("Mallet Site", name, ignore_permissions=True,
-                          delete_permanently=True)
+        frappe.delete_doc("Mallet Site", name, ignore_permissions=True)
         removed.append("site:%s" % name)
 
     frappe.db.commit()

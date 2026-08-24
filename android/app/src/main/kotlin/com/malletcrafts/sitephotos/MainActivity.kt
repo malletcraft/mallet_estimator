@@ -561,6 +561,7 @@ private fun AppScreen() {
         BackHandler { if (!renameBusy) renaming = null }
         RenameDialog(
             what = t.kind, current = t.current, onServer = t.serverId.isNotBlank(),
+            serverId = t.serverId,
             busy = renameBusy,
             onDismiss = { renaming = null; deleteBlocker = null },
             onSave = { newName ->
@@ -1225,6 +1226,8 @@ private fun AppScreen() {
                     // the only person who noticed cannot fix it.
                     onPickStage = { retagStage = true },
                     onPickSku = { retagSku = true },
+                    serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
+                        ?.serverName.orEmpty(),
                     onDelete = {
                         // The row and the files, then back to the room. Files
                         // first would leave a queue row pointing at nothing if

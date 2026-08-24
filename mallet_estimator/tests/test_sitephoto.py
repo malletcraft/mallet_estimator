@@ -2,6 +2,7 @@
 # as the logged-in user — so what is asserted here is the SHAPE the app binds
 # to plus the guard rails (real masters only, faces validated, annotations
 # additive).
+import json
 import frappe
 
 from mallet_estimator import install, panorama, sitephoto, worksite
@@ -958,6 +959,37 @@ class TestSiteLevelAndStages(MalletTestCase):
         self.assertIn("project:%s" % out["project"], res["removed"])
         self.assertFalse(frappe.db.exists("Mallet Site", site))
         self.assertFalse(frappe.db.exists("Project", out["project"]))
+
+    def test_a_deleted_project_can_still_be_read_back(self):
+        # 2026-08-24. A delete aimed at one project ended with a DIFFERENT
+        # site and its project destroyed, and there was nothing to restore
+        # them from: every delete_doc here passed delete_permanently=True, so
+        # Frappe wrote no Deleted Document and the records were simply gone.
+        #
+        # Whether the wrong id was sent or the wrong row was tapped is a
+        # separate question. This test is about the answer that holds either
+        # way — a mistake has to be survivable. The archived JSON is the only
+        # copy there will ever be, so its absence is a test failure, not a
+        # detail.
+        out = sitephoto.ensure_site("ZZ Undo Client", "ZZ Undo Project",
+                                    site_name="ZZ Undo Flat")
+        project = out["project"]
+        site = frappe.db.get_value("Project", project, "mallet_site")
+
+        sitephoto.delete_node("site", site, cascade=1)
+        self.assertFalse(frappe.db.exists("Project", project))
+        self.assertFalse(frappe.db.exists("Mallet Site", site))
+
+        for doctype, name in (("Project", project), ("Mallet Site", site)):
+            archived = frappe.db.get_value(
+                "Deleted Document",
+                {"deleted_doctype": doctype, "deleted_name": name}, "data")
+            self.assertTrue(
+                archived,
+                "%s %s was destroyed with no recoverable copy" % (doctype, name))
+            # Not merely a row: the JSON has to actually carry the record, or
+            # "recoverable" is a word with nothing behind it.
+            self.assertEqual(json.loads(archived).get("name"), name)
 
     def test_deleting_something_already_gone_is_not_an_error(self):
         # An offline queue retries. A delete that threw on the second attempt

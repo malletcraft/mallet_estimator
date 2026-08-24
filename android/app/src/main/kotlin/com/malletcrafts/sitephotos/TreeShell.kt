@@ -11,6 +11,7 @@ import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.RoomToken
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -797,6 +798,11 @@ fun RenameDialog(
     /** Null for a node that cannot be removed here (a client, which is a
      *  Customer and belongs to the office). The flag is "yes, cascade". */
     onDelete: ((Boolean) -> Unit)? = null,
+    /** ERP's own name for this row — PROJ-0005, MEST-SITE-0005. Shown before
+     *  the delete button, because that is the ONLY thing the server acts on
+     *  and it is the only way a person can tell two rows apart when four
+     *  sites on this bench are all called "Main site". */
+    serverId: String = "",
 ) {
     var text by remember(current) { mutableStateOf(current) }
     val changed = text.trim().isNotEmpty() && text.trim() != current
@@ -832,6 +838,24 @@ fun RenameDialog(
                     Spacer(Modifier.height(14.dp))
                     HorizontalDivider()
                     Spacer(Modifier.height(10.dp))
+                    // WHAT IS ABOUT TO GO, BY NAME. 2026-08-24: a delete
+                    // aimed at "upvc door gap filling" ended with that project
+                    // untouched and Amit's other site — "Main site", and the
+                    // Balcony Renovation inside it — destroyed instead. The
+                    // dialog that asked for that confirmation named neither.
+                    // A label a person reads is not what the server acts on;
+                    // the docname is, so the docname is on screen before the
+                    // button that sends it, and it is the LAST thing read
+                    // before the tap.
+                    if (serverId.isNotBlank()) {
+                        Text("About to delete", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(current, style = MaterialTheme.typography.titleSmall)
+                        Text(serverId, style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.error)
+                        Spacer(Modifier.height(8.dp))
+                    }
                     // The server refused and said why. Repeating its words is
                     // the whole point: "still has 3 capture(s)" is a fact a
                     // person can act on, where "could not delete" is not.
@@ -855,8 +879,14 @@ fun RenameDialog(
                             // Only after being told what is in the way. A
                             // cascade offered before the refusal would be a
                             // one-tap way to lose a job's whole history.
-                            blocker != null -> "Delete it and everything in it"
-                            else -> "Delete this ${what}"
+                            // Both carry the docname. A destructive button
+                            // whose text would read the same for any row is a
+                            // button nobody can check before pressing.
+                            blocker != null ->
+                                "Delete " + serverId.ifBlank { current } +
+                                " and everything in it"
+                            else ->
+                                "Delete " + serverId.ifBlank { "this ${what}" }
                         })
                     }
                 }

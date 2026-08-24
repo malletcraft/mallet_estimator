@@ -19,6 +19,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -339,6 +340,9 @@ fun CaptureScreen(
     onPickStage: () -> Unit,
     onPickSku: () -> Unit,
     onDelete: (() -> Unit)? = null,
+    /** ERP's name for this capture, blank while it is still only on the
+     *  phone. The confirm dialog reads it out before destroying it. */
+    serverId: String = "",
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // The two rows that make a photo findable a month later, and the two
@@ -403,7 +407,7 @@ fun CaptureScreen(
             Text(folder, Modifier.padding(horizontal = 16.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            onDelete?.let { DeleteRow(it) }
+            onDelete?.let { DeleteRow(it, serverId) }
             Spacer(Modifier.height(28.dp))
             return@Column
         }
@@ -482,7 +486,7 @@ fun CaptureScreen(
         Text(folder, Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        onDelete?.let { DeleteRow(it) }
+        onDelete?.let { DeleteRow(it, serverId) }
         Spacer(Modifier.height(28.dp))
     }
 }
@@ -491,17 +495,38 @@ fun CaptureScreen(
  *  BOTTOM of the screen and behind a confirm: it is the one control here
  *  that destroys something. */
 @Composable
-private fun DeleteRow(onDelete: () -> Unit) {
+private fun DeleteRow(onDelete: () -> Unit, serverId: String = "") {
     var confirm by remember { mutableStateOf(false) }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text("Delete this capture?") },
             text = {
-                Text("It goes from this phone — the queue row, the original, " +
-                     "and the faces in the gallery. A capture that has already " +
-                     "reached the server stays there; removing it from ERPNext " +
-                     "is a desk job, not a phone one.")
+                Column {
+                    // This used to promise that "a capture that has already
+                    // reached the server stays there". It has not been true
+                    // since the phone learned to delete on the bench, and a
+                    // reassurance that is no longer true is worse than none:
+                    // it is the sentence a person reads just before losing
+                    // the office's only copy.
+                    Text(
+                        if (serverId.isBlank())
+                            "It goes from this phone — the queue row, the " +
+                            "original, and the faces in the gallery. It never " +
+                            "reached the server, so there is nothing there to " +
+                            "remove."
+                        else
+                            "It goes from this phone AND from ERPNext, for " +
+                            "everyone — the original, the faces, and the SKU " +
+                            "if this was the only photograph holding it up.")
+                    if (serverId.isNotBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(serverId,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = { confirm = false; onDelete() }) {
