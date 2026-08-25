@@ -558,15 +558,40 @@ class TestMasters(MalletTestCase):
         self.assertTrue(live.get("components"), "no component column order sent")
         for c in estimator.WS_COMPONENTS:
             self.assertIn(c, live["components"], c)
-        costed = [w for w in live["workstations"] if (w.get("components") or [])]
-        self.assertTrue(costed,
-                        "not one workstation carried its component rows — the "
-                        "page can show a rate but cannot show what it is made of")
-        for w in costed:
-            total = sum(v for _c, v in w["components"])
-            self.assertAlmostEqual(
-                total, w["hour_rate"], 2,
-                "%s: components must add up to the rate charged" % w["name"])
+        for w in live["workstations"]:
+            self.assertIn("rate_source", w, w["name"])
+            comps = w.get("components") or []
+            if comps:
+                self.assertAlmostEqual(
+                    sum(v for _c, v in comps), w["hour_rate"], 2,
+                    "%s: components must add up to the rate charged" % w["name"])
+
+        # A workstation that CARRIES cost rows must publish them. Asserted by
+        # creating one rather than by looking for one, because on CI every
+        # workstation rate is zero by design and no station has cost rows at
+        # all — the first version of this test asserted the bench's data and
+        # could only ever pass on a live site.
+        ws = frappe.get_doc({
+            "doctype": "Workstation", "workstation_name": "ZZ Component Probe",
+        }).insert(ignore_permissions=True)
+        try:
+            ws.append("workstation_costs",
+                      {"operating_component": "Rent", "operating_cost": 11})
+            ws.append("workstation_costs",
+                      {"operating_component": "Electricity", "operating_cost": 7})
+            ws.save(ignore_permissions=True)
+
+            probe = next(w for w in es.cost_calculator()["live"]["workstations"]
+                         if w["name"] == ws.name)
+            got = {c: v for c, v in probe["components"]}
+            self.assertEqual(got.get("Rent"), 11)
+            self.assertEqual(got.get("Electricity"), 7)
+            self.assertAlmostEqual(probe["hour_rate"], 18, 2,
+                                   "the net must be the sum of the rows shown")
+            self.assertEqual(probe["rate_source"], "erp:Workstation")
+        finally:
+            frappe.delete_doc("Workstation", ws.name, ignore_permissions=True,
+                              force=True)
 
         # All seventeen, each carrying what it costs and where it runs.
         ops = live.get("operations") or []
