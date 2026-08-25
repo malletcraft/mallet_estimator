@@ -296,3 +296,35 @@ class TestArticleKindAndBasis(unittest.TestCase):
         self.assertIn(W.NEW, jobs)
         reach = [s for s in W.WORK_STAGES if "POP" in s[2] and W.NEW in s[3]]
         self.assertTrue(reach, "no New-work stage covers POP")
+
+
+class TestSubcontractServiceCodes(unittest.TestCase):
+    """The Item behind a subcontract article — where its vendor rates live."""
+
+    def test_the_code_follows_the_house_prefix_grammar(self):
+        # SG_, EB_, HWD_, JH_ … and now SVC_. The point of a prefix is that a
+        # service is recognisable as one at a glance in an Item list of
+        # several hundred material codes.
+        self.assertEqual(W.subcontract_item_code("POP"), "SVC_POP")
+        self.assertEqual(W.subcontract_item_code("til"), "SVC_TIL")
+        self.assertEqual(W.subcontract_item_code(" ELP "), "SVC_ELP")
+
+    def test_no_article_makes_no_item(self):
+        # Blank in, blank out. The alternative is an Item literally called
+        # "SVC_", created once and confusing forever.
+        self.assertEqual(W.subcontract_item_code(""), "")
+        self.assertEqual(W.subcontract_item_code(None), "")
+
+    def test_every_subcontract_article_gets_a_distinct_code(self):
+        codes = [W.subcontract_item_code(c)
+                 for c, _n, _j, k, _b in W.ARTICLES if k == W.SUBCONTRACT]
+        self.assertTrue(codes, "no subcontract articles to price")
+        self.assertEqual(len(codes), len(set(codes)),
+                         "two trades sharing an Item share a vendor rate")
+
+    def test_a_subcontract_article_is_quoted_in_a_real_unit(self):
+        # The basis IS the unit of the service Item, so an article whose basis
+        # is not one of the known ones would seed an Item in a made-up UOM.
+        for c, _n, _j, kind, basis in W.ARTICLES:
+            if kind == W.SUBCONTRACT:
+                self.assertIn(basis, W.BASES, c)

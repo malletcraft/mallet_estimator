@@ -248,6 +248,8 @@ def after_install():
     _safe(ensure_rooms)
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
+    # Derived from the article list, so it follows it everywhere.
+    _safe(worksite.ensure_subcontract_service_items)
     # A PERSON's role, not an integration's — the same policy after_migrate
     # already applies through sync_readonly_role, which is why it is minted
     # unconditionally rather than only re-pinned where it exists. Doing it on
@@ -275,6 +277,8 @@ def after_migrate():
     # Both are light: two flat masters with no Item/Project schema behind them.
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
+    # Derived from the article list, so it follows it everywhere.
+    _safe(worksite.ensure_subcontract_service_items)
     _safe(ensure_pricing_masters)          # F5 — light: one Price List, no Item schema
     _safe(ensure_project_customization)    # F4 — light: Table + Section, no Project column
     _safe(inventory.ensure_vendor_masters) # S1 — light: Manufacturer/Brand/Supplier records
@@ -558,6 +562,8 @@ def setup():
     _safe(ensure_rooms)
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
+    # Derived from the article list, so it follows it everywhere.
+    _safe(worksite.ensure_subcontract_service_items)
     inv, wh = {}, {}
     try:
         inv = ensure_inventory_masters()
@@ -681,6 +687,15 @@ def verify_setup():
             ("no kind/unit on: " + ", ".join(vague)) if vague
             else f"{len(worksite.KINDS)} kinds, {len(worksite.BASES)} units")
     n_stage = frappe.db.count("Mallet Work Stage")
+    n_sub = sum(1 for c, _n, _j, k, _b in worksite.ARTICLES
+                if k == worksite.SUBCONTRACT)
+    n_svc = sum(1 for c, _n, _j, k, _b in worksite.ARTICLES
+                if k == worksite.SUBCONTRACT
+                and frappe.db.exists("Item", worksite.subcontract_item_code(c)))
+    chk("Subcontract service items", n_svc >= n_sub,
+        f"{n_svc} of {n_sub} — a missing one is a trade whose vendor rate has "
+        f"nowhere to live, so it quotes at zero")
+
     chk("Work stages", n_stage >= len(worksite.WORK_STAGES),
         f"{n_stage} of {len(worksite.WORK_STAGES)} seeded, "
         f"{len(worksite.PHASES)} phases")

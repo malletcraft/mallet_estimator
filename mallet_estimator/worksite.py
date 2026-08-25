@@ -25,8 +25,9 @@ from frappe import _
 
 from mallet_estimator.worksite_data import (      # noqa: F401  (re-exported)
     ALL, ARTICLES, BASES, BUILD, DEFAULT_SITE_NAME, INSTALL, INSTALL_KIND,
-    JOB_TYPES, KINDS, LUMPSUM, NEW, NOS, PHASES, POINT, REPAIR, RFT, SQFT,
-    STAGE_RENAMES, SUBCONTRACT, WORK_STAGES, site_key,
+    JOB_TYPES, KINDS, LUMPSUM, NEW, NOS, PHASES, POINT, REPAIR, RFT,
+    SERVICE_PREFIX, SQFT, STAGE_RENAMES, SUBCONTRACT, WORK_STAGES, site_key,
+    subcontract_item_code,
 )
 
 
@@ -100,6 +101,73 @@ def _ensure_nos():
         # racing job: seeding carries on, and the per-row errors report what
         # actually happened rather than this guess about it.
         pass
+
+
+def ensure_subcontract_service_items():
+    """An Item per Subcontract article, so a vendor rate has somewhere to live.
+
+    Amit, 2026-08-25: subcontracted work is a full SKU priced from the
+    agency's own rate. A rate needs a home, and this app already has exactly
+    the right one — a technical Item carrying a buying Item Price per
+    supplier, which is how every material vendor price is held. Reusing it
+    means the desk screen, the vendor comparison and the ceiling recompute
+    all work on day one instead of being rebuilt for services.
+
+    Deliberately NOT stock items: nothing is received, stored or valued. And
+    deliberately no rate, here or anywhere in this repo — rates are a human
+    act keyed on the site, and this function only makes the place to key them.
+    """
+    made, errors = 0, []
+    for code, name, jobs, kind, basis in ARTICLES:
+        if kind != SUBCONTRACT:
+            continue
+        item_code = subcontract_item_code(code)
+        try:
+            _ensure_uom(basis)
+            if frappe.db.exists("Item", item_code):
+                continue
+            frappe.get_doc({
+                "doctype": "Item",
+                "item_code": item_code,
+                "item_name": name,
+                "description": "%s — subcontracted, quoted per %s" % (name, basis),
+                "item_group": _service_item_group(),
+                "stock_uom": basis,
+                "is_stock_item": 0,
+                "is_purchase_item": 1,
+                "is_sales_item": 0,
+            }).insert(ignore_permissions=True)
+            made += 1
+        except Exception as exc:
+            # Per row, for the same reason ensure_articles is: one throwing
+            # row used to leave the whole master empty and say so nowhere.
+            errors.append("%s: %s" % (item_code, exc))
+    frappe.db.commit()
+    if errors:
+        frappe.log_error("\n".join(errors),
+                         "mallet_estimator ensure_subcontract_service_items")
+    return {"made": made, "errors": errors}
+
+
+def _ensure_uom(name):
+    if name and not frappe.db.exists("UOM", name):
+        try:
+            frappe.get_doc({"doctype": "UOM", "uom_name": name}).insert(
+                ignore_permissions=True)
+        except Exception:
+            pass
+
+
+def _service_item_group():
+    """Services sit in their own group or, failing that, wherever items go.
+
+    A missing group must not stop the seed: an Item in the wrong group is a
+    tidiness problem, an Item that does not exist is a rate with nowhere to
+    live and a quote that cannot be made."""
+    for g in ("Services", "Subcontract Services", "All Item Groups"):
+        if frappe.db.exists("Item Group", g):
+            return g
+    return frappe.db.get_value("Item Group", {"is_group": 0}, "name") or "All Item Groups"
 
 
 def ensure_work_stages():

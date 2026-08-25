@@ -75,6 +75,13 @@
   "repair_csv",
   "repair_visits",
   "repair_activities",
+  "subcontract_section",
+  "subcontract_lines",
+  "subcontract_unpriced",
+  "subcontract_totals_section",
+  "subcontract_cost",
+  "col_subcontract",
+  "client_subcontract",
   "repair_totals_section",
   "repair_labor_cost",
   "repair_visit_amount",
@@ -156,7 +163,7 @@
    "fieldname": "multi_room",
    "fieldtype": "Check",
    "label": "Multi-room (combined SKU)",
-   "description": "One SketchUp model spanning several rooms — Room becomes optional; the estimate groups this SKU under 'Multiple Rooms'."
+   "description": "One SketchUp model spanning several rooms \u2014 Room becomes optional; the estimate groups this SKU under 'Multiple Rooms'."
   },
   {
    "fieldname": "rooms_covered",
@@ -256,7 +263,7 @@
    "fieldtype": "Data",
    "label": "Finish",
    "hidden": 1,
-   "description": "Retired 2026-08-13 (never wired to print or costing) — finish notes belong in Description."
+   "description": "Retired 2026-08-13 (never wired to print or costing) \u2014 finish notes belong in Description."
   },
   {
    "fieldname": "spec_detail_section",
@@ -276,7 +283,7 @@
    "fieldtype": "Attach Image",
    "label": "Isometric View (auto-filled from 7 Views PDF)",
    "read_only": 1,
-   "description": "Extracted from the 'IsoView' page of the 7 Views PDF above — no manual upload. Shown on the client estimate."
+   "description": "Extracted from the 'IsoView' page of the 7 Views PDF above \u2014 no manual upload. Shown on the client estimate."
   },
   {
    "fieldname": "views_images",
@@ -297,7 +304,7 @@
    "label": "Estimation Mode (legacy)",
    "options": "OCL PDF (standard)\nCSV-Nest",
    "default": "OCL PDF (standard)",
-   "description": "Standard: OCL Material Estimate PDF + Part List PDF. CSV-Nest: only the Part List CSV — sheet counts computed by the calibrated nesting engine (7Views PDF unchanged).",
+   "description": "Standard: OCL Material Estimate PDF + Part List PDF. CSV-Nest: only the Part List CSV \u2014 sheet counts computed by the calibrated nesting engine (7Views PDF unchanged).",
    "allow_in_quick_entry": 1,
    "hidden": 1
   },
@@ -305,12 +312,12 @@
    "fieldname": "work_type",
    "fieldtype": "Select",
    "label": "Work Type",
-   "options": "New Work\nRepair\nSupply & Install",
+   "options": "New Work\nRepair\nSupply & Install\nSubcontract",
    "default": "New Work",
    "bold": 1,
    "in_standard_filter": 1,
    "allow_in_quick_entry": 1,
-   "description": "New Work builds an article from its parts. Repair prices ACTIVITIES on things that already exist. Supply & Install buys a FINISHED article elsewhere and fits it — no parts, no nesting, and the margin question is different because the client can price-check what you bought."
+   "description": "New Work builds an article from its parts. Repair prices ACTIVITIES on things that already exist. Supply & Install buys a FINISHED article elsewhere and fits it \u2014 no parts, no nesting, and the margin question is different because the client can price-check what you bought. Subcontract is work an AGENCY does \u2014 POP, tiling, electrical \u2014 priced from that agency's own rate in the article's own unit, with no shop floor involved at all."
   },
   {
    "fieldname": "parts_csv",
@@ -324,14 +331,14 @@
    "fieldname": "estimate_pdf",
    "fieldtype": "Attach",
    "label": "Material Estimate PDF (legacy)",
-   "description": "OpenCutList Material Estimate export — sheets, laminate, edge banding and hardware totals.",
+   "description": "OpenCutList Material Estimate export \u2014 sheets, laminate, edge banding and hardware totals.",
    "hidden": 1
   },
   {
    "fieldname": "partlist_pdf",
    "fieldtype": "Attach",
    "label": "Part List PDF (legacy)",
-   "description": "OpenCutList Parts List export — identifies hardware correctly: the real stock item designation (HWD_AH_SC_0), not just its group (HWD_Hinge).",
+   "description": "OpenCutList Parts List export \u2014 identifies hardware correctly: the real stock item designation (HWD_AH_SC_0), not just its group (HWD_Hinge).",
    "hidden": 1
   },
   {
@@ -344,7 +351,7 @@
    "fieldname": "material_board_html",
    "fieldtype": "HTML",
    "label": "Material board (legacy)",
-   "description": "Grouped by what each line IS, with the whole money chain on one row and the décor on the line it belongs to. Edits save as you make them.",
+   "description": "Grouped by what each line IS, with the whole money chain on one row and the d\u00e9cor on the line it belongs to. Edits save as you make them.",
    "hidden": 1
   },
   {
@@ -353,29 +360,29 @@
    "label": "Material Lines",
    "options": "Estimate Material",
    "cannot_add_rows": 1,
-   "description": "Imported from the part list (read-only) — pushed from SketchUp or attached as CSV. Use 'Add material row' for extras like a hydraulic lift — priced from the stock price list."
+   "description": "Imported from the part list (read-only) \u2014 pushed from SketchUp or attached as CSV. Use 'Add material row' for extras like a hydraulic lift \u2014 priced from the stock price list."
   },
   {
    "fieldname": "unpriced_materials",
    "fieldtype": "Small Text",
    "label": "Materials Needing a Price",
    "read_only": 1,
-   "description": "Materials with no ERPNext price yet — set a rate on the Item so the estimate can cost them.",
+   "description": "Materials with no ERPNext price yet \u2014 set a rate on the Item so the estimate can cost them.",
    "print_hide": 1
   },
   {
    "fieldname": "decor_section",
    "fieldtype": "Section Break",
-   "label": "Décor Map — laminate and edge band",
+   "label": "D\u00e9cor Map \u2014 laminate and edge band",
    "collapsible": 0,
-   "description": "One row per slot the material lines use. Search an existing décor or create one inline; every line carrying that slot re-points on save."
+   "description": "One row per slot the material lines use. Search an existing d\u00e9cor or create one inline; every line carrying that slot re-points on save."
   },
   {
    "fieldname": "sku_decors",
    "fieldtype": "Table",
-   "label": "Laminates (a, b …)",
+   "label": "Laminates (a, b \u2026)",
    "options": "Estimate SKU Decor",
-   "description": "MASTER map: what each laminate slot letter means for THIS SKU. Sheet is always 1220 x 2440 — only thickness varies. Edit + Save re-points the material lines."
+   "description": "MASTER map: what each laminate slot letter means for THIS SKU. Sheet is always 1220 x 2440 \u2014 only thickness varies. Edit + Save re-points the material lines."
   },
   {
    "fieldname": "sku_decor_edges",
@@ -387,14 +394,14 @@
   {
    "fieldname": "reset_decor_map_btn",
    "fieldtype": "Button",
-   "label": "Rebuild Décor Slots (report what changed)",
+   "label": "Rebuild D\u00e9cor Slots (report what changed)",
    "description": "The map is rebuilt from the material lines on every save, so it can never hold a slot the OpenCutList codes do not use. This says what the last rebuild kept, dropped and added."
   },
   {
    "fieldname": "apply_decor_map_btn",
    "fieldtype": "Button",
-   "label": "Apply Décor Map",
-   "description": "Saves and re-points the laminate/edge material lines at the mapped décors — check the Materials table after."
+   "label": "Apply D\u00e9cor Map",
+   "description": "Saves and re-points the laminate/edge material lines at the mapped d\u00e9cors \u2014 check the Materials table after."
   },
   {
    "fieldname": "material_money_section",
@@ -431,27 +438,27 @@
    "fieldtype": "Currency",
    "label": "GST Saved (this SKU)",
    "read_only": 1,
-   "description": "Standard rate minus applied rate, summed over this SKU’s material lines. 18% standard charged at 9% shows the 9% not charged."
+   "description": "Standard rate minus applied rate, summed over this SKU\u2019s material lines. 18% standard charged at 9% shows the 9% not charged."
   },
   {
    "fieldname": "material_total_with_tax",
    "fieldtype": "Currency",
    "label": "Material incl. Tax (this SKU)",
    "read_only": 1,
-   "description": "Discounted material cost + its tax — what this SKU's material actually lands at."
+   "description": "Discounted material cost + its tax \u2014 what this SKU's material actually lands at."
   },
   {
    "fieldname": "client_supplied_value",
    "fieldtype": "Currency",
    "label": "Client-Supplied Material (landed value)",
    "read_only": 1,
-   "description": "What the material the CLIENT buys is worth, landed. Never part of our cost — shown so the estimate reads as the whole job."
+   "description": "What the material the CLIENT buys is worth, landed. Never part of our cost \u2014 shown so the estimate reads as the whole job."
   },
   {
    "fieldname": "joinery_section",
    "fieldtype": "Section Break",
    "label": "Joinery Consumables (derived from Sheet Lamination)",
-   "description": "Fevicol + Abrotape auto-computed from the Sheet Lamination qty (3 packets + 11 m tape per laminated sheet). Use these quantities to raise the purchase order — Abrotape is bought in 20 m rolls."
+   "description": "Fevicol + Abrotape auto-computed from the Sheet Lamination qty (3 packets + 11 m tape per laminated sheet). Use these quantities to raise the purchase order \u2014 Abrotape is bought in 20 m rolls."
   },
   {
    "fieldname": "joinery_items",
@@ -477,7 +484,7 @@
   {
    "fieldname": "execution_section",
    "fieldtype": "Section Break",
-   "label": "Execution Design — actual materials (after approval)",
+   "label": "Execution Design \u2014 actual materials (after approval)",
    "collapsible": 0,
    "description": "After the estimate is approved, choose the real client-selected item for each generic estimate line. Variance vs the estimate is tracked so invoicing has no surprises. Use the 'Build execution design' button to seed this from the estimate."
   },
@@ -496,17 +503,17 @@
   {
    "fieldname": "execution_variance",
    "fieldtype": "Currency",
-   "label": "Material Variance (execution − estimate)",
+   "label": "Material Variance (execution \u2212 estimate)",
    "read_only": 1,
    "bold": 1
   },
   {
    "fieldname": "parts_section",
    "fieldtype": "Section Break",
-   "label": "Execution — Parts (from earlier imports)",
+   "label": "Execution \u2014 Parts (from earlier imports)",
    "collapsible": 0,
    "collapsible_depends_on": "eval:false",
-   "description": "Execution-phase inputs. The Parts CSV, cut diagrams and labels are used on the shop floor after the estimate is approved — they do not affect the estimate.",
+   "description": "Execution-phase inputs. The Parts CSV, cut diagrams and labels are used on the shop floor after the estimate is approved \u2014 they do not affect the estimate.",
    "hidden": 1
   },
   {
@@ -521,14 +528,14 @@
    "fieldtype": "Section Break",
    "label": "Supplied Article",
    "depends_on": "eval:doc.work_type=='Supply & Install'",
-   "description": "The article you buy in and fit. Put it on a material line with the vendor's quoted rate — it prices through the same chain as everything else (rate, discount, tax, landed). The client print never names the vendor."
+   "description": "The article you buy in and fit. Put it on a material line with the vendor's quoted rate \u2014 it prices through the same chain as everything else (rate, discount, tax, landed). The client print never names the vendor."
   },
   {
    "fieldname": "supplier",
    "fieldtype": "Link",
    "label": "Supplied By",
    "options": "Supplier",
-   "description": "Internal only — the client copy says 'supplied & installed', never who supplied it."
+   "description": "Internal only \u2014 the client copy says 'supplied & installed', never who supplied it."
   },
   {
    "fieldname": "lead_time_weeks",
@@ -557,21 +564,21 @@
    "fieldname": "repair_csv",
    "fieldtype": "Attach",
    "label": "Repair Activity CSV (optional)",
-   "description": "Optional. Import an existing repair estimation sheet if you already have one — otherwise type the job straight into the Activities grid below. Parsing stops at the TOTALS row.",
+   "description": "Optional. Import an existing repair estimation sheet if you already have one \u2014 otherwise type the job straight into the Activities grid below. Parsing stops at the TOTALS row.",
    "depends_on": "eval:doc.work_type=='Repair'"
   },
   {
    "fieldname": "repair_visits",
    "fieldtype": "Int",
    "label": "Visits (days on site)",
-   "description": "Blank = derived from the effort (a day is 360 productive minutes). Set it when the job is spread over more trips than its minutes imply — two half-days a week apart is two visits."
+   "description": "Blank = derived from the effort (a day is 360 productive minutes). Set it when the job is spread over more trips than its minutes imply \u2014 two half-days a week apart is two visits."
   },
   {
    "fieldname": "repair_activities",
    "fieldtype": "Table",
    "label": "Activities",
    "options": "Estimate Repair Activity",
-   "description": "One row per job on site: room, the item being repaired, what you do, and the crew minutes it takes. Minutes are per unit — quantity multiplies them. Set Status to 'To Inspect' for work nobody can price until they look; it is quoted as scope only."
+   "description": "One row per job on site: room, the item being repaired, what you do, and the crew minutes it takes. Minutes are per unit \u2014 quantity multiplies them. Set Status to 'To Inspect' for work nobody can price until they look; it is quoted as scope only."
   },
   {
    "fieldname": "repair_totals_section",
@@ -598,7 +605,7 @@
   {
    "fieldname": "client_repair",
    "fieldtype": "Currency",
-   "label": "Repair — to Client",
+   "label": "Repair \u2014 to Client",
    "read_only": 1,
    "bold": 1
   },
@@ -607,7 +614,7 @@
    "fieldtype": "Int",
    "label": "Rows awaiting inspection",
    "read_only": 1,
-   "description": "Quoted as scope only — their effort is held out of the firm total until someone looks."
+   "description": "Quoted as scope only \u2014 their effort is held out of the firm total until someone looks."
   },
   {
    "fieldname": "labor_section",
@@ -649,7 +656,7 @@
    "fieldtype": "Table",
    "label": "Design Steps",
    "options": "Estimate Labor",
-   "description": "The designer's pipeline (site measurement → 3D plan → SKP → SKU → 7Views → estimate/part PDFs), priced at the Design Desk rate. Only Qty and Remarks are editable — std times live on the Operation masters.",
+   "description": "The designer's pipeline (site measurement \u2192 3D plan \u2192 SKP \u2192 SKU \u2192 7Views \u2192 estimate/part PDFs), priced at the Design Desk rate. Only Qty and Remarks are editable \u2014 std times live on the Operation masters.",
    "cannot_add_rows": 1
   },
   {
@@ -674,9 +681,9 @@
   {
    "fieldname": "transport_section",
    "fieldtype": "Section Break",
-   "label": "Transport (standalone view — consolidated on the Estimate)",
+   "label": "Transport (standalone view \u2014 consolidated on the Estimate)",
    "collapsible": 0,
-   "description": "Inward trips: big tempo ₹/trip (ply + internal laminate + joinery), external laminate trip, client-hardware trip; plus outward delivery. Rates live in Estimate Settings. Multiple SKUs share trips — the Estimate consolidates.",
+   "description": "Inward trips: big tempo \u20b9/trip (ply + internal laminate + joinery), external laminate trip, client-hardware trip; plus outward delivery. Rates live in Estimate Settings. Multiple SKUs share trips \u2014 the Estimate consolidates.",
    "hidden": 1
   },
   {
@@ -789,7 +796,7 @@
    "fieldtype": "Check",
    "label": "Rates Frozen (quoted)",
    "read_only": 1,
-   "description": "Set when this SKU's Estimate is submitted/quoted — material re-imports and re-pricing are locked; price-list changes no longer affect this estimate."
+   "description": "Set when this SKU's Estimate is submitted/quoted \u2014 material re-imports and re-pricing are locked; price-list changes no longer affect this estimate."
   },
   {
    "fieldname": "machine_cost",
@@ -858,7 +865,7 @@
    "label": "Article",
    "options": "Mallet Article",
    "in_standard_filter": 1,
-   "description": "The article master. Its code owns the third token of the SKU code — PVC, not PVC_BAT_DOO. Leave blank and the token is derived from the article name as before."
+   "description": "The article master. Its code owns the third token of the SKU code \u2014 PVC, not PVC_BAT_DOO. Leave blank and the token is derived from the article name as before."
   },
   {
    "fieldname": "site_measure_section",
@@ -916,7 +923,50 @@
    "unique": 1,
    "no_copy": 1,
    "length": 64,
-   "description": "The id the phone minted when somebody tapped Add SKU. Passing it again returns the SAME SKU — which is what makes an offline queue safe to retry. Two genuine wardrobes in one room carry two different ids."
+   "description": "The id the phone minted when somebody tapped Add SKU. Passing it again returns the SAME SKU \u2014 which is what makes an offline queue safe to retry. Two genuine wardrobes in one room carry two different ids."
+  },
+  {
+   "fieldname": "subcontract_section",
+   "fieldtype": "Section Break",
+   "label": "Subcontracted Work",
+   "depends_on": "eval:doc.work_type=='Subcontract'",
+   "description": "Work an agency does. One line per trade, each in that trade's own unit, priced at the named vendor's rate. No cut list, no BOM, no work order \u2014 the shop floor is exactly what is not involved."
+  },
+  {
+   "fieldname": "subcontract_lines",
+   "fieldtype": "Table",
+   "options": "Estimate Subcontract Line",
+   "label": "Vendor Lines",
+   "depends_on": "eval:doc.work_type=='Subcontract'"
+  },
+  {
+   "fieldname": "subcontract_unpriced",
+   "fieldtype": "Small Text",
+   "label": "Trades Needing a Vendor Rate",
+   "read_only": 1,
+   "depends_on": "eval:doc.work_type=='Subcontract' && doc.subcontract_unpriced"
+  },
+  {
+   "fieldname": "subcontract_totals_section",
+   "fieldtype": "Section Break",
+   "label": "Subcontract Cost",
+   "depends_on": "eval:doc.work_type=='Subcontract'"
+  },
+  {
+   "fieldname": "subcontract_cost",
+   "fieldtype": "Currency",
+   "label": "Subcontract Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_subcontract",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_subcontract",
+   "fieldtype": "Currency",
+   "label": "Subcontract (client)",
+   "read_only": 1
   }
  ],
  "links": [],

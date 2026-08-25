@@ -170,3 +170,10 @@ mallet_estimator.patches.hardware_install_operations
 # Center, Warehouse, Supplier, Supplier Group). A role-list change is plain
 # Python, and a Python-only deploy runs no migrate.
 mallet_estimator.patches.readonly_can_see_the_company
+# post_model_sync: a non-stock service Item per Subcontract article (SVC_POP,
+# SVC_TIL …), so a vendor's rate has somewhere to live. Post, because the
+# Estimate Subcontract Line doctype and the Item it links to must both exist
+# first. ARTICLES is plain Python and a Python-only deploy runs no migrate, so
+# without this entry the seeder reaches the source and never the database —
+# and a subcontract line with no Item quotes at zero while looking complete.
+mallet_estimator.patches.subcontract_service_items

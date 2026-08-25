@@ -226,6 +226,23 @@ STAGE_RENAMES = {
 
 DEFAULT_SITE_NAME = "Main site"
 
+# WHERE A VENDOR'S RATE LIVES. Amit, 2026-08-25: subcontracted work is priced
+# from the agency's own rate, so each Subcontract article needs an Item for
+# per-vendor buying prices to hang off — the same "one technical Item, many
+# vendors, a buying Item Price each" shape the material master already uses.
+# Nothing new is invented for it.
+#
+# The prefix follows the house grammar (SG_, EB_, HWD_, JH_ …) so a service
+# code is recognisable as one at a glance in an Item list of several hundred.
+SERVICE_PREFIX = "SVC_"
+
+
+def subcontract_item_code(article_code):
+    """SVC_POP for article POP. Blank in, blank out — a caller with no article
+    gets nothing rather than an Item called "SVC_"."""
+    code = (article_code or "").strip().upper()
+    return (SERVICE_PREFIX + code) if code else ''
+
 
 def site_key(text):
     """Case-, space- and underscore-insensitive identity, the same rule

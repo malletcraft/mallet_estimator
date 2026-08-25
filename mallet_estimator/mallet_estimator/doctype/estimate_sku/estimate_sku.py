@@ -125,11 +125,25 @@ class EstimateSKU(Document):
         from mallet_estimator import estimator as E
         return self.work_kind() in E.SITE_WORK
 
+    def is_subcontract(self):
+        """Work an AGENCY does. Off the floor like repair and supply-install,
+        but with no crew of ours on it at all — which is why it is not in
+        SITE_WORK: that group shares a labour model, and this has none."""
+        from mallet_estimator import estimator as E
+        return self.work_kind() == E.SUBCONTRACT
+
     def validate(self):
         # Repair is a different UNIT of estimation, not a variant of new work:
         # activities on things that already exist, no parts, no nesting, no
         # décor map, no factory. It gets its own short pipeline rather than
         # threading a dozen `if repair` branches through the article one.
+        #
+        # Subcontract is shorter still, for the same reason taken further:
+        # there is no material of ours and no labour of ours, only somebody
+        # else's rate against a quantity.
+        if self.is_subcontract():
+            self.validate_subcontract()
+            return
         if self.is_site_work():
             self.validate_site_work()
             return
@@ -177,6 +191,74 @@ class EstimateSKU(Document):
         self.compute_code()
         self.compute_site_costs()
         self.build_cost_breakup()
+
+    def validate_subcontract(self):
+        """The agency pipeline. Three steps, and the shortness is the point.
+
+        No parts, no nesting, no décor map, no operations, no BOM and no Work
+        Order — every one of those describes the shop floor, and the shop
+        floor is exactly what is not involved. What is left is a quantity, a
+        vendor and that vendor's rate.
+        """
+        self.resolve_subcontract_lines()
+        self.compute_code()
+        self.compute_subcontract_costs()
+
+    def resolve_subcontract_lines(self):
+        """Fill each line's unit, service Item and rate from the masters.
+
+        None of the three is typed. The UNIT comes from the article's basis,
+        because two lines disagreeing about whether a number is sqft or
+        running feet is how a quantity stops meaning anything. The RATE comes
+        from the price list against the vendor, because a rate typed into an
+        estimate is a rate that exists in one estimate — the authority is the
+        price list, here exactly as it is for materials.
+        """
+        from mallet_estimator import estimator as E, inventory, worksite
+        for line in self.get("subcontract_lines") or []:
+            if not line.article:
+                continue
+            art = frappe.db.get_value(
+                "Mallet Article", line.article, ["basis", "kind", "article_name"],
+                as_dict=True) or {}
+            # A Build article on a subcontract line is a mis-pick, and it
+            # would price silently at whatever that article's Item costs.
+            if art.get("kind") and art["kind"] != E.SUBCONTRACT:
+                frappe.throw(_(
+                    "{0} is a {1} article, not subcontracted work. Subcontract "
+                    "lines take trades an agency does — POP, tiling, "
+                    "electrical.").format(line.article, art["kind"]))
+            line.uom = art.get("basis") or ""
+            line.service_item = worksite.subcontract_item_code(line.article)
+            if line.service_item and frappe.db.exists("Item", line.service_item):
+                line.rate, line.rate_source = inventory.vendor_rate(
+                    line.service_item, line.vendor)
+            else:
+                # No Item means nowhere for a rate to live. Saying "unset" is
+                # honest; inventing 0 as a price is not.
+                line.rate, line.rate_source = 0, "no service item"
+            line.amount = (line.qty or 0) * (line.rate or 0)
+
+    def compute_subcontract_costs(self):
+        from mallet_estimator import estimator as E
+        settings = frappe.get_single("Estimate Settings")
+        markup = (float(self.get("margin_labor") or 0)
+                  if self.get("use_custom_margins") else None)
+        out = E.calc_subcontract(self.get("subcontract_lines"), settings,
+                                 markup_pct=markup)
+        self.subcontract_cost = out["cost"]
+        self.client_subcontract = out["client_total"]
+        # Named, not merely counted. A subcontract quote missing one vendor's
+        # rate looks exactly like a complete one — the total is simply too
+        # low, and nothing on the page says so unless this does.
+        self.subcontract_unpriced = ", ".join(out["unpriced"])
+        if out["unpriced"]:
+            frappe.msgprint(
+                _("No vendor rate for: <b>{0}</b>. Those lines are costed at "
+                  "zero, so this estimate is lower than the job. Key the rate "
+                  "against the service Item before quoting.").format(
+                      ", ".join(out["unpriced"])),
+                title=_("Subcontract trades not priced"), indicator="orange")
 
     def import_repair_csv(self):
         """Read the shop's repair estimation sheet into the activity table.
