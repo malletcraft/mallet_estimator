@@ -692,9 +692,20 @@ def verify_setup():
     n_svc = sum(1 for c, _n, _j, k, _b in worksite.ARTICLES
                 if k == worksite.SUBCONTRACT
                 and frappe.db.exists("Item", worksite.subcontract_item_code(c)))
-    chk("Subcontract service items", n_svc >= n_sub,
-        f"{n_svc} of {n_sub} — a missing one is a trade whose vendor rate has "
-        f"nowhere to live, so it quotes at zero")
+    # WHY it is short, not merely THAT it is. The first run of this check said
+    # "0 of 15" and nothing else; the cause was one bad item group and the
+    # explanation sat in an Error Log nobody had reason to open. A health check
+    # that cannot point at the next step just relocates the question.
+    svc_detail = (f"{n_svc} of {n_sub} — a missing one is a trade whose vendor "
+                  f"rate has nowhere to live, so it quotes at zero")
+    if n_svc < n_sub:
+        why = frappe.db.get_value(
+            "Error Log",
+            {"method": ["like", "%ensure_subcontract_service_items%"]},
+            "error", order_by="creation desc")
+        if why:
+            svc_detail += " — last error: " + str(why).strip().split("\n")[0][:160]
+    chk("Subcontract service items", n_svc >= n_sub, svc_detail)
 
     chk("Work stages", n_stage >= len(worksite.WORK_STAGES),
         f"{n_stage} of {len(worksite.WORK_STAGES)} seeded, "

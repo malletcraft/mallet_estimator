@@ -18,11 +18,16 @@ class TestSubcontractMasters(MalletTestCase):
         # looks exactly like a complete one.
         worksite.ensure_articles()
         worksite.ensure_subcontract_service_items()
+        out = worksite.ensure_subcontract_service_items()
         missing = [c for c, _n, _j, k, _b in worksite.ARTICLES
                    if k == worksite.SUBCONTRACT
                    and not frappe.db.exists(
                        "Item", worksite.subcontract_item_code(c))]
-        self.assertEqual(missing, [], "no Item for: %s" % missing)
+        # The errors come back with the result rather than only reaching the
+        # Error Log. A seeder that fails quietly is how fifteen items were
+        # missing for a whole CI round with nothing on screen but "0 of 15".
+        self.assertEqual(missing, [], "no Item for %s; errors: %s"
+                         % (missing, out.get("errors")))
 
     def test_a_service_item_is_bought_never_stocked(self):
         worksite.ensure_articles()
@@ -110,12 +115,22 @@ class TestVendorRate(MalletTestCase):
 
 class TestSubcontractSku(MalletTestCase):
 
+    def _project(self):
+        """Estimate SKU requires a project — every SKU belongs to a job."""
+        name = frappe.db.get_value("Project", {"project_name": "ZZ Subcontract Job"})
+        if name:
+            return name
+        return frappe.get_doc({
+            "doctype": "Project", "project_name": "ZZ Subcontract Job",
+        }).insert(ignore_permissions=True).name
+
     def _sku(self, lines):
         worksite.ensure_articles()
         worksite.ensure_subcontract_service_items()
         doc = frappe.get_doc({
             "doctype": "Estimate SKU",
             "article_name": "ZZ Subcontract Probe",
+            "project": self._project(),
             "work_type": E.SUBCONTRACT,
             "auto_name": 0,
             "sku_code": "ZZ_SUB_PROBE",

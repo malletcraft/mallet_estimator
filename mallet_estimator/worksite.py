@@ -126,17 +126,21 @@ def ensure_subcontract_service_items():
             _ensure_uom(basis)
             if frappe.db.exists("Item", item_code):
                 continue
-            frappe.get_doc({
-                "doctype": "Item",
-                "item_code": item_code,
-                "item_name": name,
-                "description": "%s — subcontracted, quoted per %s" % (name, basis),
-                "item_group": _service_item_group(),
-                "stock_uom": basis,
-                "is_stock_item": 0,
-                "is_purchase_item": 1,
-                "is_sales_item": 0,
-            }).insert(ignore_permissions=True)
+            item = frappe.new_doc("Item")
+            item.item_code = item_code
+            item.item_name = name[:140]
+            item.description = "%s — subcontracted, quoted per %s" % (name, basis)
+            item.item_group = _service_item_group()
+            item.stock_uom = basis if frappe.db.exists("UOM", basis) else "Nos"
+            item.is_stock_item = 0
+            item.is_purchase_item = 1
+            item.is_sales_item = 0
+            # The conversion row for the item's own unit. The material seeder
+            # has always added it; leaving it out here relied on ERPNext
+            # filling it in, which is a dependency on behaviour rather than a
+            # statement of intent.
+            item.append("uoms", {"uom": item.stock_uom, "conversion_factor": 1})
+            item.insert(ignore_permissions=True)
             made += 1
         except Exception as exc:
             # Per row, for the same reason ensure_articles is: one throwing
@@ -161,13 +165,22 @@ def _ensure_uom(name):
 def _service_item_group():
     """Services sit in their own group or, failing that, wherever items go.
 
-    A missing group must not stop the seed: an Item in the wrong group is a
-    tidiness problem, an Item that does not exist is a rate with nowhere to
-    live and a quote that cannot be made."""
-    for g in ("Services", "Subcontract Services", "All Item Groups"):
-        if frappe.db.exists("Item Group", g):
+    EVERY CANDIDATE MUST BE A LEAF. "All Item Groups" is the tree's root and
+    naming it put all fifteen Items into the same failure — the first version
+    of this function listed it as a fallback, every insert threw, the per-row
+    handler logged them where nobody was looking, and verify_setup reported a
+    flat "0 of 15" with no hint why. inventory._fallback_group has filtered
+    is_group: 0 since the material seeder was written; the mistake was writing
+    a second, weaker copy of it instead of asking it.
+
+    A missing group must still not stop the seed: an Item in a plain group is
+    a tidiness problem, an Item that does not exist is a vendor rate with
+    nowhere to live and a quote that silently reads zero."""
+    from mallet_estimator import inventory
+    for g in ("Services", "Subcontract Services"):
+        if frappe.db.get_value("Item Group", {"name": g, "is_group": 0}, "name"):
             return g
-    return frappe.db.get_value("Item Group", {"is_group": 0}, "name") or "All Item Groups"
+    return inventory._fallback_group()
 
 
 def ensure_work_stages():
