@@ -143,7 +143,6 @@ function render_calculator(frm) {
           <td class="text-right">${money(w.elec_hr || 0)}</td>
           <td class="text-right">${money(w.consumable_hr || 0)}</td>
           <td class="text-right"><b>${money(w.net_hr != null ? w.net_hr : w.total_hr)}</b></td>
-          ${live_cell(d, w)}
         </tr>`).join("");
       wrap.html(`
         <div style="font-size:12.5px">
@@ -166,8 +165,7 @@ function render_calculator(frm) {
               <th class="text-right">Wages ₹/hr</th>
               <th class="text-right">Electricity ₹/hr</th>
               <th class="text-right">Consumables ₹/hr</th>
-              <th class="text-right">Net ₹/hr<br><span class="text-muted" style="font-size:10px;font-weight:400">from these settings</span></th>
-              <th class="text-right">Live in ERP<br><span class="text-muted" style="font-size:10px;font-weight:400">what estimates charge</span></th>
+              <th class="text-right">Net ₹/hr</th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -178,37 +176,91 @@ function render_calculator(frm) {
             Transport trips: tempo ${money((d.transport_rates || {}).tempo)} · ext-laminate ${money((d.transport_rates || {}).ext_lam)}
             · client-hw ${money((d.transport_rates || {}).client_hw)} · outward ${money((d.transport_rates || {}).outward)}.
           </p>
+          ${live_workstation_table(d)}
           ${steps_table(d)}
           ${sku_rule_block(d)}
         </div>`);
     });
 }
 
-// --- what ERP actually holds, beside what these settings imply -------------
+// --- links into the MRP module ---------------------------------------------
 //
-// Amit, 2026-08-24: "Workstation Cost Calculator table on this page should
-// show live figures from the actual erp workstation operation side."
+// Amit, 2026-08-25: "every workstation and operation should be a link which i
+// when click takes me to its actual erp in mrp module." A page that shows you a
+// number and then makes you go and find the record it came from is a page you
+// read once.
+function erp_link(doctype, name, label) {
+  if (!name) return "—";
+  const route = `/app/${doctype}/${encodeURIComponent(name)}`;
+  return `<a href="${route}">${frappe.utils.escape_html(label || name)}</a>`;
+}
+
+// --- what ERP actually holds, component by component -----------------------
 //
-// The columns to the left are the reference answer — what a rate OUGHT to be,
-// worked out from rent, salaries and the calendar. This one is what an
-// estimate is actually made of. They are allowed to differ; what is not
-// allowed is for the difference to be invisible, which is what a page showing
-// only the computed side would guarantee.
-function live_cell(d, w) {
-  const live = ((d.live || {}).workstations || []).find((s) => s.name === w.name);
-  if (!live) {
-    return `<td class="text-right text-muted">not in ERP</td>`;
+// Amit, 2026-08-25: "the page is supposed to display all cost components from
+// live erp ... so that i don't need to go to every workstation / operation one
+// by one. Idea is to see one page where i can see what every workstation cost
+// me (along with its child cost component) and every operation takes how many
+// minutes at a glance."
+//
+// The table above is arithmetic from the settings — what a rate OUGHT to be.
+// This one is the Workstation records themselves, one column per operating
+// component, so the whole factory's costing is legible without opening eight
+// forms. Where the two disagree, THIS is the one the estimates use.
+function live_workstation_table(d) {
+  const live = d.live || {};
+  const rows = live.workstations || [];
+  if (!rows.length) {
+    return `<h5 style="margin-top:18px">Live in ERP</h5>
+      <p class="text-muted">${frappe.utils.escape_html(live.error || "No workstations found in ERP.")}</p>`;
   }
-  const want = w.net_hr != null ? w.net_hr : w.total_hr;
-  const got = live.hour_rate || 0;
-  // A whole rupee an hour is the smallest gap worth a colour: below that it is
-  // rounding, above it somebody has changed something on purpose.
-  const off = Math.abs(got - (want || 0)) >= 1;
-  const style = got === 0 ? "color:#a94442" : (off ? "color:#8a6d3b" : "");
-  const note = got === 0 ? "no costs keyed"
-             : (off ? "differs — the Workstation wins" : "matches");
-  return `<td class="text-right" style="${style}"><b>${money(got)}</b><br>
-    <span style="font-size:10px">${note}</span></td>`;
+  const comps = live.components || [];
+  const computed = {};
+  (d.rows || []).forEach((w) => { computed[w.name] = (w.net_hr != null ? w.net_hr : w.total_hr) || 0; });
+
+  const head = comps.map((c) => `<th class="text-right">${frappe.utils.escape_html(c)}<br>₹/hr</th>`).join("");
+  const body = rows.map((w) => {
+    const have = {};
+    (w.components || []).forEach(([name, v]) => { have[name] = v; });
+    // A component the workstation simply does not carry is left blank rather
+    // than shown as zero. Zero is a value somebody chose; blank is a row that
+    // was never created, and on a setup-checking page that difference is the
+    // whole point.
+    const cells = comps.map((c) => {
+      const v = have[c];
+      return `<td class="text-right">${v === undefined ? '<span class="text-muted">—</span>' : money(v)}</td>`;
+    }).join("");
+    const want = computed[w.name];
+    const got = w.hour_rate || 0;
+    const off = want != null && Math.abs(got - want) >= 1;
+    let note = "";
+    if (got === 0) {
+      note = `<br><span class="text-muted" style="font-size:10px;color:#a94442">no costs keyed</span>`;
+    } else if (!(w.components || []).length) {
+      note = `<br><span class="text-muted" style="font-size:10px">computed — no cost rows on the master</span>`;
+    } else if (off) {
+      note = `<br><span class="text-muted" style="font-size:10px;color:#8a6d3b">differs from the settings figure</span>`;
+    }
+    return `<tr>
+      <td>${erp_link("workstation", w.name)}</td>
+      ${cells}
+      <td class="text-right"><b>${money(got)}</b>${note}</td>
+    </tr>`;
+  }).join("");
+
+  return `
+    <h5 style="margin-top:22px">Live in ERP — what every workstation actually costs</h5>
+    <p class="text-muted" style="margin-bottom:6px">
+      Read straight off each ERPNext <b>Workstation</b>'s Operating Components Cost, which is what
+      every estimate is priced from. A dash means that component has no row on the master at all —
+      different from a row set to zero. Click a workstation to open it.
+    </p>
+    <div style="overflow-x:auto">
+      <table class="table table-bordered" style="margin:0">
+        <thead><tr><th>Workstation</th>${head}<th class="text-right">Net ₹/hr</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
 }
 
 // --- the seventeen steps, published so the maths is readable ---------------
@@ -227,8 +279,8 @@ function steps_table(d) {
   let body = "";
   ops.forEach((o) => {
     body += `<tr>
-      <td>${o.seq}. ${frappe.utils.escape_html(o.name)}</td>
-      <td>${frappe.utils.escape_html(o.workstation || "—")}</td>
+      <td>${o.seq}. ${erp_link("operation", o.name)}</td>
+      <td>${erp_link("workstation", o.workstation)}</td>
       <td>${frappe.utils.escape_html(zone_label[o.zone] || o.zone || "")}</td>
       <td class="text-right">${o.min_per_unit}</td>
       <td>${frappe.utils.escape_html(o.qty_source || "")}</td>
@@ -240,8 +292,8 @@ function steps_table(d) {
     if (o.name === live.parent) {
       hw.forEach((h) => {
         body += `<tr style="background:#fbfbfc">
-          <td style="padding-left:26px;color:#555">${frappe.utils.escape_html(h.name)}</td>
-          <td class="text-muted">${frappe.utils.escape_html(h.workstation || "")}</td>
+          <td style="padding-left:26px">${erp_link("operation", h.name)}</td>
+          <td>${erp_link("workstation", h.workstation)}</td>
           <td></td>
           <td class="text-right">${h.min_per_unit}</td>
           <td class="text-muted">per fitting counted in the model</td>
@@ -259,6 +311,7 @@ function steps_table(d) {
       multiply those minutes by; where it says <i>manual</i>, a person decides.
       Existing Estimate SKUs keep the numbers they were built with until
       &ldquo;Reset times from Operations&rdquo; is pressed on them — a re-price is a decision, not a side effect.
+      Every operation and workstation below opens its own record.
     </p>
     <table class="table table-bordered" style="margin:0">
       <thead><tr>

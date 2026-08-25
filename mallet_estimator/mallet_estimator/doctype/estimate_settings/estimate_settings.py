@@ -85,8 +85,24 @@ def _live_reference():
             "workstation": estimator.OPERATION_WORKSTATION.get(op_name, ""),
         })
 
+    # The canonical component order, sent so the page can build one column per
+    # component with every workstation lined up under it. Derived from the same
+    # list the Workstation seeder uses, plus anything a live workstation carries
+    # that the list does not name — an unrecognised component is the one most
+    # worth seeing, not the one to hide.
+    order, seen = [], set()
+    for c in estimator.WS_COMPONENTS:
+        order.append(c)
+        seen.add(c)
+    for w in card.get("workstations") or []:
+        for name, _v in (w.get("components") or []):
+            if name not in seen:
+                order.append(name)
+                seen.add(name)
+
     return {
         "workstations": card.get("workstations") or [],
+        "components": order,
         "operations": card.get("operations") or [],
         "hardware": hardware,
         "parent": estimator.HARDWARE_PARENT,

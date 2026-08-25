@@ -549,6 +549,25 @@ class TestMasters(MalletTestCase):
         for w in estimator.WORKSTATIONS:
             self.assertIn(w["name"], names, w["name"])
 
+        # AND THEIR COMPONENTS. Amit, 2026-08-25: "the page is supposed to
+        # display all cost components from live erp ... so that i don't need to
+        # go to every workstation / operation one by one." live_workstation_rates
+        # folds the child table into five totals for the costing maths and used
+        # to throw the rows away, so the page had a net figure and nothing to
+        # explain it with.
+        self.assertTrue(live.get("components"), "no component column order sent")
+        for c in estimator.WS_COMPONENTS:
+            self.assertIn(c, live["components"], c)
+        costed = [w for w in live["workstations"] if (w.get("components") or [])]
+        self.assertTrue(costed,
+                        "not one workstation carried its component rows — the "
+                        "page can show a rate but cannot show what it is made of")
+        for w in costed:
+            total = sum(v for _c, v in w["components"])
+            self.assertAlmostEqual(
+                total, w["hour_rate"], 2,
+                "%s: components must add up to the rate charged" % w["name"])
+
         # All seventeen, each carrying what it costs and where it runs.
         ops = live.get("operations") or []
         self.assertGreaterEqual(len(ops), 17, "the 17 steps are not published")

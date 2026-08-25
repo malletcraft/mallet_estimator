@@ -286,14 +286,40 @@ def live_workstation_rates(settings):
         # fold any extra/unrecognised components into consumables for the split
         consumable_hr += (total_rows - named)
         net_hr = total_rows
+        # THE ROWS THEMSELVES, not just the buckets they fold into. Amit,
+        # 2026-08-25: "the page is supposed to display all cost components from
+        # live erp ... so that i don't need to go to every workstation /
+        # operation one by one."
+        #
+        # Everything above collapses the child table into five named totals,
+        # which is what the costing maths wants and is exactly the wrong shape
+        # for a person checking whether a workstation is set up correctly. The
+        # raw rows are carried through in the canonical order, with anything
+        # unrecognised appended rather than dropped — a component nobody named
+        # is precisely the one worth seeing.
+        seen = set()
+        components = []
+        for c in WS_COMPONENTS:
+            if c in comp:
+                components.append([c, comp[c]])
+                seen.add(c)
+        for c, v in sorted(comp.items()):
+            if c not in seen:
+                components.append([c, v])
         rates[name] = {
             "rent_hr": rent_hr, "wages_hr": wages_hr, "machine_hr": machine_hr,
             "elec_hr": elec_hr, "consumable_hr": consumable_hr, "net_hr": net_hr,
             "labour_hr": wages_hr, "dep_hr": machine_hr, "total_hr": net_hr,
+            "components": components,
+            # Which of the two answers this is. A workstation with no cost rows
+            # falls back to the computed figure above, and a reader has to be
+            # able to tell those apart — one is what ERP charges, the other is
+            # what it would charge if somebody keyed it.
+            "rate_source": "erp:Workstation",
         }
     # include any computed workstation that ERPNext doesn't have yet
     for name, r in computed.items():
-        rates.setdefault(name, r)
+        rates.setdefault(name, dict(r, rate_source="computed:no cost rows"))
     return rates
 
 
