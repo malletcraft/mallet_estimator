@@ -523,3 +523,47 @@ class TestMasters(MalletTestCase):
             "Custom DocPerm",
             {"role": integration.READONLY_ROLE, "parent": "Estimate Settings"}),
             "migrate must bring a live site's role back in line with the code")
+
+    def test_the_settings_page_publishes_the_live_masters_and_the_rule(self):
+        """Amit, 2026-08-24: the Workstation Cost Calculator "should show live
+        figures from the actual erp workstation operation side", the 17
+        operations should be published "so its easy for user to understand how
+        this labor estimation works", and the SKU rule should be on the page.
+
+        Asserted on the payload the page renders from, because a table that
+        silently comes back empty looks exactly like a table with nothing to
+        say — and the settings page is where somebody goes to find out why a
+        number is what it is.
+        """
+        from mallet_estimator.mallet_estimator.doctype.estimate_settings import (
+            estimate_settings as es)
+        from mallet_estimator import estimator
+
+        out = es.cost_calculator()
+        live = out.get("live") or {}
+        self.assertNotIn("error", live, live.get("error"))
+
+        # Live workstation rates, read the same way the plugin reads them.
+        self.assertTrue(live.get("workstations"), "no live workstations")
+        names = {w["name"] for w in live["workstations"]}
+        for w in estimator.WORKSTATIONS:
+            self.assertIn(w["name"], names, w["name"])
+
+        # All seventeen, each carrying what it costs and where it runs.
+        ops = live.get("operations") or []
+        self.assertGreaterEqual(len(ops), 17, "the 17 steps are not published")
+        for o in ops:
+            for key in ("seq", "name", "workstation", "min_per_unit", "qty_source"):
+                self.assertIn(key, o, o.get("name"))
+
+        # The hardware children, under their parent.
+        hw = {h["kind"] for h in live.get("hardware") or []}
+        self.assertEqual(hw, {k for k, _ in estimator.HARDWARE_INSTALL_TYPES})
+        self.assertEqual(live.get("parent"), estimator.HARDWARE_PARENT)
+
+        # And the rule itself, in words rather than only in code.
+        rule = live.get("sku_rule") or {}
+        self.assertTrue(rule.get("title"))
+        self.assertGreaterEqual(len(rule.get("lines") or []), 4)
+        self.assertTrue(any("MCFT_ASMBL_L" in l for l in rule["lines"]),
+                        "the rule must name the convention it is a rule about")

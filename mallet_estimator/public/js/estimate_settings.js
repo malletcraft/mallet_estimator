@@ -143,6 +143,7 @@ function render_calculator(frm) {
           <td class="text-right">${money(w.elec_hr || 0)}</td>
           <td class="text-right">${money(w.consumable_hr || 0)}</td>
           <td class="text-right"><b>${money(w.net_hr != null ? w.net_hr : w.total_hr)}</b></td>
+          ${live_cell(d, w)}
         </tr>`).join("");
       wrap.html(`
         <div style="font-size:12.5px">
@@ -165,7 +166,8 @@ function render_calculator(frm) {
               <th class="text-right">Wages ₹/hr</th>
               <th class="text-right">Electricity ₹/hr</th>
               <th class="text-right">Consumables ₹/hr</th>
-              <th class="text-right">Net ₹/hr</th>
+              <th class="text-right">Net ₹/hr<br><span class="text-muted" style="font-size:10px;font-weight:400">from these settings</span></th>
+              <th class="text-right">Live in ERP<br><span class="text-muted" style="font-size:10px;font-weight:400">what estimates charge</span></th>
             </tr></thead>
             <tbody>${rows}</tbody>
           </table>
@@ -176,6 +178,105 @@ function render_calculator(frm) {
             Transport trips: tempo ${money((d.transport_rates || {}).tempo)} · ext-laminate ${money((d.transport_rates || {}).ext_lam)}
             · client-hw ${money((d.transport_rates || {}).client_hw)} · outward ${money((d.transport_rates || {}).outward)}.
           </p>
+          ${steps_table(d)}
+          ${sku_rule_block(d)}
         </div>`);
     });
+}
+
+// --- what ERP actually holds, beside what these settings imply -------------
+//
+// Amit, 2026-08-24: "Workstation Cost Calculator table on this page should
+// show live figures from the actual erp workstation operation side."
+//
+// The columns to the left are the reference answer — what a rate OUGHT to be,
+// worked out from rent, salaries and the calendar. This one is what an
+// estimate is actually made of. They are allowed to differ; what is not
+// allowed is for the difference to be invisible, which is what a page showing
+// only the computed side would guarantee.
+function live_cell(d, w) {
+  const live = ((d.live || {}).workstations || []).find((s) => s.name === w.name);
+  if (!live) {
+    return `<td class="text-right text-muted">not in ERP</td>`;
+  }
+  const want = w.net_hr != null ? w.net_hr : w.total_hr;
+  const got = live.hour_rate || 0;
+  // A whole rupee an hour is the smallest gap worth a colour: below that it is
+  // rounding, above it somebody has changed something on purpose.
+  const off = Math.abs(got - (want || 0)) >= 1;
+  const style = got === 0 ? "color:#a94442" : (off ? "color:#8a6d3b" : "");
+  const note = got === 0 ? "no costs keyed"
+             : (off ? "differs — the Workstation wins" : "matches");
+  return `<td class="text-right" style="${style}"><b>${money(got)}</b><br>
+    <span style="font-size:10px">${note}</span></td>`;
+}
+
+// --- the seventeen steps, published so the maths is readable ---------------
+//
+// "Publish the 17 operations as well on that page so its easy for user to
+// understand how this labor estimation works." An estimate is a number a
+// client is asked to trust; the least it can do is show its working.
+function steps_table(d) {
+  const live = d.live || {};
+  const ops = live.operations || [];
+  if (!ops.length) {
+    return `<p class="text-muted">${frappe.utils.escape_html(live.error || "No operations found in ERP.")}</p>`;
+  }
+  const zone_label = { factory: "Factory", logistics: "Logistics", "on-site": "On-site" };
+  const hw = live.hardware || [];
+  let body = "";
+  ops.forEach((o) => {
+    body += `<tr>
+      <td>${o.seq}. ${frappe.utils.escape_html(o.name)}</td>
+      <td>${frappe.utils.escape_html(o.workstation || "—")}</td>
+      <td>${frappe.utils.escape_html(zone_label[o.zone] || o.zone || "")}</td>
+      <td class="text-right">${o.min_per_unit}</td>
+      <td>${frappe.utils.escape_html(o.qty_source || "")}</td>
+      <td class="text-right">${money(o.hour_rate)}</td>
+    </tr>`;
+    // The hardware children sit under their parent, indented, because that is
+    // where they are on the estimate screen and a person should not have to
+    // hold two layouts in their head for one line.
+    if (o.name === live.parent) {
+      hw.forEach((h) => {
+        body += `<tr style="background:#fbfbfc">
+          <td style="padding-left:26px;color:#555">${frappe.utils.escape_html(h.name)}</td>
+          <td class="text-muted">${frappe.utils.escape_html(h.workstation || "")}</td>
+          <td></td>
+          <td class="text-right">${h.min_per_unit}</td>
+          <td class="text-muted">per fitting counted in the model</td>
+          <td></td>
+        </tr>`;
+      });
+    }
+  });
+  return `
+    <h5 style="margin-top:18px">The labour steps, in the order the shop works</h5>
+    <p class="text-muted" style="margin-bottom:6px">
+      Every estimate is these steps and nothing else. <b>Std min/unit</b> comes off each
+      ERPNext <b>Operation</b> master and <b>₹/hr</b> off its <b>Workstation</b> — change either
+      there and every new estimate follows. <b>Qty from</b> is what the model counts to
+      multiply those minutes by; where it says <i>manual</i>, a person decides.
+      Existing Estimate SKUs keep the numbers they were built with until
+      &ldquo;Reset times from Operations&rdquo; is pressed on them — a re-price is a decision, not a side effect.
+    </p>
+    <table class="table table-bordered" style="margin:0">
+      <thead><tr>
+        <th>Step</th><th>Workstation</th><th>Zone</th>
+        <th class="text-right">Std min/unit</th><th>Qty from</th><th class="text-right">₹/hr</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
+// --- the SKU rule ----------------------------------------------------------
+function sku_rule_block(d) {
+  const rule = (d.live || {}).sku_rule;
+  if (!rule) return "";
+  const lines = (rule.lines || [])
+    .map((l) => `<li style="margin-bottom:4px">${frappe.utils.escape_html(l)}</li>`)
+    .join("");
+  return `
+    <h5 style="margin-top:18px">${frappe.utils.escape_html(rule.title)}</h5>
+    <ul style="font-size:12.5px;padding-left:18px;margin-bottom:0">${lines}</ul>`;
 }

@@ -39,4 +39,82 @@ def cost_calculator():
         "crew_rate": roles.get("carpenter", 0) + roles.get("helper", 0),
         "transport_rates": transport_rates(s),
         "rent_recovered_month": round(total_month),
+        # WHAT ERP ACTUALLY CHARGES, beside what these settings imply.
+        #
+        # Amit, 2026-08-24: "Workstation Cost Calculator table on this page
+        # should show live figures from the actual erp workstation operation
+        # side." Everything above is computed FROM THE SETTINGS — the reference
+        # answer, what a rate OUGHT to be. The money an estimate is actually
+        # made of comes off the Workstation records, and the two can differ: a
+        # rate hand-tuned on the master, a component somebody added, a station
+        # whose costs were never keyed at all.
+        #
+        # Showing only one of them is how a page like this becomes reassuring
+        # and wrong. Both are here, so a divergence is something you can SEE.
+        "live": _live_reference(),
     }
+
+
+def _live_reference():
+    """The operations and workstation rates as ERP holds them, right now.
+
+    Read through api.cost_card rather than re-queried here, deliberately: that
+    is the same call the SketchUp plugin prices against, so this page cannot
+    drift from the estimate it exists to explain. A second implementation would
+    be a second set of numbers somebody has to keep equal, and this app has
+    spent a whole day on exactly that class of failure.
+    """
+    from mallet_estimator import api, estimator
+
+    try:
+        card = api.cost_card()
+    except Exception:
+        # A settings page that refuses to open because one rate is missing
+        # helps nobody. The tables say they could not be read instead.
+        frappe.log_error(frappe.get_traceback(), "estimate settings live reference")
+        return {"workstations": [], "operations": [], "hardware": [],
+                "error": "Could not read the live ERP masters."}
+
+    hardware = []
+    for kind, label in estimator.HARDWARE_INSTALL_TYPES:
+        op_name = estimator.hardware_operation(kind)
+        mins, src = api._op_minutes(op_name, estimator.HARDWARE_STANDARDS.get(kind, 0))
+        hardware.append({
+            "kind": kind, "name": op_name, "label": label,
+            "min_per_unit": mins, "min_source": src,
+            "workstation": estimator.OPERATION_WORKSTATION.get(op_name, ""),
+        })
+
+    return {
+        "workstations": card.get("workstations") or [],
+        "operations": card.get("operations") or [],
+        "hardware": hardware,
+        "parent": estimator.HARDWARE_PARENT,
+        "sku_rule": SKU_RULE,
+    }
+
+
+# THE SKU RULE, published where the person estimating can read it.
+#
+# Amit, 2026-08-24: "code yourself as rule and publish this rule on [Estimate
+# Settings]." A convention that lives only in a commit message is a convention
+# the next person breaks.
+SKU_RULE = {
+    "title": "Every SKU is one assembly, sized L / M / S",
+    "lines": [
+        "A SKU is a TOP-LEVEL component in the SketchUp model. One component, "
+        "one SKU, one set of operations, one material list.",
+        "Its name declares its size: MCFT_ASMBL_L_…, MCFT_ASMBL_M_… or "
+        "MCFT_ASMBL_S_…. The tail after the size is ROOM_ARTICLE, so "
+        "MCFT_ASMBL_L_MB_WAR becomes SKU YS_MB_WAR for customer YS.",
+        "A name with no size token counts as LARGE — every model drawn before "
+        "this convention says plain ASMBL_WAR, and those are carcasses.",
+        "The size decides the WORK, not just the label: only large assemblies "
+        "are disassembled, travel apart and are re-assembled on site. A drawer "
+        "box goes in one piece and is never taken apart.",
+        "Estimating covers the whole project; EXECUTION covers whichever SKUs "
+        "the job needs next. One SKU per assembly is what makes it possible to "
+        "pull them in working order — pasting, cutlist, label printing — "
+        "instead of all or nothing.",
+    ],
+}
