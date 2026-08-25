@@ -248,8 +248,6 @@ def after_install():
     _safe(ensure_rooms)
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
-    # Derived from the article list, so it follows it everywhere.
-    _safe(worksite.ensure_subcontract_service_items)
     # A PERSON's role, not an integration's — the same policy after_migrate
     # already applies through sync_readonly_role, which is why it is minted
     # unconditionally rather than only re-pinned where it exists. Doing it on
@@ -257,6 +255,12 @@ def after_install():
     # deployment) from having the tree doctypes with nobody able to read them.
     _safe(integration.ensure_photographer_role)
     _safe(ensure_inventory_masters)
+    # AFTER the inventory masters, not with the other article-derived seeds.
+    # A service Item needs an Item Group, and the groups are created by
+    # ensure_inventory_masters — running this beside ensure_articles put it
+    # before them, so all fifteen inserts died on "Could not find Item Group"
+    # and the master came out empty on every fresh site.
+    _safe(worksite.ensure_subcontract_service_items)
     _safe(ensure_warehouses)
     _safe(ensure_pricing_masters)
     _safe(ensure_project_customization)
@@ -277,7 +281,9 @@ def after_migrate():
     # Both are light: two flat masters with no Item/Project schema behind them.
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
-    # Derived from the article list, so it follows it everywhere.
+    # Same dependency as after_install: Item Groups first. They already exist
+    # on a migrating site, and stating the order here keeps the two paths
+    # readable as one rule rather than two coincidences.
     _safe(worksite.ensure_subcontract_service_items)
     _safe(ensure_pricing_masters)          # F5 — light: one Price List, no Item schema
     _safe(ensure_project_customization)    # F4 — light: Table + Section, no Project column
@@ -562,11 +568,11 @@ def setup():
     _safe(ensure_rooms)
     _safe(worksite.ensure_articles)
     _safe(worksite.ensure_work_stages)
-    # Derived from the article list, so it follows it everywhere.
-    _safe(worksite.ensure_subcontract_service_items)
     inv, wh = {}, {}
     try:
         inv = ensure_inventory_masters()
+        # Item Groups exist only once the line above has run.
+        _safe(worksite.ensure_subcontract_service_items)
     except Exception as exc:
         frappe.log_error(frappe.get_traceback(), "mallet_estimator ensure_inventory_masters")
         inv = {"errors": [f"inventory: {exc}"]}

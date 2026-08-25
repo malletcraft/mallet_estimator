@@ -118,6 +118,15 @@ def ensure_subcontract_service_items():
     act keyed on the site, and this function only makes the place to key them.
     """
     made, errors = 0, []
+    group = _service_item_group()
+    if not group:
+        # Nothing to hang an Item on. Said once, plainly, instead of fifteen
+        # identical link errors: the item groups simply have not been created
+        # yet on this site, and the caller ran this too early.
+        msg = ("no leaf Item Group exists yet — run ensure_inventory_masters "
+               "first; service Items cannot be created without one")
+        frappe.log_error(msg, "mallet_estimator ensure_subcontract_service_items")
+        return {"made": 0, "errors": [msg]}
     for code, name, jobs, kind, basis in ARTICLES:
         if kind != SUBCONTRACT:
             continue
@@ -130,7 +139,7 @@ def ensure_subcontract_service_items():
             item.item_code = item_code
             item.item_name = name[:140]
             item.description = "%s — subcontracted, quoted per %s" % (name, basis)
-            item.item_group = _service_item_group()
+            item.item_group = group
             item.stock_uom = basis if frappe.db.exists("UOM", basis) else "Nos"
             item.is_stock_item = 0
             item.is_purchase_item = 1
@@ -180,7 +189,13 @@ def _service_item_group():
     for g in ("Services", "Subcontract Services"):
         if frappe.db.get_value("Item Group", {"name": g, "is_group": 0}, "name"):
             return g
-    return inventory._fallback_group()
+    g = inventory._fallback_group()
+    # _fallback_group ends in `or "All Item Groups"`, a name it does not check
+    # exists — and on a site whose tree is named otherwise it does not. That
+    # string reached fifteen inserts as a link and killed every one. A name
+    # nobody verified is not a fallback, so this returns nothing instead and
+    # the caller says so once.
+    return g if g and frappe.db.exists("Item Group", g) else None
 
 
 def ensure_work_stages():

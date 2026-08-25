@@ -116,13 +116,16 @@ class TestVendorRate(MalletTestCase):
 class TestSubcontractSku(MalletTestCase):
 
     def _project(self):
-        """Estimate SKU requires a project — every SKU belongs to a job."""
-        name = frappe.db.get_value("Project", {"project_name": "ZZ Subcontract Job"})
-        if name:
-            return name
-        return frappe.get_doc({
-            "doctype": "Project", "project_name": "ZZ Subcontract Job",
-        }).insert(ignore_permissions=True).name
+        """Estimate SKU requires a project — every SKU belongs to a job.
+
+        Built through sitephoto.ensure_site rather than by hand. A bare
+        Project insert does not validate on a test site, and reproducing
+        whatever it wants here would be a second, wronger copy of a helper
+        this app already has and already tests.
+        """
+        from mallet_estimator import sitephoto
+        return sitephoto.ensure_site("ZZ Subcontract Client",
+                                     "ZZ Subcontract Job")["project"]
 
     def _sku(self, lines):
         worksite.ensure_articles()
