@@ -758,3 +758,65 @@ class HardwareSplit(unittest.TestCase):
         unaccounted = buckets - kinds - {"minifix", "screws"}
         self.assertEqual(unaccounted, set(),
                          "bucket(s) counted in the parent but shown in no child")
+
+
+class ParentAndChildRows(unittest.TestCase):
+    """A split step is charged ONCE — by its children, never also by itself.
+
+    Assembly splits into three sizes and Install Hardware into fitting types.
+    Both parents keep a quantity and a standard time of their own, so a costing
+    loop that priced every row would bill the same work twice and the total
+    would simply come out high, with every line looking reasonable.
+    """
+
+    RATE = {"rent_hr": 0, "wages_hr": 600, "machine_hr": 0, "elec_hr": 0,
+            "consumable_hr": 0, "net_hr": 600, "labour_hr": 600, "dep_hr": 0,
+            "total_hr": 600}
+
+    def _row(self, op, qty, mins, parent="", split=""):
+        return types.SimpleNamespace(
+            operation=op, phase=op, workstation="Assembly Station",
+            qty=qty, carp_min=mins, is_misc=0, carp_total=0, helper_total=0,
+            op_cost=0, parent_step=parent, split_key=split)
+
+    def _calc(self, rows):
+        sku = types.SimpleNamespace(labor=rows, materials=[], design_hours=0,
+                                    design_flat=0, include_misc=0)
+        return E.calc_sku(sku, _settings(),
+                          ws_rates={"Assembly Station": self.RATE})
+
+    def test_a_parent_with_children_adds_nothing_of_its_own(self):
+        parent = self._row("Assembly", 3, 60)                       # would be 180 min
+        kids = [self._row("Assembly", 1, 60, "Assembly", "large"),
+                self._row("Assembly", 1, 30, "Assembly", "medium"),
+                self._row("Assembly", 1, 15, "Assembly", "small")]  # 105 min
+        out = self._calc([parent] + kids)
+        # 105 minutes of work, not 285.
+        self.assertAlmostEqual(out["carp_min_total"], 105, 2)
+
+    def test_the_parent_reads_as_the_sum_of_its_children(self):
+        # A parent showing its own numbers while its children show theirs is a
+        # row that contradicts the rows underneath it, on a screen a client may
+        # be looking at.
+        parent = self._row("Assembly", 3, 60)
+        kids = [self._row("Assembly", 1, 60, "Assembly", "large"),
+                self._row("Assembly", 2, 30, "Assembly", "medium")]
+        self._calc([parent] + kids)
+        self.assertAlmostEqual(parent.carp_total, 120, 2)      # 60 + 2x30
+        self.assertAlmostEqual(parent.op_cost,
+                               sum(k.op_cost for k in kids), 2)
+
+    def test_a_step_with_no_children_is_unaffected(self):
+        # The overwhelmingly common case still has to price the ordinary way.
+        row = self._row("Sheet Cutting", 9, 20)
+        out = self._calc([row])
+        self.assertAlmostEqual(out["carp_min_total"], 180, 2)
+        self.assertAlmostEqual(row.carp_total, 180, 2)
+
+    def test_hardware_children_are_charged_and_their_parent_is_not(self):
+        parent = self._row("Install Hardware", 63, 30)          # would be 1890
+        kids = [self._row("Install Hinges", 24, 4, "Install Hardware", "hinges"),
+                self._row("Install Drawer Rails", 12, 6, "Install Hardware", "rails")]
+        out = self._calc([parent] + kids)
+        self.assertAlmostEqual(out["carp_min_total"], 24 * 4 + 12 * 6, 2)
+        self.assertAlmostEqual(parent.carp_total, 168, 2)

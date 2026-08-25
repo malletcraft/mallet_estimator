@@ -597,7 +597,19 @@ def calc_sku(sku, settings, ws_rates=None):
         """Price a table of step rows at their workstation rates. Returns totals
         split by component bucket; writes each row's op_cost back."""
         t = {"min": 0.0, "wages": 0.0, "dep": 0.0, "rent": 0.0, "other": 0.0}
+        # A PARENT WITH CHILDREN IS NOT CHARGED ITSELF. Assembly splits into
+        # three sizes and Install Hardware into its fitting types; the child
+        # rows carry the work, and pricing the parent's own qty x minutes as
+        # well would bill every one of them twice. The parent's displayed
+        # totals become its children's sum below, so the row still reads
+        # honestly against the numbers underneath it — the same rule the
+        # estimate screen already follows.
+        child_min, child_cost = {}, {}
+        parents = {getattr(r, "parent_step", "") for r in (rows or [])
+                   if getattr(r, "parent_step", "")}
         for s in rows or []:
+            if getattr(s, "operation", None) in parents and not getattr(s, "parent_step", ""):
+                continue
             if skip_misc and getattr(s, "is_misc", 0) and not sku.include_misc:
                 s.carp_total = 0
                 s.helper_total = 0
@@ -622,6 +634,20 @@ def calc_sku(sku, settings, ws_rates=None):
             t["rent"] += hrs * rent_hr
             t["other"] += hrs * (elec_hr + consumable_hr)
             s.op_cost = hrs * net_hr
+            owner = getattr(s, "parent_step", "")
+            if owner:
+                child_min[owner] = child_min.get(owner, 0.0) + crew_min
+                child_cost[owner] = child_cost.get(owner, 0.0) + s.op_cost
+
+        # The parents, second, now that their children are known.
+        for s in rows or []:
+            if getattr(s, "parent_step", ""):
+                continue
+            op = getattr(s, "operation", None)
+            if op in parents:
+                s.carp_total = child_min.get(op, 0.0)
+                s.helper_total = s.carp_total
+                s.op_cost = child_cost.get(op, 0.0)
         return t
 
     lab = cost_rows(sku.labor, default_ws, skip_misc=True)

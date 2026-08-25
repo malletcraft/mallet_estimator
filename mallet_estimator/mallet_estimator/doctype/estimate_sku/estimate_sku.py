@@ -895,6 +895,12 @@ class EstimateSKU(Document):
         opq = estimate_pdf.operation_quantities(materials, part_count)
         for row in self.labor:
             op = op_phase(row)
+            # A child must NOT take its parent's count. Assembly's three sizes
+            # all carry operation "Assembly", so without this each of them
+            # would be handed the whole assembly total and the line would come
+            # out at three times the work.
+            if getattr(row, "parent_step", ""):
+                continue
             if op in opq:
                 row.qty = opq[op]
             std = OPERATION_STANDARDS.get(op)
@@ -1286,8 +1292,12 @@ class EstimateSKU(Document):
         self.unpriced_materials = ", ".join(unpriced)
 
     # classify_hardware's buckets -> the driver keys used by the locked ops
-    _HW_BUCKETS = {"minifix": "minifix", "screws": "screw", "hinges": "hinge",
-                   "rails": "rail", "handles": "handle", "shelf_supports": "shelf"}
+    # No bucket RENAMING any more, and no bucket dropped. This used to map
+    # classify_hardware's names onto six shorter ones and discard anything not
+    # in the map — so locks and unrecognised fittings scored zero everywhere
+    # and Install Hardware's total was quietly short of the work being done.
+    # The classifier's own names are the keys now, which also means the SKU and
+    # the plugin bucket a fitting identically instead of nearly identically.
 
     def _hw_line_counts(self):
         """Hardware quantities summed from the CURRENT material lines (imported
@@ -1299,15 +1309,14 @@ class EstimateSKU(Document):
         is part of the haystack. Without it, designation-level hardware scored
         zero hinges/rails and Install Hardware, Minifix Boring and Drilling
         silently lost their quantities."""
-        tot = {"minifix": 0, "screw": 0, "hinge": 0, "rail": 0, "handle": 0, "shelf": 0}
+        tot = {}
         for m in self.materials or []:
             code = str(m.item or m.material or "")
             if not code.upper().startswith("HWD"):
                 continue
             haystack = f"{m.item or ''} {m.material or ''} {m.description or ''}"
-            key = self._HW_BUCKETS.get(opencutlist.classify_hardware(haystack))
-            if key:
-                tot[key] += m.qty or 0
+            bucket = opencutlist.classify_hardware(haystack)
+            tot[bucket] = tot.get(bucket, 0) + (m.qty or 0)
         return tot
 
     def enforce_locked_qty(self):
@@ -1322,15 +1331,34 @@ class EstimateSKU(Document):
             q = json.loads(self.import_drivers)
         except Exception:
             q = {}
+        from mallet_estimator import estimator
+
         hw = self._hw_line_counts()
+        # Every fitting that gets INSTALLED — not the old four. Amit,
+        # 2026-08-24: "keep locks and other". minifix and screws stay out
+        # because steps 5 and 6 already price them, and charging a fitting at
+        # two steps is the one arithmetic error nobody spots in a total.
+        install_total = sum(hw.get(k, 0)
+                            for k, _ in estimator.HARDWARE_INSTALL_TYPES)
         hw_qty = {
-            "Minifix Boring": hw["minifix"],
-            "Drilling": hw["screw"],
-            # Install Hardware covers ONLY hinges / drawer rails / handles / shelf supports.
-            "Install Hardware": hw["hinge"] + hw["rail"] + hw["handle"] + hw["shelf"],
+            "Minifix Boring": hw.get("minifix", 0),
+            "Drilling": hw.get("screws", 0),
+            estimator.HARDWARE_PARENT: install_total,
         }
         for row in self.labor:
             op = op_phase(row)
+            split = getattr(row, "split_key", None)
+            # A CHILD takes its own count, never its parent's. This is the
+            # whole point of the split: the parent says 63 fittings, the child
+            # rows say which 63 and how long each kind takes.
+            if split and getattr(row, "parent_step", "") == estimator.HARDWARE_PARENT:
+                row.qty = hw.get(split, 0)
+                continue
+            if split:
+                # Assembly's sizes are counted from the MODEL, not from the
+                # material lines, so they are filled by the import that knows
+                # them and left alone here.
+                continue
             if op in hw_qty:
                 row.qty = hw_qty[op]
             elif op in estimate_pdf.LOCKED_OPERATIONS and op in q:
@@ -1376,6 +1404,65 @@ class EstimateSKU(Document):
                 # No files attached -> no default quantities (they fill on import).
                 "qty": 1 if self.estimate_pdf else 0,
             })
+            self._append_split_children(op_name, t)
+
+    def _append_split_children(self, op_name, t):
+        """The child rows under Assembly and Install Hardware.
+
+        Amit, 2026-08-24: "implement assembly large medium small rule on erp
+        side as well" and "let this be a parent line and always divide the
+        hardware by its type". The plugin has shown both splits for a while;
+        the SKU form showed one averaged line for each, so the two could quote
+        the same wardrobe differently and neither would look wrong.
+
+        A child is a row in the SAME table wearing parent_step, rather than a
+        table of its own. That keeps every existing reader working — the BOM
+        build, the job card, the margin report all walk `labor` — and it is
+        also how it reads on the estimate screen, indented under its parent.
+
+        The PARENT's minutes stay on the parent and its hours are the sum of
+        its children, exactly as the plugin computes them. Charging a parent's
+        own minutes as well would bill the same work twice.
+        """
+        from mallet_estimator import estimator
+
+        if op_name == "Assembly":
+            for size in ("large", "medium", "small"):
+                mins, ws = operation_defaults(op_name)
+                self.append("labor", {
+                    "operation": op_name,
+                    "parent_step": op_name,
+                    "split_key": size,
+                    "phase": op_name,
+                    "workstation": ws or DEFAULT_WORKSTATION,
+                    # One seed for all three, deliberately: the shop has ONE
+                    # assembly standard today and inventing three different
+                    # ones here would be putting numbers in somebody's mouth.
+                    "carp_min": mins,
+                    "in_factory": t.get("in_factory", 0),
+                    "qty": 0,
+                })
+            return
+
+        if op_name == estimator.HARDWARE_PARENT:
+            for kind, label in estimator.HARDWARE_INSTALL_TYPES:
+                child_op = estimator.hardware_operation(kind)
+                mins, ws = operation_defaults(child_op)
+                if not mins:
+                    mins = estimator.HARDWARE_STANDARDS.get(kind, 0)
+                self.append("labor", {
+                    "operation": child_op,
+                    "parent_step": op_name,
+                    "split_key": kind,
+                    "phase": child_op,
+                    # Its own Operation master decides where it runs and how
+                    # long it takes — a hinge is not a shelf pin.
+                    "workstation": ws or estimator.OPERATION_WORKSTATION.get(
+                        child_op, DEFAULT_WORKSTATION),
+                    "carp_min": mins,
+                    "in_factory": t.get("in_factory", 0),
+                    "qty": 0,
+                })
 
     def ensure_design_steps(self):
         """D1 — seed the designer's 7-step pipeline (priced at the Design Desk
