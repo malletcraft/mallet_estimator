@@ -165,3 +165,8 @@ mallet_estimator.patches.steward_can_remove_a_customer
 # Other. The seeder only backfills what is unset and has never heard these
 # names on an existing bench, so the rows have to be created here.
 mallet_estimator.patches.hardware_install_operations
+# post_model_sync: re-pins the read-only role after the company's own config
+# doctypes joined READONLY_DOCTYPES (Company, Fiscal Year, Account, Cost
+# Center, Warehouse, Supplier, Supplier Group). A role-list change is plain
+# Python, and a Python-only deploy runs no migrate.
+mallet_estimator.patches.readonly_can_see_the_company

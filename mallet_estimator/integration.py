@@ -61,6 +61,27 @@ READONLY_DOCTYPES = (
     # never why it is wrong. Read only, like everything else here.
     "Operation",
     "Workstation",
+    # The company's own shape. Amit, 2026-08-25, approving this: "config only,
+    # no HR". An audit of this site the same morning could not read the Company
+    # record and had to INFER the abbreviation from a warehouse name buried in
+    # an item default — and got it right by luck rather than by evidence.
+    #
+    # These decide what every other number means: which fiscal year a document
+    # falls in, which account a posting lands on, which warehouse holds the
+    # stock, which supplier owes what. A go-live is mostly the act of checking
+    # that this configuration is correct, and a checker that cannot read it is
+    # a checker that hands every check back to a human.
+    #
+    # Employee, Salary Slip and the rest of HR are deliberately NOT here and
+    # should not be added: they carry personal data, and nothing an assistant
+    # does needs to see somebody's date of birth or bank account.
+    "Company",
+    "Fiscal Year",
+    "Account",
+    "Cost Center",
+    "Warehouse",
+    "Supplier",
+    "Supplier Group",
 )
 
 # Desk UI metadata, not business data: reading these lets the reader RENDER a

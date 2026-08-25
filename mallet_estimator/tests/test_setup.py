@@ -95,6 +95,33 @@ class TestMasters(MalletTestCase):
         for dt in ("Operation", "Workstation"):
             self.assertNotIn(dt, integration.STEWARD_RWC_DOCTYPES, dt)
 
+    def test_the_company_config_is_readable_but_never_writable(self):
+        # Amit, 2026-08-25: "config only, no HR". A go-live is mostly checking
+        # that configuration is right, and this morning's audit could not read
+        # the Company record at all — it inferred the abbreviation from a
+        # warehouse name inside an item default and happened to be correct.
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        config = ("Company", "Fiscal Year", "Account", "Cost Center",
+                  "Warehouse", "Supplier", "Supplier Group")
+        for dt in config:
+            self.assertIn(dt, integration.READONLY_DOCTYPES, dt)
+            perm = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.READONLY_ROLE, "parent": dt},
+                ["read", "write", "create", "delete"], as_dict=True)
+            self.assertTrue(perm and perm.read, f"{dt} should be readable")
+            for p in ("write", "create", "delete"):
+                self.assertFalse(perm.get(p), f"{dt} must never be {p}-able")
+
+        # AND HR STAYS OUT. This is the half worth a test: the list grew twice
+        # in two days, and the next widening is the one that quietly takes a
+        # date of birth with it.
+        for dt in ("Employee", "Salary Slip", "Salary Structure", "Attendance",
+                   "Employee Checkin"):
+            self.assertNotIn(dt, integration.READONLY_DOCTYPES, dt)
+            self.assertNotIn(dt, integration.STEWARD_RWC_DOCTYPES, dt)
+            self.assertNotIn(dt, integration.STEWARD_RW_DOCTYPES, dt)
+
     def test_the_cost_doctypes_are_readable_but_not_writable(self):
         # Being able to see a rate is what lets a reader say WHY a number is
         # wrong instead of only that it looks odd. Being able to change one
