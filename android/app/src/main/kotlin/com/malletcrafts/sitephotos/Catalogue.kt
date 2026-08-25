@@ -416,13 +416,30 @@ class Catalogue(context: Context) {
             Site(
                 client = client,
                 name = ps.first().site,
-                serverId = ps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "",
+                // ERP'S OWN ANSWER FIRST. This used to infer the docname from
+                // the site's PROJECTS, which meant a site whose projects were
+                // absent from the tree — cancelled, filtered, or simply not
+                // synced yet — came out with a blank server id and was treated
+                // as a row that had never left the phone.
+                //
+                // Amit, 2026-08-24, deleting exactly such a site: it vanished
+                // from the tree, the server was never called, and the record
+                // was still there three days later with an untouched modified
+                // timestamp. The app said "Removed from this phone", which was
+                // true and read as "deleted". Confirmed 2026-08-25 by pulling
+                // to refresh — the row came straight back.
+                //
+                // The bootstrap has always sent a `sites` array naming each
+                // site outright. Nothing needed inferring.
+                serverId = erp[siteKey(client, ps.first().site)]
+                    ?.optString("name").orEmpty()
+                    .ifEmpty { ps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "" },
                 // ERP first, the phone's own note second: the office's record
                 // beats the site's memory of it, which is the same order the
                 // sync uses when it refuses to overwrite a filled field.
-                type = erp[k]?.optString("site_type").orEmpty().ifEmpty { typeOf[k] ?: "" },
-                city = erp[k]?.optString("city").orEmpty(),
-                address = erp[k]?.optString("site_address").orEmpty()
+                type = erp[siteKey(client, ps.first().site)]?.optString("site_type").orEmpty().ifEmpty { typeOf[k] ?: "" },
+                city = erp[siteKey(client, ps.first().site)]?.optString("city").orEmpty(),
+                address = erp[siteKey(client, ps.first().site)]?.optString("site_address").orEmpty()
                     .ifEmpty { addrOf[k] ?: "" },
                 // A site shows the offline badge when ANYTHING under it has
                 // not reached ERP. A folder that says synced while one project
@@ -489,13 +506,18 @@ class Catalogue(context: Context) {
             val grouped = LinkedHashMap<String, MutableList<Project>>()
             for (p in ps) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
             sites[ck] = grouped.map { (sk, sps) ->
+                // Same client-scoped lookup as sitesOf. This is the path the
+                // TREE actually renders, so a divergence between the two would
+                // show one docname on screen and send another over the wire.
+                val ek = siteKey(sps.first().client, sps.first().site)
                 Site(
                     client = sps.first().client,
                     name = sps.first().site,
-                    serverId = sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "",
-                    type = erp[sk]?.optString("site_type").orEmpty().ifEmpty { typeOf[sk] ?: "" },
-                    city = erp[sk]?.optString("city").orEmpty(),
-                    address = erp[sk]?.optString("site_address").orEmpty()
+                    serverId = erp[ek]?.optString("name").orEmpty()
+                        .ifEmpty { sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "" },
+                    type = erp[ek]?.optString("site_type").orEmpty().ifEmpty { typeOf[sk] ?: "" },
+                    city = erp[ek]?.optString("city").orEmpty(),
+                    address = erp[ek]?.optString("site_address").orEmpty()
                         .ifEmpty { addrOf[sk] ?: "" },
                     // Same pessimism as sitesOf: a folder that says synced
                     // while one project inside it never left the phone is the
@@ -634,16 +656,30 @@ class Catalogue(context: Context) {
      *  Without this the type and address were read from the OFFLINE list
      *  only, so a site the office created — the common case — showed neither,
      *  and typing them on the phone looked like it had not saved. */
+    /** ERP's own sites, keyed by CLIENT AND NAME.
+     *
+     *  Keyed by name alone this map silently dropped sites: four customers on
+     *  this bench have a site called "Main site", and each overwrote the last,
+     *  so five of them shared one entry. Every field read through it — type,
+     *  city, address, and now the docname a delete is aimed at — would have
+     *  been some other customer's. A site row carrying the wrong docname is
+     *  the worst bug this app could have, because the delete would succeed.
+     */
     private fun serverSites(masters: JSONObject?): Map<String, JSONObject> {
         val arr = masters?.optJSONArray("sites") ?: return emptyMap()
         val out = LinkedHashMap<String, JSONObject>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val n = o.optString("site_name").trim()
-            if (n.isNotEmpty()) out[key(n)] = o
+            if (n.isEmpty()) continue
+            val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
+            out[siteKey(owner, n)] = o
         }
         return out
     }
+
+    /** The one key shape for an ERP site: whose it is, then what it is called. */
+    private fun siteKey(client: String, site: String) = key(client) + "\u0000" + key(site)
 
     /** The Site Type options the SERVER offers. Never a list held here: a
      *  type added to the doctype and not to the app is one nobody can pick. */
