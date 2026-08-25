@@ -628,3 +628,37 @@ class TestEndpointsAreReachableOverHttp(MalletTestCase):
             self.assertIn(fn, frappe.whitelisted,
                           "api.%s is not whitelisted — an HTTP caller gets 403 "
                           "while every in-process test still passes" % name)
+
+    def test_the_hardware_children_are_on_the_operation_side(self):
+        # Amit, 2026-08-25: "mcft plugin is not showing hardware, list correct
+        # on operation side." cost_card walked OPERATION_STANDARDS, which holds
+        # the seventeen, so the six Install <type> masters were invisible to
+        # everything reading the operation list — a parent with a standard time
+        # and no sign that six real Operations sit under it.
+        from mallet_estimator import estimator
+        ops = api.cost_card()["operations"]
+        kids = {o["name"]: o for o in ops if o.get("parent")}
+        self.assertEqual(
+            set(kids), {estimator.hardware_operation(k)
+                        for k, _ in estimator.HARDWARE_INSTALL_TYPES})
+        for name, o in kids.items():
+            self.assertEqual(o["parent"], estimator.HARDWARE_PARENT, name)
+            self.assertTrue(o["workstation"], name)
+            self.assertGreater(o["min_per_unit"], 0, name)
+
+        # The seventeen are still exactly seventeen. Amit, 2026-08-22: "keep
+        # all 17 operations as is . no drop."
+        tops = [o for o in ops if not o.get("parent")]
+        self.assertEqual(len(tops), 17)
+
+    def test_a_child_is_never_charged_as_its_own_labour_row(self):
+        # The children are on the operation side AND hang off the parent in the
+        # estimate. estimate_preview must skip the top-level copies, or every
+        # fitting is priced twice and the total merely looks high.
+        out = api.estimate_preview(self.CSV)
+        names = [r["name"] for r in out["labour"]]
+        self.assertEqual(len(names), 17, names)
+        self.assertNotIn("Install Hinges", names)
+        parent = [r for r in out["labour"] if r["name"] == "Install Hardware"][0]
+        self.assertTrue(parent.get("children"),
+                        "the parent must still carry them as children")

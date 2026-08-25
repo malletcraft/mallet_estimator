@@ -498,6 +498,39 @@ def cost_card(codes=None, create_missing=0):
             # workstation.
             "zone": estimator.OPERATION_ZONE.get(op, ""),
         })
+        # THE HARDWARE CHILDREN ARE OPERATIONS TOO, and this list was leaving
+        # them out. Amit, 2026-08-25: "mcft plugin is not showing hardware,
+        # list correct on operation side."
+        #
+        # cost_card walks OPERATION_STANDARDS, which holds the seventeen. The
+        # six Install <type> masters live in HARDWARE_INSTALL_TYPES, so
+        # anything reading the operation side saw a parent with a standard
+        # time and no sign that six real Operations sit under it — including
+        # the settings page, which had to be handed them through a separate
+        # array to show them at all.
+        #
+        # They carry `parent`, and estimate_preview skips any row that has
+        # one: the estimate hangs them off the parent as children, so a
+        # top-level row here as well would price every fitting twice.
+        if op == estimator.HARDWARE_PARENT:
+            for kind, label in estimator.HARDWARE_INSTALL_TYPES:
+                child = estimator.hardware_operation(kind)
+                cws = estimator.OPERATION_WORKSTATION.get(child, ws)
+                cmins, csrc = _op_minutes(
+                    child, estimator.HARDWARE_STANDARDS.get(kind, 0))
+                operations.append({
+                    "seq": seq,
+                    "parent": op,
+                    "split_key": kind,
+                    "name": child,
+                    "workstation": cws,
+                    "hour_rate": by_station.get(cws, 0.0),
+                    "qty_source": "hardware:%s" % kind,
+                    "min_per_unit": cmins,
+                    "min_source": csrc,
+                    "rate_source": "erp:Workstation" if cws in by_station else "unset",
+                    "zone": estimator.OPERATION_ZONE.get(child, ""),
+                })
 
     materials = []
     created = []
@@ -947,6 +980,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
     labour_rows, labour_total = [], 0.0
     for op in card["operations"]:
+        # A child is priced by the parent it hangs under, never on its own
+        # line here. Without this the six Install <type> rows would be charged
+        # once as top-level operations and once again as children.
+        if op.get("parent"):
+            continue
         name = op["name"]
         seq = int(op["seq"])
         qty_editable = name in QTY_EDITABLE

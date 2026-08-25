@@ -281,6 +281,10 @@ function steps_table(d) {
   const hw = live.hardware || [];
   let body = "";
   ops.forEach((o) => {
+    // The children now arrive inside `operations` as well, carrying `parent`.
+    // They are rendered under their parent a few lines down, so skipping them
+    // here is what stops each one appearing twice.
+    if (o.parent) return;
     body += `<tr>
       <td>${o.seq}. ${erp_link("operation", o.name)}</td>
       <td>${erp_link("workstation", o.workstation)}</td>
