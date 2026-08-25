@@ -38,7 +38,11 @@ class DeleteRouteTest {
         assertTrue(r.reason.contains("refresh"),
             "the refusal has to say what to do about it: ${r.reason}")
         assertTrue(r.reason.contains("this phone only"),
-            "and why it is refusing: ${r.reason}")
+            "and the consequence, which survived the shortening: ${r.reason}")
+        // Shortened on Amit's instruction. The cap is the guard: a sentence
+        // read standing in a dusty flat gets skimmed, and a skimmed refusal
+        // gets tapped past.
+        assertTrue(r.reason.length <= 110, "too long to read on site: ${r.reason.length}")
     }
 
     @Test
@@ -71,7 +75,10 @@ class DeleteRouteTest {
         assertTrue(msg.contains("never reached"), msg)
         // "Removed from this phone" full stop was read as "deleted
         // everywhere". The sentence has to close that reading itself,
-        // because nobody reads a toast twice.
-        assertTrue(msg.contains("nothing there to delete"), msg)
+        // because nobody reads a toast twice — and it has to do it in one
+        // line, which is why the clause is joined by a dash rather than
+        // being a second sentence.
+        assertTrue(msg.contains("office system"), msg)
+        assertTrue(msg.length <= 90, "a toast nobody finishes: ${msg.length}")
     }
 }

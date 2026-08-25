@@ -55,9 +55,8 @@ object Deletes {
         // client row; this is the same rule stated where it cannot be
         // forgotten by a future screen.
         if (kind == "client") return DeleteRoute.Blocked(
-            "A client is the office's customer record, so it is not removed " +
-            "from a phone. Delete the sites under it here; removing the " +
-            "customer itself is a desk job.")
+            "A client is the office's customer record. Delete the sites " +
+            "under it here; the customer itself is a desk job.")
 
         val id = serverId.trim()
         if (id.isNotEmpty()) return DeleteRoute.Server(id)
@@ -65,10 +64,14 @@ object Deletes {
         // The whole point of this function. Known to the office but no id in
         // hand means the app failed to match a row it was sent — never that
         // the row is local.
+        // Amit, 2026-08-25, on the first draft: "too long". Read standing in
+        // a dusty flat, three lines is three lines nobody finishes. Cut to
+        // one — but the consequence clause STAYS, because six words is what
+        // separates this from the sentence that cost three days, and a
+        // refusal nobody understands gets tapped past.
         if (serverKnown) return DeleteRoute.Blocked(
-            "This $kind is on the office system, but the app could not find " +
-            "its record. Pull to refresh and try again — deleting it here " +
-            "would remove it from this phone only and leave it on the server.")
+            "Can't identify this $kind on the office system. Pull to " +
+            "refresh — deleting now clears this phone only.")
 
         return DeleteRoute.LocalOnly
     }
@@ -81,6 +84,5 @@ object Deletes {
      */
     @JvmStatic
     fun localOnlyMessage(what: String): String =
-        "Removed from this phone. $what had never reached the office system, " +
-        "so there was nothing there to delete."
+        "Removed from this phone — $what had never reached the office system."
 }
