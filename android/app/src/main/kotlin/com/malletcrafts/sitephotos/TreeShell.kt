@@ -793,6 +793,15 @@ fun RenameDialog(
      *  refusal — "still has 3 capture(s)". Shown in place of the explanation,
      *  and turns Delete into the deliberate second answer. */
     blocker: String? = null,
+    /** A refusal this dialog cannot retry its way out of. `blocker` alone
+     *  means the SERVER said no and named what is in the way — "still has 3
+     *  capture(s)" — so the button becomes the cascade and the next tap can
+     *  succeed. A fatal refusal is the app's own: it does not hold the
+     *  record's id, so there is nothing to send and no cascade to offer.
+     *  Showing the cascade button there would advertise a one-tap action
+     *  that cannot work, on the very screen whose last bug was an action
+     *  that appeared to work and did nothing. */
+    blockerFatal: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (String) -> Unit,
     /** Null for a node that cannot be removed here (a client, which is a
@@ -889,7 +898,10 @@ fun RenameDialog(
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(6.dp))
-                    TextButton(
+                    // No button at all when the refusal is the app's own.
+                    // Cancel is still there, and the reason above says what
+                    // to do instead — which is a refresh, not another tap.
+                    if (!blockerFatal) TextButton(
                         enabled = !busy,
                         onClick = { onDelete(blocker != null) },
                         colors = ButtonDefaults.textButtonColors(

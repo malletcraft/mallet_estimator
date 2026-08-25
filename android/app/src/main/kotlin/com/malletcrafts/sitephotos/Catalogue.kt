@@ -36,6 +36,12 @@ class Catalogue(context: Context) {
         /** Free text, keyed on site or at the desk. Blank until someone types one. */
         val address: String = "",
         val local: Boolean,
+        /** Whether the bench's bootstrap named this site at all — which is a
+         *  DIFFERENT question from whether we hold its docname, and the one
+         *  that decides where a delete goes. Known-but-no-id is a bug in this
+         *  app, not a local row, and Deletes.route refuses it rather than
+         *  quietly removing the phone's copy. */
+        val serverKnown: Boolean = false,
     ) {
         val synced: Boolean get() = serverId.isNotBlank()
     }
@@ -445,7 +451,12 @@ class Catalogue(context: Context) {
                 // not reached ERP. A folder that says synced while one project
                 // inside it never left the phone is the lie that loses a
                 // capture, so the badge is pessimistic on purpose.
-                local = ps.any { it.local })
+                //
+                // That pessimism is exactly why `local` must not route a
+                // delete: a server site holding one unsynced project is
+                // local=true and is emphatically not a local row.
+                local = ps.any { it.local },
+                serverKnown = erp.containsKey(siteKey(client, ps.first().site)))
         }.sortedWith(compareBy({ siteOrder(it.name) }, { it.name.lowercase() }))
     }
 
@@ -522,7 +533,8 @@ class Catalogue(context: Context) {
                     // Same pessimism as sitesOf: a folder that says synced
                     // while one project inside it never left the phone is the
                     // lie that loses a capture.
-                    local = sps.any { it.local })
+                    local = sps.any { it.local },
+                    serverKnown = erp.containsKey(ek))
             }.sortedWith(compareBy({ siteOrder(it.name) }, { it.name.lowercase() }))
         }
 

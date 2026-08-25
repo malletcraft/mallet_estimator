@@ -58,6 +58,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
+import com.malletcrafts.sitephotos.pano.DeleteRoute
+import com.malletcrafts.sitephotos.pano.Deletes
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.RoomToken
@@ -109,6 +111,9 @@ private fun AppScreen() {
     // capture(s)". Cleared whenever the dialog target changes, so a refusal
     // about one project never arms a cascade on the next.
     var deleteBlocker by remember { mutableStateOf<String?>(null) }
+    // Set beside deleteBlocker when the refusal came from THIS APP rather
+    // than the bench — no docname to send, so no cascade to offer.
+    var deleteFatal by remember { mutableStateOf(false) }
     var showStagePicker by remember { mutableStateOf(false) }
     // Work | Browse | Queue. Browse is the landing tab: Amit asked for the
     // app to open on Clients, ImageMeter-style.
@@ -563,7 +568,7 @@ private fun AppScreen() {
             what = t.kind, current = t.current, onServer = t.serverId.isNotBlank(),
             serverId = t.serverId,
             busy = renameBusy,
-            onDismiss = { renaming = null; deleteBlocker = null },
+            onDismiss = { renaming = null; deleteBlocker = null; deleteFatal = false },
             onSave = { newName ->
                 // A local row is words in this phone's preferences, so it is
                 // corrected here and now, with no signal. An ERP row is the
@@ -615,6 +620,7 @@ private fun AppScreen() {
                 }
             },
             blocker = deleteBlocker,
+            blockerFatal = deleteFatal,
             // A client is a Customer and belongs to the office, not to a
             // phone: it may be renamed here and must not be removed here.
             // A node that never reached the bench is this phone's own words
@@ -624,15 +630,25 @@ private fun AppScreen() {
             // arrow inside it is then a syntax error. Parentheses force it to
             // be read as the lambda it is meant to be.
             onDelete = if (t.kind == "client") null else ({ cascade: Boolean ->
-                if (t.serverId.isBlank()) {
+                // WHERE THIS GOES IS DECIDED IN ONE PLACE, and it is tested.
+                // This used to be `if (t.serverId.isBlank())` inline, which
+                // sent a row the bench knew about down the local branch and
+                // reported success — the 2026-08-24 site that was still there
+                // three days later. Deletes.route refuses that case instead.
+                val route = Deletes.route(t.kind, t.serverId, t.serverKnown)
+                if (route is DeleteRoute.Blocked) {
+                    deleteBlocker = route.reason
+                    deleteFatal = true
+                } else if (route is DeleteRoute.LocalOnly) {
                     cat.removeLocal(t.kind, t.client, t.site, t.project)
                     reload()
                     when (t.kind) {
                         "site" -> { navSite = null; navProject = null }
                         else -> navProject = null
                     }
-                    lastResult = "Removed from this phone"
+                    lastResult = Deletes.localOnlyMessage(t.current)
                     deleteBlocker = null
+                    deleteFatal = false
                     renaming = null
                 } else {
                     renameBusy = true
@@ -663,6 +679,7 @@ private fun AppScreen() {
                                 }
                                 lastResult = "Deleted ${t.current}"
                                 deleteBlocker = null
+                                deleteFatal = false
                                 renaming = null
                             }.onFailure { e ->
                                 // Kept in the dialog rather than thrown at the
@@ -670,6 +687,9 @@ private fun AppScreen() {
                                 // the button that answers it is right here.
                                 deleteBlocker = e.message
                                     ?: "The server refused, without saying why"
+                                // The BENCH refused, which is retryable — the
+                                // cascade button is exactly the answer to it.
+                                deleteFatal = false
                             }
                         }
                     }
@@ -992,7 +1012,11 @@ private fun AppScreen() {
                         site != null && client != null -> ProjectsScreen(
                             onRename = { p -> renaming = RenameTarget(
                                 "project", p.title, p.client, p.site, p.title,
-                                p.serverId) },
+                                p.serverId,
+                                // Projects are built straight from the
+                                // bootstrap array with local=false, so this
+                                // one field is already the honest answer.
+                                serverKnown = !p.local) },
                             projects = cs.projectsOf(client, site),
                             captureCount = { p ->
                                 queue.count { it.projectTitle.equals(p.title, true) }
@@ -1001,7 +1025,15 @@ private fun AppScreen() {
                             onNew = { showNewSite = true })
                         client != null -> SitesScreen(
                             onRename = { st -> renaming = RenameTarget(
-                                "site", st.name, client, st.name, "", st.serverId) },
+                                "site", st.name, client, st.name, "", st.serverId,
+                                // NOT !st.local. That flag is deliberately
+                                // pessimistic — it goes true when any project
+                                // under the site is unsynced — so a server
+                                // site holding one local project would have
+                                // routed to a local delete. serverKnown asks
+                                // the only question that matters here: did the
+                                // bootstrap name this site.
+                                serverKnown = st.serverKnown) },
                             sites = cs.sitesOf(client),
                             projectCount = { st ->
                                 cs.projectsOf(client, st.name).size
@@ -1667,6 +1699,11 @@ data class RenameTarget(
     val site: String,
     val project: String,
     val serverId: String,
+    /** Whether the bench's bootstrap named this row. Carried BESIDE the
+     *  docname because the pair is what decides a delete: no id and unknown
+     *  is a local row, no id but KNOWN is this app failing to match a record
+     *  it was sent, and the two must never take the same branch. */
+    val serverKnown: Boolean = false,
 )
 
 @Composable
