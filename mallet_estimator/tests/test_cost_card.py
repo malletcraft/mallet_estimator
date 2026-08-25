@@ -16,13 +16,36 @@ class TestCostCard(MalletTestCase):
         # Amit, 2026-08-22: "keep all 17 operations as is . no drop." The
         # plugin quotes the same process the floor works, or it is not a gauge
         # of anything.
+        #
+        # THE SEVENTEEN ARE THE TOP-LEVEL ROWS. Since 2026-08-25 the list also
+        # carries the six Install <type> masters, each hanging off Install
+        # Hardware by `parent` — real Operations that were invisible here
+        # before. Counting the raw list would make "seventeen" mean twenty-
+        # three, so the count is taken where the process order lives.
         card = api.cost_card()
-        ops = card["operations"]
+        ops = [o for o in card["operations"] if not o.get("parent")]
         self.assertEqual(len(ops), len(estimator.OPERATION_STANDARDS))
         self.assertEqual(len(ops), 17)
         self.assertEqual(ops[0]["name"], "Sheet Lamination")   # pasting
         self.assertEqual(ops[-2]["name"], "Installation")      # …to installation
         self.assertEqual([o["seq"] for o in ops], list(range(1, len(ops) + 1)))
+
+    def test_a_child_is_listed_under_the_parent_it_belongs_to(self):
+        # A reader scanning the operation list top to bottom must meet each
+        # child directly under its parent — the same order the estimate shows
+        # and the same order the floor works. A child carries its parent's seq
+        # deliberately: it is not an eighteenth step, it is part of one.
+        ops = api.cost_card()["operations"]
+        at = [i for i, o in enumerate(ops)
+              if o["name"] == estimator.HARDWARE_PARENT][0]
+        kids = ops[at + 1:at + 1 + len(estimator.HARDWARE_INSTALL_TYPES)]
+        self.assertEqual(
+            [k["name"] for k in kids],
+            [estimator.hardware_operation(kind)
+             for kind, _ in estimator.HARDWARE_INSTALL_TYPES])
+        for k in kids:
+            self.assertEqual(k["parent"], estimator.HARDWARE_PARENT)
+            self.assertEqual(k["seq"], ops[at]["seq"])
 
     def test_every_operation_carries_a_workstation_and_a_rate_source(self):
         for o in api.cost_card()["operations"]:
@@ -145,6 +168,18 @@ class TestEstimatePreview(MalletTestCase):
         # total is the two halves, not something else
         self.assertAlmostEqual(
             out["total"], out["material_total"] + out["labour_total"], places=2)
+
+    def test_a_child_is_never_charged_as_its_own_labour_row(self):
+        # The children are on the operation side AND hang off the parent in the
+        # estimate. estimate_preview must skip the top-level copies, or every
+        # fitting is priced twice and the total merely looks high.
+        out = api.estimate_preview(self.CSV)
+        names = [r["name"] for r in out["labour"]]
+        self.assertEqual(len(names), 17, names)
+        self.assertNotIn("Install Hinges", names)
+        parent = [r for r in out["labour"] if r["name"] == "Install Hardware"][0]
+        self.assertTrue(parent.get("children"),
+                        "the parent must still carry them as children")
 
     def test_every_line_says_where_its_number_came_from(self):
         out = api.estimate_preview(self.CSV)
@@ -650,15 +685,3 @@ class TestEndpointsAreReachableOverHttp(MalletTestCase):
         # all 17 operations as is . no drop."
         tops = [o for o in ops if not o.get("parent")]
         self.assertEqual(len(tops), 17)
-
-    def test_a_child_is_never_charged_as_its_own_labour_row(self):
-        # The children are on the operation side AND hang off the parent in the
-        # estimate. estimate_preview must skip the top-level copies, or every
-        # fitting is priced twice and the total merely looks high.
-        out = api.estimate_preview(self.CSV)
-        names = [r["name"] for r in out["labour"]]
-        self.assertEqual(len(names), 17, names)
-        self.assertNotIn("Install Hinges", names)
-        parent = [r for r in out["labour"] if r["name"] == "Install Hardware"][0]
-        self.assertTrue(parent.get("children"),
-                        "the parent must still carry them as children")
