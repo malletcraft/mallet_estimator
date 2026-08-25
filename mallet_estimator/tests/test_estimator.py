@@ -820,3 +820,83 @@ class ParentAndChildRows(unittest.TestCase):
         out = self._calc([parent] + kids)
         self.assertAlmostEqual(out["carp_min_total"], 24 * 4 + 12 * 6, 2)
         self.assertAlmostEqual(parent.carp_total, 168, 2)
+
+
+class TestCalcSubcontract(unittest.TestCase):
+    """Work somebody else does, priced from that somebody's rate.
+
+    Amit, 2026-08-25: subcontracted work becomes a full Estimate SKU with the
+    vendor rate standing in for shop cost. Every number in these tests is
+    invented — round figures chosen to make the arithmetic checkable at a
+    glance. Real vendor rates live only in the site DB and never in this repo.
+    """
+
+    def _settings(self, **kw):
+        # markup 0 is the shipped default and is deliberate: a margin is the
+        # studio's own number. The tests that care pass one explicitly.
+        return types.SimpleNamespace(markup_subcontract=kw.get("markup", 0))
+
+    def test_each_line_is_its_own_unit_and_they_still_add_up(self):
+        # Sqft of POP, points of wiring, and a lumpsum in the same SKU. The
+        # unit belongs to the ARTICLE, which is the whole reason electrical is
+        # three articles instead of one with three columns.
+        out = E.calc_subcontract([
+            {"article": "POP", "qty": 100, "uom": "Sqft", "rate": 10},
+            {"article": "ELP", "qty": 20, "uom": "Point", "rate": 100},
+            {"article": "SUB", "qty": 1, "uom": "Lumpsum", "rate": 5000},
+        ], self._settings())
+        self.assertEqual([l["uom"] for l in out["lines"]],
+                         ["Sqft", "Point", "Lumpsum"])
+        self.assertAlmostEqual(out["cost"], 1000 + 2000 + 5000, 2)
+
+    def test_an_unpriced_vendor_is_named_not_silently_zero(self):
+        # THE FAILURE THIS GUARDS. A subcontract quote missing one vendor's
+        # rate looks exactly like a complete one — same layout, same lines,
+        # a total that is merely too low. Nothing on the page says so unless
+        # something counts it, which is the same rule unpriced materials
+        # already follow.
+        out = E.calc_subcontract([
+            {"article": "POP", "qty": 400, "uom": "Sqft", "rate": 0},
+            {"article": "TIL", "qty": 200, "uom": "Sqft", "rate": 50},
+        ], self._settings())
+        self.assertEqual(out["unpriced"], ["POP"])
+        self.assertAlmostEqual(out["cost"], 10000, 2)
+        self.assertEqual(out["lines"][0]["rate_source"], "unset")
+        self.assertEqual(out["lines"][1]["rate_source"], "")
+
+    def test_the_markup_is_policy_and_zero_by_default(self):
+        rows = [{"article": "TIL", "qty": 100, "uom": "Sqft", "rate": 50}]
+        bare = E.calc_subcontract(rows, self._settings())
+        self.assertAlmostEqual(bare["client_total"], bare["cost"], 2)
+        self.assertAlmostEqual(bare["margin"], 0, 2)
+
+        # A percentage passed in beats the settings, the way every other
+        # calc in this file lets a per-SKU override win.
+        over = E.calc_subcontract(rows, self._settings(markup=10), markup_pct=25)
+        self.assertAlmostEqual(over["markup_pct"], 25, 2)
+        self.assertAlmostEqual(over["client_total"], 5000 * 1.25, 2)
+        self.assertAlmostEqual(over["margin"], 1250, 2)
+
+    def test_it_reads_documents_and_dicts_alike(self):
+        # The desk passes child-table documents, the tests pass dicts, and
+        # neither should have to care which.
+        doc = types.SimpleNamespace(article="POP", vendor="A", qty="120",
+                                    uom="Sqft", rate="25", rate_source="vendor")
+        out = E.calc_subcontract([doc], self._settings())
+        self.assertAlmostEqual(out["cost"], 3000, 2)
+        self.assertEqual(out["lines"][0]["article"], "POP")
+        self.assertEqual(out["lines"][0]["rate_source"], "vendor")
+
+    def test_nothing_at_all_costs_nothing_and_says_nothing_is_missing(self):
+        out = E.calc_subcontract([], self._settings())
+        self.assertEqual(out["cost"], 0)
+        self.assertEqual(out["unpriced"], [])
+        self.assertEqual(out["lines"], [])
+
+    def test_subcontract_is_off_the_floor_but_is_not_site_labour(self):
+        # It shares "no parts, no nesting" with repair and supply-and-install,
+        # and shares NOTHING else: those two are MCFT's own crew on site and
+        # have a labour model. Subcontract has no crew at all, so folding it
+        # into SITE_WORK would have it costed with carpenter minutes.
+        self.assertIn(E.SUBCONTRACT, E.OFF_FLOOR)
+        self.assertNotIn(E.SUBCONTRACT, E.SITE_WORK)

@@ -792,7 +792,26 @@ def calc_sku(sku, settings, ws_rates=None):
 NEW_WORK = "New Work"
 REPAIR = "Repair"
 SUPPLY_INSTALL = "Supply & Install"
+# WORK SOMEBODY ELSE DOES. Amit, 2026-08-25, deciding the question task #41
+# had been blocked on: POP, tiling, electrical, plumbing and the rest become
+# FULL SKUs priced from the vendor's rate — not lumpsum lines beside the
+# estimate, and not quoted outside it.
+#
+# The reason is the project total. Price subcontract work anywhere else and
+# the margin has to be assembled by hand out of two places, which is the
+# failure this app exists to remove, and a third of every fit-out becomes
+# invisible to every report. As an SKU it is tagged by site photos, carried
+# by work stages, and counted in Project Margin like anything else.
+#
+# What it is NOT: it takes no cut list, no BOM, no Work Order and none of the
+# seventeen operations. Those describe the shop floor, and the shop floor is
+# exactly what is not involved.
+SUBCONTRACT = "Subcontract"
 SITE_WORK = (REPAIR, SUPPLY_INSTALL)
+# Everything that happens at the client's place rather than on the floor.
+# SITE_WORK stays what it was — those two share a labour model, and
+# subcontract has none of its own — but all three skip parts and nesting.
+OFF_FLOOR = (REPAIR, SUPPLY_INSTALL, SUBCONTRACT)
 
 PRODUCTIVE_MIN_PER_DAY = 360.0
 ON_SITE_WORKSTATION = "On-Site"
@@ -817,6 +836,20 @@ def _row_status(row):
     if isinstance(row, dict):
         return (row.get("status") or "").strip()
     return (getattr(row, "status", "") or "").strip()
+
+
+def _cell(row, field, default=None):
+    """One field off a table row, as it is, from either a dict or a doc.
+
+    Distinct from _get, which coerces to float and reads attributes only:
+    that is right for a Settings number and wrong for both a plain dict and a
+    row's article name. Tests pass dicts; the desk passes documents; neither
+    should have to care."""
+    if isinstance(row, dict):
+        v = row.get(field, default)
+    else:
+        v = getattr(row, field, default)
+    return default if v is None else v
 
 
 def calc_repair(activities, settings, markup_pct=None, visit_charge=None, visits=None):
@@ -877,6 +910,57 @@ def calc_repair(activities, settings, markup_pct=None, visit_charge=None, visits
         "to_inspect": to_inspect,
         "to_inspect_carp_min": hold_carp,
         "to_inspect_helper_min": hold_helper,
+    }
+
+
+def calc_subcontract(lines, settings, markup_pct=None):
+    """Cost a subcontract SKU from its vendor lines.
+
+    One line is one trade at one vendor's rate, in THAT ARTICLE'S OWN UNIT —
+    sqft of POP, points of wiring, running feet of conduit, or a lumpsum. The
+    unit belongs to the article precisely so a person quoting on site types
+    one number rather than reconciling three, which is also why electrical is
+    three articles instead of one with three columns.
+
+    `markup_pct` defaults to the Estimate Settings policy for subcontracted
+    work, and like every rate in this file it is 0 in code on purpose: the
+    real percentage lives only in the site DB.
+
+    A line whose rate is 0 is NOT priced at zero and quietly added in. It is
+    counted and named, the same way an unpriced material is, because a
+    subcontract quote missing one vendor's rate looks exactly like a complete
+    one — the total is simply too low, and nothing on the page says so.
+    """
+    markup = _num(markup_pct if markup_pct is not None else
+                  _get(settings, "markup_subcontract"))
+    rows, cost, unpriced = [], 0.0, []
+    for line in lines or []:
+        qty = _num(_cell(line, "qty"))
+        rate = _num(_cell(line, "rate"))
+        amount = qty * rate
+        article = _cell(line, "article", "") or _cell(line, "article_code", "")
+        if not rate:
+            unpriced.append(str(article))
+        cost += amount
+        rows.append({
+            "article": article,
+            "vendor": _cell(line, "vendor", ""),
+            "qty": qty,
+            "uom": _cell(line, "uom", ""),
+            "rate": rate,
+            "rate_source": _cell(line, "rate_source", "") or ("unset" if not rate else ""),
+            "amount": amount,
+        })
+    client = cost * (1 + markup / 100.0)
+    return {
+        "lines": rows,
+        "cost": cost,
+        "markup_pct": markup,
+        "client_total": client,
+        # The studio's own number, and it never leaves this dict for a
+        # client-facing payload — same rule every other margin follows.
+        "margin": client - cost,
+        "unpriced": unpriced,
     }
 
 

@@ -270,6 +270,46 @@ def material_rate(item_code):
     return 0.0, "unset"
 
 
+def vendor_rate(item_code, supplier=None):
+    """(rate, source) for ONE vendor's price on a service or material Item.
+
+    Different question from material_rate, and the difference matters for
+    subcontracted work. material_rate answers "what should we assume this
+    costs", and its top priority is the Estimation (Assumed) ceiling — the
+    MAXIMUM across suppliers, which is the right planning number when the
+    vendor is not yet chosen.
+
+    Here the vendor IS chosen. Quoting agency A's POP at agency B's rate
+    because B is dearer is not conservative, it is wrong: it is a number no
+    invoice will ever match, and it silently pads the job. So the named
+    vendor's own buying price wins outright, and everything below it is
+    labelled as the substitute it is, so a quote can show WHOSE rate it used.
+
+    rate 0 with source 'unset' means this vendor has never been priced for
+    this work — counted and named by calc_subcontract, never billed as free.
+    """
+    supplier = supplier_docname(supplier) or supplier
+    if supplier and frappe.db.exists("Supplier", supplier):
+        own = frappe.db.get_value(
+            "Item Price",
+            {"item_code": item_code, "supplier": supplier, "buying": 1},
+            "price_list_rate")
+        if own:
+            return own, "vendor"
+    # No price for this vendor. The ceiling is a planning figure standing in
+    # for a real one, so it says so rather than passing as this vendor's rate.
+    assumed = frappe.db.get_value(
+        "Item Price", {"item_code": item_code, "price_list": ESTIMATION_PRICE_LIST},
+        "price_list_rate")
+    if assumed:
+        return assumed, "assumed ceiling"
+    any_buying = frappe.db.get_value(
+        "Item Price", {"item_code": item_code, "buying": 1}, "price_list_rate")
+    if any_buying:
+        return any_buying, "another vendor"
+    return 0.0, "unset"
+
+
 def ensure_pricing_masters():
     """F5 — create the 'Estimation (Assumed)' Buying price list that holds the
     planning rates the estimate reads from. Idempotent; never clobbers an existing
