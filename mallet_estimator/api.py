@@ -929,6 +929,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             hw_min[kind] = float(v)
             hw_min_source[kind] = "plugin:edited"
 
+    # What each type was ACTUALLY costed at, including per-child edits that
+    # only become visible inside the row loop. The payload reports this rather
+    # than the pre-override seeds, so a plugin prefilling its boxes from the
+    # reply shows the number the money was worked out from.
+    hardware_min_used = dict(hw_min)
+
     ws_rate = {s["name"]: s["hour_rate"] for s in card["workstations"]}
     labour_rows, labour_total = [], 0.0
     for op in card["operations"]:
@@ -1023,11 +1029,23 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         if name == estimator.HARDWARE_PARENT and hw_counts:
             children = []
             ch_rate = float(ws_rate.get(op["workstation"], 0))
+            # THE SAME DOOR THE ASSEMBLY CHILDREN USE. A per-child edit arrives
+            # as min_<token> inside the PARENT's override — min_large for a
+            # size, min_hinges for a type — because the plugin already sends
+            # child edits that way and one mechanism understood everywhere
+            # beats two that have to be kept equal.
+            per = dict(hw_min)
+            for kind, _label in estimator.HARDWARE_INSTALL_TYPES:
+                v = (ov.get("min_" + kind) if ov else None)
+                if v not in (None, ""):
+                    per[kind] = float(v)
+                    hw_min_source[kind] = "plugin:edited"
+            hardware_min_used.update(per)
             for kind, label in estimator.HARDWARE_INSTALL_TYPES:
                 n = int(hw_counts.get(kind, 0) or 0)
                 if not n:
                     continue
-                per_min = hw_min.get(kind, 0.0)
+                per_min = per.get(kind, 0.0)
                 ch_hours = _up1(n * per_min / 60.0)
                 children.append({
                     "kind": kind,
@@ -1103,7 +1121,7 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # present, so a plugin can prefill its boxes without having to guess
         # which of the six exist in this model.
         "hardware_counts": hw_counts,
-        "hardware_min_by_type": hw_min,
+        "hardware_min_by_type": hardware_min_used,
         "materials": material_rows,
         "labour": labour_rows,
         # Amit, 2026-08-22: "Also need number of days required to make that
