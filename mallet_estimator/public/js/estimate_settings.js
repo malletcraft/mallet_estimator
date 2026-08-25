@@ -236,7 +236,10 @@ function live_workstation_table(d) {
     let note = "";
     if (got === 0) {
       note = `<br><span class="text-muted" style="font-size:10px;color:#a94442">no costs keyed</span>`;
-    } else if (!(w.components || []).length) {
+    } else if (w.rate_source && w.rate_source.indexOf("computed") === 0) {
+      // Says so on the authority of the reader, not by inferring it from an
+      // empty component list — a station could in principle carry rows and
+      // still be reported computed, and guessing would eventually be wrong.
       note = `<br><span class="text-muted" style="font-size:10px">computed — no cost rows on the master</span>`;
     } else if (off) {
       note = `<br><span class="text-muted" style="font-size:10px;color:#8a6d3b">differs from the settings figure</span>`;

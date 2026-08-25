@@ -459,11 +459,20 @@ def cost_card(codes=None, create_missing=0):
 
     stations = []
     for name, r in sorted(rates.items()):
+        # WHERE THIS RATE CAME FROM, honestly. This used to hardcode
+        # "erp:Workstation" for every station, including the ones whose master
+        # carries no operating-cost rows at all and whose rate is therefore
+        # computed from Estimate Settings. A label that says the same thing
+        # whatever happened is not a source, and it lied in the one direction
+        # that matters: a station nobody has costed looked exactly like a
+        # station somebody had.
+        src = r.get("rate_source") or "erp:Workstation"
         stations.append({
             "name": name,
             "hour_rate": round(float(r.get("net_hr") or 0), 2),
             "components": [[c, round(float(v), 2)] for c, v in (r.get("components") or [])],
-            "source": "erp:Workstation",
+            "source": src,
+            "rate_source": src,
         })
     by_station = {s["name"]: s["hour_rate"] for s in stations}
 
