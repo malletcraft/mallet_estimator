@@ -171,3 +171,53 @@ class TestSubcontractSku(MalletTestCase):
         self.assertFalse(doc.get("labor"), "no shop labour on agency work")
         self.assertFalse(doc.get("parts"))
         self.assertFalse(doc.get("sku_decors"))
+
+
+class TestSubcontractRecompute(MalletTestCase):
+    """The Recompute button on an off-floor SKU."""
+
+    def _sku(self):
+        from mallet_estimator import sitephoto
+        worksite.ensure_articles()
+        worksite.ensure_subcontract_service_items()
+        proj = sitephoto.ensure_site("ZZ Subcontract Client",
+                                     "ZZ Subcontract Job")["project"]
+        doc = frappe.get_doc({
+            "doctype": "Estimate SKU",
+            "article_name": "ZZ Recompute Probe",
+            "project": proj, "work_type": E.SUBCONTRACT,
+            "auto_name": 0, "sku_code": "ZZ_SUB_RECALC", "create_item": 0,
+            "subcontract_lines": [{"article": "POP", "qty": 100}],
+        })
+        doc.insert(ignore_permissions=True)
+        return doc
+
+    def test_recompute_does_not_walk_the_article_pipeline(self):
+        # Amit, 2026-08-26: pressing Recompute on a subcontract SKU returned a
+        # raw AttributeError. The button re-reads Workstation rates and
+        # Operation std times against an article's LABOUR rows — and an
+        # off-floor SKU has none, so it was walking the whole article pipeline
+        # over an empty document.
+        doc = self._sku()
+        out = doc.recompute()
+        self.assertIn("changed", out)
+        self.assertFalse(doc.get("labor"), "no shop labour was invented")
+
+    def test_recompute_reports_a_vendor_rate_that_moved(self):
+        # Their numbers DO move, for a different reason: a rate keyed on the
+        # price list. The button has to notice that, or it is decoration.
+        from mallet_estimator import inventory
+        doc = self._sku()
+        self.assertFalse(doc.subcontract_cost)
+        supplier = "ZZ POP Agency"
+        if not frappe.db.exists("Supplier", supplier):
+            frappe.get_doc({"doctype": "Supplier", "supplier_name": supplier}
+                           ).insert(ignore_permissions=True)
+        doc.subcontract_lines[0].vendor = supplier
+        # An invented rate, as every figure in these tests is.
+        inventory.set_vendor_price(worksite.subcontract_item_code("POP"),
+                                   supplier, 30)
+        out = doc.recompute()
+        self.assertTrue(out["changed"], "a keyed vendor rate must register")
+        self.assertAlmostEqual(float(doc.subcontract_cost), 3000, 2)
+        self.assertFalse(doc.subcontract_unpriced)

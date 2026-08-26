@@ -706,7 +706,19 @@ def calc_sku(sku, settings, ws_rates=None):
         design_wages = des["wages"]
         design_overhead = design_cost - des["wages"]
     else:
-        design_cost = _num(sku.design_hours) * _num(settings.design_rate) + _num(sku.design_flat)
+        # _get, not settings.design_rate. There IS no design_rate field on
+        # Estimate Settings — only designer_salary and markup_design — so the
+        # direct attribute access raised AttributeError on any Frappe document
+        # that reached this branch. It went unseen because the branch only runs
+        # when a SKU has NO design rows, which every article SKU has; the first
+        # SKU without them was a Subcontract one, and it took down Recompute
+        # with a traceback rather than a message (Amit, 2026-08-26).
+        #
+        # _get returns the default for a field that does not exist, which is
+        # the honest answer here: an unset design rate is zero design cost, and
+        # zero is what every rate in this file ships as anyway.
+        design_cost = (_num(sku.design_hours) * _get(settings, "design_rate")
+                       + _num(sku.design_flat))
         design_min_total = 0.0
         design_wages = design_cost
         design_overhead = 0.0

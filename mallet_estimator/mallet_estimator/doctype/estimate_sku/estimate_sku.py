@@ -1988,6 +1988,29 @@ class EstimateSKU(Document):
     def recompute(self):
         if self.get("rates_frozen"):
             return {"changed": False}  # quoted — never silently re-price
+        # OFF-FLOOR SKUs HAVE NOTHING TO RE-PRICE HERE. This button exists to
+        # re-read Workstation net hour rates and Operation std times against an
+        # article's labour rows — and repair, supply-install and subcontract
+        # have no such rows. Running it anyway walked the whole article
+        # pipeline over an empty document, which on 2026-08-26 came back as a
+        # raw AttributeError on a subcontract SKU rather than as anything a
+        # person could act on.
+        #
+        # Their own numbers still move, and they move for a different reason: a
+        # vendor rate keyed on the price list. So this reports the same shape
+        # after re-running THEIR pipeline, which is short and has no
+        # workstations in it.
+        from mallet_estimator import estimator as E
+        if self.work_kind() in E.OFF_FLOOR:
+            before = float(self.get("subcontract_cost") or 0)
+            before_repair = float(self.get("repair_labor_cost") or 0)
+            if self.is_subcontract():
+                self.resolve_subcontract_lines()
+                self.compute_subcontract_costs()
+            moved = (abs(float(self.get("subcontract_cost") or 0) - before) > 0.005
+                     or abs(float(self.get("repair_labor_cost") or 0)
+                            - before_repair) > 0.005)
+            return {"changed": moved}
         """Re-price every step at the CURRENT Workstation Net Hour Rates (and
         refresh each step's master Std Time) and save only if something actually
         moved. Called on form load so Phase Cost / Std (master) never show a value

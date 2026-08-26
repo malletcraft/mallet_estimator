@@ -109,6 +109,40 @@ class TestCalcSku(unittest.TestCase):
         self.assertAlmostEqual(out["client_material"], 1000 * 1.15, 2)  # 15% markup
 
 
+    def test_a_settings_record_without_design_rate_does_not_explode(self):
+        # Amit, 2026-08-26, pressing Recompute on a subcontract SKU: the whole
+        # form came back as a raw AttributeError traceback.
+        #
+        # There IS no design_rate field on Estimate Settings — only
+        # designer_salary and markup_design — so `settings.design_rate` raised
+        # on any Frappe document reaching this branch. It hid for months
+        # because the branch only runs when a SKU has NO design rows, and every
+        # article SKU has them. The first SKU without any was a subcontract
+        # one.
+        #
+        # A settings object missing the field is the NORMAL case, so the test
+        # uses one, and asserts the honest answer: unset design rate means zero
+        # design cost, not a crash.
+        s = types.SimpleNamespace(
+            markup_material=15, markup_labor=0, markup_overhead=0,
+            markup_design=0, misc_pct=0)
+        sku = types.SimpleNamespace(labor=[], materials=[], design_hours=8,
+                                    design_flat=0, include_misc=0)
+        out = E.calc_sku(sku, s, ws_rates={})
+        self.assertEqual(out["design_cost"], 0)
+
+    def test_a_flat_design_fee_is_still_charged_without_a_rate(self):
+        # The other half: design_flat is a number somebody typed, and it must
+        # survive the missing rate rather than being zeroed with it.
+        s = types.SimpleNamespace(
+            markup_material=15, markup_labor=0, markup_overhead=0,
+            markup_design=0, misc_pct=0)
+        sku = types.SimpleNamespace(labor=[], materials=[], design_hours=8,
+                                    design_flat=5000, include_misc=0)
+        out = E.calc_sku(sku, s, ws_rates={})
+        self.assertEqual(out["design_cost"], 5000)
+
+
 class TestOpPhase(unittest.TestCase):
     def test_prefers_operation_link_over_legacy_phase(self):
         row = types.SimpleNamespace(operation="Drilling", phase="Sheet Cutting", is_misc=0)
