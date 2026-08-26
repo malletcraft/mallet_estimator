@@ -409,7 +409,14 @@ class Catalogue(context: Context) {
     }
 
     fun clients(masters: JSONObject?): List<String> =
-        projects(masters).map { it.client }.distinctBy { it.lowercase() }.sorted()
+        // Projects first, then anyone who owns a site with no projects on it.
+        // Built from projects alone this list dropped a client the moment its
+        // last project went, hiding every site underneath — the same hole as
+        // sitesOf, one level up.
+        (projects(masters).map { it.client } + serverSites(masters).values.map {
+            it.optString("customer_name").ifBlank { it.optString("customer") }
+        }.filter { it.isNotBlank() })
+            .distinctBy { it.lowercase() }.sorted()
 
     fun sitesOf(masters: JSONObject?, client: String): List<Site> {
         val mine = projects(masters).filter { same(it.client, client) }
@@ -418,10 +425,29 @@ class Catalogue(context: Context) {
         val erp = serverSites(masters)
         val grouped = LinkedHashMap<String, MutableList<Project>>()
         for (p in mine) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
+        // A SITE WITH NO PROJECTS IS STILL A SITE. The tree was built purely
+        // from projects, so a site whose projects were all deleted stopped
+        // rendering — and a row nobody can see is a row nobody can delete or
+        // rename. It produced its first orphan on 2026-08-26: MEST-SITE-0002
+        // outlived its only project and became unreachable from the phone.
+        //
+        // The same hole runs the other way, which is the commoner case: a
+        // site created at the DESK has no projects until someone adds one, so
+        // it was invisible on the phone exactly when a technician standing at
+        // it needed to pick it.
+        for ((k, o) in erp) {
+            if (!k.startsWith(key(client) + "\u0000")) continue
+            val n = o.optString("site_name").trim()
+            if (n.isNotEmpty()) grouped.getOrPut(key(n)) { mutableListOf() }
+        }
         return grouped.map { (k, ps) ->
             Site(
                 client = client,
-                name = ps.first().site,
+                // ps may be EMPTY now (a site with no projects), so the name
+                // comes from the server row when there is no project to ask.
+                name = ps.firstOrNull()?.site
+                    ?: erp.entries.firstOrNull { it.key == siteKey(client, k) }
+                        ?.value?.optString("site_name").orEmpty().ifEmpty { k },
                 // ERP'S OWN ANSWER FIRST. This used to infer the docname from
                 // the site's PROJECTS, which meant a site whose projects were
                 // absent from the tree — cancelled, filtered, or simply not
@@ -437,15 +463,15 @@ class Catalogue(context: Context) {
                 //
                 // The bootstrap has always sent a `sites` array naming each
                 // site outright. Nothing needed inferring.
-                serverId = erp[siteKey(client, ps.first().site)]
+                serverId = erp[siteKey(client, k)]
                     ?.optString("name").orEmpty()
                     .ifEmpty { ps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "" },
                 // ERP first, the phone's own note second: the office's record
                 // beats the site's memory of it, which is the same order the
                 // sync uses when it refuses to overwrite a filled field.
-                type = erp[siteKey(client, ps.first().site)]?.optString("site_type").orEmpty().ifEmpty { typeOf[k] ?: "" },
-                city = erp[siteKey(client, ps.first().site)]?.optString("city").orEmpty(),
-                address = erp[siteKey(client, ps.first().site)]?.optString("site_address").orEmpty()
+                type = erp[siteKey(client, k)]?.optString("site_type").orEmpty().ifEmpty { typeOf[k] ?: "" },
+                city = erp[siteKey(client, k)]?.optString("city").orEmpty(),
+                address = erp[siteKey(client, k)]?.optString("site_address").orEmpty()
                     .ifEmpty { addrOf[k] ?: "" },
                 // A site shows the offline badge when ANYTHING under it has
                 // not reached ERP. A folder that says synced while one project
@@ -456,7 +482,7 @@ class Catalogue(context: Context) {
                 // delete: a server site holding one unsynced project is
                 // local=true and is emphatically not a local row.
                 local = ps.any { it.local },
-                serverKnown = erp.containsKey(siteKey(client, ps.first().site)))
+                serverKnown = erp.containsKey(siteKey(client, k)))
         }.sortedWith(compareBy({ siteOrder(it.name) }, { it.name.lowercase() }))
     }
 
@@ -511,19 +537,45 @@ class Catalogue(context: Context) {
             byClient.getOrPut(key(p.client)) { mutableListOf() }.add(p)
             bySite.getOrPut(key(p.client) + "\u0000" + key(p.site)) { mutableListOf() }.add(p)
         }
+        // A CLIENT WITH NO PROJECTS IS STILL A CLIENT, and this list was built
+        // from projects alone. Delete a client's last project and the client
+        // itself left the tree, taking any sites under it — which is how
+        // MEST-SITE-0002 became unreachable on 2026-08-26. The office's own
+        // customer name is carried on each site row, so nothing needs
+        // inventing; it simply was not read.
+        val ownerOf = LinkedHashMap<String, String>()
+        for ((ek, o) in erp) {
+            val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
+            if (owner.isNotBlank()) {
+                ownerOf[ek] = owner
+                byClient.getOrPut(key(owner)) { mutableListOf() }
+            }
+        }
 
         val sites = LinkedHashMap<String, List<Site>>()
         for ((ck, ps) in byClient) {
             val grouped = LinkedHashMap<String, MutableList<Project>>()
             for (p in ps) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
+            // …and the same for its sites: an empty group is a site the office
+            // knows about that simply has no jobs on it yet, or any more.
+            for ((ek, owner) in ownerOf) {
+                if (key(owner) != ck) continue
+                val n = erp[ek]?.optString("site_name").orEmpty().trim()
+                if (n.isNotEmpty()) grouped.getOrPut(key(n)) { mutableListOf() }
+            }
             sites[ck] = grouped.map { (sk, sps) ->
                 // Same client-scoped lookup as sitesOf. This is the path the
                 // TREE actually renders, so a divergence between the two would
                 // show one docname on screen and send another over the wire.
-                val ek = siteKey(sps.first().client, sps.first().site)
+                // The client's display name comes from a project when there
+                // is one and from the office's own record when there is not.
+                val who = sps.firstOrNull()?.client
+                    ?: ownerOf.entries.firstOrNull { key(it.value) == ck }?.value ?: ck
+                val ek = siteKey(who, sps.firstOrNull()?.site ?: sk)
                 Site(
-                    client = sps.first().client,
-                    name = sps.first().site,
+                    client = who,
+                    name = sps.firstOrNull()?.site
+                        ?: erp[ek]?.optString("site_name").orEmpty().ifEmpty { sk },
                     serverId = erp[ek]?.optString("name").orEmpty()
                         .ifEmpty { sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "" },
                     type = erp[ek]?.optString("site_type").orEmpty().ifEmpty { typeOf[sk] ?: "" },
@@ -540,7 +592,8 @@ class Catalogue(context: Context) {
 
         return Snapshot(
             projects = all,
-            clients = all.map { it.client }.distinctBy { it.lowercase() }.sorted(),
+            clients = (all.map { it.client } + ownerOf.values)
+                .distinctBy { it.lowercase() }.sorted(),
             sites = sites,
             bySite = bySite,
             counts = byClient.mapValues { (_, v) -> v.size },
