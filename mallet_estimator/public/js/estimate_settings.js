@@ -132,51 +132,26 @@ function render_calculator(frm) {
       if (!d) { wrap.empty(); return; }
       const sr = d.staff_rates || {};
       const pct = (a) => d.factory_area ? ((a / d.factory_area) * 100).toFixed(1) + "%" : "—";
-      const rows = d.rows.map((w) => `
-        <tr>
-          <td>${frappe.utils.escape_html(w.name)}<br>
-            <span class="text-muted" style="font-size:11px">${w.dims && w.dims[0] ? `${w.dims[0]}×${w.dims[1]} ft · ${w.area_sqft} sq ft · ${pct(w.area_sqft)}` : "no footprint"}</span></td>
-          <td class="text-right">${money(w.rent_hr)}</td>
-          <td class="text-right">${money(w.machine_hr || 0)}</td>
-          <td class="text-right">${money(w.wages_hr != null ? w.wages_hr : w.labour_hr)}<br>
-            <span class="text-muted" style="font-size:11px">${(w.crew || []).join(" + ")}</span></td>
-          <td class="text-right">${money(w.elec_hr || 0)}</td>
-          <td class="text-right">${money(w.consumable_hr || 0)}</td>
-          <td class="text-right"><b>${money(w.net_hr != null ? w.net_hr : w.total_hr)}</b></td>
-        </tr>`).join("");
       wrap.html(`
         <div style="font-size:12.5px">
-          <p class="text-muted" style="margin-bottom:8px">
-            These seed each ERPNext <b>Workstation</b>'s <b>Operating Components Cost</b> (Net Hour Rate) — what every process step is charged.
-            <b>Rent</b> = pure space rent (${money(d.monthly_rent)}/mo over ${d.billable_area} billable sq ft) prorated by footprint over
-            <b>${(d.working_hours_per_month || 0).toFixed(0)} productive hrs/mo</b>
-            (${(d.working_days_per_month || 0).toFixed(1)} working days × ${(d.productive_hours_per_day || 0).toFixed(1)} hrs after lunch).
-            <b>Depreciation</b> = machine capital straight-line, its own component.
-            <b>Wages</b> = salary-derived per role: carpenter ${money(sr.carpenter)}/hr · helper ${money(sr.helper)}/hr · designer ${money(sr.designer)}/hr
-            (salary × 13 ÷ 12 ÷ productive hrs — includes the Diwali bonus and paid holidays).
-            <b>Electricity</b> and <b>Consumables</b> are separate per-workstation components.
-            Once seeded, edit any cell on the Workstation and the estimator reads the live rate.
-          </p>
-          <table class="table table-bordered" style="margin:0">
-            <thead><tr>
-              <th>Workstation (footprint)</th>
-              <th class="text-right">Rent ₹/hr</th>
-              <th class="text-right">Depreciation ₹/hr</th>
-              <th class="text-right">Wages ₹/hr</th>
-              <th class="text-right">Electricity ₹/hr</th>
-              <th class="text-right">Consumables ₹/hr</th>
-              <th class="text-right">Net ₹/hr</th>
-            </tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-          <p class="text-muted" style="margin-top:6px">
-            Factory ${d.factory_area} sq ft → workstations occupy ${d.billable_area} sq ft;
-            <b>${d.free_area} sq ft free</b> (${pct(d.free_area)}) for you to consume.
-            Rent rows recover ${money(d.rent_recovered_month)}/month = 100% of rent.
-            Transport trips: tempo ${money((d.transport_rates || {}).tempo)} · ext-laminate ${money((d.transport_rates || {}).ext_lam)}
-            · client-hw ${money((d.transport_rates || {}).client_hw)} · outward ${money((d.transport_rates || {}).outward)}.
-          </p>
           ${live_workstation_table(d)}
+          <p class="text-muted" style="margin-top:6px;font-size:11.5px">
+            <b>Where these come from.</b>
+            <b>Rent</b> is pure space rent (${money(d.monthly_rent)}/mo over ${d.billable_area} billable sq ft)
+            prorated by each station's footprint over <b>${(d.working_hours_per_month || 0).toFixed(0)} productive hrs/mo</b>
+            (${(d.working_days_per_month || 0).toFixed(1)} working days × ${(d.productive_hours_per_day || 0).toFixed(1)} hrs after lunch).
+            <b>Wages</b> are salary-derived per role — carpenter ${money(sr.carpenter)}/hr ·
+            helper ${money(sr.helper)}/hr · designer ${money(sr.designer)}/hr
+            (salary × 13 ÷ 12 ÷ productive hrs, so the Diwali bonus and paid holidays are already in them).
+            <b>Depreciation</b>, <b>Electricity</b> and <b>Consumables</b> are per-station components on the master.
+            Factory ${d.factory_area} sq ft → workstations occupy ${d.billable_area} sq ft,
+            <b>${d.free_area} sq ft free</b> (${pct(d.free_area)});
+            the rent rows recover ${money(d.rent_recovered_month)}/month, 100% of rent.
+            Transport trips: tempo ${money((d.transport_rates || {}).tempo)} ·
+            ext-laminate ${money((d.transport_rates || {}).ext_lam)} ·
+            client-hw ${money((d.transport_rates || {}).client_hw)} ·
+            outward ${money((d.transport_rates || {}).outward)}.
+          </p>
           ${steps_table(d)}
           ${sku_rule_block(d)}
         </div>`);
@@ -203,10 +178,23 @@ function erp_link(doctype, name, label) {
 // me (along with its child cost component) and every operation takes how many
 // minutes at a glance."
 //
-// The table above is arithmetic from the settings — what a rate OUGHT to be.
-// This one is the Workstation records themselves, one column per operating
-// component, so the whole factory's costing is legible without opening eight
-// forms. Where the two disagree, THIS is the one the estimates use.
+// THE ONLY TABLE. Amit, 2026-08-26: "i dont want two tables. what lives in
+// erp should be here."
+//
+// There used to be a second grid above this one, computed from the settings —
+// what a rate OUGHT to be, beside what it IS. The intent was that a divergence
+// would be visible. What it actually produced was two rows of numbers for the
+// same workstation, differing by design (ERP carries depreciation, electricity
+// and consumables; the settings arithmetic carries none of them), with every
+// live row annotated "differs from the settings figure" — an alarm that fired
+// on all eight and therefore meant nothing.
+//
+// ERP is the authority: it is what estimates are priced from, and its rents
+// already match the footprint arithmetic station for station. So the settings
+// grid is gone and its one unique contribution — each station's footprint and
+// share of the floor — moved into this table, where it belongs next to the
+// rent it explains. The reasoning that was in its preamble is now a footnote
+// under this table rather than a rival to it.
 function live_workstation_table(d) {
   const live = d.live || {};
   const rows = live.workstations || [];
@@ -215,8 +203,13 @@ function live_workstation_table(d) {
       <p class="text-muted">${frappe.utils.escape_html(live.error || "No workstations found in ERP.")}</p>`;
   }
   const comps = live.components || [];
-  const computed = {};
-  (d.rows || []).forEach((w) => { computed[w.name] = (w.net_hr != null ? w.net_hr : w.total_hr) || 0; });
+  // Footprint only. The settings rows are no longer rendered as a table, but
+  // they still know how much floor each station stands on and what share of
+  // the factory that is — the one thing ERP's Workstation record does not
+  // carry, and the thing that explains its rent line.
+  const foot = {};
+  (d.rows || []).forEach((w) => { foot[w.name] = w; });
+  const pct = (a) => d.factory_area ? ((a / d.factory_area) * 100).toFixed(1) + "%" : "—";
 
   const head = comps.map((c) => `<th class="text-right">${frappe.utils.escape_html(c)}<br>₹/hr</th>`).join("");
   const body = rows.map((w) => {
@@ -230,9 +223,7 @@ function live_workstation_table(d) {
       const v = have[c];
       return `<td class="text-right">${v === undefined ? '<span class="text-muted">—</span>' : money(v)}</td>`;
     }).join("");
-    const want = computed[w.name];
     const got = w.hour_rate || 0;
-    const off = want != null && Math.abs(got - want) >= 1;
     let note = "";
     if (got === 0) {
       note = `<br><span class="text-muted" style="font-size:10px;color:#a94442">no costs keyed</span>`;
@@ -241,22 +232,29 @@ function live_workstation_table(d) {
       // empty component list — a station could in principle carry rows and
       // still be reported computed, and guessing would eventually be wrong.
       note = `<br><span class="text-muted" style="font-size:10px">computed — no cost rows on the master</span>`;
-    } else if (off) {
-      note = `<br><span class="text-muted" style="font-size:10px;color:#8a6d3b">differs from the settings figure</span>`;
     }
+    // "differs from the settings figure" is gone with the settings table. It
+    // fired on every row, because ERP legitimately carries components the
+    // settings arithmetic does not — a warning that is always on is furniture.
+    const f = foot[w.name];
+    const dims = f && f.dims && f.dims[0]
+      ? `${f.dims[0]}×${f.dims[1]} ft · ${f.area_sqft} sq ft · ${pct(f.area_sqft)} of the floor`
+      : "no footprint";
     return `<tr>
-      <td>${erp_link("workstation", w.name)}</td>
+      <td>${erp_link("workstation", w.name)}<br>
+        <span class="text-muted" style="font-size:11px">${frappe.utils.escape_html(dims)}</span></td>
       ${cells}
       <td class="text-right"><b>${money(got)}</b>${note}</td>
     </tr>`;
   }).join("");
 
   return `
-    <h5 style="margin-top:22px">Live in ERP — what every workstation actually costs</h5>
+    <h5 style="margin-top:4px">Workstation costs — live from ERP</h5>
     <p class="text-muted" style="margin-bottom:6px">
       Read straight off each ERPNext <b>Workstation</b>'s Operating Components Cost, which is what
-      every estimate is priced from. A dash means that component has no row on the master at all —
-      different from a row set to zero. Click a workstation to open it.
+      every estimate is priced from — there is no second set of numbers anywhere. A dash means that
+      component has no row on the master at all, which is different from a row set to zero. Click a
+      workstation to open it and edit any cell; the estimator reads the change immediately.
     </p>
     <div style="overflow-x:auto">
       <table class="table table-bordered" style="margin:0">
