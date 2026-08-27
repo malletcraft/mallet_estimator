@@ -477,6 +477,15 @@ def sku_code(customer_name, room, article_name, article_code=None):
 
 # Default operation standards: which material driver fills each operation's Qty
 # and the crew minutes per unit. Editable per SKU on the labor table.
+# Amit, 2026-08-27: "every install hardware operation is 15 minutes per unit."
+# The per-type guesses these started as (hinges 4, rails 6, handles 3, shelf
+# supports 1, locks 5, other 2) were mine, not measured, and they are replaced
+# by his single figure. The SPLIT still earns its place — the counts differ
+# per type and the minutes remain editable per type — but the starting number
+# is now one he chose rather than six I invented.
+HARDWARE_MIN_PER_UNIT = 15
+
+
 OPERATION_STANDARDS = {
     "Sheet Lamination":       {"qty_source": "laminate_sheets", "min_per_unit": 15},
     "Sheet Tape Removal":     {"qty_source": "sheets",          "min_per_unit": 3},
@@ -492,7 +501,13 @@ OPERATION_STANDARDS = {
     "Drilling":               {"qty_source": "hinges",          "min_per_unit": 3},
     "Grooving":               {"qty_source": "manual",          "min_per_unit": 5},
     "Assembly":               {"qty_source": "panels",          "min_per_unit": 4},
-    "Install Hardware":       {"qty_source": "hardware_total",  "min_per_unit": 2},
+    # Amit, 2026-08-27, on the parent being left at 30 while its six children
+    # went to 15: "Set it to 15 as well." Its own figure is unused whenever
+    # children are present — the parent's time is their sum — so this is the
+    # FALLBACK: what a hardware line costs when no child type matches, and
+    # what a reader scanning the Operation list sees. One figure, not two.
+    "Install Hardware":       {"qty_source": "hardware_total",
+                               "min_per_unit": HARDWARE_MIN_PER_UNIT},
     "Disassembly":            {"qty_source": "manual",          "min_per_unit": 15},
     # Amit, 2026-08-24: "Packing default time is 30 minute per unit."
     "Packing":                {"qty_source": "sheets",          "min_per_unit": 30},
@@ -552,14 +567,6 @@ def hardware_operation(kind):
 # Seed minutes per type. Every one is the old flat 2 min/unit except where a
 # fitting is obviously slower — these are STARTING points, tuned on the
 # Operation master like every other standard, never in code.
-# Amit, 2026-08-27: "every install hardware operation is 15 minutes per unit."
-# The per-type guesses these started as (hinges 4, rails 6, handles 3, shelf
-# supports 1, locks 5, other 2) were mine, not measured, and they are replaced
-# by his single figure. The SPLIT still earns its place — the counts differ
-# per type and the minutes remain editable per type — but the starting number
-# is now one he chose rather than six I invented.
-HARDWARE_MIN_PER_UNIT = 15
-
 HARDWARE_STANDARDS = {
     "hinges": HARDWARE_MIN_PER_UNIT,
     "rails": HARDWARE_MIN_PER_UNIT,

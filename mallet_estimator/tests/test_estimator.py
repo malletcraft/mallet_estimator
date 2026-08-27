@@ -1015,6 +1015,16 @@ class TestHardwareStandardMinutes(unittest.TestCase):
         for kind, _label in E.HARDWARE_INSTALL_TYPES:
             self.assertEqual(E.HARDWARE_STANDARDS[kind], 15, kind)
 
+    def test_the_parent_carries_the_same_figure(self):
+        # Amit, 2026-08-27, when the six children had moved and the parent had
+        # not: "Set it to 15 as well." Unused while children exist — the
+        # parent's time is their sum — so it is the FALLBACK for a hardware
+        # line whose type nothing matched, and it is what a person scanning
+        # the Operation list reads. Two figures for one idea is how a stale
+        # number outlives its reason.
+        self.assertEqual(
+            E.OPERATION_STANDARDS[E.HARDWARE_PARENT]["min_per_unit"], 15)
+
     def test_every_type_has_a_standard_at_all(self):
         # A type present in the model but missing from the table would price
         # its fittings at zero minutes and look like a complete estimate.

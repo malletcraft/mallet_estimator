@@ -36,8 +36,8 @@ def execute():
         return
     if not frappe.get_meta("Operation").has_field("mallet_min_per_unit"):
         return
-    for kind, _label in E.HARDWARE_INSTALL_TYPES:
-        name = E.hardware_operation(kind)
+    names = [E.hardware_operation(k) for k, _l in E.HARDWARE_INSTALL_TYPES]
+    for name in names:
         if name and frappe.db.exists("Operation", name):
             frappe.db.set_value("Operation", name, "mallet_min_per_unit",
                                 E.HARDWARE_MIN_PER_UNIT, update_modified=False)

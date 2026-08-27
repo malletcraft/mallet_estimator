@@ -191,3 +191,8 @@ mallet_estimator.patches.sync_health_fields
 # nothing and report success. HARDWARE_STANDARDS alone would not reach a bench
 # that already carries these operations.
 mallet_estimator.patches.hardware_install_minutes
+# post_model_sync: the PARENT Install Hardware to 15 min/unit too (Amit,
+# 2026-08-27, "Set it to 15 as well"). A SEPARATE entry on purpose:
+# hardware_install_minutes had already run, and Frappe never runs a patch
+# twice — editing it would have deployed green and left the bench at 30.
+mallet_estimator.patches.hardware_parent_minutes
