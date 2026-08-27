@@ -184,3 +184,10 @@ mallet_estimator.patches.subcontract_service_items
 # answers False for ever and the path that exists to break the silence is
 # itself silent.
 mallet_estimator.patches.sync_health_fields
+# post_model_sync: every Install <type> operation to 15 min/unit (Amit,
+# 2026-08-27). DELIBERATELY overwrites, unlike every other seeder here, which
+# fills only where unset so a hand-tuned master survives a deploy — the
+# instruction is precisely to change the master, so leaving it alone would do
+# nothing and report success. HARDWARE_STANDARDS alone would not reach a bench
+# that already carries these operations.
+mallet_estimator.patches.hardware_install_minutes

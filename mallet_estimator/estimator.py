@@ -552,13 +552,21 @@ def hardware_operation(kind):
 # Seed minutes per type. Every one is the old flat 2 min/unit except where a
 # fitting is obviously slower — these are STARTING points, tuned on the
 # Operation master like every other standard, never in code.
+# Amit, 2026-08-27: "every install hardware operation is 15 minutes per unit."
+# The per-type guesses these started as (hinges 4, rails 6, handles 3, shelf
+# supports 1, locks 5, other 2) were mine, not measured, and they are replaced
+# by his single figure. The SPLIT still earns its place — the counts differ
+# per type and the minutes remain editable per type — but the starting number
+# is now one he chose rather than six I invented.
+HARDWARE_MIN_PER_UNIT = 15
+
 HARDWARE_STANDARDS = {
-    "hinges": 4,            # bore-mount, adjust, close gaps
-    "rails": 6,             # a pair per drawer, squared and levelled
-    "handles": 3,
-    "shelf_supports": 1,
-    "locks": 5,
-    "other": 2,
+    "hinges": HARDWARE_MIN_PER_UNIT,
+    "rails": HARDWARE_MIN_PER_UNIT,
+    "handles": HARDWARE_MIN_PER_UNIT,
+    "shelf_supports": HARDWARE_MIN_PER_UNIT,
+    "locks": HARDWARE_MIN_PER_UNIT,
+    "other": HARDWARE_MIN_PER_UNIT,
 }
 
 # Every hardware child runs where its parent runs. DERIVED from the parent

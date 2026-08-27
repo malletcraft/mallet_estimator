@@ -1002,3 +1002,21 @@ class TestAssemblyIdentification(unittest.TestCase):
         out = E._asmbl_counts(self._rows(
             "bukcab_ref", "studytbl_ref", "Group", "< studytbl_skirt>"))
         self.assertEqual(sum(out[k] for k in E.ASSEMBLY_SIZES), 0)
+
+class TestHardwareStandardMinutes(unittest.TestCase):
+    """Amit, 2026-08-27: "every install hardware operation is 15 minutes per
+    unit." """
+
+    def test_every_hardware_type_starts_at_the_same_fifteen(self):
+        # The per-type figures this replaces were guesses made when the split
+        # was built, not measurements. One number he chose beats six I
+        # invented, and the split still earns its keep because the COUNTS
+        # differ per type and the minutes stay editable per type.
+        for kind, _label in E.HARDWARE_INSTALL_TYPES:
+            self.assertEqual(E.HARDWARE_STANDARDS[kind], 15, kind)
+
+    def test_every_type_has_a_standard_at_all(self):
+        # A type present in the model but missing from the table would price
+        # its fittings at zero minutes and look like a complete estimate.
+        self.assertEqual(set(E.HARDWARE_STANDARDS),
+                         {k for k, _l in E.HARDWARE_INSTALL_TYPES})
