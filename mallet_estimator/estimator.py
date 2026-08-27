@@ -801,6 +801,108 @@ def calc_sku(sku, settings, ws_rates=None):
 # is where the MATERIAL comes from. Repair barely buys anything; Supply &
 # Install buys a FINISHED article and fits it, which is a different margin
 # question because the client can price-check a door and cannot price-check ply.
+ASSEMBLY_SIZES = ("large", "medium", "small")
+
+# ASMBL_L_WAR, ASMBL_M_DRW, ASMBL_S_SHELF — Amit, 2026-08-23: "we deal with
+# three size of assembly, Large - carcass, medium drawers , small like
+# shelfs ... so that i can do a better job of estimating the time."
+#
+# The size is the token straight after ASMBL. A name with no size token is
+# read as LARGE, deliberately: every model drawn before this convention
+# existed says plain ASMBL_WAR, and those are carcasses. Reading them as
+# small would quietly shrink the estimate of every existing model.
+_ASMBL_SIZE = re.compile(r"\AASMBL[_\-]?([LMS])(?:[_\-]|\Z)", re.I)
+_SIZE_OF = {"L": "large", "M": "medium", "S": "small"}
+
+# THE TOP-LEVEL MARKER. Amit, 2026-08-27, with the Outliner beside the labour
+# table: "Large / Medium / Small assemblies are not captured or identified
+# correctly. Qualifier is TOp level component MCFT_ASMBL_L_ MCFT_ASMBL_M_
+# MCFT_ASMBL_S_".
+#
+# Two faults, one cause. The pattern above anchors on ASMBL at the START of
+# the name, so `MCFT_ASMBL_M_BOOKCAB` did not match it at all — the actual
+# assembly was invisible — while the nested parts inside it (ASMBL_DRW_Box,
+# ASMBL_Door_Loft_Left, ASMBL_CARCASS_SHELF …) all matched, carried no size
+# token, and were each counted as a LARGE assembly. A model with two medium
+# assemblies was priced as ten large ones.
+#
+# The MCFT_ prefix is what distinguishes the SKU from its parts, which makes
+# it both the size qualifier and the top-level marker, and the rule published
+# on Estimate Settings has said MCFT_ASMBL_ since it was written. The parser
+# is what disagreed with it.
+_MCFT_ASMBL = re.compile(r"\AMCFT[_\-]?ASMBL[_\-]?(?:([LMS])(?:[_\-]|\Z))?", re.I)
+
+
+def _asmbl_classify(name):
+    """(is_top_level, size, sized) for an assembly name, or None if not one.
+
+    A MCFT_-prefixed name is the SKU itself. A bare ASMBL name is a part
+    inside one — or, on any model drawn before this convention, the assembly
+    itself, which is why the caller keeps both and decides between them.
+
+    `sized` says whether the NAME declared a size, which is not the same as
+    the size being large. "Nobody said" is what tells you a model predates the
+    convention; "somebody said large" is a choice. Returning it here beats
+    re-deriving it at the call site by matching the same patterns twice.
+    """
+    n = (name or "").strip()
+    m = _MCFT_ASMBL.match(n)
+    if m:
+        tok = (m.group(1) or "").upper()
+        return True, _SIZE_OF.get(tok, "large"), bool(tok)
+    m = _ASMBL_SIZE.match(n)
+    if m:
+        return False, _SIZE_OF[m.group(1).upper()], True
+    if n.upper().startswith("ASMBL"):
+        return False, "large", False
+    return None
+
+
+def _asmbl_counts(rows):
+    """DISTINCT assemblies per size class.
+
+    Distinct, not total: two copies of one assembly are two units of the same
+    thing and both are counted, but the same component appearing on twenty
+    part rows is still one assembly. Case-insensitive because SketchUp names
+    are typed by people.
+    """
+    tops, bare = set(), set()
+    for r in rows:
+        for key in ("name", "designation", "part", "Name", "Designation"):
+            v = str((r.get(key) if hasattr(r, "get") else "") or "").strip()
+            if not v:
+                continue
+            got = _asmbl_classify(v)
+            if got is None:
+                continue
+            (tops if got[0] else bare).add(v.upper())
+            break
+
+    # TOP-LEVEL WINS OUTRIGHT when any is present. The parts inside an
+    # assembly are named ASMBL_* too, and counting them alongside their parent
+    # is what turned two medium assemblies into ten large ones.
+    #
+    # The fallback is not laziness: every model drawn before this convention
+    # says plain ASMBL_WAR at top level with no MCFT_ prefix, and requiring
+    # the prefix outright would silently price those at zero assemblies.
+    # Explicit marking wins where it exists; the old reading holds where it
+    # does not.
+    chosen, from_top = (tops, True) if tops else (bare, False)
+    out = {k: 0 for k in ASSEMBLY_SIZES}
+    unsized = 0
+    for name in chosen:
+        _top, size, sized = _asmbl_classify(name)
+        out[size] += 1
+        if not sized:
+            unsized += 1
+    out["unsized"] = unsized
+    # Which reading was used, so the estimate can say so rather than leaving
+    # the reader to wonder why a model with MCFT_ names counted differently
+    # from one without.
+    out["top_level"] = from_top
+    return out
+
+
 NEW_WORK = "New Work"
 REPAIR = "Repair"
 SUPPLY_INSTALL = "Supply & Install"

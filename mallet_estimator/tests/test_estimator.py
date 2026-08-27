@@ -934,3 +934,71 @@ class TestCalcSubcontract(unittest.TestCase):
         # into SITE_WORK would have it costed with carpenter minutes.
         self.assertIn(E.SUBCONTRACT, E.OFF_FLOOR)
         self.assertNotIn(E.SUBCONTRACT, E.SITE_WORK)
+
+class TestAssemblyIdentification(unittest.TestCase):
+    """WHICH components are assemblies, and what size they are.
+
+    Amit, 2026-08-27, with the SketchUp Outliner beside the labour table:
+    "Large / Medium / Small assemblies are not captured or identified
+    correctly. Qualifier is TOp level component MCFT_ASMBL_L_ MCFT_ASMBL_M_
+    MCFT_ASMBL_S_".
+    """
+
+    def _rows(self, *names):
+        return [{"designation": n} for n in names]
+
+    # The model from the screenshot, named exactly as the Outliner showed it.
+    SCREENSHOT = ("MCFT_ASMBL_M_BOOKCAB", "MCFT_ASMBL_M_STUDYTABLE",
+                  "ASMBL_Door_Loft_Left", "ASMBL_Door_Loft_Right",
+                  "ASMBL_LOFT.WAR.SLID", "ASMBL_CARCASS_SHELF",
+                  "ASMBL_DRW_Box.1_520", "ASMBL_DRW_Facia",
+                  "ASMBL_STUDYTABLE")
+
+    def test_the_reported_model_is_two_mediums_not_ten_larges(self):
+        # The bug in one assertion. The matcher anchored on ASMBL at the START
+        # of the name, so MCFT_ASMBL_M_BOOKCAB did not match at all while
+        # every part INSIDE it did — unsized, therefore large. A model holding
+        # two medium assemblies was priced as ten large ones.
+        out = E._asmbl_counts(self._rows(*self.SCREENSHOT))
+        self.assertEqual(out["medium"], 2)
+        self.assertEqual(out["large"], 0)
+        self.assertEqual(out["small"], 0)
+        self.assertTrue(out["top_level"])
+
+    def test_parts_inside_an_assembly_are_not_assemblies(self):
+        # This is the half that matters most for money: a drawer box and a
+        # door are things the assembly is MADE of, and counting them beside
+        # their parent charges assembly time for the same object twice.
+        out = E._asmbl_counts(self._rows(
+            "MCFT_ASMBL_L_WAR", "ASMBL_DRW_Box", "ASMBL_Door", "ASMBL_Shelf"))
+        self.assertEqual(sum(out[k] for k in E.ASSEMBLY_SIZES), 1)
+        self.assertEqual(out["large"], 1)
+
+    def test_a_model_drawn_before_the_convention_still_counts(self):
+        # The fallback, and why it is not laziness. Every model drawn before
+        # MCFT_ existed says plain ASMBL_WAR at top level. Demanding the
+        # prefix outright would price those at ZERO assemblies — a silent
+        # halving of the estimate, which is worse than the bug being fixed.
+        out = E._asmbl_counts(self._rows("ASMBL_WAR", "ASMBL_LOFT"))
+        self.assertEqual(out["large"], 2)
+        self.assertEqual(out["unsized"], 2)
+        self.assertFalse(out["top_level"])
+
+    def test_an_unsized_top_level_assembly_is_large_and_says_it_was_unsized(self):
+        # "Nobody said" and "somebody said large" cost the same and mean
+        # different things: the first tells you a model predates the
+        # convention, which is worth being able to see.
+        out = E._asmbl_counts(self._rows("MCFT_ASMBL_BOOKCAB"))
+        self.assertEqual(out["large"], 1)
+        self.assertEqual(out["unsized"], 1)
+
+    def test_every_size_token_is_read(self):
+        out = E._asmbl_counts(self._rows(
+            "MCFT_ASMBL_L_WAR", "MCFT_ASMBL_M_DRW", "MCFT_ASMBL_S_SHELF"))
+        self.assertEqual((out["large"], out["medium"], out["small"]), (1, 1, 1))
+        self.assertEqual(out["unsized"], 0)
+
+    def test_a_component_that_is_not_an_assembly_at_all_is_ignored(self):
+        out = E._asmbl_counts(self._rows(
+            "bukcab_ref", "studytbl_ref", "Group", "< studytbl_skirt>"))
+        self.assertEqual(sum(out[k] for k in E.ASSEMBLY_SIZES), 0)

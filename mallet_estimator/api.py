@@ -1197,46 +1197,13 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     }
 
 
-ASSEMBLY_SIZES = ("large", "medium", "small")
-
-# ASMBL_L_WAR, ASMBL_M_DRW, ASMBL_S_SHELF — Amit, 2026-08-23: "we deal with
-# three size of assembly, Large - carcass, medium drawers , small like
-# shelfs ... so that i can do a better job of estimating the time."
-#
-# The size is the token straight after ASMBL. A name with no size token is
-# read as LARGE, deliberately: every model drawn before this convention
-# existed says plain ASMBL_WAR, and those are carcasses. Reading them as
-# small would quietly shrink the estimate of every existing model.
-_ASMBL_SIZE = re.compile(r"\AASMBL[_\-]?([LMS])(?:[_\-]|\Z)", re.I)
-_SIZE_OF = {"L": "large", "M": "medium", "S": "small"}
-
-
-def _asmbl_counts(rows):
-    """DISTINCT assemblies per size class.
-
-    Distinct, not total: two copies of one assembly are two units of the same
-    thing and both are counted, but the same component appearing on twenty
-    part rows is still one assembly. Case-insensitive because SketchUp names
-    are typed by people.
-    """
-    seen = set()
-    for r in rows:
-        for key in ("name", "designation", "part", "Name", "Designation"):
-            v = str((r.get(key) if hasattr(r, "get") else "") or "").strip()
-            if v.upper().startswith("ASMBL"):
-                seen.add(v.upper())
-                break
-    out = {k: 0 for k in ASSEMBLY_SIZES}
-    unsized = 0
-    for name in seen:
-        m = _ASMBL_SIZE.match(name)
-        if m:
-            out[_SIZE_OF[m.group(1).upper()]] += 1
-        else:
-            out["large"] += 1
-            unsized += 1
-    out["unsized"] = unsized
-    return out
+# The assembly naming rule lives in estimator.py — frappe-free, so the unit
+# suite can hold it, and beside every other naming convention in this app.
+# Re-exported here because callers and tests already reach for api.*.
+from mallet_estimator.estimator import (      # noqa: F401  (re-exported)
+    ASSEMBLY_SIZES, _ASMBL_SIZE, _MCFT_ASMBL, _SIZE_OF, _asmbl_classify,
+    _asmbl_counts,
+)
 
 
 def _asmbl_count(rows):
