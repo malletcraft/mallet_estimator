@@ -103,3 +103,65 @@ def summarise(decisions):
     for action, _ in decisions:
         out[action] = out.get(action, 0) + 1
     return out
+
+
+# --- is the sync actually alive? -------------------------------------------
+#
+# Amit, 2026-08-26, putting the in-house annotator on hold: "we will use
+# imagemeter for annotation purpose." That decision made this sync
+# LOAD-BEARING. It used to be a convenience — annotations could be drawn in
+# the app if the sync was down. Now it is the only way a drawn measurement
+# reaches ERP, and if it stops, annotations simply never appear.
+#
+# Nothing would have noticed. verify_setup checked that the sync was
+# CONFIGURED — masters present, enabled, credential set — and reported
+# "enabled, credential present", which reads as healthy. It never once looked
+# at whether the thing had RUN. A sync dead for a week passed that check
+# every time.
+#
+# This is the same failure shape as the phone delete that reported success
+# having done nothing, and it deserves the same treatment: make the silence
+# say something. The verdict is pure so a test can hold it, and it is stated
+# in hours rather than as a bare boolean because "stale" is not actionable
+# and "last ran 31 hours ago" is.
+
+# It runs hourly. Two missed runs is a blip — a deploy, a restart, a Drive
+# hiccup — and three is a pattern, so that is where the line goes. Tight
+# enough to catch a real stoppage the same day; loose enough not to cry over
+# an hour's outage.
+SYNC_STALE_AFTER_MIN = 190
+
+
+def sync_health(enabled, last_sync_minutes_ago, stale_after_min=SYNC_STALE_AFTER_MIN):
+    """(ok, detail) for the ImageMeter sync.
+
+    `last_sync_minutes_ago` is None when the sync has never completed — a
+    different thing from stale, and worth its own sentence: never-run points
+    at wiring, stale points at something that broke after working.
+
+    A DISABLED sync is reported ok. Somebody turned it off deliberately, and a
+    health check that fails on a deliberate choice trains people to ignore it.
+    """
+    if not enabled:
+        return True, "not enabled — annotations will not come back from ImageMeter"
+    if last_sync_minutes_ago is None:
+        return False, ("enabled but has NEVER completed a run — annotations "
+                       "drawn in ImageMeter are not reaching this site")
+    mins = int(last_sync_minutes_ago)
+    if mins > stale_after_min:
+        return False, ("last completed %s ago, and it runs hourly — annotations "
+                       "stopped coming back at that point" % human_gap(mins))
+    return True, "last completed %s ago" % human_gap(mins)
+
+
+def human_gap(minutes):
+    """'12 minutes' / '3 hours' / '2 days'. A number somebody can act on
+    beats a timestamp they have to subtract from now themselves."""
+    m = max(int(minutes), 0)
+    if m < 60:
+        return "%d minute%s" % (m, "" if m == 1 else "s")
+    if m < 60 * 48:
+        h = m // 60
+        return "%d hour%s" % (h, "" if h == 1 else "s")
+    d = m // (60 * 24)
+    return "%d day%s" % (d, "" if d == 1 else "s")

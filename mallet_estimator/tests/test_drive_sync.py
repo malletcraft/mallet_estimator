@@ -162,3 +162,58 @@ class TestNonImagesAreNotQuestions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSyncHealth(unittest.TestCase):
+    """Whether the sync is alive — asked because nothing was asking.
+
+    Amit, 2026-08-26, putting the in-house annotator on hold in favour of
+    ImageMeter. That made this sync the only route a drawn measurement has to
+    reach ERP, and verify_setup was checking only that it was CONFIGURED.
+    "enabled, credential present" reads as healthy and said exactly that
+    whether the sync ran an hour ago or died a week back.
+    """
+
+    def test_a_sync_that_never_ran_says_so_in_its_own_words(self):
+        # Different from stale, and worth a different sentence: never-run
+        # points at wiring, stale points at something that broke after
+        # working. A single "unhealthy" would send you looking in one place
+        # for two different faults.
+        ok, why = D.sync_health(True, None)
+        self.assertFalse(ok)
+        self.assertIn("NEVER", why)
+
+    def test_a_recent_run_is_healthy_and_says_when(self):
+        ok, why = D.sync_health(True, 12)
+        self.assertTrue(ok)
+        self.assertIn("12 minutes", why)
+
+    def test_two_missed_hours_are_a_blip_and_three_are_a_pattern(self):
+        # It runs hourly. The line sits past two missed runs so a deploy or a
+        # restart does not cry wolf, and inside three so a real stoppage is
+        # caught the same day.
+        self.assertTrue(D.sync_health(True, 110)[0])
+        self.assertFalse(D.sync_health(True, 200)[0])
+
+    def test_the_failure_says_how_long_not_just_that_it_is_stale(self):
+        # "stale" is not actionable. "last completed 31 hours ago" tells you
+        # roughly when it stopped, which is where you start looking.
+        ok, why = D.sync_health(True, 31 * 60)
+        self.assertFalse(ok)
+        self.assertIn("31 hours", why)
+
+    def test_a_deliberately_disabled_sync_is_not_a_failure(self):
+        # Somebody turned it off on purpose. A health check that fails on a
+        # deliberate choice is a check people learn to ignore — and then it is
+        # worth nothing on the day it means something.
+        ok, why = D.sync_health(False, None)
+        self.assertTrue(ok)
+        self.assertIn("not enabled", why)
+
+    def test_the_gap_reads_as_a_person_would_say_it(self):
+        self.assertEqual(D.human_gap(1), "1 minute")
+        self.assertEqual(D.human_gap(59), "59 minutes")
+        self.assertEqual(D.human_gap(60), "1 hour")
+        self.assertEqual(D.human_gap(31 * 60), "31 hours")
+        self.assertEqual(D.human_gap(60 * 24 * 3), "3 days")
+        self.assertEqual(D.human_gap(-5), "0 minutes")

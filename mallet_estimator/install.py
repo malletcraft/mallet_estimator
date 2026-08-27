@@ -789,6 +789,33 @@ def verify_setup():
          + (", credential present" if _im_key else ", MCFT_GDRIVE_SA_JSON not set on this bench"))
         if _im_ok else "missing Site Photo Settings / Site Photo Inbox")
 
+    # WHETHER IT HAS ACTUALLY RUN, which is a different question from whether
+    # it is configured — and until now nobody asked it. The check above says
+    # "enabled, credential present", which reads as healthy, and said exactly
+    # that whether the sync ran an hour ago or had been dead for a week.
+    #
+    # It matters as of 2026-08-26. Amit put the in-house annotator on hold in
+    # favour of ImageMeter, which makes this sync the ONLY route a drawn
+    # measurement has to reach ERP. A stoppage now means annotations quietly
+    # never appear, and nothing else in the chain would notice — the same
+    # shape as the phone delete that reported success having done nothing.
+    if _im_ok:
+        from mallet_estimator import drive_sync as _ds
+        _last = frappe.db.get_single_value("Site Photo Settings", "last_sync")
+        _mins = None
+        if _last:
+            _mins = frappe.utils.time_diff_in_seconds(
+                frappe.utils.now_datetime(), _last) / 60.0
+        _sync_ok, _sync_why = _ds.sync_health(_im_on, _mins)
+        # The REASON the last run died, if one was recorded. "Stale" tells you
+        # to go looking; "stale, and it said 403 on the Drive folder" is the
+        # answer already.
+        if not _sync_ok and frappe.get_meta("Site Photo Settings").has_field("last_error"):
+            _err = frappe.db.get_single_value("Site Photo Settings", "last_error")
+            if _err:
+                _sync_why += " — last error: " + str(_err).strip().split("\n")[0][:140]
+        chk("ImageMeter sync is running", _sync_ok, _sync_why)
+
     # A workspace edit is only applied when the on-disk record is NEWER than
     # the row (2026-08-16: it was not, and three shipped edits did nothing at
     # all, silently). Compare the live record against what the code expects.

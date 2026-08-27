@@ -301,6 +301,11 @@ def sync(push=True, pull=True):
         result["pull"] = pull_annotations()
     s.db_set("last_sync", now_datetime(), update_modified=False)
     s.db_set("last_summary", frappe.as_json(result)[:2000], update_modified=False)
+    # A run that worked clears the last failure. An old error sitting beside a
+    # fresh last_sync reads as "still broken" and is its own kind of lie.
+    if s.get("last_error"):
+        s.db_set("last_error", "", update_modified=False)
+        s.db_set("last_error_at", None, update_modified=False)
     return result
 
 
@@ -365,10 +370,26 @@ def status():
 
 def scheduled_sync():
     """Hourly. Silent when disabled or unconfigured — a site without Drive
-    wiring must not fill its error log every hour."""
+    wiring must not fill its error log every hour.
+
+    A FAILURE is not silent, though, and since 2026-08-26 it cannot be: this
+    sync is the only route an ImageMeter annotation has to reach ERP, so a run
+    that dies has to leave something a person will actually meet. The Error
+    Log is not that place — nobody opens it unprompted. The reason is written
+    onto Site Photo Settings, where verify_setup reads it back beside the
+    staleness verdict.
+    """
     try:
         if not frappe.db.get_single_value(SETTINGS, "sync_enabled"):
             return
         sync()
-    except Exception:
+    except Exception as exc:
         frappe.log_error(frappe.get_traceback(), "imagemeter scheduled sync")
+        try:
+            s = frappe.get_single(SETTINGS)
+            if s.meta.has_field("last_error"):
+                s.db_set("last_error", str(exc)[:900], update_modified=False)
+                s.db_set("last_error_at", now_datetime(), update_modified=False)
+        except Exception:
+            # Recording the failure must never become a second failure.
+            pass

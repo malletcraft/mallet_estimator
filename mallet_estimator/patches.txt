@@ -177,3 +177,10 @@ mallet_estimator.patches.readonly_can_see_the_company
 # without this entry the seeder reaches the source and never the database —
 # and a subcontract line with no Item quotes at zero while looking complete.
 mallet_estimator.patches.subcontract_service_items
+# post_model_sync: Site Photo Settings gains last_error / last_error_at, so a
+# failed ImageMeter sync records WHY on the record verify_setup reads rather
+# than only in an Error Log nobody opens. Needs a migrate to create the
+# columns, and a Python-only deploy runs none — without this entry has_field
+# answers False for ever and the path that exists to break the silence is
+# itself silent.
+mallet_estimator.patches.sync_health_fields

@@ -9,6 +9,8 @@
   "column_break_top",
   "last_sync",
   "last_summary",
+  "last_error",
+  "last_error_at",
   "folders_section",
   "handover_folder_id",
   "imagemeter_folder_id",
@@ -93,6 +95,19 @@
    "fieldname": "twa_help",
    "fieldtype": "HTML",
    "options": "<p class='text-muted small'>These publish <code>/.well-known/assetlinks.json</code>, which is how Android proves this app owns this site and hides the URL bar. Chrome fetches it anonymously and caches it \u2014 get it right before the first release.</p>"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Small Text",
+   "label": "Last Sync Error",
+   "read_only": 1,
+   "description": "Why the last run failed. Cleared by the next run that succeeds \u2014 a stale error beside a fresh last_sync is its own kind of lie."
+  },
+  {
+   "fieldname": "last_error_at",
+   "fieldtype": "Datetime",
+   "label": "Last Error At",
+   "read_only": 1
   }
  ],
  "links": [],
