@@ -132,6 +132,34 @@ def summarise(decisions):
 SYNC_STALE_AFTER_MIN = 190
 
 
+# A run that supposedly happened before this app existed did not happen. The
+# year is a floor, not a guess at the real one.
+EPOCH_FLOOR_YEAR = 2000
+
+
+def minutes_since(last_sync, now):
+    """Minutes since the last completed run, or None meaning never-run.
+
+    Exists because of what the first live test of this check turned up
+    (mcft-stg, 2026-08-28). A blank `last_sync` is the obvious never-run case
+    and was handled. The one that actually occurs is not blank: CLEARING a
+    Frappe Datetime on a Single stores "0001-01-01 00:00:00", which is
+    truthy, parses cleanly, and subtracts to 739855 days. So the never-run
+    branch below was unreachable, and the check reported a sync that
+    "stopped coming back" two thousand years ago.
+
+    That wording is worse than useless on a bench where it matters most. A
+    brand-new site — mcft-prd at go-live — is exactly the never-run case, and
+    it needs to be told its WIRING is unfinished, not that something which
+    used to work has broken.
+    """
+    if not last_sync:
+        return None
+    if getattr(last_sync, "year", 0) < EPOCH_FLOOR_YEAR:
+        return None
+    return (now - last_sync).total_seconds() / 60.0
+
+
 def sync_health(enabled, last_sync_minutes_ago, stale_after_min=SYNC_STALE_AFTER_MIN):
     """(ok, detail) for the ImageMeter sync.
 

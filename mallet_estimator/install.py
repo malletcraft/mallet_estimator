@@ -801,11 +801,18 @@ def verify_setup():
     # shape as the phone delete that reported success having done nothing.
     if _im_ok:
         from mallet_estimator import drive_sync as _ds
+        # get_single_value returns the RAW string out of tabSingles, which is
+        # why the parse is here and not inline: a cleared Datetime comes back
+        # as "0001-01-01 00:00:00", not as blank. drive_sync.minutes_since
+        # owns that judgement so it can be tested without a bench.
         _last = frappe.db.get_single_value("Site Photo Settings", "last_sync")
-        _mins = None
-        if _last:
-            _mins = frappe.utils.time_diff_in_seconds(
-                frappe.utils.now_datetime(), _last) / 60.0
+        try:
+            _last_dt = frappe.utils.get_datetime(_last) if _last else None
+        except Exception:
+            # An unparseable stamp is not a run. Never let the health check
+            # itself be the thing that raises.
+            _last_dt = None
+        _mins = _ds.minutes_since(_last_dt, frappe.utils.now_datetime())
         _sync_ok, _sync_why = _ds.sync_health(_im_on, _mins)
         # The REASON the last run died, if one was recorded. "Stale" tells you
         # to go looking; "stale, and it said 403 on the Drive folder" is the
