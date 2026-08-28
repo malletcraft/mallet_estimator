@@ -544,6 +544,20 @@ def cost_card(codes=None, create_missing=0):
             # Item — the grammar is the gate.
             try:
                 item, _rate, _src = inventory.ensure_material_item(code)
+                # COMMITTED EXPLICITLY, because otherwise whether the Item
+                # survives depends on the HTTP VERB. Frappe rolls a GET back:
+                # the insert happens, everything later in the request sees it,
+                # the reply says created_items — and it is gone when the
+                # request ends. Found 2026-08-29 probing this over GET, which
+                # reported item_code populated and source erp:unset for three
+                # materials that did not exist a second later.
+                #
+                # The plugin POSTs, so the button was never broken. That is
+                # luck, not design. A write that persists on one verb and
+                # vanishes on another, reporting success either way, is the
+                # same failure this app has now met three times, and it should
+                # not be waiting for whoever next calls this from a browser.
+                frappe.db.commit()
                 created.append(item)
             except Exception as exc:
                 frappe.log_error(frappe.get_traceback(), f"cost_card create {code}")
