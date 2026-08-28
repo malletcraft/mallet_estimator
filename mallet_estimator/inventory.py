@@ -651,6 +651,51 @@ def apply_material_choices(project):
     return {"applied": applied, "skipped": skipped}
 
 
+# WHERE A NEW MATERIAL LIVES, by family. Amit, 2026-08-29, asked while adding
+# a "create in ERP" button to the plugin: "as its estimate, what would be
+# location in stock for it to be created?"
+#
+# The honest answer to the literal question is NONE — an Item created during
+# estimation exists to carry a rate, and a warehouse only matters the day
+# stock actually moves, where ERPNext asks for one at the transaction. He
+# chose to set a default anyway, and it is the better call: it PRE-FILLS that
+# picker with the place the thing would really go, so the person receiving
+# boards is not choosing from thirteen warehouses under time pressure.
+#
+# Keyed off KIND_SPEC, the same grammar that already decides the Item Group,
+# so the two can never drift apart. Nothing here creates stock or a stock
+# entry; it is a default on the Item and no more.
+KIND_WAREHOUSE = {
+    "sheet":       "Board & Sheet Store",
+    "laminate":    "Board & Sheet Store",
+    "edge":        "Board & Sheet Store",
+    "hardware":    "Hardware Store",
+    "joinery":     "Hardware Store",
+    "paint":       "Stores",
+    "solidwood":   "Stores",
+    "dimensional": "Stores",
+}
+
+
+def default_warehouse_for(kind, company=None):
+    """The warehouse an Item of this family should default to, or None.
+
+    Returns None rather than guessing when the named warehouse does not exist
+    on this site — an Item pointing at a warehouse that was never created is
+    worse than one pointing nowhere, because the error surfaces later, at a
+    receipt, in front of somebody holding a delivery note.
+    """
+    want = KIND_WAREHOUSE.get(kind)
+    if not want:
+        return None
+    company = company or _default_company()
+    if not company:
+        return None
+    abbr = frappe.db.get_value("Company", company, "abbr")
+    full = "%s - %s" % (want, abbr)
+    return full if frappe.db.exists("Warehouse", full) else None
+
+
 def ensure_material_item(name, kind=None, thickness=0, dims=None):
     """Ensure the material exists as one ERPNext stock Item (idempotent on
     item_code), with the right group, stock UOM, purchase UOM + conversion, and
@@ -706,6 +751,13 @@ def ensure_material_item(name, kind=None, thickness=0, dims=None):
         if thickness:
             _set(item, meta, "mallet_thickness_mm", thickness)
         _set(item, meta, "mallet_oc_code", name)
+        # The family's warehouse, as a DEFAULT and nothing more. It creates no
+        # stock and no ledger entry — it pre-fills the picker on the day this
+        # material is actually received, which is the only day it matters.
+        wh = default_warehouse_for(kind)
+        if wh and meta.has_field("item_defaults"):
+            item.append("item_defaults", {"company": _default_company(),
+                                          "default_warehouse": wh})
         item.insert(ignore_permissions=True)
     elif kind == "hardware" and dims:
         # F7a: a hardware Item created earlier (its designation matched an old

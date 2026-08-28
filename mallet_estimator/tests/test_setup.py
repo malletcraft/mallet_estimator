@@ -638,3 +638,54 @@ class TestMasters(MalletTestCase):
         self.assertGreaterEqual(len(rule.get("lines") or []), 4)
         self.assertTrue(any("MCFT_ASMBL_L" in l for l in rule["lines"]),
                         "the rule must name the convention it is a rule about")
+
+
+class TestNewMaterialGetsAHome(MalletTestCase):
+    """Where a material created from the plugin defaults to in stock.
+
+    Amit, 2026-08-29, asked while adding a "create in ERP" button: "as its
+    estimate, what would be location in stock for it to be created?" The
+    literal answer is that estimation needs none — a warehouse matters the day
+    stock moves. He chose to set one anyway, and it is the better call: it
+    pre-fills the picker with the place the thing really goes, so whoever
+    receives boards is not choosing from thirteen warehouses under pressure.
+    """
+
+    def test_each_family_lands_where_that_material_actually_lives(self):
+        _ensure_company()
+        inventory.ensure_warehouses()
+        want = {
+            "sheet": "Board & Sheet Store",
+            "laminate": "Board & Sheet Store",
+            "edge": "Board & Sheet Store",
+            "hardware": "Hardware Store",
+            "joinery": "Hardware Store",
+        }
+        for kind, store in want.items():
+            got = inventory.default_warehouse_for(kind)
+            self.assertTrue(got, "%s has no default warehouse" % kind)
+            self.assertTrue(got.startswith(store),
+                            "%s -> %s, expected %s" % (kind, got, store))
+
+    def test_every_material_family_is_mapped(self):
+        # A family missing from the map gets no default and nobody notices
+        # until a receipt. The Item Group map is the authority on what
+        # families exist, so the two are compared rather than the warehouse
+        # map being trusted on its own.
+        self.assertEqual(set(inventory.KIND_WAREHOUSE),
+                         set(inventory.KIND_SPEC))
+
+    def test_a_warehouse_that_does_not_exist_is_not_guessed(self):
+        # Returning a name nobody created would push the error to a receipt,
+        # in front of somebody holding a delivery note. None is the honest
+        # answer, and ERPNext simply asks for the warehouse at that point.
+        saved = dict(inventory.KIND_WAREHOUSE)
+        try:
+            inventory.KIND_WAREHOUSE["sheet"] = "ZZ No Such Store"
+            self.assertIsNone(inventory.default_warehouse_for("sheet"))
+        finally:
+            inventory.KIND_WAREHOUSE.clear()
+            inventory.KIND_WAREHOUSE.update(saved)
+
+    def test_an_unknown_family_gets_no_default_rather_than_a_wrong_one(self):
+        self.assertIsNone(inventory.default_warehouse_for("nonsense"))
