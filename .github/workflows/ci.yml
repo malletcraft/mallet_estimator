@@ -96,12 +96,7 @@ jobs:
           mysql -h 127.0.0.1 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci';"
 
       - name: Install bench
-        # pyflakes too: the bench job runs the WHOLE suite, test_api_imports
-        # included, and that check fails rather than skips when its tool is
-        # missing. It did exactly that on 507a7d8, where pyflakes had been
-        # added to the unit job only — the guard refusing to pass silently is
-        # the behaviour, not a bug in it.
-        run: pip install frappe-bench pyflakes
+        run: pip install frappe-bench
 
       - name: Init bench + get apps
         run: |
@@ -112,6 +107,16 @@ jobs:
           # doctype it provides is referenced when creating parties.
           bench get-app payments --branch version-16 || bench get-app payments
           bench get-app mallet_estimator "${GITHUB_WORKSPACE}/mallet_estimator"
+          # pyflakes goes in the BENCH's virtualenv, not the runner's.
+          # `bench run-tests` executes under frappe-bench/env/bin/python, so a
+          # `pip install pyflakes` at the top of the job lands in a different
+          # interpreter entirely — which is why bf1b6f7 failed identically to
+          # the commit it was fixing.
+          #
+          # The suite includes test_api_imports, which FAILS rather than skips
+          # when pyflakes is absent. That is the design: a guard that skips
+          # reports success having checked nothing.
+          ./env/bin/pip install pyflakes
 
       - name: Create test site + install apps
         working-directory: frappe-bench
