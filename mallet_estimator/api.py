@@ -435,6 +435,57 @@ def _op_minutes(op_name, default):
     return float(v), "erp:Operation"
 
 
+@frappe.whitelist(methods=["POST"])
+def create_materials(codes=None):
+    """Create Items for OpenCutList codes ERP has never heard of. Nothing else.
+
+    Amit, 2026-08-29: "give me a button to create material in erp. dont
+    directly create on run. need bot button." cost_card(create_missing=1)
+    already did the creating, but only as a rider on a full re-price, which
+    ties two unrelated decisions together: a person who wants to mint one
+    Item has to re-run the whole estimate to do it, and the run they get back
+    is the answer to a question they did not ask.
+
+    So this endpoint does the one thing. It scans no model, prices nothing,
+    and returns exactly what happened to each code — which is what a
+    per-line button needs in order to say anything truthful afterwards.
+
+    POST-ONLY, and that is load-bearing rather than tidy. Frappe rolls back
+    on a GET: the insert happens, everything later in the request sees it,
+    the reply says created — and it is gone when the request ends. Proved on
+    mcft-stg, 2026-08-29. A creating endpoint reachable over GET is a
+    success message with no Item behind it.
+
+    Never a rate. The Item is a fact about what the model uses; the rate is a
+    decision a person makes, and no assistant identity may write one.
+    """
+    out = {"created": [], "existed": [], "failed": {}}
+    for code in _split_codes(codes):
+        if not inventory.is_material_code(code):
+            # The grammar is the gate. A component name that slipped into the
+            # code column must not be able to mint an Item just because
+            # somebody pressed a button next to it.
+            out["failed"][code] = "not a material code"
+            continue
+        existing = _item_for_code(code)
+        if existing:
+            out["existed"].append(existing)
+            continue
+        try:
+            item, _rate, _src = inventory.ensure_material_item(code)
+            # Committed per code, deliberately. A batch of fifteen where the
+            # twelfth throws should leave eleven Items behind, not none — the
+            # person pressed "create all" to make progress, and losing the
+            # successes to one bad code is the opposite of that.
+            frappe.db.commit()
+            out["created"].append(item)
+        except Exception as exc:
+            frappe.db.rollback()
+            frappe.log_error(frappe.get_traceback(), "create_materials %s" % code)
+            out["failed"][code] = str(exc)
+    return out
+
+
 @frappe.whitelist()
 def cost_card(codes=None, create_missing=0):
     """Labour and material rates for the plugin, live from this bench.
