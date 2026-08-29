@@ -96,7 +96,12 @@ jobs:
           mysql -h 127.0.0.1 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci';"
 
       - name: Install bench
-        run: pip install frappe-bench
+        # pyflakes too: the bench job runs the WHOLE suite, test_api_imports
+        # included, and that check fails rather than skips when its tool is
+        # missing. It did exactly that on 507a7d8, where pyflakes had been
+        # added to the unit job only — the guard refusing to pass silently is
+        # the behaviour, not a bug in it.
+        run: pip install frappe-bench pyflakes
 
       - name: Init bench + get apps
         run: |
