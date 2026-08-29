@@ -867,6 +867,30 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "desc": "%s — %d nos" % (h["code"], h["qty"]),
         })
 
+    # J1 — Fevicol and Abrotape, which are in no cut list because they are
+    # DERIVED from how many boards go through the press. Amit, 2026-08-29:
+    # "Need fevicol and abrotape logic in mcft plugin as well."
+    #
+    # They were missing here while the real estimate has always had them, so
+    # the same model priced two ways and the CHEAPER way was the one on screen
+    # in front of a client. The rule itself is not repeated here — it lives in
+    # estimator and EstimateSKU.derive_joinery asks the same function — because
+    # a plugin and a bench that disagree about one model is the specific
+    # failure this project keeps paying for.
+    _ply_sheets = sum(l["qty"] for l in lines if l["kind"] == "sheet")
+    _lam_sheets = sum(l["qty"] for l in lines if l["kind"] == "laminate")
+    _boards = estimator.joinery_boards(ply_qty=_ply_sheets, lam_qty=_lam_sheets)
+    for _code, _qty, _uom, _note in estimator.joinery_lines(_boards):
+        lines.append({
+            "kind": "joinery", "material": _code, "thickness": 0,
+            "qty": _qty, "uom": _uom,
+            # Abrotape is quantified and PRICED per metre; the 20 m roll is a
+            # purchasing fact the Item carries, not a factor to multiply here.
+            # Getting that backwards is how edge banding was once out by 50x.
+            "rate_factor": 1,
+            "desc": "%s — %s" % (_code, _note),
+        })
+
     # Edge Banding's operation qty is the banded-EDGE count, which is what
     # nest_import passes as part_count. Matching it keeps the two paths from
     # quoting different labour for the same model.

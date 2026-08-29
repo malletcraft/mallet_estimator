@@ -600,6 +600,71 @@ def op_phase(row):
     return getattr(row, "operation", None) or getattr(row, "phase", None)
 
 
+# ---------------------------------------------------------------------------
+# J1 — the joinery consumables, in ONE place.
+#
+# Fevicol and Abrotape are not in any cut list: they are DERIVED from how many
+# boards go through the press. That derivation used to live only inside
+# EstimateSKU.derive_joinery, which meant the SketchUp plugin's on-the-fly
+# estimate simply left them out — the same model priced two ways, and the
+# cheaper way was the one shown to a client. Amit, 2026-08-29: "Need fevicol
+# and abrotape logic in mcft plugin as well."
+#
+# Copying the arithmetic into the preview would have been the fast answer and
+# the wrong one. The plugin and the real estimate disagreeing is the specific
+# failure this project keeps paying for — the workstation mismatch, the
+# assembly count, the hardware children — so the rule moves HERE, pure and
+# testable, and both callers ask it rather than each knowing it.
+
+FEVICOL_PACKETS_PER_BOARD = 3
+ABROTAPE_METERS_PER_BOARD = 11
+
+# Two faces to a board, so a laminate SHEET is half a board's worth of glue.
+LAM_SHEETS_PER_BOARD = 2.0
+
+
+def joinery_boards(ply_qty=0, lam_qty=0, lamination_step_qty=0):
+    """How many pressed boards the consumables follow.
+
+    Ply first, because the ply sheet IS the board. Laminate is the fallback
+    and is halved: it briefly WAS the primary count, which silently doubled
+    the figure the day purchasing split each board's two faces onto their own
+    laminate line (Amit, 2026-08-13 — 9 boards x 3 = 27 packets, not 18 x 3 =
+    54).
+
+    The typed Sheet Lamination quantity is the LAST resort and only for a
+    hand-built SKU with no part list at all, because a number typed into a
+    labour row once conjured material nothing was buying: 21 packets and 77 m,
+    a third of that SKU's internal cost, out of a 7 typed into a row.
+    """
+    if ply_qty:
+        return float(ply_qty)
+    if lam_qty:
+        return float(lam_qty) / LAM_SHEETS_PER_BOARD
+    return float(lamination_step_qty or 0)
+
+
+def joinery_lines(boards):
+    """[(item_code, qty, uom, note)] for J1. Empty when nothing is pressed.
+
+    Abrotape is quantified in METRES and priced per metre; it is BOUGHT in
+    20 m rolls, which is a purchasing fact the Item carries, not a factor to
+    multiply here. Getting that backwards is how the edge-banding line was
+    once out by 50x.
+    """
+    boards = float(boards or 0)
+    if boards <= 0:
+        return []
+    return [
+        ("JH_Fevicol", FEVICOL_PACKETS_PER_BOARD * boards, "Nos",
+         "%g packets x %g laminated board(s)"
+         % (FEVICOL_PACKETS_PER_BOARD, boards)),
+        ("JH_Abrotape", ABROTAPE_METERS_PER_BOARD * boards, "Meter",
+         "%g m x %g laminated board(s) — 20 m rolls"
+         % (ABROTAPE_METERS_PER_BOARD, boards)),
+    ]
+
+
 def calc_sku(sku, settings, ws_rates=None):
     """Compute all cost figures for one Estimate SKU (native workstation model).
 

@@ -1,4 +1,4 @@
-# Every sibling module a function NAMES, it must be able to REACH.
+# Every name a function uses, it must be able to REACH when it runs.
 #
 # python -m unittest mallet_estimator.tests.test_api_imports
 #
@@ -11,135 +11,126 @@
 # somebody presses the button.
 #
 # Nothing in the pure suite imports frappe, so no test in it can ever execute
-# a whitelisted function body — that is a deliberate trade (the tests stay
-# fast and bench-free) and this is what it costs. The check below buys the
-# missing coverage back statically: parse the file, and for each top-level
-# function ask whether the sibling names it uses are in scope by the time it
-# runs. No frappe, no bench, no import of the module under test.
-import ast
+# a whitelisted function body — a deliberate trade for a fast bench-free
+# suite, and this is what it costs. This check buys the missing coverage back
+# statically, without importing the modules under test.
+#
+# It uses pyflakes rather than the hand-rolled AST walk I wrote first. That
+# version only knew about names matching a sibling MODULE, and within an hour
+# of writing it I made the same mistake again in estimate_sku.py with a name
+# it could not see — `from mallet_estimator import estimator as E`, used as
+# `E`. An alias is the same bug wearing a different name, and a guard with a
+# hole exactly where the next instance lands is worse than no guard, because
+# it is trusted.
+#
+# ONLY undefined names fail this. Unused imports and shadowed variables are
+# style, they are already all over a codebase this size, and a gate that
+# fails on style is a gate people learn to route around.
 import os
 import unittest
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The modules that are expensive enough to be imported lazily, and therefore
-# the ones a function can plausibly reference without having imported.
-SIBLINGS = {
-    os.path.splitext(f)[0]
-    for f in os.listdir(APP_DIR)
-    if f.endswith(".py") and not f.startswith("__")
-}
+
+def undefined_names(paths):
+    """[(path, line, message)] for every unreachable name pyflakes finds."""
+    # Imported here so the failure below is about the missing tool rather
+    # than a collection error nobody reads.
+    from pyflakes import api as pyflakes_api
+    from pyflakes import reporter as pyflakes_reporter
+    from pyflakes import messages as pyflakes_messages
+
+    found = []
+
+    import io
+
+    class OnlyUndefined(pyflakes_reporter.Reporter):
+        def __init__(self):
+            # StringIO rather than /dev/null: pyflakes never closes the
+            # streams it is handed, and an unclosed file per call turns a
+            # clean run into a wall of ResourceWarnings.
+            super().__init__(io.StringIO(), io.StringIO())
+
+        def flake(self, message):
+            if isinstance(message, (pyflakes_messages.UndefinedName,
+                                    pyflakes_messages.UndefinedLocal,
+                                    pyflakes_messages.UndefinedExport)):
+                found.append((message.filename, message.lineno, str(message)))
+
+        def unexpectedError(self, filename, msg):
+            found.append((filename, 0, "could not be parsed: %s" % msg))
+
+        def syntaxError(self, filename, msg, lineno, offset, text):
+            found.append((filename, lineno or 0, "syntax error: %s" % msg))
+
+    rep = OnlyUndefined()
+    for p in paths:
+        pyflakes_api.checkPath(p, rep)
+    return found
 
 
-def _module_level_names(tree):
-    """Names bound at module scope: imports, assignments, defs."""
-    names = set()
-    for node in tree.body:
-        if isinstance(node, ast.Import):
-            for a in node.names:
-                names.add(a.asname or a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            for a in node.names:
-                names.add(a.asname or a.name)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            names.add(node.name)
-        elif isinstance(node, ast.Assign):
-            for t in node.targets:
-                if isinstance(t, ast.Name):
-                    names.add(t.id)
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            names.add(node.target.id)
-    return names
+def app_python_files():
+    out = []
+    for root, dirs, files in os.walk(APP_DIR):
+        dirs[:] = [d for d in dirs if d not in ("__pycache__", "node_modules")]
+        for f in files:
+            if f.endswith(".py"):
+                out.append(os.path.join(root, f))
+    return sorted(out)
 
 
-def _local_imports(fn):
-    """Sibling names imported anywhere INSIDE this function."""
-    names = set()
-    for node in ast.walk(fn):
-        if isinstance(node, ast.Import):
-            for a in node.names:
-                names.add(a.asname or a.name.split(".")[0])
-        elif isinstance(node, ast.ImportFrom):
-            for a in node.names:
-                names.add(a.asname or a.name)
-    return names
+class TestNamesAreReachable(unittest.TestCase):
 
-
-def _sibling_names_used(fn):
-    """Sibling module names this function LOADS (reads, not assigns)."""
-    used = set()
-    for node in ast.walk(fn):
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
-            if node.id in SIBLINGS:
-                used.add(node.id)
-    return used
-
-
-def unreachable_siblings(path):
-    """[(function, name)] for every sibling a function uses but cannot see."""
-    with open(path) as fh:
-        tree = ast.parse(fh.read(), filename=path)
-    module_names = _module_level_names(tree)
-    bad = []
-    for node in tree.body:
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        reachable = module_names | _local_imports(node)
-        # Parameters and anything the function binds itself shadow a module
-        # name legitimately — a local called `inventory` is not this bug.
-        for arg in node.args.args + node.args.kwonlyargs:
-            reachable.add(arg.arg)
-        for inner in ast.walk(node):
-            if isinstance(inner, ast.Name) and isinstance(inner.ctx, ast.Store):
-                reachable.add(inner.id)
-        for name in sorted(_sibling_names_used(node) - reachable):
-            bad.append((node.name, name))
-    return bad
-
-
-class TestApiImports(unittest.TestCase):
-
-    def test_api_functions_can_reach_the_modules_they_name(self):
-        path = os.path.join(APP_DIR, "api.py")
-        bad = unreachable_siblings(path)
-        self.assertEqual(bad, [], "\n".join(
-            "api.%s() uses `%s` but never imports it — NameError on first call"
-            % (fn, name) for fn, name in bad))
-
-    def test_the_check_would_have_caught_the_bug_that_caused_it(self):
-        # A guard nobody has watched fire is a guard nobody knows the failure
-        # of — the lesson from the ImageMeter sync check two days ago. So the
-        # broken shape is reconstructed here and the checker is asked about
-        # it, rather than trusted because the real file is clean.
-        import tempfile
-        src = (
-            "import frappe\n"
-            "def helper():\n"
-            "    from mallet_estimator import inventory\n"
-            "    return inventory.thing()\n"
-            "def broken():\n"
-            "    return inventory.is_material_code('x')\n"
-            "def fixed():\n"
-            "    from mallet_estimator import inventory\n"
-            "    return inventory.is_material_code('x')\n"
-        )
-        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fh:
-            fh.write(src)
-            tmp = fh.name
+    def test_pyflakes_is_actually_installed(self):
+        # A guard that SKIPS when its tool is missing is a guard that reports
+        # success having checked nothing — the exact shape this repo has been
+        # bitten by (a workflow with no checkout that ran green having done
+        # nothing). So its absence is a failure, loudly.
         try:
-            bad = unreachable_siblings(tmp)
-        finally:
-            os.unlink(tmp)
-        # broken() only. A sibling imported inside a DIFFERENT function does
-        # not help this one, which is exactly the trap: the file is full of
-        # correct-looking `from mallet_estimator import inventory` lines.
-        self.assertEqual(bad, [("broken", "inventory")])
+            import pyflakes  # noqa: F401
+        except ImportError:  # pragma: no cover
+            self.fail("pyflakes is not installed, so this check verified "
+                      "NOTHING. `pip install pyflakes` — it is in ci.yml's "
+                      "install step for exactly this reason.")
 
-    def test_every_module_in_the_app_is_checked_not_just_api(self):
-        # The style is not unique to api.py, so neither is the exposure.
-        offenders = []
-        for name in sorted(SIBLINGS):
-            path = os.path.join(APP_DIR, name + ".py")
-            for fn, missing in unreachable_siblings(path):
-                offenders.append("%s.%s() uses `%s`" % (name, fn, missing))
-        self.assertEqual(offenders, [], "\n".join(offenders))
+    def test_no_function_uses_a_name_it_cannot_reach(self):
+        bad = undefined_names(app_python_files())
+        self.assertEqual(bad, [], "\n".join(
+            "%s:%s %s" % (os.path.relpath(p, APP_DIR), ln, msg)
+            for p, ln, msg in bad))
+
+    def test_the_check_fires_on_the_bug_that_caused_it(self):
+        # A guard nobody has watched fire is a guard nobody knows the failure
+        # of — the lesson from the ImageMeter sync check, which was
+        # unreachable for its most important case for two days while reading
+        # green. So both real shapes are reconstructed and the checker is
+        # ASKED about them, rather than trusted because the repo is clean.
+        import tempfile
+        cases = {
+            # The one that shipped: a sibling imported in a different
+            # function, which does not help this one.
+            "module": (
+                "def helper():\n"
+                "    from mallet_estimator import inventory\n"
+                "    return inventory.thing()\n"
+                "def broken():\n"
+                "    return inventory.is_material_code('x')\n"),
+            # The one I then wrote in estimate_sku.py, which the AST version
+            # of this check could not see at all.
+            "alias": (
+                "def helper():\n"
+                "    from mallet_estimator import estimator as E\n"
+                "    return E.thing()\n"
+                "def broken():\n"
+                "    return E.joinery_lines(3)\n"),
+        }
+        for label, src in cases.items():
+            with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fh:
+                fh.write(src)
+                tmp = fh.name
+            try:
+                bad = undefined_names([tmp])
+            finally:
+                os.unlink(tmp)
+            self.assertEqual(len(bad), 1, "%s: expected one finding, got %s" % (label, bad))
+            self.assertIn("undefined name", bad[0][2], label)

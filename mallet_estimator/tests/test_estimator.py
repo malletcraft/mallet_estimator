@@ -1030,3 +1030,68 @@ class TestHardwareStandardMinutes(unittest.TestCase):
         # its fittings at zero minutes and look like a complete estimate.
         self.assertEqual(set(E.HARDWARE_STANDARDS),
                          {k for k, _l in E.HARDWARE_INSTALL_TYPES})
+
+
+class TestJoineryConsumables(unittest.TestCase):
+    """J1 — Fevicol and Abrotape, which no cut list contains.
+
+    Moved out of EstimateSKU.derive_joinery on 2026-08-29 so the SketchUp
+    plugin's preview could ask the same question. Amit: "Need fevicol and
+    abrotape logic in mcft plugin as well." Until then the plugin simply
+    omitted them, so the same model priced two ways and the cheaper one was
+    the number shown to a client.
+    """
+
+    def test_the_ply_board_is_the_unit(self):
+        self.assertEqual(E.joinery_boards(ply_qty=9), 9.0)
+        codes = dict((c, q) for c, q, _u, _n in
+                     E.joinery_lines(E.joinery_boards(ply_qty=9)))
+        self.assertEqual(codes["JH_Fevicol"], 27.0)
+        self.assertEqual(codes["JH_Abrotape"], 99.0)
+
+    def test_laminate_is_halved_because_a_board_has_two_faces(self):
+        # Amit, 2026-08-13, catching this in the live numbers: 9 boards x 3 is
+        # 27 packets, not 18 x 3 = 54. The count briefly followed laminate
+        # sheets and silently doubled the day purchasing split each board's
+        # two faces onto their own line.
+        self.assertEqual(E.joinery_boards(lam_qty=18), 9.0)
+        by_ply = E.joinery_lines(E.joinery_boards(ply_qty=9))
+        by_lam = E.joinery_lines(E.joinery_boards(lam_qty=18))
+        self.assertEqual(by_ply, by_lam,
+                         "the same shop reality must cost the same either way")
+
+    def test_ply_wins_over_laminate_when_both_are_present(self):
+        # The normal case — a real cut list has both. Adding them would count
+        # every board twice.
+        self.assertEqual(E.joinery_boards(ply_qty=4, lam_qty=8), 4.0)
+
+    def test_a_typed_step_qty_is_the_last_resort_only(self):
+        # It is the only signal a hand-built SKU with no part list has. But a
+        # 7 typed into a labour row once conjured 21 packets and 77 m — a
+        # third of that SKU's internal cost — out of material nobody was
+        # buying, so it must never outrank a real board count.
+        self.assertEqual(E.joinery_boards(lamination_step_qty=7), 7.0)
+        self.assertEqual(E.joinery_boards(ply_qty=2, lamination_step_qty=7), 2.0)
+        self.assertEqual(E.joinery_boards(lam_qty=4, lamination_step_qty=7), 2.0)
+
+    def test_nothing_pressed_buys_no_glue(self):
+        self.assertEqual(E.joinery_boards(), 0.0)
+        self.assertEqual(E.joinery_lines(0), [])
+        self.assertEqual(E.joinery_lines(E.joinery_boards()), [])
+
+    def test_abrotape_is_metres_and_fevicol_is_packets(self):
+        # The unit is the whole reason this can be wrong by 20x: Abrotape is
+        # stocked and PRICED per metre and bought in 20 m rolls, so a line
+        # that quantified rolls at the per-metre rate would be a twentieth of
+        # the truth. Edge banding has already made that mistake once.
+        lines = dict((c, u) for c, _q, u, _n in E.joinery_lines(1))
+        self.assertEqual(lines["JH_Fevicol"], "Nos")
+        self.assertEqual(lines["JH_Abrotape"], "Meter")
+
+    def test_a_half_board_is_not_rounded_away(self):
+        # One laminate sheet is half a board of glue. Rounding it to zero
+        # would silently drop the consumables from a single-faced panel.
+        self.assertEqual(E.joinery_boards(lam_qty=1), 0.5)
+        codes = dict((c, q) for c, q, _u, _n in E.joinery_lines(0.5))
+        self.assertEqual(codes["JH_Fevicol"], 1.5)
+        self.assertEqual(codes["JH_Abrotape"], 5.5)

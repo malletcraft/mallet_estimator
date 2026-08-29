@@ -1589,28 +1589,29 @@ class EstimateSKU(Document):
         number typed into a labour row once conjured material nothing was
         buying: an SKU with no part list produced 21 packets and 77 m — a
         third of its internal cost — from a 7 typed into a row."""
+        from mallet_estimator import estimator as E
+
         if not self.meta.has_field("joinery_items"):
             return
-        boards = sum(float(m.qty or 0) for m in (self.materials or [])
-                     if str(m.material or "").upper().startswith("SG_PLY"))
-        if not boards:
-            # No ply lines: half a board per laminate sheet (two faces each).
-            boards = sum(float(m.qty or 0) for m in (self.materials or [])
-                         if str(m.material or "").upper().startswith("SG_LAM")) / 2.0
-        if not boards and (self.materials or []):
+        ply = sum(float(m.qty or 0) for m in (self.materials or [])
+                  if str(m.material or "").upper().startswith("SG_PLY"))
+        lam = sum(float(m.qty or 0) for m in (self.materials or [])
+                  if str(m.material or "").upper().startswith("SG_LAM"))
+        step = 0
+        if not ply and not lam and (self.materials or []):
             # Lines exist but none is ply or laminate: honour a hand-kept
             # step qty, the only signal a manually built SKU has.
             for row in self.labor or []:
                 if op_phase(row) == "Sheet Lamination":
-                    boards = float(row.qty or 0)
+                    step = float(row.qty or 0)
                     break
+        # THE ARITHMETIC IS NOT HERE any more. It moved to estimator so the
+        # SketchUp plugin's preview can ask the same question and get the same
+        # answer — the two disagreeing about the same model is the failure
+        # this project keeps paying for.
+        boards = E.joinery_boards(ply_qty=ply, lam_qty=lam, lamination_step_qty=step)
         self.set("joinery_items", [])
-        if not boards:
-            return
-        for code, qty, uom, note in (
-            ("JH_Fevicol", 3 * boards, "Nos", f"3 packets × {boards:g} laminated board(s)"),
-            ("JH_Abrotape", 11 * boards, "Meter", f"11 m × {boards:g} laminated board(s) — 20 m rolls"),
-        ):
+        for code, qty, uom, note in E.joinery_lines(boards):
             code, rate, _src = inventory.ensure_material_item(code, kind="joinery")
             self.append("joinery_items", {
                 "item": code, "description": note, "qty": qty,

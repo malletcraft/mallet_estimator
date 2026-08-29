@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install pure-test deps
-        run: pip install numpy pillow
+        run: pip install numpy pillow pyflakes
       - name: Run pure unit tests
         run: python -m unittest mallet_estimator.tests.test_estimator mallet_estimator.tests.test_opencutlist mallet_estimator.tests.test_nesting mallet_estimator.tests.test_consolidate mallet_estimator.tests.test_repair mallet_estimator.tests.test_panorama mallet_estimator.tests.test_handover mallet_estimator.tests.test_drive_sync mallet_estimator.tests.test_worksite mallet_estimator.tests.test_api_imports -v
 
