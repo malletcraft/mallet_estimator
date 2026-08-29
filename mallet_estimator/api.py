@@ -459,6 +459,14 @@ def create_materials(codes=None):
     Never a rate. The Item is a fact about what the model uses; the rate is a
     decision a person makes, and no assistant identity may write one.
     """
+    # Imported HERE, not at module scope, because that is how every other
+    # whitelisted method in this file does it — api.py loads on every request
+    # and the heavy siblings stay out of import time. Written the module-level
+    # way it threw NameError on the first live call, green CI and green deploy
+    # notwithstanding: nothing in the pure suite imports frappe, so nothing in
+    # it could ever have executed this line.
+    from mallet_estimator import inventory
+
     out = {"created": [], "existed": [], "failed": {}}
     for code in _split_codes(codes):
         if not inventory.is_material_code(code):
