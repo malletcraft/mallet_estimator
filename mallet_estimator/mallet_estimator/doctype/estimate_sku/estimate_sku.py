@@ -975,6 +975,28 @@ class EstimateSKU(Document):
         if not part_count and pl_edges:
             part_count = sum(e["parts"] or 0 for e in pl_edges)
         opq = estimate_pdf.operation_quantities(materials, part_count)
+
+        # THE MODEL'S OWN ASSEMBLY COUNT, applied here exactly as the plugin's
+        # preview applies it. Amit, 2026-08-22: "the component which starts
+        # with ASMBL is the assembly which goes into assemblies line of
+        # labor." 1 + drawer rails is a guess standing in for that number.
+        #
+        # The rule reached the PLUGIN and not this document. Running one CSV
+        # down both paths on 2026-08-29 had the plugin quoting 2 assemblies
+        # and the saved estimate quoting 1 — eight operations at half, on the
+        # handling and on-site steps that carry the most minutes. The plugin
+        # was right; a client was being shown one number and the books
+        # another.
+        #
+        # Counted off this SKU's OWN parts, so it needs nothing from the
+        # caller and works for a desk import as well as a plugin one. A count
+        # of zero leaves ERP's rule standing rather than pricing the chain at
+        # nothing — that is a model nobody has named ASMBL components in yet.
+        from mallet_estimator import estimator as E
+
+        _sizes = E._asmbl_counts(self.parts or [])
+        _counted = sum(_sizes[k] for k in E.ASSEMBLY_SIZES)
+        estimate_pdf.apply_assembly_count(opq, _counted, _sizes["large"])
         for row in self.labor:
             op = op_phase(row)
             # A child must NOT take its parent's count. Assembly's three sizes

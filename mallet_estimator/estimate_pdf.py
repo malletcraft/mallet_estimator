@@ -202,3 +202,41 @@ LOCKED_OPERATIONS = {
     "Sheet Lamination", "Sheet Tape Removal", "Sheet Cutting", "Edge Banding",
     "Minifix Boring", "Drilling", "Install Hardware",
 }
+
+
+# The operations that FOLLOW the assembly count, and the two that follow only
+# its LARGE half.
+#
+# Amit, 2026-08-22: "the component which starts with ASMBL is the assembly
+# which goes into assemblies line of labor." The model knows how many things
+# get assembled; 1 + drawer rails is a guess standing in for that.
+#
+# This lived inside api.estimate_preview, so the rule reached the PLUGIN and
+# not the saved Estimate SKU. Running one CSV down both paths on 2026-08-29
+# showed the plugin quoting 2 assemblies and the document quoting 1 — eight
+# operations at half, on the handling and on-site steps that carry the most
+# minutes. The plugin was right and the document was not.
+FOLLOWS_ASSEMBLY = ("Assembly", "Packing", "Loading", "Transport",
+                    "Unloading", "Assembly (on-site)", "Installation")
+
+# Amit, 2026-08-23: "Only large assemblies should participate in disassembly."
+# A carcass comes apart to leave the works; a drawer or a shelf travels
+# assembled. And 2026-08-24: on-site assembly is exactly what came apart, not
+# the whole article count.
+FOLLOWS_LARGE_ONLY = ("Disassembly", "Assembly (on-site)")
+
+
+def apply_assembly_count(qty, counted, large):
+    """Overwrite the assembly-driven quantities in `qty`, in place.
+
+    A count of ZERO is not a count — it is a model nobody has named ASMBL
+    components in yet — so it leaves ERP's own 1 + drawer rails rule standing
+    rather than pricing the whole chain at nothing.
+    """
+    if not counted:
+        return qty
+    for op in FOLLOWS_ASSEMBLY:
+        qty[op] = counted
+    for op in FOLLOWS_LARGE_ONLY:
+        qty[op] = large
+    return qty

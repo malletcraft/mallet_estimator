@@ -794,8 +794,8 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      assembly_counts=None, assembly_min_by_size=None,
                      misc_remarks=None, hardware_min_by_type=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
-    from mallet_estimator import (estimate_pdf, estimator, inventory, nest_import,
-                                  nesting, opencutlist)
+    from mallet_estimator import (decor, estimate_pdf, estimator, inventory,
+                                  nest_import, nesting, opencutlist)
 
     rows = opencutlist.parse_opencutlist_csv(csv_content or "")
     if not rows:
@@ -896,13 +896,19 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # quoting different labour for the same model.
     part_count = banded_edges
 
-    card = cost_card(codes=[opencutlist.item_code_for(l) for l in lines],
+    # inventory.item_code_for, NEVER a local rule: it is what every minted
+    # Item obeys, so anything else prices the plugin against a code the bench
+    # would not create.
+    def _code_of(l):
+        return decor.purchasing_code(l["material"], l.get("thickness") or 0, l["kind"])
+
+    card = cost_card(codes=[_code_of(l) for l in lines],
                      create_missing=create_missing)
     rate_by_code = {m["code"]: m for m in card["materials"]}
 
     material_rows, material_total, unpriced = [], 0.0, 0
     for l in lines:
-        code = opencutlist.item_code_for(l)
+        code = _code_of(l)
         m = rate_by_code.get(code, {})
         rate = float(m.get("landed_rate") or 0) * (l.get("rate_factor") or 1)
         amount = rate * float(l["qty"] or 0)
@@ -988,23 +994,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         else:
             assembly_source = "erp:1 + drawer rails"
 
-    if counted:
-        for op in ("Assembly", "Packing", "Loading", "Transport",
-                   "Unloading", "Assembly (on-site)", "Installation"):
-            # These all follow the assembly count in operation_quantities; if
-            # the count changes, they change with it or the chain lies.
-            qty[op] = counted
-        # DISASSEMBLY IS LARGE ONLY. Amit, 2026-08-23: "Only large assemblies
-        # should participate in disassembly." A carcass comes apart to leave
-        # the works; a drawer or a shelf travels assembled. Unsized names are
-        # counted as large, so a model drawn before the convention keeps the
-        # behaviour it has always had.
-        qty["Disassembly"] = sizes["large"]
-        # Amit, 2026-08-24: "steps 10 quantity is equal to 15 (whichever get
-        # disassembled get assembled)". On-site assembly is not the whole
-        # article count — a drawer that travelled assembled is not assembled
-        # again at the flat. It is exactly the carcasses that came apart.
-        qty["Assembly (on-site)"] = sizes["large"]
+    # THE RULE ITSELF is estimate_pdf.apply_assembly_count, so the saved
+    # Estimate SKU can apply the identical one. It lived here, which is why
+    # the plugin honoured the model's ASMBL count and the document did not.
+    estimate_pdf.apply_assembly_count(qty, counted, sizes["large"])
 
     # Per-operation overrides from the estimate screen: {"Grooving": {"qty": 4,
     # "min": 12}}. Refused rather than silently ignored where the column is not

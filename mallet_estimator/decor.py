@@ -369,3 +369,53 @@ def panel_key(code, thickness, slot_shorts):
     base = str(code or "").split("_")
     grade = next((t for t in base if re.fullmatch(r"V\d", t)), "V?")
     return f"PANEL_{grade}_{float(thickness or 0):g}mm_{intl or '?'}_{ext}"
+
+
+# The purchasing identity of a material, in ONE frappe-free place.
+#
+# This is not where it started. inventory.item_code_for held the real rule and
+# opencutlist.item_code_for held a naive copy — same name, different module,
+# different answer — and estimate_preview imported the naive one. So the
+# plugin priced ply as SG_PLY_V0_a_a_16mm while every Item the bench mints is
+# SG_PLY_V0_16mm, and the code it quoted against was a stub left behind by
+# patches/collapse_board_item_codes. Found 2026-08-29 by running one CSV down
+# both paths and diffing.
+#
+# Deleting the copy was the obvious fix and it does not work on its own:
+# inventory imports frappe, so the pure suite cannot reach the rule at all,
+# which is exactly why a frappe-free copy existed. The rule therefore lives
+# HERE, where both callers can have it and a test can reach it without a
+# bench. inventory.item_code_for delegates and keeps its name for callers.
+#
+# It is deliberately NOT called item_code_for. Two functions of that name are
+# what caused this; a third would be asking for it again.
+_PC_MM = re.compile(r"\d+(?:\.\d+)?mm", re.I)
+PLY_CODE_PREFIX = "SG_PLY"
+
+
+def purchasing_code(name, thickness=0, kind=None):
+    """The ERPNext item_code for an OpenCutList material name.
+
+    A BOARD loses its décor slot letters: two décors on one board is still one
+    board to buy, and the letters belong to the cutting diagram rather than to
+    the purchase. Its millimetres never go — collapsing 12 mm and 16 mm onto
+    one Item would be a worse bug than the one this fixes.
+
+    A LAMINATE keeps everything: the décor IS its identity, and stripping it
+    would merge every laminate on the site into one meaningless code.
+    """
+    text = str(name or "")
+    if kind == "sheet" and text.upper().startswith(PLY_CODE_PREFIX):
+        tokens = text.split("_")
+        own_mm = next((t for t in tokens if _PC_MM.fullmatch(t)), "")
+        base = "_".join(t for t in tokens if not _PC_MM.fullmatch(t))
+        slots = trailing_slots(base)
+        if slots:
+            base = "_".join(base.split("_")[: -len(slots)])
+        if thickness:
+            return "%s_%gmm" % (base, thickness)
+        # No thickness passed: the code's own mm token IS the thickness.
+        return "%s_%s" % (base, own_mm) if own_mm else base
+    if kind == "sheet" and thickness and "mm" not in text.lower():
+        return "%s_%gmm" % (text, thickness)
+    return text

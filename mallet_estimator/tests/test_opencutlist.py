@@ -2,6 +2,7 @@
 #   python -m unittest mallet_estimator.tests.test_opencutlist
 import unittest
 
+from mallet_estimator import decor as D
 from mallet_estimator import opencutlist as OCL
 
 # A tiny semicolon-delimited OpenCutList "parts" export: 2 sheet parts (one edged
@@ -202,3 +203,59 @@ class TestGroupedRows(unittest.TestCase):
     def test_hardware_buys_every_piece(self):
         hw = OCL.hardware_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
         self.assertEqual([(h["code"], h["qty"]) for h in hw], [("HWD_MiniFix", 24)])
+
+
+class TestOneItemCodeRule(unittest.TestCase):
+    """A board is a PURCHASING identity, and only one function decides it.
+
+    Found 2026-08-29, by running one CSV down both paths and diffing, after
+    Amit asked what else the plugin was missing. opencutlist had its own
+    item_code_for that appended the thickness and stopped, so the plugin's ply
+    kept its décor slot letters — SG_PLY_V0_a_a_16mm — while every Item the
+    bench actually mints obeys inventory.item_code_for and drops them.
+
+    Two functions of the same name in two modules, one right and one naive, is
+    why nobody noticed. The naive one is deleted; these tests exist so it
+    cannot come back by another route.
+    """
+
+    def test_a_board_loses_its_decor_letters(self):
+        self.assertEqual(D.purchasing_code("SG_PLY_V0_a_a", 16, "sheet"),
+                         "SG_PLY_V0_16mm")
+        self.assertEqual(D.purchasing_code("SG_PLY_V1_a_b", 16, "sheet"),
+                         "SG_PLY_V1_16mm")
+        # Two décors, one board to buy. That is the whole point of the rule.
+        self.assertEqual(D.purchasing_code("SG_PLY_V0_a_a", 16, "sheet"),
+                         D.purchasing_code("SG_PLY_V0_b_c", 16, "sheet"))
+
+    def test_an_already_collapsed_code_is_left_alone(self):
+        # Idempotence matters: the preview re-prices the same lines every
+        # refresh, and a rule that kept eating tokens would walk a code down
+        # to nothing.
+        self.assertEqual(D.purchasing_code("SG_PLY_V0_16mm", 0, "sheet"),
+                         "SG_PLY_V0_16mm")
+        self.assertEqual(D.purchasing_code("SG_PLY_V0_16mm", 16, "sheet"),
+                         "SG_PLY_V0_16mm")
+
+    def test_thickness_still_makes_a_different_board(self):
+        # The letters go; the millimetres never do. Collapsing 12 and 16 onto
+        # one Item would be a worse bug than the one being fixed.
+        self.assertNotEqual(D.purchasing_code("SG_PLY_V0_a_a", 12, "sheet"),
+                            D.purchasing_code("SG_PLY_V0_a_a", 16, "sheet"))
+
+    def test_laminate_keeps_what_identifies_it(self):
+        # A laminate IS its décor — stripping it would merge every laminate in
+        # the site into one meaningless code.
+        self.assertEqual(D.purchasing_code("SG_LAM_V1_16mm_VM6534", 0, "laminate"),
+                         "SG_LAM_V1_16mm_VM6534")
+        # And an UNMAPPED placeholder keeps its slot letters too: nothing has
+        # said what it is yet, so it is not a purchasing identity at all.
+        self.assertEqual(D.purchasing_code("SG_LAM_V0_a_a", 0, "laminate"),
+                         "SG_LAM_V0_a_a")
+
+    def test_the_naive_helper_is_gone_and_stays_gone(self):
+        # The bug was not the arithmetic, it was that a second function of the
+        # same name existed to be imported by mistake.
+        self.assertFalse(hasattr(OCL, "item_code_for"),
+                         "opencutlist.item_code_for is back — the preview will "
+                         "price ply against a code the bench never mints")

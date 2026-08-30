@@ -293,8 +293,18 @@ def aggregate(rows, sheet_length_mm=2440.0, sheet_width_mm=1220.0, wastage_pct=1
     return {"lines": lines, "drivers": drivers}
 
 
-def item_code_for(line):
-    """Stable ERPNext item_code for a material line (thickness matters for sheets)."""
-    if line["kind"] == "sheet" and line.get("thickness"):
-        return f"{line['material']}_{line['thickness']:g}mm"
-    return line["material"]
+# item_code_for USED TO LIVE HERE and is deliberately gone. It appended the
+# thickness and stopped, so a ply board kept its décor slot letters —
+# SG_PLY_V0_a_a_16mm — while inventory.item_code_for, the rule every minted
+# Item actually obeys, strips them to SG_PLY_V0_16mm. A board is a purchasing
+# identity: two décors on one board is still one board to buy.
+#
+# Two functions of the SAME NAME in two modules, one right and one naive, is
+# why nobody noticed for weeks. estimate_preview imported the naive one and
+# priced the plugin's ply against SG_PLY_V0_a_a_16mm — an Item retired by
+# patches/collapse_board_item_codes and left on the site as a stub with no
+# mallet_oc_code. Found 2026-08-29 by running one CSV down both paths and
+# diffing, after Amit asked what else the plugin was missing.
+#
+# Callers use inventory.item_code_for(name, thickness, kind). One rule, one
+# place — the same conclusion the Fevicol derivation reached the same day.

@@ -202,23 +202,21 @@ def item_code_for(name, thickness, kind=None):
     OpenCutList lay two décors out on separate boards, and its diagram is a
     cutting instruction, not a label. Which laminate goes on which face is
     carried by the material line and the panel nest, never by the board's Item."""
+    # THE RULE ITSELF LIVES IN decor.purchasing_code, which imports no frappe.
+    # It used to live here, and a naive copy of it lived in opencutlist under
+    # this same function's name; estimate_preview imported the copy, so the
+    # plugin priced ply against SG_PLY_V0_a_a_16mm while the bench mints
+    # SG_PLY_V0_16mm. Moving it somewhere both callers can reach — and that a
+    # test can reach without a bench — is what stops that recurring; deleting
+    # the copy alone would not have, because the copy existed precisely
+    # because this module needs frappe.
+    #
+    # This function keeps its name and its kind_for_code default for the
+    # callers that already have it.
+    from mallet_estimator import decor
+
     kind = kind or kind_for_code(name)
-    if kind == "sheet" and str(name or "").upper().startswith(PLY_PREFIX):
-        from mallet_estimator import decor
-        tokens = str(name).split("_")
-        own_mm = next((t for t in tokens if _MM_TOKEN.fullmatch(t)), "")
-        base = "_".join(t for t in tokens if not _MM_TOKEN.fullmatch(t))
-        slots = decor.trailing_slots(base)
-        if slots:
-            base = "_".join(base.split("_")[: -len(slots)])
-        if thickness:
-            return f"{base}_{thickness:g}mm"
-        # No thickness passed: the code's own mm token IS the thickness, and
-        # dropping it would collapse 12mm and 16mm boards onto one Item.
-        return f"{base}_{own_mm}" if own_mm else base
-    if kind == "sheet" and thickness and "mm" not in str(name).lower():
-        return f"{name}_{thickness:g}mm"
-    return name
+    return decor.purchasing_code(name, thickness, kind)
 
 
 def _fallback_group():

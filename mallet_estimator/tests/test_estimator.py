@@ -1095,3 +1095,60 @@ class TestJoineryConsumables(unittest.TestCase):
         codes = dict((c, q) for c, q, _u, _n in E.joinery_lines(0.5))
         self.assertEqual(codes["JH_Fevicol"], 1.5)
         self.assertEqual(codes["JH_Abrotape"], 5.5)
+
+
+class TestAssemblyCountReachesBothPaths(unittest.TestCase):
+    """The model's ASMBL count drives eight operations, on BOTH paths.
+
+    Found 2026-08-29 by running one CSV down the plugin preview and a saved
+    Estimate SKU and diffing: the preview quoted 2 assemblies and the document
+    quoted 1. Eight operations at half — and they are the handling and on-site
+    steps, which carry the most minutes. A client was being shown one number
+    and the books another.
+
+    The rule was Amit's from 2026-08-22 and it only ever reached the plugin,
+    because the override lived inside api.estimate_preview.
+    """
+
+    def test_the_chain_moves_together(self):
+        from mallet_estimator import estimate_pdf as P
+        qty = {op: 1 for op in P.FOLLOWS_ASSEMBLY}
+        qty["Disassembly"] = 1
+        P.apply_assembly_count(qty, 3, 2)
+        for op in ("Assembly", "Packing", "Loading", "Transport",
+                   "Unloading", "Installation"):
+            self.assertEqual(qty[op], 3, op)
+        # Large only: a drawer travels assembled and is not taken apart.
+        self.assertEqual(qty["Disassembly"], 2)
+        self.assertEqual(qty["Assembly (on-site)"], 2)
+
+    def test_zero_leaves_erps_own_rule_standing(self):
+        # Zero is not a count — it is a model nobody has named ASMBL
+        # components in. Treating it as one would price the whole on-site
+        # chain at nothing.
+        from mallet_estimator import estimate_pdf as P
+        qty = {op: 7 for op in P.FOLLOWS_ASSEMBLY}
+        qty["Disassembly"] = 7
+        P.apply_assembly_count(qty, 0, 0)
+        self.assertEqual(qty["Assembly"], 7)
+        self.assertEqual(qty["Disassembly"], 7)
+
+    def test_the_count_comes_off_part_designations(self):
+        # This is what the saved SKU now counts from — its own parts rows —
+        # so the rule needs nothing from the caller and works for a desk
+        # import as well as a plugin one.
+        rows = [{"designation": "ASMBL_L_Carcass"},
+                {"designation": "ASMBL_L_Carcass"},   # same component, one assembly
+                {"designation": "ASMBL_M_Drawer"},
+                {"designation": "carcass_vert"}]
+        sizes = E._asmbl_counts(rows)
+        self.assertEqual(sizes["large"], 1)
+        self.assertEqual(sizes["medium"], 1)
+        self.assertEqual(sum(sizes[k] for k in E.ASSEMBLY_SIZES), 2)
+
+    def test_a_frappe_row_hash_is_not_mistaken_for_a_designation(self):
+        # Child rows carry a `name` that is a row hash, and _asmbl_counts
+        # tries "name" before "designation". It must fall through rather than
+        # classify the hash — otherwise the saved SKU counts nothing.
+        rows = [{"name": "a1b2c3d4e5", "designation": "ASMBL_L_Carcass"}]
+        self.assertEqual(E._asmbl_counts(rows)["large"], 1)
