@@ -200,12 +200,17 @@ def run(doc):
         ).format(len(unnamed), ", ".join(unnamed)))
     for h in hw:
         cat = f" · {h['category']}" if h.get("category") and h["category"] != h["code"] else ""
+        # BUY the row count, WORK the pieces. Two drawers is two rail sets on
+        # the purchase line; a housing is still bored once per MiniFix. The
+        # two were the same number until 2026-08-30 and conflating them made
+        # 24 housings cost fifteen minutes.
+        pieces = h.get("pieces", h["qty"])
         doc._add_material_line(
             h["code"], "hardware", 0, h["qty"],
             f"{h['code']} — {h['qty']} nos{cat} [CSV-Nest]", unpriced,
             dims={"category": h.get("category")})
         mats_shape.append({"name": h.get("category") or h["code"], "kind": "hardware",
-                           "thickness": 0, "qty": h["qty"]})
+                           "thickness": 0, "qty": pieces})
 
     for r in manual_rows:
         doc.append("materials", {

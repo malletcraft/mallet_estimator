@@ -904,11 +904,25 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                     % (code, meters, rolls, inventory.EDGE_ROLL_METERS),
         })
 
+    # TWO DIFFERENT QUESTIONS, and conflating them cost six hours of labour.
+    #
+    # What you BUY is the row count — OpenCutList's Qty. Two drawers is two
+    # rail sets, not four runners (Amit, 2026-08-30). That is the number on
+    # the material line and the number that gets priced.
+    #
+    # What the SHOP DOES is per piece. A housing is bored once per MiniFix,
+    # whatever the cut list groups onto one row, so Minifix Boring, Drilling
+    # and Install Hardware are driven by `pieces`. Making the row count drive
+    # those too turned 24 housings into one — 15 minutes where the standard
+    # says six hours — and a bench test caught it.
     for h in hw:
         lines.append({
             "kind": "hardware", "material": h["code"], "thickness": 0,
             "qty": h["qty"], "uom": "Nos", "rate_factor": 1,
             "category": h.get("category"),
+            # Carried so the labour half can ask a different question of the
+            # same line without re-deriving it.
+            "pieces": h.get("pieces", h["qty"]),
             "desc": "%s — %d nos" % (h["code"], h["qty"]),
         })
 
@@ -1052,7 +1066,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     shaped = [{"name": (l.get("category") or l["material"]) if l["kind"] == "hardware"
                        else l["material"],
                "kind": l["kind"],
-               "thickness": l.get("thickness") or 0, "qty": l["qty"]}
+               "thickness": l.get("thickness") or 0,
+               # PIECES for hardware, not the purchase count: one boring per
+               # housing, one screw hole per screw. Everything else has no
+               # such distinction and passes its own quantity through.
+               "qty": l.get("pieces", l["qty"]) if l["kind"] == "hardware" else l["qty"]}
               for l in lines]
     qty = estimate_pdf.operation_quantities(shaped, part_count)
 

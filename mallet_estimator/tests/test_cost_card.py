@@ -433,17 +433,38 @@ class TestEstimatePreview(MalletTestCase):
         for m in sheets:
             self.assertGreater(m["qty"], 0, "%s nested to zero boards" % m["code"])
 
-    def test_a_row_stands_for_its_quantity_not_for_one_piece(self):
-        """The same failure's quieter half. OpenCutList groups identical parts
-        onto ONE row with the count in `Quantity`; aggregate() incremented by
-        one per row, so 24 MiniFix on a single row priced as one. That is not
-        a visibly broken number the way a zero is — it is just a cheap
-        estimate, which is worse."""
+    def test_the_purchase_line_counts_what_you_buy_and_says_it_is_grouped(self):
+        """Rewritten 2026-08-30, when the two questions were separated.
+
+        The hardware LINE now carries the row count — OpenCutList's Qty, the
+        thing a purchase order asks for: two drawers is two rail sets, not
+        four runners (Amit). This fixture groups four hinges onto one row, so
+        the line reads 1 and the payload says so out loud rather than letting
+        a grouped export pass as a purchase of one.
+
+        The piece count has not been thrown away; it drives the shop's work,
+        which the next test checks.
+        """
         out = api.estimate_preview(self.CSV)
         hw = [m for m in out["materials"] if m["kind"] == "hardware"]
         self.assertTrue(hw, "no hardware lines")
-        # The CSV says Quantity 4 on the hinge row.
-        self.assertEqual(sum(m["qty"] for m in hw), 4)
+        self.assertEqual(sum(m["qty"] for m in hw), 1)
+        flagged = {g["code"]: g for g in out["grouped_hardware"]}
+        self.assertTrue(flagged, "a grouped cut list must never pass silently")
+        self.assertEqual(sum(g["pieces"] for g in flagged.values()), 4)
+
+    def test_the_shop_still_works_every_piece(self):
+        """The half that must NOT follow the purchase count.
+
+        A housing is bored once per MiniFix and a hole drilled once per
+        screw, however the cut list groups them onto rows. Driving those off
+        the row count turned 24 housings into one — fifteen minutes where the
+        standard says six hours.
+        """
+        out = api.estimate_preview(self.CSV)
+        by_op = {r["name"]: r for r in out["labour"]}
+        hinges = sum(g["pieces"] for g in out["grouped_hardware"])
+        self.assertEqual(by_op["Install Hardware"]["qty"], hinges)
 
     def test_edge_banding_is_priced_by_the_roll_it_is_bought_in(self):
         """Edge banding is stocked in metres and bought in whole rolls. The
