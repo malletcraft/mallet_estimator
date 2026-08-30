@@ -985,11 +985,20 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # matters when resolution CANNOT happen — no SKU bound, or a slot with
         # no map row. Pricing it anyway is what made the wardrobe read 47%
         # high while claiming nothing was wrong.
-        placeholder = bool(decor.trailing_slots(l["material"]))
-        quotable = bool(m.get("quotable")) and not placeholder
+        # Tested on the PURCHASING CODE, not on the OpenCutList name. A ply
+        # board legitimately carries slot letters in its material name —
+        # SG_PLY_V0_a_a — and loses them on the way to its Item, because two
+        # décors on one board is still one board to buy. Reading the raw name
+        # here marked every sheet line "décor not set" and priced the boards
+        # at zero; CI caught it on test_a_material_costs_its_assumed_rate
+        # before it left batch-next. A laminate or edge band that is still a
+        # placeholder keeps its letters through purchasing_code, which is
+        # exactly the set this is meant to catch.
+        slots = decor.trailing_slots(code)
+        quotable = bool(m.get("quotable")) and not slots
         source = m.get("source", "not in erp")
-        if placeholder:
-            source = "décor not set — slot %s" % "/".join(decor.trailing_slots(l["material"]))
+        if slots:
+            source = "décor not set — slot %s" % "/".join(slots)
             rate, amount = 0.0, 0.0
         if not quotable:
             unpriced += 1

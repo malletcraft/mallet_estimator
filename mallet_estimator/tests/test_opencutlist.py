@@ -259,3 +259,40 @@ class TestOneItemCodeRule(unittest.TestCase):
         self.assertFalse(hasattr(OCL, "item_code_for"),
                          "opencutlist.item_code_for is back — the preview will "
                          "price ply against a code the bench never mints")
+
+
+class TestPlyIsNotAPlaceholder(unittest.TestCase):
+    """A board's slot letters are not an unresolved décor.
+
+    The distinction that broke the build on 2026-08-30. An unresolved
+    laminate must never be priced — that was the 47% wardrobe — so the
+    preview refuses to quote a code still carrying slot letters. Applied to
+    the raw OpenCutList NAME that rule also caught every ply line, because
+    SG_PLY_V0_a_a legitimately has letters and loses them on the way to its
+    Item: two décors on one board is still one board to buy.
+
+    So every sheet line went to zero and reported "décor not set". A bench
+    test caught it, twenty minutes at a time; these run in milliseconds.
+    """
+
+    def test_a_board_stops_being_a_placeholder_once_it_is_a_code(self):
+        self.assertTrue(D.trailing_slots("SG_PLY_V0_a_a"))
+        self.assertFalse(D.trailing_slots(D.purchasing_code("SG_PLY_V0_a_a", 16, "sheet")))
+        self.assertFalse(D.trailing_slots(D.purchasing_code("SG_PLY_V1_a_b", 16, "sheet")))
+
+    def test_an_unresolved_laminate_stays_a_placeholder(self):
+        # The set the refusal is FOR: laminate and edge keep their letters
+        # through purchasing_code, because the décor IS their identity.
+        for name, kind in (("SG_LAM_V0_16mm_a_a", "laminate"),
+                           ("SG_LAM_V1_16mm_b_a", "laminate"),
+                           ("EB_PVC_IN_a", "edge"),
+                           ("EB_PVC_EX_b", "edge")):
+            self.assertTrue(D.trailing_slots(D.purchasing_code(name, 0, kind)),
+                            "%s must still read as unresolved" % name)
+
+    def test_a_resolved_decor_is_quotable_again(self):
+        for name, kind in (("SG_LAM_GE1000", "laminate"),
+                           ("SG_LAM_V1_16mm_VM6534", "laminate"),
+                           ("EB_PVC_IN_RE1000", "edge")):
+            self.assertFalse(D.trailing_slots(D.purchasing_code(name, 0, kind)),
+                             "%s is a real décor and must price" % name)
