@@ -465,10 +465,23 @@ def create_materials(codes=None):
     # way it threw NameError on the first live call, green CI and green deploy
     # notwithstanding: nothing in the pure suite imports frappe, so nothing in
     # it could ever have executed this line.
-    from mallet_estimator import inventory
+    from mallet_estimator import decor, inventory
 
     out = {"created": [], "existed": [], "failed": {}}
     for code in _split_codes(codes):
+        # A PLACEHOLDER IS NOT A MATERIAL. A code still carrying its décor
+        # slot letters — SG_LAM_V0_16mm_a_a, EB_PVC_EX_b — means nothing has
+        # said what that laminate IS yet; the slot is resolved from the SKU's
+        # décor map, and until then there is no purchasing identity to create.
+        #
+        # This button minted two of them within hours of shipping
+        # (SG_LAM_V1_16mm_a_c and _c_a, 2026-08-29, from my own test), which
+        # is exactly the master-data pollution patches/collapse_board_item_codes
+        # was written to clear up.
+        if decor.trailing_slots(code):
+            out["failed"][code] = ("unresolved décor slot — set the décor on "
+                                   "the SKU first, then this becomes a real code")
+            continue
         if not inventory.is_material_code(code):
             # The grammar is the gate. A component name that slipped into the
             # code column must not be able to mint an Item just because
@@ -788,11 +801,41 @@ QTY_EDITABLE = {"Grooving", "Miscellaneous - extra", "Transport"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 
+def _decor_shorts_for_sku(sku):
+    """({slot: short}, {slot: short}) for laminate and edge, off the SKU's map.
+
+    The plugin's preview has no document of its own, so the décor map has to
+    come from the SKU it is bound to. Reuses the SKU's own
+    _decor_maps_from_table rather than re-reading the child tables here: the
+    map is read in exactly one place, so the preview and the saved estimate
+    cannot come to different conclusions about the same slot — which is the
+    failure this whole audit keeps turning up.
+
+    Anything missing — no sku, no permission, a SKU that has no map yet —
+    returns empty maps, and the placeholder then stays a placeholder and is
+    reported as unpriced. Never a guess.
+    """
+    from mallet_estimator import decor
+
+    if not sku:
+        return {}, {}
+    try:
+        doc = _find_sku(sku) or _resolve_sku(sku)
+        doc.check_permission("read")
+        lam, edge = doc._decor_maps_from_table()
+    except Exception:
+        # A preview must never fail because a binding is stale. It falls back
+        # to unresolved, which is now loud rather than silently wrong.
+        return {}, {}
+    return ({k: decor.short_code(v) for k, v in lam.items() if decor.short_code(v)},
+            {k: decor.short_code(v) for k, v in edge.items() if decor.short_code(v)})
+
+
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
-                     misc_remarks=None, hardware_min_by_type=None):
+                     misc_remarks=None, hardware_min_by_type=None, sku=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (decor, estimate_pdf, estimator, inventory,
                                   nest_import, nesting, opencutlist)
@@ -891,6 +934,30 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "desc": "%s — %s" % (_code, _note),
         })
 
+    # DÉCOR, RESOLVED — the abstract slot letters turned into the real
+    # laminate and edge band, exactly as the saved Estimate SKU does it.
+    #
+    # Without this the preview priced the PLACEHOLDERS. On the real YS_MB_WAR
+    # wardrobe (2026-08-30) that read ₹56,325 of material against the saved
+    # estimate's ₹38,406 — 47% high — and reported unpriced_lines: 0, because
+    # July placeholder Items happen to carry assumed rates and so look
+    # perfectly healthy. Silent and wrong, on the screen Amit shares with a
+    # client.
+    #
+    # The map lives on the SKU (sku_decors / sku_decor_edges), not the
+    # project, so the plugin sends its bound SKU. Without one there is nothing
+    # to resolve against and the placeholder stays — marked unquotable below,
+    # because a slot nobody has filled in is not a price.
+    lam_shorts, edge_shorts = _decor_shorts_for_sku(sku)
+    for l in lines:
+        if l["kind"] not in ("laminate", "edge"):
+            continue
+        shorts = edge_shorts if l["kind"] == "edge" else lam_shorts
+        real, _slot = decor.substitute_real_code(l["material"], shorts)
+        if real != l["material"]:
+            l["desc"] = l["desc"].replace(l["material"], real)
+            l["material"] = real
+
     # Edge Banding's operation qty is the banded-EDGE count, which is what
     # nest_import passes as part_count. Matching it keeps the two paths from
     # quoting different labour for the same model.
@@ -912,14 +979,25 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         m = rate_by_code.get(code, {})
         rate = float(m.get("landed_rate") or 0) * (l.get("rate_factor") or 1)
         amount = rate * float(l["qty"] or 0)
-        if not m.get("quotable"):
+        # AN UNRESOLVED PLACEHOLDER IS NEVER QUOTABLE, whatever rate an old
+        # stub Item happens to carry. This is the half of the décor fix that
+        # matters when resolution CANNOT happen — no SKU bound, or a slot with
+        # no map row. Pricing it anyway is what made the wardrobe read 47%
+        # high while claiming nothing was wrong.
+        placeholder = bool(decor.trailing_slots(l["material"]))
+        quotable = bool(m.get("quotable")) and not placeholder
+        source = m.get("source", "not in erp")
+        if placeholder:
+            source = "décor not set — slot %s" % "/".join(decor.trailing_slots(l["material"]))
+            rate, amount = 0.0, 0.0
+        if not quotable:
             unpriced += 1
         material_rows.append({
             "kind": l["kind"], "code": code, "desc": l["desc"],
             "qty": l["qty"], "uom": l["uom"],
             "rate": rate, "amount": round(amount, 2),
-            "source": m.get("source", "not in erp"),
-            "quotable": bool(m.get("quotable")),
+            "source": source,
+            "quotable": quotable,
         })
         material_total += amount
 
