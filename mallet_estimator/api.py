@@ -835,7 +835,8 @@ def _decor_shorts_for_sku(sku):
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
-                     misc_remarks=None, hardware_min_by_type=None, sku=None):
+                     misc_remarks=None, hardware_min_by_type=None, sku=None,
+                     trip_qty=None, trip_rate=None):
     """Material + labour for one SKU, priced from ERP. Saves nothing."""
     from mallet_estimator import (decor, estimate_pdf, estimator, inventory,
                                   nest_import, nesting, opencutlist)
@@ -1310,6 +1311,17 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         })
         labour_total += amount
 
+    # ---- logistics: the trips one execution needs ------------------------
+    if isinstance(trip_qty, str):
+        trip_qty = json.loads(trip_qty or "{}")
+    if isinstance(trip_rate, str):
+        trip_rate = json.loads(trip_rate or "{}")
+    # Rates come from Estimate Settings, which is where every sensitive figure
+    # in this app lives. Nothing here reads a rate out of code.
+    logistics_rows = estimator.logistics_lines(
+        frappe.get_single("Estimate Settings"), trip_qty, trip_rate)
+    logistics_sum, logistics_unset = estimator.logistics_total(logistics_rows)
+
     return {
         "authority": "erp",
         "site": frappe.local.site,
@@ -1357,6 +1369,16 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         "material_total": round(material_total, 2),
         "labour_total": round(labour_total, 2),
         "total": round(material_total + labour_total, 2),
+        # LOGISTICS IS ITS OWN SUBTOTAL and is deliberately NOT in `total`.
+        # Trips belong to one planned execution, shared across every SKU in
+        # the estimate — Amit, 2026-08-30: "trips are required in a estimate
+        # of skus within one planned execution for each work order" — so
+        # adding them into a single article's figure would bill the same
+        # tempo once per wardrobe. The Estimate consolidates them; this screen
+        # shows what the execution costs beside what the article costs.
+        "logistics": logistics_rows,
+        "logistics_total": logistics_sum,
+        "logistics_unset": logistics_unset,
         # Loud on purpose. A total that quietly omits three unpriced boards is
         # worse than no total: it looks like an answer.
         "unpriced_lines": unpriced,

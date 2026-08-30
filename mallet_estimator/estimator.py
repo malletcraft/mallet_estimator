@@ -169,16 +169,91 @@ OPERATION_STANDARDS_DESIGN = DESIGN_STANDARDS  # alias for controllers
 #   client = client hardware (hinges/rails/handles/lifts)
 #   outward = finished goods to site
 # Trip rates are SENSITIVE (###) — live values are keyed in Estimate Settings.
-TRANSPORT_DEFAULTS = {"tempo": 0, "ext_lam": 0, "client_hw": 0, "outward": 0}
+TRANSPORT_DEFAULTS = {"tempo": 0, "ext_lam": 0, "client_hw": 0,
+                      "outward": 0, "handles": 0, "edge_band": 0}
+
+# THE SIX LOGISTICS TRIPS one planned execution needs, in the order they
+# happen: (key, label, default trips).
+#
+# Amit, 2026-08-30, naming all six: "Below trips are required in a estimate of
+# skus within one planned execution for each work order." Handles used to ride
+# inside the client-hardware trip and edge banding had no trip at all; they are
+# separate runs, and edge banding is three of them because a roll comes from a
+# different market than the boards do.
+#
+# NO RATES LIVE HERE and none ever will. Trip costs are on the sensitive list
+# and this repo is public: the figures Amit gave are keyed into Estimate
+# Settings on the site, and TRANSPORT_DEFAULTS stays zeros. A zero rate reads
+# as "unset" on screen rather than as free.
+#
+# The QUANTITY is not sensitive — it is a fact about how the shop runs — so
+# the defaults are here where a reader can see why a number is what it is.
+TRIPS = (
+    ("tempo", "Sheet Goods (ply / Fevicol / internal laminate / Abrotape)", 1),
+    ("handles", "Handles", 1),
+    # Amit gave no quantity for this one. One trip, like its neighbours; it is
+    # the assumption most easily corrected, since the row is editable.
+    ("client_hw", "Hardware", 1),
+    ("ext_lam", "External Laminate", 1),
+    ("edge_band", "Edge Banding", 3),
+    ("outward", "Finished Goods Delivery", 1),
+)
+
+TRIP_KEYS = tuple(k for k, _l, _q in TRIPS)
+TRIP_LABELS = {k: l for k, l, _q in TRIPS}
+TRIP_DEFAULT_QTY = {k: q for k, _l, q in TRIPS}
 
 
 def transport_rates(settings):
-    return {
-        "tempo": _get(settings, "trip_rate_tempo", TRANSPORT_DEFAULTS["tempo"]) or TRANSPORT_DEFAULTS["tempo"],
-        "ext_lam": _get(settings, "trip_rate_ext_lam", TRANSPORT_DEFAULTS["ext_lam"]) or TRANSPORT_DEFAULTS["ext_lam"],
-        "client_hw": _get(settings, "trip_rate_client_hw", TRANSPORT_DEFAULTS["client_hw"]) or TRANSPORT_DEFAULTS["client_hw"],
-        "outward": _get(settings, "trip_rate_outward", TRANSPORT_DEFAULTS["outward"]) or TRANSPORT_DEFAULTS["outward"],
-    }
+    """{trip key: ₹ per trip} from Estimate Settings, zero where unset."""
+    out = {}
+    for key in TRIP_KEYS:
+        out[key] = (_get(settings, "trip_rate_" + key, TRANSPORT_DEFAULTS[key])
+                    or TRANSPORT_DEFAULTS[key])
+    return out
+
+
+def logistics_lines(settings, qty_by_trip=None, rate_by_trip=None):
+    """The Logistics block: one row per trip, both columns overridable.
+
+    Amit, 2026-08-30: "make quantity and rate both editable under head
+    logistics." A typed value wins over the default and the row says so, the
+    same way the labour table distinguishes a standard from a hand-set time —
+    otherwise nobody can tell which numbers were decided and which were
+    inherited.
+
+    rate 0 means the trip rate has not been keyed into Estimate Settings yet.
+    It is reported as unset, never as a free trip.
+    """
+    rates = transport_rates(settings)
+    qty_by_trip = qty_by_trip or {}
+    rate_by_trip = rate_by_trip or {}
+    rows = []
+    for key, label, default_qty in TRIPS:
+        qty, qty_src = default_qty, "standard"
+        if str(qty_by_trip.get(key, "")).strip() != "":
+            qty, qty_src = _num(qty_by_trip[key]), "edited here"
+        rate, rate_src = _num(rates.get(key)), "erp:Estimate Settings"
+        if str(rate_by_trip.get(key, "")).strip() != "":
+            rate, rate_src = _num(rate_by_trip[key]), "edited here"
+        elif not rate:
+            rate_src = "unset"
+        rows.append({
+            "trip": key, "name": label,
+            "qty": qty, "qty_source": qty_src,
+            "rate": rate, "rate_source": rate_src,
+            "amount": round(qty * rate, 2),
+            "quotable": bool(rate),
+        })
+    return rows
+
+
+def logistics_total(rows):
+    """What the trips come to. Unset rates contribute nothing and are counted
+    separately, so a total is never quietly short."""
+    total = sum(r["amount"] for r in rows if r["quotable"])
+    unset = [r["name"] for r in rows if not r["quotable"]]
+    return round(total, 2), unset
 
 # What each process step is supposed to take care of — seeded into the step's
 # Remarks (editable per SKU; Assembly/Packing are meant to be refined by the user).

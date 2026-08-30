@@ -1152,3 +1152,73 @@ class TestAssemblyCountReachesBothPaths(unittest.TestCase):
         # classify the hash — otherwise the saved SKU counts nothing.
         rows = [{"name": "a1b2c3d4e5", "designation": "ASMBL_L_Carcass"}]
         self.assertEqual(E._asmbl_counts(rows)["large"], 1)
+
+
+class TestLogisticsTrips(unittest.TestCase):
+    """The six trips one planned execution needs.
+
+    Amit, 2026-08-30, naming all of them: "Below trips are required in a
+    estimate of skus within one planned execution for each work order. Show
+    this and make quantity and rate both editable under head logistics."
+    """
+
+    def test_all_six_trips_in_the_order_they_happen(self):
+        self.assertEqual(
+            [k for k, _l, _q in E.TRIPS],
+            ["tempo", "handles", "client_hw", "ext_lam", "edge_band", "outward"])
+
+    def test_edge_banding_is_three_trips_and_the_rest_are_one(self):
+        # The one quantity that is not 1, and the reason it is worth a test:
+        # a roll comes from a different market than the boards do.
+        self.assertEqual(E.TRIP_DEFAULT_QTY["edge_band"], 3)
+        for k in ("tempo", "handles", "client_hw", "ext_lam", "outward"):
+            self.assertEqual(E.TRIP_DEFAULT_QTY[k], 1, k)
+
+    def test_no_trip_rate_is_ever_written_into_this_repo(self):
+        # THE RULE THAT CANNOT BEND. Trip costs are on the sensitive list and
+        # mallet_estimator is public, so a committed figure is permanent and
+        # world-readable. Amit gave the real rates in chat; they are keyed
+        # into Estimate Settings on the site and every default here is zero.
+        for k, v in E.TRANSPORT_DEFAULTS.items():
+            self.assertEqual(v, 0, "%s carries a rate in code" % k)
+        self.assertEqual(set(E.TRANSPORT_DEFAULTS), set(E.TRIP_KEYS))
+
+    def test_an_unset_rate_reads_as_unset_not_as_free(self):
+        rows = E.logistics_lines(_settings())
+        self.assertTrue(all(r["rate"] == 0 for r in rows))
+        self.assertTrue(all(r["rate_source"] == "unset" for r in rows))
+        self.assertTrue(all(not r["quotable"] for r in rows))
+        total, unset = E.logistics_total(rows)
+        # Nothing billed, and every trip named — a total that quietly omits
+        # six trips looks like an answer and is not one.
+        self.assertEqual(total, 0)
+        self.assertEqual(len(unset), 6)
+
+    def test_both_columns_are_editable_and_say_which_were_edited(self):
+        rows = {r["trip"]: r for r in E.logistics_lines(
+            _settings(trip_rate_tempo=10), qty_by_trip={"edge_band": 5},
+            rate_by_trip={"outward": 7})}
+        self.assertEqual(rows["edge_band"]["qty"], 5)
+        self.assertEqual(rows["edge_band"]["qty_source"], "edited here")
+        self.assertEqual(rows["outward"]["rate"], 7)
+        self.assertEqual(rows["outward"]["rate_source"], "edited here")
+        # Untouched rows still say where their number came from, which is what
+        # lets a reader tell a decision from an inheritance.
+        self.assertEqual(rows["tempo"]["rate_source"], "erp:Estimate Settings")
+        self.assertEqual(rows["tempo"]["qty_source"], "standard")
+
+    def test_a_typed_zero_is_a_decision_not_a_blank(self):
+        # "This execution needs no external-laminate trip" has to be sayable.
+        rows = {r["trip"]: r for r in E.logistics_lines(
+            _settings(trip_rate_ext_lam=10), qty_by_trip={"ext_lam": 0})}
+        self.assertEqual(rows["ext_lam"]["qty"], 0)
+        self.assertEqual(rows["ext_lam"]["qty_source"], "edited here")
+        self.assertEqual(rows["ext_lam"]["amount"], 0)
+
+    def test_the_total_counts_only_trips_that_have_a_rate(self):
+        rows = E.logistics_lines(
+            _settings(trip_rate_tempo=10, trip_rate_edge_band=2))
+        total, unset = E.logistics_total(rows)
+        # tempo 1x10 + edge banding 3x2
+        self.assertEqual(total, 16)
+        self.assertEqual(len(unset), 4)
