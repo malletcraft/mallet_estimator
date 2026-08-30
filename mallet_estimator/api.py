@@ -465,23 +465,24 @@ def create_materials(codes=None):
     # way it threw NameError on the first live call, green CI and green deploy
     # notwithstanding: nothing in the pure suite imports frappe, so nothing in
     # it could ever have executed this line.
-    from mallet_estimator import decor, inventory
+    from mallet_estimator import inventory
 
     out = {"created": [], "existed": [], "failed": {}}
     for code in _split_codes(codes):
-        # A PLACEHOLDER IS NOT A MATERIAL. A code still carrying its décor
-        # slot letters — SG_LAM_V0_16mm_a_a, EB_PVC_EX_b — means nothing has
-        # said what that laminate IS yet; the slot is resolved from the SKU's
-        # décor map, and until then there is no purchasing identity to create.
+        # A SLOT-CODED LAMINATE IS A REAL ESTIMATING IDENTITY, and this
+        # button used to refuse to create one. That refusal was mine and it
+        # was wrong: I read the slot-coded Items as debris from a migration,
+        # and the site says otherwise — SG_LAM_V1_16mm_b_a and _c_a carry
+        # different maintained assumed rates, because they are different
+        # laminates that nobody has named yet.
         #
-        # This button minted two of them within hours of shipping
-        # (SG_LAM_V1_16mm_a_c and _c_a, 2026-08-29, from my own test), which
-        # is exactly the master-data pollution patches/collapse_board_item_codes
-        # was written to clear up.
-        if decor.trailing_slots(code):
-            out["failed"][code] = ("unresolved décor slot — set the décor on "
-                                   "the SKU first, then this becomes a real code")
-            continue
+        # Amit, 2026-08-30: "this is set in erp. use from assumed price list."
+        # A model is drawn in slots long before a décor is chosen, so the
+        # slot-coded Item is what an estimate prices against in the meantime.
+        # Refusing to create it left a red row with no way forward.
+        #
+        # is_material_code below is still the gate: the GRAMMAR decides what
+        # may be minted, not the presence or absence of slot letters.
         if not inventory.is_material_code(code):
             # The grammar is the gate. A component name that slipped into the
             # code column must not be able to mint an Item just because
@@ -985,21 +986,34 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # matters when resolution CANNOT happen — no SKU bound, or a slot with
         # no map row. Pricing it anyway is what made the wardrobe read 47%
         # high while claiming nothing was wrong.
-        # Tested on the PURCHASING CODE, not on the OpenCutList name. A ply
-        # board legitimately carries slot letters in its material name —
-        # SG_PLY_V0_a_a — and loses them on the way to its Item, because two
-        # décors on one board is still one board to buy. Reading the raw name
-        # here marked every sheet line "décor not set" and priced the boards
-        # at zero; CI caught it on test_a_material_costs_its_assumed_rate
-        # before it left batch-next. A laminate or edge band that is still a
-        # placeholder keeps its letters through purchasing_code, which is
-        # exactly the set this is meant to catch.
+        # AN UNRESOLVED SLOT IS PRICED, NOT REFUSED — and this is a correction
+        # of my own reasoning, not a new feature.
+        #
+        # I read the placeholder Items as junk left by a migration and made
+        # the preview refuse to quote them. Amit, 2026-08-30, on seeing nine
+        # red rows: "this is set in erp. use from assumed price list." He is
+        # right and the DB says so plainly: every one of those nine carries a
+        # maintained rate on Estimation (Assumed), and they differ per slot —
+        # 490, 1385, 1805 for laminate, 30 and 20 for edge band. Those are
+        # kept numbers, not debris.
+        #
+        # The abstract slot IS the estimating identity before a décor is
+        # chosen. That is the whole point of the slot grammar, and it is
+        # exactly what an "assumed" price list is for: a planning figure
+        # standing in until somebody decides. Refusing to price it turns a
+        # gauge into a blank.
+        #
+        # What was genuinely wrong on YS_MB_WAR stays fixed: that SKU HAD a
+        # décor map, so its slots resolve to the real laminates above and are
+        # priced as those. Resolution first, placeholder rate as the labelled
+        # fallback — never the placeholder in preference to a decided décor.
         slots = decor.trailing_slots(code)
-        quotable = bool(m.get("quotable")) and not slots
+        quotable = bool(m.get("quotable"))
         source = m.get("source", "not in erp")
-        if slots:
-            source = "décor not set — slot %s" % "/".join(slots)
-            rate, amount = 0.0, 0.0
+        if slots and quotable:
+            # Priced, and honest about what it is: a slot nobody has fixed
+            # yet, carrying the planning rate for that slot.
+            source = "assumed — décor not set (slot %s)" % "/".join(slots)
         if not quotable:
             unpriced += 1
         material_rows.append({

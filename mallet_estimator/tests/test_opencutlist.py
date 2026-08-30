@@ -264,15 +264,23 @@ class TestOneItemCodeRule(unittest.TestCase):
 class TestPlyIsNotAPlaceholder(unittest.TestCase):
     """A board's slot letters are not an unresolved décor.
 
-    The distinction that broke the build on 2026-08-30. An unresolved
-    laminate must never be priced — that was the 47% wardrobe — so the
-    preview refuses to quote a code still carrying slot letters. Applied to
-    the raw OpenCutList NAME that rule also caught every ply line, because
-    SG_PLY_V0_a_a legitimately has letters and loses them on the way to its
-    Item: two décors on one board is still one board to buy.
+    Ply loses its slot letters on the way to its Item — two décors on one
+    board is still one board to buy — while laminate and edge band keep
+    theirs, because for those the décor IS the identity. That asymmetry is
+    what these tests pin, and it is load-bearing in two directions.
 
-    So every sheet line went to zero and reported "décor not set". A bench
-    test caught it, twenty minutes at a time; these run in milliseconds.
+    It first mattered on 2026-08-30, when I made the preview REFUSE to price
+    any code still carrying slot letters and applied the test to the raw
+    OpenCutList name: SG_PLY_V0_a_a matched, so every sheet line went to zero
+    reporting "décor not set". A bench test caught that, twenty minutes at a
+    time; these run in milliseconds.
+
+    The refusal itself is gone — Amit, the same day: "this is set in erp. use
+    from assumed price list." A slot-coded laminate is the estimating
+    identity before a décor is chosen, and the site keeps a real rate for
+    each one. But the CODE distinction still decides which line can resolve
+    through a décor map and which is already final, so it is still worth
+    holding still.
     """
 
     def test_a_board_stops_being_a_placeholder_once_it_is_a_code(self):
