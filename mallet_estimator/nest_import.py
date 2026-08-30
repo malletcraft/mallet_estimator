@@ -167,6 +167,30 @@ def run(doc):
 
     # Designation-level hardware lines, matching the PDF path exactly (the
     # category rides along as the item's group, so rates resolve per SKU).
+    # A GROUPED EXPORT CANNOT BE SAVED. Hardware quantity is the row count —
+    # OpenCutList's "Qty", what you actually buy: two drawers is two rail sets
+    # (Amit, 2026-08-30). When OpenCutList groups identical parts onto one row
+    # and puts the count in Quantity, that row count understates the purchase:
+    # YS_MB_WAR's own export carries 24 MiniFix and 32 shelf supports on a
+    # single row each, and counting rows there would order one of each.
+    #
+    # That is the failure that once "bought 10 pieces of hardware where the
+    # model has 99", so it REFUSES rather than warns. A preview may show a
+    # wrong number with a banner over it; a saved estimate becomes a
+    # quotation, and a quotation with 1 MiniFix on it is not recoverable by
+    # anybody reading it later.
+    _grouped = opencutlist.grouped_hardware(hw)
+    if _grouped:
+        frappe.throw(_(
+            "This CSV is a GROUPED export — {0} hardware line(s) put several "
+            "pieces on one row, so the quantity that reaches the estimate "
+            "would be the number of rows, not the number of pieces: {1}. "
+            "Re-export the part list with grouping off, or the estimate will "
+            "under-order hardware."
+        ).format(len(_grouped),
+                 ", ".join("%s (%d rows, %d pieces)"
+                           % (h["code"], h["qty"], h["pieces"]) for h in _grouped)))
+
     unnamed = [h["code"] for h in hw if not h.get("named", True)]
     if unnamed:
         issues.append(_(

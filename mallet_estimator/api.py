@@ -912,6 +912,14 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "desc": "%s — %d nos" % (h["code"], h["qty"]),
         })
 
+    # A GROUPED export understates hardware here, because qty is the row count
+    # — OpenCutList's "Qty", the thing you buy. The saved import REFUSES such
+    # a CSV outright; a preview is a gauge, so it prices and shouts instead of
+    # showing nothing. Either way it is never silent: 24 MiniFix arriving as
+    # one row is the shape that once ordered 10 pieces for a 99-piece model.
+    grouped_hw = [{"code": h["code"], "rows": h["qty"], "pieces": h["pieces"]}
+                  for h in opencutlist.grouped_hardware(hw)]
+
     # J1 — Fevicol and Abrotape, which are in no cut list because they are
     # DERIVED from how many boards go through the press. Amit, 2026-08-29:
     # "Need fevicol and abrotape logic in mcft plugin as well."
@@ -1399,6 +1407,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # adding them into a single article's figure would bill the same
         # tempo once per wardrobe. The Estimate consolidates them; this screen
         # shows what the execution costs beside what the article costs.
+        # Non-empty means the cut list groups identical hardware onto one
+        # row, so every hardware quantity above is a ROW COUNT standing in for
+        # a piece count. Loud on the screen; refused outright on a save.
+        "grouped_hardware": grouped_hw,
         "logistics": logistics_rows,
         "logistics_total": logistics_sum,
         "logistics_unset": logistics_unset,

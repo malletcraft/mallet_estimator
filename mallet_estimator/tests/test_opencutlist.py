@@ -200,9 +200,45 @@ class TestGroupedRows(unittest.TestCase):
         parts = OCL.parts_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
         self.assertEqual([(p["part_no"], p["qty"]) for p in parts], [("1", 3), ("2", 1)])
 
-    def test_hardware_buys_every_piece(self):
+    def test_a_grouped_hardware_row_is_flagged_not_silently_counted(self):
+        """The rule changed on 2026-08-30 and this is the test that carries it.
+
+        Hardware quantity is now OpenCutList's Qty — the ROW COUNT, what you
+        buy: two drawers is two rail sets, not four runners (Amit). On a
+        GROUPED export that count understates the purchase, and this fixture
+        is the exact shape that once ordered 10 pieces for a 99-piece model:
+        24 MiniFix on one row.
+
+        So the row count is reported AND the grouping is flagged with the
+        real piece count beside it. Callers refuse (the saved import) or
+        shout (the preview). What must never happen again is 1 quietly
+        standing in for 24.
+        """
         hw = OCL.hardware_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
-        self.assertEqual([(h["code"], h["qty"]) for h in hw], [("HWD_MiniFix", 24)])
+        self.assertEqual([(h["code"], h["qty"], h["pieces"]) for h in hw],
+                         [("HWD_MiniFix", 1, 24)])
+        self.assertEqual([h["code"] for h in OCL.grouped_hardware(hw)],
+                         ["HWD_MiniFix"])
+
+    def test_an_ungrouped_export_is_not_flagged(self):
+        # One row per piece: row count and piece count agree, nothing to say.
+        csv = ("No.;Material name;Material type;Designation;Quantity;Length;Width;Thickness\n"
+               "1;HWD_Hinge;Hardware;HWD_AH_SC_0;1;0;0;0\n"
+               "2;HWD_Hinge;Hardware;HWD_AH_SC_0;1;0;0;0\n"
+               "3;HWD_Drw_Rail;Hardware;HWD_DR_SC_550mm;1;0;0;0\n")
+        hw = OCL.hardware_list(OCL.parse_opencutlist_csv(csv))
+        self.assertEqual([(h["code"], h["qty"], h["pieces"]) for h in hw],
+                         [("HWD_AH_SC_0", 2, 2), ("HWD_DR_SC_550mm", 1, 1)])
+        self.assertEqual(OCL.grouped_hardware(hw), [])
+
+    def test_two_rail_rows_are_two_sets_not_four_runners(self):
+        # Amit, 2026-08-30, choosing the unit: "A set — 2 drawers, 2 rail
+        # sets." The estimate counts what a purchase order counts.
+        csv = ("No.;Material name;Material type;Designation;Quantity;Length;Width;Thickness\n"
+               "1;HWD_Drw_Rail;Hardware;HWD_DR_SC_550mm;1;0;0;0\n"
+               "2;HWD_Drw_Rail;Hardware;HWD_DR_SC_550mm;1;0;0;0\n")
+        hw = OCL.hardware_list(OCL.parse_opencutlist_csv(csv))
+        self.assertEqual(hw[0]["qty"], 2)
 
 
 class TestOneItemCodeRule(unittest.TestCase):

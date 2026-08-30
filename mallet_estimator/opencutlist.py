@@ -136,9 +136,24 @@ def hardware_list(rows):
     only 'Designation' here is what made hardware fall back to its category).
 
     Returns one entry per canonical designation:
-        {code, category, qty, length, width, thickness, named}
-    where dims are the part's physical size in mm, qty is the instance count,
-    and `named` is False when the CSV carried no designation at all and the
+        {code, category, qty, pieces, grouped, length, width, thickness, named}
+
+    QTY IS THE ROW COUNT — OpenCutList's own "Qty" column — not the summed
+    Quantity, which is its "Σ Unit Total". Amit, 2026-08-30: "quantity in ocl
+    and quantity in mcft material list are mismatched. you are picking total
+    and not quantity", and on rails specifically: two drawers is two rail
+    SETS, not four runners. What a purchase order wants is the thing you buy.
+
+    THE DANGER, and why `grouped` exists. OpenCutList can GROUP identical
+    parts onto one row and put the count in Quantity — his own YS_MB_WAR
+    export does exactly that, with 24 MiniFix and 32 shelf supports each on a
+    single row. Counting rows there would report 1 and 1. That is the failure
+    that once "bought 10 pieces of hardware where the model has 99", so it
+    must never happen quietly: `pieces` keeps the summed count and `grouped`
+    is True the moment any row stands for more than one piece. Callers are
+    expected to refuse or shout, never to shrug.
+
+    `named` is False when the CSV carried no designation at all and the
     category had to stand in — the caller says so out loud rather than
     letting a category masquerade as a real SKU.
     """
@@ -162,13 +177,31 @@ def hardware_list(rows):
                 "named": named,
                 "category": category,
                 "qty": 0,
+                # Kept beside qty rather than instead of it, so a grouped
+                # export can be recognised and reported with real numbers.
+                "pieces": 0,
+                "grouped": False,
                 "length": _num(r.get("Length") or r.get("Length - raw")),
                 "width": _num(r.get("Width") or r.get("Width - raw")),
                 "thickness": _num(r.get("Thickness") or r.get("Thickness - raw")),
             }
             order.append(code)
-        out[code]["qty"] += part_qty(r)
+        n = part_qty(r)
+        out[code]["qty"] += 1
+        out[code]["pieces"] += n
+        if n > 1:
+            out[code]["grouped"] = True
     return [out[c] for c in order]
+
+
+def grouped_hardware(hw):
+    """The hardware entries whose rows each stand for several pieces.
+
+    Non-empty means the export was GROUPED and the row count understates what
+    the shop has to buy. Callers refuse or shout; nobody prices off it
+    silently.
+    """
+    return [h for h in hw if h.get("grouped")]
 
 
 def classify_hardware(name):
