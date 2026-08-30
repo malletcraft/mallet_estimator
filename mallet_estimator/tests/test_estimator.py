@@ -1222,3 +1222,38 @@ class TestLogisticsTrips(unittest.TestCase):
         # tempo 1x10 + edge banding 3x2
         self.assertEqual(total, 16)
         self.assertEqual(len(unset), 4)
+
+
+class TestSettingsLabelsMatchTheTrips(unittest.TestCase):
+    """The box you key a rate into is named after the trip it pays for.
+
+    Amit went looking for "Sheet Goods" under a field called "Big Tempo".
+    The desk labels predated the six-trip naming, so the settings page and
+    the plugin table said different things about the same money.
+    """
+
+    def test_every_trip_rate_field_is_named_after_its_trip(self):
+        import json
+        import os
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(os.path.dirname(here), "mallet_estimator", "doctype",
+                            "estimate_settings", "estimate_settings.json")
+        fields = {f["fieldname"]: f.get("label")
+                  for f in json.load(open(path))["fields"]}
+        for key, label, _qty in E.TRIPS:
+            fn = "trip_rate_%s" % key
+            self.assertIn(fn, fields, "%s has no settings field" % key)
+            self.assertEqual(fields[fn], "%s Trip" % label,
+                             "%s is labelled for a different trip" % fn)
+
+    def test_no_trip_rate_field_carries_a_value_in_the_repo(self):
+        # The doctype JSON is a schema, not a place to smuggle a default in.
+        import json
+        import os
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(os.path.dirname(here), "mallet_estimator", "doctype",
+                            "estimate_settings", "estimate_settings.json")
+        for f in json.load(open(path))["fields"]:
+            if f["fieldname"].startswith("trip_rate_"):
+                self.assertIn(f.get("default", ""), ("", None, 0, "0"),
+                              "%s ships a rate" % f["fieldname"])

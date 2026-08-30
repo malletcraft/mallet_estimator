@@ -165,12 +165,12 @@
    "fieldname": "transport_section",
    "fieldtype": "Section Break",
    "label": "Transport Trip Rates (₹/trip)",
-   "description": "Inward: big tempo = ply + internal laminate + joinery hardware; separate trips for external laminate and client hardware. Outward = finished goods to site."
+   "description": "Six trips per planned execution, shared across every SKU in the estimate. Quantities live in code (edge banding is 3, the rest 1) and are editable per run in the SketchUp plugin; the rates here are the only place the money lives."
   },
   {
    "fieldname": "trip_rate_tempo",
    "fieldtype": "Currency",
-   "label": "Big Tempo (ply / int-laminate / joinery)",
+   "label": "Sheet Goods (ply / Fevicol / internal laminate / Abrotape) Trip",
    "default": "0",
    "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
   },
@@ -188,7 +188,7 @@
   {
    "fieldname": "trip_rate_client_hw",
    "fieldtype": "Currency",
-   "label": "Client Hardware Trip",
+   "label": "Hardware Trip",
    "default": "0",
    "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
   },
@@ -209,7 +209,7 @@
   {
    "fieldname": "trip_rate_outward",
    "fieldtype": "Currency",
-   "label": "Outward Delivery Trip",
+   "label": "Finished Goods Delivery Trip",
    "default": "0",
    "description": "(### sensitive — key the real value here on the site; never stored in the repo.)"
   },
@@ -292,7 +292,7 @@
   }
  ],
  "links": [],
- "modified": "2026-08-30 00:00:00.000000",
+ "modified": "2026-08-30 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Mallet Estimator",
  "name": "Estimate Settings",
