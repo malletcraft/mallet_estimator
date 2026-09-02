@@ -1592,6 +1592,18 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "material": round(material_total, 2),
             "labour": round(labour_total, 2),
             "logistics": logistics_sum,
+            # WHAT THE ESTIMATE COSTS, logistics included. Amit, 2026-09-02:
+            # "estimate total table must show final cost for which estimate
+            # is run including logistics."
+            #
+            # I had left the trips out and said why: they belong to one
+            # planned execution and are shared across every SKU in it, so a
+            # multi-article estimate that adds them per article bills the
+            # same tempo twice. He has decided, and he is the one who reads
+            # the number — what the screen owes him now is the caveat, not a
+            # missing row, so the composition stays visible above the total.
+            "material_plus_labour": round(material_total + labour_total, 2),
+            "grand_total": round(material_total + labour_total + logistics_sum, 2),
             "families": _family_totals(material_rows),
         },
         "grouped_hardware": grouped_hw,
