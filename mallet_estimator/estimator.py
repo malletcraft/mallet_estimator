@@ -676,6 +676,77 @@ def op_phase(row):
 
 
 # ---------------------------------------------------------------------------
+# THE MATERIAL FAMILIES a total is broken into, in the order Amit named them
+# (2026-09-02): "Material is further subdivided in total for below items row
+# wise ... Ply / Internal laminate / Internal edge banding / Joinery material /
+# hardware / External edge banding."
+#
+# EXTERNAL LAMINATE AND "OTHER" ARE HERE TOO and were not in that list. They
+# are added deliberately rather than silently: a family with no row would make
+# the six rows fail to sum to the material total, and a summary that does not
+# reconcile is the shape this project keeps getting burned by. They render only
+# when a model actually contains such a line, so the table Amit asked for is
+# the table he sees on a model that has none.
+#
+# INTERNAL vs EXTERNAL is Amit's rule from 2026-08-09, already encoded in
+# decor.INTERNAL_SLOT: slot `a` is always the internal face, `b` onwards is
+# always what the client sees. Edge banding does not need it — the code says
+# EB_PVC_IN_ or EB_PVC_EX_ outright.
+MATERIAL_FAMILIES = (
+    ("ply", "Ply"),
+    ("lam_int", "Internal laminate"),
+    ("edge_int", "Internal edge banding"),
+    ("joinery", "Joinery material"),
+    ("hardware", "Hardware"),
+    ("edge_ext", "External edge banding"),
+    ("lam_ext", "External laminate"),
+    ("other", "Other material"),
+)
+
+FAMILY_LABELS = dict(MATERIAL_FAMILIES)
+FAMILY_ORDER = [k for k, _l in MATERIAL_FAMILIES]
+
+
+def material_family(code, kind=None):
+    """Which subtotal row a material line belongs to.
+
+    Classified off the OpenCutList code, which is why the caller has to keep
+    the pre-décor-resolution name: SG_LAM_V1_16mm_b_a says which face it is,
+    and SG_LAM_VM6534 — the same laminate after the map is applied — does not.
+    """
+    from mallet_estimator import decor
+
+    c = str(code or "").strip()
+    up = c.upper()
+    if up.startswith("SG_PLY"):
+        return "ply"
+    if up.startswith("EB_"):
+        # The code states it outright; no slot arithmetic needed.
+        if "_EX" in up:
+            return "edge_ext"
+        if "_IN" in up:
+            return "edge_int"
+        return "other"
+    if up.startswith("SG_LAM"):
+        key = decor.slot_key(c)
+        if not key:
+            # A laminate whose décor is already decided carries no slot, so
+            # the face it was pressed on cannot be read back. Named rather
+            # than guessed — a wrong subtotal is worse than an honest one.
+            return "other"
+        return "lam_int" if key[0] == decor.INTERNAL_SLOT else "lam_ext"
+    if up.startswith("JH_"):
+        return "joinery"
+    if up.startswith("HWD_"):
+        return "hardware"
+    if kind == "joinery":
+        return "joinery"
+    if kind == "hardware":
+        return "hardware"
+    return "other"
+
+
+# ---------------------------------------------------------------------------
 # J1 — the joinery consumables, in ONE place.
 #
 # Fevicol and Abrotape are not in any cut list: they are DERIVED from how many

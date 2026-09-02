@@ -1257,3 +1257,60 @@ class TestSettingsLabelsMatchTheTrips(unittest.TestCase):
             if f["fieldname"].startswith("trip_rate_"):
                 self.assertIn(f.get("default", ""), ("", None, 0, "0"),
                               "%s ships a rate" % f["fieldname"])
+
+
+class TestMaterialFamilies(unittest.TestCase):
+    """The subtotal rows a material total breaks into.
+
+    Amit, 2026-09-02: "Material is further subdivided in total for below
+    items row wise" — Ply, Internal laminate, Internal edge banding, Joinery
+    material, hardware, External edge banding.
+    """
+
+    def test_the_six_amit_named_are_all_there(self):
+        for fam in ("ply", "lam_int", "edge_int", "joinery", "hardware", "edge_ext"):
+            self.assertIn(fam, E.FAMILY_LABELS, fam)
+        self.assertEqual(E.FAMILY_ORDER[:6],
+                         ["ply", "lam_int", "edge_int", "joinery", "hardware", "edge_ext"],
+                         "the rows must read in the order they were asked for")
+
+    def test_internal_and_external_are_told_apart_by_the_slot(self):
+        # Amit's rule from 2026-08-09: `a` is always the internal face,
+        # `b` onwards is always what the client sees.
+        self.assertEqual(E.material_family("SG_LAM_V0_12mm_a_a"), "lam_int")
+        self.assertEqual(E.material_family("SG_LAM_V1_16mm_a_c"), "lam_int")
+        self.assertEqual(E.material_family("SG_LAM_V1_16mm_b_a"), "lam_ext")
+        self.assertEqual(E.material_family("SG_LAM_V1_16mm_c_a"), "lam_ext")
+
+    def test_edge_banding_says_which_it_is_in_its_own_code(self):
+        self.assertEqual(E.material_family("EB_PVC_IN_a"), "edge_int")
+        self.assertEqual(E.material_family("EB_PVC_EX_b"), "edge_ext")
+        # No slot arithmetic is involved, so a resolved edge code still sorts.
+        self.assertEqual(E.material_family("EB_PVC_IN_RE1000"), "edge_int")
+        self.assertEqual(E.material_family("EB_PVC_EX_RE1834"), "edge_ext")
+
+    def test_a_resolved_laminate_is_named_other_rather_than_guessed(self):
+        # Once the décor map is applied the face is unreadable from the code.
+        # The caller keeps the slot code for exactly this reason; when it
+        # cannot, a wrong subtotal is worse than an honest one.
+        self.assertEqual(E.material_family("SG_LAM_GE1000"), "other")
+        self.assertEqual(E.material_family("SG_LAM_VM6534"), "other")
+
+    def test_every_family_has_a_row_so_the_subtotals_can_reconcile(self):
+        # The reason External laminate and Other exist at all: six rows that
+        # do not sum to the material total is a summary that lies quietly.
+        codes = ["SG_PLY_V1_a_b_16mm", "SG_LAM_V0_12mm_a_a", "SG_LAM_V1_16mm_b_a",
+                 "EB_PVC_IN_a", "EB_PVC_EX_b", "JH_Fevicol", "HWD_MiniFix",
+                 "SG_LAM_GE1000"]
+        fams = {E.material_family(c) for c in codes}
+        self.assertTrue(fams <= set(E.FAMILY_ORDER),
+                        "a code classified into a family with no row: %s"
+                        % (fams - set(E.FAMILY_ORDER)))
+        # and nothing falls through unclassified
+        for c in codes:
+            self.assertIsNotNone(E.material_family(c), c)
+
+    def test_kind_is_the_fallback_when_the_code_says_nothing(self):
+        self.assertEqual(E.material_family("Fevicol", kind="joinery"), "joinery")
+        self.assertEqual(E.material_family("Some Hinge", kind="hardware"), "hardware")
+        self.assertEqual(E.material_family("mystery"), "other")

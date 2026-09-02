@@ -802,6 +802,60 @@ QTY_EDITABLE = {"Grooving", "Miscellaneous - extra", "Transport"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 
+def _family_totals(rows):
+    """One subtotal per material family, in the order Amit listed them.
+
+    Each row carries what it can honestly carry: an AREA for sheet goods, a
+    LENGTH for edge banding, and a piece COUNT for hardware and joinery —
+    consumed against bought, and the money on each side. A family with no
+    lines is left out entirely rather than shown as a row of zeros.
+
+    The units are never mixed within a row and never added across rows. That
+    is why the unit is stated per row rather than in a column heading.
+    """
+    from mallet_estimator import estimator
+
+    buckets = {}
+    for r in rows:
+        fam = r.get("family") or "other"
+        b = buckets.setdefault(fam, {
+            "family": fam,
+            "label": estimator.FAMILY_LABELS.get(fam, fam),
+            "lines": 0, "unit": None,
+            "consumed_units": 0.0, "total_units": 0.0,
+            "consumed_cost": 0.0, "total_cost": 0.0,
+        })
+        b["lines"] += 1
+        b["total_cost"] += float(r.get("amount") or 0)
+        if r.get("use_unit"):
+            b["unit"] = r["use_unit"]
+            b["consumed_units"] += float(r.get("consumed_units") or 0)
+            b["total_units"] += float(r.get("bought_units") or 0)
+            b["consumed_cost"] += float(r.get("consumed_amount") or 0)
+        else:
+            # Counted pieces. Every one bought is fitted, so consumed equals
+            # bought — stated rather than left blank, because a blank in a
+            # money column reads as an omission.
+            b["unit"] = b["unit"] or "nos"
+            b["consumed_units"] += float(r.get("qty") or 0)
+            b["total_units"] += float(r.get("qty") or 0)
+            b["consumed_cost"] += float(r.get("amount") or 0)
+
+    out = []
+    for fam in estimator.FAMILY_ORDER:
+        if fam not in buckets:
+            continue
+        b = buckets[fam]
+        for k in ("consumed_units", "total_units", "consumed_cost", "total_cost"):
+            b[k] = round(b[k], 2)
+        b["unused_units"] = round(b["total_units"] - b["consumed_units"], 2)
+        b["unused_cost"] = round(b["total_cost"] - b["consumed_cost"], 2)
+        b["used_pct"] = (round(100.0 * b["consumed_units"] / b["total_units"], 1)
+                         if b["total_units"] else 0.0)
+        out.append(b)
+    return out
+
+
 def _utilisation_totals(rows):
     """[{unit, bought, consumed, unused, consumed_cost, unused_cost, used_pct}]
 
@@ -1047,6 +1101,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         shorts = edge_shorts if l["kind"] == "edge" else lam_shorts
         real, _slot = decor.substitute_real_code(l["material"], shorts)
         if real != l["material"]:
+            # The SLOT code is kept, because it is the only thing that says
+            # which face this laminate went on. SG_LAM_V1_16mm_b_a is
+            # external; SG_LAM_VM6534 — the same sheet after the map is
+            # applied — cannot be told apart from an internal one.
+            l["slot_code"] = l["material"]
             l["desc"] = l["desc"].replace(l["material"], real)
             l["material"] = real
 
@@ -1117,8 +1176,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         bought_u = float(l.get("bought_units") or 0)
         used_u = float(l.get("consumed_units") or 0)
         consumed_amount = round(amount * (used_u / bought_u), 2) if bought_u else 0.0
+        family = estimator.material_family(l.get("slot_code") or l["material"], l["kind"])
         row = {
-            "kind": l["kind"], "code": code, "desc": l["desc"],
+            "kind": l["kind"], "family": family,
+            "family_label": estimator.FAMILY_LABELS.get(family, family),
+            "code": code, "desc": l["desc"],
             "qty": l["qty"], "uom": l["uom"],
             "rate": rate, "amount": round(amount, 2),
             "source": source,
@@ -1523,6 +1585,15 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # pieces, not areas, so they carry no utilisation at all rather than
         # a made-up one.
         "utilisation": _utilisation_totals(material_rows),
+        # THE THREE TOTALS, and material broken into the families Amit named
+        # (2026-09-02). Assembled from the same rows the tables above render,
+        # so the summary cannot disagree with what is on screen.
+        "summary": {
+            "material": round(material_total, 2),
+            "labour": round(labour_total, 2),
+            "logistics": logistics_sum,
+            "families": _family_totals(material_rows),
+        },
         "grouped_hardware": grouped_hw,
         "logistics": logistics_rows,
         "logistics_total": logistics_sum,
