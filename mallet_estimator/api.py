@@ -802,6 +802,44 @@ QTY_EDITABLE = {"Grooving", "Miscellaneous - extra", "Transport"}
 MIN_EDITABLE_FROM_SEQ = 7          # Grooving onwards
 
 
+def _utilisation_totals(rows):
+    """[{unit, bought, consumed, unused, consumed_cost, unused_cost, used_pct}]
+
+    One entry per physical unit — sqft for sheet goods, metres for edge
+    banding. They are kept apart because adding a square foot to a metre is
+    not a number, and a single "waste %" over both would be the kind of
+    figure that looks authoritative and means nothing.
+
+    Rows with no `bought_units` (hardware, joinery consumables) are absent
+    rather than counted as fully used: those are pieces, and a piece is
+    bought to be fitted. Claiming 100% utilisation on them would flatter the
+    total.
+    """
+    by_unit = {}
+    for r in rows:
+        unit = r.get("use_unit")
+        if not unit:
+            continue
+        t = by_unit.setdefault(unit, {"unit": unit, "bought": 0.0, "consumed": 0.0,
+                                      "unused": 0.0, "consumed_cost": 0.0,
+                                      "unused_cost": 0.0})
+        t["bought"] += float(r.get("bought_units") or 0)
+        t["consumed"] += float(r.get("consumed_units") or 0)
+        t["unused"] += float(r.get("unused_units") or 0)
+        t["consumed_cost"] += float(r.get("consumed_amount") or 0)
+        t["unused_cost"] += float(r.get("unused_amount") or 0)
+    out = []
+    for unit in ("sqft", "m"):
+        if unit not in by_unit:
+            continue
+        t = by_unit[unit]
+        for k in ("bought", "consumed", "unused", "consumed_cost", "unused_cost"):
+            t[k] = round(t[k], 2)
+        t["used_pct"] = round(100.0 * t["consumed"] / t["bought"], 1) if t["bought"] else 0.0
+        out.append(t)
+    return out
+
+
 def _decor_shorts_for_sku(sku):
     """({slot: short}, {slot: short}) for laminate and edge, off the SKU's map.
 
@@ -878,18 +916,40 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         lines.append({
             "kind": "sheet", "material": code, "thickness": th,
             "qty": r["sheets"], "uom": "Nos", "rate_factor": 1,
+            # CONSUMED vs BOUGHT, as numbers rather than words inside a
+            # sentence. Amit, 2026-09-02: "show consumed material and non
+            # consumed material in term of cost and square foot and meters on
+            # estimate screen." The figures were already computed here and
+            # then thrown into a description string, which is readable and
+            # not addable — nobody can total a sentence.
+            "use_unit": "sqft",
+            "bought_units": round(r["sheets"] * sheet_sqft, 2),
+            "consumed_units": round(used_sqft, 2),
+            "unused_units": round(waste_sqft, 2),
             "desc": "%s — %d parts → %d sheet(s) (%.0f%% used, waste %.1f sqft)"
                     % (code, len(parts), r["sheets"], r["utilization"] * 100, waste_sqft),
         })
 
     # Laminate follows the BOARD, not its own nest: it is pressed onto the
     # whole panel before the saw runs, so it is one sheet per laminated face.
+    # What each laminate actually COVERS, from the ply parts themselves. A
+    # sheet is pressed on a whole board and only then cut, so the laminate
+    # over an offcut is bought and never used — which is exactly the number
+    # this reports rather than hides.
+    lam_used = {c: sum(l * w for (l, w) in parts) / SQFT_MM2
+                for c, parts in nesting.laminate_faces(ply).items()}
     for code, sheets in sorted(nesting.laminate_from_panels(panel_sheets, faces).items()):
         if not sheets:
             continue
+        bought = sheets * sheet_sqft
+        used = min(lam_used.get(code, 0.0), bought)
         lines.append({
             "kind": "laminate", "material": code, "thickness": 0,
             "qty": sheets, "uom": "Nos", "rate_factor": 1,
+            "use_unit": "sqft",
+            "bought_units": round(bought, 2),
+            "consumed_units": round(used, 2),
+            "unused_units": round(max(0.0, bought - used), 2),
             "desc": "%s — %d sheet(s), one per board face" % (code, sheets),
         })
 
@@ -897,9 +957,17 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # has to be multiplied by the roll length or the line is out by 50x.
     for code, meters in sorted(edges.items()):
         rolls = nesting.edge_rolls(meters)
+        bought_m = rolls * inventory.EDGE_ROLL_METERS
         lines.append({
             "kind": "edge", "material": code, "thickness": 0,
             "qty": rolls, "uom": "Roll", "rate_factor": inventory.EDGE_ROLL_METERS,
+            # METRES, because that is how banding is run and what is left on
+            # the roll. A part-used roll is money on the rack, not waste in
+            # the bin, but it is still bought and not yet consumed.
+            "use_unit": "m",
+            "bought_units": round(bought_m, 2),
+            "consumed_units": round(min(meters, bought_m), 2),
+            "unused_units": round(max(0.0, bought_m - meters), 2),
             "desc": "%s — %.2f m banding → %d roll(s) of %g m"
                     % (code, meters, rolls, inventory.EDGE_ROLL_METERS),
         })
@@ -1038,13 +1106,35 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             source = "assumed — décor not set (slot %s)" % "/".join(slots)
         if not quotable:
             unpriced += 1
-        material_rows.append({
+        # THE COST SPLIT. Money follows the material: a board is bought
+        # whole, so the share of it that never became a part is bought and
+        # not consumed. Amit, 2026-09-02, asking for both halves "in term of
+        # cost and square foot and meters".
+        #
+        # Split on the physical ratio rather than re-deriving a price,
+        # because the line's own amount is already the authority — anything
+        # computed a second way would drift from it.
+        bought_u = float(l.get("bought_units") or 0)
+        used_u = float(l.get("consumed_units") or 0)
+        consumed_amount = round(amount * (used_u / bought_u), 2) if bought_u else 0.0
+        row = {
             "kind": l["kind"], "code": code, "desc": l["desc"],
             "qty": l["qty"], "uom": l["uom"],
             "rate": rate, "amount": round(amount, 2),
             "source": source,
             "quotable": quotable,
-        })
+        }
+        if bought_u:
+            row.update({
+                "use_unit": l.get("use_unit"),
+                "bought_units": l.get("bought_units"),
+                "consumed_units": l.get("consumed_units"),
+                "unused_units": l.get("unused_units"),
+                "consumed_amount": consumed_amount,
+                "unused_amount": round(amount - consumed_amount, 2),
+                "used_pct": round(100.0 * used_u / bought_u, 1),
+            })
+        material_rows.append(row)
         material_total += amount
 
     # ---- labour, all seventeen --------------------------------------------
@@ -1428,6 +1518,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # Non-empty means the cut list groups identical hardware onto one
         # row, so every hardware quantity above is a ROW COUNT standing in for
         # a piece count. Loud on the screen; refused outright on a save.
+        # CONSUMED vs NOT CONSUMED, totalled per unit because square feet and
+        # metres do not add together. Hardware and joinery are counted
+        # pieces, not areas, so they carry no utilisation at all rather than
+        # a made-up one.
+        "utilisation": _utilisation_totals(material_rows),
         "grouped_hardware": grouped_hw,
         "logistics": logistics_rows,
         "logistics_total": logistics_sum,
