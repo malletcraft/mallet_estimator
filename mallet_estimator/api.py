@@ -656,6 +656,11 @@ def cost_card(codes=None, create_missing=0):
             "gst_pct": round(float(gst), 2),
             "landed_rate": round(float(landed), 4),
             "source": f"erp:{src}",
+            # T2 — how many pieces one packet holds, so the estimate can order
+            # whole packets and price them per packet. 1 unless somebody has
+            # said otherwise, which is the answer for everything except a
+            # consumable sold by the box.
+            "pieces_per_packet": inventory.pieces_per_packet(item),
             # The same gate the ERP estimate uses: rate 0 with source 'unset'
             # is NOT quotable, and saying so is the whole point of sending the
             # source along with the number.
@@ -1179,6 +1184,22 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # Split on the physical ratio rather than re-deriving a price,
         # because the line's own amount is already the authority — anything
         # computed a second way would drift from it.
+        # T2 — WHOLE PACKETS. A line counted in pieces is bought in packets,
+        # and the Item rate is per packet, so the quantity that gets multiplied
+        # has to be packets too. The piece count is kept beside it: the shop
+        # still bores one housing per MiniFix whatever the box holds.
+        per_packet = int(m.get("pieces_per_packet") or 1)
+        # HARDWARE ONLY. Joinery is already counted in the unit it is bought
+        # in — J1 derives Fevicol in PACKETS per board and Abrotape in metres —
+        # so putting a packet size on JH_Fevicol would convert a packet count
+        # into packets of packets. The seam is deliberately narrow.
+        if per_packet > 1 and l["kind"] == "hardware":
+            pieces_needed = float(l["qty"] or 0)
+            packets = estimator.packets_for(pieces_needed, per_packet)
+            l = dict(l, qty=packets, pieces=int(pieces_needed),
+                     desc="%s — %d pieces → %d packet(s) of %d"
+                          % (l["material"], pieces_needed, packets, per_packet))
+            amount = rate * packets
         bought_u = float(l.get("bought_units") or 0)
         used_u = float(l.get("consumed_units") or 0)
         consumed_amount = round(amount * (used_u / bought_u), 2) if bought_u else 0.0
@@ -1188,6 +1209,8 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "family_label": estimator.FAMILY_LABELS.get(family, family),
             "code": code, "desc": l["desc"],
             "qty": l["qty"], "uom": l["uom"],
+            "pieces_per_packet": per_packet,
+            "pieces_needed": l.get("pieces") if per_packet > 1 else None,
             "rate": rate, "amount": round(amount, 2),
             "source": source,
             "quotable": quotable,

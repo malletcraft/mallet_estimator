@@ -875,6 +875,22 @@ def trade_name(code, thickness=0, kind=None):
     return ""
 
 
+def packets_for(pieces, per_packet):
+    """Whole packets needed for a piece count, rounded UP.
+
+    Amit, 2026-09-03: "we must buy full packet irrespective of how many parts
+    we need." Fifty-one screws out of a box of a hundred is one box bought and
+    one box paid for — the forty-nine left over are stock, not a discount.
+
+    per_packet of 1 (the default, and the answer for everything except a
+    consumable sold by the box) returns the piece count untouched, so an Item
+    nobody has configured behaves exactly as it did before this existed."""
+    n = int(per_packet or 1)
+    if n <= 1:
+        return int(math.ceil(float(pieces or 0)))
+    return int(math.ceil(float(pieces or 0) / n))
+
+
 def laminate_purchase_code(slot, external=False):
     """The ONE Item a laminate décor is bought as.
 

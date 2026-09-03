@@ -1538,3 +1538,37 @@ class TestSixteenBeforeTwelve(unittest.TestCase):
                  "family": "lam_int", "slot_code": None}]
         self.assertEqual([b["family"] for b in E.purchase_lines(rows)],
                          ["ply", "lam_int"])
+
+
+class TestWholePackets(unittest.TestCase):
+    """Amit, 2026-09-03: "we must buy full packet irrespective of how many
+    parts we need. in erp i want to store per packet price."
+
+    OpenCutList's Qty is already the packet for hardware modelled that way — a
+    hinge component carrying two units, a drawer rail set — so those stay at 1
+    and nothing about them changes. What this exists for is the consumable
+    COUNTED per piece and SOLD by the box: 51 screws is one box of a hundred,
+    never 51 of anything purchasable."""
+
+    def test_a_part_box_is_a_whole_box(self):
+        self.assertEqual(E.packets_for(51, 100), 1)
+        self.assertEqual(E.packets_for(101, 100), 2)
+        self.assertEqual(E.packets_for(100, 100), 1)
+
+    def test_an_odd_piece_count_still_rounds_up(self):
+        # five hinges out of packets of two is three packets, not two and a
+        # half — the sixth hinge is stock, not a discount
+        self.assertEqual(E.packets_for(5, 2), 3)
+        self.assertEqual(E.packets_for(4, 2), 2)
+
+    def test_no_packet_size_leaves_the_count_alone(self):
+        # The default, and the answer for everything except a boxed
+        # consumable: an Item nobody has configured behaves as it did before
+        # this existed.
+        for n in (0, 1, 9, 51):
+            self.assertEqual(E.packets_for(n, 1), n)
+            self.assertEqual(E.packets_for(n, 0), n)
+            self.assertEqual(E.packets_for(n, None), n)
+
+    def test_nothing_needed_buys_nothing(self):
+        self.assertEqual(E.packets_for(0, 100), 0)

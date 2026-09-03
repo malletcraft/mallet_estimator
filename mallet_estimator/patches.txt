@@ -196,3 +196,9 @@ mallet_estimator.patches.hardware_install_minutes
 # hardware_install_minutes had already run, and Frappe never runs a patch
 # twice — editing it would have deployed green and left the bench at 30.
 mallet_estimator.patches.hardware_parent_minutes
+# post_model_sync: T2 — Item.mallet_pieces_per_packet, so a consumable sold by
+# the box is ORDERED by the box (Amit, 2026-09-03: "we must buy full packet
+# irrespective of how many parts we need. in erp i want to store per packet
+# price"). A patch and not just after_migrate, because a Python-only deploy
+# runs no migrate at all and the field would sit in source, unreachable.
+mallet_estimator.patches.item_pieces_per_packet

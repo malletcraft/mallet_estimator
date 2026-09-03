@@ -853,7 +853,11 @@ def verify_setup():
     # F3 — structured coding Item fields; F2/S3 — maker/brand + part-no fields.
     imeta = frappe.get_meta("Item")
     cf = [f for f in ("mallet_visible_sides", "mallet_lam_internal", "mallet_lam_external",
-                      "mallet_mfr_part_no", "mallet_gst_pct") if not imeta.has_field(f)]
+                      "mallet_mfr_part_no", "mallet_gst_pct",
+                      # T2 — pieces per packet. Its absence is survivable (the
+                      # reader defaults to 1) but it means every consumable
+                      # sold by the box is being ordered by the piece.
+                      "mallet_pieces_per_packet") if not imeta.has_field(f)]
     chk("Coding/sourcing fields", not cf, ("missing: " + ", ".join(cf)) if cf else "coding + mfr part no + GST% ✓")
     miss_mfr = missing("Manufacturer", inventory.MANUFACTURERS)
     miss_brand = missing("Brand", inventory.BRAND_NAMES)

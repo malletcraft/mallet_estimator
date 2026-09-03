@@ -920,10 +920,43 @@ CUSTOM_FIELDS = {
         {"fieldname": "mallet_gst_pct", "fieldtype": "Percent", "label": "GST %",
          "insert_after": "mallet_mfr_part_no", "default": "18",
          "description": "GST charged on purchase. Estimation = ex-tax rate x (1 + GST%) = landed cost."},
+        # T2 — how many pieces come in one packet, so the estimate orders whole
+        # packets. Amit, 2026-09-03: "we must buy full packet irrespective of
+        # how many parts we need. in erp i want to store per packet price."
+        #
+        # OpenCutList's Qty is already the packet for the hardware modelled that
+        # way — a hinge component carrying two units, a drawer rail set — so
+        # those stay at 1 and nothing changes for them. What this exists for is
+        # the consumable that is COUNTED per piece and SOLD by the box: 51
+        # screws is one box of 100, never 51 of anything purchasable.
+        #
+        # Default 1, which is the "no packet" answer, so an Item nobody has
+        # thought about behaves exactly as it does today.
+        {"fieldname": "mallet_pieces_per_packet", "fieldtype": "Int", "label": "Pieces per Packet",
+         "insert_after": "mallet_gst_pct", "default": "1",
+         "description": "Pieces in one purchasable packet (screws 100, hinges 2, ...). "
+                        "The estimate rounds UP to whole packets and the Item rate is PER PACKET."},
     ]
 }
 
 DEFAULT_GST_PCT = 18.0
+DEFAULT_PIECES_PER_PACKET = 1
+
+
+def pieces_per_packet(item_code):
+    """T2 — how many pieces one purchasable packet holds; 1 when unset.
+
+    Read defensively: the field may not exist yet on a bench that has not run
+    the patch, and a missing field must mean "one piece per packet" rather than
+    an error, or every hardware line stops pricing the day this ships."""
+    if not frappe.get_meta("Item").has_field("mallet_pieces_per_packet"):
+        return DEFAULT_PIECES_PER_PACKET
+    v = frappe.db.get_value("Item", item_code, "mallet_pieces_per_packet")
+    try:
+        n = int(v or 0)
+    except (TypeError, ValueError):
+        n = 0
+    return n if n > 0 else DEFAULT_PIECES_PER_PACKET
 
 
 def item_gst_pct(item_code):
