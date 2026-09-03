@@ -1336,13 +1336,13 @@ class TestPurchaseList(unittest.TestCase):
                 self._lam("SG_LAM_V1_16mm_a_b", 2),
                 self._lam("SG_LAM_V1_16mm_b_a", 2, rate=1634.3)]
         out = E.purchase_lines(rows)
-        internal = [b for b in out if b["label"] == "slot a"]
+        internal = [b for b in out if b["label"] == "SG_LAM_V0_1mm_a"]
         self.assertEqual(len(internal), 1, "internal laminate did not club: %s" % out)
         self.assertEqual(internal[0]["qty"], 16)
         self.assertEqual(internal[0]["amount"], round(16 * 578.2, 2))
         # and the external décor stays its own purchase — it is a different
         # laminate, not a different thickness of the same one
-        external = [b for b in out if b["label"] == "slot b"]
+        external = [b for b in out if b["label"] == "SG_LAM_V1_1mm_b"]
         self.assertEqual(len(external), 1)
         self.assertEqual(external[0]["qty"], 2)
 
@@ -1370,8 +1370,9 @@ class TestPurchaseList(unittest.TestCase):
                           slot_code="SG_LAM_V1_16mm_a_b")]
         out = E.purchase_lines(rows)
         self.assertEqual(len(out), 1)
-        # named by the décor the client chose, not by the slot it started as
-        self.assertEqual(out[0]["label"], "VM6534")
+        # ONE Item to buy, and the décor the client chose named beside it
+        self.assertEqual(out[0]["label"], "SG_LAM_V0_1mm_a")
+        self.assertEqual(out[0]["decor"], "VM6534")
         self.assertEqual(out[0]["qty"], 8)
 
     def test_ply_keeps_its_millimetres_and_laminate_does_not(self):
@@ -1385,8 +1386,10 @@ class TestPurchaseList(unittest.TestCase):
                  "rate": 2605.44, "amount": 10421.76, "quotable": True,
                  "family": "ply"}]
         out = E.purchase_lines(rows)
+        # and 16 mm reads above 12 mm, the way a supplier writes an invoice
         self.assertEqual([b["label"] for b in out],
-                         ["SG_PLY_V0_12mm", "SG_PLY_V0_16mm"])
+                         ["SG_PLY_V0_16mm", "SG_PLY_V0_12mm"])
+        self.assertEqual(out[0]["trade_name"], "Plywood 16 mm (8x4) — carcass grade")
 
     def test_the_list_totals_what_the_material_table_totals(self):
         # A shopping list that does not add up to the cost is two numbers on
@@ -1433,3 +1436,105 @@ class TestSandwichCheck(unittest.TestCase):
                               {"kind": "hardware", "qty": 99},
                               {"kind": "joinery", "qty": 27}])
         self.assertTrue(c["matches"])
+
+
+class TestTradeVocabulary(unittest.TestCase):
+    """The supplier's words, taken from two Vibrant Ply invoices Amit sent on
+    2026-09-03: "Plywood 16mm (8X4)", "Plywood 12mm (8X4)", "Laminate",
+    "PLASTIC STRIP". No slot letters, no visible-sides grade, no décor — a
+    purchase document says what arrives on the lorry."""
+
+    def test_ply_reads_the_way_the_invoice_reads_it(self):
+        self.assertEqual(E.trade_name("SG_PLY_V0_16mm", 16),
+                         "Plywood 16 mm (8x4) — carcass grade")
+        self.assertEqual(E.trade_name("SG_PLY_V0_6mm", 6),
+                         "Plywood 6 mm (8x4) — carcass grade")
+
+    def test_the_visible_grades_are_said_in_words(self):
+        # "for industry its just ply with structure or carcass and door or
+        # facia grade" — V0/V1/V2 are Amit's convention, not a supplier's.
+        self.assertIn("door / facia", E.trade_name("SG_PLY_V1_16mm", 16))
+        self.assertIn("door / facia", E.trade_name("SG_PLY_V2_16mm", 16))
+        self.assertIn("carcass", E.trade_name("SG_PLY_V0_16mm", 16))
+
+    def test_laminate_is_one_millimetre_whatever_ply_it_sits_on(self):
+        # The mm in a laminate CODE names the ply beneath it. The sheet itself
+        # is 1 mm, which is why the invoice line is one word.
+        for code in ("SG_LAM_V0_12mm_a_a", "SG_LAM_V0_16mm_a_a",
+                     "SG_LAM_V1_16mm_a_b"):
+            self.assertEqual(E.trade_name(code), "Laminate 1 mm (8x4) — internal")
+        self.assertEqual(E.trade_name("SG_LAM_V1_16mm_b_a"),
+                         "Laminate 1 mm (8x4) — external")
+
+    def test_edge_banding_is_the_plastic_strip_the_invoice_bills(self):
+        self.assertEqual(E.trade_name("EB_PVC_IN_a"),
+                         "Edge band (plastic strip) — internal")
+        self.assertEqual(E.trade_name("EB_PVC_EX_b"),
+                         "Edge band (plastic strip) — external")
+
+    def test_hardware_keeps_its_own_name(self):
+        # A hinge is already called what it is called; inventing a trade name
+        # for it would be adding noise, not vocabulary.
+        self.assertEqual(E.trade_name("HWD_AH_SC_0"), "")
+        self.assertEqual(E.trade_name("HWD_MiniFix"), "")
+
+    def test_thickness_is_read_for_sorting_from_either_place(self):
+        self.assertEqual(E.code_thickness("SG_PLY_V0_16mm", 16), 16)
+        self.assertEqual(E.code_thickness("SG_PLY_V0_16mm", 0), 16)
+        # a laminate line carries no thickness; its code names the ply's
+        self.assertEqual(E.code_thickness("SG_LAM_V0_12mm_a_a", 0), 12)
+        self.assertEqual(E.code_thickness("HWD_MiniFix", 0), 0)
+
+
+class TestOneLaminateItem(unittest.TestCase):
+    def test_the_code_is_thickness_then_slot(self):
+        self.assertEqual(E.laminate_purchase_code("a"), "SG_LAM_V0_1mm_a")
+        self.assertEqual(E.laminate_purchase_code("b", external=True),
+                         "SG_LAM_V1_1mm_b")
+
+    def test_it_still_parses_as_a_slot_code(self):
+        """The reason it is spelled this way round rather than his
+        SG_LAM_V0_a_1mm: trailing_slots reads trailing [a-z] tokens, so a code
+        ending in 1mm carries no slot, material_family answers 'other', and the
+        line falls out of the Internal laminate subtotal it belongs to."""
+        from mallet_estimator import decor
+
+        code = E.laminate_purchase_code("a")
+        self.assertEqual(decor.slot_key(code), "a")
+        self.assertEqual(E.material_family(code), "lam_int")
+        ext = E.laminate_purchase_code("c", external=True)
+        self.assertEqual(decor.slot_key(ext), "c")
+        self.assertEqual(E.material_family(ext), "lam_ext")
+
+    def test_the_spelling_he_proposed_would_have_lost_the_slot(self):
+        # Kept as a test rather than a comment, because it is the whole reason
+        # the agreed spelling differs from the one first written down.
+        from mallet_estimator import decor
+
+        self.assertIsNone(decor.slot_key("SG_LAM_V0_a_1mm"))
+        self.assertEqual(E.material_family("SG_LAM_V0_a_1mm"), "other")
+
+
+class TestSixteenBeforeTwelve(unittest.TestCase):
+    """Amit, 2026-09-03: "industry work by thickness of material. so sort in
+    table should always be all 16 mm first then 12 mm and so on."""
+
+    def _ply(self, code, th):
+        return {"kind": "sheet", "code": code, "qty": 1, "uom": "Nos",
+                "rate": 1.0, "amount": 1.0, "quotable": True, "family": "ply",
+                "thickness": th}
+
+    def test_thickest_first_inside_the_family(self):
+        rows = [self._ply("SG_PLY_V0_6mm", 6), self._ply("SG_PLY_V0_16mm", 16),
+                self._ply("SG_PLY_V0_12mm", 12), self._ply("SG_PLY_V0_18mm", 18)]
+        self.assertEqual([b["thickness"] for b in E.purchase_lines(rows)],
+                         [18, 16, 12, 6])
+
+    def test_families_still_come_first(self):
+        # Thickness orders WITHIN a family; it never reshuffles the families.
+        rows = [self._ply("SG_PLY_V0_6mm", 6),
+                {"kind": "laminate", "code": "SG_LAM_V0_16mm_a_a", "qty": 1,
+                 "uom": "Nos", "rate": 1.0, "amount": 1.0, "quotable": True,
+                 "family": "lam_int", "slot_code": None}]
+        self.assertEqual([b["family"] for b in E.purchase_lines(rows)],
+                         ["ply", "lam_int"])

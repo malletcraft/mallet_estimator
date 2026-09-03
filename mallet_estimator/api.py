@@ -1195,6 +1195,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # which face a resolved laminate went on. material_family already
             # needed it; nothing downstream could see it.
             "slot_code": l.get("slot_code"),
+            "thickness": l.get("thickness") or 0,
+            # The supplier's words beside the code, so an estimate line and a
+            # purchase invoice can be read together. Never priced off.
+            "trade_name": estimator.trade_name(
+                l.get("slot_code") or l["material"], l.get("thickness") or 0,
+                l["kind"]),
         }
         if bought_u:
             row.update({
@@ -1560,7 +1566,19 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # which of the six exist in this model.
         "hardware_counts": hw_counts,
         "hardware_min_by_type": hardware_min_used,
-        "materials": material_rows,
+        # THICKNESS DESCENDING inside each family — 16 mm, then 12, then 6 —
+        # because that is how a supplier writes an invoice and how the rack is
+        # stacked (Amit, 2026-09-03). Sorted here rather than in the plugin so
+        # every reader of this payload sees one order.
+        "materials": sorted(
+            material_rows,
+            key=lambda r: (estimator.FAMILY_ORDER.index(r["family"])
+                           if r["family"] in estimator.FAMILY_ORDER
+                           else len(estimator.FAMILY_ORDER),
+                           -(estimator.code_thickness(
+                               r.get("slot_code") or r["code"],
+                               r.get("thickness") or 0)),
+                           r["code"])),
         "labour": labour_rows,
         # Amit, 2026-08-22: "Also need number of days required to make that
         # happen. assume 6 hours working day." Rounded UP like everything else

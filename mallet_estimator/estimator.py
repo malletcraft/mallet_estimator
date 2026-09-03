@@ -798,6 +798,106 @@ def purchase_decor(code, slot_code=None):
     return key, "slot %s" % key
 
 
+# ---------------------------------------------------------------------------
+# WHAT THE TRADE CALLS IT. Amit, 2026-09-03, sending two Vibrant Ply invoices:
+# "The way industry reads below ply as Plywood 16 mm ( 8x4 ) ... V0 and V1 and
+# V2 are my conventions. for industry its just ply with structure or carcass
+# and door or facia grade."
+#
+# The supplier's own lines are the vocabulary: "Plywood 16mm (8X4)",
+# "Plywood 12mm (8X4)", "Laminate", "PLASTIC STRIP". No slot letters, no
+# visible-sides grade, no décor — a purchase document says what arrives on the
+# lorry. The OpenCutList code stays as the identity; this is the sentence
+# beside it, so an estimate line and a supplier invoice can be read together
+# without translating in your head.
+SHEET_TRADE_SIZE = "8x4"
+SQM_PER_SQFT = 0.09290304
+LAMINATE_MM = 1
+
+PLY_GRADE = {
+    "V0": "carcass grade",
+    "V1": "one face visible — door / facia grade",
+    "V2": "both faces visible — door / facia grade",
+}
+
+
+def code_thickness(code, thickness=0):
+    """The millimetres this line is about, from the line or from its code.
+
+    A sheet line carries its thickness; a laminate line does not, and its code
+    names the PLY it was pressed onto. Both are wanted for one purpose only —
+    sorting 16 mm above 12 mm — so reading the ply's mm off a laminate code is
+    right here and would be wrong anywhere that priced something."""
+    if thickness:
+        return float(thickness)
+    for token in str(code or "").split("_"):
+        if _is_mm_token(token):
+            return float(token[:-2])
+    return 0.0
+
+
+def _grade_of(code):
+    for token in str(code or "").upper().split("_"):
+        if token in PLY_GRADE:
+            return token
+    return ""
+
+
+def trade_name(code, thickness=0, kind=None):
+    """The supplier's description for a material code, or '' when there is no
+    trade name worth adding — hardware is already called what it is called."""
+    from mallet_estimator import decor
+
+    text = str(code or "")
+    up = text.upper()
+    mm = code_thickness(code, thickness)
+    if up.startswith("SG_PLY"):
+        grade = PLY_GRADE.get(_grade_of(text), "")
+        head = "Plywood %g mm (%s)" % (mm, SHEET_TRADE_SIZE)
+        return "%s — %s" % (head, grade) if grade else head
+    if up.startswith("SG_LAM"):
+        # The laminate is 1 mm whatever ply it sits on — which is exactly why
+        # the invoice line is one word. Its own slot says internal or external.
+        key = decor.slot_key(text)
+        side = ("internal" if key and key[0] == decor.INTERNAL_SLOT
+                else "external" if key else "")
+        head = "Laminate %d mm (%s)" % (LAMINATE_MM, SHEET_TRADE_SIZE)
+        return "%s — %s" % (head, side) if side else head
+    if up.startswith("EB_"):
+        side = "internal" if "_IN" in up else "external" if "_EX" in up else ""
+        head = "Edge band (plastic strip)"
+        return "%s — %s" % (head, side) if side else head
+    if up.startswith("JH_"):
+        if "FEVICOL" in up:
+            return "Adhesive"
+        if "ABRO" in up or "TAPE" in up:
+            return "Masking tape"
+    return ""
+
+
+def laminate_purchase_code(slot, external=False):
+    """The ONE Item a laminate décor is bought as.
+
+    Amit, 2026-09-03: "SG_LAM_V0_12mm_a_a, SG_LAM_V0_16mm_a_a,
+    SG_LAM_V1_16mm_a_b, SG_LAM_V1_16mm_a_c ... Internal laminate code name can
+    be SG_LAM_V0_a_1mm ... it makes sense to have only this code on erp side to
+    avoid so many code as all refer to same internal laminate."
+
+    It does, and his supplier agrees: Vibrant Ply's invoice line is the single
+    word "Laminate" at one rate per sheet. Four Items for one laminate is four
+    rates to keep equal by hand, and today they are equal by luck rather than
+    by mechanism.
+
+    The SPELLING is thickness-then-slot, not his slot-then-thickness. That is
+    not cosmetic: trailing_slots reads trailing [a-z] tokens, so a code ending
+    in 1mm carries no slot at all — slot_key returns None, material_family
+    answers "other", and the line falls out of the Internal laminate subtotal
+    it belongs to. Same information, same grammar as every other code here,
+    and no parser to bend. Agreed with him on the day."""
+    grade = "V1" if external else "V0"
+    return "SG_LAM_%s_%dmm_%s" % (grade, LAMINATE_MM, slot)
+
+
 def purchase_lines(rows):
     """Group priced material rows into the list the shop actually orders.
 
@@ -813,10 +913,14 @@ def purchase_lines(rows):
         kind = r.get("kind")
         code = str(r.get("code") or "")
         if kind == "laminate":
-            dkey, label = purchase_decor(code, r.get("slot_code"))
+            dkey, decor_label = purchase_decor(code, r.get("slot_code"))
             key = ("laminate", dkey)
+            # ONE ITEM PER DÉCOR, spelled the way every other code here is
+            # spelled — see laminate_purchase_code.
+            label = laminate_purchase_code(
+                dkey, external=(r.get("family") == "lam_ext"))
         else:
-            key, label = (kind, code), code
+            key, label, decor_label = (kind, code), code, ""
         b = buckets.get(key)
         if b is None:
             b = buckets[key] = {
@@ -824,6 +928,13 @@ def purchase_lines(rows):
                 "family_label": r.get("family_label")
                 or FAMILY_LABELS.get(r.get("family"), r.get("family")),
                 "label": label, "uom": r.get("uom"),
+                # The supplier's own words for it, and the millimetres the
+                # trade sorts by. Both are for reading, never for pricing.
+                "trade_name": trade_name(r.get("slot_code") or code,
+                                         r.get("thickness") or 0, kind),
+                "decor": decor_label,
+                "thickness": code_thickness(r.get("slot_code") or code,
+                                            r.get("thickness") or 0),
                 "qty": 0.0, "amount": 0.0, "items": [],
                 "use_unit": r.get("use_unit"),
                 "bought_units": 0.0, "consumed_units": 0.0,
@@ -846,13 +957,27 @@ def purchase_lines(rows):
                      else (rates.pop() if rates else 0.0))
         for k in ("qty", "amount", "bought_units", "consumed_units"):
             b[k] = round(b[k], 2)
+        if b.get("use_unit") == "sqft":
+            # The supplier bills board in SQUARE METRES with the sheet count
+            # beside it — "17.861 sqm (6 Nos)" on Vibrant Ply's own invoice —
+            # so the order list carries the number you can match against it.
+            # Consumption stays in square feet; that is an internal costing
+            # unit and mixing the two on one screen is how they get confused.
+            b["bought_sqm"] = round(b["bought_units"] * SQM_PER_SQFT, 2)
         if not b["use_unit"]:
             b.pop("use_unit", None)
             b.pop("bought_units", None)
             b.pop("consumed_units", None)
         out.append(b)
+    # THICKNESS DESCENDING, inside the family. Amit, 2026-09-03: "industry
+    # work by thickness of material. so sort in table should always be all
+    # 16 mm first then 12 mm and so on." It is how a supplier writes an
+    # invoice and how a storeman stacks a rack, so it is how the order list
+    # reads. A line with no thickness (hardware, joinery) sorts last within
+    # its family rather than pretending to be 0 mm at the top.
     order = {f: i for i, f in enumerate(FAMILY_ORDER)}
-    out.sort(key=lambda b: (order.get(b.get("family"), len(order)), b["label"]))
+    out.sort(key=lambda b: (order.get(b.get("family"), len(order)),
+                            -(b.get("thickness") or 0), b["label"]))
     return out
 
 
