@@ -433,25 +433,48 @@ class TestEstimatePreview(MalletTestCase):
         for m in sheets:
             self.assertGreater(m["qty"], 0, "%s nested to zero boards" % m["code"])
 
-    def test_the_purchase_line_counts_what_you_buy_and_says_it_is_grouped(self):
-        """Rewritten 2026-08-30, when the two questions were separated.
+    def test_the_purchase_line_counts_the_pieces_however_they_are_grouped(self):
+        """Rewritten twice, and the second rewrite is a correction.
 
-        The hardware LINE now carries the row count — OpenCutList's Qty, the
-        thing a purchase order asks for: two drawers is two rail sets, not
-        four runners (Amit). This fixture groups four hinges onto one row, so
-        the line reads 1 and the payload says so out loud rather than letting
-        a grouped export pass as a purchase of one.
+        On 2026-08-30 this asserted the hardware line carried the ROW count,
+        on my reading that the CSV's Quantity column was OpenCutList's
+        "Σ Unit Total". Amit's own report of 2026-09-03 disproves that: the
+        summed Quantity column IS the report's Qty column on every line,
+        including the ones where Qty and Σ Unit differ, and OpenCutList costs
+        hardware as price × Qty.
 
-        The piece count has not been thrown away; it drives the shop's work,
-        which the next test checks.
+        So this fixture's four hinges on one row are four hinges to buy. The
+        grouping is still reported — as a fact about the export, no longer as
+        a warning that the number is wrong.
         """
         out = api.estimate_preview(self.CSV)
         hw = [m for m in out["materials"] if m["kind"] == "hardware"]
         self.assertTrue(hw, "no hardware lines")
-        self.assertEqual(sum(m["qty"] for m in hw), 1)
+        self.assertEqual(sum(m["qty"] for m in hw), 4)
         flagged = {g["code"]: g for g in out["grouped_hardware"]}
-        self.assertTrue(flagged, "a grouped cut list must never pass silently")
         self.assertEqual(sum(g["pieces"] for g in flagged.values()), 4)
+        self.assertEqual(sum(g["rows"] for g in flagged.values()), 1)
+
+    def test_grouping_cannot_change_what_the_estimate_costs(self):
+        """The property that replaced the refusal: the same model exported
+        grouped or one-row-per-piece must produce the same material total.
+
+        The fixture puts four hinges on one row. This spreads them over four
+        rows of one and asserts the two price identically — which is exactly
+        what a grouped export failed to do while quantity was the row count,
+        and the reason a CSV used to be refused for being grouped at all.
+        """
+        grouped_row = "3;HWD_AH_SC_0;4;;;;Hardware;HWD_Hinge;;;;;;;\n"
+        self.assertIn(grouped_row, self.CSV, "fixture no longer groups hinges")
+        flat = self.CSV.replace(grouped_row, "".join(
+            "%d;HWD_AH_SC_0;1;;;;Hardware;HWD_Hinge;;;;;;;\n" % n
+            for n in range(3, 7)))
+        a = api.estimate_preview(self.CSV)
+        b = api.estimate_preview(flat)
+        self.assertAlmostEqual(a["material_total"], b["material_total"], places=2)
+        hw = lambda o: sum(m["qty"] for m in o["materials"] if m["kind"] == "hardware")
+        self.assertEqual(hw(a), hw(b))
+        self.assertEqual(hw(a), 4)
 
     def test_the_shop_still_works_every_piece(self):
         """The half that must NOT follow the purchase count.
