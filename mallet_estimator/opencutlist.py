@@ -136,22 +136,39 @@ def hardware_list(rows):
     only 'Designation' here is what made hardware fall back to its category).
 
     Returns one entry per canonical designation:
-        {code, category, qty, pieces, grouped, length, width, thickness, named}
+        {code, category, qty, pieces, rows, grouped, length, width, thickness, named}
 
-    QTY IS THE ROW COUNT — OpenCutList's own "Qty" column — not the summed
-    Quantity, which is its "Σ Unit Total". Amit, 2026-08-30: "quantity in ocl
-    and quantity in mcft material list are mismatched. you are picking total
-    and not quantity", and on rails specifically: two drawers is two rail
-    SETS, not four runners. What a purchase order wants is the thing you buy.
+    QTY IS THE SUMMED "Quantity" COLUMN, which IS OpenCutList's own Qty — and
+    getting here took one wrong turn worth recording, because the wrong answer
+    survived a week and looked reasonable throughout.
 
-    THE DANGER, and why `grouped` exists. OpenCutList can GROUP identical
-    parts onto one row and put the count in Quantity — his own YS_MB_WAR
-    export does exactly that, with 24 MiniFix and 32 shelf supports each on a
-    single row. Counting rows there would report 1 and 1. That is the failure
-    that once "bought 10 pieces of hardware where the model has 99", so it
-    must never happen quietly: `pieces` keeps the summed count and `grouped`
-    is True the moment any row stands for more than one piece. Callers are
-    expected to refuse or shout, never to shrug.
+    Amit, 2026-08-30: "quantity in ocl and quantity in mcft material list are
+    mismatched. you are picking total and not quantity." He was right that the
+    two disagreed. I concluded the CSV's Quantity column WAS the report's
+    "Σ Unit Total" and switched to counting ROWS, which matched his rail
+    example (two drawers, two rail sets) and matched nothing else.
+
+    His OpenCutList report of 2026-09-03 settles it against that reading, line
+    by line. The report's Hardware table gives, per part, a Qty and a Σ Unit:
+    HWD_AH_SC_0 is Qty 5 / Σ Unit 10, HWD_Screw_8x32 is Qty 51 / Σ Unit 51,
+    HWD_MiniFix 9 / 9, HWD_ShelfSupport 4 / 4, HWD_DR_SC_550mm 2 / 4. The
+    summed Quantity column of the SAME export is 5, 51, 9, 4, 2 — it is Qty
+    exactly, every time, including where Qty and Σ Unit differ. The row count
+    is 2, 4, 1, 1, 1: neither column, just an artefact of how the export was
+    grouped.
+
+    OpenCutList costs hardware the same way — EstimateHardwareRun computes
+    `h_price[:val] * cutlist_part.def.count`, price times Qty — so Qty is the
+    thing you buy and Σ Unit is the pieces inside it. That is precisely Amit's
+    rule of 2026-09-03: "hinge always comes as two parts per packet. drawer
+    rails comes as two parts per packet ... in erp i want to store per packet
+    price." Qty is packets, the Item price is per packet, and his rail set was
+    never evidence for row-counting — a set is one packet and OpenCutList had
+    always said 2.
+
+    `rows` is kept for diagnostics only. Nothing prices off it, and `grouped`
+    no longer means the numbers are wrong: a grouped export is now read
+    correctly, which is what a Quantity column is for.
 
     `named` is False when the CSV carried no designation at all and the
     category had to stand in — the caller says so out loud rather than
@@ -177,9 +194,10 @@ def hardware_list(rows):
                 "named": named,
                 "category": category,
                 "qty": 0,
-                # Kept beside qty rather than instead of it, so a grouped
-                # export can be recognised and reported with real numbers.
+                # pieces is kept equal to qty so every existing caller keeps
+                # working; rows is the diagnostic that used to be qty.
                 "pieces": 0,
+                "rows": 0,
                 "grouped": False,
                 "length": _num(r.get("Length") or r.get("Length - raw")),
                 "width": _num(r.get("Width") or r.get("Width - raw")),
@@ -187,8 +205,9 @@ def hardware_list(rows):
             }
             order.append(code)
         n = part_qty(r)
-        out[code]["qty"] += 1
+        out[code]["qty"] += n
         out[code]["pieces"] += n
+        out[code]["rows"] += 1
         if n > 1:
             out[code]["grouped"] = True
     return [out[c] for c in order]
@@ -197,9 +216,11 @@ def hardware_list(rows):
 def grouped_hardware(hw):
     """The hardware entries whose rows each stand for several pieces.
 
-    Non-empty means the export was GROUPED and the row count understates what
-    the shop has to buy. Callers refuse or shout; nobody prices off it
-    silently.
+    This is now INFORMATION, not an alarm. It used to mean the quantity was
+    understated, because the quantity was the row count; the quantity is the
+    summed Quantity column, so a grouped export reads exactly the same as an
+    ungrouped one. Kept because a caller may still want to know how the export
+    was configured — nothing may refuse or discount an estimate over it.
     """
     return [h for h in hw if h.get("grouped")]
 

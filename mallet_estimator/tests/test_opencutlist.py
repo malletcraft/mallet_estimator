@@ -200,25 +200,41 @@ class TestGroupedRows(unittest.TestCase):
         parts = OCL.parts_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
         self.assertEqual([(p["part_no"], p["qty"]) for p in parts], [("1", 3), ("2", 1)])
 
-    def test_a_grouped_hardware_row_is_flagged_not_silently_counted(self):
-        """The rule changed on 2026-08-30 and this is the test that carries it.
+    def test_a_grouped_row_counts_its_pieces(self):
+        """The rule changed twice, and this is the test that carries the second
+        change — the one backed by evidence rather than by inference.
 
-        Hardware quantity is now OpenCutList's Qty — the ROW COUNT, what you
-        buy: two drawers is two rail sets, not four runners (Amit). On a
-        GROUPED export that count understates the purchase, and this fixture
-        is the exact shape that once ordered 10 pieces for a 99-piece model:
-        24 MiniFix on one row.
+        On 2026-08-30 quantity became the ROW COUNT, because I read the CSV's
+        Quantity column as OpenCutList's "Σ Unit Total". Amit's report of
+        2026-09-03 disproves that outright: the summed Quantity column equals
+        the report's Qty column on every hardware line, including the lines
+        where Qty and Σ Unit differ (HWD_AH_SC_0 is Qty 5 / Σ Unit 10, and the
+        CSV sums to 5). OpenCutList itself prices hardware as price × Qty.
 
-        So the row count is reported AND the grouping is flagged with the
-        real piece count beside it. Callers refuse (the saved import) or
-        shout (the preview). What must never happen again is 1 quietly
-        standing in for 24.
+        So 24 MiniFix on one row is 24, which is what it always physically
+        was. The grouping is still reported, as information about the export
+        rather than a warning about the number.
         """
         hw = OCL.hardware_list(OCL.parse_opencutlist_csv(GROUPED_CSV))
-        self.assertEqual([(h["code"], h["qty"], h["pieces"]) for h in hw],
-                         [("HWD_MiniFix", 1, 24)])
+        self.assertEqual([(h["code"], h["qty"], h["pieces"], h["rows"]) for h in hw],
+                         [("HWD_MiniFix", 24, 24, 1)])
         self.assertEqual([h["code"] for h in OCL.grouped_hardware(hw)],
                          ["HWD_MiniFix"])
+
+    def test_grouping_cannot_change_the_quantity(self):
+        """The property that makes the refusal unnecessary: the same hardware
+        exported grouped or one-row-per-piece must price identically."""
+        grouped = ("No.;Material name;Material type;Designation;Quantity;Length;Width;Thickness\n"
+                   "1;HWD_Hinge;Hardware;HWD_AH_SC_0;5;0;0;0\n")
+        flat = ("No.;Material name;Material type;Designation;Quantity;Length;Width;Thickness\n"
+                + "".join("%d;HWD_Hinge;Hardware;HWD_AH_SC_0;1;0;0;0\n" % i
+                          for i in range(1, 6)))
+        g = OCL.hardware_list(OCL.parse_opencutlist_csv(grouped))
+        f = OCL.hardware_list(OCL.parse_opencutlist_csv(flat))
+        self.assertEqual(g[0]["qty"], f[0]["qty"])
+        self.assertEqual(g[0]["qty"], 5)
+        # only the diagnostic differs
+        self.assertEqual((g[0]["rows"], f[0]["rows"]), (1, 5))
 
     def test_an_ungrouped_export_is_not_flagged(self):
         # One row per piece: row count and piece count agree, nothing to say.

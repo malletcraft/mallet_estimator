@@ -1026,17 +1026,22 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                     % (code, meters, rolls, inventory.EDGE_ROLL_METERS),
         })
 
-    # TWO DIFFERENT QUESTIONS, and conflating them cost six hours of labour.
+    # ONE QUESTION NOW, where there used to be two, and the collapse is a
+    # correction rather than a simplification.
     #
-    # What you BUY is the row count — OpenCutList's Qty. Two drawers is two
-    # rail sets, not four runners (Amit, 2026-08-30). That is the number on
-    # the material line and the number that gets priced.
+    # The split was: BUY the row count (OpenCutList's "Qty"), DRIVE the shop
+    # off the summed Quantity ("pieces"). The second half was always right —
+    # a housing is bored once per MiniFix, and making the row count drive it
+    # turned 24 housings into one, six hours of standard time into fifteen
+    # minutes, caught by a bench test.
     #
-    # What the SHOP DOES is per piece. A housing is bored once per MiniFix,
-    # whatever the cut list groups onto one row, so Minifix Boring, Drilling
-    # and Install Hardware are driven by `pieces`. Making the row count drive
-    # those too turned 24 housings into one — 15 minutes where the standard
-    # says six hours — and a bench test caught it.
+    # The first half was wrong, and Amit's OpenCutList report of 2026-09-03
+    # shows it line by line: the summed Quantity column IS the report's Qty
+    # column, on every hardware line, including the ones where Qty and Σ Unit
+    # differ. So both questions have the same answer and hardware_list now
+    # returns it as both `qty` and `pieces`. The two keys stay because callers
+    # ask different questions of them and the day they diverge again — a
+    # packet size, say — the seam should already be there.
     for h in hw:
         lines.append({
             "kind": "hardware", "material": h["code"], "thickness": 0,
@@ -1048,12 +1053,13 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "desc": "%s — %d nos" % (h["code"], h["qty"]),
         })
 
-    # A GROUPED export understates hardware here, because qty is the row count
-    # — OpenCutList's "Qty", the thing you buy. The saved import REFUSES such
-    # a CSV outright; a preview is a gauge, so it prices and shouts instead of
-    # showing nothing. Either way it is never silent: 24 MiniFix arriving as
-    # one row is the shape that once ordered 10 pieces for a 99-piece model.
-    grouped_hw = [{"code": h["code"], "rows": h["qty"], "pieces": h["pieces"]}
+    # HOW THE EXPORT WAS CONFIGURED, and nothing more. This used to be the
+    # input to a red banner saying hardware was UNDERSTATED, because quantity
+    # was the row count; quantity is the summed Quantity column now — which is
+    # what OpenCutList's own Qty is — so grouped and ungrouped exports price
+    # identically and there is nothing to warn about. Kept as information,
+    # read by nobody who prices.
+    grouped_hw = [{"code": h["code"], "rows": h.get("rows", 0), "pieces": h["pieces"]}
                   for h in opencutlist.grouped_hardware(hw)]
 
     # J1 — Fevicol and Abrotape, which are in no cut list because they are

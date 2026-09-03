@@ -159,6 +159,21 @@ def laminate_share(panel_sheets, panel_faces):
     return out
 
 
+def laminated_faces_total(panel_sheets, panel_faces):
+    """How many laminate sheets the press eats in total: one per laminated
+    face per board. This is the number laminate_from_panels must distribute,
+    and on a board laminated both sides it is exactly twice the boards."""
+    total = 0.0
+    for key, faces in (panel_faces or {}).items():
+        sheets = float(panel_sheets.get(key) or 0)
+        if sheets <= 0:
+            continue
+        for by_code in (faces or {}).values():
+            if sum(float(a or 0) for a in (by_code or {}).values()) > 0:
+                total += sheets
+    return int(math.ceil(round(total, 6)))
+
+
 def laminate_from_panels(panel_sheets, panel_faces):
     """Laminate sheet counts derived from the PANELS, not from a nest of the
     laminate's own.
@@ -171,9 +186,40 @@ def laminate_from_panels(panel_sheets, panel_faces):
     18, and every panel offcut it implies would have to come off a board that
     was never laminated.
 
+    ONE LAMINATED FACE OF N BOARDS IS EXACTLY N SHEETS, and holding that is
+    what this does that summing shares did not. The old version ceilinged each
+    laminate code independently. That is right only while every part on a face
+    carries the same laminate; when a face is mixed, every fractional share
+    rounds up and the count grows. On YS_KB_STUDY_BUKCAB it put 19 sheets
+    against 8 boards, printed directly beneath a line asserting two sheets per
+    board — a rule stated next to a number that breaks it, which is worse than
+    either alone, and only visible because Amit sent the report.
+
+    So the total is fixed first (laminated_faces_total) and then DISTRIBUTED
+    by largest remainder. Pooling still happens before any rounding — two
+    boards each half-covered by one laminate is one sheet, not two — and the
+    total can no longer drift away from the boards.
+
+    A code covering any part of any face still gets at least one sheet: you
+    cannot press a face with no sheet on it. That is the one thing that can
+    push the result above the board count, and it is a real statement rather
+    than a rounding artefact — three décors cannot be pressed onto two boards,
+    so the nest owed that bucket a third. It is left visible instead of
+    clamped, because clamping would report boards the shop cannot cut from.
+
     Returns {laminate_code: whole sheets}."""
-    return {c: max(1, math.ceil(round(v, 6)))
-            for c, v in laminate_share(panel_sheets, panel_faces).items() if v > 0}
+    exact = {c: v for c, v in laminate_share(panel_sheets, panel_faces).items() if v > 0}
+    if not exact:
+        return {}
+    total = laminated_faces_total(panel_sheets, panel_faces)
+    out = {c: int(v) for c, v in exact.items()}
+    left = total - sum(out.values())
+    for c in sorted(exact, key=lambda c: (-(exact[c] - int(exact[c])), c)):
+        if left <= 0:
+            break
+        out[c] += 1
+        left -= 1
+    return {c: max(1, n) for c, n in out.items()}
 
 
 def laminate_faces(ply_parts_by_code):

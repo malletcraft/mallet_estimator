@@ -176,3 +176,61 @@ class TestSandwichAgainstAmitsStudyUnit(unittest.TestCase):
                                            "Frontside": {"SG_LAM_V0_12mm_a_a": self.AREA},
                                            "Backside": {"SG_LAM_V0_12mm_a_a": self.AREA}}})
         self.assertEqual(share, {"SG_LAM_V0_12mm_a_a": 4.0})
+
+
+class TestTheTotalCannotDriftFromTheBoards(unittest.TestCase):
+    """Found in Amit's own printout, 2026-09-03: 19 laminate sheets against 8
+    ply boards, printed underneath the line asserting two sheets per board.
+
+    The cause was per-code ceiling. A face whose parts do not all carry the
+    same laminate splits into fractions, and rounding every fraction up buys a
+    sheet per fraction. The fix fixes the TOTAL first and distributes it."""
+
+    def _mixed(self):
+        # Two boards; on each, the Frontside column carries two laminates —
+        # which is what a mirrored part does to an export, and what BUKCAB had.
+        panels = {("SG_PLY_V1_a_b", 16): 2, ("SG_PLY_V1_a_c", 16): 2}
+        A = 1_000_000.0
+        return panels, {
+            ("SG_PLY_V1_a_b", 16): {
+                "Frontside": {"SG_LAM_V1_16mm_a_b": 3 * A, "SG_LAM_V1_16mm_a_c": A},
+                "Backside": {"SG_LAM_V1_16mm_b_a": 3 * A, "SG_LAM_V1_16mm_c_a": A}},
+            ("SG_PLY_V1_a_c", 16): {
+                "Frontside": {"SG_LAM_V1_16mm_a_c": 3 * A, "SG_LAM_V1_16mm_a_b": A},
+                "Backside": {"SG_LAM_V1_16mm_c_a": 3 * A, "SG_LAM_V1_16mm_b_a": A}},
+        }
+
+    def test_two_sheets_per_board_survives_a_mixed_face(self):
+        panels, faces = self._mixed()
+        sheets = nesting.laminate_from_panels(panels, faces)
+        self.assertEqual(sum(sheets.values()), 2 * sum(panels.values()))
+
+    def test_the_total_equals_the_laminated_faces(self):
+        panels, faces = self._mixed()
+        self.assertEqual(sum(nesting.laminate_from_panels(panels, faces).values()),
+                         nesting.laminated_faces_total(panels, faces))
+
+    def test_a_single_sided_board_buys_one_sheet_per_board(self):
+        # Not every board is a sandwich: a face with no laminate buys nothing,
+        # so the total follows the FACES, never a flat doubling.
+        panels = {("SG_PLY_V0_a_a", 16): 3}
+        faces = {("SG_PLY_V0_a_a", 16): {"Frontside": {"SG_LAM_V0_16mm_a_a": 1.0e6}}}
+        self.assertEqual(nesting.laminate_from_panels(panels, faces),
+                         {"SG_LAM_V0_16mm_a_a": 3})
+
+    def test_pooling_still_happens_before_rounding(self):
+        # The property the old code had and this must not lose: one laminate
+        # covering half of each of two boards is ONE sheet, not two.
+        panels = {("A", 16): 1, ("B", 16): 1}
+        faces = {("A", 16): {"Frontside": {"LAM": 1.0e6, "OTHER": 1.0e6}},
+                 ("B", 16): {"Frontside": {"LAM": 1.0e6, "OTHER": 1.0e6}}}
+        self.assertEqual(nesting.laminate_from_panels(panels, faces),
+                         {"LAM": 1, "OTHER": 1})
+
+    def test_a_decor_on_any_part_of_a_face_still_gets_a_sheet(self):
+        # You cannot press a face with no sheet. This is the only thing that
+        # may exceed the board count, and it says the nest owed a board.
+        panels = {("A", 16): 1}
+        faces = {("A", 16): {"Frontside": {"BIG": 1.0e6, "SLIVER": 1.0}}}
+        out = nesting.laminate_from_panels(panels, faces)
+        self.assertEqual(out, {"BIG": 1, "SLIVER": 1})
