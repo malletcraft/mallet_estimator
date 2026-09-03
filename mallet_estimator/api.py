@@ -1185,6 +1185,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "rate": rate, "amount": round(amount, 2),
             "source": source,
             "quotable": quotable,
+            # The pre-resolution name, carried so the purchase list can tell
+            # which face a resolved laminate went on. material_family already
+            # needed it; nothing downstream could see it.
+            "slot_code": l.get("slot_code"),
         }
         if bought_u:
             row.update({
@@ -1585,6 +1589,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # pieces, not areas, so they carry no utilisation at all rather than
         # a made-up one.
         "utilisation": _utilisation_totals(material_rows),
+        # THE SHOPPING LIST, which is not the cost table. Laminate is clubbed
+        # by décor because that is what you buy — see estimator.purchase_lines.
+        "purchase": estimator.purchase_lines(material_rows),
+        "sandwich": estimator.sandwich_check(material_rows),
         # THE THREE TOTALS, and material broken into the families Amit named
         # (2026-09-02). Assembled from the same rows the tables above render,
         # so the summary cannot disagree with what is on screen.

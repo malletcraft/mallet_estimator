@@ -747,6 +747,134 @@ def material_family(code, kind=None):
 
 
 # ---------------------------------------------------------------------------
+# THE PURCHASE LIST — what actually gets bought, grouped the way it is bought.
+#
+# The material table is a COST table: one line per priced Item, because that is
+# what reconciles to the total. It is not a shopping list, and read as one it
+# gives the wrong answer for laminate. Amit, 2026-09-03, on a study unit:
+# "SG_LAM_V0_12mm_a_a, SG_LAM_V0_16mm_a_a, SG_LAM_V1_16mm_a_b,
+# SG_LAM_V1_16mm_a_c these all are same laminate ... can be clubbed as internal
+# laminate from purchase point of view."
+#
+# He is right, and the mm token is exactly why it looks otherwise: in a
+# LAMINATE code the millimetres name the PLY the sheet is pressed onto, not the
+# sheet you buy — every laminate is 1 mm. So a laminate's purchasing identity
+# is its DÉCOR and nothing else: the first slot letter, or the real décor short
+# once the map has resolved it. In a PLY code the millimetres ARE the board, so
+# 12 mm and 16 mm stay apart; purchasing_code has always done that half.
+#
+# What this does NOT do is count. The counts arrive already correct from
+# nesting.laminate_from_panels, which presses one laminate sheet onto each face
+# of each whole ply sheet — the sandwich — so the list totals two laminate
+# sheets per ply sheet by construction. This function only groups, and a
+# grouping that changed a quantity would be hiding the very number it exists to
+# show.
+def _is_mm_token(token):
+    text = str(token or "")
+    return len(text) > 2 and text[-2:].lower() == "mm" and \
+        text[:-2].replace(".", "", 1).isdigit()
+
+
+def purchase_decor(code, slot_code=None):
+    """The décor a laminate sheet IS, as a purchase: ('a', 'slot a') while the
+    slot is still abstract, ('a', 'VM6534') once the map has named it.
+
+    The KEY stays the slot letter either way, so a décor that arrives resolved
+    on one line and unresolved on another still lands in one purchase row. The
+    LABEL follows what is known — naming a slot the client has already chosen
+    would be the table lying about how much is decided."""
+    from mallet_estimator import decor
+
+    key = decor.slot_key(slot_code or code)
+    if not key:
+        # Nothing to group on: the code is already a décor and is its own
+        # purchase identity.
+        return str(code or ""), str(code or "")
+    if slot_code:
+        tokens = str(code or "").split("_")
+        for i, t in enumerate(tokens):
+            if _is_mm_token(t) and i + 1 < len(tokens):
+                return key, tokens[i + 1]
+    return key, "slot %s" % key
+
+
+def purchase_lines(rows):
+    """Group priced material rows into the list the shop actually orders.
+
+    `rows` are estimate_preview's material rows: kind, family, code, qty, uom,
+    rate, amount, and for a resolved laminate the pre-resolution `slot_code`.
+
+    Returns one entry per thing to buy, carrying `items` — the priced codes
+    that were merged into it — so a row can always be taken apart again. When
+    those codes disagree on rate the row says so rather than presenting a
+    blended figure as if it were a price."""
+    buckets = {}
+    for r in rows:
+        kind = r.get("kind")
+        code = str(r.get("code") or "")
+        if kind == "laminate":
+            dkey, label = purchase_decor(code, r.get("slot_code"))
+            key = ("laminate", dkey)
+        else:
+            key, label = (kind, code), code
+        b = buckets.get(key)
+        if b is None:
+            b = buckets[key] = {
+                "kind": kind, "family": r.get("family"),
+                "family_label": r.get("family_label")
+                or FAMILY_LABELS.get(r.get("family"), r.get("family")),
+                "label": label, "uom": r.get("uom"),
+                "qty": 0.0, "amount": 0.0, "items": [],
+                "use_unit": r.get("use_unit"),
+                "bought_units": 0.0, "consumed_units": 0.0,
+                "quotable": True, "rates": set(),
+            }
+        b["qty"] += float(r.get("qty") or 0)
+        b["amount"] += float(r.get("amount") or 0)
+        b["bought_units"] += float(r.get("bought_units") or 0)
+        b["consumed_units"] += float(r.get("consumed_units") or 0)
+        b["rates"].add(round(float(r.get("rate") or 0), 4))
+        b["quotable"] = b["quotable"] and bool(r.get("quotable"))
+        if code not in b["items"]:
+            b["items"].append(code)
+
+    out = []
+    for b in buckets.values():
+        rates = b.pop("rates")
+        b["mixed_rate"] = len(rates) > 1
+        b["rate"] = (round(b["amount"] / b["qty"], 2) if b["mixed_rate"] and b["qty"]
+                     else (rates.pop() if rates else 0.0))
+        for k in ("qty", "amount", "bought_units", "consumed_units"):
+            b[k] = round(b[k], 2)
+        if not b["use_unit"]:
+            b.pop("use_unit", None)
+            b.pop("bought_units", None)
+            b.pop("consumed_units", None)
+        out.append(b)
+    order = {f: i for i, f in enumerate(FAMILY_ORDER)}
+    out.sort(key=lambda b: (order.get(b.get("family"), len(order)), b["label"]))
+    return out
+
+
+def sandwich_check(rows):
+    """Ply sheets against laminate sheets, as the shop presses them.
+
+    Every ply sheet is laminated whole on both faces before it meets the saw,
+    so the laminate count is TWO per ply sheet — the check Amit uses to know
+    the estimate is not quietly counting laminate as if it were nested to part
+    size. Fewer means some face is going out bare, which is legitimate and
+    worth seeing; more is impossible and means something is double-counted."""
+    ply = sum(float(r.get("qty") or 0) for r in rows if r.get("kind") == "sheet")
+    lam = sum(float(r.get("qty") or 0) for r in rows if r.get("kind") == "laminate")
+    return {
+        "ply_sheets": int(ply), "laminate_sheets": int(lam),
+        "expected_laminate": int(2 * ply),
+        "bare_faces": int(max(0.0, 2 * ply - lam)),
+        "matches": lam == 2 * ply,
+    }
+
+
+# ---------------------------------------------------------------------------
 # J1 — the joinery consumables, in ONE place.
 #
 # Fevicol and Abrotape are not in any cut list: they are DERIVED from how many

@@ -1314,3 +1314,122 @@ class TestMaterialFamilies(unittest.TestCase):
         self.assertEqual(E.material_family("Fevicol", kind="joinery"), "joinery")
         self.assertEqual(E.material_family("Some Hinge", kind="hardware"), "hardware")
         self.assertEqual(E.material_family("mystery"), "other")
+
+
+class TestPurchaseList(unittest.TestCase):
+    """The shopping list, which is not the cost table. Amit, 2026-09-03:
+    "SG_LAM_V0_12mm_a_a, SG_LAM_V0_16mm_a_a, SG_LAM_V1_16mm_a_b,
+    SG_LAM_V1_16mm_a_c these all are same laminate ... can be clubbed as
+    internal laminate from purchase point of view."""
+
+    def _lam(self, code, qty, rate=578.2, slot_code=None):
+        return {"kind": "laminate", "code": code, "qty": qty, "uom": "Nos",
+                "rate": rate, "amount": round(qty * rate, 2), "quotable": True,
+                "slot_code": slot_code,
+                "family": E.material_family(slot_code or code),
+                "use_unit": "sqft", "bought_units": qty * 32.0,
+                "consumed_units": qty * 20.0}
+
+    def test_one_decor_is_one_purchase_however_many_plies_it_was_pressed_on(self):
+        rows = [self._lam("SG_LAM_V0_12mm_a_a", 6),
+                self._lam("SG_LAM_V0_16mm_a_a", 8),
+                self._lam("SG_LAM_V1_16mm_a_b", 2),
+                self._lam("SG_LAM_V1_16mm_b_a", 2, rate=1634.3)]
+        out = E.purchase_lines(rows)
+        internal = [b for b in out if b["label"] == "slot a"]
+        self.assertEqual(len(internal), 1, "internal laminate did not club: %s" % out)
+        self.assertEqual(internal[0]["qty"], 16)
+        self.assertEqual(internal[0]["amount"], round(16 * 578.2, 2))
+        # and the external décor stays its own purchase — it is a different
+        # laminate, not a different thickness of the same one
+        external = [b for b in out if b["label"] == "slot b"]
+        self.assertEqual(len(external), 1)
+        self.assertEqual(external[0]["qty"], 2)
+
+    def test_the_merged_row_can_still_be_taken_apart(self):
+        rows = [self._lam("SG_LAM_V0_12mm_a_a", 6),
+                self._lam("SG_LAM_V0_16mm_a_a", 8)]
+        b = E.purchase_lines(rows)[0]
+        self.assertEqual(b["items"], ["SG_LAM_V0_12mm_a_a", "SG_LAM_V0_16mm_a_a"])
+        self.assertFalse(b["mixed_rate"])
+        self.assertEqual(b["rate"], 578.2)
+
+    def test_a_disagreement_on_rate_is_said_rather_than_averaged_silently(self):
+        # Same décor priced two ways means the Item master disagrees with
+        # itself. The row still totals, and it says so.
+        rows = [self._lam("SG_LAM_V0_12mm_a_a", 1, rate=500.0),
+                self._lam("SG_LAM_V0_16mm_a_a", 1, rate=600.0)]
+        b = E.purchase_lines(rows)[0]
+        self.assertTrue(b["mixed_rate"])
+        self.assertEqual(b["rate"], 550.0)
+        self.assertEqual(b["amount"], 1100.0)
+
+    def test_a_resolved_decor_is_named_and_still_clubs_with_its_slot(self):
+        rows = [self._lam("SG_LAM_V0_12mm_VM6534", 6, slot_code="SG_LAM_V0_12mm_a_a"),
+                self._lam("SG_LAM_V1_16mm_VM6534_RE1834", 2,
+                          slot_code="SG_LAM_V1_16mm_a_b")]
+        out = E.purchase_lines(rows)
+        self.assertEqual(len(out), 1)
+        # named by the décor the client chose, not by the slot it started as
+        self.assertEqual(out[0]["label"], "VM6534")
+        self.assertEqual(out[0]["qty"], 8)
+
+    def test_ply_keeps_its_millimetres_and_laminate_does_not(self):
+        # In a ply code the mm IS the board; in a laminate code it is the
+        # board the sheet was pressed onto. Collapsing the first would be a
+        # worse bug than the one clubbing the second fixes.
+        rows = [{"kind": "sheet", "code": "SG_PLY_V0_12mm", "qty": 3, "uom": "Nos",
+                 "rate": 2001.28, "amount": 6003.84, "quotable": True,
+                 "family": "ply"},
+                {"kind": "sheet", "code": "SG_PLY_V0_16mm", "qty": 4, "uom": "Nos",
+                 "rate": 2605.44, "amount": 10421.76, "quotable": True,
+                 "family": "ply"}]
+        out = E.purchase_lines(rows)
+        self.assertEqual([b["label"] for b in out],
+                         ["SG_PLY_V0_12mm", "SG_PLY_V0_16mm"])
+
+    def test_the_list_totals_what_the_material_table_totals(self):
+        # A shopping list that does not add up to the cost is two numbers on
+        # one screen, which is the failure this project keeps paying for.
+        rows = [self._lam("SG_LAM_V0_12mm_a_a", 6),
+                self._lam("SG_LAM_V1_16mm_b_a", 2, rate=1634.3),
+                {"kind": "edge", "code": "EB_PVC_IN_a", "qty": 1, "uom": "Roll",
+                 "rate": 1180.0, "amount": 1180.0, "quotable": True,
+                 "family": "edge_int"},
+                {"kind": "hardware", "code": "HWD_MiniFix", "qty": 1, "uom": "Nos",
+                 "rate": 59.0, "amount": 59.0, "quotable": True,
+                 "family": "hardware"}]
+        self.assertAlmostEqual(sum(b["amount"] for b in E.purchase_lines(rows)),
+                               sum(r["amount"] for r in rows), places=2)
+
+    def test_an_unquotable_component_makes_the_whole_purchase_unquotable(self):
+        rows = [self._lam("SG_LAM_V0_12mm_a_a", 6),
+                dict(self._lam("SG_LAM_V0_16mm_a_a", 8), quotable=False)]
+        self.assertFalse(E.purchase_lines(rows)[0]["quotable"])
+
+
+class TestSandwichCheck(unittest.TestCase):
+    def test_two_laminate_sheets_per_board_is_the_expected_state(self):
+        rows = [{"kind": "sheet", "qty": 9}, {"kind": "laminate", "qty": 16},
+                {"kind": "laminate", "qty": 2}]
+        c = E.sandwich_check(rows)
+        self.assertEqual(c["ply_sheets"], 9)
+        self.assertEqual(c["laminate_sheets"], 18)
+        self.assertEqual(c["expected_laminate"], 18)
+        self.assertEqual(c["bare_faces"], 0)
+        self.assertTrue(c["matches"])
+
+    def test_a_bare_face_is_reported_rather_than_called_an_error(self):
+        # Legitimate — a back panel nobody sees goes out unlaminated — but it
+        # should never happen without showing on screen.
+        c = E.sandwich_check([{"kind": "sheet", "qty": 8},
+                              {"kind": "laminate", "qty": 14}])
+        self.assertEqual(c["bare_faces"], 2)
+        self.assertFalse(c["matches"])
+
+    def test_hardware_and_joinery_are_not_sheets(self):
+        c = E.sandwich_check([{"kind": "sheet", "qty": 2},
+                              {"kind": "laminate", "qty": 4},
+                              {"kind": "hardware", "qty": 99},
+                              {"kind": "joinery", "qty": 27}])
+        self.assertTrue(c["matches"])
