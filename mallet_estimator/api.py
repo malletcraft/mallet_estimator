@@ -605,6 +605,30 @@ def cost_card(codes=None, create_missing=0):
                     "zone": estimator.OPERATION_ZONE.get(child, ""),
                 })
 
+    # DESIGN, on its own key rather than mixed into operations. Amit,
+    # 2026-09-04: "Design labor is missing on the estimate ... design labor
+    # table should be separate but added in total estimate." Separate table,
+    # separate subtotal, inside the estimate total.
+    #
+    # Same machinery as the seventeen: the Operation master owns the standard
+    # minutes and _op_minutes reads it, so a designer's time tuned in ERP
+    # reaches the plugin exactly as a carpenter's does.
+    design_operations = []
+    for seq, (op, std) in enumerate(estimator.DESIGN_STANDARDS.items(), start=1):
+        ws = estimator.OPERATION_WORKSTATION.get(op, "Design Desk")
+        mins, min_src = _op_minutes(op, std["min_per_unit"])
+        design_operations.append({
+            "seq": seq,
+            "name": op,
+            "workstation": ws,
+            "hour_rate": by_station.get(ws, 0.0),
+            "qty_source": std["qty_source"],
+            "min_per_unit": mins,
+            "min_source": min_src,
+            "rate_source": "erp:Workstation" if ws in by_station else "unset",
+            "zone": estimator.OPERATION_ZONE.get(op, ""),
+        })
+
     materials = []
     created = []
     want_create = str(create_missing) not in ("", "0", "False", "false", "None")
@@ -673,6 +697,7 @@ def cost_card(codes=None, create_missing=0):
         "authority": "erp",
         "site": frappe.local.site,
         "as_of": str(frappe.utils.now()),
+        "design_operations": design_operations,
         "price_list": inventory.ESTIMATION_PRICE_LIST,
         "rates_are": "post-tax (landed = base + GST)",
         "productive_min_per_day": estimator.PRODUCTIVE_MIN_PER_DAY,
@@ -1551,6 +1576,56 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         })
         labour_total += amount
 
+    # ---- design, its own table and its own subtotal ------------------------
+    #
+    # Amit, 2026-09-04: "Design labor is missing on the estimate. every
+    # MCFT_AMBL_L , M or S is a design item to be charged" and, a moment later,
+    # "design labor table should be separate but added in total estimate."
+    #
+    # So the DRIVER is the assembly count — the same L/M/S tally that already
+    # drives step 8 — because an assembly is the thing that gets designed. The
+    # seven steps and their standard minutes were already in the app and
+    # already on the Operation master; what was missing was that any of it
+    # reached this screen.
+    #
+    # Every row is editable, because one of these does NOT scale per assembly:
+    # site measurement is a visit, not a drawing, and multiplying two hours by
+    # four assemblies bills a day for one trip. The number is shown, is wrong
+    # in an obvious direction, and can be typed over — which is a better answer
+    # than my guessing a rule he has not stated.
+    design_rows, design_total = [], 0.0
+    design_qty = float(qty.get("Assembly", counted) or 0)
+    for op in card.get("design_operations", []):
+        name = op["name"]
+        # The SAME override shape as the seventeen — overrides[name].min /
+        # .qty — so a typed design minute travels on Recalculate exactly like a
+        # typed shop minute. Both are editable here, so neither needs the
+        # editability guard the shop rows carry.
+        ov = overrides.get(name) or {}
+        mins = float(op["min_per_unit"])
+        min_source = op["min_source"]
+        if ov.get("min") not in (None, ""):
+            mins = float(ov["min"])
+            min_source = "plugin:edited"
+        q = design_qty
+        qty_source = "assemblies"
+        if ov.get("qty") not in (None, ""):
+            q = float(ov["qty"])
+            qty_source = "plugin:edited"
+        hours = _up1(q * mins / 60.0)
+        rate = float(ws_rate.get(op["workstation"], 0))
+        amount = round(hours * rate, 2)
+        design_rows.append({
+            "seq": int(op["seq"]), "name": name, "workstation": op["workstation"],
+            "qty": _up1(q), "min_per_unit": _up1(mins), "hours": hours,
+            "hour_rate": rate, "amount": amount,
+            "min_source": min_source, "qty_source": qty_source,
+            "rate_source": op["rate_source"], "zone": op.get("zone", ""),
+            "min_editable": True, "qty_editable": True, "children": [],
+        })
+        design_total += amount
+    design_total = round(design_total, 2)
+
     # ---- logistics: the trips one execution needs ------------------------
     if isinstance(trip_qty, str):
         trip_qty = json.loads(trip_qty or "{}")
@@ -1603,6 +1678,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                                r.get("thickness") or 0)),
                            r["code"])),
         "labour": labour_rows,
+        # Its own table on screen, its own subtotal, and inside the estimate
+        # total — Amit, 2026-09-04.
+        "design": design_rows,
+        "design_total": design_total,
         # Amit, 2026-08-22: "Also need number of days required to make that
         # happen. assume 6 hours working day." Rounded UP like everything else
         # — half a day of work still occupies a day on a calendar, and a
@@ -1657,9 +1736,20 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             # same tempo twice. He has decided, and he is the one who reads
             # the number — what the screen owes him now is the caveat, not a
             # missing row, so the composition stays visible above the total.
-            "material_plus_labour": round(material_total + labour_total, 2),
-            "grand_total": round(material_total + labour_total + logistics_sum, 2),
+            "material_plus_labour": round(material_total + labour_total
+                                          + design_total, 2),
+            # DESIGN IS INSIDE THE TOTAL and outside material+labour, which is
+            # the shape he asked for: "design labor table should be separate
+            # but added in total estimate." Adding it into labour instead would
+            # have made the labour subtotal disagree with the labour table
+            # printed above it.
+            "grand_total": round(material_total + labour_total
+                                 + design_total + logistics_sum, 2),
             "families": _family_totals(material_rows),
+            # WHO CHOSE IT: the factory's own consumption, then what the client
+            # selected. Subtotal at the group, amounts on the rows under it.
+            "groups": estimator.group_totals(_family_totals(material_rows)),
+            "design": design_total,
         },
         "grouped_hardware": grouped_hw,
         "logistics": logistics_rows,

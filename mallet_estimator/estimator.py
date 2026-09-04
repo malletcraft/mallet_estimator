@@ -697,14 +697,48 @@ MATERIAL_FAMILIES = (
     ("lam_int", "Internal laminate"),
     ("edge_int", "Internal edge banding"),
     ("joinery", "Joinery material"),
-    ("hardware", "Hardware"),
-    ("edge_ext", "External edge banding"),
+    ("hw_joinery", "Joinery hardware"),
     ("lam_ext", "External laminate"),
+    ("edge_ext", "External edge banding"),
+    ("hw_client", "Hardware"),
     ("other", "Other material"),
 )
 
 FAMILY_LABELS = dict(MATERIAL_FAMILIES)
 FAMILY_ORDER = [k for k, _l in MATERIAL_FAMILIES]
+
+# WHO CHOSE IT — the split Amit asked for on 2026-09-04, and the reason the
+# single Hardware family had to become two.
+#
+# "Factory Internal material: Ply / Internal laminate / Internal edge banding /
+#  Joinery material / Joinery Hardware (Screws, mini fix, shelf support)
+#  Client selection material: External laminate / External edge banding /
+#  Hardware (Handles, Drawer rails)"
+#
+# The line is not visible-vs-hidden. A drawer rail is invisible once the drawer
+# is shut and he still files it under client selection, while a shelf support is
+# equally hidden and does not — so what separates them is whether the CLIENT
+# PICKED IT. A handle and a rail are specified, branded and priced; a screw and
+# a minifix are what the factory happens to fasten with.
+#
+# Consequence worth stating: the two subtotals answer different questions. The
+# factory group is what the shop consumes and can be bought in bulk against any
+# job; the client group is what this client chose and what changes if they
+# change their mind.
+JOINERY_HARDWARE = frozenset({"screws", "minifix", "shelf_supports"})
+
+MATERIAL_GROUPS = (
+    ("factory", "Factory internal material",
+     ("ply", "lam_int", "edge_int", "joinery", "hw_joinery")),
+    ("client", "Client selection material",
+     ("lam_ext", "edge_ext", "hw_client")),
+    # Never dropped. A family that fits neither still has to appear or the two
+    # subtotals stop adding up to the material total, and a summary that does
+    # not reconcile is worse than one that is untidy.
+    ("other", "Other material", ("other",)),
+)
+GROUP_LABELS = {k: l for k, l, _f in MATERIAL_GROUPS}
+GROUP_OF_FAMILY = {f: k for k, _l, fams in MATERIAL_GROUPS for f in fams}
 
 
 def material_family(code, kind=None):
@@ -714,7 +748,12 @@ def material_family(code, kind=None):
     the pre-décor-resolution name: SG_LAM_V1_16mm_b_a says which face it is,
     and SG_LAM_VM6534 — the same laminate after the map is applied — does not.
     """
+    # LOCAL IMPORTS, both of them. estimator must stay frappe-free so the pure
+    # suite can reach it, and opencutlist is where the hardware bucketing rule
+    # lives — one rule, not a second copy of it here that could disagree about
+    # what a minifix is.
     from mallet_estimator import decor
+    from mallet_estimator.opencutlist import classify_hardware
 
     c = str(code or "").strip()
     up = c.upper()
@@ -738,11 +777,13 @@ def material_family(code, kind=None):
     if up.startswith("JH_"):
         return "joinery"
     if up.startswith("HWD_"):
-        return "hardware"
+        return ("hw_joinery" if classify_hardware(c) in JOINERY_HARDWARE
+                else "hw_client")
     if kind == "joinery":
         return "joinery"
     if kind == "hardware":
-        return "hardware"
+        return ("hw_joinery" if classify_hardware(c) in JOINERY_HARDWARE
+                else "hw_client")
     return "other"
 
 
@@ -994,6 +1035,34 @@ def purchase_lines(rows):
     order = {f: i for i, f in enumerate(FAMILY_ORDER)}
     out.sort(key=lambda b: (order.get(b.get("family"), len(order)),
                             -(b.get("thickness") or 0), b["label"]))
+    return out
+
+
+def group_totals(families):
+    """The two subtotals Amit asked for on 2026-09-04, over the family rows.
+
+    "Total to be done at Top level and amount shown at row level. as always
+    final total at the end." So a group carries the money and its families
+    carry theirs; the group is not a heading with a blank beside it.
+
+    Built FROM the family rows rather than recomputed from the material lines,
+    because two numbers derived two ways drift and the family rows are already
+    what the screen shows. A group with no families is dropped — an empty
+    "Other material" heading on every estimate is noise — but a family in no
+    group would be a hole in the total, so GROUP_OF_FAMILY covers all of them
+    and a stray one still lands in 'other'."""
+    by_family = {f.get("family"): f for f in (families or [])}
+    out = []
+    for key, label, fams in MATERIAL_GROUPS:
+        rows = [by_family[f] for f in fams if f in by_family]
+        if not rows:
+            continue
+        out.append({
+            "group": key, "label": label,
+            "families": [r.get("family") for r in rows],
+            "consumed_cost": round(sum(float(r.get("consumed_cost") or 0) for r in rows), 2),
+            "total_cost": round(sum(float(r.get("total_cost") or 0) for r in rows), 2),
+        })
     return out
 
 

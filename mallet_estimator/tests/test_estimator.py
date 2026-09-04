@@ -1262,17 +1262,47 @@ class TestSettingsLabelsMatchTheTrips(unittest.TestCase):
 class TestMaterialFamilies(unittest.TestCase):
     """The subtotal rows a material total breaks into.
 
-    Amit, 2026-09-02: "Material is further subdivided in total for below
-    items row wise" — Ply, Internal laminate, Internal edge banding, Joinery
+    Amit, 2026-09-02: "Material is further subdivided in total for below items
+    row wise" — Ply, Internal laminate, Internal edge banding, Joinery
     material, hardware, External edge banding.
+
+    Reordered and split on 2026-09-04, when he grouped them by WHO CHOSE THE
+    MATERIAL: the factory's own consumption first, then what the client
+    selected. Hardware had to become two families for that, because a handle
+    and a screw are bought for different reasons.
     """
 
-    def test_the_six_amit_named_are_all_there(self):
-        for fam in ("ply", "lam_int", "edge_int", "joinery", "hardware", "edge_ext"):
+    def test_the_families_read_in_the_order_he_asked_for(self):
+        self.assertEqual(
+            E.FAMILY_ORDER,
+            ["ply", "lam_int", "edge_int", "joinery", "hw_joinery",
+             "lam_ext", "edge_ext", "hw_client", "other"])
+        for fam in E.FAMILY_ORDER:
             self.assertIn(fam, E.FAMILY_LABELS, fam)
-        self.assertEqual(E.FAMILY_ORDER[:6],
-                         ["ply", "lam_int", "edge_int", "joinery", "hardware", "edge_ext"],
-                         "the rows must read in the order they were asked for")
+
+    def test_the_two_groups_carry_every_family(self):
+        """A family in no group is a hole in the total, which is the one thing
+        a summary must never have."""
+        grouped = [f for _k, _l, fams in E.MATERIAL_GROUPS for f in fams]
+        self.assertEqual(sorted(grouped), sorted(E.FAMILY_ORDER))
+        self.assertEqual(len(grouped), len(set(grouped)), "a family in two groups")
+
+    def test_who_chose_it_is_the_dividing_line(self):
+        # A drawer rail is invisible once the drawer shuts and he still files
+        # it under client selection; a shelf support is equally hidden and does
+        # not. So the split is not visible-vs-hidden — it is specified-and-
+        # branded versus what the factory happens to fasten with.
+        for code in ("HWD_Screw_8x32", "HWD_MiniFix", "HWD_ShelfSupport"):
+            self.assertEqual(E.material_family(code), "hw_joinery", code)
+        for code in ("HWD_Handle_150mm", "HWD_DR_SC_550mm", "HWD_AH_SC_0",
+                     "HWD_Lock_20mm"):
+            self.assertEqual(E.material_family(code), "hw_client", code)
+
+    def test_the_factory_group_is_what_the_shop_consumes(self):
+        self.assertEqual(E.GROUP_OF_FAMILY["ply"], "factory")
+        self.assertEqual(E.GROUP_OF_FAMILY["hw_joinery"], "factory")
+        self.assertEqual(E.GROUP_OF_FAMILY["lam_ext"], "client")
+        self.assertEqual(E.GROUP_OF_FAMILY["hw_client"], "client")
 
     def test_internal_and_external_are_told_apart_by_the_slot(self):
         # Amit's rule from 2026-08-09: `a` is always the internal face,
@@ -1312,7 +1342,10 @@ class TestMaterialFamilies(unittest.TestCase):
 
     def test_kind_is_the_fallback_when_the_code_says_nothing(self):
         self.assertEqual(E.material_family("Fevicol", kind="joinery"), "joinery")
-        self.assertEqual(E.material_family("Some Hinge", kind="hardware"), "hardware")
+        # A hinge is a fitting the client specifies, so it lands in the client
+        # group; a screw is what the factory fastens with.
+        self.assertEqual(E.material_family("Some Hinge", kind="hardware"), "hw_client")
+        self.assertEqual(E.material_family("HWD_Screw_8x32"), "hw_joinery")
         self.assertEqual(E.material_family("mystery"), "other")
 
 
@@ -1401,7 +1434,7 @@ class TestPurchaseList(unittest.TestCase):
                  "family": "edge_int"},
                 {"kind": "hardware", "code": "HWD_MiniFix", "qty": 1, "uom": "Nos",
                  "rate": 59.0, "amount": 59.0, "quotable": True,
-                 "family": "hardware"}]
+                 "family": "hw_joinery"}]
         self.assertAlmostEqual(sum(b["amount"] for b in E.purchase_lines(rows)),
                                sum(r["amount"] for r in rows), places=2)
 
@@ -1572,3 +1605,76 @@ class TestWholePackets(unittest.TestCase):
 
     def test_nothing_needed_buys_nothing(self):
         self.assertEqual(E.packets_for(0, 100), 0)
+
+
+class TestTheTwoGroups(unittest.TestCase):
+    """Amit, 2026-09-04: "Total to be done at Top level and amount shown at row
+    level. as always final total at the end."
+    """
+
+    def _fam(self, family, consumed, total):
+        return {"family": family, "label": E.FAMILY_LABELS[family],
+                "consumed_cost": consumed, "total_cost": total}
+
+    def test_the_groups_read_in_his_order(self):
+        fams = [self._fam(f, 1.0, 2.0) for f in E.FAMILY_ORDER]
+        out = E.group_totals(fams)
+        self.assertEqual([g["label"] for g in out],
+                         ["Factory internal material", "Client selection material",
+                          "Other material"])
+        self.assertEqual(out[0]["families"],
+                         ["ply", "lam_int", "edge_int", "joinery", "hw_joinery"])
+        self.assertEqual(out[1]["families"], ["lam_ext", "edge_ext", "hw_client"])
+
+    def test_the_group_carries_the_money(self):
+        # Not a heading with a gap beside it — the subtotal IS the group row.
+        fams = [self._fam("ply", 10.0, 20.0), self._fam("hw_joinery", 5.0, 5.0),
+                self._fam("lam_ext", 7.0, 9.0)]
+        out = {g["group"]: g for g in E.group_totals(fams)}
+        self.assertEqual(out["factory"]["total_cost"], 25.0)
+        self.assertEqual(out["factory"]["consumed_cost"], 15.0)
+        self.assertEqual(out["client"]["total_cost"], 9.0)
+
+    def test_the_groups_add_up_to_the_material_total(self):
+        """The property that matters: two subtotals nobody can reconcile to the
+        total are worse than no subtotals."""
+        fams = [self._fam(f, 3.0, 7.0) for f in E.FAMILY_ORDER]
+        out = E.group_totals(fams)
+        self.assertAlmostEqual(sum(g["total_cost"] for g in out),
+                               sum(f["total_cost"] for f in fams), places=2)
+        self.assertAlmostEqual(sum(g["consumed_cost"] for g in out),
+                               sum(f["consumed_cost"] for f in fams), places=2)
+
+    def test_an_empty_group_is_dropped_but_never_a_family(self):
+        # An "Other material" heading on every estimate is noise; a family that
+        # vanished would be a hole in the total.
+        out = E.group_totals([self._fam("ply", 1.0, 1.0)])
+        self.assertEqual([g["group"] for g in out], ["factory"])
+        self.assertEqual(out[0]["families"], ["ply"])
+
+
+class TestDesignSteps(unittest.TestCase):
+    """Amit, 2026-09-04: "Design labor is missing on the estimate. every
+    MCFT_AMBL_L , M or S is a design item to be charged. you already have what
+    design labor steps are"."""
+
+    def test_the_seven_steps_are_the_ones_already_defined(self):
+        self.assertEqual(len(E.DESIGN_STANDARDS), 7)
+        for phase in E.DESIGN_STANDARDS:
+            self.assertIn(phase, [t["phase"] for t in E.DESIGN_STEP_TEMPLATE])
+
+    def test_they_are_not_among_the_seventeen(self):
+        # Design is its own table and its own subtotal; folding it into the
+        # seventeen would make the labour subtotal disagree with the labour
+        # table printed above it.
+        for phase in E.DESIGN_STANDARDS:
+            self.assertNotIn(phase, E.OPERATION_STANDARDS, phase)
+        self.assertEqual(len(E.OPERATION_STANDARDS), 17)
+
+    def test_every_step_is_costed_at_the_design_desk(self):
+        for phase in E.DESIGN_STANDARDS:
+            self.assertEqual(E.OPERATION_WORKSTATION.get(phase), "Design Desk", phase)
+
+    def test_every_step_carries_a_standard_time(self):
+        for phase, std in E.DESIGN_STANDARDS.items():
+            self.assertGreater(std["min_per_unit"], 0, phase)
