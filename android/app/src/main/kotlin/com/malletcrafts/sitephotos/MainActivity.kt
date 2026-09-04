@@ -446,37 +446,27 @@ private fun AppScreen() {
                                     "annotate that one."
                             }
                         } ?: "Could not read the gallery."
-                        // Queue it, then WAIT and read what it did. "Queued"
-                        // on its own says the button worked, not that
-                        // anything came back — which is exactly what somebody
-                        // sees when Drive is not wired: a cheerful message
-                        // and no change on any photograph.
-                        val out = runCatching {
-                            val c = FrappeClient.load(context)
-                            val q = c?.imagemeterSync()
-                            // Terse on purpose — this is now a SUFFIX to the
-                            // gallery line, not the answer. Drive is the slow
-                            // secondary path and is expected to find nothing.
-                            if (q?.optBoolean("queued") != true) {
-                                q?.optString("skipped") ?: "no server configured"
-                            } else {
-                                Thread.sleep(6000)
-                                val st = c.imagemeterStatus()
-                                when {
-                                    !st.optBoolean("configured") -> "no folder set"
-                                    st.optInt("pulled") > 0 ->
-                                        "${st.optInt("pulled")} pulled"
-                                    st.optInt("unmatched") > 0 ->
-                                        "${st.optInt("unmatched")} unmatched"
-                                    else -> "nothing new"
-                                }
-                            }
-                        }
+                        // THE DRIVE LEG IS GONE, and it is a removal rather
+                        // than a regression. Amit, 2026-09-04: "everything
+                        // works on local fone storage now like imagemeter and
+                        // mcft-site-foto is on same fone."
+                        //
+                        // It could never identify anything anyway — ImageMeter
+                        // renames its exports, so the filename that carried the
+                        // capture id does not survive the trip, which is the
+                        // whole reason the gallery route above exists. What it
+                        // did reliably do was cost six seconds of sleep on
+                        // every press and then append a second verdict to the
+                        // first: "Sent 2 annotated faces • Drive: nothing new"
+                        // reads like a partial failure when it is a complete
+                        // success.
+                        //
+                        // The SERVER's sync is untouched and still runs on its
+                        // schedule; what goes is the phone's ability to poke it
+                        // and the sentence that confused the answer.
                         withContext(Dispatchers.Main) {
                             busy = null
-                            lastResult = localLine + "  •  Drive: " + out.getOrElse {
-                                "sync failed: ${it.message}"
-                            }
+                            lastResult = localLine
                         }
                     }
     }
@@ -1873,8 +1863,12 @@ private fun drawerGroups(
         // it should know where to put what."
         DrawerLine("Import from ImageMeter", icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
-        DrawerLine("Pull annotated copies", toggled = prefs.pullAnnotated,
-            icon = R.drawable.ic_mcft_pen, onClick = { onToggle("pull_annotated") }),
+        // "Pull annotated copies" stood here and did NOTHING. It was the
+        // Drive pull's switch: read into the prefs object, drawn with a tick,
+        // and consulted by no code at all. A toggle that shows a state it does
+        // not control is a small lie told every time the drawer opens, and the
+        // row directly above this one carries a comment about the last time
+        // that happened. Removed with the Drive leg, 2026-09-04.
     )),
     DrawerGroup("Capture", listOf(
         // Was a dead row for two builds: it displayed the setting and could
@@ -1915,7 +1909,6 @@ private fun drawerGroups(
  */
 data class AppPrefs(
     val wifiOnly: Boolean,
-    val pullAnnotated: Boolean,
     val splitOnDevice: Boolean,
     val keepOriginal: Boolean,
     val imperial: Boolean,
@@ -1923,7 +1916,6 @@ data class AppPrefs(
     companion object {
         fun read(p: android.content.SharedPreferences) = AppPrefs(
             wifiOnly = p.getBoolean("wifi_only", false),
-            pullAnnotated = p.getBoolean("pull_annotated", true),
             splitOnDevice = p.getBoolean("split_on_device", true),
             keepOriginal = p.getBoolean("keep_original", true),
             imperial = p.getBoolean("imperial", true))
@@ -1931,7 +1923,7 @@ data class AppPrefs(
         fun flip(p: android.content.SharedPreferences, key: String) {
             val now = when (key) {
                 "wifi_only" -> p.getBoolean(key, false)
-                "pull_annotated", "split_on_device", "keep_original", "imperial" ->
+                "split_on_device", "keep_original", "imperial" ->
                     p.getBoolean(key, true)
                 else -> return
             }

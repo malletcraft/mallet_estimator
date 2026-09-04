@@ -242,19 +242,18 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             .put("name", docname)
             .put("file_url", fileUrl))
 
-    /** Run the ImageMeter round trip now instead of waiting for the hourly
-     *  scheduler: faces out to the Drive handover folder, annotated copies
-     *  back onto the capture they came from. */
-    /** QUEUED, not done inline. sync() pushes and pulls hundreds of Drive
-     *  files inside the request; the read timeout here is 120 s, so the
-     *  button reliably timed out while the work was in fact starting. */
-    fun imagemeterSync(): JSONObject =
-        post("mallet_estimator.imagemeter_sync.sync_async", JSONObject())
-
-    /** What the last Drive round trip actually did. "Queued" says the button
-     *  worked; this says whether anything came back. */
-    fun imagemeterStatus(): JSONObject =
-        post("mallet_estimator.imagemeter_sync.status", JSONObject())
+    // imagemeterSync() and imagemeterStatus() USED TO LIVE HERE. They asked
+    // the bench to run its Drive round trip and then asked what it found.
+    // Removed 2026-09-04: ImageMeter and this app are on the same phone now,
+    // so annotated faces come back through the gallery — identified by the QR
+    // this app stamps into the caption bar, which is certain, where the Drive
+    // route never could be (ImageMeter renames its exports and the capture id
+    // does not survive).
+    //
+    // The bench's sync is untouched and still runs on its own schedule. What
+    // is gone is the phone's ability to trigger it, because a button that
+    // reports a second verdict on work already finished makes a success look
+    // like a partial failure.
 
     /** One capture in full, including the annotated images ImageMeter
      *  returned, keyed by face. */
