@@ -7,6 +7,8 @@ import androidx.annotation.DrawableRes
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.*
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.malletcrafts.sitephotos.pano.CaptureGeometry
 import com.malletcrafts.sitephotos.pano.RoomToken
 import androidx.compose.runtime.*
@@ -480,22 +482,26 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
  *
  * It used to be a third of the room screen: two dropdowns, a paragraph of
  * levelling advice and two buttons, all sitting permanently above the photos
- * you came to look at. None of it is read twice — the room size is chosen
- * once a morning, the advice once ever — so it belongs in a sheet you open
- * when you are about to shoot and never see when you are not.
+ * you came to look at. The levelling advice is read once ever, and the room
+ * dimensions once per room, so both belong in a sheet you open when you are
+ * about to shoot and never see when you are not.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureSheet(
     stage: String,
-    roomSize: Int,
+    /** What he measured, as typed — kept as text so a half-entered "1" is
+     *  not silently a 1 ft room while his thumb is still moving. */
+    roomLength: String,
+    roomWidth: String,
     /** Null on the public build, which has no SDK and no 360 camera. */
     hasCamera: Boolean,
     cameraConnected: Boolean,
     cameraNote: String?,
     busy: Boolean,
     onStage: () -> Unit,
-    onRoomSize: (Int) -> Unit,
+    onRoomLength: (String) -> Unit,
+    onRoomWidth: (String) -> Unit,
     onPick: () -> Unit,
     onCamera: () -> Unit,
     onShoot: () -> Unit,
@@ -514,28 +520,72 @@ fun CaptureSheet(
                 supportingContent = { Text("tap to change — it can be corrected on the photo too") },
                 modifier = Modifier.clickableRow(onStage))
 
-            Text("ROOM SIZE",
+            Text("ROOM DIMENSIONS",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp))
-            // Small rooms need wider faces or the split truncates the walls.
-            // The geometry, and these presets, live in CaptureGeometry.
+            // Amit, 2026-09-04: "i always measure room length and width to
+            // determine the center of the room. give me a option to enter
+            // these dimensions before i shoot 360 so that fov can be adjusted
+            // automatically per room."
+            //
+            // He arrives holding these two numbers, so the presets were asking
+            // him to round his own measurement into somebody else's bucket —
+            // and rounding DOWN truncates walls, which is what "fov is still
+            // small" looks like standing in the room. An 8x16 ft bedroom
+            // rounds to "Medium" and comes out about 19 degrees short.
+            // CaptureGeometry.adviseForRoom holds the maths and the test.
+            val advice = CaptureGeometry.adviseForRoom(
+                roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull())
             Row(
-                Modifier.fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                CaptureGeometry.PRESETS.forEachIndexed { i, p ->
-                    FilterChip(selected = roomSize == i, onClick = { onRoomSize(i) },
-                        label = { Text("${p.label} ${p.fov.toInt()}°") })
-                }
-                FilterChip(
-                    selected = roomSize >= CaptureGeometry.PRESETS.size,
-                    onClick = { onRoomSize(CaptureGeometry.PRESETS.size) },
-                    label = { Text("Server default") })
+                OutlinedTextField(
+                    value = roomLength,
+                    onValueChange = onRoomLength,
+                    label = { Text("Length (ft)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(
+                    value = roomWidth,
+                    onValueChange = onRoomWidth,
+                    label = { Text("Width (ft)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f))
             }
+            // The number is shown because it is the whole point of typing the
+            // dimensions, and because a face that cannot hold every corner has
+            // to SAY so — clamping quietly is what makes a truncated wall read
+            // as the app getting it wrong rather than the room being too tight.
+            Text(
+                when {
+                    advice == null && (roomLength.isNotBlank() || roomWidth.isNotBlank()) ->
+                        "Enter both, in feet, between " +
+                        "${CaptureGeometry.MIN_ROOM_FT.toInt()} and " +
+                        "${CaptureGeometry.MAX_ROOM_FT.toInt()}."
+                    advice == null ->
+                        "Measure the room and the faces are sized to it. " +
+                        "Left blank, the split uses the office default."
+                    advice.fitted ->
+                        "Faces at ${advice.rounded}° — every corner of every " +
+                        "wall, shot from the centre."
+                    else ->
+                        "Faces at ${advice.rounded}°, the widest that stays " +
+                        "readable. This room needs ${Math.round(advice.requiredDeg)}° " +
+                        "from its centre, so the far corners will still crop — " +
+                        "shoot from a corner instead, or accept it."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (advice != null && !advice.fitted)
+                            MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
 
             Text(
                 "Shoot from the room centre, camera LEVEL at half ceiling height " +

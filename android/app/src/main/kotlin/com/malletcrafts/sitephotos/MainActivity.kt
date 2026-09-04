@@ -144,17 +144,23 @@ private fun AppScreen() {
     var retagStage by remember { mutableStateOf(false) }
     var retagSku by remember { mutableStateOf(false) }
     var showCaptureSheet by remember { mutableStateOf(false) }
-    var showFov by remember { mutableStateOf(false) }
     var stage by remember { mutableStateOf("") }
-    // Which FOV the split uses. Index into CaptureGeometry.PRESETS, with one
-    // extra "server default" entry at the end. Remembered across launches —
-    // a photographer doing bathrooms all morning picks Small once.
+    // The room's measured floor dimensions, which is what sizes the faces.
+    // Amit, 2026-09-04: he measures length and width anyway to find the
+    // centre to stand at, so the app takes the numbers he already has rather
+    // than a Small/Medium/Large rounding of them.
+    //
+    // Remembered across launches like the preset was, because a second 360
+    // of the same room needs the same faces — and re-typing them is exactly
+    // the friction that made the old picker get left on whatever it was.
     val capturePrefs = remember {
         context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
     }
-    var roomSize by remember {
-        mutableStateOf(capturePrefs.getInt("room_size", 1)
-            .coerceIn(0, CaptureGeometry.PRESETS.size))
+    var roomLength by remember {
+        mutableStateOf(capturePrefs.getString("room_len_ft", "").orEmpty())
+    }
+    var roomWidth by remember {
+        mutableStateOf(capturePrefs.getString("room_wid_ft", "").orEmpty())
     }
     var updateJson by remember {
         mutableStateOf(capturePrefs.getString("update_available", null))
@@ -299,7 +305,11 @@ private fun AppScreen() {
                 val id = Handover.mintDeviceId(
                     ByteArray(6).also { SecureRandom().nextBytes(it) })
                 val today = LocalDate.now().toString()
-                val fov = CaptureGeometry.PRESETS.getOrNull(roomSize)?.fov
+                // Measured room first; the office default only when he has
+                // not given one, so a blank pair degrades to what the bench
+                // says rather than to a guess made here.
+                val fov = CaptureGeometry.adviseForRoom(
+                        roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull())?.fovDeg
                     ?: masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
                     ?: Panorama.DEFAULT_FOV
                 val (result, pano) = if (kind == "Photo")
@@ -510,35 +520,6 @@ private fun AppScreen() {
             })
     }
 
-    if (showFov) {
-        AlertDialog(
-            onDismissRequest = { showFov = false },
-            title = { Text("Field of view") },
-            text = {
-                Column {
-                    Text("A small room needs a wider face, or the split cuts " +
-                         "the walls off at the corners.",
-                        style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(10.dp))
-                    (CaptureGeometry.PRESETS.map { "${it.label} — ${it.fov.toInt()}°" }
-                        + "Server default").forEachIndexed { i, label ->
-                        Row(Modifier.fillMaxWidth().clickableRow {
-                                roomSize = i
-                                capturePrefs.edit().putInt("room_size", i).apply()
-                                prefsTick++
-                                showFov = false
-                            }.padding(vertical = 10.dp),
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Text(if (i == roomSize) "●  " else "○  ")
-                            Text(label)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showFov = false }) { Text("Close") }
-            })
-    }
 
     if (showSettings) {
         SettingsDialog(
@@ -718,12 +699,10 @@ private fun AppScreen() {
             groups = drawerGroups(
                 queued = unsent,
                 lastSync = if (queue.isEmpty()) "nothing yet" else "all sent",
-                fov = roomSizeLabel(roomSize),
                 version = appVersion(context),
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
                 server = FrappeClient.savedUrl(context),
-                onPickFov = { showFov = true },
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()
@@ -1474,15 +1453,20 @@ private fun AppScreen() {
     if (showCaptureSheet) {
         CaptureSheet(
             stage = stage.ifBlank { navProject?.stage.orEmpty() },
-            roomSize = roomSize,
+            roomLength = roomLength,
+            roomWidth = roomWidth,
             hasCamera = cam != null,
             cameraConnected = camConnected,
             cameraNote = camNote,
             busy = busy != null,
             onStage = { showCaptureSheet = false; showStagePicker = true },
-            onRoomSize = { i ->
-                roomSize = i
-                capturePrefs.edit().putInt("room_size", i).apply()
+            onRoomLength = { v ->
+                roomLength = v
+                capturePrefs.edit().putString("room_len_ft", v).apply()
+            },
+            onRoomWidth = { v ->
+                roomWidth = v
+                capturePrefs.edit().putString("room_wid_ft", v).apply()
             },
             onPick = {
                 showCaptureSheet = false
@@ -1815,21 +1799,15 @@ private fun appVersion(context: android.content.Context): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
     }.getOrDefault("?")
 
-private fun roomSizeLabel(index: Int): String =
-    CaptureGeometry.PRESETS.getOrNull(index)?.let { "${it.fov.toInt()}°" }
-        ?: "server default"
-
 /** The drawer holds only what you set once and forget. Anything needed
  *  mid-shoot belongs on the screen, not three lines away. */
 private fun drawerGroups(
     queued: Int,
     lastSync: String,
-    fov: String,
     version: String,
     cached: String,
     prefs: AppPrefs,
     server: String,
-    onPickFov: () -> Unit,
     onSyncNow: () -> Unit,
     onImageMeterSync: () -> Unit,
     onToggle: (String) -> Unit,
@@ -1875,8 +1853,12 @@ private fun drawerGroups(
         // not change it, while the only real control was buried in the
         // capture sheet. A settings row that shows a value you cannot edit
         // reads as broken.
-        DrawerLine("Field of view", value = fov, icon = R.drawable.ic_mcft_cam,
-            onClick = onPickFov),
+        // "Field of view" stood here as a picker of three presets. Amit,
+        // 2026-09-04: "No need of fov settings in settings of apk as its of
+        // no use." Quite right, and for a reason worth keeping: the FOV is
+        // not a preference, it is a consequence of the room. It now follows
+        // the length and width typed on the capture sheet, where the person
+        // is standing in the room and holding the tape.
         // Off means the bench does the split instead. The projection contract
         // in CI is what makes the two agree, so this is a real choice rather
         // than a quality trade.

@@ -74,6 +74,59 @@ object CaptureGeometry {
     ): Double = (requiredFovDeg(widthFt, depthFt, ceilingFt, cameraFt) + MARGIN_DEG)
         .coerceIn(RECOMMEND_MIN, RECOMMEND_MAX)
 
+    /**
+     * What to shoot this room at, and whether the geometry actually fits.
+     *
+     * Amit, 2026-09-04: "i always measure room length and width to determine
+     * the center of the room. give me a option to enter these dimensions
+     * before i shoot 360 so that fov can be adjusted automatically per room."
+     * He is already holding the two numbers this maths needs, so asking him to
+     * pick Small/Medium/Large from them is asking him to round his own
+     * measurement into somebody else's bucket. A room between two presets got
+     * the wrong FOV either way — too tight and the corners are cut, too wide
+     * and the walls shrink — and "still small" is what the tight side looks
+     * like.
+     *
+     * `fitted` is the part that must not stay silent. Below roughly 6 ft of
+     * clear distance the required FOV runs past RECOMMEND_MAX, and the honest
+     * answer is that no single face can hold every corner from the centre of
+     * a room that small — the remedy is to step back or accept the crop, and
+     * only a person can choose. Clamping quietly and saying nothing produces
+     * exactly the complaint this replaces: a picture that looks like the app
+     * simply got it wrong.
+     */
+    data class Advice(
+        val fovDeg: Double,
+        val requiredDeg: Double,
+        val fitted: Boolean,
+    ) {
+        val rounded: Int get() = Math.round(fovDeg).toInt()
+    }
+
+    /** Length and width in feet, in either order — the maths takes the worst
+     *  of both wall pairs, so which one you call length cannot change the
+     *  answer. Returns null for anything not usable as a room. */
+    fun adviseForRoom(
+        lengthFt: Double?,
+        widthFt: Double?,
+        ceilingFt: Double = DEFAULT_CEILING_FT,
+    ): Advice? {
+        val l = lengthFt ?: return null
+        val w = widthFt ?: return null
+        if (l < MIN_ROOM_FT || w < MIN_ROOM_FT) return null
+        if (l > MAX_ROOM_FT || w > MAX_ROOM_FT) return null
+        if (ceilingFt <= 0) return null
+        val required = requiredFovDeg(l, w, ceilingFt) + MARGIN_DEG
+        val fov = required.coerceIn(RECOMMEND_MIN, RECOMMEND_MAX)
+        return Advice(fov, required, fitted = required <= RECOMMEND_MAX)
+    }
+
+    /** Sanity bounds on typed input. A room under 3 ft is a cupboard and a
+     *  mistyped 200 is a mistyped 20 — both should be refused at the keyboard
+     *  rather than turned into a confident wrong number. */
+    const val MIN_ROOM_FT = 3.0
+    const val MAX_ROOM_FT = 100.0
+
     /** The room sizes the shop actually meets, per the owner (2026-08-19):
      *  5×7 bathroom, 8×11 balcony, 20×18 living room. */
     data class RoomPreset(val label: String, val widthFt: Double, val depthFt: Double) {
