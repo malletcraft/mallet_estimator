@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The X3 speaks PLAIN HTTP, and since targetSdk 28 Android refuses that by
+  default. targetSdk is 35 here, so every request the Insta360 SDK makes to
+  http://192.168.42.1 was being blocked by the platform before it reached the
+  Wi-Fi — no packet, no timeout, just a refusal that surfaces as a connect
+  error with no hint of its cause.
+
+  This is a SECOND, INDEPENDENT cause of the same failure as the Wi-Fi bind in
+  X3Bridge.kt, and fixing either alone leaves the other in place: bind the
+  process to the camera's network and cleartext is still blocked; permit
+  cleartext and the sockets still leave over mobile data.
+
+  Scoped to the camera's address ON PURPOSE rather than a blanket
+  usesCleartextTraffic="true". Everything else this app talks to is our own
+  bench over HTTPS, and a global opt-out would quietly permit an unencrypted
+  fallback for all of it. One host is the whole exposure.
+
+  192.168.42.1 is the X3's own gateway when the phone joins its access point.
+  It is fixed by the camera, not configurable, which is why it can be written
+  here as a literal.
+
+  This file ships ONLY with the camera build — the public SDK-free APK keeps
+  Android's strict default, correctly, since it never talks to a camera.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.42.1</domain>
+    </domain-config>
+</network-security-config>

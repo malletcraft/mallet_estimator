@@ -236,6 +236,34 @@ jobs:
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: gradle -PwithApp -PwithCamera :app:assembleRelease --console=plain
+      # The camera module contributes android:networkSecurityConfig to the
+      # app's <application> through manifest merging, and a merge that
+      # silently drops it would look EXACTLY like the camera failing to
+      # connect for some other reason — cleartext to 192.168.42.1 blocked,
+      # no error naming the cause. So assert it on the merged manifest that
+      # actually goes into the APK, not on the source file that expresses
+      # the intent.
+      - name: The shipped camera manifest permits cleartext to the X3
+        if: steps.sdk.outputs.present == 'true'
+        working-directory: android
+        run: |
+          M=$(find app/build/intermediates -name AndroidManifest.xml \
+                -path '*merged_manifest*release*' | head -1)
+          if [ -z "$M" ]; then
+            echo "::error::no merged release manifest found — cannot verify \
+          the cleartext config reached the APK"; exit 1
+          fi
+          echo "merged manifest: $M"
+          grep -q 'networkSecurityConfig' "$M" || {
+            echo "::error::the camera build's merged manifest has NO \
+          networkSecurityConfig. camera/src/main/AndroidManifest.xml declares \
+          it; the merger dropped it (most likely the app manifest now sets \
+          its own). Without it Android blocks the SDK's plain-HTTP calls to \
+          the camera and every connect fails."; exit 1; }
+          grep -q '192.168.42.1' camera/src/main/res/xml/network_security_config.xml || {
+            echo "::error::the network security config no longer names the \
+          X3's address"; exit 1; }
+          echo "cleartext to 192.168.42.1 is permitted in the shipped manifest"
       # The OTA leg: every green camera build lands in the private Drive
       # releases folder with a manifest; the bench mirrors it and phones
       # self-update from inside the app. main only — batch-next camera
