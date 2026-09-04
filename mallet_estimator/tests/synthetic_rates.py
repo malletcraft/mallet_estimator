@@ -116,19 +116,79 @@ def install():
     doc.flags.ignore_permissions = True
     doc.save(ignore_permissions=True)
     frappe.db.commit()
-    return before
+    return {"settings": before, "workstation_costs": _take_workstation_costs()}
+
+
+def _take_workstation_costs():
+    """Empty every Workstation's operating-cost rows, returning what they held.
+
+    THE ASSUMPTION THIS MAKES EXPLICIT, and the reason it exists. These tests
+    assert that a workstation bills its crew at the SYNTHETIC rate — that a
+    salary in Estimate Settings becomes an hourly rate and reaches the estimate.
+    That is live_workstation_rates()'s COMPUTED path, and it is taken only for a
+    workstation with no cost rows; a workstation that has them is priced from
+    them instead, quite correctly, and marked erp:Workstation.
+
+    So the suite has always depended on a fresh CI bench happening to produce
+    workstations without cost rows. Nothing stated that, nothing enforced it,
+    and on 2026-09-04 it stopped being true: three tests went red on a commit
+    that touched only Android sources, and re-running the previous GREEN commit
+    reproduced them exactly — same code, different day, different bench.
+
+    Clearing the rows here is not the tests avoiding reality. Rows on a real
+    site are keyed deliberately and SHOULD win (Amit, 2026-09-04, on production:
+    install.py writes them on a fresh install and keyed rates are what he
+    wants). These tests are about the other path — the arithmetic that turns a
+    salary into a rate — and a test cannot prove that path while something else
+    quietly supplies the answer.
+    """
+    held = {}
+    for name in frappe.get_all("Workstation", pluck="name"):
+        doc = frappe.get_doc("Workstation", name)
+        rows = getattr(doc, "workstation_costs", None) or []
+        if not rows:
+            continue
+        held[name] = [
+            {"operating_component": r.get("operating_component"),
+             "operating_cost": r.get("operating_cost")}
+            for r in rows
+        ]
+        doc.set("workstation_costs", [])
+        doc.flags.ignore_permissions = True
+        doc.save(ignore_permissions=True)
+    if held:
+        frappe.db.commit()
+    return held
 
 
 def restore(before):
     """Put back exactly what install() found. Safe to call with None."""
     if not before:
         return
+    # Tolerates the old flat shape (settings fields only), so a half-updated
+    # checkout does not turn a fixture into a data loss.
+    if "settings" in before or "workstation_costs" in before:
+        settings, stations = (before.get("settings") or {},
+                              before.get("workstation_costs") or {})
+    else:
+        settings, stations = before, {}
+
     doc = frappe.get_single("Estimate Settings")
-    for field, value in before.items():
+    for field, value in settings.items():
         if doc.meta.has_field(field):
             doc.set(field, value)
     doc.flags.ignore_permissions = True
     doc.save(ignore_permissions=True)
+
+    for name, rows in stations.items():
+        if not frappe.db.exists("Workstation", name):
+            continue
+        ws = frappe.get_doc("Workstation", name)
+        ws.set("workstation_costs", [])
+        for r in rows:
+            ws.append("workstation_costs", dict(r))
+        ws.flags.ignore_permissions = True
+        ws.save(ignore_permissions=True)
     frappe.db.commit()
 
 
