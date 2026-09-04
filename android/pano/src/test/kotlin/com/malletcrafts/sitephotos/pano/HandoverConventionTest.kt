@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 
 /**
  * Holds the device's naming to the server's. The filename is the only
@@ -144,5 +145,54 @@ class HandoverConventionTest {
             "Master Bedroom").trimEnd('/').substringAfterLast('/')
         assertTrue(leaf.length <= "YS_MB — ".length + 29, "album name too long: $leaf")
         assertTrue(leaf.endsWith("…"), leaf)
+    }
+
+    // ---- The round trip. Every face this app writes must read back as the
+    // same face, and for weeks two of them did not: filename() wrote "top"
+    // and "bottom" while the reader looked for "up" and "down", so a capture
+    // that split into six showed four. No error, no log line — the ceiling
+    // and floor were simply parsed as "not a face" and dropped. A convention
+    // with a writer and a reader in different files needs a test that closes
+    // the loop, not two tests that each check one half.
+
+    @Test
+    fun `every face survives the trip through its own filename`() {
+        for (face in Panorama.FACES.map { it.first }) {
+            val name = Handover.filename("MCAP-0123456789ab", face)
+            val token = name.substringBeforeLast('.').substringAfterLast('_')
+            assertEquals(face, Handover.faceOfToken(token),
+                "$face was written as '$name' and did not read back as $face")
+        }
+    }
+
+    @Test
+    fun `the two that were lost are named in the test that lost them`() {
+        assertEquals("MCAP-0123456789ab_top.jpg",
+                     Handover.filename("MCAP-0123456789ab", "up"))
+        assertEquals("MCAP-0123456789ab_bottom.jpg",
+                     Handover.filename("MCAP-0123456789ab", "down"))
+        assertEquals("up", Handover.faceOfToken("top"))
+        assertEquals("down", Handover.faceOfToken("bottom"))
+    }
+
+    @Test
+    fun `a bare face name still reads, so nothing written the old way is orphaned`() {
+        assertEquals("up", Handover.faceOfToken("up"))
+        assertEquals("front", Handover.faceOfToken("front"))
+    }
+
+    @Test
+    fun `hand-typed synonyms read back, matching the server's LABEL_TO_FACE`() {
+        assertEquals("up", Handover.faceOfToken("ceiling"))
+        assertEquals("down", Handover.faceOfToken("floor"))
+        assertEquals("up", Handover.faceOfToken("  TOP "))
+    }
+
+    @Test
+    fun `something that is not a face is still refused`() {
+        assertNull(Handover.faceOfToken("photo"))
+        assertNull(Handover.faceOfToken("sideways"))
+        assertNull(Handover.faceOfToken(""))
+        assertNull(Handover.faceOfToken(null))
     }
 }

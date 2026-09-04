@@ -21,6 +21,38 @@ object Handover {
         "left" to "Left", "up" to "Top", "down" to "Bottom",
     )
 
+    /**
+     * The filename token back to the face name — the inverse of FACE_LABELS,
+     * and the thing whose ABSENCE hid two faces from the app for weeks.
+     *
+     * filename() writes the LABEL: MCAP-…_top.jpg, MCAP-…_bottom.jpg. The
+     * reader compared that token against Panorama.FACES, whose names are "up"
+     * and "down". They never matched, so ceiling and floor were parsed as
+     * "not a face" and silently dropped, and a capture that had written all
+     * six showed exactly four. Nothing errored: the files were on the phone
+     * the whole time, correct and captioned, simply invisible.
+     *
+     * That is why the map lives HERE, beside the function that writes the
+     * name, rather than in the reader — one file owns both directions of the
+     * convention, and a test can hold them to each other.
+     *
+     * Spoken synonyms are accepted too, mirroring LABEL_TO_FACE in
+     * mallet_estimator/handover.py, so a file somebody named "ceiling" by
+     * hand still reads back.
+     */
+    val LABEL_TO_FACE: Map<String, String> =
+        FACE_LABELS.entries.associate { (face, label) -> label.lowercase() to face } +
+        mapOf("ceiling" to "up", "floor" to "down")
+
+    /** A filename token ("top") or a face name ("up") back to the face name.
+     *  Both are accepted because both exist in the wild: the app writes
+     *  labels, while older code and the odd export wrote face names. */
+    fun faceOfToken(token: String?): String? {
+        val t = token?.lowercase()?.trim().orEmpty()
+        if (t.isEmpty()) return null
+        return LABEL_TO_FACE[t] ?: if (FACE_LABELS.containsKey(t)) t else null
+    }
+
     private val DEVICE_ID_RE = Regex("^MCAP-[0-9a-f]{12}$")
 
     /** MCAP-<12 hex>: the id a capture is born with, minted at the shutter,

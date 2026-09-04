@@ -157,11 +157,23 @@ object LocalFaces {
      *  our original from somebody else's copy of it. */
     private const val OUR_FOLDER = "MCFT Site Photos"
 
-    /** MCAP-…_front.jpg -> "front". Tolerates whatever suffix an exporter
-     *  bolted on, because the face token is what matters, not the extension. */
+    /** MCAP-…_top.jpg -> "up". Tolerates whatever suffix an exporter bolted
+     *  on, because the face token is what matters, not the extension.
+     *
+     *  THE TOKEN IS A LABEL, NOT A FACE NAME, and reading it as a face name is
+     *  what hid the ceiling and the floor. FaceWriter writes all six and
+     *  Handover.filename names the vertical two "top" and "bottom"; this
+     *  compared those against Panorama.FACES ("up"/"down"), found no match,
+     *  and returned null — so load() dropped them and the app showed four
+     *  faces out of six with no error anywhere. The files were on the phone
+     *  the whole time.
+     *
+     *  Handover.faceOfToken owns the mapping now, beside the function that
+     *  writes the name, and accepts a bare face name too so anything already
+     *  written the old way still reads. */
     fun faceOf(displayName: String): String? {
         val stem = displayName.substringBeforeLast('.')
-        val token = stem.substringAfterLast('_', "").lowercase()
-        return if (Panorama.FACES.any { it.first == token }) token else null
+        val token = stem.substringAfterLast('_', "")
+        return Handover.faceOfToken(token)
     }
 }
