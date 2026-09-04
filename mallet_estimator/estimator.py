@@ -155,6 +155,18 @@ DESIGN_STANDARDS = {
     "Part List PDF (OCL)":                   {"qty_source": "manual", "min_per_unit": 15},
 }
 OPERATION_WORKSTATION.update({t["phase"]: "Design Desk" for t in DESIGN_STEP_TEMPLATE})
+
+# A VISIT IS NOT A DRAWING. Amit, 2026-09-04, choosing the design driver: every
+# assembly is a design item, "but site measurement is per visit".
+#
+# The discriminator is already here and did not need inventing: in_factory=0
+# marks the steps that happen off-site, and off-site is precisely the work that
+# does not repeat per assembly — one trip measures the room whatever gets drawn
+# afterwards. Keying off that rather than the step's NAME means a second
+# off-site step added later inherits the rule instead of quietly billing per
+# assembly.
+DESIGN_PER_VISIT = frozenset(
+    t["phase"] for t in DESIGN_STEP_TEMPLATE if not t.get("in_factory"))
 # The hardware children are added further down, once their names exist.
 
 # Phase -> zone, built from the templates rather than restated, so a step that

@@ -1607,8 +1607,12 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         if ov.get("min") not in (None, ""):
             mins = float(ov["min"])
             min_source = "plugin:edited"
-        q = design_qty
-        qty_source = "assemblies"
+        # Per assembly, EXCEPT the off-site steps: one trip measures the room
+        # whatever gets drawn afterwards, so multiplying a visit by four
+        # assemblies bills a day for it.
+        per_visit = name in estimator.DESIGN_PER_VISIT
+        q = 1.0 if per_visit else design_qty
+        qty_source = "one visit" if per_visit else "assemblies"
         if ov.get("qty") not in (None, ""):
             q = float(ov["qty"])
             qty_source = "plugin:edited"

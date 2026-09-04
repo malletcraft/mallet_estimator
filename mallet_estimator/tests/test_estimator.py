@@ -1678,3 +1678,13 @@ class TestDesignSteps(unittest.TestCase):
     def test_every_step_carries_a_standard_time(self):
         for phase, std in E.DESIGN_STANDARDS.items():
             self.assertGreater(std["min_per_unit"], 0, phase)
+
+    def test_a_visit_is_not_a_drawing(self):
+        """Amit, 2026-09-04: every assembly is a design item, but site
+        measurement is per visit. The rule keys off in_factory rather than the
+        step's name, so a second off-site step inherits it."""
+        self.assertEqual(E.DESIGN_PER_VISIT,
+                         frozenset({"Site Measurement (ImageMeter + Laser)"}))
+        for t in E.DESIGN_STEP_TEMPLATE:
+            self.assertEqual(t["phase"] in E.DESIGN_PER_VISIT,
+                             not t.get("in_factory"), t["phase"])
