@@ -14,7 +14,7 @@ import java.io.File
  * basement.
  */
 class CaptureStore(context: Context) :
-    SQLiteOpenHelper(context, "captures.db", null, 3) {
+    SQLiteOpenHelper(context, "captures.db", null, 4) {
 
     private val mastersFile = File(context.filesDir, "masters.json")
 
@@ -34,7 +34,8 @@ class CaptureStore(context: Context) :
                  server_name TEXT,
                  error TEXT,
                  sku TEXT NOT NULL DEFAULT '',
-                 kind TEXT NOT NULL DEFAULT '360'
+                 kind TEXT NOT NULL DEFAULT '360',
+                 fov REAL NOT NULL DEFAULT 0
                )"""
         )
     }
@@ -55,6 +56,11 @@ class CaptureStore(context: Context) :
         if (old < 3) {
             runCatching {
                 db.execSQL("ALTER TABLE captures ADD COLUMN kind TEXT NOT NULL DEFAULT '360'")
+            }
+        }
+        if (old < 4) {
+            runCatching {
+                db.execSQL("ALTER TABLE captures ADD COLUMN fov REAL NOT NULL DEFAULT 0")
             }
         }
     }
@@ -78,6 +84,14 @@ class CaptureStore(context: Context) :
         /** "360" or "Photo". A repair job is a close-up of a broken hinge;
          *  splitting that into six faces would be nonsense. */
         val kind: String = "360",
+        /** The angle this phone actually split at, so the SERVER can split
+         *  the same pano the same way.
+         *
+         *  0 means "not recorded" — every row queued by a build before this
+         *  one, and every Photo, which is not projected at all. The sync
+         *  omits the argument then, and the bench applies its own default,
+         *  which is exactly what those captures got at the time. */
+        val fov: Double = 0.0,
     )
 
     fun insert(c: Capture) {
@@ -94,6 +108,7 @@ class CaptureStore(context: Context) :
             put("state", c.state)
             put("sku", c.sku)
             put("kind", c.kind)
+            put("fov", c.fov)
         })
     }
 
@@ -166,6 +181,7 @@ class CaptureStore(context: Context) :
                     error = cur.getString(ix("error")),
                     sku = cur.getString(ix("sku")) ?: "",
                     kind = cur.getString(ix("kind")) ?: "360",
+                    fov = runCatching { cur.getDouble(ix("fov")) }.getOrDefault(0.0),
                 ))
             }
         }

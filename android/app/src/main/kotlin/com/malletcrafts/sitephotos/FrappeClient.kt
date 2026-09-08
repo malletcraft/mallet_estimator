@@ -82,7 +82,8 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     fun createCapture(project: String, room: String, captureDate: String,
                       stage: String, deviceCaptureId: String,
                       appVersion: String = "", sku: String = "",
-                      workStage: String = "", captureKind: String = "360"): JSONObject =
+                      workStage: String = "", captureKind: String = "360",
+                      fov: Double = 0.0): JSONObject =
         post("mallet_estimator.sitephoto.create_capture", JSONObject()
             .put("project", project)
             .put("room", room)
@@ -103,7 +104,23 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             // The fleet's version ledger: the server records which build
             // synced this capture, so "did the phone update?" is a server
             // query instead of a hands-on-device check.
-            .put("app_version", appVersion))
+            .put("app_version", appVersion)
+            // THE ANGLE THIS PHONE SPLIT AT, so the bench splits the same
+            // pano the same way.
+            //
+            // Until now the app chose an FOV, split its own faces with it,
+            // and told the server nothing — so create_capture fell back to
+            // its default and re-split every upload at 110 degrees. The
+            // faces in the phone's gallery and the faces on the bench were
+            // therefore different pictures of the same room, and only the
+            // phone's obeyed the room's dimensions. 110 is the exact value
+            // CaptureGeometry blames for truncated walls, so the desk copy
+            // was the truncated one every time.
+            //
+            // Omitted rather than sent as 0 when unknown: a queued capture
+            // from an older build, or a flat Photo, must keep getting the
+            // bench default it would have got anyway.
+            .apply { if (fov > 0) put("fov", fov) })
 
     fun saveAnnotations(docname: String, face: String, data: JSONObject): JSONObject =
         post("mallet_estimator.sitephoto.save_annotations", JSONObject()

@@ -75,6 +75,35 @@ class TestSitePhotoApi(MalletTestCase):
         self.assertEqual(doc.status, "Pending")   # nothing to split yet
         self.assertTrue(doc.name.startswith("MEST-PH-"), doc.name)
 
+    def test_the_phones_angle_is_what_the_bench_splits_at(self):
+        """The half of the room-dimension feature that was missing.
+
+        The app computes an FOV from the room's measured length and width,
+        splits its own gallery faces with it, and — until 2026-09-08 — told
+        the bench nothing. create_capture then fell back to its default and
+        RE-SPLIT the same pano at 110 degrees, so the faces on the phone and
+        the faces on the desk were different pictures of the same room and
+        only the phone's obeyed the measurements. 110 is the exact value
+        CaptureGeometry blames for truncated walls, so the desk copy was the
+        truncated one every time, silently, on every capture.
+        """
+        made = sitephoto.create_capture(
+            project=_project(), room=_room(), capture_date="2026-09-08",
+            stage="Joinery", fov=129)
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", made["name"], "fov"), 129)
+
+    def test_a_capture_that_names_no_angle_still_gets_the_default(self):
+        """A phone on an older build, and every flat Photo, send no fov at
+        all — and must keep getting exactly what they got before, rather
+        than a zero that would split into nothing."""
+        made = sitephoto.create_capture(
+            project=_project(), room=_room(), capture_date="2026-09-08",
+            stage="Joinery")
+        self.assertEqual(
+            frappe.db.get_value("Site Photo 360", made["name"], "fov"),
+            int(panorama.DEFAULT_FOV))
+
     def test_a_phone_on_yesterdays_build_still_syncs(self):
         # An unupdated phone sends one of the six old stage words. They were
         # PHASES all along, so they are translated rather than refused —

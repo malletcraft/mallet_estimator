@@ -329,7 +329,10 @@ private fun AppScreen() {
                     customerName = p.customer, room = r, stage = stageNow,
                     captureDate = today, panoPath = pano.path,
                     createdAt = System.currentTimeMillis(), state = "LOCAL",
-                    serverName = null, error = null, kind = kind))
+                    serverName = null, error = null, kind = kind,
+                    // Only a 360 is projected, so only a 360 carries an angle.
+                    // A flat Photo sends none and the bench leaves it alone.
+                    fov = if (kind == "Photo") 0.0 else fov))
                 result
             }
             withContext(Dispatchers.Main) {
