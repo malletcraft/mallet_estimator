@@ -160,6 +160,42 @@ class TestEstimatePreview(MalletTestCase):
         "3;HWD_AH_SC_0;4;;;;Hardware;HWD_Hinge;;;;;;;\n"
     )
 
+    # The YS_BATH_CABS row from 2026-09-09: same ply material, 1 mm thick.
+    CSV_WITH_A_ONE_MM_PLY = (
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;ASMBL_Carcass;2;2100;600;16;Sheet Goods;SG_PLY_V0_a_a;"
+        ";;;;;;carcass_vert\n"
+        "2;ASMBL_Slip;1;60;46;1;Sheet Goods;SG_PLY_V0_a_a;;;;;;;carcass_vert\n"
+    )
+
+    def test_a_board_nobody_makes_is_reported_not_priced(self):
+        """SG_PLY_V0_1mm, and why it must not look like a missing rate.
+
+        A 60x46 mm part painted with the ply material at 1 mm produced a
+        priced line reading "Plywood 1 mm (8x4) — carcass grade", red,
+        NOT IN ERP. Every layer was working correctly on a number that was
+        never a board: the nester packed it, the pricer looked it up, ERP
+        had no such Item. An unpriced line is fixed by keying a rate; this
+        is fixed in SketchUp, and showing the first for the second sends
+        somebody to create an Item for 1 mm plywood.
+        """
+        out = api.estimate_preview(self.CSV_WITH_A_ONE_MM_PLY)
+        codes = [m.get("code") for m in out["materials"]]
+        self.assertNotIn("SG_PLY_V0_1mm", codes,
+                         "a 1 mm board reached the priced material lines")
+        self.assertTrue(any("SG_PLY_V0_16mm" == c for c in codes),
+                        f"the real 16 mm board went missing too: {codes}")
+
+        said = " ".join(out.get("suspect_boards") or [])
+        self.assertIn("1 mm", said, "the skipped part was not reported at all")
+        self.assertIn("SG_PLY_V0_a_a", said,
+                      "the report must name the material to find in SketchUp")
+
+    def test_an_ordinary_model_reports_no_suspect_boards(self):
+        self.assertEqual(api.estimate_preview(self.CSV).get("suspect_boards"), [])
+
     def test_it_prices_material_and_all_seventeen_operations(self):
         out = api.estimate_preview(self.CSV)
         self.assertEqual(out["authority"], "erp")

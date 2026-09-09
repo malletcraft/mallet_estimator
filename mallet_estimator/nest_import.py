@@ -33,7 +33,9 @@ def collect(rows):
     """Aggregate the CSV part rows into nesting inputs:
     (ply {(code, th): [(l,w)..]}, lam {code: [(l,w)..]}, edges {code: meters},
     hardware [ {code, category, qty, ...} ], banded_edge_count,
-    faces {(code, th): {face_column: {lam_code: part_area_mm2}}}).
+    faces {(code, th): {face_column: {lam_code: part_area_mm2}}},
+    suspect {(code, th): piece_count} — sheet-good parts at a thickness no
+    board is made at, held back from the nest and reported instead).
 
     Every row is expanded by opencutlist.part_qty — OpenCutList groups
     identical parts onto ONE row and puts the count in `Quantity`, so a row is
@@ -51,6 +53,7 @@ def collect(rows):
     can hide several distinct SKUs at different rates."""
     ply, lam, edges, faces = {}, {}, {}, {}
     banded = 0
+    suspect = {}
     for r in rows:
         name = (r.get("Material name") or "").strip()
         mtype = (r.get("Material type") or "").strip().lower()
@@ -61,6 +64,15 @@ def collect(rows):
             if not (l and w):
                 continue
             qty = opencutlist.part_qty(r)
+            # A BOARD NOBODY MAKES IS A MODELLING SLIP, NOT A MISSING RATE.
+            # Kept out of `ply` so nothing downstream nests it, prices it or
+            # mints an Item for it — and reported by name, because a part
+            # silently dropped is the failure this project keeps paying for.
+            # See nesting.implausible_board for why 3 mm and why this matters.
+            if nesting.implausible_board(th):
+                k = (name, th)
+                suspect[k] = suspect.get(k, 0) + qty
+                continue
             ply.setdefault((name, th), []).extend([(l, w)] * qty)
             for col, dim in (("Edge Length 1", l), ("Edge Length 2", l),
                              ("Edge Width 1", w), ("Edge Width 2", w)):
@@ -75,7 +87,20 @@ def collect(rows):
                     by_face = faces.setdefault((name, th), {}).setdefault(col, {})
                     by_face[lc] = by_face.get(lc, 0.0) + l * w * qty
     hw = opencutlist.hardware_list(rows)
-    return ply, lam, edges, hw, banded, faces
+    return ply, lam, edges, hw, banded, faces, suspect
+
+
+def suspect_issues(suspect):
+    """One line per sheet-good part held back for an impossible thickness.
+
+    Named rather than counted, because the person has to FIND it in SketchUp:
+    the material and the millimetres are what the Parts tab is sorted by."""
+    return [
+        _("{0} at {1:g} mm is not a board anybody makes — {2} part(s) skipped. "
+          "Fix the thickness in SketchUp, or repaint those parts with the "
+          "right material.").format(code, th, n)
+        for (code, th), n in sorted(suspect.items())
+    ]
 
 
 def envelope_issues(doc, ply):
@@ -102,10 +127,10 @@ def run(doc):
     rows = opencutlist.parse_opencutlist_csv(content)
     if not rows:
         frappe.throw(_("The Part List CSV could not be parsed — is it the OpenCutList export?"))
-    ply, lam, edges, hw, banded_edges, faces = collect(rows)
+    ply, lam, edges, hw, banded_edges, faces, suspect = collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
-    issues = envelope_issues(doc, ply)
+    issues = envelope_issues(doc, ply) + suspect_issues(suspect)
 
     manual_rows = [m.as_dict() for m in (doc.materials or []) if m.get("is_manual")]
     doc.set("materials", [])

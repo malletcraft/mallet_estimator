@@ -234,3 +234,33 @@ class TestTheTotalCannotDriftFromTheBoards(unittest.TestCase):
         faces = {("A", 16): {"Frontside": {"BIG": 1.0e6, "SLIVER": 1.0}}}
         out = nesting.laminate_from_panels(panels, faces)
         self.assertEqual(out, {"BIG": 1, "SLIVER": 1})
+
+
+class TestABoardNobodyMakes(unittest.TestCase):
+    """SG_PLY_V0_1mm on the YS_BATH_CABS estimate (Amit, 2026-09-09).
+
+    A part in that model carried the ply material at 1 mm thickness, so the
+    nester packed it onto a board, the pricer asked ERP for a rate, ERP had
+    no such Item, and the screen showed a red NOT-IN-ERP line describing
+    "Plywood 1 mm (8x4)". The number was real; the board was not.
+    """
+
+    def test_one_millimetre_ply_is_not_a_board(self):
+        self.assertTrue(nesting.implausible_board(1))
+        self.assertTrue(nesting.implausible_board(1.0))
+
+    def test_the_thin_boards_that_are_real_still_pass(self):
+        # 3 mm MDF backs and 4 mm ply exist and are bought; a rule that
+        # rejected them would break real estimates to catch a modelling slip.
+        for th in (3, 3.0, 4, 6, 12, 16, 18, 25):
+            self.assertFalse(nesting.implausible_board(th), th)
+
+    def test_a_missing_thickness_is_a_different_fault(self):
+        # 0 or None means the CSV did not say. That has its own handling, and
+        # folding it in here would hide it behind the wrong message.
+        for th in (0, 0.0, None, ""):
+            self.assertFalse(nesting.implausible_board(th), repr(th))
+
+    def test_junk_is_refused_rather_than_crashing_the_import(self):
+        for th in ("x", object(), [], {}):
+            self.assertFalse(nesting.implausible_board(th), repr(th))

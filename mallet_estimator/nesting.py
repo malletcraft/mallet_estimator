@@ -12,6 +12,41 @@ import math
 
 SHEET_L = 2440.0
 SHEET_W = 1220.0
+
+# THE THINNEST BOARD ANYBODY SELLS. Below this a "sheet good" is not a board
+# at all, and treating it as one mints a purchasable Item for a thickness no
+# supplier stocks.
+#
+# Amit, 2026-09-09, on seeing SG_PLY_V0_1mm on the YS_BATH_CABS estimate:
+# "how come a SG_PLY_V0_1mm exists?" It exists because a part in that model
+# carries the ply material at 1 mm thickness — 0.03 sqft of it, one small
+# piece — and every layer downstream took that at face value: the nester
+# packed it onto a board, the pricer asked ERP for a rate, ERP had no such
+# Item, and the screen showed a red "NOT IN ERP" line reading "Plywood 1 mm
+# (8x4) — carcass grade". Which is a description of something that does not
+# exist.
+#
+# The failure is that the estimate reported a MISSING RATE for a plausible
+# board when the truth was an IMPLAUSIBLE board. Those need different
+# answers: one is priced by keying a rate, the other by fixing the model, and
+# offering the first for the second sends somebody to the price list to
+# create an Item for 1 mm plywood.
+#
+# 3 mm because 4 mm ply and 3 mm MDF backs are real and must keep working;
+# laminate at 1 mm and edge banding at 0.8 mm are not sheet goods and never
+# reach this check.
+MIN_BOARD_MM = 3.0
+
+
+def implausible_board(thickness):
+    """True for a sheet-good thickness no board is made at. 0/None is NOT
+    implausible — a missing thickness is a different fault with its own
+    handling, and conflating the two would hide it."""
+    try:
+        th = float(thickness or 0)
+    except (TypeError, ValueError):
+        return False
+    return 0 < th < MIN_BOARD_MM
 EDGE_ROLL_M = 50.0
 
 

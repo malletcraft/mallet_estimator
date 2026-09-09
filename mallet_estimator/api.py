@@ -980,7 +980,7 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # nest_import's input, and nest_import is what the real CSV-Nest import
     # runs — the path whose material numbers Amit already trusts. Same
     # functions here, same answers, nothing saved.
-    ply, lam, edges, hw, banded_edges, faces = nest_import.collect(rows)
+    ply, lam, edges, hw, banded_edges, faces, suspect = nest_import.collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
 
@@ -1762,6 +1762,11 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # Loud on purpose. A total that quietly omits three unpriced boards is
         # worse than no total: it looks like an answer.
         "unpriced_lines": unpriced,
+        # A DIFFERENT FAULT FROM AN UNPRICED LINE, and it must not arrive
+        # dressed as one. An unpriced board is fixed by keying a rate; a board
+        # at a thickness nobody makes is fixed in SketchUp, and offering the
+        # first for the second sends somebody to create an Item for 1 mm ply.
+        "suspect_boards": nest_import.suspect_issues(suspect),
         "created_items": card.get("created_items", []),
         "excludes": card["excludes"],
     }
