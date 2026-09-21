@@ -202,6 +202,9 @@ jobs:
           # bench actually carries the new commit).
           BUILT=0
           STABLE=0
+          FAIL_SEEN=0
+          FAIL_HELD=0
+          FAIL_HOLD=15      # ~5 min of "failed and nothing rebuilding" before believing it
           for i in $(seq 1 165); do
             sleep 20
             info
@@ -219,14 +222,44 @@ jobs:
             PENDING=$(printf '%s' "$BODY" | jq -r --argjson names "$APP_NAMES" \
               '[.message.apps[]? | select(.update_available==true) | select(.app as $a | $names | index($a))] | length')
 
+            # A FAILED BUILD IS NOT A FAILED DEPLOY. Frappe Cloud RETRIES a
+            # Deploy Candidate whose build fails, and the retry can succeed.
+            # 2026-09-21 proved it: build 94kkr57ee1 failed at 12:39 IST on a
+            # yarn error in `lms` -- an app that is not ours -- this job exited
+            # red on the spot, and FC then rebuilt and migrated the site
+            # successfully at 13:05 IST. The deploy WORKED and the run said it
+            # had not. A false RED is as expensive as a false green: it sends
+            # somebody diagnosing a live deploy.
+            #
+            # So a Failure is reported once, loudly, and then WAITED OUT. The
+            # run only dies when the candidate has been Failure with nothing
+            # building for FAIL_HOLD consecutive checks (~5 min) -- long enough
+            # to cover the gap before FC schedules its retry, far short of the
+            # 55-minute ceiling below.
             if [ "$STATUS" = "Failure" ]; then
-              echo "::error::Frappe Cloud build FAILED (build ${DNAME})."
-              echo "--- failing build steps ---"
-              call "${CLIENT_BASE}.get" "$(jq -nc --arg d 'Deploy Candidate Build' --arg n "$DNAME" '{doctype:$d, name:$n}')"
-              printf '%s' "$BODY" | jq -r '.message.build_steps[]? | select(.status=="Failure") | "STEP: \(.stage_slug // .stage) / \(.step_slug // .step)\n\(.output // .command_output // "")"' 2>/dev/null | tail -80 || true
-              printf '%s' "$BODY" | jq -r '.message.build_output // empty' 2>/dev/null | tail -40 || true
-              exit 1
+              if [ "${FAIL_SEEN:-0}" = "0" ]; then
+                FAIL_SEEN=1
+                echo "::warning::Frappe Cloud build FAILED (build ${DNAME}). Frappe Cloud may retry it; waiting to see."
+                echo "--- failing build steps ---"
+                call "${CLIENT_BASE}.get" "$(jq -nc --arg d 'Deploy Candidate Build' --arg n "$DNAME" '{doctype:$d, name:$n}')"
+                printf '%s' "$BODY" | jq -r '.message.build_steps[]? | select(.status=="Failure") | "STEP: \(.stage_slug // .stage) / \(.step_slug // .step)"' 2>/dev/null || true
+                echo "(full step output: run the fc-build-log workflow with build=${DNAME})"
+              fi
+              # Something still building means the retry is under way.
+              if [ "$DIP" = "true" ] || [ "$BCU" = "true" ] || [ "$PIPE" = "true" ]; then
+                FAIL_HELD=0
+              else
+                FAIL_HELD=$((${FAIL_HELD:-0} + 1))
+              fi
+              echo "[$((i*20))s] build=Failure held=${FAIL_HELD}/${FAIL_HOLD} (deploy_in_progress=${DIP} bench_creating=${BCU} pipeline=${PIPE})"
+              if [ "$FAIL_HELD" -ge "$FAIL_HOLD" ]; then
+                echo "::error::Frappe Cloud build FAILED (build ${DNAME}) and stayed failed with nothing rebuilding for $((FAIL_HOLD*20))s. Diagnose with the fc-build-log workflow, input build=${DNAME}."
+                exit 1
+              fi
+              continue
             fi
+            # A later poll showing anything but Failure means the retry took.
+            FAIL_HELD=0
 
             [ "$STATUS" = "Success" ] && BUILT=1
 
