@@ -24,4 +24,13 @@ import frappe
 
 
 def execute():
-    frappe.reload_doc("mallet_estimator", "doctype", "site_photo_360")
+    # force=True, and the JSON's `modified` bumped alongside it.
+    #
+    # reload_doc COMPARES the file's `modified` against the database's and
+    # SKIPS when they match -- so a hand-edited doctype JSON whose timestamp
+    # nobody touched is reloaded into nothing, the patch is recorded as
+    # applied, and the migrate reports success. create_capture then guards on
+    # meta.has_field and drops the dimensions on every upload, silently,
+    # while every call still returns 200. Forcing it is what makes this
+    # patch do what its name says whatever the timestamp says.
+    frappe.reload_doc("mallet_estimator", "doctype", "site_photo_360", force=True)
