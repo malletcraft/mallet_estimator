@@ -4,11 +4,13 @@
 # camera basis (swapped axes, flipped pitch, broken seam wrap) turns into a
 # wrong colour at a face centre — not a subtly skewed photo nobody notices.
 import io
+import math
 import unittest
 
 import numpy as np
 from PIL import Image
 
+from mallet_estimator import capture_geometry as G
 from mallet_estimator import panorama as P
 
 W, H = 512, 256
@@ -158,3 +160,74 @@ class TestProjectionContract(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCaptureGeometry(unittest.TestCase):
+    """The room → per-face FOV maths, and its agreement with the phone.
+
+    Two copies of this exist -- Python here, Kotlin in android/pano -- because
+    a site has no signal and the phone must reach the answer alone. Numbers
+    are PINNED rather than recomputed by the same formula twice, which is the
+    only way a pair of implementations can be shown to agree.
+    CaptureGeometryTest asserts the same values on the other side.
+    """
+
+    def _plan(self, l_ft, w_ft, h_ft=9.5):
+        return G.plan_for_room(l_ft * 12, w_ft * 12, h_ft * 12)
+
+    def test_a_10x12_room_matches_the_phones_numbers_exactly(self):
+        p = self._plan(10, 12)
+        self.assertEqual(p["station"], {"x_in": 60.0, "y_in": 72.0, "z_in": 57.0})
+        for face, want in {"front": 90.0, "back": 90.0, "left": 110.4,
+                           "right": 110.4, "down": 122.1, "up": 122.1}.items():
+            self.assertAlmostEqual(p["fov_by_face"][face], want, delta=0.05,
+                                   msg=f"{face} disagrees with the phone")
+
+    def test_the_floor_needs_more_than_any_wall(self):
+        # THE DEFECT THIS REPLACED, in one assertion. The old maths sized every
+        # face from the walls, so the floor inherited a number computed without
+        # it -- and the floor's corners are at the half-diagonal, always
+        # further than any wall's perpendicular distance.
+        for l, w in ((10, 12), (12, 14), (20, 18)):
+            f = self._plan(l, w)["fov_by_face"]
+            widest_wall = max(f[k] for k in ("front", "back", "left", "right"))
+            self.assertGreater(f["down"], widest_wall, f"{l}x{w}")
+
+    def test_a_small_room_is_the_accidental_pass_that_hid_it(self):
+        f = self._plan(5, 7)["fov_by_face"]
+        widest_wall = max(f[k] for k in ("front", "back", "left", "right"))
+        self.assertGreater(widest_wall, f["down"])
+
+    def test_the_floor_face_reaches_the_corner_at_any_yaw(self):
+        l, w, h = 120.0, 144.0, 114.0
+        f = G.fov_by_face(l, w, h)["down"]
+        half_side = (h / 2) * math.tan(math.radians(f / 2))
+        self.assertGreaterEqual(half_side, math.hypot(l / 2, w / 2))
+
+    def test_feet_typed_into_an_inches_field_are_refused(self):
+        # The likeliest input error, and the one that must not get through:
+        # it silently halves every FOV and the photographs look plausible.
+        self.assertIsNone(G.plan_for_room(10, 12, 9.5))
+
+    def test_junk_is_none_not_a_guess(self):
+        for bad in ((None, 120, 114), (120, None, 114), (120, 120, None),
+                    ("x", 120, 114), (24, 120, 114), (120, 120, 60)):
+            self.assertIsNone(G.plan_for_room(*bad), bad)
+
+    def test_a_partial_map_falls_back_for_the_faces_it_omits(self):
+        # Every capture taken before the dimensions existed splits exactly as
+        # it used to, which is what makes this safe to ship without backfill.
+        faces = P.split_equirect(_pano_bytes(), fov=110, face_px=64,
+                                 fov_by_face={"down": 140.0})
+        self.assertEqual(len(faces), 6)
+
+    def test_a_per_face_split_really_differs_from_a_flat_one(self):
+        # Guards the wiring, not the maths: a fov_by_face that is accepted and
+        # then ignored would leave every test above passing and the floor
+        # still cropped. That is the exact shape of the last FOV bug.
+        flat = np.asarray(P.split_equirect(
+            _pano_bytes(), fov=110, face_px=64)["down"])
+        wide = np.asarray(P.split_equirect(
+            _pano_bytes(), fov=110, face_px=64, fov_by_face={"down": 150.0})["down"])
+        self.assertFalse(np.array_equal(flat, wide),
+                         "fov_by_face was accepted and ignored")

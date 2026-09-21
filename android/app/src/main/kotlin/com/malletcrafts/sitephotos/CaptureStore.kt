@@ -14,7 +14,7 @@ import java.io.File
  * basement.
  */
 class CaptureStore(context: Context) :
-    SQLiteOpenHelper(context, "captures.db", null, 4) {
+    SQLiteOpenHelper(context, "captures.db", null, 5) {
 
     private val mastersFile = File(context.filesDir, "masters.json")
 
@@ -35,7 +35,10 @@ class CaptureStore(context: Context) :
                  error TEXT,
                  sku TEXT NOT NULL DEFAULT '',
                  kind TEXT NOT NULL DEFAULT '360',
-                 fov REAL NOT NULL DEFAULT 0
+                 fov REAL NOT NULL DEFAULT 0,
+                 room_l_in REAL NOT NULL DEFAULT 0,
+                 room_w_in REAL NOT NULL DEFAULT 0,
+                 room_h_in REAL NOT NULL DEFAULT 0
                )"""
         )
     }
@@ -61,6 +64,18 @@ class CaptureStore(context: Context) :
         if (old < 4) {
             runCatching {
                 db.execSQL("ALTER TABLE captures ADD COLUMN fov REAL NOT NULL DEFAULT 0")
+            }
+        }
+        if (old < 5) {
+            // The measured room, in inches. Stored rather than the six face
+            // angles it implies, so there is one source of truth and a
+            // capture cannot mean one thing on the phone and another on the
+            // bench. 0 means unmeasured, which is every capture already in
+            // this queue -- they keep splitting at the single `fov`.
+            for (col in listOf("room_l_in", "room_w_in", "room_h_in")) {
+                runCatching {
+                    db.execSQL("ALTER TABLE captures ADD COLUMN $col REAL NOT NULL DEFAULT 0")
+                }
             }
         }
     }
@@ -92,6 +107,9 @@ class CaptureStore(context: Context) :
          *  omits the argument then, and the bench applies its own default,
          *  which is exactly what those captures got at the time. */
         val fov: Double = 0.0,
+        val roomLengthIn: Double = 0.0,
+        val roomWidthIn: Double = 0.0,
+        val roomHeightIn: Double = 0.0,
     )
 
     fun insert(c: Capture) {
@@ -109,6 +127,9 @@ class CaptureStore(context: Context) :
             put("sku", c.sku)
             put("kind", c.kind)
             put("fov", c.fov)
+            put("room_l_in", c.roomLengthIn)
+            put("room_w_in", c.roomWidthIn)
+            put("room_h_in", c.roomHeightIn)
         })
     }
 
@@ -182,6 +203,9 @@ class CaptureStore(context: Context) :
                     sku = cur.getString(ix("sku")) ?: "",
                     kind = cur.getString(ix("kind")) ?: "360",
                     fov = runCatching { cur.getDouble(ix("fov")) }.getOrDefault(0.0),
+                    roomLengthIn = runCatching { cur.getDouble(ix("room_l_in")) }.getOrDefault(0.0),
+                    roomWidthIn = runCatching { cur.getDouble(ix("room_w_in")) }.getOrDefault(0.0),
+                    roomHeightIn = runCatching { cur.getDouble(ix("room_h_in")) }.getOrDefault(0.0),
                 ))
             }
         }

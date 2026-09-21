@@ -87,7 +87,10 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     }.getOrDefault(""),
                     sku = c.sku,
                     captureKind = c.kind,
-                    fov = c.fov)
+                    fov = c.fov,
+                    roomLengthIn = c.roomLengthIn,
+                    roomWidthIn = c.roomWidthIn,
+                    roomHeightIn = c.roomHeightIn)
                 val name = made.getString("name")
 
                 val pano = File(c.panoPath)

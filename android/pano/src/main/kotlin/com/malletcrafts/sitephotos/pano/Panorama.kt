@@ -161,18 +161,43 @@ object Panorama {
         return Image(facePx, facePx, out)
     }
 
-    /** All six faces, keyed by name. */
+    /** All six faces, keyed by name, every face at the same FOV. */
     fun splitEquirect(
         pano: Image,
         fov: Double? = null,
+        facePx: Int? = null,
+    ): Map<String, Image> = splitEquirectPerFace(pano, emptyMap(), fov, facePx)
+
+    /**
+     * All six faces, each at ITS OWN FOV.
+     *
+     * The six faces of a room do not need the same width and never did. A
+     * gnomonic face covers a square on the plane it looks at, sized by the
+     * distance to that plane -- and the floor is at the camera's height above
+     * it while a wall is half the room away, so their requirements differ by
+     * tens of degrees. In a 20x18 ft room the walls want 106 and the floor
+     * wants 144. One number for all six either truncates the floor corners or
+     * throws away the wall resolution every measurement is read from, and this
+     * app did the first for as long as it had one number. CaptureGeometry
+     * computes the map; this applies it.
+     *
+     * `fovByFace` need not be complete -- a face it does not name falls back
+     * to `fallbackFov`, so an old caller passing one number still works and an
+     * old capture with no room dimensions still splits.
+     */
+    fun splitEquirectPerFace(
+        pano: Image,
+        fovByFace: Map<String, Double>,
+        fallbackFov: Double? = null,
         facePx: Int? = null,
     ): Map<String, Image> {
         require(looksEquirect(pano.width, pano.height)) {
             "not a 2:1 equirectangular panorama: ${pano.width}x${pano.height}"
         }
-        val f = clampFov(fov)
+        val fallback = clampFov(fallbackFov)
         val px = clampFacePx(facePx)
         return FACES.associate { (name, yaw, pitch) ->
+            val f = fovByFace[name]?.let { clampFov(it) } ?: fallback
             name to faceFromEquirect(pano, yaw, pitch, f, px)
         }
     }

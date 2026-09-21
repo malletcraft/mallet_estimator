@@ -207,3 +207,9 @@ mallet_estimator.patches.item_pieces_per_packet
 # garden, servant room). Amit, 2026-09-21: the thirteen did not cover a 3 BHK.
 # post, not pre: Estimate Room's doctype must exist before rows go into it.
 mallet_estimator.patches.seed_expanded_rooms
+# post_model_sync: Site Photo 360 gains room_length_in / room_width_in /
+# room_height_in, the three measurements the per-face FOV is derived from.
+# A patch because a Python-only deploy runs no migrate, and create_capture
+# guards on meta.has_field -- so without the migrate the dimensions would be
+# dropped silently on every upload while every call still reported success.
+mallet_estimator.patches.add_room_dimensions_to_capture

@@ -117,9 +117,27 @@ def face_from_equirect(pano, yaw_deg, pitch_deg, fov_deg, face_px):
     return np.clip(out + 0.5, 0, 255).astype(np.uint8)
 
 
-def split_equirect(image_bytes, fov=None, face_px=None):
-    """The feature: 360 bytes in, {face_name: PIL.Image} out."""
+def split_equirect(image_bytes, fov=None, face_px=None, fov_by_face=None):
+    """The feature: 360 bytes in, {face_name: PIL.Image} out.
+
+    fov_by_face lets the six faces DISAGREE, which they must. A gnomonic face
+    covers a square on the plane it looks at, sized by the distance to that
+    plane -- and the floor is at the camera's height above it while a wall is
+    half the room away, so the requirements differ by tens of degrees. In a
+    20x18 ft room the walls want 106 and the floor wants 144. One number for
+    all six either truncates the floor corners or throws away the wall
+    resolution every measurement is read from.
+
+    The map may be partial: a face it does not name falls back to `fov`, so a
+    caller with no room dimensions -- every capture taken before this existed
+    -- still splits exactly as it used to. Mirrors
+    Panorama.splitEquirectPerFace on the phone; the projection-contract CI job
+    holds the two to identical output.
+    """
     fov, face_px = clamp_params(fov, face_px)
+    per_face = {}
+    for name, value in (fov_by_face or {}).items():
+        per_face[name] = clamp_params(value, face_px)[0]
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     if not looks_equirect(img.width, img.height):
         raise ValueError(
@@ -129,17 +147,19 @@ def split_equirect(image_bytes, fov=None, face_px=None):
         img = img.resize((MAX_PANO_WIDTH, MAX_PANO_WIDTH // 2), Image.LANCZOS)
     pano = np.asarray(img, dtype=np.uint8)
     return {
-        name: Image.fromarray(face_from_equirect(pano, yaw, pitch, fov, face_px))
+        name: Image.fromarray(
+            face_from_equirect(pano, yaw, pitch, per_face.get(name, fov), face_px))
         for name, yaw, pitch in FACES
     }
 
 
-def split_to_jpeg(image_bytes, fov=None, face_px=None, quality=90):
+def split_to_jpeg(image_bytes, fov=None, face_px=None, quality=90, fov_by_face=None):
     """{face_name: JPEG bytes} — what the frappe layer attaches as Files.
     JPEG, not PNG: these are photographs, and six 1600² PNGs of a building
     site would cost megabytes each for nothing."""
     out = {}
-    for name, img in split_equirect(image_bytes, fov=fov, face_px=face_px).items():
+    for name, img in split_equirect(image_bytes, fov=fov, face_px=face_px,
+                                    fov_by_face=fov_by_face).items():
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=quality, optimize=True)
         out[name] = buf.getvalue()

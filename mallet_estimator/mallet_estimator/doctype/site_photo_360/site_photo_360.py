@@ -6,7 +6,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from mallet_estimator import panorama
+from mallet_estimator import capture_geometry, panorama
 
 FACE_FIELDS = {name: f"face_{name}" for name in panorama.FACE_NAMES}
 
@@ -82,9 +82,34 @@ def run_split(name):
         frappe.log_error(frappe.get_traceback(), f"Site Photo split: {name}")
 
 
+def _fov_by_face(doc):
+    """Per-face FOV from the room's measured dimensions, or None.
+
+    THE SIX FACES DO NOT WANT THE SAME NUMBER AND NEVER DID. A gnomonic face
+    covers a square on the plane it looks at, sized by the distance to that
+    plane -- the floor is at the camera's height above it while a wall is half
+    the room away. In a 20x18 ft room the walls want 106 degrees and the floor
+    wants 144. Sizing everything from the walls, which is what a single `fov`
+    does, truncated the floor corners in every ordinary room; small rooms
+    passed by accident because their wall requirement was large enough to
+    cover the floor too.
+
+    None whenever the dimensions are absent or not a room, and then the
+    caller's single `fov` applies exactly as before -- which is what every
+    capture taken before this field existed will do.
+    """
+    if not doc.meta.has_field("room_length_in"):
+        return None
+    plan = capture_geometry.plan_for_room(
+        doc.get("room_length_in"), doc.get("room_width_in"),
+        doc.get("room_height_in"))
+    return plan["fov_by_face"] if plan else None
+
+
 def _split(doc):
     content = _private_pano_content(doc)
-    faces = panorama.split_to_jpeg(content, doc.fov, doc.face_px)
+    faces = panorama.split_to_jpeg(
+        content, doc.fov, doc.face_px, fov_by_face=_fov_by_face(doc))
 
     for face, field in FACE_FIELDS.items():
         _drop_old_face(doc, field)

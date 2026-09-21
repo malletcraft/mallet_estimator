@@ -45,6 +45,13 @@ object FaceWriter {
         captureDate: String,
         stage: String,
         fov: Double,
+        /** Per-face FOV from the measured room. The six faces of a room do
+         *  not want the same number: the floor is at the camera's height
+         *  above it while a wall is half the room away, so in a 20x18 ft room
+         *  the walls want 106 degrees and the floor wants 144. A face absent
+         *  from the map falls back to `fov`, which is every capture taken
+         *  before the room was measured. */
+        fovByFace: Map<String, Double> = emptyMap(),
         facePx: Int = Panorama.DEFAULT_FACE_PX,
         panoDir: File,
     ): Pair<Result, File> {
@@ -89,7 +96,8 @@ object FaceWriter {
         val relPath = Handover.relativePath(customerName, projectTitle, room)
         var written = 0
         for ((face, yaw, pitch) in Panorama.FACES) {
-            val img = Panorama.faceFromEquirect(pano, yaw, pitch, fov, facePx)
+            val faceFov = fovByFace[face]?.let { Panorama.clampFov(it) } ?: fov
+            val img = Panorama.faceFromEquirect(pano, yaw, pitch, faceFov, facePx)
             val captioned = captioned(img, Handover.captionText(
                 deviceId, room, face, captureDate, stage), deviceId, face)
             try {

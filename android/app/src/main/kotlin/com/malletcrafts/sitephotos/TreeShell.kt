@@ -494,6 +494,7 @@ fun CaptureSheet(
      *  not silently a 1 ft room while his thumb is still moving. */
     roomLength: String,
     roomWidth: String,
+    roomHeight: String,
     /** Null on the public build, which has no SDK and no 360 camera. */
     hasCamera: Boolean,
     cameraConnected: Boolean,
@@ -502,6 +503,7 @@ fun CaptureSheet(
     onStage: () -> Unit,
     onRoomLength: (String) -> Unit,
     onRoomWidth: (String) -> Unit,
+    onRoomHeight: (String) -> Unit,
     onPick: () -> Unit,
     onCamera: () -> Unit,
     onShoot: () -> Unit,
@@ -520,80 +522,96 @@ fun CaptureSheet(
                 supportingContent = { Text("tap to change — it can be corrected on the photo too") },
                 modifier = Modifier.clickableRow(onStage))
 
-            Text("ROOM DIMENSIONS",
+            Text("ROOM DIMENSIONS (INCHES)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 4.dp))
-            // Amit, 2026-09-04: "i always measure room length and width to
-            // determine the center of the room. give me a option to enter
-            // these dimensions before i shoot 360 so that fov can be adjusted
-            // automatically per room."
+            // Amit, 2026-09-21: "capture all 3 sides of a room in inches by
+            // the user and decide correct FOV based on the room. that should
+            // tell where camera should be in the room by all its axes x,y,z.
+            // you can automatically adjust FOV for all 6 faces so that all 4
+            // corners of each face is available by just showing 10% of the
+            // adjacent walls to distinguish the face being measured."
             //
-            // He arrives holding these two numbers, so the presets were asking
-            // him to round his own measurement into somebody else's bucket —
-            // and rounding DOWN truncates walls, which is what "fov is still
-            // small" looks like standing in the room. An 8x16 ft bedroom
-            // rounds to "Medium" and comes out about 19 degrees short.
-            // CaptureGeometry.adviseForRoom holds the maths and the test.
-            val advice = CaptureGeometry.adviseForRoom(
-                roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull())
+            // Three numbers, not two: HEIGHT is the term the old maths left
+            // out, and it is the one that governs the floor. The floor face
+            // needs 2*atan(half-diagonal / camera height), so a hardcoded
+            // 9.5 ft ceiling made the same room behave differently on
+            // different days. Inches because that is what the tape reads --
+            // rounding a room to feet moves the answer by degrees.
+            val plan = CaptureGeometry.planForRoom(
+                roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull(),
+                roomHeight.toDoubleOrNull())
+            val anyTyped = roomLength.isNotBlank() || roomWidth.isNotBlank() ||
+                roomHeight.isNotBlank()
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
-                    value = roomLength,
-                    onValueChange = onRoomLength,
-                    label = { Text("Length (ft)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal),
+                    value = roomLength, onValueChange = onRoomLength,
+                    label = { Text("Length") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
                 OutlinedTextField(
-                    value = roomWidth,
-                    onValueChange = onRoomWidth,
-                    label = { Text("Width (ft)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal),
+                    value = roomWidth, onValueChange = onRoomWidth,
+                    label = { Text("Width") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(
+                    value = roomHeight, onValueChange = onRoomHeight,
+                    label = { Text("Height") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
             }
-            // The number is shown because it is the whole point of typing the
-            // dimensions, and because a face that cannot hold every corner has
-            // to SAY so — clamping quietly is what makes a truncated wall read
-            // as the app getting it wrong rather than the room being too tight.
+
+            // WHERE TO STAND. The plan is useless if he is not at the point
+            // it was computed for, and "the centre" is not a measurement --
+            // these are, and they are in the same units he just typed.
+            if (plan != null) {
+                val s = plan.station
+                Text(
+                    "Stand ${s.x}\" from one end wall and ${s.y}\" from one " +
+                    "side wall, camera LEVEL at ${s.z}\" above the floor.",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            }
+
+            // The per-face numbers, because they are the whole point of
+            // typing the dimensions -- and because a face that cannot hold
+            // every corner has to SAY so. Clamping quietly is what makes a
+            // truncated floor read as the app getting it wrong rather than
+            // the room being too big to shoot from its centre.
             Text(
                 when {
-                    advice == null && (roomLength.isNotBlank() || roomWidth.isNotBlank()) ->
-                        "Enter both, in feet, between " +
-                        "${CaptureGeometry.MIN_ROOM_FT.toInt()} and " +
-                        "${CaptureGeometry.MAX_ROOM_FT.toInt()}."
-                    advice == null ->
-                        "Measure the room and the faces are sized to it. " +
+                    plan == null && anyTyped ->
+                        "All three, in INCHES. Walls " +
+                        "${CaptureGeometry.MIN_ROOM_IN.toInt()}\u2013" +
+                        "${CaptureGeometry.MAX_ROOM_IN.toInt()}, ceiling " +
+                        "${CaptureGeometry.MIN_CEILING_IN.toInt()}\u2013" +
+                        "${CaptureGeometry.MAX_CEILING_IN.toInt()}. " +
+                        "A 10\u00d712 ft room is 120 \u00d7 144."
+                    plan == null ->
+                        "Measure the room and every face is sized to it. " +
                         "Left blank, the split uses the office default."
-                    advice.fitted ->
-                        "Faces at ${advice.rounded}° — every corner of every " +
-                        "wall, shot from the centre."
+                    plan.fitted ->
+                        "Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and " +
+                        "ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 all four " +
+                        "corners of each face, plus a tenth of the " +
+                        "neighbouring walls so you can tell them apart."
                     else ->
-                        "Faces at ${advice.rounded}°, the widest that stays " +
-                        "readable. This room needs ${Math.round(advice.requiredDeg)}° " +
-                        "from its centre, so the far corners will still crop — " +
-                        "shoot from a corner instead, or accept it."
+                        "This room needs ${Math.round(plan.floorFovDeg)}\u00b0 on its " +
+                        "${plan.unfittedFaces.joinToString("/")} face, past what the " +
+                        "split can sample. Those corners will still crop \u2014 " +
+                        "shoot it in two halves, or accept it."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (advice != null && !advice.fitted)
+                color = if (plan != null && !plan.fitted)
                             MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-
-            Text(
-                "Shoot from the room centre, camera LEVEL at half ceiling height " +
-                "(≈4 ft 9 in under a 9½ ft ceiling) — then every wall keeps all " +
-                "four corners after the split.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp))
 
             if (hasCamera) {
                 ListItem(

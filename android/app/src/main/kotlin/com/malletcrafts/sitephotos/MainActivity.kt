@@ -160,11 +160,19 @@ private fun AppScreen() {
     val capturePrefs = remember {
         context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
     }
+    // INCHES, and new pref keys on purpose. The old pair held FEET, and a
+    // "10" left over from that build would read as 10 inches here -- refused
+    // as not-a-room rather than silently quartering every FOV, but only
+    // because the keys changed. Reusing them would have been the quiet kind
+    // of wrong.
     var roomLength by remember {
-        mutableStateOf(capturePrefs.getString("room_len_ft", "").orEmpty())
+        mutableStateOf(capturePrefs.getString("room_len_in", "").orEmpty())
     }
     var roomWidth by remember {
-        mutableStateOf(capturePrefs.getString("room_wid_ft", "").orEmpty())
+        mutableStateOf(capturePrefs.getString("room_wid_in", "").orEmpty())
+    }
+    var roomHeight by remember {
+        mutableStateOf(capturePrefs.getString("room_hgt_in", "").orEmpty())
     }
     var updateJson by remember {
         mutableStateOf(capturePrefs.getString("update_available", null))
@@ -312,8 +320,19 @@ private fun AppScreen() {
                 // Measured room first; the office default only when he has
                 // not given one, so a blank pair degrades to what the bench
                 // says rather than to a guess made here.
-                val fov = CaptureGeometry.adviseForRoom(
-                        roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull())?.fovDeg
+                // The measured room decides all six faces. They do not want
+                // the same number: the floor is at the camera's height above
+                // it while a wall is half the room away, so a 20x18 ft room
+                // wants 106 degrees on its walls and 144 on its floor. One
+                // number for all six is what cropped the floor corners.
+                val plan = CaptureGeometry.planForRoom(
+                    roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull(),
+                    roomHeight.toDoubleOrNull())
+                val perFace = plan?.clampedByFace ?: emptyMap()
+                // Still one number for the fallback, because an unmeasured
+                // room has nothing better and the bench default is what it
+                // would have had anyway.
+                val fov = plan?.wallFovDeg
                     ?: masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
                     ?: Panorama.DEFAULT_FOV
                 val (result, pano) = if (kind == "Photo")
@@ -327,6 +346,7 @@ private fun AppScreen() {
                         context = context, source = uri, deviceId = id,
                         customerName = p.customer, projectTitle = p.title,
                         room = r, captureDate = today, stage = stageNow, fov = fov,
+                        fovByFace = perFace,
                         panoDir = File(context.filesDir, "panos"))
                 store.insert(CaptureStore.Capture(
                     deviceId = id, project = p.name, projectTitle = p.title,
@@ -336,7 +356,11 @@ private fun AppScreen() {
                     serverName = null, error = null, kind = kind,
                     // Only a 360 is projected, so only a 360 carries an angle.
                     // A flat Photo sends none and the bench leaves it alone.
-                    fov = if (kind == "Photo") 0.0 else fov))
+                    fov = if (kind == "Photo") 0.0 else fov,
+                    // A flat Photo is not projected, so it carries no room.
+                    roomLengthIn = if (kind == "Photo") 0.0 else (plan?.lengthIn ?: 0.0),
+                    roomWidthIn = if (kind == "Photo") 0.0 else (plan?.widthIn ?: 0.0),
+                    roomHeightIn = if (kind == "Photo") 0.0 else (plan?.heightIn ?: 0.0)))
                 result
             }
             withContext(Dispatchers.Main) {
@@ -1553,6 +1577,7 @@ private fun AppScreen() {
             stage = stage.ifBlank { navProject?.stage.orEmpty() },
             roomLength = roomLength,
             roomWidth = roomWidth,
+            roomHeight = roomHeight,
             hasCamera = cam != null,
             cameraConnected = camConnected,
             cameraNote = camNote,
@@ -1560,11 +1585,15 @@ private fun AppScreen() {
             onStage = { showCaptureSheet = false; showStagePicker = true },
             onRoomLength = { v ->
                 roomLength = v
-                capturePrefs.edit().putString("room_len_ft", v).apply()
+                capturePrefs.edit().putString("room_len_in", v).apply()
+            },
+            onRoomHeight = { v ->
+                roomHeight = v
+                capturePrefs.edit().putString("room_hgt_in", v).apply()
             },
             onRoomWidth = { v ->
                 roomWidth = v
-                capturePrefs.edit().putString("room_wid_ft", v).apply()
+                capturePrefs.edit().putString("room_wid_in", v).apply()
             },
             onPick = {
                 showCaptureSheet = false

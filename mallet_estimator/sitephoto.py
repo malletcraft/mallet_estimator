@@ -14,7 +14,7 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import cint, now_datetime, today
+from frappe.utils import cint, flt, now_datetime, today
 
 from mallet_estimator import estimator, handover, panorama, worksite
 
@@ -253,7 +253,8 @@ def article_master(job_type=None):
 @frappe.whitelist()
 def create_capture(project, room, capture_date=None, stage=None, fov=None,
                    device_capture_id=None, app_version=None, work_stage=None,
-                   sku=None, capture_kind=None):
+                   sku=None, capture_kind=None,
+                   room_length_in=None, room_width_in=None, room_height_in=None):
     """Step 1 of a capture: the record. The phone then uploads the pano
     against this docname and calls bind_pano().
 
@@ -288,6 +289,16 @@ def create_capture(project, room, capture_date=None, stage=None, fov=None,
         "device_capture_id": device_capture_id,
     })
     meta = frappe.get_meta(DOCTYPE)
+    # The measured room, in inches. The six face FOVs are derived from these
+    # at split time rather than being sent as six numbers, so there is ONE
+    # source of truth and the phone and the bench cannot disagree about a
+    # capture. Guarded because a phone on yesterday's build sends none of
+    # them, and a bench on yesterday's build has nowhere to put them.
+    for field, value in (("room_length_in", room_length_in),
+                         ("room_width_in", room_width_in),
+                         ("room_height_in", room_height_in)):
+        if meta.has_field(field) and value not in (None, ""):
+            doc.set(field, flt(value))
     # A flat photograph is a first-class capture, not a degraded 360. A repair
     # job is a close-up of a broken hinge; splitting that into six faces would
     # be nonsense, and refusing to file it at all is why people fall back to

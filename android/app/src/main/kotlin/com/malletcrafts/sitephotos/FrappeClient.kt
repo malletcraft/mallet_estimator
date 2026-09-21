@@ -83,7 +83,10 @@ class FrappeClient(private val baseUrl: String, private val key: String,
                       stage: String, deviceCaptureId: String,
                       appVersion: String = "", sku: String = "",
                       workStage: String = "", captureKind: String = "360",
-                      fov: Double = 0.0): JSONObject =
+                      fov: Double = 0.0,
+                      roomLengthIn: Double = 0.0,
+                      roomWidthIn: Double = 0.0,
+                      roomHeightIn: Double = 0.0): JSONObject =
         post("mallet_estimator.sitephoto.create_capture", JSONObject()
             .put("project", project)
             .put("room", room)
@@ -120,7 +123,23 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             // Omitted rather than sent as 0 when unknown: a queued capture
             // from an older build, or a flat Photo, must keep getting the
             // bench default it would have got anyway.
-            .apply { if (fov > 0) put("fov", fov) })
+            .apply { if (fov > 0) put("fov", fov) }
+            // THE MEASURED ROOM, in inches, from which the bench derives the
+            // per-face FOV itself.
+            //
+            // The room and not the six angles, deliberately: one source of
+            // truth means the phone and the bench cannot disagree about a
+            // capture, and a fix to the geometry reaches old captures on the
+            // next re-split instead of being frozen into them. Omitted when
+            // unmeasured, so a queued capture from an older build still gets
+            // exactly the single-FOV treatment it expects.
+            .apply {
+                if (roomLengthIn > 0 && roomWidthIn > 0 && roomHeightIn > 0) {
+                    put("room_length_in", roomLengthIn)
+                    put("room_width_in", roomWidthIn)
+                    put("room_height_in", roomHeightIn)
+                }
+            })
 
     /** Resolve — or create — a room on the bench.
      *
