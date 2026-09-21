@@ -824,7 +824,7 @@ def ensure_room(room_name):
     Amit, 2026-09-21: "In mcft site foto, can i add new room under project? I
     can not see any option for that." He could not, and the wall was real: the
     room list is a MASTER, the phone only ever picked from it, and a room that
-    was not one of the thirteen had nowhere to go but "Other" — which files the
+    was not in the master had nowhere to go but "Other" — which files the
     capture and loses which room it was.
 
     Rooms stay a master rather than free text for a reason that is not

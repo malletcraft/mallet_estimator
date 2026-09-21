@@ -161,7 +161,7 @@ class TestSitePhotoApi(MalletTestCase):
         """The first room somebody is likely to add.
 
         "Powder Room" abbreviates to PR, and "Pooja Room" — one of the
-        thirteen seeded rooms — already does. Without the guard the new room
+        seeded rooms — already does. Without the guard the new room
         would be created and one of the two would become unreachable by its
         SKU code, silently and for ever."""
         with self.assertRaises(frappe.ValidationError) as caught:
