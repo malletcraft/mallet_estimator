@@ -1723,6 +1723,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # by décor because that is what you buy — see estimator.purchase_lines.
         "purchase": estimator.purchase_lines(material_rows),
         "sandwich": estimator.sandwich_check(material_rows),
+        # The same idea for hardware: what OpenCutList counted against what
+        # got priced. Boards have had this since the sandwich line; hardware
+        # had nothing, and four casters went missing in silence (2026-09-20).
+        "hardware_tally": estimator.hardware_tally(hw, material_rows),
         # THE THREE TOTALS, and material broken into the families Amit named
         # (2026-09-02). Assembled from the same rows the tables above render,
         # so the summary cannot disagree with what is on screen.

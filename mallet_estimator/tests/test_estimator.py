@@ -1688,3 +1688,59 @@ class TestDesignSteps(unittest.TestCase):
         for t in E.DESIGN_STEP_TEMPLATE:
             self.assertEqual(t["phase"] in E.DESIGN_PER_VISIT,
                              not t.get("in_factory"), t["phase"])
+
+
+class TestHardwarePiecesBalance(unittest.TestCase):
+    """The casters, and why a count needs a line of its own.
+
+    Amit, 2026-09-20: "skp and native OCL has reported casters but MOP does
+    not show casters why?" OpenCutList's Hardware table on SC_KB_FP_Estimate
+    totalled 43 pieces; the estimate priced 39. The gap was HWD_Caster's four,
+    and nothing on the page said a number had gone missing — the line was
+    simply not there, which is indistinguishable from a model that has no
+    casters in it.
+    """
+
+    OCL = [{"code": "HWD_Caster", "qty": 4}, {"code": "HWD_Handle", "qty": 9},
+           {"code": "HWD_Hinge", "qty": 10}, {"code": "HWD_MiniFix", "qty": 20}]
+
+    def _priced(self, *pieces):
+        return [{"kind": "hardware", "pieces": n} for n in pieces]
+
+    def test_the_real_case_is_reported_not_hidden(self):
+        t = E.hardware_tally(self.OCL, self._priced(20, 10, 5, 4))
+        self.assertEqual(t["counted"], 43)
+        self.assertEqual(t["priced"], 39)
+        self.assertEqual(t["missing"], 4, "the four casters")
+        self.assertFalse(t["matches"])
+
+    def test_a_complete_estimate_balances(self):
+        t = E.hardware_tally(self.OCL, self._priced(20, 10, 5, 4, 4))
+        self.assertTrue(t["matches"])
+        self.assertEqual(t["missing"], 0)
+
+    def test_more_lines_than_ocl_still_balances_on_pieces(self):
+        # The designation lookup splits the coarse HWD_Handle 9 into two real
+        # SKUs, 5 + 4. That is the feature working, not a discrepancy, so the
+        # check must count PIECES and never lines.
+        t = E.hardware_tally(self.OCL, self._priced(20, 10, 5, 4, 4))
+        self.assertTrue(t["matches"], "splitting one material into two SKUs "
+                                      "must not read as a mismatch")
+
+    def test_a_packet_line_counts_its_pieces_not_its_packets(self):
+        # Hardware bought by the packet carries qty=packets and pieces=units.
+        # Counting qty here would under-report and cry wolf on every estimate
+        # that rounds up to a packet.
+        rows = [{"kind": "hardware", "qty": 3, "pieces": 6}]
+        t = E.hardware_tally([{"code": "HWD_Hinge", "qty": 6}], rows)
+        self.assertTrue(t["matches"], t)
+
+    def test_non_hardware_rows_are_ignored(self):
+        rows = self._priced(20, 10, 5, 4, 4) + [
+            {"kind": "sheet", "qty": 8}, {"kind": "laminate", "qty": 11}]
+        self.assertTrue(E.hardware_tally(self.OCL, rows)["matches"])
+
+    def test_an_estimate_with_no_hardware_is_not_a_mismatch(self):
+        t = E.hardware_tally([], [{"kind": "sheet", "qty": 8}])
+        self.assertTrue(t["matches"])
+        self.assertEqual(t["missing"], 0)

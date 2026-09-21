@@ -1078,6 +1078,41 @@ def group_totals(families):
     return out
 
 
+def hardware_tally(hw, rows):
+    """What OpenCutList counted against what the estimate priced.
+
+    The sandwich line already does this for boards — ply against laminate —
+    and it exists because a count that silently drifts is the failure this
+    app keeps meeting. Hardware had no such line, and on 2026-09-20 that cost
+    a real one: OpenCutList's own Hardware table totalled 43 pieces
+    (HWD_Caster 4, HWD_Handle 9, HWD_Hinge 10, HWD_MiniFix 20) while the
+    estimate priced 39. Amit: "skp and native OCL has reported casters but
+    MOP does not show casters why?" The four were the casters, and nothing on
+    the page said a number had gone missing — the line was simply absent.
+
+    `hw` is opencutlist.hardware_list's output: what arrived in the CSV.
+    `rows` are the priced material rows. The two disagree when a piece is
+    dropped between them, which is exactly the case worth naming.
+
+    Counted in PIECES, not lines, because lines legitimately differ: the
+    coarse material HWD_Handle resolves into two real SKUs, which is the
+    designation lookup working. Pieces are what must balance.
+    """
+    counted = int(sum(float(h.get("qty") or 0) for h in (hw or [])))
+    priced_rows = [r for r in (rows or []) if r.get("kind") == "hardware"]
+    # pieces where the line knows them (a packet holds several), else qty
+    priced = 0
+    for r in priced_rows:
+        n = r.get("pieces")
+        priced += int(float(n if n not in (None, "") else (r.get("qty") or 0)))
+    return {
+        "counted": counted,
+        "priced": priced,
+        "missing": max(0, counted - priced),
+        "matches": counted == priced,
+    }
+
+
 def sandwich_check(rows):
     """Ply sheets against laminate sheets, as the shop presses them.
 
