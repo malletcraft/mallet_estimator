@@ -20,6 +20,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflows:
+    name: Workflows parse the way GitHub reads them
+    runs-on: ubuntu-latest
+    # Its own job, because the failure it catches is invisible everywhere
+    # else: GitHub REJECTS a workflow with a duplicate key at startup and
+    # reports a completed run with ZERO JOBS and no annotations, which reads
+    # exactly like a run that has not started. yaml.safe_load tolerates the
+    # duplicate by keeping the last, so local validation passes. That cost a
+    # day once.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install pyyaml
+      - run: python3 tools/lint_workflows.py
+
   unit:
     name: Unit (pure Python)
     runs-on: ubuntu-latest

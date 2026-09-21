@@ -1,0 +1,94 @@
+name: FC build log (read-only)
+
+# Why this exists, 2026-09-21: a deploy died at the BENCH IMAGE build, in an
+# app that is not ours -- `bench build --app lms`, a yarn/esbuild failure.
+# deploy-staging.yml prints the failing step with `tail -80`, and a Python
+# traceback is far longer than that, so the tail showed the re-raise chain and
+# cut off the ACTUAL yarn error at the top. The failure was legible as "lms
+# broke" and illegible as to why.
+#
+# So this prints the HEAD of each failing step as well as its tail, and lists
+# what the bench is built from. Read-only: it reads two doctypes and changes
+# nothing, which is what makes it safe to run while a deploy is broken.
+#
+# Plain echo throughout, never ::notice::. GitHub silently drops the eleventh
+# annotation of a level in a step (recorded in CLAUDE.md, cost a diagnosis),
+# and a log dump would blow through ten immediately.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: "Deploy Candidate Build name (e.g. 94kkr57ee1) - from the deploy job's error line"
+        required: true
+
+jobs:
+  log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Failing build steps, head and tail
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_BENCH: ${{ vars.FC_BENCH != '' && vars.FC_BENCH || 'bench-44687' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+          BUILD: ${{ github.event.inputs.build }}
+        run: |
+          set -uo pipefail
+          call() {   # call <method> <json-body> -> BODY
+            BODY=$(curl -sSL --max-time 60 -X POST "https://$FC_HOST/api/method/$1" \
+              -H "Authorization: token $FC_KEY:$FC_SECRET" \
+              -H "Content-Type: application/json" -d "$2")
+          }
+
+          call press.api.client.get "$(jq -nc --arg n "$BUILD" \
+            '{doctype:"Deploy Candidate Build", name:$n}')"
+
+          # An empty answer and a refused read look identical over this API --
+          # this repo has been fooled by that before -- so say which it was
+          # rather than printing nothing and exiting green.
+          if ! printf '%s' "$BODY" | jq -e . >/dev/null 2>&1; then
+            echo "::error::Build $BUILD did not return JSON. First 500 bytes follow."
+            printf '%s' "$BODY" | head -c 500; echo
+            exit 1
+          fi
+
+          echo "=== build $BUILD ==="
+          printf '%s' "$BODY" | jq -r '.message | {status, build_start, build_end, error}'
+
+          N=$(printf '%s' "$BODY" | jq -r '[.message.build_steps[]? | select(.status=="Failure")] | length')
+          echo "failing steps: $N"
+          if [ "$N" = "0" ]; then
+            echo "No step is marked Failure. The build may have died before any step ran,"
+            echo "or this account cannot read build_steps. Last 60 lines of build_output:"
+            printf '%s' "$BODY" | jq -r '.message.build_output // "(build_output empty or not readable)"' | tail -60
+          fi
+
+          echo
+          echo "=== failing steps, FIRST 150 lines each (where the real error is) ==="
+          printf '%s' "$BODY" | jq -r '.message.build_steps[]? | select(.status=="Failure")
+            | "########## STEP: \(.stage_slug // .stage) / \(.step_slug // .step)",
+              ((.output // .command_output // "(no output)") | split("\n") | .[0:150] | .[])'
+
+          echo
+          echo "=== failing steps, LAST 60 lines each (the re-raise chain) ==="
+          printf '%s' "$BODY" | jq -r '.message.build_steps[]? | select(.status=="Failure")
+            | "########## STEP: \(.stage_slug // .stage) / \(.step_slug // .step)",
+              ((.output // .command_output // "") | split("\n") | .[-60:] | .[])'
+
+      - name: What this bench is built from
+        if: always()
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_BENCH: ${{ vars.FC_BENCH != '' && vars.FC_BENCH || 'bench-44687' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+        run: |
+          set -uo pipefail
+          # Every app in the release group, with the branch and commit it
+          # tracks. An app that broke without anybody here touching it moved
+          # on its own, and this is where that shows.
+          curl -sSL --max-time 60 -X POST "https://$FC_HOST/api/method/press.api.bench.deploy_information" \
+            -H "Authorization: token $FC_KEY:$FC_SECRET" -H "Content-Type: application/json" \
+            -d "{\"name\":\"$FC_BENCH\"}" \
+          | jq -r '.message.apps[]? | "\(.app)  branch=\(.branch // "?")  current=\(.current_hash // "?" | .[0:12])  next=\(.next_release // "-")  update_available=\(.update_available)"'
