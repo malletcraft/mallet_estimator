@@ -42,7 +42,37 @@ mkdir -p "$WORK"
 exec >>"$LOG" 2>&1
 
 command -v tmux >/dev/null || { echo "$(date '+%F %T') tmux missing"; exit 0; }
-command -v claude >/dev/null || { echo "$(date '+%F %T') claude missing"; exit 0; }
+
+# FIND claude RATHER THAN TRUST launchd's PATH.
+#
+# 2026-09-21, from this log: the bridge started fine on 17 Sep and reported
+# "claude missing" from 19 Sep on -- so the binary MOVED. launchd does not
+# read a login shell's profile; the plist hardcodes
+# /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin, and Claude Code's native
+# installer puts its launcher in ~/.local/bin and removes the npm/homebrew
+# one. `claude` therefore stayed on Amit's PATH in Terminal and vanished from
+# launchd's, which is why this looked like a machine problem and was a
+# one-line environment problem.
+#
+# The old check also made a dead end of it: "claude missing" says a name was
+# not found, never WHERE it looked, so nobody could tell a moved binary from
+# an uninstalled one. It now names every path tried.
+CLAUDE=""
+for c in "$(command -v claude 2>/dev/null || true)" \
+         "$HOME/.local/bin/claude" \
+         "$HOME/.claude/local/claude" \
+         "$HOME/bin/claude" \
+         /opt/homebrew/bin/claude \
+         /usr/local/bin/claude; do
+  [ -n "$c" ] && [ -x "$c" ] && { CLAUDE="$c"; break; }
+done
+if [ -z "$CLAUDE" ]; then
+  echo "$(date '+%F %T') claude not found. Tried: PATH ($PATH), ~/.local/bin," \
+       "~/.claude/local, ~/bin, /opt/homebrew/bin, /usr/local/bin."
+  echo "$(date '+%F %T')   Find it with: which claude   (in Terminal), then add" \
+       "its directory to the plist PATH in ~/Library/LaunchAgents/com.malletcrafts.claudebridge.plist"
+  exit 0
+fi
 
 # Alive? tmux knowing the session is not enough — the pane can hold a dead
 # shell after the CLI crashes, which looks identical from the outside and is
@@ -88,7 +118,7 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   tmux kill-session -t "$SESSION" 2>/dev/null || true
 fi
 
-echo "$(date '+%F %T') starting bridge as '$RC_NAME'"
+echo "$(date '+%F %T') starting bridge as '$RC_NAME' using $CLAUDE"
 # remain-on-exit keeps a crashed pane readable instead of vanishing, so the
 # next tick can SEE that it died and this log can say when.
 # -c "$WORK": a FIXED working directory. Claude's folder trust is recorded
@@ -96,6 +126,6 @@ echo "$(date '+%F %T') starting bridge as '$RC_NAME'"
 # the prompt can come back on a directory nobody answered for, which is how a
 # bridge that worked last week asks again this week.
 tmux new-session -d -s "$SESSION" -c "$WORK" \
-  "caffeinate -is claude --remote-control $RC_NAME"
+  "caffeinate -is '$CLAUDE' --remote-control $RC_NAME"
 tmux set-option -t "$SESSION" remain-on-exit on 2>/dev/null || true
 echo "$(date '+%F %T') started (attach with: tmux attach -t $SESSION)"
