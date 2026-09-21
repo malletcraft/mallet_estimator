@@ -202,3 +202,8 @@ mallet_estimator.patches.hardware_parent_minutes
 # price"). A patch and not just after_migrate, because a Python-only deploy
 # runs no migrate at all and the field would sit in source, unreachable.
 mallet_estimator.patches.item_pieces_per_packet
+# post_model_sync: the room master grows from 13 to 29 — five bedrooms, five
+# numbered toilets, and the row-house rooms (terrace, staircase, car porch,
+# garden, servant room). Amit, 2026-09-21: the thirteen did not cover a 3 BHK.
+# post, not pre: Estimate Room's doctype must exist before rows go into it.
+mallet_estimator.patches.seed_expanded_rooms

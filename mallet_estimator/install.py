@@ -236,9 +236,41 @@ def _company_for_tax():
     )
 
 
+# The rooms a Pune job actually has. Amit, 2026-09-21: "expand a master list
+# as its not even covering 3 BHK in pune. Cover till 5 bhk and typical row
+# houses."
+#
+# The thirteen this replaced carried ONE bathroom and THREE bedrooms, so a
+# 3 BHK already ran out and every extra bathroom collapsed onto one name —
+# every capture for both filed under "Bathroom", which files them and loses
+# which one it was.
+#
+# EVERY NAME HERE HAS TO EARN A UNIQUE ABBREVIATION, and that is what shapes
+# the vocabulary rather than taste. room_abbr takes initials from a multi-word
+# name, so the obvious names collide with the bedrooms they belong to:
+# Master Bathroom is MB and so is Master Bedroom; Guest Bathroom is GB; Kids
+# Bathroom is KB; Powder Room is PR and so is Pooja Room; Drawing Room is DR
+# and so is Dining Room. A collision is not a warning — _room_for_token maps
+# abbreviation to room with setdefault, so the loser becomes unreachable by
+# its own SKU code, silently and for ever.
+#
+# Hence "Toilet N": T1-T5 are free, unambiguous, and already the word this
+# app's own offline fallback list uses. Bedrooms 4 and 5 are numbered for the
+# same reason — B4 and B5 are free where a fourth adjective would not have
+# been. test_room_abbreviations_stay_unique holds the whole list to it.
 DEFAULT_ROOMS = [
-    "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Living Room", "Dining Room",
-    "Kitchen", "Study", "Pooja Room", "Foyer", "Balcony", "Bathroom", "Utility", "Other",
+    # Bedrooms — up to five.
+    "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Bedroom 4", "Bedroom 5",
+    # Bathrooms. "Bathroom" stays for every capture already filed against it.
+    "Bathroom", "Toilet 1", "Toilet 2", "Toilet 3", "Toilet 4", "Toilet 5",
+    # Living and social.
+    "Living Room", "Dining Room", "Family Lounge", "Home Theatre",
+    # Working.
+    "Kitchen", "Study", "Utility", "Store", "Servant Room",
+    # Circulation and outdoor — the row-house half.
+    "Foyer", "Passage", "Staircase", "Balcony", "Terrace", "Car Porch", "Garden",
+    # Devotional, and the catch-all.
+    "Pooja Room", "Other",
 ]
 
 

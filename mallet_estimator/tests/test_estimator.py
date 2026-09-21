@@ -1744,3 +1744,67 @@ class TestHardwarePiecesBalance(unittest.TestCase):
         t = E.hardware_tally([], [{"kind": "sheet", "qty": 8}])
         self.assertTrue(t["matches"])
         self.assertEqual(t["missing"], 0)
+
+
+class TestRoomMaster(unittest.TestCase):
+    """The room master, held to the two rules that make it usable.
+
+    Both are read out of SOURCE by ast/regex rather than by importing
+    install.py, which needs frappe — this layer has no bench. Parsing the
+    literal is not a weaker check here: the list IS a literal, and a
+    malformed one fails the parse, which is the third thing this catches.
+    """
+
+    @staticmethod
+    def _master():
+        import ast
+        import pathlib
+
+        import mallet_estimator
+        src = (pathlib.Path(mallet_estimator.__file__).parent / "install.py").read_text()
+        for node in ast.parse(src).body:
+            if isinstance(node, ast.Assign) and any(
+                    getattr(t, "id", None) == "DEFAULT_ROOMS" for t in node.targets):
+                return [ast.literal_eval(e) for e in node.value.elts]
+        raise AssertionError("DEFAULT_ROOMS not found in install.py")
+
+    @staticmethod
+    def _fallback():
+        import pathlib
+        import re
+
+        import mallet_estimator
+        kt = (pathlib.Path(mallet_estimator.__file__).parent.parent
+              / "android/app/src/main/kotlin/com/malletcrafts/sitephotos/Catalogue.kt")
+        if not kt.exists():          # the bench installs no android/ tree
+            return None
+        body = re.search(r"FALLBACK_ROOMS\s*=\s*listOf\((.*?)\n\s*\)", kt.read_text(), re.S)
+        assert body, "FALLBACK_ROOMS is no longer a listOf literal"
+        return re.findall(r'"([^"]+)"', body.group(1))
+
+    def test_every_room_abbreviation_is_unique(self):
+        # A collision is not a warning. _room_for_token maps abbreviation to
+        # room with setdefault, so the loser becomes unreachable by its own
+        # SKU code -- silently, and for ever. This is why the master cannot
+        # have "Master Bathroom" (MB, taken by Master Bedroom) or "Powder
+        # Room" (PR, taken by Pooja Room), and why the toilets are numbered.
+        seen = {}
+        for room in self._master():
+            a = E.room_abbr(room)
+            self.assertNotIn(a, seen,
+                             f"{room!r} and {seen.get(a)!r} both abbreviate to "
+                             f"{a} -- one of them becomes unreachable by SKU code")
+            seen[a] = room
+
+    def test_the_offline_fallback_matches_the_master(self):
+        # The phone falls back to its own list when it cannot reach the
+        # bench, and a capture filed against a room ERPNext has never heard
+        # of is a capture nobody finds. The two drifted once already -- the
+        # app offered "Dining", "Pooja" and "Toilet" against a master
+        # carrying "Dining Room", "Pooja Room" and "Bathroom".
+        fallback = self._fallback()
+        if fallback is None:
+            self.skipTest("android/ tree not present in this checkout")
+        self.assertEqual(fallback, self._master(),
+                         "Catalogue.kt FALLBACK_ROOMS has drifted from "
+                         "install.DEFAULT_ROOMS -- update both together")

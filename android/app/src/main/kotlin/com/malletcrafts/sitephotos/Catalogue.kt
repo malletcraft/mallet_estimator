@@ -812,12 +812,26 @@ class Catalogue(context: Context) {
             listOf(client, site, project)
                 .joinToString("|") { it.trim().lowercase().replace(Regex("[\\s_]+"), " ") }
 
-        /** Only used before the phone has ever reached ERP. These are the
-         *  rooms the house already names in SKU codes. */
+        /** Only used before the phone has ever reached ERP — and it must be
+         *  the SAME vocabulary the bench uses, which it was not.
+         *
+         *  This list carried "Dining", "Pooja" and "Toilet" while the master
+         *  had "Dining Room", "Pooja Room" and "Bathroom". A phone that had
+         *  never been online therefore filed captures against three rooms
+         *  ERPNext has never heard of, and nothing said so: the capture
+         *  synced, the room string simply did not match a master row. Two
+         *  lists of the same thing in two languages drift exactly this way,
+         *  which is why this one is now copied from install.DEFAULT_ROOMS
+         *  rather than written out afresh.
+         *
+         *  Kept in the master's order so a diff between the two reads. */
         val FALLBACK_ROOMS = listOf(
-            "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Living Room",
-            "Dining", "Kitchen", "Foyer", "Passage", "Balcony", "Study",
-            "Utility", "Toilet", "Pooja",
+            "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Bedroom 4",
+            "Bedroom 5", "Bathroom", "Toilet 1", "Toilet 2", "Toilet 3",
+            "Toilet 4", "Toilet 5", "Living Room", "Dining Room", "Family Lounge",
+            "Home Theatre", "Kitchen", "Study", "Utility", "Store", "Servant Room",
+            "Foyer", "Passage", "Staircase", "Balcony", "Terrace", "Car Porch",
+            "Garden", "Pooja Room", "Other",
         )
     }
 }
