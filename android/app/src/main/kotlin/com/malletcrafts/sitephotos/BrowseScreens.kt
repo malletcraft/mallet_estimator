@@ -270,6 +270,13 @@ fun RoomsScreen(
     onStage: () -> Unit,
     onSkus: () -> Unit,
     onDetail: () -> Unit,
+    /** Amit, 2026-09-21: "can i add new room under project? I can not see any
+     *  option for that." Rooms are a master — the room is half of every SKU
+     *  code — so this does not invent a local one: it asks the bench to
+     *  resolve or create, the same way a new site does. Null while offline,
+     *  because a room minted only on this phone would mint a second one on
+     *  the next phone and the code prefix would fork. */
+    onAddRoom: (() -> Unit)? = null,
 ) {
     var showAll by remember { mutableStateOf(false) }
     val shot = rooms.filter { captureCount(it) > 0 }
@@ -320,6 +327,25 @@ fun RoomsScreen(
             }
             if (showAll) {
                 items(rest) { r -> RoomTile(r, 0, false, null) { onOpen(r) } }
+                // Last, and only with the full list open. A room that is not
+                // among the thirteen is a rare thing, and a create button
+                // sitting above the rooms somebody actually shoots would be
+                // pressed by accident far more often than on purpose.
+                onAddRoom?.let { add ->
+                    item {
+                        Box(
+                            Modifier
+                                .aspectRatio(1f)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .clickable { add() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("+ Room",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
             }
         }
     }

@@ -139,6 +139,10 @@ private fun AppScreen() {
     // Work the site says is needed. Opened from the room's SKU list and from
     // a photo's tag row, because both are moments when somebody notices.
     var addSkuFor by remember { mutableStateOf<String?>(null) }
+    // Adding a room is a BENCH act, not a local one: the room is half of
+    // every SKU code, so one minted on this phone would fork the prefix the
+    // moment a second phone spelled it differently. Null when closed.
+    var addRoom by remember { mutableStateOf(false) }
     // The two pickers that re-file ONE photo, as opposed to moving the whole
     // project. Same stage list, quite different consequence.
     var retagStage by remember { mutableStateOf(false) }
@@ -957,6 +961,12 @@ private fun AppScreen() {
                     when {
                         proj != null -> RoomsScreen(
                             project = proj, rooms = rooms,
+                            // Offered only when the bench is reachable. A
+                            // room typed offline could not be resolved
+                            // against the master, and a phone-only room is
+                            // exactly the forked prefix this avoids.
+                            onAddRoom = if (configured && masters != null)
+                                ({ addRoom = true }) else null,
                             captureCount = { r ->
                                 queue.count { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
@@ -1451,6 +1461,82 @@ private fun AppScreen() {
             heading = "Stage for new photos",
             onDismiss = { showStagePicker = false },
             onPick = { st -> stage = st.name; showStagePicker = false })
+    }
+
+    if (addRoom) {
+        var typed by remember { mutableStateOf("") }
+        var problem by remember { mutableStateOf<String?>(null) }
+        var working by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { if (!working) addRoom = false },
+            title = { Text("New room") },
+            text = {
+                Column {
+                    OutlinedTextField(typed, { typed = it; problem = null },
+                        label = { Text("Room name") },
+                        placeholder = { Text("Home Theatre") },
+                        singleLine = true, enabled = !working)
+                    Spacer(Modifier.height(8.dp))
+                    // The code prefix, shown BEFORE it is committed. The room
+                    // is half of every SKU code and the abbreviation is
+                    // derived from the words, so a person choosing the name
+                    // is choosing the prefix whether or not they know it.
+                    // Showing it is what makes "Powder Room" clashing with
+                    // "Pooja Room" comprehensible rather than arbitrary.
+                    val tok = RoomToken.of(typed)
+                    Text(
+                        if (tok.isBlank()) "Its SKU code prefix appears here."
+                        else "SKU codes will read \u2026_${tok}_\u2026",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    problem?.let {
+                        Spacer(Modifier.height(8.dp))
+                        // The BENCH's own words. It knows which existing room
+                        // a name collides with; paraphrasing that here would
+                        // be a second copy of a rule that lives there.
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = typed.isNotBlank() && !working,
+                    onClick = {
+                        working = true; problem = null
+                        scope.launch(Dispatchers.IO) {
+                            val r = runCatching {
+                                FrappeClient(context).ensureRoom(typed.trim())
+                            }
+                            withContext(Dispatchers.Main) {
+                                working = false
+                                r.onSuccess {
+                                    addRoom = false
+                                    // Re-read the masters so the new room is
+                                    // in the grid immediately; a room you
+                                    // just made and cannot see reads as a
+                                    // failure.
+                                    SyncWorker.syncNow(context)
+                                    lastResult = "Room \"${typed.trim()}\" ready"
+                                }.onFailure { e ->
+                                    // ApiException already carries the
+                                    // bench's own humanised message — which
+                                    // is the one worth showing, because it
+                                    // names the room the abbreviation
+                                    // collides with. Nothing is re-worded
+                                    // here; a second copy of that rule on
+                                    // the phone would eventually disagree
+                                    // with the one enforcing it.
+                                    problem = e.message ?: "could not add that room"
+                                }
+                            }
+                        }
+                    }) { Text(if (working) "Adding\u2026" else "Add") }
+            },
+            dismissButton = {
+                TextButton(enabled = !working,
+                    onClick = { addRoom = false }) { Text("Cancel") }
+            })
     }
 
     if (showCaptureSheet) {

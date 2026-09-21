@@ -122,6 +122,21 @@ class FrappeClient(private val baseUrl: String, private val key: String,
             // bench default it would have got anyway.
             .apply { if (fov > 0) put("fov", fov) })
 
+    /** Resolve — or create — a room on the bench.
+     *
+     *  Deliberately a SERVER call rather than a local list edit. The room is
+     *  half of every SKU code (YS_MB_WAR), so a room minted on this phone
+     *  would mint a second, differently spelled one on the next phone and the
+     *  code prefix would fork. The bench matches insensitively first and
+     *  refuses a name whose abbreviation collides with a room that already
+     *  exists — "Powder Room" clashes with "Pooja Room", both PR — and that
+     *  refusal arrives here as the server's own message, which is the one
+     *  worth showing.
+     */
+    fun ensureRoom(roomName: String): JSONObject =
+        post("mallet_estimator.sitephoto.ensure_room", JSONObject()
+            .put("room_name", roomName))
+
     fun saveAnnotations(docname: String, face: String, data: JSONObject): JSONObject =
         post("mallet_estimator.sitephoto.save_annotations", JSONObject()
             .put("name", docname)
