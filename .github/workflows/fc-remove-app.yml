@@ -1,0 +1,107 @@
+name: FC remove app from the bench
+
+# Amit, 2026-09-21: drop lms and education from the release group.
+#
+# WHY A WORKFLOW AND NOT A DASHBOARD CLICK: the same reason fc-change-branch
+# exists. The dashboard fix is behind a human login, this is the same press
+# call made with credentials the deploy workflows already hold, and what
+# happened is then in a run log instead of in somebody's memory of who
+# clicked what.
+#
+# WHAT IT DOES: press.api.bench.remove_app removes the app's row from the
+# Release Group and saves. It touches no site and no running bench, and
+# add_app puts it back -- which is what makes this safe to run and easy to
+# undo.
+#
+# THE GUARD: an app the bench is actually RUNNING (one with a current_hash)
+# is refused unless force=true. Removing an app a site has data in is a
+# different and much worse operation than removing one that has never built,
+# and nothing in the press call itself tells the two apart.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: "Comma-separated apps to remove, e.g. lms,education"
+        required: true
+      force:
+        description: "Remove even an app the bench currently runs (dangerous)"
+        type: boolean
+        default: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the apps, and show the group before and after
+        env:
+          FC_HOST: ${{ vars.FC_HOST != '' && vars.FC_HOST || 'cloud.frappe.io' }}
+          FC_BENCH: ${{ vars.FC_BENCH != '' && vars.FC_BENCH || 'bench-44687' }}
+          FC_KEY: ${{ secrets.FRAPPE_CLOUD_API_KEY }}
+          FC_SECRET: ${{ secrets.FRAPPE_CLOUD_API_SECRET }}
+          APPS: ${{ inputs.apps }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -uo pipefail
+          call() {
+            BODY=$(curl -sSL --max-time 60 -X POST "https://$FC_HOST/api/method/$1" \
+              -H "Authorization: token $FC_KEY:$FC_SECRET" \
+              -H "Content-Type: application/json" -d "$2")
+          }
+          apps_now() {
+            call press.api.bench.deploy_information "{\"name\":\"$FC_BENCH\"}"
+            if ! printf '%s' "$BODY" | jq -e .message.apps >/dev/null 2>&1; then
+              echo "::error::deploy_information did not return an app list. First 400 bytes:"
+              printf '%s' "$BODY" | head -c 400; echo
+              return 1
+            fi
+            printf '%s' "$BODY" | jq -r '.message.apps[]? |
+              "\(.app)  branch=\(.branch // "?")  current=\(.current_hash // "NEVER BUILT" | .[0:12])"'
+          }
+
+          echo "=== release group $FC_BENCH BEFORE ==="
+          BEFORE=$(apps_now) || exit 1
+          echo "$BEFORE"
+
+          FAILED=0
+          for app in $(printf '%s' "$APPS" | tr ',' ' '); do
+            [ -z "$app" ] && continue
+
+            if ! printf '%s\n' "$BEFORE" | grep -q "^${app}  "; then
+              echo "::warning::${app} is not in this release group -- nothing to remove."
+              continue
+            fi
+
+            # The guard. An app with a real current hash is one the bench is
+            # running; removing that is a different operation entirely.
+            if printf '%s\n' "$BEFORE" | grep "^${app}  " | grep -qv "NEVER BUILT"; then
+              if [ "$FORCE" != "true" ]; then
+                echo "::error::${app} is RUNNING on this bench (it has a current hash). Refusing without force=true."
+                FAILED=1
+                continue
+              fi
+              echo "::warning::${app} is running on this bench and force=true was given -- removing anyway."
+            fi
+
+            echo "--- removing ${app}"
+            call press.api.bench.remove_app "$(jq -nc --arg n "$FC_BENCH" --arg a "$app" '{name:$n, app:$a}')"
+            printf '%s' "$BODY" | head -c 600; echo
+            if ! printf '%s' "$BODY" | jq -e '.message' >/dev/null 2>&1; then
+              echo "::error::remove_app did not confirm ${app} was removed."
+              FAILED=1
+            fi
+          done
+
+          echo
+          echo "=== release group $FC_BENCH AFTER ==="
+          AFTER=$(apps_now) || exit 1
+          echo "$AFTER"
+
+          # A run that changed nothing must never read like one that worked.
+          # This project has been fooled by a green run that did nothing.
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "::error::The app list is IDENTICAL before and after. Nothing was removed."
+            exit 1
+          fi
+          echo "app list changed: $(printf '%s\n' "$BEFORE" | wc -l) -> $(printf '%s\n' "$AFTER" | wc -l) apps"
+          exit $FAILED
