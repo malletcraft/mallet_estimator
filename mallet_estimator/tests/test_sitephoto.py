@@ -104,6 +104,90 @@ class TestSitePhotoApi(MalletTestCase):
             frappe.db.get_value("Site Photo 360", made["name"], "fov"),
             int(panorama.DEFAULT_FOV))
 
+    # ---- Rooms typed on site (Amit, 2026-09-21: "can i add new room under
+    # project? I can not see any option for that"). The room list is a master
+    # and always was; what was missing is a way to add to it from where the
+    # person is standing.
+
+    def test_an_existing_room_is_matched_never_duplicated(self):
+        for typed in ("Kitchen", "kitchen", "  KITCHEN  "):
+            out = sitephoto.ensure_room(typed)
+            self.assertFalse(out["created"], typed)
+            self.assertEqual(out["room"], "Kitchen", typed)
+
+    def test_a_new_room_is_created_and_carries_its_code_token(self):
+        # Servant Room -> SR, free. "Powder Room" would have been the obvious
+        # example and is exactly the trap: it abbreviates to PR, which "Pooja
+        # Room" already owns, so the guard below refuses it. Worth leaving in
+        # the comment — it is a room somebody WILL try to add.
+        name = "Servant Room"
+        if frappe.db.exists("Estimate Room", name):
+            frappe.delete_doc("Estimate Room", name, force=True)
+        out = sitephoto.ensure_room(name)
+        self.assertTrue(out["created"])
+        self.assertEqual(out["room"], name)
+        # Several words -> initials, the same grammar the SKU code uses.
+        self.assertEqual(out["abbr"], "SR")
+        self.assertTrue(frappe.db.exists("Estimate Room", name))
+        frappe.delete_doc("Estimate Room", name, force=True)
+
+    def test_a_colliding_abbreviation_is_refused_rather_than_shadowed(self):
+        """The reason this endpoint is not two lines.
+
+        room_abbr is derived, so every room has a token; _room_for_token then
+        maps token -> room with setdefault, which does NOT error on a clash —
+        it silently makes the loser unreachable by its own SKU code. "Bed
+        Room" abbreviates to BR, and a room already using BR would be lost
+        without a word. The refusal is the only moment a person can still
+        pick a different name.
+        """
+        # Balcony -> BAL, Bathroom -> BAT, so use a clash we make ourselves.
+        first = "Wash Court"          # -> WC
+        if not frappe.db.exists("Estimate Room", first):
+            frappe.get_doc({"doctype": "Estimate Room",
+                            "room_name": first}).insert(ignore_permissions=True)
+        try:
+            with self.assertRaises(frappe.ValidationError) as caught:
+                sitephoto.ensure_room("Water Closet")     # also -> WC
+            said = str(caught.exception)
+            self.assertIn("WC", said)
+            self.assertIn(first, said, "the refusal must name the room it clashes with")
+            self.assertFalse(frappe.db.exists("Estimate Room", "Water Closet"),
+                             "a refused room must not be created anyway")
+        finally:
+            frappe.delete_doc("Estimate Room", first, force=True)
+
+    def test_the_powder_room_clash_is_real_not_hypothetical(self):
+        """The first room somebody is likely to add.
+
+        "Powder Room" abbreviates to PR, and "Pooja Room" — one of the
+        thirteen seeded rooms — already does. Without the guard the new room
+        would be created and one of the two would become unreachable by its
+        SKU code, silently and for ever."""
+        with self.assertRaises(frappe.ValidationError) as caught:
+            sitephoto.ensure_room("Powder Room")
+        said = str(caught.exception)
+        self.assertIn("PR", said)
+        self.assertIn("Pooja Room", said)
+        self.assertFalse(frappe.db.exists("Estimate Room", "Powder Room"))
+
+    def test_an_empty_name_is_refused(self):
+        for junk in ("", "   ", None):
+            with self.assertRaises(frappe.ValidationError):
+                sitephoto.ensure_room(junk)
+
+    def test_the_new_room_reaches_the_phone(self):
+        """A room nobody can pick is not a room. bootstrap is the only way
+        the list gets to the device, so the loop closes there or not at all."""
+        name = "Home Theatre"
+        if frappe.db.exists("Estimate Room", name):
+            frappe.delete_doc("Estimate Room", name, force=True)
+        sitephoto.ensure_room(name)
+        try:
+            self.assertIn(name, sitephoto.bootstrap()["rooms"])
+        finally:
+            frappe.delete_doc("Estimate Room", name, force=True)
+
     def test_a_phone_on_yesterdays_build_still_syncs(self):
         # An unupdated phone sends one of the six old stage words. They were
         # PHASES all along, so they are translated rather than refused —

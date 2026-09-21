@@ -818,6 +818,67 @@ def rename_node(kind, name, new_name):
 
 
 @frappe.whitelist()
+def ensure_room(room_name):
+    """Resolve — or create — an Estimate Room a phone typed on site.
+
+    Amit, 2026-09-21: "In mcft site foto, can i add new room under project? I
+    can not see any option for that." He could not, and the wall was real: the
+    room list is a MASTER, the phone only ever picked from it, and a room that
+    was not one of the thirteen had nowhere to go but "Other" — which files the
+    capture and loses which room it was.
+
+    Rooms stay a master rather than free text for a reason that is not
+    arbitrary: the room is half of every SKU code (YS_MB_WAR — customer, ROOM,
+    article), so "Mstr Bed", "master bedroom" and "MBR" typed on three visits
+    would be three rooms and three code prefixes for one room. This endpoint
+    keeps the single master and moves only the CREATION to where the person
+    is standing, exactly as ensure_site already does for clients and projects.
+
+    MATCHING COMES FIRST, for the same reason it does there: the failure that
+    matters is not a missing row but a duplicate one.
+
+    AND IT REFUSES A COLLIDING ABBREVIATION, which is the part worth being
+    careful about. room_abbr is derived, not looked up — one word gives three
+    letters (Kitchen -> KIT), several give initials (Master Bedroom -> MB) —
+    so a new room always has a token and there is no map to maintain. But
+    _room_for_token builds abbreviation -> room with setdefault, so a second
+    room sharing an abbreviation does not error: it silently makes one of them
+    unreachable by token for ever. Creating "Bed Room" beside "Balcony" would
+    quietly cost you one of them. Refusing at the moment of creation is the
+    only point where a person can still choose a different name.
+
+    Gated on the same capture permission as ensure_site and inserted with
+    ignore_permissions for the same reason: the photographer role is
+    camera-only, and what this creates is a NAME, not a rate.
+    """
+    from mallet_estimator.estimator import room_abbr
+
+    name = " ".join(str(room_name or "").split())
+    if not name:
+        frappe.throw(_("A room name is needed."))
+    frappe.has_permission(DOCTYPE, "create", throw=True)
+
+    key = _site_key(name)
+    existing = frappe.get_all("Estimate Room", pluck="name", limit_page_length=0)
+    for r in existing:
+        if _site_key(r) == key:
+            return {"room": r, "abbr": room_abbr(r), "created": False}
+
+    abbr = room_abbr(name)
+    for r in existing:
+        if room_abbr(r) == abbr:
+            frappe.throw(_(
+                "\"{0}\" would abbreviate to {1}, which \"{2}\" already uses. "
+                "Two rooms sharing an abbreviation cannot both be reached by "
+                "their SKU code, so one would become unusable. Pick a name "
+                "that shortens differently.").format(name, abbr, r))
+
+    doc = frappe.get_doc({"doctype": "Estimate Room", "room_name": name})
+    doc.insert(ignore_permissions=True)
+    return {"room": doc.name, "abbr": abbr, "created": True}
+
+
+@frappe.whitelist()
 def ensure_site(customer_name, project_title, site_name=None, site_type=None,
                 job_type=None, site_address=None):
     """Resolve — or create — the client, SITE and project a device capture named.
