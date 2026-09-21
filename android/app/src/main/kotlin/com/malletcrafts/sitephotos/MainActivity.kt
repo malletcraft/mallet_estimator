@@ -1506,7 +1506,16 @@ private fun AppScreen() {
                         working = true; problem = null
                         scope.launch(Dispatchers.IO) {
                             val r = runCatching {
-                                FrappeClient(context).ensureRoom(typed.trim())
+                                // load(), not a constructor: the credentials
+                                // live in prefs and the client is built from
+                                // them. The tile is only drawn when the app
+                                // is configured, so null here is close to
+                                // impossible -- which is exactly why it gets
+                                // a sentence rather than a crash.
+                                val client = FrappeClient.load(context)
+                                    ?: throw IllegalStateException(
+                                        "Sign in to the bench first \u2014 a room is created there, not on the phone.")
+                                client.ensureRoom(typed.trim())
                             }
                             withContext(Dispatchers.Main) {
                                 working = false
