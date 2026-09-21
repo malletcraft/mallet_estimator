@@ -49,6 +49,36 @@ command -v claude >/dev/null || { echo "$(date '+%F %T') claude missing"; exit 0
 # precisely the state that produced a deaf bridge reporting itself connected.
 if tmux has-session -t "$SESSION" 2>/dev/null \
    && tmux list-panes -t "$SESSION" -F '#{pane_dead}' 2>/dev/null | grep -qx 0; then
+  # A LIVE PANE IS NOT A LIVE BRIDGE, and this check used to stop here.
+  #
+  # 2026-09-21: the bridge was deaf for twelve days while this script
+  # reported nothing at all. `claude` was RUNNING -- pane_dead 0, the happy
+  # path above -- and sitting for ever on the "Yes, I trust this folder"
+  # prompt, which registers no session with the cloud. So the supervisor saw
+  # health, exited quietly 1440 times a day, and the APK that fixes the FOV
+  # sat on Drive while the phone stayed twelve days behind. That is the same
+  # "silence and health look identical" fault this file's own header warns
+  # about, one level up: the check that was supposed to catch a dead CLI
+  # cannot see a STUCK one.
+  #
+  # So say something. Nothing is auto-answered here -- a trust prompt is a
+  # decision about what code may run on somebody's laptop, and a script that
+  # clicks yes on his behalf is worse than one that waits. But it stops being
+  # invisible, and `cat ~/.mcft-bridge/log.txt` now answers "why is the Mac
+  # deaf" in one line.
+  PANE=$(tmux capture-pane -p -t "$SESSION" 2>/dev/null | tail -25 || true)
+  if printf '%s' "$PANE" | grep -qiE 'do you trust|trust the files|yes, i trust|❯ *1\. *yes'; then
+    STAMP="$WORK/.waiting-on-trust"
+    # Log once per stall, not once a minute, or the log is useless.
+    if [ ! -f "$STAMP" ]; then
+      echo "$(date '+%F %T') BRIDGE IS STUCK at the folder-trust prompt and is NOT connected."
+      echo "$(date '+%F %T')   Fix at the machine: tmux attach -t $SESSION , answer it, then ctrl-b d"
+      printf '%s\n' "$PANE" | sed 's/^/    | /'
+      : > "$STAMP"
+    fi
+    exit 0
+  fi
+  rm -f "$WORK/.waiting-on-trust" 2>/dev/null || true
   # Quiet on the happy path: this runs 1440 times a day.
   exit 0
 fi
@@ -61,7 +91,11 @@ fi
 echo "$(date '+%F %T') starting bridge as '$RC_NAME'"
 # remain-on-exit keeps a crashed pane readable instead of vanishing, so the
 # next tick can SEE that it died and this log can say when.
-tmux new-session -d -s "$SESSION" \
+# -c "$WORK": a FIXED working directory. Claude's folder trust is recorded
+# per path, and launchd hands a job whatever cwd it likes -- so without this
+# the prompt can come back on a directory nobody answered for, which is how a
+# bridge that worked last week asks again this week.
+tmux new-session -d -s "$SESSION" -c "$WORK" \
   "caffeinate -is claude --remote-control $RC_NAME"
 tmux set-option -t "$SESSION" remain-on-exit on 2>/dev/null || true
 echo "$(date '+%F %T') started (attach with: tmux attach -t $SESSION)"
