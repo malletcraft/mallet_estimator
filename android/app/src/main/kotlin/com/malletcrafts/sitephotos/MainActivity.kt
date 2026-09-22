@@ -10,7 +10,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -2361,45 +2360,37 @@ private fun FacePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
 
-                // THE FOUR WALLS IN ONE ROW, scrolled sideways. Amit,
-                // 2026-09-22: "front back left right preview should be side by
-                // side not one below." Stacked two-by-two, comparing the left
-                // wall with the back wall meant scrolling between them, and
-                // the whole job here is comparing them -- a corner is missing
-                // relative to its neighbours. 150dp keeps a corner visible
-                // while fitting two and a bit on screen, so a sideways flick
-                // walks the room.
-                Text("WALLS", style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (f in listOf("front", "right", "back", "left"))
-                        FaceTile(session, f, chosen, 150.dp)
-                }
-                Spacer(Modifier.height(10.dp))
-
-                // Floor and ceiling are the pair that actually crops, so they
-                // get the width rather than sharing a scroller with the walls.
-                Text("FLOOR / CEILING", style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Column(Modifier.weight(1f)) { FaceTile(session, "down", chosen, null) }
-                    Column(Modifier.weight(1f)) { FaceTile(session, "up", chosen, null) }
-                }
-                Spacer(Modifier.height(8.dp))
-
+                // EACH ROW IS ONE SLIDER'S PAIR, with that slider directly
+                // under it. Amit, 2026-09-22: "left and right images should be
+                // adjacent front and back should be adjacent and top and
+                // bottom should be adjacent so that i can set correct FOV."
+                //
+                // The previous layout put all four walls in one scroller,
+                // which answered the wrong question. A slider moves a PAIR, so
+                // the thing being judged is that pair against itself -- is the
+                // corner in frame on BOTH of them -- and a control whose two
+                // subjects are side by side above it needs no memory of what
+                // the other one looked like before the drag. Opposite walls
+                // are also the ones that crop symmetrically when the angle is
+                // short, which is exactly what a glance across a pair shows.
                 for (g in FaceWriter.Group.entries) {
                     val now = chosen[g] ?: Panorama.DEFAULT_FOV
                     val was = session.proposed[g] ?: now
                     val delta = Math.round(now - was).toInt()
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (f in g.faces) {
+                            Column(Modifier.weight(1f)) {
+                                FaceTile(session, f, chosen, null)
+                            }
+                        }
+                    }
                     Text(
                         "${g.label} \u2014 ${Math.round(now)}\u00b0" +
                             if (delta == 0) " (as measured)"
                             else " (${if (delta > 0) "+" else ""}$delta\u00b0 from ${Math.round(was)}\u00b0)",
-                        style = MaterialTheme.typography.labelSmall)
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold)
                     Slider(
                         value = now.toFloat(),
                         onValueChange = { v ->
@@ -2408,6 +2399,7 @@ private fun FacePreviewDialog(
                         },
                         valueRange = Panorama.FOV_MIN.toFloat()..Panorama.FOV_MAX.toFloat(),
                         modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(14.dp))
                 }
 
                 Text(

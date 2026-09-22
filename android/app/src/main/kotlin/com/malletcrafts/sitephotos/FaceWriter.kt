@@ -50,7 +50,7 @@ object FaceWriter {
     enum class Group(val label: String, val faces: List<String>) {
         FRONT_BACK("Front / back walls", listOf("front", "back")),
         LEFT_RIGHT("Left / right walls", listOf("left", "right")),
-        FLOOR_CEILING("Floor / ceiling", listOf("down", "up"));
+        FLOOR_CEILING("Ceiling / floor", listOf("up", "down"));
 
         companion object {
             fun of(face: String): Group =
