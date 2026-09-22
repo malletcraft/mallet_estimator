@@ -35,7 +35,39 @@ object FaceWriter {
 
     data class Result(val faceCount: Int, val relativePath: String)
 
-    fun split(
+    /** One rendered face, still in app-private storage. */
+    data class FacePreview(val face: String, val file: File, val fovDeg: Double)
+
+    /**
+     * Six rendered faces and the pano they came from, NOT yet in the gallery.
+     *
+     * Amit, 2026-09-22: "can a user preview what 6 faces he is going to get so
+     * that later he is not in problem. save to device photos should happen
+     * only after he confirms that 6 faces are good otherwise phone will get
+     * cluttered."
+     *
+     * The split used to write straight into device photos, so a shot taken
+     * from the wrong spot, or a room whose dimensions were mistyped, still
+     * put seven files into his gallery and a row into the upload queue. The
+     * only way to find out was to go and look, and the only way to undo it
+     * was to delete seven files by hand. Rendering is cheap and reversible;
+     * the gallery is neither.
+     */
+    data class Preview(
+        val panoFile: File,
+        val relativePath: String,
+        val faces: List<FacePreview>,
+        val previewDir: File,
+        /** Re-read on commit: the ORIGINAL bytes go to the gallery beside the
+         *  faces, and our decode of them is not the same thing. */
+        val source: Uri,
+    )
+
+    /**
+     * Decode, split and caption into app-private storage. Touches neither the
+     * gallery nor the upload queue, so abandoning it costs nothing.
+     */
+    fun render(
         context: Context,
         source: Uri,
         deviceId: String,
@@ -54,7 +86,7 @@ object FaceWriter {
         fovByFace: Map<String, Double> = emptyMap(),
         facePx: Int = Panorama.DEFAULT_FACE_PX,
         panoDir: File,
-    ): Pair<Result, File> {
+    ): Preview {
         val resolver = context.contentResolver
 
         // Keep the ORIGINAL bytes first: the server wants the real pano, not
@@ -71,7 +103,7 @@ object FaceWriter {
         BitmapFactory.decodeFile(panoFile.path, bounds)
         require(bounds.outWidth > 0) { "not a decodable image" }
         require(Panorama.looksEquirect(bounds.outWidth, bounds.outHeight)) {
-            "not a 360 photo (${bounds.outWidth}×${bounds.outHeight} is not 2:1) — " +
+            "not a 360 photo (${bounds.outWidth}\u00d7${bounds.outHeight} is not 2:1) \u2014 " +
                 "export the 360 from the Insta360 app first"
         }
 
@@ -94,33 +126,74 @@ object FaceWriter {
         }
 
         val relPath = Handover.relativePath(customerName, projectTitle, room)
-        var written = 0
+        val previewDir = File(context.cacheDir, "preview/$deviceId").apply {
+            deleteRecursively(); mkdirs()
+        }
+        val out = mutableListOf<FacePreview>()
         for ((face, yaw, pitch) in Panorama.FACES) {
             val faceFov = fovByFace[face]?.let { Panorama.clampFov(it) } ?: fov
             val img = Panorama.faceFromEquirect(pano, yaw, pitch, faceFov, facePx)
             val captioned = captioned(img, Handover.captionText(
                 deviceId, room, face, captureDate, stage), deviceId, face)
             try {
-                saveToGallery(context, captioned, relPath,
-                    Handover.filename(deviceId, face))
-                written += 1
+                // The SAME caption and the SAME name the gallery will get, so
+                // the preview is the article and not an impression of it.
+                val f = File(previewDir, Handover.filename(deviceId, face))
+                f.outputStream().use {
+                    captioned.compress(Bitmap.CompressFormat.JPEG, 92, it)
+                }
+                out += FacePreview(face, f, faceFov)
             } finally {
                 captioned.recycle()
             }
         }
-        // The 360 itself belongs in the room's folder too, beside its faces.
-        // Amit: "360 foto will be split in that folder itself retaining its
-        // 360 foto at that folder level." The app-private copy above is what
-        // the sync worker uploads; this one is for a person browsing the
-        // folder, who should find the original next to what came out of it.
-        runCatching {
-            resolver.openInputStream(source).use { input ->
-                requireNotNull(input)
-                saveStreamToGallery(context, input, relPath, "$deviceId.jpg")
+        return Preview(panoFile, relPath, out, previewDir, source)
+    }
+
+    /**
+     * Confirmed: the six faces and the original 360 go into device photos.
+     *
+     * Nothing here re-renders. The files being copied are the exact bytes he
+     * just looked at, which is the whole point of the preview -- a commit that
+     * recomputed them could differ from what he approved.
+     */
+    fun commit(context: Context, p: Preview): Result {
+        var written = 0
+        for (f in p.faces) {
+            runCatching {
+                f.file.inputStream().use { input ->
+                    saveStreamToGallery(context, input, p.relativePath, f.file.name)
+                }
+                written += 1
             }
         }
-        return Result(written, relPath) to panoFile
+        // The 360 itself belongs in the room's folder too, beside its faces.
+        // Amit: "360 foto will be split in that folder itself retaining its
+        // 360 foto at that folder level." The app-private copy is what the
+        // sync worker uploads; this one is for a person browsing the folder,
+        // who should find the original next to what came out of it.
+        runCatching {
+            context.contentResolver.openInputStream(p.source).use { input ->
+                requireNotNull(input)
+                saveStreamToGallery(context, input, p.relativePath,
+                    p.panoFile.name)
+            }
+        }
+        p.previewDir.deleteRecursively()
+        return Result(written, p.relativePath)
     }
+
+    /**
+     * Rejected: leave no trace. The gallery was never touched, so this is the
+     * rendered copies and the app-private pano -- and the pano matters,
+     * because a kept one with no queue row is a file nothing will ever clean
+     * up.
+     */
+    fun discard(p: Preview) {
+        p.previewDir.deleteRecursively()
+        runCatching { p.panoFile.delete() }
+    }
+
 
     /**
      * A FLAT photograph — one image, no split.

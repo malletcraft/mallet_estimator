@@ -39,6 +39,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -143,6 +144,10 @@ private fun AppScreen() {
     // every SKU code, so one minted on this phone would fork the prefix the
     // moment a second phone spelled it differently. Null when closed.
     var addRoom by remember { mutableStateOf(false) }
+    // A 360 that has been split but NOT yet accepted. Holds everything the
+    // commit needs, so approving it writes the gallery and the queue without
+    // re-deriving anything -- the bytes he approved are the bytes that land.
+    var pending by remember { mutableStateOf<PendingSplit?>(null) }
     // The two pickers that re-file ONE photo, as opposed to moving the whole
     // project. Same stage list, quite different consequence.
     var retagStage by remember { mutableStateOf(false) }
@@ -335,44 +340,57 @@ private fun AppScreen() {
                 val fov = plan?.wallFovDeg
                     ?: masters?.optDouble("default_fov", Panorama.DEFAULT_FOV)
                     ?: Panorama.DEFAULT_FOV
-                val (result, pano) = if (kind == "Photo")
-                    FaceWriter.single(
-                        context = context, source = uri, deviceId = id,
-                        customerName = p.customer, projectTitle = p.title,
-                        room = r, captureDate = today, stage = stageNow,
-                        panoDir = File(context.filesDir, "panos"))
-                else
-                    FaceWriter.split(
+                if (kind != "Photo") {
+                    // RENDER ONLY. Nothing reaches device photos or the upload
+                    // queue until he has seen the six faces and said yes --
+                    // Amit, 2026-09-22: "save to device photos should happen
+                    // only after he confirms that 6 faces are good otherwise
+                    // phone will get cluttered." A shot from the wrong spot
+                    // used to cost seven files in the gallery and a queue row,
+                    // undoable only by hand.
+                    val prev = FaceWriter.render(
                         context = context, source = uri, deviceId = id,
                         customerName = p.customer, projectTitle = p.title,
                         room = r, captureDate = today, stage = stageNow, fov = fov,
                         fovByFace = perFace,
                         panoDir = File(context.filesDir, "panos"))
-                store.insert(CaptureStore.Capture(
-                    deviceId = id, project = p.name, projectTitle = p.title,
-                    customerName = p.customer, room = r, stage = stageNow,
-                    captureDate = today, panoPath = pano.path,
-                    createdAt = System.currentTimeMillis(), state = "LOCAL",
-                    serverName = null, error = null, kind = kind,
-                    // Only a 360 is projected, so only a 360 carries an angle.
-                    // A flat Photo sends none and the bench leaves it alone.
-                    fov = if (kind == "Photo") 0.0 else fov,
-                    // A flat Photo is not projected, so it carries no room.
-                    roomLengthIn = if (kind == "Photo") 0.0 else (plan?.lengthIn ?: 0.0),
-                    roomWidthIn = if (kind == "Photo") 0.0 else (plan?.widthIn ?: 0.0),
-                    roomHeightIn = if (kind == "Photo") 0.0 else (plan?.heightIn ?: 0.0)))
-                result
+                    withContext(Dispatchers.Main) {
+                        pending = PendingSplit(
+                            preview = prev, projectName = p.name,
+                            projectTitle = p.title, customerName = p.customer,
+                            room = r, stage = stageNow, captureDate = today,
+                            deviceId = id, fov = fov, plan = plan)
+                    }
+                    null
+                } else {
+                    val (result, pano) = FaceWriter.single(
+                        context = context, source = uri, deviceId = id,
+                        customerName = p.customer, projectTitle = p.title,
+                        room = r, captureDate = today, stage = stageNow,
+                        panoDir = File(context.filesDir, "panos"))
+                    store.insert(CaptureStore.Capture(
+                        deviceId = id, project = p.name, projectTitle = p.title,
+                        customerName = p.customer, room = r, stage = stageNow,
+                        captureDate = today, panoPath = pano.path,
+                        createdAt = System.currentTimeMillis(), state = "LOCAL",
+                        serverName = null, error = null, kind = kind,
+                        // A flat Photo is not projected: no angle, no room.
+                        fov = 0.0))
+                    result
+                }
             }
             withContext(Dispatchers.Main) {
                 busy = null
                 lastResult = outcome.fold(
                     onSuccess = {
-                        SyncWorker.syncNow(context)
-                        if (kind == "Photo")
+                        // null means a 360 is waiting on his approval; the
+                        // preview sheet is the message, so there is nothing
+                        // to say in the banner.
+                        if (it == null) null
+                        else {
+                            SyncWorker.syncNow(context)
                             "Photo filed in ${it.relativePath}"
-                        else
-                            "${it.faceCount} faces saved to ${it.relativePath}\n" +
-                                "Open ImageMeter → the room folder → add photos."
+                        }
                     },
                     onFailure = { "Could not split: ${it.message}" })
                 refreshQueue()
@@ -1605,6 +1623,50 @@ private fun AppScreen() {
             })
     }
 
+    pending?.let { ps ->
+        FacePreviewDialog(
+            pending = ps,
+            onDiscard = {
+                FaceWriter.discard(ps.preview)
+                pending = null
+                lastResult = "Discarded \u2014 nothing was saved to your photos."
+            },
+            onKeep = {
+                val keep = ps
+                pending = null
+                busy = "Saving six faces\u2026"
+                scope.launch(Dispatchers.Default) {
+                    val outcome = runCatching {
+                        val res = FaceWriter.commit(context, keep.preview)
+                        store.insert(CaptureStore.Capture(
+                            deviceId = keep.deviceId, project = keep.projectName,
+                            projectTitle = keep.projectTitle,
+                            customerName = keep.customerName, room = keep.room,
+                            stage = keep.stage, captureDate = keep.captureDate,
+                            panoPath = keep.preview.panoFile.path,
+                            createdAt = System.currentTimeMillis(), state = "LOCAL",
+                            serverName = null, error = null, kind = "360",
+                            fov = keep.fov,
+                            roomLengthIn = keep.plan?.lengthIn ?: 0.0,
+                            roomWidthIn = keep.plan?.widthIn ?: 0.0,
+                            roomHeightIn = keep.plan?.heightIn ?: 0.0))
+                        res
+                    }
+                    withContext(Dispatchers.Main) {
+                        busy = null
+                        lastResult = outcome.fold(
+                            onSuccess = {
+                                SyncWorker.syncNow(context)
+                                "${it.faceCount} faces saved to ${it.relativePath}\n" +
+                                    "Open ImageMeter \u2192 the room folder \u2192 add photos."
+                            },
+                            onFailure = { "Could not save: ${it.message}" })
+                        refreshQueue()
+                    }
+                }
+            })
+    }
+
     if (showCaptureSheet) {
         CaptureSheet(
             stage = stage.ifBlank { navProject?.stage.orEmpty() },
@@ -2207,4 +2269,114 @@ private fun cacheSize(context: android.content.Context): String {
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         else -> String.format("%.1f MB", bytes / 1024.0 / 1024.0)
     }
+}
+
+/**
+ * A split that has happened but not been accepted.
+ *
+ * Everything the commit needs travels with it, so approving writes the
+ * gallery and the queue without re-deriving a thing — the bytes he looked at
+ * are the bytes that land.
+ */
+data class PendingSplit(
+    val preview: FaceWriter.Preview,
+    val projectName: String,
+    val projectTitle: String,
+    val customerName: String,
+    val room: String,
+    val stage: String,
+    val captureDate: String,
+    val deviceId: String,
+    val fov: Double,
+    val plan: com.malletcrafts.sitephotos.pano.CaptureGeometry.Plan?,
+)
+
+/**
+ * The six faces, before they exist anywhere but this screen.
+ *
+ * Amit, 2026-09-22: "can a user preview what 6 faces he is going to get so
+ * that later he is not in problem. save to device photos should happen only
+ * after he confirms that 6 faces are good otherwise phone will get
+ * cluttered."
+ *
+ * Two problems, one screen. The first is that a 360 shot from the wrong spot
+ * only revealed itself back at the desk, by which time the room was gone. The
+ * second is that finding out cost seven files in device photos and a row in
+ * the upload queue, undoable only by deleting them by hand.
+ *
+ * Each tile is the REAL rendered face — same caption, same filename, sampled
+ * down only for the screen — because a preview that is not the article is
+ * worth very little. The FOV is printed on each one: a floor at 144 degrees
+ * beside walls at 106 is the per-face geometry visible at a glance, and if
+ * one of them is wrong this is the moment it is cheap to say so.
+ */
+@Composable
+private fun FacePreviewDialog(
+    pending: PendingSplit,
+    onDiscard: () -> Unit,
+    onKeep: () -> Unit,
+) {
+    val faces = pending.preview.faces
+    AlertDialog(
+        // Not dismissible by a tap outside: six rendered faces and an
+        // app-private pano are sitting in the cache, and a stray tap that
+        // dropped the state would leak both with nothing to clean them up.
+        onDismissRequest = { },
+        title = { Text("Keep these six faces?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "${RoomToken.label(pending.room)} · " +
+                    (pending.plan?.let {
+                        "${it.lengthIn.toInt()}×${it.widthIn.toInt()}" +
+                        "×${it.heightIn.toInt()} in"
+                    } ?: "room not measured"),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                // Two to a row: big enough to see a cut corner, small enough
+                // that all six fit without hunting.
+                for (pair in faces.chunked(2)) {
+                    Row(Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (f in pair) {
+                            Column(Modifier.weight(1f)) {
+                                val bmp = remember(f.file.path) {
+                                    runCatching {
+                                        android.graphics.BitmapFactory.decodeFile(
+                                            f.file.path,
+                                            android.graphics.BitmapFactory.Options().apply {
+                                                inSampleSize = 4
+                                            })
+                                    }.getOrNull()
+                                }
+                                if (bmp != null) {
+                                    androidx.compose.foundation.Image(
+                                        bitmap = bmp.asImageBitmap(),
+                                        contentDescription =
+                                            Handover.FACE_LABELS[f.face] ?: f.face,
+                                        modifier = Modifier.fillMaxWidth())
+                                }
+                                Text(
+                                    "${Handover.FACE_LABELS[f.face] ?: f.face} · " +
+                                        "${Math.round(f.fovDeg)}°",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        // An odd row keeps its layout rather than stretching
+                        // the one tile it has to double width.
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    "Nothing is in your photos yet. Keeping saves all six plus " +
+                    "the 360 into the room folder and queues the upload; " +
+                    "discarding leaves no trace.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onKeep) { Text("Keep all six") } },
+        dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
 }
