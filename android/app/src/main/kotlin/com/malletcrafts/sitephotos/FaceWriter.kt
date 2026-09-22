@@ -33,41 +33,97 @@ object FaceWriter {
      *  untouched; an 11K shot is halved instead of exhausting the heap. */
     private const val MAX_DECODE_WIDTH = 6500
 
+    /** The pano kept in memory while the sliders move. 2048 wide is about
+     *  8 MB as ARGB and resamples into a 512px face fast enough to feel
+     *  immediate; the full decode happens once, at commit. */
+    private const val PREVIEW_PANO_WIDTH = 2048
+
     data class Result(val faceCount: Int, val relativePath: String)
 
-    /** One rendered face, still in app-private storage. */
-    data class FacePreview(val face: String, val file: File, val fovDeg: Double)
+    /** The three groups a room's six faces fall into, because those are the
+     *  three numbers the geometry actually produces. Amit, 2026-09-22: "can i
+     *  get a slider for 3 side like height, length and width or front, left
+     *  and bottom". Front and back are one wall pair seen across the width,
+     *  left and right the other seen across the length, and floor and ceiling
+     *  share the half-diagonal — so three sliders cover all six without ever
+     *  letting a pair disagree with itself. */
+    enum class Group(val label: String, val faces: List<String>) {
+        FRONT_BACK("Front / back walls", listOf("front", "back")),
+        LEFT_RIGHT("Left / right walls", listOf("left", "right")),
+        FLOOR_CEILING("Floor / ceiling", listOf("down", "up"));
+
+        companion object {
+            fun of(face: String): Group =
+                entries.first { face in it.faces }
+        }
+    }
 
     /**
-     * Six rendered faces and the pano they came from, NOT yet in the gallery.
+     * A decoded panorama held open so faces can be re-rendered as a slider
+     * moves, plus everything a commit needs.
      *
-     * Amit, 2026-09-22: "can a user preview what 6 faces he is going to get so
-     * that later he is not in problem. save to device photos should happen
-     * only after he confirms that 6 faces are good otherwise phone will get
-     * cluttered."
+     * Amit, 2026-09-22: "FOV calculation is not accurate and i am missing 4
+     * corners at some foto out of 6. can i get a slider for 3 side ... to
+     * manually verify if i am getting correct fotos and then only let me
+     * save."
      *
-     * The split used to write straight into device photos, so a shot taken
-     * from the wrong spot, or a room whose dimensions were mistyped, still
-     * put seven files into his gallery and a row into the upload queue. The
-     * only way to find out was to go and look, and the only way to undo it
-     * was to delete seven files by hand. Rendering is cheap and reversible;
-     * the gallery is neither.
+     * The computed plan is a good starting point and is not always right --
+     * a room is not a perfect box, nobody stands exactly at its centre, and
+     * the camera is not exactly at half height. So the geometry now proposes
+     * and the person disposes, which is the only arrangement that can be
+     * correct in a room the maths does not know about.
+     *
+     * THE PANO IS KEPT DECODED AT PREVIEW RESOLUTION, deliberately. Re-reading
+     * and re-decoding a 6500px equirect on every slider tick would make the
+     * slider useless; resampling a 2048px one into a 512px face is quick
+     * enough to feel live. The full-resolution faces are rendered ONCE, at
+     * commit, from the angles he settled on.
      */
-    data class Preview(
+    class Session(
         val panoFile: File,
         val relativePath: String,
-        val faces: List<FacePreview>,
-        val previewDir: File,
-        /** Re-read on commit: the ORIGINAL bytes go to the gallery beside the
-         *  faces, and our decode of them is not the same thing. */
         val source: Uri,
-    )
+        val deviceId: String,
+        val room: String,
+        val captureDate: String,
+        val stage: String,
+        /** Preview-resolution copy, kept in memory for the slider. */
+        val previewPano: Panorama.Image,
+        /** Where each group started, from CaptureGeometry. Shown so he can
+         *  see how far he has moved from what the room implies. */
+        val proposed: Map<Group, Double>,
+        val facePx: Int,
+    ) {
+        /** What the sliders currently say. Starts at `proposed`. */
+        var chosen: Map<Group, Double> = proposed
+
+        fun fovFor(face: String): Double = chosen[Group.of(face)] ?: Panorama.DEFAULT_FOV
+
+        /** Every face at full size, for the commit. */
+        fun fovByFace(): Map<String, Double> =
+            Panorama.FACES.associate { (name, _, _) -> name to fovFor(name) }
+    }
+
+    /** Cheap, small, and thrown away: one face at preview size and the
+     *  current angle, for the grid the sliders drive. */
+    fun previewFace(session: Session, face: String, previewPx: Int = 512): Bitmap {
+        val (_, yaw, pitch) = Panorama.FACES.first { it.first == face }
+        val img = Panorama.faceFromEquirect(
+            session.previewPano, yaw, pitch,
+            Panorama.clampFov(session.fovFor(face)), previewPx)
+        val out = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
+        val px = IntArray(img.pixels.size)
+        for (i in px.indices) px[i] = img.pixels[i] or (0xFF shl 24)
+        out.setPixels(px, 0, img.width, 0, 0, img.width, img.height)
+        return out
+    }
 
     /**
-     * Decode, split and caption into app-private storage. Touches neither the
-     * gallery nor the upload queue, so abandoning it costs nothing.
+     * Open a 360 for inspection. Copies the original, decodes it once at
+     * preview resolution, and touches NEITHER the gallery nor the queue --
+     * abandoning it costs nothing.
      */
-    fun render(
+    fun begin(
         context: Context,
         source: Uri,
         deviceId: String,
@@ -77,16 +133,10 @@ object FaceWriter {
         captureDate: String,
         stage: String,
         fov: Double,
-        /** Per-face FOV from the measured room. The six faces of a room do
-         *  not want the same number: the floor is at the camera's height
-         *  above it while a wall is half the room away, so in a 20x18 ft room
-         *  the walls want 106 degrees and the floor wants 144. A face absent
-         *  from the map falls back to `fov`, which is every capture taken
-         *  before the room was measured. */
         fovByFace: Map<String, Double> = emptyMap(),
         facePx: Int = Panorama.DEFAULT_FACE_PX,
         panoDir: File,
-    ): Preview {
+    ): Session {
         val resolver = context.contentResolver
 
         // Keep the ORIGINAL bytes first: the server wants the real pano, not
@@ -107,16 +157,32 @@ object FaceWriter {
                 "export the 360 from the Insta360 app first"
         }
 
+        val previewPano = decodePano(panoFile, PREVIEW_PANO_WIDTH)
+        val proposed = Group.entries.associateWith { g ->
+            // The group's own proposal, or the single fallback when the room
+            // was never measured.
+            fovByFace[g.faces.first()] ?: fov
+        }
+        return Session(
+            panoFile = panoFile,
+            relativePath = Handover.relativePath(customerName, projectTitle, room),
+            source = source, deviceId = deviceId, room = room,
+            captureDate = captureDate, stage = stage,
+            previewPano = previewPano, proposed = proposed, facePx = facePx,
+        ).also { it.chosen = proposed }
+    }
+
+    /** Decode the pano down to at most `maxWidth`, as packed 0xRRGGBB. */
+    private fun decodePano(file: File, maxWidth: Int): Panorama.Image {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
         var sample = 1
-        while (bounds.outWidth / sample > MAX_DECODE_WIDTH) sample *= 2
-        val opts = BitmapFactory.Options().apply {
+        while (bounds.outWidth / sample > maxWidth) sample *= 2
+        val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
-        }
-        val bitmap = BitmapFactory.decodeFile(panoFile.path, opts)
-            ?: error("could not decode the selected photo")
-
-        val pano = try {
+        }) ?: error("could not decode the selected photo")
+        return try {
             val px = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(px, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
             for (i in px.indices) px[i] = px[i] and 0xFFFFFF
@@ -124,47 +190,34 @@ object FaceWriter {
         } finally {
             bitmap.recycle()
         }
-
-        val relPath = Handover.relativePath(customerName, projectTitle, room)
-        val previewDir = File(context.cacheDir, "preview/$deviceId").apply {
-            deleteRecursively(); mkdirs()
-        }
-        val out = mutableListOf<FacePreview>()
-        for ((face, yaw, pitch) in Panorama.FACES) {
-            val faceFov = fovByFace[face]?.let { Panorama.clampFov(it) } ?: fov
-            val img = Panorama.faceFromEquirect(pano, yaw, pitch, faceFov, facePx)
-            val captioned = captioned(img, Handover.captionText(
-                deviceId, room, face, captureDate, stage), deviceId, face)
-            try {
-                // The SAME caption and the SAME name the gallery will get, so
-                // the preview is the article and not an impression of it.
-                val f = File(previewDir, Handover.filename(deviceId, face))
-                f.outputStream().use {
-                    captioned.compress(Bitmap.CompressFormat.JPEG, 92, it)
-                }
-                out += FacePreview(face, f, faceFov)
-            } finally {
-                captioned.recycle()
-            }
-        }
-        return Preview(panoFile, relPath, out, previewDir, source)
     }
 
     /**
-     * Confirmed: the six faces and the original 360 go into device photos.
+     * Confirmed: render the six faces at FULL size from the angles he settled
+     * on, and put them and the original 360 into device photos.
      *
-     * Nothing here re-renders. The files being copied are the exact bytes he
-     * just looked at, which is the whole point of the preview -- a commit that
-     * recomputed them could differ from what he approved.
+     * The preview he approved was the same FRAMING at lower resolution -- the
+     * thing being judged is whether the corners are inside the frame, and that
+     * is identical. Rendering full size here rather than keeping six 1600px
+     * bitmaps alive through a slider session is the trade, and it is the right
+     * way round: the cheap thing happens 50 times, the expensive one once.
      */
-    fun commit(context: Context, p: Preview): Result {
+    fun commit(context: Context, session: Session): Result {
+        val full = decodePano(session.panoFile, MAX_DECODE_WIDTH)
         var written = 0
-        for (f in p.faces) {
-            runCatching {
-                f.file.inputStream().use { input ->
-                    saveStreamToGallery(context, input, p.relativePath, f.file.name)
-                }
+        for ((face, yaw, pitch) in Panorama.FACES) {
+            val img = Panorama.faceFromEquirect(
+                full, yaw, pitch,
+                Panorama.clampFov(session.fovFor(face)), session.facePx)
+            val captioned = captioned(img, Handover.captionText(
+                session.deviceId, session.room, face,
+                session.captureDate, session.stage), session.deviceId, face)
+            try {
+                saveToGallery(context, captioned, session.relativePath,
+                    Handover.filename(session.deviceId, face))
                 written += 1
+            } finally {
+                captioned.recycle()
             }
         }
         // The 360 itself belongs in the room's folder too, beside its faces.
@@ -173,27 +226,23 @@ object FaceWriter {
         // sync worker uploads; this one is for a person browsing the folder,
         // who should find the original next to what came out of it.
         runCatching {
-            context.contentResolver.openInputStream(p.source).use { input ->
+            context.contentResolver.openInputStream(session.source).use { input ->
                 requireNotNull(input)
-                saveStreamToGallery(context, input, p.relativePath,
-                    p.panoFile.name)
+                saveStreamToGallery(context, input, session.relativePath,
+                    session.panoFile.name)
             }
         }
-        p.previewDir.deleteRecursively()
-        return Result(written, p.relativePath)
+        return Result(written, session.relativePath)
     }
 
     /**
      * Rejected: leave no trace. The gallery was never touched, so this is the
-     * rendered copies and the app-private pano -- and the pano matters,
-     * because a kept one with no queue row is a file nothing will ever clean
-     * up.
+     * app-private pano -- and it matters, because a kept one with no queue row
+     * is a file nothing will ever clean up.
      */
-    fun discard(p: Preview) {
-        p.previewDir.deleteRecursively()
-        runCatching { p.panoFile.delete() }
+    fun discard(session: Session) {
+        runCatching { session.panoFile.delete() }
     }
-
 
     /**
      * A FLAT photograph — one image, no split.

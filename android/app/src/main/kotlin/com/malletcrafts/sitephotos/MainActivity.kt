@@ -45,6 +45,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -348,7 +349,7 @@ private fun AppScreen() {
                     // phone will get cluttered." A shot from the wrong spot
                     // used to cost seven files in the gallery and a queue row,
                     // undoable only by hand.
-                    val prev = FaceWriter.render(
+                    val prev = FaceWriter.begin(
                         context = context, source = uri, deviceId = id,
                         customerName = p.customer, projectTitle = p.title,
                         room = r, captureDate = today, stage = stageNow, fov = fov,
@@ -356,7 +357,7 @@ private fun AppScreen() {
                         panoDir = File(context.filesDir, "panos"))
                     withContext(Dispatchers.Main) {
                         pending = PendingSplit(
-                            preview = prev, projectName = p.name,
+                            session = prev, projectName = p.name,
                             projectTitle = p.title, customerName = p.customer,
                             room = r, stage = stageNow, captureDate = today,
                             deviceId = id, fov = fov, plan = plan)
@@ -1627,7 +1628,7 @@ private fun AppScreen() {
         FacePreviewDialog(
             pending = ps,
             onDiscard = {
-                FaceWriter.discard(ps.preview)
+                FaceWriter.discard(ps.session)
                 pending = null
                 lastResult = "Discarded \u2014 nothing was saved to your photos."
             },
@@ -1637,13 +1638,13 @@ private fun AppScreen() {
                 busy = "Saving six faces\u2026"
                 scope.launch(Dispatchers.Default) {
                     val outcome = runCatching {
-                        val res = FaceWriter.commit(context, keep.preview)
+                        val res = FaceWriter.commit(context, keep.session)
                         store.insert(CaptureStore.Capture(
                             deviceId = keep.deviceId, project = keep.projectName,
                             projectTitle = keep.projectTitle,
                             customerName = keep.customerName, room = keep.room,
                             stage = keep.stage, captureDate = keep.captureDate,
-                            panoPath = keep.preview.panoFile.path,
+                            panoPath = keep.session.panoFile.path,
                             createdAt = System.currentTimeMillis(), state = "LOCAL",
                             serverName = null, error = null, kind = "360",
                             fov = keep.fov,
@@ -2279,7 +2280,7 @@ private fun cacheSize(context: android.content.Context): String {
  * are the bytes that land.
  */
 data class PendingSplit(
-    val preview: FaceWriter.Preview,
+    val session: FaceWriter.Session,
     val projectName: String,
     val projectTitle: String,
     val customerName: String,
@@ -2292,23 +2293,29 @@ data class PendingSplit(
 )
 
 /**
- * The six faces, before they exist anywhere but this screen.
+ * The six faces, before they exist anywhere but this screen — with three
+ * sliders that decide them.
  *
- * Amit, 2026-09-22: "can a user preview what 6 faces he is going to get so
- * that later he is not in problem. save to device photos should happen only
- * after he confirms that 6 faces are good otherwise phone will get
- * cluttered."
+ * Amit, 2026-09-22: "FOV calculation is not accurate and i am missing 4
+ * corners at some foto out of 6. can i get a slider for 3 side like height,
+ * length and width or front, left and bottom to manually verify if i am
+ * getting correct fotos and then only let me save."
  *
- * Two problems, one screen. The first is that a 360 shot from the wrong spot
- * only revealed itself back at the desk, by which time the room was gone. The
- * second is that finding out cost seven files in device photos and a row in
- * the upload queue, undoable only by deleting them by hand.
+ * The computed plan assumes a perfect box, a person standing exactly at its
+ * centre and a camera at exactly half the ceiling. None of those is ever
+ * quite true, so the geometry now PROPOSES and he DISPOSES — which is the
+ * only arrangement that can be right in a room the maths does not know about.
+ * Each slider shows how far it has moved from what the room implies, so a
+ * nudge stays a nudge and a large correction is visible as one.
  *
- * Each tile is the REAL rendered face — same caption, same filename, sampled
- * down only for the screen — because a preview that is not the article is
- * worth very little. The FOV is printed on each one: a floor at 144 degrees
- * beside walls at 106 is the per-face geometry visible at a glance, and if
- * one of them is wrong this is the moment it is cheap to say so.
+ * Three sliders and not six: front and back are one wall pair seen across the
+ * width, left and right the other seen across the length, and floor and
+ * ceiling share the half-diagonal. Six would let a pair disagree with itself,
+ * which is never what anybody wants and is twice the fiddling.
+ *
+ * Each tile re-renders live from a 2048px copy of the pano held in memory.
+ * The committed files are rendered once, full size, from the angles he
+ * settled on — the same FRAMING he approved, which is the thing being judged.
  */
 @Composable
 private fun FacePreviewDialog(
@@ -2316,63 +2323,87 @@ private fun FacePreviewDialog(
     onDiscard: () -> Unit,
     onKeep: () -> Unit,
 ) {
-    val faces = pending.preview.faces
+    val session = pending.session
+    // Drives recomposition: the Session's map is plain state, so the tiles
+    // need a tick to know it moved.
+    var tick by remember { mutableStateOf(0) }
     AlertDialog(
-        // Not dismissible by a tap outside: six rendered faces and an
-        // app-private pano are sitting in the cache, and a stray tap that
-        // dropped the state would leak both with nothing to clean them up.
+        // Not dismissible by a tap outside: a decoded pano and an
+        // app-private copy are open, and a stray tap that dropped the state
+        // would leak both with nothing to clean them up.
         onDismissRequest = { },
-        title = { Text("Keep these six faces?") },
+        title = { Text("Check the six faces") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(
-                    "${RoomToken.label(pending.room)} · " +
+                    "${RoomToken.label(pending.room)} \u00b7 " +
                     (pending.plan?.let {
-                        "${it.lengthIn.toInt()}×${it.widthIn.toInt()}" +
-                        "×${it.heightIn.toInt()} in"
+                        "${it.lengthIn.toInt()}\u00d7${it.widthIn.toInt()}" +
+                        "\u00d7${it.heightIn.toInt()} in"
                     } ?: "room not measured"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
-                // Two to a row: big enough to see a cut corner, small enough
-                // that all six fit without hunting.
-                for (pair in faces.chunked(2)) {
+
+                for (pair in Panorama.FACES.map { it.first }.chunked(2)) {
                     Row(Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (f in pair) {
+                        for (face in pair) {
                             Column(Modifier.weight(1f)) {
-                                val bmp = remember(f.file.path) {
+                                // Keyed on THIS face's angle, not on the
+                                // tick: moving the floor slider must not
+                                // re-render four walls that did not change.
+                                // A drag fires many events, and six 512px
+                                // resamples per event would stutter where two
+                                // do not.
+                                val bmp = remember(face, session.fovFor(face)) {
                                     runCatching {
-                                        android.graphics.BitmapFactory.decodeFile(
-                                            f.file.path,
-                                            android.graphics.BitmapFactory.Options().apply {
-                                                inSampleSize = 4
-                                            })
+                                        FaceWriter.previewFace(session, face)
                                     }.getOrNull()
                                 }
                                 if (bmp != null) {
                                     androidx.compose.foundation.Image(
                                         bitmap = bmp.asImageBitmap(),
                                         contentDescription =
-                                            Handover.FACE_LABELS[f.face] ?: f.face,
+                                            Handover.FACE_LABELS[face] ?: face,
                                         modifier = Modifier.fillMaxWidth())
                                 }
                                 Text(
-                                    "${Handover.FACE_LABELS[f.face] ?: f.face} · " +
-                                        "${Math.round(f.fovDeg)}°",
+                                    "${Handover.FACE_LABELS[face] ?: face} \u00b7 " +
+                                        "${Math.round(session.fovFor(face))}\u00b0",
                                     style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        // An odd row keeps its layout rather than stretching
-                        // the one tile it has to double width.
                         if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(8.dp))
                 }
+
+                Spacer(Modifier.height(4.dp))
+                for (g in FaceWriter.Group.entries) {
+                    val now = session.chosen[g] ?: Panorama.DEFAULT_FOV
+                    val was = session.proposed[g] ?: now
+                    val delta = Math.round(now - was).toInt()
+                    Text(
+                        "${g.label} \u2014 ${Math.round(now)}\u00b0" +
+                            if (delta == 0) " (as measured)"
+                            else " (${if (delta > 0) "+" else ""}$delta\u00b0 from ${Math.round(was)}\u00b0)",
+                        style = MaterialTheme.typography.labelSmall)
+                    Slider(
+                        value = now.toFloat(),
+                        onValueChange = { v ->
+                            session.chosen = session.chosen + (g to v.toDouble())
+                            tick++
+                        },
+                        valueRange = Panorama.FOV_MIN.toFloat()..Panorama.FOV_MAX.toFloat(),
+                        modifier = Modifier.fillMaxWidth())
+                }
+
                 Text(
-                    "Nothing is in your photos yet. Keeping saves all six plus " +
-                    "the 360 into the room folder and queues the upload; " +
-                    "discarding leaves no trace.",
+                    "Widen until all four corners of every face are inside the " +
+                    "frame. Nothing is in your photos yet \u2014 keeping saves all " +
+                    "six plus the 360 into the room folder and queues the " +
+                    "upload; discarding leaves no trace.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
