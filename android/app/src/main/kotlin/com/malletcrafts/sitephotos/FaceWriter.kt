@@ -106,11 +106,19 @@ object FaceWriter {
 
     /** Cheap, small, and thrown away: one face at preview size and the
      *  current angle, for the grid the sliders drive. */
-    fun previewFace(session: Session, face: String, previewPx: Int = 512): Bitmap {
+    fun previewFace(
+        session: Session,
+        face: String,
+        /** Passed EXPLICITLY rather than read off the session: the caller is
+         *  Compose, and reading mutable non-state from inside a composition is
+         *  how a tile ends up drawn from a value nobody observed. */
+        fovDeg: Double,
+        previewPx: Int = 512,
+    ): Bitmap {
         val (_, yaw, pitch) = Panorama.FACES.first { it.first == face }
         val img = Panorama.faceFromEquirect(
             session.previewPano, yaw, pitch,
-            Panorama.clampFov(session.fovFor(face)), previewPx)
+            Panorama.clampFov(fovDeg), previewPx)
         val out = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
         val px = IntArray(img.pixels.size)
         for (i in px.indices) px[i] = img.pixels[i] or (0xFF shl 24)

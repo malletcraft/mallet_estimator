@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,6 +41,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -2324,9 +2326,23 @@ private fun FacePreviewDialog(
     onKeep: () -> Unit,
 ) {
     val session = pending.session
-    // Drives recomposition: the Session's map is plain state, so the tiles
-    // need a tick to know it moved.
-    var tick by remember { mutableStateOf(0) }
+    // REAL Compose state, not a plain field on the Session.
+    //
+    // 2026-09-22, Amit: "slider to change fov does not move and does not give
+    // real time change in wall corner visibility." My own doing, and worth
+    // naming precisely: the first version drove recomposition off a `tick`
+    // counter, then I keyed each tile on its own angle so that moving one
+    // slider re-rendered two faces instead of six -- which removed the only
+    // READ of `tick`. It was still written on every drag. A value nothing
+    // reads triggers no recomposition, so the Slider kept redrawing at its
+    // old `value` and looked frozen while the underlying map moved
+    // underneath it. The optimisation caused the bug.
+    //
+    // Holding the map as state fixes both at once: the Slider follows the
+    // drag because it reads observable state, and a tile still re-renders
+    // only when ITS OWN group moved.
+    var chosen by remember { mutableStateOf(session.chosen) }
+
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
         // app-private copy are open, and a stray tap that dropped the state
@@ -2345,43 +2361,38 @@ private fun FacePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
 
-                for (pair in Panorama.FACES.map { it.first }.chunked(2)) {
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (face in pair) {
-                            Column(Modifier.weight(1f)) {
-                                // Keyed on THIS face's angle, not on the
-                                // tick: moving the floor slider must not
-                                // re-render four walls that did not change.
-                                // A drag fires many events, and six 512px
-                                // resamples per event would stutter where two
-                                // do not.
-                                val bmp = remember(face, session.fovFor(face)) {
-                                    runCatching {
-                                        FaceWriter.previewFace(session, face)
-                                    }.getOrNull()
-                                }
-                                if (bmp != null) {
-                                    androidx.compose.foundation.Image(
-                                        bitmap = bmp.asImageBitmap(),
-                                        contentDescription =
-                                            Handover.FACE_LABELS[face] ?: face,
-                                        modifier = Modifier.fillMaxWidth())
-                                }
-                                Text(
-                                    "${Handover.FACE_LABELS[face] ?: face} \u00b7 " +
-                                        "${Math.round(session.fovFor(face))}\u00b0",
-                                    style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(8.dp))
+                // THE FOUR WALLS IN ONE ROW, scrolled sideways. Amit,
+                // 2026-09-22: "front back left right preview should be side by
+                // side not one below." Stacked two-by-two, comparing the left
+                // wall with the back wall meant scrolling between them, and
+                // the whole job here is comparing them -- a corner is missing
+                // relative to its neighbours. 150dp keeps a corner visible
+                // while fitting two and a bit on screen, so a sideways flick
+                // walks the room.
+                Text("WALLS", style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (f in listOf("front", "right", "back", "left"))
+                        FaceTile(session, f, chosen, 150.dp)
                 }
+                Spacer(Modifier.height(10.dp))
 
-                Spacer(Modifier.height(4.dp))
+                // Floor and ceiling are the pair that actually crops, so they
+                // get the width rather than sharing a scroller with the walls.
+                Text("FLOOR / CEILING", style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) { FaceTile(session, "down", chosen, null) }
+                    Column(Modifier.weight(1f)) { FaceTile(session, "up", chosen, null) }
+                }
+                Spacer(Modifier.height(8.dp))
+
                 for (g in FaceWriter.Group.entries) {
-                    val now = session.chosen[g] ?: Panorama.DEFAULT_FOV
+                    val now = chosen[g] ?: Panorama.DEFAULT_FOV
                     val was = session.proposed[g] ?: now
                     val delta = Math.round(now - was).toInt()
                     Text(
@@ -2392,8 +2403,8 @@ private fun FacePreviewDialog(
                     Slider(
                         value = now.toFloat(),
                         onValueChange = { v ->
-                            session.chosen = session.chosen + (g to v.toDouble())
-                            tick++
+                            chosen = chosen + (g to v.toDouble())
+                            session.chosen = chosen
                         },
                         valueRange = Panorama.FOV_MIN.toFloat()..Panorama.FOV_MAX.toFloat(),
                         modifier = Modifier.fillMaxWidth())
@@ -2410,4 +2421,37 @@ private fun FacePreviewDialog(
         },
         confirmButton = { TextButton(onClick = onKeep) { Text("Keep all six") } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
+}
+
+/**
+ * One face of the preview grid.
+ *
+ * Top-level and not a local composable: this cannot be compiled in the cloud
+ * container (no Android SDK), so it avoids the Compose-plugin edge cases that
+ * a nested @Composable can hit and that only CI would find.
+ *
+ * The angle arrives as a parameter and is the `remember` key, so a tile
+ * re-renders when ITS OWN group moves and not when another slider does.
+ */
+@Composable
+private fun FaceTile(
+    session: FaceWriter.Session,
+    face: String,
+    chosen: Map<FaceWriter.Group, Double>,
+    width: androidx.compose.ui.unit.Dp?,
+) {
+    val fov = chosen[FaceWriter.Group.of(face)] ?: Panorama.DEFAULT_FOV
+    Column(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth()) {
+        val bmp = remember(face, fov) {
+            runCatching { FaceWriter.previewFace(session, face, fov) }.getOrNull()
+        }
+        if (bmp != null) {
+            androidx.compose.foundation.Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = Handover.FACE_LABELS[face] ?: face,
+                modifier = Modifier.fillMaxWidth())
+        }
+        Text("${Handover.FACE_LABELS[face] ?: face} \u00b7 ${Math.round(fov)}\u00b0",
+            style = MaterialTheme.typography.labelSmall)
+    }
 }
