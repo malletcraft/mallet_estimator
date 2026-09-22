@@ -118,6 +118,22 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
   tmux kill-session -t "$SESSION" 2>/dev/null || true
 fi
 
+# WHO IS THIS CLI SIGNED IN AS, recorded before every start.
+#
+# 2026-09-22: the CLI ran, showed its trust prompt, was answered, and STILL
+# registered no session the cloud could see -- and nothing anywhere said why.
+# Every other explanation was checked and killed: `--remote-control [name]`
+# does take an optional name and parses fine, the binary is found, the pane
+# is alive. What no log could answer was WHICH ACCOUNT it is signed into, and
+# a CLI signed into a different account (or signed out) registers a session
+# the cloud side of this project simply cannot see. That is indistinguishable
+# from a dead bridge from the outside, which is the shape of fault this repo
+# keeps meeting.
+#
+# Best-effort and never fatal: a CLI that cannot report its auth can still be
+# worth starting, and the log now carries the answer either way.
+echo "$(date '+%F %T') auth: $("$CLAUDE" auth status 2>&1 | tr '\n' ' ' | cut -c1-200)"
+echo "$(date '+%F %T') version: $("$CLAUDE" --version 2>&1 | head -1)"
 echo "$(date '+%F %T') starting bridge as '$RC_NAME' using $CLAUDE"
 # remain-on-exit keeps a crashed pane readable instead of vanishing, so the
 # next tick can SEE that it died and this log can say when.
