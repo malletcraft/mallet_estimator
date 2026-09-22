@@ -94,8 +94,37 @@ object FaceWriter {
         val proposed: Map<Group, Double>,
         val facePx: Int,
     ) {
-        /** What the sliders currently say. Starts at `proposed`. */
+        /** What the FOV sliders currently say. Starts at `proposed`. */
         var chosen: Map<Group, Double> = proposed
+
+        /**
+         * Yaw offset per group, in degrees. Zero unless he turns it.
+         *
+         * Amit, 2026-09-22: "if the camera is placed not perfectly square to
+         * the wall, 6 foto is slightly rotated, can we have a per set tilt as
+         * well so that foto can be aligned correctly?"
+         *
+         * One error, two appearances. A camera turned a few degrees off the
+         * wall leaves each WALL off-CENTRE in its frame -- the far corner
+         * crops while the near one has room to spare -- and leaves the FLOOR
+         * and CEILING visibly ROTATED, because a yaw change at the pole spins
+         * the image in its own plane. Turning the sampling angle fixes both,
+         * and it is cheaper than asking anybody to stand more squarely.
+         *
+         * PER GROUP rather than one global turn, which is what he asked for
+         * and is right for a reason beyond preference: a room whose corners
+         * are not true 90 degrees -- an old Pune flat, a boxed-in duct -- needs
+         * its wall pairs turned independently, and a single number cannot
+         * square both pairs at once.
+         *
+         * WHAT THIS DOES NOT FIX, said now rather than discovered: a camera
+         * that was not LEVEL tilts the horizon itself, which is roll, a
+         * different axis this does not touch. The X3's own levelling normally
+         * removes it on export.
+         */
+        var turn: Map<Group, Double> = Group.entries.associateWith { 0.0 }
+
+        fun turnFor(face: String): Double = turn[Group.of(face)] ?: 0.0
 
         fun fovFor(face: String): Double = chosen[Group.of(face)] ?: Panorama.DEFAULT_FOV
 
@@ -113,11 +142,13 @@ object FaceWriter {
          *  Compose, and reading mutable non-state from inside a composition is
          *  how a tile ends up drawn from a value nobody observed. */
         fovDeg: Double,
+        /** Yaw offset in degrees, likewise explicit. */
+        turnDeg: Double,
         previewPx: Int = 512,
     ): Bitmap {
         val (_, yaw, pitch) = Panorama.FACES.first { it.first == face }
         val img = Panorama.faceFromEquirect(
-            session.previewPano, yaw, pitch,
+            session.previewPano, yaw + turnDeg, pitch,
             Panorama.clampFov(fovDeg), previewPx)
         val out = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
         val px = IntArray(img.pixels.size)
@@ -215,7 +246,7 @@ object FaceWriter {
         var written = 0
         for ((face, yaw, pitch) in Panorama.FACES) {
             val img = Panorama.faceFromEquirect(
-                full, yaw, pitch,
+                full, yaw + session.turnFor(face), pitch,
                 Panorama.clampFov(session.fovFor(face)), session.facePx)
             val captioned = captioned(img, Handover.captionText(
                 session.deviceId, session.room, face,

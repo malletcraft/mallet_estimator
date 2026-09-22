@@ -2341,6 +2341,7 @@ private fun FacePreviewDialog(
     // drag because it reads observable state, and a tile still re-renders
     // only when ITS OWN group moved.
     var chosen by remember { mutableStateOf(session.chosen) }
+    var turn by remember { mutableStateOf(session.turn) }
 
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
@@ -2381,7 +2382,7 @@ private fun FacePreviewDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (f in g.faces) {
                             Column(Modifier.weight(1f)) {
-                                FaceTile(session, f, chosen, null)
+                                FaceTile(session, f, chosen, turn, null)
                             }
                         }
                     }
@@ -2398,6 +2399,30 @@ private fun FacePreviewDialog(
                             session.chosen = chosen
                         },
                         valueRange = Panorama.FOV_MIN.toFloat()..Panorama.FOV_MAX.toFloat(),
+                        modifier = Modifier.fillMaxWidth())
+
+                    // TURN: the same pair, swung left or right.
+                    //
+                    // For a wall this re-centres it when the camera was not
+                    // square; for the floor and ceiling the same number SPINS
+                    // the image, because a yaw change at the pole rotates the
+                    // face in its own plane. One error, two appearances, one
+                    // control.
+                    val tNow = turn[g] ?: 0.0
+                    Text(
+                        "Turn \u2014 ${if (tNow >= 0) "+" else ""}${Math.round(tNow)}\u00b0" +
+                            if (Math.round(tNow) == 0L) " (square)" else "",
+                        style = MaterialTheme.typography.labelSmall)
+                    Slider(
+                        value = tNow.toFloat(),
+                        onValueChange = { v ->
+                            turn = turn + (g to v.toDouble())
+                            session.turn = turn
+                        },
+                        // +-45 is plenty for a camera somebody meant to place
+                        // squarely; a wider range would make the useful part
+                        // of the track too small to aim at with a thumb.
+                        valueRange = -45f..45f,
                         modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(14.dp))
                 }
@@ -2430,12 +2455,17 @@ private fun FaceTile(
     session: FaceWriter.Session,
     face: String,
     chosen: Map<FaceWriter.Group, Double>,
+    turn: Map<FaceWriter.Group, Double>,
     width: androidx.compose.ui.unit.Dp?,
 ) {
-    val fov = chosen[FaceWriter.Group.of(face)] ?: Panorama.DEFAULT_FOV
+    val g = FaceWriter.Group.of(face)
+    val fov = chosen[g] ?: Panorama.DEFAULT_FOV
+    val t = turn[g] ?: 0.0
     Column(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth()) {
-        val bmp = remember(face, fov) {
-            runCatching { FaceWriter.previewFace(session, face, fov) }.getOrNull()
+        // Keyed on BOTH angles, so a tile redraws when either slider for its
+        // own group moves and stays still when another group's does.
+        val bmp = remember(face, fov, t) {
+            runCatching { FaceWriter.previewFace(session, face, fov, t) }.getOrNull()
         }
         if (bmp != null) {
             androidx.compose.foundation.Image(
