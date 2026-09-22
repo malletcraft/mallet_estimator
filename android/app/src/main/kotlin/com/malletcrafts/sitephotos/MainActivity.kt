@@ -1939,8 +1939,14 @@ private fun appVersion(context: android.content.Context): String =
  * actually running, here, so the banner disappears the moment the new build
  * starts — and the stale pref is deleted rather than left to be re-judged.
  */
-private fun pendingUpdate(context: Context): org.json.JSONObject? {
-    val prefs = context.getSharedPreferences("capture", Context.MODE_PRIVATE)
+private fun pendingUpdate(
+    context: android.content.Context,
+): org.json.JSONObject? {
+    // Fully qualified, like every other android.content reference in this
+    // file: MainActivity.kt imports no android.content types, and the bare
+    // name compiled nowhere.
+    val prefs = context.getSharedPreferences(
+        "capture", android.content.Context.MODE_PRIVATE)
     val raw = prefs.getString("update_available", null) ?: return null
     val info = runCatching { org.json.JSONObject(raw) }.getOrNull()
     val mine = runCatching {
