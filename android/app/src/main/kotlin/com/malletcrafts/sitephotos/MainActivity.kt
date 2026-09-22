@@ -721,6 +721,33 @@ private fun AppScreen() {
             })
     }
 
+    // The download-and-install itself, lifted out of the banner that used to
+    // sit over the captures list. Same mechanism, one caller.
+    val startUpdate: () -> Unit = {
+        pendingUpdate(context)?.let { info ->
+            busy = "Downloading update ${info.optString("version_name")}\u2026"
+            scope.launch(Dispatchers.IO) {
+                val outcome = runCatching {
+                    val dest = File(context.filesDir, "updates/update.apk")
+                    FrappeClient.load(context)!!.downloadPrivate(
+                        info.getString("file_url"), dest)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "com.malletcrafts.sitephotos.fileprovider", dest)
+                    context.startActivity(
+                        android.content.Intent(android.content.Intent.ACTION_VIEW)
+                            .setDataAndType(uri, "application/vnd.android.package-archive")
+                            .addFlags(
+                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    or android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                withContext(Dispatchers.Main) {
+                    busy = null
+                    outcome.onFailure { lastResult = "Update failed: ${it.message}" }
+                }
+            }
+        }
+    }
+
     // One drawer, shared by every tab: the settings are the app's, not a
     // screen's, and building it twice would let the two drift.
     val drawerContent: @Composable () -> Unit = {
@@ -731,6 +758,12 @@ private fun AppScreen() {
                 queued = unsent,
                 lastSync = if (queue.isEmpty()) "nothing yet" else "all sent",
                 version = appVersion(context),
+                // Re-read on every drawer open, and re-judged against the
+                // running build, so an update already installed never shows.
+                updateVersion = remember(prefsTick, updateJson) {
+                    pendingUpdate(context)?.optString("version_name")
+                },
+                onUpdate = startUpdate,
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
                 server = FrappeClient.savedUrl(context),
@@ -1702,43 +1735,6 @@ private fun AppScreen() {
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                updateJson?.let { uj ->
-                    val info = org.json.JSONObject(uj)
-                    Surface(
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.fillMaxWidth().clickableRow {
-                            busy = "Downloading update ${info.optString("version_name")}…"
-                            scopeRoom.launch(Dispatchers.IO) {
-                                val outcome = runCatching {
-                                    val dest = File(context.filesDir, "updates/update.apk")
-                                    FrappeClient.load(context)!!.downloadPrivate(
-                                        info.getString("file_url"), dest)
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context, "com.malletcrafts.sitephotos.fileprovider", dest)
-                                    context.startActivity(
-                                        android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                            .setDataAndType(uri,
-                                                "application/vnd.android.package-archive")
-                                            .addFlags(
-                                                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                                    or android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-                                }
-                                withContext(Dispatchers.Main) {
-                                    busy = null
-                                    outcome.onFailure {
-                                        lastResult = "Update failed: ${it.message}"
-                                    }
-                                }
-                            }
-                        },
-                    ) {
-                        Text("Update available: ${info.optString("version_name")} — " +
-                             "tap to download and install",
-                            Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                }
                 CapturesScreen(
                     captures = roomCaptures,
                     phases = cat.phases(masters, navProject?.jobType),
@@ -1928,10 +1924,42 @@ private fun appVersion(context: android.content.Context): String =
 
 /** The drawer holds only what you set once and forget. Anything needed
  *  mid-shoot belongs on the screen, not three lines away. */
+/**
+ * A pending app update, or null — decided against the RUNNING build every
+ * time it is read.
+ *
+ * Amit, 2026-09-21: "why when i click a client, it shows update available
+ * though i could see in version its 0.3.147."
+ *
+ * The pref was written by SyncWorker when 247 was newer than the 242 on the
+ * phone, and only SyncWorker ever cleared it. So installing the update did
+ * not remove the notice telling him to install the update: it survived until
+ * the next sync happened to run, which on a phone with no signal on site is
+ * not a bounded wait. The stored version_code is now compared with the one
+ * actually running, here, so the banner disappears the moment the new build
+ * starts — and the stale pref is deleted rather than left to be re-judged.
+ */
+private fun pendingUpdate(context: Context): org.json.JSONObject? {
+    val prefs = context.getSharedPreferences("capture", Context.MODE_PRIVATE)
+    val raw = prefs.getString("update_available", null) ?: return null
+    val info = runCatching { org.json.JSONObject(raw) }.getOrNull()
+    val mine = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+    }.getOrDefault(Long.MAX_VALUE)
+    if (info == null || info.optInt("version_code").toLong() <= mine) {
+        prefs.edit().remove("update_available").apply()
+        return null
+    }
+    return info
+}
+
 private fun drawerGroups(
     queued: Int,
     lastSync: String,
     version: String,
+    /** Set only when a NEWER build than the running one is waiting. */
+    updateVersion: String?,
+    onUpdate: () -> Unit,
     cached: String,
     prefs: AppPrefs,
     server: String,
@@ -1998,7 +2026,11 @@ private fun drawerGroups(
         DrawerLine("Units", value = if (prefs.imperial) "mm · ft-in" else "mm",
             icon = R.drawable.ic_mcft_ruler, onClick = { onToggle("imperial") }),
     )),
-    DrawerGroup("Storage & app", listOf(
+    DrawerGroup("Storage & app", listOfNotNull(
+        updateVersion?.let {
+            DrawerLine("Update available", value = it,
+                icon = R.drawable.ic_mcft_cloud, onClick = onUpdate)
+        },
         DrawerLine("Cached photos", value = cached, icon = R.drawable.ic_mcft_disk,
             onClick = { onToggle("clear_cache") }),
         // The API-key dialog had NO row: onServer was handed to this function
@@ -2008,6 +2040,14 @@ private fun drawerGroups(
         DrawerLine("Server", value = server.ifBlank { "not set" },
             icon = R.drawable.ic_mcft_link, onClick = onServer),
         DrawerLine("Version", value = version, icon = R.drawable.ic_mcft_info),
+        // THE UPDATE LIVES HERE, next to the version it replaces, and nowhere
+        // else. Amit, 2026-09-21: "update app is not a client / project
+        // thing. dont show these kind of banner at places where its not
+        // relevant." It used to render in the room capture view, so opening a
+        // client put an app-maintenance notice on top of his photographs --
+        // the one screen whose whole job is the room in front of him. The
+        // drawer already carries the version, the server and the cache, so it
+        // is where an app-level fact belongs.
         DrawerLine("Sign out", icon = R.drawable.ic_mcft_out, onClick = onSignOut),
     )),
 )
