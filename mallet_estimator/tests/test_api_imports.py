@@ -134,3 +134,62 @@ class TestNamesAreReachable(unittest.TestCase):
                 os.unlink(tmp)
             self.assertEqual(len(bad), 1, "%s: expected one finding, got %s" % (label, bad))
             self.assertIn("undefined name", bad[0][2], label)
+
+
+class TestEveryDocTypeHasItsController(unittest.TestCase):
+    """A doctype folder without its <name>.py is a site that will not migrate.
+
+    2026-09-25: five new doctypes shipped with __init__.py and only ONE
+    controller. Frappe calls on_doctype_update for every doctype it installs
+    -- child tables included -- and that loads
+    <app>.<app>.doctype.<snake>.<snake>, so the migrate died with "No module
+    named ...scope_estimate_service.scope_estimate_service". Nothing local
+    caught it: the JSON was valid, the pure tests passed, and the only thing
+    that noticed was a five-minute integration run against a real bench.
+
+    A directory listing answers the same question in milliseconds, which is
+    the right place for it.
+    """
+
+    def test_every_doctype_dir_has_a_controller_module(self):
+        import pathlib
+        import mallet_estimator
+        root = pathlib.Path(mallet_estimator.__file__).parent / "mallet_estimator" / "doctype"
+        missing = []
+        for d in sorted(root.iterdir()):
+            if not d.is_dir() or d.name.startswith("_"):
+                continue
+            if not (d / f"{d.name}.py").exists():
+                missing.append(d.name)
+            if not (d / "__init__.py").exists():
+                missing.append(f"{d.name} (no __init__.py)")
+        self.assertEqual(missing, [], f"doctype folders with no controller: {missing}")
+
+    def test_every_controller_defines_a_document_subclass(self):
+        """Present but empty is the same failure one step later: Frappe
+        imports the module and then looks for the class.
+
+        The class name comes from the DOCTYPE NAME with its spaces removed,
+        not from capitalising the folder -- "Estimate SKU" is EstimateSKU, not
+        EstimateSku. Deriving it the wrong way made this check fail on five
+        doctypes that have worked for months, and a check that cries wolf gets
+        deleted by the next person in a hurry.
+        """
+        import json
+        import pathlib
+        import re
+        import mallet_estimator
+        root = pathlib.Path(mallet_estimator.__file__).parent / "mallet_estimator" / "doctype"
+        bad = []
+        for d in sorted(root.iterdir()):
+            f = d / f"{d.name}.py"
+            j = d / f"{d.name}.json"
+            if not f.exists() or not j.exists():
+                continue
+            name = json.loads(j.read_text()).get("name", "")
+            want = re.sub(r"[^A-Za-z0-9]", "", name)
+            if not want:
+                continue
+            if not re.search(rf"^class\s+{re.escape(want)}\b", f.read_text(), re.M):
+                bad.append(f"{d.name}: expected class {want}")
+        self.assertEqual(bad, [], "; ".join(bad))
