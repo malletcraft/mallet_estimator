@@ -954,8 +954,24 @@ def _decor_shorts_for_sku(sku):
             {k: decor.short_code(v) for k, v in edge.items() if decor.short_code(v)})
 
 
+def _material_tally(ocl_totals, material_rows):
+    """Parse the plugin's totals if they arrived as JSON, then reconcile.
+
+    Sent as a string by Sketchup::Http like every other structured argument
+    here; absent entirely from a plugin on an older build, which must keep
+    working and simply get no tally.
+    """
+    from mallet_estimator import estimator          # imported per-function here
+    if isinstance(ocl_totals, str):
+        ocl_totals = json.loads(ocl_totals or "{}")
+    if not ocl_totals:
+        return {}
+    return estimator.material_tally(ocl_totals, material_rows)
+
+
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
+                     ocl_totals=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
                      misc_remarks=None, hardware_min_by_type=None, sku=None,
@@ -1727,6 +1743,13 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # got priced. Boards have had this since the sandwich line; hardware
         # had nothing, and four casters went missing in silence (2026-09-20).
         "hardware_tally": estimator.hardware_tally(hw, material_rows),
+        # EVERY material type reconciled against OpenCutList's own counts,
+        # not just hardware. Amit, 2026-09-25: "fix it for once." Two silent
+        # drops were found by him reading both tables; this compares them on
+        # every run so a third cannot wait to be noticed.
+        "material_tally": _material_tally(ocl_totals, material_rows),
+        "material_problems": estimator.material_tally_problems(
+            _material_tally(ocl_totals, material_rows)),
         # THE THREE TOTALS, and material broken into the families Amit named
         # (2026-09-02). Assembled from the same rows the tables above render,
         # so the summary cannot disagree with what is on screen.

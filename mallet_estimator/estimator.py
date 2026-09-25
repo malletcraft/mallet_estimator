@@ -1697,3 +1697,75 @@ def bought_out_value(cost, settings, markup_pct=None):
     0 in code as every rate is — the real percentage lives in the site DB."""
     markup = _num(markup_pct if markup_pct is not None else _get(settings, "markup_bought_out"))
     return _num(cost) * (1 + markup / 100.0), markup
+
+
+# OpenCutList's own material-type names, as the plugin sends them, mapped to
+# the `kind` this app prices rows under. Veneer is absent on purpose: it is
+# never pushed, because laminate is derived from the ply faces.
+OCL_TYPE_TO_KIND = {
+    "Sheet Goods": "sheet",
+    "Solid Wood": "solid",
+    "Dimensional": "dimensional",
+    "Edge Banding": "edge",
+    "Hardware": "hardware",
+}
+
+
+def material_tally(ocl_totals, rows):
+    """Every material type OpenCutList counted, against what was priced.
+
+    Amit, 2026-09-25: "OCL native calculation of ply and material ... gives me
+    surprises like caster in earlier case. fix it for once. OCL native
+    material is fantastic. you just need to read it carefully without messing
+    up."
+
+    THE GENERAL FORM OF TWO FIXES ALREADY MADE ONE AT A TIME. HWD_Caster went
+    missing because its material carried no type and the group was dropped in
+    silence; SG_PLY_V0_1mm was invented because a part's measured thickness
+    was sent where the board's belonged. Both were found by Amit reading
+    OpenCutList's tables beside the estimate, and both were repaired
+    afterwards for that one material.
+
+    This compares the two readings on EVERY type, every run. A drop that
+    nobody happens to look at is exactly the kind this app keeps meeting, and
+    the whole reason the sandwich line and the hardware tally already exist.
+
+    Counts PIECES, never lines: the designation lookup legitimately splits one
+    OpenCutList material into two priced SKUs, which is the feature working
+    and must not read as a discrepancy.
+    """
+    out = {}
+    for ocl_name, counts in (ocl_totals or {}).items():
+        kind = OCL_TYPE_TO_KIND.get(ocl_name)
+        if not kind:
+            continue
+        counted = int(float((counts or {}).get("pieces") or 0))
+        priced = 0
+        for r in rows or []:
+            if r.get("kind") != kind:
+                continue
+            pieces = r.get("pieces")
+            priced += int(float(pieces if pieces not in (None, "") else (r.get("qty") or 0)))
+        out[ocl_name] = {
+            "counted": counted,
+            "priced": priced,
+            "missing": max(0, counted - priced),
+            "matches": counted == priced,
+        }
+    return out
+
+
+def material_tally_problems(tally):
+    """Only the types that disagree, phrased for a person.
+
+    A tally nobody reads is worth nothing, and six green rows hide the one
+    red one — so the screen gets the mismatches and not the table.
+    """
+    bad = []
+    for name, t in sorted((tally or {}).items()):
+        if t.get("matches"):
+            continue
+        bad.append(
+            f"{name}: OpenCutList {t['counted']}, estimate {t['priced']}"
+            + (f" ({t['missing']} missing)" if t.get("missing") else ""))
+    return bad

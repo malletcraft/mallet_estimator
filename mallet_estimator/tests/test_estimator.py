@@ -1808,3 +1808,64 @@ class TestRoomMaster(unittest.TestCase):
         self.assertEqual(fallback, self._master(),
                          "Catalogue.kt FALLBACK_ROOMS has drifted from "
                          "install.DEFAULT_ROOMS -- update both together")
+
+
+class TestMaterialTally(unittest.TestCase):
+    """Every material type reconciled against OpenCutList's own counts.
+
+    Amit, 2026-09-25: "OCL native calculation of ply and material ... gives me
+    surprises like caster in earlier case. fix it for once."
+    """
+
+    def test_the_caster_case_is_reported(self):
+        # The real one, 2026-09-20: OpenCutList's Hardware table totalled 43
+        # pieces and the estimate priced 39. Nothing said so; Amit found it by
+        # reading both.
+        t = E.material_tally({"Hardware": {"pieces": 43}},
+                             [{"kind": "hardware", "qty": 20, "pieces": 39}])
+        self.assertFalse(t["Hardware"]["matches"])
+        self.assertEqual(t["Hardware"]["missing"], 4)
+        self.assertIn("Hardware: OpenCutList 43, estimate 39",
+                      E.material_tally_problems(t)[0])
+
+    def test_a_faithful_translation_reports_nothing(self):
+        t = E.material_tally(
+            {"Hardware": {"pieces": 43}, "Sheet Goods": {"pieces": 8},
+             "Edge Banding": {"pieces": 12}},
+            [{"kind": "hardware", "pieces": 43}, {"kind": "sheet", "qty": 8},
+             {"kind": "edge", "qty": 12}])
+        self.assertEqual(E.material_tally_problems(t), [])
+
+    def test_pieces_not_lines(self):
+        # The designation lookup legitimately splits one OpenCutList material
+        # into two priced SKUs. That is the feature working and must never
+        # read as a discrepancy.
+        t = E.material_tally({"Hardware": {"pieces": 9}},
+                             [{"kind": "hardware", "pieces": 5},
+                              {"kind": "hardware", "pieces": 4}])
+        self.assertTrue(t["Hardware"]["matches"])
+
+    def test_a_packet_line_counts_its_pieces(self):
+        t = E.material_tally({"Hardware": {"pieces": 6}},
+                             [{"kind": "hardware", "qty": 3, "pieces": 6}])
+        self.assertTrue(t["Hardware"]["matches"])
+
+    def test_veneer_is_not_reconciled(self):
+        # Never pushed — laminate is derived from the ply faces — so counting
+        # it would report a mismatch on every single estimate.
+        t = E.material_tally({"Veneer": {"pieces": 40}}, [])
+        self.assertEqual(t, {})
+
+    def test_no_totals_means_no_tally_rather_than_a_false_alarm(self):
+        # A plugin on an older build sends nothing. Silence there must not
+        # look like everything went missing.
+        self.assertEqual(E.material_tally(None, [{"kind": "sheet", "qty": 8}]), {})
+        self.assertEqual(E.material_tally({}, []), {})
+
+    def test_every_ocl_type_the_plugin_can_send_is_mapped(self):
+        """The caster bug in one line: a type the map does not know is a type
+        whose materials vanish. The plugin's own _material_type_name lists
+        exactly these five, and veneer, which is excluded by design."""
+        self.assertEqual(
+            sorted(E.OCL_TYPE_TO_KIND),
+            ["Dimensional", "Edge Banding", "Hardware", "Sheet Goods", "Solid Wood"])
