@@ -1,0 +1,166 @@
+{
+ "actions": [],
+ "creation": "2026-09-25 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "project",
+  "customer",
+  "column_break_head",
+  "scope_date",
+  "status",
+  "rooms_section",
+  "rooms",
+  "services_section",
+  "services",
+  "matrix_section",
+  "lines",
+  "totals_section",
+  "total_sqft",
+  "column_break_totals",
+  "client_total"
+ ],
+ "links": [],
+ "modified": "2026-09-25 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Scope Estimate",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Manufacturing User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "naming_series:",
+ "is_submittable": 1,
+ "title_field": "project",
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "MEST-SCOPE-.YYYY.-",
+   "default": "MEST-SCOPE-.YYYY.-",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "fetch_from": "project.customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "default": "Today"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nDiscussed\nAccepted\nLapsed",
+   "default": "Draft"
+  },
+  {
+   "fieldname": "rooms_section",
+   "fieldtype": "Section Break",
+   "label": "Rooms"
+  },
+  {
+   "fieldname": "rooms",
+   "fieldtype": "Table",
+   "label": "Rooms",
+   "options": "Scope Estimate Room"
+  },
+  {
+   "fieldname": "services_section",
+   "fieldtype": "Section Break",
+   "label": "Services"
+  },
+  {
+   "fieldname": "services",
+   "fieldtype": "Table",
+   "label": "Services",
+   "options": "Scope Estimate Service"
+  },
+  {
+   "fieldname": "matrix_section",
+   "fieldtype": "Section Break",
+   "label": "Matrix",
+   "description": "Rebuilt on every save from the rooms and services above. Untick a cell this room does not need; the tick survives a rebuild."
+  },
+  {
+   "fieldname": "lines",
+   "fieldtype": "Table",
+   "label": "Matrix",
+   "options": "Scope Estimate Line"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_sqft",
+   "fieldtype": "Float",
+   "label": "Total sqft",
+   "read_only": 1,
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_totals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_total",
+   "fieldtype": "Currency",
+   "label": "Total",
+   "read_only": 1,
+   "description": "The only money on the client print. Internal cost and margin never enter this document."
+  }
+ ]
+}

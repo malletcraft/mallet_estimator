@@ -213,3 +213,9 @@ mallet_estimator.patches.seed_expanded_rooms
 # guards on meta.has_field -- so without the migrate the dimensions would be
 # dropped silently on every upload while every call still reported success.
 mallet_estimator.patches.add_room_dimensions_to_capture
+# post_model_sync: the Scope Estimate matrix (rooms x services) and the
+# Service Rate master it prices from. New doctypes, so a migrate is the only
+# thing that creates their tables -- without the patch entry a Python-only
+# deploy leaves every call failing on a missing table. No rates are seeded;
+# those are a human act on the bench.
+mallet_estimator.patches.add_scope_estimate

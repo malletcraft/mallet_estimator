@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "creation": "2026-09-25 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "room",
+  "article",
+  "include",
+  "area_sqft",
+  "rate",
+  "amount"
+ ],
+ "links": [],
+ "modified": "2026-09-25 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Mallet Estimator",
+ "name": "Scope Estimate Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "fields": [
+  {
+   "fieldname": "room",
+   "fieldtype": "Link",
+   "label": "Room",
+   "options": "Estimate Room",
+   "in_list_view": 1,
+   "read_only": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "article",
+   "fieldtype": "Link",
+   "label": "Service",
+   "options": "Mallet Article",
+   "in_list_view": 1,
+   "read_only": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "include",
+   "fieldtype": "Check",
+   "label": "Include",
+   "in_list_view": 1,
+   "default": "1",
+   "columns": 1,
+   "description": "One cell of the matrix. Untick what this room does not need."
+  },
+  {
+   "fieldname": "area_sqft",
+   "fieldtype": "Float",
+   "label": "Sqft",
+   "in_list_view": 1,
+   "read_only": 1,
+   "precision": "2",
+   "columns": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate",
+   "in_list_view": 1,
+   "read_only": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "in_list_view": 1,
+   "read_only": 1,
+   "columns": 2
+  }
+ ]
+}
