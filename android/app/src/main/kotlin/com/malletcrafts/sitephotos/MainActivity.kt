@@ -1887,6 +1887,142 @@ private fun NewSiteDialog(
     // site will be keyed in."
     var siteType by remember { mutableStateOf(siteTypes.firstOrNull() ?: "Flat") }
     var address by remember { mutableStateOf("") }
+    // Amit, 2026-09-25, from a client's flat: "too much information while
+    // creating a client. it can be keyed in later. make this client input
+    // form short. the form scrolls vertically too much and not very user
+    // friendly."
+    //
+    // Three fields are all that is needed to START FILING PHOTOS, which is
+    // the only thing this dialog is in the way of. Site type, address and job
+    // type all have defaults that are right most of the time, none of them
+    // changes where a photograph lands, and every one of them can be set
+    // later from the desk with a keyboard instead of on a phone in somebody
+    // else's flat. They are still here, one tap away, because "later" has to
+    // mean "without starting again".
+    var showMore by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New site") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(clientName, { clientName = it },
+                    label = { Text("Client") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(siteName, { siteName = it },
+                    label = { Text("Site name") },
+                    placeholder = { Text(Catalogue.DEFAULT_SITE) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(projectName, { projectName = it },
+                    label = { Text("Project") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth())
+
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = { showMore = !showMore }) {
+                    Text(if (showMore) "Fewer details"
+                         else "More details \u2014 type, address, job")
+                }
+
+                if (showMore) {
+                    Text("Site type", style = MaterialTheme.typography.labelMedium)
+                    // Chunked into rows of three rather than a FlowRow: six
+                    // types do not fit one line on a phone, a chip pushed off
+                    // the edge is a type nobody can choose, and chunking needs
+                    // no experimental layout opt-in to say so.
+                    siteTypes.chunked(3).forEach { row ->
+                        Row(Modifier.padding(top = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            row.forEach { t ->
+                                FilterChip(selected = t == siteType,
+                                    onClick = { siteType = t },
+                                    label = { Text(t, style = MaterialTheme.typography.labelSmall) })
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(address, { address = it },
+                        label = { Text("Address") },
+                        placeholder = { Text("Flat / building, street, area, city") },
+                        // maxLines only. minLines is Compose 1.4+ and is used
+                        // nowhere else in this app; the field grows as it is
+                        // typed into, which is enough for an address.
+                        maxLines = 4, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(10.dp))
+                    Text("Job type", style = MaterialTheme.typography.labelMedium)
+                    Row(Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        jobTypes.forEach { j ->
+                            FilterChip(selected = j == jobType, onClick = { jobType = j },
+                                label = { Text(j, style = MaterialTheme.typography.labelSmall) })
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text("Works offline. When the phone syncs, these become the " +
+                        "real client, site and project in ERPNext \u2014 or match " +
+                        "ones that already exist, however the names were spelled.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(clientName.trim(),
+                        siteName.trim().ifEmpty { Catalogue.DEFAULT_SITE },
+                        projectName.trim(), jobType, siteType, address.trim())
+                },
+                enabled = clientName.isNotBlank() && projectName.isNotBlank(),
+            ) { Text("Use this site") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * What a long-press is asking to rename.
+ *
+ * Carries BOTH identities on purpose: the names, which is how a local row is
+ * found in preferences, and the ERP docname, which is how a synced one is
+ * found on the server. Which of the two is used is decided by whether
+ * serverId is blank — the same test the tree already uses to draw the
+ * "offline" pill, so the dialog and the badge can never disagree.
+ */
+data class RenameTarget(
+    val kind: String,          // "client" | "site" | "project"
+    val current: String,
+    val client: String,
+    val site: String,
+    val project: String,
+    val serverId: String,
+    /** Whether the bench's bootstrap named this row. Carried BESIDE the
+     *  docname because the pair is what decides a delete: no id and unknown
+     *  is a local row, no id but KNOWN is this app failing to match a record
+     *  it was sent, and the two must never take the same branch. */
+    val serverKnown: Boolean = false,
+)
+
+@Composable
+private fun NewSiteDialog(
+    client: String,
+    site: String,
+    jobTypes: List<String>,
+    siteTypes: List<String>,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String, String, String, String) -> Unit,
+) {
+    // Prefilled from wherever the button was pressed. Someone standing at a
+    // known client's known flat should be typing ONE field, not four.
+    var clientName by remember { mutableStateOf(client) }
+    var siteName by remember { mutableStateOf(site) }
+    var projectName by remember { mutableStateOf("") }
+    var jobType by remember { mutableStateOf(jobTypes.firstOrNull() ?: Catalogue.JOB_NEW) }
+    // Amit, 2026-08-22: "site should be selectable like flat, bunglow, shop
+    // etc, address should be one more separate field where address of taht
+    // site will be keyed in."
+    var siteType by remember { mutableStateOf(siteTypes.firstOrNull() ?: "Flat") }
+    var address by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,

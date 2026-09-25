@@ -274,11 +274,38 @@ class Catalogue(context: Context) {
         })
     }
 
-    /** Once ERP has the site, its local copy is redundant — dropping it is
-     *  what stops the same folder appearing twice after a sync. */
-    fun forgetLocal(client: String, site: String, project: String) {
+    /**
+     * Drop local rows the SERVER's masters now cover — and no others.
+     *
+     * Amit, 2026-09-25, from a client's flat: "after creation of a client and
+     * storing its repair work, the client got vanished itself."
+     *
+     * WHAT USED TO HAPPEN. The sync worker fetched masters FIRST, then looped
+     * over the queue; a capture from a new site called ensureSite(), which
+     * created the client on the bench, and the row was forgotten on the spot
+     * because "ERP has it now". But the masters in hand were fetched BEFORE
+     * that client existed, so they did not contain her. The local row was
+     * gone and the server row had not arrived — and the client vanished from
+     * the tree until some later sync's bootstrap happened to succeed. With
+     * the bootstrap wrapped in runCatching, a failed one meant she stayed
+     * invisible indefinitely. Re-creating her by hand is what then produced
+     * work appearing twice.
+     *
+     * The deletion was never needed. projects() ALREADY hides a local row
+     * when an ERP project of the same name exists, at that site or any other.
+     * So this prune uses the SAME predicate that hides them: a row can only
+     * be removed once something is definitely covering it, which makes a
+     * failed refresh cost a duplicate for one sync rather than a client
+     * nobody can find on site.
+     */
+    fun pruneLocalsCoveredBy(masters: JSONObject?) {
+        val erp = erpProjects(masters)
+        if (erp.isEmpty()) return          // nothing to be covered BY
+        val atSite = erp.map { keyOf(it.client, it.site, it.title) }.toSet()
+        val anySite = erp.map { keyOf(it.client, "", it.title) }.toSet()
         writeLocals(locals().filterNot {
-            same(it.client, client) && same(it.site, site) && same(it.project, project)
+            keyOf(it.client, it.site, it.project) in atSite ||
+                keyOf(it.client, "", it.project) in anySite
         })
     }
 

@@ -63,11 +63,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                         siteAddress = cat.localAddress(siteName))
                     projectId = resolved.getString("project")
                     store.setProject(c.deviceId, projectId)
-                    // ERP has it now, so the local copy is redundant. Dropping
-                    // it is what stops the same folder appearing twice.
-                    cat.forgetLocal(c.customerName,
-                        cat.localSiteFor(c.customerName, c.projectTitle),
-                        c.projectTitle)
+                    // THE LOCAL ROW STAYS, and that is the fix. It used to be
+                    // dropped here, on the reasoning that ERP had it now --
+                    // but the masters in hand were fetched BEFORE this site
+                    // existed, so nothing had arrived to replace it and the
+                    // client vanished from the tree until a later bootstrap
+                    // happened to succeed. Amit found it in a client's flat.
+                    // Locals are pruned after the refresh below, against
+                    // masters that can actually cover them.
                 }
 
                 // The queue stores the WORK STAGE; the phase is derived from
@@ -221,6 +224,22 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 // mechanism exists to prevent.
                 failures += 1
             }
+        }
+
+        // REFRESH AFTER THE LOOP, not only before it. Anything the loop just
+        // created on the bench -- a new client, a new site -- exists only
+        // there until the masters are read again, and the tree draws from the
+        // masters. Fetching once at the start meant a site created during the
+        // run was invisible for the rest of it.
+        //
+        // Only now are local rows pruned, and only those the refreshed
+        // masters actually cover. A failed refresh therefore costs a
+        // duplicate folder for one sync instead of a client nobody can find
+        // while standing in their flat.
+        runCatching {
+            val fresh = client.bootstrap()
+            store.saveMasters(fresh)
+            cat.pruneLocalsCoveredBy(store.masters())
         }
 
         // Update check rides the sync too: when the server holds a newer
