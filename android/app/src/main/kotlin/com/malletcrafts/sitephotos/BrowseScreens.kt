@@ -277,6 +277,13 @@ fun RoomsScreen(
      *  because a room minted only on this phone would mint a second one on
      *  the next phone and the code prefix would fork. */
     onAddRoom: (() -> Unit)? = null,
+    /** Amit, 2026-09-25: "once we visit the site, rooms are fixed and need to
+     *  see other unnecessary rooms". Opens the tick-list of which rooms this
+     *  site actually has. Null leaves the behaviour exactly as it was. */
+    onChooseRooms: (() -> Unit)? = null,
+    /** How many of the master's rooms this site is currently hiding. Shown so
+     *  a narrowed list never looks like a list that lost something. */
+    hiddenRooms: Int = 0,
 ) {
     var showAll by remember { mutableStateOf(false) }
     val shot = rooms.filter { captureCount(it) > 0 }
@@ -298,6 +305,15 @@ fun RoomsScreen(
                 label = { Text(plural(shot.size, "room") + " shot") })
             AssistChip(onClick = onSkus, label = { Text(plural(skuCount, "SKU")) })
             AssistChip(onClick = onDetail, label = { Text(project.jobType) })
+            // The scope control sits with the other facts about this job, not
+            // in a menu: choosing the rooms IS a fact about the site, and it
+            // is the first thing worth doing on arriving at one.
+            onChooseRooms?.let {
+                AssistChip(onClick = it, label = {
+                    Text(if (hiddenRooms > 0) "Rooms \u00b7 $hiddenRooms hidden"
+                         else "Choose rooms")
+                })
+            }
             if (project.dateRange.isNotBlank()) {
                 AssistChip(onClick = onDetail, label = { Text(project.dateRange) })
             }

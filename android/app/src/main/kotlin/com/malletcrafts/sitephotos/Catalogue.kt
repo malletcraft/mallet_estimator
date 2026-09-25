@@ -309,6 +309,62 @@ class Catalogue(context: Context) {
         })
     }
 
+    // ---- which rooms this site actually has ------------------------------
+
+    /**
+     * The rooms in scope at one project, or empty meaning "not chosen yet".
+     *
+     * Amit, 2026-09-25: "though it gives more rooms and ability to add a room.
+     * once we visit the site, rooms are fixed and need to see other
+     * unnecessary rooms (it could be due to work is not required on these
+     * rooms or those rooms are not available at all in that site)."
+     *
+     * This is the bill for expanding the master from thirteen rooms to
+     * twenty-nine four days ago. The master has to cover a 5 BHK row house
+     * because some job somewhere needs Toilet 5 and a Car Porch; a two-bedroom
+     * flat needs eight of those names and is actively hindered by the other
+     * twenty-one. Both are true, and the master was the wrong place to
+     * reconcile them -- the scope belongs to the SITE, which is the only thing
+     * that knows which rooms exist in it.
+     *
+     * Empty is deliberately "show everything" rather than "show nothing", so
+     * every project that existed before this behaves exactly as it did.
+     */
+    fun roomScope(client: String, site: String, project: String): Set<String> {
+        val raw = prefs.getString(scopeKey(client, site, project), null) ?: return emptySet()
+        val arr = runCatching { JSONArray(raw) }.getOrDefault(JSONArray())
+        return (0 until arr.length()).mapNotNull { arr.optString(it).ifBlank { null } }.toSet()
+    }
+
+    fun setRoomScope(client: String, site: String, project: String, rooms: Set<String>) {
+        val arr = JSONArray()
+        rooms.sorted().forEach { arr.put(it) }
+        prefs.edit().putString(scopeKey(client, site, project), arr.toString()).apply()
+    }
+
+    /**
+     * What the grid should draw: the chosen rooms, ALWAYS including any room
+     * that already has captures on this phone.
+     *
+     * The union is not a nicety. A room hidden while holding photographs is
+     * work nobody can find, which is the same failure as the client that
+     * vanished from this tree on the same day -- and it would be caused here
+     * by a tick somebody cleared by accident rather than by a sync race.
+     * Scope narrows the PICKER; it can never hide what is already filed.
+     */
+    fun roomsInScope(
+        all: List<String>,
+        client: String, site: String, project: String,
+        hasCaptures: (String) -> Boolean,
+    ): List<String> {
+        val chosen = roomScope(client, site, project)
+        if (chosen.isEmpty()) return all
+        return all.filter { it in chosen || hasCaptures(it) }
+    }
+
+    private fun scopeKey(client: String, site: String, project: String) =
+        "room_scope:" + keyOf(client, site, project)
+
     // ---- work recorded on site ------------------------------------------
 
     fun localSkus(): List<LocalSku> {

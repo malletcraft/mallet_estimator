@@ -46,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -146,6 +147,7 @@ private fun AppScreen() {
     // every SKU code, so one minted on this phone would fork the prefix the
     // moment a second phone spelled it differently. Null when closed.
     var addRoom by remember { mutableStateOf(false) }
+    var chooseRooms by remember { mutableStateOf(false) }
     // A 360 that has been split but NOT yet accepted. Holds everything the
     // commit needs, so approving it writes the gallery and the queue without
     // re-deriving anything -- the bytes he approved are the bytes that land.
@@ -1037,7 +1039,22 @@ private fun AppScreen() {
                     }
                     when {
                         proj != null -> RoomsScreen(
-                            project = proj, rooms = rooms,
+                            project = proj,
+                            // Narrowed to the rooms this site actually has,
+                            // plus anything already holding captures.
+                            rooms = cat.roomsInScope(
+                                rooms, proj.client, proj.site, proj.title,
+                            ) { r ->
+                                queue.any { it.room == r &&
+                                    it.projectTitle.equals(proj.title, true) }
+                            },
+                            onChooseRooms = { chooseRooms = true },
+                            hiddenRooms = (rooms.size - cat.roomsInScope(
+                                rooms, proj.client, proj.site, proj.title,
+                            ) { r ->
+                                queue.any { it.room == r &&
+                                    it.projectTitle.equals(proj.title, true) }
+                            }.size).coerceAtLeast(0),
                             // Offered only when the bench is reachable. A
                             // room typed offline could not be resolved
                             // against the master, and a phone-only room is
@@ -1667,6 +1684,68 @@ private fun AppScreen() {
                     }
                 }
             })
+    }
+
+    if (chooseRooms) {
+        val proj = navProject
+        if (proj == null) { chooseRooms = false } else {
+            // Pre-ticked from whatever is already chosen; on a site nobody has
+            // narrowed yet, from the rooms that already hold captures. Opening
+            // this on a fresh site therefore starts EMPTY rather than with all
+            // twenty-nine ticked -- ticking eight is less work than clearing
+            // twenty-one, and it is the same eight either way.
+            val already = cat.roomScope(proj.client, proj.site, proj.title)
+            val start = if (already.isNotEmpty()) already
+                        else rooms.filter { r ->
+                            queue.any { it.room == r &&
+                                it.projectTitle.equals(proj.title, true) } }.toSet()
+            var ticked by remember(proj.title) { mutableStateOf(start) }
+            AlertDialog(
+                onDismissRequest = { chooseRooms = false },
+                title = { Text("Rooms at this site") },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Text("Tick the rooms this site has. The rest stay out " +
+                             "of the way until you need them. A room holding " +
+                             "photos is always shown, ticked or not.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        for (r in rooms) {
+                            val has = queue.any { it.room == r &&
+                                it.projectTitle.equals(proj.title, true) }
+                            Row(Modifier.fillMaxWidth().clickableRow {
+                                    ticked = if (r in ticked) ticked - r else ticked + r
+                                },
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Checkbox(checked = r in ticked || has,
+                                    enabled = !has,
+                                    onCheckedChange = {
+                                        ticked = if (r in ticked) ticked - r else ticked + r
+                                    })
+                                Text(if (has) "$r \u00b7 has photos" else r,
+                                    style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        cat.setRoomScope(proj.client, proj.site, proj.title, ticked)
+                        chooseRooms = false
+                        reload()
+                    }) { Text("Use these rooms") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        // Clearing the scope restores every room, which is the
+                        // only way back from a tick-list somebody regrets.
+                        cat.setRoomScope(proj.client, proj.site, proj.title, emptySet())
+                        chooseRooms = false
+                        reload()
+                    }) { Text("Show all") }
+                })
+        }
     }
 
     if (showCaptureSheet) {
