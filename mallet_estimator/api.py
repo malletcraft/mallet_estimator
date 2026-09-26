@@ -954,23 +954,14 @@ def _decor_shorts_for_sku(sku):
             {k: decor.short_code(v) for k, v in edge.items() if decor.short_code(v)})
 
 
-def _material_tally(ocl_totals, material_rows):
-    """Parse the plugin's totals if they arrived as JSON, then reconcile.
-
-    Sent as a string by Sketchup::Http like every other structured argument
-    here; absent entirely from a plugin on an older build, which must keep
-    working and simply get no tally.
-    """
-    from mallet_estimator import estimator          # imported per-function here
-    if isinstance(ocl_totals, str):
-        ocl_totals = json.loads(ocl_totals or "{}")
-    if not ocl_totals:
-        return {}
-    return estimator.material_tally(ocl_totals, material_rows)
-
-
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
+                     # ACCEPTED AND IGNORED, on purpose. Plugin builds up to
+                     # f9bb62f send OpenCutList's own totals here for the
+                     # server to reconcile against; that comparison moved into
+                     # the plugin on 2026-09-26. Dropping the parameter would
+                     # make an older plugin fail with an unexpected-argument
+                     # error on a call that is otherwise perfectly good.
                      ocl_totals=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
@@ -996,7 +987,7 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # nest_import's input, and nest_import is what the real CSV-Nest import
     # runs — the path whose material numbers Amit already trusts. Same
     # functions here, same answers, nothing saved.
-    ply, lam, edges, hw, banded_edges, faces, suspect = nest_import.collect(rows)
+    ply, lam, edges, hw, banded_edges, faces, suspect, lumber = nest_import.collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
 
@@ -1071,6 +1062,20 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             "desc": "%s — %.2f m banding → %d roll(s) of %g m"
                     % (code, meters, rolls, inventory.EDGE_ROLL_METERS),
         })
+
+    # SOLID WOOD AND DIMENSIONAL LUMBER, priced by volume.
+    #
+    # These reached the CSV and were dropped, silently, for as long as this
+    # endpoint has existed — proved against the live site on 2026-09-26, not
+    # inferred: four teak legs and six pine battens came back with zero rows.
+    # The plugin's reconciliation line is what made it visible; this is the
+    # half that makes it stop being true.
+    #
+    # Built by nest_import.lumber_lines, which the saved CSV-Nest import calls
+    # too, so the preview and the document cannot quote different timber for
+    # the same model.
+    lines.extend(nest_import.lumber_lines(
+        lumber, frappe.db.get_single_value("Estimate Settings", "wastage_pct")))
 
     # ONE QUESTION NOW, where there used to be two, and the collapse is a
     # correction rather than a simplification.
@@ -1743,13 +1748,16 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # got priced. Boards have had this since the sandwich line; hardware
         # had nothing, and four casters went missing in silence (2026-09-20).
         "hardware_tally": estimator.hardware_tally(hw, material_rows),
-        # EVERY material type reconciled against OpenCutList's own counts,
-        # not just hardware. Amit, 2026-09-25: "fix it for once." Two silent
-        # drops were found by him reading both tables; this compares them on
-        # every run so a third cannot wait to be noticed.
-        "material_tally": _material_tally(ocl_totals, material_rows),
-        "material_problems": estimator.material_tally_problems(
-            _material_tally(ocl_totals, material_rows)),
+        # THE PER-TYPE RECONCILIATION IS THE PLUGIN'S NOW, and deliberately
+        # not duplicated here. It had both sides already -- OpenCutList's own
+        # counts from the scan it just did, and these priced rows -- so doing
+        # it on the bench only made every correction wait on a deploy (Amit,
+        # 2026-09-25). Worse, the version that lived here compared OCL's
+        # PIECES against the priced QUANTITY, which is meaningful for hardware
+        # and for nothing else: 62 panels nest into 9 boards, and bands are
+        # counted as parts but priced in metres. Two implementations of one
+        # comparison, on opposite sides of a deploy, is how they end up
+        # disagreeing.
         # THE THREE TOTALS, and material broken into the families Amit named
         # (2026-09-02). Assembled from the same rows the tables above render,
         # so the summary cannot disagree with what is on screen.

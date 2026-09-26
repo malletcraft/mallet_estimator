@@ -675,6 +675,27 @@ class TestNewMaterialGetsAHome(MalletTestCase):
         self.assertEqual(set(inventory.KIND_WAREHOUSE),
                          set(inventory.KIND_SPEC))
 
+    def test_lumber_is_stocked_by_volume_and_the_unit_exists(self):
+        """Solid wood and dimensional lumber price per CUBIC FOOT.
+
+        Not per piece, which is what KIND_SPEC said while nothing priced them:
+        a rate keyed against a 50 x 50 leg misprices every 25 x 75 rail, and
+        the only way out is an Item per section per species. The unit has to
+        exist on the site as well — an Item created against a UOM that is not
+        there loses its unit in silence, and whoever creates an Item fixes its
+        unit for ever.
+        """
+        from mallet_estimator import estimator
+        for kind in set(estimator.LUMBER_TYPES.values()):
+            self.assertIn(kind, inventory.KIND_SPEC, kind)
+            spec = inventory.KIND_SPEC[kind]
+            self.assertEqual(spec["stock_uom"], "Cubic Foot", kind)
+            self.assertEqual(spec["purchase_uom"], "Cubic Foot", kind)
+            self.assertEqual(spec["conv"], 1, kind)
+            self.assertTrue(frappe.db.exists("UOM", spec["stock_uom"]),
+                            "UOM %s missing — install.ensure_* should create it"
+                            % spec["stock_uom"])
+
     def test_a_warehouse_that_does_not_exist_is_not_guessed(self):
         # Returning a name nobody created would push the error to a receipt,
         # in front of somebody holding a delivery note. None is the honest

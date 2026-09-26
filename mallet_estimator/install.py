@@ -370,7 +370,12 @@ def ensure_core_seed():
                 not frappe.db.exists("Warehouse Type", wt):
             frappe.get_doc({"doctype": "Warehouse Type", "name": wt}).insert(
                 ignore_permissions=True)
-    for uom in ("Nos", "Meter", "Roll", "Sheet"):
+    # "Cubic Foot" joined the list when solid wood and dimensional lumber
+    # started being priced by volume. ERPNext probably ships it, but the
+    # read-only role cannot list UOM to find out (403, not an empty answer) --
+    # and an Item created against a UOM that does not exist loses its unit
+    # silently, so creating it here costs nothing and settles the question.
+    for uom in ("Nos", "Meter", "Roll", "Sheet", "Cubic Foot"):
         if not frappe.db.exists("UOM", uom):
             frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
                 ignore_permissions=True)
@@ -679,9 +684,10 @@ def verify_setup():
     m = missing("Item Group", groups)
     chk("Item Groups", not m, ("missing: " + ", ".join(m)) if m else f"{len(groups)} present")
 
-    uoms = ["Sheet", "Meter", "Roll", "Square Meter"]
+    uoms = ["Sheet", "Meter", "Roll", "Square Meter", "Cubic Foot"]
     m = missing("UOM", uoms)
-    chk("UOMs", not m, ("missing: " + ", ".join(m)) if m else "Sheet, Meter, Roll, Square Meter ✓")
+    chk("UOMs", not m, ("missing: " + ", ".join(m)) if m else
+        "Sheet, Meter, Roll, Square Meter, Cubic Foot ✓")
 
     meta = frappe.get_meta("Item")
     m = [f for f in ITEM_CUSTOM_FIELDS if not meta.has_field(f)]

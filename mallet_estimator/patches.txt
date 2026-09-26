@@ -219,3 +219,10 @@ mallet_estimator.patches.add_room_dimensions_to_capture
 # deploy leaves every call failing on a missing table. No rates are seeded;
 # those are a human act on the bench.
 mallet_estimator.patches.add_scope_estimate
+# post_model_sync: solid wood and dimensional lumber start being PRICED, by
+# volume, so the Cubic Foot UOM has to exist before the first such Item is
+# created. install creates it under after_migrate and a Python-only deploy
+# runs no migrate -- the patch entry is what forces one. Without it the unit
+# is dropped in silence and the Item keeps whatever ERPNext defaults to, for
+# ever, because an Item's stock UOM is fixed at creation.
+mallet_estimator.patches.lumber_uom_cubic_foot

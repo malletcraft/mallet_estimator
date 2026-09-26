@@ -706,6 +706,11 @@ def op_phase(row):
 # EB_PVC_IN_ or EB_PVC_EX_ outright.
 MATERIAL_FAMILIES = (
     ("ply", "Ply"),
+    # Factory internal, beside ply, by the test Amit set on 2026-09-04: not
+    # visible-vs-hidden but WHO CHOSE IT. Nobody specifies the batten behind a
+    # loft the way they specify a handle.
+    ("solid", "Solid wood"),
+    ("dimensional", "Dimensional lumber"),
     ("lam_int", "Internal laminate"),
     ("edge_int", "Internal edge banding"),
     ("joinery", "Joinery material"),
@@ -741,7 +746,8 @@ JOINERY_HARDWARE = frozenset({"screws", "minifix", "shelf_supports"})
 
 MATERIAL_GROUPS = (
     ("factory", "Factory internal material",
-     ("ply", "lam_int", "edge_int", "joinery", "hw_joinery")),
+     ("ply", "solid", "dimensional", "lam_int", "edge_int", "joinery",
+      "hw_joinery")),
     ("client", "Client selection material",
      ("lam_ext", "edge_ext", "hw_client")),
     # Never dropped. A family that fits neither still has to appear or the two
@@ -786,11 +792,19 @@ def material_family(code, kind=None):
             # than guessed — a wrong subtotal is worse than an honest one.
             return "other"
         return "lam_int" if key[0] == decor.INTERNAL_SLOT else "lam_ext"
+    if up.startswith("SW_"):
+        return "solid"
+    if up.startswith("DIM_") or up.startswith("DM_"):
+        return "dimensional"
     if up.startswith("JH_"):
         return "joinery"
     if up.startswith("HWD_"):
         return ("hw_joinery" if classify_hardware(c) in JOINERY_HARDWARE
                 else "hw_client")
+    if kind == "solidwood":
+        return "solid"
+    if kind == "dimensional":
+        return "dimensional"
     if kind == "joinery":
         return "joinery"
     if kind == "hardware":
@@ -1699,73 +1713,60 @@ def bought_out_value(cost, settings, markup_pct=None):
     return _num(cost) * (1 + markup / 100.0), markup
 
 
-# OpenCutList's own material-type names, as the plugin sends them, mapped to
-# the `kind` this app prices rows under. Veneer is absent on purpose: it is
-# never pushed, because laminate is derived from the ply faces.
-OCL_TYPE_TO_KIND = {
-    "Sheet Goods": "sheet",
-    "Solid Wood": "solid",
-    "Dimensional": "dimensional",
-    "Edge Banding": "edge",
-    "Hardware": "hardware",
-}
+# OpenCutList material types that are SOLID SECTIONS, and the `kind` each
+# prices under. Both are bought by volume, which is why they share a builder.
+LUMBER_TYPES = {"solid wood": "solidwood", "dimensional": "dimensional"}
+
+# 1 cubic foot in mm³.
+MM3_PER_CFT = 304.8 ** 3
 
 
-def material_tally(ocl_totals, rows):
-    """Every material type OpenCutList counted, against what was priced.
+def lumber_lines(lumber, wastage_pct):
+    """Priced-line inputs for solid wood and dimensional lumber.
 
-    Amit, 2026-09-25: "OCL native calculation of ply and material ... gives me
-    surprises like caster in earlier case. fix it for once. OCL native
-    material is fantastic. you just need to read it carefully without messing
-    up."
+    BY VOLUME, NOT BY THE PIECE, and that is the whole design decision here.
+    KIND_SPEC held these at "Nos" before anything priced them, which reads
+    sensibly until you price a second part: a rate keyed against a 50 x 50 leg
+    then misprices a 25 x 75 rail by whatever the sections differ by, and the
+    only way out is a separate Item per section per species. Volume needs ONE
+    rate per species and scales itself — and it is exactly how a timber yard
+    quotes teak. A merchant quoting per running foot at a fixed section is
+    quoting a volume price with the section folded in.
 
-    THE GENERAL FORM OF TWO FIXES ALREADY MADE ONE AT A TIME. HWD_Caster went
-    missing because its material carried no type and the group was dropped in
-    silence; SG_PLY_V0_1mm was invented because a part's measured thickness
-    was sent where the board's belonged. Both were found by Amit reading
-    OpenCutList's tables beside the estimate, and both were repaired
-    afterwards for that one material.
+    The cubic foot rather than the cubic metre because that is the unit the
+    quotation will arrive in. The section is carried into the description, so
+    the number can be checked against that quotation instead of taken on
+    trust.
 
-    This compares the two readings on EVERY type, every run. A drop that
-    nobody happens to look at is exactly the kind this app keeps meeting, and
-    the whole reason the sandwich line and the hardware tally already exist.
-
-    Counts PIECES, never lines: the designation lookup legitimately splits one
-    OpenCutList material into two priced SKUs, which is the feature working
-    and must not read as a discrepancy.
+    WASTAGE IS A PERCENTAGE HERE, unlike sheets. A board is charged whole
+    because the offcut leaves the nest with it ("charge full board"); a length
+    of 50 x 50 is cut from a longer stick and what is left goes back on the
+    rack, so the honest uplift is a fraction and not a whole unit.
     """
-    out = {}
-    for ocl_name, counts in (ocl_totals or {}).items():
-        kind = OCL_TYPE_TO_KIND.get(ocl_name)
-        if not kind:
+    factor = 1 + (float(wastage_pct or 0) / 100.0)
+    out = []
+    for (kind, code), t in sorted(lumber.items()):
+        used_cft = t["mm3"] / MM3_PER_CFT
+        bought_cft = used_cft * factor
+        if bought_cft <= 0:
             continue
-        counted = int(float((counts or {}).get("pieces") or 0))
-        priced = 0
-        for r in rows or []:
-            if r.get("kind") != kind:
-                continue
-            pieces = r.get("pieces")
-            priced += int(float(pieces if pieces not in (None, "") else (r.get("qty") or 0)))
-        out[ocl_name] = {
-            "counted": counted,
-            "priced": priced,
-            "missing": max(0, counted - priced),
-            "matches": counted == priced,
-        }
+        secs = ", ".join("%d @ %s mm" % (n, sec)
+                         for sec, n in sorted(t["sections"].items()))
+        # Rounded UP to the hundredth, like every other quantity in this app:
+        # a rate times a truncated volume is money the shop is not asked for.
+        qty = math.ceil(bought_cft * 100.0) / 100.0
+        out.append({
+            "kind": kind, "material": code, "thickness": 0,
+            "qty": qty,
+            "uom": "Cubic Foot", "rate_factor": 1,
+            "use_unit": "cft",
+            "bought_units": round(bought_cft, 3),
+            "consumed_units": round(used_cft, 3),
+            "unused_units": round(max(0.0, bought_cft - used_cft), 3),
+            # The QUANTITY, not the unrounded volume behind it. Printing
+            # 0.44 beside a line charging 0.45 invites somebody to check the
+            # arithmetic and conclude the estimate is wrong.
+            "desc": "%s — %d piece(s) [%s] → %.2f cft incl %g%% waste"
+                    % (code, t["pieces"], secs, qty, float(wastage_pct or 0)),
+        })
     return out
-
-
-def material_tally_problems(tally):
-    """Only the types that disagree, phrased for a person.
-
-    A tally nobody reads is worth nothing, and six green rows hide the one
-    red one — so the screen gets the mismatches and not the table.
-    """
-    bad = []
-    for name, t in sorted((tally or {}).items()):
-        if t.get("matches"):
-            continue
-        bad.append(
-            f"{name}: OpenCutList {t['counted']}, estimate {t['priced']}"
-            + (f" ({t['missing']} missing)" if t.get("missing") else ""))
-    return bad

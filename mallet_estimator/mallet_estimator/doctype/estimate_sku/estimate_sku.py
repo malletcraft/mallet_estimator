@@ -862,6 +862,7 @@ class EstimateSKU(Document):
         # Sheets, laminate and edge banding come from the estimate PDF (its nesting
         # is authoritative); hardware comes from the part list designations when
         # attached (falling back to the PDF's generic groups).
+        skipped_lumber = []
         for m in materials:
             if m.get("kind") == "laminate":
                 real, letter = decor.substitute_real_code(m["name"], lam_shorts)
@@ -894,6 +895,23 @@ class EstimateSKU(Document):
                     decor_meta=edge_decors.get(eb_ltr) if eb_ltr else None,
                     real_code=real_eb if eb_ltr else None,
                 )
+                continue
+            if m.get("kind") in ("solidwood", "dimensional"):
+                # NOT PRICED FROM THE ESTIMATE PDF, and said out loud rather
+                # than priced wrongly.
+                #
+                # Solid wood and dimensional lumber are bought by VOLUME
+                # (inventory.KIND_SPEC, Cubic Foot), and volume needs the
+                # section — width and thickness per part. The estimate PDF
+                # does not carry it; only the part-list CSV does. Passing the
+                # PDF's own quantity straight through would put a piece count
+                # on a line whose unit says cubic feet, and multiply it by a
+                # per-cft rate.
+                #
+                # The CSV-Nest path prices these properly
+                # (estimator.lumber_lines). Standard mode cannot, so it says
+                # which material it is leaving out.
+                skipped_lumber.append(m["name"])
                 continue
             self._add_material_line(
                 m["name"], m.get("kind"), m.get("thickness") or 0, qty,
@@ -959,6 +977,16 @@ class EstimateSKU(Document):
                 "customer_supplied": r.get("customer_supplied") or 0,
                 "is_manual": 1,
             })
+
+        if skipped_lumber:
+            frappe.msgprint(
+                _("Solid wood / dimensional lumber in the Estimate PDF was NOT "
+                  "priced: <b>{0}</b>. These are bought by volume and the "
+                  "estimate PDF carries no section, so the cubic feet cannot "
+                  "be worked out from it. Attach the Part List CSV and use "
+                  "CSV-Nest mode, which measures every piece.").format(
+                      ", ".join(sorted(set(skipped_lumber)))),
+                indicator="orange")
 
         self.unpriced_materials = ", ".join(unpriced)
         if unpriced:

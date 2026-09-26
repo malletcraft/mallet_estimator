@@ -16,7 +16,8 @@ import frappe
 from frappe import _
 
 from mallet_estimator import estimate_pdf, inventory, nesting, opencutlist, decor
-from mallet_estimator.estimator import op_phase
+from mallet_estimator.estimator import (LUMBER_TYPES, lumber_lines,
+                                        op_phase)
 from mallet_estimator.opencutlist import _material_from, _num
 
 # Calibrated against the shop's real OpenCutList exports. On YS_MB_WAR
@@ -27,7 +28,6 @@ from mallet_estimator.opencutlist import _material_from, _num
 # any figure quoted before 2026-08-09 as unverified.
 KERF_MM = 4.0
 TRIM_MM = 10.0
-
 
 def collect(rows):
     """Aggregate the CSV part rows into nesting inputs:
@@ -54,9 +54,36 @@ def collect(rows):
     ply, lam, edges, faces = {}, {}, {}, {}
     banded = 0
     suspect = {}
+    lumber = {}
     for r in rows:
         name = (r.get("Material name") or "").strip()
         mtype = (r.get("Material type") or "").strip().lower()
+        if mtype in LUMBER_TYPES and name:
+            # SOLID WOOD AND DIMENSIONAL LUMBER, which reached this loop for
+            # months and fell straight through it.
+            #
+            # Verified against the live site on 2026-09-26 before any of this
+            # was written: a CSV carrying four teak legs and six pine battens
+            # came back from estimate_preview with ZERO rows for either. The
+            # parts were pushed, parsed, counted in `parts`, and then priced
+            # by nothing, because this loop only ever asked about sheet goods
+            # and hardware. Nothing anywhere said so.
+            l = _num(r.get("Length") or r.get("Length - raw"))
+            w = _num(r.get("Width") or r.get("Width - raw"))
+            th = _num(r.get("Thickness") or r.get("Thickness - raw"))
+            if not (l and w and th):
+                continue
+            qty = opencutlist.part_qty(r)
+            t = lumber.setdefault((LUMBER_TYPES[mtype], name),
+                                  {"pieces": 0, "mm3": 0.0, "sections": {}})
+            t["pieces"] += qty
+            t["mm3"] += l * w * th * qty
+            # The section, as the yard would state it: "50 x 50". Kept so the
+            # line can say what was measured, because a volume with no section
+            # beside it cannot be checked against a quotation.
+            sec = "%g x %g" % tuple(sorted((w, th)))
+            t["sections"][sec] = t["sections"].get(sec, 0) + qty
+            continue
         if mtype == "sheet goods" and name.upper().startswith("SG"):
             l = _num(r.get("Length") or r.get("Length - raw"))
             w = _num(r.get("Width") or r.get("Width - raw"))
@@ -87,7 +114,7 @@ def collect(rows):
                     by_face = faces.setdefault((name, th), {}).setdefault(col, {})
                     by_face[lc] = by_face.get(lc, 0.0) + l * w * qty
     hw = opencutlist.hardware_list(rows)
-    return ply, lam, edges, hw, banded, faces, suspect
+    return ply, lam, edges, hw, banded, faces, suspect, lumber
 
 
 def suspect_issues(suspect):
@@ -127,7 +154,7 @@ def run(doc):
     rows = opencutlist.parse_opencutlist_csv(content)
     if not rows:
         frappe.throw(_("The Part List CSV could not be parsed — is it the OpenCutList export?"))
-    ply, lam, edges, hw, banded_edges, faces, suspect = collect(rows)
+    ply, lam, edges, hw, banded_edges, faces, suspect, lumber = collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
     issues = envelope_issues(doc, ply) + suspect_issues(suspect)
@@ -189,6 +216,19 @@ def run(doc):
             f"{code} — {meters:.2f} m banding → {rolls} whole roll(s) of {inventory.EDGE_ROLL_METERS:g} m [CSV-Nest]",
             unpriced, uom="Roll", rate_factor=inventory.EDGE_ROLL_METERS)
         mats_shape.append({"name": code, "kind": "edge", "thickness": 0, "qty": rolls})
+
+    # Solid wood and dimensional lumber, priced by volume. Same builder the
+    # plugin's preview uses, so the saved document and the on-screen estimate
+    # cannot quote different timber for the same model — the failure the
+    # assembly count already caused once (2026-08-29, plugin 2 against
+    # document 1).
+    for l in lumber_lines(lumber, frappe.db.get_single_value(
+            "Estimate Settings", "wastage_pct")):
+        doc._add_material_line(
+            l["material"], l["kind"], 0, l["qty"],
+            l["desc"] + " [CSV-Nest]", unpriced, uom=l["uom"])
+        mats_shape.append({"name": l["material"], "kind": l["kind"],
+                           "thickness": 0, "qty": l["qty"]})
 
     # Designation-level hardware lines, matching the PDF path exactly (the
     # category rides along as the item's group, so rates resolve per SKU).

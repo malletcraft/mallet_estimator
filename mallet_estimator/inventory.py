@@ -73,8 +73,16 @@ KIND_SPEC = {
     "hardware":    {"group": "Hardware",          "stock_uom": "Nos",   "purchase_uom": "Nos",   "conv": 1},
     "joinery":     {"group": "Joinery Hardware",  "stock_uom": "Nos",   "purchase_uom": "Nos",   "conv": 1},
     "paint":       {"group": "Paint",             "stock_uom": "Litre", "purchase_uom": "Litre", "conv": 1},
-    "solidwood":   {"group": "Solid Wood",        "stock_uom": "Nos",   "purchase_uom": "Nos",   "conv": 1},
-    "dimensional": {"group": "Dimensional Lumber", "stock_uom": "Nos",  "purchase_uom": "Nos",   "conv": 1},
+    # BY VOLUME, because a rate per PIECE cannot survive a second section.
+    # These held "Nos" while nothing priced them; the moment they were priced
+    # (2026-09-26) a rate keyed against a 50 x 50 leg would have mispriced
+    # every 25 x 75 rail, forcing one Item per section per species. A cubic
+    # foot needs one rate per species and is the unit a timber yard quotes in.
+    # Safe to change because no real Item existed at the old unit -- checked
+    # on staging first, and whoever creates an Item fixes its UOM for ever
+    # (ensure_material_item never edits an existing one).
+    "solidwood":   {"group": "Solid Wood",        "stock_uom": "Cubic Foot", "purchase_uom": "Cubic Foot", "conv": 1},
+    "dimensional": {"group": "Dimensional Lumber", "stock_uom": "Cubic Foot", "purchase_uom": "Cubic Foot", "conv": 1},
 }
 # C1 — hardware splits into two shopper-facing groups: what the CLIENT selects
 # (hinges/rails/handles/locks/lifts) vs the JOINERY the shop consumes

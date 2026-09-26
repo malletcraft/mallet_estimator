@@ -1273,10 +1273,14 @@ class TestMaterialFamilies(unittest.TestCase):
     """
 
     def test_the_families_read_in_the_order_he_asked_for(self):
+        # Solid wood and dimensional lumber joined the factory block on
+        # 2026-09-26, when they started being priced at all. They sit beside
+        # ply because the dividing line is WHO CHOSE IT, and nobody specifies
+        # the batten behind a loft.
         self.assertEqual(
             E.FAMILY_ORDER,
-            ["ply", "lam_int", "edge_int", "joinery", "hw_joinery",
-             "lam_ext", "edge_ext", "hw_client", "other"])
+            ["ply", "solid", "dimensional", "lam_int", "edge_int", "joinery",
+             "hw_joinery", "lam_ext", "edge_ext", "hw_client", "other"])
         for fam in E.FAMILY_ORDER:
             self.assertIn(fam, E.FAMILY_LABELS, fam)
 
@@ -1623,7 +1627,8 @@ class TestTheTwoGroups(unittest.TestCase):
                          ["Factory internal material", "Client selection material",
                           "Other material"])
         self.assertEqual(out[0]["families"],
-                         ["ply", "lam_int", "edge_int", "joinery", "hw_joinery"])
+                         ["ply", "solid", "dimensional", "lam_int", "edge_int",
+                          "joinery", "hw_joinery"])
         self.assertEqual(out[1]["families"], ["lam_ext", "edge_ext", "hw_client"])
 
     def test_the_group_carries_the_money(self):
@@ -1810,62 +1815,96 @@ class TestRoomMaster(unittest.TestCase):
                          "install.DEFAULT_ROOMS -- update both together")
 
 
-class TestMaterialTally(unittest.TestCase):
-    """Every material type reconciled against OpenCutList's own counts.
+class TestLumberLines(unittest.TestCase):
+    """Solid wood and dimensional lumber, priced by volume.
 
-    Amit, 2026-09-25: "OCL native calculation of ply and material ... gives me
-    surprises like caster in earlier case. fix it for once."
+    These were pushed in the CSV and dropped for as long as estimate_preview
+    has existed — proved against the live site on 2026-09-26, where a CSV
+    carrying four teak legs and six pine battens came back with zero rows for
+    either. What follows pins the arithmetic that replaced the silence.
     """
 
-    def test_the_caster_case_is_reported(self):
-        # The real one, 2026-09-20: OpenCutList's Hardware table totalled 43
-        # pieces and the estimate priced 39. Nothing said so; Amit found it by
-        # reading both.
-        t = E.material_tally({"Hardware": {"pieces": 43}},
-                             [{"kind": "hardware", "qty": 20, "pieces": 39}])
-        self.assertFalse(t["Hardware"]["matches"])
-        self.assertEqual(t["Hardware"]["missing"], 4)
-        self.assertIn("Hardware: OpenCutList 43, estimate 39",
-                      E.material_tally_problems(t)[0])
+    def _leg(self, pieces=4):
+        # 900 x 50 x 50 mm, the teak leg from the probe.
+        return {("solidwood", "SW_Teak"): {
+            "pieces": pieces, "mm3": 900.0 * 50 * 50 * pieces,
+            "sections": {"50 x 50": pieces}}}
 
-    def test_a_faithful_translation_reports_nothing(self):
-        t = E.material_tally(
-            {"Hardware": {"pieces": 43}, "Sheet Goods": {"pieces": 8},
-             "Edge Banding": {"pieces": 12}},
-            [{"kind": "hardware", "pieces": 43}, {"kind": "sheet", "qty": 8},
-             {"kind": "edge", "qty": 12}])
-        self.assertEqual(E.material_tally_problems(t), [])
+    def test_volume_is_the_quantity_and_the_unit_is_the_cubic_foot(self):
+        [row] = E.lumber_lines(self._leg(), 0)
+        # 4 legs x 2.25e6 mm³ = 9e6 mm³; one cft is 304.8³ = 28316846.6 mm³.
+        self.assertAlmostEqual(row["consumed_units"], 9e6 / E.MM3_PER_CFT, places=3)
+        self.assertEqual(row["uom"], "Cubic Foot")
+        self.assertEqual(row["kind"], "solidwood")
+        self.assertEqual(row["material"], "SW_Teak")
 
-    def test_pieces_not_lines(self):
-        # The designation lookup legitimately splits one OpenCutList material
-        # into two priced SKUs. That is the feature working and must never
-        # read as a discrepancy.
-        t = E.material_tally({"Hardware": {"pieces": 9}},
-                             [{"kind": "hardware", "pieces": 5},
-                              {"kind": "hardware", "pieces": 4}])
-        self.assertTrue(t["Hardware"]["matches"])
+    def test_a_rate_per_species_survives_a_second_section(self):
+        # THE REASON THIS IS NOT PRICED PER PIECE. A 25 x 75 rail and a 50 x 50
+        # leg are both "1 Nos" and are not the same money. Under volume the
+        # same rate prices both, and the line is the sum of what is there.
+        lumber = {("solidwood", "SW_Teak"): {
+            "pieces": 2, "mm3": 900.0 * 50 * 50 + 600.0 * 25 * 75,
+            "sections": {"50 x 50": 1, "25 x 75": 1}}}
+        [row] = E.lumber_lines(lumber, 0)
+        self.assertAlmostEqual(row["consumed_units"],
+                               (2250000.0 + 1125000.0) / E.MM3_PER_CFT, places=3)
+        # Both sections named, so the volume can be checked against a quote
+        # instead of taken on trust.
+        self.assertIn("25 x 75", row["desc"])
+        self.assertIn("50 x 50", row["desc"])
 
-    def test_a_packet_line_counts_its_pieces(self):
-        t = E.material_tally({"Hardware": {"pieces": 6}},
-                             [{"kind": "hardware", "qty": 3, "pieces": 6}])
-        self.assertTrue(t["Hardware"]["matches"])
+    def test_wastage_is_a_percentage_here_not_a_whole_unit(self):
+        # A board is charged whole because its offcut leaves the nest with it.
+        # A stick is cut and the remainder goes back on the rack, so the
+        # honest uplift is a fraction.
+        [row] = E.lumber_lines(self._leg(), 12)
+        self.assertAlmostEqual(row["bought_units"],
+                               row["consumed_units"] * 1.12, places=3)
+        self.assertGreater(row["unused_units"], 0)
+        self.assertIn("12% waste", row["desc"])
 
-    def test_veneer_is_not_reconciled(self):
-        # Never pushed — laminate is derived from the ply faces — so counting
-        # it would report a mismatch on every single estimate.
-        t = E.material_tally({"Veneer": {"pieces": 40}}, [])
-        self.assertEqual(t, {})
+    def test_quantity_rounds_up(self):
+        # A rate times a truncated volume is money the shop is not asked for.
+        [row] = E.lumber_lines(self._leg(1), 0)
+        self.assertGreaterEqual(row["qty"], row["bought_units"])
+        self.assertLess(row["qty"] - row["bought_units"], 0.01)
 
-    def test_no_totals_means_no_tally_rather_than_a_false_alarm(self):
-        # A plugin on an older build sends nothing. Silence there must not
-        # look like everything went missing.
-        self.assertEqual(E.material_tally(None, [{"kind": "sheet", "qty": 8}]), {})
-        self.assertEqual(E.material_tally({}, []), {})
+    def test_dimensional_prices_the_same_way_under_its_own_kind(self):
+        lumber = {("dimensional", "DIM_Pine"): {
+            "pieces": 6, "mm3": 2400.0 * 40 * 20 * 6, "sections": {"20 x 40": 6}}}
+        [row] = E.lumber_lines(lumber, 0)
+        self.assertEqual(row["kind"], "dimensional")
+        self.assertEqual(row["uom"], "Cubic Foot")
 
-    def test_every_ocl_type_the_plugin_can_send_is_mapped(self):
-        """The caster bug in one line: a type the map does not know is a type
-        whose materials vanish. The plugin's own _material_type_name lists
-        exactly these five, and veneer, which is excluded by design."""
+    def test_nothing_measured_produces_no_line(self):
+        # A zero-volume group must not reach the screen as a free material.
+        self.assertEqual(E.lumber_lines({}, 12), [])
+        self.assertEqual(E.lumber_lines(
+            {("solidwood", "SW_X"): {"pieces": 1, "mm3": 0.0, "sections": {}}}, 12), [])
+
+    def test_each_kind_lands_in_its_own_factory_family(self):
+        # Factory internal, beside ply: nobody specifies the batten behind a
+        # loft the way they specify a handle.
+        self.assertEqual(E.material_family("SW_Teak"), "solid")
+        self.assertEqual(E.material_family("DIM_Pine"), "dimensional")
+        self.assertEqual(E.material_family("DM_Pine"), "dimensional")
+        # And by kind, for a code that carries no recognisable prefix.
+        self.assertEqual(E.material_family("Teak", kind="solidwood"), "solid")
+        self.assertEqual(E.material_family("Pine", kind="dimensional"), "dimensional")
+        for fam in ("solid", "dimensional"):
+            self.assertEqual(E.GROUP_OF_FAMILY[fam], "factory")
+            self.assertIn(fam, E.FAMILY_LABELS)
+
+    def test_the_kind_names_match_the_pdf_paths_own(self):
+        # A second spelling of "solid wood" is how a priced line reads as
+        # unpriced, and one was nearly shipped: a tally added on 2026-09-25
+        # said "solid" where every other module says "solidwood".
+        # estimate_pdf is the other reader of these types and is frappe-free,
+        # so the two can be pinned to each other here; the inventory half
+        # (Cubic Foot as the stock unit) is asserted in the bench suite,
+        # because inventory imports frappe.
+        from mallet_estimator import estimate_pdf
         self.assertEqual(
-            sorted(E.OCL_TYPE_TO_KIND),
-            ["Dimensional", "Edge Banding", "Hardware", "Sheet Goods", "Solid Wood"])
+            {k for k in E.LUMBER_TYPES.values()},
+            {v for k, v in estimate_pdf.SECTION_KIND.items()
+             if v in ("solidwood", "dimensional")})
