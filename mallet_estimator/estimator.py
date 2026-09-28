@@ -1721,10 +1721,13 @@ LUMBER_TYPES = {"solid wood": "solidwood", "dimensional": "dimensional"}
 MM3_PER_CFT = 304.8 ** 3
 
 
-def lumber_lines(lumber, wastage_pct):
+def lumber_lines(lumber, stock):
     """Priced-line inputs for solid wood and dimensional lumber.
 
-    BY VOLUME, NOT BY THE PIECE, and that is the whole design decision here.
+    Returns (lines, unstocked) — the priced lines, and the materials held back
+    because MOP sent no offcut figure for them.
+
+    BY VOLUME, NOT BY THE PIECE, and that is the first design decision here.
     KIND_SPEC held these at "Nos" before anything priced them, which reads
     sensibly until you price a second part: a rate keyed against a 50 x 50 leg
     then misprices a 25 x 75 rail by whatever the sections differ by, and the
@@ -1733,28 +1736,67 @@ def lumber_lines(lumber, wastage_pct):
     quotes teak. A merchant quoting per running foot at a fixed section is
     quoting a volume price with the section folded in.
 
-    The cubic foot rather than the cubic metre because that is the unit the
-    quotation will arrive in. The section is carried into the description, so
-    the number can be checked against that quotation instead of taken on
-    trust.
+    THE OFFCUT COMES FROM MOP, AND IF IT DOES NOT COME THE LINE IS NOT PRICED.
+    Amit, 2026-09-28: "all wastage and cossumed will always be driven by MOP
+    and not by erp."
 
-    WASTAGE IS A PERCENTAGE HERE, unlike sheets. A board is charged whole
-    because the offcut leaves the nest with it ("charge full board"); a length
-    of 50 x 50 is cut from a longer stick and what is left goes back on the
-    rack, so the honest uplift is a fraction and not a whole unit.
+    The first version of this read Estimate Settings.wastage_pct, which is
+    exactly the direction that forbids. OpenCutList already knows the answer:
+    it carries a CUTTING SIZE per part — the finished size plus the machining
+    allowance configured on that material — and totals it per group as
+    `total_cutting_volume`. That is a number somebody has already set against
+    the timber they actually buy, which is worth more than a percentage typed
+    into a settings form by whoever opened it last.
+
+    `stock` is that total, per material code:
+    {"SW_Teak": {"bought_mm3": …, "used_mm3": …, "source": "…"}}.
+
+    (The 1D bar nest was the first candidate and was rejected on the evidence:
+    OpenCutList offers it for DIMENSIONAL and EDGE only — never for SOLID
+    WOOD — and in this build it sits behind `capabilities.is_dev`. Building on
+    it would have priced battens and left every teak leg permanently
+    unpriceable.)
+
+    AND WHEN IT IS ABSENT, NOTHING IS INVENTED — not a percentage, and not
+    zero. Amit chose the strict reading over a zero-waste fallback, accepting
+    that it means no timber cost until the plugin ships the figure. Zero would
+    have been the worse answer precisely because it looks like an answer: a
+    shop with no offcut is not a thing, so a line reading "incl 0% waste"
+    understates the timber and invites nobody to ask why.
+
+    Held back the way an impossible board is (see nest_import.suspect_issues):
+    named on screen, excluded from the total, never silently dropped.
     """
-    factor = 1 + (float(wastage_pct or 0) / 100.0)
-    out = []
+    stock = stock or {}
+    out, unstocked = [], []
     for (kind, code), t in sorted(lumber.items()):
         used_cft = t["mm3"] / MM3_PER_CFT
-        bought_cft = used_cft * factor
-        if bought_cft <= 0:
-            continue
         secs = ", ".join("%d @ %s mm" % (n, sec)
                          for sec, n in sorted(t["sections"].items()))
+        st = stock.get(code) or {}
+        bought_mm3 = float(st.get("bought_mm3") or 0)
+        if bought_mm3 <= 0:
+            # No nest for this material. Report it and price nothing.
+            unstocked.append({"code": code, "kind": kind,
+                              "pieces": t["pieces"], "sections": secs,
+                              "used_cft": round(used_cft, 3)})
+            continue
+        bought_cft = bought_mm3 / MM3_PER_CFT
+        # MOP's own used figure wins where it sent one; the CSV's summed part
+        # volumes are the same measurement taken here, and are the fallback
+        # only so a nest that reports bars without usage still prices.
+        used_mm3 = float(st.get("used_mm3") or 0)
+        if used_mm3 > 0:
+            used_cft = used_mm3 / MM3_PER_CFT
+        if bought_cft <= 0:
+            continue
         # Rounded UP to the hundredth, like every other quantity in this app:
         # a rate times a truncated volume is money the shop is not asked for.
         qty = math.ceil(bought_cft * 100.0) / 100.0
+        # WHERE THE NUMBER CAME FROM, in MOP's own words, because the whole
+        # point of the rule is that a reader can tell a measured figure from
+        # an assumed one without leaving the screen.
+        origin = str(st.get("source") or "MOP").strip()[:60] or "MOP"
         out.append({
             "kind": kind, "material": code, "thickness": 0,
             "qty": qty,
@@ -1766,7 +1808,30 @@ def lumber_lines(lumber, wastage_pct):
             # The QUANTITY, not the unrounded volume behind it. Printing
             # 0.44 beside a line charging 0.45 invites somebody to check the
             # arithmetic and conclude the estimate is wrong.
-            "desc": "%s — %d piece(s) [%s] → %.2f cft incl %g%% waste"
-                    % (code, t["pieces"], secs, qty, float(wastage_pct or 0)),
+            #
+            # And it names WHERE the offcut figure came from, because that is
+            # the whole point of the rule: a reader can tell a real nest from
+            # an assumption at a glance.
+            "desc": "%s — %d piece(s) [%s] → %.2f cft (%s)"
+                    % (code, t["pieces"], secs, qty, origin),
         })
-    return out
+    return out, unstocked
+
+
+def lumber_stock_issues(unstocked):
+    """One line per timber material MOP sent no offcut figure for.
+
+    Named rather than counted, because the person has to FIX it in
+    OpenCutList: a group reports no cutting volume when its material has no
+    type set, and reports the finished size when no machining allowance is
+    configured on it.
+    """
+    return [
+        "%s — %d piece(s) [%s], about %.2f cft of finished timber, NOT PRICED. "
+        "OpenCutList reported no cutting volume for it, so the machining "
+        "allowance is unknown and this estimate will not invent one. Open "
+        "OpenCutList \u2192 Materials, check %s has its type set and its "
+        "length/width/thickness increase configured, then estimate again."
+        % (u["code"], u["pieces"], u["sections"], u["used_cft"], u["code"])
+        for u in sorted(unstocked, key=lambda x: x["code"])
+    ]
