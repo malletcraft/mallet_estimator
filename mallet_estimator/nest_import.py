@@ -17,7 +17,7 @@ from frappe import _
 
 from mallet_estimator import estimate_pdf, inventory, nesting, opencutlist, decor
 from mallet_estimator.estimator import (LUMBER_TYPES, lumber_lines,
-                                        op_phase)
+                                        lumber_stock_issues, op_phase)
 from mallet_estimator.opencutlist import _material_from, _num
 
 # Calibrated against the shop's real OpenCutList exports. On YS_MB_WAR
@@ -222,13 +222,22 @@ def run(doc):
     # cannot quote different timber for the same model — the failure the
     # assembly count already caused once (2026-08-29, plugin 2 against
     # document 1).
-    for l in lumber_lines(lumber, frappe.db.get_single_value(
-            "Estimate Settings", "wastage_pct")):
+    # THE SAVED DOCUMENT HAS NO MOP NEST AT ALL, and says so rather than
+    # guessing. The 1D bar nest reaches the bench only through the plugin's
+    # preview call; a CSV attached to an Estimate SKU by hand carries part
+    # dimensions and nothing about which stock lengths they were cut from.
+    # Amit, 2026-09-28: wastage is MOP's to decide. So on this path every
+    # timber material is held back and named, exactly as an impossible board
+    # is — which is honest, and is also why the plugin is the place this
+    # workflow lives.
+    _lum_rows, _lum_unstocked = lumber_lines(lumber, None)
+    for l in _lum_rows:
         doc._add_material_line(
             l["material"], l["kind"], 0, l["qty"],
             l["desc"] + " [CSV-Nest]", unpriced, uom=l["uom"])
         mats_shape.append({"name": l["material"], "kind": l["kind"],
                            "thickness": 0, "qty": l["qty"]})
+    issues += lumber_stock_issues(_lum_unstocked)
 
     # Designation-level hardware lines, matching the PDF path exactly (the
     # category rides along as the item's group, so rates resolve per SKU).

@@ -1816,12 +1816,17 @@ class TestRoomMaster(unittest.TestCase):
 
 
 class TestLumberLines(unittest.TestCase):
-    """Solid wood and dimensional lumber, priced by volume.
+    """Solid wood and dimensional lumber, priced by volume off MOP's own nest.
 
     These were pushed in the CSV and dropped for as long as estimate_preview
-    has existed — proved against the live site on 2026-09-26, where a CSV
+    had existed — proved against the live site on 2026-09-26, where a CSV
     carrying four teak legs and six pine battens came back with zero rows for
-    either. What follows pins the arithmetic that replaced the silence.
+    either.
+
+    The offcut then came from Estimate Settings.wastage_pct for one day, until
+    Amit settled the direction on 2026-09-28: "all wastage and cossumed will
+    always be driven by MOP and not by erp." What follows pins both halves —
+    the arithmetic when MOP sends a nest, and the refusal when it does not.
     """
 
     def _leg(self, pieces=4):
@@ -1830,57 +1835,102 @@ class TestLumberLines(unittest.TestCase):
             "pieces": pieces, "mm3": 900.0 * 50 * 50 * pieces,
             "sections": {"50 x 50": pieces}}}
 
-    def test_volume_is_the_quantity_and_the_unit_is_the_cubic_foot(self):
-        [row] = E.lumber_lines(self._leg(), 0)
-        # 4 legs x 2.25e6 mm³ = 9e6 mm³; one cft is 304.8³ = 28316846.6 mm³.
-        self.assertAlmostEqual(row["consumed_units"], 9e6 / E.MM3_PER_CFT, places=3)
+    # Four 900 mm legs is 3600 mm of finished timber, so a 2400 mm stock bar
+    # cannot hold them and the nest buys TWO — 4800 mm, with 1200 mm left on
+    # the rack. Kept internally consistent on purpose: the first version of
+    # this fixture claimed two bars and carried one bar's volume, which made
+    # `used` exceed `bought` and the offcut clamp to zero. The test caught it,
+    # which is the whole reason the offcut is asserted rather than assumed.
+    BAR_MM = 2400.0
+    def _nest(self, bars=2, **over):
+        d = {"bought_mm3": self.BAR_MM * 50 * 50 * bars,
+             "source": "OpenCutList cutting size"}
+        d.update(over)
+        return {"SW_Teak": d}
+
+    def test_the_quantity_is_what_mop_says_was_bought(self):
+        [row], unstocked = E.lumber_lines(self._leg(), self._nest())
+        self.assertEqual(unstocked, [])
+        self.assertAlmostEqual(row["bought_units"],
+                               (2 * 2400.0 * 50 * 50) / E.MM3_PER_CFT, places=3)
         self.assertEqual(row["uom"], "Cubic Foot")
         self.assertEqual(row["kind"], "solidwood")
-        self.assertEqual(row["material"], "SW_Teak")
+        # The offcut is the difference, and it is real rather than a percentage.
+        self.assertGreater(row["unused_units"], 0)
+
+    def test_the_line_says_the_figure_came_from_a_nest(self):
+        # The whole point of the rule is that a reader can tell a real nest
+        # from an assumption without leaving the screen.
+        [row], _ = E.lumber_lines(self._leg(), self._nest())
+        self.assertIn("OpenCutList cutting size", row["desc"])
+        self.assertNotIn("waste", row["desc"])
+
+    def test_no_figure_means_not_priced_rather_than_priced_at_zero_waste(self):
+        # Amit chose the strict reading over a zero fallback. Zero is the worse
+        # answer precisely because it looks like an answer: a shop with no
+        # offcut is not a thing.
+        rows, unstocked = E.lumber_lines(self._leg(), None)
+        self.assertEqual(rows, [])
+        self.assertEqual(len(unstocked), 1)
+        self.assertEqual(unstocked[0]["code"], "SW_Teak")
+        self.assertEqual(unstocked[0]["pieces"], 4)
+        msgs = E.lumber_stock_issues(unstocked)
+        self.assertIn("NOT PRICED", msgs[0])
+        self.assertIn("SW_Teak", msgs[0])
+        # It names the fix, not just the fault.
+        self.assertIn("Materials", msgs[0])
+        self.assertIn("increase configured", msgs[0])
+
+    def test_a_nest_for_one_material_does_not_price_another(self):
+        lumber = dict(self._leg())
+        lumber[("dimensional", "DIM_Pine")] = {
+            "pieces": 6, "mm3": 2400.0 * 40 * 20 * 6, "sections": {"20 x 40": 6}}
+        rows, unstocked = E.lumber_lines(lumber, self._nest())
+        self.assertEqual([r["material"] for r in rows], ["SW_Teak"])
+        self.assertEqual([u["code"] for u in unstocked], ["DIM_Pine"])
+
+    def test_mops_used_figure_wins_over_the_csvs_own(self):
+        # Both are the same measurement, but MOP's comes off the nest that
+        # produced the bought figure, so mixing sources would make the offcut
+        # the difference between two different readings.
+        [row], _ = E.lumber_lines(self._leg(), self._nest(used_mm3=1_000_000.0))
+        self.assertAlmostEqual(row["consumed_units"],
+                               1_000_000.0 / E.MM3_PER_CFT, places=3)
 
     def test_a_rate_per_species_survives_a_second_section(self):
-        # THE REASON THIS IS NOT PRICED PER PIECE. A 25 x 75 rail and a 50 x 50
-        # leg are both "1 Nos" and are not the same money. Under volume the
-        # same rate prices both, and the line is the sum of what is there.
+        # THE REASON THIS IS NOT PRICED PER PIECE. A 25 x 75 rail and a
+        # 50 x 50 leg are both "1 Nos" and are not the same money.
         lumber = {("solidwood", "SW_Teak"): {
             "pieces": 2, "mm3": 900.0 * 50 * 50 + 600.0 * 25 * 75,
             "sections": {"50 x 50": 1, "25 x 75": 1}}}
-        [row] = E.lumber_lines(lumber, 0)
-        self.assertAlmostEqual(row["consumed_units"],
-                               (2250000.0 + 1125000.0) / E.MM3_PER_CFT, places=3)
-        # Both sections named, so the volume can be checked against a quote
-        # instead of taken on trust.
+        [row], _ = E.lumber_lines(lumber, self._nest())
         self.assertIn("25 x 75", row["desc"])
         self.assertIn("50 x 50", row["desc"])
 
-    def test_wastage_is_a_percentage_here_not_a_whole_unit(self):
-        # A board is charged whole because its offcut leaves the nest with it.
-        # A stick is cut and the remainder goes back on the rack, so the
-        # honest uplift is a fraction.
-        [row] = E.lumber_lines(self._leg(), 12)
-        self.assertAlmostEqual(row["bought_units"],
-                               row["consumed_units"] * 1.12, places=3)
-        self.assertGreater(row["unused_units"], 0)
-        self.assertIn("12% waste", row["desc"])
-
     def test_quantity_rounds_up(self):
         # A rate times a truncated volume is money the shop is not asked for.
-        [row] = E.lumber_lines(self._leg(1), 0)
+        [row], _ = E.lumber_lines(self._leg(1), self._nest())
         self.assertGreaterEqual(row["qty"], row["bought_units"])
         self.assertLess(row["qty"] - row["bought_units"], 0.01)
 
     def test_dimensional_prices_the_same_way_under_its_own_kind(self):
         lumber = {("dimensional", "DIM_Pine"): {
             "pieces": 6, "mm3": 2400.0 * 40 * 20 * 6, "sections": {"20 x 40": 6}}}
-        [row] = E.lumber_lines(lumber, 0)
+        [row], _ = E.lumber_lines(
+            lumber, {"DIM_Pine": {"bought_mm3": 3.0e6}})
         self.assertEqual(row["kind"], "dimensional")
         self.assertEqual(row["uom"], "Cubic Foot")
 
-    def test_nothing_measured_produces_no_line(self):
-        # A zero-volume group must not reach the screen as a free material.
-        self.assertEqual(E.lumber_lines({}, 12), [])
-        self.assertEqual(E.lumber_lines(
-            {("solidwood", "SW_X"): {"pieces": 1, "mm3": 0.0, "sections": {}}}, 12), [])
+    def test_nothing_measured_produces_neither_a_line_nor_a_complaint(self):
+        self.assertEqual(E.lumber_lines({}, None), ([], []))
+        self.assertEqual(E.lumber_lines({}, {"SW_X": {"bought_mm3": 5.0}}), ([], []))
+
+    def test_a_nest_reporting_zero_bought_is_no_nest_at_all(self):
+        # A 1D nest that ran and packed nothing tells us nothing about offcut,
+        # so it must not read as "zero waste".
+        rows, unstocked = E.lumber_lines(self._leg(), {"SW_Teak": {"bought_mm3": 0}})
+        self.assertEqual(rows, [])
+        self.assertEqual(len(unstocked), 1)
 
     def test_each_kind_lands_in_its_own_factory_family(self):
         # Factory internal, beside ply: nobody specifies the batten behind a
@@ -1888,7 +1938,6 @@ class TestLumberLines(unittest.TestCase):
         self.assertEqual(E.material_family("SW_Teak"), "solid")
         self.assertEqual(E.material_family("DIM_Pine"), "dimensional")
         self.assertEqual(E.material_family("DM_Pine"), "dimensional")
-        # And by kind, for a code that carries no recognisable prefix.
         self.assertEqual(E.material_family("Teak", kind="solidwood"), "solid")
         self.assertEqual(E.material_family("Pine", kind="dimensional"), "dimensional")
         for fam in ("solid", "dimensional"):
@@ -1899,12 +1948,20 @@ class TestLumberLines(unittest.TestCase):
         # A second spelling of "solid wood" is how a priced line reads as
         # unpriced, and one was nearly shipped: a tally added on 2026-09-25
         # said "solid" where every other module says "solidwood".
-        # estimate_pdf is the other reader of these types and is frappe-free,
-        # so the two can be pinned to each other here; the inventory half
-        # (Cubic Foot as the stock unit) is asserted in the bench suite,
-        # because inventory imports frappe.
         from mallet_estimator import estimate_pdf
         self.assertEqual(
             {k for k in E.LUMBER_TYPES.values()},
             {v for k, v in estimate_pdf.SECTION_KIND.items()
              if v in ("solidwood", "dimensional")})
+
+    def test_no_reader_of_estimate_settings_wastage_is_left(self):
+        """The rule, asserted against the source rather than trusted.
+
+        Amit, 2026-09-28: wastage is MOP's, never ERP's. This module held the
+        arithmetic that broke it for one day, and the cheapest way for it to
+        come back is somebody adding a convenient fallback.
+        """
+        import inspect
+        src = inspect.getsource(E.lumber_lines)
+        self.assertNotIn("wastage_pct", src.split('"""')[-1],
+                         "lumber_lines reads a wastage percentage again")

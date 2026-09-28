@@ -954,6 +954,23 @@ def _decor_shorts_for_sku(sku):
             {k: decor.short_code(v) for k, v in edge.items() if decor.short_code(v)})
 
 
+def _json_arg(v):
+    """Structured arguments arrive as JSON STRINGS from Sketchup::Http.
+
+    Every other structured parameter on this endpoint is decoded the same way
+    at its point of use; this is that decode in one place, because a new one
+    forgotten is a parameter that silently reads as empty — which for
+    lumber_stock would mean every timber line held back with the plugin
+    insisting it had sent the nest.
+    """
+    if isinstance(v, str):
+        try:
+            return json.loads(v or "{}")
+        except ValueError:
+            return {}
+    return v or {}
+
+
 @frappe.whitelist()
 def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      # ACCEPTED AND IGNORED, on purpose. Plugin builds up to
@@ -963,6 +980,14 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
                      # make an older plugin fail with an unexpected-argument
                      # error on a call that is otherwise perfectly good.
                      ocl_totals=None,
+                     # MOP's own 1D bar nest for solid sections, per material:
+                     # {"SW_Teak": {"bought_mm3": …, "used_mm3": …, "bars": n,
+                     #  "bar_length_mm": L}}. Amit, 2026-09-28: "all wastage
+                     # and cossumed will always be driven by MOP and not by
+                     # erp." A material absent from it is NOT priced — see
+                     # estimator.lumber_lines for why zero is the wrong
+                     # fallback.
+                     lumber_stock=None,
                      create_missing=0, overrides=None, hours_per_day=6,
                      assembly_counts=None, assembly_min_by_size=None,
                      misc_remarks=None, hardware_min_by_type=None, sku=None,
@@ -1074,8 +1099,9 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # Built by nest_import.lumber_lines, which the saved CSV-Nest import calls
     # too, so the preview and the document cannot quote different timber for
     # the same model.
-    lines.extend(nest_import.lumber_lines(
-        lumber, frappe.db.get_single_value("Estimate Settings", "wastage_pct")))
+    lumber_rows, lumber_unstocked = nest_import.lumber_lines(
+        lumber, _json_arg(lumber_stock))
+    lines.extend(lumber_rows)
 
     # ONE QUESTION NOW, where there used to be two, and the collapse is a
     # correction rather than a simplification.
@@ -1802,6 +1828,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         # at a thickness nobody makes is fixed in SketchUp, and offering the
         # first for the second sends somebody to create an Item for 1 mm ply.
         "suspect_boards": nest_import.suspect_issues(suspect),
+        # TIMBER MOP SENT NO NEST FOR, held back rather than priced at a made-up
+        # offcut. Same shape and same reason as suspect_boards: in the model,
+        # deliberately unpriced, named so somebody can go and fix it.
+        "lumber_unstocked": estimator.lumber_stock_issues(lumber_unstocked),
         "created_items": card.get("created_items", []),
         "excludes": card["excludes"],
     }
