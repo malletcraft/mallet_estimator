@@ -359,6 +359,34 @@ def sync_readonly_role():
         _safe(integration.ensure_steward_role)
 
 
+# Every unit this app puts on an Item. "Cubic Foot" joined when solid wood and
+# dimensional lumber started being priced by volume.
+#
+# THIS IS A FUNCTION, AND THAT IS THE WHOLE POINT. The list lived inline in
+# ensure_core_seed, which NOTHING calls except ci.yml running it by name -- so
+# adding Cubic Foot there created it on the integration site and nowhere else.
+# Staging was fine because the PATCH ran on migrate; the Cypress site was not,
+# because FRAPPE MARKS EVERY PATCH AS ALREADY-APPLIED WHEN A SITE IS FIRST
+# INSTALLED. A patch can therefore never seed a fresh site, and anything a
+# fresh site needs has to be reachable from after_install. That cost a red
+# ui-tests workflow that was merged to main on 2026-09-27 and shipped.
+#
+# An Item created against a UOM that does not exist loses its unit in silence
+# (ensure_material_item falls back to "Nos"), and an Item's stock UOM is fixed
+# at creation — so this running everywhere is load-bearing, not tidiness.
+UOMS = ("Nos", "Meter", "Roll", "Sheet", "Cubic Foot")
+
+
+def ensure_uoms():
+    made = 0
+    for uom in UOMS:
+        if not frappe.db.exists("UOM", uom):
+            frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
+                ignore_permissions=True)
+            made += 1
+    return made
+
+
 def ensure_core_seed():
     """Core ERPNext records the estimator cannot live without, created
     idempotently: fresh sites seed these through ERPNext's own fixtures, but
@@ -370,15 +398,7 @@ def ensure_core_seed():
                 not frappe.db.exists("Warehouse Type", wt):
             frappe.get_doc({"doctype": "Warehouse Type", "name": wt}).insert(
                 ignore_permissions=True)
-    # "Cubic Foot" joined the list when solid wood and dimensional lumber
-    # started being priced by volume. ERPNext probably ships it, but the
-    # read-only role cannot list UOM to find out (403, not an empty answer) --
-    # and an Item created against a UOM that does not exist loses its unit
-    # silently, so creating it here costs nothing and settles the question.
-    for uom in ("Nos", "Meter", "Roll", "Sheet", "Cubic Foot"):
-        if not frappe.db.exists("UOM", uom):
-            frappe.get_doc({"doctype": "UOM", "uom_name": uom}).insert(
-                ignore_permissions=True)
+    ensure_uoms()
     # The stock default group old builds misfiled into — tests simulate that
     # misfile, and without the group the simulation lands somewhere valid.
     if frappe.db.exists("Item Group", "All Item Groups") and \
@@ -491,6 +511,9 @@ def ensure_manufacturing_masters():
     Idempotent: existing records keep their hand-tuned rates; a workstation that
     has no operating-cost rows yet gets them backfilled. Each record is created
     independently so one failure doesn't abort the rest."""
+    # The units first: both hooks call this function, so it is the one place
+    # that reaches a fresh install AND every migrate. See ensure_uoms.
+    _safe(ensure_uoms)
     settings = frappe.get_single("Estimate Settings")
     rates = {w["name"]: w for w in workstation_rates(settings)}
     result = {"workstations": 0, "workstations_costed": 0, "operations": 0, "routing": 0, "errors": []}
