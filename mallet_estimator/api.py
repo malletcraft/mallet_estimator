@@ -1330,7 +1330,35 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # CSV designations are the fallback; ERP's own rule is the last resort.
     if isinstance(assembly_counts, str):
         assembly_counts = json.loads(assembly_counts or "{}")
-    sizes = dict(_asmbl_counts(rows))
+    # THE CSV CANNOT COUNT ASSEMBLIES, AND NO LONGER TRIES.
+    #
+    # Amit, 2026-09-28: "MOP is misbehaving in labor calculation for
+    # assemblies. when i select on one asselmbly with ASMBL_L or M or S, its
+    # showing two M asselbies."
+    #
+    # Reproduced against this endpoint before anything was changed: one
+    # selected assembly whose two part rows are named ASMBL_M_side and
+    # ASMBL_M_shelf came back `medium: 2, source: csv:ASMBL count`. The count
+    # was never the plugin's — it was this fallback.
+    #
+    # And the fallback cannot be repaired, only removed. DEPTH is what makes
+    # something an assembly, which the plugin established for itself in
+    # a996b7f; a CSV carries part designations and no depth at all, so
+    # ASMBL_M_Wardrobe at the root and ASMBL_M_side inside it are the same
+    # string to this code. _asmbl_counts tried to separate them by preferring
+    # an MCFT_ prefix, which only works for models that carry one — Amit's
+    # parts are bare ASMBL_M_*, so every part was counted as an assembly.
+    #
+    # Note WHEN it fired: only ever when parts are named ASMBL_*, which is
+    # exactly when it is wrong. A fallback with no case in which it is right
+    # is worse than none, because it answers confidently.
+    #
+    # So: the plugin's count is the only count, and without one the ERP rule
+    # applies and says so. _asmbl_counts stays in estimator.py with its tests —
+    # it is still the right reading of a NAME, it just cannot be pointed at a
+    # part list.
+    sizes = {k: 0 for k in ASSEMBLY_SIZES}
+    sizes["unsized"] = 0
     if assembly_counts:
         for k in ASSEMBLY_SIZES:
             if assembly_counts.get(k) not in (None, ""):
@@ -1354,10 +1382,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             counted = 0
             sizes = {k: 0 for k in ASSEMBLY_SIZES}
             sizes["unsized"] = 0
-        elif counted:
-            assembly_source = "csv:ASMBL count"
         else:
-            assembly_source = "erp:1 + drawer rails"
+            # No plugin count at all. ERP's own rule, named as ERP's — never a
+            # number guessed off the part designations.
+            assembly_source = "erp:1 + drawer rails (plugin sent no count)"
 
     # THE RULE ITSELF is estimate_pdf.apply_assembly_count, so the saved
     # Estimate SKU can apply the identical one. It lived here, which is why

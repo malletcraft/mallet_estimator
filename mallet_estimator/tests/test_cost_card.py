@@ -406,6 +406,47 @@ class TestEstimatePreview(MalletTestCase):
         asm = next(l for l in out["labour"] if l["name"] == "Assembly")
         self.assertEqual(out["assembly_count"], asm["qty"])
 
+    # Two part rows inside ONE medium assembly, named the way Amit names
+    # them: bare ASMBL_M_*, no MCFT_ prefix.
+    CSV_ONE_MEDIUM_ASSEMBLY = (
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;ASMBL_M_side;2;2000;600;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+        "2;ASMBL_M_shelf;3;1160;580;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+    )
+
+    def test_one_selected_assembly_is_never_counted_as_two(self):
+        """Amit, 2026-09-28: "when i select on one asselmbly with ASMBL_L or M
+        or S, its showing two M asselbies."
+
+        Reproduced against the live endpoint before the fix: this CSV came
+        back medium=2, source=csv:ASMBL count. The count was never the
+        plugin's — it was a bench fallback counting ASMBL part DESIGNATIONS,
+        and two parts inside one assembly are two designations.
+
+        The fallback could not be repaired, only removed: depth is what makes
+        something an assembly, and a part list carries no depth, so
+        ASMBL_M_Wardrobe at the root and ASMBL_M_side inside it are the same
+        string to a CSV reader.
+        """
+        out = api.estimate_preview(self.CSV_ONE_MEDIUM_ASSEMBLY)
+        self.assertEqual(out["assembly_sizes"]["medium"], 0,
+                         "the CSV is guessing assemblies again")
+        self.assertNotIn("csv:", out["assembly_source"])
+        self.assertIn("erp:", out["assembly_source"])
+
+    def test_the_plugin_count_is_honoured_for_that_same_model(self):
+        """The other half: with the plugin's own walk supplying the number,
+        one selected medium assembly is one medium assembly."""
+        out = api.estimate_preview(
+            self.CSV_ONE_MEDIUM_ASSEMBLY,
+            assembly_counts={"large": 0, "medium": 1, "small": 0, "unsized": 0})
+        self.assertEqual(out["assembly_sizes"]["medium"], 1)
+        self.assertEqual(out["assembly_sizes"]["large"], 0)
+        self.assertEqual(out["assembly_count"], 1)
+        self.assertEqual(out["assembly_source"], "plugin:ASMBL size counts")
+
     def test_the_headline_count_always_matches_the_assembly_row(self):
         """Whichever of the three sources answered, the number printed beside
         the header is the number the Assembly line was costed at."""
@@ -414,11 +455,13 @@ class TestEstimatePreview(MalletTestCase):
             asm = next(l for l in out["labour"] if l["name"] == "Assembly")
             self.assertEqual(out["assembly_count"], asm["qty"], msg=str(kwargs))
 
-    # No ASMBL designation anywhere, deliberately: with one present the CSV
-    # fallback supplies the assembly count and OVERRIDES the 1-plus-rails
-    # arithmetic, so a test written on the base CSV would assert 2 and get 2
-    # from the wrong source entirely. Stripping ASMBL is what leaves _hw as
-    # the only thing that can answer.
+    # No ASMBL designation anywhere. This used to MATTER: a CSV fallback
+    # counted ASMBL part designations as assemblies and overrode the
+    # 1-plus-rails arithmetic, so a test on the base CSV asserted 2 and got 2
+    # from the wrong source entirely. That fallback was removed on 2026-09-28
+    # (see TestAssemblyCountIsTheModelsAlone), so stripping ASMBL is no longer
+    # load-bearing — kept because this fixture is about hardware, and a test
+    # should not depend on a rule it is not testing.
     CSV_HARDWARE = (
         "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
         "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
@@ -436,7 +479,8 @@ class TestEstimatePreview(MalletTestCase):
         matches nothing. So assert on quantities only a readable name yields."""
         out = api.estimate_preview(self.CSV_HARDWARE)
         # Nothing overrode it, so this IS 1 + drawer rails ...
-        self.assertEqual(out["assembly_source"], "erp:1 + drawer rails")
+        self.assertEqual(out["assembly_source"],
+                         "erp:1 + drawer rails (plugin sent no count)")
         asm = next(l for l in out["labour"] if l["name"] == "Assembly")
         self.assertEqual(asm["qty"], 2, "the HWD_Rail line was not recognised")
         # ... and Install Hardware is hinges + rails + handles + shelf, which
