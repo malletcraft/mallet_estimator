@@ -337,7 +337,8 @@ class TestEstimatePreview(MalletTestCase):
         # Amit, 2026-08-24: "steps 10 quantity is equal to 15 (whichever get
         # disassembled get assembled)". A drawer that travelled assembled is
         # not assembled again at the flat.
-        out = api.estimate_preview(self.CSV_SIZED)
+        out = api.estimate_preview(self.CSV_SIZED,
+                                   assembly_counts=self.SIZED_COUNTS)
         by = {r["name"]: r for r in out["labour"]}
         self.assertEqual(by["Assembly (on-site)"]["qty"], by["Disassembly"]["qty"])
         # ...and that shared number is the LARGE count, not the total.
@@ -414,11 +415,11 @@ class TestEstimatePreview(MalletTestCase):
             asm = next(l for l in out["labour"] if l["name"] == "Assembly")
             self.assertEqual(out["assembly_count"], asm["qty"], msg=str(kwargs))
 
-    # No ASMBL designation anywhere, deliberately: with one present the CSV
-    # fallback supplies the assembly count and OVERRIDES the 1-plus-rails
-    # arithmetic, so a test written on the base CSV would assert 2 and get 2
-    # from the wrong source entirely. Stripping ASMBL is what leaves _hw as
-    # the only thing that can answer.
+    # No ASMBL designation anywhere. It was stripped because a CSV fallback
+    # used to count those names and override the 1-plus-rails arithmetic; that
+    # fallback is gone, so this CSV no longer HAS to avoid them. Left as it is
+    # because the test is about the hardware adapter and one variable is
+    # enough — but nothing here depends on the absence any more.
     CSV_HARDWARE = (
         "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
         "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
@@ -637,19 +638,68 @@ class TestEstimatePreview(MalletTestCase):
         "3;ASMBL_S_SHELF;1;900;300;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
     )
 
+    # THE SIZES NOW ARRIVE FROM THE PLUGIN, because that is the only thing
+    # that can see the model. These three tests used to read them off the
+    # DESIGNATIONS above, and passed — on a CSV whose part names happen to be
+    # one assembly each. On a real model the same reading counts the parts
+    # INSIDE an assembly as assemblies, which is how one medium came back as
+    # two (Amit, 2026-09-28). What the tests assert has not changed; where the
+    # number comes from has.
+    SIZED_COUNTS = {"large": 1, "medium": 1, "small": 1}
+
     def test_assemblies_are_counted_by_their_size_token(self):
         """Amit, 2026-08-23: "I will use ASMBL_L_ WAR ASMBL_M_DRW and
         ASMBL_S_SHELF ASMBL_L_BED like these convention.\""""
-        out = api.estimate_preview(self.CSV_SIZED)
+        out = api.estimate_preview(self.CSV_SIZED,
+                                   assembly_counts=self.SIZED_COUNTS)
         self.assertEqual(out["assembly_sizes"],
                          {"large": 1, "medium": 1, "small": 1})
         self.assertEqual(out["assembly_count"], 3)
+
+    # ONE MEDIUM ASSEMBLY, TWO PART ROWS INSIDE IT — the shape that made Amit
+    # report "its showing two M asselbies" on 2026-09-28. Nothing in a part
+    # list says which of these is the assembly and which is a panel in it, and
+    # both are bare ASMBL_M_* because that is how his models are named.
+    CSV_ASMBL_PARTS = (
+        "No.;Designation;Quantity;Length;Width;Thickness;Material type;"
+        "Material name;Edge Length 1;Edge Length 2;Edge Width 1;Edge Width 2;"
+        "Frontside;Backside;Tags\n"
+        "1;ASMBL_M_side;2;600;400;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+        "2;ASMBL_M_shelf;3;560;380;16;Sheet Goods;SG_PLY_V0_a_a;;;;;;;\n"
+    )
+
+    def test_part_names_never_become_an_assembly_count(self):
+        """The CSV is not a source for this number, and must not answer.
+
+        Counting ASMBL designations read sensibly and was wrong in exactly the
+        models it fired on: DEPTH is what makes something an assembly, a part
+        list carries none, so an assembly and the panels inside it are the same
+        string here. This CSV is one medium assembly; the old reading made it
+        two, and priced seven downstream steps off that.
+
+        What must happen instead is ERP's own 1 + drawer rails rule, SAYING
+        that is what it did — an answer from a source that cannot know is worse
+        than a rougher answer that admits where it came from.
+        """
+        out = api.estimate_preview(self.CSV_ASMBL_PARTS)
+        self.assertEqual(out["assembly_source"], "erp:1 + drawer rails")
+        self.assertEqual(out["assembly_sizes"],
+                         {"large": 0, "medium": 0, "small": 0})
+        # And the plugin still wins when it actually looked at the model.
+        told = api.estimate_preview(self.CSV_ASMBL_PARTS,
+                                   assembly_counts={"large": 0, "medium": 1,
+                                                    "small": 0})
+        self.assertEqual(told["assembly_source"], "plugin:ASMBL size counts")
+        self.assertEqual(told["assembly_count"], 1)
+        asm = next(l for l in told["labour"] if l["name"] == "Assembly")
+        self.assertEqual(asm["qty"], 1, "one assembly, not one per part row")
 
     def test_only_large_assemblies_are_disassembled(self):
         """"Only large assemblies should participate in disassembly." A
         carcass comes apart to leave the works; a drawer or a shelf travels
         assembled."""
-        out = api.estimate_preview(self.CSV_SIZED)
+        out = api.estimate_preview(self.CSV_SIZED,
+                                   assembly_counts=self.SIZED_COUNTS)
         d = next(l for l in out["labour"] if l["name"] == "Disassembly")
         self.assertEqual(d["qty"], 1, "disassembly counted more than the large one")
         # everything else downstream still follows the whole set

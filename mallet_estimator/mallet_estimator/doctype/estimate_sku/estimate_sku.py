@@ -1004,27 +1004,28 @@ class EstimateSKU(Document):
             part_count = sum(e["parts"] or 0 for e in pl_edges)
         opq = estimate_pdf.operation_quantities(materials, part_count)
 
-        # THE MODEL'S OWN ASSEMBLY COUNT, applied here exactly as the plugin's
-        # preview applies it. Amit, 2026-08-22: "the component which starts
-        # with ASMBL is the assembly which goes into assemblies line of
-        # labor." 1 + drawer rails is a guess standing in for that number.
+        # THE ASSEMBLY COUNT IS NOT TAKEN FROM THE PART LIST, and this
+        # document therefore stays on ERP's own 1 + drawer rails rule until
+        # something that can see the MODEL tells it otherwise.
         #
-        # The rule reached the PLUGIN and not this document. Running one CSV
-        # down both paths on 2026-08-29 had the plugin quoting 2 assemblies
-        # and the saved estimate quoting 1 — eight operations at half, on the
-        # handling and on-site steps that carry the most minutes. The plugin
-        # was right; a client was being shown one number and the books
-        # another.
+        # It used to count ASMBL names in `self.parts`, added on 2026-08-29
+        # because the rule reached the plugin and not this document and the
+        # two quoted different numbers for one CSV — a real fault, fixed the
+        # wrong way. DEPTH is what makes something an assembly and a part list
+        # has none, so `ASMBL_M_Wardrobe` and the `ASMBL_M_side` inside it are
+        # the same string here. Amit, 2026-09-28: one medium assembly came
+        # back as two.
         #
-        # Counted off this SKU's OWN parts, so it needs nothing from the
-        # caller and works for a desk import as well as a plugin one. A count
-        # of zero leaves ERP's rule standing rather than pricing the chain at
-        # nothing — that is a model nobody has named ASMBL components in yet.
-        from mallet_estimator import estimator as E
-
-        _sizes = E._asmbl_counts(self.parts or [])
-        _counted = sum(_sizes[k] for k in E.ASSEMBLY_SIZES)
-        estimate_pdf.apply_assembly_count(opq, _counted, _sizes["large"])
+        # REMOVED FROM BOTH PATHS IN ONE CHANGE, deliberately. Taking it out of
+        # the preview alone would have recreated the 29 August divergence in
+        # reverse — plugin and document disagreeing again, which is worse than
+        # either number, because the client sees one and the books the other.
+        # Both now answer 1 + drawer rails when nobody has counted the model.
+        #
+        # WHAT RESTORES A REAL COUNT HERE: the plugin knowing it, and this SKU
+        # being given it. Push from SketchUp is suspended, so nothing creates
+        # these documents from a model today; when it resumes, the count
+        # travels with the SKU rather than being re-derived from part names.
         for row in self.labor:
             op = op_phase(row)
             # A child must NOT take its parent's count. Assembly's three sizes

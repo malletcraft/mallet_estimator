@@ -1341,9 +1341,22 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # guess at how many things get assembled. The MODEL knows: Amit, 2026-08-22,
     # "the component which starts with ASMBL is the assembly ... aggregate
     # number of ASMBL components into that line and then let me modify how much
-    # time assembly can take." A count supplied by the plugin wins; failing
-    # that we count ASMBL part names in the CSV itself, so the rule holds even
-    # for a caller that does not send one.
+    # time assembly can take."
+    #
+    # SO IT COMES FROM THE PLUGIN, OR FROM ERP'S OWN RULE — NEVER FROM THE CSV.
+    # There used to be a middle option: count ASMBL designations in the part
+    # rows, "so the rule holds even for a caller that does not send one". It
+    # held nothing. DEPTH is what makes something an assembly, and a part list
+    # carries no depth, so `ASMBL_M_Wardrobe` at the root and `ASMBL_M_side`
+    # inside it are the same string here. Amit, 2026-09-28: "when i select on
+    # one asselmbly with ASMBL_L or M or S, its showing two M asselbies." One
+    # medium assembly, two part rows, `medium: 2, source: csv:ASMBL count`.
+    #
+    # It could not be repaired, only removed. `_asmbl_counts` prefers a
+    # top-level `MCFT_` name and falls back to bare `ASMBL` ones, which only
+    # helps a model carrying the prefix — and the fallback therefore fired in
+    # exactly the models where it was wrong. A fallback with no case in which
+    # it is right is worse than none, because it answers confidently.
     #
     # A count of ZERO is not a count — it is a model with no ASMBL components
     # in it, which is exactly what a first run looks like before anyone has
@@ -1352,11 +1365,10 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
     # off ERP's own rule anyway: the screen would read "0 assemblies (plugin:
     # ASMBL count)" directly above an Assembly line costed for one. So zero
     # falls through to the ERP rule and SAYS it did.
-    # Counts per size. The plugin sends them when it can see the model; the
-    # CSV designations are the fallback; ERP's own rule is the last resort.
     if isinstance(assembly_counts, str):
         assembly_counts = json.loads(assembly_counts or "{}")
-    sizes = dict(_asmbl_counts(rows))
+    sizes = {k: 0 for k in ASSEMBLY_SIZES}
+    sizes["unsized"] = 0
     if assembly_counts:
         for k in ASSEMBLY_SIZES:
             if assembly_counts.get(k) not in (None, ""):
@@ -1380,14 +1392,15 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
             counted = 0
             sizes = {k: 0 for k in ASSEMBLY_SIZES}
             sizes["unsized"] = 0
-        elif counted:
-            assembly_source = "csv:ASMBL count"
         else:
             assembly_source = "erp:1 + drawer rails"
 
-    # THE RULE ITSELF is estimate_pdf.apply_assembly_count, so the saved
-    # Estimate SKU can apply the identical one. It lived here, which is why
-    # the plugin honoured the model's ASMBL count and the document did not.
+    # THE RULE ITSELF is estimate_pdf.apply_assembly_count — which operations
+    # follow the count, and which follow only its LARGE half. It is kept out
+    # of this function so both halves of the app can apply one rule; the
+    # saved Estimate SKU no longer calls it, because nothing tells that
+    # document a real count yet (see estimate_sku.py), and a rule applied to
+    # a number nobody counted is the fault this change removes.
     estimate_pdf.apply_assembly_count(qty, counted, sizes["large"])
 
     # Per-operation overrides from the estimate screen: {"Grooving": {"qty": 4,
@@ -1847,7 +1860,14 @@ from mallet_estimator.estimator import (      # noqa: F401  (re-exported)
 
 
 def _asmbl_count(rows):
-    """Total assemblies, whatever their size. Kept because a plugin that has
-    not updated yet still asks this question."""
+    """Total assemblies, whatever their size, read off part NAMES.
+
+    NOT A PRICING SOURCE, and nothing in this app calls it for one any more.
+    Part names carry no depth, so an assembly and the parts inside it read
+    identically here — which is how one medium assembly came back as two on
+    2026-09-28. The naming rule it wraps is still real and still mirrored by
+    the plugin, so it stays testable; it must not be wired back into a
+    quantity.
+    """
     c = _asmbl_counts(rows)
     return sum(c[k] for k in ASSEMBLY_SIZES)
