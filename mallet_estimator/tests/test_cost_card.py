@@ -709,7 +709,7 @@ class TestEstimatePreview(MalletTestCase):
 
     def test_each_size_takes_its_own_minutes(self):
         out = api.estimate_preview(
-            self.CSV_SIZED,
+            self.CSV_SIZED, assembly_counts=self.SIZED_COUNTS,
             assembly_min_by_size={"large": 120, "medium": 30, "small": 10})
         a = next(l for l in out["labour"] if l["name"] == "Assembly")
         # 1x120 + 1x30 + 1x10 = 160 min = 2.67 h, rounded up to one decimal
@@ -722,7 +722,8 @@ class TestEstimatePreview(MalletTestCase):
         be able to key in directly minutes against the quantity, quantity is
         inferred from our size model which should not get altered but minutes
         should be changeable in line only.\""""
-        out = api.estimate_preview(self.CSV_SIZED)
+        out = api.estimate_preview(self.CSV_SIZED,
+                                   assembly_counts=self.SIZED_COUNTS)
         a = next(l for l in out["labour"] if l["name"] == "Assembly")
         kids = a["children"]
         self.assertEqual([c["size"] for c in kids], ["large", "medium", "small"])
@@ -741,7 +742,7 @@ class TestEstimatePreview(MalletTestCase):
 
     def test_a_child_row_takes_its_own_minutes_in_line(self):
         out = api.estimate_preview(
-            self.CSV_SIZED,
+            self.CSV_SIZED, assembly_counts=self.SIZED_COUNTS,
             overrides={"Assembly": {"min_large": 120, "min_medium": 30, "min_small": 10}})
         a = next(l for l in out["labour"] if l["name"] == "Assembly")
         got = {c["size"]: c["min_per_unit"] for c in a["children"]}
@@ -752,7 +753,12 @@ class TestEstimatePreview(MalletTestCase):
     def test_only_assembly_carries_children(self):
         """Every other row sends none, so the screen renders one shape and
         never branches on an operation's name."""
-        out = api.estimate_preview(self.CSV_SIZED)
+        out = api.estimate_preview(self.CSV_SIZED,
+                                   assembly_counts=self.SIZED_COUNTS)
+        # WITH the counts, so Assembly really does have children and this is
+        # not the vacuous version of itself.
+        self.assertIsNotNone(
+            next(l for l in out["labour"] if l["name"] == "Assembly")["children"])
         for l in out["labour"]:
             if l["name"] != "Assembly":
                 self.assertIsNone(l["children"], "%s grew children" % l["name"])
@@ -760,8 +766,19 @@ class TestEstimatePreview(MalletTestCase):
     def test_a_nameless_assembly_is_treated_as_large(self):
         """Every model drawn before this convention says plain ASMBL_WAR, and
         those are carcasses. Reading them as small would quietly shrink the
-        estimate of every existing model."""
-        out = api.estimate_preview(self.CSV)      # designations ASMBL_Carcass etc
+        estimate of every existing model.
+
+        The RULE is unchanged; where it is applied has moved. It used to be
+        read off the CSV designations here, and that reading is gone — a part
+        list cannot tell an assembly from the panels inside it. The plugin
+        walks the model, applies the same rule (estimator._asmbl_classify,
+        unit-tested beside it) and sends the answer including `unsized`. This
+        asserts the half that is still this endpoint's job: an unsized model
+        is carried through as LARGE and keeps its disassembly.
+        """
+        out = api.estimate_preview(
+            self.CSV,
+            assembly_counts={"large": 2, "medium": 0, "small": 0, "unsized": 2})
         self.assertGreater(out["assembly_unsized"], 0)
         self.assertEqual(out["assembly_sizes"]["large"], out["assembly_count"])
         d = next(l for l in out["labour"] if l["name"] == "Disassembly")
