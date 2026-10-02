@@ -245,120 +245,24 @@ def classify_hardware(name):
     return "other"
 
 
-def aggregate(rows, sheet_length_mm=2440.0, sheet_width_mm=1220.0, wastage_pct=12.0):
-    """Aggregate parsed part rows into material estimate lines + operation drivers.
-
-    Returns {"lines": [...], "drivers": {...}}. Each line is
-    {kind, material, thickness, uom, qty, area, desc}; `qty` is whole sheets
-    (sheet/laminate), running meters (edge) or count (hardware). `drivers` gives
-    the quantities that auto-fill the labor/operation table (sheets, laminate
-    sheets, edge parts/meters, panels, minifix, hinges, handles, rails, shelf
-    supports, locks, screws, hardware_total). Prices come later from the Item
-    rate card.
-    """
-    sheet_area = (sheet_length_mm * sheet_width_mm) / 1_000_000.0  # m² per sheet
-    factor = 1 + (wastage_pct / 100.0)
-
-    sheets = {}    # (material, thickness) -> area m²
-    laminate = {}  # material -> area m²
-    edging = {}    # material -> meters
-    hardware = {}  # material -> count
-    hw_cat = {}    # category -> count
-    panels = 0
-    edge_parts = 0
-
-    for r in rows:
-        mtype = (r.get("Material type") or "").strip().lower()
-        mname = (r.get("Material name") or "").strip()
-        if mtype in SHEET_TYPES:
-            panels += 1
-            area = _num(r.get("Area - final") or r.get("Area"))
-            th = _num(r.get("Thickness") or r.get("Thickness - raw"))
-            sheets[(mname, th)] = sheets.get((mname, th), 0.0) + area
-
-            length_m = _num(r.get("Length") or r.get("Length - raw")) / 1000.0
-            width_m = _num(r.get("Width") or r.get("Width - raw")) / 1000.0
-            has_edge = False
-            for col, dim in (
-                ("Edge Length 1", length_m), ("Edge Length 2", length_m),
-                ("Edge Width 1", width_m), ("Edge Width 2", width_m),
-            ):
-                eb = _material_from(r.get(col))
-                if eb:
-                    edging[eb] = edging.get(eb, 0.0) + dim
-                    has_edge = True
-            if has_edge:
-                edge_parts += 1
-            for col in ("Frontside", "Backside"):
-                lam = _material_from(r.get(col))
-                if lam:
-                    laminate[lam] = laminate.get(lam, 0.0) + area
-        elif mtype in HARDWARE_TYPES:
-            if mname:
-                hardware[mname] = hardware.get(mname, 0) + 1
-                cat = classify_hardware(mname)
-                hw_cat[cat] = hw_cat.get(cat, 0) + 1
-
-    lines = []
-    for (mname, th), area in sorted(sheets.items()):
-        qty = math.ceil(area * factor / sheet_area) if sheet_area > 0 else 0
-        lines.append({
-            "kind": "sheet", "material": mname, "thickness": th, "uom": "Nos", "qty": qty,
-            "area": round(area, 3),
-            "desc": f"{mname} {th:g}mm — {round(area, 2)} m² → {qty} sheet(s) incl {wastage_pct:g}% waste",
-        })
-    for mname, area in sorted(laminate.items()):
-        qty = math.ceil(area * factor / sheet_area) if sheet_area > 0 else 0
-        lines.append({
-            "kind": "laminate", "material": mname, "thickness": 0, "uom": "Nos", "qty": qty,
-            "area": round(area, 3),
-            "desc": f"{mname} laminate — {round(area, 2)} m² → {qty} sheet(s)",
-        })
-    for mname, meters in sorted(edging.items()):
-        lines.append({
-            "kind": "edge", "material": mname, "thickness": 0, "uom": "Meter",
-            "qty": round(meters * factor, 2), "area": 0,
-            "desc": f"{mname} edge banding — {round(meters * factor, 1)} m incl {wastage_pct:g}% waste",
-        })
-    for mname, count in sorted(hardware.items()):
-        lines.append({
-            "kind": "hardware", "material": mname, "thickness": 0, "uom": "Nos",
-            "qty": count, "area": 0, "desc": f"{mname} — {count} nos",
-        })
-
-    drivers = {
-        "sheets": sum(l["qty"] for l in lines if l["kind"] == "sheet"),
-        "laminate_sheets": sum(l["qty"] for l in lines if l["kind"] == "laminate"),
-        "edge_meters": round(sum(l["qty"] for l in lines if l["kind"] == "edge"), 2),
-        "edge_parts": edge_parts,
-        "panels": panels,
-        "minifix": hw_cat.get("minifix", 0),
-        "hinges": hw_cat.get("hinges", 0),
-        "handles": hw_cat.get("handles", 0),
-        "rails": hw_cat.get("rails", 0),
-        "shelf_supports": hw_cat.get("shelf_supports", 0),
-        "locks": hw_cat.get("locks", 0),
-        "screws": hw_cat.get("screws", 0),
-    }
-    drivers["hardware_total"] = (
-        drivers["minifix"] + drivers["hinges"] + drivers["handles"]
-        + drivers["rails"] + drivers["shelf_supports"] + drivers["locks"]
-    )
-    return {"lines": lines, "drivers": drivers}
-
-
-# item_code_for USED TO LIVE HERE and is deliberately gone. It appended the
-# thickness and stopped, so a ply board kept its décor slot letters —
-# SG_PLY_V0_a_a_16mm — while inventory.item_code_for, the rule every minted
-# Item actually obeys, strips them to SG_PLY_V0_16mm. A board is a purchasing
-# identity: two décors on one board is still one board to buy.
+# `aggregate()` WAS HERE AND IS GONE (2026-10-02).
 #
-# Two functions of the SAME NAME in two modules, one right and one naive, is
-# why nobody noticed for weeks. estimate_preview imported the naive one and
-# priced the plugin's ply against SG_PLY_V0_a_a_16mm — an Item retired by
-# patches/collapse_board_item_codes and left on the site as a stub with no
-# mallet_oc_code. Found 2026-08-29 by running one CSV down both paths and
-# diffing, after Amit asked what else the plugin was missing.
+# It turned parsed part rows into material lines by dividing "Area - final" by
+# a sheet area, with `wastage_pct=12.0` as a default — the last invented
+# percentage in this app, in the one direction Amit's rule forbids: "all
+# wastage and cossumed will always be driven by MOP and not by erp"
+# (2026-09-28).
 #
-# Callers use inventory.item_code_for(name, thickness, kind). One rule, one
-# place — the same conclusion the Fevicol derivation reached the same day.
+# It had NO production caller. Checked behind a control rather than asserted:
+# `classify_hardware` came back with five real call sites across four modules,
+# `aggregate` with zero and four comment mentions. It was the OpenCutList
+# ESTIMATE-PDF path, superseded by `nest_import.collect` + `nesting.pack_sheets`
+# when the plugin started sending a part-list CSV with no area column — a CSV
+# that made aggregate() measure every sheet at 0 m² and price four materials at
+# nothing.
+#
+# Deleted rather than left alone because an invented default in unreachable
+# code is the cheapest way for the rule to be broken again: the next person
+# wanting sheets from rows finds a function that looks like the answer and
+# silently reintroduces 12%. Reviving the estimate-PDF path means writing one
+# that takes its offcut from MOP, which is a different function from this one.

@@ -779,9 +779,12 @@ def _item_for_code(code):
 # WHY THE SERVER AND NOT THE PLUGIN. The plugin could derive its own labour
 # quantities in Ruby, and then there would be two implementations of the same
 # rules drifting apart the moment either changed. Everything needed already
-# lives here: opencutlist.aggregate turns the CSV into material lines and
-# operation drivers, estimate_pdf.operation_quantities turns those into the
-# seventeen quantities, and inventory.landed_rate prices them. The plugin
+# lives here: nest_import.collect turns the CSV into material lines and
+# nesting.pack_sheets into board counts, estimate_pdf.operation_quantities
+# turns those into the seventeen quantities, and inventory.landed_rate prices
+# them. (This read opencutlist.aggregate until that function was deleted on
+# 2026-10-02; collect has been the live reader since the part-list CSV
+# replaced the estimate PDF.) The plugin
 # posts the CSV it already builds for import_parts_csv and renders the answer.
 #
 # Amit, 2026-08-22: "so erp cost data is base for estimating in plugin as
@@ -1001,17 +1004,19 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         frappe.throw(_("No part rows in that CSV."))
 
     # THE NESTING ENGINE, not the area one. The first version of this called
-    # opencutlist.aggregate(), which divides "Area - final" by the sheet area
+    # opencutlist.aggregate(), since DELETED (2026-10-02 — no caller left, and
+    # it carried a 12% wastage default, the one direction the rule forbids).
+    # It divided "Area - final" by the sheet area
     # — and the plugin's part-list CSV has no such column, so every sheet
     # measured 0 m², every board count came out 0, and the screen showed four
     # material lines priced at nothing while OpenCutList's own table beside it
     # said 2 + 2 boards. Only hardware looked right, because hardware is
     # COUNTED rather than measured.
     #
-    # aggregate() is for the OCL estimate PDF export. The part-list CSV is
-    # nest_import's input, and nest_import is what the real CSV-Nest import
-    # runs — the path whose material numbers Amit already trusts. Same
-    # functions here, same answers, nothing saved.
+    # It was the OCL estimate-PDF path. The part-list CSV is nest_import's
+    # input, and nest_import is what the real CSV-Nest import runs — the path
+    # whose material numbers Amit already trusts. Same functions here, same
+    # answers, nothing saved.
     ply, lam, edges, hw, banded_edges, faces, suspect, lumber = nest_import.collect(rows)
     if not ply:
         frappe.throw(_("No sheet-good parts found in the CSV."))
@@ -1311,12 +1316,13 @@ def estimate_preview(csv_content, assembly_min=None, assembly_count=None,
         material_total += amount
 
     # ---- labour, all seventeen --------------------------------------------
-    # operation_quantities() reads m["name"]; aggregate() calls that key
-    # "material". They do not share a shape and never did — every other caller
+    # operation_quantities() reads m["name"]; the old aggregate() called that
+    # key "material". They did not share a shape and never did — every caller
     # adapts before calling (nest_import builds mats_shape, estimate_sku builds
     # materials), and so does this one. Passing aggregate()'s lines straight in
     # raised KeyError: 'name' the moment a hardware line existed, which is the
-    # first thing _hw touches.
+    # first thing _hw touches. aggregate() is gone, but the ADAPTER below is
+    # not optional — it is what every shape in this app passes through.
     #
     # The hardware name matters beyond being present: _hw matches SUBSTRINGS
     # against it ("hinge", "rail", "minifix"), and "Assembly" is 1 + rails. The

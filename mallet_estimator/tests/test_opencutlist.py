@@ -74,27 +74,17 @@ class TestHardwareList(unittest.TestCase):
         self.assertNotIn("panel", by)
 
 
-class TestAggregate(unittest.TestCase):
-    def setUp(self):
-        self.agg = OCL.aggregate(OCL.parse_opencutlist_csv(CSV))
-
-    def test_sheet_line_present(self):
-        sheets = [l for l in self.agg["lines"] if l["kind"] == "sheet"]
-        self.assertEqual(len(sheets), 1)
-        self.assertEqual(sheets[0]["material"], "SG_PLY_V0_a_a")
-
-    def test_edge_measured_in_metres(self):
-        edge = [l for l in self.agg["lines"] if l["kind"] == "edge"]
-        self.assertTrue(edge, "expected an edge-banding line")
-        self.assertEqual(edge[0]["uom"], "Meter")
-        self.assertGreater(edge[0]["qty"], 0)
-
-    def test_hardware_counted(self):
-        self.assertEqual(self.agg["drivers"]["hinges"], 1)
-
-    def test_panels_and_edge_parts(self):
-        self.assertEqual(self.agg["drivers"]["panels"], 2)
-        self.assertEqual(self.agg["drivers"]["edge_parts"], 1)  # only part 1 is edged
+# TestAggregate WAS HERE. `opencutlist.aggregate` was deleted on 2026-10-02:
+# no production caller (checked behind a control — classify_hardware came back
+# with five real call sites, aggregate with none) and a 12% wastage default,
+# which is the one direction Amit's rule forbids.
+#
+# Its five tests went with it rather than being kept alive against a function
+# nothing uses. What they actually covered — sheets, edge metres, hardware
+# counts, panel and edge-part drivers — is covered on the LIVE path by
+# test_nesting, test_estimator and the cost-card suite, against
+# nest_import.collect and nesting.pack_sheets. Keeping them would have meant a
+# green suite proving an unreachable function still worked.
 
 
 class TestClassifyHardware(unittest.TestCase):

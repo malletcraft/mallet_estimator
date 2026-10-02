@@ -1954,6 +1954,40 @@ class TestLumberLines(unittest.TestCase):
             {v for k, v in estimate_pdf.SECTION_KIND.items()
              if v in ("solidwood", "dimensional")})
 
+    def test_no_production_code_names_wastage_pct_at_all(self):
+        """The rule, swept across the app instead of one function.
+
+        The narrower test below guards `lumber_lines`, which is where the
+        percentage was. It could not see `opencutlist.aggregate`, which held a
+        `wastage_pct=12.0` default in a function nothing called — found on
+        2026-10-02 and deleted. An invented percentage in unreachable code is
+        still an invented percentage: the next person wanting sheets from rows
+        finds it, and the rule is broken again without anyone deciding to.
+
+        Parsed with `ast`, so a COMMENT explaining the history does not trip
+        it. Those are wanted — they are how the decision survives.
+        """
+        import ast, pathlib
+        root = pathlib.Path(E.__file__).resolve().parent
+        offenders = []
+        for py in sorted(root.rglob("*.py")):
+            if "tests" in py.parts:
+                continue
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                named = (
+                    (isinstance(node, ast.Name) and node.id == "wastage_pct")
+                    or (isinstance(node, ast.Attribute) and node.attr == "wastage_pct")
+                    or (isinstance(node, ast.arg) and node.arg == "wastage_pct")
+                    or (isinstance(node, ast.keyword) and node.arg == "wastage_pct")
+                )
+                if named:
+                    offenders.append("%s:%s" % (py.relative_to(root), node.lineno))
+        self.assertEqual(
+            offenders, [],
+            "wastage is MOP's, never ERP's — these name a wastage percentage: %s"
+            % offenders)
+
     def test_no_reader_of_estimate_settings_wastage_is_left(self):
         """The rule, asserted against the source rather than trusted.
 
