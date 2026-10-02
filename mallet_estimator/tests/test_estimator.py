@@ -1954,6 +1954,42 @@ class TestLumberLines(unittest.TestCase):
             {v for k, v in estimate_pdf.SECTION_KIND.items()
              if v in ("solidwood", "dimensional")})
 
+    def test_nothing_in_production_counts_assemblies_from_names(self):
+        """The assembly count comes from the plugin or from ERP's own rule.
+
+        `_asmbl_counts` is the NAMING rule and stays — the plugin mirrors it in
+        Ruby and its unit tests are above. What must never come back is a
+        production CALLER treating it as a quantity: a part list carries no
+        depth, so `ASMBL_M_Wardrobe` and the `ASMBL_M_side` inside it are one
+        string to it, which is how one medium assembly came back as two
+        (Amit, 2026-09-28). Seven labour steps follow that number.
+
+        It was removed from both the preview and the saved SKU on 2026-09-30,
+        leaving `api._asmbl_count` calling it with nobody calling that —
+        deleted 2026-10-02. This is what keeps the chain from growing back.
+        """
+        import ast, pathlib
+        root = pathlib.Path(E.__file__).resolve().parent
+        banned = {"_asmbl_counts", "_asmbl_count"}
+        callers = []
+        for py in sorted(root.rglob("*.py")):
+            if "tests" in py.parts or py.name == "estimator.py":
+                continue          # the rule's own home, and its tests
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                fn = node.func
+                name = (fn.id if isinstance(fn, ast.Name)
+                        else fn.attr if isinstance(fn, ast.Attribute) else None)
+                if name in banned:
+                    callers.append("%s:%s calls %s"
+                                   % (py.relative_to(root), node.lineno, name))
+        self.assertEqual(
+            callers, [],
+            "part names are not an assembly count — these call it as one: %s"
+            % callers)
+
     def test_no_production_code_names_wastage_pct_at_all(self):
         """The rule, swept across the app instead of one function.
 

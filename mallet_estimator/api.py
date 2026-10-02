@@ -1865,15 +1865,19 @@ from mallet_estimator.estimator import (      # noqa: F401  (re-exported)
 )
 
 
-def _asmbl_count(rows):
-    """Total assemblies, whatever their size, read off part NAMES.
-
-    NOT A PRICING SOURCE, and nothing in this app calls it for one any more.
-    Part names carry no depth, so an assembly and the parts inside it read
-    identically here — which is how one medium assembly came back as two on
-    2026-09-28. The naming rule it wraps is still real and still mirrored by
-    the plugin, so it stays testable; it must not be wired back into a
-    quantity.
-    """
-    c = _asmbl_counts(rows)
-    return sum(c[k] for k in ASSEMBLY_SIZES)
+# `_asmbl_count()` WAS HERE AND IS GONE (2026-10-02), for the same reason
+# `opencutlist.aggregate` went earlier the same day.
+#
+# It totalled assemblies read off part NAMES, and was kept "because a plugin
+# that has not updated yet still asks this question" — which stopped being
+# true when the CSV fallback was removed on 2026-09-30. After that its only
+# caller was nobody, and its own only call was to `_asmbl_counts`, so the pair
+# was a dead chain ending in a confident wrong answer: part names carry no
+# depth, so an assembly and the panels inside it read identically, which is
+# how one medium assembly came back as two.
+#
+# `estimator._asmbl_counts` STAYS. It is the naming rule itself, mirrored by
+# the plugin's Ruby and by tools/check-assembly-rule.rb, and its unit tests
+# are worth keeping. What must not come back is a production caller treating
+# it as a QUANTITY — `test_nothing_in_production_counts_assemblies_from_names`
+# fails if one appears.
