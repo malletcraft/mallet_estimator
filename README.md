@@ -125,11 +125,18 @@ list — so the same auto-hinge can carry several vendor prices. Buy at the chos
 
 ### Hardware — the SKU is the part Designation
 When a **Parts CSV** is imported, each hardware Item is the OpenCutList **Designation** (the real spec —
-`HWD_AH_SC_0` = Auto Hinge Soft Close 0°, degree 0/8/15 are separate SKUs), not the coarse Material name
+`HWD_AH_SC_0` = Auto Hinge, Soft Close, crank 0), not the coarse Material name
 (`HWD_Hinge`, which can hide several SKUs). Duplicate instances (`…#1`, `…#3`) roll up to one SKU with the
 summed quantity, and the Item carries the part's real **Length/Width/Thickness** (mm) — hardware has no
 "sheet" size, so the dimension fields are generically labelled. Re-import an existing SKU's Parts CSV to
 regenerate its hardware as designations.
+
+> **The trailing number is the CRANK, not an opening angle.** `_0` is 0 crank (full overlay);
+> half crank (half overlay) and inset are separate SKUs, as are `_SC` soft-close and `_N`
+> undamped-sprung. Häfele's own list names the axis the same way — *Clip-On Metalla 0 Crank /
+> Half Crank / Inset* — and sells no hinge with an opening angle below 94°, so a "0°" reading
+> sends you looking for a variant that does not exist. Crank is what decides which article is
+> ordered, so getting this wrong mis-maps the part to the vendor catalogue.
 
 ### Traceability (Batch & Serial)
 - **Laminate is batch-tracked** (dye-lot): each laminate Item has *Batch No* enabled, so on

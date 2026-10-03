@@ -124,7 +124,7 @@ def hardware_by_type(materials):
 
     FEED IT THE CATEGORY, NOT THE CODE. The classifier matches words, and a
     real OCL designation carries none of them: HWD_AH_SC_0 is an auto hinge,
-    soft close, 0 degrees, and contains no "hinge" anywhere. Passed raw it
+    soft close, crank 0, and contains no "hinge" anywhere. Passed raw it
     lands in "other" — twenty-four hinges filed beside a magic corner, with
     the total still correct so nothing looks wrong. api.py already shapes
     hardware rows to the OCL "Material name" (HWD_Hinge) before calling

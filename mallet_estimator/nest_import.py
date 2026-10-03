@@ -49,8 +49,9 @@ def collect(rows):
 
     Hardware comes from opencutlist.hardware_list — the same aggregator the
     PDF path uses — so a line is the REAL designation (HWD_AH_SC_0 = Auto
-    Hinge Soft Close 0°), never the coarse Material name (HWD_Hinge), which
-    can hide several distinct SKUs at different rates."""
+    Hinge, Soft Close, crank 0 — the trailing number is the crank, not an
+    opening angle), never the coarse Material name (HWD_Hinge), which can hide
+    several distinct SKUs at different rates."""
     ply, lam, edges, faces = {}, {}, {}, {}
     banded = 0
     suspect = {}
