@@ -2495,11 +2495,14 @@ private fun FacePreviewDialog(
                             }
                         }
                     }
-                    if (g != FaceWriter.Group.FLOOR_CEILING) {
+                    run {
                         Row(Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             for (f in g.faces) {
-                                val name = Handover.FACE_LABELS[f] ?: f
+                                val name = when (f) {
+                                    "up" -> "Ceiling"; "down" -> "Floor"
+                                    else -> Handover.FACE_LABELS[f] ?: f
+                                }
                                 OutlinedButton(onClick = { marking = f },
                                     modifier = Modifier.weight(1f)) {
                                     Text(if (corners[f] != null) "$name: corners \u2713"
@@ -2552,8 +2555,8 @@ private fun FacePreviewDialog(
 
                 Text(
                     "Widen until all four corners of every face are inside the " +
-                    "frame. Mark a wall's 4 corners to also get its ELEVATION: " +
-                    "the wall straightened from those corners alone, saved " +
+                    "frame. Mark the 4 corners of a wall, the ceiling or the " +
+                    "floor to also get it straightened from those corners alone, saved " +
                     "beside the faces. Nothing is in your photos yet \u2014 keeping " +
                     "saves all six plus the 360 into the room folder and queues " +
                     "the upload; discarding leaves no trace.",

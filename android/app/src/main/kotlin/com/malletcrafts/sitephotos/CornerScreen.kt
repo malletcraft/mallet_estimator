@@ -66,15 +66,15 @@ internal fun CornerDialog(
     onClear: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    val nominalYaw = Panorama.FACES.first { it.first == face }.second
-    val basis = remember(face, fov, turn) { WallCorners.basis(nominalYaw + turn, 0.0, fov) }
+    val (_, nominalYaw, pitch) = Panorama.FACES.first { it.first == face }
+    val basis = remember(face, fov, turn) { WallCorners.basis(nominalYaw + turn, pitch, fov) }
     val bmp = remember(face, fov, turn) {
         runCatching { FaceWriter.previewFace(session, face, fov, turn, 768) }.getOrNull()
     }
     val image = remember(bmp) { bmp?.asImageBitmap() }
     var pts by remember(face) {
         mutableStateOf(
-            (start ?: WallCorners.startCorners(face, nominalYaw, fov, plan))
+            (start ?: WallCorners.startCorners(face, nominalYaw, fov, plan, pitch))
                 .map { d -> WallCorners.pointOf(basis, d) ?: Pair(0.5, 0.5) })
     }
     var dragging by remember { mutableStateOf(-1) }
@@ -89,14 +89,14 @@ internal fun CornerDialog(
             runCatching { FaceWriter.previewElevation(session, dirs, 480) }.getOrNull()
         else null
     }
-    val label = Handover.FACE_LABELS[face] ?: face
+    val label = when (face) { "up" -> "Ceiling"; "down" -> "Floor"; else -> Handover.FACE_LABELS[face] ?: face }
 
     AlertDialog(
         onDismissRequest = { },
-        title = { Text("$label wall — 4 corners") },
+        title = { Text(if (face in WallCorners.PLATE_FACES) "$label — 4 corners" else "$label wall — 4 corners") },
         text = {
             Column {
-                Text("Drag the four dots onto the wall's corners: top-left, " +
+                Text("Drag the four dots onto the corners: top-left, " +
                      "top-right, bottom-right, bottom-left. A corner behind " +
                      "furniture goes where the two visible edges would meet.",
                     style = MaterialTheme.typography.bodySmall,
@@ -203,8 +203,11 @@ internal fun measureLine(face: String, m: WallCorners.Measure, plan: CaptureGeom
         "top-left, top-right, bottom-right, bottom-left."
     val sq = "out of square ${"%.1f".format(m.outOfSquareDeg)}°"
     if (plan == null) return "$sq · width:height ${"%.2f".format(m.ratio)} (room not measured)"
-    val tape = if (face == "front" || face == "back") plan.lengthIn else plan.widthIn
-    val photo = m.lengthFor(plan.heightIn)
+    // A wall is read against the room height; the ceiling and floor have no
+    // height, so their WIDTH is the reference and the length is compared.
+    val plate = face in WallCorners.PLATE_FACES
+    val tape = if (face == "front" || face == "back" || plate) plan.lengthIn else plan.widthIn
+    val photo = m.lengthFor(if (plate) plan.widthIn else plan.heightIn)
     val pct = (photo - tape) / tape * 100
     return "$sq · photo says ${photo.roundToInt()} in, tape ${tape.roundToInt()} in " +
         "(${if (pct >= 0) "+" else "−"}${"%.1f".format(kotlin.math.abs(pct))}%)"

@@ -121,6 +121,18 @@ class WallCornersTest {
         assertEquals(119.0 / 105.0, WallCorners.measure(left).ratio, 0.02)
     }
 
+    @Test fun `ceiling and floor start corners describe the room outline`() {
+        val plan = assertNotNull(CaptureGeometry.planForRoom(172.0, 119.0, 105.0))
+        for ((face, pitch) in listOf("up" to 90.0, "down" to -90.0)) {
+            val c = WallCorners.startCorners(face, 0.0, plan.clampedByFace[face]!!, plan, pitch)
+            val m = WallCorners.measure(c)
+            assertTrue(m.valid, face)
+            assertTrue(m.outOfSquareDeg < 1.0, "$face out by ${m.outOfSquareDeg}")
+            // top edge runs along the front wall: the room's length over its width
+            assertEquals(172.0 / 119.0, m.ratio, 0.02, face)
+        }
+    }
+
     @Test fun `unmeasured rooms still get handles to grab`() {
         val c = WallCorners.startCorners("front", 0.0, 110.0, null)
         assertEquals(4, c.size)

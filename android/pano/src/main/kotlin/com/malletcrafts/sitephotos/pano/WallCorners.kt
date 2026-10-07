@@ -49,8 +49,14 @@ object WallCorners {
      *  rectangle -- a corner placed carelessly, or a wall that is not one. */
     const val SQUARE_TOLERANCE_DEG = 3.0
 
-    /** The wall faces. Ceiling and floor have no 4-corner step yet. */
+    /** The wall faces. */
     val WALL_FACES = listOf("front", "right", "back", "left")
+
+    /** Ceiling and floor: the same four-corner step, on the room's outline.
+     *  Amit, 2026-10-07: "add corners for ceiling and floor too". A ceiling
+     *  is as flat a rectangle as a wall, so nothing in the maths changes --
+     *  only where the handles start. */
+    val PLATE_FACES = listOf("up", "down")
 
     data class Basis(val f: DoubleArray, val r: DoubleArray, val u: DoubleArray, val t: Double)
 
@@ -96,13 +102,15 @@ object WallCorners {
         yawDeg: Double,
         fovDeg: Double,
         plan: CaptureGeometry.Plan?,
+        pitchDeg: Double = 0.0,
     ): List<DoubleArray> {
-        val b = basis(yawDeg, 0.0, fovDeg)
+        val b = basis(yawDeg, pitchDeg, fovDeg)
         if (plan == null) {
             return listOf(0.15 to 0.15, 0.85 to 0.15, 0.85 to 0.85, 0.15 to 0.85)
                 .map { (x, y) -> rayAt(b, x, y) }
         }
         val s = plan.station
+        if (face in PLATE_FACES) return plateCorners(face, b, plan)
         val (span, dist, left) = when (face) {
             "front", "back" -> Triple(plan.lengthIn,
                 if (face == "front") plan.widthIn - s.yIn else s.yIn,
@@ -122,6 +130,31 @@ object WallCorners {
             return rayAt(b, x, y)
         }
         return listOf(at(xl, zt), at(xr, zt), at(xr, zb), at(xl, zb))
+    }
+
+    /**
+     * The ceiling's or floor's four corners seen from the station, ordered
+     * TL TR BR BL as they appear on the face. The room frame here is the one
+     * the wall faces use: x along the LENGTH (front and back walls), z along
+     * the WIDTH with the front wall ahead, y up.
+     */
+    private fun plateCorners(face: String, b: Basis, plan: CaptureGeometry.Plan): List<DoubleArray> {
+        val s = plan.station
+        val y = if (face == "up") plan.heightIn - s.zIn else -s.zIn
+        val xs = listOf(-s.xIn, plan.lengthIn - s.xIn)
+        val zs = listOf(plan.widthIn - s.yIn, -s.yIn)
+        val rays = xs.flatMap { x -> zs.map { z -> unit(doubleArrayOf(x, y, z)) } }
+        val placed = rays.map { d ->
+            val p = pointOf(b, d) ?: Pair(0.5, 0.5)
+            val x = p.first.coerceIn(0.02, 0.98)
+            val yy = p.second.coerceIn(0.02, 0.98)
+            Pair(Pair(x, yy), rayAt(b, x, yy))
+        }
+        // Top pair by screen y, then left/right by screen x.
+        val bySy = placed.sortedBy { it.first.second }
+        val top = bySy.take(2).sortedBy { it.first.first }
+        val bottom = bySy.drop(2).sortedBy { it.first.first }
+        return listOf(top[0].second, top[1].second, bottom[1].second, bottom[0].second)
     }
 
     data class Measure(
