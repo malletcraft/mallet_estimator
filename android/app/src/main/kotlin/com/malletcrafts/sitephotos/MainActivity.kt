@@ -2446,6 +2446,11 @@ private fun FacePreviewDialog(
     // only when ITS OWN group moved.
     var chosen by remember { mutableStateOf(session.chosen) }
     var turn by remember { mutableStateOf(session.turn) }
+    // Four corners per wall -> an elevation beside the face. Amit,
+    // 2026-10-07: "can i place 4 corners on flat foto so that only that will
+    // be used to mesure?"
+    var corners by remember { mutableStateOf(session.corners) }
+    var marking by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
@@ -2487,6 +2492,20 @@ private fun FacePreviewDialog(
                         for (f in g.faces) {
                             Column(Modifier.weight(1f)) {
                                 FaceTile(session, f, chosen, turn, null)
+                            }
+                        }
+                    }
+                    if (g != FaceWriter.Group.FLOOR_CEILING) {
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (f in g.faces) {
+                                val name = Handover.FACE_LABELS[f] ?: f
+                                OutlinedButton(onClick = { marking = f },
+                                    modifier = Modifier.weight(1f)) {
+                                    Text(if (corners[f] != null) "$name: corners \u2713"
+                                         else "Mark $name corners",
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
                             }
                         }
                     }
@@ -2533,15 +2552,31 @@ private fun FacePreviewDialog(
 
                 Text(
                     "Widen until all four corners of every face are inside the " +
-                    "frame. Nothing is in your photos yet \u2014 keeping saves all " +
-                    "six plus the 360 into the room folder and queues the " +
-                    "upload; discarding leaves no trace.",
+                    "frame. Mark a wall's 4 corners to also get its ELEVATION: " +
+                    "the wall straightened from those corners alone, saved " +
+                    "beside the faces. Nothing is in your photos yet \u2014 keeping " +
+                    "saves all six plus the 360 into the room folder and queues " +
+                    "the upload; discarding leaves no trace.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = onKeep) { Text("Keep all six") } },
+        confirmButton = { TextButton(onClick = onKeep) {
+            Text(if (corners.isEmpty()) "Keep all six"
+                 else "Keep six + ${corners.size} elevation${if (corners.size == 1) "" else "s"}")
+        } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
+
+    marking?.let { f ->
+        val g = FaceWriter.Group.of(f)
+        CornerDialog(
+            session = session, face = f,
+            fov = chosen[g] ?: Panorama.DEFAULT_FOV, turn = turn[g] ?: 0.0,
+            plan = pending.plan, start = corners[f],
+            onDone = { c -> corners = corners + (f to c); session.corners = corners; marking = null },
+            onClear = { corners = corners - f; session.corners = corners; marking = null },
+            onCancel = { marking = null })
+    }
 }
 
 /**

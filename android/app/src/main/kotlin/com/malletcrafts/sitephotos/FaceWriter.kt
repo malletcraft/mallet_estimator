@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.Stamp
+import com.malletcrafts.sitephotos.pano.WallCorners
 import java.io.File
 
 /**
@@ -124,6 +125,15 @@ object FaceWriter {
          */
         var turn: Map<Group, Double> = Group.entries.associateWith { 0.0 }
 
+        /**
+         * The four corners Amit placed on a wall, TL TR BR BL, as directions
+         * in the pano -- see WallCorners for why directions and not points.
+         * A wall with corners also gets an ELEVATION at commit, filed beside
+         * its face. Amit, 2026-10-07: "can i place 4 corners on flat foto so
+         * that only that will be used to mesure?"
+         */
+        var corners: Map<String, List<DoubleArray>> = emptyMap()
+
         fun turnFor(face: String): Double = turn[Group.of(face)] ?: 0.0
 
         fun fovFor(face: String): Double = chosen[Group.of(face)] ?: Panorama.DEFAULT_FOV
@@ -156,6 +166,24 @@ object FaceWriter {
         out.setPixels(px, 0, img.width, 0, 0, img.width, img.height)
         return out
     }
+
+    /** The wall re-sampled from its four corners, at preview size. */
+    fun previewElevation(session: Session, corners: List<DoubleArray>, widthPx: Int = 640): Bitmap =
+        toBitmap(WallCorners.elevation(session.previewPano, corners, widthPx))
+
+    private fun toBitmap(img: Panorama.Image): Bitmap {
+        val out = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
+        val px = IntArray(img.pixels.size)
+        for (i in px.indices) px[i] = img.pixels[i] or (0xFF shl 24)
+        out.setPixels(px, 0, img.width, 0, 0, img.width, img.height)
+        return out
+    }
+
+    /** The filename an elevation is filed under, beside the six faces. NOT a
+     *  face token: faceOfToken() does not know it, so nothing that reads faces
+     *  back mistakes an elevation for the wall photo it was made from. */
+    fun elevationFilename(captureId: String, face: String): String =
+        "${captureId}_${Handover.FACE_LABELS[face] ?: face}-elevation.jpg"
 
     /**
      * Open a 360 for inspection. Copies the original, decodes it once at
@@ -254,6 +282,24 @@ object FaceWriter {
             try {
                 saveToGallery(context, captioned, session.relativePath,
                     Handover.filename(session.deviceId, face))
+                written += 1
+            } finally {
+                captioned.recycle()
+            }
+        }
+        // Elevations, for every wall whose corners were placed. Unstamped on
+        // purpose: the stamp says "this is face X of capture Y", and an
+        // elevation is not that face -- a scan that matched it to the face
+        // would pair an annotation with the wrong picture.
+        for ((face, c) in session.corners) {
+            if (c.size != 4 || !WallCorners.measure(c).valid) continue
+            val img = WallCorners.elevation(full, c, session.facePx)
+            val captioned = captioned(img, Handover.captionText(
+                session.deviceId, session.room, "${Handover.FACE_LABELS[face] ?: face} elevation",
+                session.captureDate, session.stage))
+            try {
+                saveToGallery(context, captioned, session.relativePath,
+                    elevationFilename(session.deviceId, face))
                 written += 1
             } finally {
                 captioned.recycle()
