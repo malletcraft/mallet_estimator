@@ -18,6 +18,29 @@ echo "--- $(date '+%Y-%m-%d %H:%M:%S') tick"
 command -v gh >/dev/null || { echo "gh missing"; exit 0; }
 command -v adb >/dev/null || { echo "adb missing"; exit 0; }
 
+# KEEP THIS SCRIPT CURRENT FROM main, every tick. 2026-10-08: the Mac was
+# still running a copy from before the "timed-out download is not a missing
+# artifact" fix, so 0.3.174 stalled on a bug already fixed in the repo --
+# setup.sh copies the script once, and nothing ever copied it again. Now the
+# copy on main is the only version: fetched, syntax-checked, swapped in and
+# re-run. A fetch that fails leaves this copy running and says so.
+if [ -z "${MCFT_UPDATER_FRESH:-}" ]; then
+  new="$WORK/mcft-auto-update.sh.new"
+  if gh api "repos/$REPO/contents/tools/mac/mcft-auto-update.sh?ref=main" \
+       -H "Accept: application/vnd.github.raw" > "$new" 2>/dev/null \
+     && [ -s "$new" ] && bash -n "$new"; then
+    if ! cmp -s "$new" "$0"; then
+      cp "$new" "$0" && chmod +x "$0"
+      echo "updater refreshed from main — re-running it"
+      rm -f "$new"
+      MCFT_UPDATER_FRESH=1 exec /bin/bash "$0"
+    fi
+  else
+    echo "updater self-refresh FAILED (fetch or syntax) — running this copy"
+  fi
+  rm -f "$new"
+fi
+
 # Newest green run of the android workflow on main.
 run=$(gh run list -R "$REPO" -w "android-app.yml" -b main -s success -L 1 \
       --json databaseId -q '.[0].databaseId' || true)
