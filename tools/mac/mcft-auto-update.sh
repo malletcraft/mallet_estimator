@@ -74,6 +74,18 @@ if ! printf '%s' "$STATES" | tr ',' '\n' | grep -qx device; then
   exit 0
 fi
 
+# KEEP THE APK UNTIL IT IS ON THE PHONE. 2026-10-08: the 0.3.176 download
+# took 35 minutes, the phone slipped off the cable in its last minute, the
+# install failed -- and the APK was deleted with it, so the retry had to fetch
+# all 129 MB again. A downloaded build now waits here, one file per run, until
+# adb has installed it; a newer run replaces it. unzip -t rejects a file cut
+# short, so a half-written APK is downloaded again rather than installed.
+KEEP="$WORK/apk-run-$run.apk"
+find "$WORK" -maxdepth 1 -name 'apk-run-*.apk' ! -name "apk-run-$run.apk" -delete
+if [ -s "$KEEP" ] && unzip -tq "$KEEP" >/dev/null 2>&1; then
+  echo "run $run — reusing the APK already downloaded, no new download"
+else
+rm -f "$KEEP"
 rm -rf "$WORK/dl"; mkdir -p "$WORK/dl"
 # A failed download is NOT "this run has no camera build". 2026-10-07: the
 # 0.3.167 download timed out on a sleepy Mac, this branch logged "no camera
@@ -94,10 +106,13 @@ if ! gh run download "$run" -R "$REPO" -n "$ARTIFACT" -D "$WORK/dl"; then
   rm -rf "$WORK/dl"; exit 0
 fi
 apk=$(find "$WORK/dl" -name "*.apk" | head -1)
-[ -n "$apk" ] || { echo "artifact empty"; exit 0; }
-echo "installing $(basename "$apk") from run $run"
-if adb install -r "$apk"; then
+[ -n "$apk" ] || { echo "artifact empty"; rm -rf "$WORK/dl"; exit 0; }
+mv "$apk" "$KEEP"; rm -rf "$WORK/dl"
+fi
+echo "installing $(basename "$KEEP") from run $run"
+if adb install -r "$KEEP"; then
   echo "$run" > "$STATE"
+  rm -f "$KEEP"
   # Read the version back OFF THE PHONE. "INSTALLED" was this script's word
   # for "adb did not error", and the whole reason today's twelve-day gap went
   # unnoticed is that nothing ever compared what shipped against what the
@@ -106,6 +121,5 @@ if adb install -r "$apk"; then
         | awk -F= '/versionName/{print $2; exit}' | tr -d '\r')
   echo "INSTALLED run $run — phone now reports versionName=${got:-unknown}"
 else
-  echo "run $run FAILED to install — state NOT advanced, will retry next tick"
+  echo "run $run FAILED to install — state NOT advanced, APK kept, will retry next tick"
 fi
-rm -rf "$WORK/dl"
