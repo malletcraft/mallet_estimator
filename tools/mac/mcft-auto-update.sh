@@ -60,6 +60,13 @@ mkdir -p "$CACHE"
 # Older runs' downloads are superseded by this one.
 find "$CACHE" -mindepth 1 -maxdepth 1 ! -name "$run" ! -name "$run.partial" -exec rm -rf {} +
 apk=$(find "$CACHE/$run" -name "*.apk" 2>/dev/null | head -1 || true)
+# A kept file that is not a whole zip (cut short, disk full) is fetched again
+# rather than installed -- unzip -t, from the Mac session's version of this
+# change (malletcraft/mallet_estimator#3).
+if [ -n "$apk" ] && ! unzip -tq "$apk" >/dev/null 2>&1; then
+  echo "run $run — kept APK is damaged, downloading it again"
+  rm -rf "$CACHE/$run"; apk=""
+fi
 if [ -z "$apk" ]; then
   # Into .partial, renamed only when complete, so a download cut off half
   # way is never taken for a finished one.
@@ -83,8 +90,9 @@ if [ -z "$apk" ]; then
     fi
     rm -rf "$CACHE/$run.partial"; exit 0
   fi
-  [ -n "$(find "$CACHE/$run.partial" -name "*.apk" | head -1)" ] \
-    || { echo "run $run artifact has no .apk"; rm -rf "$CACHE/$run.partial"; exit 0; }
+  got_apk=$(find "$CACHE/$run.partial" -name "*.apk" | head -1)
+  [ -n "$got_apk" ] && unzip -tq "$got_apk" >/dev/null 2>&1 \
+    || { echo "run $run artifact has no whole .apk"; rm -rf "$CACHE/$run.partial"; exit 0; }
   mv "$CACHE/$run.partial" "$CACHE/$run"
   apk=$(find "$CACHE/$run" -name "*.apk" | head -1)
   echo "downloaded run $run — kept at $apk until it is installed"
