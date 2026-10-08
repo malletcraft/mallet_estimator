@@ -52,9 +52,24 @@ if ! printf '%s' "$STATES" | tr ',' '\n' | grep -qx device; then
 fi
 
 rm -rf "$WORK/dl"; mkdir -p "$WORK/dl"
-gh run download "$run" -R "$REPO" -n "$ARTIFACT" -D "$WORK/dl" || {
-  echo "run $run has no camera artifact (skipped build?) — marking seen"
-  echo "$run" > "$STATE"; exit 0; }
+# A failed download is NOT "this run has no camera build". 2026-10-07: the
+# 0.3.167 download timed out on a sleepy Mac, this branch logged "no camera
+# artifact" and marked the run seen -- so the dock never tried that build
+# again, and the phone sat on 0.3.165 with nothing in the log saying why.
+# Ask GitHub whether the artifact EXISTS before giving up on the run: only a
+# run that genuinely has none is skipped; anything else retries next tick.
+if ! gh run download "$run" -R "$REPO" -n "$ARTIFACT" -D "$WORK/dl"; then
+  has=$(gh api "repos/$REPO/actions/runs/$run/artifacts" \
+        -q "[.artifacts[] | select(.name==\"$ARTIFACT\" and .expired==false)] | length" \
+        2>/dev/null || echo "?")
+  if [ "$has" = "0" ]; then
+    echo "run $run has no camera artifact (skipped build?) — marking seen"
+    echo "$run" > "$STATE"
+  else
+    echo "run $run download FAILED (artifact present=$has) — state NOT advanced, will retry next tick"
+  fi
+  rm -rf "$WORK/dl"; exit 0
+fi
 apk=$(find "$WORK/dl" -name "*.apk" | head -1)
 [ -n "$apk" ] || { echo "artifact empty"; exit 0; }
 echo "installing $(basename "$apk") from run $run"
