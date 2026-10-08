@@ -522,7 +522,7 @@ fun CaptureSheet(
                 supportingContent = { Text("tap to change — it can be corrected on the photo too") },
                 modifier = Modifier.clickableRow(onStage))
 
-            Text("ROOM DIMENSIONS (MM)",
+            Text("ROOM SIZE (MM)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -541,64 +541,59 @@ fun CaptureSheet(
             // different days. Inches because that is what the tape reads --
             // rounding a room to feet moves the answer by degrees.
             val plan = mmPlan(roomLength, roomWidth, roomHeight)
-            val anyTyped = roomLength.isNotBlank() || roomWidth.isNotBlank() ||
-                roomHeight.isNotBlank()
+            // HEIGHT IS THE ONE THAT IS REQUIRED. Amit, 2026-10-08, choosing
+            // "height only, L x W optional": the room's eight corners give
+            // every proportion from the photo, and the height turns them into
+            // millimetres -- it is the scale bar printed on every elevation
+            // for ImageMeter's reference scale. Length and width, if typed,
+            // are the CHECK on what the photo measured, and with all three the
+            // faces are also sized to the room as before.
+            val heightOk = heightMmValid(roomHeight)
+            OutlinedTextField(
+                value = roomHeight, onValueChange = onRoomHeight,
+                label = { Text("Height, floor to ceiling (required)") }, singleLine = true,
+                isError = roomHeight.isNotBlank() && !heightOk,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp))
+            Spacer(Modifier.height(6.dp))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedTextField(
                     value = roomLength, onValueChange = onRoomLength,
-                    label = { Text("Length") }, singleLine = true,
+                    label = { Text("Length (optional)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
                 OutlinedTextField(
                     value = roomWidth, onValueChange = onRoomWidth,
-                    label = { Text("Width") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.weight(1f))
-                OutlinedTextField(
-                    value = roomHeight, onValueChange = onRoomHeight,
-                    label = { Text("Height") }, singleLine = true,
+                    label = { Text("Width (optional)") }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
             }
-
-            // WHERE TO STAND. The plan is useless if he is not at the point
-            // it was computed for, and "the centre" is not a measurement --
-            // these are, and they are in the same units he just typed.
-            if (plan != null) {
-                val s = plan.station
-                Text(
-                    "Stand ${mm(s.xIn)} mm from one end wall and ${mm(s.yIn)} mm from one " +
-                    "side wall, camera LEVEL at ${mm(s.zIn)} mm above the floor.",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-            }
-
-            // The per-face numbers, because they are the whole point of
-            // typing the dimensions -- and because a face that cannot hold
-            // every corner has to SAY so. Clamping quietly is what makes a
-            // truncated floor read as the app getting it wrong rather than
-            // the room being too big to shoot from its centre.
+            // "Where to stand" is gone (Amit, 2026-10-08: "i could not
+            // understand it"). It placed the tripod at the room's centre for
+            // the old FOV maths; with the eight corners measuring the room,
+            // where the camera stood no longer matters as long as every
+            // corner is in view.
             Text(
                 when {
-                    plan == null && anyTyped ->
-                        "All three, in MM. Walls " +
-                        "${mm(CaptureGeometry.MIN_ROOM_IN)}\u2013" +
-                        "${mm(CaptureGeometry.MAX_ROOM_IN)}, ceiling " +
-                        "${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013" +
-                        "${mm(CaptureGeometry.MAX_CEILING_IN)}. " +
-                        "A 10\u00d712 ft room is 3048 \u00d7 3658."
+                    !heightOk && roomHeight.isBlank() ->
+                        "Type the height to shoot or pick a 360 \u2014 it sets the " +
+                        "mm scale on every elevation."
+                    !heightOk ->
+                        "Height in MM, ${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013" +
+                        "${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743."
+                    plan == null && (roomLength.isNotBlank() || roomWidth.isNotBlank()) &&
+                        !(roomLength.isNotBlank() && roomWidth.isNotBlank()) ->
+                        "Length and width are the check on the photo \u2014 type both, or neither."
                     plan == null ->
-                        "Measure the room and every face is sized to it. " +
-                        "Left blank, the split uses the office default."
+                        "Faces use the office default view. Length and width are " +
+                        "optional; typed, they check what the photo measures."
                     plan.fitted ->
                         "Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and " +
-                        "ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 all four " +
-                        "corners of each face, plus a tenth of the " +
-                        "neighbouring walls so you can tell them apart."
+                        "ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 every corner " +
+                        "in frame, and the photo is checked against the tape."
                     else ->
                         "This room needs ${Math.round(plan.floorFovDeg)}\u00b0 on its " +
                         "${plan.unfittedFaces.joinToString("/")} face, past what the " +
@@ -606,7 +601,7 @@ fun CaptureSheet(
                         "shoot it in two halves, or accept it."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (plan != null && !plan.fitted)
+                color = if (!heightOk || (plan != null && !plan.fitted))
                             MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -623,14 +618,14 @@ fun CaptureSheet(
                     modifier = Modifier.clickableRow(onCamera))
                 Button(
                     onClick = onShoot,
-                    enabled = !busy && cameraConnected,
+                    enabled = !busy && cameraConnected && heightOk,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 ) { Text("Shoot 360 on the X3") }
                 Spacer(Modifier.height(8.dp))
             }
             OutlinedButton(
                 onClick = onPick,
-                enabled = !busy,
+                enabled = !busy && heightOk,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             ) { Text("Pick a 360 from the gallery") }
 
@@ -1017,3 +1012,12 @@ internal fun mmPlan(lengthMm: String, widthMm: String, heightMm: String) =
 
 /** Inches back to whole millimetres, for anything shown to a person. */
 internal fun mm(inches: Double): Int = Math.round(inches * MM_PER_IN).toInt()
+
+/** A typed millimetre value, or null when blank or not a number. */
+internal fun mmOrNull(typed: String): Double? = typed.trim().toDoubleOrNull()?.takeIf { it > 0 }
+
+/** A height the geometry accepts: a real ceiling, not a typo in feet. */
+internal fun heightMmValid(typed: String): Boolean {
+    val mmv = mmOrNull(typed) ?: return false
+    return mmv / MM_PER_IN in CaptureGeometry.MIN_CEILING_IN..CaptureGeometry.MAX_CEILING_IN
+}

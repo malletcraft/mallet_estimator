@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.Stamp
+import com.malletcrafts.sitephotos.pano.RoomCorners
 import com.malletcrafts.sitephotos.pano.WallCorners
 import java.io.File
 
@@ -126,13 +127,18 @@ object FaceWriter {
         var turn: Map<Group, Double> = Group.entries.associateWith { 0.0 }
 
         /**
-         * The four corners Amit placed on a wall, TL TR BR BL, as directions
-         * in the pano -- see WallCorners for why directions and not points.
-         * A wall with corners also gets an ELEVATION at commit, filed beside
-         * its face. Amit, 2026-10-07: "can i place 4 corners on flat foto so
-         * that only that will be used to mesure?"
+         * The room's eight corners -- ceiling and floor end of each vertical
+         * corner -- as directions in the pano. Every face's elevation is
+         * built from four of them at commit. Amit, 2026-10-08: "corner
+         * placement is very tedious on app": 24 drags became 8, because a
+         * room has four corners and every face shares them.
          */
-        var corners: Map<String, List<DoubleArray>> = emptyMap()
+        var roomCorners: RoomCorners? = null
+
+        /** Floor to ceiling, as typed, in mm. The one size an elevation
+         *  needs for its scale bar: the photo gives every proportion, this
+         *  gives the millimetres. Null when it was not typed. */
+        var heightMm: Double? = null
 
         fun turnFor(face: String): Double = turn[Group.of(face)] ?: 0.0
 
@@ -167,9 +173,15 @@ object FaceWriter {
         return out
     }
 
-    /** The wall re-sampled from its four corners, at preview size. */
-    fun previewElevation(session: Session, corners: List<DoubleArray>, widthPx: Int = 640): Bitmap =
-        toBitmap(WallCorners.elevation(session.previewPano, corners, widthPx))
+    /** Any view of the pano, for the corner screen: aimed at one room corner
+     *  rather than at one of the six faces. */
+    fun previewView(session: Session, yawDeg: Double, pitchDeg: Double, fovDeg: Double, px: Int = 640): Bitmap =
+        toBitmap(Panorama.faceFromEquirect(session.previewPano, yawDeg, pitchDeg, fovDeg, px))
+
+    /** Border beyond the corners on every elevation, as a fraction of its
+     *  side -- wide enough to carry the scale bar outside the wall. */
+    const val ELEV_MARGIN = 0.06
+
 
     private fun toBitmap(img: Panorama.Image): Bitmap {
         val out = Bitmap.createBitmap(img.width, img.height, Bitmap.Config.ARGB_8888)
@@ -177,6 +189,74 @@ object FaceWriter {
         for (i in px.indices) px[i] = img.pixels[i] or (0xFF shl 24)
         out.setPixels(px, 0, img.width, 0, 0, img.width, img.height)
         return out
+    }
+
+    /**
+     * The bar printed on an elevation for ImageMeter's reference scale.
+     *
+     * Amit, 2026-10-08: ImageMeter's Reference Scale takes ONE known length on
+     * a straight-on photo -- which an elevation is. The bar is that length,
+     * drawn exactly from the wall's floor line to its ceiling line, so the
+     * reference is laid on a printed mark instead of guessed at an edge.
+     * Walls: vertical, the typed height. Ceiling and floor: horizontal along
+     * the top edge, the room length the WALLS' photos give for that height --
+     * labelled as from the photo, because it is measured, not typed.
+     */
+    class ScaleBar(val vertical: Boolean, val mm: Double, val fromPhoto: Boolean)
+
+    fun scaleBarFor(face: String, rc: RoomCorners, heightMm: Double): ScaleBar? =
+        if (face in WallCorners.WALL_FACES) ScaleBar(true, heightMm, false)
+        else {
+            val f = WallCorners.measure(rc.forFace("front"))
+            val b = WallCorners.measure(rc.forFace("back"))
+            if (f.valid && b.valid) ScaleBar(false, (f.ratio + b.ratio) / 2 * heightMm, true) else null
+        }
+
+    private fun drawScaleBar(bmp: Bitmap, bar: ScaleBar) {
+        val c = Canvas(bmp)
+        val w = bmp.width.toFloat(); val h = bmp.height.toFloat()
+        val span = 1f + 2f * ELEV_MARGIN.toFloat()
+        val m = ELEV_MARGIN.toFloat()
+        val x0 = w * m / span; val x1 = w * (1f + m) / span
+        val y0 = h * m / span; val y1 = h * (1f + m) / span
+        val stroke = maxOf(3f, w / 400f)
+        val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(255, 210, 63); strokeWidth = stroke; style = Paint.Style.STROKE
+        }
+        val halo = Paint(ink).apply { color = Color.BLACK; strokeWidth = stroke * 2.5f }
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(255, 210, 63); textSize = maxOf(18f, minOf(x0, y0) * 0.45f)
+            textAlign = Paint.Align.CENTER
+        }
+        val textHalo = Paint(text).apply {
+            color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = text.textSize / 6f
+        }
+        val label = (if (bar.fromPhoto) "\u2248 " else "") + "${Math.round(bar.mm)} mm" +
+            (if (bar.fromPhoto) " (from photo)" else "")
+        val tick = stroke * 4f
+        fun line(ax: Float, ay: Float, bx: Float, by: Float) {
+            c.drawLine(ax, ay, bx, by, halo); c.drawLine(ax, ay, bx, by, ink)
+        }
+        if (bar.vertical) {
+            val x = x0 * 0.55f
+            line(x, y0, x, y1)
+            line(x - tick, y0, x + tick, y0); line(x - tick, y1, x + tick, y1)
+            var k = 500.0
+            while (k < bar.mm) {           // a short tick every 500 mm up from the floor
+                val y = y1 - ((k / bar.mm) * (y1 - y0)).toFloat()
+                line(x - tick / 2, y, x + tick / 2, y); k += 500.0
+            }
+            c.save(); c.rotate(-90f, x0 * 0.2f, (y0 + y1) / 2)
+            c.drawText(label, x0 * 0.2f, (y0 + y1) / 2 + text.textSize / 3, textHalo)
+            c.drawText(label, x0 * 0.2f, (y0 + y1) / 2 + text.textSize / 3, text)
+            c.restore()
+        } else {
+            val y = y0 * 0.6f
+            line(x0, y, x1, y)
+            line(x0, y - tick, x0, y + tick); line(x1, y - tick, x1, y + tick)
+            c.drawText(label, (x0 + x1) / 2, y - tick * 1.2f, textHalo)
+            c.drawText(label, (x0 + x1) / 2, y - tick * 1.2f, text)
+        }
     }
 
     /** The filename an elevation is filed under, beside the six faces. NOT a
@@ -287,22 +367,27 @@ object FaceWriter {
                 captioned.recycle()
             }
         }
-        // Elevations, for every wall whose corners were placed. Unstamped on
+        // Elevations, all six, from the room's eight corners. Unstamped on
         // purpose: the stamp says "this is face X of capture Y", and an
         // elevation is not that face -- a scan that matched it to the face
         // would pair an annotation with the wrong picture.
-        for ((face, c) in session.corners) {
-            if (c.size != 4 || !WallCorners.measure(c).valid) continue
-            val img = WallCorners.elevation(full, c, session.facePx)
-            val captioned = captioned(img, Handover.captionText(
-                session.deviceId, session.room, "${Handover.FACE_LABELS[face] ?: face} elevation",
-                session.captureDate, session.stage))
-            try {
-                saveToGallery(context, captioned, session.relativePath,
-                    elevationFilename(session.deviceId, face))
-                written += 1
-            } finally {
-                captioned.recycle()
+        session.roomCorners?.let { rc ->
+            for ((face, _, _) in Panorama.FACES) {
+                val c = rc.forFace(face)
+                if (!WallCorners.measure(c).valid) continue
+                val bmp = toBitmap(WallCorners.elevation(full, c, session.facePx, ELEV_MARGIN))
+                session.heightMm?.let { h -> scaleBarFor(face, rc, h)?.let { drawScaleBar(bmp, it) } }
+                val captioned = captionedBitmap(bmp, Handover.captionText(
+                    session.deviceId, session.room, "${Handover.FACE_LABELS[face] ?: face} elevation",
+                    session.captureDate, session.stage))
+                try {
+                    saveToGallery(context, captioned, session.relativePath,
+                        elevationFilename(session.deviceId, face))
+                    written += 1
+                } finally {
+                    captioned.recycle()
+                    bmp.recycle()
+                }
             }
         }
         // The 360 itself belongs in the room's folder too, beside its faces.

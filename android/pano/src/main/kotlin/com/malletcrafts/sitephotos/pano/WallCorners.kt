@@ -62,14 +62,15 @@ object WallCorners {
 
     /** The camera basis faceFromEquirect uses for a face, so a point on a
      *  preview tile and a ray through the pano are the same thing. */
-    fun basis(yawDeg: Double, pitchDeg: Double, fovDeg: Double): Basis {
+    fun basis(yawDeg: Double, pitchDeg: Double, fovDeg: Double, clamp: Boolean = true): Basis {
         val lam = Math.toRadians(yawDeg)
         val phi = Math.toRadians(pitchDeg)
         return Basis(
             f = doubleArrayOf(cos(phi) * sin(lam), sin(phi), cos(phi) * cos(lam)),
             r = doubleArrayOf(cos(lam), 0.0, -sin(lam)),
             u = doubleArrayOf(-sin(phi) * sin(lam), cos(phi), -sin(phi) * cos(lam)),
-            t = tan(Math.toRadians(Panorama.clampFov(fovDeg)) / 2.0),
+            // Unclamped only for the snap's few-degree window; a face never is.
+            t = tan(Math.toRadians(if (clamp) Panorama.clampFov(fovDeg) else fovDeg) / 2.0),
         )
     }
 

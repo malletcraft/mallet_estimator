@@ -360,11 +360,13 @@ private fun AppScreen() {
                         fovByFace = perFace,
                         panoDir = File(context.filesDir, "panos"))
                     withContext(Dispatchers.Main) {
+                        prev.heightMm = mmOrNull(roomHeight)
                         pending = PendingSplit(
                             session = prev, projectName = p.name,
                             projectTitle = p.title, customerName = p.customer,
                             room = r, stage = stageNow, captureDate = today,
-                            deviceId = id, fov = fov, plan = plan)
+                            deviceId = id, fov = fov, plan = plan,
+                            lengthMm = mmOrNull(roomLength), widthMm = mmOrNull(roomWidth))
                     }
                     null
                 } else {
@@ -1669,7 +1671,11 @@ private fun AppScreen() {
                             fov = keep.fov,
                             roomLengthIn = keep.plan?.lengthIn ?: 0.0,
                             roomWidthIn = keep.plan?.widthIn ?: 0.0,
-                            roomHeightIn = keep.plan?.heightIn ?: 0.0))
+                            // The height alone is worth keeping: it is the
+                            // scale of every elevation, typed with or without
+                            // length and width.
+                            roomHeightIn = keep.plan?.heightIn
+                                ?: (keep.session.heightMm?.div(MM_PER_IN) ?: 0.0)))
                         res
                     }
                     withContext(Dispatchers.Main) {
@@ -2396,6 +2402,9 @@ data class PendingSplit(
     val deviceId: String,
     val fov: Double,
     val plan: com.malletcrafts.sitephotos.pano.CaptureGeometry.Plan?,
+    /** Length and width as typed, mm -- optional, the check on the photo. */
+    val lengthMm: Double? = null,
+    val widthMm: Double? = null,
 )
 
 /**
@@ -2447,11 +2456,12 @@ private fun FacePreviewDialog(
     // only when ITS OWN group moved.
     var chosen by remember { mutableStateOf(session.chosen) }
     var turn by remember { mutableStateOf(session.turn) }
-    // Four corners per wall -> an elevation beside the face. Amit,
-    // 2026-10-07: "can i place 4 corners on flat foto so that only that will
-    // be used to mesure?"
-    var corners by remember { mutableStateOf(session.corners) }
-    var marking by remember { mutableStateOf<String?>(null) }
+    // The room's eight corners -> all six elevations. Amit, 2026-10-07: "can
+    // i place 4 corners on flat foto so that only that will be used to
+    // mesure?"; 2026-10-08: "corner placement is very tedious" -- so eight
+    // points once per room, not four per face.
+    var roomCorners by remember { mutableStateOf(session.roomCorners) }
+    var marking by remember { mutableStateOf(false) }
 
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
@@ -2469,6 +2479,17 @@ private fun FacePreviewDialog(
                     } ?: "room not measured"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+
+                Button(onClick = { marking = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (roomCorners == null) "Mark room corners (8 points)"
+                         else "Room corners \u2713 \u2014 edit")
+                }
+                roomCorners?.let { rc ->
+                    for (line in roomSummary(rc, session.heightMm, pending.lengthMm, pending.widthMm)) {
+                        Text(line, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
 
                 // EACH ROW IS ONE SLIDER'S PAIR, with that slider directly
@@ -2493,23 +2514,6 @@ private fun FacePreviewDialog(
                         for (f in g.faces) {
                             Column(Modifier.weight(1f)) {
                                 FaceTile(session, f, chosen, turn, null)
-                            }
-                        }
-                    }
-                    run {
-                        Row(Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (f in g.faces) {
-                                val name = when (f) {
-                                    "up" -> "Ceiling"; "down" -> "Floor"
-                                    else -> Handover.FACE_LABELS[f] ?: f
-                                }
-                                OutlinedButton(onClick = { marking = f },
-                                    modifier = Modifier.weight(1f)) {
-                                    Text(if (corners[f] != null) "$name: corners \u2713"
-                                         else "Mark $name corners",
-                                        style = MaterialTheme.typography.labelSmall)
-                                }
                             }
                         }
                     }
@@ -2556,9 +2560,9 @@ private fun FacePreviewDialog(
 
                 Text(
                     "Widen until all four corners of every face are inside the " +
-                    "frame. Mark the 4 corners of a wall, the ceiling or the " +
-                    "floor to also get it straightened from those corners alone, saved " +
-                    "beside the faces. Nothing is in your photos yet \u2014 keeping " +
+                    "frame. Mark the room's 8 corners to also get all six " +
+                    "straightened as elevations, saved beside the faces with a " +
+                    "height scale bar for ImageMeter. Nothing is in your photos yet \u2014 keeping " +
                     "saves all six plus the 360 into the room folder and queues " +
                     "the upload; discarding leaves no trace.",
                     style = MaterialTheme.typography.bodySmall,
@@ -2566,20 +2570,16 @@ private fun FacePreviewDialog(
             }
         },
         confirmButton = { TextButton(onClick = onKeep) {
-            Text(if (corners.isEmpty()) "Keep all six"
-                 else "Keep six + ${corners.size} elevation${if (corners.size == 1) "" else "s"}")
+            Text(if (roomCorners == null) "Keep all six" else "Keep six + 6 elevations")
         } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
 
-    marking?.let { f ->
-        val g = FaceWriter.Group.of(f)
-        CornerDialog(
-            session = session, face = f,
-            fov = chosen[g] ?: Panorama.DEFAULT_FOV, turn = turn[g] ?: 0.0,
-            plan = pending.plan, start = corners[f],
-            onDone = { c -> corners = corners + (f to c); session.corners = corners; marking = null },
-            onClear = { corners = corners - f; session.corners = corners; marking = null },
-            onCancel = { marking = null })
+    if (marking) {
+        RoomCornerDialog(
+            session = session, plan = pending.plan, start = roomCorners,
+            onDone = { rc -> roomCorners = rc; session.roomCorners = rc; marking = false },
+            onClear = { roomCorners = null; session.roomCorners = null; marking = false },
+            onCancel = { marking = false })
     }
 }
 
