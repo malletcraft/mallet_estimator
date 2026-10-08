@@ -135,6 +135,11 @@ object FaceWriter {
          */
         var roomCorners: RoomCorners? = null
 
+        /** The fitted room box the corners came from, kept so the box can be
+         *  opened again where it was left. Amit, 2026-10-08: lines dragged
+         *  onto edges, SketchUp-style, instead of dots onto corners. */
+        var roomBox: com.malletcrafts.sitephotos.pano.RoomBox? = null
+
         /** Floor to ceiling, as typed, in mm. The one size an elevation
          *  needs for its scale bar: the photo gives every proportion, this
          *  gives the millimetres. Null when it was not typed. */
