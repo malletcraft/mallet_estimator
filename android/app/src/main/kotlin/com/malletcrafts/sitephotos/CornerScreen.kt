@@ -209,6 +209,6 @@ internal fun measureLine(face: String, m: WallCorners.Measure, plan: CaptureGeom
     val tape = if (face == "front" || face == "back" || plate) plan.lengthIn else plan.widthIn
     val photo = m.lengthFor(if (plate) plan.widthIn else plan.heightIn)
     val pct = (photo - tape) / tape * 100
-    return "$sq · photo says ${photo.roundToInt()} in, tape ${tape.roundToInt()} in " +
+    return "$sq · photo says ${mm(photo)} mm, tape ${mm(tape)} mm " +
         "(${if (pct >= 0) "+" else "−"}${"%.1f".format(kotlin.math.abs(pct))}%)"
 }

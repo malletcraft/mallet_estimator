@@ -169,19 +169,22 @@ private fun AppScreen() {
     val capturePrefs = remember {
         context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
     }
-    // INCHES, and new pref keys on purpose. The old pair held FEET, and a
-    // "10" left over from that build would read as 10 inches here -- refused
-    // as not-a-room rather than silently quartering every FOV, but only
-    // because the keys changed. Reusing them would have been the quiet kind
-    // of wrong.
+    // MILLIMETRES, and new pref keys on purpose (Amit, 2026-10-08: "capture
+    // or let user everything keyed in mm. thats oour default unit of capture
+    // always."). The old keys held INCHES, and a "120" left over from that
+    // build would read as 120 mm here -- a cupboard, refused as not-a-room
+    // only because the keys changed. Reusing them would be the quiet kind of
+    // wrong, the same reason the feet-to-inches move changed keys too.
+    // The geometry and the bench still work in inches; mm is converted at
+    // the one place a plan is built (CaptureSheet.mmPlan).
     var roomLength by remember {
-        mutableStateOf(capturePrefs.getString("room_len_in", "").orEmpty())
+        mutableStateOf(capturePrefs.getString("room_len_mm", "").orEmpty())
     }
     var roomWidth by remember {
-        mutableStateOf(capturePrefs.getString("room_wid_in", "").orEmpty())
+        mutableStateOf(capturePrefs.getString("room_wid_mm", "").orEmpty())
     }
     var roomHeight by remember {
-        mutableStateOf(capturePrefs.getString("room_hgt_in", "").orEmpty())
+        mutableStateOf(capturePrefs.getString("room_hgt_mm", "").orEmpty())
     }
     var updateJson by remember {
         mutableStateOf(capturePrefs.getString("update_available", null))
@@ -334,9 +337,7 @@ private fun AppScreen() {
                 // it while a wall is half the room away, so a 20x18 ft room
                 // wants 106 degrees on its walls and 144 on its floor. One
                 // number for all six is what cropped the floor corners.
-                val plan = CaptureGeometry.planForRoom(
-                    roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull(),
-                    roomHeight.toDoubleOrNull())
+                val plan = mmPlan(roomLength, roomWidth, roomHeight)
                 val perFace = plan?.clampedByFace ?: emptyMap()
                 // Still one number for the fallback, because an unmeasured
                 // room has nothing better and the bench default is what it
@@ -1761,15 +1762,15 @@ private fun AppScreen() {
             onStage = { showCaptureSheet = false; showStagePicker = true },
             onRoomLength = { v ->
                 roomLength = v
-                capturePrefs.edit().putString("room_len_in", v).apply()
+                capturePrefs.edit().putString("room_len_mm", v).apply()
             },
             onRoomHeight = { v ->
                 roomHeight = v
-                capturePrefs.edit().putString("room_hgt_in", v).apply()
+                capturePrefs.edit().putString("room_hgt_mm", v).apply()
             },
             onRoomWidth = { v ->
                 roomWidth = v
-                capturePrefs.edit().putString("room_wid_in", v).apply()
+                capturePrefs.edit().putString("room_wid_mm", v).apply()
             },
             onPick = {
                 showCaptureSheet = false
@@ -2463,8 +2464,8 @@ private fun FacePreviewDialog(
                 Text(
                     "${RoomToken.label(pending.room)} \u00b7 " +
                     (pending.plan?.let {
-                        "${it.lengthIn.toInt()}\u00d7${it.widthIn.toInt()}" +
-                        "\u00d7${it.heightIn.toInt()} in"
+                        "${mm(it.lengthIn)}\u00d7${mm(it.widthIn)}" +
+                        "\u00d7${mm(it.heightIn)} mm"
                     } ?: "room not measured"),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)

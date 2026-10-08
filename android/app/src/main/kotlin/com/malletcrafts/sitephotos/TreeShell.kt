@@ -522,7 +522,7 @@ fun CaptureSheet(
                 supportingContent = { Text("tap to change — it can be corrected on the photo too") },
                 modifier = Modifier.clickableRow(onStage))
 
-            Text("ROOM DIMENSIONS (INCHES)",
+            Text("ROOM DIMENSIONS (MM)",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -540,9 +540,7 @@ fun CaptureSheet(
             // 9.5 ft ceiling made the same room behave differently on
             // different days. Inches because that is what the tape reads --
             // rounding a room to feet moves the answer by degrees.
-            val plan = CaptureGeometry.planForRoom(
-                roomLength.toDoubleOrNull(), roomWidth.toDoubleOrNull(),
-                roomHeight.toDoubleOrNull())
+            val plan = mmPlan(roomLength, roomWidth, roomHeight)
             val anyTyped = roomLength.isNotBlank() || roomWidth.isNotBlank() ||
                 roomHeight.isNotBlank()
             Row(
@@ -572,8 +570,8 @@ fun CaptureSheet(
             if (plan != null) {
                 val s = plan.station
                 Text(
-                    "Stand ${s.x}\" from one end wall and ${s.y}\" from one " +
-                    "side wall, camera LEVEL at ${s.z}\" above the floor.",
+                    "Stand ${mm(s.xIn)} mm from one end wall and ${mm(s.yIn)} mm from one " +
+                    "side wall, camera LEVEL at ${mm(s.zIn)} mm above the floor.",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -587,12 +585,12 @@ fun CaptureSheet(
             Text(
                 when {
                     plan == null && anyTyped ->
-                        "All three, in INCHES. Walls " +
-                        "${CaptureGeometry.MIN_ROOM_IN.toInt()}\u2013" +
-                        "${CaptureGeometry.MAX_ROOM_IN.toInt()}, ceiling " +
-                        "${CaptureGeometry.MIN_CEILING_IN.toInt()}\u2013" +
-                        "${CaptureGeometry.MAX_CEILING_IN.toInt()}. " +
-                        "A 10\u00d712 ft room is 120 \u00d7 144."
+                        "All three, in MM. Walls " +
+                        "${mm(CaptureGeometry.MIN_ROOM_IN)}\u2013" +
+                        "${mm(CaptureGeometry.MAX_ROOM_IN)}, ceiling " +
+                        "${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013" +
+                        "${mm(CaptureGeometry.MAX_CEILING_IN)}. " +
+                        "A 10\u00d712 ft room is 3048 \u00d7 3658."
                     plan == null ->
                         "Measure the room and every face is sized to it. " +
                         "Left blank, the split uses the office default."
@@ -1004,3 +1002,18 @@ fun RenameDialog(
         },
     )
 }
+
+
+/** Room sizes as typed, in MILLIMETRES, to the inch-based plan the geometry
+ *  and the bench use. The one conversion point: mm on every screen, inches
+ *  only inside CaptureGeometry and on the wire. */
+internal const val MM_PER_IN = 25.4
+
+internal fun mmPlan(lengthMm: String, widthMm: String, heightMm: String) =
+    CaptureGeometry.planForRoom(
+        lengthMm.trim().toDoubleOrNull()?.div(MM_PER_IN),
+        widthMm.trim().toDoubleOrNull()?.div(MM_PER_IN),
+        heightMm.trim().toDoubleOrNull()?.div(MM_PER_IN))
+
+/** Inches back to whole millimetres, for anything shown to a person. */
+internal fun mm(inches: Double): Int = Math.round(inches * MM_PER_IN).toInt()
