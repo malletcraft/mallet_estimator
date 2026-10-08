@@ -10,7 +10,8 @@ package com.malletcrafts.sitephotos.pano
  * points describe all six faces: each wall is two neighbouring corners, top
  * and bottom, and the ceiling and floor are the four top or four bottom ends.
  *
- * Since 2026-10-08 they come from a fitted RoomBox (Amit: "setting up
+ * Since 2026-10-08 they come from a RoomQuad -- two opposite corners and
+ * four wall lines (Amit: "setting up
  * corners is still difficult" -- lines are dragged, not points), and this
  * class only hands each face its four.
  *

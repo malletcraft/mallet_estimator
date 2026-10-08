@@ -135,10 +135,11 @@ object FaceWriter {
          */
         var roomCorners: RoomCorners? = null
 
-        /** The fitted room box the corners came from, kept so the box can be
-         *  opened again where it was left. Amit, 2026-10-08: lines dragged
-         *  onto edges, SketchUp-style, instead of dots onto corners. */
-        var roomBox: com.malletcrafts.sitephotos.pano.RoomBox? = null
+        /** The room the corners came from -- two opposite corners and four
+         *  wall lines -- kept so it can be opened again where it was left.
+         *  Amit, 2026-10-08: "i will set only two diagonally opposite
+         *  corners of a room", SketchUp-style, square or not. */
+        var roomQuad: com.malletcrafts.sitephotos.pano.RoomQuad? = null
 
         /** Floor to ceiling, as typed, in mm. The one size an elevation
          *  needs for its scale bar: the photo gives every proportion, this

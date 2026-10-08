@@ -2461,9 +2461,10 @@ private fun FacePreviewDialog(
     // mesure?"; 2026-10-08: "corner placement is very tedious" -- so eight
     // points once per room, not four per face.
     // 2026-10-08, later: "setting up corners is still difficult. how bout
-    // seting axex like this?" -- a room box whose edges are dragged onto the
-    // room's edges, SketchUp Match Photo style. The corners come from it.
-    var roomBox by remember { mutableStateOf(session.roomBox) }
+    // seting axex like this?"; then "i will set only two diagonally opposite
+    // corners of a room" -- two corners and their four wall lines, which
+    // also fits a room that is not square. The corners come from it.
+    var roomQuad by remember { mutableStateOf(session.roomQuad) }
     var marking by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -2485,11 +2486,11 @@ private fun FacePreviewDialog(
                 Spacer(Modifier.height(10.dp))
 
                 Button(onClick = { marking = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (roomBox == null) "Fit room box (drag lines onto edges)"
-                         else "Room box \u2713 \u2014 edit")
+                    Text(if (roomQuad == null) "Set room (2 corners + wall lines)"
+                         else "Room \u2713 \u2014 edit")
                 }
-                roomBox?.let { b ->
-                    for (line in boxSummary(b, session.heightMm, pending.lengthMm, pending.widthMm)) {
+                roomQuad?.let { b ->
+                    for (line in roomSummary(b, session.heightMm, pending.lengthMm, pending.widthMm)) {
                         Text(line, style = MaterialTheme.typography.labelSmall)
                     }
                 }
@@ -2563,7 +2564,7 @@ private fun FacePreviewDialog(
 
                 Text(
                     "Widen until all four corners of every face are inside the " +
-                    "frame. Fit the room box to also get all six " +
+                    "frame. Set the room to also get all six " +
                     "straightened as elevations, saved beside the faces with a " +
                     "height scale bar for ImageMeter. Nothing is in your photos yet \u2014 keeping " +
                     "saves all six plus the 360 into the room folder and queues " +
@@ -2573,21 +2574,21 @@ private fun FacePreviewDialog(
             }
         },
         confirmButton = { TextButton(onClick = onKeep) {
-            Text(if (roomBox == null) "Keep all six" else "Keep six + 6 elevations")
+            Text(if (roomQuad == null) "Keep all six" else "Keep six + 6 elevations")
         } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
 
     if (marking) {
-        RoomBoxDialog(
+        RoomQuadDialog(
             session = session,
-            start = roomBox ?: com.malletcrafts.sitephotos.pano.RoomBox.start(
+            start = roomQuad ?: com.malletcrafts.sitephotos.pano.RoomQuad.start(
                 pending.lengthMm, pending.widthMm, session.heightMm),
-            isEdit = roomBox != null,
+            isEdit = roomQuad != null,
             onDone = { b ->
-                roomBox = b; session.roomBox = b; session.roomCorners = b.corners(); marking = false
+                roomQuad = b; session.roomQuad = b; session.roomCorners = b.corners(); marking = false
             },
             onClear = {
-                roomBox = null; session.roomBox = null; session.roomCorners = null; marking = false
+                roomQuad = null; session.roomQuad = null; session.roomCorners = null; marking = false
             },
             onCancel = { marking = false })
     }
