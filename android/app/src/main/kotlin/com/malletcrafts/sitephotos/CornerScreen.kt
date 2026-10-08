@@ -36,25 +36,23 @@ import com.malletcrafts.sitephotos.pano.WallCorners
 import kotlin.math.hypot
 
 /**
- * Set the room the SketchUp way: two diagonally opposite corners, each with
- * its two wall lines, then a check of each wall.
+ * Set the room exactly as SketchUp's Match Photo is set, at two diagonally
+ * opposite corners.
  *
- * Amit, 2026-10-08, after the room box: "get me exact setup like sketchup. i
- * will set only two diagonally opposite corners of a room" -- the box failing
- * him on "Room not square". Two corners alone fix only a rectangle, so each
- * corner carries its two wall lines as SketchUp's origin carries the red and
- * green axes, and each line turns on its own. The other two corners fall
- * where the lines cross.
+ * Amit, 2026-10-08, on 0.3.174's one line per wall, "not useful": "i need set
+ * origin and then vanishing perspective lines just as foto match of sketchup
+ * using handles . setting ceiling and floor lines running from origing to
+ * other direction is easiest way along with floor corner."
  *
- * Screens:
- *  1. FRONT-LEFT corner, looked at straight: YELLOW dot on the corner at the
- *     floor, BLUE dot on the corner at the ceiling, RED line along the front
- *     wall's skirting, GREEN along the left wall's.
- *  2. BACK-RIGHT corner, the same: RED along the back wall, GREEN the right.
- *  3-6. Each wall square on: the floor line can still be turned (it pivots on
- *     its placed corner) and the ceiling line moved, where the far end of the
- *     wall shows better than it did from the corner.
- * Grab any part of a line; the magnifier follows the finger.
+ * Screens 1 and 2 look straight at a corner:
+ *  - the YELLOW ORIGIN grip goes on the corner, at the floor;
+ *  - a RED pair of bars goes on one wall -- one bar on the skirting, one on
+ *    the cornice -- and a GREEN pair on the other wall. Every bar has a
+ *    handle at each end and is laid by its handles, as in SketchUp. The bars
+ *    need not touch the origin; put them wherever the edge shows clearly.
+ * The pairs give each wall's vanishing direction and the ceiling bars the
+ * ceiling, so the walls need not be square. Screens 3-6 show each wall
+ * square on with the room drawn over it, to check the fit before using it.
  *
  * Kept out of MainActivity: this module cannot be compiled in the cloud
  * container, and a small file with every import spelled out is cheap for CI.
@@ -70,27 +68,34 @@ internal fun RoomQuadDialog(
 ) {
     var room by remember { mutableStateOf(start) }
     var step by remember { mutableStateOf(0) }
-    // What the finger holds: a handle, or (on a wall screen) the ceiling line.
-    var held by remember { mutableStateOf<RoomQuad.Handle?>(null) }
-    var holdingCeiling by remember { mutableStateOf(false) }
+    // The bars stay where they were laid, whatever the room does -- they are
+    // what the person SAW, the room is what follows from it.
+    var bars by remember {
+        mutableStateOf(RoomQuad.Line.entries.associateWith { start.startBars(it) })
+    }
+    var origins by remember {
+        mutableStateOf(RoomQuad.Origin.entries.associateWith { o ->
+            start.vertical(o).first.let { WallCorners.unit(it) } })
+    }
+    // What the finger holds: the origin (-1), or handle 0..3 of a line's bars.
+    var held by remember { mutableStateOf<Pair<RoomQuad.Line?, Int>?>(null) }
     var finger by remember { mutableStateOf<Offset?>(null) }
 
     val corner = step < 2
+    val origin = if (step == 0) RoomQuad.Origin.FL else RoomQuad.Origin.BR
     val face = if (corner) null else RoomQuad.WALLS[step - 2]
-    val floorDot = if (step == 0) RoomQuad.Handle.FL_FLOOR else RoomQuad.Handle.BR_FLOOR
-    val ceilDot = if (step == 0) RoomQuad.Handle.FL_CEILING else RoomQuad.Handle.BR_CEILING
-    // Red runs along front and back, green along left and right -- SketchUp's
-    // two axes, here allowed to be out of square.
-    val lines = if (step == 0) listOf(RoomQuad.Handle.FRONT, RoomQuad.Handle.LEFT)
-                else listOf(RoomQuad.Handle.BACK, RoomQuad.Handle.RIGHT)
     val title = when (step) {
         0 -> "Front-left corner"; 1 -> "Back-right corner"
         else -> "${face!!.replaceFirstChar { it.uppercase() }} wall — check"
     }
+    // Red is the front/back direction, green the left/right -- SketchUp's two
+    // axes, here allowed to be out of square.
+    fun colourOf(l: RoomQuad.Line) =
+        if (l == RoomQuad.Line.FRONT || l == RoomQuad.Line.BACK) AXIS_RED else AXIS_GREEN
 
     // The view is fixed when the step is entered, so it does not swing under
     // the thumb while the room changes.
-    val view = remember(step) { if (corner) room.cornerView(floorDot) else room.view(face!!) }
+    val view = remember(step) { if (corner) room.cornerView(origin) else room.view(face!!) }
     val basis = remember(step) { WallCorners.basis(view.first, 0.0, view.second) }
     val bmp = remember(step) {
         runCatching { FaceWriter.previewView(session, view.first, 0.0, view.second, 720) }.getOrNull()
@@ -105,12 +110,16 @@ internal fun RoomQuadDialog(
                 seg.first[it] * (1 - t) + seg.second[it] * t }))
         }
 
-    fun screen(p: DoubleArray) = WallCorners.pointOf(basis, WallCorners.unit(p))
+    fun screen(ray: DoubleArray) = WallCorners.pointOf(basis, ray)
 
-    /** The segments that can be grabbed on this step, with what each one moves. */
-    fun grabbable(r: RoomQuad): List<Pair<RoomQuad.Handle?, Pair<DoubleArray, DoubleArray>>> =
-        if (corner) lines.map { h -> h to r.ray3d(h, LINE_LENGTH) }
-        else r.wallEdges(face!!).let { (fl, cl) -> listOf(r.lineOf(face!!) to fl, null to cl) }
+    /** Everything grabbable on this screen, as (what, ray). */
+    fun grips(): List<Pair<Pair<RoomQuad.Line?, Int>, DoubleArray>> =
+        listOf<Pair<Pair<RoomQuad.Line?, Int>, DoubleArray>>((null to -1) to origins.getValue(origin)) +
+            room.lines(origin).flatMap { l ->
+                bars.getValue(l).handles().mapIndexed { i, r -> (l to i) to r }
+            }
+
+    fun refit() { room = room.fitted(origin, origins.getValue(origin), bars) }
 
     AlertDialog(
         onDismissRequest = { },
@@ -119,58 +128,45 @@ internal fun RoomQuadDialog(
             Column {
                 Text(
                     if (corner)
-                        "YELLOW dot on the corner where it meets the FLOOR, BLUE dot where " +
-                        "it meets the CEILING. Then lay the RED and GREEN lines along the " +
-                        "skirting of the two walls — grab any part of a line. Walls need " +
-                        "not be square."
+                        "YELLOW origin on the corner at the FLOOR. Then, as in SketchUp, lay " +
+                        "each bar by its two handles: RED pair on one wall, GREEN on the " +
+                        "other — one bar on the skirting, one on the ceiling edge. Bars " +
+                        "can sit anywhere the edge shows; walls need not be square."
                     else
-                        "Check the box sits on this wall. If the far end is off, drag the " +
-                        "RED or GREEN floor line onto the skirting (it turns on its placed corner), " +
-                        "and the BLUE line onto the ceiling.",
+                        "Check the room lines sit on this wall's edges. If not, go back " +
+                        "and move the bars on the corner screens.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Box(Modifier.fillMaxWidth().aspectRatio(1f).pointerInput(step) {
+                    if (!corner) return@pointerInput
                     detectDragGestures(
                         onDragStart = { o ->
                             val x = o.x / size.width.toDouble()
                             val y = o.y / size.height.toDouble()
-                            var best: RoomQuad.Handle? = null
-                            var ceil = false
+                            var best: Pair<RoomQuad.Line?, Int>? = null
                             var bestD = GRAB_RADIUS
-                            if (corner) {
-                                for ((h, p) in listOf(floorDot to room.vertical(floorDot).first,
-                                                      ceilDot to room.vertical(ceilDot).second)) {
-                                    val s = screen(p) ?: continue
-                                    val d = hypot(s.first - x, s.second - y)
-                                    if (d < bestD) { bestD = d; best = h }
-                                }
+                            for ((what, r) in grips()) {
+                                val s = screen(r) ?: continue
+                                val d = hypot(s.first - x, s.second - y)
+                                if (d < bestD) { bestD = d; best = what }
                             }
-                            // A dot within reach wins over a line through it.
-                            if (best == null) {
-                                for ((h, seg) in grabbable(room)) {
-                                    trace(seg).forEachIndexed { k, p ->
-                                        // the first stretch of a corner's line is the corner
-                                        if (p != null && !(corner && k < SAMPLES / 12)) {
-                                            val d = hypot(p.first - x, p.second - y)
-                                            if (d < bestD) { bestD = d; best = h; ceil = h == null }
-                                        }
-                                    }
-                                }
-                            }
-                            held = best; holdingCeiling = ceil
-                            finger = if (best != null || ceil) o else null
+                            held = best
+                            finger = if (best != null) o else null
                         },
-                        onDragEnd = { held = null; holdingCeiling = false; finger = null },
-                        onDragCancel = { held = null; holdingCeiling = false; finger = null },
+                        onDragEnd = { held = null; finger = null },
+                        onDragCancel = { held = null; finger = null },
                         onDrag = { change, _ ->
                             val h = held
-                            if (h != null || holdingCeiling) {
+                            if (h != null) {
                                 change.consume()
                                 val x = (change.position.x / size.width.toDouble()).coerceIn(0.0, 1.0)
                                 val y = (change.position.y / size.height.toDouble()).coerceIn(0.0, 1.0)
                                 val ray = WallCorners.rayAt(basis, x, y)
-                                room = if (h != null) room.dragged(h, ray) else room.ceilingFrom(face!!, ray)
+                                val l = h.first
+                                if (l == null) origins = origins + (origin to ray)
+                                else bars = bars + (l to bars.getValue(l).with(h.second, ray))
+                                refit()
                                 finger = change.position
                             }
                         })
@@ -181,41 +177,52 @@ internal fun RoomQuadDialog(
                     }
                     Canvas(Modifier.fillMaxSize()) {
                         val w = size.width; val h = size.height
+                        fun at(p: Pair<Double, Double>) = Offset((p.first * w).toFloat(), (p.second * h).toFloat())
                         fun drawSeg(seg: Pair<DoubleArray, DoubleArray>, colour: Color, width: Float) {
                             val pts = trace(seg)
                             for (k in 0 until pts.size - 1) {
                                 val a = pts[k]; val b = pts[k + 1]
                                 if (a != null && b != null) {
-                                    val pa = Offset((a.first * w).toFloat(), (a.second * h).toFloat())
-                                    val pb = Offset((b.first * w).toFloat(), (b.second * h).toFloat())
-                                    drawLine(Color.Black, pa, pb, strokeWidth = width + 3f)
-                                    drawLine(colour, pa, pb, strokeWidth = width)
+                                    drawLine(Color.Black, at(a), at(b), strokeWidth = width + 3f)
+                                    drawLine(colour, at(a), at(b), strokeWidth = width)
                                 }
                             }
                         }
-                        fun colourOf(hd: RoomQuad.Handle?) = when (hd) {
-                            RoomQuad.Handle.FRONT, RoomQuad.Handle.BACK -> AXIS_RED
-                            RoomQuad.Handle.LEFT, RoomQuad.Handle.RIGHT -> AXIS_GREEN
-                            else -> AXIS_BLUE
+                        fun grip(r: DoubleArray, colour: Color, big: Boolean) {
+                            val s = screen(r) ?: return
+                            drawCircle(Color.Black, radius = if (big) 18f else 14f, center = at(s))
+                            drawCircle(colour, radius = if (big) 14f else 10f, center = at(s))
                         }
-                        // The whole room, thin, so it reads as a room.
+                        // The room that follows from the bars, thin.
                         for (seg in room.allEdges()) drawSeg(seg, Color(0x99FFFFFF), 2f)
                         if (corner) {
-                            drawSeg(room.vertical(floorDot), AXIS_YELLOW, 3f)
-                            for (hd in lines) {
-                                drawSeg(room.ray3d(hd, LINE_LENGTH), if (hd == held) Color.White else colourOf(hd), 5f)
+                            drawSeg(room.vertical(origin), AXIS_YELLOW, 3f)
+                            for (l in room.lines(origin)) {
+                                val b = bars.getValue(l)
+                                val c = colourOf(l)
+                                // A bar is drawn straight between its handles on
+                                // screen, as SketchUp draws it.
+                                for ((p, q) in listOf(b.floorA to b.floorB, b.ceilA to b.ceilB)) {
+                                    val sp = screen(p); val sq = screen(q)
+                                    if (sp != null && sq != null) {
+                                        drawLine(Color.Black, at(sp), at(sq), strokeWidth = 8f)
+                                        drawLine(c, at(sp), at(sq), strokeWidth = 5f)
+                                    }
+                                }
+                                b.handles().forEachIndexed { i, r ->
+                                    grip(r, if (held == (l to i)) Color.White else c, false)
+                                }
                             }
-                            for ((hd, p, c) in listOf(Triple(floorDot, room.vertical(floorDot).first, AXIS_YELLOW),
-                                                       Triple(ceilDot, room.vertical(ceilDot).second, AXIS_BLUE))) {
-                                val s = screen(p) ?: continue
-                                val o = Offset((s.first * w).toFloat(), (s.second * h).toFloat())
-                                drawCircle(Color.Black, radius = 16f, center = o)
-                                drawCircle(if (hd == held) Color.White else c, radius = 12f, center = o)
-                            }
+                            grip(origins.getValue(origin),
+                                if (held == (null to -1)) Color.White else AXIS_YELLOW, true)
                         } else {
                             val (fl, cl) = room.wallEdges(face!!)
-                            drawSeg(fl, if (held != null) Color.White else colourOf(room.lineOf(face)), 5f)
-                            drawSeg(cl, if (holdingCeiling) Color.White else AXIS_BLUE, 5f)
+                            val l = when (face) {
+                                "front" -> RoomQuad.Line.FRONT; "back" -> RoomQuad.Line.BACK
+                                "left" -> RoomQuad.Line.LEFT; else -> RoomQuad.Line.RIGHT
+                            }
+                            drawSeg(fl, colourOf(l), 5f)
+                            drawSeg(cl, colourOf(l), 5f)
                         }
                         val f = finger
                         if (f != null && image != null) {
@@ -259,17 +266,13 @@ internal fun RoomQuadDialog(
 
 private val AXIS_RED = Color(0xFFE5484D)
 private val AXIS_GREEN = Color(0xFF6CC08B)
-private val AXIS_BLUE = Color(0xFF4FC3F7)
 private val AXIS_YELLOW = Color(0xFFFFD23F)
-
-/** How far a corner's wall line is drawn, in camera heights: past the room. */
-private const val LINE_LENGTH = 12.0
 
 /** Points per edge when an edge is drawn or hit-tested. */
 private const val SAMPLES = 24
 
-/** How near (fraction of the view) a touch must be to grab an edge. */
-private const val GRAB_RADIUS = 0.08
+/** How near (fraction of the view) a touch must be to grab a handle. */
+private const val GRAB_RADIUS = 0.07
 
 /**
  * What the room says, in mm: the four walls, how far each corner is from

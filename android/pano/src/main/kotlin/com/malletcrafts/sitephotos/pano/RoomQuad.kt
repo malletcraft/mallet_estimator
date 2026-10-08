@@ -10,29 +10,33 @@ import kotlin.math.max
 import kotlin.math.sin
 
 /**
- * The room from TWO DIAGONALLY OPPOSITE CORNERS and the four wall lines that
- * leave them -- SketchUp's Match Photo origin and axis lines, for a room that
- * need not be square.
+ * The room from TWO DIAGONALLY OPPOSITE CORNERS, each set the way SketchUp's
+ * Match Photo is set: an ORIGIN grip on the floor corner, and for each of the
+ * two walls leaving it a PAIR of perspective bars -- one on the skirting, one
+ * on the cornice -- each with a handle at both ends.
  *
- * Amit, 2026-10-08, after the room box: "tried. it . its not good yet. having
- * diffrent perspective line for opposite corners will work?" and then "get me
- * exact setup like sketchup. i will set only two diagonally opposite corners
- * of a room . will that work?" -- the hardest thing on the box being "Room not
- * square". A box has one turn for all four walls, so in a room whose walls
- * are not at 90 degrees no line can sit on two edges at once.
+ * Amit, 2026-10-08: "get me exact setup like sketchup. i will set only two
+ * diagonally opposite corners of a room" (the room box failing on "Room not
+ * square"), and on 0.3.174's single line per wall, "not useful": "i need set
+ * origin and then vanishing perspective lines just as foto match of sketchup
+ * using handles . setting ceiling and floor lines running from origing to
+ * other direction is easiest way along with floor corner."
  *
- * Two corners alone fix a room only if it is a true rectangle. So each placed
- * corner also sends out its two wall lines, as SketchUp's origin sends out
- * the red and green axes: front-left (FL) carries the front and left walls,
- * back-right (BR) the right and back walls. Each line has its OWN angle. The
- * other two corners are where the lines cross: front-right where the front
- * line meets the right line, back-left where the left line meets the back.
- * Nine numbers in all -- two floor points, four angles, the ceiling -- which
- * is exactly a four-sided room of any shape with a flat ceiling.
+ * WHY PAIRS: a wall's floor and ceiling edges are parallel, so in the photo
+ * they run to one vanishing point, and that point IS the wall's direction --
+ * SketchUp's red and green axes. In a 360 each bar is a plane through the
+ * camera, and the two planes of a pair meet along exactly that direction, so
+ * no focal length or horizon has to be guessed. The bars need not touch the
+ * origin; lay them wherever the edge shows clearly. The ceiling bars also
+ * give the ceiling: where their plane crosses the vertical over the origin.
  *
- * Walls stay vertical and floor and ceiling flat, so every WALL is still a
- * true rectangle and its elevation is exact; only the floor and ceiling take
- * the room's own shape.
+ * Two corners alone fix only a rectangle, so each wall keeps its OWN
+ * direction: front and left from the front-left corner, back and right from
+ * the back-right. The other two corners are where the wall lines cross. Nine
+ * numbers in all -- two floor points, four directions, the ceiling -- which is
+ * any four-sided room with a flat ceiling. Walls stay vertical, so every WALL
+ * is a true rectangle and its elevation is exact; only the floor and ceiling
+ * take the room's own shape.
  *
  * Units are camera heights (floor at y = -1), so the room has a shape before
  * it has a size; the typed room height gives the mm. Frame: Panorama's -- x
@@ -49,8 +53,25 @@ data class RoomQuad(
     val frontDeg: Double, val leftDeg: Double,
     val rightDeg: Double, val backDeg: Double,
 ) {
-    /** What a finger can hold. The two corners have a floor and a ceiling end. */
-    enum class Handle { FL_FLOOR, FL_CEILING, BR_FLOOR, BR_CEILING, FRONT, LEFT, RIGHT, BACK }
+    /** The two corners that are set; the other two follow. */
+    enum class Origin { FL, BR }
+
+    /** The four walls' lines: front and left leave FL, back and right leave BR. */
+    enum class Line { FRONT, LEFT, RIGHT, BACK }
+
+    /**
+     * One wall's perspective bars, as SketchUp draws them: a floor bar and a
+     * ceiling bar, each two handles. Every handle is a DIRECTION from the
+     * camera (what is under the finger), so the bars stay where they were
+     * put whatever the room does.
+     */
+    class Bars(val floorA: DoubleArray, val floorB: DoubleArray, val ceilA: DoubleArray, val ceilB: DoubleArray) {
+        fun handles() = listOf(floorA, floorB, ceilA, ceilB)
+        fun with(i: Int, ray: DoubleArray): Bars {
+            val h = handles().toMutableList(); h[i] = ray
+            return Bars(h[0], h[1], h[2], h[3])
+        }
+    }
 
     private fun dir(deg: Double) = Math.toRadians(deg).let { doubleArrayOf(cos(it), sin(it)) }
 
@@ -120,86 +141,72 @@ data class RoomQuad(
         return (p3(a, -1.0) to p3(b, -1.0)) to (p3(a, ceiling) to p3(b, ceiling))
     }
 
-    /** The handle a wall's floor line is turned by on a wall screen. */
-    fun lineOf(face: String): Handle = when (face) {
-        "front" -> Handle.FRONT; "left" -> Handle.LEFT; "right" -> Handle.RIGHT; "back" -> Handle.BACK
-        else -> error("not a wall: $face")
+    fun lines(o: Origin) = if (o == Origin.FL) listOf(Line.FRONT, Line.LEFT) else listOf(Line.BACK, Line.RIGHT)
+
+    fun originOf(l: Line) = if (l == Line.FRONT || l == Line.LEFT) Origin.FL else Origin.BR
+
+    fun pointOf(o: Origin): DoubleArray = if (o == Origin.FL) doubleArrayOf(flX, flZ) else doubleArrayOf(brX, brZ)
+
+    fun angleOf(l: Line) = when (l) {
+        Line.FRONT -> frontDeg; Line.LEFT -> leftDeg; Line.RIGHT -> rightDeg; Line.BACK -> backDeg
     }
 
-    /** The placed corner a wall line pivots about. */
-    fun pivotOf(h: Handle): DoubleArray = when (h) {
-        Handle.FRONT, Handle.LEFT, Handle.FL_FLOOR, Handle.FL_CEILING -> doubleArrayOf(flX, flZ)
-        else -> doubleArrayOf(brX, brZ)
-    }
-
-    private fun angleOf(h: Handle) = when (h) {
-        Handle.FRONT -> frontDeg; Handle.LEFT -> leftDeg; Handle.RIGHT -> rightDeg; Handle.BACK -> backDeg
-        else -> error("not a line: $h")
-    }
-
-    /** A wall line from its corner, [length] camera heights long, on the floor. */
-    fun ray3d(h: Handle, length: Double): Pair<DoubleArray, DoubleArray> {
-        val p = pivotOf(h); val u = dir(angleOf(h))
-        return p3(p, -1.0) to doubleArrayOf(p[0] + u[0] * length, -1.0, p[1] + u[1] * length)
-    }
-
-    /** A placed corner's vertical, floor to ceiling. */
-    fun vertical(h: Handle): Pair<DoubleArray, DoubleArray> {
-        val p = pivotOf(h)
+    /** A corner's vertical, floor to ceiling, for drawing the origin. */
+    fun vertical(o: Origin): Pair<DoubleArray, DoubleArray> {
+        val p = pointOf(o)
         return p3(p, -1.0) to p3(p, ceiling)
     }
 
     /**
-     * [h] moved so that it lies under [ray], the direction under the finger.
-     * A change that would leave the lines not closing a room round the camera
-     * is refused -- the room stays where it was rather than flying apart.
-     *
-     * A CORNER's floor end goes to the floor point under the finger; its
-     * ceiling end sets the ceiling. A LINE turns about its own corner until it
-     * passes through the floor point under the finger, and no other line
-     * moves -- which is the whole difference from the box.
+     * Where a wall's bars start before anybody drags them: on this room's
+     * floor and ceiling edge of that wall, from [near] to [far] of the way
+     * along it from its corner -- close to the origin, as Amit asked, and
+     * where a corner view still shows them.
      */
-    fun dragged(h: Handle, ray: DoubleArray): RoomQuad {
-        val next = when (h) {
-            Handle.FL_FLOOR, Handle.BR_FLOOR -> {
-                if (ray[1] >= -1e-3) return this
-                val x = -ray[0] / ray[1]; val z = -ray[2] / ray[1]
-                if (hypot(x, z) > MAX) return this
-                if (h == Handle.FL_FLOOR) copy(flX = x, flZ = z) else copy(brX = x, brZ = z)
-            }
-            Handle.FL_CEILING, Handle.BR_CEILING -> {
-                if (ray[1] <= 1e-3) return this
-                val p = pivotOf(h)
-                copy(ceiling = (ray[1] * hypot(p[0], p[1]) / hypot(ray[0], ray[2])).coerceIn(MIN, MAX))
-            }
-            else -> {
-                if (ray[1] >= -1e-3) return this
-                val p = pivotOf(h)
-                val dx = -ray[0] / ray[1] - p[0]; val dz = -ray[2] / ray[1] - p[1]
-                if (hypot(dx, dz) < 1e-3) return this
-                val a = Math.toDegrees(atan2(dz, dx))
-                when (h) {
-                    Handle.FRONT -> copy(frontDeg = a); Handle.LEFT -> copy(leftDeg = a)
-                    Handle.RIGHT -> copy(rightDeg = a); else -> copy(backDeg = a)
-                }
-            }
+    fun startBars(l: Line, near: Double = 0.12, far: Double = 0.45): Bars {
+        val p = requireNotNull(floorPlan())
+        val (from, to) = when (l) {
+            Line.FRONT -> p[0] to p[1]; Line.LEFT -> p[0] to p[3]
+            Line.RIGHT -> p[2] to p[1]; Line.BACK -> p[2] to p[3]
         }
-        return if (next.valid) next else this
+        fun at(k: Double, y: Double) = WallCorners.unit(doubleArrayOf(
+            from[0] + (to[0] - from[0]) * k, y, from[1] + (to[1] - from[1]) * k))
+        return Bars(at(near, -1.0), at(far, -1.0), at(near, ceiling), at(far, ceiling))
     }
 
     /**
-     * The ceiling set from a point on one wall's ceiling line: the finger's
-     * ray is carried to that wall's plane and its height read off there.
+     * The room with one corner set from Match Photo: its origin under
+     * [originRay], each of its two walls along the vanishing direction of its
+     * bars, and the ceiling where the ceiling bars cross the vertical over
+     * the origin. The other corner is untouched. A setting that does not
+     * close a room round the camera is refused, and the room stays as it was.
      */
-    fun ceilingFrom(face: String, ray: DoubleArray): RoomQuad {
-        if (ray[1] <= 1e-3) return this
-        val (a, b) = wallEnds(face)
-        val ux = b[0] - a[0]; val uz = b[1] - a[1]
-        val den = ray[0] * uz - ray[2] * ux
-        if (abs(den) < 1e-9) return this
-        val s = (a[0] * uz - a[1] * ux) / den
-        if (s <= 0) return this
-        return copy(ceiling = (ray[1] * s).coerceIn(MIN, MAX))
+    fun fitted(o: Origin, originRay: DoubleArray, bars: Map<Line, Bars>): RoomQuad {
+        if (originRay[1] >= -1e-3) return this
+        val ox = -originRay[0] / originRay[1]; val oz = -originRay[2] / originRay[1]
+        if (hypot(ox, oz) > MAX) return this
+        val angles = lines(o).map { l ->
+            val b = bars[l] ?: return this
+            val d = direction(b) ?: return this
+            var dx = d[0]; var dz = d[2]
+            // The pair gives a line, not a way along it: point it away from the
+            // origin, towards where the floor bar was laid.
+            val towards = floorPoint(b.floorA)?.let { a -> floorPoint(b.floorB)?.let { c ->
+                doubleArrayOf((a[0] + c[0]) / 2 - ox, (a[1] + c[1]) / 2 - oz) } }
+                ?: Math.toRadians(angleOf(l)).let { doubleArrayOf(cos(it), sin(it)) }
+            if (dx * towards[0] + dz * towards[1] < 0) { dx = -dx; dz = -dz }
+            l to Math.toDegrees(atan2(dz, dx))
+        }.toMap()
+        val ceils = lines(o).mapNotNull { l -> ceilingOver(bars.getValue(l), ox, oz) }
+        if (ceils.isEmpty()) return this
+        val c = ceils.average().coerceIn(MIN, MAX)
+        val next = if (o == Origin.FL)
+            copy(flX = ox, flZ = oz, ceiling = c,
+                frontDeg = angles.getValue(Line.FRONT), leftDeg = angles.getValue(Line.LEFT))
+        else
+            copy(brX = ox, brZ = oz, ceiling = c,
+                backDeg = angles.getValue(Line.BACK), rightDeg = angles.getValue(Line.RIGHT))
+        return if (next.valid) next else this
     }
 
     /** Millimetres per room unit, given the room's height floor to ceiling. */
@@ -221,9 +228,9 @@ data class RoomQuad(
         }
     }
 
-    /** Where to look to see a placed corner and its two walls leaving it. */
-    fun cornerView(h: Handle): Pair<Double, Double> {
-        val p = pivotOf(h)
+    /** Where to look to see a corner and its two walls leaving it. */
+    fun cornerView(o: Origin): Pair<Double, Double> {
+        val p = pointOf(o)
         return Math.toDegrees(atan2(p[0], p[1])) to CORNER_FOV
     }
 
@@ -247,6 +254,34 @@ data class RoomQuad(
 
     companion object {
         val WALLS = listOf("front", "right", "back", "left")
+
+        private fun crossV(a: DoubleArray, b: DoubleArray) = doubleArrayOf(
+            a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+        /**
+         * A pair's vanishing direction: each bar and the camera make a plane,
+         * and the two planes meet along the wall. Null when a bar has no
+         * length or the bars lie in one plane.
+         */
+        fun direction(b: Bars): DoubleArray? {
+            val n1 = crossV(b.floorA, b.floorB); val n2 = crossV(b.ceilA, b.ceilB)
+            val d = crossV(n1, n2)
+            val l = kotlin.math.sqrt(WallCorners.dot(d, d))
+            val scale = kotlin.math.sqrt(WallCorners.dot(n1, n1) * WallCorners.dot(n2, n2))
+            if (scale < 1e-12 || l < 1e-6 * scale) return null
+            return doubleArrayOf(d[0] / l, d[1] / l, d[2] / l)
+        }
+
+        /** Where the ceiling bar's plane crosses the vertical over (x, z). */
+        private fun ceilingOver(b: Bars, x: Double, z: Double): Double? {
+            val n = crossV(b.ceilA, b.ceilB)
+            if (abs(n[1]) < 1e-9) return null
+            val y = -(n[0] * x + n[2] * z) / n[1]
+            return if (y > 1e-3) y else null
+        }
+
+        private fun floorPoint(r: DoubleArray): DoubleArray? =
+            if (r[1] < -1e-3) doubleArrayOf(-r[0] / r[1], -r[2] / r[1]) else null
         private const val MIN = 0.15
         private const val MAX = 40.0
         /** Wide enough to see a corner and a good run of both walls. */

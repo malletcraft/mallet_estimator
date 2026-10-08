@@ -2486,7 +2486,7 @@ private fun FacePreviewDialog(
                 Spacer(Modifier.height(10.dp))
 
                 Button(onClick = { marking = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (roomQuad == null) "Set room (2 corners + wall lines)"
+                    Text(if (roomQuad == null) "Set room (Match Photo, 2 corners)"
                          else "Room \u2713 \u2014 edit")
                 }
                 roomQuad?.let { b ->

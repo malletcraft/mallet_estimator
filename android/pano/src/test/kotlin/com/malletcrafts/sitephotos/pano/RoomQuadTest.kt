@@ -23,37 +23,51 @@ class RoomQuadTest {
         assertEquals(360.0, truth.cornerAngles().sum(), 1e-9)
     }
 
-    @Test fun `two corners and four lines find a room that is not square`() {
+    /** Bars laid on the TRUE room's edges, at fractions that are not the
+     *  model's own -- a person puts handles wherever the edge shows. */
+    private fun truthBars(l: RoomQuad.Line) = truth.startBars(l, 0.27, 0.81)
+
+    private fun set(q0: RoomQuad, o: RoomQuad.Origin): RoomQuad {
+        val p = truth.pointOf(o)
+        return q0.fitted(o, floorRay(p[0], p[1]), truth.lines(o).associateWith { truthBars(it) })
+    }
+
+    @Test fun `origin and two bar pairs at each of two corners find a room that is not square`() {
         val p = truth.floorPlan()!!
-        var q = RoomQuad.start(null, null, null)
-        // the two corners, floor end then ceiling end
-        q = q.dragged(RoomQuad.Handle.FL_FLOOR, floorRay(p[0][0], p[0][1]))
-        q = q.dragged(RoomQuad.Handle.BR_FLOOR, floorRay(p[2][0], p[2][1]))
-        q = q.dragged(RoomQuad.Handle.FL_CEILING, WallCorners.unit(doubleArrayOf(p[0][0], truth.ceiling, p[0][1])))
-        // each line laid on its skirting somewhere along the wall
-        q = q.dragged(RoomQuad.Handle.FRONT, along(p[0], p[1], 0.6))
-        q = q.dragged(RoomQuad.Handle.LEFT, along(p[0], p[3], 0.5))
-        q = q.dragged(RoomQuad.Handle.RIGHT, along(p[2], p[1], 0.7))
-        q = q.dragged(RoomQuad.Handle.BACK, along(p[2], p[3], 0.4))
+        val q = set(set(RoomQuad.start(null, null, null), RoomQuad.Origin.FL), RoomQuad.Origin.BR)
         val got = q.floorPlan()!!
         for (i in 0 until 4) for (k in 0..1) assertEquals(p[i][k], got[i][k], 1e-9, "corner $i")
         assertEquals(truth.ceiling, q.ceiling, 1e-9)
         for ((a, b) in q.cornerAngles().zip(truth.cornerAngles())) assertEquals(b, a, 1e-9)
     }
 
-    @Test fun `turning one line moves no other line`() {
-        val q = truth.dragged(RoomQuad.Handle.FRONT, floorRay(0.5, 1.4))
-        assertEquals(truth.leftDeg, q.leftDeg); assertEquals(truth.rightDeg, q.rightDeg)
-        assertEquals(truth.backDeg, q.backDeg)
-        assertEquals(truth.flX, q.flX); assertEquals(truth.brZ, q.brZ)
-        assertTrue(abs(q.frontDeg - truth.frontDeg) > 1)
+    @Test fun `a pair's vanishing direction is the wall's, wherever its handles sit`() {
+        for (l in RoomQuad.Line.entries) {
+            val want = Math.toRadians(truth.angleOf(l))
+            for ((n, f) in listOf(0.05 to 0.3, 0.4 to 0.95, 0.2 to 0.6)) {
+                val d = RoomQuad.direction(truth.startBars(l, n, f))!!
+                // parallel to the wall line, either way along it
+                assertEquals(0.0, d[0] * kotlin.math.sin(want) - d[2] * kotlin.math.cos(want), 1e-9, "$l")
+                assertEquals(0.0, d[1], 1e-9, "$l")
+            }
+        }
     }
 
-    @Test fun `a drag that would open the room is refused`() {
-        // the front line swung to point back at the camera
-        assertEquals(truth, truth.dragged(RoomQuad.Handle.FRONT, floorRay(-1.3, -0.5)))
-        // a corner dragged above the horizon has no floor point
-        assertEquals(truth, truth.dragged(RoomQuad.Handle.FL_FLOOR, WallCorners.unit(doubleArrayOf(0.0, 0.2, 1.0))))
+    @Test fun `setting one corner leaves the other corner's walls alone`() {
+        val q = set(RoomQuad.start(null, null, null), RoomQuad.Origin.FL)
+        val s = RoomQuad.start(null, null, null)
+        assertEquals(s.brX, q.brX); assertEquals(s.brZ, q.brZ)
+        assertEquals(s.backDeg, q.backDeg); assertEquals(s.rightDeg, q.rightDeg)
+        assertEquals(truth.frontDeg, q.frontDeg, 1e-9); assertEquals(truth.leftDeg, q.leftDeg, 1e-9)
+    }
+
+    @Test fun `an origin above the horizon or collapsed bars are refused`() {
+        val bars = truth.lines(RoomQuad.Origin.FL).associateWith { truthBars(it) }
+        assertEquals(truth, truth.fitted(RoomQuad.Origin.FL, WallCorners.unit(doubleArrayOf(0.0, 0.2, 1.0)), bars))
+        val a = floorRay(truth.flX, truth.flZ)
+        val flat = RoomQuad.Bars(a, a, a, a)
+        assertEquals(truth, truth.fitted(RoomQuad.Origin.FL, a,
+            mapOf(RoomQuad.Line.FRONT to flat, RoomQuad.Line.LEFT to truthBars(RoomQuad.Line.LEFT))))
     }
 
     @Test fun `every wall is still a true rectangle with the right proportions`() {
@@ -63,14 +77,6 @@ class RoomQuadTest {
             val m = WallCorners.measure(rc.forFace(face))
             assertTrue(m.valid && m.outOfSquareDeg < 1e-6, face)
             assertEquals(walls[i] / (1 + truth.ceiling), m.ratio, 1e-9, face)
-        }
-    }
-
-    @Test fun `the ceiling read off a wall's ceiling line`() {
-        for (face in RoomQuad.WALLS) {
-            val (a, b) = truth.wallEnds(face)
-            val mid = WallCorners.unit(doubleArrayOf((a[0] + b[0]) / 2, truth.ceiling, (a[1] + b[1]) / 2))
-            assertEquals(truth.ceiling, truth.copy(ceiling = 1.6).ceilingFrom(face, mid).ceiling, 1e-9, face)
         }
     }
 
@@ -95,7 +101,7 @@ class RoomQuadTest {
     }
 
     @Test fun `a corner's view looks straight at it`() {
-        val (yaw, _) = truth.cornerView(RoomQuad.Handle.FL_FLOOR)
+        val (yaw, _) = truth.cornerView(RoomQuad.Origin.FL)
         val bs = WallCorners.basis(yaw, 0.0, RoomQuad.CORNER_FOV)
         val s = WallCorners.pointOf(bs, floorRay(truth.flX, truth.flZ))!!
         assertEquals(0.5, s.first, 1e-9)
