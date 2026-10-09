@@ -150,6 +150,17 @@ class FacePrepTest {
     }
 
     @Test
+    fun `an elevation's box is where the split put the corners, caption strip excluded`() {
+        // a 1600 x 1200 elevation; captionedBitmap adds max(1200*0.052, 28) = 62 px below
+        val b = FacePrep.elevationBox(1600, 1262)
+        val span = 1.12
+        assertEquals(0.06 / span, b.x0, 1e-12); assertEquals(1.06 / span, b.x1, 1e-12)
+        assertEquals(0.06 / span * 1200 / 1600, b.y0, 1e-12); assertEquals(1.06 / span * 1200 / 1600, b.y1, 1e-12)
+        val small = FacePrep.elevationBox(400, 328)   // 300 tall: strip clamps to 28
+        assertEquals(1.06 / span * 300 / 400, small.y1, 1e-12)
+    }
+
+    @Test
     fun `measures list every figure`() {
         val r = Room(2677, 2678, 3319)
         r.face("front").dets.add(Detail("window", 0.3, 0.3, 0.6, 0.6))

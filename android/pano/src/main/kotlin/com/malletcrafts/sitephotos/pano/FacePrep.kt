@@ -136,6 +136,24 @@ object FacePrep {
         return Box(px.min(), py.min(), px.max(), py.max())
     }
 
+    /**
+     * Where the room box is on an ELEVATION — the squared-on photo the split
+     * already makes from the corners set there (FaceWriter, WallCorners.elevation).
+     * The corners land exactly [margin] of a side inside the picture, so the box
+     * is known and nobody lines it up by hand (Amit, 2026-10-09: "why do i need
+     * to set corner in apk now? everything should be taken care automatically
+     * for splitting fotos"). [totalW]/[totalH] are the saved file's pixels,
+     * caption strip included; the strip is FaceWriter.captionedBitmap's own
+     * rule (5.2 % of the picture, at least 28 px), so the picture's height is
+     * the one that rule maps onto [totalH]. Fractions are of the width, like every box.
+     */
+    fun elevationBox(totalW: Int, totalH: Int, margin: Double = 0.06): Box {
+        var h = totalH
+        for (c in totalH downTo max(1, totalH - 600)) if (c + max((c * 0.052).toInt(), 28) == totalH) { h = c; break }
+        val span = 1 + 2 * margin; val a = margin / span; val b = (1 + margin) / span
+        return Box(a, a * h / totalW, b, b * h / totalW)
+    }
+
     private fun basis(face: String): Triple<DoubleArray, DoubleArray, DoubleArray> = when (face) {
         "front" -> Triple(d(0, 0, 1), d(1, 0, 0), d(0, 1, 0))
         "right" -> Triple(d(1, 0, 0), d(0, 0, -1), d(0, 1, 0))

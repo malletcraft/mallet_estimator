@@ -84,7 +84,7 @@ fun FacePrepScreen(
 
     val prefs = remember { context.getSharedPreferences("faceprep", Context.MODE_PRIVATE) }
     var face by remember { mutableStateOf("floor") }
-    var mode by remember { mutableStateOf("box") }           // box, steps, edges, dets, lines
+    var mode by remember { mutableStateOf("steps") }         // box, steps, edges, dets, lines -- the box comes from the split
     var stepKind by remember { mutableStateOf("column") }
     var detType by remember { mutableStateOf("door") }
     var sel by remember { mutableStateOf<FacePrepDraw.Sel?>(null) }
@@ -98,7 +98,8 @@ fun FacePrepScreen(
     var busy by remember { mutableStateOf<String?>(null) }
 
     // ---- the photo of this face (the square part: the caption strip is below it)
-    val uri = remember(face) { FaceFiles.findFace(context, deviceId, FacePrep.panoFace(face)) }
+    val src = remember(face) { faceSource(context, deviceId, face) }
+    val uri = src?.uri
     var bitmap by remember(face) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(uri) { bitmap = uri?.let { u -> withContext(Dispatchers.IO) { decodeFace(context, u, 2400)?.asImageBitmap() } } }
     val side = (bitmap?.width ?: 1).toFloat()
@@ -139,7 +140,9 @@ fun FacePrepScreen(
     fun imgToScreen(x: Float, y: Float): Offset { val k = fit(); val b0 = base(); return Offset((b0.x + x * k) * scale + off.x, (b0.y + y * k) * scale + off.y) }
     fun screenToImg(p: Offset): Offset { val k = fit(); val b0 = base(); return Offset(((p.x - off.x) / scale - b0.x) / k, ((p.y - off.y) / scale - b0.y) / k) }
 
-    fun boxNow(): FacePrep.Box = room.face(face).box ?: (FacePrep.cameraGuess(room, face, fovDeg) ?: FacePrep.Box(0.2, 0.2, 0.8, 0.8))
+    // The elevation the split made already has the room box in a known place, so it is used as is;
+    // a hand-dragged box (Align box) wins, and only a face with no elevation falls to the camera guess.
+    fun boxNow(): FacePrep.Box = room.face(face).box ?: src?.auto ?: (FacePrep.cameraGuess(room, face, fovDeg) ?: FacePrep.Box(0.2, 0.2, 0.8, 0.8))
     fun uvToScreen(u: Double, v: Double): Offset { val q = FacePrepDraw.uvToImg(boxNow(), side, u, v); return imgToScreen(q[0], q[1]) }
     fun screenToUv(p: Offset): DoubleArray {
         val b = boxNow(); val q = screenToImg(p)
@@ -398,7 +401,8 @@ fun FacePrepScreen(
                 if (mode == "steps") for ((k, lab) in FacePrep.STEP_KINDS) FilterChip(selected = stepKind == k, onClick = { stepKind = k }, label = { Text(lab) })
                 else for ((k, lab) in FacePrep.DETAIL_TYPES) FilterChip(selected = detType == k, onClick = { detType = k }, label = { Text(lab) })
             }
-            Text(busy ?: note ?: HINT.getValue(mode), Modifier.padding(horizontal = 12.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall)
+            Text(busy ?: note ?: (if (mode == "box" && src?.auto != null && room.face(face).box == null)
+                    "The box is already on the room's corners, from the split. Drag a line only if one is off." else HINT.getValue(mode)), Modifier.padding(horizontal = 12.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall)
 
             Box(Modifier.fillMaxWidth().weight(1f)) {
                 Canvas(Modifier.fillMaxSize()
@@ -595,6 +599,31 @@ private fun saveGrid(p: android.content.SharedPreferences, g: FacePrep.Grid) {
         .putBoolean("g_bottom", g.fromBottom).putInt("g_sx", g.sx).putInt("g_sy", g.sy).putInt("g_alpha", g.alpha).putBoolean("g_labels", g.labels).apply()
 }
 
+/** The picture Face Prep works on for one face, and the room box on it when that is already known. */
+private class FaceSrc(val uri: Uri, val auto: FacePrep.Box?)
+
+/**
+ * The ELEVATION the split made from the corners set there, when it exists:
+ * squared on, with the room's corners at a known place, so the box needs no
+ * hand. Otherwise the plain face (a capture split before corners were set),
+ * where the box has to be lined up by hand, and the screen says so.
+ */
+private fun faceSource(context: Context, deviceId: String, face: String): FaceSrc? {
+    val pf = FacePrep.panoFace(face)
+    findByName(context, FaceWriter.elevationFilename(deviceId, pf))?.let { u ->
+        val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        runCatching { context.contentResolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it, null, o) } }
+        if (o.outWidth > 0 && o.outHeight > 0) return FaceSrc(u, FacePrep.elevationBox(o.outWidth, o.outHeight, FaceWriter.ELEV_MARGIN))
+    }
+    return FaceFiles.findFace(context, deviceId, pf)?.let { FaceSrc(it, null) }
+}
+
+private fun findByName(context: Context, name: String): Uri? = runCatching {
+    context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, arrayOf(MediaStore.Images.Media._ID),
+        "${MediaStore.Images.Media.DISPLAY_NAME} = ?", arrayOf(name), null)?.use { c ->
+        if (c.moveToFirst()) android.content.ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, c.getLong(0)) else null }
+}.getOrNull()
+
 /** A face photo, subsampled so its longest side is at most [maxPx]. */
 internal fun decodeFace(context: Context, uri: Uri, maxPx: Int): Bitmap? = runCatching {
     val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -613,10 +642,11 @@ internal fun decodeFace(context: Context, uri: Uri, maxPx: Int): Bitmap? = runCa
 private fun exportAll(context: Context, deviceId: String, roomName: String, room: FacePrep.Room, fovDeg: Double): Int {
     var n = 0
     for (face in FacePrep.FACE_ORDER) {
-        val uri = FaceFiles.findFace(context, deviceId, FacePrep.panoFace(face)) ?: continue
+        val fs = faceSource(context, deviceId, face) ?: continue
+        val uri = fs.uri
         val src = decodeFace(context, uri, 4096) ?: continue
         val side = src.width.toFloat()
-        val box = room.face(face).box ?: FacePrep.cameraGuess(room, face, fovDeg) ?: continue
+        val box = room.face(face).box ?: fs.auto ?: FacePrep.cameraGuess(room, face, fovDeg) ?: continue
         val xs = listOf(box.x0, box.x1).map { it * side }; val ys = listOf(box.y0, box.y1).map { it * side }
         val bw = xs[1] - xs[0]; val bh = ys[1] - ys[0]
         val x0 = max(0.0, xs[0] - bw * 0.2); val y0 = max(0.0, ys[0] - bh * 0.14)
