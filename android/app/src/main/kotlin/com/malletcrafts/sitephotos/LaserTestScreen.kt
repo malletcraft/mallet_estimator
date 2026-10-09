@@ -41,6 +41,9 @@ fun LaserTestScreen(onBack: () -> Unit) {
     val log = remember { mutableStateListOf<String>() }
     val clock = remember { SimpleDateFormat("HH:mm:ss", Locale.US) }
     fun add(line: String) {
+        // Also to logcat, so the whole log can be read over USB (adb logcat -s McftLaser)
+        // without anyone copying it off the screen -- Amit, 2026-10-09: "get log yourself".
+        android.util.Log.i("McftLaser", line)
         log.add("${clock.format(Date())}  $line")
         if (log.size > 400) log.removeAt(0)
     }
