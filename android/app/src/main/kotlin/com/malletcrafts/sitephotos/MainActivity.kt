@@ -206,6 +206,8 @@ private fun AppScreen() {
     val annStore = remember { AnnotationStore(context) }
     var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var laserTest by remember { mutableStateOf(false) }
+    // Face Prep on one capture's six faces (Amit, 2026-10-09: "Build and ship apk").
+    var facePrep by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // EVERY branch below returns early, so each one needs its own
@@ -217,6 +219,22 @@ private fun AppScreen() {
     if (laserTest) {
         BackHandler { laserTest = false }
         LaserTestScreen(onBack = { laserTest = false })
+        return
+    }
+    facePrep?.let { cap ->
+        BackHandler { facePrep = null }
+        // The room box starts from what was typed at capture time, in mm; the
+        // last-typed sizes on this phone otherwise; a plain 2700 x 3000 x 3000.
+        val sp = context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
+        fun mm(inches: Double, key: String, dflt: Int) =
+            if (inches > 0) Math.round(inches * 25.4).toInt() else sp.getString(key, null)?.toIntOrNull() ?: dflt
+        FacePrepScreen(
+            deviceId = cap.deviceId,
+            roomName = cap.room.ifBlank { cap.deviceId },
+            fovDeg = if (cap.fov > 0) cap.fov else com.malletcrafts.sitephotos.pano.Panorama.DEFAULT_FOV,
+            startDims = Triple(mm(cap.roomHeightIn, "room_hgt_mm", 2700), mm(cap.roomWidthIn, "room_wid_mm", 3000),
+                               mm(cap.roomLengthIn, "room_len_mm", 3000)),
+            onBack = { facePrep = null })
         return
     }
     annotating?.let { (devId, face) ->
@@ -1348,6 +1366,8 @@ private fun AppScreen() {
                     onPickSku = { retagSku = true },
                     serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                         ?.serverName.orEmpty(),
+                    onFacePrep = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
+                        ?.takeIf { it.kind == "360" }?.let { row -> { facePrep = row } },
                     onDelete = {
                         // The row and the files, then back to the room. Files
                         // first would leave a queue row pointing at nothing if
@@ -1355,6 +1375,7 @@ private fun AppScreen() {
                         // orphan file, which costs disk and nothing else.
                         val q = queue.firstOrNull { it.deviceId == cap.deviceId }
                         store.delete(cap.deviceId)
+                        FacePrepStore(context).delete(cap.deviceId)
                         runCatching { File(q?.panoPath ?: "").delete() }
                         runCatching {
                             context.contentResolver.delete(
