@@ -165,7 +165,7 @@ fun FacePrepScreen(
         return null
     }
 
-    fun grabAt(p: Offset): Grab? {
+    fun grabAt(p: Offset): FpGrab? {
         val f = room.face(face); val uv = screenToUv(p)
         when (mode) {
             "box" -> {
@@ -242,7 +242,7 @@ fun FacePrepScreen(
         return null
     }
 
-    fun dragTo(g: Grab, p: Offset) {
+    fun dragTo(g: FpGrab, p: Offset) {
         val f = room.face(face); val raw = screenToUv(p); val (w, h) = FacePrep.faceDims(room, face)
         when (g) {
             is GCorner, is GBLine -> {
@@ -300,7 +300,7 @@ fun FacePrepScreen(
         touch()
     }
 
-    fun release(g: Grab?, moved: Boolean, at: Offset) {
+    fun release(g: FpGrab?, moved: Boolean, at: Offset) {
         val f = room.face(face); val (w, h) = FacePrep.faceDims(room, face)
         guide = null; boxGuide = null
         if (g is GLBody && !moved) { pushUndo(); f.lines[g.i].ts.add(g.t); sel = FacePrepDraw.Sel("lsplit", g.i, f.lines[g.i].ts.size - 1) }
@@ -406,7 +406,7 @@ fun FacePrepScreen(
                     .pointerInput(bitmap, face, mode) {
                         awaitEachGesture {
                             val first = awaitFirstDown(requireUnconsumed = false)
-                            var g: Grab? = null; var moved = false; var transform = false; var undone = false
+                            var g: FpGrab? = null; var moved = false; var transform = false; var undone = false
                             if (bitmap != null) {
                                 g = grabAt(first.position)
                                 // a new rectangle or line already saved an undo step when it was created
@@ -566,16 +566,16 @@ fun FacePrepScreen(
 }
 
 // What a finger can hold on the photo
-private sealed class Grab
-private class GCorner(val k: Int) : Grab()
-private class GBLine(val key: String) : Grab()
-private class GRect(val list: String, val i: Int, val ku: String?, val kv: String?, val fresh: Boolean = false) : Grab()
-private class GMove(val list: String, val i: Int, val start: DoubleArray, val u0: Double, val v0: Double, val u1: Double, val v1: Double) : Grab()
-private class GSplit(val sideName: String, val i: Int) : Grab()
-private class GDSplit(val i: Int, val axis: String, val j: Int) : Grab()
-private class GLEnd(val i: Int, val end: Int, val fresh: Boolean = false) : Grab()
-private class GLSplit(val i: Int, val j: Int) : Grab()
-private class GLBody(val i: Int, val t: Double, val start: DoubleArray, val a: DoubleArray, val b: DoubleArray) : Grab()
+private sealed class FpGrab
+private class GCorner(val k: Int) : FpGrab()
+private class GBLine(val key: String) : FpGrab()
+private class GRect(val list: String, val i: Int, val ku: String?, val kv: String?, val fresh: Boolean = false) : FpGrab()
+private class GMove(val list: String, val i: Int, val start: DoubleArray, val u0: Double, val v0: Double, val u1: Double, val v1: Double) : FpGrab()
+private class GSplit(val sideName: String, val i: Int) : FpGrab()
+private class GDSplit(val i: Int, val axis: String, val j: Int) : FpGrab()
+private class GLEnd(val i: Int, val end: Int, val fresh: Boolean = false) : FpGrab()
+private class GLSplit(val i: Int, val j: Int) : FpGrab()
+private class GLBody(val i: Int, val t: Double, val start: DoubleArray, val a: DoubleArray, val b: DoubleArray) : FpGrab()
 
 private val HINT = mapOf(
     "box" to "Align box: drag a corner grip or a box line onto the room's corner lines. Two fingers zoom and move the photo.",
