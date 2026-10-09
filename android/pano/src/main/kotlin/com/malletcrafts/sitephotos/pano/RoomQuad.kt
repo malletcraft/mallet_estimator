@@ -288,6 +288,42 @@ data class RoomQuad(
         const val CORNER_FOV = 120.0
 
         /**
+         * The room from its eight corners as directions -- what the S5 corner
+         * finder (Claude reading the 360, `POST /api/room/corners`) returns.
+         *
+         * Amit, 2026-10-09: "get rid of set room corner as well because its
+         * not required as long as fotos are correctly all 4 corners and
+         * levelled automatically". The floor corners fix the floor plan (floor
+         * at y = -1); each ceiling corner, over its floor corner, gives the
+         * ceiling, and the median of the four is taken so one corner hidden
+         * behind a wardrobe cannot tilt it. FL and BR become the two origins,
+         * and the four wall lines run through neighbouring floor corners, so
+         * the room reproduces all four floor corners exactly and stays
+         * editable in the Match Photo screen.
+         *
+         * Null when a floor corner is not below the horizon, or the corners do
+         * not close a room round the camera -- the caller then falls back to
+         * setting the room by hand, and says so.
+         */
+        fun fromCorners(ceiling: List<DoubleArray>, floor: List<DoubleArray>): RoomQuad? {
+            if (ceiling.size != 4 || floor.size != 4) return null
+            val p = floor.map { floorPoint(it) ?: return null }
+            if (p.any { hypot(it[0], it[1]) > MAX }) return null
+            val heights = (0 until 4).mapNotNull { i ->
+                val c = ceiling[i]; val run = hypot(c[0], c[2])
+                if (run < 1e-6 || c[1] <= 0) null else c[1] / run * hypot(p[i][0], p[i][1])
+            }.sorted()
+            if (heights.isEmpty()) return null
+            val ceil = (if (heights.size % 2 == 1) heights[heights.size / 2]
+                        else (heights[heights.size / 2 - 1] + heights[heights.size / 2]) / 2).coerceIn(MIN, MAX)
+            fun deg(a: DoubleArray, b: DoubleArray) = Math.toDegrees(atan2(b[1] - a[1], b[0] - a[0]))
+            val q = RoomQuad(p[0][0], p[0][1], p[2][0], p[2][1], ceil,
+                frontDeg = deg(p[0], p[1]), leftDeg = deg(p[0], p[3]),
+                rightDeg = deg(p[2], p[1]), backDeg = deg(p[2], p[3]))
+            return if (q.valid) q else null
+        }
+
+        /**
          * A first room, square. With length and width typed, that room with
          * the camera at its centre and half height; otherwise a room three
          * ceilings across. Either way it only has to be near enough to drag.

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -2542,6 +2543,34 @@ private fun FacePreviewDialog(
     // also fits a room that is not square. The corners come from it.
     var roomQuad by remember { mutableStateOf(session.roomQuad) }
     var marking by remember { mutableStateOf(false) }
+    // 2026-10-09, Amit: "get rid of set room corner as well" -- Claude finds
+    // the eight corners (S5's /api/room/corners) as soon as the split opens,
+    // and the room is set from them. Match Photo stays only as the correction
+    // when that fails or looks wrong.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var token by remember { mutableStateOf(CornerFinder.token(context)) }
+    var typedToken by remember { mutableStateOf("") }
+    var finding by remember { mutableStateOf(false) }
+    var found by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(token) {
+        val t = token
+        if (t == null || roomQuad != null) return@LaunchedEffect
+        finding = true; found = null
+        val r = withContext(Dispatchers.IO) {
+            CornerFinder.find(t, session.previewPano, RoomToken.label(pending.room),
+                session.heightMm, pending.lengthMm, pending.widthMm)
+        }
+        finding = false
+        when (r) {
+            is CornerFinder.Result.Found -> {
+                roomQuad = r.room; session.roomQuad = r.room; session.roomCorners = r.room.corners()
+                found = "Room found by Claude (confidence ${Math.round(r.confidence * 100)}%)" +
+                    (if (r.occluded.isNotEmpty()) " — hidden, estimated: ${r.occluded.joinToString()}" else "") +
+                    (if (r.note.isNotBlank()) ". ${r.note}" else "")
+            }
+            is CornerFinder.Result.Failed -> found = "${r.why}. Set the room by hand below."
+        }
+    }
 
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
@@ -2561,9 +2590,28 @@ private fun FacePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
 
-                Button(onClick = { marking = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (roomQuad == null) "Set room (Match Photo, 2 corners)"
-                         else "Room \u2713 \u2014 edit")
+                if (token == null) {
+                    Text("Claude finds the room's corners through S5. Paste S5's admin token once:",
+                        style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(typedToken, { typedToken = it },
+                        label = { Text("S5 admin token") }, singleLine = true,
+                        modifier = Modifier.fillMaxWidth())
+                    TextButton(onClick = {
+                        CornerFinder.saveToken(context, typedToken); token = CornerFinder.token(context)
+                    }, enabled = typedToken.isNotBlank()) { Text("Save and find corners") }
+                }
+                if (finding) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Claude is finding the room's corners\u2026", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                found?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                Spacer(Modifier.height(6.dp))
+                OutlinedButton(onClick = { marking = true }, enabled = !finding, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (roomQuad == null) "Set room by hand (Match Photo)"
+                         else "Room \u2713 \u2014 check or correct")
                 }
                 roomQuad?.let { b ->
                     for (line in roomSummary(b, session.heightMm, pending.lengthMm, pending.widthMm)) {

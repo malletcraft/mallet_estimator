@@ -106,4 +106,28 @@ class RoomQuadTest {
         val s = WallCorners.pointOf(bs, floorRay(truth.flX, truth.flZ))!!
         assertEquals(0.5, s.first, 1e-9)
     }
+
+    // ---- From the S5 corner finder: eight directions in, the room out ----
+
+    @Test fun `eight corner directions give back the room they came from`() {
+        val c = truth.corners()
+        val q = RoomQuad.fromCorners(c.ceiling, c.floor)!!
+        val p = truth.floorPlan()!!; val got = q.floorPlan()!!
+        for (i in 0 until 4) for (k in 0..1) assertEquals(p[i][k], got[i][k], 1e-9, "corner $i")
+        assertEquals(truth.ceiling, q.ceiling, 1e-9)
+    }
+
+    @Test fun `one ceiling corner badly placed does not tilt the ceiling`() {
+        val c = truth.corners()
+        val bad = c.ceiling.toMutableList()
+        bad[3] = WallCorners.unit(doubleArrayOf(bad[3][0], bad[3][1] * 3, bad[3][2]))
+        assertEquals(truth.ceiling, RoomQuad.fromCorners(bad, c.floor)!!.ceiling, 0.05)
+    }
+
+    @Test fun `corners that do not close round the camera are refused`() {
+        val c = truth.corners()
+        assertEquals(null, RoomQuad.fromCorners(c.ceiling, listOf(c.floor[1], c.floor[0], c.floor[2], c.floor[3])))
+        val up = c.floor.toMutableList(); up[0] = c.ceiling[0]
+        assertEquals(null, RoomQuad.fromCorners(c.ceiling, up))
+    }
 }
