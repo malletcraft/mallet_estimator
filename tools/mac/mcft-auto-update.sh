@@ -15,6 +15,23 @@ mkdir -p "$WORK"
 exec >>"$LOG" 2>&1
 echo "--- $(date '+%Y-%m-%d %H:%M:%S') tick"
 
+# ONE TICK AT A TIME. Amit, 2026-10-09: "make sure fone not connected is not
+# the escuse to redownload the apk. it waste a lot of time." A camera build
+# takes ~20 min to fetch and launchd fires every 60 s; a second tick starting
+# mid-download would wipe the .partial folder below and begin again from zero.
+# The lock holds this tick's pid, so one left by a crash is noticed and taken.
+LOCK="$WORK/tick.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  held=$(cat "$LOCK/pid" 2>/dev/null || echo "")
+  # The self-refresh below re-execs under the SAME pid, so its own lock is not a rival.
+  if [ -n "$held" ] && [ "$held" != "$$" ] && kill -0 "$held" 2>/dev/null; then
+    echo "previous tick (pid $held) still running — leaving its download alone"; exit 0
+  fi
+  echo "stale lock from pid ${held:-?} — taking it"
+fi
+echo $$ > "$LOCK/pid"
+trap 'rm -rf "$LOCK"' EXIT
+
 command -v gh >/dev/null || { echo "gh missing"; exit 0; }
 command -v adb >/dev/null || { echo "adb missing"; exit 0; }
 
