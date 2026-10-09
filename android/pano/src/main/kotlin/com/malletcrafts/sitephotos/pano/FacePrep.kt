@@ -8,6 +8,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.tan
+import kotlin.random.Random
 
 /**
  * Face Prep — the room box on each of a capture's six faces, the things that
@@ -66,21 +67,24 @@ object FacePrep {
     /**
      * A door, window, opening, electrical point or loft. [sx]/[sy] say which
      * edges carry the two size arrows (the corner the drag started from);
-     * [sw]/[sh] are dividers on those arrows; [lz] holds laser readings in mm
-     * keyed "w", "h", "lh", "lv".
+     * [sw]/[sh] are dividers on those arrows. [id] is a key that survives
+     * deleting a neighbour, so a site figure stays on the thing it measured.
      */
     class Detail(var type: String, var u0: Double, var v0: Double, var u1: Double, var v1: Double,
                  var sx: Int = 0, var sy: Int = 0,
                  val sw: MutableList<Double> = mutableListOf(), val sh: MutableList<Double> = mutableListOf(),
-                 val lz: MutableMap<String, Int> = mutableMapOf()) {
-        fun copy() = Detail(type, u0, v0, u1, v1, sx, sy, sw.toMutableList(), sh.toMutableList(), lz.toMutableMap())
+                 var id: String = newId()) {
+        fun copy() = Detail(type, u0, v0, u1, v1, sx, sy, sw.toMutableList(), sh.toMutableList(), id)
     }
 
-    /** A free measure line, any direction, with its own dividers; [len] a laser reading if taken. */
-    class MLine(var a: DoubleArray, var b: DoubleArray, val ts: MutableList<Double> = mutableListOf(), var len: Int? = null) {
-        fun copy() = MLine(a.copyOf(), b.copyOf(), ts.toMutableList(), len)
+    /** A free measure line, any direction, with its own dividers; [id] as for [Detail]. */
+    class MLine(var a: DoubleArray, var b: DoubleArray, val ts: MutableList<Double> = mutableListOf(), var id: String = newId()) {
+        fun copy() = MLine(a.copyOf(), b.copyOf(), ts.toMutableList(), id)
         fun at(t: Double) = doubleArrayOf(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
     }
+
+    /** A short random key, as the prototype's idOf: six base-36 characters. */
+    fun newId(): String { val cs = "abcdefghijklmnopqrstuvwxyz0123456789"; return String(CharArray(6) { cs[Random.nextInt(cs.length)] }) }
 
     class Face(
         var box: Box? = null,
@@ -88,10 +92,12 @@ object FacePrep {
         val splits: MutableMap<String, MutableList<Double>> = SIDES.associateWith { mutableListOf<Double>() }.toMutableMap(),
         val dets: MutableList<Detail> = mutableListOf(),
         val lines: MutableList<MLine> = mutableListOf(),
+        /** SITE figures in mm, keyed by [Dim.key]. They never move the drawing; the calculated figure stays beside them. */
+        val meas: MutableMap<String, Int> = mutableMapOf(),
     ) {
         fun copy() = Face(box?.copy(), steps.map { it.copy() }.toMutableList(),
             splits.mapValues { it.value.toMutableList() }.toMutableMap(),
-            dets.map { it.copy() }.toMutableList(), lines.map { it.copy() }.toMutableList())
+            dets.map { it.copy() }.toMutableList(), lines.map { it.copy() }.toMutableList(), meas.toMutableMap())
         fun isEmpty() = box == null && steps.isEmpty() && dets.isEmpty() && lines.isEmpty() && splits.values.all { it.isEmpty() }
     }
 
@@ -428,62 +434,124 @@ object FacePrep {
     }
 
     /**
-     * Something the D2 can measure, and what a reading does to it: a room size
-     * changes the room; a detail's width/height resizes it from the corner its
-     * drag started at; a "from" reading slides it; a line's length stretches
-     * it from its start. The reading is kept, so a later drag shows "≠ laser".
+     * A room size typed or read with the laser: it changes the room box, and
+     * the reading is kept. Room sizes are the one figure that still moves the
+     * geometry — every face is drawn from them. Shape dimensions never do; see [Dim].
      */
-    class Target(val key: String, val label: String, val now: Int, val got: Int?, val set: (Int) -> Unit, val forget: () -> Unit) {
-        val agrees get() = got != null && abs(now - got) <= 1
+    fun roomReading(room: Room, k: String, mm: Int) {
+        when (k) { "H" -> { room.H = mm; room.ch = min(room.ch, mm - 100) }; "X" -> room.X = mm; else -> room.Z = mm }
+        room.laser[k] = mm
     }
 
-    fun laserTargets(room: Room, face: String): List<Target> {
-        val f = room.face(face); val (w, h) = faceDims(room, face); val out = mutableListOf<Target>()
-        for ((k, nm) in listOf("H" to "Room height", "X" to "Room width ↔", "Z" to "Room length ↕")) {
-            val now = when (k) { "H" -> room.H; "X" -> room.X; else -> room.Z }
-            out.add(Target("room:$k", nm, now, room.laser[k], { mm ->
-                when (k) { "H" -> { room.H = mm; room.ch = min(room.ch, mm - 100) }; "X" -> room.X = mm; else -> room.Z = mm }
-                room.laser[k] = mm
-            }, { room.laser.remove(k) }))
+    // ---------------------------------------------------------------- dimensions and site figures
+
+    val SIDE_NAME = mapOf("top" to "Top", "right" to "Right", "bottom" to "Bottom", "left" to "Left")
+
+    /**
+     * One dimension drawn on a face: its stable [key], what it is called, the
+     * figure the photo CALCULATES, and the SITE figure if one was taken (laser
+     * or typed). Keys follow the prototype (v23): `E:<side>:<k>` a box-edge
+     * piece, `T:<side>` a total, `d:<id>:w|h|lh|lv` or `w<k>`/`h<k>` for a
+     * divided arrow, `l:<id>` a line and `l:<id>:<k>` its pieces.
+     *
+     * A site figure is written beside the calculated one and changes nothing
+     * else (Amit, 2026-10-09: "override it ... still preserving calculated
+     * measurement ... show just beside it in different colour").
+     */
+    class Dim(val key: String, val label: String, val calc: Int, val site: Int?)
+
+    /** Box-edge piece keys in [outline] order: `E:<side or step>:<k>`, k counted per side from 1. */
+    fun edgeKeys(pieces: List<Piece>): List<String> {
+        val per = HashMap<String, Int>()
+        return pieces.map { pc -> val sk = pc.side ?: "step"; val k = (per[sk] ?: 0) + 1; per[sk] = k; "E:$sk:$k" }
+    }
+
+    fun detKey(d: Detail, part: String) = "d:${d.id}:$part"
+    fun lineKey(l: MLine, piece: Int? = null) = if (piece == null) "l:${l.id}" else "l:${l.id}:$piece"
+
+    /** The width arrow's pieces as (key part, mm): "w" when undivided, else "w1", "w2"… */
+    fun detWidths(w: Int, d: Detail): List<Pair<String, Int>> {
+        val ts = listOf(0.0) + d.sw.sorted() + listOf(1.0)
+        return (0 until ts.size - 1).map { k -> (if (ts.size == 2) "w" else "w${k + 1}") to mmU(w, d.u0 + (d.u1 - d.u0) * ts[k], d.u0 + (d.u1 - d.u0) * ts[k + 1]) }
+    }
+    fun detHeights(h: Int, d: Detail): List<Pair<String, Int>> {
+        val ts = listOf(0.0) + d.sh.sorted() + listOf(1.0)
+        return (0 until ts.size - 1).map { k -> (if (ts.size == 2) "h" else "h${k + 1}") to mmV(h, d.v0 + (d.v1 - d.v0) * ts[k], d.v0 + (d.v1 - d.v0) * ts[k + 1]) }
+    }
+
+    /**
+     * Every dimension on a face, in the order the photo draws them: edge
+     * pieces, the four totals, each detail (width, height, locators), each
+     * line (pieces, then its total). This order is what "next unmeasured"
+     * walks, and what the CSV lists.
+     */
+    fun dims(room: Room, face: String): List<Dim> {
+        val f = room.face(face); val (w, h) = faceDims(room, face); val out = mutableListOf<Dim>()
+        fun add(key: String, label: String, calc: Int) = out.add(Dim(key, label, calc, f.meas[key]))
+        val pcs = outline(room, face, f); val ek = edgeKeys(pcs)
+        pcs.forEachIndexed { n, pc -> add(ek[n], "E${n + 1} · ${pc.side?.let { SIDE_NAME.getValue(it).lowercase() + " edge" } ?: "step face"}", pc.len) }
+        for (sd in SIDES) add("T:$sd", "${SIDE_NAME.getValue(sd)} total", if (sd == "top" || sd == "bottom") w else h)
+        f.dets.forEachIndexed { i, d ->
+            val dn = detName(f, i)
+            val ws = detWidths(w, d); ws.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}", mm) }
+            val hs = detHeights(h, d); hs.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}", mm) }
+            for (loc in locators(face, f, i)) add(detKey(d, if (loc.horizontal) "lh" else "lv"), "$dn from ${loc.to}", locatorMm(w, h, loc))
         }
         f.lines.forEachIndexed { i, l ->
-            out.add(Target("l$i", "Line ${i + 1}", lineMm(w, h, l.a, l.b), l.len, { mm ->
-                val now = lineMm(w, h, l.a, l.b)
-                if (now > 0) { val s = mm.toDouble() / now; l.b = clampUV(l.a[0] + (l.b[0] - l.a[0]) * s, l.a[1] + (l.b[1] - l.a[1]) * s) }
-                l.len = mm
-            }, { l.len = null }))
-        }
-        f.dets.forEachIndexed { i, d ->
-            val nm = detName(f, i)
-            out.add(Target("d$i:w", "$nm width", mmU(w, d.u0, d.u1), d.lz["w"], { mm ->
-                val s = mm.toDouble() / w; if (d.sx == 1) d.u0 = clamp01(d.u1 - s) else d.u1 = clamp01(d.u0 + s); d.lz["w"] = mm
-            }, { d.lz.remove("w") }))
-            out.add(Target("d$i:h", "$nm height", mmV(h, d.v0, d.v1), d.lz["h"], { mm ->
-                val s = mm.toDouble() / h; if (d.sy == 1) d.v0 = clamp01(d.v1 - s) else d.v1 = clamp01(d.v0 + s); d.lz["h"] = mm
-            }, { d.lz.remove("h") }))
-            for (loc in locators(face, f, i)) {
-                val axis = if (loc.horizontal) "lh" else "lv"
-                out.add(Target("d$i:$axis", "$nm from ${loc.to}", locatorMm(w, h, loc), d.lz[axis], { mm ->
-                    if (loc.horizontal) {
-                        val sh = if (abs(loc.b[0] - d.u0) < 1e-9) loc.a[0] + mm.toDouble() / w - d.u0 else loc.b[0] - mm.toDouble() / w - d.u1
-                        d.u0 += sh; d.u1 += sh
-                    } else {
-                        val sh = if (abs(loc.a[1] - d.v1) < 1e-9) loc.b[1] - mm.toDouble() / h - d.v1 else loc.a[1] + mm.toDouble() / h - d.v0
-                        d.v0 += sh; d.v1 += sh
-                    }
-                    d.lz[axis] = mm
-                }, { d.lz.remove(axis) }))
-            }
+            val ps = linePieces(w, h, l)
+            if (ps.size == 1) add(lineKey(l), "Line ${i + 1}", ps[0])
+            else { ps.forEachIndexed { k, p -> add(lineKey(l, k + 1), "Line ${i + 1} piece ${k + 1}", p) }
+                   add(lineKey(l), "Line ${i + 1}", lineMm(w, h, l.a, l.b)) }
         }
         return out
     }
 
-    /** "✓ 900" when a reading agrees, "702 ≠ laser 650" when the shape moved after measuring. */
-    fun lzText(now: Int, got: Int?, rest: String = ""): String = when {
-        got == null -> "$now$rest"
-        abs(now - got) <= 1 -> "✓ $got$rest"
-        else -> "$now$rest ≠ laser $got"
+    /** The next dimension after [current] (wrapping round) with no site figure, or null when every one is measured. */
+    fun nextUnmeasured(ds: List<Dim>, current: String?): String? {
+        val i = ds.indexOfFirst { it.key == current }
+        val order = if (i < 0) ds else ds.drop(i + 1) + ds.take(i)
+        return order.firstOrNull { it.site == null && it.key != current }?.key
     }
+
+    /** Store a site figure. Geometry is untouched — that is the point. */
+    fun setSite(f: Face, key: String, mm: Int) { f.meas[key] = mm }
+    fun clearSite(f: Face, key: String) { f.meas.remove(key) }
+
+    /** Drop the site figures of a deleted detail or line, so a stale figure cannot reappear. */
+    fun forgetSites(f: Face, prefix: String) { f.meas.keys.removeAll { it == prefix || it.startsWith("$prefix:") } }
+
+    /** 0 not started, 1 partly done, 2 done (every dimension has a site figure). */
+    fun faceStatus(room: Room, face: String): Int {
+        val f = room.face(face)
+        val marked = f.box != null || f.steps.isNotEmpty() || f.dets.isNotEmpty() || f.lines.isNotEmpty() ||
+            f.splits.values.any { it.isNotEmpty() } || f.meas.isNotEmpty()
+        if (!marked) return 0
+        return if (dims(room, face).all { it.site != null }) 2 else 1
+    }
+
+    /**
+     * Copy a step, detail or line a little down and right, as a new thing
+     * with its own id (so it has no site figures yet). Returns its index.
+     */
+    fun duplicate(f: Face, list: String, i: Int): Int? {
+        val du = 0.04; val dv = 0.04
+        when (list) {
+            "steps" -> { val s = f.steps.getOrNull(i)?.norm() ?: return null
+                val ou = min(du, 1 - s.u1); val ov = min(dv, 1 - s.v1)
+                f.steps.add(Step(s.kind, s.u0 + ou, s.v0 + ov, s.u1 + ou, s.v1 + ov, s.site)); return f.steps.size - 1 }
+            "dets" -> { val d = f.dets.getOrNull(i) ?: return null
+                val ou = min(du, 1 - d.u1); val ov = min(dv, 1 - d.v1)
+                f.dets.add(Detail(d.type, d.u0 + ou, d.v0 + ov, d.u1 + ou, d.v1 + ov, d.sx, d.sy, d.sw.toMutableList(), d.sh.toMutableList())); return f.dets.size - 1 }
+            "line" -> { val l = f.lines.getOrNull(i) ?: return null
+                val ou = min(du, 1 - max(l.a[0], l.b[0])); val ov = min(dv, 1 - max(l.a[1], l.b[1]))
+                f.lines.add(MLine(doubleArrayOf(l.a[0] + ou, l.a[1] + ov), doubleArrayOf(l.b[0] + ou, l.b[1] + ov), l.ts.toMutableList())); return f.lines.size - 1 }
+        }
+        return null
+    }
+
+    /** One CSV row per dimension: measure, calculated mm, site mm ("" when not taken). */
+    fun csvRows(room: Room, face: String): List<Triple<String, Int, String>> =
+        dims(room, face).map { Triple(it.label, it.calc, it.site?.toString() ?: "") }
 
     // ---------------------------------------------------------------- grid, references
 
@@ -533,24 +601,6 @@ object FacePrep {
         val (ru, rv) = references(room, face, grid)
         val onU = up && ru.any { abs(it - q[0]) < 30.0 / w }; val onV = lv && rv.any { abs(it - q[1]) < 30.0 / h }
         return LineGuide(if (up) q[0] else null, if (lv) q[1] else null, a, tot - a, onU || onV)
-    }
-
-    /** One row of the measures CSV per figure on a face. */
-    fun measures(room: Room, face: String): List<Pair<String, Int>> {
-        val f = room.face(face); val (w, h) = faceDims(room, face)
-        val rows = mutableListOf("Face width" to w, "Face height" to h)
-        outline(room, face, f).forEachIndexed { k, pc -> rows.add("E${k + 1} ${pc.side ?: "step face"}" to pc.len) }
-        f.lines.forEachIndexed { i, l ->
-            rows.add("Line ${i + 1}${if (l.len != null) " (laser)" else ""}" to (l.len ?: lineMm(w, h, l.a, l.b)))
-            val ps = linePieces(w, h, l); if (ps.size > 1) ps.forEachIndexed { k, p -> rows.add("Line ${i + 1} piece ${k + 1}" to p) }
-        }
-        f.dets.forEachIndexed { i, d ->
-            val nm = detName(f, i)
-            rows.add("$nm width${if (d.lz["w"] != null) " (laser)" else ""}" to (d.lz["w"] ?: mmU(w, d.u0, d.u1)))
-            rows.add("$nm height${if (d.lz["h"] != null) " (laser)" else ""}" to (d.lz["h"] ?: mmV(h, d.v0, d.v1)))
-            for (loc in locators(face, f, i)) rows.add("$nm from ${loc.to}" to locatorMm(w, h, loc))
-        }
-        return rows
     }
 
     fun clamp01(x: Double) = min(1.0, max(0.0, x))

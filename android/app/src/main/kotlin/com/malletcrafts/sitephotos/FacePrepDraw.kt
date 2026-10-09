@@ -27,6 +27,8 @@ object FacePrepDraw {
     const val LINE = 0xFFFF7AD9.toInt()
     const val GUIDE = 0xFF35E0FF.toInt()
     const val GUIDE_ON = 0xFF7DFF8A.toInt()
+    /** The SITE figure's green, the prototype's #7dff8a: a figure measured on site, beside the calculated one. */
+    const val SITE = 0xFF7DFF8A.toInt()
     val STEP_COL = mapOf("column" to 0xFFFF8A65.toInt(), "beam" to 0xFFE0703E.toInt(), "step" to 0xFFC9C2B8.toInt())
     val DET_COL = mapOf("door" to 0xFF6FCF97.toInt(), "window" to 0xFF56CCF2.toInt(), "opening" to 0xFFBB86FC.toInt(),
         "electrical" to 0xFFF2C94C.toInt(), "loft" to 0xFFFFA45C.toInt())
@@ -34,12 +36,19 @@ object FacePrepDraw {
     /** What is selected, so it can be drawn white. */
     data class Sel(val kind: String, val i: Int = -1, val j: Int = -1, val key: String = "")
 
+    /**
+     * A dimension as it was drawn on screen: where its label sits ([at], with
+     * [w]×[h] px) and its arrow's ends — so a tap in Measure can find it.
+     */
+    class DrawnDim(val key: String, val at: FloatArray, val w: Float, val h: Float, val a: FloatArray?, val b: FloatArray?)
+
     class Opts(
         val handles: String? = null,          // "box", "steps", "dets", "lines" — which grips to draw
         val sel: Sel? = null,
         val grid: FacePrep.Grid? = null,      // screen only
         val guide: FacePrep.LineGuide? = null, val guideAt: DoubleArray? = null,
         val boxGuide: Pair<String, Double>? = null,   // side, t — a box divider being placed
+        val dims: MutableList<DrawnDim>? = null,      // filled with every dimension drawn, in draw order
     )
 
     fun uvToImg(box: FacePrep.Box, side: Float, u: Double, v: Double) =
@@ -59,13 +68,13 @@ object FacePrepDraw {
             stroke.pathEffect = if (dash > 0) DashPathEffect(floatArrayOf(dash, dash * 0.7f), 0f) else null
             c.drawLine(a[0], a[1], b[0], b[1], stroke); stroke.pathEffect = null
         }
-        fun arrow(a: FloatArray, b: FloatArray, col: Int, width: Float, dash: Float = 0f) {
+        fun arrow(a: FloatArray, b: FloatArray, col: Int, width: Float, dash: Float = 0f, head: Float = hs) {
             line(a, b, col, width, dash)
             val ang = atan2(b[1] - a[1], b[0] - a[0])
             for ((p, dir) in listOf(b to ang, a to (ang + Math.PI.toFloat()))) {
                 val path = Path(); path.moveTo(p[0], p[1])
-                path.lineTo(p[0] - hs * cos(dir - 0.45f), p[1] - hs * sin(dir - 0.45f))
-                path.lineTo(p[0] - hs * cos(dir + 0.45f), p[1] - hs * sin(dir + 0.45f)); path.close()
+                path.lineTo(p[0] - head * cos(dir - 0.45f), p[1] - head * sin(dir - 0.45f))
+                path.lineTo(p[0] - head * cos(dir + 0.45f), p[1] - head * sin(dir + 0.45f)); path.close()
                 fill.color = col; c.drawPath(path, fill)
             }
         }
@@ -80,6 +89,35 @@ object FacePrepDraw {
         fun add(p: FloatArray, v: FloatArray, k: Float) = floatArrayOf(p[0] + v[0] * k, p[1] + v[1] * k)
         fun mid(a: FloatArray, b: FloatArray, t: Float = 0.5f) = floatArrayOf(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
         fun unit(v: FloatArray): FloatArray { val l = hypot(v[0], v[1]).takeIf { it > 0 } ?: 1f; return floatArrayOf(v[0] / l, v[1] / l) }
+
+        // Every dimension goes through dimTag: the CALCULATED figure in its own colour and, when one was
+        // taken on site (laser or typed), the SITE figure in green right beside it. The site figure never
+        // moves the drawing. The selected dimension's own arrow is drawn end to end, bold and white, with
+        // end bars, so it is plain which two points the site figure is between (prototype v23).
+        val strokeRect = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+        fun dimTag(key: String, txt: String, at: FloatArray, col: Int, size: Float, a: FloatArray?, b: FloatArray?) {
+            val isSel = o.sel?.kind == "dim" && o.sel?.key == key
+            if (isSel && a != null && b != null) {
+                val dv = unit(floatArrayOf(b[0] - a[0], b[1] - a[1])); val nb = floatArrayOf(-dv[1], dv[0]); val bar = 16f * sc
+                arrow(a, b, 0xFFFFFFFF.toInt(), max(4f, lw * 1.8f), 0f, hs * 1.4f)
+                for (e in listOf(a, b)) line(add(e, nb, -bar), add(e, nb, bar), 0xFFFFFFFF.toInt(), max(3f, lw * 1.3f))
+            }
+            tag(txt, at, col, size)
+            text.textSize = size
+            val tw = text.measureText(txt) + size * 0.7f; val th = size * 1.3f
+            if (isSel) { strokeRect.color = 0xFFFFFFFF.toInt(); strokeRect.strokeWidth = 3f * sc
+                c.drawRect(at[0] - tw / 2 - 3f, at[1] - th / 2 - 3f, at[0] + tw / 2 + 3f, at[1] + th / 2 + 3f, strokeRect) }
+            val site = f.meas[key]
+            if (site != null) {
+                val t2 = "$site"; text.textSize = size; val w2 = text.measureText(t2) + size * 0.7f
+                val qx = at[0] + tw / 2 + 4f * sc + w2 / 2; val qy = at[1]
+                fill.color = 0xEB063012.toInt(); c.drawRect(qx - w2 / 2, qy - th / 2, qx + w2 / 2, qy + th / 2, fill)
+                strokeRect.color = SITE; strokeRect.strokeWidth = 2f * sc
+                c.drawRect(qx - w2 / 2, qy - th / 2, qx + w2 / 2, qy + th / 2, strokeRect)
+                text.color = SITE; c.drawText(t2, qx - text.measureText(t2) / 2, qy + size * 0.36f, text)
+            }
+            o.dims?.add(DrawnDim(key, at, tw, th, a, b))
+        }
 
         // reference grid, faint, under everything (screen only)
         o.grid?.let { g ->
@@ -111,6 +149,7 @@ object FacePrepDraw {
 
         // the outline, solid, and a dimension on every piece, outside the face
         val pieces = FacePrep.outline(room, face, f)
+        val edgeKeys = FacePrep.edgeKeys(pieces)
         val reach = HashMap<String, Float>(); var n = 0
         for (pc in pieces) {
             val a = P(pc.a[0].toDouble() / w, pc.a[1].toDouble() / h); val b = P(pc.b[0].toDouble() / w, pc.b[1].toDouble() / h)
@@ -125,7 +164,7 @@ object FacePrepDraw {
             arrow(p, q, EDGE, max(1.6f, lw * 0.7f), 4f * sc)
             line(a, p, EDGE, max(1f, lw * 0.45f), 4f * sc); line(b, q, EDGE, max(1f, lw * 0.45f), 4f * sc)
             val labOff = fs * 0.9f
-            tag("E$n ${pc.len}", add(mid(p, q), ov, labOff), EDGE)
+            dimTag(edgeKeys[n - 1], "E$n ${pc.len}", add(mid(p, q), ov, labOff), EDGE, fs, p, q)
             pc.side?.let { reach[it] = max(reach[it] ?: 0f, off + labOff * 2) }
         }
         // the measured totals, beyond the edge dimensions
@@ -134,7 +173,7 @@ object FacePrepDraw {
             val (a, b) = when (sd) { "top" -> P(0.0, 0.0) to P(1.0, 0.0); "bottom" -> P(0.0, 1.0) to P(1.0, 1.0)
                                      "left" -> P(0.0, 0.0) to P(0.0, 1.0); else -> P(1.0, 0.0) to P(1.0, 1.0) }
             val m = mid(a, b); val ctr = P(0.5, 0.5); val ov = unit(floatArrayOf(m[0] - ctr[0], m[1] - ctr[1]))
-            tag("$tot mm", add(m, ov, (reach[sd] ?: off) + fs), -1)
+            dimTag("T:$sd", "$tot mm", add(m, ov, (reach[sd] ?: off) + fs), -1, fs, a, b)
         }
         // box dividers
         for ((sd, ts) in f.splits) ts.forEachIndexed { i, t ->
@@ -182,13 +221,13 @@ object FacePrepDraw {
                 val ua = d.u0 + (d.u1 - d.u0) * tw[k]; val ub = d.u0 + (d.u1 - d.u0) * tw[k + 1]
                 val a = P(ua, ve); val b = P(ub, ve); arrow(a, b, col, lw)
                 val mm = FacePrep.mmU(w, ua, ub)
-                tag(if (tw.size == 2) FacePrep.lzText(mm, d.lz["w"]) else "$mm", add(mid(a, b), floatArrayOf(0f, 1f), wOut * fs * 1.2f), col)
+                dimTag(FacePrep.detKey(d, if (tw.size == 2) "w" else "w${k + 1}"), "$mm", add(mid(a, b), floatArrayOf(0f, 1f), wOut * fs * 1.2f), col, fs, a, b)
             }
             for (k in 0 until th.size - 1) {
                 val va = d.v0 + (d.v1 - d.v0) * th[k]; val vb = d.v0 + (d.v1 - d.v0) * th[k + 1]
                 val a = P(ue, va); val b = P(ue, vb); arrow(a, b, col, lw)
                 val mm = FacePrep.mmV(h, va, vb)
-                tag(if (th.size == 2) FacePrep.lzText(mm, d.lz["h"]) else "$mm", add(mid(a, b), floatArrayOf(1f, 0f), hOut * fs * 2.8f), col)
+                dimTag(FacePrep.detKey(d, if (th.size == 2) "h" else "h${k + 1}"), "$mm", add(mid(a, b), floatArrayOf(1f, 0f), hOut * fs * 2.8f), col, fs, a, b)
             }
             for (t in d.sw) { val p = P(d.u0 + (d.u1 - d.u0) * t, ve); fill.color = col; c.drawCircle(p[0], p[1], 6f * sc, fill) }
             for (t in d.sh) { val p = P(ue, d.v0 + (d.v1 - d.v0) * t); fill.color = col; c.drawCircle(p[0], p[1], 6f * sc, fill) }
@@ -196,9 +235,9 @@ object FacePrepDraw {
                 val a = P(loc.a[0], loc.a[1]); val b = P(loc.b[0], loc.b[1])
                 arrow(a, b, col, max(1.4f, lw * 0.6f), 6f * sc)
                 val mm = FacePrep.locatorMm(w, h, loc)
-                tag(FacePrep.lzText(mm, d.lz[if (loc.horizontal) "lh" else "lv"], " from ${loc.to}"),
+                dimTag(FacePrep.detKey(d, if (loc.horizontal) "lh" else "lv"), "$mm from ${loc.to}",
                     add(mid(a, b), if (loc.horizontal) floatArrayOf(0f, 1f) else floatArrayOf(1f, 0f),
-                        if (loc.horizontal) wOut * fs * 1.2f else hOut * fs * 5f), col, fs * 0.9f)
+                        if (loc.horizontal) wOut * fs * 1.2f else hOut * fs * 5f), col, fs * 0.9f, a, b)
             }
             val ctr = P((d.u0 + d.u1) / 2, (d.v0 + d.v1) / 2)
             val small = abs(pts[1][0] - pts[0][0]) < fs * 9 || abs(pts[3][1] - pts[0][1]) < fs * 4
@@ -215,9 +254,9 @@ object FacePrepDraw {
                 val a = l.at(ts[k]); val b = l.at(ts[k + 1]); val pa = P(a[0], a[1]); val pb = P(b[0], b[1])
                 arrow(pa, pb, if (on) -1 else LINE, lw)
                 val seg = (tot * (ts[k + 1] - ts[k])).roundToInt()
-                tag(if (ts.size == 2) FacePrep.lzText(seg, l.len) else "$seg", add(mid(pa, pb), nrm, fs * 1.3f), LINE)
+                dimTag(if (ts.size == 2) FacePrep.lineKey(l) else FacePrep.lineKey(l, k + 1), "$seg", add(mid(pa, pb), nrm, fs * 1.3f), LINE, fs, pa, pb)
             }
-            if (ts.size > 2) tag("L${i + 1} ${FacePrep.lzText(tot, l.len)}", add(mid(A, B), nrm, -fs * 1.5f), LINE, fs * 0.95f)
+            if (ts.size > 2) dimTag(FacePrep.lineKey(l), "L${i + 1} $tot", add(mid(A, B), nrm, -fs * 1.5f), LINE, fs * 0.95f, A, B)
             else tag("L${i + 1}", add(A, nrm, -fs * 1.3f), LINE, fs * 0.85f)
             l.ts.forEachIndexed { j, t -> val q = l.at(t); val p = P(q[0], q[1]); val onj = o.sel?.kind == "lsplit" && o.sel?.i == i && o.sel?.j == j
                 fill.color = LINE; c.drawCircle(p[0], p[1], (if (onj) 11f else 7f) * sc, fill)

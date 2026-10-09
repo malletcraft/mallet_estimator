@@ -36,7 +36,7 @@ class FacePrepStore(context: Context) {
 
     companion object {
         fun encode(r: FacePrep.Room): JSONObject = JSONObject().apply {
-            put("v", 1); put("H", r.H); put("X", r.X); put("Z", r.Z); put("cx", r.cx); put("cz", r.cz); put("ch", r.ch)
+            put("v", 2); put("H", r.H); put("X", r.X); put("Z", r.Z); put("cx", r.cx); put("cz", r.cz); put("ch", r.ch)
             put("laser", JSONObject(r.laser as Map<*, *>))
             put("faces", JSONObject().apply {
                 for ((name, f) in r.faces) put(name, JSONObject().apply {
@@ -47,10 +47,11 @@ class FacePrepStore(context: Context) {
                     put("dets", JSONArray(f.dets.map { d ->
                         JSONObject().put("type", d.type).put("u0", d.u0).put("v0", d.v0).put("u1", d.u1).put("v1", d.v1)
                             .put("sx", d.sx).put("sy", d.sy).put("sw", JSONArray(d.sw)).put("sh", JSONArray(d.sh))
-                            .put("lz", JSONObject(d.lz as Map<*, *>)) }))
+                            .put("id", d.id) }))
                     put("lines", JSONArray(f.lines.map { l ->
                         JSONObject().put("a", JSONArray(l.a.toList())).put("b", JSONArray(l.b.toList()))
-                            .put("ts", JSONArray(l.ts)).apply { l.len?.let { put("len", it) } } }))
+                            .put("ts", JSONArray(l.ts)).put("id", l.id) }))
+                    put("meas", JSONObject(f.meas as Map<*, *>))
                 })
             })
         }
@@ -75,13 +76,23 @@ class FacePrepStore(context: Context) {
                 fo.optJSONArray("steps")?.let { a -> for (i in 0 until a.length()) { val s = a.getJSONObject(i)
                     f.steps.add(FacePrep.Step(s.getString("kind"), s.getDouble("u0"), s.getDouble("v0"), s.getDouble("u1"), s.getDouble("v1"), s.optBoolean("site"))) } }
                 fo.optJSONObject("splits")?.let { sp -> for (side in FacePrep.SIDES) f.splits[side] = sp.optJSONArray(side).doubles() }
+                // v1 files have no ids, no "meas", and laser readings kept on the shape ("lz", "len") that
+                // had already MOVED it. Those readings become site figures on the shape's new id; the
+                // geometry they moved stays as saved, since nothing records where it was before.
                 fo.optJSONArray("dets")?.let { a -> for (i in 0 until a.length()) { val d = a.getJSONObject(i)
-                    f.dets.add(FacePrep.Detail(d.getString("type"), d.getDouble("u0"), d.getDouble("v0"), d.getDouble("u1"), d.getDouble("v1"),
-                        d.optInt("sx"), d.optInt("sy"), d.optJSONArray("sw").doubles(), d.optJSONArray("sh").doubles(), d.optJSONObject("lz").ints())) } }
+                    val det = FacePrep.Detail(d.getString("type"), d.getDouble("u0"), d.getDouble("v0"), d.getDouble("u1"), d.getDouble("v1"),
+                        d.optInt("sx"), d.optInt("sy"), d.optJSONArray("sw").doubles(), d.optJSONArray("sh").doubles())
+                    d.optString("id", "").takeIf { it.isNotEmpty() }?.let { det.id = it }
+                    for ((k, mm) in d.optJSONObject("lz").ints()) f.meas[FacePrep.detKey(det, k)] = mm
+                    f.dets.add(det) } }
                 fo.optJSONArray("lines")?.let { a -> for (i in 0 until a.length()) { val l = a.getJSONObject(i)
                     val pa = l.getJSONArray("a"); val pb = l.getJSONArray("b")
-                    f.lines.add(FacePrep.MLine(doubleArrayOf(pa.getDouble(0), pa.getDouble(1)), doubleArrayOf(pb.getDouble(0), pb.getDouble(1)),
-                        l.optJSONArray("ts").doubles(), if (l.has("len")) l.getInt("len") else null)) } }
+                    val ml = FacePrep.MLine(doubleArrayOf(pa.getDouble(0), pa.getDouble(1)), doubleArrayOf(pb.getDouble(0), pb.getDouble(1)),
+                        l.optJSONArray("ts").doubles())
+                    l.optString("id", "").takeIf { it.isNotEmpty() }?.let { ml.id = it }
+                    if (l.has("len")) f.meas[FacePrep.lineKey(ml)] = l.getInt("len")
+                    f.lines.add(ml) } }
+                f.meas.putAll(fo.optJSONObject("meas").ints())
             }
             return r
         }

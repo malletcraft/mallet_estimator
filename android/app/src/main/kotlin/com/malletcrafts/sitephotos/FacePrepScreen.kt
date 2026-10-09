@@ -11,6 +11,9 @@ import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -19,11 +22,15 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -34,27 +41,39 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.malletcrafts.sitephotos.pano.FacePrep
 import com.malletcrafts.sitephotos.pano.Handover
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
- * Face Prep — the browser prototype Amit approved on 2026-10-09 ("Build and
- * ship apk"), on the phone, on a capture's own six faces, with the DISTO D2
- * live. Line up the room box on each face, mark what sticks out (columns,
- * beams, steps), divide edges, place details and free measure lines, take
- * laser readings onto any of them, then save every face as an ImageMeter
- * photo next to the originals and share the measures as CSV.
+ * Face Prep — the browser prototype Amit approved on 2026-10-09, on the phone,
+ * on a capture's own six faces, with the DISTO D2 live, laid out as the phone
+ * mock-up he approved the same day ("Approved, Claude builds it"): the photo
+ * edge to edge behind a thin app bar and face tabs, ONE floating tool strip
+ * (Box, Columns, Dividers, Details, Line, Measure), select-then-act, snap /
+ * grid / exports in the overflow menu, and a Measure mode with a laser button
+ * and a keypad sheet.
+ *
+ * SITE FIGURES DO NOT MOVE GEOMETRY. A laser reading or a typed figure is
+ * stored per face against the dimension's stable key and drawn in green
+ * beside the calculated one; the shape stays where the photo put it.
  *
  * The geometry is all in [FacePrep] (pure, tested); drawing is [FacePrepDraw],
  * shared by the screen and the saved photos so they cannot disagree.
@@ -74,9 +93,10 @@ fun FacePrepScreen(
     val room = remember { store.load(deviceId) ?: FacePrep.Room(startDims.first, startDims.second, startDims.third) }
     var rev by remember { mutableIntStateOf(0) }          // bumped on every model change: redraws
     val undo = remember { mutableStateListOf<FacePrep.Room>() }
+    val redo = remember { mutableStateListOf<FacePrep.Room>() }
     fun touch() { rev++ }
     fun save() { runCatching { store.save(deviceId, room) }; rev++ }
-    fun pushUndo() { undo.add(room.copy()); if (undo.size > 30) undo.removeAt(0) }
+    fun pushUndo() { undo.add(room.copy()); if (undo.size > 40) undo.removeAt(0); redo.clear() }
     fun restore(r: FacePrep.Room) {
         room.H = r.H; room.X = r.X; room.Z = r.Z; room.cx = r.cx; room.cz = r.cz; room.ch = r.ch
         room.faces.clear(); room.faces.putAll(r.faces); room.laser.clear(); room.laser.putAll(r.laser)
@@ -84,7 +104,7 @@ fun FacePrepScreen(
 
     val prefs = remember { context.getSharedPreferences("faceprep", Context.MODE_PRIVATE) }
     var face by remember { mutableStateOf("floor") }
-    var mode by remember { mutableStateOf("steps") }         // box, steps, edges, dets, lines -- the box comes from the split
+    var mode by remember { mutableStateOf("steps") }         // box, steps, edges, dets, lines, measure
     var stepKind by remember { mutableStateOf("column") }
     var detType by remember { mutableStateOf("door") }
     var sel by remember { mutableStateOf<FacePrepDraw.Sel?>(null) }
@@ -95,7 +115,12 @@ fun FacePrepScreen(
     var boxGuide by remember { mutableStateOf<Pair<String, Double>?>(null) }
     var showRoom by remember { mutableStateOf(false) }
     var showGrid by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showFaces by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
+    var showTune by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(note) { if (note != null) { delay(2600); note = null } }
 
     // ---- the photo of this face (the square part: the caption strip is below it)
     val src = remember(face) { faceSource(context, deviceId, face) }
@@ -104,9 +129,12 @@ fun FacePrepScreen(
     LaunchedEffect(uri) { bitmap = uri?.let { u -> withContext(Dispatchers.IO) { decodeFace(context, u, 2400)?.asImageBitmap() } } }
     val side = (bitmap?.width ?: 1).toFloat()
 
-    // ---- the laser: a reading lands on the picked target, then the next unmeasured one is picked
+    // ---- Measure: tap a dimension, fire the D2 or type the site figure, Save & next.
+    // A reading -- laser or typed -- goes into the picked dimension as a SITE figure and
+    // changes nothing else; then the next unmeasured one is picked, as ImageMeter does.
     var pick by remember { mutableStateOf<String?>(null) }
     var typed by remember { mutableStateOf("") }
+    var sheetOpen by remember { mutableStateOf(false) }
     val disto = remember { DistoClient(context) }
     var distoState by remember { mutableStateOf(DistoClient.State.OFF) }
     DisposableEffect(Unit) { onDispose { disto.stop() } }
@@ -117,15 +145,27 @@ fun FacePrepScreen(
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) disto.start() else note = "Bluetooth permission refused — the laser can't connect"
     }
-    fun targets(): List<FacePrep.Target> { rev; return FacePrep.laserTargets(room, face) }
+    fun openPick(k: String?) { pick = k; typed = ""; sheetOpen = k != null }
+    fun nextDim() {
+        val nx = FacePrep.nextUnmeasured(FacePrep.dims(room, face), pick)
+        if (nx != null) openPick(nx) else { openPick(null); note = "Every figure on this face is measured" }
+    }
     fun take(mm: Int) {
-        val ts = FacePrep.laserTargets(room, face); val i = ts.indexOfFirst { it.key == pick }
-        if (i < 0) { note = "Pick what to measure first"; return }
-        pushUndo(); ts[i].set(mm); save()
-        val ts2 = FacePrep.laserTargets(room, face)
-        val next = (ts2.drop(i + 1) + ts2.take(i)).firstOrNull { it.got == null }
-        note = "${ts[i].label}: $mm mm"
-        if (next != null) pick = next.key
+        val ds = FacePrep.dims(room, face)
+        if (mode != "measure") { mode = "measure"; sel = null }
+        val k = pick?.takeIf { p -> ds.any { it.key == p } } ?: FacePrep.nextUnmeasured(ds, null) ?: ds.firstOrNull()?.key
+        if (k == null) { note = "Nothing to measure on this face yet"; return }
+        pick = k
+        pushUndo(); FacePrep.setSite(room.face(face), k, mm); save()
+        note = "${ds.first { it.key == k }.label}: site $mm mm"
+        nextDim()
+    }
+    fun fire() {
+        when (distoState) {
+            DistoClient.State.OFF -> askBle.launch(blePerms)
+            DistoClient.State.READY -> disto.measure()
+            else -> note = "The laser is still connecting…"
+        }
     }
     disto.onState = { s, n -> distoState = s; if (n != null) note = n }
     disto.onRefused = { why -> note = why }
@@ -135,8 +175,12 @@ fun FacePrepScreen(
     var canvas by remember { mutableStateOf(IntSize(1, 1)) }
     var scale by remember { mutableStateOf(1f) }
     var off by remember { mutableStateOf(Offset.Zero) }
-    fun fit(): Float { val b = bitmap ?: return 1f; return min(canvas.width / b.width.toFloat(), canvas.height / b.height.toFloat()) }
-    fun base(): Offset { val b = bitmap ?: return Offset.Zero; val k = fit(); return Offset((canvas.width - b.width * k) / 2f, (canvas.height - b.height * k) / 2f) }
+    // The photo is edge to edge, but it FITS between the top bars and the tool strip, so nothing starts hidden.
+    val density = LocalDensity.current
+    val padTop = with(density) { 140.dp.toPx() }; val padBottom = with(density) { 110.dp.toPx() }
+    fun availH() = max(1f, canvas.height - padTop - padBottom)
+    fun fit(): Float { val b = bitmap ?: return 1f; return min(canvas.width / b.width.toFloat(), availH() / b.height.toFloat()) }
+    fun base(): Offset { val b = bitmap ?: return Offset.Zero; val k = fit(); return Offset((canvas.width - b.width * k) / 2f, padTop + (availH() - b.height * k) / 2f) }
     fun imgToScreen(x: Float, y: Float): Offset { val k = fit(); val b0 = base(); return Offset((b0.x + x * k) * scale + off.x, (b0.y + y * k) * scale + off.y) }
     fun screenToImg(p: Offset): Offset { val k = fit(); val b0 = base(); return Offset(((p.x - off.x) / scale - b0.x) / k, ((p.y - off.y) / scale - b0.y) / k) }
 
@@ -160,6 +204,9 @@ fun FacePrepScreen(
         for (v in vs) { val dd = abs(uvToScreen(out[0], v).y - p.y); if (dd < bv) { bv = dd; rv = v } }
         return doubleArrayOf(ru, rv)
     }
+
+    // every dimension as last drawn on screen, for a tap in Measure to find
+    val drawn = remember { mutableListOf<FacePrepDraw.DrawnDim>() }
 
     fun lineHit(p: Offset, wide: Float): Pair<Int, Double>? {
         val f = room.face(face); val (w, h) = FacePrep.faceDims(room, face); val uv = screenToUv(p)
@@ -303,6 +350,12 @@ fun FacePrepScreen(
         touch()
     }
 
+    fun segDist(p: Offset, a: FloatArray, b: FloatArray): Float {
+        val dx = b[0] - a[0]; val dy = b[1] - a[1]; val l2 = dx * dx + dy * dy
+        val t = if (l2 > 0) (((p.x - a[0]) * dx + (p.y - a[1]) * dy) / l2).coerceIn(0f, 1f) else 0f
+        return hypot(p.x - (a[0] + dx * t), p.y - (a[1] + dy * t))
+    }
+
     fun release(g: FpGrab?, moved: Boolean, at: Offset) {
         val f = room.face(face); val (w, h) = FacePrep.faceDims(room, face)
         guide = null; boxGuide = null
@@ -342,12 +395,17 @@ fun FacePrepScreen(
                 }
             }
         }
-        // a tap on a detail points the laser at its first unmeasured dimension
-        if (mode == "dets" && sel?.kind == "dets") {
-            val mine = FacePrep.laserTargets(room, face).filter { it.key.startsWith("d${sel?.i}:") }
-            (mine.firstOrNull { it.got == null } ?: mine.firstOrNull())?.let { pick = it.key }
+        // Measure: a tap picks the dimension under the finger -- its label first, then its arrow
+        if (mode == "measure" && g == null && !moved) {
+            var best: String? = null; var bd = tol * 0.7f
+            for (dd in drawn) {
+                val inLabel = abs(at.x - dd.at[0]) < dd.w / 2 + 14f && abs(at.y - dd.at[1]) < dd.h / 2 + 14f
+                val dl = if (inLabel) 0f else { val a = dd.a; val b = dd.b; if (a != null && b != null) segDist(at, a, b) else Float.MAX_VALUE }
+                if (dl < bd) { bd = dl; best = dd.key }
+            }
+            if (best != null) openPick(best)
+            return
         }
-        if (mode == "lines" && sel?.kind == "line") pick = "l${sel?.i}"
         save()
     }
 
@@ -355,8 +413,8 @@ fun FacePrepScreen(
         val s = sel ?: return; val f = room.face(face); pushUndo()
         when (s.kind) {
             "steps" -> if (s.i in f.steps.indices) f.steps.removeAt(s.i)
-            "dets" -> if (s.i in f.dets.indices) f.dets.removeAt(s.i)
-            "line" -> if (s.i in f.lines.indices) f.lines.removeAt(s.i)
+            "dets" -> if (s.i in f.dets.indices) { FacePrep.forgetSites(f, "d:${f.dets[s.i].id}"); f.dets.removeAt(s.i) }
+            "line" -> if (s.i in f.lines.indices) { FacePrep.forgetSites(f, "l:${f.lines[s.i].id}"); f.lines.removeAt(s.i) }
             "lsplit" -> { val ts = f.lines.getOrNull(s.i)?.ts; if (ts != null && s.j in ts.indices) ts.removeAt(s.j) }
             "split" -> { val ts = f.splits[s.key]; if (ts != null && s.i in ts.indices) ts.removeAt(s.i) }
             "dsplit" -> { val dd = f.dets.getOrNull(s.i); val arr = if (s.key == "w") dd?.sw else dd?.sh; if (arr != null && s.j in arr.indices) arr.removeAt(s.j) }
@@ -365,140 +423,249 @@ fun FacePrepScreen(
     }
 
     // ---------------------------------------------------------------- UI
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Column { Text("Face Prep · ${FacePrep.LABEL[face]}"); Text(roomName, style = MaterialTheme.typography.bodySmall) } },
-            navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
-            actions = {
-                TextButton(onClick = { showRoom = true }) { Text("Room") }
-                TextButton(enabled = busy == null, onClick = {
-                    busy = "Saving photos…"
-                    scope.launch {
-                        val n = withContext(Dispatchers.IO) { exportAll(context, deviceId, roomName, room, fovDeg) }
-                        busy = null
-                        note = if (n > 0) "Saved $n ImageMeter photos next to the faces (…-faceprep.jpg)" else "No face photos found to save"
-                    }
-                }) { Text("Save photos") }
-                TextButton(onClick = { shareCsv(context, roomName, deviceId, room) }) { Text("CSV") }
-            })
-    }) { pad ->
-        Column(Modifier.padding(pad).fillMaxSize()) {
-            // faces, in the order Amit asked for
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (fName in FacePrep.FACE_ORDER) {
-                    val f = room.face(fName); rev
-                    val k = f.steps.size + f.dets.size + f.lines.size + f.splits.values.sumOf { it.size }
-                    FilterChip(selected = face == fName, onClick = { face = fName; sel = null; scale = 1f; off = Offset.Zero; pick = null },
-                        label = { Text(FacePrep.LABEL.getValue(fName) + (if (k > 0) " · $k" else "") + (if (f.box != null) " ✓" else "")) })
-                }
-            }
-            // tools
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for ((m, lab) in listOf("box" to "1 Align box", "steps" to "2 Columns & beams", "edges" to "3 Dividers", "dets" to "4 Details", "lines" to "5 Line"))
-                    FilterChip(selected = mode == m, onClick = { mode = m; sel = null }, label = { Text(lab) })
-            }
-            if (mode == "steps" || mode == "dets") Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (mode == "steps") for ((k, lab) in FacePrep.STEP_KINDS) FilterChip(selected = stepKind == k, onClick = { stepKind = k }, label = { Text(lab) })
-                else for ((k, lab) in FacePrep.DETAIL_TYPES) FilterChip(selected = detType == k, onClick = { detType = k }, label = { Text(lab) })
-            }
-            Text(busy ?: note ?: (if (mode == "box" && src?.auto != null && room.face(face).box == null)
-                    "The box is already on the room's corners, from the split. Drag a line only if one is off." else HINT.getValue(mode)), Modifier.padding(horizontal = 12.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall)
+    // The approved phone mock-up (2026-10-09): a dark camera-app chrome over the photo.
+    val chrome = Color(0xD1141311); val chrome2 = Color(0xFF2A2823); val onC = Color(0xFFF3EFE6); val onC2 = Color(0xFFB8B2A4)
+    val pri = Color(0xFFFFD23F); val onPri = Color(0xFF2A2000); val siteC = Color(0xFF7DFF8A)
+    fun chooseTool(m: String) {
+        mode = m; sel = null; showTune = false
+        if (m != "measure") { sheetOpen = false; pick = null; typed = "" }
+        else { note = when (distoState) { DistoClient.State.READY -> "Laser connected — tap a figure, then fire"
+            DistoClient.State.OFF -> "Tap a figure to give it its site figure. The yellow button connects the laser."
+            else -> "The laser is connecting…" } }
+    }
+    rev   // read so the sheet and the tabs follow every model change
+    val dsNow = FacePrep.dims(room, face)
+    val sheetCur = if (mode == "measure" && sheetOpen) dsNow.firstOrNull { it.key == pick } else null
+    fun switchFace(fName: String) { face = fName; sel = null; scale = 1f; off = Offset.Zero; openPick(null); showTune = false }
 
-            Box(Modifier.fillMaxWidth().weight(1f)) {
-                Canvas(Modifier.fillMaxSize()
-                    .onSizeChanged { canvas = it }
-                    .pointerInput(bitmap, face, mode) {
-                        awaitEachGesture {
-                            val first = awaitFirstDown(requireUnconsumed = false)
-                            var g: FpGrab? = null; var moved = false; var transform = false; var undone = false
-                            if (bitmap != null) {
-                                g = grabAt(first.position)
-                                // a new rectangle or line already saved an undo step when it was created
-                                undone = (g is GLEnd && g.fresh) || (g is GRect && g.fresh)
+    Box(Modifier.fillMaxSize().background(Color(0xFF0F0E0C))) {
+        Canvas(Modifier.fillMaxSize()
+            .onSizeChanged { canvas = it }
+            .pointerInput(bitmap, face, mode) {
+                awaitEachGesture {
+                    val first = awaitFirstDown(requireUnconsumed = false)
+                    var g: FpGrab? = null; var moved = false; var transform = false; var undone = false
+                    if (bitmap != null) {
+                        g = grabAt(first.position)
+                        // a new rectangle or line already saved an undo step when it was created
+                        undone = (g is GLEnd && g.fresh) || (g is GRect && g.fresh)
+                    }
+                    do {
+                        val ev = awaitPointerEvent()
+                        val down = ev.changes.filter { it.pressed }
+                        if (down.size >= 2) {
+                            transform = true
+                            val z = ev.calculateZoom(); val pan = ev.calculatePan()
+                            if (z != 1f) { val c = ev.calculateCentroid(useCurrent = true); val ns = (scale * z).coerceIn(1f, 10f); val k = ns / scale
+                                off = Offset(c.x - (c.x - off.x) * k, c.y - (c.y - off.y) * k); scale = ns }
+                            off += pan; ev.changes.forEach { it.consume() }
+                        } else if (down.size == 1 && !transform) {
+                            val ch = down[0]
+                            // a finger wobbles: up to 18 px still counts as a tap (which divides a line), not a drag
+                            if (!moved && d(ch.position, first.position) > 18f) moved = true
+                            if (moved) {
+                                val gg = g
+                                if (gg != null) { if (!undone) { pushUndo(); undone = true }; dragTo(gg, ch.position) }
+                                else off += (ch.position - ch.previousPosition)
+                                ch.consume()
                             }
-                            do {
-                                val ev = awaitPointerEvent()
-                                val down = ev.changes.filter { it.pressed }
-                                if (down.size >= 2) {
-                                    transform = true
-                                    val z = ev.calculateZoom(); val pan = ev.calculatePan()
-                                    if (z != 1f) { val c = ev.calculateCentroid(useCurrent = true); val ns = (scale * z).coerceIn(1f, 10f); val k = ns / scale
-                                        off = Offset(c.x - (c.x - off.x) * k, c.y - (c.y - off.y) * k); scale = ns }
-                                    off += pan; ev.changes.forEach { it.consume() }
-                                } else if (down.size == 1 && !transform) {
-                                    val ch = down[0]
-                                    // a finger wobbles: up to 18 px still counts as a tap (which divides a line), not a drag
-                                    if (!moved && d(ch.position, first.position) > 18f) moved = true
-                                    if (moved) {
-                                        val gg = g
-                                        if (gg != null) { if (!undone) { pushUndo(); undone = true }; dragTo(gg, ch.position) }
-                                        else off += (ch.position - ch.previousPosition)
-                                        ch.consume()
-                                    }
-                                }
-                            } while (ev.changes.any { it.pressed })
-                            if (bitmap != null && !transform) release(g, moved, first.position)
                         }
-                    }) {
-                    rev   // read so every model change redraws
-                    val b = bitmap ?: return@Canvas
-                    val k = fit(); val b0 = base()
-                    drawIntoCanvas { cv ->
-                        val nc = cv.nativeCanvas
-                        nc.save(); nc.translate(off.x, off.y); nc.scale(scale, scale)
-                        nc.drawBitmap(b.asAndroidBitmap(), null,
-                            android.graphics.RectF(b0.x, b0.y, b0.x + b.width * k, b0.y + b.height * k), Paint(Paint.FILTER_BITMAP_FLAG))
-                        nc.restore()
-                        FacePrepDraw.draw(nc, room, face, boxNow(), side,
-                            { x, y -> val q = imgToScreen(x, y); floatArrayOf(q.x, q.y) }, 1.2f,
-                            FacePrepDraw.Opts(handles = when (mode) { "box" -> "box"; "steps" -> "steps"; "dets" -> "dets"; "lines" -> "lines"; else -> null },
-                                sel = sel, grid = grid.takeIf { it.on }, guide = guide?.first, guideAt = guide?.second, boxGuide = boxGuide))
+                    } while (ev.changes.any { it.pressed })
+                    if (bitmap != null && !transform) release(g, moved, first.position)
+                }
+            }) {
+            rev   // read so every model change redraws
+            val b = bitmap ?: return@Canvas
+            val k = fit(); val b0 = base()
+            drawIntoCanvas { cv ->
+                val nc = cv.nativeCanvas
+                nc.save(); nc.translate(off.x, off.y); nc.scale(scale, scale)
+                nc.drawBitmap(b.asAndroidBitmap(), null,
+                    android.graphics.RectF(b0.x, b0.y, b0.x + b.width * k, b0.y + b.height * k), Paint(Paint.FILTER_BITMAP_FLAG))
+                nc.restore()
+                drawn.clear()
+                FacePrepDraw.draw(nc, room, face, boxNow(), side,
+                    { x, y -> val q = imgToScreen(x, y); floatArrayOf(q.x, q.y) }, 1.2f,
+                    FacePrepDraw.Opts(handles = when (mode) { "box" -> "box"; "steps" -> "steps"; "dets" -> "dets"; "lines" -> "lines"; else -> null },
+                        sel = if (mode == "measure") pick?.let { FacePrepDraw.Sel("dim", key = it) } else sel,
+                        grid = grid.takeIf { it.on }, guide = guide?.first, guideAt = guide?.second, boxGuide = boxGuide, dims = drawn))
+            }
+        }
+        if (bitmap == null) Text(if (uri == null) "No ${FacePrep.LABEL[face]} photo for this capture on this phone" else "Loading…",
+            Modifier.align(Alignment.Center).padding(24.dp), color = onC)
+
+        // ---- top: a thin translucent app bar, then the face tabs with a status dot each
+        Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().background(chrome).statusBarsPadding()) {
+            Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                FpIconButton("←", "Back", onC) { onBack() }
+                Box(Modifier.weight(1f)) {
+                    Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable { showFaces = true }.padding(horizontal = 4.dp, vertical = 2.dp)) {
+                        Text("${FacePrep.LABEL[face]} ▾", color = onC, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text("$roomName · $deviceId", color = onC2, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    DropdownMenu(expanded = showFaces, onDismissRequest = { showFaces = false }) {
+                        for (fName in FacePrep.FACE_ORDER) DropdownMenuItem(text = { Text(FacePrep.LABEL.getValue(fName)) },
+                            onClick = { showFaces = false; switchFace(fName) })
                     }
                 }
-                if (bitmap == null) Text(if (uri == null) "No ${FacePrep.LABEL[face]} photo for this capture on this phone" else "Loading…",
-                    Modifier.align(Alignment.Center).padding(24.dp))
+                FpIconButton("↶", "Undo", if (undo.isNotEmpty()) onC else Color(0xFF6D685D)) {
+                    undo.removeLastOrNull()?.let { redo.add(room.copy()); restore(it); sel = null; save() } }
+                FpIconButton("↷", "Redo", if (redo.isNotEmpty()) onC else Color(0xFF6D685D)) {
+                    redo.removeLastOrNull()?.let { undo.add(room.copy()); restore(it); sel = null; save() } }
+                Box {
+                    FpIconButton("⋮", "More", onC) { showMenu = true }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Snap") }, onClick = { snapOn = !snapOn; prefs.edit().putBoolean("snap", snapOn).apply() },
+                            trailingIcon = { Switch(checked = snapOn, onCheckedChange = { snapOn = it; prefs.edit().putBoolean("snap", it).apply() }) })
+                        DropdownMenuItem(text = { Text("Reference grid") }, onClick = { grid = grid.copy(on = !grid.on); saveGrid(prefs, grid) },
+                            trailingIcon = { Switch(checked = grid.on, onCheckedChange = { grid = grid.copy(on = it); saveGrid(prefs, grid) }) })
+                        DropdownMenuItem(text = { Text("Grid settings…") }, onClick = { showMenu = false; showGrid = true })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Save photos for ImageMeter") }, enabled = busy == null, onClick = {
+                            showMenu = false; busy = "Saving photos…"
+                            scope.launch {
+                                val n = withContext(Dispatchers.IO) { exportAll(context, deviceId, roomName, room, fovDeg) }
+                                busy = null
+                                note = if (n > 0) "Saved $n ImageMeter photos next to the faces (…-faceprep.jpg)" else "No face photos found to save"
+                            }
+                        })
+                        DropdownMenuItem(text = { Text("Share measures (CSV)") }, onClick = { showMenu = false; shareCsv(context, roomName, deviceId, room) })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Laser · " + when (distoState) { DistoClient.State.OFF -> "connect"; DistoClient.State.SCANNING -> "finding…"
+                                DistoClient.State.CONNECTING -> "linking…"; DistoClient.State.READY -> "connected (tap to disconnect)" }) },
+                            onClick = { showMenu = false; if (distoState == DistoClient.State.OFF) askBle.launch(blePerms) else { disto.stop(); distoState = DistoClient.State.OFF } })
+                        DropdownMenuItem(text = { Text("Room size…") }, onClick = { showMenu = false; showRoom = true })
+                        DropdownMenuItem(text = { Text("Reset box to the corners") }, onClick = { showMenu = false; pushUndo(); room.face(face).box = null; save() })
+                        DropdownMenuItem(text = { Text("Fit photo") }, onClick = { showMenu = false; scale = 1f; off = Offset.Zero })
+                        DropdownMenuItem(text = { Text("Help") }, onClick = { showMenu = false; showHelp = true })
+                    }
+                }
             }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp)) {
+                rev
+                for (fName in FacePrep.FACE_ORDER) {
+                    val on = face == fName
+                    val dot = when (FacePrep.faceStatus(room, fName)) { 2 -> siteC; 1 -> Color(0xFFF2A33A); else -> Color(0xFF5C584E) }
+                    Column(Modifier.clickable { switchFace(fName) }.padding(horizontal = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(Modifier.height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
+                            Spacer(Modifier.width(6.dp))
+                            Text(FacePrep.LABEL.getValue(fName).removeSuffix(" wall"), color = if (on) onC else onC2, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                        }
+                        Box(Modifier.width(36.dp).height(3.dp).background(if (on) pri else Color.Transparent))
+                    }
+                }
+            }
+            (busy ?: note)?.let { t ->
+                Text(t, Modifier.fillMaxWidth().background(Color(0xFF2A2823)).padding(horizontal = 12.dp, vertical = 6.dp), color = onC, fontSize = 13.sp)
+            }
+        }
 
-            // toolbar
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp),
+        // ---- select, then act: a small bar beside the selected thing
+        val selNow = sel
+        if (mode != "measure" && selNow != null && selNow.kind in listOf("steps", "dets", "line", "lsplit", "split", "dsplit")) {
+            rev
+            val f = room.face(face)
+            val anchor: Offset? = when (selNow.kind) {
+                "steps" -> f.steps.getOrNull(selNow.i)?.norm()?.let { uvToScreen(it.u1, it.v0) }
+                "dets" -> f.dets.getOrNull(selNow.i)?.let { uvToScreen(max(it.u0, it.u1), min(it.v0, it.v1)) }
+                "line", "lsplit" -> f.lines.getOrNull(selNow.i)?.let { l -> val q = l.at(0.5); uvToScreen(q[0], q[1]) }
+                else -> null
+            }
+            val whole = selNow.kind == "steps" || selNow.kind == "dets" || selNow.kind == "line"
+            val barW = with(density) { (if (whole) 172.dp else 92.dp).toPx() }; val barH = with(density) { 48.dp.toPx() }
+            val ax = ((anchor?.x ?: (canvas.width / 2f)) - barW).coerceIn(8f, max(8f, canvas.width - barW - 8f))
+            val ay = ((anchor?.y ?: (canvas.height - padBottom)) - barH - 14f).coerceIn(padTop, max(padTop, canvas.height - padBottom - barH))
+            Row(Modifier.offset { IntOffset(ax.roundToInt(), ay.roundToInt()) }.clip(RoundedCornerShape(24.dp)).background(chrome2).padding(2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(enabled = undo.isNotEmpty(), onClick = { undo.removeLastOrNull()?.let { restore(it) }; sel = null; save() }) { Text("Undo") }
-                OutlinedButton(enabled = sel != null && sel?.kind != "corner" && sel?.kind != "bline", onClick = { deleteSel() }) { Text("Remove") }
-                if (mode == "lines") OutlinedButton(enabled = sel?.kind == "line" || sel?.kind == "lsplit", onClick = {
-                    val l = room.face(face).lines.getOrNull(sel?.i ?: -1) ?: return@OutlinedButton
-                    val ts = listOf(0.0) + l.ts.sorted() + listOf(1.0); var kk = 0
-                    for (j in 1 until ts.size - 1) if (ts[j + 1] - ts[j] > ts[kk + 1] - ts[kk]) kk = j
-                    pushUndo(); l.ts.add((ts[kk] + ts[kk + 1]) / 2); save()
-                }) { Text("Divide line") }
-                if (mode == "box") OutlinedButton(onClick = { pushUndo(); room.face(face).box = null; save() }) { Text("Reset box") }
-                FilterChip(selected = snapOn, onClick = { snapOn = !snapOn; prefs.edit().putBoolean("snap", snapOn).apply() }, label = { Text(if (snapOn) "Snap on" else "Snap off") })
-                FilterChip(selected = grid.on, onClick = { grid = grid.copy(on = !grid.on); saveGrid(prefs, grid) }, label = { Text(if (grid.on) "Grid ${grid.x}×${grid.y}" else "Grid off") })
-                TextButton(onClick = { showGrid = true }) { Text("Grid…") }
-                TextButton(onClick = { scale = 1f; off = Offset.Zero }) { Text("Fit") }
-            }
-            // the laser
-            val ts = targets()
-            if (pick == null || ts.none { it.key == pick }) pick = (ts.firstOrNull { it.got == null } ?: ts.firstOrNull())?.key
-            val cur = ts.firstOrNull { it.key == pick }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = { val i = ts.indexOfFirst { it.key == pick }; if (ts.isNotEmpty()) pick = ts[(i - 1 + ts.size) % ts.size].key }) { Text("‹") }
-                Column(Modifier.weight(1f)) {
-                    Text(cur?.label ?: "—", style = MaterialTheme.typography.bodyMedium)
-                    Text(cur?.let { (if (it.got == null) "photo ${it.now} mm" else if (it.agrees) "✓ laser ${it.got} mm" else "laser ${it.got} ≠ now ${it.now}") +
-                        " · ${ts.count { t -> t.got != null }}/${ts.size} measured" } ?: "", style = MaterialTheme.typography.bodySmall)
+                FpIconButton("🗑", "Delete", onC) { deleteSel() }
+                if (whole) {
+                    FpIconButton("⧉", "Duplicate", onC) {
+                        pushUndo(); FacePrep.duplicate(f, selNow.kind, selNow.i)?.let { sel = FacePrepDraw.Sel(selNow.kind, it) }; save() }
+                    FpIconButton("⚙", "Details", onC) { showTune = true }
                 }
-                OutlinedButton(onClick = { val i = ts.indexOfFirst { it.key == pick }; if (ts.isNotEmpty()) pick = ts[(i + 1) % ts.size].key }) { Text("›") }
-                Button(onClick = { if (distoState == DistoClient.State.OFF) askBle.launch(blePerms) else if (distoState == DistoClient.State.READY) disto.measure() }) {
-                    Text(when (distoState) { DistoClient.State.OFF -> "Laser"; DistoClient.State.SCANNING -> "Finding…"; DistoClient.State.CONNECTING -> "Linking…"; DistoClient.State.READY -> "Fire" })
+                FpIconButton("✕", "Done", onC) { sel = null }
+            }
+        }
+
+        // ---- bottom: sub-option chips (only when the tool has them), then the ONE tool strip
+        if (sheetCur == null) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(bottom = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            val chips = when (mode) { "steps" -> FacePrep.STEP_KINDS; "dets" -> FacePrep.DETAIL_TYPES; else -> null }
+            if (chips != null) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((k, lab) in chips) {
+                    val on = if (mode == "steps") stepKind == k else detType == k
+                    Box(Modifier.height(32.dp).clip(RoundedCornerShape(8.dp)).background(if (on) Color(0xFF4A3F12) else chrome)
+                        .border(1.dp, if (on) pri else Color(0xFF5D584C), RoundedCornerShape(8.dp))
+                        .clickable { if (mode == "steps") stepKind = k else detType = k }.padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(lab, color = if (on) Color(0xFFFFE89A) else onC, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedTextField(value = typed, onValueChange = { typed = it.filter { c -> c.isDigit() }.take(6) }, singleLine = true,
-                    label = { Text("Reading mm") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-                Button(enabled = typed.isNotEmpty(), onClick = { typed.toIntOrNull()?.takeIf { it > 0 }?.let { take(it) }; typed = "" }) { Text("Set") }
-                TextButton(enabled = cur?.got != null, onClick = { cur?.let { pushUndo(); it.forget(); save() } }) { Text("Forget") }
+            Row(Modifier.clip(RoundedCornerShape(30.dp)).background(if (mode == "measure") Color(0xFF3D3412) else chrome2)
+                .height(60.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                for ((m, glyph, lab) in FP_TOOLS) {
+                    val on = mode == m
+                    Row(Modifier.height(48.dp).widthIn(min = 44.dp).clip(RoundedCornerShape(24.dp)).background(if (on) pri else Color.Transparent)
+                        .clickable { chooseTool(m) }.padding(horizontal = if (on) 12.dp else 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Text(glyph, color = if (on) onPri else onC, fontSize = 20.sp)
+                        if (on) { Spacer(Modifier.width(6.dp)); Text(lab, color = onPri, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                    }
+                }
+            }
+        }
+
+        // ---- Measure: the big laser button, above the strip
+        if (mode == "measure" && sheetCur == null) Column(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 14.dp, bottom = 92.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFFFCF2E)).clickable { fire() },
+                contentAlignment = Alignment.Center) { Text("◉", color = onPri, fontSize = 30.sp) }
+            Text(when (distoState) { DistoClient.State.READY -> "DISTO ready"; DistoClient.State.OFF -> "Connect laser"
+                DistoClient.State.SCANNING -> "Finding…"; DistoClient.State.CONNECTING -> "Linking…" },
+                color = onC, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+        }
+
+        // ---- Measure: the keypad sheet, leaving the highlighted arrow visible above it
+        if (sheetCur != null) {
+            val ds = dsNow; val cur = sheetCur
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)).background(Color(0xFF22201B))
+                .navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(cur.label, color = onC, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("calculated ${cur.calc} · ${ds.count { it.site != null }}/${ds.size} measured", color = onC2, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    FpIconButton("✕", "Close", onC) { sheetOpen = false }
+                }
+                Row(Modifier.padding(top = 6.dp).fillMaxWidth().height(54.dp).border(2.dp, siteC, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(typed.ifEmpty { cur.site?.toString() ?: "—" }, Modifier.weight(1f), color = siteC, fontSize = 26.sp,
+                        fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
+                    Text("mm · site", color = onC2, fontSize = 14.sp)
+                }
+                for (row in listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(".", "0", "⌫")))
+                    Row(Modifier.padding(top = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (k in row) Box(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF3A372F))
+                            .clickable { typed = if (k == "⌫") typed.dropLast(1) else (typed + k).take(7) }, contentAlignment = Alignment.Center) {
+                            Text(k, color = onC, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.weight(1.2f).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFFFCF2E)).clickable { fire() },
+                        contentAlignment = Alignment.Center) { Text("◉ Fire", color = onPri, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                    Box(Modifier.weight(0.8f).height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, Color(0xFF6A655A), RoundedCornerShape(23.dp))
+                        .clickable { if (cur.site != null) { pushUndo(); FacePrep.clearSite(room.face(face), cur.key); save() }; typed = "" },
+                        contentAlignment = Alignment.Center) { Text("Clear", color = onC, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                    Box(Modifier.weight(1.3f).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFF2E5C35)).clickable {
+                        val mm = typed.toDoubleOrNull()?.roundToInt()
+                        if (mm != null && mm > 0) take(mm) else nextDim()
+                    }, contentAlignment = Alignment.Center) { Text("✓ Save & next", color = Color(0xFFD9FFDE), fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                }
             }
         }
     }
@@ -514,12 +681,14 @@ fun FacePrepScreen(
                     Triple("Camera left ↔ right of centre", cxS) { s: String -> cxS = s }, Triple("Camera back ↕ front of centre", czS) { s: String -> czS = s }))
                     OutlinedTextField(v, { set(it.filter { c -> c.isDigit() || c == '-' }.take(6)) }, label = { Text(lab) }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                Text("Or measure them with the laser: Room height / width / length are the first three in the laser list.", style = MaterialTheme.typography.bodySmall)
+                Text("Room sizes reshape every face. A wall's own figures (Measure) never move anything — they are kept beside the calculated ones.", style = MaterialTheme.typography.bodySmall)
             } },
             confirmButton = { TextButton(onClick = {
                 pushUndo()
-                hS.toIntOrNull()?.takeIf { it > 1000 }?.let { room.H = it }; xS.toIntOrNull()?.takeIf { it > 300 }?.let { room.X = it }
-                zS.toIntOrNull()?.takeIf { it > 300 }?.let { room.Z = it }; chS.toIntOrNull()?.takeIf { it in 300 until room.H }?.let { room.ch = it }
+                // room sizes are the one figure that still moves the geometry: every face is drawn from them
+                hS.toIntOrNull()?.takeIf { it > 1000 && it != room.H }?.let { FacePrep.roomReading(room, "H", it) }
+                xS.toIntOrNull()?.takeIf { it > 300 && it != room.X }?.let { FacePrep.roomReading(room, "X", it) }
+                zS.toIntOrNull()?.takeIf { it > 300 && it != room.Z }?.let { FacePrep.roomReading(room, "Z", it) }; chS.toIntOrNull()?.takeIf { it in 300 until room.H }?.let { room.ch = it }
                 cxS.toIntOrNull()?.let { room.cx = it }; czS.toIntOrNull()?.let { room.cz = it }
                 showRoom = false; save()
             }) { Text("OK") } },
@@ -567,6 +736,38 @@ fun FacePrepScreen(
                 TextButton(onClick = { grid = FacePrep.Grid(on = true); saveGrid(prefs, grid); showGrid = false }) { Text("Reset") }
                 TextButton(onClick = { showGrid = false }) { Text("Cancel") } } })
     }
+    if (showTune) {
+        val f = room.face(face); val sNow = sel; val si = sNow?.i ?: -1
+        AlertDialog(onDismissRequest = { showTune = false },
+            title = { Text(when (sNow?.kind) { "steps" -> "What it is"; "dets" -> "What it is"; else -> "Line" }) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                when (sNow?.kind) {
+                    "steps" -> f.steps.getOrNull(si)?.let { st -> for ((k, lab) in FacePrep.STEP_KINDS)
+                        FilterChip(selected = st.kind == k, onClick = { pushUndo(); st.kind = k; save(); showTune = false }, label = { Text(lab) }) }
+                    "dets" -> f.dets.getOrNull(si)?.let { dd -> for ((k, lab) in FacePrep.DETAIL_TYPES)
+                        FilterChip(selected = dd.type == k, onClick = { pushUndo(); dd.type = k; save(); showTune = false }, label = { Text(lab) }) }
+                    "line" -> f.lines.getOrNull(si)?.let { l ->
+                        TextButton(onClick = {
+                            val ts = listOf(0.0) + l.ts.sorted() + listOf(1.0); var kk = 0
+                            for (j in 1 until ts.size - 1) if (ts[j + 1] - ts[j] > ts[kk + 1] - ts[kk]) kk = j
+                            pushUndo(); l.ts.add((ts[kk] + ts[kk + 1]) / 2); save(); showTune = false
+                        }) { Text("Divide the longest piece in half") }
+                        Text("Or use Dividers and tap the line where it should be divided.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    else -> Text("Nothing selected.")
+                }
+            } },
+            confirmButton = { TextButton(onClick = { showTune = false }) { Text("Done") } })
+    }
+    if (showHelp) {
+        AlertDialog(onDismissRequest = { showHelp = false }, title = { Text("Face Prep") },
+            text = { Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((m, _, lab) in FP_TOOLS) Text("$lab — ${HINT.getValue(m)}", style = MaterialTheme.typography.bodySmall)
+                Text("Two fingers zoom and move the photo. Undo and redo are in the top bar; snap, grid, saving and the laser are in ⋮.",
+                    style = MaterialTheme.typography.bodySmall)
+            } },
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("OK") } })
+    }
 }
 
 // What a finger can hold on the photo
@@ -582,12 +783,25 @@ private class GLSplit(val i: Int, val j: Int) : FpGrab()
 private class GLBody(val i: Int, val t: Double, val start: DoubleArray, val a: DoubleArray, val b: DoubleArray) : FpGrab()
 
 private val HINT = mapOf(
-    "box" to "Align box: drag a corner grip or a box line onto the room's corner lines. Two fingers zoom and move the photo.",
-    "steps" to "Columns & beams: pick what sticks out, then drag a rectangle over the part of the face it takes away. Drag a side, a corner or the middle to adjust.",
-    "edges" to "Dividers: tap a line, a door/window arrow or a box edge to divide it; drag a divider to slide it — the guide shows the mm either side.",
-    "dets" to "Details: pick a type and drag a rectangle over it, starting at the corner its sizes are measured from. Tap one to point the laser at it.",
-    "lines" to "Line: drag a straight line in any direction (snaps level or upright within 3°). Tap it to divide, drag an end to stretch, drag it to move.",
+    "box" to "drag a corner grip or a box line onto the room's corner lines. On an elevation from the split the box is already on the corners.",
+    "steps" to "pick column, beam or other step, then drag a rectangle over the part of the face it takes away. Drag a side, a corner or the middle to adjust.",
+    "edges" to "tap a line, a door/window arrow or a box edge to divide it; drag a divider to slide it — the guide shows the mm either side.",
+    "dets" to "pick a type and drag a rectangle over it, starting at the corner its sizes are measured from. Tap one to select it: delete, duplicate, change its type.",
+    "lines" to "drag a straight line in any direction (snaps level or upright within 3°). Drag an end to stretch, drag it to move.",
+    "measure" to "tap any figure: its arrow lights up white and the keypad opens. Fire the D2 (the yellow button, or the D2's own) or type the site figure, then Save & next. The calculated figure stays; the site figure shows beside it in green and goes into the ImageMeter photo and the CSV.",
 )
+
+/** The one tool strip: mode, glyph, label (the approved mock-up's six tools). */
+private val FP_TOOLS = listOf(Triple("box", "▢", "Box"), Triple("steps", "▥", "Columns"), Triple("edges", "┆", "Dividers"),
+    Triple("dets", "⊡", "Details"), Triple("lines", "╱", "Line"), Triple("measure", "↔", "Measure"))
+
+/** A round 44 dp tap target holding a glyph — the app carries no icon font, so the mock-up's icons are characters. */
+@Composable
+private fun FpIconButton(glyph: String, desc: String, color: Color, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClickLabel = desc, onClick = onClick), contentAlignment = Alignment.Center) {
+        Text(glyph, color = color, fontSize = 20.sp)
+    }
+}
 
 private fun loadGrid(p: android.content.SharedPreferences) = FacePrep.Grid(
     on = p.getBoolean("g_on", false), x = p.getInt("g_x", 500), y = p.getInt("g_y", 500), major = p.getInt("g_major", 1000),
@@ -688,9 +902,9 @@ private fun saveNextTo(context: Context, faceUri: Uri, name: String, bmp: Bitmap
 /** The measures, every face, as CSV text handed to the share sheet (Drive, WhatsApp, mail). */
 private fun shareCsv(context: Context, roomName: String, deviceId: String, room: FacePrep.Room) {
     fun cell(s: String) = if (s.any { it == ',' || it == '"' || it == '\n' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
-    val rows = mutableListOf("Room,Face,Measure,mm")
-    for (face in FacePrep.FACE_ORDER) for ((m, mm) in FacePrep.measures(room, face))
-        rows.add(listOf(roomName, FacePrep.LABEL.getValue(face), m, mm.toString()).joinToString(",") { cell(it) })
+    val rows = mutableListOf("Room,Face,Measure,Calculated mm,Site mm")
+    for (face in FacePrep.FACE_ORDER) for ((m, calc, site) in FacePrep.csvRows(room, face))
+        rows.add(listOf(roomName, FacePrep.LABEL.getValue(face), m, calc.toString(), site).joinToString(",") { cell(it) })
     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
         .putExtra(Intent.EXTRA_SUBJECT, "$roomName measures ($deviceId)").putExtra(Intent.EXTRA_TEXT, rows.joinToString("\n")), "Share measures"))
 }
