@@ -20,6 +20,16 @@ package com.malletcrafts.sitephotos.pano
  * else is refused with a reason, never converted on a guess. The Laser test
  * screen shows the raw code so the D2's real table can be written down from
  * the meter itself rather than from somebody's notes.
+ *
+ * WRITTEN DOWN FROM AMIT'S D2 (v4.0, "DISTO 44517824"), 2026-10-09, Laser
+ * test on 0.3.178 and 0.3.180: it advertises the DISTO service and is found
+ * in ~3 s; the unit characteristic is 2 bytes and read [00 00] = code 0 on
+ * every reading, INCLUDING two taken while the D2's screen showed ft (1997
+ * and 2037 mm) -- so this meter sends metres whatever it displays, and the
+ * unit arrives again just after each distance. 'g' fired it 10 of 10 times,
+ * and its own button sends a distance with no 'g' before it. It dropped the
+ * link once after ~64 s idle and the client reconnected in 9 s. The refusal
+ * of other codes stays as the guard for any OTHER model that does convert.
  */
 object Disto {
 
