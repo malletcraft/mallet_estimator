@@ -205,12 +205,20 @@ private fun AppScreen() {
     // through. Kept deliberately rather than deleted and rewritten later.
     val annStore = remember { AnnotationStore(context) }
     var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
+    var laserTest by remember { mutableStateOf(false) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // EVERY branch below returns early, so each one needs its own
     // BackHandler — a branch without one falls through to Android's default,
     // which is "leave the app". That is how back came to close Site Photos
     // from a photograph instead of going up one level.
+    // The laser test is app-level, not part of the folder tree: it proves the
+    // DISTO link on the real meter before any measuring screen relies on it.
+    if (laserTest) {
+        BackHandler { laserTest = false }
+        LaserTestScreen(onBack = { laserTest = false })
+        return
+    }
     annotating?.let { (devId, face) ->
         BackHandler { annotating = null }
         AnnotateScreen(deviceId = devId, face = face, store = annStore,
@@ -814,6 +822,7 @@ private fun AppScreen() {
                 onImageMeterSync = { importFromImageMeter() },
                 onSyncNow = { SyncWorker.syncNow(context) },
                 onServer = { showSettings = true },
+                onLaserTest = { laserTest = true },
             ))
     }
 
@@ -2092,7 +2101,7 @@ private fun openSiteInto(
  *  BuildConfig — the app does not generate BuildConfig (only the compose
  *  build feature is on), and this is the same call SyncWorker already makes
  *  to stamp a capture with the build that took it. */
-private fun appVersion(context: android.content.Context): String =
+internal fun appVersion(context: android.content.Context): String =
     runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
     }.getOrDefault("?")
@@ -2149,6 +2158,7 @@ private fun drawerGroups(
     onToggle: (String) -> Unit,
     onServer: () -> Unit,
     onSignOut: () -> Unit,
+    onLaserTest: () -> Unit,
 ): List<DrawerGroup> = listOf(
     DrawerGroup("Sync", listOf(
         DrawerLine("Sync now",
@@ -2202,6 +2212,12 @@ private fun drawerGroups(
             icon = R.drawable.ic_mcft_folder, onClick = { onToggle("split_on_device") }),
         DrawerLine("Keep the original 360", toggled = prefs.keepOriginal,
             icon = R.drawable.ic_mcft_cube, onClick = { onToggle("keep_original") }),
+    )),
+    // Proving ground for the Leica DISTO D2 link (Amit, 2026-10-09: "Laser test
+    // screen in APK"), until readings land on the Face Prep photo itself.
+    DrawerGroup("Laser", listOf(
+        DrawerLine("Laser test", value = "DISTO D2",
+            icon = R.drawable.ic_mcft_ruler, onClick = onLaserTest),
     )),
     DrawerGroup("Display", listOf(
         DrawerLine("Units", value = if (prefs.imperial) "mm · ft-in" else "mm",

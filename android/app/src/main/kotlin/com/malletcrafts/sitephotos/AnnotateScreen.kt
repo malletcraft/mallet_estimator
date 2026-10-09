@@ -251,19 +251,13 @@ fun AnnotateScreen(
     // With nothing selected it is deliberately ignored rather than guessed
     // at: a number on the wrong wall is worse than no number.
     disto.onState = { s, note -> distoState = s; distoNote = note }
+    disto.onRefused = { why -> distoNote = why }
     disto.onReading = { r ->
         val s = selected
         if (s is Sel.L) {
             persist(ann.copy(lines = ann.lines.toMutableList().also {
                 if (s.i in it.indices) it[s.i] = it[s.i].copy(mm = r.mm)
             }))
-            // Honour the meter's own display when it is imperial: Amit's
-            // "using the laser meter unit while keying in measurements".
-            if (r.deviceImperial && !showImperial) {
-                showImperial = true
-                context.getSharedPreferences("capture", Context.MODE_PRIVATE)
-                    .edit().putBoolean("imperial", true).apply()
-            }
             distoNote = "Measured ${Annotation.label(r.mm, showImperial)}"
         } else {
             distoNote = "Select a measure first"

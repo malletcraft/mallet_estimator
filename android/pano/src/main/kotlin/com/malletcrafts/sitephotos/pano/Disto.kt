@@ -3,79 +3,64 @@ package com.malletcrafts.sitephotos.pano
 /**
  * The Leica DISTO BLE protocol — the pure, testable half.
  *
- * Everything here comes from Leica's own SDK (the decompiled
- * `ch.leica.sdk` `MeasurementConverter` / `ReceivedBleDataPacket` /
- * `commands.json`) cross-checked against two shipping implementations,
- * rather than from the community write-ups: the most-copied of those has
- * the unit table wrong (it claims 0=m, 1=ft, 2=in), which would silently
- * turn a 2.5 m wall into 2.5 ft.
+ * Built ONLY from published sources (checked 2026-10-09), never from Leica's
+ * own SDK, whose developer agreement we have not signed:
+ *  - lz1asl/CaveSurvey `LeicaDistoBluetoothLEDevice.java` (MIT), an Android
+ *    app tested on the D110 and D810: the UUIDs, the float32 little-endian
+ *    METRES on the distance characteristic, indication rather than
+ *    notification, and its rule of trusting only the metric display codes;
+ *  - seichter/d2relay `doc/notes.md`: a GATT dump of a D2 with properties
+ *    (distance and unit both `read, indicate`, command write-without-response);
+ *  - FablabPPR/leica-disto-transfer: the ASCII trigger commands.
+ * Eight or more independent clients agree on the service and distance UUIDs.
  *
- * Two facts shape everything below:
- *  - the wire value is ALWAYS metres, whatever the meter's display says.
- *    So we never parse the device's formatting; we take the float and do
- *    our own. That also sidesteps a real rounding bug in Leica's own
- *    fraction reducer.
- *  - readings arrive as a PAIR — the distance on one characteristic, the
- *    display unit on another. Leica's own guidance is to wait for both.
+ * What the sources do NOT agree on is the unit code table, so this file
+ * does not pretend to know it. A reading is accepted only while the meter
+ * shows one of the codes every source agrees are metric (0..3); anything
+ * else is refused with a reason, never converted on a guess. The Laser test
+ * screen shows the raw code so the D2's real table can be written down from
+ * the meter itself rather than from somebody's notes.
  */
 object Disto {
 
     private const val SUFFIX = "-f831-4395-b29d-570977d5bf94"
 
-    /** Advertised by the meter, so a scan can filter on it directly. */
+    /** The DISTO service. Not every model is known to advertise it, so a
+     *  scan also accepts the name prefix below. */
     const val SERVICE = "3ab10100$SUFFIX"
 
-    /** float32 little-endian, metres. Indicate (NOT notify). */
+    /** float32 little-endian, metres. read + indicate. */
     const val CH_DISTANCE = "3ab10101$SUFFIX"
 
-    /** uint16 little-endian: which unit the meter is DISPLAYING. */
+    /** The meter's display unit, 2 bytes. read + indicate. */
     const val CH_DISTANCE_UNIT = "3ab10102$SUFFIX"
 
-    /** Bare ASCII, no terminator, write-without-response. */
+    /** Bare ASCII, write-without-response. */
     const val CH_COMMAND = "3ab10109$SUFFIX"
 
-    /** Client Characteristic Configuration — the standard descriptor. */
+    /** Client Characteristic Configuration — the standard BLE descriptor. */
     const val CCCD = "00002902-0000-1000-8000-00805f9b34fb"
 
-    /** The D2 advertises a SHORT name; the long "DISTO D2 123456789" seen
-     *  in other apps is assembled client-side from BLE service data, so a
-     *  scan filter must match the prefix, never the full string. */
-    const val NAME_PREFIX = "DISTO "
+    /** Every published client matches on this prefix rather than a full name. */
+    const val NAME_PREFIX = "DISTO"
 
-    /** Trigger a measurement from the app. 'o'/'p' turn the laser on/off. */
+    /** Remote trigger and laser on/off. Single public source — the Laser test
+     *  screen is where they are proved on the D2 before anything relies on them. */
     const val CMD_MEASURE = "g"
     const val CMD_LASER_ON = "o"
     const val CMD_LASER_OFF = "p"
 
-    /**
-     * How the meter is displaying the number. We only care enough to (a)
-     * refuse non-linear modes and (b) honour "use the device's unit".
-     *
-     * The modal offsets are the trap: the SAME characteristic carries an
-     * AREA when the meter is in area mode (unit code + 100) and a VOLUME in
-     * volume mode (+ 1000). A reading in either mode is not a length and
-     * must never land on a measurement line.
-     */
-    fun isLinear(unitCode: Int): Boolean = unitCode in 0..14
+    /** The display codes every source agrees are metric (CaveSurvey: "4
+     *  different decimal meter formats"). Not a full unit table on purpose. */
+    fun isMetric(unitCode: Int): Boolean = unitCode in 0..3
 
-    /** Whether the meter's own display is imperial — used when the app is
-     *  set to follow the device rather than its own preference. */
-    fun isImperial(unitCode: Int): Boolean = unitCode in 4..13
-
-    /**
-     * Metres on the wire → canonical millimetres. Rounded, because every
-     * length in this house is an integer millimetre.
-     */
+    /** Metres on the wire → millimetres, the only length unit this house uses. */
     fun toMm(metres: Float): Int = Math.round(metres * 1000.0).toInt()
 
-    /**
-     * Is this a reading we can put on a measurement line? Guards the two
-     * ways a DISTO hands over something that is not a wall length: a
-     * non-linear mode, and a nonsense/failed value.
-     */
-    fun usable(metres: Float, unitCode: Int): Boolean =
-        isLinear(unitCode) && metres.isFinite() &&
-            metres > 0.0f && metres < 500.0f
+    /** A value that can be a room length at all: finite, positive, and inside
+     *  what a hand-held meter reaches. */
+    fun plausible(metres: Float): Boolean =
+        metres.isFinite() && metres > 0.0f && metres < 500.0f
 
     /** float32 little-endian, as the characteristic delivers it. */
     fun readFloat32Le(bytes: ByteArray, offset: Int = 0): Float {
@@ -87,47 +72,51 @@ object Disto {
         return Float.fromBits(bits)
     }
 
-    /** uint16 little-endian. */
+    /** uint16 little-endian; a one-byte payload is read as that byte. */
     fun readUint16Le(bytes: ByteArray, offset: Int = 0): Int {
-        if (bytes.size < offset + 2) return -1
-        return (bytes[offset].toInt() and 0xFF) or
-            ((bytes[offset + 1].toInt() and 0xFF) shl 8)
+        if (bytes.size < offset + 1) return -1
+        val lo = bytes[offset].toInt() and 0xFF
+        if (bytes.size < offset + 2) return lo
+        return lo or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
     }
+
+    fun hex(bytes: ByteArray): String = bytes.joinToString(" ") { "%02X".format(it) }
+
+    /** What became of one distance indication. Exactly one of the two is set. */
+    data class Outcome(val reading: Reading?, val refused: String?)
+
+    data class Reading(val mm: Int, val unitCode: Int)
 
     /**
-     * Pairs the two indications into one reading.
+     * Joins the two characteristics into one reading.
      *
-     * Either characteristic may indicate first, and the unit only indicates
-     * when it CHANGES — so the unit is read once at subscribe time and then
-     * remembered. A distance with no unit yet is held, not dropped.
+     * The unit is read once when the app subscribes and then whenever it
+     * indicates a change, so a distance normally finds it already known. A
+     * distance that arrives before any unit is HELD, not given a unit we were
+     * never told, and is released by the unit when it comes.
      */
     class Pairing {
-        private var pendingMm: Int? = null
-        private var unit: Int = -1
+        private var pendingMetres: Float? = null
+        var unit: Int = -1
+            private set
 
-        /** The unit read at subscribe time, or a later change. */
-        fun onUnit(unitCode: Int): Reading? {
+        fun onUnit(unitCode: Int): Outcome? {
             unit = unitCode
-            val mm = pendingMm ?: return null
-            pendingMm = null
-            return emit(mm)
+            val m = pendingMetres ?: return null
+            pendingMetres = null
+            return judge(m)
         }
 
-        fun onDistance(metres: Float): Reading? {
-            val mm = toMm(metres)
-            if (unit < 0) {           // unit not known yet — hold, don't guess
-                pendingMm = mm
-                return null
-            }
-            if (!usable(metres, unit)) return null
-            return emit(mm)
+        fun onDistance(metres: Float): Outcome? {
+            if (unit < 0) { pendingMetres = metres; return null }
+            return judge(metres)
         }
 
-        private fun emit(mm: Int): Reading? {
-            if (!isLinear(unit) || mm <= 0) return null
-            return Reading(mm, unit, isImperial(unit))
+        private fun judge(metres: Float): Outcome = when {
+            !plausible(metres) -> Outcome(null, "Not a length (%.4f)".format(metres))
+            !isMetric(unit) -> Outcome(null,
+                "Meter is not showing metres/mm (unit code $unit) — set it to m or mm")
+            else -> Outcome(Reading(toMm(metres), unit), null)
         }
     }
-
-    data class Reading(val mm: Int, val unitCode: Int, val deviceImperial: Boolean)
 }
