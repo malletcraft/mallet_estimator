@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
@@ -1723,6 +1724,19 @@ private fun AppScreen() {
             })
     }
 
+    // A new site -- nothing chosen, nothing captured -- opens straight on the room
+    // chooser, once, so it never starts as the master's twenty-nine rooms.
+    LaunchedEffect(navProject?.title, navProject?.site, navProject?.client) {
+        val p = navProject ?: return@LaunchedEffect
+        val k = "scope_asked:${p.client}|${p.site}|${p.title}"
+        val empty = cat.roomScope(p.client, p.site, p.title).isEmpty() &&
+            queue.none { it.projectTitle.equals(p.title, true) }
+        if (empty && !capturePrefs.getBoolean(k, false)) {
+            capturePrefs.edit().putBoolean(k, true).apply()
+            chooseRooms = true
+        }
+    }
+
     if (chooseRooms) {
         val proj = navProject
         if (proj == null) { chooseRooms = false } else {
@@ -1731,23 +1745,48 @@ private fun AppScreen() {
             // this on a fresh site therefore starts EMPTY rather than with all
             // twenty-nine ticked -- ticking eight is less work than clearing
             // twenty-one, and it is the same eight either way.
+            // A fresh site starts from a 2 BHK flat rather than from nothing or from
+            // all twenty-nine (Amit, 2026-10-09: "flat type selection is not good in
+            // apk. it still shows old 30 + rooms even for new site"); the type and
+            // BHK chips re-tick the list in one tap. Rooms holding photos stay ticked.
             val already = cat.roomScope(proj.client, proj.site, proj.title)
-            val start = if (already.isNotEmpty()) already
-                        else rooms.filter { r ->
-                            queue.any { it.room == r &&
-                                it.projectTitle.equals(proj.title, true) } }.toSet()
+            val withPhotos = rooms.filter { r ->
+                queue.any { it.room == r && it.projectTitle.equals(proj.title, true) } }.toSet()
+            var pType by remember(proj.title) { mutableStateOf("Flat") }
+            var pBhk by remember(proj.title) { mutableStateOf(2) }
+            fun presetTicks() = com.malletcrafts.sitephotos.pano.FlatPresets.rooms(pType, pBhk).filter { it in rooms }.toSet() + withPhotos
+            val start = if (already.isNotEmpty()) already else presetTicks()
             var ticked by remember(proj.title) { mutableStateOf(start) }
             AlertDialog(
                 onDismissRequest = { chooseRooms = false },
                 title = { Text("Rooms at this site") },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text("Tick the rooms this site has. The rest stay out " +
-                             "of the way until you need them. A room holding " +
-                             "photos is always shown, ticked or not.",
+                        Text("Pick the type of site, then untick anything it doesn't have. " +
+                             "The rest stay out of the way until you need them. A room " +
+                             "holding photos is always shown, ticked or not.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            for (t in com.malletcrafts.sitephotos.pano.FlatPresets.TYPES)
+                                FilterChip(selected = pType == t,
+                                    onClick = { pType = t; ticked = presetTicks() },
+                                    label = { Text(t) })
+                        }
+                        if (com.malletcrafts.sitephotos.pano.FlatPresets.hasBedrooms(pType))
+                            Row(Modifier.horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                for (n in 1..5)
+                                    FilterChip(selected = pBhk == n,
+                                        onClick = { pBhk = n; ticked = presetTicks() },
+                                        label = { Text("$n BHK") })
+                            }
+                        Text("${(ticked + withPhotos).size} of ${rooms.size} rooms",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
                         for (r in rooms) {
                             val has = queue.any { it.room == r &&
                                 it.projectTitle.equals(proj.title, true) }
