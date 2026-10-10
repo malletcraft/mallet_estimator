@@ -343,9 +343,6 @@ fun CaptureScreen(
     /** ERP's name for this capture, blank while it is still only on the
      *  phone. The confirm dialog reads it out before destroying it. */
     serverId: String = "",
-    /** Face Prep for a 360 capture: room box, columns, details, laser — the
-     *  ImageMeter photos. Null hides the row (a flat photo has no faces). */
-    onFacePrep: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // The two rows that make a photo findable a month later, and the two
@@ -482,13 +479,6 @@ fun CaptureScreen(
             }
         }
 
-        onFacePrep?.let {
-            DetailRow(
-                lead = "FP",
-                title = "Face Prep",
-                subtitle = "room box, columns, doors, lines, laser · makes the ImageMeter photos",
-                onClick = it)
-        }
 
         Text("FILED AT", style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,

@@ -210,6 +210,7 @@ private fun AppScreen() {
     var laserTest by remember { mutableStateOf(false) }
     // Face Prep on one capture's six faces (Amit, 2026-10-09: "Build and ship apk").
     var facePrep by remember { mutableStateOf<CaptureStore.Capture?>(null) }
+    var facePrepStart by remember { mutableStateOf("floor") }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // EVERY branch below returns early, so each one needs its own
@@ -236,7 +237,8 @@ private fun AppScreen() {
             fovDeg = if (cap.fov > 0) cap.fov else com.malletcrafts.sitephotos.pano.Panorama.DEFAULT_FOV,
             startDims = Triple(mm(cap.roomHeightIn, "room_hgt_mm", 2700), mm(cap.roomWidthIn, "room_wid_mm", 3000),
                                mm(cap.roomLengthIn, "room_len_mm", 3000)),
-            onBack = { facePrep = null })
+            onBack = { facePrep = null },
+            startFace = facePrepStart)
         return
     }
     annotating?.let { (devId, face) ->
@@ -1360,7 +1362,17 @@ private fun AppScreen() {
                             ?.customerName ?: "",
                         navProject?.title ?: "",
                         navRoom ?: "") + Handover.filename(cap.deviceId, "front"),
-                    onOpenFace = { navFace = it; faceMode = true },
+                    // A 360's face opens straight in Face Prep on that face
+                    // (Amit, 2026-10-10: "clicking a foto should directly take
+                    // me to our new menus developed. why i see separate menu
+                    // for face prep?"). A plain photo still opens the viewer.
+                    onOpenFace = { i ->
+                        val row = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
+                        if (row != null && row.kind == "360" && i in faces.indices) {
+                            facePrepStart = com.malletcrafts.sitephotos.pano.FacePrep.prepFace(faces[i].name)
+                            facePrep = row
+                        } else { navFace = i; faceMode = true }
+                    },
                     // Allowed, and written down. A hard block produces the
                     // worse failure: a photo permanently mis-staged because
                     // the only person who noticed cannot fix it.
@@ -1368,8 +1380,6 @@ private fun AppScreen() {
                     onPickSku = { retagSku = true },
                     serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                         ?.serverName.orEmpty(),
-                    onFacePrep = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
-                        ?.takeIf { it.kind == "360" }?.let { row -> { facePrep = row } },
                     onDelete = {
                         // The row and the files, then back to the room. Files
                         // first would leave a queue row pointing at nothing if

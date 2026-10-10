@@ -221,4 +221,10 @@ class FacePrepTest {
         assertEquals("", rows.first { it.first == "Window 1 height" }.third)
         assertTrue(rows.any { it.first == "Top total" && it.second == 2678 })
     }
+
+    @Test
+    fun `a split face opens the same face in Face Prep`() {
+        for (f in listOf("floor", "front", "left", "right", "back", "ceiling"))
+            assertEquals(f, FacePrep.prepFace(FacePrep.panoFace(f)))
+    }
 }

@@ -86,6 +86,8 @@ fun FacePrepScreen(
     fovDeg: Double,
     startDims: Triple<Int, Int, Int>,   // H, X (width), Z (length), mm
     onBack: () -> Unit,
+    /** The face that was tapped, in Face Prep's names (floor/front/.../ceiling). */
+    startFace: String = "floor",
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -103,7 +105,7 @@ fun FacePrepScreen(
     }
 
     val prefs = remember { context.getSharedPreferences("faceprep", Context.MODE_PRIVATE) }
-    var face by remember { mutableStateOf("floor") }
+    var face by remember { mutableStateOf(startFace) }
     var mode by remember { mutableStateOf("steps") }         // box, steps, edges, dets, lines, measure
     var stepKind by remember { mutableStateOf("column") }
     var detType by remember { mutableStateOf("door") }

@@ -33,6 +33,8 @@ object FacePrep {
 
     /** Face Prep name → Panorama face name (the file label on disk). */
     fun panoFace(face: String): String = when (face) { "floor" -> "down"; "ceiling" -> "up"; else -> face }
+    /** The other way: a split face's name to Face Prep's. */
+    fun prepFace(pano: String): String = when (pano.lowercase()) { "down" -> "floor"; "up" -> "ceiling"; else -> pano.lowercase() }
 
     val LABEL = mapOf("floor" to "Floor", "front" to "Front wall", "left" to "Left wall",
         "right" to "Right wall", "back" to "Back wall", "ceiling" to "Ceiling")
