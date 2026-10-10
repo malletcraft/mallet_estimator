@@ -343,6 +343,15 @@ fun CaptureScreen(
     /** ERP's name for this capture, blank while it is still only on the
      *  phone. The confirm dialog reads it out before destroying it. */
     serverId: String = "",
+    /** Opens survey prep on this 360 (its kept copy); null hides the row. */
+    onSurveyPrep: (() -> Unit)? = null,
+    /** What the survey prep row says under its title. */
+    surveyNote: String = "",
+    /** Frees the phone of the kept 360 and its survey prep; null hides it
+     *  (nothing kept, or the bench does not have its own copy yet). */
+    onRemoveLocal: (() -> Unit)? = null,
+    /** How much the kept copy takes, for that button. */
+    localSize: String = "",
 ) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // The two rows that make a photo findable a month later, and the two
@@ -426,6 +435,12 @@ fun CaptureScreen(
                     fontSize = 10.sp)
             }
         }
+        // SURVEY PREP ON A KEPT CAPTURE (Amit, 2026-10-10: "Keep a local copy"):
+        // the site readings are taken after the capture is kept, so the prep
+        // opens again from here, on the 360 the phone keeps for it.
+        onSurveyPrep?.let { open ->
+            DetailRow(lead = "SVY", title = "Survey prep", subtitle = surveyNote, onClick = open)
+        }
 
         Row(Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -487,9 +502,39 @@ fun CaptureScreen(
         Text(folder, Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        onRemoveLocal?.let { RemoveLocalRow(it, localSize) }
         onDelete?.let { DeleteRow(it, serverId) }
         Spacer(Modifier.height(28.dp))
     }
+}
+
+/** Frees the phone of a kept 360 and its survey prep, behind a confirm. The
+ *  capture, its faces and the bench's copy all stay. */
+@Composable
+private fun RemoveLocalRow(onRemove: () -> Unit, size: String) {
+    var confirm by remember { mutableStateOf(false) }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text("Remove the local copy?") },
+            text = {
+                Text("The original 360 and its survey prep \u2014 lines, marks and " +
+                    "readings \u2014 go from this phone to free space. The capture, its " +
+                    "faces in the gallery and the copy on the bench stay. Survey prep " +
+                    "can no longer be opened for it here.")
+            },
+            confirmButton = {
+                TextButton(onClick = { confirm = false; onRemove() }) { Text("Remove") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) { Text("Keep") }
+            })
+    }
+    Spacer(Modifier.height(20.dp))
+    OutlinedButton(
+        onClick = { confirm = true },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    ) { Text(if (size.isBlank()) "Remove local copy" else "Remove local copy ($size)") }
 }
 
 /** The only way to undo a shutter pressed by accident. Deliberately at the

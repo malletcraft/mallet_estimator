@@ -15,7 +15,9 @@ import java.io.File
  *
  * Local only, like Face Prep: nothing on the bench reads the room setup, and
  * the bench is pull-only for now, so a sync would be a copy with no reader.
- * Deleting or discarding the capture deletes this file with it.
+ * It outlives the upload with the capture's 360 (Amit, 2026-10-10: "Keep a
+ * local copy"), so site readings can be added on a kept capture. Deleting or
+ * discarding the capture, or "Remove local copy", deletes this file with it.
  */
 class SurveyPrepStore(context: Context) {
     private val dir = File(context.filesDir, "surveyprep").apply { mkdirs() }
@@ -25,6 +27,11 @@ class SurveyPrepStore(context: Context) {
     fun delete(id: String) { runCatching { file(id).delete() } }
 
     fun loadText(id: String): String? = runCatching { file(id).takeIf { it.exists() }?.readText() }.getOrNull()
+
+    /** The laser L, W, H the saved prep was squared to, mm; null when there is none. */
+    fun loadSize(id: String): DoubleArray? = runCatching {
+        loadText(id)?.let { JSONObject(it) }?.let { o -> doubleArrayOf(o.getDouble("L"), o.getDouble("W"), o.getDouble("H")) }
+    }.getOrNull()
 
     fun load(id: String): SurveyPrep.Prep? = runCatching { loadText(id)?.let { decode(JSONObject(it)) } }.getOrNull()
 

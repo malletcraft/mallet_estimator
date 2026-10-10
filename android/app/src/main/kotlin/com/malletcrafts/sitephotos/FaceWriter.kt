@@ -321,6 +321,9 @@ object FaceWriter {
         ).also { it.chosen = proposed }
     }
 
+    /** A kept capture's 360 at the preview size the survey prep works on. */
+    fun previewPano(file: File): Panorama.Image = decodePano(file, PREVIEW_PANO_WIDTH)
+
     /** Decode the pano down to at most `maxWidth`, as packed 0xRRGGBB. */
     private fun decodePano(file: File, maxWidth: Int): Panorama.Image {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

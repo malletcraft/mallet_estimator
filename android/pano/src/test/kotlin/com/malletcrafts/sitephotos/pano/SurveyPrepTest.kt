@@ -337,4 +337,22 @@ class SurveyPrepTest {
             assertEquals(want, fl.pixels[(sq.height - 1 - row) * sq.width + col], "$s flipped")
         }
     }
+
+    @Test fun `a kept capture reopens on the sizes its prep was squared to`() {
+        val saved = doubleArrayOf(L, W, H)
+        assertEquals(saved.toList(), SurveyPrep.reopenSize(saved, 100.0, 100.0, 100.0)!!.toList())
+        // no saved prep: the capture's own sizes, inches to mm
+        val fromCapture = SurveyPrep.reopenSize(null, 130.0, 105.0, 105.4)!!
+        close(3302.0, fromCapture[0], 1e-9, "L"); close(2667.0, fromCapture[1], 1e-9, "W"); close(2677.16, fromCapture[2], 1e-9, "H")
+        // a saved size that is not a laser size is not used
+        close(3302.0, SurveyPrep.reopenSize(doubleArrayOf(0.0, W, H), 130.0, 105.0, 105.4)!![0], 1e-9, "fallback")
+        // nothing measured at all: nothing to square to
+        assertNull(SurveyPrep.reopenSize(null, 0.0, 0.0, 0.0))
+        assertNull(SurveyPrep.reopenSize(null, 130.0, 105.0, 0.0))
+    }
+
+    @Test fun `the local copy goes only once the bench has its own`() {
+        assertTrue(SurveyPrep.localCopyRemovable("SYNCED"))
+        for (st in listOf("LOCAL", "ERROR", "UPLOADING", "")) assertFalse(SurveyPrep.localCopyRemovable(st), st)
+    }
 }

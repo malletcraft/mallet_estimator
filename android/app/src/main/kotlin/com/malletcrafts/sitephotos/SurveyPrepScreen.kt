@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -101,7 +102,10 @@ import kotlin.math.roundToInt
  */
 @Composable
 internal fun SurveyPrepDialog(
-    session: FaceWriter.Session,
+    /** The capture the prep belongs to: its file is filesDir/surveyprep/<deviceId>.json. */
+    deviceId: String,
+    /** The 360 at preview size: the split's own copy, or a kept capture's file decoded again. */
+    previewPano: Panorama.Image,
     title: String,
     lengthMm: Double,
     widthMm: Double,
@@ -112,7 +116,7 @@ internal fun SurveyPrepDialog(
 ) {
     val context = LocalContext.current
     val store = remember { SurveyPrepStore(context) }
-    val id = session.deviceId
+    val id = deviceId
     val lL = lengthMm; val lW = widthMm; val lH = heightMm
 
     val loaded = remember { store.load(id) }
@@ -201,7 +205,7 @@ internal fun SurveyPrepDialog(
     // ---- pictures: the six views once, and each surface squared whenever its lines change
     LaunchedEffect(Unit) {
         for (s in listOf(tab) + SurveyPrep.SURFACES.filter { it != tab }) {
-            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.cutView(session.previewPano, s)) }
+            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.cutView(previewPano, s)) }
             views[s] = bmp
         }
     }
@@ -216,7 +220,7 @@ internal fun SurveyPrepDialog(
             if (rects[s]?.key == k) continue
             val f = frameOf(s) ?: continue
             val sq = SurveyPrep.Square.screen(f.a, f.b)
-            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(session.previewPano, s, f, sq)) }
+            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(previewPano, s, f, sq)) }
             rects[s] = SpRect(k, sq, bmp)
         }
     }

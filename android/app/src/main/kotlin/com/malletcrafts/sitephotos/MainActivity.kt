@@ -69,6 +69,7 @@ import com.malletcrafts.sitephotos.pano.Deletes
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.RoomToken
+import com.malletcrafts.sitephotos.pano.SurveyPrep
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -211,6 +212,10 @@ private fun AppScreen() {
     // Face Prep on one capture's six faces (Amit, 2026-10-09: "Build and ship apk").
     var facePrep by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var facePrepStart by remember { mutableStateOf("floor") }
+    // Survey prep reopened on a kept capture (Amit, 2026-10-10: "Keep a local copy").
+    var surveyKept by remember { mutableStateOf<KeptSurvey?>(null) }
+    var surveyLoading by remember { mutableStateOf(false) }
+    var surveyTick by remember { mutableStateOf(0) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // EVERY branch below returns early, so each one needs its own
@@ -1356,6 +1361,40 @@ private fun AppScreen() {
                 onSearch = { showSearch = true; searchQuery = "" },
                 onBack = { navCapture = null })
         }) { pad ->
+            // THE KEPT 360 (Amit, 2026-10-10: "Keep a local copy"): a 360 stays on
+            // the phone after its upload so survey prep can be reopened for the
+            // site readings. Read fresh on every recomposition -- a removed copy
+            // must take its buttons with it.
+            val keptRow = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
+            val keptFile = keptRow?.takeIf { it.kind == "360" }?.let { File(it.panoPath) }?.takeIf { it.exists() }
+            val surveySaved = remember(cap.deviceId, surveyTick) { SurveyPrepStore(context).load(cap.deviceId) }
+            val openSurvey: (() -> Unit)? = if (keptRow != null && keptFile != null) ({
+                val size = SurveyPrep.reopenSize(SurveyPrepStore(context).loadSize(cap.deviceId),
+                    keptRow.roomLengthIn, keptRow.roomWidthIn, keptRow.roomHeightIn)
+                if (size == null) {
+                    lastResult = "This capture has no room sizes \u2014 survey prep needs L, W and H"
+                } else if (!surveyLoading) {
+                    surveyLoading = true
+                    val id = cap.deviceId; val title = RoomToken.label(navRoom ?: keptRow.room)
+                    scope.launch(Dispatchers.Default) {
+                        val r = runCatching { FaceWriter.previewPano(keptFile) }
+                        withContext(Dispatchers.Main) {
+                            surveyLoading = false
+                            r.onSuccess { surveyKept = KeptSurvey(id, title, it, size) }
+                                .onFailure { lastResult = "Could not open the 360: ${it.message}" }
+                        }
+                    }
+                }
+            }) else null
+            // Only once the bench has its own copy: before that the kept file is the upload.
+            val removeLocal: (() -> Unit)? =
+                if (keptRow != null && keptFile != null && SurveyPrep.localCopyRemovable(keptRow.state)) ({
+                    runCatching { keptFile.delete() }
+                    SurveyPrepStore(context).delete(cap.deviceId)
+                    surveyTick++
+                    refreshQueue()
+                    lastResult = "Local copy removed \u2014 the capture and the bench copy stay"
+                }) else null
             Box(Modifier.padding(pad)) {
                 CaptureScreen(
                     capture = cap,
@@ -1446,7 +1485,26 @@ private fun AppScreen() {
                                 }
                             }
                         }
-                    })
+                    },
+                    onSurveyPrep = openSurvey,
+                    surveyNote = when {
+                        surveyLoading -> "Opening the 360\u2026"
+                        surveySaved != null -> "${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 " +
+                            "surfaces bounded \u00b7 ${surveySaved.surfaces.values.sumOf { it.marks.size }} marks \u00b7 " +
+                            "${surveySaved.actual.size} read \u00b7 tap to add site readings"
+                        else -> "Not done yet \u00b7 tap to bound, square and mark each surface"
+                    },
+                    onRemoveLocal = removeLocal,
+                    localSize = keptFile?.let { "%.1f MB".format(it.length() / 1024.0 / 1024.0) } ?: "")
+                // Survey prep reopened on this kept capture: the same screen as at the
+                // split, on the saved JSON, so lines, marks and readings come back as left.
+                surveyKept?.takeIf { it.deviceId == cap.deviceId }?.let { k ->
+                    SurveyPrepDialog(
+                        deviceId = k.deviceId, previewPano = k.pano, title = k.title,
+                        lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
+                        onDone = { _ -> surveyKept = null; surveyTick++; lastResult = "Survey prep saved on this phone" },
+                        onCancel = { _ -> surveyKept = null; surveyTick++ })
+                }
             }
         }
 
@@ -2488,6 +2546,9 @@ private fun cacheSize(context: android.content.Context): String {
     }
 }
 
+/** A kept capture's survey prep, opened: its id, room title, 360 at preview size, laser L W H in mm. */
+private class KeptSurvey(val deviceId: String, val title: String, val pano: Panorama.Image, val size: DoubleArray)
+
 /**
  * A split that has happened but not been accepted.
  *
@@ -2717,7 +2778,8 @@ private fun FacePreviewDialog(
 
     if (marking && lenMm != null && widMm != null && hgtMm != null) {
         SurveyPrepDialog(
-            session = session,
+            deviceId = session.deviceId,
+            previewPano = session.previewPano,
             title = RoomToken.label(pending.room),
             lengthMm = lenMm, widthMm = widMm, heightMm = hgtMm,
             onDone = { p ->

@@ -486,6 +486,30 @@ object SurveyPrep {
         }
     }
 
+    // ------------------------------------------------- reopening a kept capture
+
+    const val MM_PER_IN = 25.4
+
+    /**
+     * The laser L, W, H to reopen a KEPT capture's survey prep with, mm. The
+     * sizes saved with the prep win: they are what its lines were squared to,
+     * and reopening on anything else would move every mark's numbers. A
+     * capture with no saved prep falls to the sizes stored on the capture
+     * (inches, as the queue keeps them). Null when either gives no valid size.
+     */
+    fun reopenSize(saved: DoubleArray?, lengthIn: Double, widthIn: Double, heightIn: Double): DoubleArray? {
+        if (saved != null && saved.size == 3 && saved.all { valid(it) }) return saved.copyOf()
+        val mm = doubleArrayOf(lengthIn * MM_PER_IN, widthIn * MM_PER_IN, heightIn * MM_PER_IN)
+        return if (mm.all { valid(it) }) mm else null
+    }
+
+    /**
+     * Whether a capture's kept 360 (and its survey prep) may be removed from
+     * the phone to free space: only once the bench has its own copy. Before
+     * that, the local file is the ONLY copy and the upload still needs it.
+     */
+    fun localCopyRemovable(state: String): Boolean = state == "SYNCED"
+
     /**
      * A fresh room: every surface's four lines on a guess from the laser sizes
      * (camera 1300 mm up, in the middle), none of them yet set by hand, no marks.

@@ -108,7 +108,13 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                 val fileUrl = client.uploadPano(name, pano)
                 client.bindPano(name, fileUrl)
                 store.setState(c.deviceId, "SYNCED", serverName = name)
-                pano.delete()      // uploaded and bound; the server owns it now
+                // A 360 is KEPT on the phone after the upload (Amit, 2026-10-10:
+                // "Keep a local copy"): survey prep reopens on a kept capture,
+                // and the site readings are taken days after the shutter. It
+                // goes when the capture is deleted, or by "Remove local copy"
+                // on its screen. A flat photo has no survey prep: the server
+                // owns it now, as before.
+                if (c.kind != "360") pano.delete()
             } catch (e: Exception) {
                 failures += 1
                 store.setState(c.deviceId, "ERROR",
