@@ -288,9 +288,9 @@ data class RoomQuad(
         const val CORNER_FOV = 120.0
 
         /**
-         * The room from its eight corners as directions -- since 2026-10-10
-         * what the room-setup screen (RoomSetup: four floor corners on the
-         * straight-down photo, then the ceiling line) hands the split. The
+         * The room from its eight corners as directions. (From 2026-10-10
+         * until survey prep (SurveyPrep) replaced it the same day, the
+         * room-setup screen's floor corners and ceiling line came here.) The
          * floor corners fix the floor plan (floor at y = -1); each ceiling
          * corner, over its floor corner, gives the ceiling, and the median of
          * the four is taken. FL and BR become the two origins, and the four

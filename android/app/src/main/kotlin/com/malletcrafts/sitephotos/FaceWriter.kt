@@ -12,8 +12,7 @@ import android.provider.MediaStore
 import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.Stamp
-import com.malletcrafts.sitephotos.pano.RoomCorners
-import com.malletcrafts.sitephotos.pano.WallCorners
+import com.malletcrafts.sitephotos.pano.SurveyPrep
 import java.io.File
 
 /**
@@ -127,21 +126,17 @@ object FaceWriter {
         var turn: Map<Group, Double> = Group.entries.associateWith { 0.0 }
 
         /**
-         * The room's eight corners -- ceiling and floor end of each vertical
-         * corner -- as directions in the pano. Every face's elevation is
-         * built from four of them at commit. Amit, 2026-10-08: "corner
-         * placement is very tedious on app": 24 drags became 8, because a
-         * room has four corners and every face shares them.
+         * The survey prep as saved on its screen (mock-up v33, 2026-10-10):
+         * every surface's four boundary lines, which square it to the laser
+         * size, and its marks. At commit each surface becomes an elevation
+         * squared to size. Null until "Save survey prep" -- and that needs
+         * all six surfaces bounded.
          */
-        var roomCorners: RoomCorners? = null
+        var survey: SurveyPrep.Prep? = null
 
-        /** The room the corners came from, set on the room-setup screen from
-         *  the four floor corners and the ceiling line (Amit, 2026-10-10). */
-        var roomQuad: com.malletcrafts.sitephotos.pano.RoomQuad? = null
-
-        /** The four floor dots as placed on the room-setup screen, FL FR BR BL
-         *  in camera heights, so "Room ✓ — edit" opens where it was left. */
-        var floorDots: List<DoubleArray>? = null
+        /** The laser L (front to back), W (left to right) and H the survey
+         *  prep squared its surfaces to, mm. */
+        var surveySize: DoubleArray? = null
 
         /** Floor to ceiling, as typed, in mm. The one size an elevation
          *  needs for its scale bar: the photo gives every proportion, this
@@ -211,13 +206,9 @@ object FaceWriter {
      */
     class ScaleBar(val vertical: Boolean, val mm: Double, val fromPhoto: Boolean)
 
-    fun scaleBarFor(face: String, rc: RoomCorners, heightMm: Double): ScaleBar? =
-        if (face in WallCorners.WALL_FACES) ScaleBar(true, heightMm, false)
-        else {
-            val f = WallCorners.measure(rc.forFace("front"))
-            val b = WallCorners.measure(rc.forFace("back"))
-            if (f.valid && b.valid) ScaleBar(false, (f.ratio + b.ratio) / 2 * heightMm, true) else null
-        }
+    /** A survey-prep surface's bar: walls the laser H, floor and ceiling the laser W across. */
+    fun scaleBarFor(s: String, size: DoubleArray): ScaleBar =
+        if (SurveyPrep.isPlan(s)) ScaleBar(false, size[0], false) else ScaleBar(true, size[1], false)
 
     private fun drawScaleBar(bmp: Bitmap, bar: ScaleBar) {
         val c = Canvas(bmp)
@@ -271,6 +262,10 @@ object FaceWriter {
      *  back mistakes an elevation for the wall photo it was made from. */
     fun elevationFilename(captureId: String, face: String): String =
         "${captureId}_${Handover.FACE_LABELS[face] ?: face}-elevation.jpg"
+
+    /** A surface's survey marks, beside its elevation; likewise not a face token. */
+    fun surveyFilename(captureId: String, face: String): String =
+        "${captureId}_${Handover.FACE_LABELS[face] ?: face}-survey.jpg"
 
     /**
      * Open a 360 for inspection. Copies the original, decodes it once at
@@ -374,18 +369,28 @@ object FaceWriter {
                 captioned.recycle()
             }
         }
-        // Elevations, all six, from the room's eight corners. Unstamped on
-        // purpose: the stamp says "this is face X of capture Y", and an
-        // elevation is not that face -- a scan that matched it to the face
-        // would pair an annotation with the wrong picture.
-        session.roomCorners?.let { rc ->
-            for ((face, _, _) in Panorama.FACES) {
-                val c = rc.forFace(face)
-                if (!WallCorners.measure(c).valid) continue
-                val bmp = toBitmap(WallCorners.elevation(full, c, session.facePx, ELEV_MARGIN))
-                session.heightMm?.let { h -> scaleBarFor(face, rc, h)?.let { drawScaleBar(bmp, it) } }
+        // Elevations, all six, from the survey prep: each surface squared to
+        // its laser size between its four boundary lines, with the same
+        // margins Face Prep reads an elevation by. Unstamped on purpose: the
+        // stamp says "this is face X of capture Y", and an elevation is not
+        // that face -- a scan that matched it to the face would pair an
+        // annotation with the wrong picture.
+        val prep = session.survey; val dims = session.surveySize
+        if (prep != null && dims != null && dims.size == 3) {
+            for (s in SurveyPrep.SURFACES) {
+                val size = SurveyPrep.size(s, dims[0], dims[1], dims[2])
+                val f = SurveyPrep.frame(prep.surface(s).lines, size[0], size[1]) ?: continue
+                val face = SurveyPrep.panoFace(s)
+                val label = Handover.FACE_LABELS[face] ?: face
+                val sq = SurveyPrep.Square.elevation(size[0], size[1], session.facePx, ELEV_MARGIN)
+                val flat = toBitmap(SurveyPrep.render(full, s, f, sq))
+                // The ceiling is filed the way the split's "up" face looks --
+                // back wall at the top -- which is how Face Prep reads it.
+                val bmp = if (s == "ceil") toBitmap(SurveyPrep.render(full, s, f, sq, flipY = true))
+                          else flat.copy(Bitmap.Config.ARGB_8888, true)
+                drawScaleBar(bmp, scaleBarFor(s, size))
                 val captioned = captionedBitmap(bmp, Handover.captionText(
-                    session.deviceId, session.room, "${Handover.FACE_LABELS[face] ?: face} elevation",
+                    session.deviceId, session.room, "$label elevation",
                     session.captureDate, session.stage))
                 try {
                     saveToGallery(context, captioned, session.relativePath,
@@ -394,6 +399,27 @@ object FaceWriter {
                 } finally {
                     captioned.recycle()
                     bmp.recycle()
+                }
+                // And the marks with their codes, as the List tab shows them,
+                // for a surface that has any: the engineer's checklist picture.
+                try {
+                    if (prep.surface(s).marks.isNotEmpty()) {
+                        SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
+                            null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null),
+                            { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, flat.width / 960f)
+                        val marked = captionedBitmap(flat, Handover.captionText(
+                            session.deviceId, session.room, "$label survey marks",
+                            session.captureDate, session.stage))
+                        try {
+                            saveToGallery(context, marked, session.relativePath,
+                                surveyFilename(session.deviceId, face))
+                            written += 1
+                        } finally {
+                            marked.recycle()
+                        }
+                    }
+                } finally {
+                    flat.recycle()
                 }
             }
         }

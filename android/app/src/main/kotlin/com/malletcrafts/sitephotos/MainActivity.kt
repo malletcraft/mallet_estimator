@@ -1392,6 +1392,7 @@ private fun AppScreen() {
                         val q = queue.firstOrNull { it.deviceId == cap.deviceId }
                         store.delete(cap.deviceId)
                         FacePrepStore(context).delete(cap.deviceId)
+                        SurveyPrepStore(context).delete(cap.deviceId)
                         runCatching { File(q?.panoPath ?: "").delete() }
                         runCatching {
                             context.contentResolver.delete(
@@ -1699,6 +1700,7 @@ private fun AppScreen() {
             pending = ps,
             onDiscard = {
                 FaceWriter.discard(ps.session)
+                SurveyPrepStore(context).delete(ps.session.deviceId)
                 pending = null
                 lastResult = "Discarded \u2014 nothing was saved to your photos."
             },
@@ -2558,18 +2560,15 @@ private fun FacePreviewDialog(
     // only when ITS OWN group moved.
     var chosen by remember { mutableStateOf(session.chosen) }
     var turn by remember { mutableStateOf(session.turn) }
-    // The room's eight corners -> all six elevations. Since 2026-10-10 they
-    // come from ONE screen: four floor corners on the straight-down photo,
-    // then the ceiling line (RoomSetupScreen.kt). Amit approved the method
-    // ("verify yourself if my method looks correct? and if so ... deploy
-    // it") and chose to drop Claude's corner finder ("Remove it, Amit marks
-    // corners"); Match Photo went with it -- one way in, no fallback.
-    var roomQuad by remember { mutableStateOf(session.roomQuad) }
+    // SURVEY PREP -> all six elevations (mock-up v33, approved by Amit on
+    // 2026-10-10 as the spec): every surface bounded by its own four lines and
+    // squared to the laser size, then marked (SurveyPrepScreen.kt). It
+    // replaces the four-floor-corners-and-a-ceiling-line room setup, from the
+    // same button -- one way in, no fallback.
+    var survey by remember { mutableStateOf(session.survey) }
     var marking by remember { mutableStateOf(false) }
-    // The carpet maximums and the height are REQUIRED to set the room: the
-    // floor dots have a shape but no size until L and W give it, and H is
-    // where the ceiling line starts. Prefilled from what was typed at capture
-    // (where L and W are optional), editable here.
+    // The laser L, W and H are REQUIRED: every surface squares to them.
+    // Prefilled from the room capture; the survey prep shows them fixed.
     var lenText by remember { mutableStateOf(pending.lengthMm?.let { Math.round(it).toString() } ?: "") }
     var widText by remember { mutableStateOf(pending.widthMm?.let { Math.round(it).toString() } ?: "") }
     var hgtText by remember { mutableStateOf(session.heightMm?.let { Math.round(it).toString() } ?: "") }
@@ -2595,7 +2594,7 @@ private fun FacePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
 
-                Text("Carpet maximums, mm (needed to set the room):",
+                Text("Laser sizes, mm (every surface squares to them):",
                     style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     OutlinedTextField(lenText, { lenText = it.filter { c -> c.isDigit() } },
@@ -2608,11 +2607,11 @@ private fun FacePreviewDialog(
                         modifier = Modifier.weight(1f))
                 }
                 OutlinedTextField(hgtText, { hgtText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Height floor\u2192ceiling (the ceiling line sets it)") }, singleLine = true,
+                    label = { Text("Height floor\u2192ceiling") }, singleLine = true,
                     isError = hgtText.isNotBlank() && hgtMm == null,
                     modifier = Modifier.fillMaxWidth())
                 if (lenMm == null || widMm == null || hgtMm == null) {
-                    Text("Type length, width and height first \u2014 the floor corners get their size from them.",
+                    Text("Type length, width and height first \u2014 every surface is squared to them.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error)
                 }
@@ -2620,17 +2619,17 @@ private fun FacePreviewDialog(
                 OutlinedButton(onClick = { marking = true },
                     enabled = lenMm != null && widMm != null && hgtMm != null,
                     modifier = Modifier.fillMaxWidth()) {
-                    Text(if (roomQuad == null) "Set room (floor corners)"
-                         else "Room \u2713 \u2014 edit")
+                    Text(if (survey == null) "Survey prep (6 surfaces)"
+                         else "Survey prep \u2713 \u2014 edit")
                 }
-                roomQuad?.let { b ->
-                    for (line in roomSummary(b, session.heightMm)) {
-                        Text(line, style = MaterialTheme.typography.labelSmall)
-                    }
+                survey?.let { p ->
+                    val marks = p.surfaces.values.sumOf { it.marks.size }
+                    Text("6 of 6 surfaces bounded \u00b7 $marks mark${if (marks == 1) "" else "s"} \u00b7 " +
+                        "${p.actual.size} read", style = MaterialTheme.typography.labelSmall)
                     TextButton(onClick = {
-                        roomQuad = null; session.roomQuad = null; session.roomCorners = null
-                        session.floorDots = null
-                    }) { Text("Remove room") }
+                        // The prep itself stays saved on the phone; only the elevations are left out.
+                        survey = null; session.survey = null; session.surveySize = null
+                    }) { Text("Leave the elevations out") }
                 }
                 Spacer(Modifier.height(10.dp))
 
@@ -2702,9 +2701,9 @@ private fun FacePreviewDialog(
 
                 Text(
                     "Widen until all four corners of every face are inside the " +
-                    "frame. Set the room to also get all six " +
-                    "straightened as elevations, saved beside the faces with a " +
-                    "height scale bar for ImageMeter. Nothing is in your photos yet \u2014 keeping " +
+                    "frame. Do the survey prep to also get all six squared " +
+                    "to the laser size as elevations, saved beside the faces with a " +
+                    "scale bar for ImageMeter. Nothing is in your photos yet \u2014 keeping " +
                     "saves all six plus the 360 into the room folder and queues " +
                     "the upload; discarding leaves no trace.",
                     style = MaterialTheme.typography.bodySmall,
@@ -2712,43 +2711,28 @@ private fun FacePreviewDialog(
             }
         },
         confirmButton = { TextButton(onClick = onKeep) {
-            Text(if (roomQuad == null) "Keep all six" else "Keep six + 6 elevations")
+            Text(if (survey == null) "Keep all six" else "Keep six + 6 elevations")
         } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
 
     if (marking && lenMm != null && widMm != null && hgtMm != null) {
-        RoomSetupDialog(
+        SurveyPrepDialog(
             session = session,
             title = RoomToken.label(pending.room),
-            lengthMm = lenMm, widthMm = widMm,
-            // Saving writes the ceiling-line height back into the field, so
-            // editing starts from the line as it was left.
-            heightMm = hgtMm,
-            startDots = session.floorDots,
-            onDone = { r ->
-                roomQuad = r.quad; session.roomQuad = r.quad; session.roomCorners = r.quad.corners()
-                session.floorDots = r.dots
-                // The elevations' scale bar is the ceiling-line height.
-                session.heightMm = r.heightMm; hgtText = Math.round(r.heightMm).toString()
+            lengthMm = lenMm, widthMm = widMm, heightMm = hgtMm,
+            onDone = { p ->
+                survey = p; session.survey = p
+                session.surveySize = doubleArrayOf(lenMm, widMm, hgtMm)
+                session.heightMm = hgtMm
                 marking = false
             },
-            onCancel = { marking = false })
+            onCancel = { p ->
+                // Edited after an earlier Save and left by Back: the elevations follow
+                // the lines as they now stand, as long as all six are still bounded.
+                if (survey != null && p.done()) { survey = p; session.survey = p }
+                marking = false
+            })
     }
-}
-
-/**
- * What the room says, in mm: the four walls, how far each corner is from
- * square, and the camera height.
- */
-private fun roomSummary(room: com.malletcrafts.sitephotos.pano.RoomQuad, heightMm: Double?): List<String> {
-    if (heightMm == null) return emptyList()
-    val (f, r, b, l) = room.wallsMm(heightMm)
-    val angles = room.cornerAngles()
-    return listOf(
-        "Walls F ${Math.round(f)} \u00b7 R ${Math.round(r)} \u00b7 B ${Math.round(b)} \u00b7 L ${Math.round(l)} mm",
-        "Corners FL ${"%.1f".format(angles[0])}\u00b0 \u00b7 FR ${"%.1f".format(angles[1])}\u00b0 \u00b7 " +
-            "BR ${"%.1f".format(angles[2])}\u00b0 \u00b7 BL ${"%.1f".format(angles[3])}\u00b0",
-        "Ceiling ${Math.round(heightMm)} mm \u00b7 camera ${Math.round(room.mmPerUnit(heightMm))} mm above the floor")
 }
 
 /**
