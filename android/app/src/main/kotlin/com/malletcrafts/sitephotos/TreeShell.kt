@@ -548,7 +548,12 @@ fun CaptureSheet(
             // for ImageMeter's reference scale. Length and width, if typed,
             // are the CHECK on what the photo measured, and with all three the
             // faces are also sized to the room as before.
+            // ALL THREE ARE REQUIRED since 2026-10-10 (Amit: "how room length
+            // and width can be optional now? we need it to set bounding box").
+            // The room is set from four floor corners, and the typed carpet
+            // length and width are what give those corners their size.
             val heightOk = heightMmValid(roomHeight)
+            val sizesOk = heightOk && mmOrNull(roomLength) != null && mmOrNull(roomWidth) != null
             OutlinedTextField(
                 value = roomHeight, onValueChange = onRoomHeight,
                 label = { Text("Height, floor to ceiling (required)") }, singleLine = true,
@@ -562,12 +567,14 @@ fun CaptureSheet(
             ) {
                 OutlinedTextField(
                     value = roomLength, onValueChange = onRoomLength,
-                    label = { Text("Length (optional)") }, singleLine = true,
+                    label = { Text("Length front\u2192back (carpet max)") }, singleLine = true,
+                    isError = roomLength.isNotBlank() && mmOrNull(roomLength) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
                 OutlinedTextField(
                     value = roomWidth, onValueChange = onRoomWidth,
-                    label = { Text("Width (optional)") }, singleLine = true,
+                    label = { Text("Width left\u2192right (carpet max)") }, singleLine = true,
+                    isError = roomWidth.isNotBlank() && mmOrNull(roomWidth) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
             }
@@ -584,12 +591,9 @@ fun CaptureSheet(
                     !heightOk ->
                         "Height in MM, ${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013" +
                         "${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743."
-                    plan == null && (roomLength.isNotBlank() || roomWidth.isNotBlank()) &&
-                        !(roomLength.isNotBlank() && roomWidth.isNotBlank()) ->
-                        "Length and width are the check on the photo \u2014 type both, or neither."
-                    plan == null ->
-                        "Faces use the office default view. Length and width are " +
-                        "optional; typed, they check what the photo measures."
+                    !sizesOk || plan == null ->
+                        "Type the carpet length (front\u2192back) and width (left\u2192right) " +
+                        "too, wall to wall at the widest \u2014 the room is set from them."
                     plan.fitted ->
                         "Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and " +
                         "ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 every corner " +
@@ -601,7 +605,7 @@ fun CaptureSheet(
                         "shoot it in two halves, or accept it."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (!heightOk || (plan != null && !plan.fitted))
+                color = if (!sizesOk || (plan != null && !plan.fitted))
                             MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -618,14 +622,14 @@ fun CaptureSheet(
                     modifier = Modifier.clickableRow(onCamera))
                 Button(
                     onClick = onShoot,
-                    enabled = !busy && cameraConnected && heightOk,
+                    enabled = !busy && cameraConnected && sizesOk,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 ) { Text("Shoot 360 on the X3") }
                 Spacer(Modifier.height(8.dp))
             }
             OutlinedButton(
                 onClick = onPick,
-                enabled = !busy && heightOk,
+                enabled = !busy && sizesOk,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             ) { Text("Pick a 360 from the gallery") }
 
@@ -1004,10 +1008,14 @@ fun RenameDialog(
  *  only inside CaptureGeometry and on the wire. */
 internal const val MM_PER_IN = 25.4
 
+// Typed sizes follow the room setup (2026-10-10): LENGTH runs front→back and
+// WIDTH left→right, both the carpet maximum. CaptureGeometry's own "length" is
+// the span of the front and back walls -- left→right -- so the two are handed
+// over crossed, and its plan's lengthIn is therefore the typed WIDTH.
 internal fun mmPlan(lengthMm: String, widthMm: String, heightMm: String) =
     CaptureGeometry.planForRoom(
-        lengthMm.trim().toDoubleOrNull()?.div(MM_PER_IN),
         widthMm.trim().toDoubleOrNull()?.div(MM_PER_IN),
+        lengthMm.trim().toDoubleOrNull()?.div(MM_PER_IN),
         heightMm.trim().toDoubleOrNull()?.div(MM_PER_IN))
 
 /** Inches back to whole millimetres, for anything shown to a person. */

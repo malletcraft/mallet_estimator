@@ -1711,8 +1711,10 @@ private fun AppScreen() {
                             createdAt = System.currentTimeMillis(), state = "LOCAL",
                             serverName = null, error = null, kind = "360",
                             fov = keep.fov,
-                            roomLengthIn = keep.plan?.lengthIn ?: 0.0,
-                            roomWidthIn = keep.plan?.widthIn ?: 0.0,
+                            // CaptureGeometry's lengthIn is the left→right span
+                            // (see mmPlan); stored, length is front→back.
+                            roomLengthIn = keep.plan?.widthIn ?: 0.0,
+                            roomWidthIn = keep.plan?.lengthIn ?: 0.0,
                             // The height alone is worth keeping: it is the
                             // scale of every elevation, typed with or without
                             // length and width.
@@ -2579,7 +2581,7 @@ private fun FacePreviewDialog(
                 Text(
                     "${RoomToken.label(pending.room)} \u00b7 " +
                     (pending.plan?.let {
-                        "${mm(it.lengthIn)}\u00d7${mm(it.widthIn)}" +
+                        "${mm(it.widthIn)}\u00d7${mm(it.lengthIn)}" +
                         "\u00d7${mm(it.heightIn)} mm"
                     } ?: "room not measured"),
                     style = MaterialTheme.typography.bodySmall,
