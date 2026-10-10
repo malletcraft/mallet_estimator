@@ -288,22 +288,17 @@ data class RoomQuad(
         const val CORNER_FOV = 120.0
 
         /**
-         * The room from its eight corners as directions -- what the S5 corner
-         * finder (Claude reading the 360, `POST /api/room/corners`) returns.
-         *
-         * Amit, 2026-10-09: "get rid of set room corner as well because its
-         * not required as long as fotos are correctly all 4 corners and
-         * levelled automatically". The floor corners fix the floor plan (floor
-         * at y = -1); each ceiling corner, over its floor corner, gives the
-         * ceiling, and the median of the four is taken so one corner hidden
-         * behind a wardrobe cannot tilt it. FL and BR become the two origins,
-         * and the four wall lines run through neighbouring floor corners, so
-         * the room reproduces all four floor corners exactly and stays
-         * editable in the Match Photo screen.
+         * The room from its eight corners as directions -- since 2026-10-10
+         * what the room-setup screen (RoomSetup: four floor corners on the
+         * straight-down photo, then the ceiling line) hands the split. The
+         * floor corners fix the floor plan (floor at y = -1); each ceiling
+         * corner, over its floor corner, gives the ceiling, and the median of
+         * the four is taken. FL and BR become the two origins, and the four
+         * wall lines run through neighbouring floor corners, so the room
+         * reproduces all four floor corners exactly.
          *
          * Null when a floor corner is not below the horizon, or the corners do
-         * not close a room round the camera -- the caller then falls back to
-         * setting the room by hand, and says so.
+         * not close a room round the camera.
          */
         fun fromCorners(ceiling: List<DoubleArray>, floor: List<DoubleArray>): RoomQuad? {
             if (ceiling.size != 4 || floor.size != 4) return null

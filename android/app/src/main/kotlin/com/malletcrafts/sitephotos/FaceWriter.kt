@@ -135,11 +135,13 @@ object FaceWriter {
          */
         var roomCorners: RoomCorners? = null
 
-        /** The room the corners came from -- two opposite corners and four
-         *  wall lines -- kept so it can be opened again where it was left.
-         *  Amit, 2026-10-08: "i will set only two diagonally opposite
-         *  corners of a room", SketchUp-style, square or not. */
+        /** The room the corners came from, set on the room-setup screen from
+         *  the four floor corners and the ceiling line (Amit, 2026-10-10). */
         var roomQuad: com.malletcrafts.sitephotos.pano.RoomQuad? = null
+
+        /** The four floor dots as placed on the room-setup screen, FL FR BR BL
+         *  in camera heights, so "Room ✓ — edit" opens where it was left. */
+        var floorDots: List<DoubleArray>? = null
 
         /** Floor to ceiling, as typed, in mm. The one size an elevation
          *  needs for its scale bar: the photo gives every proportion, this
@@ -179,10 +181,9 @@ object FaceWriter {
         return out
     }
 
-    /** Any view of the pano, for the corner screen: aimed at one room corner
-     *  rather than at one of the six faces. */
-    fun previewView(session: Session, yawDeg: Double, pitchDeg: Double, fovDeg: Double, px: Int = 640): Bitmap =
-        toBitmap(Panorama.faceFromEquirect(session.previewPano, yawDeg, pitchDeg, fovDeg, px))
+    /** Any picture worked out from the pano -- the room-setup screen's floor
+     *  face and squared-on walls -- as a Bitmap to draw. */
+    fun bitmapOf(img: Panorama.Image): Bitmap = toBitmap(img)
 
     /** Border beyond the corners on every elevation, as a fraction of its
      *  side -- wide enough to carry the scale bar outside the wall. */

@@ -2549,44 +2549,24 @@ private fun FacePreviewDialog(
     // only when ITS OWN group moved.
     var chosen by remember { mutableStateOf(session.chosen) }
     var turn by remember { mutableStateOf(session.turn) }
-    // The room's eight corners -> all six elevations. Amit, 2026-10-07: "can
-    // i place 4 corners on flat foto so that only that will be used to
-    // mesure?"; 2026-10-08: "corner placement is very tedious" -- so eight
-    // points once per room, not four per face.
-    // 2026-10-08, later: "setting up corners is still difficult. how bout
-    // seting axex like this?"; then "i will set only two diagonally opposite
-    // corners of a room" -- two corners and their four wall lines, which
-    // also fits a room that is not square. The corners come from it.
+    // The room's eight corners -> all six elevations. Since 2026-10-10 they
+    // come from ONE screen: four floor corners on the straight-down photo,
+    // then the ceiling line (RoomSetupScreen.kt). Amit approved the method
+    // ("verify yourself if my method looks correct? and if so ... deploy
+    // it") and chose to drop Claude's corner finder ("Remove it, Amit marks
+    // corners"); Match Photo went with it -- one way in, no fallback.
     var roomQuad by remember { mutableStateOf(session.roomQuad) }
     var marking by remember { mutableStateOf(false) }
-    // 2026-10-09, Amit: "get rid of set room corner as well" -- Claude finds
-    // the eight corners (S5's /api/room/corners) as soon as the split opens,
-    // and the room is set from them. Match Photo stays only as the correction
-    // when that fails or looks wrong.
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var token by remember { mutableStateOf(CornerFinder.token(context)) }
-    var typedToken by remember { mutableStateOf("") }
-    var finding by remember { mutableStateOf(false) }
-    var found by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(token) {
-        val t = token
-        if (t == null || roomQuad != null) return@LaunchedEffect
-        finding = true; found = null
-        val r = withContext(Dispatchers.IO) {
-            CornerFinder.find(t, session.previewPano, RoomToken.label(pending.room),
-                session.heightMm, pending.lengthMm, pending.widthMm)
-        }
-        finding = false
-        when (r) {
-            is CornerFinder.Result.Found -> {
-                roomQuad = r.room; session.roomQuad = r.room; session.roomCorners = r.room.corners()
-                found = "Room found by Claude (confidence ${Math.round(r.confidence * 100)}%)" +
-                    (if (r.occluded.isNotEmpty()) " — hidden, estimated: ${r.occluded.joinToString()}" else "") +
-                    (if (r.note.isNotBlank()) ". ${r.note}" else "")
-            }
-            is CornerFinder.Result.Failed -> found = "${r.why}. Set the room by hand below."
-        }
-    }
+    // The carpet maximums and the height are REQUIRED to set the room: the
+    // floor dots have a shape but no size until L and W give it, and H is
+    // where the ceiling line starts. Prefilled from what was typed at capture
+    // (where L and W are optional), editable here.
+    var lenText by remember { mutableStateOf(pending.lengthMm?.let { Math.round(it).toString() } ?: "") }
+    var widText by remember { mutableStateOf(pending.widthMm?.let { Math.round(it).toString() } ?: "") }
+    var hgtText by remember { mutableStateOf(session.heightMm?.let { Math.round(it).toString() } ?: "") }
+    val lenMm = mmOrNull(lenText)?.takeIf { it >= 500.0 }
+    val widMm = mmOrNull(widText)?.takeIf { it >= 500.0 }
+    val hgtMm = mmOrNull(hgtText)?.takeIf { heightMmValid(hgtText) }
 
     AlertDialog(
         // Not dismissible by a tap outside: a decoded pano and an
@@ -2606,33 +2586,42 @@ private fun FacePreviewDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(10.dp))
 
-                if (token == null) {
-                    Text("Claude finds the room's corners through S5. Paste S5's admin token once:",
-                        style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(typedToken, { typedToken = it },
-                        label = { Text("S5 admin token") }, singleLine = true,
-                        modifier = Modifier.fillMaxWidth())
-                    TextButton(onClick = {
-                        CornerFinder.saveToken(context, typedToken); token = CornerFinder.token(context)
-                    }, enabled = typedToken.isNotBlank()) { Text("Save and find corners") }
+                Text("Carpet maximums, mm (needed to set the room):",
+                    style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(lenText, { lenText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Length front\u2192back") }, singleLine = true,
+                        isError = lenText.isNotBlank() && lenMm == null,
+                        modifier = Modifier.weight(1f))
+                    OutlinedTextField(widText, { widText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Width left\u2192right") }, singleLine = true,
+                        isError = widText.isNotBlank() && widMm == null,
+                        modifier = Modifier.weight(1f))
                 }
-                if (finding) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Claude is finding the room's corners\u2026", style = MaterialTheme.typography.bodySmall)
-                    }
+                OutlinedTextField(hgtText, { hgtText = it.filter { c -> c.isDigit() } },
+                    label = { Text("Height floor\u2192ceiling (the ceiling line sets it)") }, singleLine = true,
+                    isError = hgtText.isNotBlank() && hgtMm == null,
+                    modifier = Modifier.fillMaxWidth())
+                if (lenMm == null || widMm == null || hgtMm == null) {
+                    Text("Type length, width and height first \u2014 the floor corners get their size from them.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error)
                 }
-                found?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
                 Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = { marking = true }, enabled = !finding, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (roomQuad == null) "Set room by hand (Match Photo)"
-                         else "Room \u2713 \u2014 check or correct")
+                OutlinedButton(onClick = { marking = true },
+                    enabled = lenMm != null && widMm != null && hgtMm != null,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(if (roomQuad == null) "Set room (floor corners)"
+                         else "Room \u2713 \u2014 edit")
                 }
                 roomQuad?.let { b ->
-                    for (line in roomSummary(b, session.heightMm, pending.lengthMm, pending.widthMm)) {
+                    for (line in roomSummary(b, session.heightMm)) {
                         Text(line, style = MaterialTheme.typography.labelSmall)
                     }
+                    TextButton(onClick = {
+                        roomQuad = null; session.roomQuad = null; session.roomCorners = null
+                        session.floorDots = null
+                    }) { Text("Remove room") }
                 }
                 Spacer(Modifier.height(10.dp))
 
@@ -2718,20 +2707,39 @@ private fun FacePreviewDialog(
         } },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
 
-    if (marking) {
-        RoomQuadDialog(
+    if (marking && lenMm != null && widMm != null && hgtMm != null) {
+        RoomSetupDialog(
             session = session,
-            start = roomQuad ?: com.malletcrafts.sitephotos.pano.RoomQuad.start(
-                pending.lengthMm, pending.widthMm, session.heightMm),
-            isEdit = roomQuad != null,
-            onDone = { b ->
-                roomQuad = b; session.roomQuad = b; session.roomCorners = b.corners(); marking = false
-            },
-            onClear = {
-                roomQuad = null; session.roomQuad = null; session.roomCorners = null; marking = false
+            title = RoomToken.label(pending.room),
+            lengthMm = lenMm, widthMm = widMm,
+            // Saving writes the ceiling-line height back into the field, so
+            // editing starts from the line as it was left.
+            heightMm = hgtMm,
+            startDots = session.floorDots,
+            onDone = { r ->
+                roomQuad = r.quad; session.roomQuad = r.quad; session.roomCorners = r.quad.corners()
+                session.floorDots = r.dots
+                // The elevations' scale bar is the ceiling-line height.
+                session.heightMm = r.heightMm; hgtText = Math.round(r.heightMm).toString()
+                marking = false
             },
             onCancel = { marking = false })
     }
+}
+
+/**
+ * What the room says, in mm: the four walls, how far each corner is from
+ * square, and the camera height.
+ */
+private fun roomSummary(room: com.malletcrafts.sitephotos.pano.RoomQuad, heightMm: Double?): List<String> {
+    if (heightMm == null) return emptyList()
+    val (f, r, b, l) = room.wallsMm(heightMm)
+    val angles = room.cornerAngles()
+    return listOf(
+        "Walls F ${Math.round(f)} \u00b7 R ${Math.round(r)} \u00b7 B ${Math.round(b)} \u00b7 L ${Math.round(l)} mm",
+        "Corners FL ${"%.1f".format(angles[0])}\u00b0 \u00b7 FR ${"%.1f".format(angles[1])}\u00b0 \u00b7 " +
+            "BR ${"%.1f".format(angles[2])}\u00b0 \u00b7 BL ${"%.1f".format(angles[3])}\u00b0",
+        "Ceiling ${Math.round(heightMm)} mm \u00b7 camera ${Math.round(room.mmPerUnit(heightMm))} mm above the floor")
 }
 
 /**
