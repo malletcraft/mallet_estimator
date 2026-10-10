@@ -329,6 +329,8 @@ private fun AppScreen() {
     val cs = remember(masters, dataTick) { cat.snapshot(masters) }
 
     val rooms = cat.rooms(masters)
+    fun siteTypeOf(client: String, site: String) =
+        cs.sitesOf(client).firstOrNull { it.name.equals(site, true) }?.type.orEmpty()
 
     // The tree drives the capture target; nothing is pre-selected, because
     // a photo filed against whatever happened to be first in a list is the
@@ -1078,6 +1080,7 @@ private fun AppScreen() {
                             // plus anything already holding captures.
                             rooms = cat.roomsInScope(
                                 rooms, proj.client, proj.site,
+                                siteTypeOf(proj.client, proj.site),
                             ) { r ->
                                 queue.any { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
@@ -1085,6 +1088,7 @@ private fun AppScreen() {
                             onChooseRooms = { chooseRooms = true },
                             hiddenRooms = (rooms.size - cat.roomsInScope(
                                 rooms, proj.client, proj.site,
+                                siteTypeOf(proj.client, proj.site),
                             ) { r ->
                                 queue.any { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
@@ -1585,7 +1589,10 @@ private fun AppScreen() {
         }
         add(Crumb(
             label = RoomToken.of(roomName),
-            siblings = rooms.map { it to it },
+            siblings = (navProject?.let { p ->
+                cat.roomsInScope(rooms, p.client, p.site, siteTypeOf(p.client, p.site)) { r ->
+                    queue.any { it.room == r && it.projectTitle.equals(p.title, true) } }
+            } ?: rooms).map { it to it },
             onUp = { },
             onSibling = { navRoom = it }))
     }
@@ -1833,9 +1840,9 @@ private fun AppScreen() {
                 },
                 dismissButton = {
                     TextButton(onClick = {
-                        // Clearing the scope restores every room, which is the
-                        // only way back from a tick-list somebody regrets.
-                        cat.setRoomScope(sc, ss, emptySet())
+                        // Every room of the master, written out: an EMPTY scope now
+                        // means the site's 2 BHK preset, so "all" has to be explicit.
+                        cat.setRoomScope(sc, ss, rooms.toSet())
                         chooseRooms = false
                         reload()
                     }) { Text("Show all") }

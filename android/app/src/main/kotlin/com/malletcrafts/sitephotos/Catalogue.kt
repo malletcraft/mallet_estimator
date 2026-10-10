@@ -356,11 +356,24 @@ class Catalogue(context: Context) {
     fun roomsInScope(
         all: List<String>,
         client: String, site: String,
+        siteType: String = "",
         hasCaptures: (String) -> Boolean,
     ): List<String> {
-        val chosen = roomScope(client, site)
-        if (chosen.isEmpty()) return all
+        // NOTHING CHOSEN MEANS THE SITE'S OWN PRESET, NOT THE MASTER (Amit,
+        // 2026-10-10: "its very annoying to see 31 rooms unnecessarily on apk.
+        // rooms master list is just convince. set by default 2 bhk for existing
+        // projects"). The master is the menu, never the default: a site nobody
+        // has narrowed shows a 2 BHK of its type (a Flat when the type is not
+        // a preset), plus any room already holding photos.
+        val chosen = roomScope(client, site).ifEmpty { defaultScope(siteType) }
         return all.filter { it in chosen || hasCaptures(it) }
+    }
+
+    /** The rooms a site starts with: its type's preset at 2 BHK. */
+    fun defaultScope(siteType: String): Set<String> {
+        val type = com.malletcrafts.sitephotos.pano.FlatPresets.TYPES
+            .firstOrNull { it.equals(siteType.trim(), true) } ?: "Flat"
+        return com.malletcrafts.sitephotos.pano.FlatPresets.rooms(type, 2).toSet()
     }
 
     /**
