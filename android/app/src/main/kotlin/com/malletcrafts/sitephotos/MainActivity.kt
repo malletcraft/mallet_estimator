@@ -1075,14 +1075,14 @@ private fun AppScreen() {
                             // Narrowed to the rooms this site actually has,
                             // plus anything already holding captures.
                             rooms = cat.roomsInScope(
-                                rooms, proj.client, proj.site, proj.title,
+                                rooms, proj.client, proj.site,
                             ) { r ->
                                 queue.any { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
                             },
                             onChooseRooms = { chooseRooms = true },
                             hiddenRooms = (rooms.size - cat.roomsInScope(
-                                rooms, proj.client, proj.site, proj.title,
+                                rooms, proj.client, proj.site,
                             ) { r ->
                                 queue.any { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
@@ -1726,12 +1726,17 @@ private fun AppScreen() {
     }
 
     // A new site -- nothing chosen, nothing captured -- opens straight on the room
-    // chooser, once, so it never starts as the master's twenty-nine rooms.
-    LaunchedEffect(navProject?.title, navProject?.site, navProject?.client) {
-        val p = navProject ?: return@LaunchedEffect
-        val k = "scope_asked:${p.client}|${p.site}|${p.title}"
-        val empty = cat.roomScope(p.client, p.site, p.title).isEmpty() &&
-            queue.none { it.projectTitle.equals(p.title, true) }
+    // chooser, once, so it never starts as the master's twenty-nine rooms. On
+    // picking the SITE, not the project (Amit, 2026-10-10: "site type should be
+    // shown when i select site not project"): the rooms are the flat's, shared
+    // by every project at it.
+    LaunchedEffect(navClient, navSite) {
+        val c = navClient ?: return@LaunchedEffect
+        val s = navSite ?: return@LaunchedEffect
+        val k = "scope_asked:$c|$s"
+        val titles = cs.projectsOf(c, s).map { it.title.lowercase() }.toSet()
+        val empty = cat.roomScope(c, s).isEmpty() &&
+            queue.none { it.projectTitle.lowercase() in titles }
         if (empty && !capturePrefs.getBoolean(k, false)) {
             capturePrefs.edit().putBoolean(k, true).apply()
             chooseRooms = true
@@ -1739,33 +1744,35 @@ private fun AppScreen() {
     }
 
     if (chooseRooms) {
-        val proj = navProject
-        if (proj == null) { chooseRooms = false } else {
-            // Pre-ticked from whatever is already chosen; on a site nobody has
-            // narrowed yet, from the rooms that already hold captures. Opening
-            // this on a fresh site therefore starts EMPTY rather than with all
-            // twenty-nine ticked -- ticking eight is less work than clearing
-            // twenty-one, and it is the same eight either way.
-            // A fresh site starts from a 2 BHK flat rather than from nothing or from
-            // all twenty-nine (Amit, 2026-10-09: "flat type selection is not good in
-            // apk. it still shows old 30 + rooms even for new site"); the type and
-            // BHK chips re-tick the list in one tap. Rooms holding photos stay ticked.
-            val already = cat.roomScope(proj.client, proj.site, proj.title)
+        val sc = navProject?.client ?: navClient
+        val ss = navProject?.site ?: navSite
+        if (sc == null || ss == null) { chooseRooms = false } else {
+            // A fresh site starts from its own type -- the one chosen when the
+            // site was made, or ERP's -- rather than from nothing or from all
+            // twenty-nine (Amit, 2026-10-09: "flat type selection is not good in
+            // apk. it still shows old 30 + rooms even for new site"); the type
+            // and BHK chips re-tick the list in one tap. Rooms holding photos in
+            // any project at the site stay ticked.
+            val already = cat.roomScope(sc, ss)
+            val titles = cs.projectsOf(sc, ss).map { it.title.lowercase() }.toSet()
             val withPhotos = rooms.filter { r ->
-                queue.any { it.room == r && it.projectTitle.equals(proj.title, true) } }.toSet()
-            var pType by remember(proj.title) { mutableStateOf("Flat") }
-            var pBhk by remember(proj.title) { mutableStateOf(2) }
+                queue.any { it.room == r && it.projectTitle.lowercase() in titles } }.toSet()
+            val siteType = cs.sitesOf(sc).firstOrNull { it.name.equals(ss, true) }?.type.orEmpty()
+            val presetType = com.malletcrafts.sitephotos.pano.FlatPresets.TYPES
+                .firstOrNull { it.equals(siteType, true) } ?: "Flat"
+            var pType by remember(sc, ss) { mutableStateOf(presetType) }
+            var pBhk by remember(sc, ss) { mutableStateOf(2) }
             fun presetTicks() = com.malletcrafts.sitephotos.pano.FlatPresets.rooms(pType, pBhk).filter { it in rooms }.toSet() + withPhotos
             val start = if (already.isNotEmpty()) already else presetTicks()
-            var ticked by remember(proj.title) { mutableStateOf(start) }
+            var ticked by remember(sc, ss) { mutableStateOf(start) }
             AlertDialog(
                 onDismissRequest = { chooseRooms = false },
-                title = { Text("Rooms at this site") },
+                title = { Text("Rooms at $ss") },
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text("Pick the type of site, then untick anything it doesn't have. " +
-                             "The rest stay out of the way until you need them. A room " +
-                             "holding photos is always shown, ticked or not.",
+                        Text("Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, " +
+                             "then untick anything it doesn't have. Every project at this site " +
+                             "uses these rooms. A room holding photos is always shown, ticked or not.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
@@ -1789,8 +1796,7 @@ private fun AppScreen() {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
                         for (r in rooms) {
-                            val has = queue.any { it.room == r &&
-                                it.projectTitle.equals(proj.title, true) }
+                            val has = r in withPhotos
                             Row(Modifier.fillMaxWidth().clickableRow {
                                     ticked = if (r in ticked) ticked - r else ticked + r
                                 },
@@ -1808,7 +1814,7 @@ private fun AppScreen() {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        cat.setRoomScope(proj.client, proj.site, proj.title, ticked)
+                        cat.setRoomScope(sc, ss, ticked)
                         chooseRooms = false
                         reload()
                     }) { Text("Use these rooms") }
@@ -1817,7 +1823,7 @@ private fun AppScreen() {
                     TextButton(onClick = {
                         // Clearing the scope restores every room, which is the
                         // only way back from a tick-list somebody regrets.
-                        cat.setRoomScope(proj.client, proj.site, proj.title, emptySet())
+                        cat.setRoomScope(sc, ss, emptySet())
                         chooseRooms = false
                         reload()
                     }) { Text("Show all") }

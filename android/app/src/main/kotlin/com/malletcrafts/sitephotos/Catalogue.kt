@@ -330,16 +330,17 @@ class Catalogue(context: Context) {
      * Empty is deliberately "show everything" rather than "show nothing", so
      * every project that existed before this behaves exactly as it did.
      */
-    fun roomScope(client: String, site: String, project: String): Set<String> {
-        val raw = prefs.getString(scopeKey(client, site, project), null) ?: return emptySet()
+    fun roomScope(client: String, site: String): Set<String> {
+        val raw = prefs.getString(scopeKey(client, site), null)
+            ?: migrateProjectScope(client, site) ?: return emptySet()
         val arr = runCatching { JSONArray(raw) }.getOrDefault(JSONArray())
         return (0 until arr.length()).mapNotNull { arr.optString(it).ifBlank { null } }.toSet()
     }
 
-    fun setRoomScope(client: String, site: String, project: String, rooms: Set<String>) {
+    fun setRoomScope(client: String, site: String, rooms: Set<String>) {
         val arr = JSONArray()
         rooms.sorted().forEach { arr.put(it) }
-        prefs.edit().putString(scopeKey(client, site, project), arr.toString()).apply()
+        prefs.edit().putString(scopeKey(client, site), arr.toString()).apply()
     }
 
     /**
@@ -354,16 +355,37 @@ class Catalogue(context: Context) {
      */
     fun roomsInScope(
         all: List<String>,
-        client: String, site: String, project: String,
+        client: String, site: String,
         hasCaptures: (String) -> Boolean,
     ): List<String> {
-        val chosen = roomScope(client, site, project)
+        val chosen = roomScope(client, site)
         if (chosen.isEmpty()) return all
         return all.filter { it in chosen || hasCaptures(it) }
     }
 
-    private fun scopeKey(client: String, site: String, project: String) =
-        "room_scope:" + keyOf(client, site, project)
+    /**
+     * Keyed by the SITE, not the project (Amit, 2026-10-10: "site type should
+     * be shown when i select site not project"). Which rooms exist is a fact
+     * about the flat, so every project at one site shares one list, and the
+     * chooser opens when the site is picked rather than once per project.
+     */
+    private fun scopeKey(client: String, site: String) =
+        "room_scope:" + keyOf(client, site, "")
+
+    /**
+     * One-time move of a list chosen before 2026-10-10, when it was kept per
+     * project under `room_scope:client|site|project`. The first non-empty one
+     * at the site becomes the site's list and is written under the site key,
+     * so this runs once per site and never again.
+     */
+    private fun migrateProjectScope(client: String, site: String): String? {
+        val prefix = scopeKey(client, site)
+        val old = prefs.all.entries.firstOrNull { (k, v) ->
+            k.startsWith(prefix) && k != prefix && v is String && v != "[]"
+        }?.value as? String ?: return null
+        prefs.edit().putString(prefix, old).apply()
+        return old
+    }
 
     // ---- work recorded on site ------------------------------------------
 
