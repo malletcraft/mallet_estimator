@@ -18,7 +18,7 @@ object FlatPresets {
         val n = bhk.coerceIn(1, 5)
         val beds = BEDS.take(n); val baths = BATHS.take(n)
         return when (type) {
-            "Flat" -> listOf("Foyer", "Living Room", "Kitchen") + beds + baths + "Balcony" +
+            "Flat" -> listOf("Foyer", "Living Room", "Kitchen") + beds + baths + "Balcony" + "Dry Balcony" +
                 (if (n >= 2) listOf("Utility") else emptyList()) + (if (n >= 3) listOf("Dining Room") else emptyList())
             "Bungalow", "Row House" -> listOf("Foyer", "Living Room", "Dining Room", "Kitchen", "Utility", "Pooja Room") +
                 beds + baths + listOf("Passage", "Staircase", "Balcony", "Terrace") +

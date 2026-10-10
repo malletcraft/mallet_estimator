@@ -948,7 +948,7 @@ class Catalogue(context: Context) {
             "Bedroom 5", "Bathroom", "Toilet 1", "Toilet 2", "Toilet 3",
             "Toilet 4", "Toilet 5", "Living Room", "Dining Room", "Family Lounge",
             "Home Theatre", "Kitchen", "Study", "Utility", "Store", "Servant Room",
-            "Foyer", "Passage", "Staircase", "Balcony", "Terrace", "Car Porch",
+            "Foyer", "Passage", "Staircase", "Balcony", "Dry Balcony", "Terrace", "Car Porch",
             "Garden", "Pooja Room", "Other",
         )
     }

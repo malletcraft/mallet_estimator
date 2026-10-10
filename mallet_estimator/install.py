@@ -268,7 +268,7 @@ DEFAULT_ROOMS = [
     # Working.
     "Kitchen", "Study", "Utility", "Store", "Servant Room",
     # Circulation and outdoor — the row-house half.
-    "Foyer", "Passage", "Staircase", "Balcony", "Terrace", "Car Porch", "Garden",
+    "Foyer", "Passage", "Staircase", "Balcony", "Dry Balcony", "Terrace", "Car Porch", "Garden",
     # Devotional, and the catch-all.
     "Pooja Room", "Other",
 ]
