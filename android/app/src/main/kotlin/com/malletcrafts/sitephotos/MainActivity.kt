@@ -545,8 +545,8 @@ private fun AppScreen() {
         mediaTick += 1
         lastResult = if (granted) "Gallery access granted — looking for annotations now."
                      else "Without gallery access the app cannot see what " +
-                          "ImageMeter wrote. Settings → Apps → MCFT Site " +
-                          "Photos → Permissions → Photos."
+                          "ImageMeter wrote. Settings → Apps → MCFT Interior " +
+                          "Estimate → Permissions → Photos."
         if (granted) SyncWorker.syncNow(context)
     }
     LaunchedEffect(configured) {
@@ -889,7 +889,7 @@ private fun AppScreen() {
     // screen's, and building it twice would let the two drift.
     val drawerContent: @Composable () -> Unit = {
         SettingsDrawerContent(
-            user = FrappeClient.savedUrl(context).ifBlank { "Site Photos" },
+            user = FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" },
             server = FrappeClient.savedUrl(context),
             groups = drawerGroups(
                 queued = unsent,
@@ -969,7 +969,7 @@ private fun AppScreen() {
                 topBar = {
                     TreeTopBar(
                         title = if (tab == "work") "Work" else "Sync queue",
-                        subtitle = if (tab == "work") "Woodugift · site photos"
+                        subtitle = if (tab == "work") "MCFT Interior Estimate"
                                    else plural(unsent, "waiting"),
                         onMenu = { scopeTab.launch { drawerState.open() } },
                         onSearch = { showSearch = true; searchQuery = "" })

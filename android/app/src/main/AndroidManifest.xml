@@ -55,7 +55,7 @@
          android:label; ours wins, by declaration rather than by luck. -->
     <application
         android:name=".SitePhotosApp"
-        android:label="MCFT Site Photos"
+        android:label="MCFT Interior Estimate"
         tools:replace="android:label"
         android:icon="@mipmap/ic_launcher"
         android:largeHeap="true"

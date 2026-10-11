@@ -164,6 +164,15 @@ internal fun SurveyPrepDialog(
     // Closing the screen inside that moment must not lose the last change.
     DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, lL, lW, lH) } }
 
+    // ---- the as-is upload to MCFT Interior Estimate's web half: queued on Save, its state read back here
+    var webState by remember { mutableStateOf(AsIsUpload.status(context, id)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            webState = withContext(Dispatchers.IO) { AsIsUpload.status(context, id) }
+            delay(3000)
+        }
+    }
+
     fun snapshot() { hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0) }
     fun undo() {
         if (hist.isEmpty()) return
@@ -321,6 +330,10 @@ internal fun SurveyPrepDialog(
                 }
                 Text("Laser D2 readings from the room capture, in mm. Fixed here.", color = SP_MUTED, fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                webState?.let { (msg, good) ->
+                    Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                }
                 if (onDiscard != null) {
                     Text("New 360 \u2014 \u2190 keeps it in the room, and its lines and marks save as you go.",
                         color = SP_GOLD, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
@@ -516,7 +529,16 @@ internal fun SurveyPrepDialog(
                     note?.let { Text(it, color = SP_AMB, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (done == 6) SP_GOLD else Color(0xFF3A3E35))
-                    .clickable(enabled = done == 6) { onDone(prep.copy()) }.padding(12.dp), contentAlignment = Alignment.Center) {
+                    .clickable(enabled = done == 6) {
+                        // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
+                        // read back queues nothing, so the web never gets a prep this phone does not hold.
+                        if (store.save(id, prep, lL, lW, lH)) {
+                            unsaved[0] = false
+                            AsIsUpload.enqueue(context, id)
+                            webState = AsIsUpload.status(context, id)
+                        }
+                        onDone(prep.copy())
+                    }.padding(12.dp), contentAlignment = Alignment.Center) {
                     Text("Save survey prep", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
                 Spacer(Modifier.height(6.dp))

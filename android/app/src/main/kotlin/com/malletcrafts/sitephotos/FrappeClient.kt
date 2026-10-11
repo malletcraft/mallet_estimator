@@ -422,6 +422,17 @@ class FrappeClient(private val baseUrl: String, private val key: String,
 
         fun configured(context: Context): Boolean = load(context) != null
 
+        /** The saved ERP key as an Authorization header value, or null when
+         *  signed out. MCFT Interior Estimate's web half asks ERP who this is
+         *  with the same header, so the phone needs no second login. Never log it. */
+        fun authorization(context: Context): String? {
+            val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val key = p.getString("key", null) ?: return null
+            val secret = p.getString("secret", null) ?: return null
+            if (key.isBlank() || secret.isBlank()) return null
+            return "token $key:$secret"
+        }
+
         /** Sign out: drop the credentials, keep the queue. A technician
          *  handing the phone on should not take unsent captures with them. */
         fun forget(context: Context) {

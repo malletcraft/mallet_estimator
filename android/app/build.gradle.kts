@@ -29,6 +29,11 @@ android {
         // arm64. The stub build carries almost no native code, so this
         // costs it nothing.
         ndk { abiFilters += listOf("arm64-v8a") }
+
+        // The web half of MCFT Interior Estimate (S5). This APK IS stage, so it
+        // talks to stage: survey prep's as-is upload goes here. One constant,
+        // so nothing else in the app spells the host.
+        buildConfigField("String", "WEB_URL", "\"https://stage.estimate.woodugift.com\"")
     }
 
     signingConfigs {
@@ -73,7 +78,7 @@ android {
         }
     }
 
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

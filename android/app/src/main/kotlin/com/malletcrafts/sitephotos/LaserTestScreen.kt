@@ -79,7 +79,7 @@ fun LaserTestScreen(onBack: () -> Unit) {
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
                     TextButton(enabled = log.isNotEmpty(), onClick = {
-                        val text = "Site Photos ${appVersion(context)} — laser test\n" + log.joinToString("\n")
+                        val text = "MCFT Interior Estimate ${appVersion(context)} — laser test\n" + log.joinToString("\n")
                         context.startActivity(Intent.createChooser(
                             Intent(Intent.ACTION_SEND).setType("text/plain")
                                 .putExtra(Intent.EXTRA_TEXT, text), "Share laser log"))

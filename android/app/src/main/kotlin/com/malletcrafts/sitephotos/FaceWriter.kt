@@ -406,6 +406,22 @@ object FaceWriter {
         }
     }
 
+    /** A kept capture's 360 at full working size: what the as-is upload
+     *  squares each surface from, as sharp as [rewriteSurvey]'s elevations. */
+    fun fullPano(file: File): Panorama.Image = decodePano(file, MAX_DECODE_WIDTH)
+
+    /** A picture as JPEG bytes, for the as-is upload. */
+    fun jpegOf(img: Panorama.Image, quality: Int): ByteArray {
+        val bmp = toBitmap(img)
+        try {
+            val out = java.io.ByteArrayOutputStream()
+            bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            return out.toByteArray()
+        } finally {
+            bmp.recycle()
+        }
+    }
+
     /** A kept capture's 360 at the preview size the survey prep works on. */
     fun previewPano(file: File): Panorama.Image = decodePano(file, PREVIEW_PANO_WIDTH)
 

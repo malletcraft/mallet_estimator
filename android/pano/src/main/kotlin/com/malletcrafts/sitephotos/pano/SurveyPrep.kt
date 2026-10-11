@@ -252,6 +252,43 @@ object SurveyPrep {
         return Panorama.Image(sq.width, sq.height, out)
     }
 
+    // ------------------------------------------- the as-is picture for the web
+
+    /** The longer side, px, of a surface as uploaded to MCFT Interior Estimate. */
+    const val ASIS_LONG_PX = 2000
+
+    /**
+     * A surface squared to size with NO MARGIN, for the web (MCFT Interior
+     * Estimate's as-is view, contract 2026-10-11): the picture IS the surface
+     * rectangle. Pixel (0, 0) is mm (0, [b]) -- its top-left -- and the far
+     * corner (width, height) is mm ([a], 0); the same mm per pixel both ways,
+     * the longer side [longPx]. Floor and ceiling come out as on the phone:
+     * front wall at the top, left wall on the left. The web draws the marks
+     * (mm boxes) straight onto it, so nothing here may add a border.
+     */
+    fun asisSquare(a: Double, b: Double, longPx: Int = ASIS_LONG_PX): Square {
+        val mpp = max(a, b) / longPx
+        return Square(a, b, 0.0, 0.0, mpp, (a / mpp).roundToInt().coerceAtLeast(1),
+            (b / mpp).roundToInt().coerceAtLeast(1))
+    }
+
+    /**
+     * The direction to sample the 360 at for picture point ([px], [py]) of
+     * [sq] (continuous: pixel i's centre is i + 0.5), through the surface's
+     * frame; null where that point falls outside the surface's own view.
+     * The same mapping [render] uses, one point at a time.
+     */
+    fun asisDirection(s: String, f: Frame, sq: Square, px: Double, py: Double): DoubleArray? {
+        val p = apply(f.m2p, doubleArrayOf(sq.mmX(px), sq.mmY(py)))
+        val d = dimOf(s)
+        if (p[0].isNaN() || p[1].isNaN() || p[0] < 0 || p[1] < 0 || p[0] > d[0] || p[1] > d[1]) return null
+        return ray(s, p[0], p[1])
+    }
+
+    /** A surface as uploaded: squared, no margin, sampled from the 360. */
+    fun renderAsIs(pano: Panorama.Image, s: String, f: Frame): Panorama.Image =
+        render(pano, s, f, asisSquare(f.a, f.b))
+
     // ------------------------------------------------------------- lines
 
     /** Distance, px, from a point to a line through two points. */
