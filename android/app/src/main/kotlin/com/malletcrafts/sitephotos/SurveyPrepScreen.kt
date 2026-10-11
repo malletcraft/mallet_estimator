@@ -166,11 +166,26 @@ internal fun SurveyPrepDialog(
 
     // ---- the as-is upload to MCFT Interior Estimate's web half: queued on Save, its state read back here
     var webState by remember { mutableStateOf(AsIsUpload.status(context, id)) }
+    var readingsMsg by remember { mutableStateOf<String?>(null) }
+    // A pull of the web's readings is asked for by bumping this: on open, on resume, and when an upload lands.
+    var pullTick by remember { mutableIntStateOf(1) }
     LaunchedEffect(Unit) {
+        var wasDone = webState?.second == true
         while (true) {
             webState = withContext(Dispatchers.IO) { AsIsUpload.status(context, id) }
+            val isDone = webState?.second == true
+            if (isDone && !wasDone) pullTick++
+            wasDone = isDone
             delay(3000)
         }
+    }
+    val prepLifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(prepLifecycle) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) pullTick++
+        }
+        prepLifecycle.addObserver(obs)
+        onDispose { prepLifecycle.removeObserver(obs) }
     }
 
     fun snapshot() { hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0) }
@@ -217,6 +232,27 @@ internal fun SurveyPrepDialog(
         val a = active
         if (a == null || prep.markOf(a) == null) note = "D2 ${r.mm} mm — tap a measurement first, then read again"
         else reading(a, r.mm.toDouble())
+    }
+
+    // ---- site readings from the web (ReadingsSync): what changed there is taken, never an unsent edit here
+    LaunchedEffect(pullTick) {
+        if (pullTick == 0) return@LaunchedEffect
+        val row = withContext(Dispatchers.IO) { CaptureStore(context).all().firstOrNull { it.deviceId == id } }
+        val auth = FrappeClient.authorization(context)
+        val fetched: Result<Map<String, com.malletcrafts.sitephotos.pano.Readings.Remote>>? =
+            if (row == null || row.project.isBlank() || auth == null) null
+            else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room) } }
+        val remote = fetched?.getOrNull()
+        val (applied, moved) = ReadingsSync.merge(context, id, prep.actual, remote)
+        if (moved) changed()
+        val head = if (applied.isEmpty()) "" else ReadingsSync.conflictText(applied) + " · "
+        val e = fetched?.exceptionOrNull()
+        readingsMsg = when {
+            fetched == null -> if (applied.isEmpty()) readingsMsg else head.removeSuffix(" · ")
+            e == null -> head + "Readings from web ✓ " + ReadingsSync.now()
+            ReadingsSync.notAvailable(e!!) -> head + ReadingsSync.NOT_YET
+            else -> head + "Readings from web: " + (e?.message ?: "failed").take(160)
+        }
     }
 
     // ---- pictures: the six views once, and each surface squared whenever its lines change
@@ -332,6 +368,11 @@ internal fun SurveyPrepDialog(
                     modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
                 webState?.let { (msg, good) ->
                     Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                }
+                readingsMsg?.let { msg ->
+                    Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
+                                      else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
                 }
                 if (onDiscard != null) {

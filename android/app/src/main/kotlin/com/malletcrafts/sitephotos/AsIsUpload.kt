@@ -83,7 +83,8 @@ object AsIsUpload {
             "done" -> {
                 val hm = Instant.ofEpochMilli(o.optLong("at")).atZone(ZoneId.systemDefault())
                     .toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
-                ("On web ✓ $hm" + if (o.optBoolean("image", true)) "" else " · no photos, the 360 is not on this phone") to true
+                val extra = o.optString("error", "").let { if (it.isBlank()) "" else " · $it" }
+                ("On web ✓ $hm" + (if (o.optBoolean("image", true)) "" else " · no photos, the 360 is not on this phone") + extra) to true
             }
             "error" -> ("Not on web: " + o.optString("error", "upload failed")) to false
             else -> ("Waiting to upload" + o.optString("error", "").let { if (it.isBlank()) "" else " · $it" }) to false
@@ -101,8 +102,12 @@ object AsIsUpload {
 
     internal const val JPEG_QUALITY = QUALITY
 
-    /** Non-retryable: the web refused this request as such (not signal, not a server fault). */
-    class Refused(message: String) : Exception(message)
+    /** The web answered with an error status; [code] says whether retrying can help. */
+    class HttpError(val code: Int, message: String) : Exception(message) {
+        /** 4xx is the web saying no to THIS request (not signed in, not staff, too
+         *  big): retrying the same thing cannot help. 408/429 are waits. */
+        val refused: Boolean get() = code in 400..499 && code != 408 && code != 429
+    }
 
     private val http by lazy {
         OkHttpClient.Builder()
@@ -112,23 +117,27 @@ object AsIsUpload {
             .build()
     }
 
-    internal fun put(url: String, auth: String, body: ByteArray, contentType: String) {
-        val req = Request.Builder()
-            .url(url)
-            .header("Authorization", auth)
-            .put(body.toRequestBody(contentType.toMediaType()))
-            .build()
-        http.newCall(req).execute().use { resp ->
-            if (resp.isSuccessful) return
-            val text = (resp.body?.string() ?: "").let { b ->
-                runCatching { JSONObject(b).optString("error").ifBlank { null } }.getOrNull() ?: b
-            }.replace(Regex("\\s+"), " ").take(160)
-            val msg = "web answered ${resp.code}" + if (text.isNotBlank()) ": $text" else ""
-            // 4xx is the web saying no to THIS request (not signed in, not staff,
-            // too big): retrying the same thing cannot help. 408/429 are waits.
-            if (resp.code in 400..499 && resp.code != 408 && resp.code != 429) throw Refused(msg)
-            throw java.io.IOException(msg)
+    /** One request to the web; the answer's body. [method] is GET, PUT or PATCH. */
+    internal fun send(method: String, url: String, auth: String, body: ByteArray?, contentType: String?): String {
+        val b = Request.Builder().url(url).header("Authorization", auth)
+        val rb = body?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
+        when (method) {
+            "PUT" -> b.put(rb ?: ByteArray(0).toRequestBody(null))
+            "PATCH" -> b.patch(rb ?: ByteArray(0).toRequestBody(null))
+            else -> b.get()
         }
+        http.newCall(b.build()).execute().use { resp ->
+            val raw = resp.body?.string() ?: ""
+            if (resp.isSuccessful) return raw
+            val text = runCatching { JSONObject(raw).optString("error").ifBlank { null } }.getOrNull()
+                ?: raw
+            val clean = text.replace(Regex("\\s+"), " ").take(160)
+            throw HttpError(resp.code, "web answered ${resp.code}" + if (clean.isNotBlank()) ": $clean" else "")
+        }
+    }
+
+    internal fun put(url: String, auth: String, body: ByteArray, contentType: String) {
+        send("PUT", url, auth, body, contentType)
     }
 }
 
@@ -222,11 +231,21 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 .put("surfaces", surfaces)
             AsIsUpload.put(base, auth, record.toString().toByteArray(Charsets.UTF_8),
                 "application/json; charset=utf-8")
-            AsIsUpload.setState(ctx, id, "done", null, image = anyImage)
+            // Then the site readings, per key, against what the web last said
+            // (ReadingsSync). Never blocks the room: a web without the readings
+            // endpoint yet answers quietly.
+            val readingsNote: String? = try {
+                ReadingsSync.push(ctx, id, auth, c.project, c.room, prep.actual.toMap())
+            } catch (e: AsIsUpload.HttpError) {
+                if (ReadingsSync.notAvailable(e)) ReadingsSync.NOT_YET
+                else if (e.refused) "readings not sent: ${e.message}"
+                else throw e
+            }
+            AsIsUpload.setState(ctx, id, "done", readingsNote, image = anyImage)
             Result.success()
-        } catch (e: AsIsUpload.Refused) {
+        } catch (e: AsIsUpload.HttpError) {
             AsIsUpload.setState(ctx, id, "error", e.message ?: "refused")
-            Result.failure()
+            if (e.refused) Result.failure() else Result.retry()
         } catch (e: OutOfMemoryError) {
             AsIsUpload.setState(ctx, id, "error", "not enough memory to square the 360 — will try again")
             Result.retry()

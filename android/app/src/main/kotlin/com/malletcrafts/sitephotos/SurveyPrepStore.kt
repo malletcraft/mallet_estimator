@@ -24,7 +24,11 @@ class SurveyPrepStore(context: Context) {
     private fun file(id: String) = File(dir, "$id.json")
 
     fun exists(id: String) = file(id).exists()
-    fun delete(id: String) { runCatching { file(id).delete() } }
+    fun delete(id: String) {
+        runCatching { file(id).delete() }
+        // its readings baseline goes with it (ReadingsSync)
+        runCatching { File(dir, "$id.sync.json").delete() }
+    }
 
     fun loadText(id: String): String? = runCatching { file(id).takeIf { it.exists() }?.readText() }.getOrNull()
 
