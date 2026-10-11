@@ -107,6 +107,42 @@ def version_info():
     return out
 
 
+@frappe.whitelist(allow_guest=False)
+def whoami():
+    """Who the caller is, for MCFT Interior Estimate's web half (S5).
+
+    S5 holds no ERP credential: it forwards the caller's own API key or sid
+    here and decides what to show from the answer —
+      {"user", "full_name", "kind": staff|vendor|client|none,
+       "suppliers": [...], "customers": [...]}
+    staff = System User; vendor/client = a Website User whose Contact
+    (Contact.user) carries a Dynamic Link to a Supplier/Customer. Reads only,
+    by plain SQL so the caller needs no permission on Contact, and never
+    raises for a logged-in user — a failed read answers "none"."""
+    from mallet_estimator import identity
+
+    user = frappe.session.user
+    full_name, user_type, links = user, None, []
+    try:
+        row = frappe.db.get_value("User", user, ["full_name", "user_type"], as_dict=True)
+        if row:
+            full_name = row.full_name or user
+            user_type = row.user_type
+    except Exception:
+        pass
+    try:
+        links = frappe.db.sql(
+            """select dl.link_doctype, dl.link_name
+                 from `tabDynamic Link` dl
+                 join `tabContact` c on c.name = dl.parent
+                where dl.parenttype = 'Contact'
+                  and dl.link_doctype in ('Supplier', 'Customer')
+                  and c.user = %s""", (user,))
+    except Exception:
+        links = []
+    return identity.classify(user, full_name, user_type, links)
+
+
 def _find_sku(sku):
     """The non-throwing half of resolution: doc by NAME or unique SKU CODE,
     else None. A code matching SEVERAL SKUs still throws — silence there
