@@ -321,6 +321,91 @@ object FaceWriter {
         ).also { it.chosen = proposed }
     }
 
+    /**
+     * The survey prep's pictures for one capture: every BOUNDED surface as an
+     * elevation squared to its laser size, between its four boundary lines,
+     * with the same margins Face Prep reads an elevation by; and, for a
+     * surface with marks, a -survey picture of them with their codes, as the
+     * List tab shows them. A surface whose lines are not all set is skipped.
+     *
+     * Elevations are unstamped on purpose: the stamp says "this is face X of
+     * capture Y", and an elevation is not that face -- a scan that matched it
+     * to the face would pair an annotation with the wrong picture.
+     *
+     * Any earlier copy under the same name is removed first, so writing again
+     * after the prep changed REPLACES the pictures rather than adding to them.
+     * Returns how many were written.
+     */
+    fun writeSurvey(
+        context: Context, deviceId: String, room: String, captureDate: String, stage: String,
+        relativePath: String, full: Panorama.Image, prep: SurveyPrep.Prep, dims: DoubleArray, facePx: Int,
+    ): Int {
+        if (dims.size != 3) return 0
+        var written = 0
+        for (s in SurveyPrep.SURFACES) {
+            if (!prep.surface(s).done()) continue
+            val size = SurveyPrep.size(s, dims[0], dims[1], dims[2])
+            val f = SurveyPrep.frame(prep.surface(s).lines, size[0], size[1]) ?: continue
+            val face = SurveyPrep.panoFace(s)
+            val label = Handover.FACE_LABELS[face] ?: face
+            val sq = SurveyPrep.Square.elevation(size[0], size[1], facePx, ELEV_MARGIN)
+            val flat = toBitmap(SurveyPrep.render(full, s, f, sq))
+            try {
+                // The ceiling is filed the way the split's "up" face looks --
+                // back wall at the top -- which is how Face Prep reads it.
+                val bmp = if (s == "ceil") toBitmap(SurveyPrep.render(full, s, f, sq, flipY = true))
+                          else flat.copy(Bitmap.Config.ARGB_8888, true)
+                drawScaleBar(bmp, scaleBarFor(s, size))
+                val captioned = captionedBitmap(bmp, Handover.captionText(
+                    deviceId, room, "$label elevation", captureDate, stage))
+                try {
+                    val name = elevationFilename(deviceId, face)
+                    deleteByName(context, name)
+                    saveToGallery(context, captioned, relativePath, name)
+                    written += 1
+                } finally {
+                    captioned.recycle()
+                    bmp.recycle()
+                }
+                val surveyName = surveyFilename(deviceId, face)
+                deleteByName(context, surveyName)
+                if (prep.surface(s).marks.isNotEmpty()) {
+                    SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
+                        null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null),
+                        { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, flat.width / 960f)
+                    val marked = captionedBitmap(flat, Handover.captionText(
+                        deviceId, room, "$label survey marks", captureDate, stage))
+                    try {
+                        saveToGallery(context, marked, relativePath, surveyName)
+                        written += 1
+                    } finally {
+                        marked.recycle()
+                    }
+                }
+            } finally {
+                flat.recycle()
+            }
+        }
+        return written
+    }
+
+    /** [writeSurvey] for a kept capture, from its kept 360 at full size. */
+    fun rewriteSurvey(
+        context: Context, panoFile: File, deviceId: String, room: String, captureDate: String, stage: String,
+        relativePath: String, prep: SurveyPrep.Prep, dims: DoubleArray,
+    ): Int = writeSurvey(context, deviceId, room, captureDate, stage, relativePath,
+        decodePano(panoFile, MAX_DECODE_WIDTH), prep, dims, Panorama.DEFAULT_FACE_PX)
+
+    /** This app's own gallery entry of that name, if any, removed. A file it
+     *  can no longer delete (another install wrote it) is left alone. */
+    private fun deleteByName(context: Context, displayName: String) {
+        runCatching {
+            context.contentResolver.delete(
+                MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                "${MediaStore.MediaColumns.DISPLAY_NAME} = ?", arrayOf(displayName))
+        }
+    }
+
     /** A kept capture's 360 at the preview size the survey prep works on. */
     fun previewPano(file: File): Panorama.Image = decodePano(file, PREVIEW_PANO_WIDTH)
 
@@ -372,59 +457,10 @@ object FaceWriter {
                 captioned.recycle()
             }
         }
-        // Elevations, all six, from the survey prep: each surface squared to
-        // its laser size between its four boundary lines, with the same
-        // margins Face Prep reads an elevation by. Unstamped on purpose: the
-        // stamp says "this is face X of capture Y", and an elevation is not
-        // that face -- a scan that matched it to the face would pair an
-        // annotation with the wrong picture.
         val prep = session.survey; val dims = session.surveySize
-        if (prep != null && dims != null && dims.size == 3) {
-            for (s in SurveyPrep.SURFACES) {
-                val size = SurveyPrep.size(s, dims[0], dims[1], dims[2])
-                val f = SurveyPrep.frame(prep.surface(s).lines, size[0], size[1]) ?: continue
-                val face = SurveyPrep.panoFace(s)
-                val label = Handover.FACE_LABELS[face] ?: face
-                val sq = SurveyPrep.Square.elevation(size[0], size[1], session.facePx, ELEV_MARGIN)
-                val flat = toBitmap(SurveyPrep.render(full, s, f, sq))
-                // The ceiling is filed the way the split's "up" face looks --
-                // back wall at the top -- which is how Face Prep reads it.
-                val bmp = if (s == "ceil") toBitmap(SurveyPrep.render(full, s, f, sq, flipY = true))
-                          else flat.copy(Bitmap.Config.ARGB_8888, true)
-                drawScaleBar(bmp, scaleBarFor(s, size))
-                val captioned = captionedBitmap(bmp, Handover.captionText(
-                    session.deviceId, session.room, "$label elevation",
-                    session.captureDate, session.stage))
-                try {
-                    saveToGallery(context, captioned, session.relativePath,
-                        elevationFilename(session.deviceId, face))
-                    written += 1
-                } finally {
-                    captioned.recycle()
-                    bmp.recycle()
-                }
-                // And the marks with their codes, as the List tab shows them,
-                // for a surface that has any: the engineer's checklist picture.
-                try {
-                    if (prep.surface(s).marks.isNotEmpty()) {
-                        SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
-                            null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null),
-                            { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, flat.width / 960f)
-                        val marked = captionedBitmap(flat, Handover.captionText(
-                            session.deviceId, session.room, "$label survey marks",
-                            session.captureDate, session.stage))
-                        try {
-                            saveToGallery(context, marked, session.relativePath,
-                                surveyFilename(session.deviceId, face))
-                            written += 1
-                        } finally {
-                            marked.recycle()
-                        }
-                    }
-                } finally {
-                    flat.recycle()
-                }
-            }
+        if (prep != null && dims != null) {
+            written += writeSurvey(context, session.deviceId, session.room, session.captureDate,
+                session.stage, session.relativePath, full, prep, dims, session.facePx)
         }
         // The 360 itself belongs in the room's folder too, beside its faces.
         // Amit: "360 foto will be split in that folder itself retaining its

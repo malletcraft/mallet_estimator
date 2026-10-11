@@ -355,4 +355,29 @@ class SurveyPrepTest {
         assertTrue(SurveyPrep.localCopyRemovable("SYNCED"))
         for (st in listOf("LOCAL", "ERROR", "UPLOADING", "")) assertFalse(SurveyPrep.localCopyRemovable(st), st)
     }
+
+    @Test fun `the squared picture holds the whole surface, even a long room's floor`() {
+        for ((a, b) in listOf(W to H, L to H, 2678.0 to 6500.0, 9000.0 to 2600.0, 3000.0 to 3000.0)) {
+            val sq = SurveyPrep.Square.screen(a, b)
+            assertTrue(sq.width <= 960 && sq.height <= 1600, "${a}x$b: ${sq.width}x${sq.height}")
+            assertTrue(sq.x(0.0) >= 0 && sq.x(a) <= sq.width + 0.5, "${a}x$b across")
+            assertTrue(sq.y(b) >= 0 && sq.y(0.0) <= sq.height + 0.5, "${a}x$b up")
+            // and the same mm per pixel both ways: a square stays a square
+            close(sq.mpp * sq.width, a + 2 * sq.mX, sq.mpp, "${a}x$b width")
+        }
+        assertTrue(SurveyPrep.Square.screen(2678.0, 6500.0).width < 960, "a deep floor is narrower, not cut")
+        assertEquals(1600, SurveyPrep.Square.screen(2678.0, 6500.0).height)
+    }
+
+    @Test fun `the photo box fits the whole picture at zoom 1 and letterboxes the rest`() {
+        // a deep floor in a wide box: height decides
+        close(0.5, SurveyPrep.fitScale(1000.0, 800.0, 960.0, 1600.0), 1e-12, "tall")
+        // a wall in a tall box: width decides
+        close(1000.0 / 960, SurveyPrep.fitScale(1000.0, 1600.0, 960.0, 800.0), 1e-12, "wide")
+        // the centre stays put when the whole picture is in view, and keeps the view on it when zoomed
+        close(480.0, SurveyPrep.clampCentre(100.0, 960.0, 1200.0), 1e-12, "letterboxed")
+        close(240.0, SurveyPrep.clampCentre(100.0, 960.0, 480.0), 1e-12, "left edge")
+        close(720.0, SurveyPrep.clampCentre(900.0, 960.0, 480.0), 1e-12, "right edge")
+        close(500.0, SurveyPrep.clampCentre(500.0, 960.0, 480.0), 1e-12, "free")
+    }
 }

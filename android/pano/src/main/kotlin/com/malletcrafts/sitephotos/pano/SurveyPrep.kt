@@ -206,11 +206,22 @@ object SurveyPrep {
         fun mmY(py: Double) = b + mY - py * mpp
 
         companion object {
-            /** On screen: 960 wide, a margin of 4% of the longer side all round. */
+            /**
+             * On screen: a margin of 4% of the longer side all round, and the
+             * WHOLE surface in the picture -- 960 wide, or 1600 high when the
+             * surface is so deep that 960 wide would need more. (The mock-up
+             * kept 960 and cut the picture at 1600, which cut off the back of a
+             * long room's floor: Amit, 2026-10-11, "does not show full foto".)
+             */
             fun screen(a: Double, b: Double): Square {
-                val m = 0.04 * max(a, b); val ow = 960; val mpp = (a + 2 * m) / ow
-                return Square(a, b, m, m, mpp, ow, min(1600, ((b + 2 * m) / mpp).roundToInt()))
+                val m = 0.04 * max(a, b)
+                val mpp = max((a + 2 * m) / SCREEN_W, (b + 2 * m) / SCREEN_H_MAX)
+                return Square(a, b, m, m, mpp, ((a + 2 * m) / mpp).roundToInt().coerceAtLeast(1),
+                    ((b + 2 * m) / mpp).roundToInt().coerceAtLeast(1))
             }
+
+            const val SCREEN_W = 960
+            const val SCREEN_H_MAX = 1600
 
             /** A saved elevation: [margin] of EACH side beyond it, as Face Prep reads one. */
             fun elevation(a: Double, b: Double, widthPx: Int, margin: Double): Square {
@@ -485,6 +496,20 @@ object SurveyPrep {
             return ks.drop(i + 1).firstOrNull { actual[it] == null } ?: ks.firstOrNull { actual[it] == null }
         }
     }
+
+    // ------------------------------------------------------ the photo box
+
+    /**
+     * Screen pixels per picture pixel at zoom 1: the WHOLE picture inside a
+     * [bw] x [bh] box, letterboxed along whichever side has room to spare.
+     */
+    fun fitScale(bw: Double, bh: Double, iw: Double, ih: Double): Double =
+        if (iw <= 0 || ih <= 0 || bw <= 0 || bh <= 0) 1.0 else min(bw / iw, bh / ih)
+
+    /** A view's centre along one axis, picture px: kept so the view never
+     *  leaves the picture, and the picture centred when the view is wider. */
+    fun clampCentre(c: Double, extent: Double, view: Double): Double =
+        if (view >= extent) extent / 2 else c.coerceIn(view / 2, extent - view / 2)
 
     // ------------------------------------------------- reopening a kept capture
 

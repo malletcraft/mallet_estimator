@@ -57,6 +57,8 @@ data class CaptureCard(
     /** "360" or "Photo". A 360 is the record of a whole room and splits into
      *  six faces; a Photo is one wall, floor or ceiling and has none. */
     val kind: String = "360",
+    /** A 360's survey prep, in one line ("n of 6 bounded · m marks · k read"). */
+    val survey: String = "",
 )
 
 private val YELLOW = Color(0xFFE9FF3A)
@@ -113,6 +115,9 @@ fun CapturesScreen(
      *  words sort to the bottom rather than to the top, where they would push
      *  today's work off the screen. */
     stageOrder: (String) -> Int,
+    /** A capture's own screen (stage, local copy, delete). A 360's tile opens
+     *  survey prep, so this is how its details are reached. */
+    onDetails: (CaptureCard) -> Unit = {},
     onOpen: (CaptureCard) -> Unit,
 ) {
     if (captures.isEmpty()) {
@@ -179,7 +184,7 @@ fun CapturesScreen(
                                     start = 14.dp, top = 8.dp, bottom = 2.dp))
                         }
                     }
-                    items(rows, key = { it.deviceId }) { c -> CaptureTile(c, onOpen) }
+                    items(rows, key = { it.deviceId }) { c -> CaptureTile(c, onOpen, onDetails) }
                 }
             }
         }
@@ -221,7 +226,7 @@ private fun StageHeading(stage: String, photos: Int, days: Int) {
  * looks exactly like a tagged one.
  */
 @Composable
-private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit) {
+private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails: (CaptureCard) -> Unit) {
     Column(Modifier.clickable { onOpen(c) }) {
         Box(
             Modifier
@@ -242,6 +247,19 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit) {
                         .background(Color.Black.copy(alpha = .55f))
                         .padding(horizontal = 5.dp, vertical = 3.dp))
             }
+            if (c.kind == "360") {
+                // ONE TILE PER 360, and it opens survey prep (Amit, 2026-10-11:
+                // "our single screen takes care of all 6 faces"); the capture's
+                // own screen is one tap away here.
+                Text("Details", color = Color.White,
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.TopStart).padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = .6f))
+                        .clickable { onDetails(c) }
+                        .padding(horizontal = 7.dp, vertical = 4.dp))
+            }
             if (c.annotated > 0) {
                 PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp),
                     "${c.annotated}/6")
@@ -258,6 +276,17 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit) {
                 Text(if (c.state == "SYNCED") "synced" else "on phone",
                     color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
             }
+        }
+        if (c.kind == "360") {
+            Column(Modifier.fillMaxWidth().padding(7.dp, 6.dp, 7.dp, 8.dp)) {
+                Text("Survey prep", style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(c.survey.ifBlank { "tap to bound, square and mark the room" },
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            return@Column
         }
         Column(Modifier.fillMaxWidth().padding(7.dp, 6.dp, 7.dp, 8.dp)) {
             Text(
@@ -442,58 +471,10 @@ fun CaptureScreen(
             DetailRow(lead = "SVY", title = "Survey prep", subtitle = surveyNote, onClick = open)
         }
 
-        Row(Modifier.fillMaxWidth().padding(16.dp, 12.dp, 16.dp, 4.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("SIX FACES", style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                when {
-                    faces.isEmpty() -> "not split yet"
-                    annotatedFaces.isEmpty() -> "none annotated yet"
-                    else -> "${annotatedFaces.size} back from ImageMeter"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        if (faces.isEmpty()) {
-            Text("The faces are written when the 360 is split. If this capture " +
-                 "came from another phone, open it on the desk instead.",
-                Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        // A plain grid of rows rather than a nested LazyVerticalGrid: a lazy
-        // grid inside a scrolling Column has no bounded height and crashes.
-        faces.chunked(2).forEachIndexed { rowIdx, pair ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 1.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                pair.forEachIndexed { colIdx, f ->
-                    val index = rowIdx * 2 + colIdx
-                    Box(
-                        Modifier.weight(1f).aspectRatio(4f / 3f)
-                            .clickable { onOpenFace(index) },
-                    ) {
-                        Thumb(ThumbSource.Content(f.uri), Modifier.fillMaxSize(),
-                            target = 400, contentDescription = f.name)
-                        Scrim()
-                        Text(f.name.uppercase(), color = Color.White,
-                            fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.Black.copy(alpha = .55f))
-                                .padding(horizontal = 5.dp, vertical = 3.dp))
-                        if (f.name in annotatedFaces) {
-                            PenBadge(Modifier.align(Alignment.TopEnd).padding(6.dp))
-                        }
-                    }
-                }
-                if (pair.size == 1) Spacer(Modifier.weight(1f))
-            }
-        }
-
+        // NO SIX-FACE GRID (Amit, 2026-10-11: "currently i see all 6 fotos under
+        // that room which would not be the case. our single screen takes care
+        // of all 6 faces"). The faces are still written to the gallery for
+        // ImageMeter and the upload; survey prep, above, is where they are worked.
 
         Text("FILED AT", style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,

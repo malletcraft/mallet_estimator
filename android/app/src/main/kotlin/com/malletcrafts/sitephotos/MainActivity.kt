@@ -216,6 +216,10 @@ private fun AppScreen() {
     var surveyKept by remember { mutableStateOf<KeptSurvey?>(null) }
     var surveyLoading by remember { mutableStateOf(false) }
     var surveyTick by remember { mutableStateOf(0) }
+    // A 360 whose file went with the upload (before 0.3.204): its id, for the warning.
+    var surveyMissing by remember { mutableStateOf<String?>(null) }
+    // A kept 360 with no laser sizes stored: they are asked for before it opens.
+    var surveyAskDims by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // EVERY branch below returns early, so each one needs its own
@@ -288,6 +292,77 @@ private fun AppScreen() {
     }
 
     fun refreshQueue() = reload()
+
+    // SURVEY PREP ON ANY KEPT 360 (Amit, 2026-10-11: "I want to have any room
+    // opened up for existing data to have all these feature. if this is old
+    // fotos where you have not stored 360 fotos, just warn me and save that
+    // project"). The room tile and the capture screen both come here. Nothing
+    // is changed or removed when the 360 is gone: it warns, and that is all.
+    fun loadSurvey(row: CaptureStore.Capture, size: DoubleArray) {
+        if (surveyLoading) return
+        surveyLoading = true
+        val title = RoomToken.label(row.room)
+        scope.launch(Dispatchers.Default) {
+            val r = runCatching { FaceWriter.previewPano(File(row.panoPath)) }
+            withContext(Dispatchers.Main) {
+                surveyLoading = false
+                r.onSuccess { surveyKept = KeptSurvey(row, title, it, size) }
+                    .onFailure { lastResult = "Could not open the 360: ${it.message}" }
+            }
+        }
+    }
+    fun openSurveyFor(deviceId: String) {
+        val row = queue.firstOrNull { it.deviceId == deviceId } ?: return
+        if (row.kind != "360") return
+        if (!File(row.panoPath).exists()) { surveyMissing = deviceId; return }
+        val size = SurveyPrep.reopenSize(SurveyPrepStore(context).loadSize(deviceId),
+            row.roomLengthIn, row.roomWidthIn, row.roomHeightIn)
+        if (size == null) surveyAskDims = row else loadSurvey(row, size)
+    }
+    surveyKept?.let { k ->
+        SurveyPrepDialog(
+            deviceId = k.row.deviceId, previewPano = k.pano, title = k.title,
+            lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
+            onDone = { p ->
+                surveyKept = null; surveyTick++
+                // The room folder's elevations follow the lines as they now stand,
+                // REPLACING the earlier ones (FaceWriter.writeSurvey).
+                val row = k.row; val size = k.size
+                lastResult = "Survey prep saved \u2014 writing its pictures\u2026"
+                scope.launch(Dispatchers.Default) {
+                    val n = runCatching {
+                        FaceWriter.rewriteSurvey(context, File(row.panoPath), row.deviceId, row.room,
+                            row.captureDate, row.stage,
+                            Handover.relativePath(row.customerName, row.projectTitle, row.room), p, size)
+                    }
+                    withContext(Dispatchers.Main) {
+                        lastResult = n.fold(
+                            onSuccess = { c -> "Survey prep saved \u00b7 $c pictures in the room folder" },
+                            onFailure = { e -> "Survey prep saved on this phone; pictures not written: ${e.message}" })
+                    }
+                }
+            },
+            onCancel = { _ -> surveyKept = null; surveyTick++ })
+    }
+    surveyAskDims?.let { row ->
+        SurveyDimsDialog(
+            title = RoomToken.label(row.room),
+            start = listOf(row.roomLengthIn, row.roomWidthIn, row.roomHeightIn).map { it * MM_PER_IN },
+            okLabel = "Survey prep", dismissLabel = "Cancel",
+            onOk = { size -> surveyAskDims = null; loadSurvey(row, size) },
+            onDismiss = { surveyAskDims = null })
+    }
+    surveyMissing?.let {
+        AlertDialog(
+            onDismissRequest = { surveyMissing = null },
+            title = { Text("Survey prep can't open this 360") },
+            text = {
+                Text("The 360 photo for this capture was removed from the phone after upload " +
+                    "(before 0.3.204), so survey prep can't open it here. The capture, its room " +
+                    "and its project are unchanged and saved.")
+            },
+            confirmButton = { TextButton(onClick = { surveyMissing = null }) { Text("OK") } })
+    }
 
 
 
@@ -1368,24 +1443,7 @@ private fun AppScreen() {
             val keptRow = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
             val keptFile = keptRow?.takeIf { it.kind == "360" }?.let { File(it.panoPath) }?.takeIf { it.exists() }
             val surveySaved = remember(cap.deviceId, surveyTick) { SurveyPrepStore(context).load(cap.deviceId) }
-            val openSurvey: (() -> Unit)? = if (keptRow != null && keptFile != null) ({
-                val size = SurveyPrep.reopenSize(SurveyPrepStore(context).loadSize(cap.deviceId),
-                    keptRow.roomLengthIn, keptRow.roomWidthIn, keptRow.roomHeightIn)
-                if (size == null) {
-                    lastResult = "This capture has no room sizes \u2014 survey prep needs L, W and H"
-                } else if (!surveyLoading) {
-                    surveyLoading = true
-                    val id = cap.deviceId; val title = RoomToken.label(navRoom ?: keptRow.room)
-                    scope.launch(Dispatchers.Default) {
-                        val r = runCatching { FaceWriter.previewPano(keptFile) }
-                        withContext(Dispatchers.Main) {
-                            surveyLoading = false
-                            r.onSuccess { surveyKept = KeptSurvey(id, title, it, size) }
-                                .onFailure { lastResult = "Could not open the 360: ${it.message}" }
-                        }
-                    }
-                }
-            }) else null
+            val openSurvey: (() -> Unit)? = if (cap.kind == "360") ({ openSurveyFor(cap.deviceId) }) else null
             // Only once the bench has its own copy: before that the kept file is the upload.
             val removeLocal: (() -> Unit)? =
                 if (keptRow != null && keptFile != null && SurveyPrep.localCopyRemovable(keptRow.state)) ({
@@ -1488,6 +1546,7 @@ private fun AppScreen() {
                     },
                     onSurveyPrep = openSurvey,
                     surveyNote = when {
+                        keptFile == null -> "The 360 is no longer on this phone \u00b7 tap for why"
                         surveyLoading -> "Opening the 360\u2026"
                         surveySaved != null -> "${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 " +
                             "surfaces bounded \u00b7 ${surveySaved.surfaces.values.sumOf { it.marks.size }} marks \u00b7 " +
@@ -1496,15 +1555,6 @@ private fun AppScreen() {
                     },
                     onRemoveLocal = removeLocal,
                     localSize = keptFile?.let { "%.1f MB".format(it.length() / 1024.0 / 1024.0) } ?: "")
-                // Survey prep reopened on this kept capture: the same screen as at the
-                // split, on the saved JSON, so lines, marks and readings come back as left.
-                surveyKept?.takeIf { it.deviceId == cap.deviceId }?.let { k ->
-                    SurveyPrepDialog(
-                        deviceId = k.deviceId, previewPano = k.pano, title = k.title,
-                        lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
-                        onDone = { _ -> surveyKept = null; surveyTick++; lastResult = "Survey prep saved on this phone" },
-                        onCancel = { _ -> surveyKept = null; surveyTick++ })
-                }
             }
         }
 
@@ -1608,6 +1658,10 @@ private fun AppScreen() {
     var camConnected by remember { mutableStateOf(cam?.connected == true) }
     var camNote by remember { mutableStateOf<String?>(null) }
     val projSkus = cat.skusOf(masters, navProject)
+    // Each 360's survey prep in one line, for its tile.
+    val surveyLines = remember(queue, surveyTick, roomName) {
+        queue.filter { it.room == roomName && it.kind == "360" }.associate { it.deviceId to surveyLine(context, it) }
+    }
     val roomCaptures = queue.filter {
         it.room == roomName &&
             it.projectTitle.equals(navProject?.title ?: "", true)
@@ -1622,6 +1676,7 @@ private fun AppScreen() {
             panoPath = c.panoPath,
             state = c.state,
             kind = c.kind,
+            survey = surveyLines[c.deviceId].orEmpty(),
             // Matched on the DOCNAME, which is what the column holds, with the
             // code as a fallback for a tag made before the bench had the row.
             sku = projSkus.firstOrNull { it.name == c.sku }?.code ?: c.sku,
@@ -1754,7 +1809,7 @@ private fun AppScreen() {
     }
 
     pending?.let { ps ->
-        FacePreviewDialog(
+        NewCaptureSurvey(
             pending = ps,
             onDiscard = {
                 FaceWriter.discard(ps.session)
@@ -1778,14 +1833,16 @@ private fun AppScreen() {
                             createdAt = System.currentTimeMillis(), state = "LOCAL",
                             serverName = null, error = null, kind = "360",
                             fov = keep.fov,
-                            // CaptureGeometry's lengthIn is the left→right span
-                            // (see mmPlan); stored, length is front→back.
-                            roomLengthIn = keep.plan?.widthIn ?: 0.0,
-                            roomWidthIn = keep.plan?.lengthIn ?: 0.0,
-                            // The height alone is worth keeping: it is the
-                            // scale of every elevation, typed with or without
-                            // length and width.
-                            roomHeightIn = keep.plan?.heightIn
+                            // The laser sizes survey prep squared to, when it ran;
+                            // else CaptureGeometry's, whose lengthIn is the
+                            // left→right span (see mmPlan) -- stored, length is
+                            // front→back.
+                            roomLengthIn = keep.session.surveySize?.let { it[0] / MM_PER_IN }
+                                ?: keep.plan?.widthIn ?: 0.0,
+                            roomWidthIn = keep.session.surveySize?.let { it[1] / MM_PER_IN }
+                                ?: keep.plan?.lengthIn ?: 0.0,
+                            roomHeightIn = keep.session.surveySize?.let { it[2] / MM_PER_IN }
+                                ?: keep.plan?.heightIn
                                 ?: (keep.session.heightMm?.div(MM_PER_IN) ?: 0.0)))
                         res
                     }
@@ -1794,7 +1851,7 @@ private fun AppScreen() {
                         lastResult = outcome.fold(
                             onSuccess = {
                                 SyncWorker.syncNow(context)
-                                "${it.faceCount} faces saved to ${it.relativePath}\n" +
+                                "${it.faceCount} pictures saved to ${it.relativePath}\n" +
                                     "Open ImageMeter \u2192 the room folder \u2192 add photos."
                             },
                             onFailure = { "Could not save: ${it.message}" })
@@ -2044,7 +2101,13 @@ private fun AppScreen() {
                     captures = roomCaptures,
                     phases = cat.phases(masters, navProject?.jobType),
                     stageOrder = { cat.stageOrder(masters, it) },
-                ) { navCapture = it; navFace = null }
+                    onDetails = { navCapture = it; navFace = null },
+                ) { c ->
+                    // A 360 opens straight into survey prep, the one screen for all six
+                    // surfaces (Amit, 2026-10-11); a flat photo opens as before.
+                    if (c.kind == "360") openSurveyFor(c.deviceId)
+                    else { navCapture = c; navFace = null }
+                }
             }
         }
     }
@@ -2546,8 +2609,19 @@ private fun cacheSize(context: android.content.Context): String {
     }
 }
 
-/** A kept capture's survey prep, opened: its id, room title, 360 at preview size, laser L W H in mm. */
-private class KeptSurvey(val deviceId: String, val title: String, val pano: Panorama.Image, val size: DoubleArray)
+/** A 360's survey prep in one line for its room tile. Never throws: an old
+ *  capture with no 360 left on the phone says so instead. */
+private fun surveyLine(context: android.content.Context, c: CaptureStore.Capture): String {
+    if (c.kind != "360") return ""
+    if (!File(c.panoPath).exists()) return "360 not on this phone (removed after upload)"
+    val p = SurveyPrepStore(context).load(c.deviceId) ?: return "not started \u00b7 tap to start"
+    val marks = p.surfaces.values.sumOf { it.marks.size }
+    return "${SurveyPrep.SURFACES.count { p.surface(it).done() }} of 6 bounded \u00b7 " +
+        "$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read"
+}
+
+/** A kept capture's survey prep, opened: its queue row, room title, 360 at preview size, laser L W H in mm. */
+private class KeptSurvey(val row: CaptureStore.Capture, val title: String, val pano: Panorama.Image, val size: DoubleArray)
 
 /**
  * A split that has happened but not been accepted.
@@ -2573,264 +2647,89 @@ data class PendingSplit(
 )
 
 /**
- * The six faces, before they exist anywhere but this screen — with three
- * sliders that decide them.
+ * A new 360 goes STRAIGHT to survey prep (Amit, 2026-10-11: "why do i need
+ * sliders now for Zoom and turn? ... foto should directly split correctly
+ * showing all four corner of each wall and then this 1.line and 2.mark UI
+ * should appear"). The old preview with its per-pair zoom and turn sliders is
+ * gone: survey prep's own fixed views are the check on the photo.
  *
- * Amit, 2026-09-22: "FOV calculation is not accurate and i am missing 4
- * corners at some foto out of 6. can i get a slider for 3 side like height,
- * length and width or front, left and bottom to manually verify if i am
- * getting correct fotos and then only let me save."
- *
- * The computed plan assumes a perfect box, a person standing exactly at its
- * centre and a camera at exactly half the ceiling. None of those is ever
- * quite true, so the geometry now PROPOSES and he DISPOSES — which is the
- * only arrangement that can be right in a room the maths does not know about.
- * Each slider shows how far it has moved from what the room implies, so a
- * nudge stays a nudge and a large correction is visible as one.
- *
- * Three sliders and not six: front and back are one wall pair seen across the
- * width, left and right the other seen across the length, and floor and
- * ceiling share the half-diagonal. Six would let a pair disagree with itself,
- * which is never what anybody wants and is twice the fiddling.
- *
- * Each tile re-renders live from a 2048px copy of the pano held in memory.
- * The committed files are rendered once, full size, from the angles he
- * settled on — the same FRAMING he approved, which is the thing being judged.
+ * The laser L, W and H are required -- every surface squares to them -- so
+ * when the capture form did not hand all three over they are asked for first.
+ * Save and Back both KEEP the capture (its faces, the 360, and an elevation
+ * for every surface already bounded); only "Discard this 360" drops it.
  */
 @Composable
-private fun FacePreviewDialog(
+private fun NewCaptureSurvey(
     pending: PendingSplit,
     onDiscard: () -> Unit,
     onKeep: () -> Unit,
 ) {
     val session = pending.session
-    // REAL Compose state, not a plain field on the Session.
-    //
-    // 2026-09-22, Amit: "slider to change fov does not move and does not give
-    // real time change in wall corner visibility." My own doing, and worth
-    // naming precisely: the first version drove recomposition off a `tick`
-    // counter, then I keyed each tile on its own angle so that moving one
-    // slider re-rendered two faces instead of six -- which removed the only
-    // READ of `tick`. It was still written on every drag. A value nothing
-    // reads triggers no recomposition, so the Slider kept redrawing at its
-    // old `value` and looked frozen while the underlying map moved
-    // underneath it. The optimisation caused the bug.
-    //
-    // Holding the map as state fixes both at once: the Slider follows the
-    // drag because it reads observable state, and a tile still re-renders
-    // only when ITS OWN group moved.
-    var chosen by remember { mutableStateOf(session.chosen) }
-    var turn by remember { mutableStateOf(session.turn) }
-    // SURVEY PREP -> all six elevations (mock-up v33, approved by Amit on
-    // 2026-10-10 as the spec): every surface bounded by its own four lines and
-    // squared to the laser size, then marked (SurveyPrepScreen.kt). It
-    // replaces the four-floor-corners-and-a-ceiling-line room setup, from the
-    // same button -- one way in, no fallback.
-    var survey by remember { mutableStateOf(session.survey) }
-    var marking by remember { mutableStateOf(false) }
-    // The laser L, W and H are REQUIRED: every surface squares to them.
-    // Prefilled from the room capture; the survey prep shows them fixed.
-    var lenText by remember { mutableStateOf(pending.lengthMm?.let { Math.round(it).toString() } ?: "") }
-    var widText by remember { mutableStateOf(pending.widthMm?.let { Math.round(it).toString() } ?: "") }
-    var hgtText by remember { mutableStateOf(session.heightMm?.let { Math.round(it).toString() } ?: "") }
-    val lenMm = mmOrNull(lenText)?.takeIf { it >= 500.0 }
-    val widMm = mmOrNull(widText)?.takeIf { it >= 500.0 }
-    val hgtMm = mmOrNull(hgtText)?.takeIf { heightMmValid(hgtText) }
-
-    AlertDialog(
-        // Not dismissible by a tap outside: a decoded pano and an
-        // app-private copy are open, and a stray tap that dropped the state
-        // would leak both with nothing to clean them up.
-        onDismissRequest = { },
-        title = { Text("Check the six faces") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    "${RoomToken.label(pending.room)} \u00b7 " +
-                    (pending.plan?.let {
-                        "${mm(it.widthIn)}\u00d7${mm(it.lengthIn)}" +
-                        "\u00d7${mm(it.heightIn)} mm"
-                    } ?: "room not measured"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(10.dp))
-
-                Text("Laser sizes, mm (every surface squares to them):",
-                    style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(lenText, { lenText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Length front\u2192back") }, singleLine = true,
-                        isError = lenText.isNotBlank() && lenMm == null,
-                        modifier = Modifier.weight(1f))
-                    OutlinedTextField(widText, { widText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Width left\u2192right") }, singleLine = true,
-                        isError = widText.isNotBlank() && widMm == null,
-                        modifier = Modifier.weight(1f))
-                }
-                OutlinedTextField(hgtText, { hgtText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Height floor\u2192ceiling") }, singleLine = true,
-                    isError = hgtText.isNotBlank() && hgtMm == null,
-                    modifier = Modifier.fillMaxWidth())
-                if (lenMm == null || widMm == null || hgtMm == null) {
-                    Text("Type length, width and height first \u2014 every surface is squared to them.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error)
-                }
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = { marking = true },
-                    enabled = lenMm != null && widMm != null && hgtMm != null,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text(if (survey == null) "Survey prep (6 surfaces)"
-                         else "Survey prep \u2713 \u2014 edit")
-                }
-                survey?.let { p ->
-                    val marks = p.surfaces.values.sumOf { it.marks.size }
-                    Text("6 of 6 surfaces bounded \u00b7 $marks mark${if (marks == 1) "" else "s"} \u00b7 " +
-                        "${p.actual.size} read", style = MaterialTheme.typography.labelSmall)
-                    TextButton(onClick = {
-                        // The prep itself stays saved on the phone; only the elevations are left out.
-                        survey = null; session.survey = null; session.surveySize = null
-                    }) { Text("Leave the elevations out") }
-                }
-                Spacer(Modifier.height(10.dp))
-
-                // EACH ROW IS ONE SLIDER'S PAIR, with that slider directly
-                // under it. Amit, 2026-09-22: "left and right images should be
-                // adjacent front and back should be adjacent and top and
-                // bottom should be adjacent so that i can set correct FOV."
-                //
-                // The previous layout put all four walls in one scroller,
-                // which answered the wrong question. A slider moves a PAIR, so
-                // the thing being judged is that pair against itself -- is the
-                // corner in frame on BOTH of them -- and a control whose two
-                // subjects are side by side above it needs no memory of what
-                // the other one looked like before the drag. Opposite walls
-                // are also the ones that crop symmetrically when the angle is
-                // short, which is exactly what a glance across a pair shows.
-                for (g in FaceWriter.Group.entries) {
-                    val now = chosen[g] ?: Panorama.DEFAULT_FOV
-                    val was = session.proposed[g] ?: now
-                    val delta = Math.round(now - was).toInt()
-                    Row(Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        for (f in g.faces) {
-                            Column(Modifier.weight(1f)) {
-                                FaceTile(session, f, chosen, turn, null)
-                            }
-                        }
-                    }
-                    Text(
-                        "${g.label} \u2014 ${Math.round(now)}\u00b0" +
-                            if (delta == 0) " (as measured)"
-                            else " (${if (delta > 0) "+" else ""}$delta\u00b0 from ${Math.round(was)}\u00b0)",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold)
-                    Slider(
-                        value = now.toFloat(),
-                        onValueChange = { v ->
-                            chosen = chosen + (g to v.toDouble())
-                            session.chosen = chosen
-                        },
-                        valueRange = Panorama.FOV_MIN.toFloat()..Panorama.FOV_MAX.toFloat(),
-                        modifier = Modifier.fillMaxWidth())
-
-                    // TURN: the same pair, swung left or right.
-                    //
-                    // For a wall this re-centres it when the camera was not
-                    // square; for the floor and ceiling the same number SPINS
-                    // the image, because a yaw change at the pole rotates the
-                    // face in its own plane. One error, two appearances, one
-                    // control.
-                    val tNow = turn[g] ?: 0.0
-                    Text(
-                        "Turn \u2014 ${if (tNow >= 0) "+" else ""}${Math.round(tNow)}\u00b0" +
-                            if (Math.round(tNow) == 0L) " (square)" else "",
-                        style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = tNow.toFloat(),
-                        onValueChange = { v ->
-                            turn = turn + (g to v.toDouble())
-                            session.turn = turn
-                        },
-                        // +-45 is plenty for a camera somebody meant to place
-                        // squarely; a wider range would make the useful part
-                        // of the track too small to aim at with a thumb.
-                        valueRange = -45f..45f,
-                        modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(14.dp))
-                }
-
-                Text(
-                    "Widen until all four corners of every face are inside the " +
-                    "frame. Do the survey prep to also get all six squared " +
-                    "to the laser size as elevations, saved beside the faces with a " +
-                    "scale bar for ImageMeter. Nothing is in your photos yet \u2014 keeping " +
-                    "saves all six plus the 360 into the room folder and queues " +
-                    "the upload; discarding leaves no trace.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        },
-        confirmButton = { TextButton(onClick = onKeep) {
-            Text(if (survey == null) "Keep all six" else "Keep six + 6 elevations")
-        } },
-        dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } })
-
-    if (marking && lenMm != null && widMm != null && hgtMm != null) {
-        SurveyPrepDialog(
-            deviceId = session.deviceId,
-            previewPano = session.previewPano,
-            title = RoomToken.label(pending.room),
-            lengthMm = lenMm, widthMm = widMm, heightMm = hgtMm,
-            onDone = { p ->
-                survey = p; session.survey = p
-                session.surveySize = doubleArrayOf(lenMm, widMm, hgtMm)
-                session.heightMm = hgtMm
-                marking = false
-            },
-            onCancel = { p ->
-                // Edited after an earlier Save and left by Back: the elevations follow
-                // the lines as they now stand, as long as all six are still bounded.
-                if (survey != null && p.done()) { survey = p; session.survey = p }
-                marking = false
-            })
+    val start = listOf(pending.lengthMm, pending.widthMm, session.heightMm)
+    var dims by remember {
+        mutableStateOf(if (start.all { SurveyPrep.valid(it) }) DoubleArray(3) { start[it]!! } else null)
     }
+    val d = dims
+    if (d == null) {
+        SurveyDimsDialog(
+            title = RoomToken.label(pending.room), start = start,
+            okLabel = "Survey prep", dismissLabel = "Discard 360",
+            onOk = { dims = it }, onDismiss = onDiscard)
+        return
+    }
+    fun keepWith(p: SurveyPrep.Prep) {
+        session.survey = p; session.surveySize = d; session.heightMm = d[2]
+        onKeep()
+    }
+    SurveyPrepDialog(
+        deviceId = session.deviceId,
+        previewPano = session.previewPano,
+        title = RoomToken.label(pending.room),
+        lengthMm = d[0], widthMm = d[1], heightMm = d[2],
+        onDone = { p -> keepWith(p) },
+        onCancel = { p -> keepWith(p) },
+        onDiscard = onDiscard)
 }
 
 /**
- * One face of the preview grid.
- *
- * Top-level and not a local composable: this cannot be compiled in the cloud
- * container (no Android SDK), so it avoids the Compose-plugin edge cases that
- * a nested @Composable can hit and that only CI would find.
- *
- * The angle arrives as a parameter and is the `remember` key, so a tile
- * re-renders when ITS OWN group moves and not when another slider does.
+ * The laser L, W and H, asked for when a capture does not carry all three:
+ * survey prep cannot square a surface without them.
  */
 @Composable
-private fun FaceTile(
-    session: FaceWriter.Session,
-    face: String,
-    chosen: Map<FaceWriter.Group, Double>,
-    turn: Map<FaceWriter.Group, Double>,
-    width: androidx.compose.ui.unit.Dp?,
+private fun SurveyDimsDialog(
+    title: String,
+    /** What is already known, mm, front->back, left->right, floor->ceiling. */
+    start: List<Double?>,
+    okLabel: String,
+    dismissLabel: String,
+    onOk: (DoubleArray) -> Unit,
+    onDismiss: () -> Unit,
 ) {
-    val g = FaceWriter.Group.of(face)
-    val fov = chosen[g] ?: Panorama.DEFAULT_FOV
-    val t = turn[g] ?: 0.0
-    Column(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth()) {
-        // Keyed on BOTH angles, so a tile redraws when either slider for its
-        // own group moves and stays still when another group's does.
-        val bmp = remember(face, fov, t) {
-            runCatching { FaceWriter.previewFace(session, face, fov, t) }.getOrNull()
-        }
-        if (bmp != null) {
-            androidx.compose.foundation.Image(
-                bitmap = bmp.asImageBitmap(),
-                contentDescription = Handover.FACE_LABELS[face] ?: face,
-                modifier = Modifier.fillMaxWidth())
-        }
-        Text("${Handover.FACE_LABELS[face] ?: face} \u00b7 ${Math.round(fov)}\u00b0",
-            style = MaterialTheme.typography.labelSmall)
+    var texts by remember {
+        mutableStateOf(start.map { v -> v?.takeIf { SurveyPrep.valid(it) }?.let { Math.round(it).toString() } ?: "" })
     }
+    val values = texts.map { it.toDoubleOrNull() }
+    val ok = values.all { SurveyPrep.valid(it) }
+    AlertDialog(
+        onDismissRequest = { },
+        title = { Text("$title · laser sizes") },
+        text = {
+            Column {
+                Text("Survey prep squares every surface to these, in mm. Take them with the D2.",
+                    style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                val labels = listOf("Length front→back", "Width left→right", "Height floor→ceiling")
+                for (i in 0 until 3) {
+                    OutlinedTextField(texts[i], { t ->
+                        texts = texts.toMutableList().also { it[i] = t.filter { c -> c.isDigit() }.take(5) } },
+                        label = { Text(labels[i]) }, singleLine = true,
+                        isError = texts[i].isNotBlank() && !SurveyPrep.valid(values[i]),
+                        modifier = Modifier.fillMaxWidth())
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = ok, onClick = { onOk(DoubleArray(3) { values[it]!! }) }) { Text(okLabel) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(dismissLabel) } })
 }

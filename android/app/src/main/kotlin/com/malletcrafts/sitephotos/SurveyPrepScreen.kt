@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -113,6 +114,8 @@ internal fun SurveyPrepDialog(
     onDone: (SurveyPrep.Prep) -> Unit,
     /** Back without Save: the work is kept on the phone either way, and handed back as it stands. */
     onCancel: (SurveyPrep.Prep) -> Unit,
+    /** A NEW capture's way out: drop the 360 altogether. Null on a kept capture. */
+    onDiscard: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val store = remember { SurveyPrepStore(context) }
@@ -132,10 +135,12 @@ internal fun SurveyPrepDialog(
     var savedMsg by remember { mutableStateOf(if (loaded != null) "Restored ✓" else "Nothing saved yet") }
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
+    var armedDiscard by remember { mutableStateOf(false) }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     LaunchedEffect(note) { if (note != null) { delay(2600); note = null } }
     LaunchedEffect(armed) { if (armed) { delay(4000); armed = false } }
+    LaunchedEffect(armedDiscard) { if (armedDiscard) { delay(4000); armedDiscard = false } }
 
     fun ab(s: String) = SurveyPrep.size(s, lL, lW, lH)
     fun frameOf(s: String) = ab(s).let { SurveyPrep.frame(prep.surface(s).lines, it[0], it[1]) }
@@ -153,6 +158,9 @@ internal fun SurveyPrepDialog(
         if (ok) unsaved[0] = false
         savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) else "Not saved: did not read back"
     }
+    // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
+    // with it even if nothing is changed (a kept capture reopens on exactly these).
+    LaunchedEffect(Unit) { if (loaded == null) store.save(id, prep, lL, lW, lH) }
     // Closing the screen inside that moment must not lose the last change.
     DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, lL, lW, lH) } }
 
@@ -313,6 +321,10 @@ internal fun SurveyPrepDialog(
                 }
                 Text("Laser D2 readings from the room capture, in mm. Fixed here.", color = SP_MUTED, fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                if (onDiscard != null) {
+                    Text("New 360 \u2014 \u2190 keeps it in the room, and its lines and marks save as you go.",
+                        color = SP_GOLD, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                }
 
                 // ---- tabs
                 for (row in listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list"))) {
@@ -445,7 +457,8 @@ internal fun SurveyPrepDialog(
                                 onDelete = { deleteMark(it) },
                                 onFocus = { active = it },
                                 onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
-                                onFire = { code -> active = code; fire() })
+                                onFire = { code -> active = code; fire() },
+                                emptyText = "No marks yet \u2014 add one with + above")
                         }
                     }
                 } else {
@@ -518,6 +531,16 @@ internal fun SurveyPrepDialog(
                     Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
                         color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
+                if (onDiscard != null) {
+                    Spacer(Modifier.height(6.dp))
+                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else Color(0xFF3A3E35), RoundedCornerShape(12.dp))
+                        .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
+                        .padding(9.dp), contentAlignment = Alignment.Center) {
+                        Text(if (armedDiscard) "Tap again to discard this 360 \u2014 nothing is kept" else "Discard this 360",
+                            color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -569,15 +592,18 @@ private fun SpPhoto(
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepDraw.Tag>() }
     var boxW by remember { mutableStateOf(1f) }
+    var boxH by remember { mutableStateOf(1f) }
 
-    fun k() = boxW / iw * z
-    fun toS(x: Double, y: Double): FloatArray { val kk = k(); val bh = boxW * ih / iw
-        return floatArrayOf(((x - cx) * kk + boxW / 2).toFloat(), ((y - cy) * kk + bh / 2).toFloat()) }
-    fun fromS(sx: Float, sy: Float): DoubleArray { val kk = k(); val bh = boxW * ih / iw
-        return doubleArrayOf((sx - boxW / 2) / kk + cx, (sy - bh / 2) / kk + cy) }
+    // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
+    // for marking"): the scale fits both sides, and the box itself is never taller than most of the screen.
+    fun k() = SurveyPrep.fitScale(boxW.toDouble(), boxH.toDouble(), iw, ih) * z
+    fun toS(x: Double, y: Double): FloatArray { val kk = k()
+        return floatArrayOf(((x - cx) * kk + boxW / 2).toFloat(), ((y - cy) * kk + boxH / 2).toFloat()) }
+    fun fromS(sx: Float, sy: Float): DoubleArray { val kk = k()
+        return doubleArrayOf((sx - boxW / 2) / kk + cx, (sy - boxH / 2) / kk + cy) }
     fun clampView() {
-        z = z.coerceIn(1.0, 8.0); val hw = iw / (2 * z); val hh = ih / (2 * z)
-        cx = cx.coerceIn(hw, iw - hw); cy = cy.coerceIn(hh, ih - hh)
+        z = z.coerceIn(1.0, 8.0); val kk = k()
+        cx = SurveyPrep.clampCentre(cx, iw, boxW / kk); cy = SurveyPrep.clampCentre(cy, ih, boxH / kk)
     }
     fun zoomAt(nz: Double, sx: Float, sy: Float) {
         val b = fromS(sx, sy); z = nz.coerceIn(1.0, 8.0); val a = fromS(sx, sy); cx += b[0] - a[0]; cy += b[1] - a[1]; clampView()
@@ -641,8 +667,11 @@ private fun SpPhoto(
         return SpLoupe(j ?: listOf(doubleArrayOf(ix, iy)), finger)
     }
 
-    Box(Modifier.fillMaxWidth().aspectRatio((iw / ih).toFloat()).clip(RoundedCornerShape(12.dp)).background(Color.Black)
-        .onSizeChanged { boxW = it.width.toFloat() }
+    val conf = LocalConfiguration.current
+    val maxBoxH = conf.screenHeightDp * 0.62f
+    val boxAspect = max((iw / ih).toFloat(), (conf.screenWidthDp - 20).coerceAtLeast(1) / maxBoxH)
+    Box(Modifier.fillMaxWidth().aspectRatio(boxAspect).clip(RoundedCornerShape(12.dp)).background(Color.Black)
+        .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .pointerInput(img, tab, mode, rect) {
             awaitEachGesture {
                 val first = awaitFirstDown()
@@ -689,8 +718,8 @@ private fun SpPhoto(
         }) {
         Canvas(Modifier.fillMaxSize()) {
             rev; tick; z; cx; cy; loupe; sel; active; show
-            val u = size.width / 480f
-            val kk = size.width / iw * z
+            val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
+            val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
             drawIntoCanvas { cv ->
                 val nc = cv.nativeCanvas
                 nc.save(); nc.clipRect(0f, 0f, size.width, size.height)
@@ -761,10 +790,11 @@ private fun SpTable(
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
     onFire: (String) -> Unit,
+    emptyText: String = "Nothing marked on this surface.",
 ) {
     rev
     val els = prep.surface(s).marks
-    if (els.isEmpty()) { Text("Nothing marked on this surface.", color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
+    if (els.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text("Mark", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
         Text("Measure", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
