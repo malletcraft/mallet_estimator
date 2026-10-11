@@ -396,17 +396,7 @@ internal fun SurveyPrepDialog(
                     }
                 }
                 if (tab != "list" && mode == "mark") {
-                    for (chunk in SurveyPrep.types(tab).chunked(3)) {
-                        Row(Modifier.fillMaxWidth().padding(bottom = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            for (ty in chunk) {
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(50)).border(1.5.dp, Color(SurveyPrepDraw.argb(ty.colour)), RoundedCornerShape(50))
-                                    .clickable { addMark(ty.letter) }.padding(vertical = 7.dp), contentAlignment = Alignment.Center) {
-                                    Text("+ ${ty.name}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                }
-                            }
-                            repeat(3 - chunk.size) { Spacer(Modifier.weight(1f)) }
-                        }
-                    }
+                    SpMarkToolbar(SurveyPrep.types(tab)) { addMark(it) }
                 }
                 // the photo-vs-measured toggle belongs to marks only (Amit, 2026-10-10: "lines should not show that")
                 if (tab == "list" || mode == "mark") {
