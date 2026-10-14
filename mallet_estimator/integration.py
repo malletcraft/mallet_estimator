@@ -627,6 +627,13 @@ RATEWRITER_EFFECTIVE_PROBE = ("Supplier Quotation", "Purchase Invoice",
                               "Salary Slip", "User")
 # Roles Frappe gives every System User without a Has Role row.
 _AUTOMATIC_ROLES = ("All", "Guest", "Desk User")
+# Bits Frappe gives every System User on its OWN record and nothing else:
+# User.share_with_self() shares the new user's User document with that user
+# (read, write, share), and a doctype-level has_permission counts a shared
+# document. So on User only `create` is probed — making another user is the
+# escalation; reading and editing one's own profile is the framework's design.
+# CI runs 662-664 refused every key over "can read User" until this was named.
+_OWN_RECORD_BITS = {"User": ("read", "write")}
 
 # "select" is its own bit (a Link search without read), so it is pinned and
 # checked like the rest — leaving it out left Supplier and Customer searchable.
@@ -712,28 +719,12 @@ def _ratewriter_user_is_scoped(user):
         if not frappe.db.exists("DocType", dt):
             continue
         for p in ("read", "write", "create"):
-            if not frappe.has_permission(dt, p, user=user):
+            if p in _OWN_RECORD_BITS.get(dt, ()):
                 continue
-            if _everyone_has_by_design(dt, p):
-                continue
-            return False, f"{user} can {p} {dt} — by a role grant to everyone, or a share"
+            if frappe.has_permission(dt, p, user=user):
+                return False, f"{user} can {p} {dt} — by a role grant to everyone, or a share"
     return True, "user carries the one role"
 
-
-def _everyone_has_by_design(dt, ptype):
-    """True when Frappe or ERPNext SHIPS that bit to an automatic role in the
-    doctype's own standard permission rows (tabDocPerm, never Custom DocPerm):
-    every user can read User, for one — its own record, an if_owner row —
-    so a Link to a user resolves and a profile opens. That is the framework's
-    design, not a widening of this role; CI runs 662 and 663 refused every
-    key over it. if_owner rows count: with no document in hand Frappe answers
-    a doctype-level has_permission optimistically for them. A Custom DocPerm
-    row a site adds, giving All the same bit on a money doctype, is not in
-    tabDocPerm and is still caught."""
-    return bool(frappe.get_all(
-        "DocPerm", limit=1,
-        filters={"parent": dt, "parenttype": "DocType",
-                 "role": ["in", list(_AUTOMATIC_ROLES)], ptype: 1}))
 
 
 def ratewriter_is_scoped(user=None, check_user=True):
