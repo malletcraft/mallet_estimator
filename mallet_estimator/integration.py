@@ -712,9 +712,25 @@ def _ratewriter_user_is_scoped(user):
         if not frappe.db.exists("DocType", dt):
             continue
         for p in ("read", "write", "create"):
-            if frappe.has_permission(dt, p, user=user):
-                return False, f"{user} can {p} {dt} — by a role grant to everyone, or a share"
+            if not frappe.has_permission(dt, p, user=user):
+                continue
+            if _everyone_has_by_design(dt, p):
+                continue
+            return False, f"{user} can {p} {dt} — by a role grant to everyone, or a share"
     return True, "user carries the one role"
+
+
+def _everyone_has_by_design(dt, ptype):
+    """True when Frappe or ERPNext SHIPS that bit to an automatic role in the
+    doctype's own standard permission rows (tabDocPerm, never Custom DocPerm):
+    every user can read User, for one, so a Link to a user resolves. That is
+    the framework's design, not a widening of this role — CI run 662 refused
+    every key over it. A Custom DocPerm row a site adds, giving All the same
+    bit on a money doctype, is not in tabDocPerm and is still caught."""
+    return bool(frappe.get_all(
+        "DocPerm", limit=1,
+        filters={"parent": dt, "parenttype": "DocType", "if_owner": 0,
+                 "role": ["in", list(_AUTOMATIC_ROLES)], ptype: 1}))
 
 
 def ratewriter_is_scoped(user=None, check_user=True):
