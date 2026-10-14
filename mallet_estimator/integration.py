@@ -712,7 +712,7 @@ def _ratewriter_user_is_scoped(user):
         if not frappe.db.exists("DocType", dt):
             continue
         for p in ("read", "write", "create"):
-            if frappe.has_permission(dt, p, user=user, print_logs=False):
+            if frappe.has_permission(dt, p, user=user):
                 return False, f"{user} can {p} {dt} — by a role grant to everyone, or a share"
     return True, "user carries the one role"
 
