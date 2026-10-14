@@ -44,6 +44,7 @@ MARGIN_FIELDS = ("material", "labor", "overhead", "design")
 def get_margins():
     """The four margin (markup) percentages from Estimate Settings — the text
     boxes the user tunes to decide how much to make on each total."""
+    frappe.has_permission("Estimate Settings", "read", throw=True)
     s = frappe.get_single("Estimate Settings")
     return {f: float(s.get(f"markup_{f}") or 0) for f in MARGIN_FIELDS}
 
@@ -52,7 +53,12 @@ def get_margins():
 def set_margins(material=None, labor=None, overhead=None, design=None):
     """Write the margin percentages back to Estimate Settings (values live in
     the DB only — repo defaults stay 0, they are business-sensitive). Every
-    open/save reprices from these, so the change takes effect immediately."""
+    open/save reprices from these, so the change takes effect immediately.
+
+    Gated on Estimate Settings WRITE: it saves with ignore_permissions, so
+    without this any login — the read-only reader and the rate writer
+    included — could zero every markup. Both are pinned to write=0 there."""
+    frappe.has_permission("Estimate Settings", "write", throw=True)
     s = frappe.get_single("Estimate Settings")
     for f, v in (("material", material), ("labor", labor),
                  ("overhead", overhead), ("design", design)):

@@ -321,10 +321,16 @@ importing that CSV is what populates the list.
   or correct an **Item Price on "Estimation (Assumed)" and nothing else**: no other price list, no
   delete, no Estimate Settings or Supplier Rate Sheet. A permission row cannot name a price list,
   so an Item Price `validate` hook (`integration.guard_assumed_price_list`) refuses every other
-  list, and any row naming a supplier or customer (an assumed rate belongs to no vendor). No key
-  is issued while that guard is not live, or while Stock Settings "Update existing Price List
-  Rate" is on (ERPNext then updates prices with `db.set_value`, past every guard).
-  `integration.set_assumed_rate(item_code, rate, uom)` is the convenience call. The figures
+  list, and any row naming a supplier or customer (an assumed rate belongs to no vendor), a
+  rate that is not positive, a UOM other than the item's stock UOM, or a second assumed row for
+  an item. No key is issued while that guard is not live, or while Stock Settings "Update
+  existing Price List Rate" is on (ERPNext then updates prices with `db.set_value`, past every
+  guard) — and a Stock Settings hook refuses to switch that on while a rate writer exists.
+  The helpers that write prices with `db.set_value` (`recompute_all_ceilings`,
+  `apply_material_choices`, the rate-sheet import) refuse every integration identity, and
+  `set_margins` / `create_materials` / `cost_card(create_missing=1)` now check permission.
+  `integration.set_assumed_rate(item_code, rate, uom)` is the convenience call (POST only;
+  blank `uom` means the stock UOM). The figures
   it keys live only in the site database, never in this repository.
 
 ---

@@ -546,6 +546,25 @@ def recompute_estimation_ceiling(item_code, price_list=None):
 CEILING_RECOMPUTE_ROLES = ("System Manager", "Purchase Master Manager")
 
 
+def human_price_writer(also=None):
+    """True when the session may write prices through the helpers below, which
+    write with db.set_value and ignore_permissions — past DocPerm and past the
+    rate writer's price-list guard. A human price role, or Item Price write
+    (or `also`, a (doctype, ptype) the caller names) held by somebody carrying
+    NO integration role. Every assistant identity is refused: the steward
+    holds Project write and Item create, which is what these were gated on,
+    and "the steward stays rate-safe" (CLAUDE.md, 14 Oct 2026)."""
+    roles = set(frappe.get_roles())
+    if roles & set(CEILING_RECOMPUTE_ROLES):
+        return True
+    from mallet_estimator import integration
+    if not roles.isdisjoint(integration.INTEGRATION_ROLES):
+        return False
+    if frappe.has_permission("Item Price", "write"):
+        return True
+    return bool(also and frappe.has_permission(also[0], also[1]))
+
+
 @frappe.whitelist()
 def recompute_all_ceilings():
     """S4 — refresh the estimation ceiling for every material Item from its current
@@ -652,7 +671,14 @@ def apply_material_choices(project):
     valuing at assumed and Project margin shows the assumed-vs-actual variance.
     Idempotent + reversible (delete the buying Item Price to undo)."""
     if not frappe.has_permission("Project", "write"):
-        frappe.throw("Not permitted")
+        frappe.throw("Not permitted", frappe.PermissionError)
+    # It writes buying prices and, through set_vendor_price, rewrites the
+    # ASSUMED rate with db.set_value. Project write alone let the steward do
+    # that; a price write needs a price writer.
+    if not human_price_writer():
+        frappe.throw(frappe._("Applying material choices writes prices; only a "
+                              "person who may write Item Prices can do it."),
+                     frappe.PermissionError)
     doc = frappe.get_doc("Project", project)
     applied, skipped = [], []
     for r in doc.get("mallet_material_choices") or []:

@@ -1,6 +1,7 @@
 # Config health-check tests — assert the app's masters get created and that
 # verify_setup() reflects reality. Run under `bench run-tests`.
 import frappe
+from frappe.utils import add_days, nowdate
 
 from mallet_estimator import install, inventory
 
@@ -19,6 +20,39 @@ def _ensure_company():
         "abbr": "MTC", "default_currency": "INR", "country": "India",
     }).insert(ignore_permissions=True)
     return co.name
+
+
+def _role_user(email, role):
+    """A throwaway System User carrying exactly one role."""
+    if not frappe.db.exists("User", email):
+        frappe.get_doc({
+            "doctype": "User", "email": email, "first_name": "ZZ " + role,
+            "user_type": "System User", "send_welcome_email": 0,
+            "roles": [{"role": role}],
+        }).insert(ignore_permissions=True)
+    return email
+
+
+def _party(doctype, name):
+    """A REAL Supplier / Customer. Frappe checks links before validate runs,
+    so a party that does not exist is refused by LinkValidationError and the
+    guard is never reached — the test would then prove ERPNext, not the guard.
+    (No flags.ignore_links: a REST caller cannot set it.)"""
+    field = {"Supplier": "supplier_name", "Customer": "customer_name"}[doctype]
+    existing = frappe.db.get_value(doctype, {field: name}, "name")
+    if existing:
+        return existing
+    doc = {"doctype": doctype, field: name}
+    links = {"Supplier": (("supplier_group", "Supplier Group"),),
+             "Customer": (("customer_group", "Customer Group"), ("territory", "Territory"))}
+    for f, dt in links[doctype]:
+        v = frappe.db.get_value(dt, {"is_group": 0}, "name") or frappe.db.get_value(dt, {}, "name")
+        if v:
+            doc[f] = v
+    d = frappe.get_doc(doc)
+    d.flags.ignore_mandatory = True
+    d.insert(ignore_permissions=True, ignore_mandatory=True)
+    return d.name
 
 
 class TestMasters(MalletTestCase):
@@ -249,9 +283,22 @@ class TestMasters(MalletTestCase):
         code, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_TEST", kind="hardware")
         moved, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_MOVE", kind="hardware")
         retired, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_RETIRED", kind="hardware")
+        # No assumed row ever lands on this one: each refusal below has to be
+        # the rule it names, not the one-row-per-item rule answering first.
+        fresh, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_FRESH", kind="hardware")
         frappe.db.set_value("Item", retired, "disabled", 1)
-        for item in (code, moved, retired):
+        for item in (code, moved, retired, fresh):
             frappe.db.delete("Item Price", {"item_code": item})
+        parties = {"supplier": _party("Supplier", "ZZ RateWriter Supplier"),
+                   "customer": _party("Customer", "ZZ RateWriter Customer")}
+        # A second UOM in fresh's conversion table, so ERPNext's own
+        # validate_item accepts it and the UOM rule is what refuses it.
+        stock_uom = frappe.db.get_value("Item", fresh, "stock_uom")
+        other_uom = frappe.db.get_value("UOM", {"name": ["!=", stock_uom]}, "name")
+        item_doc = frappe.get_doc("Item", fresh)
+        if other_uom and not any(u.uom == other_uom for u in item_doc.uoms):
+            item_doc.append("uoms", {"uom": other_uom, "conversion_factor": 2})
+            item_doc.save(ignore_permissions=True)
         # A row on another list, made by Administrator, for the "move it onto
         # the assumed list" case below.
         foreign = frappe.get_doc({
@@ -314,16 +361,51 @@ class TestMasters(MalletTestCase):
 
             # An assumed rate names no vendor and no client: vendor_rate would
             # serve a supplier-tagged assumed row as that vendor's real price.
-            for field in ("supplier", "customer"):
-                with self.assertRaises(frappe.PermissionError):
+            # The parties are REAL, so link validation passes and only the
+            # guard can refuse.
+            for field, party in parties.items():
+                with self.assertRaisesRegex(frappe.PermissionError, "name no"):
                     frappe.get_doc({
-                        "doctype": "Item Price", "item_code": code, "price_list": assumed,
-                        "buying": 1, "price_list_rate": 1, field: "ZZ Not A Party",
+                        "doctype": "Item Price", "item_code": fresh, "price_list": assumed,
+                        "buying": 1, "price_list_rate": 1, field: party,
                     }).insert()
                 tagged = frappe.get_doc("Item Price", row.name)
-                tagged.set(field, "ZZ Not A Party")
-                with self.assertRaises(frappe.PermissionError):
+                tagged.set(field, party)
+                with self.assertRaisesRegex(frappe.PermissionError, "name no"):
                     tagged.save()
+
+            # Zero or negative never lands, on insert or on save: material_rate
+            # would price a negative figure as a negative cost.
+            for bad in (0, -1):
+                with self.assertRaisesRegex(frappe.PermissionError, "positive"):
+                    frappe.get_doc({
+                        "doctype": "Item Price", "item_code": fresh, "price_list": assumed,
+                        "buying": 1, "price_list_rate": bad,
+                    }).insert()
+                lowered = frappe.get_doc("Item Price", row.name)
+                lowered.price_list_rate = bad
+                with self.assertRaisesRegex(frappe.PermissionError, "positive"):
+                    lowered.save()
+
+            # The estimate applies the figure per STOCK unit, so any other UOM
+            # is refused — over REST and through set_assumed_rate alike.
+            if other_uom:
+                with self.assertRaisesRegex(frappe.PermissionError, "priced per"):
+                    frappe.get_doc({
+                        "doctype": "Item Price", "item_code": fresh, "price_list": assumed,
+                        "buying": 1, "price_list_rate": 1, "uom": other_uom,
+                    }).insert()
+                with self.assertRaisesRegex(frappe.ValidationError, "priced per"):
+                    integration.set_assumed_rate(fresh, 1, uom=other_uom)
+
+            # One assumed row per item. A later valid_from gets past ERPNext's
+            # own duplicate check, so the guard is what refuses the second row.
+            with self.assertRaisesRegex(frappe.PermissionError, "one assumed rate"):
+                frappe.get_doc({
+                    "doctype": "Item Price", "item_code": code, "price_list": assumed,
+                    "buying": 1, "price_list_rate": 1,
+                    "valid_from": add_days(nowdate(), 30),
+                }).insert()
 
             # And the money it was never given stays shut.
             self.assertFalse(frappe.has_permission("Estimate Settings", "read"))
@@ -340,8 +422,40 @@ class TestMasters(MalletTestCase):
             "Item Price", {"item_code": code, "price_list": other}))
         self.assertEqual(frappe.db.get_value("Item Price", foreign.name, "price_list"), other)
         self.assertFalse(frappe.db.exists("Item Price", {"item_code": retired}))
-        self.assertFalse(frappe.db.exists(
-            "Item Price", {"item_code": code, "supplier": ["is", "set"]}))
+        self.assertFalse(frappe.db.exists("Item Price", {"item_code": fresh}))
+        self.assertEqual(frappe.db.count(
+            "Item Price", {"item_code": code, "price_list": assumed}), 1)
+        self.assertEqual(frappe.db.get_value(
+            "Item Price", row.name, "price_list_rate"), 12.5)
+        for field in parties:
+            self.assertFalse(frappe.db.exists(
+                "Item Price", {"item_code": code, field: ["is", "set"]}))
+
+    def test_set_assumed_rate_is_post_only(self):
+        # Frappe rolls a GET back, so over GET the reply would report a rate
+        # that is gone when the request ends (api.create_materials, 2026-08-29).
+        from mallet_estimator import integration
+        self.assertEqual(
+            frappe.allowed_http_methods_for_whitelisted_func.get(integration.set_assumed_rate),
+            ["POST"])
+
+    def test_the_price_update_setting_is_refused_while_a_rate_writer_exists(self):
+        # With both Stock Settings flags on, ERPNext rewrites any price list
+        # with db.set_value and no validate runs. A pair minted while it was
+        # off must not gain that route when somebody ticks it later.
+        from mallet_estimator import integration
+        integration.ensure_ratewriter_role()
+        self.assertEqual(integration._guard_registered(), (True, True))
+        _role_user("zz-ratewriter-stock@example.com", integration.RATEWRITER_ROLE)
+        frappe.db.set_value("User", "zz-ratewriter-stock@example.com", "enabled", 1)
+        ss = frappe.get_doc("Stock Settings")
+        ss.auto_insert_price_list_rate_if_missing = 1
+        ss.update_existing_price_list_rate = 1
+        with self.assertRaisesRegex(frappe.ValidationError, integration.RATEWRITER_ROLE):
+            integration.guard_stock_settings_price_update(ss)
+        # Either flag alone opens nothing, and is left alone.
+        ss.update_existing_price_list_rate = 0
+        integration.guard_stock_settings_price_update(ss)
 
     def test_the_rate_writer_scope_check_sees_every_widening(self):
         # Each case is a way the role could be widened while the old check
@@ -371,6 +485,42 @@ class TestMasters(MalletTestCase):
                 self.assertFalse(ok, f"{parent} {bits} went unnoticed")
             finally:
                 frappe.db.delete("Custom DocPerm", {"name": row.name})
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertTrue(ok, detail)
+
+        # A bit outside the granted set on a GRANTED row: share on Item Price
+        # hands write on a vendor's buying row to a user the guard never sees;
+        # print on Item is still more than read.
+        for parent, bit in (("Item Price", "share"), ("Item Price", "email"),
+                            ("Item", "share"), ("Item", "print")):
+            name = frappe.db.get_value(
+                "Custom DocPerm", {"role": role, "parent": parent, "permlevel": 0,
+                                   "if_owner": 0}, "name")
+            self.assertTrue(name, f"{parent} has no rate-writer row")
+            frappe.db.set_value("Custom DocPerm", name, bit, 1)
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertFalse(ok, f"{bit} on {parent} went unnoticed")
+            self.assertIn(bit, detail)
+            integration.ensure_ratewriter_role()      # re-pins it to 0
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertTrue(ok, detail)
+
+        # The USER widened while the role stays narrow: a second role.
+        integration.create_ratewriter_api_user(regenerate=1)
+        extra = next((r for r in ("Purchase Manager", "Accounts User", "Stock User")
+                      if frappe.db.exists("Role", r)), None)
+        if extra:
+            user = frappe.get_doc("User", integration.RATEWRITER_USER)
+            user.append("roles", {"role": extra})
+            user.save(ignore_permissions=True)
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertFalse(ok, f"{extra} on the rate-writer user went unnoticed")
+            self.assertIn(extra, detail)
+            # The role itself is still narrow, and a re-key resets the user —
+            # the pre-key check must not refuse the very re-key that fixes it.
+            ok, detail = integration.ratewriter_is_scoped(check_user=False)
+            self.assertTrue(ok, detail)
+            integration.create_ratewriter_api_user(regenerate=1)
             ok, detail = integration.ratewriter_is_scoped()
             self.assertTrue(ok, detail)
 
@@ -437,6 +587,72 @@ class TestMasters(MalletTestCase):
                     inventory.recompute_all_ceilings()
             finally:
                 frappe.set_user("Administrator")
+
+    def test_no_integration_identity_reaches_a_price_through_a_helper(self):
+        # recompute_all_ceilings had two siblings that write prices with
+        # db.set_value — past DocPerm and past the rate writer's guard — gated
+        # on bits the STEWARD holds (Project write, Item create). "The steward
+        # stays rate-safe"; neither the reader nor the rate writer gets in
+        # either.
+        from mallet_estimator import integration, rate_import
+        integration.ensure_readonly_role()
+        integration.ensure_steward_role()
+        integration.ensure_ratewriter_role()
+        for email, role in (("zz-steward-prices@example.com", integration.STEWARD_ROLE),
+                            ("zz-reader-prices@example.com", integration.READONLY_ROLE),
+                            ("zz-ratewriter-prices@example.com", integration.RATEWRITER_ROLE)):
+            _role_user(email, role)
+            try:
+                frappe.set_user(email)
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: recompute"):
+                    inventory.recompute_all_ceilings()
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: material choices"):
+                    inventory.apply_material_choices("ZZ-NO-SUCH-PROJECT")
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: rate import"):
+                    rate_import.import_supplier_rates("ZZ RateWriter Supplier", "")
+            finally:
+                frappe.set_user("Administrator")
+        # The steward's own grants did not move to make that true.
+        ok, detail = integration.steward_is_rate_safe()
+        self.assertTrue(ok, detail)
+
+    def test_the_markups_and_item_minting_are_shut_to_reader_and_rate_writer(self):
+        # set_margins saves Estimate Settings with ignore_permissions, and
+        # create_materials / cost_card(create_missing=1) insert Items the same
+        # way — so each was open to any login. The rate writer "NEVER writes
+        # Estimate Settings" and holds no Item create; the reader stays
+        # read-only.
+        from mallet_estimator import api, integration
+        from mallet_estimator.mallet_estimator.doctype.estimate_sku import estimate_sku
+        integration.ensure_readonly_role()
+        integration.ensure_ratewriter_role()
+        code = "HWD_ZZ_NEVER_MINTED"
+        frappe.db.delete("Item", {"name": code})
+        before = estimate_sku.get_margins()
+        for email, role in (("zz-reader-markups@example.com", integration.READONLY_ROLE),
+                            ("zz-ratewriter-markups@example.com", integration.RATEWRITER_ROLE)):
+            _role_user(email, role)
+            try:
+                frappe.set_user(email)
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: set_margins"):
+                    estimate_sku.set_margins(material=0, labor=0, overhead=0, design=0)
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: create_materials"):
+                    api.create_materials(codes=code)
+                with self.assertRaises(frappe.PermissionError, msg=f"{role}: cost_card"):
+                    api.cost_card(codes=code, create_missing=1)
+            finally:
+                frappe.set_user("Administrator")
+        # The rate writer cannot even read the markups; the reader can.
+        try:
+            frappe.set_user("zz-ratewriter-markups@example.com")
+            with self.assertRaises(frappe.PermissionError):
+                estimate_sku.get_margins()
+            frappe.set_user("zz-reader-markups@example.com")
+            self.assertEqual(estimate_sku.get_margins(), before)
+        finally:
+            frappe.set_user("Administrator")
+        self.assertEqual(estimate_sku.get_margins(), before)
+        self.assertFalse(frappe.db.exists("Item", code))
 
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration

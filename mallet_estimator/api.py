@@ -471,6 +471,22 @@ def _op_minutes(op_name, default):
     return float(v), "erp:Operation"
 
 
+def _require_item_create():
+    """Minting an Item is gated: ensure_material_item inserts with
+    ignore_permissions, so an ungated endpoint let the read-only reader and
+    the rate writer create Items — and the rate writer could then key an
+    assumed rate on a material nobody chose. Item create, or the plugin role
+    (whose button this is: Amit, 2026-08-29, "give me a button to create
+    material in erp"), and nobody else."""
+    from mallet_estimator import integration
+    if frappe.has_permission("Item", "create"):
+        return
+    if integration.PLUGIN_ROLE in frappe.get_roles():
+        return
+    frappe.throw(_("Creating a material Item needs Item create permission."),
+                 frappe.PermissionError)
+
+
 @frappe.whitelist(methods=["POST"])
 def create_materials(codes=None):
     """Create Items for OpenCutList codes ERP has never heard of. Nothing else.
@@ -503,6 +519,7 @@ def create_materials(codes=None):
     # it could ever have executed this line.
     from mallet_estimator import inventory
 
+    _require_item_create()
     out = {"created": [], "existed": [], "failed": {}}
     for code in _split_codes(codes):
         # A SLOT-CODED LAMINATE IS A REAL ESTIMATING IDENTITY, and this
@@ -668,6 +685,8 @@ def cost_card(codes=None, create_missing=0):
     materials = []
     created = []
     want_create = str(create_missing) not in ("", "0", "False", "false", "None")
+    if want_create:
+        _require_item_create()
     for code in _split_codes(codes):
         item = _item_for_code(code)
         if not item and want_create and inventory.is_material_code(code):

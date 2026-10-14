@@ -92,8 +92,11 @@ other forbidden doctypes pinned to zero, and the `guard_assumed_price_list` hook
 `hooks.py` and live on the site (a deploy that has not migrated fails this line), every
 Custom DocPerm row read (not one per doctype, so an `if_owner` row cannot hide a delete), no
 bit at all outside its lists, and Stock Settings "Update existing Price List Rate" off.
-`create_ratewriter_api_user` refuses to issue a key while any of that is red, and
-`recompute_all_ceilings` refuses every integration role.
+It also reads the rate-writer USER: exactly one role, and `frappe.has_permission` giving it
+nothing on the forbidden and money doctypes (a grant to All / Desk User, or a share, shows
+there and nowhere else). `create_ratewriter_api_user` refuses to issue a key while any of that
+is red, and `recompute_all_ceilings`, `apply_material_choices` and the rate-sheet import refuse
+every integration role.
 `test_setup.py` drives a real user carrying only that role and asserts the guard refuses
 every other price list. No test carries a real rate — the fixtures use 1 and 12.5.
 

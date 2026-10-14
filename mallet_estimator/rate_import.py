@@ -86,7 +86,14 @@ def parse_rate_csv(text):
 def _import_rows(supplier, rows, manufacturer=None, item_group=None, kind="hardware"):
     """Core: turn parsed rate rows into catalogue Items + per-supplier MRP prices."""
     if not frappe.has_permission("Item", "create"):
-        frappe.throw("Not permitted")
+        frappe.throw("Not permitted", frappe.PermissionError)
+    # set_vendor_price writes buying prices and the assumed ceiling with
+    # db.set_value, past DocPerm and the rate writer's guard. Item create alone
+    # let the steward reach it. A person who may edit rate sheets may import one.
+    if not inventory.human_price_writer(also=("Supplier Rate Sheet", "write")):
+        frappe.throw(frappe._("Importing a rate sheet writes prices; only a person "
+                              "who may write Item Prices or rate sheets can do it."),
+                     frappe.PermissionError)
     sup = inventory.supplier_docname(supplier) or supplier
     if not sup or not frappe.db.exists("Supplier", sup):
         frappe.throw(f"Unknown Supplier: {supplier}")

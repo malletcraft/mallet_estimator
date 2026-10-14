@@ -46,6 +46,11 @@ doc_events = {
     "Item Price": {
         "validate": "mallet_estimator.integration.guard_assumed_price_list",
     },
+    # The one ERPNext setting that rewrites prices with db.set_value, where
+    # no Item Price validate runs: refused while a rate writer exists.
+    "Stock Settings": {
+        "validate": "mallet_estimator.integration.guard_stock_settings_price_update",
+    },
 }
 
 # List-view scripts (row indicators / extra columns).
