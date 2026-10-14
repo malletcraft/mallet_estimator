@@ -314,6 +314,15 @@ importing that CSV is what populates the list.
 - **Workstation rates** live natively on each Workstation; Estimate Settings seeds them.
 - **Approval:** Estimate is submittable (Draft → Submit → Quotation); changes go via **Amend**.
 - The standalone React prototype in `../SKU_Estimator` shares the cost model (offline).
+- **API identities** (Estimate Settings → **Integrations**) are made by buttons, each with one
+  narrow role: the reader (reads, never writes), the plugin, the data steward (operational data,
+  never money) — and the **rate writer** (Amit, 14 Oct 2026: "Get yourself rights to key in the
+  rates as well in assumed price list so that estimate won't hold up for my input"). It may create
+  or correct an **Item Price on "Estimation (Assumed)" and nothing else**: no other price list, no
+  delete, no Estimate Settings or Supplier Rate Sheet. A permission row cannot name a price list,
+  so an Item Price `validate` hook (`integration.guard_assumed_price_list`) refuses every other
+  list; `integration.set_assumed_rate(item_code, rate, uom)` is the convenience call. The figures
+  it keys live only in the site database, never in this repository.
 
 ---
 

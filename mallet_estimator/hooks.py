@@ -37,6 +37,17 @@ doctype_js = {
     "Site Photo Settings": "mallet_estimator/doctype/site_photo_settings/site_photo_settings.js",
 }
 
+# The rate writer may key Item Price on "Estimation (Assumed)" and no other
+# list (Amit, 14 Oct 2026: "Get yourself rights to key in the rates as well in
+# assumed price list so that estimate won't hold up for my input"). A DocPerm
+# row cannot name a price list, so this guard is the other half of the role:
+# integration.ratewriter_is_scoped() fails if it is not registered here.
+doc_events = {
+    "Item Price": {
+        "validate": "mallet_estimator.integration.guard_assumed_price_list",
+    },
+}
+
 # List-view scripts (row indicators / extra columns).
 doctype_list_js = {
     "Estimate": "public/js/estimate_list.js",

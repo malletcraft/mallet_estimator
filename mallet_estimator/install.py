@@ -357,6 +357,11 @@ def sync_readonly_role():
     # survive upgrades exactly as strictly.
     if frappe.db.exists("Role", integration.STEWARD_ROLE):
         _safe(integration.ensure_steward_role)
+    # And for the rate writer: re-pin where it exists, never mint it on
+    # upgrade. Its pins are half its promise; the Item Price guard in
+    # hooks.py is the other half, and verify_setup checks both.
+    if frappe.db.exists("Role", integration.RATEWRITER_ROLE):
+        _safe(integration.ensure_ratewriter_role)
 
 
 # Every unit this app puts on an Item. "Cubic Foot" joined when solid wood and
@@ -985,7 +990,17 @@ def verify_setup():
         chk("Read-only API role", True,
             "not created — optional, see the button on Estimate Settings")
 
-    # Unlike the three API identities, the photographer role is minted on every
+    # The rate writer keys assumed rates and nothing else. Its value is the
+    # narrowness — one doctype, one price list, no delete, no Estimate
+    # Settings — so that is what is asserted, guard included.
+    if frappe.db.exists("Role", integration.RATEWRITER_ROLE):
+        ok, detail = integration.ratewriter_is_scoped()
+        chk("Rate-writer API role", ok, detail)
+    else:
+        chk("Rate-writer API role", True,
+            "not created — optional, see the button on Estimate Settings")
+
+    # Unlike the API identities, the photographer role is minted on every
     # site by sync_readonly_role — so absence here does not mean "optional, not
     # set up", it means the migrate never ran. That is the one deploy failure
     # this app keeps hitting, and until now nothing on the outside could see it.

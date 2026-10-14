@@ -85,6 +85,14 @@ Two ways to run it:
 - **In code / CI:** `bench --site <site> execute mallet_estimator.install.verify_setup`
   (and `tests/test_setup.py` asserts `all_ok` after creating the masters).
 
+The API identities are checked the same way. The **rate writer** (keys assumed rates;
+Amit, 14 Oct 2026) reports `Rate-writer API role` when it exists: Item Price read/write/create
+and no delete, nothing written anywhere else, Estimate Settings / Supplier Rate Sheet and the
+other forbidden doctypes pinned to zero, and the `guard_assumed_price_list` hook both in
+`hooks.py` and live on the site (a deploy that has not migrated fails this line).
+`test_setup.py` drives a real user carrying only that role and asserts the guard refuses
+every other price list. No test carries a real rate — the fixtures use 1 and 12.5.
+
 This is the fastest "is my ERPNext configured right?" check — the same contract is
 verified by hand and by CI, so they can't drift.
 

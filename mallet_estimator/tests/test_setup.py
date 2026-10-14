@@ -182,6 +182,152 @@ class TestMasters(MalletTestCase):
             for p in forbid:
                 self.assertFalse(perm.get(p), f"plugin must never {p} {dt}")
 
+    def test_the_rate_writer_writes_assumed_rates_and_nothing_else(self):
+        # Amit, 14 Oct 2026: "Get yourself rights to key in the rates as well
+        # in assumed price list so that estimate won't hold up for my input".
+        # The grant is one doctype on one list; asserted from the live perm
+        # rows, because a role that merely STARTS narrow is widened by the
+        # first upgrade that ships different defaults.
+        from mallet_estimator import integration
+        integration.ensure_ratewriter_role()
+        ok, detail = integration.ratewriter_is_scoped()
+        self.assertTrue(ok, detail)
+
+        ip = frappe.db.get_value(
+            "Custom DocPerm", {"role": integration.RATEWRITER_ROLE, "parent": "Item Price"},
+            ["read", "write", "create", "delete", "submit", "cancel", "amend"],
+            as_dict=True)
+        self.assertTrue(ip and ip.read and ip.write and ip.create,
+                        "the rate writer must be able to key an Item Price")
+        # A wrong rate is corrected, never removed.
+        for p in ("delete", "submit", "cancel", "amend"):
+            self.assertFalse(ip.get(p), f"the rate writer must never {p} an Item Price")
+
+        perms = ("read", "write", "create", "delete", "submit", "cancel", "amend",
+                 "import", "export", "print", "email", "share", "report")
+        for dt in integration.RATEWRITER_FORBIDDEN:
+            row = frappe.db.get_value(
+                "Custom DocPerm", {"role": integration.RATEWRITER_ROLE, "parent": dt},
+                list(perms), as_dict=True)
+            if row:
+                for p in perms:
+                    self.assertFalse(row.get(p), f"the rate writer must not {p} {dt}")
+        self.assertIn("Estimate Settings", integration.RATEWRITER_FORBIDDEN)
+        self.assertIn("Supplier Rate Sheet", integration.RATEWRITER_FORBIDDEN)
+
+        for row in frappe.get_all(
+                "Custom DocPerm", filters={"role": integration.RATEWRITER_ROLE},
+                fields=["parent", "write", "create", "delete"]):
+            if row.parent == "Item Price":
+                continue
+            for p in ("write", "create", "delete"):
+                self.assertFalse(row.get(p),
+                                 f"{row.parent} grants the rate writer {p}")
+
+        # Giving the rate writer its grant must not have widened anyone else.
+        ok, detail = integration.role_is_read_only()
+        self.assertTrue(ok, detail)
+        ok, detail = integration.steward_is_rate_safe()
+        self.assertTrue(ok, detail)
+
+    def test_the_rate_writer_guard_refuses_every_other_price_list(self):
+        # A DocPerm row cannot say "only this price list": Item Price write is
+        # write on a vendor's real buying list too. The validate hook is what
+        # narrows it, so this drives a real user through the document API —
+        # the same path a REST call takes.
+        from mallet_estimator import integration
+        integration.ensure_ratewriter_role()
+        inventory.ensure_pricing_masters()
+        assumed = inventory.ESTIMATION_PRICE_LIST
+        other = "Test Other List"
+        if not frappe.db.exists("Price List", other):
+            frappe.get_doc({
+                "doctype": "Price List", "price_list_name": other,
+                "buying": 1, "selling": 0, "enabled": 1,
+                "currency": frappe.db.get_default("currency") or "INR",
+            }).insert(ignore_permissions=True)
+        code, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_TEST", kind="hardware")
+        moved, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_MOVE", kind="hardware")
+        retired, _, _ = inventory.ensure_material_item("HWD_RATEWRITER_RETIRED", kind="hardware")
+        frappe.db.set_value("Item", retired, "disabled", 1)
+        for item in (code, moved, retired):
+            frappe.db.delete("Item Price", {"item_code": item})
+        # A row on another list, made by Administrator, for the "move it onto
+        # the assumed list" case below.
+        foreign = frappe.get_doc({
+            "doctype": "Item Price", "item_code": moved, "price_list": other,
+            "buying": 1, "price_list_rate": 1,
+        }).insert(ignore_permissions=True)
+
+        email = "zz-ratewriter-test@example.com"
+        if not frappe.db.exists("User", email):
+            frappe.get_doc({
+                "doctype": "User", "email": email, "first_name": "ZZ Rate Writer",
+                "user_type": "System User", "send_welcome_email": 0,
+                "roles": [{"role": integration.RATEWRITER_ROLE}],
+            }).insert(ignore_permissions=True)
+        roles = set(frappe.get_roles(email))
+        self.assertIn(integration.RATEWRITER_ROLE, roles)
+        self.assertNotIn("System Manager", roles)
+
+        try:
+            frappe.set_user(email)
+
+            # The one thing it may do: key a rate on the assumed list.
+            row = frappe.get_doc({
+                "doctype": "Item Price", "item_code": code, "price_list": assumed,
+                "buying": 1, "price_list_rate": 1,
+            }).insert()
+            self.assertEqual(frappe.db.get_value("Item Price", row.name, "price_list"), assumed)
+            self.assertEqual(frappe.db.get_value("Item Price", row.name, "price_list_rate"), 1)
+            # and correct it, through the whitelisted convenience
+            out = integration.set_assumed_rate(code, 12.5)
+            self.assertEqual((out["price_list"], out["before"], out["after"]),
+                             (assumed, 1, 12.5))
+            for bad in (0, -1, "a figure", None):
+                with self.assertRaises(frappe.ValidationError):
+                    integration.set_assumed_rate(code, bad)
+
+            # Any other price list is refused.
+            with self.assertRaises(frappe.PermissionError):
+                frappe.get_doc({
+                    "doctype": "Item Price", "item_code": code, "price_list": other,
+                    "buying": 1, "price_list_rate": 1,
+                }).insert()
+            # So is moving the saved row off the assumed list…
+            saved = frappe.get_doc("Item Price", row.name)
+            saved.price_list = other
+            with self.assertRaises(frappe.PermissionError):
+                saved.save()
+            # …or another list's row onto it.
+            theirs = frappe.get_doc("Item Price", foreign.name)
+            theirs.price_list = assumed
+            with self.assertRaises(frappe.PermissionError):
+                theirs.save()
+            # A retired item takes no assumed rate. ERPNext may refuse it
+            # first with its own validation; either way it must not land.
+            with self.assertRaises((frappe.PermissionError, frappe.ValidationError)):
+                frappe.get_doc({
+                    "doctype": "Item Price", "item_code": retired, "price_list": assumed,
+                    "buying": 1, "price_list_rate": 1,
+                }).insert()
+
+            # And the money it was never given stays shut.
+            self.assertFalse(frappe.has_permission("Estimate Settings", "read"))
+            with self.assertRaises(frappe.PermissionError):
+                frappe.get_doc("Estimate Settings").check_permission("read")
+            self.assertFalse(frappe.has_permission("Supplier Rate Sheet", "write"))
+            with self.assertRaises(frappe.PermissionError):
+                frappe.new_doc("Supplier Rate Sheet").insert()
+        finally:
+            frappe.set_user("Administrator")
+
+        # Nothing it was refused reached the database.
+        self.assertFalse(frappe.db.exists(
+            "Item Price", {"item_code": code, "price_list": other}))
+        self.assertEqual(frappe.db.get_value("Item Price", foreign.name, "price_list"), other)
+        self.assertFalse(frappe.db.exists("Item Price", {"item_code": retired}))
+
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
         integration.ensure_readonly_role()
@@ -500,6 +646,10 @@ class TestMasters(MalletTestCase):
             set(integration.INTEGRATION_ROLES) - reported, set(),
             "every integration role must appear in the report")
         self.assertIn(integration.PHOTOGRAPHER_ROLE, reported)
+        # The rate writer is the one identity that can change money; a report
+        # that could not see it would be the worst one to lose.
+        self.assertIn(integration.RATEWRITER_ROLE, integration.INTEGRATION_ROLES)
+        self.assertIn(integration.RATEWRITER_ROLE, reported)
 
     def test_a_named_user_carrying_the_role_can_capture_and_nothing_more(self):
         # role_report says the grants landed on the ROLE. What nobody could

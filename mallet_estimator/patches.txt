@@ -230,3 +230,11 @@ mallet_estimator.patches.lumber_uom_cubic_foot
 # "dry balcony is one room. add it in list."), so the phone's 2 BHK preset
 # can file against it. post, not pre: Estimate Room must exist first.
 mallet_estimator.patches.seed_dry_balcony
+# post_model_sync: the rate-writer role (Amit, 14 Oct 2026) and its Item Price
+# guard. A Python-only deploy runs no migrate, so without this entry neither
+# the role's pins nor the new doc_events hook (Frappe caches hooks until a
+# migrate clears them) would reach a live site. It re-pins only where the
+# role already exists; on a fresh site Frappe marks the patch applied at
+# install and the role is minted by the button on Estimate Settings, like the
+# reader's.
+mallet_estimator.patches.add_ratewriter_role

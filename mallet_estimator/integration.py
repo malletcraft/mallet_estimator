@@ -21,6 +21,8 @@ committed number is permanent and world-readable. Reading is reversible; a
 commit is not.
 """
 
+import math
+
 import frappe
 from frappe import _
 
@@ -319,10 +321,10 @@ def create_plugin_api_user(email=None, full_name="Mallet Plugin", regenerate=0):
 # Data fixes and code fixes are different things (Amit, 2026-08-13): a wrong
 # UOM, a stale item, a decor row pointing nowhere should be corrected in
 # minutes over the API, not ride a CI build + bench deploy the way CODE must.
-# The steward writes operational DATA; it still cannot touch a rate — keying
-# money stays a human act on every assistant identity, by design, and
+# The steward writes operational DATA; it still cannot touch a rate, and
 # steward_is_rate_safe() asserts it the way role_is_read_only() asserts the
-# reader.
+# reader. Keying an ASSUMED rate belongs to the rate writer below (Amit,
+# 14 Oct 2026) — a separate identity, so this one's exclusion stays whole.
 # ---------------------------------------------------------------------------
 
 STEWARD_ROLE = "Mallet Data Steward"
@@ -568,12 +570,311 @@ def photographer_is_scoped():
     return True, f"{len(rows)} doctype(s), capture only"
 
 
+# ---------------------------------------------------------------------------
+# The RATE WRITER — the assistant's hand for keying ASSUMED rates, and nothing
+# else.
+#
+# Amit, 14 Oct 2026: "Get yourself rights to key in the rates as well in
+# assumed price list so that estimate won't hold up for my input". Until then
+# every assistant identity was barred from money, so an estimate with one
+# unpriced material sat red until Amit found time to key a number he had
+# already given in chat.
+#
+# The grant is as narrow as that sentence: an Item Price row on ONE price
+# list, "Estimation (Assumed)" — the planning rate the estimate reads first.
+# Not Estimate Settings (salaries, rent, markups), not Supplier Rate Sheet,
+# not a vendor's own buying list, not a document. And never delete: a wrong
+# rate is corrected, never removed, so the row's history stays on the site.
+#
+# A DocPerm row cannot say "only this price list" — Item Price write is write
+# on every list. So the promise is made in two halves: the pins below, and
+# guard_assumed_price_list, a validate hook that refuses any other list.
+# ratewriter_is_scoped() asserts both, and verify_setup reports it.
+# ---------------------------------------------------------------------------
+
+RATEWRITER_ROLE = "Mallet Rate Writer"
+RATEWRITER_USER = "rate-writer-claude@malletcrafts.com"
+
+# read/write/create/export/report. No delete, submit, cancel or amend.
+RATEWRITER_RWC_DOCTYPES = ("Item Price",)
+# Exactly what an Item Price row needs resolved, and the desk metadata to
+# render the form. Nothing more: this role answers "what is the assumed rate",
+# the reader answers everything else.
+RATEWRITER_RO_DOCTYPES = ("Item", "Price List", "UOM") + READONLY_UI_DOCTYPES
+# Pinned to explicit zeros so the exclusion is asserted, not implied — and so
+# an upgrade shipping new defaults cannot quietly widen them.
+RATEWRITER_FORBIDDEN = ("Estimate Settings", "Supplier Rate Sheet", "Estimate",
+                        "Estimate SKU", "Supplier", "Customer")
+
+# The dotted path hooks.py must register on Item Price validate. Named once so
+# ratewriter_is_scoped() checks the same string the hook table carries.
+RATEWRITER_GUARD = "mallet_estimator.integration.guard_assumed_price_list"
+
+_ALL_PERMS = ("read", "write", "create", "delete", "submit", "cancel", "amend",
+              "import", "export", "print", "email", "share", "report")
+
+
+def ensure_ratewriter_role():
+    """Create/re-pin the rate-writer role: write on Item Price, read on what an
+    Item Price row links to, explicit zeros on everything money or document.
+    Same explicit-zero pinning as the reader, plugin and steward."""
+    if not frappe.db.exists("Role", RATEWRITER_ROLE):
+        frappe.get_doc({
+            "doctype": "Role", "role_name": RATEWRITER_ROLE,
+            "desk_access": 1, "disabled": 0,
+        }).insert(ignore_permissions=True)
+
+    from frappe.permissions import add_permission, update_permission_property
+
+    def pin(dt, allowed):
+        if not frappe.db.exists("DocType", dt):
+            return
+        try:
+            add_permission(dt, RATEWRITER_ROLE, 0)
+        except Exception:
+            pass
+        for perm in _ALL_PERMS:
+            try:
+                update_permission_property(dt, RATEWRITER_ROLE, 0, perm,
+                                           1 if perm in allowed else 0)
+            except Exception:
+                pass
+
+    for dt in RATEWRITER_RWC_DOCTYPES:
+        pin(dt, ("read", "write", "create", "export", "report"))
+    for dt in RATEWRITER_RO_DOCTYPES:
+        pin(dt, ("read",))
+    for dt in RATEWRITER_FORBIDDEN:
+        pin(dt, ())        # a row of explicit zeros, on purpose
+    return RATEWRITER_ROLE
+
+
+def _guard_registered():
+    """(in_code, live): is the guard on Item Price validate in this app's
+    hooks.py, and does the running site's hook table carry it? They differ
+    when a deploy has not migrated — Frappe caches hooks, so a hook that is
+    only in the source guards nothing."""
+    from mallet_estimator import hooks as app_hooks
+
+    def has(table):
+        found = ((table or {}).get("Item Price") or {}).get("validate") or []
+        if isinstance(found, str):
+            found = [found]
+        return RATEWRITER_GUARD in found
+
+    in_code = has(getattr(app_hooks, "doc_events", None))
+    try:
+        live = has(frappe.get_hooks("doc_events"))
+    except Exception:
+        live = False
+    return in_code, live
+
+
+def ratewriter_is_scoped():
+    """(ok, detail): the role writes Item Price and nothing else, cannot
+    delete a rate, holds nothing on the forbidden doctypes, and the price-list
+    guard is registered. Asserted by verify_setup — the narrowness is the
+    whole design, so existing is not the same as still being safe."""
+    rows = frappe.get_all(
+        "Custom DocPerm", filters={"role": RATEWRITER_ROLE},
+        fields=["parent"] + list(_ALL_PERMS))
+    by_dt = {r.parent: r for r in rows}
+
+    ip = by_dt.get("Item Price")
+    if not ip or not (ip.read and ip.write and ip.create):
+        return False, "Item Price is not read+write+create for the rate writer"
+    for p in ("delete", "submit", "cancel", "amend"):
+        if ip.get(p):
+            return False, f"Item Price grants {p} — a rate is corrected, never removed"
+    for r in rows:
+        if r.parent not in RATEWRITER_RWC_DOCTYPES and any(
+                r.get(p) for p in ("write", "create", "delete", "submit",
+                                   "cancel", "amend", "import")):
+            return False, f"{r.parent} grants the rate writer more than read"
+    for dt in RATEWRITER_FORBIDDEN:
+        r = by_dt.get(dt)
+        if r and any(r.get(p) for p in _ALL_PERMS):
+            return False, f"{dt} must be closed to the rate writer"
+    in_code, live = _guard_registered()
+    if not in_code:
+        return False, "the Item Price price-list guard is not registered in hooks.py"
+    if not live:
+        return False, ("the Item Price price-list guard is in the code but not live "
+                       "on this site — a migrate has not cleared the hook cache")
+    return True, (f"Item Price on {_assumed_list()} only; "
+                  f"{len(RATEWRITER_FORBIDDEN)} money/document doctype(s) pinned to zero")
+
+
+def _assumed_list():
+    from mallet_estimator import inventory
+    return inventory.ESTIMATION_PRICE_LIST
+
+
+def guard_assumed_price_list(doc, method=None):
+    """Item Price validate hook: a user carrying the rate-writer role may only
+    write a row on "Estimation (Assumed)".
+
+    This is what makes the role's promise true over REST, the same way
+    role_is_read_only makes the reader's: Item Price write in a DocPerm is
+    write on EVERY price list, including a vendor's real buying list, and only
+    a check on the document itself can narrow it to one. It runs on insert
+    and on save (validate runs on both), so it covers POST, PUT and
+    frappe.client.set_value alike.
+
+    Refused for that user: any other price list; moving an existing row
+    between lists in either direction; moving a rate to a different item; and
+    a row for an item that is absent or disabled. Administrator and users
+    without the role are untouched — this narrows one role, nothing else."""
+    user = frappe.session.user
+    if user == "Administrator" or RATEWRITER_ROLE not in frappe.get_roles(user):
+        return
+    assumed = _assumed_list()
+    if doc.price_list != assumed:
+        frappe.throw(
+            _("The rate writer may only key rates on the {0} price list, not {1}.")
+            .format(assumed, doc.price_list or _("(none)")),
+            frappe.PermissionError, title=_("Not this price list"))
+    before = doc.get_doc_before_save()
+    if before is not None:
+        if before.price_list != assumed:
+            frappe.throw(
+                _("The rate writer cannot move a {0} rate onto {1}.")
+                .format(before.price_list, assumed),
+                frappe.PermissionError, title=_("Not this price list"))
+        if before.item_code != doc.item_code:
+            # Re-pointing a row would silently drop one item's rate.
+            frappe.throw(
+                _("The rate writer cannot move a rate from {0} to {1} — key a new row.")
+                .format(before.item_code, doc.item_code),
+                frappe.PermissionError, title=_("Not this item"))
+    disabled = frappe.db.get_value("Item", doc.item_code, "disabled") \
+        if doc.item_code else None
+    if disabled is None:
+        frappe.throw(_("No such Item: {0}.").format(doc.item_code or _("(none)")),
+                     frappe.PermissionError, title=_("Not this item"))
+    if int(disabled or 0):
+        frappe.throw(
+            _("{0} is disabled; a retired item takes no assumed rate.").format(doc.item_code),
+            frappe.PermissionError, title=_("Not this item"))
+
+
+@frappe.whitelist()
+def set_assumed_rate(item_code, rate, uom=None):
+    """Upsert one item's assumed rate on "Estimation (Assumed)" and return
+    {item_code, price_list, uom, before, after} — before/after being the old
+    and new price_list_rate, so the change is verified by the call that made
+    it rather than trusted because it did not raise.
+
+    Deliberately NOT inventory.set_assumed_rate: that helper serves the
+    seeders, so it writes with ignore_permissions and frappe.db.set_value,
+    which skips both the caller's permissions and the price-list guard. This
+    one goes through the document API so both apply, and it never creates the
+    price list itself — a write to Price List is outside the role."""
+    frappe.has_permission("Item Price", "write", throw=True)
+    item_code = (item_code or "").strip()
+    try:
+        value = float(rate)
+    except (TypeError, ValueError):
+        value = None
+    # NaN and infinity parse as floats too; neither is a price.
+    if value is None or not math.isfinite(value) or value <= 0:
+        frappe.throw(_("Rate must be a positive number, not {0}.").format(rate))
+    if not item_code or not frappe.db.exists("Item", item_code):
+        frappe.throw(_("No such Item: {0}.").format(item_code or _("(none)")))
+    price_list = _assumed_list()
+    if not frappe.db.exists("Price List", price_list):
+        frappe.throw(_("The {0} price list does not exist — run Create / refresh "
+                       "manufacturing masters first.").format(price_list))
+    uom = (uom or "").strip() or None
+    if uom and not frappe.db.exists("UOM", uom):
+        frappe.throw(_("No such UOM: {0}.").format(uom))
+
+    # One row per item on this list: material_rate reads it by item and list
+    # alone, so a second row would make the estimate's rate a coin toss.
+    name = frappe.db.get_value(
+        "Item Price", {"item_code": item_code, "price_list": price_list}, "name")
+    if name:
+        doc = frappe.get_doc("Item Price", name)
+        before = doc.price_list_rate
+        doc.price_list_rate = value
+        if uom:
+            doc.uom = uom
+        doc.save()
+    else:
+        before = None
+        doc = frappe.new_doc("Item Price")
+        doc.item_code = item_code
+        doc.price_list = price_list
+        doc.buying = 1
+        doc.price_list_rate = value
+        if uom:
+            doc.uom = uom
+        doc.insert()
+    return {"item_code": item_code, "price_list": price_list, "uom": doc.uom,
+            "before": before, "after": doc.price_list_rate}
+
+
+@frappe.whitelist()
+def create_ratewriter_api_user(email=None, full_name="Mallet Rate Writer", regenerate=0):
+    """Create (or re-key) the rate writer's API user and return credentials
+    ONCE — same contract as the reader, plugin and steward: a lost secret is
+    re-keyed, not recovered, and re-keying is how you revoke."""
+    if not frappe.has_permission("User", "create"):
+        frappe.throw(_("Only an administrator can create the integration user."),
+                     frappe.PermissionError)
+    email = (email or RATEWRITER_USER).strip().lower()
+    ensure_ratewriter_role()
+
+    if frappe.db.exists("User", email):
+        user = frappe.get_doc("User", email)
+        if not int(regenerate or 0):
+            frappe.throw(
+                _("<b>{0}</b> already exists. Tick <b>Regenerate keys</b> to issue a "
+                  "new key and secret — the old pair stops working immediately, which "
+                  "is also how you revoke access.").format(email),
+                title=_("User already exists"))
+    else:
+        user = frappe.get_doc({
+            "doctype": "User", "email": email, "first_name": full_name,
+            "user_type": "System User",
+            "send_welcome_email": 0,
+            "enabled": 1,
+        })
+        user.flags.ignore_permissions = True
+        user.insert(ignore_permissions=True)
+
+    # Exactly one role: a rate writer that also holds "Purchase User" is not
+    # a rate writer.
+    user.set("roles", [])
+    user.append("roles", {"role": RATEWRITER_ROLE})
+    api_key = frappe.generate_hash(length=15)
+    api_secret = frappe.generate_hash(length=15)
+    user.api_key = api_key
+    user.api_secret = api_secret
+    user.flags.ignore_permissions = True
+    user.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {
+        "user": email,
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "role": RATEWRITER_ROLE,
+        "price_list": _assumed_list(),
+        "read_write": list(RATEWRITER_RWC_DOCTYPES),
+        "read_only": list(RATEWRITER_RO_DOCTYPES),
+        "never": list(RATEWRITER_FORBIDDEN),
+        "header": f"Authorization: token {api_key}:{api_secret}",
+    }
+
+
 # Every integration role, named once, because role_report() is the ONLY way a
 # remote session can see whether a role's grants actually reached the database
 # — and on 2026-08-16 it listed three roles while a fourth was live, so the
 # answer to "did the patch run?" was unobtainable from outside. A report that
 # can silently omit a role is worse than no report: it reads as an all-clear.
-INTEGRATION_ROLES = (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE, PHOTOGRAPHER_ROLE)
+INTEGRATION_ROLES = (READONLY_ROLE, PLUGIN_ROLE, STEWARD_ROLE, PHOTOGRAPHER_ROLE,
+                     RATEWRITER_ROLE)
 
 # The doctypes user_access_report will answer about, and no others. A fixed
 # list is the containment: the question it can be asked is "can this person do

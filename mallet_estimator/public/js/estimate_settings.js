@@ -81,6 +81,48 @@ frappe.ui.form.on("Estimate Settings", {
       d.show();
     }, __("Integrations"));
 
+    // The rate writer keys ASSUMED rates and nothing else. Amit, 14 Oct 2026:
+    // "Get yourself rights to key in the rates as well in assumed price list
+    // so that estimate won't hold up for my input". Same once-only dialog as
+    // the reader; the narrowness is enforced on the server, not here.
+    frm.add_custom_button(__("Create rate-writer API user"), () => {
+      const d = new frappe.ui.Dialog({
+        title: __("Rate-writer API user"),
+        fields: [
+          { fieldtype: "HTML", options:
+            `<p>${__("Creates a user that can key Item Prices on the Estimation (Assumed) price list — and nothing else. It cannot touch any other price list, cannot delete a rate, and cannot open Estimate Settings or Supplier Rate Sheet. The figures it keys live only on this site.")}</p>` },
+          { fieldname: "email", fieldtype: "Data", options: "Email", reqd: 1,
+            label: __("Email"), default: "rate-writer-claude@malletcrafts.com" },
+          { fieldname: "regenerate", fieldtype: "Check",
+            label: __("Regenerate keys if the user already exists"),
+            description: __("Issues a new key and secret. The old pair stops working immediately — this is also how you revoke access.") },
+        ],
+        primary_action_label: __("Create"),
+        primary_action(values) {
+          d.hide();
+          frappe.call({
+            method: "mallet_estimator.integration.create_ratewriter_api_user",
+            args: values, freeze: true,
+          }).then((r) => {
+            const m = (r && r.message) || {};
+            if (!m.api_key) return;
+            // Shown ONCE. Frappe keeps only an encrypted copy of the secret,
+            // so a lost secret is re-keyed, never recovered.
+            frappe.msgprint({
+              title: __("Copy the secret now — it is shown once"),
+              indicator: "orange",
+              message:
+                `<p>${__("User")}: <b>${frappe.utils.escape_html(m.user)}</b><br>` +
+                `${__("Role")}: <b>${frappe.utils.escape_html(m.role)}</b> (${__("assumed rates only")}: ${frappe.utils.escape_html(m.price_list || "")})</p>` +
+                `<pre style="white-space:pre-wrap;user-select:all">MCFT_RATEWRITER_KEY=${frappe.utils.escape_html(m.api_key)}\nMCFT_RATEWRITER_SECRET=${frappe.utils.escape_html(m.api_secret)}</pre>` +
+                `<p class="text-muted">${__("Frappe stores only an encrypted copy of the secret. If you lose it, regenerate — it cannot be read back.")}</p>`,
+            });
+          });
+        },
+      });
+      d.show();
+    }, __("Integrations"));
+
     // Clearing the estimating work is destructive and irreversible, so it sits
     // under Danger Zone behind a typed phrase rather than a confirm dialog — a
     // button that needs one careless click eventually gets one.
