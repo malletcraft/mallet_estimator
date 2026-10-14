@@ -541,12 +541,25 @@ def recompute_estimation_ceiling(item_code, price_list=None):
     return ceiling
 
 
+# Humans who may re-derive every assumed rate at once. Administrator holds every
+# role, so the stock_vendor_model patch (which runs as Administrator) still can.
+CEILING_RECOMPUTE_ROLES = ("System Manager", "Purchase Master Manager")
+
+
 @frappe.whitelist()
 def recompute_all_ceilings():
     """S4 — refresh the estimation ceiling for every material Item from its current
-    supplier prices. Callable from the Estimate Settings 'setup' button / console."""
-    if not frappe.has_permission("Item", "read"):
-        frappe.throw("Not permitted")
+    supplier prices. Callable from the Estimate Settings 'setup' button / console.
+
+    It rewrites EVERY assumed rate through set_assumed_rate, which uses
+    db.set_value and ignore_permissions — no DocPerm, no validate, so no
+    price-list guard. It was gated on Item READ, which the read-only reader and
+    the rate writer both hold, so either pair could bulk-overwrite the rates
+    Amit keyed by hand. Gated on a role instead, and on none an integration
+    identity carries (test_recompute_all_ceilings_refuses_every_integration_role)."""
+    if not set(frappe.get_roles()) & set(CEILING_RECOMPUTE_ROLES):
+        frappe.throw(frappe._("Only {0} may recompute every assumed rate.")
+                     .format(" / ".join(CEILING_RECOMPUTE_ROLES)), frappe.PermissionError)
     pl = _default_buying_price_list()
     done = 0
     for code in set(frappe.get_all("Item Price", filters={"price_list": pl}, pluck="item_code")):

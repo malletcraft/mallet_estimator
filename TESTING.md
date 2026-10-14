@@ -89,7 +89,11 @@ The API identities are checked the same way. The **rate writer** (keys assumed r
 Amit, 14 Oct 2026) reports `Rate-writer API role` when it exists: Item Price read/write/create
 and no delete, nothing written anywhere else, Estimate Settings / Supplier Rate Sheet and the
 other forbidden doctypes pinned to zero, and the `guard_assumed_price_list` hook both in
-`hooks.py` and live on the site (a deploy that has not migrated fails this line).
+`hooks.py` and live on the site (a deploy that has not migrated fails this line), every
+Custom DocPerm row read (not one per doctype, so an `if_owner` row cannot hide a delete), no
+bit at all outside its lists, and Stock Settings "Update existing Price List Rate" off.
+`create_ratewriter_api_user` refuses to issue a key while any of that is red, and
+`recompute_all_ceilings` refuses every integration role.
 `test_setup.py` drives a real user carrying only that role and asserts the guard refuses
 every other price list. No test carries a real rate — the fixtures use 1 and 12.5.
 

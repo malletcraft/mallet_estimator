@@ -312,6 +312,19 @@ class TestMasters(MalletTestCase):
                     "buying": 1, "price_list_rate": 1,
                 }).insert()
 
+            # An assumed rate names no vendor and no client: vendor_rate would
+            # serve a supplier-tagged assumed row as that vendor's real price.
+            for field in ("supplier", "customer"):
+                with self.assertRaises(frappe.PermissionError):
+                    frappe.get_doc({
+                        "doctype": "Item Price", "item_code": code, "price_list": assumed,
+                        "buying": 1, "price_list_rate": 1, field: "ZZ Not A Party",
+                    }).insert()
+                tagged = frappe.get_doc("Item Price", row.name)
+                tagged.set(field, "ZZ Not A Party")
+                with self.assertRaises(frappe.PermissionError):
+                    tagged.save()
+
             # And the money it was never given stays shut.
             self.assertFalse(frappe.has_permission("Estimate Settings", "read"))
             with self.assertRaises(frappe.PermissionError):
@@ -327,6 +340,103 @@ class TestMasters(MalletTestCase):
             "Item Price", {"item_code": code, "price_list": other}))
         self.assertEqual(frappe.db.get_value("Item Price", foreign.name, "price_list"), other)
         self.assertFalse(frappe.db.exists("Item Price", {"item_code": retired}))
+        self.assertFalse(frappe.db.exists(
+            "Item Price", {"item_code": code, "supplier": ["is", "set"]}))
+
+    def test_the_rate_writer_scope_check_sees_every_widening(self):
+        # Each case is a way the role could be widened while the old check
+        # stayed green: a read on a doctype it was never given, a second
+        # (if_owner) row on Item Price carrying delete, the "select" bit on a
+        # forbidden doctype, and the ERPNext setting that updates prices with
+        # db.set_value where no validate guard can see it.
+        from mallet_estimator import integration
+        integration.ensure_ratewriter_role()
+        ok, detail = integration.ratewriter_is_scoped()
+        self.assertTrue(ok, detail)
+        role = integration.RATEWRITER_ROLE
+
+        def stray(parent, **bits):
+            return frappe.get_doc(dict({
+                "doctype": "Custom DocPerm", "parent": parent, "parenttype": "DocType",
+                "parentfield": "permissions", "role": role, "permlevel": 0,
+            }, **bits)).insert(ignore_permissions=True)
+
+        outside = "Purchase Invoice" if frappe.db.exists("DocType", "Purchase Invoice") else "ToDo"
+        self.assertNotIn(outside, integration.RATEWRITER_RO_DOCTYPES)
+        for parent, bits in ((outside, {"read": 1}),
+                             ("Item Price", {"if_owner": 1, "read": 1, "delete": 1})):
+            row = stray(parent, **bits)
+            try:
+                ok, detail = integration.ratewriter_is_scoped()
+                self.assertFalse(ok, f"{parent} {bits} went unnoticed")
+            finally:
+                frappe.db.delete("Custom DocPerm", {"name": row.name})
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertTrue(ok, detail)
+
+        self.assertIn("select", integration._ALL_PERMS)
+        supplier_row = frappe.db.get_value(
+            "Custom DocPerm", {"role": role, "parent": "Supplier"}, "name")
+        if supplier_row:
+            frappe.db.set_value("Custom DocPerm", supplier_row, "select", 1)
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertFalse(ok, "select on Supplier went unnoticed")
+            integration.ensure_ratewriter_role()      # re-pins select to 0
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertTrue(ok, detail)
+
+        flags = ("auto_insert_price_list_rate_if_missing", "update_existing_price_list_rate")
+        saved = {f: frappe.db.get_single_value("Stock Settings", f) for f in flags}
+        try:
+            for f in flags:
+                frappe.db.set_single_value("Stock Settings", f, 1)
+            ok, detail = integration.ratewriter_is_scoped()
+            self.assertFalse(ok, "update_existing_price_list_rate went unnoticed")
+            self.assertIn("Update existing Price List Rate", detail)
+        finally:
+            for f, v in saved.items():
+                frappe.db.set_single_value("Stock Settings", f, v or 0)
+
+    def test_no_rate_writer_keys_while_the_guard_is_not_live(self):
+        # A Python-only deploy runs no migrate, so the hook table can lack the
+        # guard while the code has it — and then the role's Item Price write
+        # is write on every price list. No pair may be issued in that state.
+        from unittest.mock import patch
+        from mallet_estimator import integration
+        integration.create_ratewriter_api_user(regenerate=1)
+        before = frappe.db.get_value("User", integration.RATEWRITER_USER, "api_key")
+        self.assertTrue(before)
+        with patch.object(integration, "_guard_registered", return_value=(True, False)):
+            with self.assertRaises(frappe.ValidationError):
+                integration.create_ratewriter_api_user(regenerate=1)
+        self.assertEqual(
+            frappe.db.get_value("User", integration.RATEWRITER_USER, "api_key"), before)
+
+    def test_recompute_all_ceilings_refuses_every_integration_role(self):
+        # It rewrites every assumed rate with db.set_value — past DocPerm and
+        # past the guard — and was gated on Item read, which the reader and
+        # the rate writer both hold. "The read-only role stays read-only."
+        from mallet_estimator import integration
+        integration.ensure_readonly_role()
+        integration.ensure_ratewriter_role()
+        self.assertTrue(set(inventory.CEILING_RECOMPUTE_ROLES).isdisjoint(
+            integration.INTEGRATION_ROLES))
+        for email, role in (("zz-reader-ceiling@example.com", integration.READONLY_ROLE),
+                            ("zz-ratewriter-ceiling@example.com", integration.RATEWRITER_ROLE)):
+            if not frappe.db.exists("User", email):
+                frappe.get_doc({
+                    "doctype": "User", "email": email, "first_name": "ZZ Ceiling",
+                    "user_type": "System User", "send_welcome_email": 0,
+                    "roles": [{"role": role}],
+                }).insert(ignore_permissions=True)
+            self.assertTrue(set(frappe.get_roles(email)).isdisjoint(
+                inventory.CEILING_RECOMPUTE_ROLES), email)
+            try:
+                frappe.set_user(email)
+                with self.assertRaises(frappe.PermissionError):
+                    inventory.recompute_all_ceilings()
+            finally:
+                frappe.set_user("Administrator")
 
     def test_ensure_readonly_role_is_idempotent(self):
         from mallet_estimator import integration
