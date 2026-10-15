@@ -152,5 +152,130 @@ class SurveyPrepFileTest {
         val part = SurveyPrepFile.Opened.Salvaged(SurveyPrepFile.decode(o)!!, "Y.json")
         assertEquals("Part of the saved prep could not be read (1 thing: Ceiling: missing, started again). The file as it was is kept as Y.json.",
             SurveyPrepFile.openedNote(part))
+        assertTrue(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Salvaged(part.decoded, null))!!.endsWith(
+            "could not be copied aside: nothing here is saved, so it is not overwritten."))
+    }
+
+    // ------------------------------------------------------------ opening (the store's decision)
+
+    /** The disk, faked: what was copied or moved aside, and whether either may succeed. */
+    private class Disk(val copyOk: Boolean = true, val moveOk: Boolean = true, val throws: Boolean = false) {
+        val copied = mutableListOf<String>(); val moved = mutableListOf<String>()
+        fun copy(): String? { if (throws) error("disk full"); return if (copyOk) "C.json".also { copied.add(it) } else null }
+        fun move(): String? { if (throws) error("disk full"); return if (moveOk) "M.json".also { moved.add(it) } else null }
+    }
+
+    private fun open(text: String?, disk: Disk, exists: Boolean = text != null) =
+        SurveyPrepFile.open(text, exists, { t -> runCatching { parse(t) }.getOrNull() }, disk::copy, disk::move)
+
+    /** Plain maps back to JSON text, enough for what encode writes. */
+    private fun write(v: Any?): String = when (v) {
+        null -> "null"
+        is String -> "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        is Map<*, *> -> v.entries.joinToString(",", "{", "}") { (k, x) -> write(k.toString()) + ":" + write(x) }
+        is List<*> -> v.joinToString(",", "[", "]") { write(it) }
+        else -> v.toString()
+    }
+
+    private val salvageable: String = v1.replace(""""ceil":""", """"ceilx":""")
+
+    @Test fun `no file is Missing -- nothing set aside, nothing held, and it is saved on open`() {
+        val d = Disk(); val r = open(null, d)
+        assertTrue(r.opened is SurveyPrepFile.Opened.Missing); assertFalse(r.hold)
+        assertTrue(d.copied.isEmpty() && d.moved.isEmpty())
+        assertTrue(SurveyPrepFile.saveOnOpen(r.opened))
+    }
+
+    @Test fun `a whole prep is Restored and nothing is copied`() {
+        val d = Disk(); val r = open(v1, d)
+        assertTrue(r.opened is SurveyPrepFile.Opened.Restored); assertFalse(r.hold)
+        assertTrue(d.copied.isEmpty() && d.moved.isEmpty())
+        assertFalse(SurveyPrepFile.saveOnOpen(r.opened))
+    }
+
+    @Test fun `a truncated file is MOVED aside, never treated as Missing and saved over`() {
+        val d = Disk(); val r = open(v1.take(v1.length / 2), d)
+        val o = r.opened as SurveyPrepFile.Opened.Unreadable
+        assertEquals("M.json", o.aside); assertFalse(r.hold)
+        assertEquals(listOf("M.json"), d.moved); assertTrue(d.copied.isEmpty())
+        assertFalse(SurveyPrepFile.saveOnOpen(o))
+        // and a JSON object that is no prep, and a file that exists but cannot be read, go the same way
+        assertTrue(open("""{"v":1}""", Disk()).opened is SurveyPrepFile.Opened.Unreadable)
+        assertTrue(open(null, Disk(), exists = true).opened is SurveyPrepFile.Opened.Unreadable)
+    }
+
+    @Test fun `an unreadable file that cannot be moved aside is HELD -- every save refused`() {
+        for (d in listOf(Disk(moveOk = false), Disk(throws = true))) {
+            val r = open("{not json", d)
+            assertNull((r.opened as SurveyPrepFile.Opened.Unreadable).aside)
+            assertTrue(r.hold)
+            assertFalse(SurveyPrepFile.saveOnOpen(r.opened))
+        }
+    }
+
+    @Test fun `a prep read in part is COPIED aside, not held, and saved on open so the live file heals`() {
+        val d = Disk(); val r = open(salvageable, d)
+        val o = r.opened as SurveyPrepFile.Opened.Salvaged
+        assertEquals("C.json", o.aside); assertFalse(r.hold)
+        assertEquals(listOf("C.json"), d.copied); assertTrue(d.moved.isEmpty())
+        assertTrue(o.decoded.problems.isNotEmpty())
+        assertTrue(SurveyPrepFile.saveOnOpen(o))
+        // healed: what the screen then writes opens Restored, so no second copy is made
+        val z = o.decoded.size!!
+        val text = write(SurveyPrepFile.encode(o.decoded.prep, z[0], z[1], z[2]))
+        val d2 = Disk(); assertTrue(open(text, d2).opened is SurveyPrepFile.Opened.Restored)
+        assertTrue(d2.copied.isEmpty())
+    }
+
+    @Test fun `a prep read in part whose copy fails is HELD and never saved over -- the only copy of what was lost`() {
+        for (d in listOf(Disk(copyOk = false), Disk(throws = true))) {
+            val r = open(salvageable, d)
+            val o = r.opened as SurveyPrepFile.Opened.Salvaged
+            assertNull(o.aside); assertTrue(r.hold)
+            assertFalse(SurveyPrepFile.saveOnOpen(o))
+        }
+    }
+
+    // ------------------------------------------------------------ the JSON library, faked
+
+    /** A JSON library of its own: an object, an array and a null that are not plain maps, lists or null. */
+    private data class FObj(val m: List<Pair<String, Any>>)
+    private data class FArr(val l: List<Any>)
+    private object FNull
+
+    private val fake = SurveyPrepFile.JsonShape(
+        isNull = { it == null || it === FNull },
+        entries = { (it as? FObj)?.m },
+        items = { (it as? FArr)?.l },
+        newObject = { FObj(it) },
+        newArray = { FArr(it) },
+        nul = FNull,
+    )
+
+    @Test fun `the library tree converts to plain maps and back -- JSON null stays null in lists, nested unknown objects stay whole`() {
+        val tree = FObj(listOf(
+            "v" to 1,
+            "chains" to FArr(listOf(FObj(listOf("id" to "k1", "snaps" to FArr(listOf(FNull, "l")))))),
+            "note" to FObj(listOf("deep" to FObj(listOf("b" to FArr(listOf(1, 2.5, true)), "z" to FNull)))),
+            "gone" to FNull,
+        ))
+        val p = assertNotNull(SurveyPrepFile.plainObject(tree, fake))
+        assertEquals(listOf("v", "chains", "note", "gone"), p.keys.toList())
+        assertTrue(p.containsKey("gone")); assertNull(p["gone"])
+        assertEquals(listOf(null, "l"), ((p["chains"] as List<*>)[0] as Map<*, *>)["snaps"])
+        assertEquals(mapOf("deep" to mapOf("b" to listOf(1, 2.5, true), "z" to null)), p["note"])
+        // and back: null is the library's null, never the text "null"
+        assertEquals(tree, SurveyPrepFile.unplain(p, fake))
+        assertNull(SurveyPrepFile.plainObject(FArr(listOf(1)), fake))
+    }
+
+    @Test fun `a prototype prep through the library and back keeps every field, nulls included`() {
+        val tree = SurveyPrepFile.unplain(parse(proto), fake)
+        val o = assertNotNull(SurveyPrepFile.plainObject(tree, fake))
+        val d = assertNotNull(SurveyPrepFile.decode(o)); val z = d.size!!
+        val back = SurveyPrepFile.plainObject(SurveyPrepFile.unplain(SurveyPrepFile.encode(d.prep, z[0], z[1], z[2]), fake), fake)
+        assertEquals(norm(parse(proto)), norm(back))
+        @Suppress("UNCHECKED_CAST") val front = ((back!!["w"] as Map<String, Map<String, Any?>>).getValue("front"))
+        assertEquals(listOf(null, "l"), ((front["chains"] as List<*>)[0] as Map<*, *>)["snaps"])
     }
 }

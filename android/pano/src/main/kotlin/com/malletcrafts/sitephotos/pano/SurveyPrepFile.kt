@@ -21,7 +21,8 @@ import java.time.format.DateTimeFormatter
  *    a surface, a mark), and written back exactly where it was;
  *  - one bad surface line or mark costs that line (its default from
  *    [SurveyPrep.fresh]) or that mark, and is reported in [Decoded.problems]
- *    -- the store then copies the file aside before anything is saved;
+ *    -- the file is then copied aside before anything is saved, and when the
+ *    copy fails nothing is saved at all ([open]);
  *  - a file that is not a prep at all decodes to null and is set aside
  *    whole, never overwritten.
  *
@@ -192,6 +193,82 @@ object SurveyPrepFile {
         class Unreadable(val aside: String?) : Opened()
     }
 
+    /** What opening decided: what the screen is told, and whether every save over the file must be refused. */
+    class Opening(val opened: Opened, val hold: Boolean)
+
+    /**
+     * THE OPENING DECISION, with the disk passed in: [text] is the file's text
+     * (null when there is none or it cannot be read), [exists] whether the file
+     * is there at all, [tree] its JSON as plain maps (null or a throw when it is
+     * no JSON object), [copyAside] / [moveAside] the store's two ways of keeping
+     * the original, each answering the name it was kept as, or null (or a throw)
+     * when it could not be.
+     *
+     * The rule it holds: NOTHING IS EVER SAVED OVER THE ONLY COPY OF A FILE
+     * THAT WAS NOT READ WHOLE. Read in part -> copied aside first; not a prep
+     * at all -> moved aside; and when the copy or the move fails, [Opening.hold]
+     * is true and the store refuses every save for that capture.
+     */
+    fun open(text: String?, exists: Boolean, tree: (String) -> Map<String, Any?>?,
+             copyAside: () -> String?, moveAside: () -> String?): Opening {
+        fun unreadable(): Opening {
+            val to = runCatching(moveAside).getOrNull()
+            return Opening(Opened.Unreadable(to), hold = to == null)
+        }
+        if (text == null) return if (exists) unreadable() else Opening(Opened.Missing, hold = false)
+        val d = runCatching { tree(text)?.let { decode(it) } }.getOrNull() ?: return unreadable()
+        if (d.problems.isEmpty()) return Opening(Opened.Restored(d), hold = false)
+        val to = runCatching(copyAside).getOrNull()
+        return Opening(Opened.Salvaged(d, to), hold = to == null)
+    }
+
+    /**
+     * Whether the screen writes the prep the moment it opens: a new one (so the
+     * laser sizes it squares to are kept), and a salvaged one whose original is
+     * SAFELY ASIDE -- so the live file is clean, the next open is Restored, and
+     * the same damage is not copied aside again on every visit. Never a salvaged
+     * prep whose copy failed: that file is the only copy of what was lost.
+     */
+    fun saveOnOpen(o: Opened): Boolean = o is Opened.Missing || (o is Opened.Salvaged && o.aside != null)
+
+    // ------------------------------------------------------- the JSON library
+
+    /**
+     * How a JSON library's tree is read and built, so the conversion between it
+     * and the plain maps above is tested here (org.json is Android's, and this
+     * module has no device): [isNull] its null, [entries] an object's keys and
+     * values in order (null when [v] is no object), [items] an array's values
+     * (null when no array), [newObject] / [newArray] build one, [nul] its null.
+     */
+    class JsonShape(
+        val isNull: (Any?) -> Boolean,
+        val entries: (Any) -> List<Pair<String, Any?>>?,
+        val items: (Any) -> List<Any?>?,
+        val newObject: (List<Pair<String, Any>>) -> Any,
+        val newArray: (List<Any>) -> Any,
+        val nul: Any,
+    )
+
+    /** A library value as plain maps (in key order), lists, scalars and null: JSON null is null, at every depth. */
+    fun plain(v: Any?, j: JsonShape): Any? {
+        if (v == null || j.isNull(v)) return null
+        j.entries(v)?.let { kv -> return LinkedHashMap<String, Any?>().apply { for ((k, x) in kv) put(k, plain(x, j)) } }
+        j.items(v)?.let { xs -> return xs.map { plain(it, j) } }
+        return v
+    }
+
+    /** A library object as a plain map; null when [v] is no object. */
+    @Suppress("UNCHECKED_CAST")
+    fun plainObject(v: Any?, j: JsonShape): Map<String, Any?>? = plain(v, j) as? Map<String, Any?>
+
+    /** The reverse: plain back to the library, null as ITS null (never the text "null"), so a kept key keeps its value. */
+    fun unplain(v: Any?, j: JsonShape): Any = when (v) {
+        null -> j.nul
+        is Map<*, *> -> j.newObject(v.entries.map { (k, x) -> k.toString() to unplain(x, j) })
+        is List<*> -> j.newArray(v.map { unplain(it, j) })
+        else -> v
+    }
+
     /**
      * The name a prep file is set aside under: `<id>.bad-<yyyyMMdd-HHmmss>.json`
      * at [epochMs] in [zone]; [n] > 1 when that name is already taken.
@@ -218,7 +295,8 @@ object SurveyPrepFile {
             val n = o.decoded.problems.size
             "Part of the saved prep could not be read ($n thing${if (n == 1) "" else "s"}: " +
                 o.decoded.problems.first() + (if (n > 1) " …" else "") + "). " +
-                (o.aside?.let { "The file as it was is kept as $it." } ?: "The file as it was could not be copied aside.")
+                (o.aside?.let { "The file as it was is kept as $it." }
+                    ?: "The file as it was could not be copied aside: nothing here is saved, so it is not overwritten.")
         }
         is Opened.Unreadable ->
             o.aside?.let { "The saved prep could not be read. It is kept as $it, and this room starts fresh." }

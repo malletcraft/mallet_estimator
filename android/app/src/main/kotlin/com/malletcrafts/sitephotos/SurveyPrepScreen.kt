@@ -190,9 +190,11 @@ internal fun SurveyPrepDialog(
         savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) else "Not saved: did not read back"
     }
     // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
-    // with it even if nothing is changed (a kept capture reopens on exactly these). ONLY when there was
-    // no file: one that could not be read is never answered with a fresh prep saved straight over it.
-    LaunchedEffect(Unit) { if (opened is SurveyPrepFile.Opened.Missing) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) }
+    // with it even if nothing is changed (a kept capture reopens on exactly these). So is a prep read
+    // in part whose original is SAFELY ASIDE, so the live file heals and the next open is Restored
+    // rather than another copy aside. Never one that could not be read, nor a salvaged one whose copy
+    // failed (SurveyPrepFile.saveOnOpen; the store refuses those saves anyway).
+    LaunchedEffect(Unit) { if (SurveyPrepFile.saveOnOpen(opened)) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) }
     // Closing the screen inside that moment must not lose the last change.
     DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) } }
 

@@ -55,28 +55,30 @@ class SurveyPrepStore(context: Context) {
     /**
      * The saved prep for the screen that will edit it -- and the one place a
      * file that cannot be read whole is set aside, BEFORE the screen saves.
+     * The decision is SurveyPrepFile.open in :pano, where it is tested; this
+     * hands it the disk. When the copy or the move fails the capture is HELD:
+     * every save is refused, so the only copy is never written over.
      */
     fun open(id: String): SurveyPrepFile.Opened {
-        val text = loadText(id) ?: return if (file(id).exists()) unreadable(id) else SurveyPrepFile.Opened.Missing
-        val d = tree(text)?.let { SurveyPrepFile.decode(it) } ?: return unreadable(id)
-        if (d.problems.isEmpty()) return SurveyPrepFile.Opened.Restored(d)
-        for (p in d.problems) Log.w(TAG, "$id: $p")
-        val aside = runCatching { asideFile(id).also { file(id).copyTo(it) }.name }
-            .onFailure { Log.w(TAG, "$id: could not copy the prep aside", it) }.getOrNull()
-        return SurveyPrepFile.Opened.Salvaged(d, aside)
-    }
-
-    private fun unreadable(id: String): SurveyPrepFile.Opened {
-        val f = file(id); val to = asideFile(id)
-        val moved = runCatching { f.renameTo(to) || (f.copyTo(to).exists() && f.delete()) }.getOrDefault(false)
-        if (!moved) {
-            // Neither moved nor copied: it is the only copy, so nothing may be saved over it.
-            Log.w(TAG, "$id: unreadable prep could not be set aside; saves are refused")
-            synchronized(held) { held.add(id) }
-            return SurveyPrepFile.Opened.Unreadable(null)
+        val r = SurveyPrepFile.open(loadText(id), file(id).exists(), { tree(it) },
+            copyAside = {
+                runCatching { asideFile(id).also { file(id).copyTo(it) }.name }
+                    .onFailure { Log.w(TAG, "$id: could not copy the prep aside; saves are refused", it) }.getOrNull()
+            },
+            moveAside = {
+                val f = file(id); val to = asideFile(id)
+                val moved = runCatching { f.renameTo(to) || (f.copyTo(to).exists() && f.delete()) }
+                    .onFailure { Log.w(TAG, "$id: could not move the prep aside", it) }.getOrDefault(false)
+                if (moved) to.name else null
+            })
+        synchronized(held) { if (r.hold) held.add(id) else held.remove(id) }
+        when (val o = r.opened) {
+            is SurveyPrepFile.Opened.Salvaged -> for (p in o.decoded.problems) Log.w(TAG, "$id: $p")
+            is SurveyPrepFile.Opened.Unreadable ->
+                Log.w(TAG, if (o.aside != null) "$id: unreadable prep set aside as ${o.aside}" else "$id: unreadable prep could not be set aside; saves are refused")
+            is SurveyPrepFile.Opened.Missing, is SurveyPrepFile.Opened.Restored -> Unit
         }
-        Log.w(TAG, "$id: unreadable prep set aside as ${to.name}")
-        return SurveyPrepFile.Opened.Unreadable(to.name)
+        return r.opened
     }
 
     private fun asideFile(id: String): File {
@@ -118,26 +120,20 @@ class SurveyPrepStore(context: Context) {
         /** A prep file's JSON read as far as it can be; null when it is no prep at all. */
         fun decode(o: JSONObject): SurveyPrep.Prep? = runCatching { SurveyPrepFile.decode(toMap(o))?.prep }.getOrNull()
 
-        /** org.json to the plain maps and lists SurveyPrepFile reads: JSON null is null. */
-        fun toMap(o: JSONObject): Map<String, Any?> {
-            val out = LinkedHashMap<String, Any?>()
-            for (k in o.keys()) out[k] = plain(o.opt(k))
-            return out
-        }
+        /** org.json as SurveyPrepFile reads and builds a JSON tree (the conversion itself is tested in :pano). */
+        private val ORG = SurveyPrepFile.JsonShape(
+            isNull = { it == null || it === JSONObject.NULL },
+            entries = { v -> (v as? JSONObject)?.let { o -> o.keys().asSequence().map { k -> k to o.opt(k) }.toList() } },
+            items = { v -> (v as? JSONArray)?.let { a -> List(a.length()) { i -> a.opt(i) } } },
+            newObject = { kv -> JSONObject().also { o -> for ((k, x) in kv) o.put(k, x) } },
+            newArray = { xs -> JSONArray().also { a -> for (x in xs) a.put(x) } },
+            nul = JSONObject.NULL,
+        )
 
-        private fun plain(v: Any?): Any? = when (v) {
-            null, JSONObject.NULL -> null
-            is JSONObject -> toMap(v)
-            is JSONArray -> List(v.length()) { plain(v.opt(it)) }
-            else -> v
-        }
+        /** org.json to the plain maps and lists SurveyPrepFile reads: JSON null is null. */
+        fun toMap(o: JSONObject): Map<String, Any?> = SurveyPrepFile.plainObject(o, ORG) ?: emptyMap()
 
         /** The reverse: maps and lists back to org.json, null as JSON null, so a kept key keeps its value. */
-        fun toJson(v: Any?): Any = when (v) {
-            null -> JSONObject.NULL
-            is Map<*, *> -> JSONObject().also { o -> for ((k, x) in v) o.put(k.toString(), toJson(x)) }
-            is List<*> -> JSONArray().also { a -> for (x in v) a.put(toJson(x)) }
-            else -> v ?: JSONObject.NULL
-        }
+        fun toJson(v: Any?): Any = SurveyPrepFile.unplain(v, ORG)
     }
 }

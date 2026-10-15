@@ -140,15 +140,16 @@ internal object SurveyPrepDraw {
                     }
                 }
                 if (sel || o.all) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
-                // FLAGGED, NOT MOVED (v51): a mark the room size no longer holds keeps its millimetres
-                // and gets a red dashed outline, until it is edited or deleted
-                if (SurveyPrep.outOf(e, o.a, o.b)) {
-                    val pd = 4f * u
-                    c.drawRect(p[0] - pd, p[1] - pd, q[0] + pd, q[1] + pd, stroke(argb(OUT_COLOUR), 2.5f * u).apply {
-                        pathEffect = DashPathEffect(floatArrayOf(7f * u, 5f * u), 0f) })
-                }
             }
             if (faded) c.restore()
+            // FLAGGED, NOT MOVED (v51): a mark the room size no longer holds keeps its millimetres and gets a
+            // red dashed outline, until it is edited or deleted -- drawn OUTSIDE the faded layer, at full
+            // strength even while another mark is picked (sp.js: g.globalAlpha=1 for this outline)
+            if (!thin && SurveyPrep.outOf(e, o.a, o.b)) {
+                val pd = 4f * u
+                c.drawRect(p[0] - pd, p[1] - pd, q[0] + pd, q[1] + pd, stroke(argb(OUT_COLOUR), 2.5f * u).apply {
+                    pathEffect = DashPathEffect(floatArrayOf(7f * u, 5f * u), 0f) })
+            }
         }
     }
 
