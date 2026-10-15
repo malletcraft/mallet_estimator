@@ -307,6 +307,13 @@ private fun AppScreen() {
             }
         }
     }
+    /** A kept capture's row takes the room size survey prep was left at, in inches (v51). The bench's copy of
+     *  an already-synced capture keeps the size it was synced with: nothing re-sends it. */
+    fun keepRoomSize(deviceId: String, mm: DoubleArray) {
+        val inch = SurveyPrep.inches(mm)
+        runCatching { store.setRoomSize(deviceId, inch[0], inch[1], inch[2]) }
+        refreshQueue()
+    }
     fun openSurveyFor(deviceId: String) {
         val row = queue.firstOrNull { it.deviceId == deviceId } ?: return
         if (row.kind != "360") return
@@ -319,11 +326,13 @@ private fun AppScreen() {
         SurveyPrepDialog(
             deviceId = k.row.deviceId, previewPano = k.pano, title = k.title,
             lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
-            onDone = { p ->
+            onDone = { p, size ->
                 surveyKept = null; surveyTick++
-                // The room folder's elevations follow the lines as they now stand,
-                // REPLACING the earlier ones (FaceWriter.writeSurvey).
-                val row = k.row; val size = k.size
+                // The room size as survey prep now has it (v51: its size line is editable) goes to the
+                // capture's row, in inches; and the room folder's elevations follow the lines as they now
+                // stand, squared to THAT size, REPLACING the earlier ones (FaceWriter.writeSurvey).
+                val row = k.row
+                keepRoomSize(row.deviceId, size)
                 lastResult = "Survey prep saved \u2014 writing its pictures\u2026"
                 scope.launch(Dispatchers.Default) {
                     val n = runCatching {
@@ -338,7 +347,7 @@ private fun AppScreen() {
                     }
                 }
             },
-            onCancel = { _ -> surveyKept = null; surveyTick++ })
+            onCancel = { _, size -> surveyKept = null; keepRoomSize(k.row.deviceId, size); surveyTick++ })
     }
     surveyAskDims?.let { row ->
         SurveyDimsDialog(
@@ -2619,8 +2628,10 @@ private fun NewCaptureSurvey(
             onOk = { dims = it }, onDismiss = onDiscard)
         return
     }
-    fun keepWith(p: SurveyPrep.Prep) {
-        session.survey = p; session.surveySize = d; session.heightMm = d[2]
+    // The size the prep was left at (its size line may have changed it, v51) is what the faces are written
+    // at, and what the capture's row is filed with.
+    fun keepWith(p: SurveyPrep.Prep, size: DoubleArray) {
+        session.survey = p; session.surveySize = size; session.heightMm = size[2]
         onKeep()
     }
     SurveyPrepDialog(
@@ -2628,8 +2639,8 @@ private fun NewCaptureSurvey(
         previewPano = session.previewPano,
         title = RoomToken.label(pending.room),
         lengthMm = d[0], widthMm = d[1], heightMm = d[2],
-        onDone = { p -> keepWith(p) },
-        onCancel = { p -> keepWith(p) },
+        onDone = { p, size -> keepWith(p, size) },
+        onCancel = { p, size -> keepWith(p, size) },
         onDiscard = onDiscard)
 }
 

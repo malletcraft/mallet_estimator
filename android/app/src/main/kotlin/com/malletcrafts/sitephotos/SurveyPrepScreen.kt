@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,9 +20,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,30 +49,41 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.SurveyPrep
+import com.malletcrafts.sitephotos.pano.SurveyPrepFile
+import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -98,8 +112,9 @@ import kotlin.math.roundToInt
  *  - Lines, marks and readings save after each change and come back when
  *    the screen is opened again (SurveyPrepStore).
  *
- * The laser L, W and H come from the room capture and are fixed here. All
- * maths is SurveyPrep in :pano, where it is tested; drawing is SurveyPrepDraw.
+ * The laser L, W and H come from the room capture (or, once saved, from the
+ * prep itself); a tap on the size line changes them (v51). All maths is
+ * SurveyPrep in :pano, where it is tested; drawing is SurveyPrepDraw.
  */
 @Composable
 internal fun SurveyPrepDialog(
@@ -111,19 +126,30 @@ internal fun SurveyPrepDialog(
     lengthMm: Double,
     widthMm: Double,
     heightMm: Double,
-    onDone: (SurveyPrep.Prep) -> Unit,
-    /** Back without Save: the work is kept on the phone either way, and handed back as it stands. */
-    onCancel: (SurveyPrep.Prep) -> Unit,
+    /** Save: the prep, and the room size it is squared to now (L, W, H mm -- the size line may have changed it). */
+    onDone: (SurveyPrep.Prep, DoubleArray) -> Unit,
+    /** Back without Save: the work is kept on the phone either way, and handed back as it stands, with its size. */
+    onCancel: (SurveyPrep.Prep, DoubleArray) -> Unit,
     /** A NEW capture's way out: drop the 360 altogether. Null on a kept capture. */
     onDiscard: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val store = remember { SurveyPrepStore(context) }
     val id = deviceId
-    val lL = lengthMm; val lW = widthMm; val lH = heightMm
 
-    val loaded = remember { store.load(id) }
-    var prep by remember { mutableStateOf(loaded ?: SurveyPrep.fresh(lL, lW, lH)) }
+    // THE FILE, OPENED TOLERANTLY (v52 slice 2): what cannot be read whole is set aside before anything saves
+    val opened = remember { store.open(id) }
+    val decoded = when (opened) {
+        is SurveyPrepFile.Opened.Restored -> opened.decoded
+        is SurveyPrepFile.Opened.Salvaged -> opened.decoded
+        is SurveyPrepFile.Opened.Missing, is SurveyPrepFile.Opened.Unreadable -> null
+    }
+    val loaded = decoded?.prep
+    // THE ROOM SIZE IN USE (v51; Amit, 15 Oct 2026: "Yes, with slice 2"): the saved prep's own size, which its
+    // lines were squared to, else the capture's; the size sheet changes it, and every face, save and caller follows
+    var roomSize by remember { mutableStateOf(decoded?.size ?: doubleArrayOf(lengthMm, widthMm, heightMm)) }
+    val prepNote = remember { SurveyPrepFile.openedNote(opened) }
+    var prep by remember { mutableStateOf(loaded ?: SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2])) }
     var rev by remember { mutableIntStateOf(0) }
     var tab by remember { mutableStateOf("front") }
     var mode by remember { mutableStateOf("lines") }
@@ -132,7 +158,7 @@ internal fun SurveyPrepDialog(
     var active by remember { mutableStateOf<String?>(null) }
     val hist = remember { mutableStateListOf<SurveyPrep.Prep>() }
     var note by remember { mutableStateOf<String?>(null) }
-    var savedMsg by remember { mutableStateOf(if (loaded != null) "Restored ✓" else "Nothing saved yet") }
+    var savedMsg by remember { mutableStateOf(SurveyPrepFile.savedText(opened)) }
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
     var armedDiscard by remember { mutableStateOf(false) }
@@ -142,7 +168,12 @@ internal fun SurveyPrepDialog(
     LaunchedEffect(armed) { if (armed) { delay(4000); armed = false } }
     LaunchedEffect(armedDiscard) { if (armedDiscard) { delay(4000); armedDiscard = false } }
 
-    fun ab(s: String) = SurveyPrep.size(s, lL, lW, lH)
+    // ---- the size sheet (v51): L, W, H boxes, Cancel / Apply
+    var lwhOpen by remember { mutableStateOf(false) }
+    val lwhText = remember { mutableStateListOf(TextFieldValue(""), TextFieldValue(""), TextFieldValue("")) }
+    var lwhBad by remember { mutableStateOf(emptyList<Int>()) }
+
+    fun ab(s: String) = SurveyPrep.size(s, roomSize[0], roomSize[1], roomSize[2])
     fun frameOf(s: String) = ab(s).let { SurveyPrep.frame(prep.surface(s).lines, it[0], it[1]) }
     fun keyOf(s: String): String? = frameOf(s)?.let { f ->
         f.q.joinToString(";") { "%.3f,%.3f".format(it[0], it[1]) } + "|" + f.a + "x" + f.b }
@@ -154,15 +185,16 @@ internal fun SurveyPrepDialog(
         if (dirty == 0) return@LaunchedEffect
         savedMsg = "…"
         delay(800)
-        val ok = store.save(id, prep, lL, lW, lH)
+        val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
         if (ok) unsaved[0] = false
         savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) else "Not saved: did not read back"
     }
     // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
-    // with it even if nothing is changed (a kept capture reopens on exactly these).
-    LaunchedEffect(Unit) { if (loaded == null) store.save(id, prep, lL, lW, lH) }
+    // with it even if nothing is changed (a kept capture reopens on exactly these). ONLY when there was
+    // no file: one that could not be read is never answered with a fresh prep saved straight over it.
+    LaunchedEffect(Unit) { if (opened is SurveyPrepFile.Opened.Missing) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) }
     // Closing the screen inside that moment must not lose the last change.
-    DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, lL, lW, lH) } }
+    DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) } }
 
     // ---- the as-is upload to MCFT Interior Estimate's web half: queued on Save, its state read back here
     var webState by remember { mutableStateOf(AsIsUpload.status(context, id)) }
@@ -194,7 +226,7 @@ internal fun SurveyPrepDialog(
         val old = hist.removeAt(hist.size - 1)
         // Readings are not geometry: the ones taken since stay, and a reading a delete took away comes back with its mark.
         val merged = old.actual.toMutableMap().apply { putAll(prep.actual) }
-        val back = SurveyPrep.Prep(old.surfaces, mutableMapOf())
+        val back = SurveyPrep.Prep(old.surfaces, mutableMapOf(), old.extra, old.extraSurfaces)
         for ((k, v) in merged) if (back.markOf(k) != null) back.actual[k] = v
         prep = back; sel = null
         if (active != null && back.markOf(active!!) == null) active = null
@@ -335,25 +367,52 @@ internal fun SurveyPrepDialog(
         mode = m; sel = null; rev++
     }
 
+    fun openLwh() {
+        for (i in 0 until 3) { val t = roomSize[i].roundToInt().toString(); lwhText[i] = TextFieldValue(t, TextRange(0, t.length)) }
+        lwhBad = emptyList(); lwhOpen = true
+    }
+    /** Apply: every face follows the new size; marks keep their mm, and one now past its face is flagged,
+     *  not moved. A size change is not an undo step (↶ undoes lines, marks and readings only). */
+    fun applyLwh() {
+        val r = SurveyPrep.sizeEdit(lwhText.map { it.text }, roomSize)
+        val z = r.size
+        if (z == null) { lwhBad = r.bad; return }
+        lwhOpen = false
+        if (r.same) return
+        roomSize = z
+        note = prep.outsideNote(z[0], z[1], z[2])
+            ?: "Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm"
+        changed()
+    }
+
     val done = SurveyPrep.SURFACES.count { prep.surface(it).done() }
 
     // The phone's Back is the screen's own ←: nothing is lost, the work is already saved.
-    Dialog(onDismissRequest = { onCancel(prep.copy()) },
+    // ... and with the size sheet open, Back closes the sheet only.
+    var rootTop by remember { mutableStateOf(0f) }
+    var rootH by remember { mutableStateOf(0) }
+    var lwhRowBottom by remember { mutableStateOf(0f) }
+    var lwhRowLeft by remember { mutableStateOf(0f) }
+    var sheetH by remember { mutableStateOf(0) }
+    Dialog(onDismissRequest = { if (lwhOpen) lwhOpen = false else onCancel(prep.copy(), roomSize.copyOf()) },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Surface(Modifier.fillMaxSize(), color = SP_BG) {
+          Box(Modifier.fillMaxSize().onGloballyPositioned { rootTop = it.positionInRoot().y }.onSizeChanged { rootH = it.height }) {
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp)) {
                 rev    // read, so every model change recomposes this column
                 // ---- bar
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    SpText("←", SP_FG, 20, Modifier.clip(CircleShape).clickable { onCancel(prep.copy()) }.padding(8.dp))
+                    SpText("←", SP_FG, 20, Modifier.clip(CircleShape).clickable { onCancel(prep.copy(), roomSize.copyOf()) }.padding(8.dp))
                     Text("$title · survey prep", Modifier.weight(1f), color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     Text(savedMsg, color = SP_OK, fontSize = 10.sp, textAlign = TextAlign.End, modifier = Modifier.width(96.dp))
                     SpText("↶", if (hist.isEmpty()) SP_DIM else SP_FG, 20,
                         Modifier.clip(CircleShape).clickable(enabled = hist.isNotEmpty()) { undo() }.padding(8.dp))
                 }
-                // ---- the laser sizes, fixed
-                Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for ((k, v, cap) in listOf(Triple("L", lL, "front→back"), Triple("W", lW, "left→right"), Triple("H", lH, "floor→ceiling"))) {
+                // ---- the laser sizes: a tap opens the size sheet under them (v51)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
+                    .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
+                    .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.Bottom) {
                                 Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -363,9 +422,11 @@ internal fun SurveyPrepDialog(
                             Text(cap, color = SP_MUTED, fontSize = 10.sp)
                         }
                     }
+                    Text("✎", color = SP_MUTED, fontSize = 14.sp)
                 }
-                Text("Laser D2 readings from the room capture, in mm. Fixed here.", color = SP_MUTED, fontSize = 11.sp,
+                Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+                prepNote?.let { Text(it, color = SP_AMB, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)) }
                 webState?.let { (msg, good) ->
                     Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
@@ -557,18 +618,19 @@ internal fun SurveyPrepDialog(
                     if (tab != "list" && mode == "lines" && frameOf(tab) == null)
                         Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp)
                     Text("$done of 6 surfaces bounded. Save needs all six; marks and readings never block it.", color = SP_MUTED, fontSize = 11.sp)
+                    prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let { Text(it, color = SP_OUT, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
                     note?.let { Text(it, color = SP_AMB, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
                 }
                 Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (done == 6) SP_GOLD else Color(0xFF3A3E35))
                     .clickable(enabled = done == 6) {
                         // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
                         // read back queues nothing, so the web never gets a prep this phone does not hold.
-                        if (store.save(id, prep, lL, lW, lH)) {
+                        if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
                             unsaved[0] = false
                             AsIsUpload.enqueue(context, id)
                             webState = AsIsUpload.status(context, id)
                         }
-                        onDone(prep.copy())
+                        onDone(prep.copy(), roomSize.copyOf())
                     }.padding(12.dp), contentAlignment = Alignment.Center) {
                     Text("Save survey prep", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
@@ -578,7 +640,7 @@ internal fun SurveyPrepDialog(
                         if (!armed) armed = true
                         else {
                             armed = false; hist.clear(); sel = null; active = null
-                            prep = SurveyPrep.fresh(lL, lW, lH); changed()
+                            prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
                         }
                     }.padding(9.dp), contentAlignment = Alignment.Center) {
                     Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
@@ -595,6 +657,73 @@ internal fun SurveyPrepDialog(
                     }
                 }
                 Spacer(Modifier.height(24.dp))
+            }
+            // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
+            if (lwhOpen) {
+                Box(Modifier.fillMaxSize().background(Color(0x66000000))
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { lwhOpen = false })
+                val dens = LocalDensity.current
+                val gap = with(dens) { 2.dp.toPx() }; val edge = with(dens) { 4.dp.toPx() }
+                val left = max(with(dens) { 8.dp.toPx() }, lwhRowLeft).roundToInt()
+                val top = min(lwhRowBottom - rootTop + gap, rootH - sheetH - edge).coerceAtLeast(edge).roundToInt()
+                SpSizeSheet(
+                    texts = lwhText, bad = lwhBad,
+                    modifier = Modifier.offset { IntOffset(0, top) }.padding(start = with(dens) { left.toDp() }, end = 8.dp)
+                        .widthIn(max = 344.dp)
+                        .onSizeChanged { sheetH = it.height },
+                    onText = { i, v ->
+                        lwhText[i] = v.copy(text = SurveyPrep.sizeText(v.text))
+                        if (i in lwhBad) lwhBad = lwhBad - i
+                    },
+                    onCancel = { lwhOpen = false },
+                    onApply = { applyLwh() })
+            }
+          }
+        }
+    }
+}
+
+/**
+ * THE ROOM SIZE SHEET (prototype v51): L, W and H in mm, prefilled, each a
+ * whole number from 300 to 30000; a wrong one is outlined red and the caption
+ * reads "300 to 30000 mm", and nothing changes. Done on the keyboard applies.
+ */
+@Composable
+private fun SpSizeSheet(
+    texts: List<TextFieldValue>, bad: List<Int>, modifier: Modifier,
+    onText: (Int, TextFieldValue) -> Unit, onCancel: () -> Unit, onApply: () -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    Column(modifier.clip(RoundedCornerShape(12.dp)).background(SP_SHEET).border(1.5.dp, SP_GOLD, RoundedCornerShape(12.dp))
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
+        .padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Room size · mm", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((i, k) in listOf("L", "W", "H").withIndex()) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(k, color = SP_GOLD, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 4.dp))
+                    BasicTextField(
+                        value = texts[i], onValueChange = { v -> onText(i, v) }, singleLine = true,
+                        textStyle = TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp, textAlign = TextAlign.End),
+                        cursorBrush = SolidColor(SP_GOLD),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { onApply() }),
+                        modifier = Modifier.weight(1f).let { if (i == 0) it.focusRequester(first) else it }
+                            .clip(RoundedCornerShape(6.dp)).background(Color.Black)
+                            .border(1.5.dp, if (i in bad) SP_OUT else Color(0xFF3A3E35), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 7.dp))
+                }
+            }
+        }
+        Text(if (bad.isNotEmpty()) SurveyPrep.SIZE_HINT_BAD else SurveyPrep.SIZE_HINT,
+            color = if (bad.isNotEmpty()) SP_OUT else SP_MUTED, fontSize = 11.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SpButton("Cancel", Modifier.weight(1f), Color(0xFF3A3E35)) { onCancel() }
+            Box(Modifier.weight(1f).clip(RoundedCornerShape(7.dp)).background(SP_GOLD).clickable { onApply() }.padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center) {
+                Text("Apply", color = Color(0xFF1A1A12), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
     }
@@ -643,9 +772,12 @@ private fun SpPhoto(
     var cy by remember(img) { mutableStateOf(ih / 2) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
     var tick by remember { mutableIntStateOf(0) }
-    val tags = remember { mutableListOf<SurveyPrepDraw.Tag>() }
+    val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
     var boxW by remember { mutableStateOf(1f) }
     var boxH by remember { mutableStateOf(1f) }
+    // Where the photo and the fit button sit on screen, for keeping the magnifier off the button (v52 item 15)
+    var photoAt by remember { mutableStateOf(Offset.Zero) }
+    var fitAt by remember { mutableStateOf<Rect?>(null) }
 
     // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
     // for marking"): the scale fits both sides, and the box itself is never taller than most of the screen.
@@ -685,34 +817,39 @@ private fun SpPhoto(
             sf.lines[slot] = Array(2) { i -> doubleArrayOf(start[i][0] + ix - at[0], start[i][1] + iy - at[1]) }; sf.set[slot] = true }
     }
 
+    /**
+     * THE HIT ORDER (v52 item 14; Amit, 13 Oct 2026 21:06 IST: "Check any mark tools handles , not every
+     * handle works as expected like center handles"): the picked mark's eight tabs first, then a number tag
+     * (TAP A NUMBER ON THE PHOTO TO MEASURE IT, Amit, 2026-10-10), then the marks topmost first -- MOVE
+     * FREELY, THEN SET ITS BOUNDARIES: anywhere on a mark moves it, only the picked mark's tabs resize.
+     * The order itself is SurveyPrepTouch.hit, tested in :pano; this only measures and acts.
+     */
     fun hitMarks(sx: Float, sy: Float): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
-        // TAP A NUMBER ON THE PHOTO TO MEASURE IT (Amit, 2026-10-10)
-        val th = tags.filter { it.contains(sx, sy) }.minByOrNull { it.dist(sx, sy) }
-        if (th != null) {
-            prepS.markOf(th.code)?.let { (s, e) -> onSelectS(s, e, th.code) }
-            return null
+        val els = prepS.surface(tab).marks
+        val drawn = els.map { e ->
+            val p = toS(sq.x(e.x0), sq.y(e.y1)); val q = toS(sq.x(e.x1), sq.y(e.y0))
+            SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble())
         }
-        val els = prepS.surface(tab).marks; val at = fromS(sx, sy); val tol = with(density) { 16.dp.toPx() } / k()
-        for (i in els.indices.reversed()) {
-            val e = els[i]; val x0 = sq.x(e.x0); val x1 = sq.x(e.x1); val yT = sq.y(e.y1); val yB = sq.y(e.y0)
-            if (at[0] < x0 - tol || at[0] > x1 + tol || at[1] < yT - tol || at[1] > yB + tol) continue
-            // MOVE FREELY, THEN SET ITS BOUNDARIES (Amit, 2026-10-10): anywhere on a mark moves it; only the
-            // selected mark shows tabs, and only a tab resizes.
-            var part = "body"
-            if (selS?.id == e.id) {
-                val xm = (x0 + x1) / 2; val ym = (yT + yB) / 2
-                val tabsAt = listOf(Triple("l", x0, ym), Triple("r", x1, ym), Triple("t", xm, yT), Triple("b", xm, yB),
-                    Triple("lt", x0, yT), Triple("rt", x1, yT), Triple("lb", x0, yB), Triple("rb", x1, yB))
-                tabsAt.map { (pp, tx, ty) -> pp to hypot(at[0] - tx, at[1] - ty) }.filter { it.second < tol }.minByOrNull { it.second }?.let { part = it.first }
-            } else if (at[0] < x0 || at[0] > x1 || at[1] < yT || at[1] > yB) continue
-            val start = e.copy(); val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])
-            return SpGrab(at[0], at[1], SpSel(tab, id = e.id, part = part), null) { jx, jy ->
-                SurveyPrep.moveMark(e, start, part, sq.mmX(jx) - mx0, sq.mmY(jy) - my0, ab[0], ab[1])
-                SurveyPrep.snapMark(e, part, ab[0], ab[1])
+        val tol = with(density) { 16.dp.toPx() }.toDouble()
+        return when (val h = SurveyPrepTouch.hit(drawn, selS?.id, tags.toList(), sx.toDouble(), sy.toDouble(), tol)) {
+            null -> null
+            is SurveyPrepTouch.Hit.Tag -> {
+                prepS.markOf(h.code)?.let { (s, e) -> onSelectS(s, e, h.code) }
+                null
+            }
+            is SurveyPrepTouch.Hit.Mark -> {
+                val e = els.firstOrNull { it.id == h.id }
+                if (e == null) null else {
+                    val part = h.part; val at = fromS(sx, sy)
+                    val start = e.copy(); val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])
+                    SpGrab(at[0], at[1], SpSel(tab, id = e.id, part = part), null) { jx, jy ->
+                        SurveyPrep.moveMark(e, start, part, sq.mmX(jx) - mx0, sq.mmY(jy) - my0, ab[0], ab[1])
+                        SurveyPrep.snapMark(e, part, ab[0], ab[1])
+                    }
+                }
             }
         }
-        return null
     }
 
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
@@ -725,6 +862,7 @@ private fun SpPhoto(
     val boxAspect = max((iw / ih).toFloat(), (conf.screenWidthDp - 20).coerceAtLeast(1) / maxBoxH)
     Box(Modifier.fillMaxWidth().aspectRatio(boxAspect).clip(RoundedCornerShape(12.dp)).background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
+        .onGloballyPositioned { photoAt = it.positionInRoot() }
         .pointerInput(img, tab, mode, rect) {
             awaitEachGesture {
                 val first = awaitFirstDown()
@@ -770,7 +908,7 @@ private fun SpPhoto(
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show
+            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt
             val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
             val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
             drawIntoCanvas { cv ->
@@ -784,7 +922,8 @@ private fun SpPhoto(
                     if (mode == "lines") SurveyPrepDraw.drawLines(c, tab, prep.surface(tab), frame, mm, u, which == "loupe")
                     else rect?.let { r ->
                         SurveyPrepDraw.drawMarks(c, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
-                            sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null), mm, u)
+                            sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
+                            density.density), mm, u)
                     }
                 }
                 tags.clear()
@@ -807,22 +946,28 @@ private fun SpPhoto(
                         nc.restore()
                         nc.drawCircle(ccx, ccy, dia / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 2f * density.density; color = android.graphics.Color.WHITE })
                     }
+                    // NEVER BETWEEN THE FINGER AND THE PHOTO (v52 item 15; Amit, 13 Oct 2026 23:50 IST: "Many times
+                    // magnifier is getting in between fingers and foto place"): above the finger; with no room
+                    // above, the top corner farthest from it -- never below it, never under it, never under the
+                    // fit button. The rule is SurveyPrepTouch.loupePlace / loupePair, tested in :pano.
                     val gap = 8f * density.density
+                    val obst = fitAt?.let { f -> listOf(SurveyPrepTouch.Box((f.left - photoAt.x).toDouble(), (f.top - photoAt.y).toDouble(),
+                        (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble())) } ?: emptyList()
+                    val dd = density.density.toDouble()
                     if (lp.points.size == 2) {
-                        val top = if (lp.finger.y < dia + 60f * density.density) size.height - dia - gap else gap
-                        one(lp.points[0], gap, top); one(lp.points[1], size.width - dia - gap, top)
+                        val pr = SurveyPrepTouch.loupePair(lp.finger.y.toDouble(), size.width.toDouble(), size.height.toDouble(),
+                            dia.toDouble(), gap.toDouble(), dd, obst)
+                        one(lp.points[0], pr.left1.toFloat(), pr.top.toFloat()); one(lp.points[1], pr.left2.toFloat(), pr.top.toFloat())
                     } else {
-                        var top = lp.finger.y - dia - 40f * density.density
-                        if (top < 4f) top = lp.finger.y + 40f * density.density
-                        top = top.coerceIn(0f, max(0f, size.height - dia))
-                        val left = min(size.width - dia - 4f, max(4f, lp.finger.x - dia / 2))
-                        one(lp.points[0], left, top)
+                        val sp = SurveyPrepTouch.loupePlace(lp.finger.x.toDouble(), lp.finger.y.toDouble(), size.width.toDouble(),
+                            size.height.toDouble(), dia.toDouble(), gap.toDouble(), dd, obst)
+                        one(lp.points[0], sp.left.toFloat(), sp.top.toFloat())
                     }
                 }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
-            Column(horizontalAlignment = Alignment.End) {
+            Column(Modifier.onGloballyPositioned { fitAt = it.boundsInRoot() }, horizontalAlignment = Alignment.End) {
                 Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         z = 1.0; cx = iw / 2; cy = ih / 2; tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
@@ -887,6 +1032,8 @@ private fun SpTable(
                 }
             }
         }
+        if (SurveyPrep.outOf(e, ab[0], ab[1]))
+            Text(SurveyPrep.outNote(e.code), color = SP_OUT, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
     }
 }
@@ -968,3 +1115,5 @@ private val SP_GOLD = Color(0xFFE0B040)
 private val SP_OK = Color(0xFF7DFF8A)
 private val SP_AMB = Color(0xFFFFC46B)
 private val SP_LINE_BORDER = Color(0xFF3A3E35)
+/** A mark past its face, and a refused size (v51). */
+private val SP_OUT = Color(0xFFFF5C5C)

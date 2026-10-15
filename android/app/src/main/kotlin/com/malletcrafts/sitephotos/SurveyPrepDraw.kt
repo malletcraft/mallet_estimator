@@ -7,10 +7,9 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.malletcrafts.sitephotos.pano.SurveyPrep
+import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import kotlin.math.abs
 import kotlin.math.hypot
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
@@ -26,11 +25,8 @@ internal object SurveyPrepDraw {
     /** Bottom, top, left and right line colours. */
     val LINE_COLOUR = mapOf("bottom" to 0xff8a3d, "top" to 0xe0b040, "left" to 0x4dabf7, "right" to 0xda77f2)
 
-    /** A number tag on the photo, as a tap target: canvas px. */
-    class Tag(val code: String, val x: Float, val y: Float, val w: Float, val h: Float) {
-        fun contains(px: Float, py: Float) = px >= x && px <= x + w && py >= y && py <= y + h
-        fun dist(px: Float, py: Float) = hypot(px - (x + w / 2), py - (y + h / 2))
-    }
+    /** A mark past its face (the room made smaller under it): outlined in this red, dashed (v51). */
+    const val OUT_COLOUR = 0xff5c5c
 
     fun argb(rgb: Int, alpha: Int = 255): Int = (alpha shl 24) or (rgb and 0xFFFFFF)
 
@@ -103,8 +99,10 @@ internal object SurveyPrepDraw {
         val show: String,
         /** Canvas bounds, for keeping tags on it. */
         val width: Float, val height: Float,
-        /** Filled with the number tags drawn, for taps. */
-        val tags: MutableList<Tag>?,
+        /** Filled with the number tags drawn, for taps (SurveyPrepTouch.hit). */
+        val tags: MutableList<SurveyPrepTouch.Tag>?,
+        /** Screen px per dp: the picked mark's tags stand at least 6 dp off its tabs. */
+        val dp: Float = 1f,
     )
 
     fun drawMarks(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
@@ -142,6 +140,13 @@ internal object SurveyPrepDraw {
                     }
                 }
                 if (sel || o.all) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
+                // FLAGGED, NOT MOVED (v51): a mark the room size no longer holds keeps its millimetres
+                // and gets a red dashed outline, until it is edited or deleted
+                if (SurveyPrep.outOf(e, o.a, o.b)) {
+                    val pd = 4f * u
+                    c.drawRect(p[0] - pd, p[1] - pd, q[0] + pd, q[1] + pd, stroke(argb(OUT_COLOUR), 2.5f * u).apply {
+                        pathEffect = DashPathEffect(floatArrayOf(7f * u, 5f * u), 0f) })
+                }
             }
             if (faded) c.restore()
         }
@@ -154,12 +159,24 @@ internal object SurveyPrepDraw {
         fun act(k: String) = o.prep.actual[e.code + "." + k]
         val ln = stroke(argb(0xffffff, 0xcc), if (fs > 15f * u) 2.5f * u else 1f * u)
         fun line(x1: Float, y1: Float, x2: Float, y2: Float) = c.drawLine(x1, y1, x2, y2, ln)
-        fun tag(k: String, x: Float, y: Float) = vtag(c, x, y, ms.getValue(k).est, act(k), fs, e.code + "." + k, o, u)
+        fun tag(k: String, x: Float, y: Float, left: Boolean = false) = vtag(c, x, y, ms.getValue(k).est, act(k), fs, e.code + "." + k, o, u, left)
         val midY = (p[1] + q[1]) / 2; val midX = (p[0] + q[0]) / 2; val cE = SurveyPrep.isPlan(s) && e.t == "E"
         val xL = m(o.sq.x(0.0), 0.0)[0]; val xR = m(o.sq.x(o.a), 0.0)[0]
         val yT = m(0.0, o.sq.y(o.b))[1]; val yB = m(0.0, o.sq.y(0.0))[1]
-        if ("w" in ms) { line(p[0], p[1] - 6f * u, q[0], p[1] - 6f * u); tag("w", midX, p[1] - fs * 0.8f) }
-        if ("h" in ms) { line(q[0] + 6f * u, p[1], q[0] + 6f * u, q[1]); tag("h", q[0] + 6f * u + fs * 3.4f, midY + 4f * u) }
+        // v52 item 14: on the picked mark (the one showing its eight tabs) the width tag stands higher and the
+        // height tag starts right of the edge, each clear of the tabs (SurveyPrepTouch.widthTag / heightTag)
+        val hand = o.mode == "main" && o.selId == e.id
+        val du = u.toDouble(); val dfs = fs.toDouble(); val ddp = o.dp.toDouble()
+        if ("w" in ms) {
+            line(p[0], p[1] - 6f * u, q[0], p[1] - 6f * u)
+            val a = SurveyPrepTouch.widthTag(p[0].toDouble(), p[1].toDouble(), q[0].toDouble(), dfs, du, ddp, hand)
+            tag("w", a.x.toFloat(), a.y.toFloat(), a.left)
+        }
+        if ("h" in ms) {
+            line(q[0] + 6f * u, p[1], q[0] + 6f * u, q[1])
+            val a = SurveyPrepTouch.heightTag(p[1].toDouble(), q[0].toDouble(), q[1].toDouble(), dfs, du, ddp, hand)
+            tag("h", a.x.toFloat(), a.y.toFloat(), a.left)
+        }
         val hy = if (cE) midY else midY + fs * 2.6f
         if ("l" in ms) { val x = if (cE) midX else p[0]; line(xL, hy, x, hy); tag("l", (xL + x) / 2, hy - 4f * u) }
         if ("r" in ms) { val x = if (cE) midX else q[0]; line(x, hy, xR, hy); tag("r", (x + xR) / 2, hy - 4f * u) }
@@ -171,8 +188,9 @@ internal object SurveyPrepDraw {
 
     fun sgn(d: Double): String { val r = d.roundToInt(); return (if (r > 0) "+" else if (r < 0) "−" else "±") + abs(r) }
 
-    /** A value tag: photo estimate and / or site reading, per the Show toggle; gold when it is the ACTIVE one. */
-    private fun vtag(c: Canvas, x0: Float, y0: Float, est: Double?, act: Double?, fs: Float, code: String, o: Marks, u: Float) {
+    /** A value tag: photo estimate and / or site reading, per the Show toggle; gold when it is the ACTIVE one.
+     *  Centred on [x0], or starting there when [left]; [y0] is its baseline. */
+    private fun vtag(c: Canvas, x0: Float, y0: Float, est: Double?, act: Double?, fs: Float, code: String, o: Marks, u: Float, left: Boolean = false) {
         val on = code == o.active
         val parts = mutableListOf<Pair<String, Int>>()
         if (o.show != "actual") parts.add((if (est != null) "≈" + est.roundToInt() else "—") to 0xcfd3cb)
@@ -186,11 +204,13 @@ internal object SurveyPrepDraw {
         if (on && parts.isNotEmpty()) parts[0] = ("▶" + parts[0].first) to parts[0].second
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = fs; typeface = MONO_BOLD }
         val w = parts.sumOf { p.measureText(it.first).toDouble() }.toFloat() + 10f * u
-        val x = max(2f * u, min(o.width - w - 2f * u, x0 - w / 2)); val y = max(fs + 4f * u, min(o.height - 4f * u, y0))
-        val box = RectF(x, y - fs - 2f * u, x + w, y + 5f * u)
+        val sh = SurveyPrepTouch.tagShape(SurveyPrepTouch.Anchor(x0.toDouble(), y0.toDouble(), left), w.toDouble(), fs.toDouble(),
+            u.toDouble(), o.width.toDouble(), o.height.toDouble())
+        val x = sh.x.toFloat(); val y = sh.baseline.toFloat()
+        val box = RectF(sh.drawn.l.toFloat(), sh.drawn.t.toFloat(), sh.drawn.r.toFloat(), sh.drawn.b.toFloat())
         c.drawRoundRect(box, 5f * u, 5f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (on) argb(0x4a3d0c) else argb(0x000000, 0xdd) })
         if (on) c.drawRoundRect(box, 5f * u, 5f * u, stroke(argb(0xe0b040), 2f * u))
-        o.tags?.add(Tag(code, x - 6f * u, y - fs - 8f * u, w + 12f * u, fs + 19f * u))
+        o.tags?.add(SurveyPrepTouch.Tag(code, sh.tap))
         var cx = x + 5f * u
         for ((t, col) in parts) { p.color = argb(col); c.drawText(t, cx, y, p); cx += p.measureText(t) }
     }

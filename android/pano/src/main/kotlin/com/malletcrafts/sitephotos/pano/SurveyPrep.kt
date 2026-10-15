@@ -31,7 +31,7 @@ import kotlin.math.tan
  *
  * Millimetres on a surface: x from its left edge, y UP from its bottom edge
  * (walls: the floor line; floor and ceiling: the back edge). The laser L, W
- * and H come fixed from the room capture.
+ * and H come from the room capture, and can be changed on the screen (v51).
  *
  * Frame: Panorama's -- x right, y up, z forward (the front wall). Pure JVM,
  * so all of it is tested in this module; the screen only draws and listens.
@@ -125,8 +125,55 @@ object SurveyPrep {
 
     // ------------------------------------------------ the laser size of a surface
 
+    /** The room sizes believed, mm: the size sheet's range (v51, Amit, 14 Oct
+     *  2026: "i should be able to edit room outer dimensions details as well";
+     *  15 Oct: "Yes, with slice 2"). It was 500 to 20000 before. */
+    const val SIZE_MIN = 300.0
+    const val SIZE_MAX = 30000.0
+
     /** A laser reading is believed between these, mm. */
-    fun valid(v: Double?): Boolean = v != null && v >= 500.0 && v <= 20000.0
+    fun valid(v: Double?): Boolean = v != null && !v.isNaN() && v >= SIZE_MIN && v <= SIZE_MAX
+
+    /** What the size sheet says when a figure is refused. */
+    const val SIZE_HINT_BAD = "300 to 30000 mm"
+    const val SIZE_HINT = "L front→back · W left→right · H floor→ceiling"
+
+    /**
+     * The size sheet's verdict on its three boxes (L, W, H as typed) against
+     * the size in use. Each must be a WHOLE number from 300 to 30000 mm;
+     * [bad] lists the boxes that are not (0 = L, 1 = W, 2 = H), and then
+     * nothing changes. A box left at its prefill (the current figure rounded)
+     * keeps the current figure unrounded, so a 3319.5 is not rounded by an
+     * Apply that changed something else. [same]: nothing would change.
+     */
+    class SizeEdit(val size: DoubleArray?, val bad: List<Int>, val same: Boolean)
+
+    fun sizeEdit(typed: List<String>, current: DoubleArray): SizeEdit {
+        val out = DoubleArray(3); val bad = mutableListOf<Int>()
+        for (i in 0 until 3) {
+            val t = typed.getOrElse(i) { "" }.trim()
+            val n = if (t.isNotEmpty() && t.all { it in '0'..'9' } && t.length <= 6) t.toInt().toDouble() else Double.NaN
+            if (!(n >= SIZE_MIN && n <= SIZE_MAX)) { bad.add(i); continue }
+            out[i] = if (n == current[i].roundToInt().toDouble()) current[i] else n
+        }
+        if (bad.isNotEmpty()) return SizeEdit(null, bad, false)
+        return SizeEdit(out, bad, (0 until 3).all { out[it] == current[it] })
+    }
+
+    /** A size box's text as it is typed: digits only, at most five. */
+    fun sizeText(t: String): String = t.filter { it in '0'..'9' }.take(5)
+
+    /** mm to the inches the capture queue keeps (room_l_in, room_w_in, room_h_in). */
+    fun inches(mm: DoubleArray): DoubleArray = DoubleArray(mm.size) { mm[it] / MM_PER_IN }
+
+    /** A mark this far past its face's edge, mm, is outside it. */
+    const val OUT_TOL = 0.5
+
+    /** A mark reaching past its face (the room made smaller under it): flagged, never moved. */
+    fun outOf(e: Mark, a: Double, b: Double): Boolean =
+        e.x0 < -OUT_TOL || e.y0 < -OUT_TOL || e.x1 > a + OUT_TOL || e.y1 > b + OUT_TOL
+
+    fun outNote(code: String) = "$code is outside the face: edit or delete it"
 
     /** The size a surface squares to: across (A) and up (B), mm. */
     fun size(s: String, l: Double, w: Double, h: Double): DoubleArray =
@@ -361,10 +408,16 @@ object SurveyPrep {
     fun types(s: String): List<MarkType> = TYPES.getValue(kind(s))
     fun typeOf(s: String, t: String): MarkType = types(s).firstOrNull { it.letter == t } ?: MarkType(t, t, 0xadb5bd)
 
-    /** A box on a surface, mm: x0..x1 from its left edge, y0..y1 up from its bottom edge. */
+    /**
+     * A box on a surface, mm: x0..x1 from its left edge, y0..y1 up from its
+     * bottom edge. [extra]: what the prep file carried for it that this build
+     * does not read (a later build's `locked`, say), written back as it came
+     * (SurveyPrepFile). Never changed here, so copies may share it.
+     */
     class Mark(val id: String, val t: String, val code: String,
-               var x0: Double, var x1: Double, var y0: Double, var y1: Double) {
-        fun copy() = Mark(id, t, code, x0, x1, y0, y1)
+               var x0: Double, var x1: Double, var y0: Double, var y1: Double,
+               val extra: Map<String, Any?> = emptyMap()) {
+        fun copy() = Mark(id, t, code, x0, x1, y0, y1, extra)
     }
 
     /** Where a new mark of type [t] starts on a surface [a] x [b]: x0, x1, y0, y1. */
@@ -477,19 +530,36 @@ object SurveyPrep {
 
     // ------------------------------------------------------------- the whole room
 
-    /** One surface: its four lines (two view-pixel points each), which were set by hand, and its marks. */
+    /** One surface: its four lines (two view-pixel points each), which were set by hand, and its marks.
+     *  [extra]: the surface's keys this build does not read (a later build's `meas`, `chains`, `ref`,
+     *  `lock`), kept and written back as they came. */
     class Surface(val lines: MutableMap<String, Array<DoubleArray>>, val set: MutableMap<String, Boolean>,
-                  val marks: MutableList<Mark>) {
+                  val marks: MutableList<Mark>, val extra: Map<String, Any?> = emptyMap()) {
         fun done() = SLOTS.all { set[it] == true }
         fun copy() = Surface(lines.mapValues { (_, l) -> Array(2) { l[it].copyOf() } }.toMutableMap(),
-            set.toMutableMap(), marks.map { it.copy() }.toMutableList())
+            set.toMutableMap(), marks.map { it.copy() }.toMutableList(), extra)
     }
 
-    /** Every surface, and the site readings keyed "<code>.<measure key>", mm. */
-    class Prep(val surfaces: MutableMap<String, Surface>, val actual: MutableMap<String, Double>) {
+    /** Every surface, and the site readings keyed "<code>.<measure key>", mm. [extra] and
+     *  [extraSurfaces]: the file's top-level keys and its surfaces this build does not read,
+     *  kept and written back as they came (SurveyPrepFile). */
+    class Prep(val surfaces: MutableMap<String, Surface>, val actual: MutableMap<String, Double>,
+               val extra: Map<String, Any?> = emptyMap(), val extraSurfaces: Map<String, Any?> = emptyMap()) {
         fun surface(s: String): Surface = surfaces.getValue(s)
         fun done(): Boolean = SURFACES.all { surfaces[it]?.done() == true }
-        fun copy() = Prep(surfaces.mapValues { it.value.copy() }.toMutableMap(), actual.toMutableMap())
+        fun copy() = Prep(surfaces.mapValues { it.value.copy() }.toMutableMap(), actual.toMutableMap(), extra, extraSurfaces)
+
+        /** Every mark now reaching past its face, at the room size [l] x [w] x [h], in surface order. */
+        fun outside(l: Double, w: Double, h: Double): List<Pair<String, Mark>> = SURFACES.flatMap { s ->
+            val ab = size(s, l, w, h)
+            (surfaces[s]?.marks ?: emptyList<Mark>()).filter { outOf(it, ab[0], ab[1]) }.map { s to it }
+        }
+
+        /** The one line the screen shows for them: the first, and how many more. Null when none. */
+        fun outsideNote(l: Double, w: Double, h: Double): String? {
+            val o = outside(l, w, h); if (o.isEmpty()) return null
+            return outNote(o[0].second.code) + if (o.size > 1) " (+${o.size - 1} more)" else ""
+        }
 
         /** The surface and mark a reading key belongs to. */
         fun markOf(code: String): Pair<String, Mark>? {

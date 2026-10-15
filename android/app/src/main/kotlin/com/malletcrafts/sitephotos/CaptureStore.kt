@@ -160,6 +160,17 @@ class CaptureStore(context: Context) :
         writableDatabase.update("captures", values, "device_id = ?", arrayOf(deviceId))
     }
 
+    /** The room's measured size, in inches, as survey prep now has it (v51: the
+     *  L · W · H line there is editable). Only the phone's row moves: a capture
+     *  already on the bench keeps the size it was synced with there. */
+    fun setRoomSize(deviceId: String, lengthIn: Double, widthIn: Double, heightIn: Double) {
+        writableDatabase.update("captures", ContentValues().apply {
+            put("room_l_in", lengthIn)
+            put("room_w_in", widthIn)
+            put("room_h_in", heightIn)
+        }, "device_id = ?", arrayOf(deviceId))
+    }
+
     /** The sync step that adopts a device-typed site: once the server has
      *  matched or minted the real Project, the row learns its id. */
     fun setProject(deviceId: String, project: String) {
