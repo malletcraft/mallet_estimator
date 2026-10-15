@@ -141,11 +141,7 @@ private fun AppScreen() {
     var navCapture by remember { mutableStateOf<CaptureCard?>(null) }
     var navFace by remember { mutableStateOf<Int?>(null) }
     var faceMode by remember { mutableStateOf(true) }   // true = annotated
-    var showSkus by remember { mutableStateOf(false) }
     var showDetail by remember { mutableStateOf(false) }
-    // Work the site says is needed. Opened from the room's SKU list and from
-    // a photo's tag row, because both are moments when somebody notices.
-    var addSkuFor by remember { mutableStateOf<String?>(null) }
     // Adding a room is a BENCH act, not a local one: the room is half of
     // every SKU code, so one minted on this phone would fork the prefix the
     // moment a second phone spelled it differently. Null when closed.
@@ -654,41 +650,6 @@ private fun AppScreen() {
         ActivityResultContracts.TakePicture()
     ) { ok: Boolean -> if (ok) shotUri?.let { ingest(it, kind = "Photo") } }
 
-    addSkuFor?.let { skuRoom ->
-        val proj = navProject
-        AddSkuSheet(
-            articles = cat.articles(masters, proj?.jobType),
-            client = proj?.client.orEmpty(),
-            room = skuRoom,
-            onDismiss = { addSkuFor = null },
-            onAdd = { art, qty, w, h, d, note ->
-                // Minted here, at the tap, exactly as a capture id is: it is
-                // what lets the queue retry after a dropped acknowledgement
-                // without leaving the project carrying the same wardrobe
-                // twice. Two REAL wardrobes get two taps and two ids.
-                val id = "msku-" + Handover.mintDeviceId(
-                    ByteArray(6).also { SecureRandom().nextBytes(it) })
-                    .removePrefix("MCAP-")
-                cat.addLocalSku(Catalogue.LocalSku(
-                    deviceId = id,
-                    client = proj?.client.orEmpty(),
-                    projectTitle = proj?.title.orEmpty(),
-                    projectId = proj?.serverId.orEmpty(),
-                    room = skuRoom,
-                    articleCode = art.code,
-                    articleName = art.name,
-                    basis = art.basis,
-                    qty = qty, widthMm = w, heightMm = h, depthMm = d,
-                    note = note))
-                addSkuFor = null
-                reload()
-                lastResult = previewCode(proj?.client.orEmpty(), skuRoom, art.code) +
-                    " recorded" + (qty?.let { " · $it ${art.basis}" } ?: "")
-                SyncWorker.syncNow(context)
-            })
-    }
-
-
     if (showSettings) {
         SettingsDialog(
             initialUrl = FrappeClient.savedUrl(context),
@@ -1104,21 +1065,6 @@ private fun AppScreen() {
                     }
                 })
         }
-        if (showSkus && proj != null) {
-            SkuSheet(skus = remember(masters, dataTick, proj) {
-                        cat.skusOf(masters, proj) },
-                onAdd = {
-                    showSkus = false
-                    // From the project level there is no room in hand yet, so
-                    // it opens on the first room that has been photographed —
-                    // the one somebody is most likely standing in.
-                    addSkuFor = rooms.firstOrNull { r ->
-                        queue.any { it.room == r &&
-                            it.projectTitle.equals(proj.title, true) }
-                    } ?: rooms.firstOrNull().orEmpty()
-                },
-                onDismiss = { showSkus = false })
-        }
         if (showDetail && proj != null) {
             val all = cat.stages(masters, proj.jobType)
             ProjectSheet(
@@ -1198,10 +1144,8 @@ private fun AppScreen() {
                                     it.projectTitle.equals(proj.title, true)
                                 }?.panoPath
                             },
-                            skuCount = cat.skusOf(masters, proj).size,
                             onOpen = { navRoom = it },
                             onStage = { showStagePicker = true },
-                            onSkus = { showSkus = true },
                             onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(
                             onRename = { p -> renaming = RenameTarget(
@@ -1604,7 +1548,6 @@ private fun AppScreen() {
                 skus = cat.skusOf(masters, navProject),
                 room = navRoom.orEmpty(),
                 current = cap.sku,
-                onAdd = { retagSku = false; addSkuFor = navRoom.orEmpty() },
                 onDismiss = { retagSku = false },
                 onPick = { code -> retagSku = false; retag(null, code) })
         }
@@ -1616,7 +1559,6 @@ private fun AppScreen() {
                 skus = cat.skusOf(masters, navProject),
                 room = navRoom.orEmpty(),
                 current = faceSkuMap[face].orEmpty(),
-                onAdd = { faceSkuFor = null; addSkuFor = navRoom.orEmpty() },
                 onDismiss = { faceSkuFor = null },
                 onPick = { code ->
                     faceSkuFor = null

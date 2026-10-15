@@ -265,10 +265,10 @@ fun RoomsScreen(
     shotAtStage: (String) -> Boolean,
     /** The newest 360 in that room, on this phone. The tile wears it. */
     lastPano: (String) -> String?,
-    skuCount: Int,
     onOpen: (String) -> Unit,
     onStage: () -> Unit,
-    onSkus: () -> Unit,
+    /** The project sheet (job type, status, ERP id, phase). The dates chip is
+     *  the only way into it, so that chip is drawn on every project. */
     onDetail: () -> Unit,
     /** Amit, 2026-09-21: "can i add new room under project? I can not see any
      *  option for that." Rooms are a master — the room is half of every SKU
@@ -292,9 +292,12 @@ fun RoomsScreen(
 
     Column(Modifier.fillMaxSize()) {
         StageBar(project, pending, onStage)
-        // Four facts, each a tap to the thing behind it. The dates chip is
-        // not decoration: "is this job even running this week" is asked more
-        // often on site than anything else on the screen.
+        // The facts about this job, each a tap to the thing behind it. The
+        // dates chip is not decoration: "is this job even running this week"
+        // is asked more often on site than anything else on the screen.
+        // Amit, 15 Oct 2026: "Remove both" -- the N SKUs chip and the job-type
+        // chip are gone, so the dates chip is the one way into the project
+        // sheet and is drawn on every project, reading "No dates" when blank.
         Row(
             Modifier.fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
@@ -303,8 +306,6 @@ fun RoomsScreen(
         ) {
             AssistChip(onClick = { }, enabled = false,
                 label = { Text(plural(shot.size, "room") + " shot") })
-            AssistChip(onClick = onSkus, label = { Text(plural(skuCount, "SKU")) })
-            AssistChip(onClick = onDetail, label = { Text(project.jobType) })
             // The scope control sits with the other facts about this job, not
             // in a menu: choosing the rooms IS a fact about the site, and it
             // is the first thing worth doing on arriving at one.
@@ -314,9 +315,8 @@ fun RoomsScreen(
                          else "Choose rooms")
                 })
             }
-            if (project.dateRange.isNotBlank()) {
-                AssistChip(onClick = onDetail, label = { Text(project.dateRange) })
-            }
+            AssistChip(onClick = onDetail,
+                label = { Text(project.dateRange.ifBlank { "No dates" }) })
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),

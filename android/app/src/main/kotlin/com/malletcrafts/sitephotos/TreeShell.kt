@@ -246,59 +246,6 @@ fun StageSheet(
     }
 }
 
-/** The project's SKUs, so a photo can be filed beside the estimate line it
- *  belongs to. Read-only here; tagging happens on the capture itself. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SkuSheet(
-    skus: List<Catalogue.Sku>,
-    onAdd: (() -> Unit)? = null,
-    onDismiss: () -> Unit,
-) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle(if (skus.isEmpty()) "No SKUs yet" else "${skus.size} SKUs on this project")
-        if (skus.isEmpty()) {
-            Text("Nothing recorded yet. Add what the site says is needed — it " +
-                 "works with no signal, and the office's own SKUs arrive on " +
-                 "the next sync.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-        }
-        skus.forEach { s ->
-            ListItem(
-                headlineContent = { Text(s.code) },
-                supportingContent = {
-                    Text(listOf(s.article, s.room).filter { it.isNotBlank() }
-                        .joinToString(" · "))
-                },
-                // A SKU recorded here says so until the bench has it. The
-                // code shown for a local one is a PREVIEW — the bench appends
-                // a suffix when the room already holds another of the same
-                // article — so claiming it as final would be a small lie that
-                // surfaces later as a mismatch.
-                // Always supplied, empty when it does not apply: a nullable
-                // composable lambda in an if-expression is a type-inference
-                // trap for no gain.
-                trailingContent = { if (s.local) Pill("offline") })
-        }
-        // The office usually adds these, but a technician standing in a
-        // bathroom that turns out to need two doors should not have to phone
-        // anybody. Offline, and it syncs like a new site does.
-        onAdd?.let { add ->
-            ListItem(
-                headlineContent = {
-                    Text("Add work", color = MaterialTheme.colorScheme.primary)
-                },
-                supportingContent = {
-                    Text("room x article — the code writes itself")
-                },
-                modifier = Modifier.clickableRow(add))
-        }
-        Spacer(Modifier.height(16.dp))
-    }
-}
-
 /**
  * Tag ONE photo to a SKU, or untag it.
  *
@@ -315,7 +262,6 @@ fun CaptureSkuSheet(
     room: String,
     current: String,
     onPick: (String) -> Unit,
-    onAdd: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val mine = skus.filter { it.room.equals(room, true) }
@@ -337,14 +283,6 @@ fun CaptureSkuSheet(
             if (others.isNotEmpty()) {
                 SheetGroup("Elsewhere on this project")
                 others.forEach { SkuLine(it, current, onPick) }
-            }
-            onAdd?.let { add ->
-                ListItem(
-                    headlineContent = {
-                        Text("Add work", color = MaterialTheme.colorScheme.primary)
-                    },
-                    supportingContent = { Text("not on the list yet? record it here") },
-                    modifier = Modifier.clickableRow(add))
             }
             ListItem(
                 headlineContent = { Text("— none —") },
@@ -652,179 +590,6 @@ fun CaptureSheet(
             Spacer(Modifier.height(24.dp))
         }
     }
-}
-
-/**
- * Record a piece of WORK the site says is needed.
- *
- * Amit, 2026-08-21: "idea is to have a SKU / service discussed quickly with
- * client when measuring the site so that what high level required is
- * captured." So this is not the office transcribing an estimate — it is the
- * person standing in the room saying this wall needs POP, 120 sqft, while the
- * client is still next to them.
- *
- * ONE NUMBER, in the article's own unit. That is why electrical is three
- * articles rather than one carrying three figures: points, running feet and
- * fittings are quoted separately, and a phone in a dusty flat is the wrong
- * place for a spreadsheet. Built work also takes outer dimensions, because a
- * wardrobe has a shape and an area of POP does not.
- *
- * The CODE is shown before you commit, never typed. Two people describing the
- * same wall have to produce the same code or the grammar is decorative.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddSkuSheet(
-    articles: List<Catalogue.Article>,
-    client: String,
-    room: String,
-    onAdd: (Catalogue.Article, Double?, Int?, Int?, Int?, String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var picked by remember { mutableStateOf<Catalogue.Article?>(null) }
-    var find by remember { mutableStateOf("") }
-    var qty by remember { mutableStateOf("") }
-    var w by remember { mutableStateOf("") }
-    var h by remember { mutableStateOf("") }
-    var d by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        val art = picked
-        if (art == null) {
-            SheetTitle("What work is needed in ${RoomToken.label(room)}?")
-            // Forty-one articles across three kinds, and growing every time a
-            // new trade is subcontracted. Amit, 2026-08-22: "Add sku screen
-            // needs search, we are offering lot of sku services." Scrolling a
-            // list to find "Electrical points" is not a way to work on site.
-            //
-            // Matches the CODE as well as the name, because the codes are how
-            // they are spoken in the shop — somebody looking for POP types
-            // "pop", not "gypsum ceiling".
-            OutlinedTextField(
-                value = find,
-                onValueChange = { find = it },
-                singleLine = true,
-                label = { Text("Search work") },
-                placeholder = { Text("wardrobe, POP, electrical…") },
-                trailingIcon = {
-                    if (find.isNotEmpty()) {
-                        TextButton(onClick = { find = "" }) { Text("Clear") }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            )
-            val q = find.trim()
-            val hits = if (q.isBlank()) articles else articles.filter {
-                it.name.contains(q, true) || it.code.contains(q, true) ||
-                    it.basis.contains(q, true) || it.kind.contains(q, true)
-            }
-            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                if (hits.isEmpty()) {
-                    Text("Nothing matches \"$q\". The list is the article " +
-                         "master — if the work is genuinely new, the office " +
-                         "has to add it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(24.dp))
-                }
-                Catalogue.KIND_ORDER.forEach { kind ->
-                    val rows = hits.filter { it.kind == kind }
-                    if (rows.isEmpty()) return@forEach
-                    Text(kindHeading(kind),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 2.dp))
-                    rows.forEach { a ->
-                        ListItem(
-                            headlineContent = { Text(a.name) },
-                            supportingContent = { Text("quoted by ${a.basis.lowercase()}") },
-                            trailingContent = { Pill(a.code, warn = false) },
-                            modifier = Modifier.clickableRow { picked = a })
-                    }
-                }
-                Spacer(Modifier.height(20.dp))
-            }
-        } else {
-            SheetTitle("${art.name} · ${RoomToken.label(room)}")
-            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)) {
-                Text(previewCode(client, room, art.code),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("the code writes itself from customer, room and article",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(14.dp))
-
-                if (art.wantsQuantity) {
-                    OutlinedTextField(
-                        value = qty, onValueChange = { qty = it.filter { c -> c.isDigit() || c == '.' } },
-                        label = { Text("How much? (${art.basis})") },
-                        singleLine = true, modifier = Modifier.fillMaxWidth())
-                } else {
-                    Text("Lumpsum — priced as a deal, so there is no quantity " +
-                         "to take here.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                if (art.wantsDimensions) {
-                    Spacer(Modifier.height(10.dp))
-                    Text("OUTER SIZE, mm — optional",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Row(Modifier.fillMaxWidth().padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MmField("W", w, { w = it }, Modifier.weight(1f))
-                        MmField("H", h, { h = it }, Modifier.weight(1f))
-                        MmField("D", d, { d = it }, Modifier.weight(1f))
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = note, onValueChange = { note = it },
-                    label = { Text("Note for the designer") },
-                    modifier = Modifier.fillMaxWidth())
-
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { picked = null },
-                        modifier = Modifier.weight(1f)) { Text("Back") }
-                    Button(
-                        onClick = {
-                            onAdd(art, qty.toDoubleOrNull(), w.toIntOrNull(),
-                                h.toIntOrNull(), d.toIntOrNull(), note.trim())
-                        },
-                        // A quantity is the whole point of the line for work
-                        // that is measured; a lumpsum deal has none to give.
-                        enabled = !art.wantsQuantity || qty.toDoubleOrNull() != null,
-                        modifier = Modifier.weight(1f),
-                    ) { Text("Add") }
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun MmField(label: String, value: String, onChange: (String) -> Unit,
-                    modifier: Modifier = Modifier) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { onChange(it.filter { c -> c.isDigit() }) },
-        label = { Text(label) }, singleLine = true, modifier = modifier)
-}
-
-private fun kindHeading(kind: String) = when (kind) {
-    Catalogue.KIND_BUILD -> "We build it"
-    Catalogue.KIND_INSTALL -> "We fit it"
-    else -> "An agency does it"
 }
 
 /** The same grammar estimator.sku_code uses, shown before you commit. It is a

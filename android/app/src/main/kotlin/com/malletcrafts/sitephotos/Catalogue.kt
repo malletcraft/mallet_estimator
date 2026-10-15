@@ -101,27 +101,8 @@ class Catalogue(context: Context) {
         val jobTypes: List<String>,
     )
 
-    data class Article(
-        val code: String,
-        val name: String,
-        val jobTypes: List<String>,
-        /** Build / Install / Subcontract — who does the work. */
-        val kind: String = KIND_BUILD,
-        /** Sqft / Rft / Point / Nos / Lumpsum — the unit it is QUOTED in,
-         *  and therefore the unit the site is asked for. */
-        val basis: String = BASIS_NOS,
-    ) {
-        /** A wardrobe has three dimensions; POP has an area and no shape. */
-        val wantsDimensions: Boolean get() = kind == KIND_BUILD
-        /** Lumpsum is a deal, not a measurement — asking for a number would
-         *  invite somebody to invent one. */
-        val wantsQuantity: Boolean get() = basis != BASIS_LUMPSUM
-    }
-
     data class Sku(val name: String, val code: String, val room: String,
-                   val article: String,
-                   /** Recorded on site and not yet in ERP. */
-                   val local: Boolean = false)
+                   val article: String)
 
     // ---- what was typed on site, before ERP knew about it ---------------
 
@@ -136,7 +117,12 @@ class Catalogue(context: Context) {
      *
      *  Kept beside the offline sites rather than in the capture database: it
      *  is a small list that syncs and disappears, and the captures table has
-     *  no migration path worth spending on a queue that empties itself. */
+     *  no migration path worth spending on a queue that empties itself.
+     *
+     *  Nothing on the phone RECORDS one any more (Amit, 15 Oct 2026: "Remove
+     *  both" -- the SKU sheet and its add-work row are gone). The list is
+     *  kept so a SKU recorded before that update still reaches the bench:
+     *  SyncWorker sends it and forgets it, the Queue shows it until then. */
     data class LocalSku(
         val deviceId: String,
         val client: String,
@@ -444,13 +430,6 @@ class Catalogue(context: Context) {
         prefs.edit().putString("local_skus", arr.toString()).apply()
     }
 
-    fun addLocalSku(sku: LocalSku) {
-        // Keyed on the device id, exactly as the bench is: two wardrobes in
-        // one room are two real SKUs, so nothing here may collapse them.
-        if (localSkus().any { it.deviceId == sku.deviceId }) return
-        writeLocalSkus(localSkus() + sku)
-    }
-
     fun forgetLocalSku(deviceId: String) {
         writeLocalSkus(localSkus().filterNot { it.deviceId == deviceId })
     }
@@ -728,7 +707,7 @@ class Catalogue(context: Context) {
         return FALLBACK_ROOMS
     }
 
-    // ---- stages and articles --------------------------------------------
+    // ---- stages ----------------------------------------------------------
 
     /** The work-stage master, in trade order, narrowed to one job type.
      *  Thirty-nine stages is a picker; it is not a filter row, so the phase
@@ -775,31 +754,16 @@ class Catalogue(context: Context) {
     fun isWorkStage(masters: JSONObject?, stage: String): Boolean =
         stage.isNotBlank() && stages(masters).any { it.name.equals(stage, true) }
 
-    fun articles(masters: JSONObject?, jobType: String? = null): List<Article> {
-        val arr = masters?.optJSONArray("articles") ?: return emptyList()
-        val out = mutableListOf<Article>()
-        for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i) ?: continue
-            val jobs = splitJobs(o.optString("job_types"))
-            if (jobType != null && jobType !in jobs) continue
-            out.add(Article(o.optString("code"), o.optString("article"), jobs,
-                kind = o.optString("kind").ifBlank { KIND_BUILD },
-                basis = o.optString("basis").ifBlank { BASIS_NOS }))
-        }
-        return out.sortedBy { it.code }
-    }
-
     /** The SKUs a capture on this project may be tagged to. They ride
      *  bootstrap so a technician in a basement can still tag a photo. */
     /**
-     * Every SKU on a project — ERP's AND the ones recorded here.
+     * Every SKU on a project — ERP's, plus any an older build recorded here.
      *
-     * The local half was missing entirely, which read on the phone as "adding
-     * a SKU does not refresh". It was worse than that: a SKU typed on site
-     * did not appear in this list at all until it had synced AND the masters
-     * had been fetched again, so the work somebody had just recorded looked
-     * like it had not been taken. Amit, 2026-08-22: "Adding a sku is also not
-     * quick refresh."
+     * The phone no longer records SKUs (Amit, 15 Oct 2026: "Remove both").
+     * The local half carries only SKUs a phone typed before that update and
+     * SyncWorker has not yet uploaded, so a photo can still be tagged to one
+     * until it lands; once the bench has it, its row wins below and the local
+     * one is forgotten.
      *
      * Takes the whole Project rather than its server id, because a project
      * that has not synced HAS no server id — and that is exactly the case
@@ -829,7 +793,7 @@ class Catalogue(context: Context) {
             key(it.room) + "\u0000" + key(it.articleName) in taken
         }.map {
             Sku(name = "", code = previewCode(project.client, it.room, it.articleCode),
-                room = it.room, article = it.articleName, local = true)
+                room = it.room, article = it.articleName)
         }
         return erp + locals
     }
@@ -901,14 +865,7 @@ class Catalogue(context: Context) {
         const val JOB_NEW = "New work"
         const val JOB_REPAIR = "Repair"
         const val JOB_INSTALL = "Supply & install"
-        const val KIND_BUILD = "Build"
-        const val KIND_INSTALL = "Install"
-        const val KIND_SUBCONTRACT = "Subcontract"
         const val BASIS_NOS = "Nos"
-        const val BASIS_LUMPSUM = "Lumpsum"
-        /** The order the picker groups by: the shop's own work first, then
-         *  what it fits, then what it gives away. */
-        val KIND_ORDER = listOf(KIND_BUILD, KIND_INSTALL, KIND_SUBCONTRACT)
 
         private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun",
                                     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
