@@ -28,7 +28,10 @@ import java.time.format.DateTimeFormatter
  *
  * Shape (v = 1, unchanged: the change is additive): {v, L, W, H, w: {front:
  * {bottom, top, left, right: [[x, y], [x, y]], set: {bottom: true, ...},
- * els: [{id, t, code, x0, x1, y0, y1}]}, ...}, actual: {"FW1.w": 1200}}.
+ * els: [{id, t, code, x0, x1, y0, y1}], meas: [{id, code, kind, locked, pts:
+ * [[x, y], ...]}]}, ...}, actual: {"FW1.w": 1200, "F-M1.len": 1000}}. `meas`
+ * (v52 slice 9: Tapes, Lines and areas) is written only where there is one,
+ * or where the file had the key, so an older prep re-encodes unchanged.
  */
 object SurveyPrepFile {
 
@@ -36,8 +39,10 @@ object SurveyPrepFile {
 
     /** The keys this build reads, at each level; every other key is kept as it came. */
     val PREP_KEYS = setOf("v", "L", "W", "H", "w", "actual")
-    val SURFACE_KEYS = SurveyPrep.SLOTS.toSet() + setOf("set", "els")
+    val SURFACE_KEYS = SurveyPrep.SLOTS.toSet() + setOf("set", "els", "meas")
     val MARK_KEYS = setOf("id", "t", "code", "x0", "x1", "y0", "y1")
+    /** A Tape's, a Line's or an area's keys this build reads (v52 slice 9); its `locked` and anything else are kept as they came. */
+    val MEAS_KEYS = setOf("id", "code", "kind", "pts")
 
     /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be dropped.
      *  [points] / [pointLog]: the older points [open] made 50 mm spots, and what that did to them and their readings
@@ -129,7 +134,26 @@ object SurveyPrepFile {
                 }
                 marks.add(SurveyPrep.Mark(id, t, code, c[0]!!, c[1]!!, c[2]!!, c[3]!!, unknown(m, MARK_KEYS)))
             }
-            out[s] = SurveyPrep.Surface(lines, set, marks, unknown(so, SURFACE_KEYS))
+            // THE TAPES, LINES AND AREAS (v52 slice 9): {id, code, kind, locked, pts}. One that cannot be read costs
+            // itself; a kind a later build adds is kept and written back as it came (it is drawn by nothing here)
+            val meas = mutableListOf<SurveyPrep.Meas>()
+            val mo = so["meas"]
+            if (mo != null && mo !is List<*>) problems.add("${SurveyPrep.NAME.getValue(s)}: its measurements were unreadable")
+            (mo as? List<*>)?.forEachIndexed { i, mv ->
+                val m = mv as? Map<*, *>
+                val id = str(m?.get("id")); val code = str(m?.get("code")); val kind = str(m?.get("kind"))
+                val pl = m?.get("pts") as? List<*>
+                val pts = pl?.map { point(it) }
+                val need = when (kind) { SurveyMeas.TAPE, SurveyMeas.LINE -> 2; SurveyMeas.AREA -> 3; else -> 1 }
+                val ok = m != null && id != null && code != null && kind != null && pts != null && pts.all { it != null } &&
+                    (if (kind == SurveyMeas.TAPE || kind == SurveyMeas.LINE) pts.size == 2 else pts.size >= need)
+                if (!ok) {
+                    problems.add("${SurveyPrep.NAME.getValue(s)}: measurement ${code ?: "#" + (i + 1)} was unreadable, left out")
+                    return@forEachIndexed
+                }
+                meas.add(SurveyPrep.Meas(id!!, kind!!, code!!, pts!!.map { it!! }.toMutableList(), unknown(m!!, MEAS_KEYS)))
+            }
+            out[s] = SurveyPrep.Surface(lines, set, marks, unknown(so, SURFACE_KEYS), meas, so.containsKey("meas"))
         }
         val actual = LinkedHashMap<String, Double>()
         val ao = o["actual"]
@@ -170,6 +194,13 @@ object SurveyPrepFile {
                     put("id", m.id); put("t", m.t); put("code", m.code)
                     put("x0", m.x0); put("x1", m.x1); put("y0", m.y0); put("y1", m.y1)
                     for ((k, v) in m.extra) if (k !in MARK_KEYS) put(k, v)
+                }
+            }
+            if (sf.meas.isNotEmpty() || sf.measKey) so["meas"] = sf.meas.map { m ->
+                LinkedHashMap<String, Any?>().apply {
+                    put("id", m.id); put("code", m.code); put("kind", m.kind)
+                    for ((k, v) in m.extra) if (k !in MEAS_KEYS) put(k, v)
+                    put("pts", m.pts.map { listOf(it[0], it[1]) })
                 }
             }
             for ((k, v) in sf.extra) if (k !in SURFACE_KEYS) so[k] = v

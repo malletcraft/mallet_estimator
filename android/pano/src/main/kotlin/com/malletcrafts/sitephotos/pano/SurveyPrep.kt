@@ -490,6 +490,9 @@ object SurveyPrep {
     /** Whether a mark is locked. */
     fun isLocked(e: Mark): Boolean = flag(e.extra[LOCKED])
 
+    /** Whether a Tape, a Line or an area is locked. */
+    fun isLocked(m: Meas): Boolean = flag(m.extra[LOCKED])
+
     /** Whether a surface's four lines are locked. */
     fun linesLocked(sf: Surface): Boolean = flag(sf.extra[LINES_LOCK])
 
@@ -654,10 +657,28 @@ object SurveyPrep {
      *  `ref`; and this build's [LINES_LOCK] and [SEQ]), kept and written back as they came -- replaced by a
      *  new map, never changed in place, as a Mark's. */
     class Surface(val lines: MutableMap<String, Array<DoubleArray>>, val set: MutableMap<String, Boolean>,
-                  val marks: MutableList<Mark>, var extra: Map<String, Any?> = emptyMap()) {
+                  val marks: MutableList<Mark>, var extra: Map<String, Any?> = emptyMap(),
+                  /** The Tapes, Lines and areas on it (v52 slice 9), in the order drawn: the file's `meas`. */
+                  val meas: MutableList<Meas> = mutableListOf(),
+                  /** The file carried a `meas` key (even an empty one): it is written back whether or not any are left. */
+                  var measKey: Boolean = false) {
         fun done() = SLOTS.all { set[it] == true }
         fun copy() = Surface(lines.mapValues { (_, l) -> Array(2) { l[it].copyOf() } }.toMutableMap(),
-            set.toMutableMap(), marks.map { it.copy() }.toMutableList(), extra)
+            set.toMutableMap(), marks.map { it.copy() }.toMutableList(), extra, meas.map { it.copy() }.toMutableList(), measKey)
+    }
+
+    /**
+     * A TAPE, A LINE OR AN AREA ON A SURFACE (v52 slice 9; Amit, 14 Oct 2026 11:48 IST: "add one more tool called as
+     * Tape which act as a actual tape and can plot measurements like a real tape measure . keep this measure tool as
+     * marking and as usual its measurements can be given by disto or manual"; 20:45: "one tape measure like anothr is
+     * actual marking simple line"). [kind] is "tape", "line" or "area" (SurveyMeas); [pts] its points in the surface's
+     * mm -- two for a tape or a Line, three or more corners for an area; [code] F-T1 (a tape) or F-M1 (a Line or an
+     * area), numbered apart per prefix. [extra]: its `locked` flag and whatever else the file carried, kept as it came
+     * and REPLACED, never changed in place, as a [Mark]'s. Saved in the surface's `meas`, exactly the prototype's shape.
+     */
+    class Meas(val id: String, val kind: String, val code: String, val pts: MutableList<DoubleArray>,
+               var extra: Map<String, Any?> = emptyMap()) {
+        fun copy() = Meas(id, kind, code, pts.map { it.copyOf() }.toMutableList(), extra)
     }
 
     /** Every surface, and the site readings keyed "<code>.<measure key>", mm. [extra] and
@@ -692,6 +713,65 @@ object SurveyPrep {
             return null
         }
 
+        /** The surface and Tape / Line / area a reading key belongs to (F-M1.len, F-M2.per). */
+        fun measOf(code: String): Pair<String, Meas>? {
+            for (s in SURFACES) surfaces[s]?.meas?.firstOrNull { code.startsWith(it.code + ".") }?.let { return s to it }
+            return null
+        }
+
+        fun measById(id: String): Pair<String, Meas>? {
+            for (s in SURFACES) surfaces[s]?.meas?.firstOrNull { it.id == id }?.let { return s to it }
+            return null
+        }
+
+        /**
+         * WHAT OWNS A READING KEY, A MARK OR A LINE (v52 slice 9): FD1.w is FD1's, F-M1.len is F-M1's. Null when
+         * nothing here does -- the test ↶ and the readings sync use to keep a reading only while its owner is there.
+         */
+        fun ownerOf(code: String): Item? {
+            markOf(code)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e)) }
+            measOf(code)?.let { (s, m) -> return Item(s, m.id, m.code, "meas", isLocked(m), m.kind) }
+            return null
+        }
+
+        /** Any item by its id: a mark, or a Tape / Line / area. */
+        fun itemById(id: String): Item? {
+            markById(id)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e)) }
+            measById(id)?.let { (s, m) -> return Item(s, m.id, m.code, "meas", isLocked(m), m.kind) }
+            return null
+        }
+
+        /**
+         * A reading key's line of the checklist, wherever it is: its surface and its [Measure] -- a mark's (with the
+         * surface's size from [ab]) or a Line's / an area's ([SurveyMeas.measures]). Null for a key nothing asks for.
+         */
+        fun readingOf(code: String, ab: (String) -> DoubleArray): Pair<String, Measure>? {
+            markOf(code)?.let { (s, e) -> val z = ab(s)
+                return measures(s, e, z[0], z[1]).firstOrNull { e.code + "." + it.key == code }?.let { s to it } }
+            measOf(code)?.let { (s, m) -> return SurveyMeas.measures(m).firstOrNull { m.code + "." + it.key == code }?.let { s to it } }
+            return null
+        }
+
+        /** After a reading under [code], the next one still missing on the same thing (a mark's, or null for a Line). */
+        fun nextAfter(code: String, ab: (String) -> DoubleArray): String? {
+            markOf(code)?.let { (s, e) -> val z = ab(s); return nextOpen(s, e, code, z[0], z[1]) }
+            measOf(code)?.let { (_, m) -> return nextOpen(m, code) }
+            return null
+        }
+
+        /**
+         * A NEW TAPE, LINE OR AREA on [s] through [pts] (mm, kept to 0.1 mm), unlocked, with the next code of its
+         * prefix -- F-T… for a tape, F-M… for a Line or an area, counted apart and never handed out twice
+         * ([claimCode] with [SurveyMeas.seqKey]).
+         */
+        fun addMeas(s: String, kind: String, pts: List<DoubleArray>, id: String): Meas {
+            val m = Meas(id, kind, claimCode(s, SurveyMeas.seqKey(kind)),
+                pts.map { doubleArrayOf(Math.round(it[0] * 10) / 10.0, Math.round(it[1] * 10) / 10.0) }.toMutableList(),
+                linkedMapOf<String, Any?>(LOCKED to false))
+            surface(s).meas.add(m)
+            return m
+        }
+
         /**
          * A new mark on [s]: its type's default box, and the next code -- see [nextCode]: a code is
          * never handed out twice, not even after its mark was deleted.
@@ -704,7 +784,10 @@ object SurveyPrep {
         /** The highest number type [t]'s code has had on [s]: the surface's [SEQ], or a code still there. */
         fun highest(s: String, t: String): Int {
             val head = CODE.getValue(s) + t; val sf = surface(s)
-            val there = sf.marks.filter { it.t == t }.mapNotNull { it.code.removePrefix(head).toIntOrNull() }.maxOrNull() ?: 0
+            // a mark type's letter, or a Tape's "-T" / a Line's "-M" (v52 slice 9): those count the surface's meas
+            val codes = if (t.startsWith("-")) sf.meas.filter { SurveyMeas.seqKey(it.kind) == t }.map { it.code }
+                        else sf.marks.filter { it.t == t }.map { it.code }
+            val there = codes.filter { it.startsWith(head) }.mapNotNull { it.removePrefix(head).toIntOrNull() }.maxOrNull() ?: 0
             val seen = ((sf.extra[SEQ] as? Map<*, *>)?.get(t)).let { v ->
                 when (v) { is Number -> v.toDouble(); is String -> v.toDoubleOrNull(); else -> null } }?.takeIf { it.isFinite() }?.toInt() ?: 0
             return max(there, seen)
@@ -732,15 +815,24 @@ object SurveyPrep {
             return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
         }
 
-        /** A mark and its readings go together. A LOCKED mark is not deleted (v52 slice 8): false, nothing changed. */
+        /** A mark -- or a Tape, a Line, an area (v52 slice 9) -- and its readings go together: F-M1 takes F-M1.len and
+         *  nothing else. A LOCKED one is not deleted (v52 slice 8): false, nothing changed. */
         fun deleteMark(id: String): Boolean {
             for (s in SURFACES) {
                 val sf = surfaces[s] ?: continue
-                val m = sf.marks.firstOrNull { it.id == id } ?: continue
-                if (isLocked(m)) return false
-                recordCodes(s, listOf(m))
-                sf.marks.remove(m)
-                actual.keys.removeAll { it.startsWith(m.code + ".") }
+                val m = sf.marks.firstOrNull { it.id == id }
+                if (m != null) {
+                    if (isLocked(m)) return false
+                    recordCodes(s, listOf(m))
+                    sf.marks.remove(m)
+                    actual.keys.removeAll { it.startsWith(m.code + ".") }
+                    return true
+                }
+                val q = sf.meas.firstOrNull { it.id == id } ?: continue
+                if (isLocked(q)) return false
+                recordTypes(s, listOf(SurveyMeas.seqKey(q.kind)))
+                sf.meas.remove(q)
+                actual.keys.removeAll { it.startsWith(q.code + ".") }
                 return true
             }
             return false
@@ -748,16 +840,20 @@ object SurveyPrep {
 
         /**
          * EVERYTHING DRAWN ON A SURFACE, AS ONE LIST (v52 slice 8): what a clear, a count, Lock all and
-         * Start over walk. Marks now; the Line and Tape measurements (slice 9) and the chains (slice 11)
-         * join here and in [dropUnlocked], and nothing that walks them changes.
+         * Start over walk: the marks, then the Tapes, Lines and areas (slice 9); the chains (slice 11) join
+         * here and in [dropUnlocked], and nothing that walks them changes.
          */
-        fun itemsOf(s: String): List<Item> = surface(s).marks.map { Item(s, it.id, it.code, "mark", isLocked(it)) }
+        fun itemsOf(s: String): List<Item> = surface(s).let { sf ->
+            sf.marks.map { Item(s, it.id, it.code, "mark", isLocked(it)) } +
+                sf.meas.map { Item(s, it.id, it.code, "meas", isLocked(it), it.kind) } }
 
         /** Every UNLOCKED item on [s] taken away (its readings are the caller's: [SurveyPrepEdit.clearItems]). */
         fun dropUnlocked(s: String) {
             val sf = surface(s)
             recordCodes(s, sf.marks.filter { !isLocked(it) })
             sf.marks.removeAll { !isLocked(it) }
+            recordTypes(s, sf.meas.filter { !isLocked(it) }.map { SurveyMeas.seqKey(it.kind) })
+            sf.meas.removeAll { !isLocked(it) }
         }
 
         /**
@@ -765,11 +861,14 @@ object SurveyPrep {
          * hold them (a file from before slice 8 has no [SEQ]), so the next [nextCode] still runs past them.
          * Writes nothing when it already does.
          */
-        fun recordCodes(s: String, gone: Collection<Mark>) {
+        fun recordCodes(s: String, gone: Collection<Mark>) = recordTypes(s, gone.map { it.t })
+
+        /** [recordCodes] by the [SEQ] keys themselves: mark letters, or "-T" / "-M" for Tapes and Lines. */
+        fun recordTypes(s: String, types: Collection<String>) {
             val sf = surface(s)
             val seq = LinkedHashMap<String, Any?>().apply { (sf.extra[SEQ] as? Map<*, *>)?.forEach { (k, v) -> if (k is String) put(k, v) } }
             var any = false
-            for (t in gone.map { it.t }.distinct()) {
+            for (t in types.distinct()) {
                 val n = highest(s, t)
                 val had = (seq[t] as? Number)?.toInt() ?: (seq[t] as? String)?.toDoubleOrNull()?.toInt() ?: 0
                 if (n > had) { seq[t] = n; any = true }
@@ -781,15 +880,23 @@ object SurveyPrep {
         fun keysOf(s: String, e: Mark, a: Double, b: Double): List<String> = measures(s, e, a, b).map { e.code + "." + it.key }
 
         /** The next of a mark's readings still missing after [after] (wrapping), or null when all are in. */
-        fun nextOpen(s: String, e: Mark, after: String?, a: Double, b: Double): String? {
-            val ks = keysOf(s, e, a, b); val i = if (after != null) ks.indexOf(after) else -1
+        fun nextOpen(s: String, e: Mark, after: String?, a: Double, b: Double): String? = nextOf(keysOf(s, e, a, b), after)
+
+        /** A Line's reading key (F-M1.len), an area's (F-M2.per); a tape has none (v52 slice 9). */
+        fun keysOf(m: Meas): List<String> = SurveyMeas.measures(m).map { m.code + "." + it.key }
+
+        /** [nextOpen] for a Tape, a Line or an area: its one key while unread, else null. */
+        fun nextOpen(m: Meas, after: String?): String? = nextOf(keysOf(m), after)
+
+        private fun nextOf(ks: List<String>, after: String?): String? {
+            val i = if (after != null) ks.indexOf(after) else -1
             return ks.drop(i + 1).firstOrNull { actual[it] == null } ?: ks.firstOrNull { actual[it] == null }
         }
     }
 
-    /** One thing drawn on a surface, as a clear or a lock sees it: where, which, its code, what kind ("mark";
-     *  "meas" and "chain" from slices 9 and 11), and whether it is locked. */
-    class Item(val s: String, val id: String, val code: String, val kind: String, val locked: Boolean)
+    /** One thing drawn on a surface, as a clear or a lock sees it: where, which, its code, what kind ("mark", "meas";
+     *  "chain" from slice 11), whether it is locked, and for a "meas" whether it is a "tape", a "line" or an "area". */
+    class Item(val s: String, val id: String, val code: String, val kind: String, val locked: Boolean, val measKind: String? = null)
 
     // ------------------------------------------------------ older points made spots
 

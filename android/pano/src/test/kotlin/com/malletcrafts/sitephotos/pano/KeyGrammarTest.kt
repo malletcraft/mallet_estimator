@@ -51,8 +51,25 @@ class KeyGrammarTest {
         assertTrue(out.isNotEmpty() && out.all { keyRe.matches(it) }, out.toString())
     }
 
+    @Test fun `a Line's len and an area's per, on every surface, up to the highest code, are accepted (v52 slice 9)`() {
+        val p = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+        val keys = mutableListOf<String>()
+        for (s in SurveyPrep.SURFACES) {
+            for (i in 0 until 3) {
+                keys += p.keysOf(p.addMeas(s, SurveyMeas.LINE, listOf(doubleArrayOf(0.0, 0.0), doubleArrayOf(500.0, 0.0)), "l$s$i"))
+                keys += p.keysOf(p.addMeas(s, SurveyMeas.AREA, listOf(doubleArrayOf(0.0, 0.0), doubleArrayOf(500.0, 0.0), doubleArrayOf(500.0, 500.0)), "a$s$i"))
+                // a tape has no key at all: nothing of it is ever sent as a reading
+                assertTrue(p.keysOf(p.addMeas(s, SurveyMeas.TAPE, listOf(doubleArrayOf(0.0, 0.0), doubleArrayOf(500.0, 0.0)), "t$s$i")).isEmpty())
+            }
+        }
+        assertTrue(keys.any { it.endsWith(".len") } && keys.any { it.endsWith(".per") })
+        for (code in listOf("F-M1", "G-M999", "C-M12345", "L-M99999999999999999999")) for (k in listOf("len", "per")) keys += "$code.$k"
+        val bad = keys.filterNot { keyRe.matches(it) }
+        assertTrue(bad.isEmpty(), "S5 would refuse: $bad")
+    }
+
     @Test fun `the copied pattern still refuses what S5 refuses`() {
         for (k in listOf("FE1", "1FE.l", "FE1.", ".l", "FE1.cl.x", "FE1.toolongforakey", "F E1.l", "FE1.1234")) assertFalse(keyRe.matches(k), k)
-        for (k in listOf("FE1.cl", "F-M1.len", "FK1.1", "FK1.t", "GP9.ck")) assertTrue(keyRe.matches(k), k)
+        for (k in listOf("FE1.cl", "F-M1.len", "F-M2.per", "G-M3.len", "C-M1.per", "FK1.1", "FK1.t", "GP9.ck")) assertTrue(keyRe.matches(k), k)
     }
 }

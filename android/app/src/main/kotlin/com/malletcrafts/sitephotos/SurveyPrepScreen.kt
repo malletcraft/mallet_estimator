@@ -101,6 +101,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.GestureClassifier
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
+import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepEdit
 import com.malletcrafts.sitephotos.pano.SurveyPrepFile
@@ -198,6 +199,11 @@ internal fun SurveyPrepDialog(
     // picked or the one on is tapped again -- and whether the More sheet is open
     var tool by remember { mutableStateOf(SurveyPrepPalette.SEL) }
     var moreOpen by remember { mutableStateOf(false) }
+    // LINE AND TAPE (v52 slice 9): a Tape or a Line being pulled (the Draft changes as the finger moves; rev follows
+    // it), and the corners of a Line area tapped so far, on [areaS]
+    var mdrag by remember { mutableStateOf<SurveyMeas.Draft?>(null) }
+    var area by remember { mutableStateOf<List<DoubleArray>?>(null) }
+    var areaS by remember { mutableStateOf<String?>(null) }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
@@ -298,12 +304,13 @@ internal fun SurveyPrepDialog(
         // Readings are not geometry: the ones taken since stay, and a reading a delete took away comes back with its mark.
         val merged = old.actual.toMutableMap().apply { putAll(prep.actual) }
         val back = SurveyPrep.Prep(old.surfaces, mutableMapOf(), old.extra, old.extraSurfaces)
-        for ((k, v) in merged) if (back.markOf(k) != null) back.actual[k] = v
+        // (a Line's or an area's reading too, v52 slice 9: Prep.ownerOf knows marks and Lines alike)
+        for ((k, v) in merged) if (back.ownerOf(k) != null) back.actual[k] = v
         // a code handed out since is not handed out again: the web may hold readings under it (v52 slice 8)
         SurveyPrepEdit.keepSeq(prep, back)
         hideSnack(); ctx = null
         prep = back; sel = null
-        if (active != null && back.markOf(active!!) == null) active = null
+        if (active != null && back.ownerOf(active!!) == null) active = null
         changed()
     }
 
@@ -316,7 +323,7 @@ internal fun SurveyPrepDialog(
         if (hist.isEmpty()) return
         val old = hist.removeAt(hist.size - 1)
         val back = SurveyPrep.Prep(old.surfaces, mutableMapOf(), old.extra, old.extraSurfaces)
-        for ((k, v) in prep.actual) if (back.markOf(k) != null) back.actual[k] = v
+        for ((k, v) in prep.actual) if (back.ownerOf(k) != null) back.actual[k] = v
         SurveyPrepEdit.keepSeq(prep, back)
         prep = back
         rev++
@@ -335,8 +342,8 @@ internal fun SurveyPrepDialog(
     }
     fun reading(code: String, v: Double) {
         prep.actual[code] = v
-        val mo = prep.markOf(code)
-        active = mo?.let { (s, e) -> ab(s).let { prep.nextOpen(s, e, code, it[0], it[1]) } }
+        // the next one still missing on the same mark; a Line has one reading, so none after it (v52 slice 9)
+        active = prep.nextAfter(code) { ab(it) }
         changed()
     }
     fun fire() {
@@ -351,7 +358,7 @@ internal fun SurveyPrepDialog(
     disto.onRefused = { why -> say(why) }
     disto.onReading = { r ->
         val a = active
-        if (a == null || prep.markOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
+        if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
         else reading(a, r.mm.toDouble())
     }
 
@@ -366,7 +373,7 @@ internal fun SurveyPrepDialog(
         val remote = fetched?.getOrNull()
         // a conflict on a reading whose mark was deleted or cleared here is not put back as an orphan: the delete
         // stands and is sent again (Readings.orphans), so the upload is queued for it (v52 slice 8 review)
-        val (applied, moved, orphans) = ReadingsSync.merge(context, id, prep.actual, remote) { k -> prep.markOf(k) != null }
+        val (applied, moved, orphans) = ReadingsSync.merge(context, id, prep.actual, remote) { k -> prep.ownerOf(k) != null }
         if (orphans.isNotEmpty() && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
         // AN EDGE READING THAT ARRIVED NOW (a web reading not seen before, or a conflict handing the server's
         // value back) is converted to the centre like the ones on opening -- or it would sit under l / s for
@@ -452,18 +459,20 @@ internal fun SurveyPrepDialog(
         changed()
         return e
     }
-    /** A palette slot (or a More tile, or ✕ on the chip): that tool on, or Select when it was already on. */
+    /** A palette slot (or a More tile, or ✕ on the chip): that tool on, or Select when it was already on. A Line area
+     *  half tapped is let go (sp.js setTool: st.mdraft=null). */
     fun pickTool(t: String) {
-        tool = SurveyPrepPalette.next(tool, t); moreOpen = false
+        tool = SurveyPrepPalette.next(tool, t); moreOpen = false; dropDrafts()
         if (t != SurveyPrepPalette.SEL) note = null
     }
     /** DELETE (every path: the bar row, the floating trash, a list row, the long-press menu): '<code> deleted' with
-     *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. */
+     *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
+     *  Line or an area (v52 slice 9) the same: F-M1 takes F-M1.len with it, and the readings sync deletes it on the web. */
     fun deleteMark(mid: String) {
-        val mo = prep.markById(mid) ?: return
-        val code = mo.second.code
+        val it0 = prep.itemById(mid) ?: return
+        val code = it0.code
         ctx = null
-        if (SurveyPrep.isLocked(mo.second)) { refuse(code); return }
+        if (it0.locked) { refuse(code); return }
         snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
@@ -480,7 +489,7 @@ internal fun SurveyPrepDialog(
     }
     /** Lock or unlock one mark (its padlock, the menu's Lock): one undo step, nothing said (sp.js setLock). */
     fun toggleLock(mid: String) {
-        if (prep.markById(mid) == null) return
+        if (prep.itemById(mid) == null) return
         ctx = null; snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
     }
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
@@ -488,20 +497,29 @@ internal fun SurveyPrepDialog(
         snapshot(); val v = SurveyPrepEdit.setLinesLocked(prep, tab, null)
         say(SurveyPrepEdit.linesSaid(tab, v)); changed()
     }
-    /** Lock all / Unlock all of type [t] on [s]: "Locked N items · front wall" with UNDO; no change, no undo entry. */
-    fun lockAllOf(s: String, t: String, on: Boolean) {
+    /** Lock all / Unlock all of type [t] on [s] -- or, with [kind], every tape or every Line mark (v52 slice 9): "Locked
+     *  N items · front wall" with UNDO; no change, no undo entry. */
+    fun lockAllOf(s: String, t: String?, on: Boolean, kind: String? = null) {
         ctx = null; snapshot()
-        val n = SurveyPrepEdit.lockAll(prep, s, t, on)
+        val n = SurveyPrepEdit.lockAll(prep, s, t, on, kind)
         if (n == 0) { hist.removeAt(hist.size - 1); return }
         snack(SurveyPrepEdit.lockedSnack(on, n, s)); changed()
     }
     /** Duplicate: the copy 100 mm away with the next code, picked, its first measurement active (sp.js duplicateItem). */
     fun duplicateMark(mid: String) {
-        val s = prep.markById(mid)?.first ?: return
+        val s = prep.itemById(mid)?.s ?: return
         val a = ab(s); ctx = null; snapshot()
-        val c = SurveyPrepEdit.duplicate(prep, mid, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
-        if (c == null) { hist.removeAt(hist.size - 1); return }
-        sel = SpSel(s, id = c.id); active = prep.nextOpen(s, c, null, a[0], a[1])
+        val nid = java.util.UUID.randomUUID().toString().take(8)
+        if (prep.markById(mid) != null) {
+            val c = SurveyPrepEdit.duplicate(prep, mid, a[0], a[1], nid)
+            if (c == null) { hist.removeAt(hist.size - 1); return }
+            sel = SpSel(s, id = c.id); active = prep.nextOpen(s, c, null, a[0], a[1])
+        } else {
+            // a Tape, a Line or an area (v52 slice 9): the next number of its own prefix, picked, its reading active
+            val c = SurveyPrepEdit.duplicateMeas(prep, mid, a[0], a[1], nid)
+            if (c == null) { hist.removeAt(hist.size - 1); return }
+            sel = SpSel(s, id = c.id); active = SurveyMeas.key(c)
+        }
         changed()
     }
     /** A menu row picked (SurveyPrepEdit.menuItems). */
@@ -510,10 +528,65 @@ internal fun SurveyPrepDialog(
             SurveyPrepEdit.DELETE -> deleteMark(mid)
             SurveyPrepEdit.DUPLICATE -> duplicateMark(mid)
             SurveyPrepEdit.LOCK -> toggleLock(mid)
-            SurveyPrepEdit.LOCK_ALL -> prep.markById(mid)?.let { (s, e) ->
-                val g = SurveyPrepEdit.lockGroup(prep, s, e); lockAllOf(s, g.t, !g.all) } ?: run { ctx = null }
+            // a mark's type, or every tape, or every Line mark -- never the other (SurveyPrepEdit.lockGroupOf)
+            SurveyPrepEdit.LOCK_ALL -> SurveyPrepEdit.lockGroupOf(prep, mid)?.let { (s, g) ->
+                lockAllOf(s, g.t, !g.all, g.kind) } ?: run { ctx = null }
             else -> ctx = null
         }
+    }
+    /** A Tape, a Line or an area picked (sp.js mPick): selected; a newly picked Line's reading becomes the one being
+     *  taken -- or [measure], when a list row named it. A tape has none. */
+    fun selectMeas(s: String, mid: String, measure: String? = null) {
+        val m = prep.measById(mid)?.second ?: return
+        val fresh = sel?.id != mid
+        sel = SpSel(s, id = mid)
+        if (measure != null) active = measure else if (fresh) active = SurveyMeas.key(m)
+        if (tab != s && tab != "list") { tab = s; mode = "mark" }
+        rev++
+    }
+    /** No Tape or Line half drawn: a drag let go of, the area's corners forgotten (a tool, a face or a step changed). */
+    fun dropDrafts() { mdrag = null; area = null; areaS = null }
+    /**
+     * A TAPE OR A LINE LET GO (v52 slice 9, sp.js measureDown.end): off the surface it is REFUSED -- "Only things on
+     * this surface measure correctly.", nothing plotted, NO undo entry; under 20 mm nothing happens; otherwise it is
+     * plotted with its next code (F-T1, F-M1 …), picked, and a Line's reading is the one being taken. One ↶ step.
+     */
+    fun endDrag(d: SurveyMeas.Draft) {
+        mdrag = null
+        when (SurveyMeas.end(d)) {
+            SurveyMeas.End.REFUSED -> snack(SurveyMeas.OFF_REFUSAL, undo = false)
+            SurveyMeas.End.SHORT -> Unit
+            SurveyMeas.End.PLOTTED -> {
+                snapshot()
+                val m = prep.addMeas(d.s, d.kind, d.pts(), java.util.UUID.randomUUID().toString().take(8))
+                sel = SpSel(d.s, id = m.id); active = SurveyMeas.key(m)
+                changed()
+            }
+        }
+        rev++
+    }
+    /**
+     * A TAP WITH LINE ON BUILDS AN AREA (sp.js polyTap): the first corner starts it, each tap adds one, and a double tap
+     * -- or a tap on the first corner ([nearFirst], within 18 dp) -- once it has three closes it as F-M2 …, picked, its
+     * perimeter the reading to take. A corner off the surface is refused like a drag. [mm] where the finger went down.
+     */
+    fun areaTap(mm: DoubleArray, nearFirst: Boolean, double: Boolean) {
+        val s = tab; val a = ab(s)
+        val pts = if (areaS == s) area ?: emptyList() else emptyList()
+        when (SurveyMeas.areaTap(pts, mm, a[0], a[1], double, nearFirst)) {
+            SurveyMeas.Tap.REFUSED -> snack(SurveyMeas.OFF_REFUSAL, undo = false)
+            SurveyMeas.Tap.STARTED -> { area = listOf(mm); areaS = s }
+            SurveyMeas.Tap.ADDED -> area = pts + listOf(mm)
+            SurveyMeas.Tap.IGNORED -> Unit
+            SurveyMeas.Tap.CLOSED -> {
+                snapshot()
+                val m = prep.addMeas(s, SurveyMeas.AREA, pts, java.util.UUID.randomUUID().toString().take(8))
+                dropDrafts()
+                sel = SpSel(s, id = m.id); active = SurveyMeas.key(m)
+                changed()
+            }
+        }
+        rev++
     }
     /**
      * ⋮ CLEAR THIS SURFACE / CLEAR WHOLE ROOM (sp.js armClear / clearItems): the first tap arms ("Tap again to clear
@@ -527,7 +600,7 @@ internal fun SurveyPrepDialog(
         snapshot()
         val r = SurveyPrepEdit.clearItems(prep, scope, tab)
         if (r.n == 0) { hist.removeAt(hist.size - 1); return }
-        sel = null; active = null; menuOpen = false; ctx = null
+        sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()
         snack(SurveyPrepEdit.clearedSnack(r.n, r.kept))
         changed()
     }
@@ -546,10 +619,10 @@ internal fun SurveyPrepDialog(
         changed()
     }
     // a face or a step changed: back to Select, the More sheet shut (sp.js showTab / setMode)
-    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; rev++ }
+    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
-        mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; rev++
+        mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
     fun openLwh() {
@@ -828,7 +901,15 @@ internal fun SurveyPrepDialog(
                     onLongPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
                     onRefuse = { code -> refuse(code) },
                     onLinesLocked = { say(SurveyPrepEdit.LINES_REFUSAL) },
-                    onRevert = { revertPress() })
+                    onRevert = { revertPress() },
+                    drag = mdrag, area = if (areaS == tab) area else null,
+                    onDragStart = { d -> mdrag = d; rev++ },
+                    onDragMove = { rev++ },
+                    onDragEnd = { d -> endDrag(d) },
+                    onDragCancel = { mdrag = null; rev++ },
+                    onAreaTap = { mm, near, dbl -> areaTap(mm, near, dbl) },
+                    onTapeTap = { say(SurveyMeas.TAPE_TAP) },
+                    onPickMeas = { mid -> selectMeas(tab, mid) })
             }
             notesOver()
         }
@@ -839,7 +920,7 @@ internal fun SurveyPrepDialog(
     val surfaceBlock: @Composable (String, Boolean) -> Unit = { s, room ->
         val a = ab(s); val tg = SurveyPrep.sizeTag(s)
         val act = active
-        val actHere = act != null && prep.markOf(act)?.first == s
+        val actHere = act != null && prep.ownerOf(act)?.s == s
         Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
             Row(Modifier.fillMaxWidth().padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (room) SurveyPrep.NAME.getValue(s) else "${SurveyPrep.NAME[s]} · its list", color = SP_FG,
@@ -865,8 +946,9 @@ internal fun SurveyPrepDialog(
                 }
             }
             if (!room || prep.surface(s).done()) {
-                SpTable(s, prep, a, rev, sel, active, show,
+                SpTable(s, prep, a, rev, sel, active, show, room,
                     onRow = { e, code -> selectMark(s, e, code) },
+                    onMeasRow = { m, code -> selectMeas(s, m.id, code) },
                     onDelete = { deleteMark(it) },
                     onFocus = { active = it },
                     onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
@@ -942,17 +1024,37 @@ internal fun SurveyPrepDialog(
                 }
                 for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land, enabled = !lk) { nudgeMark(dx, dy) }
                 SpPadlock(lk, if (lk) "Unlock ${sm.code}" else "Lock ${sm.code}") { toggleLock(sm.id) }
-                SpButton("Delete", Modifier.weight(1.4f), SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
+                SpButton("Delete", Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sm.id) ?: "Delete" },
+                    SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
             }
         }
-        // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering
+        // A PICKED TAPE, LINE OR AREA (v52 slice 9, sp.js 1505-1507): its own row -- "F-T1 · Tape · 1234 mm", "F-M1 ·
+        // 1234 mm" once read (else "≈1234 mm"), "F-M2 · 1.86 m²" -- with its padlock and Delete. A tape has NO D2 strip
+        // under it (it has no reading); a Line's strip follows, as a mark's does.
+        val sq = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).meas.firstOrNull { it.id == sl.id } }
+        if (sq != null) {
+            val lk = SurveyPrep.isLocked(sq)
+            val tp = sq.kind == SurveyMeas.TAPE
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(sq.code, color = Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1)
+                Text(SurveyMeas.rowValue(sq, prep.actual), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                    lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                SpPadlock(lk, if (lk) "Unlock ${sq.code}" else "Lock ${sq.code}") { toggleLock(sq.id) }
+                SpButton("Delete", Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sq.id) ?: "Delete" },
+                    SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
+            }
+        }
+        // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, or a
+        // Line's length / an area's perimeter (v52 slice 9: the D2 and the keyboard land on F-M1.len, F-M2.per)
         val act = active
-        val am = act?.let { prep.markOf(it) }?.takeIf { mode == "mark" && it.first == tab }
-        val mm = am?.let { (s, e) -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).firstOrNull { e.code + "." + it.key == act } }
+        val am = act?.let { a -> prep.readingOf(a) { ab(it) } }?.takeIf { mode == "mark" && it.first == tab }
+        val mm = am?.second
         if (am != null && mm != null && act != null) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("▶ ${am.second.code} ${mm.what}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
+                Text("▶ ${act.substringBeforeLast('.')} ${mm.what}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, modifier = Modifier.weight(1f))
                 Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp, lineHeight = 15.sp)
@@ -1038,7 +1140,7 @@ internal fun SurveyPrepDialog(
                     armed = false
                     val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                     hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
-                    ctx = null; armedClear = null; menuOpen = false; hideSnack()
+                    ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
                     prep = r.prep; SurveyPrepEdit.startedOver(r.kept)?.let { say(it) }; changed()
                 }
             }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
@@ -1168,9 +1270,10 @@ internal fun SurveyPrepDialog(
             // ---- THE LONG-PRESS MENU (v52 slice 8): Delete · Duplicate · Lock/Unlock · Lock all <type> · Cancel, its
             // top-left 24 dp left of and 12 dp above the press, kept 4 dp inside the screen in either orientation
             // (sp.js 1471). Under it, the whole screen takes a press as Cancel, so nothing beneath moves while it is open.
-            val cm = ctx?.let { c -> prep.markById(c.id)?.let { c to it } }
+            // ... on a mark, a Tape or a Line (v52 slice 9: "Lock all tapes", "Lock all Line marks")
+            val cm = ctx?.let { c -> SurveyPrepEdit.menuHeaderOf(prep, c.id)?.let { c to it } }
             if (cm != null) {
-                val (c, mo) = cm
+                val (c, head) = cm
                 Box(Modifier.fillMaxSize()
                     .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume(); ctx = null } }
                     .semantics { onClick(label = "Close the menu") { ctx = null; true } })
@@ -1179,7 +1282,7 @@ internal fun SurveyPrepDialog(
                 val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { 232.dp.toPx() }
                 val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
                 val top = (c.y - rootTop - with(dens) { 12.dp.toPx() }).coerceAtMost(rootH - mh - edge).coerceAtLeast(edge)
-                SpCtxMenu(SurveyPrepEdit.menuHeader(mo.first, mo.second), SurveyPrepEdit.menuItems(prep, mo.first, mo.second),
+                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(prep, c.id),
                     Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
@@ -1310,6 +1413,20 @@ private fun SpPhoto(
     onLinesLocked: () -> Unit,
     /** A long press opened the menu on a grab the finger's drift had moved: put the press's change back. */
     onRevert: () -> Unit,
+    /** v52 slice 9: the Tape or Line being pulled (drawn, and named live on the chip), and a Line area's corners so far. */
+    drag: SurveyMeas.Draft?,
+    area: List<DoubleArray>?,
+    /** A drag with Tape or Line on has begun (from where the finger went down) / moved on / been let go / been cancelled. */
+    onDragStart: (SurveyMeas.Draft) -> Unit,
+    onDragMove: () -> Unit,
+    onDragEnd: (SurveyMeas.Draft) -> Unit,
+    onDragCancel: () -> Unit,
+    /** A tap with Line on, at (x, y) mm: whether it is on the area's first corner (18 dp), and whether a double tap. */
+    onAreaTap: (DoubleArray, Boolean, Boolean) -> Unit,
+    /** A tap with Tape on and no drag. */
+    onTapeTap: () -> Unit,
+    /** With Select on, a press within 12 dp of a tape's band or a Line: it is picked (hit-order step 10, after the marks). */
+    onPickMeas: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1324,6 +1441,11 @@ private fun SpPhoto(
     val toolS by rememberUpdatedState(tool); val onPlaceS by rememberUpdatedState(onPlace)
     val onLongPressS by rememberUpdatedState(onLongPress); val onRefuseS by rememberUpdatedState(onRefuse)
     val onLinesLockedS by rememberUpdatedState(onLinesLocked); val onRevertS by rememberUpdatedState(onRevert)
+    val areaS by rememberUpdatedState(area)
+    val onDragStartS by rememberUpdatedState(onDragStart); val onDragMoveS by rememberUpdatedState(onDragMove)
+    val onDragEndS by rememberUpdatedState(onDragEnd); val onDragCancelS by rememberUpdatedState(onDragCancel)
+    val onAreaTapS by rememberUpdatedState(onAreaTap); val onTapeTapS by rememberUpdatedState(onTapeTap)
+    val onPickMeasS by rememberUpdatedState(onPickMeas)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -1340,7 +1462,12 @@ private fun SpPhoto(
     var fitAt by remember { mutableStateOf<Rect?>(null) }
     // ... and off the tool chip (v52 slice 7, ct52 FX14): read only while a chip is shown
     var chipAt by remember { mutableStateOf<Rect?>(null) }
-    val chipText = if (mode == "mark") SurveyPrepPalette.chipText(tab, tool) else null
+    // With Tape or Line on (v52 slice 9) the chip says what the tool does, live while a drag is pulled, and the
+    // caution under it; with a type on, "Placing Door · tap the photo"
+    val measTool = tool in SurveyPrepPalette.TOOLS
+    val chipText = if (mode != "mark") null
+                   else if (measTool) SurveyMeas.chipText(tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
+                   else SurveyPrepPalette.chipText(tab, tool)
 
     // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
     // for marking"): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left).
@@ -1444,6 +1571,25 @@ private fun SpPhoto(
         }
     }
 
+    /** Canvas px ([sx], [sy]) as mm on the squared face; null without one. */
+    fun mmAt(sx: Float, sy: Float): DoubleArray? {
+        val r = rectS ?: return null; val at = fromS(sx, sy)
+        return doubleArrayOf(r.sq.mmX(at[0]), r.sq.mmY(at[1]))
+    }
+
+    /** HIT-ORDER STEP 10 (v52 slice 9, sp.js mHit): with Select on and nothing else under the finger, the tape band or
+     *  Line within 12 dp of it -- the nearest. Its id, or null. */
+    fun hitMeas(sx: Float, sy: Float): String? {
+        val r = rectS ?: return null; val sq = r.sq
+        val ms = prepS.surface(tab).meas.filter { SurveyMeas.known(it.kind) }
+        if (ms.isEmpty()) return null
+        val ppm = k() / sq.mpp     // canvas px per face mm
+        val dpx = density.density.toDouble()
+        val shapes = ms.map { m -> m to m.pts.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } } }
+        return SurveyMeas.pick(shapes, sx.toDouble(), sy.toDouble(), SurveyMeas.PICK_DP * dpx) { m ->
+            if (m.kind == SurveyMeas.TAPE) max(SurveyMeas.TAPE_W / 2 * ppm, SurveyMeas.TAPE_MIN_HALF_DP * dpx) else 0.0 }
+    }
+
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
         val j = g.focusSlot?.let { SurveyPrep.junctions(tab, prepS.surface(tab).lines, it) }
         return SpLoupe(j ?: listOf(doubleArrayOf(ix, iy)), finger)
@@ -1501,21 +1647,61 @@ private fun SpPhoto(
                 val slideCx = cx; val slideCy = cy
                 // the tool as the press began: a tap places the type that was on when the finger went down
                 val tool0 = toolS
-                val placing = mode == "mark" && tool0 != SurveyPrepPalette.SEL
+                val placing = mode == "mark" && SurveyPrepPalette.isType(tool0)
+                // TAPE OR LINE ON (v52 slice 9): a drag pulls one from where the finger went down; a tap is a Line area's
+                // corner (or, with Tape, the hint); nothing under the finger is picked or moved meanwhile (sp.js hit)
+                val measOn = mode == "mark" && tool0 in SurveyPrepPalette.TOOLS
+                var draft: SurveyMeas.Draft? = null
+                var measDragged = false
+                // a long still press with Tape or Line on is a slow tap: it acts when the finger lifts without a drag
+                var heldTap = false
+                var gone = false
+                // with Select on, the Tape or Line a press picked (hit-order step 10): the long press opens its menu
+                var pickedMeas: String? = null
 
                 fun tapAt(x: Double, y: Double) {
                     if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat(), tool0)
                 }
+                /** A tap with Tape or Line on, at canvas ([x], [y]): the Tape's hint, or a Line area's corner. */
+                fun measTap(x: Double, y: Double, dbl: Boolean) {
+                    if (tool0 == SurveyPrepPalette.TAPE) { onTapeTapS(); return }
+                    val mm = mmAt(x.toFloat(), y.toFloat()) ?: return
+                    val a = areaS; val r = rectS
+                    val near = a != null && a.size >= 3 && r != null &&
+                        toS(r.sq.x(a[0][0]), r.sq.y(a[0][1])).let { q -> hypot(q[0] - x, q[1] - y) } < SurveyMeas.CLOSE_DP.dp.toPx()
+                    onAreaTapS(mm, near, dbl)
+                }
                 fun act(evs: List<GestureClassifier.Event>) {
                     for (e in evs) if (!spent) when (e) {
                         // the press: what is under it is picked now, as sp.js picks on pointerdown
-                        is GestureClassifier.Event.Down -> {
+                        is GestureClassifier.Event.Down -> if (!measOn) {
                             val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
                                     else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
                             // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
                             if (h != null) { grab = h; onGrabS(h.sel); gc.grabbed() }
+                            // nothing grabbed and Select on: a Tape or a Line within 12 dp is picked (it does not move)
+                            else if (mode == "mark" && tool0 == SurveyPrepPalette.SEL && !tagged)
+                                hitMeas(e.x.toFloat(), e.y.toFloat())?.let { mid -> pickedMeas = mid; onPickMeasS(mid) }
                         }
-                        is GestureClassifier.Event.Drag -> {
+                        // A DRAG WITH TAPE OR LINE ON PULLS ONE (v52 slice 9): from the down point, snapped at 5° to the face's
+                        // horizontal or vertical (SurveyMeas.Draft), the magnifier on the finger; let go, it is plotted or
+                        // refused by the dialog. With a Line area started, a drag draws nothing (sp.js: taps only).
+                        is GestureClassifier.Event.Drag -> if (measOn) {
+                            if (draft == null && !(tool0 == SurveyPrepPalette.LINE && !areaS.isNullOrEmpty())) {
+                                val m0 = mmAt((e.x - e.dx).toFloat(), (e.y - e.dy).toFloat())
+                                val ab0 = abS
+                                if (m0 != null) {
+                                    val d = SurveyMeas.Draft(tab, if (tool0 == SurveyPrepPalette.TAPE) SurveyMeas.TAPE else SurveyMeas.LINE, m0, ab0[0], ab0[1])
+                                    draft = d; measDragged = true; onDragStartS(d)
+                                }
+                            }
+                            val d = draft
+                            if (d != null) {
+                                mmAt(e.x.toFloat(), e.y.toFloat())?.let { d.move(it) }
+                                loupe = SpLoupe(listOf(fromS(e.x.toFloat(), e.y.toFloat())), Offset(e.x.toFloat(), e.y.toFloat()))
+                                onDragMoveS()
+                            }
+                        } else {
                             // a drag from empty photo with a type on: placed where the finger went down, then carried
                             if (e.first && grab == null && placing && !tagged) {
                                 val sx0 = (e.x - e.dx).toFloat(); val sy0 = (e.y - e.dy).toFloat()
@@ -1545,14 +1731,15 @@ private fun SpPhoto(
                         // A TAP: with Select on, the press already picked what was under it; with a type on and
                         // nothing under it, the type goes where the finger went down. A double tap acts as a tap
                         // here: the Line's area and the Chain give it a meaning of its own (slices 9 and 11).
-                        is GestureClassifier.Event.Tap -> tapAt(e.x, e.y)
-                        is GestureClassifier.Event.DoubleTap -> tapAt(e.x, e.y)
+                        is GestureClassifier.Event.Tap -> if (measOn) measTap(e.x, e.y, false) else tapAt(e.x, e.y)
+                        // a double tap closes a Line area of three corners or more (v52 slice 9)
+                        is GestureClassifier.Event.DoubleTap -> if (measOn) measTap(e.x, e.y, true) else tapAt(e.x, e.y)
                         // A LONG PRESS WITH A TYPE ON IS A SLOW TAP: sp.js places on the press however long it is held
                         // (its long-press timer is armed for Select only, sp.js 929 / 1177), so the type goes where
                         // the finger went down and a slide after it carries the mark. With Select on it opens the
                         // menu of the mark under it (below).
-                        is GestureClassifier.Event.LongPress -> {
-                            val gid = grab?.sel?.id
+                        is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else {
+                            val gid = grab?.sel?.id ?: pickedMeas
                             if (grab == null && placing && !tagged)
                                 placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
                             // THE LONG-PRESS MENU (v52 slice 8, sp.js openCtx): with Select on, held on a mark (locked
@@ -1565,9 +1752,13 @@ private fun SpPhoto(
                                 onLongPressS(gid, Offset(e.x.toFloat() + photoAt.x, e.y.toFloat() + photoAt.y))
                             }
                         }
-                        is GestureClassifier.Event.DragEnd -> Unit
-                        // a second finger: the pinch takes over, and the grab lets go (what it moved stays)
-                        is GestureClassifier.Event.Cancel -> { grab = null; loupe = null }
+                        is GestureClassifier.Event.DragEnd -> if (measOn) draft?.let { d -> draft = null; loupe = null; onDragEndS(d) }
+                        // a second finger: the pinch takes over, and the grab lets go (what it moved stays); a Tape or Line
+                        // being pulled is dropped, nothing plotted (sp.js: "a second finger ends the drag, nothing plotted")
+                        is GestureClassifier.Event.Cancel -> {
+                            grab = null; loupe = null; gone = true
+                            if (draft != null) { draft = null; onDragCancelS() }
+                        }
                     }
                 }
 
@@ -1607,12 +1798,16 @@ private fun SpPhoto(
                         break
                     }
                 }
+                // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
+                if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
+                // a drag the loop left (the gesture ended any other way): nothing plotted
+                if (draft != null) { draft = null; onDragCancelS() }
                 loupe = null
                 if (moved) onChangedS() else tick++
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText
+            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area
             val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
             val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
             drawIntoCanvas { cv ->
@@ -1627,7 +1822,7 @@ private fun SpPhoto(
                     else rect?.let { r ->
                         SurveyPrepDraw.drawMarks(c, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
-                            density.density), mm, u)
+                            density.density, drag = drag?.takeIf { it.s == tab }, area = area), mm, u)
                     }
                 }
                 tags.clear()
@@ -1636,11 +1831,16 @@ private fun SpPhoto(
                 // by SurveyPrepTouch.trashSpot so it never covers one of its figures -- a tap on a figure never deletes
                 trashAt[0] = null
                 // with a type on the disc is not drawn (sp.js 801: "with a drawing tool on, the trash stays in the bar")
-                val picked = if (mode == "mark" && tool == SurveyPrepPalette.SEL) sel?.takeIf { it.s == tab }?.id?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } } else null
+                val pickedId = if (mode == "mark" && tool == SurveyPrepPalette.SEL) sel?.takeIf { it.s == tab }?.id else null
+                val picked = pickedId?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } }
+                // ... or beside a picked Tape, Line or area (v52 slice 9): round the box of its points
+                val pickedM = if (picked == null) pickedId?.let { sid -> prep.surface(tab).meas.firstOrNull { it.id == sid && it.pts.isNotEmpty() } } else null
                 val rr = rect
-                if (picked != null && rr != null) {
+                if ((picked != null || pickedM != null) && rr != null) {
                     val dpx = density.density
-                    val bb = if (SurveyPrep.isPoint(picked.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
+                    val bb = if (pickedM != null) pickedM.pts.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])) }.let { ps ->
+                        SurveyPrepTouch.Box(ps.minOf { it[0] }.toDouble(), ps.minOf { it[1] }.toDouble(), ps.maxOf { it[0] }.toDouble(), ps.maxOf { it[1] }.toDouble()) }
+                    else if (SurveyPrep.isPoint(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
                         SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
                     else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
                         SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
@@ -1705,8 +1905,9 @@ private fun SpPhoto(
         // the fit button stays clear; ✕ goes back to Select. Hidden with Select on.
         if (chipText != null) {
             Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
-                SpToolChip(chipText, SurveyPrep.typeOf(tab, tool).colour,
-                    Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() }) { onTool(SurveyPrepPalette.SEL) }
+                SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool),
+                    Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() },
+                    caution = if (measTool) SurveyMeas.CAUTION else null) { onTool(SurveyPrepPalette.SEL) }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
@@ -1721,12 +1922,20 @@ private fun SpPhoto(
     }
 }
 
-/** One surface's checklist: Mark | Measure | ≈ Photo | Measured (+ D2) | Δ. Tapping a row selects its mark. */
+/**
+ * One surface's checklist: Mark | Measure | ≈ Photo | Measured (+ D2) | Δ. Tapping a row selects its mark.
+ * v52 slice 9 (item 6): every item's TYPE NAME stands on its own line under its code -- "Door", "Electric point",
+ * "Marked length", "Marked area · 1.86 m²", and on the room's List tab ([room]) " · Front wall" after it; the column
+ * title is "≈ Photo" in full; every Delete is labelled from its item ("Delete F-M1 marked length", "Delete FD1 Door").
+ * After the marks come the Lines and areas, each with its one reading row (its length, its perimeter), and the tapes:
+ * "Tape · 1234 mm · from the photo" with the note that a tape has no reading box -- and none.
+ */
 @Composable
 private fun SpTable(
     s: String, prep: SurveyPrep.Prep, ab: DoubleArray, rev: Int,
-    sel: SpSel?, active: String?, show: String,
+    sel: SpSel?, active: String?, show: String, room: Boolean,
     onRow: (SurveyPrep.Mark, String) -> Unit,
+    onMeasRow: (SurveyPrep.Meas, String?) -> Unit,
     onDelete: (String) -> Unit,
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
@@ -1735,48 +1944,79 @@ private fun SpTable(
 ) {
     rev
     val els = prep.surface(s).marks
-    if (els.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
+    val meas = prep.surface(s).meas.filter { SurveyMeas.known(it.kind) }
+    if (els.isEmpty() && meas.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
+    val where = if (room) " · " + SurveyPrep.NAME.getValue(s) else ""
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text("Mark", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
+        // the checklist's column, not a tool: it stays "Measure" (item 6)
         Text("Measure", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text("≈ Photo", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(54.dp), textAlign = TextAlign.End)
+        Text("≈ Photo", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+            modifier = Modifier.width(54.dp), textAlign = TextAlign.End)
         Text("Measured", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
         Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
+    }
+    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. */
+    @Composable
+    fun head(id: String, code: String, colour: Color, name: String) {
+        Column(Modifier.width(56.dp).padding(3.dp)) {
+            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
+            Text("Delete", color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
+                    .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, id) ?: "Delete $code" }
+                    .padding(horizontal = 6.dp, vertical = 3.dp))
+        }
+    }
+    /** One reading row: what · ≈ photo · the box and D2 · Δ. */
+    @Composable
+    fun line(code: String, mm: SurveyPrep.Measure, pick: () -> Unit) {
+        val a = prep.actual[code]; val act = active == code
+        val d = if (a != null && mm.est != null) a - mm.est!! else null
+        Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
+            .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text((if (act) "▶ " else "") + mm.what, color = SP_FG, fontSize = 11.sp, lineHeight = 12.sp, modifier = Modifier.weight(1f))
+            Text(if (show == "actual") "" else (mm.est?.let { "≈" + it.roundToInt() } ?: "site only"), color = Color(0xFFCFD3CB),
+                fontSize = if (mm.est == null) 9.sp else 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
+            Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SpMmField(code, a, act, Modifier.weight(1f), onFocus = { onFocus(code) }) { v -> onValue(code, v) }
+                Spacer(Modifier.width(3.dp))
+                SpD2(Modifier, small = true) { onFire(code) }
+            }
+            Text(if (show == "both" && d != null) SurveyPrepDraw.sgn(d) else "",
+                color = if (d != null && kotlin.math.abs(d) <= SurveyPrep.TOL) SP_OK else SP_AMB,
+                fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
+        }
     }
     for (e in els) {
         val ms = SurveyPrep.measures(s, e, ab[0], ab[1])
         val selM = sel?.id == e.id
         Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)) {
-            Column(Modifier.width(56.dp).padding(3.dp)) {
-                Text(e.code, color = SP_GOLD, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                Text(SurveyPrep.typeOf(s, e.t).name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
-                Text("Delete", color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
-                        .clickable { onDelete(e.id) }.padding(horizontal = 6.dp, vertical = 3.dp))
-            }
+            head(e.id, e.code, SP_GOLD, SurveyPrep.typeOf(s, e.t).name + where)
             Column(Modifier.weight(1f)) {
-                for (mm in ms) {
-                    val code = e.code + "." + mm.key; val a = prep.actual[code]; val act = active == code
-                    val d = if (a != null && mm.est != null) a - mm.est!! else null
-                    Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
-                        .clickable { onRow(e, code) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text((if (act) "▶ " else "") + mm.what, color = SP_FG, fontSize = 11.sp, lineHeight = 12.sp, modifier = Modifier.weight(1f))
-                        Text(if (show == "actual") "" else (mm.est?.let { "≈" + it.roundToInt() } ?: "site only"), color = Color(0xFFCFD3CB),
-                            fontSize = if (mm.est == null) 9.sp else 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
-                        Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            SpMmField(code, a, act, Modifier.weight(1f), onFocus = { onFocus(code) }) { v -> onValue(code, v) }
-                            Spacer(Modifier.width(3.dp))
-                            SpD2(Modifier, small = true) { onFire(code) }
-                        }
-                        Text(if (show == "both" && d != null) SurveyPrepDraw.sgn(d) else "",
-                            color = if (d != null && kotlin.math.abs(d) <= SurveyPrep.TOL) SP_OK else SP_AMB,
-                            fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
-                    }
-                }
+                for (mm in ms) { val code = e.code + "." + mm.key; line(code, mm) { onRow(e, code) } }
             }
         }
         if (SurveyPrep.outOf(e, ab[0], ab[1]))
             Text(SurveyPrep.outNote(e.code), color = SP_OUT, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
+    }
+    // THE LINES AND AREAS, then THE TAPES (v52 slice 9)
+    for (m in meas.sortedBy { if (it.kind == SurveyMeas.TAPE) 1 else 0 }) {
+        val selM = sel?.id == m.id
+        val tp = m.kind == SurveyMeas.TAPE
+        Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)
+            .let { if (tp) it.clickable { onMeasRow(m, null) } else it }) {
+            head(m.id, m.code, Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
+                if (tp) SurveyMeas.typeName(m) else SurveyMeas.listName(s, m, room))
+            Column(Modifier.weight(1f).padding(top = 3.dp)) {
+                if (tp) {
+                    // NO READING BOX: the tape's figure is the photo's
+                    Text(SurveyMeas.listName(s, m, room), color = SP_FG, fontSize = 11.sp, lineHeight = 13.sp)
+                    Text(SurveyMeas.TAPE_NOTE, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 3.dp))
+                } else for (mm in SurveyMeas.measures(m)) { val code = m.code + "." + mm.key; line(code, mm) { onMeasRow(m, code) } }
+            }
+        }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
     }
 }

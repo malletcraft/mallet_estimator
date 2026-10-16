@@ -35,15 +35,21 @@ class PaletteTest {
         assertEquals("Every mark type · Ceiling", SurveyPrepPalette.sheetTitle("ceil"))
     }
 
-    @Test fun `slots now Select, three types, More, and the tools slot in before the types`() {
+    @Test fun `slots now Select, Tape, Line, three types, More, and Chain slots in before the types`() {
         val now = SurveyPrepPalette.slots("wall")
-        assertEquals(5, now.size)
-        assertEquals("Select|Window|Door|Electric|More ▸", now.joinToString("|") { s ->
+        assertEquals(7, now.size)
+        // ct52 T2 without Chain (slice 11): Select · Tape · Line · Window · Door · Electric · More ▸ -- never "Measure"
+        assertEquals("Select|Tape|Line|Window|Door|Electric|More ▸", now.joinToString("|") { s ->
             when (s.kind) {
                 SurveyPrepPalette.SlotKind.SELECT -> "Select"
                 SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel("wall", SurveyPrepPalette.SEL)
+                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(s.key)
                 else -> SurveyPrepPalette.short(s.type?.name ?: s.key)
             } })
+        assertEquals(0xfacc15, SurveyPrepPalette.toolColour("T"))
+        assertEquals(0x7dd3fc, SurveyPrepPalette.toolColour("M"))
+        assertFalse(SurveyPrepPalette.isType("T")); assertFalse(SurveyPrepPalette.isType("M")); assertTrue(SurveyPrepPalette.isType("W"))
+        assertNull(SurveyPrepPalette.chipText("front", "T")); assertNull(SurveyPrepPalette.moreArmed("wall", "M"))
         // slice 11's palette: Tape, Line, Chain between Select and the types -- exactly eight
         val v52 = SurveyPrepPalette.slots("wall", listOf("T", "M", "K"))
         assertEquals(8, v52.size)
@@ -70,7 +76,7 @@ class PaletteTest {
     }
 
     @Test fun `exactly one slot is lit`() {
-        for ((kind, tool) in listOf("wall" to SurveyPrepPalette.SEL, "wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S")) {
+        for ((kind, tool) in listOf("wall" to SurveyPrepPalette.SEL, "wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M")) {
             val lit = SurveyPrepPalette.slots(kind).filter { SurveyPrepPalette.isOn(it, kind, tool) }
             assertEquals(1, lit.size, "$kind $tool")
         }

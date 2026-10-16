@@ -69,18 +69,25 @@ class SurveyPrepFileTest {
         val (o, back) = roundTrip(proto)
         assertEquals(norm(o), norm(back))
         @Suppress("UNCHECKED_CAST") val w = back["w"] as Map<String, Map<String, Any?>>
-        assertEquals(listOf("bottom", "top", "left", "right", "set", "els", "lock", "meas", "chains", "ref"), w.getValue("front").keys.toList())
+        // meas is read since slice 9 and written straight after els; the rest stay where they were
+        assertEquals(listOf("bottom", "top", "left", "right", "set", "els", "meas", "lock", "chains", "ref"), w.getValue("front").keys.toList())
         assertTrue("wall360" in w.keys)
         assertEquals("v52", (back["note"] as Map<*, *>)["by"])
-        // a decoded prep knows nothing of them, and keeps them anyway
+        // a decoded prep knows nothing of the others, and keeps them anyway
         val d = SurveyPrepFile.decode(parse(proto))!!
-        assertEquals(setOf("lock", "meas", "chains", "ref"), d.prep.surface("front").extra.keys)
+        assertEquals(setOf("lock", "chains", "ref"), d.prep.surface("front").extra.keys)
         assertEquals(mapOf("locked" to true), d.prep.surface("front").marks[0].extra)
+        // the tape is read as one (v52 slice 9), its locked flag kept with it in the prototype's own key order
+        val t = d.prep.surface("front").meas.single()
+        assertEquals("tape", t.kind); assertEquals("FT1", t.code); assertEquals(mapOf("locked" to false), t.extra)
+        @Suppress("UNCHECKED_CAST") val m0 = (w.getValue("front")["meas"] as List<Map<String, Any?>>)[0]
+        assertEquals(listOf("id", "code", "kind", "locked", "pts"), m0.keys.toList())
     }
 
     @Test fun `copies keep what the file carried -- an undo or a Save never drops it`() {
         val p = SurveyPrepFile.decode(parse(proto))!!.prep.copy().copy()
-        assertEquals(setOf("lock", "meas", "chains", "ref"), p.surface("front").extra.keys)
+        assertEquals(setOf("lock", "chains", "ref"), p.surface("front").extra.keys)
+        assertEquals(1, p.surface("front").meas.size)
         assertEquals(true, p.surface("front").marks[0].copy().extra["locked"])
         assertEquals(setOf("note"), p.extra.keys)
         assertEquals(setOf("wall360"), p.extraSurfaces.keys)
