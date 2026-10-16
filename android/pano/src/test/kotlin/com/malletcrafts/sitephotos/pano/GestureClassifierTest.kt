@@ -137,4 +137,51 @@ class GestureClassifierTest {
         g.down(0.0, 0.0, 200)
         assertTrue(g.up(0.0, 0.0, 220).single() is Event.Tap)
     }
+
+    @Test fun `a system cancel after a still press is only a Cancel, and leaves no tap behind`() {
+        val g = gc()
+        g.down(100.0, 100.0, 0)
+        assertEquals(listOf<Event>(Event.Cancel), g.cancel())
+        // the phantom press recorded no tap: the next one, close and soon, is a Tap and not a DoubleTap
+        g.down(102.0, 100.0, 100)
+        assertEquals(listOf<Event>(Event.Tap(102.0, 100.0)), g.up(102.0, 100.0, 130))
+    }
+
+    @Test fun `a move inside the slop at 500 ms reports the long press without the clock being fed`() {
+        val g = gc()
+        g.down(50.0, 50.0, 0)
+        assertEquals(emptyList(), g.move(52.0, 50.0, 300))
+        assertEquals(listOf<Event>(Event.LongPress(50.0, 50.0)), g.move(53.0, 50.0, 520))
+        assertNull(g.deadline())
+        assertEquals(emptyList(), g.up(53.0, 50.0, 600))
+    }
+
+    @Test fun `a grabbed press drags from the first move, and is still a tap when it lifts inside the slop`() {
+        val g = gc()
+        g.down(100.0, 100.0, 0)
+        g.grabbed()
+        assertEquals(listOf<Event>(Event.Drag(105.0, 100.0, 5.0, 0.0, true)), g.move(105.0, 100.0, 20))
+        assertEquals(listOf<Event>(Event.Drag(108.0, 101.0, 8.0, 1.0, false)), g.move(108.0, 101.0, 40))
+        assertEquals(listOf<Event>(Event.Tap(100.0, 100.0)), g.up(108.0, 101.0, 80))
+    }
+
+    @Test fun `a grabbed press past the slop is one drag, its first reported once`() {
+        val g = gc()
+        g.down(100.0, 100.0, 0)
+        g.grabbed()
+        assertTrue((g.move(104.0, 100.0, 10).single() as Event.Drag).first)
+        assertEquals(listOf<Event>(Event.Drag(130.0, 100.0, 30.0, 0.0, false)), g.move(130.0, 100.0, 20))
+        assertEquals(listOf<Event>(Event.DragEnd(130.0, 100.0)), g.up(130.0, 100.0, 40))
+        // the grab belongs to that press only: the next press waits for the slop again
+        g.down(300.0, 300.0, 1000)
+        assertEquals(emptyList(), g.move(305.0, 300.0, 1010))
+    }
+
+    @Test fun `a grabbed press still long-presses, and its moves inside the slop carry the clock`() {
+        val g = gc()
+        g.down(0.0, 0.0, 0)
+        g.grabbed()
+        assertEquals("Drag,LongPress", names(g.move(3.0, 0.0, 510)))
+        assertEquals(emptyList(), g.up(3.0, 0.0, 600))
+    }
 }

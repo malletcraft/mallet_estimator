@@ -22,6 +22,9 @@ import kotlin.math.hypot
  *    drags (the caller decides what a long press then means: slice 8's menu);
  *  - [Event.Cancel] when a SECOND finger comes down (the pinch takes over) or the system cancels: nothing
  *    more is reported until every finger is up, so no tap or drag end follows a cancelled gesture.
+ * A press that GRABBED something ([grabbed], told by the caller after [Event.Down]) drags from the first pixel,
+ * as sp.js moves a grab on every pointermove: within the slop it still reports [Event.Drag] on every move, while
+ * tap-versus-drag and the long press keep the slop -- a fine adjustment under the loupe is never a dead zone.
  * Timings as the prototype's: long press 500 ms (sp.js 929), double tap 450 ms within 24 dp (sp.js 531).
  */
 class GestureClassifier(
@@ -57,6 +60,10 @@ class GestureClassifier(
     private var x0 = 0.0; private var y0 = 0.0; private var t0 = 0L
     private var long = false
     private var double = false
+    /** The press grabbed a line, a mark or a tab: its moves are reported from the first pixel. */
+    private var grab = false
+    /** A Drag was already reported for this press (within the slop, for a grab). */
+    private var dragged = false
     /** The last tap's point and lift time, while a double tap is still possible. */
     private var lastTap: DoubleArray? = null; private var lastTapT = 0L
 
@@ -69,9 +76,12 @@ class GestureClassifier(
         val lt = lastTap
         double = lt != null && t - lastTapT <= doubleMs && hypot(x - lt[0], y - lt[1]) < doubleDist
         if (!double) lastTap = null
-        state = State.PRESSED; x0 = x; y0 = y; t0 = t; long = false
+        state = State.PRESSED; x0 = x; y0 = y; t0 = t; long = false; grab = false; dragged = false
         return listOf(Event.Down(x, y))
     }
+
+    /** The press (still down) grabbed something: report its moves at once, without waiting for the slop. */
+    fun grabbed() { if (state == State.PRESSED || state == State.DRAGGING) grab = true }
 
     /** The finger(s) moved; [pointers] how many are down. Two or more cancel. */
     fun move(x: Double, y: Double, t: Long, pointers: Int = 1): List<Event> {
@@ -80,7 +90,12 @@ class GestureClassifier(
             State.PRESSED -> {
                 if (hypot(x - x0, y - y0) > slop) {
                     state = State.DRAGGING; lastTap = null
-                    listOf(Event.Drag(x, y, x - x0, y - y0, true))
+                    val first = !dragged; dragged = true
+                    listOf(Event.Drag(x, y, x - x0, y - y0, first))
+                } else if (grab && (x != x0 || y != y0)) {
+                    // a grab follows the finger inside the slop; the press is still a press (tap, long press)
+                    val first = !dragged; dragged = true
+                    listOf<Event>(Event.Drag(x, y, x - x0, y - y0, first)) + timeout(t)
                 } else timeout(t)
             }
             State.DRAGGING -> listOf(Event.Drag(x, y, x - x0, y - y0, false))
@@ -119,7 +134,7 @@ class GestureClassifier(
     }
 
     /** Forget everything: the press was handled elsewhere (the floating trash, a step of the strip). */
-    fun reset() { state = State.IDLE; lastTap = null; long = false; double = false }
+    fun reset() { state = State.IDLE; lastTap = null; long = false; double = false; grab = false; dragged = false }
 
     private fun timeoutOnLift(t: Long): List<Event> {
         if (long || t - t0 < longMs) return emptyList()

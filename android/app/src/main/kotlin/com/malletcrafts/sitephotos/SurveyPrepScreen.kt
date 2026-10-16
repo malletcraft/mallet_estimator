@@ -390,10 +390,11 @@ internal fun SurveyPrepDialog(
      * are spots . dont let them resize. have its da 50 mm." -- a spot centred where he taps): the type's default
      * size centred on ([mx], [my]) mm and kept inside the face (SurveyPrep.placeAt), the new mark selected with its
      * first measurement active, one undo step. Off the face it says "Tap inside the front wall to place it" and
-     * places nothing. The tool stays on: the next tap places another.
+     * places nothing. The tool stays on: the next tap places another. [t] is the type that was on when the
+     * finger went DOWN (the photo's press captures it), not whatever the palette shows by the time it lifts.
      */
-    fun placeMark(mx: Double, my: Double): SurveyPrep.Mark? {
-        val s = tab; val t = tool; val a = ab(s)
+    fun placeMark(t: String, mx: Double, my: Double): SurveyPrep.Mark? {
+        val s = tab; val a = ab(s)
         if (mode != "mark" || SurveyPrep.types(s).none { it.letter == t }) return null
         if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { note = SurveyPrep.placeMiss(s); return null }
         snapshot()
@@ -686,7 +687,7 @@ internal fun SurveyPrepDialog(
                     stepAt = { x, y -> routeS(x, y) },
                     onStep = { k -> goStepS(k) },
                     tool = tool,
-                    onPlace = { mx, my -> placeMark(mx, my) },
+                    onPlace = { t, mx, my -> placeMark(t, mx, my) },
                     onTool = { t -> pickTool(t) })
             }
             note?.let { SpNote(it, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
@@ -1108,8 +1109,9 @@ private fun SpPhoto(
     onStep: (String) -> Unit,
     /** The palette's tool (v52 slice 7): SurveyPrepPalette.SEL, or the letter of the type a tap places. */
     tool: String,
-    /** Place the tool's type centred at (x, y) mm on this face: the new mark, or null when refused (off the face). */
-    onPlace: (Double, Double) -> SurveyPrep.Mark?,
+    /** Place type t (the letter that was on when the press began) centred at (x, y) mm on this face: the new
+     *  mark, or null when refused (off the face, or no longer a type of this face). */
+    onPlace: (String, Double, Double) -> SurveyPrep.Mark?,
     /** ✕ on the tool chip: a tool picked (SurveyPrepPalette.SEL). */
     onTool: (String) -> Unit,
 ) {
@@ -1221,12 +1223,13 @@ private fun SpPhoto(
     /**
      * A type placed under the finger at ([sx], [sy]) canvas px, and a grab that moves the new mark whole -- a drag
      * that starts on empty photo with a type on places it where the finger went down and carries it (sp.js
-     * placeAt, called on the press). Null when refused (off the face: the note says so) or without a squared face.
+     * placeAt, called on the press). [t] is the type captured when the press began. Null when refused (off the
+     * face: the note says so) or without a squared face.
      */
-    fun placeGrab(sx: Float, sy: Float): SpGrab? {
+    fun placeGrab(sx: Float, sy: Float, t: String): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         val at = fromS(sx, sy); val mx = sq.mmX(at[0]); val my = sq.mmY(at[1])
-        val e = onPlaceS(mx, my) ?: return null
+        val e = onPlaceS(t, mx, my) ?: return null
         val start = e.copy()
         return SpGrab(at[0], at[1], SpSel(tab, id = e.id), null) { jx, jy ->
             SurveyPrep.moveMark(e, start, "body", sq.mmX(jx) - mx, sq.mmY(jy) - my, ab[0], ab[1])
@@ -1251,8 +1254,10 @@ private fun SpPhoto(
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
-                // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there
-                val tr = if (mode == "mark") trashAt[0] else null
+                // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there.
+                // Only with Select on (sp.js fTrashSurf): with a type on, the disc is not there, so a placing tap
+                // beside the mark just placed can never land on it and delete that mark
+                val tr = if (mode == "mark" && toolS == SurveyPrepPalette.SEL) trashAt[0] else null
                 if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2]) {
                     gc.reset()
                     var at = first.position
@@ -1288,7 +1293,7 @@ private fun SpPhoto(
                 val placing = mode == "mark" && tool0 != SurveyPrepPalette.SEL
 
                 fun tapAt(x: Double, y: Double) {
-                    if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat())
+                    if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat(), tool0)
                 }
                 fun act(evs: List<GestureClassifier.Event>) {
                     for (e in evs) when (e) {
@@ -1296,13 +1301,14 @@ private fun SpPhoto(
                         is GestureClassifier.Event.Down -> {
                             val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
                                     else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
-                            if (h != null) { grab = h; onGrabS(h.sel) }
+                            // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
+                            if (h != null) { grab = h; onGrabS(h.sel); gc.grabbed() }
                         }
                         is GestureClassifier.Event.Drag -> {
                             // a drag from empty photo with a type on: placed where the finger went down, then carried
                             if (e.first && grab == null && placing && !tagged) {
                                 val sx0 = (e.x - e.dx).toFloat(); val sy0 = (e.y - e.dy).toFloat()
-                                placeGrab(sx0, sy0)?.let { grab = it; snapped = true }   // placing was its one undo step
+                                placeGrab(sx0, sy0, tool0)?.let { grab = it; snapped = true }   // placing was its one undo step
                             }
                             val g = grab
                             if (g != null) {
@@ -1323,9 +1329,13 @@ private fun SpPhoto(
                         // here: the Line's area and the Chain give it a meaning of its own (slices 9 and 11).
                         is GestureClassifier.Event.Tap -> tapAt(e.x, e.y)
                         is GestureClassifier.Event.DoubleTap -> tapAt(e.x, e.y)
-                        // A LONG PRESS is classified and left alone: it opens the mark's menu in slice 8 (sp.js
-                        // openCtx). Until then a finger that moves on after it still drags.
-                        is GestureClassifier.Event.LongPress -> Unit
+                        // A LONG PRESS WITH A TYPE ON IS A SLOW TAP: sp.js places on the press however long it is held
+                        // (its long-press timer is armed for Select only, sp.js 929 / 1177), so the type goes where
+                        // the finger went down and a slide after it carries the mark. With Select on it is
+                        // classified and left alone: it opens the mark's menu in slice 8 (sp.js openCtx).
+                        is GestureClassifier.Event.LongPress ->
+                            if (grab == null && placing && !tagged)
+                                placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
                         is GestureClassifier.Event.DragEnd -> Unit
                         // a second finger: the pinch takes over, and the grab lets go (what it moved stays)
                         is GestureClassifier.Event.Cancel -> { grab = null; loupe = null }
@@ -1358,9 +1368,13 @@ private fun SpPhoto(
                         val ch = down[0]; ch.consume()
                         act(gc.move(ch.position.x.toDouble(), ch.position.y.toDouble(), t, 1))
                     } else {
+                        // A SYSTEM CANCEL IS NOT A LIFT: Compose delivers ACTION_CANCEL (palm rejection, a system
+                        // gesture, the window losing touch) as every pointer up AND already consumed -- the test its
+                        // own waitForUpOrCancellation uses. Fed to up() it would be a Tap and place a mark.
+                        val cancelled = ev.changes.all { it.isConsumed }
                         ev.changes.forEach { it.consume() }
                         val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
-                        act(gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
+                        act(if (cancelled) gc.cancel() else gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
                         break
                     }
                 }
@@ -1392,7 +1406,8 @@ private fun SpPhoto(
                 // ---- THE FLOATING TRASH (v52): a 36 dp red disc with a white ring beside the picked mark, placed
                 // by SurveyPrepTouch.trashSpot so it never covers one of its figures -- a tap on a figure never deletes
                 trashAt[0] = null
-                val picked = if (mode == "mark") sel?.takeIf { it.s == tab }?.id?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } } else null
+                // with a type on the disc is not drawn (sp.js 801: "with a drawing tool on, the trash stays in the bar")
+                val picked = if (mode == "mark" && tool == SurveyPrepPalette.SEL) sel?.takeIf { it.s == tab }?.id?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } } else null
                 val rr = rect
                 if (picked != null && rr != null) {
                     val dpx = density.density
