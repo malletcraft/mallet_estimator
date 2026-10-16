@@ -5,6 +5,9 @@ import android.graphics.Paint
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -101,6 +104,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.GestureClassifier
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
+import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepEdit
@@ -204,9 +208,15 @@ internal fun SurveyPrepDialog(
     var mdrag by remember { mutableStateOf<SurveyMeas.Draft?>(null) }
     var area by remember { mutableStateOf<List<DoubleArray>?>(null) }
     var areaS by remember { mutableStateOf<String?>(null) }
-    /** No Tape or Line half drawn: a drag let go of, the area's corners forgotten (a tool, a face or a step changed).
+    // END POINTS THAT MOVE (v52 slice 10, item 8): while a Line's or a tape's end is dragged, the guide it shows --
+    // through the fixed end, on the axis it snapped onto (SurveyGuide.endGuide); null when no end is being dragged
+    var endG by remember { mutableStateOf<SurveyGuide.Guide?>(null) }
+    // THE PLANE GRID BUTTON (v52 slice 10, in the fit column): the grid on the face whether or not anything is drawn
+    var grid by remember { mutableStateOf(false) }
+    /** No Tape or Line half drawn and no end being dragged: a drag let go of, the area's corners forgotten (a tool, a
+     *  face or a step changed -- sp.js gClear, ct52 FX11), so no guide is left on.
      *  Declared here, above every caller -- a local function is visible only below its declaration. */
-    fun dropDrafts() { mdrag = null; area = null; areaS = null }
+    fun dropDrafts() { mdrag = null; area = null; areaS = null; endG = null }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
@@ -433,7 +443,7 @@ internal fun SurveyPrepDialog(
         sel = SpSel(s, id = e.id)
         if (measure != null) active = measure
         else if (fresh) active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; mode = "mark" }
+        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
         rev++
     }
     /** A finger down on a line or a mark: it is selected, with the part grabbed; a newly selected mark's
@@ -544,7 +554,7 @@ internal fun SurveyPrepDialog(
         val fresh = sel?.id != mid
         sel = SpSel(s, id = mid)
         active = SurveyMeas.pickActive(m, fresh, measure, active)
-        if (tab != s && tab != "list") { tab = s; mode = "mark" }
+        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
         rev++
     }
     /**
@@ -910,7 +920,12 @@ internal fun SurveyPrepDialog(
                     onDragCancel = { mdrag = null; rev++ },
                     onAreaTap = { mm, near, dbl -> areaTap(mm, near, dbl) },
                     onTapeTap = { say(SurveyMeas.TAPE_TAP) },
-                    onPickMeas = { mid -> selectMeas(tab, mid) })
+                    onPickMeas = { mid -> selectMeas(tab, mid) },
+                    guide = SurveyGuide.now(mdrag, endG, areaS, area, tool),
+                    grid = grid,
+                    onGrid = { grid = !grid; rev++ },
+                    onEndGuide = { g -> endG = g; rev++ },
+                    onSay = { t -> say(t) })
             }
             notesOver()
         }
@@ -1369,7 +1384,18 @@ internal data class SpCtx(val id: String, val x: Float, val y: Float)
  *  is locked (v52 slice 8) -- it is picked, nothing moves, and a drag says why once: the mark's code. (Locked lines
  *  make no grab at all: they are refused at the press.) */
 private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSlot: String?, val locked: String? = null,
+                     /** v52 slice 10: [locked] is an END's (a Line's, a tape's, an area's corner): its refusal is said,
+                      *  "F-M1 is locked — unlock to move it" (SurveyGuide.lockedEnd), not the mark's snackbar. */
+                     val endLock: Boolean = false,
+                     /** Where the magnifier looks while it is dragged, picture px: the moved end itself, after its snap. */
+                     val focus: (() -> DoubleArray)? = null,
+                     /** A second finger: what it does besides putting the moved geometry back (an end drag's guide off). */
+                     val cancel: (() -> Unit)? = null,
                      val move: (Double, Double) -> Unit)
+
+/** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
+ *  with Tape or Line on, a new one starts from exactly that point, [mm] on the face. */
+private class SpEnd(val grab: SpGrab, val mm: DoubleArray)
 
 /** The magnifier(s) while dragging: picture points to centre on, and the finger, canvas px. */
 private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
@@ -1428,6 +1454,17 @@ private fun SpPhoto(
     onTapeTap: () -> Unit,
     /** With Select on, a press within 12 dp of a tape's band or a Line: it is picked (hit-order step 10, after the marks). */
     onPickMeas: (String) -> Unit,
+    /** v52 slice 10: the perspective guide now (SurveyGuide.now) -- a Tape or Line pulled, an end dragged, a Line area
+     *  tapped -- or null; drawn on its own surface in 2 · Mark, fading in and out. */
+    guide: SurveyGuide.Guide?,
+    /** The grid button is on: the plane grid on the face, in 1 · Lines and 2 · Mark, whether or not anything is drawn. */
+    grid: Boolean,
+    /** The grid button pressed. */
+    onGrid: () -> Unit,
+    /** An end dragged (its guide), or let go / cancelled (null). */
+    onEndGuide: (SurveyGuide.Guide?) -> Unit,
+    /** A note to say (sp.js say): a locked end's refusal. */
+    onSay: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1447,6 +1484,7 @@ private fun SpPhoto(
     val onDragEndS by rememberUpdatedState(onDragEnd); val onDragCancelS by rememberUpdatedState(onDragCancel)
     val onAreaTapS by rememberUpdatedState(onAreaTap); val onTapeTapS by rememberUpdatedState(onTapeTap)
     val onPickMeasS by rememberUpdatedState(onPickMeas)
+    val onEndGuideS by rememberUpdatedState(onEndGuide); val onSayS by rememberUpdatedState(onSay)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -1466,6 +1504,21 @@ private fun SpPhoto(
     // With Tape or Line on (v52 slice 9) the chip says what the tool does, live while a drag is pulled, and the
     // caution under it; with a type on, "Placing Door · tap the photo"
     val measTool = tool in SurveyPrepPalette.TOOLS
+    // THE GUIDE'S FADE (v52 slice 10, sp.js guideState): while a Tape or a Line is drawn, or an end dragged, the grid
+    // and the two rays come in at 45 % and reach full in 150 ms; when the drawing ends they go out in 300 ms (the grid
+    // stays if its button is on). The last guide is kept for the fade out: what was being drawn has gone by then.
+    val guideHere = guide?.takeIf { it.s == tab && mode == "mark" }
+    val gAlpha = remember { Animatable(0f) }
+    val lastGuide = remember { arrayOfNulls<SurveyGuide.Guide>(1) }
+    if (guideHere != null) lastGuide[0] = guideHere
+    LaunchedEffect(guideHere != null) {
+        if (guideHere != null) {
+            gAlpha.snapTo(SurveyGuide.FADE_FROM.toFloat())
+            gAlpha.animateTo(1f, tween(SurveyGuide.FADE_IN_MS, easing = LinearEasing))
+        } else if (gAlpha.value > 0f) {
+            gAlpha.animateTo(0f, tween(SurveyGuide.fadeOutMs(gAlpha.value.toDouble()), easing = LinearEasing))
+        }
+    }
     val chipText = if (mode != "mark") null
                    else if (measTool) SurveyMeas.chipText(tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
                    else SurveyPrepPalette.chipText(tab, tool)
@@ -1591,9 +1644,44 @@ private fun SpPhoto(
             if (m.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(ppm, dpx) else 0.0 }
     }
 
+    /**
+     * END POINTS THAT MOVE (v52 slice 10, item 8; Amit, 14 Oct 2026 06:30 IST: "i can not move measure line once drawn.
+     * i should be able to place it by moving its end points."; sp.js endHit / endGrab): a press within 14 dp of the
+     * SELECTED Line's or tape's end, or an area's corner, on this face -- first in the hit order, before the marks.
+     * Its grab moves that one point (SurveyGuide.endMove: kept on the face, 5° onto the other end's horizontal or
+     * vertical, onto the face's and the marks' edges within 25 mm or 14 dp, 0.1 mm), the guide running through the
+     * fixed end; a locked one is picked and does not move. Not while a Line area is being tapped (its taps are
+     * corners). Null: no end under the finger.
+     */
+    fun endHit(sx: Float, sy: Float): SpEnd? {
+        val r = rectS ?: return null; val sq = r.sq
+        if (!areaS.isNullOrEmpty()) return null
+        val sid = selS?.takeIf { it.s == tab }?.id ?: return null
+        val m = prepS.surface(tab).meas.firstOrNull { it.id == sid && SurveyMeas.known(it.kind) } ?: return null
+        val scr = m.pts.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }
+        val i = SurveyGuide.endAt(scr, sx.toDouble(), sy.toDouble(), SurveyGuide.END_HIT_DP * density.density) ?: return null
+        val p0 = m.pts[i].copyOf(); val px = sq.x(p0[0]); val py = sq.y(p0[1])
+        val pick = SpSel(tab, id = m.id)
+        if (SurveyPrep.isLocked(m)) return SpEnd(SpGrab(px, py, pick, null, m.code, endLock = true) { _, _ -> }, p0)
+        // 14 dp in face mm at the scale the press was made at: squared px per mm over canvas px per squared px
+        val tol = SurveyGuide.endTol(density.density.toDouble(), sq.mpp / k())
+        val s = tab
+        val g = SpGrab(px, py, pick, null,
+            focus = { m.pts.getOrNull(i)?.let { q -> doubleArrayOf(sq.x(q[0]), sq.y(q[1])) } ?: doubleArrayOf(px, py) },
+            cancel = { onEndGuideS(null) }) { ix, iy ->
+            val ab = abS
+            SurveyGuide.endMove(s, m, i, doubleArrayOf(sq.mmX(ix), sq.mmY(iy)), ab[0], ab[1], prepS.surface(s).marks, tol)?.let { e ->
+                m.pts[i] = e.p
+                onEndGuideS(SurveyGuide.endGuide(s, m, e))
+            }
+        }
+        return SpEnd(g, p0)
+    }
+
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
         val j = g.focusSlot?.let { SurveyPrep.junctions(tab, prepS.surface(tab).lines, it) }
-        return SpLoupe(j ?: listOf(doubleArrayOf(ix, iy)), finger)
+        // an end being dragged: the magnifier shows the END where it has snapped to, not the finger's pixel (v52 slice 10)
+        return SpLoupe(j ?: listOf(g.focus?.invoke() ?: doubleArrayOf(ix, iy)), finger)
     }
 
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
@@ -1659,6 +1747,10 @@ private fun SpPhoto(
                 var gone = false
                 // with Select on, the Tape or Line a press picked (hit-order step 10): the long press opens its menu
                 var pickedMeas: String? = null
+                // v52 slice 10: with Tape or Line on, a press on the selected item's end starts the new one from that
+                // very point (tapes laid end to end, ct52 FX13); with Select on, the press grabbed an end
+                var startAt: DoubleArray? = null
+                var endGrabbed = false
 
                 fun tapAt(x: Double, y: Double) {
                     if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat(), tool0)
@@ -1666,7 +1758,7 @@ private fun SpPhoto(
                 /** A tap with Tape or Line on, at canvas ([x], [y]): the Tape's hint, or a Line area's corner. */
                 fun measTap(x: Double, y: Double, dbl: Boolean) {
                     if (tool0 == SurveyPrepPalette.TAPE) { onTapeTapS(); return }
-                    val mm = mmAt(x.toFloat(), y.toFloat()) ?: return
+                    val mm = startAt ?: mmAt(x.toFloat(), y.toFloat()) ?: return
                     val a = areaS; val r = rectS
                     val near = a != null && a.isNotEmpty() && r != null &&
                         toS(r.sq.x(a[0][0]), r.sq.y(a[0][1])).let { q ->
@@ -1676,21 +1768,28 @@ private fun SpPhoto(
                 fun act(evs: List<GestureClassifier.Event>) {
                     for (e in evs) if (!spent) when (e) {
                         // the press: what is under it is picked now, as sp.js picks on pointerdown
-                        is GestureClassifier.Event.Down -> if (!measOn) {
-                            val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
-                                    else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
-                            // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
-                            if (h != null) { grab = h; onGrabS(h.sel); gc.grabbed() }
-                            // nothing grabbed and Select on: a Tape or a Line within 12 dp is picked (it does not move)
-                            else if (mode == "mark" && tool0 == SurveyPrepPalette.SEL && !tagged)
-                                hitMeas(e.x.toFloat(), e.y.toFloat())?.let { mid -> pickedMeas = mid; onPickMeasS(mid) }
+                        is GestureClassifier.Event.Down -> {
+                            // FIRST, THE SELECTED ITEM'S ENDS (v52 slice 10, sp.js hit): with Select on the press grabs
+                            // the end; with Tape or Line on it starts a NEW one there -- it never stretches the old one
+                            val eh = if (mode == "mark" && (tool0 == SurveyPrepPalette.SEL || measOn)) endHit(e.x.toFloat(), e.y.toFloat()) else null
+                            if (eh != null && measOn) startAt = eh.mm
+                            else if (eh != null) { grab = eh.grab; endGrabbed = true; onGrabS(eh.grab.sel); gc.grabbed() }
+                            else if (!measOn) {
+                                val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
+                                        else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
+                                // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
+                                if (h != null) { grab = h; onGrabS(h.sel); gc.grabbed() }
+                                // nothing grabbed and Select on: a Tape or a Line within 12 dp is picked (it does not move)
+                                else if (mode == "mark" && tool0 == SurveyPrepPalette.SEL && !tagged)
+                                    hitMeas(e.x.toFloat(), e.y.toFloat())?.let { mid -> pickedMeas = mid; onPickMeasS(mid) }
+                            }
                         }
                         // A DRAG WITH TAPE OR LINE ON PULLS ONE (v52 slice 9): from the down point, snapped at 5° to the face's
                         // horizontal or vertical (SurveyMeas.Draft), the magnifier on the finger; let go, it is plotted or
                         // refused by the dialog. With a Line area started, a drag draws nothing (sp.js: taps only).
                         is GestureClassifier.Event.Drag -> if (measOn) {
                             if (draft == null && !(tool0 == SurveyPrepPalette.LINE && !areaS.isNullOrEmpty())) {
-                                val m0 = mmAt((e.x - e.dx).toFloat(), (e.y - e.dy).toFloat())
+                                val m0 = startAt ?: mmAt((e.x - e.dx).toFloat(), (e.y - e.dy).toFloat())
                                 val ab0 = abS
                                 if (m0 != null) {
                                     val d = SurveyMeas.Draft(tab, if (tool0 == SurveyPrepPalette.TAPE) SurveyMeas.TAPE else SurveyMeas.LINE, m0, ab0[0], ab0[1])
@@ -1715,7 +1814,8 @@ private fun SpPhoto(
                                 // moved (4 dp, sp.js 935), the refusal -- once per gesture
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
-                                    onRefuseS(g.locked)
+                                    // a locked END says so as a note (sp.js say), a locked mark with its snackbar
+                                    if (g.endLock) onSayS(SurveyGuide.lockedEnd(g.locked)) else onRefuseS(g.locked)
                                 }
                             } else if (g != null) {
                                 if (!snapped) { onBeforeChangeS(); snapped = true }
@@ -1758,8 +1858,16 @@ private fun SpPhoto(
                         // a second finger: the pinch takes over, and the grab lets go (what it moved stays); a Tape or Line
                         // being pulled is dropped, nothing plotted (sp.js: "a second finger ends the drag, nothing plotted")
                         is GestureClassifier.Event.Cancel -> {
+                            val g = grab
                             grab = null; loupe = null; gone = true
                             if (draft != null) { draft = null; onDragCancelS() }
+                            // AN END BEING DRAGGED GOES BACK (v52 slice 10, ct52 FX3: "a second finger puts the end
+                            // back"): the drag's own undo step is taken back off with its geometry, so the end is where
+                            // it was and there is no undo entry; its guide goes off
+                            g?.cancel?.let { c ->
+                                if (moved) { onRevertS(); moved = false; snapped = false }
+                                c()
+                            }
                         }
                     }
                 }
@@ -1804,13 +1912,21 @@ private fun SpPhoto(
                 if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
                 // a drag the loop left (the gesture ended any other way): nothing plotted
                 if (draft != null) { draft = null; onDragCancelS() }
+                // an end let go (or cancelled, or its long press opened the menu): its guide fades out
+                if (endGrabbed) onEndGuideS(null)
                 loupe = null
                 if (moved) onChangedS() else tick++
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area
+            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide
             val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
+            // THE GUIDE AS DRAWN THIS FRAME (v52 slice 10): the one on now, or the last one while it fades out; reading
+            // the Animatable's value here redraws the photo on every step of the fade
+            val ga = gAlpha.value
+            val gNow = (guideHere ?: lastGuide[0])?.takeIf { it.s == tab && mode == "mark" && SurveyGuide.shown(ga.toDouble()) }
+            // the plane grid: full with its button on, else with the guide's fade (sp.js `gridOn()?1:G?G.a:0`)
+            val gridA = if (grid) 1f else if (gNow != null) ga else 0f
             val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
             drawIntoCanvas { cv ->
                 val nc = cv.nativeCanvas
@@ -1820,11 +1936,19 @@ private fun SpPhoto(
                 nc.restore()
                 val m: (Double, Double) -> FloatArray = { x, y -> floatArrayOf(((x - cx) * kk + size.width / 2).toFloat(), ((y - cy) * kk + size.height / 2).toFloat()) }
                 fun overlay(c: android.graphics.Canvas, mm: (Double, Double) -> FloatArray, which: String) {
-                    if (mode == "lines") SurveyPrepDraw.drawLines(c, tab, prep.surface(tab), frame, mm, u, which == "loupe")
+                    if (mode == "lines") {
+                        // the plane grid in 1 · Lines (its button on), through the face's own mapping, so it leans with
+                        // the photo's perspective and shows whether the four lines are set right (sp.js drawLines' grid)
+                        if (which == "main" && grid && frame != null)
+                            SurveyPrepDraw.drawGrid(c, frame.a, frame.b, { x, y ->
+                                SurveyPrep.apply(frame.m2p, doubleArrayOf(x, y)).let { p -> mm(p[0], p[1]) } }, 1f, density.density)
+                        SurveyPrepDraw.drawLines(c, tab, prep.surface(tab), frame, mm, u, which == "loupe")
+                    }
                     else rect?.let { r ->
                         SurveyPrepDraw.drawMarks(c, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
-                            density.density, drag = drag?.takeIf { it.s == tab }, area = area), mm, u)
+                            density.density, drag = drag?.takeIf { it.s == tab }, area = area,
+                            gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL), mm, u)
                     }
                 }
                 tags.clear()
@@ -1896,8 +2020,12 @@ private fun SpPhoto(
                             dia.toDouble(), gap.toDouble(), dd, obst)
                         one(lp.points[0], pr.left1.toFloat(), pr.top.toFloat()); one(lp.points[1], pr.left2.toFloat(), pr.top.toFloat())
                     } else {
+                        // NOR OVER THE POINT THE DRAG IS MEASURED FROM (v52 slice 10, sp.js keep): a Tape's or a Line's
+                        // start, or the FIXED end while an end is moved -- the guide's start, on screen
+                        val anchors = guideHere?.let { g -> rect?.let { r -> m(r.sq.x(g.o[0]), r.sq.y(g.o[1])) } }
+                            ?.let { listOf(doubleArrayOf(it[0].toDouble(), it[1].toDouble())) } ?: emptyList()
                         val sp = SurveyPrepTouch.loupePlace(lp.finger.x.toDouble(), lp.finger.y.toDouble(), size.width.toDouble(),
-                            size.height.toDouble(), dia.toDouble(), gap.toDouble(), dd, obst)
+                            size.height.toDouble(), dia.toDouble(), gap.toDouble(), dd, obst, anchors)
                         one(lp.points[0], sp.left.toFloat(), sp.top.toFloat())
                     }
                 }
@@ -1917,6 +2045,13 @@ private fun SpPhoto(
                 Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         z = 1.0; cx = iw / 2; cy = ih / 2; tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
+                // THE GRID BUTTON (v52 slice 10) joins the fit column, so it costs no height: the plane grid on the face
+                // with it on (#22d3ee), and still by itself while a Tape or a Line is drawn
+                Text("grid", color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
+                        .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
+                        .semantics { contentDescription = "Plane grid"; selected = grid }
+                        .clickable(role = Role.Button) { onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 if (z > 1.01) Text("%.1f×".format(z), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp))
             }

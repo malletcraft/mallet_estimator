@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
@@ -137,6 +138,14 @@ internal object SurveyPrepDraw {
         val drag: SurveyMeas.Draft? = null,
         /** The corners of a Line area being tapped on this surface: drawn open and dashed. */
         val area: List<DoubleArray>? = null,
+        /** v52 slice 10: the plane grid's opacity on the editing photo (0: none) -- 1 with the grid button on, else the
+         *  guide's fade. */
+        val gridAlpha: Float = 0f,
+        /** The perspective guide (SurveyGuide.now) and its opacity: two dashed rays and the start ring. */
+        val guide: SurveyGuide.Guide? = null,
+        val guideAlpha: Float = 0f,
+        /** The picked Line's or tape's ends, and an area's corners, are handles (Select on). */
+        val ends: Boolean = false,
     )
 
     /**
@@ -262,7 +271,53 @@ internal object SurveyPrepDraw {
         // THE LINES, AREAS AND TAPES (v52 slice 9) over the marks, as sp.js draws them after drawMarks -- and NOT in
         // the loupe (sp.js overlay: `if(which!=='loupe'){ ... drawMeas ... drawTapes }`), which shows the photo under
         // the finger: a tape being pulled ends at the loupe's centre, and its band would hide what is being aimed at
+        // v52 slice 10: the plane grid over the marks and under the Lines and tapes, then the guide over everything --
+        // as sp.js overlay draws them: drawGrid, drawMeas, drawTapes, drawGuide; none of it in the loupe
+        fun face(x: Double, y: Double) = m(sq.x(x), sq.y(y))
+        if (o.mode == "main" && o.gridAlpha > 0f) drawGrid(c, o.a, o.b, ::face, o.gridAlpha, o.dp)
         if (o.mode != "loupe") drawMeas(c, s, o, m)
+        if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
+    }
+
+    // ------------------------------------------------------------ v52 slice 10: the plane grid and the guide
+
+    /**
+     * THE PLANE GRID on an [a] x [b] face (sp.js drawGrid): a line every 100 mm once 100 mm is 12 dp on screen, else
+     * every 500 mm (SurveyGuide.gridStep, measured at the face's centre), every 500 mm stronger (#ffffffaa at 1.4 dp,
+     * the rest #ffffff4d at 0.8 dp), at [alpha]. [toS] maps face mm to the canvas -- the squared picture's scale in
+     * 2 · Mark, the face's own perspective mapping in 1 · Lines, so there it leans with the photo.
+     */
+    fun drawGrid(c: Canvas, a: Double, b: Double, toS: (Double, Double) -> FloatArray, alpha: Float, dp: Float) {
+        if (!(a > 0 && b > 0) || alpha <= 0f) return
+        val c0 = toS(a / 2, b / 2); val c1 = toS(a / 2 + 100, b / 2)
+        val step = SurveyGuide.gridStep(hypot(c1[0] - c0[0], c1[1] - c0[1]).toDouble(), dp.toDouble())
+        val al = alpha.coerceIn(0f, 1f)
+        val strong = stroke(argb(0xffffff, (SurveyGuide.GRID_STRONG_ALPHA * al).roundToInt()), SurveyGuide.GRID_STRONG_DP.toFloat() * dp)
+        val weak = stroke(argb(0xffffff, (SurveyGuide.GRID_WEAK_ALPHA * al).roundToInt()), SurveyGuide.GRID_WEAK_DP.toFloat() * dp)
+        for (gl in SurveyGuide.gridLines(a, b, step)) {
+            val p = if (gl.axis == 0) toS(gl.at, 0.0) else toS(0.0, gl.at)
+            val q = if (gl.axis == 0) toS(gl.at, b) else toS(a, gl.at)
+            c.drawLine(p[0], p[1], q[0], q[1], if (gl.strong) strong else weak)
+        }
+    }
+
+    /**
+     * THE PERSPECTIVE GUIDE (sp.js drawGuide; Amit, 14 Oct 2026 20:45 IST: "i need perpective guidance reference shown
+     * when i draw any of these two tools"): two rays in the tool's colour through the start, along the face's horizontal
+     * and vertical and across the whole face (SurveyGuide.guideRays), dashed 9 / 6 dp, 1.6 dp wide and 2.8 on the axis
+     * the drag has snapped onto; the start ringed, 5 dp. At [alpha] (the fade).
+     */
+    fun drawGuide(c: Canvas, g: SurveyGuide.Guide, a: Double, b: Double, toS: (Double, Double) -> FloatArray, alpha: Float, dp: Float) {
+        val col = argb(SurveyGuide.colour(g.tool), (255 * alpha.coerceIn(0f, 1f)).roundToInt())
+        val r = SurveyGuide.guideRays(g.o, a, b, g.snap)
+        for ((sg, ax) in listOf(r.h to "h", r.v to "v")) {
+            if (sg == null) continue
+            val p = toS(sg.a[0], sg.a[1]); val q = toS(sg.b[0], sg.b[1])
+            c.drawLine(p[0], p[1], q[0], q[1], stroke(col, r.widthDp(ax).toFloat() * dp).apply {
+                pathEffect = DashPathEffect(floatArrayOf(SurveyGuide.DASH_DP.toFloat() * dp, SurveyGuide.GAP_DP.toFloat() * dp), 0f) })
+        }
+        val o = toS(g.o[0], g.o[1])
+        c.drawCircle(o[0], o[1], SurveyGuide.RING_DP.toFloat() * dp, stroke(col, SurveyGuide.RING_W_DP.toFloat() * dp))
     }
 
     // ------------------------------------------------------------ v52 slice 9: Line and Tape
@@ -297,13 +352,15 @@ internal object SurveyPrepDraw {
         val z0 = m(sq.x(0.0), sq.y(0.0)); val z1 = m(sq.x(100.0), sq.y(0.0))
         val ppm = hypot(z1[0] - z0[0], z1[1] - z0[1]) / 100f
         val sf = o.prep.surface(s)
+        // the picked item's ends are handles on the editing photo with Select on (v52 slice 10)
+        val hd = o.ends && o.mode == "main"
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
-            line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS)
+            line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS, hd)
         o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, ::toS) }
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.LINE }?.let { d ->
             line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, ::toS) }
         for (q in sf.meas) if (q.kind == SurveyMeas.TAPE && q.pts.size == 2)
-            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS)
+            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS, hd)
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->
             tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, o, ::toS) }
     }
@@ -314,7 +371,7 @@ internal object SurveyPrepDraw {
      * 1.86 m²"; a draft dashed 7 / 5 dp ("1234 mm" while pulled, "1.86 m²…" from an area's third corner).
      */
     private fun line(c: Canvas, kind: String, pts: List<DoubleArray>, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
-                     locked: Boolean, dp: Float, toS: (DoubleArray) -> FloatArray) {
+                     locked: Boolean, dp: Float, toS: (DoubleArray) -> FloatArray, handles: Boolean = false) {
         if (pts.isEmpty()) return
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
         val col = if (draft && off) OUT_COLOUR else LINE_C
@@ -333,10 +390,13 @@ internal object SurveyPrepDraw {
                 head(c, a, b, col, dp); head(c, b, a, col, dp)
             }
         }
-        // an area's corners, and the corners tapped so far, as white dots ringed in the Line's blue
-        if (!isLine) for (q in scr) {
-            c.drawCircle(q[0], q[1], 3.2f * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
-            c.drawCircle(q[0], q[1], 3.2f * dp, stroke(argb(LINE_C), 1.5f * dp))
+        // an area's corners, and the corners tapped so far, as white dots ringed in the Line's blue; the picked Line's
+        // ends and area's corners, with Select on, as HANDLES -- 5.5 dp, grabbed within 14 dp (v52 slice 10, sp.js drawMeas)
+        val hd = sel && !draft && handles
+        if (!isLine || hd) for (q in scr) {
+            val rr = (if (hd) SurveyGuide.END_R_DP.toFloat() else 3.2f) * dp
+            c.drawCircle(q[0], q[1], rr, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
+            c.drawCircle(q[0], q[1], rr, stroke(argb(LINE_C), 1.5f * dp))
         }
         val segs = if (n > 0) (0 until n).flatMap { listOf(scr[it], scr[(it + 1) % scr.size]) } else scr
         val cx = segs.map { it[0] }.average().toFloat(); val cy = segs.map { it[1] }.average().toFloat()
@@ -352,7 +412,7 @@ internal object SurveyPrepDraw {
      * pulled, "F-T1 1234 mm" once plotted, kept on the canvas -- moved to the side of the band when the end is at an edge.
      */
     private fun tape(c: Canvas, a: DoubleArray, b: DoubleArray, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
-                     locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray) {
+                     locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray, handles: Boolean = false) {
         val len = hypot(b[0] - a[0], b[1] - a[1])
         val pa = toS(a); val pb = toS(b)
         val col = if (off) OUT_COLOUR else TAPE_C
@@ -377,6 +437,11 @@ internal object SurveyPrepDraw {
                     label(c, txt, t[0] - tw / 2, t[1] + 3f * dp, TAPE_C, 9f * dp, dp)
                 }
             }
+        }
+        // the picked tape's two ends, with Select on: white handles, 5.5 dp, ringed dark (v52 slice 10, sp.js drawTapes)
+        if (sel && !draft && handles) for (p in listOf(pa, pb)) {
+            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
+            c.drawCircle(p[0], p[1], SurveyGuide.END_R_DP.toFloat() * dp, stroke(argb(0x3b2f00), 2f * dp))
         }
         val txt = SurveyMeas.tapeTag(if (draft) null else code, len)
         val tw = Paint().apply { textSize = 12f * dp; isFakeBoldText = true }.measureText(txt)
