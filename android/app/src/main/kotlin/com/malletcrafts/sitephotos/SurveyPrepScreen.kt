@@ -108,6 +108,7 @@ import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyChain
 import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
+import com.malletcrafts.sitephotos.pano.SurveyPlan
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepEdit
 import com.malletcrafts.sitephotos.pano.SurveyPrepFile
@@ -145,6 +146,9 @@ import kotlin.math.roundToInt
  *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
+ *  - PLAN, the 8th tab (v52 slice 13): six drawings -- the floor plan, the
+ *    reflected ceiling plan and the four wall elevations -- from one pure
+ *    display list (SurveyPlan in :pano), painted by SpPlanPane.
  *  - The faces are tabs and the steps a strip under them; the photo takes
  *    every dp the controls leave; ✓ Save is in the bar, and the status, the
  *    laser sizes, the web lines, Start over and Discard are behind ⋮.
@@ -192,6 +196,10 @@ internal fun SurveyPrepDialog(
     var rev by remember { mutableIntStateOf(0) }
     var tab by remember { mutableStateOf("front") }
     var mode by remember { mutableStateOf("lines") }
+    // THE PLAN TAB (v52 slice 13): the drawing it shows -- kept while other tabs are open, so List and back keeps it
+    // (ct52 DR) -- and a counter bumped each time the tab is opened, which fits the drawing again (sp.js showTab)
+    var planV by remember { mutableStateOf("floor") }
+    var planFit by remember { mutableIntStateOf(0) }
     var show by remember { mutableStateOf("both") }
     var sel by remember { mutableStateOf<SpSel?>(null) }
     var active by remember { mutableStateOf<String?>(null) }
@@ -461,6 +469,7 @@ internal fun SurveyPrepDialog(
     }
     val need = when {
         tab == "list" -> SurveyPrep.SURFACES.filter { prep.surface(it).done() }
+        !StepRoute.isFace(tab) -> emptyList()   // the Plan tab draws from the marks, not from a squared photo
         mode == "mark" || mode == "list" -> listOf(tab)
         else -> emptyList()
     }
@@ -776,7 +785,7 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
         flushChain(); refShot = SurveyRef.leave(refShot)
@@ -821,7 +830,9 @@ internal fun SurveyPrepDialog(
     val conf = LocalConfiguration.current
     val land = conf.screenWidthDp > conf.screenHeightDp
     val listView = StepRoute.listView(tab, mode)
-    val face = tab != "list"
+    // a FACE has lines, steps, marks and its own clear; the List and Plan tabs have none of them (slice 13)
+    val face = StepRoute.isFace(tab)
+    val planTab = StepRoute.isPlan(tab)
     val dens = LocalDensity.current
     // Where each step of the strip is, and the strip's own top-left, in root px: a press within 48 dp under a step
     // (the caption, the top of the photo, the empty part of the Show row) is that step's -- StepRoute.stepFor, in :pano.
@@ -848,7 +859,7 @@ internal fun SurveyPrepDialog(
     val goStepS by rememberUpdatedState(newValue = { k: String -> setMode(k) })
 
     val statusText = when {
-        tab == "list" -> {
+        tab == "list" || planTab -> {
             val marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size }
             val items = SurveyPrep.SURFACES.sumOf { s -> prep.surface(s).marks.sumOf { e -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).size } }
             "The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. "
@@ -936,7 +947,7 @@ internal fun SurveyPrepDialog(
                     drawLine(SP_LINE_BORDER, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), strokeWidth = 1f)
                 }) {
                     for (t in row) {
-                        val tick = StepRoute.tabTick(t, t != "list" && prep.surface(t).done())
+                        val tick = StepRoute.tabTick(t, StepRoute.isFace(t) && prep.surface(t).done())
                         // a face squared from its reference says so under its name, "Ref 905 × 2053" (v52 slice 12) --
                         // shown or hidden on the faces, since it squares the face either way
                         val refT = if (t in SurveyPrep.SURFACES) SurveyRef.tabText(prep.surface(t)) else null
@@ -1138,6 +1149,18 @@ internal fun SurveyPrepDialog(
             }
             notesOver()
         }
+    }
+
+    // ---- THE PLAN TAB (v52 slice 13, items 10 and 11): the six drawings in one box with all the height the controls
+    // leave -- nothing scrolls -- and the line under it naming the drawing. No step strip, no Show row, no caption, and
+    // no Clear this surface behind ⋮ (face is false here); the note and the snackbar sit over the drawing as over a photo.
+    val planPane: @Composable ColumnScope.() -> Unit = {
+        SpPlanPane(Modifier.weight(1f).fillMaxWidth(), prep, roomSize, SurveyPlan.roomName(title), rev, planV, planFit, land,
+            onView = { v -> planV = v }, overlay = notesOver)
+    }
+    val planFoot: @Composable () -> Unit = {
+        rev    // read: the mark count follows every change
+        SpPlanFoot(SurveyPlan.infoOf(planV, prep, roomSize[0], roomSize[1], roomSize[2], SurveyPlan.roomName(title)))
     }
 
     // ---- under the photo in 1 · Lines: EVERY LINE HAS ITS OWN CONTROLS, always there, in a compact panel (Amit,
@@ -1441,8 +1464,9 @@ internal fun SurveyPrepDialog(
                     openedLine()
                     tabsUi()
                     if (face) stripUi()
-                    if (listView || mode == "mark") showRow()
-                    if (listView) listPane()
+                    if (listView || (face && mode == "mark")) showRow()
+                    if (planTab) { planPane(); planFoot() }
+                    else if (listView) listPane()
                     else {
                         caption()
                         photoPane()
@@ -1463,6 +1487,8 @@ internal fun SurveyPrepDialog(
                             if (face) stripUi()
                             showRow()
                             listPane()
+                        } else if (planTab) {
+                            planPane()
                         } else {
                             caption()
                             photoPane()
@@ -1474,12 +1500,14 @@ internal fun SurveyPrepDialog(
                         if (!listView) {
                             tabsUi()
                             if (face) stripUi()
-                            if (mode == "mark") showRow()
+                            if (face && mode == "mark") showRow()
                         }
                         // the empty gap under the controls takes part in the strip's touch area (sp.js .spgap)
                         Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { gapAt = it.positionInRoot() }
                             .pointerInput(Unit) { routeToStep({ gapAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) })
-                        if (!listView) {
+                        // the Plan tab: the line naming the drawing, at the foot of the controls (sp.html #planfoot in .spfoot)
+                        if (planTab) planFoot()
+                        else if (!listView) {
                             if (mode == "lines") linesPanel() else markPanel()
                         }
                     }

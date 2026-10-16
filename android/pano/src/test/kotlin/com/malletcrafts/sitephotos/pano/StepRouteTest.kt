@@ -106,13 +106,24 @@ class StepRouteTest {
     }
 
     @Test
-    fun `the tabs, in order, with PLAN hidden until the drawings`() {
-        assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list")), StepRoute.TAB_ROWS)
-        assertFalse(StepRoute.TAB_ROWS.flatten().contains("plan"))
-        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "List"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(it) })
+    fun `the tabs, in order -- PLAN the 8th, after List (slice 13, ct52 X1)`() {
+        assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list", "plan")), StepRoute.TAB_ROWS)
+        assertEquals("front,right,back,left,floor,ceil,list,plan", StepRoute.TAB_ROWS.flatten().joinToString(","))
+        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "List", "Plan"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(it) })
         assertTrue(StepRoute.tabTick("ceil", true))
         assertFalse(StepRoute.tabTick("ceil", false))
         assertFalse(StepRoute.tabTick("list", true))
+        assertFalse(StepRoute.tabTick("plan", true))
+        assertTrue(StepRoute.isFace("front")); assertFalse(StepRoute.isFace("list")); assertFalse(StepRoute.isFace("plan"))
+    }
+
+    @Test
+    fun `the Plan tab has no step strip and is never a list view, whatever step a face was left on`() {
+        assertFalse(StepRoute.showStrip("plan"))
+        for (m in listOf("lines", "mark", "list")) assertFalse(StepRoute.listView("plan", m), m)
+        assertTrue(StepRoute.listView("front", "list"))
+        assertEquals(64, StepRoute.budgetDp(false, "plan", "list"))
+        assertEquals(56, StepRoute.budgetDp(true, "plan", "mark"))
     }
 
     @Test
