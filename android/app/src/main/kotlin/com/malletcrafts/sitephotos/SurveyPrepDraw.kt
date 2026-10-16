@@ -10,6 +10,7 @@ import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -105,6 +106,56 @@ internal object SurveyPrepDraw {
         val dp: Float = 1f,
     )
 
+    /**
+     * A point's spot on the canvas (v52): its centre x, y and its radius -- the 50 mm it is
+     * across on the face, never under 6 dp, so never under 12 dp across ([dp]: px per dp).
+     */
+    fun spotOf(e: SurveyPrep.Mark, sq: SurveyPrep.Square, m: (Double, Double) -> FloatArray, dp: Float): FloatArray {
+        val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
+        val c = m(sq.x(cx), sq.y(cy)); val c2 = m(sq.x(cx + SurveyPrep.SPOT / 2), sq.y(cy))
+        return floatArrayOf(c[0], c[1], max(6f * dp, hypot(c2[0] - c[0], c2[1] - c[1])))
+    }
+
+    /** The symbols' ink on a spot. */
+    private const val SPOT_INK = 0x14160F
+
+    /**
+     * A SPOT (Amit, 11 Oct 2026 20:35: "electric points are spots . dont let them resize. have
+     * its da 50 mm."): a filled dot in the type's colour, a 1.6 dp dark rim (3 dp white when
+     * picked), and its symbol -- Electric two dots, Bulb an X, Fan three blades round a hub.
+     * No resize tabs, ever. As sp.js spot().
+     */
+    private fun spot(c: Canvas, x: Float, y: Float, r: Float, t: String, col: Int, sel: Boolean, thin: Boolean, dp: Float) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.style = Paint.Style.FILL; p.color = argb(col); c.drawCircle(x, y, r, p)
+        if (!thin) {
+            p.style = Paint.Style.STROKE; p.strokeWidth = (if (sel) 3f else 1.6f) * dp
+            p.color = if (sel) argb(0xffffff) else argb(0x000000, 0xaa); c.drawCircle(x, y, r, p)
+        }
+        val k = r * .62f
+        p.color = argb(SPOT_INK); p.strokeWidth = max(1f, r * .16f); p.strokeCap = Paint.Cap.ROUND
+        when (t) {
+            "P" -> {
+                p.style = Paint.Style.STROKE
+                c.drawLine(x - k * .7f, y - k * .7f, x + k * .7f, y + k * .7f, p)
+                c.drawLine(x - k * .7f, y + k * .7f, x + k * .7f, y - k * .7f, p)
+            }
+            "F" -> {
+                p.style = Paint.Style.FILL
+                for (i in 0 until 3) {
+                    c.save(); c.translate(x, y); c.rotate(-90f + 120f * i)
+                    c.drawOval(RectF(k * .05f, -k * .2f, k * 1.05f, k * .2f), p)
+                    c.restore()
+                }
+                c.drawCircle(x, y, k * .18f, p)
+            }
+            else -> {
+                p.style = Paint.Style.FILL
+                for (i in listOf(-1f, 1f)) c.drawCircle(x + i * k * .38f, y, max(.8f, k * .17f), p)
+            }
+        }
+    }
+
     fun drawMarks(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
         val sq = o.sq; val thin = o.mode == "loupe"
         val els = o.prep.surface(s).marks
@@ -115,11 +166,15 @@ internal object SurveyPrepDraw {
         // particular mark type is under selection for measurment") -- 20%, "so that rest foto can be seen".
         val sm = if (o.mode == "main" && o.selId != null) els.firstOrNull { it.id == o.selId } else null
         if (sm != null) {
-            val p = m(sq.x(sm.x0), sq.y(sm.y1)); val q = m(sq.x(sm.x1), sq.y(sm.y0)); val pad = 6f * u
+            val pad = 6f * u
+            // a picked spot: the hole is round its dot, as drawn
+            val hole = if (SurveyPrep.isPoint(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->
+                floatArrayOf(d[0] - d[2], d[1] - d[2], d[0] + d[2], d[1] + d[2]) }
+            else { val p = m(sq.x(sm.x0), sq.y(sm.y1)); val q = m(sq.x(sm.x1), sq.y(sm.y0)); floatArrayOf(p[0], p[1], q[0], q[1]) }
             val path = Path().apply {
                 fillType = Path.FillType.EVEN_ODD
                 addRect(0f, 0f, o.width, o.height, Path.Direction.CW)
-                addRect(p[0] - pad, p[1] - pad, q[0] + pad, q[1] + pad, Path.Direction.CW)
+                addRect(hole[0] - pad, hole[1] - pad, hole[2] + pad, hole[3] + pad, Path.Direction.CW)
             }
             c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, 0x33) })
         }
@@ -128,6 +183,22 @@ internal object SurveyPrepDraw {
             val p = m(sq.x(e.x0), sq.y(e.y1)); val q = m(sq.x(e.x1), sq.y(e.y0)); val sel = o.selId == e.id
             val faded = sm != null && !sel
             if (faded) c.saveLayerAlpha(null, 191)
+            if (SurveyPrep.isPoint(e.t)) {
+                // A SPOT: its dot and symbol, its code beside it, its two figures when picked -- no tabs
+                val d = spotOf(e, sq, m, o.dp)
+                spot(c, d[0], d[1], d[2], e.t, col, sel, thin, o.dp)
+                if (!thin) {
+                    label(c, e.code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, col, (if (o.all) 26f else 13f) * u, u)
+                    if (sel || o.all) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
+                }
+                if (faded) c.restore()
+                if (!thin && SurveyPrep.outOf(e, o.a, o.b)) {
+                    val pd = 4f * u
+                    c.drawRect(d[0] - d[2] - pd, d[1] - d[2] - pd, d[0] + d[2] + pd, d[1] + d[2] + pd, stroke(argb(OUT_COLOUR), 2.5f * u).apply {
+                        pathEffect = DashPathEffect(floatArrayOf(7f * u, 5f * u), 0f) })
+                }
+                continue
+            }
             c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(col, 0x22) })
             c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
             if (!thin) {
@@ -161,12 +232,15 @@ internal object SurveyPrepDraw {
         val ln = stroke(argb(0xffffff, 0xcc), if (fs > 15f * u) 2.5f * u else 1f * u)
         fun line(x1: Float, y1: Float, x2: Float, y2: Float) = c.drawLine(x1, y1, x2, y2, ln)
         fun tag(k: String, x: Float, y: Float, left: Boolean = false) = vtag(c, x, y, ms.getValue(k).est, act(k), fs, e.code + "." + k, o, u, left)
-        val midY = (p[1] + q[1]) / 2; val midX = (p[0] + q[0]) / 2; val cE = SurveyPrep.isPlan(s) && e.t == "E"
+        val midY = (p[1] + q[1]) / 2; val midX = (p[0] + q[0]) / 2; val cE = SurveyPrep.isPoint(e.t)
+        // v52: a point's figures run to its centre under its own keys (cl, cr, cs, ct, cf, ck; a plan's Electric
+        // point keeps l, r, f, k) -- each line is drawn under whichever key the mark HAS, with that key's tag
+        fun kOf(k: String): String? = if (k in ms) k else if ("c$k" in ms) "c$k" else null
         val xL = m(o.sq.x(0.0), 0.0)[0]; val xR = m(o.sq.x(o.a), 0.0)[0]
         val yT = m(0.0, o.sq.y(o.b))[1]; val yB = m(0.0, o.sq.y(0.0))[1]
         // v52 item 14: on the picked mark (the one showing its eight tabs) the width tag stands higher and the
         // height tag starts right of the edge, each clear of the tabs (SurveyPrepTouch.widthTag / heightTag)
-        val hand = o.mode == "main" && o.selId == e.id
+        val hand = o.mode == "main" && o.selId == e.id && !cE
         val du = u.toDouble(); val dfs = fs.toDouble(); val ddp = o.dp.toDouble()
         if ("w" in ms) {
             line(p[0], p[1] - 6f * u, q[0], p[1] - 6f * u)
@@ -179,11 +253,11 @@ internal object SurveyPrepDraw {
             tag("h", a.x.toFloat(), a.y.toFloat(), a.left)
         }
         val hy = if (cE) midY else midY + fs * 2.6f
-        if ("l" in ms) { val x = if (cE) midX else p[0]; line(xL, hy, x, hy); tag("l", (xL + x) / 2, hy - 4f * u) }
-        if ("r" in ms) { val x = if (cE) midX else q[0]; line(x, hy, xR, hy); tag("r", (x + xR) / 2, hy - 4f * u) }
+        kOf("l")?.let { k -> val x = if (cE) midX else p[0]; line(xL, hy, x, hy); tag(k, (xL + x) / 2, hy - 4f * u) }
+        kOf("r")?.let { k -> val x = if (cE) midX else q[0]; line(x, hy, xR, hy); tag(k, (x + xR) / 2, hy - 4f * u) }
         val vx = if (cE) midX else midX - fs * 1.6f
-        for (k in listOf("s", "k")) if (k in ms) { val y = if (cE) midY else q[1]; line(vx, y, vx, yB); tag(k, vx, (y + yB) / 2 + 4f * u) }
-        for (k in listOf("t", "f")) if (k in ms) { val y = if (cE) midY else p[1]; line(vx, yT, vx, y); tag(k, vx, (yT + y) / 2 + 4f * u) }
+        for (k0 in listOf("s", "k")) kOf(k0)?.let { k -> val y = if (cE) midY else q[1]; line(vx, y, vx, yB); tag(k, vx, (y + yB) / 2 + 4f * u) }
+        for (k0 in listOf("t", "f")) kOf(k0)?.let { k -> val y = if (cE) midY else p[1]; line(vx, yT, vx, y); tag(k, vx, (yT + y) / 2 + 4f * u) }
         if ("d" in ms) { line(midX, yT, midX, q[1]); tag("d", midX, q[1] + fs * 1.4f) }
     }
 

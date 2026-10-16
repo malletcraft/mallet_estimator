@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -42,6 +43,11 @@ import kotlinx.coroutines.delay
  * Each button is the mark type's little picture in its colour with its letter
  * under it; a tap adds a mark exactly as the chips did, a long press names it.
  * The icons are drawn here, so there are no image assets to ship.
+ *
+ * v52 slice 4 (interim until the palette of slice 7): the Bulb point, the
+ * Switch plate and the Fan join the row with their own icons, as TYPES lists
+ * them for the surface -- Switch plate on walls only, Fan on walls and the
+ * ceiling.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -100,6 +106,26 @@ private fun DrawScope.drawMarkIcon(name: String, c: Color) {
             drawCircle(c, w * .4f, Offset(w * .5f, h * .5f), style = line)
             drawCircle(c, w * .07f, Offset(w * .36f, h * .5f))
             drawCircle(c, w * .07f, Offset(w * .64f, h * .5f))
+        }
+        // v40: a bulb -- its glass, then the cap in three bands
+        "Bulb point" -> {
+            drawArc(c, 140.4f, 259.2f, false, Offset(w * .24f, h * .38f - w * .26f), Size(w * .52f, w * .52f), style = line)
+            drawRect(c, Offset(w * .36f, h * .62f), Size(w * .28f, h * .1f))
+            drawRect(c, Offset(w * .38f, h * .76f), Size(w * .24f, h * .08f))
+            drawRect(c, Offset(w * .43f, h * .87f), Size(w * .14f, h * .06f))
+        }
+        // v52: a plate with two switches
+        "Switch plate" -> {
+            drawRect(c, Offset(w * .08f, h * .28f), Size(w * .84f, h * .44f), style = line)
+            drawRect(c, Offset(w * .26f, h * .38f), Size(w * .14f, h * .24f))
+            drawRect(c, Offset(w * .6f, h * .38f), Size(w * .14f, h * .24f))
+        }
+        // v52: three blades round a hub
+        "Fan" -> {
+            drawCircle(c, w * .08f, Offset(w * .5f, h * .5f))
+            for (i in 0 until 3) rotate(-90f + 120f * i, Offset(w * .5f, h * .5f)) {
+                drawOval(c, Offset(w * .5f + w * .24f - w * .2f, h * .5f - h * .08f), Size(w * .4f, h * .16f))
+            }
         }
         "Step" -> {
             drawRect(c, Offset(w * .08f, h * .58f), Size(w * .84f, h * .32f))

@@ -87,8 +87,18 @@ object SurveyPrepTouch {
     /** A tab under the finger keeps the touch unless a tag under it has its centre NEARER (then the tag takes it). */
     fun tabOrTag(tabDist: Double, tagCentreDist: Double?): Boolean = tagCentreDist == null || tagCentreDist >= tabDist
 
-    /** A mark as drawn: its id and its box, canvas px. */
-    class Drawn(val id: String, val x0: Double, val x1: Double, val yT: Double, val yB: Double)
+    /** A mark as drawn: its id and its box, canvas px. [spot]: for a point (E, P, F), the radius its 50 mm
+     *  makes on screen (25 mm, canvas px, before the 6 dp floor it is drawn with); null for a box. */
+    class Drawn(val id: String, val x0: Double, val x1: Double, val yT: Double, val yB: Double, val spot: Double? = null) {
+        val cx get() = (x0 + x1) / 2
+        val cy get() = (yT + yB) / 2
+    }
+
+    /** How far from its centre a PICKED spot is grabbed: its 25 mm and 6 dp more, never under 12 dp. */
+    fun spotReachPicked(spot: Double, dp: Double) = max(12 * dp, spot + 6 * dp)
+
+    /** How far from its centre any other spot is picked: its 25 mm and half the tab reach more, never under the reach (16 dp). */
+    fun spotReach(spot: Double, tol: Double) = max(tol, spot + tol * .5)
 
     /** What a finger down on 2 · Mark takes. */
     sealed class Hit {
@@ -100,29 +110,75 @@ object SurveyPrepTouch {
 
     /**
      * THE HIT ORDER on 2 · Mark, [marks] in drawing order (the last on top),
-     * [tags] as drawn, [tol] the tab reach (16 dp):
+     * [tags] as drawn, [tol] the tab reach (16 dp), [dp] px per dp:
      *  1. the PICKED mark's eight tabs -- unless a tag under the finger has
-     *     its centre nearer than the tab ([tabOrTag]);
+     *     its centre nearer than the tab ([tabOrTag]); a picked SPOT has no
+     *     tabs and is grabbed whole within [spotReachPicked] of its centre,
+     *     unless a tag under the finger has its centre nearer;
      *  2. a tag under the finger, the nearest centre;
-     *  3. the marks, topmost first: the picked one within [tol] of its edge
-     *     (a tab there still resizes), any other only inside its box.
+     *  3. the marks, topmost first: a spot within [spotReach] of its centre,
+     *     moved whole, never resized; the picked box within [tol] of its edge
+     *     (a tab there still resizes), any other box only inside it.
      * Null: nothing, and the finger slides the photo.
      */
-    fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double): Hit? {
+    fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16): Hit? {
         val under = tags.filter { it.box.contains(x, y) }.minByOrNull { it.box.centreDist(x, y) }
         val sel = selId?.let { id -> marks.lastOrNull { it.id == id } }
         if (sel != null) {
-            val t = nearestTab(sel.x0, sel.x1, sel.yT, sel.yB, x, y, tol)
-            if (t != null && tabOrTag(t.second, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, t.first)
+            val sp = sel.spot
+            if (sp != null) {
+                val d = hypot(x - sel.cx, y - sel.cy)
+                if (d <= spotReachPicked(sp, dp) && tabOrTag(d, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, "body")
+            } else {
+                val t = nearestTab(sel.x0, sel.x1, sel.yT, sel.yB, x, y, tol)
+                if (t != null && tabOrTag(t.second, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, t.first)
+            }
         }
         if (under != null) return Hit.Tag(under.code)
         for (m in marks.asReversed()) {
+            val sp = m.spot
+            if (sp != null) {
+                if (hypot(x - m.cx, y - m.cy) <= spotReach(sp, tol)) return Hit.Mark(m.id, "body")
+                continue
+            }
             if (x < m.x0 - tol || x > m.x1 + tol || y < m.yT - tol || y > m.yB + tol) continue
             if (m.id == selId) return Hit.Mark(m.id, nearestTab(m.x0, m.x1, m.yT, m.yB, x, y, tol)?.first ?: "body")
             if (x < m.x0 || x > m.x1 || y < m.yT || y > m.yB) continue
             return Hit.Mark(m.id, "body")
         }
         return null
+    }
+
+    // ------------------------------------------------------------ the floating trash
+
+    /**
+     * WHERE THE FLOATING TRASH GOES (v52, sp.js placeFTrash): a [size] (36 dp) disc beside the
+     * picked mark, whose box on screen is [bb]; [tags] are its figures' boxes as drawn, on a
+     * [w] x [h] photo, all canvas px; [dp] px per dp. Eight candidates, each kept 4 dp inside
+     * the photo and clear of the fit / zoom buttons in the top-right corner: above-right,
+     * above-left, below-right, below-left, then the same four one trash-height further out.
+     * The first that covers NO figure wins (v52 fix: a point's "from corner" tag sat where the
+     * trash went, so a tap meant for the figure deleted the point); none clear, the first.
+     * Null when the mark is off the photo: no trash.
+     */
+    fun trashSpot(bb: Box, tags: List<Box>, w: Double, h: Double, dp: Double): Spot? {
+        if (bb.r < 0 || bb.l > w || bb.b < 0 || bb.t > h) return null
+        val size = 36 * dp
+        fun at(l0: Double, t0: Double, how: String): Spot {
+            var left = max(4 * dp, min(w - 40 * dp, l0)); val top = max(4 * dp, min(h - 40 * dp, t0))
+            if (top < 100 * dp && left > w - 104 * dp) left = w - 104 * dp     // clear of fit / zoom
+            return Spot(left, top, how)
+        }
+        fun clear(sp: Spot) = tags.all { r -> sp.left + size <= r.l || sp.left >= r.r || sp.top + size <= r.t || sp.top >= r.b }
+        val c = mutableListOf<Spot>()
+        for (f in 0..1) {
+            val out = 36 * dp * f
+            c.add(at(bb.r + 2 * dp, bb.t - 38 * dp - out, "above-right"))
+            c.add(at(bb.l - 38 * dp, bb.t - 38 * dp - out, "above-left"))
+            c.add(at(bb.r + 2 * dp, bb.b + 2 * dp + out, "below-right"))
+            c.add(at(bb.l - 38 * dp, bb.b + 2 * dp + out, "below-left"))
+        }
+        return c.firstOrNull { clear(it) } ?: c[0]
     }
 
     // ------------------------------------------------------------ the magnifier

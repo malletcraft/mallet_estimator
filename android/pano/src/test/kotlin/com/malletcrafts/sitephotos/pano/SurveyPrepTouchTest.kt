@@ -144,6 +144,49 @@ class SurveyPrepTouchTest {
         assertEquals(door.id, tab.id); assertEquals("lt", tab.part)
     }
 
+    // ------------------------------------------------- v52 slice 4: a point is a spot, moved, never resized
+
+    private val fe = SurveyPrep.Mark("fe1", "E", "FE1", 350.0, 400.0, 350.0, 400.0)
+
+    private fun spotDrawn(v: View, e: SurveyPrep.Mark) = SurveyPrepTouch.Drawn(e.id, v.x(e.x0), v.x(e.x1), v.y(e.y1), v.y(e.y0),
+        spot = SurveyPrep.SPOT / 2 / v.mmPerPx)
+
+    @Test fun `a picked spot has no tabs -- grabbed whole within 12 dp, never resized, portrait and landscape, zoomed or not`() {
+        for (portrait in listOf(true, false)) for (z in listOf(1.0, 2.5)) {
+            val v = view(portrait, z, fe); val d = spotDrawn(v, fe)
+            val r = max(12 * DP, d.spot!! + 6 * DP)
+            // on its box corner, where a box's tab would be: still the body
+            val c = SurveyPrepTouch.hit(listOf(d), fe.id, emptyList(), d.x1, d.yT, 16 * DP, DP) as SurveyPrepTouch.Hit.Mark
+            assertEquals("body", c.part, "corner $portrait $z")
+            // just inside its reach, and just outside it (nothing else there: the photo slides)
+            assertIs<SurveyPrepTouch.Hit.Mark>(SurveyPrepTouch.hit(listOf(d), fe.id, emptyList(), d.cx + r - 0.5, d.cy, 16 * DP, DP))
+            assertEquals(null, SurveyPrepTouch.hit(listOf(d), fe.id, emptyList(), d.cx + max(r, SurveyPrepTouch.spotReach(d.spot!!, 16 * DP)) + 1, d.cy, 16 * DP, DP))
+        }
+    }
+
+    @Test fun `an unpicked spot is picked within 16 dp, or its 25 mm and 8 dp more`() {
+        val v = view(true, 1.0, fe); val d = spotDrawn(v, fe)
+        val r = max(16 * DP, d.spot!! + 8 * DP)
+        assertEquals("body", (SurveyPrepTouch.hit(listOf(d), null, emptyList(), d.cx, d.cy - r + 0.5, 16 * DP, DP) as SurveyPrepTouch.Hit.Mark).part)
+        assertEquals(null, SurveyPrepTouch.hit(listOf(d), null, emptyList(), d.cx, d.cy - r - 0.5, 16 * DP, DP))
+        // zoomed in far, the 25 mm is wider than 16 dp and the spot is picked all over its dot
+        val vz = view(true, 8.0, fe); val dz = spotDrawn(vz, fe)
+        assertTrue(dz.spot!! > 16 * DP)
+        assertIs<SurveyPrepTouch.Hit.Mark>(SurveyPrepTouch.hit(listOf(dz), null, emptyList(), dz.cx + dz.spot!! + 7 * DP, dz.cy, 16 * DP, DP))
+    }
+
+    @Test fun `FX10 -- a tag over a picked spot takes the tap when its centre is nearer, and the spot keeps it otherwise`() {
+        val v = view(true, 1.0, fe); val d = spotDrawn(v, fe)
+        // the cl tag as SurveyPrepDraw places it: centred between the left corner and the spot's centre, just above the line
+        val tag = SurveyPrepTouch.Tag("FE1.cl", SurveyPrepTouch.Box(d.cx - 20 * DP, d.cy - 20 * DP, d.cx + 4 * DP, d.cy - 2 * DP))
+        val tc = doubleArrayOf((tag.box.l + tag.box.r) / 2, (tag.box.t + tag.box.b) / 2)
+        val onTag = SurveyPrepTouch.hit(listOf(d), fe.id, listOf(tag), tc[0], tc[1], 16 * DP, DP)
+        assertIs<SurveyPrepTouch.Hit.Tag>(onTag); assertEquals("FE1.cl", onTag.code)
+        // at the spot's own centre, still inside the tag's tap box: the spot is nearer
+        val onSpot = SurveyPrepTouch.hit(listOf(d), fe.id, listOf(tag), d.cx, d.cy - 2 * DP, 16 * DP, DP)
+        assertIs<SurveyPrepTouch.Hit.Mark>(onSpot)
+    }
+
     // ------------------------------------------------- X6 / FX1: the magnifier
 
     private val dia = 120.0; private val gap = 8.0

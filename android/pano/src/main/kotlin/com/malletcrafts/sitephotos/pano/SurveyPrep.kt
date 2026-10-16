@@ -395,18 +395,62 @@ object SurveyPrep {
     /** A mark type: its letter, its name, its colour (0xRRGGBB). */
     class MarkType(val letter: String, val name: String, val colour: Int)
 
+    /**
+     * The mark types of each KIND of surface (prototype v52, sp.js TYPES). Letters repeat
+     * across kinds with different meanings -- a wall's S is a Switch plate, the floor's S a
+     * Step -- so every lookup goes through [kind]. v52 (Amit, 11 Oct 2026 20:36: "electric
+     * control panels plate are rectangle. add mark type for it. also add seprate mark type
+     * for fan"): S Switch plate on walls only; F Fan on walls and the ceiling. P Bulb point
+     * (v40) on every surface.
+     */
     val TYPES: Map<String, List<MarkType>> = mapOf(
         "wall" to listOf(MarkType("W", "Window", 0x4dabf7), MarkType("D", "Door", 0xff8a3d), MarkType("C", "Column", 0xb197fc),
             MarkType("B", "Beam", 0xe0b040), MarkType("O", "Opening", 0x69db7c), MarkType("N", "Niche", 0x20c997),
-            MarkType("L", "Loft", 0xff922b), MarkType("E", "Electric point", 0xffd43b), MarkType("X", "Other", 0xadb5bd)),
+            MarkType("L", "Loft", 0xff922b), MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8),
+            MarkType("S", "Switch plate", 0xf783ac), MarkType("F", "Fan", 0x74c0fc), MarkType("X", "Other", 0xadb5bd)),
         "floor" to listOf(MarkType("C", "Column", 0xb197fc), MarkType("S", "Step", 0xff8a3d), MarkType("O", "Opening", 0x69db7c),
-            MarkType("E", "Electric point", 0xffd43b), MarkType("X", "Other", 0xadb5bd)),
+            MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), MarkType("X", "Other", 0xadb5bd)),
         "ceil" to listOf(MarkType("B", "Beam", 0xe0b040), MarkType("C", "Column", 0xb197fc), MarkType("E", "Electric point", 0xffd43b),
-            MarkType("O", "Opening", 0x69db7c), MarkType("X", "Other", 0xadb5bd)))
+            MarkType("P", "Bulb point", 0xffa8a8), MarkType("F", "Fan", 0x74c0fc), MarkType("O", "Opening", 0x69db7c),
+            MarkType("X", "Other", 0xadb5bd)))
 
     fun kind(s: String) = if (isPlan(s)) s else "wall"
     fun types(s: String): List<MarkType> = TYPES.getValue(kind(s))
     fun typeOf(s: String, t: String): MarkType = types(s).firstOrNull { it.letter == t } ?: MarkType(t, t, 0xadb5bd)
+
+    /**
+     * PLACING A TYPE ON ANOTHER SURFACE compares what the type IS, not its letter (v52 fix):
+     * a Switch plate dragged onto the floor would otherwise become a Step. Null when [t], as
+     * it is on [from], may go on [to]; else the refusal the screen shows, as sp.js words it.
+     * Its caller is the 4 · 360 step (slice 17), where a tap may land on another surface than
+     * the tab the type was picked on; 2 · Mark adds only to the surface it shows.
+     */
+    fun placeRefusal(from: String, to: String, t: String): String? {
+        val ok = types(to).any { it.letter == t } && typeOf(to, t).name == typeOf(from, t).name
+        return if (ok) null else "A ${typeOf(from, t).name} cannot go on the ${NAME.getValue(to).lowercase()}"
+    }
+
+    fun canPlace(from: String, to: String, t: String): Boolean = placeRefusal(from, to, t) == null
+
+    /**
+     * POINTS ARE SPOTS (v52; Amit, 11 Oct 2026 20:35: "electric points are spots . dont let
+     * them resize. have its da 50 mm."): an Electric point, a Bulb and a Fan are stored as a
+     * [SPOT] x [SPOT] box centred where the point is, never resized, and measured to their
+     * CENTRE on every surface.
+     */
+    fun isPoint(t: String) = t == "E" || t == "P" || t == "F"
+
+    /** A spot's box, mm across and up. */
+    const val SPOT = 50.0
+
+    /**
+     * The key a point's figure to its centre is stored under: its OWN key (cl, cr, cs, ct,
+     * cf, ck) wherever APK 0.3.212 and S5 measured that type to its EDGE under l, r, s, t
+     * -- the same name meaning edge on one device and centre on another would put a reading
+     * on the wrong line. A plan's Electric point keeps l, r, f, k: it was always measured
+     * to its centre. (sp.js ckey.)
+     */
+    fun ckey(plan: Boolean, t: String, k: String) = if (plan && t == "E") k else "c$k"
 
     /**
      * A box on a surface, mm: x0..x1 from its left edge, y0..y1 up from its
@@ -430,15 +474,20 @@ object SurveyPrep {
             "B" -> c(a, 400.0, 0.0, b - 400)
             "O" -> c(900.0, 2100.0, (a - 900) / 2, 0.0)
             "N" -> c(900.0, 1200.0, (a - 900) / 2, 750.0)
-            "E" -> c(150.0, 150.0, 300.0, 300.0)
+            "E" -> c(SPOT, SPOT, 350.0, 350.0)
+            "P" -> c(SPOT, SPOT, 650.0, 350.0)
             "L" -> c(a, 600.0, 0.0, b - 600)
+            // a Switch plate, 200 x 90, low on the left -- kept on a wall narrower or lower than that
+            "S" -> c(200.0, 90.0, min(150.0, max(0.0, a - 200)), min(1100.0, max(0.0, b - 90)))
+            // a Fan, centred across, its centre 450 mm under the ceiling
+            "F" -> c(SPOT, SPOT, (a - SPOT) / 2, max(0.0, b - 450 - SPOT / 2))
             else -> c(600.0, 600.0, (a - 600) / 2, (b - 600) / 2)
         }
         return when (t) {
             "C" -> c(300.0, 300.0, 150.0, b - 450)
             "S" -> c(900.0, 300.0, (a - 900) / 2, 150.0)
             "B" -> c(230.0, b, (a - 230) / 2, 0.0)
-            "E" -> c(150.0, 150.0, (a - 150) / 2, (b - 150) / 2)
+            "E", "P", "F" -> c(SPOT, SPOT, (a - SPOT) / 2, (b - SPOT) / 2)
             else -> c(600.0, 600.0, (a - 600) / 2, (b - 600) / 2)
         }
     }
@@ -452,19 +501,23 @@ object SurveyPrep {
      * from the nearer corner"): a position is taken from whichever corner
      * (left / right) and whichever line (floor / ceiling; front / back wall on
      * a plan) is closer -- a shorter laser shot. A window always gives its
-     * sill: it decides what fits under it. A plan's electric point is measured
-     * to its centre.
+     * sill: it decides what fits under it. A POINT (E, P, F) is measured to its
+     * CENTRE on every surface, under its own keys ([ckey]), and never asks for a
+     * width or a height (v52). A Switch plate is measured like a window: width,
+     * height, the nearer corner and its height FROM THE FLOOR, never from the
+     * ceiling, wherever it sits. Line for line sp.js measures0.
      */
     fun measures0(s: String, e: Mark, a: Double, b: Double): List<Measure> {
-        val w = e.x1 - e.x0; val h = e.y1 - e.y0; val plan = isPlan(s); val cE = plan && e.t == "E"
+        val w = e.x1 - e.x0; val h = e.y1 - e.y0; val plan = isPlan(s); val cE = isPoint(e.t)
         val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2; val to = if (cE) ", to centre" else ""
         val l = if (cE) cx else e.x0; val r = if (cE) a - cx else a - e.x1
         val bo = if (cE) cy else e.y0; val tp = if (cE) b - cy else b - e.y1
         val hx = if (l <= r) Measure("l", (if (plan) "from left wall" else "from left corner") + to, l)
                  else Measure("r", (if (plan) "from right wall" else "from right corner") + to, r)
         val vy = if (plan) (if (tp <= bo) Measure("f", "from front wall$to", tp) else Measure("k", "from back wall$to", bo))
-                 else if (e.t == "W" || bo <= tp) Measure("s", if (e.t == "W") "sill, from floor" else "from floor", bo)
-                 else Measure("t", "from ceiling", tp)
+                 else if (e.t == "W" || bo <= tp) Measure("s", (if (e.t == "W") "sill, from floor" else "from floor") + to, bo)
+                 else Measure("t", "from ceiling$to", tp)
+        if (cE) return listOf(hx, vy).map { Measure(ckey(plan, e.t, it.key), it.what, it.est) }
         if (!plan) return when (e.t) {
             "D" -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, Measure("p", "reveal depth", null))
             "C" -> listOf(Measure("w", "width", w), hx, Measure("p", "projection from wall", null))
@@ -473,12 +526,14 @@ object SurveyPrep {
             // a loft hangs from the ceiling: what matters is how high its underside is
             "L" -> listOf(Measure("w", "width", w), Measure("h", "loft height", h), hx,
                 Measure("s", "underside, from floor", e.y0), Measure("p", "loft depth", null))
+            // a Switch plate (a WALL's S): from the floor, never from the ceiling, even in the upper half
+            "S" -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, Measure("s", "from floor", bo))
             else -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, vy) +
                 (if (e.t == "W" || e.t == "O") listOf(Measure("p", "reveal depth", null)) else emptyList())
         }
-        if (cE) return listOf(hx, vy)
         val base = listOf(Measure("w", "width, left–right", w), Measure("h", "depth, front–back", h), hx, vy)
         return when (e.t) {
+            // the FLOOR's S is a Step
             "S" -> base + Measure("p", "height", null)
             "B" -> base + Measure("p", "drop below ceiling", null)
             else -> base
@@ -489,10 +544,10 @@ object SurveyPrep {
      * The checklist: A MARK TOUCHING A BOUNDARY HAS NOTHING TO MEASURE THERE
      * (Amit, 2026-10-10: "any measurement when touching line or floor should
      * not have from floor or from left corner etc as it will be zero by
-     * default"). A plan's electric point keeps its offsets: they are to its centre.
+     * default"). A point keeps its offsets: they run to its centre.
      */
     fun measures(s: String, e: Mark, a: Double, b: Double): List<Measure> {
-        val cE = isPlan(s) && e.t == "E"
+        val cE = isPoint(e.t)
         return measures0(s, e, a, b).filter { m -> !(m.key in OFFS && m.est != null && m.est < ZERO && !cE) }
     }
 
@@ -602,6 +657,64 @@ object SurveyPrep {
             val ks = keysOf(s, e, a, b); val i = if (after != null) ks.indexOf(after) else -1
             return ks.drop(i + 1).firstOrNull { actual[it] == null } ?: ks.firstOrNull { actual[it] == null }
         }
+    }
+
+    // ------------------------------------------------------ older points made spots
+
+    /** What [normPoints] did: the prep converted (a copy), how many points it re-centred, and one log line per change. */
+    class Recentred(val prep: Prep, val points: Int, val log: List<String>)
+
+    private fun mmText(v: Double): String = if (v == Math.rint(v)) v.toLong().toString() else (Math.round(v * 10) / 10.0).toString()
+
+    /**
+     * AN OLDER POINT BECOMES A SPOT, AND ITS READINGS GO WITH IT (v52, sp.js normPoints; Amit,
+     * 11 Oct 2026 20:35: "electric points are spots . dont let them resize. have its da 50 mm.").
+     * APK 0.3.212 stored a point as a 150 x 150 box (S5 may hold any size) and measured a wall
+     * point to its EDGE under l, r, s, t, w, h. Every point whose box is not [SPOT] square is
+     * made a [SPOT] square at its own centre, and:
+     *  - on a wall, a reading to its edge becomes the figure to its centre under its own key:
+     *    l / r plus half its MEASURED width (else the box's), s / t plus half its measured
+     *    height (else the box's) -- l to cl, r to cr, s to cs, t to ct;
+     *  - on the floor or ceiling a Bulb or a Fan was already measured to its centre, so its
+     *    l, r, f, k move to cl, cr, cf, ck UNCHANGED; an Electric point keeps l, r, f, k;
+     *  - its w and h, which a spot does not have, are taken out;
+     *  - A FIGURE ALREADY UNDER THE CENTRE KEY IS NEVER OVERWRITTEN (staff on S5 typing to the
+     *    centre while an old phone still sent the edge): the edge reading is then only removed.
+     * Pure, on a copy; running it again changes nothing.
+     */
+    fun normPoints(p: Prep): Recentred {
+        val out = p.copy(); val act = out.actual; val log = mutableListOf<String>(); var n = 0
+        for (s in SURFACES) {
+            val sf = out.surfaces[s] ?: continue
+            for (e in sf.marks) {
+                if (!isPoint(e.t)) continue
+                val bw = e.x1 - e.x0; val bh = e.y1 - e.y0
+                if (abs(bw - SPOT) < .01 && abs(bh - SPOT) < .01) continue
+                val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
+                val changes = mutableListOf<String>()
+                if (e.code.isNotEmpty()) {
+                    val plan = isPlan(s)
+                    fun key(k: String) = e.code + "." + k
+                    val mw = act[key("w")] ?: bw; val mh = act[key("h")] ?: bh
+                    if (!(plan && e.t == "E")) for (k in if (plan) listOf("l", "r", "f", "k") else listOf("l", "r", "s", "t")) {
+                        val was = act[key(k)] ?: continue
+                        val v = was + (if (plan) 0.0 else (if (k == "l" || k == "r") mw else mh) / 2)
+                        val to = key(ckey(plan, e.t, k))
+                        val kept = act[to]
+                        if (kept == null) act[to] = Math.round(v * 10) / 10.0
+                        act.remove(key(k))
+                        changes.add(if (kept == null) "${key(k)} ${mmText(was)} -> $to ${mmText(act.getValue(to))}"
+                                    else "${key(k)} ${mmText(was)} removed, $to ${mmText(kept)} kept")
+                    }
+                    for (k in listOf("w", "h")) act.remove(key(k))?.let { changes.add("${key(k)} ${mmText(it)} removed") }
+                }
+                e.x0 = cx - SPOT / 2; e.x1 = cx + SPOT / 2; e.y0 = cy - SPOT / 2; e.y1 = cy + SPOT / 2
+                n++
+                log.add("$s ${e.code}: ${bw.roundToInt()} x ${bh.roundToInt()} re-centred to a 50 mm spot at (${mmText(cx)}, ${mmText(cy)})" +
+                    (if (changes.isEmpty()) "" else "; " + changes.joinToString("; ")))
+            }
+        }
+        return Recentred(out, n, log)
     }
 
     // ------------------------------------------------------ the photo box

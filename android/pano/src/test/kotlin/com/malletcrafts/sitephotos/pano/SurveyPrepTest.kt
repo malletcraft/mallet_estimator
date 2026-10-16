@@ -2,6 +2,7 @@ package com.malletcrafts.sitephotos.pano
 
 import kotlin.math.abs
 import kotlin.math.hypot
+import kotlin.math.roundToLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -200,9 +201,12 @@ class SurveyPrepTest {
         val ms = SurveyPrep.measures("floor", e, W, L)
         assertEquals(listOf("l", "k"), ms.map { it.key })
         assertEquals("from left wall, to centre", ms[0].what); close(75.0, ms[0].est!!, 1e-9, "centre")
-        // a wall's electric point is a box like any other, so in a corner it drops out
+        // v52: a wall's electric point is a spot too -- to its centre, under its own keys, no width or height
         val we = SurveyPrep.Mark("e", "E", "FE1", 0.0, 150.0, 0.0, 150.0)
-        assertEquals(listOf("w", "h"), SurveyPrep.measures("front", we, W, H).map { it.key })
+        val mw = SurveyPrep.measures("front", we, W, H)
+        assertEquals(listOf("cl", "cs"), mw.map { it.key })
+        assertEquals(listOf("from left corner, to centre", "from floor, to centre"), mw.map { it.what })
+        close(75.0, mw[0].est!!, 1e-9, "wall centre")
     }
 
     @Test fun `marks snap to a boundary on a drag, never on a nudge`() {
@@ -303,9 +307,10 @@ class SurveyPrepTest {
         assertEquals(listOf(300.0, 1200.0, 0.0, 2100.0), door.toList())
         val beam = SurveyPrep.defaults("ceil", "B", W, L)
         assertEquals(listOf((W - 230) / 2, (W - 230) / 2 + 230, 0.0, L), beam.toList())
-        assertEquals(listOf("W", "D", "C", "B", "O", "N", "L", "E", "X"), SurveyPrep.types("front").map { it.letter })
-        assertEquals(listOf("C", "S", "O", "E", "X"), SurveyPrep.types("floor").map { it.letter })
-        assertEquals(listOf("B", "C", "E", "O", "X"), SurveyPrep.types("ceil").map { it.letter })
+        // v52 (sp.js TYPES): walls gain P Bulb point, S Switch plate and F Fan; the floor P; the ceiling P and F
+        assertEquals(listOf("W", "D", "C", "B", "O", "N", "L", "E", "P", "S", "F", "X"), SurveyPrep.types("front").map { it.letter })
+        assertEquals(listOf("C", "S", "O", "E", "P", "X"), SurveyPrep.types("floor").map { it.letter })
+        assertEquals(listOf("B", "C", "E", "P", "F", "O", "X"), SurveyPrep.types("ceil").map { it.letter })
     }
 
     @Test fun `the squared picture maps mm and pixels both ways`() {
@@ -379,5 +384,167 @@ class SurveyPrepTest {
         close(240.0, SurveyPrep.clampCentre(100.0, 960.0, 480.0), 1e-12, "left edge")
         close(720.0, SurveyPrep.clampCentre(900.0, 960.0, 480.0), 1e-12, "right edge")
         close(500.0, SurveyPrep.clampCentre(500.0, 960.0, 480.0), 1e-12, "free")
+    }
+
+    // ------------------------------------------------------------ v52 slice 4: spots, Switch plate, Fan
+
+    @Test fun `the new types carry the prototype's names and colours, keyed by the surface's kind`() {
+        fun t(s: String, l: String) = SurveyPrep.typeOf(s, l).let { "${it.letter}:${it.name}:#%06x".format(it.colour) }
+        assertEquals("S:Switch plate:#f783ac", t("front", "S")); assertEquals("F:Fan:#74c0fc", t("left", "F"))
+        assertEquals("P:Bulb point:#ffa8a8", t("back", "P")); assertEquals("F:Fan:#74c0fc", t("ceil", "F"))
+        assertEquals("S:Step:#ff8a3d", t("floor", "S"), "the floor's S is a Step, never a Switch plate")
+        assertTrue(SurveyPrep.types("floor").none { it.letter == "F" }, "no fan on the floor")
+        assertEquals("11100", listOf("E", "P", "F", "S", "W").joinToString("") { if (SurveyPrep.isPoint(it)) "1" else "0" })
+        assertEquals("cl", SurveyPrep.ckey(false, "E", "l")); assertEquals("l", SurveyPrep.ckey(true, "E", "l"))
+        assertEquals("ck", SurveyPrep.ckey(true, "P", "k")); assertEquals("cf", SurveyPrep.ckey(true, "F", "f"))
+    }
+
+    @Test fun `points start as 50 mm spots, a switch plate 200 x 90, a fan under the ceiling`() {
+        assertEquals(listOf(350.0, 400.0, 350.0, 400.0), SurveyPrep.defaults("front", "E", W, H).toList())
+        assertEquals(listOf(650.0, 700.0, 350.0, 400.0), SurveyPrep.defaults("front", "P", W, H).toList())
+        assertEquals(listOf(150.0, 350.0, 1100.0, 1190.0), SurveyPrep.defaults("front", "S", W, H).toList())
+        assertEquals(listOf((W - 50) / 2, (W + 50) / 2, H - 475, H - 425), SurveyPrep.defaults("front", "F", W, H).toList())
+        for (t in listOf("E", "P", "F")) assertEquals(listOf((W - 50) / 2, (W + 50) / 2, (L - 50) / 2, (L + 50) / 2),
+            SurveyPrep.defaults("ceil", t, W, L).toList(), "ceiling $t centred")
+        // the floor's S is still a Step
+        assertEquals(listOf((W - 900) / 2, (W + 900) / 2, 150.0, 450.0), SurveyPrep.defaults("floor", "S", W, L).toList())
+    }
+
+    @Test fun `a switch plate on a 150 mm wall is clamped onto it`() {
+        // 150 wide: x0 = min(150, max(0, 150 - 200)) = 0; 1000 high: y0 = min(1100, max(0, 1000 - 90)) = 910
+        assertEquals(listOf(0.0, 200.0, 910.0, 1000.0), SurveyPrep.defaults("front", "S", 150.0, 1000.0).toList())
+        // and a fan on a wall under 475 mm sits on the floor rather than below it
+        assertEquals(0.0, SurveyPrep.defaults("front", "F", 2000.0, 400.0)[2])
+    }
+
+    @Test fun `a switch plate is measured like a window -- width, height, the nearer corner, from the floor, never t`() {
+        val low = SurveyPrep.Mark("s", "S", "FS1", 150.0, 350.0, 1100.0, 1190.0)
+        val m = SurveyPrep.measures("front", low, W, H)
+        assertEquals(listOf("w", "h", "l", "s"), m.map { it.key })
+        assertEquals(listOf("width", "height", "from left corner", "from floor"), m.map { it.what })
+        close(200.0, m[0].est!!, 1e-9, "w"); close(90.0, m[1].est!!, 1e-9, "h"); close(1100.0, m[3].est!!, 1e-9, "s")
+        // high on the wall, near the right corner: still from the floor (the else branch would have asked for t)
+        val high = SurveyPrep.Mark("s", "S", "FS2", W - 300, W - 100, H - 400, H - 310)
+        val mh = SurveyPrep.measures("front", high, W, H)
+        assertEquals(listOf("w", "h", "r", "s"), mh.map { it.key })
+        assertTrue(mh.none { it.key == "t" }, "never from the ceiling")
+        // the floor's S is still a Step
+        val step = SurveyPrep.Mark("g", "S", "GS1", 889.0, 1789.0, 150.0, 450.0)
+        assertEquals(listOf("width, left–right", "depth, front–back"), SurveyPrep.measures("floor", step, W, L).take(2).map { it.what })
+        assertEquals("height", SurveyPrep.measures("floor", step, W, L).last().what)
+    }
+
+    @Test fun `a point measures to its centre on every surface and never asks for w or h`() {
+        for (t in listOf("E", "P", "F")) {
+            val e = SurveyPrep.Mark("x", t, "F${t}1", 2000.0, 2050.0, 2400.0, 2450.0)
+            val m = SurveyPrep.measures("front", e, W, H)
+            assertEquals(listOf("cr", "ct"), m.map { it.key }, "wall $t")
+            assertEquals(listOf("from right corner, to centre", "from ceiling, to centre"), m.map { it.what })
+            close(W - 2025, m[0].est!!, 1e-9, "cr"); close(H - 2425, m[1].est!!, 1e-9, "ct")
+            // touching a corner, a point keeps its offset: it runs to its centre
+            val c = SurveyPrep.Mark("x", t, "F${t}2", 0.0, 50.0, 0.0, 50.0)
+            assertEquals(listOf("cl", "cs"), SurveyPrep.measures("front", c, W, H).map { it.key })
+        }
+        val ce = SurveyPrep.Mark("x", "E", "CE9", 1000.0, 1050.0, 1000.0, 1050.0)
+        val cp = SurveyPrep.Mark("x", "P", "CP9", 1000.0, 1050.0, 1000.0, 1050.0)
+        val cf = SurveyPrep.Mark("x", "F", "CF9", 1000.0, 1050.0, 1000.0, 1050.0)
+        assertEquals(listOf("l", "k"), SurveyPrep.measures("ceil", ce, W, L).map { it.key }, "plan E keeps l / r, f / k")
+        assertEquals(listOf("cl", "ck"), SurveyPrep.measures("ceil", cp, W, L).map { it.key })
+        assertEquals(listOf("cl", "ck"), SurveyPrep.measures("ceil", cf, W, L).map { it.key })
+        assertEquals("from back wall, to centre", SurveyPrep.measures("ceil", cf, W, L)[1].what)
+    }
+
+    private fun prepWith(vararg marks: Pair<String, SurveyPrep.Mark>, readings: Map<String, Double>): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        for ((s, m) in marks) p.surface(s).marks.add(m)
+        p.actual.putAll(readings)
+        return p
+    }
+
+    private fun readingsOf(p: SurveyPrep.Prep, code: String) =
+        p.actual.keys.filter { it.startsWith("$code.") }.sorted().joinToString(",") { k -> k + "=" + p.actual.getValue(k).let { v -> if (v == Math.rint(v)) v.toLong().toString() else v.toString() } }
+
+    @Test fun `FX4 -- a v51 wall point is re-centred and its edge readings become centre readings`() {
+        val p = prepWith("front" to SurveyPrep.Mark("fe9", "E", "FE9", 300.0, 450.0, 300.0, 450.0),
+            readings = mapOf("FE9.l" to 300.0, "FE9.w" to 150.0, "FE9.s" to 300.0, "FE9.h" to 150.0))
+        val r = SurveyPrep.normPoints(p)
+        assertEquals(1, r.points)
+        val e = r.prep.surface("front").marks.single { it.code == "FE9" }
+        assertEquals(listOf(350.0, 400.0, 350.0, 400.0), listOf(e.x0, e.x1, e.y0, e.y1))
+        assertEquals("FE9.cl=375,FE9.cs=375", readingsOf(r.prep, "FE9"))
+        assertEquals(listOf("cl:375", "cs:375"), SurveyPrep.measures("front", e, W, H).map { it.key + ":" + it.est!!.roundToLong() })
+        assertEquals(1, r.log.size); assertTrue(r.log[0].contains("FE9.l 300 -> FE9.cl 375") && r.log[0].contains("FE9.w 150 removed"), r.log[0])
+        // the original is untouched: it is a copy
+        assertEquals(150.0, p.actual["FE9.w"]); assertEquals(450.0, p.surface("front").marks.single().x1)
+    }
+
+    @Test fun `FX4 -- the measured width wins over the box's, and t and r convert too`() {
+        val p = prepWith("right" to SurveyPrep.Mark("re1", "E", "RE1", 2000.0, 2150.0, 2300.0, 2450.0),
+            readings = mapOf("RE1.r" to 1000.0, "RE1.w" to 140.0, "RE1.t" to 200.0))
+        val r = SurveyPrep.normPoints(p)
+        // r + 140 / 2 (measured), t + 150 / 2 (no measured height: the box's)
+        assertEquals("RE1.cr=1070,RE1.ct=275", readingsOf(r.prep, "RE1"))
+    }
+
+    @Test fun `FX12 -- plan Bulbs move their figures unchanged, a wall Bulb still converts from its edge`() {
+        val p = prepWith(
+            "floor" to SurveyPrep.Mark("gp9", "P", "GP9", 925.0, 1075.0, 1925.0, 2075.0),
+            "ceil" to SurveyPrep.Mark("cp9", "P", "CP9", 500.0, 650.0, 800.0, 950.0),
+            "front" to SurveyPrep.Mark("fp9", "P", "FP9", 300.0, 450.0, 1200.0, 1350.0),
+            readings = mapOf("GP9.l" to 1000.0, "GP9.k" to 2000.0, "CP9.r" to 900.0, "CP9.f" to 700.0, "FP9.l" to 300.0, "FP9.s" to 1200.0))
+        val r = SurveyPrep.normPoints(p)
+        assertEquals(3, r.points)
+        assertEquals("GP9.ck=2000,GP9.cl=1000", readingsOf(r.prep, "GP9"))
+        assertEquals("CP9.cf=700,CP9.cr=900", readingsOf(r.prep, "CP9"))
+        assertEquals("FP9.cl=375,FP9.cs=1275", readingsOf(r.prep, "FP9"))
+        val g = r.prep.surface("floor").marks.single()
+        assertEquals(listOf(975.0, 1025.0, 1975.0, 2025.0), listOf(g.x0, g.x1, g.y0, g.y1))
+    }
+
+    @Test fun `a plan Fan moves unchanged, a plan Electric point keeps l r f k, and both become spots`() {
+        val p = prepWith(
+            "ceil" to SurveyPrep.Mark("cf1", "F", "CF1", 1000.0, 1200.0, 1000.0, 1200.0),
+            "floor" to SurveyPrep.Mark("ge1", "E", "GE1", 0.0, 150.0, 0.0, 150.0),
+            readings = mapOf("CF1.l" to 1100.0, "CF1.k" to 1100.0, "CF1.w" to 200.0, "GE1.l" to 75.0, "GE1.k" to 75.0))
+        val r = SurveyPrep.normPoints(p)
+        assertEquals("CF1.ck=1100,CF1.cl=1100", readingsOf(r.prep, "CF1"))
+        assertEquals("GE1.k=75,GE1.l=75", readingsOf(r.prep, "GE1"))
+        val ge = r.prep.surface("floor").marks.single()
+        assertEquals(listOf(50.0, 100.0, 50.0, 100.0), listOf(ge.x0, ge.x1, ge.y0, ge.y1))
+    }
+
+    @Test fun `S5's 234 x 105 FE1 keeps its centre`() {
+        val p = prepWith("front" to SurveyPrep.Mark("fe1", "E", "FE1", 2794.0, 3028.0, 800.0, 905.0), readings = emptyMap())
+        val e = SurveyPrep.normPoints(p).prep.surface("front").marks.single()
+        assertEquals(2911.0, (e.x0 + e.x1) / 2); assertEquals(852.5, (e.y0 + e.y1) / 2)
+        close(50.0, e.x1 - e.x0, 1e-9, "w"); close(50.0, e.y1 - e.y0, 1e-9, "h")
+    }
+
+    @Test fun `normPoints never overwrites a centre figure and is idempotent`() {
+        val p = prepWith("front" to SurveyPrep.Mark("fe9", "E", "FE9", 300.0, 450.0, 300.0, 450.0),
+            "front" to SurveyPrep.Mark("fw1", "W", "FW1", 500.0, 1700.0, 900.0, 2100.0),
+            readings = mapOf("FE9.l" to 300.0, "FE9.cl" to 380.0, "FE9.s" to 300.0, "FW1.w" to 1200.0, "FW1.l" to 500.0))
+        val once = SurveyPrep.normPoints(p)
+        assertEquals("FE9.cl=380,FE9.cs=375", readingsOf(once.prep, "FE9"), "the staff's 380 stays; the edge l is removed")
+        assertTrue(once.log[0].contains("FE9.l 300 removed, FE9.cl 380 kept"), once.log[0])
+        assertEquals("FW1.l=500,FW1.w=1200", readingsOf(once.prep, "FW1"), "a window is no point: untouched")
+        val twice = SurveyPrep.normPoints(once.prep)
+        assertEquals(0, twice.points); assertTrue(twice.log.isEmpty())
+        assertEquals(once.prep.actual, twice.prep.actual)
+        for (s in SurveyPrep.SURFACES) assertEquals(
+            once.prep.surface(s).marks.map { listOf(it.x0, it.x1, it.y0, it.y1) }, twice.prep.surface(s).marks.map { listOf(it.x0, it.x1, it.y0, it.y1) }, s)
+        // a 50 mm spot with old keys is left as it is (as sp.js: only a box that is not a spot is converted)
+        val spot = prepWith("front" to SurveyPrep.Mark("e", "E", "FE2", 350.0, 400.0, 350.0, 400.0), readings = mapOf("FE2.l" to 350.0))
+        assertEquals(0, SurveyPrep.normPoints(spot).points)
+    }
+
+    @Test fun `a type is placed by what it IS -- no switch plate on the floor, no step on a wall`() {
+        assertEquals("A Switch plate cannot go on the floor", SurveyPrep.placeRefusal("front", "floor", "S"))
+        assertEquals("A Step cannot go on the front wall", SurveyPrep.placeRefusal("floor", "front", "S"))
+        assertFalse(SurveyPrep.canPlace("front", "floor", "S")); assertFalse(SurveyPrep.canPlace("floor", "left", "S"))
+        assertEquals("A Fan cannot go on the floor", SurveyPrep.placeRefusal("ceil", "floor", "F"))
+        assertTrue(SurveyPrep.canPlace("front", "ceil", "F")); assertTrue(SurveyPrep.canPlace("front", "right", "S"))
+        assertTrue(SurveyPrep.canPlace("floor", "ceil", "E")); assertTrue(SurveyPrep.canPlace("front", "floor", "P"))
+        assertFalse(SurveyPrep.canPlace("front", "floor", "W"))
     }
 }

@@ -157,7 +157,8 @@ internal fun SurveyPrepDialog(
     var sel by remember { mutableStateOf<SpSel?>(null) }
     var active by remember { mutableStateOf<String?>(null) }
     val hist = remember { mutableStateListOf<SurveyPrep.Prep>() }
-    var note by remember { mutableStateOf<String?>(null) }
+    // "N points re-centred" (v52 slice 4): said once, on the open that made older points 50 mm spots
+    var note by remember { mutableStateOf(SurveyPrepFile.pointsNote(opened)) }
     var savedMsg by remember { mutableStateOf(SurveyPrepFile.savedText(opened)) }
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
@@ -193,8 +194,17 @@ internal fun SurveyPrepDialog(
     // with it even if nothing is changed (a kept capture reopens on exactly these). So is a prep read
     // in part whose original is SAFELY ASIDE, so the live file heals and the next open is Restored
     // rather than another copy aside. Never one that could not be read, nor a salvaged one whose copy
-    // failed (SurveyPrepFile.saveOnOpen; the store refuses those saves anyway).
-    LaunchedEffect(Unit) { if (SurveyPrepFile.saveOnOpen(opened)) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) }
+    // failed (SurveyPrepFile.saveOnOpen; the store refuses those saves anyway). And a prep whose older
+    // points were just made spots (v52 slice 4): written once, so the next open finds nothing to convert;
+    // for a room already sent to the web the upload is queued again, and its readings sync sends each
+    // converted reading as a delete of the edge key and a set of the centre key, each on the `at` this
+    // phone last saw (ReadingsSync.push) -- held by WorkManager until there is a network.
+    LaunchedEffect(Unit) {
+        if (SurveyPrepFile.saveOnOpen(opened)) {
+            val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
+            if (ok && SurveyPrepFile.pointsOf(opened) > 0 && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
+        }
+    }
     // Closing the screen inside that moment must not lose the last change.
     DisposableEffect(Unit) { onDispose { if (unsaved[0]) store.save(id, prep, roomSize[0], roomSize[1], roomSize[2]) } }
 
@@ -492,7 +502,8 @@ internal fun SurveyPrepDialog(
                             onGrab = { g -> grabbed(g) },
                             onBeforeChange = { snapshot() },
                             onMoved = { rev++ },
-                            onChanged = { changed() })
+                            onChanged = { changed() },
+                            onDelete = { deleteMark(it) })
                     }
 
                     // ---- under the photo: the selected mark's buttons, then the measurement being taken
@@ -588,7 +599,7 @@ internal fun SurveyPrepDialog(
                                         val nc = cv.nativeCanvas
                                         nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
                                         SurveyPrepDraw.drawMarks(nc, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
-                                            size.width, size.height, null), { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
+                                            size.width, size.height, null, density), { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
                                     }
                                 }
                                 SpTable(s, prep, a, rev, sel, active, show,
@@ -759,6 +770,8 @@ private fun SpPhoto(
     onBeforeChange: () -> Unit,
     onMoved: () -> Unit,
     onChanged: () -> Unit,
+    /** The floating trash pressed beside the picked mark: delete it. */
+    onDelete: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -768,13 +781,16 @@ private fun SpPhoto(
     val rectS by rememberUpdatedState(rect); val abS by rememberUpdatedState(ab)
     val onSelectS by rememberUpdatedState(onSelect); val onGrabS by rememberUpdatedState(onGrab)
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
-    val onChangedS by rememberUpdatedState(onChanged)
+    val onChangedS by rememberUpdatedState(onChanged); val onDeleteS by rememberUpdatedState(onDelete)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
+    // The floating trash as last drawn: its centre x, y and radius, canvas px (null: none shown). Filled by the
+    // drawing, like [tags], and read by the gesture, which takes a press on it before anything under it.
+    val trashAt = remember { arrayOfNulls<FloatArray>(1) }
     var boxW by remember { mutableStateOf(1f) }
     var boxH by remember { mutableStateOf(1f) }
     // Where the photo and the fit button sit on screen, for keeping the magnifier off the button (v52 item 15)
@@ -829,12 +845,14 @@ private fun SpPhoto(
     fun hitMarks(sx: Float, sy: Float): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         val els = prepS.surface(tab).marks
+        // a point (v52) is a spot: its 25 mm on screen goes with it, so it is grabbed round its centre and never resized
         val drawn = els.map { e ->
             val p = toS(sq.x(e.x0), sq.y(e.y1)); val q = toS(sq.x(e.x1), sq.y(e.y0))
-            SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble())
+            SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble(),
+                spot = if (SurveyPrep.isPoint(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)
         }
         val tol = with(density) { 16.dp.toPx() }.toDouble()
-        return when (val h = SurveyPrepTouch.hit(drawn, selS?.id, tags.toList(), sx.toDouble(), sy.toDouble(), tol)) {
+        return when (val h = SurveyPrepTouch.hit(drawn, selS?.id, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble())) {
             null -> null
             is SurveyPrepTouch.Hit.Tag -> {
                 prepS.markOf(h.code)?.let { (s, e) -> onSelectS(s, e, h.code) }
@@ -869,6 +887,19 @@ private fun SpPhoto(
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
+                // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there
+                val tr = if (mode == "mark") trashAt[0] else null
+                if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2]) {
+                    var at = first.position
+                    do {
+                        val ev = awaitPointerEvent()
+                        ev.changes.forEach { it.consume() }
+                        ev.changes.firstOrNull { it.id == first.id }?.let { at = it.position }
+                    } while (ev.changes.any { it.pressed })
+                    val picked = selS?.id
+                    if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) onDeleteS(picked)
+                    return@awaitEachGesture
+                }
                 var grab: SpGrab? = null; var pinch = false; var moved = false; var snapped = false
                 val h = if (mode == "lines") hitLines(first.position.x, first.position.y) else hitMarks(first.position.x, first.position.y)
                 if (h != null) { grab = h; onGrabS(h.sel) }
@@ -930,6 +961,34 @@ private fun SpPhoto(
                 }
                 tags.clear()
                 overlay(nc, m, "main")
+                // ---- THE FLOATING TRASH (v52): a 36 dp red disc with a white ring beside the picked mark, placed
+                // by SurveyPrepTouch.trashSpot so it never covers one of its figures -- a tap on a figure never deletes
+                trashAt[0] = null
+                val picked = if (mode == "mark") sel?.takeIf { it.s == tab }?.id?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } } else null
+                val rr = rect
+                if (picked != null && rr != null) {
+                    val dpx = density.density
+                    val bb = if (SurveyPrep.isPoint(picked.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
+                        SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
+                    else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
+                        SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
+                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble())?.let { ts ->
+                        val rad = 18f * dpx; val tx = ts.left.toFloat() + rad; val ty = ts.top.toFloat() + rad
+                        val pt = Paint(Paint.ANTI_ALIAS_FLAG)
+                        pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tx, ty, rad, pt)
+                        pt.style = Paint.Style.STROKE; pt.strokeWidth = 2f * dpx; pt.color = android.graphics.Color.WHITE
+                        nc.drawCircle(tx, ty, rad - dpx, pt)
+                        // a bin: lid, handle, body with two ribs
+                        pt.strokeWidth = 1.8f * dpx; pt.strokeCap = Paint.Cap.ROUND
+                        val g = 5.5f * dpx
+                        nc.drawLine(tx - 1.3f * g, ty - g, tx + 1.3f * g, ty - g, pt)
+                        nc.drawLine(tx - .45f * g, ty - 1.4f * g, tx + .45f * g, ty - 1.4f * g, pt)
+                        nc.drawRect(tx - g, ty - .7f * g, tx + g, ty + 1.5f * g, pt)
+                        nc.drawLine(tx - .35f * g, ty - .3f * g, tx - .35f * g, ty + 1.1f * g, pt)
+                        nc.drawLine(tx + .35f * g, ty - .3f * g, tx + .35f * g, ty + 1.1f * g, pt)
+                        trashAt[0] = floatArrayOf(tx, ty, rad)
+                    }
+                }
                 // ---- the magnifier(s): three times the photo as it is shown
                 loupe?.let { lp ->
                     val dia = 120f * density.density; val sc = kk * 3

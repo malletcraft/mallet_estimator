@@ -28,6 +28,11 @@ import java.time.ZoneId
  * file read only in part is COPIED aside before anything is saved over it;
  * a file that is no prep at all is MOVED aside, and the room starts fresh.
  * Either way the original sits beside it as <id>.bad-<yyyyMMdd-HHmmss>.json.
+ *
+ * OLDER POINTS ARE MADE SPOTS ON OPENING (v52 slice 4): SurveyPrepFile.open
+ * re-centres every Electric / Bulb / Fan point saved larger than 50 mm and
+ * converts its readings to the centre (SurveyPrep.normPoints, tested in
+ * :pano); each change is logged here, and the screen saves the result once.
  */
 class SurveyPrepStore(context: Context) {
     private val dir = File(context.filesDir, "surveyprep").apply { mkdirs() }
@@ -73,10 +78,15 @@ class SurveyPrepStore(context: Context) {
             })
         synchronized(held) { if (r.hold) held.add(id) else held.remove(id) }
         when (val o = r.opened) {
-            is SurveyPrepFile.Opened.Salvaged -> for (p in o.decoded.problems) Log.w(TAG, "$id: $p")
+            is SurveyPrepFile.Opened.Salvaged -> {
+                for (p in o.decoded.problems) Log.w(TAG, "$id: $p")
+                for (p in o.decoded.pointLog) Log.i(TAG, "$id: $p")
+            }
             is SurveyPrepFile.Opened.Unreadable ->
                 Log.w(TAG, if (o.aside != null) "$id: unreadable prep set aside as ${o.aside}" else "$id: unreadable prep could not be set aside; saves are refused")
-            is SurveyPrepFile.Opened.Missing, is SurveyPrepFile.Opened.Restored -> Unit
+            // older points made 50 mm spots on opening (v52 slice 4), each change on its own line
+            is SurveyPrepFile.Opened.Restored -> for (p in o.decoded.pointLog) Log.i(TAG, "$id: $p")
+            is SurveyPrepFile.Opened.Missing -> Unit
         }
         return r.opened
     }

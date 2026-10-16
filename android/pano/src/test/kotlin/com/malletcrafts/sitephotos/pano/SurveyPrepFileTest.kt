@@ -236,6 +236,50 @@ class SurveyPrepFileTest {
         }
     }
 
+    // ------------------------------------------------------------ v52 slice 4: older points made spots on opening
+
+    /** APK 0.3.212's prep: a wall Electric point 150 x 150, measured to its edge (l, s) with its w and h. */
+    private val v1Point = v1.replaceFirst("""[{"id":"a1","t":"D"""",
+        """[{"id":"e9","t":"E","code":"FE9","x0":300,"x1":450,"y0":300,"y1":450,"locked":true},{"id":"a1","t":"D"""")
+        .replace(""""actual":{""", """"actual":{"FE9.l":300,"FE9.s":300,"FE9.w":150,"FE9.h":150,""")
+
+    @Test fun `a v1 prep with a 150 mm wall point opens as a 50 mm spot with cl and cs, saved once, then left alone`() {
+        val r = open(v1Point, Disk())
+        val o = r.opened as SurveyPrepFile.Opened.Restored
+        assertEquals(1, o.decoded.points); assertEquals(1, SurveyPrepFile.pointsOf(o))
+        assertEquals("1 point re-centred", SurveyPrepFile.pointsNote(o))
+        assertTrue(o.decoded.pointLog.single().startsWith("front FE9: 150 x 150 re-centred"), o.decoded.pointLog.toString())
+        val e = o.decoded.prep.surface("front").marks.first { it.code == "FE9" }
+        assertEquals(listOf(350.0, 400.0, 350.0, 400.0), listOf(e.x0, e.x1, e.y0, e.y1))
+        assertEquals(mapOf("locked" to true), e.extra, "what the file carried for the mark is kept")
+        assertEquals(mapOf("FE9.cl" to 375.0, "FE9.cs" to 375.0, "FD1.w" to 905.0, "FD1.h" to 2050.5), o.decoded.prep.actual)
+        assertTrue(SurveyPrepFile.saveOnOpen(o), "the conversion is written at once")
+        // what the screen writes then opens Restored with nothing to do: once only
+        val z = o.decoded.size!!
+        val again = open(write(SurveyPrepFile.encode(o.decoded.prep, z[0], z[1], z[2])), Disk()).opened as SurveyPrepFile.Opened.Restored
+        assertEquals(0, again.decoded.points); assertNull(SurveyPrepFile.pointsNote(again))
+        assertFalse(SurveyPrepFile.saveOnOpen(again))
+        assertEquals(o.decoded.prep.actual, again.decoded.prep.actual)
+    }
+
+    @Test fun `the readings sync then sends the old key as a delete and the new one as a set, each on its own base`() {
+        val o = open(v1Point, Disk()).opened as SurveyPrepFile.Opened.Restored
+        // what the phone last saw on the web: the edge readings, before the update
+        val seen = mapOf("FE9.l" to Readings.Seen(300.0, "t1"), "FE9.s" to Readings.Seen(300.0, "t2"),
+            "FE9.w" to Readings.Seen(150.0, "t3"), "FE9.h" to Readings.Seen(150.0, "t4"), "FD1.w" to Readings.Seen(905.0, "t5"))
+        val push = Readings.push(o.decoded.prep.actual, seen)
+        assertEquals(mapOf("FD1.h" to 2050.5, "FE9.cl" to 375.0, "FE9.cs" to 375.0, "FE9.h" to null, "FE9.l" to null,
+            "FE9.s" to null, "FE9.w" to null), push.set)
+        assertEquals("t1", push.base["FE9.l"]); assertNull(push.base["FE9.cl"])
+        // the web still holding the edge readings does not bring them back while the deletes are unsent
+        val remote = mapOf("FE9.l" to Readings.Remote(300.0, "phone", "t1"), "FE9.s" to Readings.Remote(300.0, "phone", "t2"),
+            "FE9.w" to Readings.Remote(150.0, "phone", "t3"), "FE9.h" to Readings.Remote(150.0, "phone", "t4"),
+            "FD1.w" to Readings.Remote(905.0, "phone", "t5"))
+        val m = Readings.pull(o.decoded.prep.actual, seen, remote)
+        assertTrue(m.taken.isEmpty(), m.taken.toString()); assertNull(m.actual["FE9.l"]); assertNull(m.actual["FE9.w"])
+        assertEquals(375.0, m.actual["FE9.cl"])
+    }
+
     // ------------------------------------------------------------ the JSON library, faked
 
     /** A JSON library of its own: an object, an array and a null that are not plain maps, lists or null. */

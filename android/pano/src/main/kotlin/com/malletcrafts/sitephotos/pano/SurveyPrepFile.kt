@@ -39,8 +39,11 @@ object SurveyPrepFile {
     val SURFACE_KEYS = SurveyPrep.SLOTS.toSet() + setOf("set", "els")
     val MARK_KEYS = setOf("id", "t", "code", "x0", "x1", "y0", "y1")
 
-    /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be dropped. */
-    class Decoded(val prep: SurveyPrep.Prep, val size: DoubleArray?, val problems: List<String>)
+    /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be dropped.
+     *  [points] / [pointLog]: the older points [open] made 50 mm spots, and what that did to them and their readings
+     *  (SurveyPrep.normPoints, v52 slice 4). */
+    class Decoded(val prep: SurveyPrep.Prep, val size: DoubleArray?, val problems: List<String>,
+                  val points: Int = 0, val pointLog: List<String> = emptyList())
 
     private fun num(v: Any?): Double? = when (v) {
         is Number -> v.toDouble().takeIf { it.isFinite() }
@@ -216,7 +219,11 @@ object SurveyPrepFile {
             return Opening(Opened.Unreadable(to), hold = to == null)
         }
         if (text == null) return if (exists) unreadable() else Opening(Opened.Missing, hold = false)
-        val d = runCatching { tree(text)?.let { decode(it) } }.getOrNull() ?: return unreadable()
+        val d0 = runCatching { tree(text)?.let { decode(it) } }.getOrNull() ?: return unreadable()
+        // OLDER POINTS ARE MADE SPOTS ON OPENING (v52 slice 4), their readings converted with them; once
+        // saved, the next open finds nothing to do (normPoints is idempotent)
+        val fix = SurveyPrep.normPoints(d0.prep)
+        val d = if (fix.points == 0) d0 else Decoded(fix.prep, d0.size, d0.problems, fix.points, fix.log)
         if (d.problems.isEmpty()) return Opening(Opened.Restored(d), hold = false)
         val to = runCatching(copyAside).getOrNull()
         return Opening(Opened.Salvaged(d, to), hold = to == null)
@@ -224,12 +231,25 @@ object SurveyPrepFile {
 
     /**
      * Whether the screen writes the prep the moment it opens: a new one (so the
-     * laser sizes it squares to are kept), and a salvaged one whose original is
+     * laser sizes it squares to are kept); a whole one whose older points were
+     * just made spots (so the conversion is kept, done once, and its readings
+     * reach the readings sync as the edits they are); and a salvaged one whose original is
      * SAFELY ASIDE -- so the live file is clean, the next open is Restored, and
      * the same damage is not copied aside again on every visit. Never a salvaged
      * prep whose copy failed: that file is the only copy of what was lost.
      */
-    fun saveOnOpen(o: Opened): Boolean = o is Opened.Missing || (o is Opened.Salvaged && o.aside != null)
+    fun saveOnOpen(o: Opened): Boolean = o is Opened.Missing || (o is Opened.Salvaged && o.aside != null) ||
+        (o is Opened.Restored && o.decoded.points > 0)
+
+    /** The points [open] re-centred, for the log and the note; 0 when none (or nothing was read). */
+    fun pointsOf(o: Opened): Int = when (o) {
+        is Opened.Restored -> o.decoded.points
+        is Opened.Salvaged -> o.decoded.points
+        is Opened.Missing, is Opened.Unreadable -> 0
+    }
+
+    /** The one-time note when opening re-centred older points; null when it did not. */
+    fun pointsNote(o: Opened): String? = pointsOf(o).takeIf { it > 0 }?.let { n -> "$n point${if (n == 1) "" else "s"} re-centred" }
 
     // ------------------------------------------------------- the JSON library
 
