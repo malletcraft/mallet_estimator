@@ -4,6 +4,7 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -127,6 +128,14 @@ object SurveyMeas {
 
     /** The reading key a Line takes (F-M1.len, F-M2.per); null for a tape (sp.js measAct). */
     fun key(m: SurveyPrep.Meas): String? = measures(m).firstOrNull()?.let { m.code + "." + it.key }
+
+    /**
+     * WHICH READING IS BEING TAKEN WHEN [m] IS PICKED (sp.js mPick): the one a list row named ([measure]) if any; else,
+     * on a FRESH pick, the Line's own key -- and for a tape, which has none, nothing (active cleared); re-picking the
+     * same item keeps [current].
+     */
+    fun pickActive(m: SurveyPrep.Meas, fresh: Boolean, measure: String?, current: String?): String? =
+        measure ?: if (fresh) key(m) else current
 
     // ------------------------------------------------------------ the 5° snap
 
@@ -285,6 +294,46 @@ object SurveyMeas {
     }
 
     // ------------------------------------------------------------ picking on the photo
+
+    /**
+     * A TAPE BAND'S HALF-WIDTH IN FACE MM: half of [TAPE_W], or [TAPE_MIN_HALF_DP] dp when that is wider on screen --
+     * the ONE rule the drawing and the picking both use. [ppm] canvas px per face mm, [dpPx] px per dp.
+     */
+    fun bandHalfMm(ppm: Double, dpPx: Double): Double =
+        if (ppm > 0) max(TAPE_W / 2, TAPE_MIN_HALF_DP * dpPx / ppm) else TAPE_W / 2
+
+    /** The same half-width on screen, px (0 without a scale): what a pick widens a tape's middle by. */
+    fun bandHalfPx(ppm: Double, dpPx: Double): Double = if (ppm > 0) bandHalfMm(ppm, dpPx) * ppm else 0.0
+
+    /** A tap at ([x], [y]) canvas px closes the area being built: it has [n] >= 3 corners and the tap is within
+     *  [CLOSE_DP] dp of its first corner, [first] on screen (sp.js polyTap's tolMM). */
+    fun nearFirst(first: DoubleArray, x: Double, y: Double, n: Int, dpPx: Double): Boolean =
+        n >= 3 && hypot(first[0] - x, first[1] - y) < CLOSE_DP * dpPx
+
+    /**
+     * WHERE A TAPE'S TAG GOES (sp.js drawTapes), canvas px: just past the far end [pb] of the tape from [pa], [tw] the
+     * text's width and [pw] the padlock's, kept on the [w] x [h] canvas; when there is no room past the end (the clamp
+     * would move it more than 3 dp), beside the end on the side ABOVE the band (or right of a plumb one).
+     * Returns the text's left and baseline.
+     */
+    fun tapeTagAt(pa: DoubleArray, pb: DoubleArray, tw: Double, pw: Double, dp: Double, w: Double, h: Double): DoubleArray {
+        var dx = pb[0] - pa[0]; var dy = pb[1] - pa[1]; val l = hypot(dx, dy)
+        if (!(l > 0)) { dx = 1.0; dy = 0.0 } else { dx /= l; dy /= l }
+        val r = abs(dx) * (tw / 2 + pw / 2) + abs(dy) * 9 * dp + 12 * dp
+        fun cl(x: Double, y: Double) = doubleArrayOf(
+            x.coerceIn(2 * dp, max(2 * dp, w - tw - pw - 2 * dp)), y.coerceIn(14 * dp, max(14 * dp, h - 4 * dp)))
+        var x = pb[0] + dx * r - (tw + pw) / 2; var y = pb[1] + dy * r + 4 * dp
+        var k = cl(x, y)
+        if (hypot(k[0] - x, k[1] - y) > 3 * dp) {
+            var nx = -dy; var ny = dx
+            if (ny > 0 || (abs(ny) < 1e-6 && nx < 0)) { nx = -nx; ny = -ny }
+            val back = abs(dx) * (tw + pw) / 2 + abs(dy) * 9 * dp
+            x = pb[0] - dx * back + nx * (abs(nx) * (tw + pw) / 2 + 14 * dp) - (tw + pw) / 2
+            y = pb[1] - dy * back + ny * 14 * dp + 4 * dp
+            k = cl(x, y)
+        }
+        return k
+    }
 
     /** The distance from ([x], [y]) to the segment [p]-[q], all canvas px (sp.js segDist). */
     fun segDist(x: Double, y: Double, p: DoubleArray, q: DoubleArray): Double {

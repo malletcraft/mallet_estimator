@@ -390,4 +390,63 @@ class MeasTest {
         assertNull(SurveyMeas.pick(listOf(t to t.pts.toList()), 50.0, 23.0, 12.0) { 10.0 })
         assertEquals(5.0, SurveyMeas.segDist(-5.0, 0.0, pt(0.0, 0.0), pt(100.0, 0.0)), 1e-9)
     }
+
+    @Test fun `the tape band is 12_5 mm either side, or 3_5 dp when that is wider, the same rule drawn and picked`() {
+        // 2 px per mm, 3 px per dp: 12.5 mm = 25 px beats 3.5 dp = 10.5 px
+        assertEquals(12.5, SurveyMeas.bandHalfMm(2.0, 3.0), 1e-9)
+        assertEquals(25.0, SurveyMeas.bandHalfPx(2.0, 3.0), 1e-9)
+        // zoomed out to 0.2 px per mm: 12.5 mm is 2.5 px, thinner than 3.5 dp = 10.5 px, so the floor applies
+        assertEquals(10.5 / 0.2, SurveyMeas.bandHalfMm(0.2, 3.0), 1e-9)
+        assertEquals(10.5, SurveyMeas.bandHalfPx(0.2, 3.0), 1e-9)
+        // the drawn band (mm, mapped back to px) and the picked band (px) agree at every scale
+        for (ppm in listOf(0.05, 0.3, 0.84, 1.0, 4.0)) assertEquals(SurveyMeas.bandHalfMm(ppm, 2.75) * ppm, SurveyMeas.bandHalfPx(ppm, 2.75), 1e-9)
+        // no scale yet: the face's own 12.5 mm, and nothing to widen a pick by
+        assertEquals(12.5, SurveyMeas.bandHalfMm(0.0, 3.0), 1e-9)
+        assertEquals(0.0, SurveyMeas.bandHalfPx(0.0, 3.0), 1e-9)
+    }
+
+    @Test fun `a tap within 18 dp of the first corner closes an area of three or more, 19 dp does not`() {
+        val first = pt(100.0, 100.0); val dpPx = 2.0
+        assertTrue(SurveyMeas.nearFirst(first, 100.0 + 17 * dpPx, 100.0, 3, dpPx))
+        assertFalse(SurveyMeas.nearFirst(first, 100.0 + 19 * dpPx, 100.0, 3, dpPx))
+        assertFalse(SurveyMeas.nearFirst(first, 100.0 + 17 * dpPx, 100.0, 2, dpPx))   // two corners: no area yet
+        assertTrue(SurveyMeas.nearFirst(first, 100.0, 100.0 - 17 * dpPx, 5, dpPx))
+    }
+
+    @Test fun `a tape's tag sits past its end, and at the canvas edge flips above the band and stays on`() {
+        val dp = 1.0; val tw = 80.0; val w = 800.0; val h = 600.0
+        // room past the end: 12 dp beyond it plus half the text, on the band's line
+        val k = SurveyMeas.tapeTagAt(pt(100.0, 300.0), pt(300.0, 300.0), tw, 0.0, dp, w, h)
+        assertEquals(300.0 + 52.0 - 40.0, k[0], 1e-9); assertEquals(304.0, k[1], 1e-9)
+        // the end at the right edge: beside it instead, above the band, inside the canvas
+        val e = SurveyMeas.tapeTagAt(pt(100.0, 300.0), pt(790.0, 300.0), tw, 0.0, dp, w, h)
+        assertTrue(e[0] >= 2 * dp && e[0] + tw <= w - 2 * dp, "inside: ${e[0]}")
+        assertTrue(e[1] < 300.0, "above the band: ${e[1]}")
+        assertEquals(710.0, e[0], 1e-9); assertEquals(290.0, e[1], 1e-9)
+        // pulled right to left to the left edge: still above, still inside (with a padlock)
+        val l = SurveyMeas.tapeTagAt(pt(700.0, 300.0), pt(5.0, 300.0), tw, 26.0, dp, w, h)
+        assertTrue(l[0] >= 2 * dp && l[0] + tw + 26.0 <= w - 2 * dp)
+        assertTrue(l[1] < 300.0)
+        // a plumb tape down to the bottom edge: its tag goes to the side, clamped inside
+        val v = SurveyMeas.tapeTagAt(pt(400.0, 100.0), pt(400.0, 598.0), tw, 0.0, dp, w, h)
+        assertTrue(v[1] <= h - 4 * dp && v[1] >= 14 * dp)
+        assertTrue(v[0] >= 2 * dp && v[0] + tw <= w - 2 * dp)
+        // no length: treated as pointing right, never NaN
+        val z = SurveyMeas.tapeTagAt(pt(300.0, 300.0), pt(300.0, 300.0), tw, 0.0, dp, w, h)
+        assertFalse(z[0].isNaN() || z[1].isNaN())
+    }
+
+    @Test fun `picking a tape clears the reading being taken, a Line takes its own, a list row's wins`() {
+        val p = SurveyPrep.fresh(L, W, H)
+        val t = p.addMeas("front", SurveyMeas.TAPE, listOf(pt(0.0, 0.0), pt(500.0, 0.0)), "t")
+        val m = p.addMeas("front", SurveyMeas.LINE, listOf(pt(0.0, 100.0), pt(500.0, 100.0)), "m")
+        val a = p.addMeas("front", SurveyMeas.AREA, listOf(pt(0.0, 0.0), pt(100.0, 0.0), pt(100.0, 100.0)), "a")
+        assertNull(SurveyMeas.pickActive(t, true, null, "F-M1.len"))
+        assertEquals(m.code + ".len", SurveyMeas.pickActive(m, true, null, null))
+        assertEquals(a.code + ".per", SurveyMeas.pickActive(a, true, null, "F-M1.len"))
+        // picked again: whatever is being taken stays
+        assertEquals("F-W1.w", SurveyMeas.pickActive(m, false, null, "F-W1.w"))
+        // a list row named the reading
+        assertEquals(m.code + ".len", SurveyMeas.pickActive(m, false, m.code + ".len", null))
+    }
 }

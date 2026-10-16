@@ -204,6 +204,9 @@ internal fun SurveyPrepDialog(
     var mdrag by remember { mutableStateOf<SurveyMeas.Draft?>(null) }
     var area by remember { mutableStateOf<List<DoubleArray>?>(null) }
     var areaS by remember { mutableStateOf<String?>(null) }
+    /** No Tape or Line half drawn: a drag let go of, the area's corners forgotten (a tool, a face or a step changed).
+     *  Declared here, above every caller -- a local function is visible only below its declaration. */
+    fun dropDrafts() { mdrag = null; area = null; areaS = null }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
@@ -540,12 +543,10 @@ internal fun SurveyPrepDialog(
         val m = prep.measById(mid)?.second ?: return
         val fresh = sel?.id != mid
         sel = SpSel(s, id = mid)
-        if (measure != null) active = measure else if (fresh) active = SurveyMeas.key(m)
+        active = SurveyMeas.pickActive(m, fresh, measure, active)
         if (tab != s && tab != "list") { tab = s; mode = "mark" }
         rev++
     }
-    /** No Tape or Line half drawn: a drag let go of, the area's corners forgotten (a tool, a face or a step changed). */
-    fun dropDrafts() { mdrag = null; area = null; areaS = null }
     /**
      * A TAPE OR A LINE LET GO (v52 slice 9, sp.js measureDown.end): off the surface it is REFUSED -- "Only things on
      * this surface measure correctly.", nothing plotted, NO undo entry; under 20 mm nothing happens; otherwise it is
@@ -1587,7 +1588,7 @@ private fun SpPhoto(
         val dpx = density.density.toDouble()
         val shapes = ms.map { m -> m to m.pts.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } } }
         return SurveyMeas.pick(shapes, sx.toDouble(), sy.toDouble(), SurveyMeas.PICK_DP * dpx) { m ->
-            if (m.kind == SurveyMeas.TAPE) max(SurveyMeas.TAPE_W / 2 * ppm, SurveyMeas.TAPE_MIN_HALF_DP * dpx) else 0.0 }
+            if (m.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(ppm, dpx) else 0.0 }
     }
 
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
@@ -1667,8 +1668,9 @@ private fun SpPhoto(
                     if (tool0 == SurveyPrepPalette.TAPE) { onTapeTapS(); return }
                     val mm = mmAt(x.toFloat(), y.toFloat()) ?: return
                     val a = areaS; val r = rectS
-                    val near = a != null && a.size >= 3 && r != null &&
-                        toS(r.sq.x(a[0][0]), r.sq.y(a[0][1])).let { q -> hypot(q[0] - x, q[1] - y) } < SurveyMeas.CLOSE_DP.dp.toPx()
+                    val near = a != null && a.isNotEmpty() && r != null &&
+                        toS(r.sq.x(a[0][0]), r.sq.y(a[0][1])).let { q ->
+                            SurveyMeas.nearFirst(doubleArrayOf(q[0].toDouble(), q[1].toDouble()), x, y, a.size, 1.dp.toPx().toDouble()) }
                     onAreaTapS(mm, near, dbl)
                 }
                 fun act(evs: List<GestureClassifier.Event>) {
@@ -1958,10 +1960,10 @@ private fun SpTable(
     }
     /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. */
     @Composable
-    fun head(id: String, code: String, colour: Color, name: String) {
+    fun head(id: String, code: String, colour: Color, name: String?) {
         Column(Modifier.width(56.dp).padding(3.dp)) {
             Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
+            if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
             Text("Delete", color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
                     .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, id) ?: "Delete $code" }
@@ -2008,7 +2010,9 @@ private fun SpTable(
         Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)
             .let { if (tp) it.clickable { onMeasRow(m, null) } else it }) {
             head(m.id, m.code, Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
-                if (tp) SurveyMeas.typeName(m) else SurveyMeas.listName(s, m, room))
+                // a tape's one header line is the right column's "Tape · 1234 mm · from the photo" (sp.js markPanel):
+                // under its code, nothing -- or "Tape" would be said twice
+                if (tp) null else SurveyMeas.listName(s, m, room))
             Column(Modifier.weight(1f).padding(top = 3.dp)) {
                 if (tp) {
                     // NO READING BOX: the tape's figure is the photo's

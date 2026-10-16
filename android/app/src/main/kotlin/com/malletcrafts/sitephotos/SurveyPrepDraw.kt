@@ -259,8 +259,10 @@ internal object SurveyPrepDraw {
                     pathEffect = DashPathEffect(floatArrayOf(7f * u, 5f * u), 0f) })
             }
         }
-        // THE LINES, AREAS AND TAPES (v52 slice 9) over the marks, as sp.js draws them after drawMarks
-        drawMeas(c, s, o, m)
+        // THE LINES, AREAS AND TAPES (v52 slice 9) over the marks, as sp.js draws them after drawMarks -- and NOT in
+        // the loupe (sp.js overlay: `if(which!=='loupe'){ ... drawMeas ... drawTapes }`), which shows the photo under
+        // the finger: a tape being pulled ends at the loupe's centre, and its band would hide what is being aimed at
+        if (o.mode != "loupe") drawMeas(c, s, o, m)
     }
 
     // ------------------------------------------------------------ v52 slice 9: Line and Tape
@@ -289,21 +291,21 @@ internal object SurveyPrepDraw {
      * band translucent) -- in red where it has left the surface. Everything is sized in dp ([Marks.dp]).
      */
     private fun drawMeas(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray) {
-        val sq = o.sq; val dp = o.dp; val thin = o.mode == "loupe"
+        val sq = o.sq; val dp = o.dp
         fun toS(p: DoubleArray) = m(sq.x(p[0]), sq.y(p[1]))
         // canvas px per face mm: a squared face has one scale both ways
         val z0 = m(sq.x(0.0), sq.y(0.0)); val z1 = m(sq.x(100.0), sq.y(0.0))
         val ppm = hypot(z1[0] - z0[0], z1[1] - z0[1]) / 100f
         val sf = o.prep.surface(s)
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
-            line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, thin, ::toS)
-        o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, thin, ::toS) }
+            line(c, q.kind, q.pts, q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ::toS)
+        o.area?.takeIf { it.isNotEmpty() }?.let { line(c, "open", it, null, false, true, false, false, dp, ::toS) }
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.LINE }?.let { d ->
-            line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, thin, ::toS) }
+            line(c, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, dp, ::toS) }
         for (q in sf.meas) if (q.kind == SurveyMeas.TAPE && q.pts.size == 2)
-            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, thin, o, ::toS)
+            tape(c, q.pts[0], q.pts[1], q.code, o.selId == q.id, false, false, SurveyPrep.isLocked(q), dp, ppm, o, ::toS)
         o.drag?.takeIf { it.s == s && it.kind == SurveyMeas.TAPE }?.let { d ->
-            tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, thin, o, ::toS) }
+            tape(c, d.from, d.to, null, false, true, d.off, false, dp, ppm, o, ::toS) }
     }
 
     /**
@@ -312,12 +314,12 @@ internal object SurveyPrepDraw {
      * 1.86 m²"; a draft dashed 7 / 5 dp ("1234 mm" while pulled, "1.86 m²…" from an area's third corner).
      */
     private fun line(c: Canvas, kind: String, pts: List<DoubleArray>, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
-                     locked: Boolean, dp: Float, thin: Boolean, toS: (DoubleArray) -> FloatArray) {
+                     locked: Boolean, dp: Float, toS: (DoubleArray) -> FloatArray) {
         if (pts.isEmpty()) return
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
         val col = if (draft && off) OUT_COLOUR else LINE_C
         val scr = pts.map(toS)
-        val p = stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.4f) * dp).apply { strokeCap = Paint.Cap.ROUND }
+        val p = stroke(argb(col), (if (sel) 3.5f else 2.4f) * dp).apply { strokeCap = Paint.Cap.ROUND }
         if (draft) p.pathEffect = DashPathEffect(floatArrayOf(7f * dp, 5f * dp), 0f)
         if (closed && !draft && scr.size >= 3) {
             val fill = Path().apply { moveTo(scr[0][0], scr[0][1]); for (i in 1 until scr.size) lineTo(scr[i][0], scr[i][1]); close() }
@@ -331,7 +333,6 @@ internal object SurveyPrepDraw {
                 head(c, a, b, col, dp); head(c, b, a, col, dp)
             }
         }
-        if (thin) return
         // an area's corners, and the corners tapped so far, as white dots ringed in the Line's blue
         if (!isLine) for (q in scr) {
             c.drawCircle(q[0], q[1], 3.2f * dp, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) })
@@ -351,20 +352,20 @@ internal object SurveyPrepDraw {
      * pulled, "F-T1 1234 mm" once plotted, kept on the canvas -- moved to the side of the band when the end is at an edge.
      */
     private fun tape(c: Canvas, a: DoubleArray, b: DoubleArray, code: String?, sel: Boolean, draft: Boolean, off: Boolean,
-                     locked: Boolean, dp: Float, ppm: Float, thin: Boolean, o: Marks, toS: (DoubleArray) -> FloatArray) {
+                     locked: Boolean, dp: Float, ppm: Float, o: Marks, toS: (DoubleArray) -> FloatArray) {
         val len = hypot(b[0] - a[0], b[1] - a[1])
         val pa = toS(a); val pb = toS(b)
         val col = if (off) OUT_COLOUR else TAPE_C
         if (len > 0) {
             val d = doubleArrayOf((b[0] - a[0]) / len, (b[1] - a[1]) / len); val nv = doubleArrayOf(-d[1], d[0])
             fun at(k: Double, w: Double) = toS(doubleArrayOf(a[0] + d[0] * k + nv[0] * w, a[1] + d[1] * k + nv[1] * w))
-            val hw = if (ppm > 0f) max(SurveyMeas.TAPE_W / 2, SurveyMeas.TAPE_MIN_HALF_DP * dp / ppm) else SurveyMeas.TAPE_W / 2
+            val hw = SurveyMeas.bandHalfMm(ppm.toDouble(), dp.toDouble())
             val cs = listOf(at(0.0, hw), at(len, hw), at(len, -hw), at(0.0, -hw))
             val band = Path().apply { moveTo(cs[0][0], cs[0][1]); for (i in 1 until 4) lineTo(cs[i][0], cs[i][1]); close() }
             if (sel) c.drawPath(band, stroke(argb(0xffffff), 5f * dp).apply { strokeJoin = Paint.Join.ROUND })
             c.drawPath(band, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(col, if (draft) 0xc8 else 0xf0) })
             c.drawPath(band, stroke(argb(0x3b2f00), 1f * dp))
-            if (!thin) for (tk in SurveyMeas.tapeTicks(len)) {
+            for (tk in SurveyMeas.tapeTicks(len)) {
                 // too close together to read: only every 500 mm
                 if (!tk.major && ppm * 100 < 4f * dp) continue
                 val p = at(tk.at, hw); val q = at(tk.at, hw - 2 * hw * (if (tk.major) .62 else .36))
@@ -377,25 +378,12 @@ internal object SurveyPrepDraw {
                 }
             }
         }
-        if (thin) return
         val txt = SurveyMeas.tapeTag(if (draft) null else code, len)
         val tw = Paint().apply { textSize = 12f * dp; isFakeBoldText = true }.measureText(txt)
         val pw = if (locked && !draft) 26f * dp else 0f
-        var dx = pb[0] - pa[0]; var dy = pb[1] - pa[1]; val l = hypot(dx, dy).takeIf { it > 0f } ?: 1f
-        if (hypot(pb[0] - pa[0], pb[1] - pa[1]) <= 0f) { dx = 1f; dy = 0f } else { dx /= l; dy /= l }
-        val r = abs(dx) * (tw / 2 + pw / 2) + abs(dy) * 9f * dp + 12f * dp
-        fun cl(x: Float, y: Float) = floatArrayOf(x.coerceIn(2f * dp, max(2f * dp, o.width - tw - pw - 2f * dp)), y.coerceIn(14f * dp, max(14f * dp, o.height - 4f * dp)))
-        var x = pb[0] + dx * r - (tw + pw) / 2; var y = pb[1] + dy * r + 4f * dp
-        var k = cl(x, y)
-        if (hypot(k[0] - x, k[1] - y) > 3f * dp) {
-            // no room past the end: beside it, on the side above (or right of) the band
-            var nx = -dy; var ny = dx
-            if (ny > 0 || (abs(ny) < 1e-6f && nx < 0)) { nx = -nx; ny = -ny }
-            val back = abs(dx) * (tw + pw) / 2 + abs(dy) * 9f * dp
-            x = pb[0] - dx * back + nx * (abs(nx) * (tw + pw) / 2 + 14f * dp) - (tw + pw) / 2
-            y = pb[1] - dy * back + ny * 14f * dp + 4f * dp
-            k = cl(x, y)
-        }
+        // past the far end, kept on the canvas -- or beside it, above the band, when there is no room (SurveyMeas.tapeTagAt)
+        val k = SurveyMeas.tapeTagAt(doubleArrayOf(pa[0].toDouble(), pa[1].toDouble()), doubleArrayOf(pb[0].toDouble(), pb[1].toDouble()),
+            tw.toDouble(), pw.toDouble(), dp.toDouble(), o.width.toDouble(), o.height.toDouble()).let { floatArrayOf(it[0].toFloat(), it[1].toFloat()) }
         label(c, txt, k[0], k[1], if (off) 0xffd0d0 else 0xfff7c2, 12f * dp, dp)
         if (pw > 0f) padPill(c, k[0] + tw + pw, k[1] - 13f * dp, TAPE_C, dp)
     }
