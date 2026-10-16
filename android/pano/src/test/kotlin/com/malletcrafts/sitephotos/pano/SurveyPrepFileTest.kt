@@ -326,4 +326,29 @@ class SurveyPrepFileTest {
         @Suppress("UNCHECKED_CAST") val front = ((back!!["w"] as Map<String, Map<String, Any?>>).getValue("front"))
         assertEquals(listOf(null, "l"), ((front["chains"] as List<*>)[0] as Map<*, *>)["snaps"])
     }
+
+    @Test fun `a lock set here (a mark's and the lines') and the code counter survive a save and an open (v52 slice 8)`() {
+        val p = SurveyPrepFile.decode(parse(v1))!!.prep
+        p.addMark("front", "W", 2678.0, 2677.0, "w1")                     // FW1: the counter records it
+        assertEquals(true, SurveyPrepEdit.setLocked(p, "a1", true))
+        assertTrue(SurveyPrepEdit.setLinesLocked(p, "right", true))
+        assertTrue(p.deleteMark("w1"))
+        val o = SurveyPrepFile.encode(p, 3319.0, 2678.0, 2677.0)
+        @Suppress("UNCHECKED_CAST") val w = o["w"] as Map<String, Map<String, Any?>>
+        // where the prototype keeps them: the mark's "locked", the surface's "lock"
+        assertEquals(true, (w.getValue("front")["els"] as List<Map<String, Any?>>)[0]["locked"])
+        assertEquals(true, w.getValue("right")["lock"])
+        // through text, as the store writes it, and back
+        val back = SurveyPrepFile.decode(parse(write(o)))!!
+        assertTrue(back.problems.isEmpty(), back.problems.toString())
+        assertTrue(SurveyPrep.isLocked(back.prep.markById("a1")!!.second))
+        assertTrue(SurveyPrep.linesLocked(back.prep.surface("right")))
+        assertFalse(SurveyPrep.linesLocked(back.prep.surface("front")))
+        assertEquals("FW2", back.prep.nextCode("front", "W"), "FW1 was deleted, and is not handed out again after an open")
+        // unlocked, it is written as the prototype writes it: false, not dropped
+        SurveyPrepEdit.setLocked(back.prep, "a1", false)
+        @Suppress("UNCHECKED_CAST") val els = ((SurveyPrepFile.encode(back.prep, 3319.0, 2678.0, 2677.0)["w"] as Map<String, Map<String, Any?>>)
+            .getValue("front")["els"] as List<Map<String, Any?>>)
+        assertEquals(false, els[0]["locked"])
+    }
 }

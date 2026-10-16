@@ -455,15 +455,46 @@ object SurveyPrep {
     /**
      * A box on a surface, mm: x0..x1 from its left edge, y0..y1 up from its
      * bottom edge. [extra]: what the prep file carried for it that this build
-     * does not read (a later build's `locked`, say), written back as it came
-     * (SurveyPrepFile). Never changed in place, so copies may share it: [normPoints] writes its
-     * [WAS] and [CONV] into a NEW map on a new Mark.
+     * does not read as a field, written back as it came (SurveyPrepFile) -- among them its
+     * [LOCKED] flag (v52 slice 8), read through [isLocked]. NEVER CHANGED IN PLACE, only
+     * REPLACED by a new map, so copies may share it: [normPoints] writes its [WAS] and [CONV]
+     * into a NEW map on a new Mark, and a lock replaces the map ([SurveyPrepEdit.setLocked]).
      */
     class Mark(val id: String, val t: String, val code: String,
                var x0: Double, var x1: Double, var y0: Double, var y1: Double,
-               val extra: Map<String, Any?> = emptyMap()) {
+               var extra: Map<String, Any?> = emptyMap()) {
         fun copy() = Mark(id, t, code, x0, x1, y0, y1, extra)
     }
+
+    // ------------------------------------------------------------- locks (v52 slice 8)
+
+    /**
+     * LOCKS (v52 slice 8; Amit, 14 Oct 2026 02:39 IST: "Give locking lines for reference and outer box
+     * lines so it won't move accidentally. In fact each mark type should also be locked."). A mark's
+     * lock is its `locked` key and a surface's four lines' lock is its `lock` key -- exactly where the
+     * prototype keeps them (sp.js 229-234), so the file needs no new shape: SurveyPrepFile already keeps
+     * both as unknown keys. Locked means nothing moves and nothing is deleted; readings stay usable.
+     */
+    const val LOCKED = "locked"
+    /** A surface's four lines locked (sp.js st.w[s].lock). */
+    const val LINES_LOCK = "lock"
+    /**
+     * The highest number each type's code has ever had on a surface ({"W": 3, ...}), kept with the
+     * surface, so a code is NEVER handed out twice -- not even after its mark was deleted: the web keeps
+     * a deleted mark's readings under its code, and a new mark with the same code would inherit them.
+     */
+    const val SEQ = "seq"
+
+    private fun flag(v: Any?): Boolean = v == true || (v is String && v.equals("true", ignoreCase = true))
+
+    /** Whether a mark is locked. */
+    fun isLocked(e: Mark): Boolean = flag(e.extra[LOCKED])
+
+    /** Whether a surface's four lines are locked. */
+    fun linesLocked(sf: Surface): Boolean = flag(sf.extra[LINES_LOCK])
+
+    /** [m] with [k] set to [v], as a NEW map (the old one may be shared by an undo copy). */
+    fun withKey(m: Map<String, Any?>, k: String, v: Any?): Map<String, Any?> = LinkedHashMap(m).apply { put(k, v) }
 
     /** Where a new mark of type [t] starts on a surface [a] x [b]: x0, x1, y0, y1. */
     fun defaults(s: String, t: String, a: Double, b: Double): DoubleArray {
@@ -585,21 +616,25 @@ object SurveyPrep {
      * otherwise any of l r t b resize that edge (never under [MIN_SIZE]).
      * [o] is the mark as it was when the drag started.
      */
-    fun moveMark(e: Mark, o: Mark, part: String, dx: Double, dy: Double, a: Double, b: Double) {
+    fun moveMark(e: Mark, o: Mark, part: String, dx: Double, dy: Double, a: Double, b: Double): Boolean {
+        // A LOCKED MARK DOES NOT MOVE (v52 slice 8): neither a drag, a nudge nor a tab; the caller says why
+        if (isLocked(e)) return false
         if (part == "body") {
             val w = o.x1 - o.x0; val h = o.y1 - o.y0
             e.x0 = max(0.0, min(a - w, o.x0 + dx)); e.x1 = e.x0 + w
             e.y0 = max(0.0, min(b - h, o.y0 + dy)); e.y1 = e.y0 + h
-            return
+            return true
         }
         if ('l' in part) e.x0 = max(0.0, min(o.x1 - MIN_SIZE, o.x0 + dx))
         if ('r' in part) e.x1 = min(a, max(o.x0 + MIN_SIZE, o.x1 + dx))
         if ('b' in part) e.y0 = max(0.0, min(o.y1 - MIN_SIZE, o.y0 + dy))
         if ('t' in part) e.y1 = min(b, max(o.y0 + MIN_SIZE, o.y1 + dy))
+        return true
     }
 
     /** On a DRAG only (never a button nudge): within [SNAP] of a boundary, onto it. */
     fun snapMark(e: Mark, part: String, a: Double, b: Double) {
+        if (isLocked(e)) return
         val w = e.x1 - e.x0; val h = e.y1 - e.y0
         if (part == "body") {
             if (e.x0 < SNAP) { e.x0 = 0.0; e.x1 = w } else if (a - e.x1 < SNAP) { e.x1 = a; e.x0 = a - w }
@@ -615,10 +650,11 @@ object SurveyPrep {
     // ------------------------------------------------------------- the whole room
 
     /** One surface: its four lines (two view-pixel points each), which were set by hand, and its marks.
-     *  [extra]: the surface's keys this build does not read (a later build's `meas`, `chains`, `ref`,
-     *  `lock`), kept and written back as they came. */
+     *  [extra]: the surface's keys this build does not read as fields (a later build's `meas`, `chains`,
+     *  `ref`; and this build's [LINES_LOCK] and [SEQ]), kept and written back as they came -- replaced by a
+     *  new map, never changed in place, as a Mark's. */
     class Surface(val lines: MutableMap<String, Array<DoubleArray>>, val set: MutableMap<String, Boolean>,
-                  val marks: MutableList<Mark>, val extra: Map<String, Any?> = emptyMap()) {
+                  val marks: MutableList<Mark>, var extra: Map<String, Any?> = emptyMap()) {
         fun done() = SLOTS.all { set[it] == true }
         fun copy() = Surface(lines.mapValues { (_, l) -> Array(2) { l[it].copyOf() } }.toMutableMap(),
             set.toMutableMap(), marks.map { it.copy() }.toMutableList(), extra)
@@ -657,36 +693,88 @@ object SurveyPrep {
         }
 
         /**
-         * A new mark on [s]: its type's default box, and the next code -- one
-         * past the highest of that type on that surface, so a code is never
-         * handed out twice while its mark (and its readings) still exist.
+         * A new mark on [s]: its type's default box, and the next code -- see [nextCode]: a code is
+         * never handed out twice, not even after its mark was deleted.
          */
         fun addMark(s: String, t: String, a: Double, b: Double, id: String): Mark {
             val d = defaults(s, t, a, b)
-            return Mark(id, t, nextCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
         }
 
-        /** The next code of type [t] on [s]: one past the highest still there (FW1, FW2 …). */
-        fun nextCode(s: String, t: String): String {
-            val head = CODE.getValue(s) + t
-            val n = (surface(s).marks.filter { it.t == t }.mapNotNull { it.code.removePrefix(head).toIntOrNull() }.maxOrNull() ?: 0) + 1
-            return head + n
+        /** The highest number type [t]'s code has had on [s]: the surface's [SEQ], or a code still there. */
+        fun highest(s: String, t: String): Int {
+            val head = CODE.getValue(s) + t; val sf = surface(s)
+            val there = sf.marks.filter { it.t == t }.mapNotNull { it.code.removePrefix(head).toIntOrNull() }.maxOrNull() ?: 0
+            val seen = ((sf.extra[SEQ] as? Map<*, *>)?.get(t)).let { v ->
+                when (v) { is Number -> v.toDouble(); is String -> v.toDoubleOrNull(); else -> null } }?.takeIf { it.isFinite() }?.toInt() ?: 0
+            return max(there, seen)
+        }
+
+        /**
+         * The next code of type [t] on [s] (FW1, FW2 …): one past the highest EVER handed out there
+         * ([highest]), so a deleted mark's code -- and the readings the web may still hold under it --
+         * never comes back on a new mark (v52 slice 8). Only looks; [claimCode] takes it.
+         */
+        fun nextCode(s: String, t: String): String = CODE.getValue(s) + t + (highest(s, t) + 1)
+
+        /** [nextCode], recorded in the surface's [SEQ] so it is never handed out again. */
+        fun claimCode(s: String, t: String): String {
+            val n = highest(s, t) + 1; val sf = surface(s)
+            val seq = LinkedHashMap<String, Any?>().apply { (sf.extra[SEQ] as? Map<*, *>)?.forEach { (k, v) -> if (k is String) put(k, v) } }
+            seq[t] = n
+            sf.extra = withKey(sf.extra, SEQ, seq)
+            return CODE.getValue(s) + t + n
         }
 
         /** A new mark of type [t] on [s] where the finger is, ([x], [y]) mm: [placeAt], numbered as [addMark]. */
         fun addMarkAt(s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String): Mark {
             val d = placeAt(t, s, x, y, a, b)
-            return Mark(id, t, nextCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
         }
 
-        /** A mark and its readings go together. */
-        fun deleteMark(id: String) {
+        /** A mark and its readings go together. A LOCKED mark is not deleted (v52 slice 8): false, nothing changed. */
+        fun deleteMark(id: String): Boolean {
             for (s in SURFACES) {
                 val sf = surfaces[s] ?: continue
                 val m = sf.marks.firstOrNull { it.id == id } ?: continue
+                if (isLocked(m)) return false
+                recordCodes(s, listOf(m))
                 sf.marks.remove(m)
                 actual.keys.removeAll { it.startsWith(m.code + ".") }
+                return true
             }
+            return false
+        }
+
+        /**
+         * EVERYTHING DRAWN ON A SURFACE, AS ONE LIST (v52 slice 8): what a clear, a count, Lock all and
+         * Start over walk. Marks now; the Line and Tape measurements (slice 9) and the chains (slice 11)
+         * join here and in [dropUnlocked], and nothing that walks them changes.
+         */
+        fun itemsOf(s: String): List<Item> = surface(s).marks.map { Item(s, it.id, it.code, "mark", isLocked(it)) }
+
+        /** Every UNLOCKED item on [s] taken away (its readings are the caller's: [SurveyPrepEdit.clearItems]). */
+        fun dropUnlocked(s: String) {
+            val sf = surface(s)
+            recordCodes(s, sf.marks.filter { !isLocked(it) })
+            sf.marks.removeAll { !isLocked(it) }
+        }
+
+        /**
+         * Before marks go, their codes are written into the surface's [SEQ] where it does not already
+         * hold them (a file from before slice 8 has no [SEQ]), so the next [nextCode] still runs past them.
+         * Writes nothing when it already does.
+         */
+        fun recordCodes(s: String, gone: Collection<Mark>) {
+            val sf = surface(s)
+            val seq = LinkedHashMap<String, Any?>().apply { (sf.extra[SEQ] as? Map<*, *>)?.forEach { (k, v) -> if (k is String) put(k, v) } }
+            var any = false
+            for (t in gone.map { it.t }.distinct()) {
+                val n = highest(s, t)
+                val had = (seq[t] as? Number)?.toInt() ?: (seq[t] as? String)?.toDoubleOrNull()?.toInt() ?: 0
+                if (n > had) { seq[t] = n; any = true }
+            }
+            if (any) sf.extra = withKey(sf.extra, SEQ, seq)
         }
 
         /** The reading keys of a mark, in checklist order. */
@@ -698,6 +786,10 @@ object SurveyPrep {
             return ks.drop(i + 1).firstOrNull { actual[it] == null } ?: ks.firstOrNull { actual[it] == null }
         }
     }
+
+    /** One thing drawn on a surface, as a clear or a lock sees it: where, which, its code, what kind ("mark";
+     *  "meas" and "chain" from slices 9 and 11), and whether it is locked. */
+    class Item(val s: String, val id: String, val code: String, val kind: String, val locked: Boolean)
 
     // ------------------------------------------------------ older points made spots
 

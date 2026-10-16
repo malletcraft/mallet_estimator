@@ -53,6 +53,27 @@ internal object SurveyPrepDraw {
         style = Paint.Style.STROKE; strokeWidth = width; color = colour
     }
 
+    /** The padlock glyph, [sz] across, centred on ([x], [y]) (sp.js lockGlyph; v52 slice 8). */
+    private fun lockGlyph(c: Canvas, x: Float, y: Float, sz: Float, colour: Int) {
+        val bw = sz * .72f; val bh = sz * .48f; val r = sz * .22f
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colour; style = Paint.Style.STROKE; strokeWidth = max(1f, sz * .13f) }
+        val path = Path().apply {
+            moveTo(x - r, y + sz * .04f); lineTo(x - r, y - sz * .06f)
+            arcTo(RectF(x - r, y - sz * .06f - r, x + r, y - sz * .06f + r), 180f, 180f, false)
+            lineTo(x + r, y + sz * .04f)
+        }
+        c.drawPath(path, p)
+        p.style = Paint.Style.FILL
+        c.drawRect(x - bw / 2, y + sz * .02f, x + bw / 2, y + sz * .02f + bh, p)
+    }
+
+    /** A padlock on a dark pill, its top-right corner at ([x], [y]), in the mark's [colour] (sp.js padPill). */
+    private fun padPill(c: Canvas, x: Float, y: Float, colour: Int, u: Float) {
+        val sz = 12f * u; val pw = sz + 6f * u; val ph = sz + 5f * u; val x0 = x - pw
+        c.drawRoundRect(RectF(x0, y, x, y + ph), ph / 2, ph / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0x000000, 0xd9) })
+        lockGlyph(c, x0 + pw / 2, y + ph / 2 - sz * .14f, sz, argb(colour))
+    }
+
     // ------------------------------------------------------------ 1 · Lines
 
     /**
@@ -63,6 +84,7 @@ internal object SurveyPrepDraw {
     fun drawLines(c: Canvas, s: String, sf: SurveyPrep.Surface, frame: SurveyPrep.Frame?,
                   m: (Double, Double) -> FloatArray, u: Float, thin: Boolean) {
         val ext = 2.0 * SurveyPrep.VW
+        val locked = SurveyPrep.linesLocked(sf)
         for (k in SurveyPrep.SLOTS) {
             val l = sf.lines.getValue(k); val set = sf.set[k] == true
             val dx = l[1][0] - l[0][0]; val dy = l[1][1] - l[0][1]; val n = hypot(dx, dy).takeIf { it > 0 } ?: 1.0
@@ -75,6 +97,11 @@ internal object SurveyPrepDraw {
         frame?.q?.forEach { q -> val s0 = m(q[0], q[1]); c.drawCircle(s0[0], s0[1], 6f * u, stroke(argb(0xffffff), 2f * u)) }
         for (k in SurveyPrep.SLOTS) for (pt in sf.lines.getValue(k)) {
             val q = m(pt[0], pt[1]); diamond(c, q[0], q[1], LINE_COLOUR.getValue(k), 14f * u, u)
+            // LOCKED LINES (v52 slice 8, sp.js 261): each grip carries a padlock on a disc of its colour
+            if (locked) {
+                c.drawCircle(q[0], q[1], 7f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(LINE_COLOUR.getValue(k)) })
+                lockGlyph(c, q[0], q[1] - 1f * u, 11f * u, argb(0x14160F))
+            }
         }
         val names = SurveyPrep.lineNames(s)
         for (k in SurveyPrep.SLOTS) {
@@ -182,6 +209,8 @@ internal object SurveyPrepDraw {
             val col = SurveyPrep.typeOf(s, e.t).colour
             val p = m(sq.x(e.x0), sq.y(e.y1)); val q = m(sq.x(e.x1), sq.y(e.y0)); val sel = o.selId == e.id
             val faded = sm != null && !sel
+            // a locked mark (v52 slice 8): a padlock beside its code on the editing photo, and no resize tabs
+            val locked = SurveyPrep.isLocked(e)
             if (faded) c.saveLayerAlpha(null, 191)
             if (SurveyPrep.isPoint(e.t)) {
                 // A SPOT: its dot and symbol, its code beside it, its two figures when picked -- no tabs
@@ -189,6 +218,7 @@ internal object SurveyPrepDraw {
                 spot(c, d[0], d[1], d[2], e.t, col, sel, thin, o.dp)
                 if (!thin) {
                     label(c, e.code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, col, (if (o.all) 26f else 13f) * u, u)
+                    if (locked && o.mode == "main") padPill(c, d[0] + d[2] + 30f * u, d[1] - d[2] - 16f * u, col, u)
                     if (sel || o.all) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
                 }
                 if (faded) c.restore()
@@ -203,7 +233,8 @@ internal object SurveyPrepDraw {
             c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
             if (!thin) {
                 label(c, e.code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, col, (if (o.all) 26f else 13f) * u, u)
-                if (sel && o.mode == "main") {
+                if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
+                if (sel && o.mode == "main" && !locked) {
                     val xm = (p[0] + q[0]) / 2; val ym = (p[1] + q[1]) / 2; val h = 5f * u
                     for ((tx, ty) in listOf(p[0] to p[1], q[0] to p[1], q[0] to q[1], p[0] to q[1], xm to p[1], xm to q[1], p[0] to ym, q[0] to ym)) {
                         c.drawRect(tx - h, ty - h, tx + h, ty + h, Paint().apply { color = argb(0xffffff) })
@@ -240,7 +271,7 @@ internal object SurveyPrepDraw {
         val yT = m(0.0, o.sq.y(o.b))[1]; val yB = m(0.0, o.sq.y(0.0))[1]
         // v52 item 14: on the picked mark (the one showing its eight tabs) the width tag stands higher and the
         // height tag starts right of the edge, each clear of the tabs (SurveyPrepTouch.widthTag / heightTag)
-        val hand = o.mode == "main" && o.selId == e.id && !cE
+        val hand = o.mode == "main" && o.selId == e.id && !cE && !SurveyPrep.isLocked(e)
         val du = u.toDouble(); val dfs = fs.toDouble(); val ddp = o.dp.toDouble()
         if ("w" in ms) {
             line(p[0], p[1] - 6f * u, q[0], p[1] - 6f * u)
