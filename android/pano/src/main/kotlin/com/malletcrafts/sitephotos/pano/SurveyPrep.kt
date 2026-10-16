@@ -274,8 +274,9 @@ object SurveyPrep {
     }
 
     /** A face's EDGES · LASER frame whatever its Size from says: where a new reference is first placed, and what the
-     *  reference's measured size is compared against (SurveyRef.refDefaultQuad, refText). Never for placing a mark. */
-    fun laserFrame(s: String, prep: Prep, l: Double, w: Double, h: Double): Frame? {
+     *  reference's measured size is compared against (SurveyRef.refDefaultQuad, refText). Never for placing a mark --
+     *  INTERNAL to :pano (slice 12 review), so the app cannot square a face by it: the app has SurveyRef.setMode(prep, …). */
+    internal fun laserFrame(s: String, prep: Prep, l: Double, w: Double, h: Double): Frame? {
         val sf = prep.surfaces[s] ?: return null
         val ab = size(s, l, w, h)
         return frame(sf.lines, ab[0], ab[1])

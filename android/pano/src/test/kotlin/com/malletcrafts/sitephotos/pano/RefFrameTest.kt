@@ -286,12 +286,76 @@ class RefFrameTest {
         assertTrue(dir.isDirectory, "the app's sources are beside :pano (${dir.absolutePath})")
         val bad = dir.walk().filter { it.isFile && it.extension == "kt" }.flatMap { f ->
             f.readLines().withIndex().filter { (_, l) -> !l.trimStart().startsWith("//") && !l.trimStart().startsWith("*") &&
-                (l.contains("SurveyPrep.frame(") || l.contains("SurveyPrep.size(")) }.map { "${f.name}:${it.index + 1}" } }.toList()
+                (l.contains("SurveyPrep.frame(") || l.contains("SurveyPrep.size(") || l.contains("laserFrame(")) }
+                .map { "${f.name}:${it.index + 1}" } }.toList()
         assertTrue(bad.isEmpty(), "a face squared outside SurveyPrep.frameOf / sizeOf: $bad")
         val uses = dir.walk().filter { it.isFile && it.extension == "kt" }.map { it.name to it.readText() }.toMap()
         for (f in listOf("SurveyPrepScreen.kt", "FaceWriter.kt", "AsIsUpload.kt"))
             assertTrue(uses.getValue(f).contains("SurveyPrep.frameOf("), "$f squares through SurveyPrep.frameOf")
         assertTrue(uses.getValue("AsIsUpload.kt").contains("SurveyPrep.sizeOf("), "the upload's a x b is SurveyPrep.sizeOf")
+    }
+
+    /** Slice 12 review: corners dragged out of order would square the face MIRRORED -- its crossings at negative y, every
+     *  picture sampling the floor below the wall -- with ordinary figures and no error. Refused: the laser squares it. */
+    @Test fun `a reference dragged upside down, mirrored or crossed is refused -- the edges and the laser square the face`() {
+        val p0 = room(); val q = refQuad(p0, "front", 300.0, 0.0, 905.0, 2053.0)
+        // the right way round squares it, crossings at y >= 0
+        val ok = room(); setRef(ok, "front", q, 905.0, 2053.0)
+        val fo = assertNotNull(SurveyPrep.frameOf("front", ok, L, W, H)); assertNotNull(fo.ref)
+        assertTrue(assertNotNull(fo.mm).all { it[1] > -1.0 }, "crossings above the floor")
+        assertTrue(SurveyRef.convex(q))
+        for ((why, bad) in listOf(
+            "upside down (top corners dragged onto the bottom)" to listOf(q[3], q[2], q[1], q[0]),
+            "mirrored (left and right swapped)" to listOf(q[1], q[0], q[3], q[2]),
+            "a bow-tie (bottom-right and top-right swapped)" to listOf(q[0], q[2], q[1], q[3]))) {
+            val p = room(); setRef(p, "front", bad, 905.0, 2053.0)
+            val f = assertNotNull(SurveyPrep.frameOf("front", p, L, W, H), why)
+            assertNull(f.ref, why); assertEquals(W, f.a, why); assertEquals(H, f.b, why)
+            assertEquals(listOf(W, H), SurveyPrep.sizeOf("front", p, L, W, H).toList(), why)
+            assertNull(SurveyRef.frameFromReference(p.surface("front").lines, SurveyRef.of(p.surface("front"))), why)
+            assertEquals(SurveyRef.PLACE_HINT, SurveyRef.refText("front", p, L, W, H).first, why)
+        }
+        assertFalse(SurveyRef.convex(listOf(q[0], q[2], q[1], q[3])), "a bow-tie is not convex")
+        assertTrue(SurveyRef.area(q) * SurveyRef.area(listOf(q[3], q[2], q[1], q[0])) < 0, "a flip turns the winding")
+    }
+
+    /** Slice 12 review: who takes the next DISTO reading, decided when it ARRIVES. */
+    @Test fun `a reference box's D2 -- its reading goes to that box, a left box sets it aside, nothing aimed at a box becomes a mark's`() {
+        val p = room(); val q = refQuad(p, "front", 300.0, 0.0, 905.0, 2053.0); setRef(p, "front", q, null, null)
+        val t0 = 1_000_000L
+        // nothing armed: the active measurement's, or "tap a measurement first"
+        assertSame(SurveyRef.Route.Normal, SurveyRef.route(null, p, 905, t0))
+        // armed: into that box, never a reading key
+        val shot = SurveyRef.arm("front", "w", t0)
+        assertTrue(SurveyRef.armed(shot, "front", "w")); assertFalse(SurveyRef.armed(shot, "front", "h"))
+        assertFalse(SurveyRef.armed(shot, "right", "w"))
+        val r = assertIs<SurveyRef.Route.Ref>(SurveyRef.route(shot, p, 905, t0 + 800))
+        assertEquals("front", r.s); assertEquals("w", r.k)
+        assertTrue(SurveyRef.setDim(p.surface(r.s), r.k, 905.0)); assertTrue(p.actual.isEmpty(), "never a reading")
+        // a tab change, a step change, Size from switched or an undo LEAVES the box: no longer armed, and a reading
+        // already on its way is set aside and said -- never taken by the active measurement
+        val left = assertNotNull(SurveyRef.leave(shot))
+        assertFalse(SurveyRef.armed(left, "front", "w"))
+        val d = assertIs<SurveyRef.Route.Drop>(SurveyRef.route(left, p, 2053, t0 + 1200))
+        assertEquals("D2 2053 mm — not used: the reference box was left", d.note)
+        // long after, a stale shot takes nothing: the reading is the active measurement's again
+        assertSame(SurveyRef.Route.Normal, SurveyRef.route(left, p, 2053, t0 + SurveyRef.SHOT_MS + 1))
+        assertNull(SurveyRef.leave(null))
+        // armed, but its reference undone away (or switched off): falls through to "tap a measurement first"
+        val gone = room()
+        assertSame(SurveyRef.Route.Normal, SurveyRef.route(shot, gone, 905, t0 + 100))
+        val off = room(); setRef(off, "front", q, null, null, on = false)
+        assertSame(SurveyRef.Route.Normal, SurveyRef.route(shot, off, 905, t0 + 100))
+    }
+
+    @Test fun `Size from on the whole prep places the first reference through the laser frame`() {
+        val p = room()
+        assertTrue(SurveyRef.setMode(p, "front", true, L, W, H))
+        val lf = assertNotNull(SurveyPrep.laserFrame("front", p, L, W, H))
+        val want = SurveyRef.refDefaultQuad("front", lf)
+        val got = assertNotNull(SurveyRef.of(p.surface("front"))?.q)
+        for (i in 0 until 4) assertTrue(hypot(want[i][0] - got[i][0], want[i][1] - got[i][1]) < 1e-9, "corner $i")
+        assertFalse(SurveyRef.setMode(p, "front", true, L, W, H), "already on: no change, no undo step")
     }
 
     @Test fun `the reference's words`() {

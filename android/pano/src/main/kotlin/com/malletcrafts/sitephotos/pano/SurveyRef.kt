@@ -180,8 +180,34 @@ object SurveyRef {
         fun d(a: DoubleArray, b: DoubleArray) = hypot(a[0] - b[0], a[1] - b[1])
         val a = (d(mm[0], mm[1]) + d(mm[3], mm[2])) / 2; val b = (d(mm[0], mm[3]) + d(mm[1], mm[2])) / 2
         if (!(a > FACE_MIN && b > FACE_MIN && a < FACE_MAX && b < FACE_MAX)) return null
+        // THE SAME WAY ROUND AS THE FACE (slice 12 review): a quad whose corners were dragged out of order -- top swapped
+        // with bottom, left with right, or crossed into a bow-tie -- would square the face mirrored, its crossings at
+        // negative y, and every picture would sample the floor below the wall with no error. So the reference must be
+        // convex, wound the same way as the face's crossings in the view, and the mm crossings must come out positive;
+        // else null, and the face is squared by its edges and the laser as if it had none
+        if (!convex(ref.q) || area(ref.q) * area(q) <= 0 || area(mm) <= 0) return null
         val m2p = SurveyPrep.homography(mm, q) ?: return null
         return SurveyPrep.Frame(q, a, b, p2m, m2p, key(ref), mm)
+    }
+
+    /** Shoelace signed area of a quad (its sign is its winding). */
+    fun area(q: List<DoubleArray>): Double {
+        var s = 0.0
+        for (i in q.indices) { val p = q[i]; val n = q[(i + 1) % q.size]; s += p[0] * n[1] - n[0] * p[1] }
+        return s / 2
+    }
+
+    /** Every turn of the quad the same way, none flat: convex, and not crossed into a bow-tie. */
+    fun convex(q: List<DoubleArray>): Boolean {
+        if (q.size != 4) return false
+        var sign = 0.0
+        for (i in 0 until 4) {
+            val a = q[i]; val b = q[(i + 1) % 4]; val c = q[(i + 2) % 4]
+            val z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+            if (z == 0.0 || !z.isFinite()) return false
+            if (sign == 0.0) sign = z else if (z * sign < 0) return false
+        }
+        return true
     }
 
     /** What makes a reference frame different from another with the same crossings and size: its w × h and corners. */
@@ -214,6 +240,11 @@ object SurveyRef {
         else put(sf, "on" to on)
         return true
     }
+
+    /** [setMode] on face [s] of [prep] at the laser size [l] x [w] x [h]: the laser frame a first Reference ▭ is placed
+     *  through is found HERE, so the app never squares a face by anything but SurveyPrep.frameOf / sizeOf. */
+    fun setMode(prep: SurveyPrep.Prep, s: String, on: Boolean, l: Double, w: Double, h: Double): Boolean =
+        setMode(prep.surface(s), s, on, SurveyPrep.laserFrame(s, prep, l, w, h))
 
     /** A W or H box set (sp.js setRefDim): [k] "w" or "h"; a figure over 0 is kept rounded to the mm, else none (null).
      *  False: no reference, or nothing changes -- no undo step. NEVER a reading: prep.actual is not touched. */
@@ -308,6 +339,54 @@ object SurveyRef {
     fun refText(s: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double): Pair<String, Boolean> {
         val sf = prep.surfaces[s] ?: return PLACE_HINT to false
         return refText(s, frameFromReference(sf.lines, of(sf)), SurveyPrep.size(s, l, w, h))
+    }
+
+    // ------------------------------------------------------------ the D2 into a reference box
+
+    /**
+     * A REFERENCE BOX'S D2 THAT IS OUT (slice 12 review): face [s], box [k] ("w" / "h"), fired at [at] ms. [left]: the
+     * box was left -- a face or step change, Size from switched, an undo -- before its reading came. Where a reading goes
+     * is decided by this when it ARRIVES, so a reading aimed at a reference box never lands as a mark's reading.
+     */
+    data class Shot(val s: String, val k: String, val at: Long, val left: Boolean = false)
+
+    /** How long, ms, a reading after a reference box's D2 is still that shot's once its box is left (a DISTO answers in
+     *  about a second). */
+    const val SHOT_MS = 5000L
+
+    /** A reference box's D2 pressed: the next reading is that box's. */
+    fun arm(s: String, k: String, now: Long) = Shot(s, k, now)
+
+    /** The box shows armed (gold): its shot is out and the box is still in front of the finger. */
+    fun armed(shot: Shot?, s: String, k: String) = shot != null && !shot.left && shot.s == s && shot.k == k
+
+    /** The box was left (a face or step change, Size from switched, an undo): the shot is kept, not armed, so a reading
+     *  that was already on its way is set aside, never taken as a mark's. */
+    fun leave(shot: Shot?): Shot? = shot?.copy(left = true)
+
+    /** Where a reading goes. */
+    sealed class Route {
+        /** Into reference box [k] of face [s]: its W or H, never a reading key. */
+        class Ref(val s: String, val k: String) : Route()
+        /** Set aside, and [note] says so. */
+        class Drop(val note: String) : Route()
+        /** As if no reference box were armed: the active measurement's, or "tap a measurement first". */
+        object Normal : Route()
+    }
+
+    /** What a set-aside reading says. */
+    fun leftSaid(mm: Int) = "D2 $mm mm — not used: the reference box was left"
+
+    /**
+     * A reading of [mm] arriving at [now] with [shot] out: into its box while that box is in front and its face still has
+     * a placed reference; set aside, said, when the box was left within [SHOT_MS] of the shot; otherwise [Route.Normal]
+     * -- a stale shot, or a reference undone away, never takes it. The caller clears the shot whatever comes back.
+     */
+    fun route(shot: Shot?, prep: SurveyPrep.Prep, mm: Int, now: Long): Route {
+        if (shot == null) return Route.Normal
+        if (shot.left) return if (now - shot.at in 0..SHOT_MS) Route.Drop(leftSaid(mm)) else Route.Normal
+        val r = prep.surfaces[shot.s]?.let { of(it) }
+        return if (placed(r) && (shot.k == "w" || shot.k == "h")) Route.Ref(shot.s, shot.k) else Route.Normal
     }
 
     // ------------------------------------------------------------ 1 · Lines: what a finger takes

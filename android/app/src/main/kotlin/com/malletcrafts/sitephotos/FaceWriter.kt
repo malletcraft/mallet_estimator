@@ -328,6 +328,12 @@ object FaceWriter {
      * surface with marks, a -survey picture of them with their codes, as the
      * List tab shows them. A surface whose lines are not all set is skipped.
      *
+     * SQUARED THROUGH A REFERENCE, THE CORNERS MOVE (v52 slice 12 review): a face whose Size from is Reference ▭ is
+     * drawn A x B as MEASURED through the reference, and its four line crossings land at the frame's mm crossings
+     * (SurveyPrep.Frame.mm) -- a measured quadrilateral, not the rectangle (0,0) (A,0) (A,B) (0,B). So Face Prep's
+     * automatic box (FacePrep.elevationBox, which puts the corners exactly ELEV_MARGIN inside the picture) and its laser
+     * L x W x H scale are only as right as the reference and the lines agree; on such a face, check the box by hand.
+     *
      * Elevations are unstamped on purpose: the stamp says "this is face X of
      * capture Y", and an elevation is not that face -- a scan that matched it
      * to the face would pair an annotation with the wrong picture.

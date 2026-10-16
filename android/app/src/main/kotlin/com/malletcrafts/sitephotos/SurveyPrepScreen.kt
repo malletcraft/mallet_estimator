@@ -323,6 +323,11 @@ internal fun SurveyPrepDialog(
     // A NEW UNDO STEP HIDES THE SNACKBAR (sp.js snapshot: hideSnack() first), so its UNDO can never undo a later,
     // different change than the one it names; deleteMark, lockAllOf and clearTap show theirs after it
     fun snapshot() { hideSnack(); hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0) }
+    // THE D2 INTO A REFERENCE BOX (v52 slice 12): the face and the box ("w" / "h") its D2 button armed and when; the next
+    // reading sets that reference's W or H -- never prep.actual, never a reading key -- with an undo step, as a typed
+    // figure. Where a reading goes is decided when it ARRIVES (SurveyRef.route, tested): a box left before its reading
+    // came sets the reading aside, so it can never land as a mark's reading
+    var refShot by remember { mutableStateOf<SurveyRef.Shot?>(null) }
     fun undo() {
         if (hist.isEmpty()) return
         val old = hist.removeAt(hist.size - 1)
@@ -333,6 +338,9 @@ internal fun SurveyPrepDialog(
         hideSnack(); ctx = null
         prep = back; sel = null
         if (active != null && back.ownerOf(active!!) == null) active = null
+        // a reference box's D2 still out is LEFT (slice 12 review): its reading is set aside, never a mark's, and a
+        // reference undone away never takes one (SurveyRef.route)
+        refShot = SurveyRef.leave(refShot)
         changed()
     }
 
@@ -364,9 +372,6 @@ internal fun SurveyPrepDialog(
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) disto.start() else say("Bluetooth permission refused — the laser can't connect")
     }
-    // THE D2 INTO A REFERENCE BOX (v52 slice 12): the face and the box ("w" / "h") its D2 button armed; the next reading
-    // sets that reference's W or H -- never prep.actual, never a reading key -- with an undo step, as a typed figure
-    var refFire by remember { mutableStateOf<Pair<String, String>?>(null) }
     fun reading(code: String, v: Double) {
         prep.actual[code] = v
         // the next one still missing on the same mark; a Line has one reading, so none after it (v52 slice 9)
@@ -382,7 +387,7 @@ internal fun SurveyPrepDialog(
     }
     fun fire() {
         // a measurement's D2: the reading is that measurement's, not a reference box's armed earlier
-        refFire = null
+        refShot = null
         if (active == null) { say("Tap a measurement first"); return }
         distoGo()
     }
@@ -397,11 +402,16 @@ internal fun SurveyPrepDialog(
     disto.onState = { s, n -> distoState = s; if (n != null) say(n) }
     disto.onRefused = { why -> say(why) }
     disto.onReading = { r ->
-        val rf = refFire
+        val route = SurveyRef.route(refShot, prep, r.mm, System.currentTimeMillis())
+        refShot = null
         val a = active
-        if (rf != null) { refFire = null; setRefDimS(rf.second, r.mm.toDouble(), rf.first) }
-        else if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
-        else reading(a, r.mm.toDouble())
+        when (route) {
+            is SurveyRef.Route.Ref -> setRefDimS(route.k, r.mm.toDouble(), route.s)
+            is SurveyRef.Route.Drop -> say(route.note)
+            SurveyRef.Route.Normal ->
+                if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
+                else reading(a, r.mm.toDouble())
+        }
     }
 
     // ---- site readings from the web (ReadingsSync): what changed there is taken, never an unsent edit here
@@ -608,10 +618,9 @@ internal fun SurveyPrepDialog(
         val s = tab
         if (s !in SurveyPrep.SURFACES) return
         snapshot()
-        val lf = SurveyPrep.laserFrame(s, prep, roomSize[0], roomSize[1], roomSize[2])
-        if (!SurveyRef.setMode(prep.surface(s), s, on, lf)) { hist.removeAt(hist.size - 1); return }
+        if (!SurveyRef.setMode(prep, s, on, roomSize[0], roomSize[1], roomSize[2])) { hist.removeAt(hist.size - 1); return }
         if (!on && SurveyRef.isId(sel?.id)) sel = null
-        refFire = null
+        refShot = SurveyRef.leave(refShot)
         changed()
     }
     /** The eye, "Show on faces" (sp.js setRefShown): one undo step, and it says what it did. */
@@ -627,7 +636,7 @@ internal fun SurveyPrepDialog(
     fun fireRef(k: String) {
         val s = tab
         if (s !in SurveyPrep.SURFACES || SurveyRef.of(prep.surface(s))?.q == null) return
-        refFire = s to k; rev++
+        refShot = SurveyRef.arm(s, k, System.currentTimeMillis()); rev++
         distoGo()
     }
     /** Lock all / Unlock all of type [t] on [s] -- or, with [kind], every tape or every Line mark (v52 slice 9): "Locked
@@ -767,10 +776,10 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); refFire = null; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
-        flushChain(); refFire = null
+        flushChain(); refShot = SurveyRef.leave(refShot)
         mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
@@ -1163,12 +1172,15 @@ internal fun SurveyPrepDialog(
             // ITS W AND H (sp.js refrow2): each a box -- digits only, five at most -- with its own D2, whose reading is the
             // reference's figure and never a reading key; then its own padlock, cyan while unlocked
             if (refOnRow && rf != null) {
+                // the face these boxes belong to, taken NOW (slice 12 review): a figure committed after a face change --
+                // on focus loss, or as the box leaves -- goes to the face it was typed for, never the one now open
+                val sRow = tab
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     for ((k, v) in listOf("w" to rf.w, "h" to rf.h)) {
                         Text(k.uppercase(), color = SP_REF, fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 14.sp,
                             textAlign = TextAlign.Center, modifier = Modifier.width(14.dp))
-                        SpRefField("$tab|$k", v, refFire == (tab to k), Modifier.weight(1f).height(boxH)) { t ->
-                            SurveyRef.typed(v, t)?.let { c -> setRefDimS(k, c.value, tab) } }
+                        SpRefField("$sRow|$k", v, SurveyRef.armed(refShot, sRow, k), Modifier.weight(1f).height(boxH)) { t ->
+                            SurveyRef.typed(v, t)?.let { c -> setRefDimS(k, c.value, sRow) } }
                         SpD2(Modifier.height(boxH), small = true) { fireRef(k) }
                     }
                     if (rf.q != null) SpPadlock(rf.locked, SurveyRef.lockLabel(tab, rf.locked), Modifier.height(boxH), offColour = SP_REF) {
@@ -2661,23 +2673,35 @@ private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: M
  * A REFERENCE BOX, W or H (v52 slice 12, sp.js .refin): digits only, five at most (SurveyRef.boxText), committed on Done
  * or when it loses focus -- [onCommit] gets the text, and SurveyRef.typed decides whether anything changed. A cyan ring
  * (#22d3ee88), gold while its own D2 is armed ([armed]): the next reading lands here.
+ *
+ * A FIGURE TYPED AND NOT YET COMMITTED IS NEVER LOST (slice 12 review): tapping a face tab or a step does not take the
+ * focus away, so when the box is re-keyed to another face or leaves the screen, what was typed here is committed with
+ * THIS box's [onCommit] -- which the caller binds to the face it was typed for -- as the prototype's change-on-blur
+ * fires before the tab's click. A figure that arrives meanwhile (its D2's reading) supersedes what was typed.
  */
 @Composable
 private fun SpRefField(key: String, value: Double?, armed: Boolean, modifier: Modifier, onCommit: (String) -> Unit) {
     val focus = LocalFocusManager.current
-    var text by remember(key, value) { mutableStateOf(value?.let { Math.round(it).toString() } ?: "") }
+    // what was typed into THIS box and not yet committed; dropped when a new figure arrives
+    val pending = remember(key) { arrayOfNulls<String>(1) }
+    var text by remember(key, value) { pending[0] = null; mutableStateOf(value?.let { Math.round(it).toString() } ?: "") }
     var focused by remember { mutableStateOf(false) }
+    fun commit() { val t = pending[0] ?: return; pending[0] = null; onCommit(t) }
+    DisposableEffect(key, value) {
+        val c = onCommit
+        onDispose { val t = pending[0]; if (t != null) { pending[0] = null; c(t) } }
+    }
     BasicTextField(
-        value = text, onValueChange = { t -> text = SurveyRef.boxText(t) }, singleLine = true,
+        value = text, onValueChange = { t -> text = SurveyRef.boxText(t); pending[0] = text }, singleLine = true,
         textStyle = TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End),
         cursorBrush = SolidColor(SP_REF),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { onCommit(text); focus.clearFocus() }),
+        keyboardActions = KeyboardActions(onDone = { commit(); focus.clearFocus() }),
         modifier = modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black)
             .border(1.5.dp, if (armed) SP_GOLD else SP_REF_RING, RoundedCornerShape(6.dp))
             .onFocusChanged { fs ->
                 if (fs.isFocused) focused = true
-                else if (focused) { focused = false; onCommit(text) }
+                else if (focused) { focused = false; commit() }
             }.padding(horizontal = 5.dp),
         decorationBox = { inner ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
