@@ -206,8 +206,11 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             if (keptPano) {
                 val full = FaceWriter.fullPano(pano)
                 for (s in SurveyPrep.SURFACES) {
-                    val ab = SurveyPrep.size(s, l, w, h)
-                    val f = if (prep.surface(s).done()) SurveyPrep.frame(prep.surface(s).lines, ab[0], ab[1]) else null
+                    // ONE FRAME AND ONE SIZE (v52 slice 12): the picture is squared, and its a x b sent, exactly as the
+                    // phone squared the face -- through its reference rectangle when that is on -- so the web draws
+                    // every mark (in mm) where the phone placed it
+                    val ab = SurveyPrep.sizeOf(s, prep, l, w, h)
+                    val f = if (prep.surface(s).done()) SurveyPrep.frameOf(s, prep, l, w, h) else null
                     var sent = false
                     if (f != null) {
                         val jpeg = FaceWriter.jpegOf(SurveyPrep.renderAsIs(full, s, f), AsIsUpload.JPEG_QUALITY)
@@ -218,7 +221,7 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 }
             } else {
                 for (s in SurveyPrep.SURFACES) {
-                    val ab = SurveyPrep.size(s, l, w, h)
+                    val ab = SurveyPrep.sizeOf(s, prep, l, w, h)
                     surfaces.put(s, JSONObject().put("a", ab[0]).put("b", ab[1]).put("image", false))
                 }
             }

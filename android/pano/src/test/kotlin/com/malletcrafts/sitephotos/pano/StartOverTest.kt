@@ -88,6 +88,6 @@ class StartOverTest {
         val p = SurveyPrepFile.decode(o)!!.prep
         val q = SurveyPrepEdit.startOver(p, L, W, H).prep
         assertEquals(setOf("note"), q.extra.keys); assertEquals(setOf("wall360"), q.extraSurfaces.keys)
-        assertTrue(SurveyPrepEdit.START_OVER_KEEPS.isEmpty(), "the reference joins in slice 12")
+        assertEquals(setOf(SurveyRef.KEY), SurveyPrepEdit.START_OVER_KEEPS, "the reference rectangle (v52 slice 12)")
     }
 }

@@ -113,6 +113,7 @@ import com.malletcrafts.sitephotos.pano.SurveyPrepEdit
 import com.malletcrafts.sitephotos.pano.SurveyPrepFile
 import com.malletcrafts.sitephotos.pano.SurveyPrepPalette
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
+import com.malletcrafts.sitephotos.pano.SurveyRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -259,10 +260,12 @@ internal fun SurveyPrepDialog(
     val lwhText = remember { mutableStateListOf(TextFieldValue(""), TextFieldValue(""), TextFieldValue("")) }
     var lwhBad by remember { mutableStateOf(emptyList<Int>()) }
 
-    fun ab(s: String) = SurveyPrep.size(s, roomSize[0], roomSize[1], roomSize[2])
-    fun frameOf(s: String) = ab(s).let { SurveyPrep.frame(prep.surface(s).lines, it[0], it[1]) }
-    fun keyOf(s: String): String? = frameOf(s)?.let { f ->
-        f.q.joinToString(";") { "%.3f,%.3f".format(it[0], it[1]) } + "|" + f.a + "x" + f.b }
+    // ONE FRAME AND ONE SIZE (v52 slice 12): every face is squared, sized, listed, saved and uploaded through
+    // SurveyPrep.frameOf / sizeOf -- from its reference rectangle when that is on, else its edges and the laser -- so a
+    // mark is never placed in one frame and written in another. Nothing here squares a face any other way.
+    fun ab(s: String) = SurveyPrep.sizeOf(s, prep, roomSize[0], roomSize[1], roomSize[2])
+    fun frameOf(s: String) = SurveyPrep.frameOf(s, prep, roomSize[0], roomSize[1], roomSize[2])
+    fun keyOf(s: String): String? = frameOf(s)?.key()
 
     // Saved a moment after each change, then read back: the tick is only shown when what is on disk matches.
     val unsaved = remember { booleanArrayOf(false) }
@@ -361,25 +364,43 @@ internal fun SurveyPrepDialog(
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) disto.start() else say("Bluetooth permission refused — the laser can't connect")
     }
+    // THE D2 INTO A REFERENCE BOX (v52 slice 12): the face and the box ("w" / "h") its D2 button armed; the next reading
+    // sets that reference's W or H -- never prep.actual, never a reading key -- with an undo step, as a typed figure
+    var refFire by remember { mutableStateOf<Pair<String, String>?>(null) }
     fun reading(code: String, v: Double) {
         prep.actual[code] = v
         // the next one still missing on the same mark; a Line has one reading, so none after it (v52 slice 9)
         active = prep.nextAfter(code) { ab(it) }
         changed()
     }
-    fun fire() {
-        if (active == null) { say("Tap a measurement first"); return }
+    fun distoGo() {
         when (distoState) {
             DistoClient.State.OFF -> askBle.launch(blePerms)
             DistoClient.State.READY -> disto.measure()
             else -> say("The laser is still connecting…")
         }
     }
+    fun fire() {
+        // a measurement's D2: the reading is that measurement's, not a reference box's armed earlier
+        refFire = null
+        if (active == null) { say("Tap a measurement first"); return }
+        distoGo()
+    }
+    /** A REFERENCE'S W OR H SET (v52 slice 12, sp.js setRefDim) -- typed into its box or read by its own D2 -- on face
+     *  [s]: the reference's figure, rounded to the mm, never a reading; one undo step, none when nothing changed.
+     *  Declared here, above the D2's reading handler that calls it. */
+    fun setRefDimS(k: String, v: Double?, s: String) {
+        snapshot()
+        if (!SurveyRef.setDim(prep.surface(s), k, v)) { hist.removeAt(hist.size - 1); return }
+        changed()
+    }
     disto.onState = { s, n -> distoState = s; if (n != null) say(n) }
     disto.onRefused = { why -> say(why) }
     disto.onReading = { r ->
+        val rf = refFire
         val a = active
-        if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
+        if (rf != null) { refFire = null; setRefDimS(rf.second, r.mm.toDouble(), rf.first) }
+        else if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
         else reading(a, r.mm.toDouble())
     }
 
@@ -546,6 +567,9 @@ internal fun SurveyPrepDialog(
      *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
      *  Line or an area (v52 slice 9) the same: F-M1 takes F-M1.len with it, and the readings sync deletes it on the web. */
     fun deleteMark(mid: String) {
+        // THE REFERENCE IS NEVER DELETED (v52 slice 12; Amit, 14 Oct 2026 06:45 IST: "can not be deleted"): every delete
+        // path that reaches it answers so, with no UNDO and no undo entry (sp.js refNoDelete)
+        if (SurveyRef.isId(mid)) { ctx = null; snack(SurveyRef.NO_DELETE, undo = false); return }
         val it0 = prep.itemById(mid) ?: return
         val code = it0.code
         ctx = null
@@ -566,13 +590,45 @@ internal fun SurveyPrepDialog(
     }
     /** Lock or unlock one mark (its padlock, the menu's Lock): one undo step, nothing said (sp.js setLock). */
     fun toggleLock(mid: String) {
-        if (prep.itemById(mid) == null) return
+        // ... or the reference rectangle's padlock (v52 slice 12): one undo step, nothing said, as a mark's
+        if (prep.itemById(mid) == null && SurveyRef.byId(prep, mid) == null) return
         ctx = null; snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
     }
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
     fun toggleLinesLock() {
         snapshot(); val v = SurveyPrepEdit.setLinesLocked(prep, tab, null)
         say(SurveyPrepEdit.linesSaid(tab, v)); changed()
+    }
+    /**
+     * 1 · LINES' SIZE FROM ROW (v52 slice 12, item 13; sp.js setRefMode): Reference ▭ ([on]) squares the open face from its
+     * reference rectangle -- placed the first time at SurveyRef.refDefaultQuad -- and Edges · laser from its lines and the
+     * laser; switching back and forth keeps the corners, the W × H and the eye. One undo step; none when nothing changes.
+     */
+    fun setRefMode(on: Boolean) {
+        val s = tab
+        if (s !in SurveyPrep.SURFACES) return
+        snapshot()
+        val lf = SurveyPrep.laserFrame(s, prep, roomSize[0], roomSize[1], roomSize[2])
+        if (!SurveyRef.setMode(prep.surface(s), s, on, lf)) { hist.removeAt(hist.size - 1); return }
+        if (!on && SurveyRef.isId(sel?.id)) sel = null
+        refFire = null
+        changed()
+    }
+    /** The eye, "Show on faces" (sp.js setRefShown): one undo step, and it says what it did. */
+    fun toggleRefShown() {
+        val s = tab
+        if (s !in SurveyPrep.SURFACES) return
+        snapshot()
+        val v = SurveyRef.setShown(prep.surface(s), null)
+        if (v == null) { hist.removeAt(hist.size - 1); return }
+        say(SurveyRef.shownSaid(s, v)); changed()
+    }
+    /** A reference box's own D2 (sp.js data-reffire): the next reading is that box's -- its W or H, never a reading. */
+    fun fireRef(k: String) {
+        val s = tab
+        if (s !in SurveyPrep.SURFACES || SurveyRef.of(prep.surface(s))?.q == null) return
+        refFire = s to k; rev++
+        distoGo()
     }
     /** Lock all / Unlock all of type [t] on [s] -- or, with [kind], every tape or every Line mark (v52 slice 9): "Locked
      *  N items · front wall" with UNDO; no change, no undo entry. */
@@ -711,10 +767,10 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    fun showTab(t: String) { flushChain(); refFire = null; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
-        flushChain()
+        flushChain(); refFire = null
         mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
@@ -872,7 +928,10 @@ internal fun SurveyPrepDialog(
                 }) {
                     for (t in row) {
                         val tick = StepRoute.tabTick(t, t != "list" && prep.surface(t).done())
-                        SpTab(StepRoute.tabName(t), tab == t, tick, Modifier.weight(1f).fillMaxHeight()) { showTab(t) }
+                        // a face squared from its reference says so under its name, "Ref 905 × 2053" (v52 slice 12) --
+                        // shown or hidden on the faces, since it squares the face either way
+                        val refT = if (t in SurveyPrep.SURFACES) SurveyRef.tabText(prep.surface(t)) else null
+                        SpTab(StepRoute.tabName(t), tab == t, tick, Modifier.weight(1f).fillMaxHeight(), ref = refT, land = land) { showTab(t) }
                     }
                 }
             }
@@ -933,15 +992,12 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // the surface's title is a caption ABOVE the photo, never on it; it takes part in the strip's touch area
-    // THE LINES' LOCK (v52 slice 8; Amit, 14 Oct 2026 02:39 IST: "Give locking lines for reference and outer box
-    // lines so it won't move accidentally"): in 1 · Lines, once all four are set, a padlock at the caption's right
-    // end -- 20 dp in a 22 dp caption, so the photo gives up nothing for it. Its own tap is its own (the strip's
-    // routing passes over a press the padlock has taken, as it does a Show chip's).
+    // the surface's title is a caption ABOVE the photo, never on it; it takes part in the strip's touch area. The lines'
+    // padlock (slice 8) moved from its right end into 1 · Lines' Size from row with slice 12, beside the reference's own
+    // padlock and its eye, where the prototype has it (sp.js 1512-1514, ct52 X4)
     val caption: @Composable () -> Unit = {
-        rev    // read: the padlock follows a lock, and appears when the fourth line is set
+        rev    // read: the size follows the reference's W × H and corners
         val ab0 = ab(tab); val tags = SurveyPrep.sizeTag(tab)
-        val sfc = prep.surface(tab)
         Row(Modifier.fillMaxWidth().onGloballyPositioned { capAt = it.positionInRoot() }
             .pointerInput(Unit) { routeToStep({ capAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) },
             verticalAlignment = Alignment.CenterVertically) {
@@ -949,10 +1005,6 @@ internal fun SurveyPrepDialog(
                  else "${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
                 color = SP_FG, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 6.dp, top = 3.dp, bottom = 3.dp))
-            if (mode == "lines" && sfc.done()) {
-                val lk = SurveyPrep.linesLocked(sfc)
-                SpLinesLock(lk, SurveyPrepEdit.linesState(lk), SurveyPrepEdit.linesAction(lk), Modifier.padding(start = 6.dp, end = 2.dp)) { toggleLinesLock() }
-            }
         }
     }
 
@@ -1031,7 +1083,9 @@ internal fun SurveyPrepDialog(
             Row(Modifier.fillMaxWidth().padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (room) SurveyPrep.NAME.getValue(s) else "${SurveyPrep.NAME[s]} · its list", color = SP_FG,
                     fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · laser", color = SP_MUTED, fontSize = 12.sp)
+                // squared from its reference rectangle, its size is the reference's measure, not the laser's (v52 slice 12)
+                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) "ref" else "laser"}",
+                    color = SP_MUTED, fontSize = 12.sp)
                 else SpD2(Modifier, "D2 → $act") { fire() }
             }
             val r = if (room) { if (prep.surface(s).done()) rectOf(s) else null } else rectOf(s)
@@ -1047,7 +1101,8 @@ internal fun SurveyPrepDialog(
                         val nc = cv.nativeCanvas
                         nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
                         SurveyPrepDraw.drawMarks(nc, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
-                            size.width, size.height, null, density), { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
+                            size.width, size.height, null, density, frame = frameOf(s)),
+                            { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
                     }
                 }
             }
@@ -1082,7 +1137,48 @@ internal fun SurveyPrepDialog(
     val linesPanel: @Composable () -> Unit = {
         rev    // read: a line dragged into place updates 'Place: ...' and the bounded count while the finger is down
         val names = SurveyPrep.lineNames(tab)
+        val sfL = prep.surface(tab)
+        val rf = SurveyRef.of(sfL)
+        val refOnRow = rf?.on == true
+        val boxH = if (land) 28.dp else 32.dp
         Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            // THE SIZE FROM ROW (v52 slice 12, item 13; sp.js 1511-1514, ct52 X4): Edges · laser | Reference ▭, the lines'
+            // padlock (icon only in portrait, and beside the eye in landscape, so both pills keep their whole label) and,
+            // with the reference on and placed, its eye "Show on faces". "Size from" is dropped in landscape (v42.css).
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (!land) Text(SurveyRef.SIZE_FROM, color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
+                    modifier = Modifier.padding(start = 2.dp, end = 4.dp))
+                SpPill(SurveyRef.EDGES, !refOnRow, Modifier.weight(1f), square = true, compact = true,
+                    padV = if (land) 5.dp else 7.dp) { setRefMode(false) }
+                SpPill(SurveyRef.REFERENCE, refOnRow, Modifier.weight(1f), square = true, compact = true,
+                    padV = if (land) 5.dp else 7.dp) { setRefMode(true) }
+                val eye = refOnRow && rf?.q != null
+                if (sfL.done()) {
+                    val lk = SurveyPrep.linesLocked(sfL)
+                    SpLinesLock(lk, SurveyPrepEdit.linesState(lk), SurveyPrepEdit.linesAction(lk), iconOnly = !land || eye,
+                        tall = if (land) 24.dp else 30.dp) { toggleLinesLock() }
+                }
+                if (eye && rf != null) SpRefEye(rf.shown, land) { toggleRefShown() }
+            }
+            // ITS W AND H (sp.js refrow2): each a box -- digits only, five at most -- with its own D2, whose reading is the
+            // reference's figure and never a reading key; then its own padlock, cyan while unlocked
+            if (refOnRow && rf != null) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for ((k, v) in listOf("w" to rf.w, "h" to rf.h)) {
+                        Text(k.uppercase(), color = SP_REF, fontWeight = FontWeight.Bold, fontSize = 12.sp, lineHeight = 14.sp,
+                            textAlign = TextAlign.Center, modifier = Modifier.width(14.dp))
+                        SpRefField("$tab|$k", v, refFire == (tab to k), Modifier.weight(1f).height(boxH)) { t ->
+                            SurveyRef.typed(v, t)?.let { c -> setRefDimS(k, c.value, tab) } }
+                        SpD2(Modifier.height(boxH), small = true) { fireRef(k) }
+                    }
+                    if (rf.q != null) SpPadlock(rf.locked, SurveyRef.lockLabel(tab, rf.locked), Modifier.height(boxH), offColour = SP_REF) {
+                        toggleLock(SurveyRef.id(tab)) }
+                }
+                // what the reference measures the face at, against the laser -- or how to place it
+                val (rt, amb) = SurveyRef.refText(tab, prep, roomSize[0], roomSize[1], roomSize[2])
+                Text(rt, color = if (amb) SP_AMB else SP_OK, fontSize = if (land) 10.sp else 11.sp, lineHeight = if (land) 12.sp else 14.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp))
+            }
             for (k in SurveyPrep.SLOTS) {
                 val col = Color(SurveyPrepDraw.argb(SurveyPrepDraw.LINE_COLOUR.getValue(k)))
                 val h = k == "bottom" || k == "top"
@@ -1099,10 +1195,12 @@ internal fun SurveyPrepDialog(
                     SpButton("↻", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, 0.1) }
                 }
             }
-            Text(statusText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            // in landscape the status lives in ⋮, so the lines and the reference keep their room (tools52.css
+            // .spv.land.lnmode #status, v52 slice 12): the right column holds the Size from rows without growing
+            if (!land) Text(statusText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
             if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 11.sp, lineHeight = 13.sp,
                 modifier = Modifier.padding(start = 4.dp))
-            Text(boundedText, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(start = 4.dp))
+            if (!land) Text(boundedText, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(start = 4.dp))
         }
     }
 
@@ -1503,6 +1601,9 @@ private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSl
                      /** v52 slice 11: it moves only once the finger has left the dead zone, as an end does (SurveyGuide.EndGate)
                       *  -- a chain's point, which snaps 25 mm, must not jump onto an edge on a tap that picks its chain. */
                      val gate: Boolean = false,
+                     /** v52 slice 12: [locked] is said as it is, as a note -- a locked reference's corner: "Front wall
+                      *  reference is locked — unlock first" (sp.js hitLines' `say(gr.locked)`). */
+                     val said: Boolean = false,
                      val move: (Double, Double) -> Unit)
 
 /** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
@@ -1669,32 +1770,48 @@ private fun SpPhoto(
         val b = fromS(sx, sy); z = nz.coerceIn(1.0, 8.0); val a = fromS(sx, sy); cx += b[0] - a[0]; cy += b[1] - a[1]; clampView()
     }
 
-    fun hitLines(sx: Float, sy: Float): SpGrab? {
-        val sf = prepS.surface(tab); val grip = with(density) { 18.dp.toPx() }; val body = with(density) { 20.dp.toPx() }
-        var best: Triple<String, Int, Float>? = null
-        for (slot in SurveyPrep.SLOTS) sf.lines.getValue(slot).forEachIndexed { j, p ->
-            val q = toS(p[0], p[1]); val d = hypot(q[0] - sx, q[1] - sy)
-            if (d < grip && (best == null || d < best!!.third)) best = Triple(slot, j, d)
+    /**
+     * WHAT A FINGER TAKES ON 1 · LINES (v52 slice 12, sp.js hitLines; the order is SurveyRef.linesHit, tested in :pano):
+     * the reference rectangle's corner within 20 dp -- it moves, like a line end; a LOCKED reference's corner -- picked,
+     * nothing moves, and a drag says "Front wall reference is locked — unlock first"; a line's end within 18 dp; a line
+     * within 20 dp; else a press INSIDE the reference picks it ([picked] gets its id, so a long press opens its Lock ·
+     * Cancel) and nothing is grabbed. LOCKED LINES (v52 slice 8, sp.js 947-950): a grip or a line under the finger says
+     * so AT THE PRESS and nothing is picked -- no selection, no nudge row, no grab (a drag then pans).
+     */
+    fun hitLines(sx: Float, sy: Float, picked: (String) -> Unit = {}): SpGrab? {
+        val sf = prepS.surface(tab)
+        val r = SurveyRef.of(sf)?.takeIf { SurveyRef.placed(it) }
+        fun scr(p: DoubleArray) = toS(p[0], p[1]).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) }
+        val at = fromS(sx, sy)
+        val rq = r?.q
+        val h = SurveyRef.linesHit(rq?.map { scr(it) }, r?.locked == true,
+            SurveyPrep.SLOTS.associateWith { slot -> sf.lines.getValue(slot).map { scr(it) } },
+            { slot -> SurveyPrep.distToLine(at, sf.lines.getValue(slot)) * k() },
+            rq != null && SurveyRef.inside(at[0], at[1], rq), SurveyPrep.linesLocked(sf),
+            sx.toDouble(), sy.toDouble(), density.density.toDouble())
+        val rid = SurveyRef.id(tab)
+        return when (h) {
+            null -> null
+            is SurveyRef.LinesHit.Corner -> {
+                val i = h.i; val p0 = rq!![i].copyOf()
+                SpGrab(p0[0], p0[1], SpSel(tab, id = rid), null,
+                    focus = { SurveyRef.of(sf)?.q?.getOrNull(i) ?: p0 }) { ix, iy -> SurveyRef.moveCorner(sf, i, ix, iy) }
+            }
+            is SurveyRef.LinesHit.RefLocked -> SpGrab(at[0], at[1], SpSel(tab, id = rid), null, SurveyRef.lockedSaid(tab), said = true) { _, _ -> }
+            is SurveyRef.LinesHit.End -> {
+                val slot = h.slot; val j = h.j; val p0 = sf.lines.getValue(slot)[j]
+                SpGrab(p0[0], p0[1], SpSel(tab, line = slot), slot) { ix, iy ->
+                    sf.lines.getValue(slot)[j] = doubleArrayOf(ix, iy); sf.set[slot] = true }
+            }
+            is SurveyRef.LinesHit.Body -> {
+                val slot = h.slot
+                val start = sf.lines.getValue(slot).map { it.copyOf() }
+                SpGrab(at[0], at[1], SpSel(tab, line = slot), slot) { ix, iy ->
+                    sf.lines[slot] = Array(2) { i -> doubleArrayOf(start[i][0] + ix - at[0], start[i][1] + iy - at[1]) }; sf.set[slot] = true }
+            }
+            is SurveyRef.LinesHit.LinesLocked -> { onLinesLockedS(); null }
+            is SurveyRef.LinesHit.Inside -> { onGrabS(SpSel(tab, id = rid)); picked(rid); null }
         }
-        // LOCKED LINES (v52 slice 8, sp.js 947-950): a grip or a line under the finger says so AT THE PRESS and
-        // nothing is picked -- no selection, no nudge row, no grab (a drag then pans, as on empty photo)
-        val lk = SurveyPrep.linesLocked(sf)
-        best?.let { (slot, j, _) ->
-            val p0 = sf.lines.getValue(slot)[j]
-            if (lk) { onLinesLockedS(); return null }
-            return SpGrab(p0[0], p0[1], SpSel(tab, line = slot), slot) { ix, iy ->
-                sf.lines.getValue(slot)[j] = doubleArrayOf(ix, iy); sf.set[slot] = true }
-        }
-        val at = fromS(sx, sy); var near: Pair<String, Double>? = null
-        for (slot in SurveyPrep.SLOTS) {
-            val d = SurveyPrep.distToLine(at, sf.lines.getValue(slot)) * k()
-            if (d < body && (near == null || d < near!!.second)) near = slot to d
-        }
-        val slot = near?.first ?: return null
-        if (lk) { onLinesLockedS(); return null }
-        val start = sf.lines.getValue(slot).map { it.copyOf() }
-        return SpGrab(at[0], at[1], SpSel(tab, line = slot), slot) { ix, iy ->
-            sf.lines[slot] = Array(2) { i -> doubleArrayOf(start[i][0] + ix - at[0], start[i][1] + iy - at[1]) }; sf.set[slot] = true }
     }
 
     /** Every chain on this face with its points on the canvas, px (v52 slice 11). */
@@ -1991,7 +2108,8 @@ private fun SpPhoto(
                             else if (chainOn) chainNodeAt(e.x.toFloat(), e.y.toFloat())?.let { g ->
                                 grab = g; gated = true; onGrabS(g.sel); gc.grabbed() }
                             else if (!measOn) {
-                                val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
+                                // 1 · Lines: a press inside the reference picks it (v52 slice 12), so its long press opens Lock · Cancel
+                                val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat()) { rid -> pickedMeas = rid }
                                         else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
                                 // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it --
                                 // except a chain's point, which waits for the dead zone as an end does (SpGrab.gate)
@@ -2060,7 +2178,9 @@ private fun SpPhoto(
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
                                     // a locked END says so as a note (sp.js say), a locked mark with its snackbar
-                                    if (g.endLock) onSayS(SurveyGuide.lockedEnd(g.locked)) else onRefuseS(g.locked)
+                                    if (g.endLock) onSayS(SurveyGuide.lockedEnd(g.locked))
+                                    else if (g.said) onSayS(g.locked)
+                                    else onRefuseS(g.locked)
                                 }
                             } else if (g != null) {
                                 // an END stays put (no move, no undo step) until the finger leaves the touch slop: a tap on its
@@ -2108,7 +2228,9 @@ private fun SpPhoto(
                             // or not), the menu opens at the press; on empty photo, nothing. A grab moved further than
                             // GRAB_STILL_DP gets no long press (GestureClassifier); one the drift moved less is put
                             // back first, with its undo step, so the menu never opens on a mark that has moved
-                            else if (!placing && mode == "mark" && gid != null) {
+                            // ... and on 1 · Lines, held on the reference rectangle (its corner or inside it): Lock · Cancel
+                            // under "Front wall reference" (v52 slice 12, ct52 X4) -- a line's long press opens nothing
+                            else if (!placing && gid != null && (mode == "mark" || SurveyRef.isId(gid))) {
                                 if (moved) { onRevertS(); moved = false; snapped = false }
                                 grab = null; loupe = null; spent = true
                                 onLongPressS(gid, Offset(e.x.toFloat() + photoAt.x, e.y.toFloat() + photoAt.y))
@@ -2215,13 +2337,16 @@ private fun SpPhoto(
                             SurveyPrepDraw.drawGrid(c, frame.a, frame.b, { x, y ->
                                 SurveyPrep.apply(frame.m2p, doubleArrayOf(x, y)).let { p -> mm(p[0], p[1]) } }, 1f, density.density)
                         SurveyPrepDraw.drawLines(c, tab, prep.surface(tab), frame, mm, u, which == "loupe")
+                        // the reference rectangle over the lines, shown or hidden -- Lines is where it is worked on (v52
+                        // slice 12, sp.js `if(which!=='loupe') drawRef`)
+                        if (which == "main") SurveyPrepDraw.drawRef(c, tab, prep.surface(tab), mm, u)
                     }
                     else rect?.let { r ->
                         SurveyPrepDraw.drawMarks(c, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
                             density.density, drag = drag?.takeIf { it.s == tab }, area = area,
                             gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL,
-                            chain = chain?.takeIf { it.s == tab }), mm, u)
+                            chain = chain?.takeIf { it.s == tab }, frame = frame), mm, u)
                     }
                 }
                 tags.clear()
@@ -2532,6 +2657,36 @@ private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: M
         })
 }
 
+/**
+ * A REFERENCE BOX, W or H (v52 slice 12, sp.js .refin): digits only, five at most (SurveyRef.boxText), committed on Done
+ * or when it loses focus -- [onCommit] gets the text, and SurveyRef.typed decides whether anything changed. A cyan ring
+ * (#22d3ee88), gold while its own D2 is armed ([armed]): the next reading lands here.
+ */
+@Composable
+private fun SpRefField(key: String, value: Double?, armed: Boolean, modifier: Modifier, onCommit: (String) -> Unit) {
+    val focus = LocalFocusManager.current
+    var text by remember(key, value) { mutableStateOf(value?.let { Math.round(it).toString() } ?: "") }
+    var focused by remember { mutableStateOf(false) }
+    BasicTextField(
+        value = text, onValueChange = { t -> text = SurveyRef.boxText(t) }, singleLine = true,
+        textStyle = TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End),
+        cursorBrush = SolidColor(SP_REF),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onCommit(text); focus.clearFocus() }),
+        modifier = modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black)
+            .border(1.5.dp, if (armed) SP_GOLD else SP_REF_RING, RoundedCornerShape(6.dp))
+            .onFocusChanged { fs ->
+                if (fs.isFocused) focused = true
+                else if (focused) { focused = false; onCommit(text) }
+            }.padding(horizontal = 5.dp),
+        decorationBox = { inner ->
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp)
+                inner()
+            }
+        })
+}
+
 /** The laser button: a red dot and D2. */
 @Composable
 private fun SpD2(modifier: Modifier, label: String = "D2", small: Boolean = false, onClick: () -> Unit) {
@@ -2544,14 +2699,15 @@ private fun SpD2(modifier: Modifier, label: String = "D2", small: Boolean = fals
     }
 }
 
+/** [padV]: its own top and bottom padding in place of compact's 4 / the full 8 dp (the Size from row's 28 / 24 dp pills). */
 @Composable
 private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolean = false, outline: Boolean = false,
-                   compact: Boolean = false, onClick: () -> Unit) {
+                   compact: Boolean = false, padV: androidx.compose.ui.unit.Dp? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(if (square) 10.dp else 50.dp)
     val bg = if (on) (if (outline) Color(0xFF3A3E35) else SP_GOLD) else SP_CHIP
     val fg = if (on) (if (outline) Color.White else Color(0xFF1A1A12)) else SP_MUTED
     Box(modifier.clip(shape).background(bg).let { if (on && outline) it.border(1.5.dp, SP_GOLD, shape) else it }
-        .clickable { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
+        .clickable { onClick() }.padding(vertical = padV ?: if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
         Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
             lineHeight = if (compact) 14.sp else TextUnit.Unspecified)   // compact: 4 + 14 + 4 = 22 dp, not the theme's 24 sp line
     }
@@ -2578,18 +2734,25 @@ private fun SpText(text: String, color: Color, sizeSp: Int, modifier: Modifier) 
 /**
  * One face tab (v52 slice 6): plain upper-case text, no fill -- 11 sp, weight 500, letter spacing 0.5, #AEB3AA; the
  * open one white and bold over a 3 dp gold bar inset 12 % each side; a bounded face carries ' ✓' in green.
- * The 'Ref w × h' subtitle of a squared face arrives with the reference (slice 12).
+ * [ref]: a face squared from its reference rectangle carries "Ref 905 × 2053" under its name (v52 slice 12,
+ * tools52.css .ftab .refl): 9 sp on a 10 sp line in #22d3ee, 8.5 on 9 in landscape -- inside the row's own height.
  */
 @Composable
-private fun SpTab(name: String, on: Boolean, tick: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun SpTab(name: String, on: Boolean, tick: Boolean, modifier: Modifier, ref: String? = null, land: Boolean = false,
+                  onClick: () -> Unit) {
     Box(modifier.clickable(role = Role.Tab) { onClick() }.semantics { selected = on }, contentAlignment = Alignment.Center) {
-        Text(buildAnnotatedString {
-                append(name.uppercase())
-                if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") }
-            },
-            color = if (on) Color.White else SP_TAB, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
-            fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
-            modifier = Modifier.padding(horizontal = 2.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = if (ref != null && !land) 2.dp else 0.dp)) {
+            Text(buildAnnotatedString {
+                    append(name.uppercase())
+                    if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") }
+                },
+                color = if (on) Color.White else SP_TAB, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
+                fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+                modifier = Modifier.padding(horizontal = 2.dp))
+            if (ref != null) Text(ref, color = SP_REF, fontSize = if (land) 8.5.sp else 9.sp, lineHeight = if (land) 9.sp else 10.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 2.dp))
+        }
         if (on) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.76f).height(3.dp)
             .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)).background(SP_GOLD))
     }
@@ -2643,3 +2806,6 @@ private val SP_OUT = Color(0xFFFF5C5C)
 /** The chain's rose (v52 slice 11, sp.js KC #fb7185), and a derived segment's violet in its box (sp.js .der). */
 private val SP_CHAIN = Color(0xFFFB7185)
 private val SP_DER = Color(0xFFC4B5FD)
+/** The reference rectangle's cyan (v52 slice 12, sp.js RC #22d3ee), its boxes' ring (#22d3ee88). */
+private val SP_REF = Color(0xFF22D3EE)
+private val SP_REF_RING = Color(0x8822D3EE)

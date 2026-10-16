@@ -344,8 +344,10 @@ object FaceWriter {
         var written = 0
         for (s in SurveyPrep.SURFACES) {
             if (!prep.surface(s).done()) continue
-            val size = SurveyPrep.size(s, dims[0], dims[1], dims[2])
-            val f = SurveyPrep.frame(prep.surface(s).lines, size[0], size[1]) ?: continue
+            // ONE FRAME (v52 slice 12): the face squared exactly as the screen squared it -- from its reference rectangle
+            // when that is on, else its edges and the laser -- so every mark lands where it was placed
+            val f = SurveyPrep.frameOf(s, prep, dims[0], dims[1], dims[2]) ?: continue
+            val size = doubleArrayOf(f.a, f.b)
             val face = SurveyPrep.panoFace(s)
             val label = Handover.FACE_LABELS[face] ?: face
             val sq = SurveyPrep.Square.elevation(size[0], size[1], facePx, ELEV_MARGIN)
@@ -376,7 +378,7 @@ object FaceWriter {
                     // the drawing unit on the phone's own sheet -- or a 1.6 px rim vanishes on a 4000 px picture.
                     val pu = flat.width / 960f
                     SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
-                        null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu),
+                        null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu, frame = f),
                         { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, pu)
                     val marked = captionedBitmap(flat, Handover.captionText(
                         deviceId, room, "$label survey marks", captureDate, stage))

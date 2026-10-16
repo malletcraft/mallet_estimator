@@ -11,6 +11,7 @@ import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
+import com.malletcrafts.sitephotos.pano.SurveyRef
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -113,6 +114,41 @@ internal object SurveyPrepDraw {
         }
     }
 
+    /**
+     * THE REFERENCE RECTANGLE ON 1 · LINES (v52 slice 12, sp.js drawRef): while it is on and placed -- shown or hidden,
+     * since Lines is where it is worked on -- its outline in cyan #22d3ee, dashed 8 / 5, filled #22d3ee22; its four
+     * corners as diamonds dragged like line ends; "Ref 905 × 2053" by its topmost corner, with a padlock pill when
+     * locked. Not in the magnifier.
+     */
+    fun drawRef(c: Canvas, s: String, sf: SurveyPrep.Surface, m: (Double, Double) -> FloatArray, u: Float) {
+        val r = SurveyRef.of(sf)?.takeIf { SurveyRef.placed(it) } ?: return
+        val pts = r.q!!.map { m(it[0], it[1]) }
+        val path = Path().apply { moveTo(pts[0][0], pts[0][1]); for (i in 1 until pts.size) lineTo(pts[i][0], pts[i][1]); close() }
+        c.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = argb(SurveyRef.COLOUR, 0x22) })
+        c.drawPath(path, stroke(argb(SurveyRef.COLOUR), 2.5f * u).apply { pathEffect = DashPathEffect(floatArrayOf(8f * u, 5f * u), 0f) })
+        for (p in pts) diamond(c, p[0], p[1], SurveyRef.COLOUR, 13f * u, u)
+        val top = pts.minByOrNull { it[1] } ?: return
+        label(c, SurveyRef.label(r), top[0] + (if (r.locked) 30f else 14f) * u, top[1] - 8f * u, SurveyRef.COLOUR, 12f * u, u)
+        if (r.locked) padPill(c, top[0] + 28f * u, top[1] - 24f * u, SurveyRef.COLOUR, u)
+    }
+
+    /**
+     * THE REFERENCE ON A SQUARED FACE (v52 slice 12, sp.js drawRefSq): 2 · Mark, 3 · List, the List tab and the saved
+     * pictures draw its outline through the face's ONE frame -- thin dashed cyan, 3 when picked -- and "Ref 905 × 2053"
+     * by its top-left corner; never while its eye is off (SurveyRef.faceQuad), and it still squares the face then.
+     */
+    private fun drawRefSq(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
+        val sf = o.prep.surface(s)
+        val mm = SurveyRef.faceQuad(sf, o.frame) ?: return
+        val r = SurveyRef.of(sf) ?: return
+        val sq = o.sq
+        val pts = mm.map { m(sq.x(it[0]), sq.y(it[1])) }
+        val sel = o.selId == SurveyRef.id(s)
+        val p = stroke(argb(SurveyRef.COLOUR), (if (sel) 3f else 1.5f) * u).apply { pathEffect = DashPathEffect(floatArrayOf(8f * u, 5f * u), 0f) }
+        for (i in 0 until 4) { val a = pts[i]; val b = pts[(i + 1) % 4]; c.drawLine(a[0], a[1], b[0], b[1], p) }
+        label(c, SurveyRef.label(r), pts[3][0] + 4f * u, pts[3][1] - 6f * u, SurveyRef.COLOUR, (if (o.all) 22f else 11f) * u, u)
+    }
+
     // ------------------------------------------------------------ 2 · Mark
 
     /** What the marks are drawn with: the room, the selection, the Show toggle. */
@@ -149,6 +185,9 @@ internal object SurveyPrepDraw {
         val ends: Boolean = false,
         /** v52 slice 11: a chain being drawn on this surface -- dashed, its segments' photo figures. */
         val chain: SurveyChain.Draft? = null,
+        /** v52 slice 12: the face's ONE frame (SurveyPrep.frameOf), through which its reference rectangle is drawn; null
+         *  draws none. */
+        val frame: SurveyPrep.Frame? = null,
     )
 
     /**
@@ -282,6 +321,8 @@ internal object SurveyPrepDraw {
         // v52 slice 11: the chains after the Lines and tapes, as sp.js overlay draws them (drawMeas, drawTapes, drawChains)
         // -- not in the loupe either
         if (o.mode != "loupe") drawChains(c, s, o, m)
+        // v52 slice 12: the reference rectangle after the chains, as sp.js overlay draws it (drawRefSq) -- not in the loupe
+        if (o.mode != "loupe") drawRefSq(c, s, o, m, u)
         if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
     }
 

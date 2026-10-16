@@ -30,15 +30,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.sitephotos.pano.SurveyPrepEdit
@@ -129,28 +132,72 @@ private fun DrawScope.drawPadlock(on: Boolean, c: Color) {
     else drawRoundRect(c, Offset(5f * k, 10.5f * k), Size(14f * k, 10f * k), CornerRadius(2f * k, 2f * k), style = Stroke(width = 2f * k))
 }
 
-/** A mark's padlock (the selection row): 30 dp wide, lit gold when locked; [label] says what a tap does. */
+/** A mark's padlock (the selection row): 30 dp wide, lit gold when locked; [label] says what a tap does. [offColour]: the
+ *  glyph unlocked -- the reference's own padlock is cyan (v42.css .refrow2 .lk2, v52 slice 12). */
 @Composable
-internal fun SpPadlock(on: Boolean, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun SpPadlock(on: Boolean, label: String, modifier: Modifier = Modifier, offColour: Color = LK_OFF, onClick: () -> Unit) {
     Box(modifier.width(30.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { onClick() }
         .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Box(Modifier.clip(RoundedCornerShape(8.dp)).background(if (on) LK_GOLD else Color.Transparent).padding(4.dp)) {
-            Canvas(Modifier.size(16.dp)) { drawPadlock(on, if (on) LK_INK else LK_OFF) }
+            Canvas(Modifier.size(16.dp)) { drawPadlock(on, if (on) LK_INK else offColour) }
         }
     }
 }
 
-/** The four lines' padlock in 1 · Lines: the glyph and its state ("Locked" / "Unlocked"), 20 dp tall so the
- *  caption it sits in does not grow; [label] is what a tap does ("Lock lines" / "Unlock lines"). */
+/** The four lines' padlock in 1 · Lines' Size from row (v52 slice 12, sp.js .lkl): the glyph and its state ("Locked" /
+ *  "Unlocked"), [tall] high; [iconOnly] the glyph alone, 32 dp wide -- in portrait, and in landscape beside the
+ *  reference's eye -- so both Size from pills keep their whole label. [label] is what a tap does ("Lock lines"). */
 @Composable
-internal fun SpLinesLock(on: Boolean, state: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
-    Row(modifier.height(20.dp).clip(shape).background(if (on) LK_GOLD else Color.Transparent).border(1.dp, if (on) LK_GOLD else CM_LINE, shape)
+internal fun SpLinesLock(on: Boolean, state: String, label: String, modifier: Modifier = Modifier, iconOnly: Boolean = false,
+                         tall: Dp = 20.dp, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(tall / 2)
+    Row(modifier.height(tall).let { if (iconOnly) it.width(32.dp) else it }.clip(shape)
+        .background(if (on) LK_GOLD else Color.Transparent).border(1.5.dp, if (on) LK_GOLD else CM_LINE, shape)
         .clickable(role = Role.Button) { onClick() }.semantics { contentDescription = label; role = Role.Button }
-        .padding(horizontal = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        .padding(horizontal = if (iconOnly) 0.dp else 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(4.dp)) {
         Canvas(Modifier.size(14.dp)) { drawPadlock(on, if (on) LK_INK else LK_OFF) }
-        Text(state, color = if (on) LK_INK else TT_MUTED, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        if (!iconOnly) Text(state, color = if (on) LK_INK else TT_MUTED, fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+private val RF_CYAN = Color(0xFF22D3EE)
+private val RF_RING = Color(0x8822D3EE)
+private val RF_INK = Color(0xFF06232A)
+
+/** The eye glyph on a 24 grid (sp.js EYESVG): an eye with its pupil when [on], the eye struck through when not. */
+private fun DrawScope.drawEye(on: Boolean, c: Color) {
+    val k = size.width / 24f
+    val eye = Path().apply {
+        moveTo(2f * k, 12f * k)
+        // sp.js EYESVG's "M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z", as four cubics
+        cubicTo(5.33f * k, 7.67f * k, 8.67f * k, 5.5f * k, 12f * k, 5.5f * k)
+        cubicTo(15.33f * k, 5.5f * k, 18.67f * k, 7.67f * k, 22f * k, 12f * k)
+        cubicTo(18.67f * k, 16.33f * k, 15.33f * k, 18.5f * k, 12f * k, 18.5f * k)
+        cubicTo(8.67f * k, 18.5f * k, 5.33f * k, 16.33f * k, 2f * k, 12f * k)
+        close()
+    }
+    drawPath(eye, c, style = Stroke(width = 2f * k))
+    if (on) drawCircle(c, 3.2f * k, Offset(12f * k, 12f * k))
+    else drawLine(c, Offset(4f * k, 20f * k), Offset(20f * k, 4f * k), strokeWidth = 2.2f * k, cap = StrokeCap.Round)
+}
+
+/**
+ * THE REFERENCE'S EYE, "Show on faces" (v52 slice 12, tools52.css .reye; Amit, 14 Oct 2026 06:45 IST: "it can be visible
+ * or invisible but can not be deleted"): 32 x 30 dp (26 tall in landscape), round; on, filled #22d3ee with a dark eye;
+ * off, a #22d3ee88 ring with the eye struck through in grey. Its state is said to a screen reader as well as drawn.
+ */
+@Composable
+internal fun SpRefEye(on: Boolean, land: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(15.dp)
+    Box(modifier.width(32.dp).height(if (land) 26.dp else 30.dp).clip(shape)
+        .background(if (on) RF_CYAN else Color.Transparent)
+        .let { if (on) it else it.border(1.5.dp, RF_RING, shape) }
+        .clickable(role = Role.Button) { onClick() }
+        .semantics { contentDescription = "Show on faces"; stateDescription = if (on) "On" else "Off" },
+        contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(18.dp)) { drawEye(on, if (on) RF_INK else LK_OFF) }
     }
 }
 

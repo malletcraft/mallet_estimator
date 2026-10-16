@@ -74,6 +74,8 @@ object SurveyPrepEdit {
      * such mark. The lock replaces the mark's extra map (an undo copy may share the old one).
      */
     fun setLocked(p: SurveyPrep.Prep, id: String, on: Boolean?): Boolean? {
+        // the reference rectangle (v52 slice 12) locks the same way: its padlock and the long press's Lock
+        SurveyRef.byId(p, id)?.let { (s, _) -> return SurveyRef.setLocked(p.surface(s), on) }
         val e = p.markById(id)?.second
         if (e == null) {
             // a chain (v52 slice 11) locks the same way
@@ -201,7 +203,7 @@ object SurveyPrepEdit {
 
     /** The head for any item by its id; null when there is none. */
     fun menuHeaderOf(p: SurveyPrep.Prep, id: String): String? =
-        p.markById(id)?.let { (s, e) -> menuHeader(s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
+        SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
             ?: p.chainById(id)?.let { (_, c) -> menuHeader(c) }
 
     /** The menu on a mark, in order, as (action, text): Delete · Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel
@@ -219,7 +221,7 @@ object SurveyPrepEdit {
 
     /** The menu for any item by its id; empty when there is none. */
     fun menuItemsOf(p: SurveyPrep.Prep, id: String): List<Pair<String, String>> =
-        p.markById(id)?.let { (s, e) -> menuItems(p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(p, s, m) }
+        SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(p, s, m) }
             ?: p.chainById(id)?.let { (s, c) -> menuItems(p, s, c) } ?: emptyList()
 
     private fun menu(g: Group, locked: Boolean) =
@@ -304,10 +306,11 @@ object SurveyPrepEdit {
     // ------------------------------------------------------------ Start over
 
     /**
-     * The surface keys Start over carries across besides the locked lines and the code counter. The
-     * reference rectangle joins here in slice 12 ("ref": sp.js 1687 keeps it always, locked or not).
+     * The surface keys Start over carries across besides the locked lines and the code counter: the reference
+     * rectangle (v52 slice 12; sp.js 1687: "the reference always survives Start over, shown or hidden, locked or
+     * not" -- Amit, 14 Oct 2026 06:45 IST: "can not be deleted"), with its corners, its W × H and its eye.
      */
-    val START_OVER_KEEPS: Set<String> = emptySet()
+    val START_OVER_KEEPS: Set<String> = setOf(SurveyRef.KEY)
 
     /** What Start over made: the new prep, and how many locked things it kept (a surface's lines count one). */
     class Restarted(val prep: SurveyPrep.Prep, val kept: Int)
@@ -336,6 +339,8 @@ object SurveyPrepEdit {
                 kept++
             }
             for (k in START_OVER_KEEPS) if (old.extra.containsKey(k)) ex[k] = old.extra[k]
+            // a LOCKED reference counts among what was kept (sp.js 1687: `if(o.ref.locked) kept++`)
+            if (SurveyRef.of(old)?.locked == true) kept++
             // the codes of everything that goes are counted first, then the counter goes across
             val gone = old.marks.filter { !SurveyPrep.isLocked(it) }
             val probe = SurveyPrep.Prep(mutableMapOf(s to old), mutableMapOf())

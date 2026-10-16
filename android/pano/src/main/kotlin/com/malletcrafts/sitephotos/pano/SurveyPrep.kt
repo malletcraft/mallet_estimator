@@ -227,7 +227,15 @@ object SurveyPrep {
      * A surface's corners in its view (bottom-left, bottom-right, top-right,
      * top-left) and the two maps between view pixels and mm on the surface.
      */
-    class Frame(val q: List<DoubleArray>, val a: Double, val b: Double, val p2m: DoubleArray, val m2p: DoubleArray)
+    class Frame(val q: List<DoubleArray>, val a: Double, val b: Double, val p2m: DoubleArray, val m2p: DoubleArray,
+                /** Squared from its reference rectangle (v52 slice 12): what makes it differ from another frame with the
+                 *  same crossings and size (SurveyRef.key); null for Edges · laser. */
+                val ref: String? = null,
+                /** ... and then the crossings in the face's mm, which a reference measures rather than assumes. */
+                val mm: List<DoubleArray>? = null) {
+        /** What a squared picture of this face was made for: redrawn whenever it changes. */
+        fun key(): String = q.joinToString(";") { "%.3f,%.3f".format(it[0], it[1]) } + "|" + a + "x" + b + (ref?.let { "|$it" } ?: "")
+    }
 
     fun frame(lines: Map<String, Array<DoubleArray>>, a: Double, b: Double): Frame? {
         if (!valid(a) || !valid(b)) return null
@@ -239,6 +247,38 @@ object SurveyPrep {
         val p2m = homography(qq, mm) ?: return null
         val m2p = homography(mm, qq) ?: return null
         return Frame(qq, a, b, p2m, m2p)
+    }
+
+    // ------------------------------------------- ONE FRAME, ONE SIZE (v52 slice 12)
+
+    /**
+     * THE FRAME A FACE IS SQUARED IN -- the only one (v52 slice 12, item 13): from its REFERENCE RECTANGLE when that is
+     * on and valid (SurveyRef.on: four corners, w and h at least 50 mm, and a size it can measure), otherwise from its
+     * EDGES and the LASER size [l] x [w] x [h], as before. The screen places and lists marks in it, the saved pictures
+     * are drawn in it and the as-is upload squares and sizes the face in it -- one frame, so a mark is never placed in
+     * one and written in another (PLAN.md slice 12: "mixed frames would misplace marks with no error at all").
+     */
+    fun frameOf(s: String, prep: Prep, l: Double, w: Double, h: Double): Frame? {
+        val sf = prep.surfaces[s] ?: return null
+        SurveyRef.frameFromReference(sf.lines, SurveyRef.of(sf))?.let { return it }
+        return laserFrame(s, prep, l, w, h)
+    }
+
+    /** THE SIZE A FACE IS SQUARED TO, across (A) and up (B), mm -- the only one: measured through its reference when that
+     *  squares it ([frameOf]), else the laser's ([size]). Every mark's checklist, its "outside the face" and its D2 flow
+     *  read it. */
+    fun sizeOf(s: String, prep: Prep, l: Double, w: Double, h: Double): DoubleArray {
+        val sf = prep.surfaces[s]
+        if (sf != null) SurveyRef.frameFromReference(sf.lines, SurveyRef.of(sf))?.let { return doubleArrayOf(it.a, it.b) }
+        return size(s, l, w, h)
+    }
+
+    /** A face's EDGES · LASER frame whatever its Size from says: where a new reference is first placed, and what the
+     *  reference's measured size is compared against (SurveyRef.refDefaultQuad, refText). Never for placing a mark. */
+    fun laserFrame(s: String, prep: Prep, l: Double, w: Double, h: Double): Frame? {
+        val sf = prep.surfaces[s] ?: return null
+        val ab = size(s, l, w, h)
+        return frame(sf.lines, ab[0], ab[1])
     }
 
     /**
@@ -716,7 +756,8 @@ object SurveyPrep {
 
         /** Every mark now reaching past its face, at the room size [l] x [w] x [h], in surface order. */
         fun outside(l: Double, w: Double, h: Double): List<Pair<String, Mark>> = SURFACES.flatMap { s ->
-            val ab = size(s, l, w, h)
+            // in the face's own size: measured through its reference when that squares it (v52 slice 12)
+            val ab = sizeOf(s, this, l, w, h)
             (surfaces[s]?.marks ?: emptyList<Mark>()).filter { outOf(it, ab[0], ab[1]) }.map { s to it }
         }
 
