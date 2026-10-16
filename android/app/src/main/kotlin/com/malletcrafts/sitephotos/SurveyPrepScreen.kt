@@ -14,9 +14,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -49,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -58,6 +61,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -67,20 +71,31 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.Panorama
+import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepFile
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
@@ -109,6 +124,11 @@ import kotlin.math.roundToInt
  *  - 2 · Mark: the surface squared to the laser size; boxes for what is on
  *    it, each with its checklist of measurements, the photo's estimate, and
  *    the site reading from the DISTO D2 or typed.
+ *  - 3 · List: the surface's checklist, the only part of the screen that
+ *    scrolls (v52 slice 6).
+ *  - The faces are tabs and the steps a strip under them; the photo takes
+ *    every dp the controls leave; ✓ Save is in the bar, and the status, the
+ *    laser sizes, the web lines, Start over and Discard are behind ⋮.
  *  - Lines, marks and readings save after each change and come back when
  *    the screen is opened again (SurveyPrepStore).
  *
@@ -163,6 +183,8 @@ internal fun SurveyPrepDialog(
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
     var armedDiscard by remember { mutableStateOf(false) }
+    // ⋮ (v52 slice 6): the status, the laser sizes, the web lines, Start over and Discard
+    var menuOpen by remember { mutableStateOf(false) }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     LaunchedEffect(note) { if (note != null) { delay(2600); note = null } }
@@ -320,7 +342,7 @@ internal fun SurveyPrepDialog(
     }
     val need = when {
         tab == "list" -> SurveyPrep.SURFACES.filter { prep.surface(it).done() }
-        mode == "mark" -> listOf(tab)
+        mode == "mark" || mode == "list" -> listOf(tab)
         else -> emptyList()
     }
     val wanted = need.mapNotNull { s -> keyOf(s)?.let { s to it } }
@@ -385,7 +407,7 @@ internal fun SurveyPrepDialog(
         sf.set[slot] = true
         changed()
     }
-    fun showTab(t: String) { tab = t; sel = null; rev++ }
+    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { note = "These four lines do not make a closed shape yet"; return }
         mode = m; sel = null; rev++
@@ -410,284 +432,475 @@ internal fun SurveyPrepDialog(
     }
 
     val done = SurveyPrep.SURFACES.count { prep.surface(it).done() }
-
-    // The phone's Back is the screen's own ←: nothing is lost, the work is already saved.
-    // ... and with the size sheet open, Back closes the sheet only.
+    // where the size line and the screen are, for placing the size sheet under the line
     var rootTop by remember { mutableStateOf(0f) }
     var rootH by remember { mutableStateOf(0) }
     var lwhRowBottom by remember { mutableStateOf(0f) }
     var lwhRowLeft by remember { mutableStateOf(0f) }
     var sheetH by remember { mutableStateOf(0) }
-    Dialog(onDismissRequest = { if (lwhOpen) lwhOpen = false else onCancel(prep.copy(), roomSize.copyOf()) },
+
+    // ---- v52 slice 6 (item 9): THE FACES ARE TABS, THE STEPS A STRIP UNDER THEM, AND THE PHOTO TAKES THE HEIGHT LEFT.
+    // Amit, 14 Oct 2026 06:23 IST: "all having same size confuses me. its actually parent child relation for face and
+    // 1 2 3 4."; 20:45 IST: "Why all faces amd 1 2 3 4 have same look and feel. i had requested distinction in them."
+    // NOTHING SCROLLS BUT A LIST: the photo has weight 1, so it gets every dp the controls leave, in both orientations;
+    // the status, the laser sizes, the web lines, Start over and Discard sit behind ⋮ in the bar, with ✓ Save beside it.
+    val conf = LocalConfiguration.current
+    val land = conf.screenWidthDp > conf.screenHeightDp
+    val listView = StepRoute.listView(tab, mode)
+    val face = tab != "list"
+    val dens = LocalDensity.current
+    // Where each step of the strip is, and the strip's own top-left, in root px: a press within 48 dp under a step
+    // (the caption, the top of the photo, the empty part of the Show row) is that step's -- StepRoute.stepFor, in :pano.
+    // Only ever read by the pointer handlers, never by composition, so laying them out recomposes nothing.
+    val stepBoxes = remember { mutableStateMapOf<String, Rect>() }
+    var stripAt by remember { mutableStateOf(Offset.Zero) }
+    var capAt by remember { mutableStateOf(Offset.Zero) }
+    var showAt by remember { mutableStateOf(Offset.Zero) }
+    var gapAt by remember { mutableStateOf(Offset.Zero) }
+    fun stepAt(x: Float, y: Float): String? =
+        if (!StepRoute.showStrip(tab)) null
+        else StepRoute.stepFor(x.toDouble(), y.toDouble(),
+            StepRoute.STEPS.mapNotNull { (k, _) ->
+                stepBoxes[k]?.let { r -> StepRoute.Step(k, r.left.toDouble(), r.top.toDouble(), r.right.toDouble(), r.bottom.toDouble()) } },
+            stripAt.y.toDouble(), dens.density.toDouble())
+    // The long-lived pointer handlers below read these, so a handler started on an earlier frame acts on this one.
+    val routeS by rememberUpdatedState(newValue = { x: Float, y: Float -> stepAt(x, y) })
+    val goStepS by rememberUpdatedState(newValue = { k: String -> setMode(k) })
+
+    val statusText = when {
+        tab == "list" -> {
+            val marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size }
+            val items = SurveyPrep.SURFACES.sumOf { s -> prep.surface(s).marks.sumOf { e -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).size } }
+            "The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. "
+        }
+        mode == "lines" -> {
+            val left = SurveyPrep.SLOTS.filter { prep.surface(tab).set[it] != true }.map { SurveyPrep.lineNames(tab).getValue(it) }
+            (if (left.isNotEmpty()) "Place: ${left.joinToString(", ")}. " else "All four lines placed — go to 2 · Mark. ")
+        }
+        mode == "list" -> {
+            val els = prep.surface(tab).marks
+            val n = els.sumOf { e -> SurveyPrep.measures(tab, e, ab(tab)[0], ab(tab)[1]).size }
+            "${SurveyPrep.NAME[tab]}: ${els.size} mark${if (els.size == 1) "" else "s"}, $n measurement${if (n == 1) "" else "s"}. "
+        }
+        else -> "Squared to the laser size. Add what is on this ${if (SurveyPrep.isPlan(tab)) "surface" else "wall"}; tap a mark to edit it. "
+    }
+    val openShape = face && mode == "lines" && frameOf(tab) == null
+    val boundedText = "$done of 6 surfaces bounded. Save needs all six; marks and readings never block it."
+
+    // ---- the bar: ← · title (and the save state under it) · ↶ · ⋮ · ✓ Save
+    val bar: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().height(if (land) 32.dp else 40.dp), verticalAlignment = Alignment.CenterVertically) {
+            SpText("←", SP_FG, 20, Modifier.clip(CircleShape).clickable { onCancel(prep.copy(), roomSize.copyOf()) }
+                .padding(horizontal = 8.dp, vertical = 2.dp))
+            Column(Modifier.weight(1f)) {
+                Text("$title · survey prep", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 18.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(savedMsg, color = SP_OK, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            SpText("↶", if (hist.isEmpty()) SP_DIM else SP_FG, 20,
+                Modifier.clip(CircleShape).clickable(enabled = hist.isNotEmpty()) { undo() }.padding(horizontal = 6.dp, vertical = 2.dp))
+            Text("⋮", color = SP_FG, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (menuOpen) SP_LINE_BORDER else Color.Transparent)
+                    .clickable { menuOpen = !menuOpen }
+                    .semantics { contentDescription = "More: status, Start over, Discard" }
+                    .padding(horizontal = 8.dp, vertical = 2.dp))
+            // ✓ SAVE: gold once all six surfaces are bounded, and only then does it do anything
+            Box(Modifier.padding(start = 2.dp).height(if (land) 28.dp else 32.dp).clip(RoundedCornerShape(16.dp))
+                .background(if (done == 6) SP_GOLD else SP_LINE_BORDER)
+                .clickable(enabled = done == 6) {
+                    // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
+                    // read back queues nothing, so the web never gets a prep this phone does not hold.
+                    if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
+                        unsaved[0] = false
+                        AsIsUpload.enqueue(context, id)
+                        webState = AsIsUpload.status(context, id)
+                    }
+                    onDone(prep.copy(), roomSize.copyOf())
+                }
+                .semantics { contentDescription = "Save survey prep" }
+                .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                Text("✓ Save", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp, maxLines = 1)
+            }
+        }
+    }
+
+    // The line that STAYS on screen when the saved prep could not be read whole (slice 2): never behind ⋮.
+    val openedLine: @Composable () -> Unit = {
+        prepNote?.let { Text(it, color = SP_AMB, fontSize = 11.sp, lineHeight = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 4.dp)) }
+    }
+
+    // ---- THE PARENT: the faces as text tabs, two rows, the open one white and bold over a 3 dp gold bar
+    val tabsUi: @Composable () -> Unit = {
+        val rowH = StepRoute.tabRowDp(land, listView).dp
+        Column(Modifier.fillMaxWidth()) {
+            for (row in StepRoute.TAB_ROWS) {
+                Row(Modifier.fillMaxWidth().height(rowH).drawBehind {
+                    drawLine(SP_LINE_BORDER, Offset(0f, size.height - 0.5f), Offset(size.width, size.height - 0.5f), strokeWidth = 1f)
+                }) {
+                    for (t in row) {
+                        val tick = StepRoute.tabTick(t, t != "list" && prep.surface(t).done())
+                        SpTab(StepRoute.tabName(t), tab == t, tick, Modifier.weight(1f).fillMaxHeight()) { showTab(t) }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- THE CHILD: the open face's steps, "Front wall ·" then numbered 20 dp circles joined by thin lines. No step
+    // has a tap of its own: every press on the strip (and under it, see routeToStep) goes through StepRoute.stepFor.
+    val stripUi: @Composable () -> Unit = {
+        val ci = StepRoute.stepIndex(mode)
+        val tight = land && listView
+        Row(Modifier.fillMaxWidth().height(StepRoute.stripDp(land, listView).dp)
+            .onGloballyPositioned { stripAt = it.positionInRoot() }
+            .pointerInput(Unit) { routeToStep({ stripAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
+            .padding(start = 2.dp, end = 2.dp, top = if (tight) 0.dp else 2.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(StepRoute.stripFace(tab), color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(end = 6.dp))
+            StepRoute.STEPS.forEachIndexed { i, (k, n) ->
+                if (i > 0) Box(Modifier.weight(1f).height(1.5.dp).background(SP_JOIN))
+                val on = i == ci
+                val past = ci >= 0 && i < ci
+                val lab = StepRoute.label(i)
+                Row(Modifier.height(if (tight) 20.dp else if (land) 22.dp else 26.dp)
+                    .onGloballyPositioned { stepBoxes[k] = it.boundsInRoot() }
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = lab
+                        role = Role.Tab
+                        selected = on
+                        onClick(label = lab) { goStepS(k); true }
+                    }
+                    .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Box(Modifier.size(20.dp).clip(CircleShape).background(if (on) SP_GOLD else Color.Transparent)
+                        .border(1.5.dp, if (on) SP_GOLD else if (past) SP_PAST else SP_RING, CircleShape),
+                        contentAlignment = Alignment.Center) {
+                        Text("${i + 1}", color = if (on) Color(0xFF14160F) else if (past) Color(0xFFD9CFA5) else SP_TAB,
+                            fontSize = 11.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    }
+                    if (on) Text(n, color = SP_GOLD, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold,
+                        maxLines = 1, softWrap = false)
+                }
+            }
+        }
+    }
+
+    // the photo-vs-measured toggle belongs to marks only (Amit, 2026-10-10: "lines should not show that"); its empty
+    // part takes part in the strip's touch area, its chips keep their own taps (FX3)
+    val showRow: @Composable () -> Unit = {
+        Row(Modifier.fillMaxWidth().onGloballyPositioned { showAt = it.positionInRoot() }
+            .pointerInput(Unit) { routeToStep({ showAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
+            .padding(top = 3.dp, bottom = if (land) 3.dp else 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Show", color = SP_MUTED, fontSize = 11.sp)
+            for ((k, lab) in listOf("derived" to "≈ Photo", "actual" to "Measured", "both" to "Both")) {
+                SpPill(lab, show == k, Modifier.weight(1f), outline = true, compact = land) { show = k; rev++ }
+            }
+        }
+    }
+
+    // the surface's title is a caption ABOVE the photo, never on it; it takes part in the strip's touch area
+    val caption: @Composable () -> Unit = {
+        val ab0 = ab(tab); val tags = SurveyPrep.sizeTag(tab)
+        Text(if (mode == "lines") "${SurveyPrep.NAME[tab]} · set its four lines"
+             else "${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
+            color = SP_FG, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().onGloballyPositioned { capAt = it.positionInRoot() }
+                .pointerInput(Unit) { routeToStep({ capAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
+                .padding(start = 6.dp, top = 3.dp, bottom = 3.dp))
+    }
+
+    // ---- THE PHOTO, with all the height the controls leave (1 · Lines and 2 · Mark)
+    val photoPane: @Composable ColumnScope.() -> Unit = {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            val img: Bitmap? = if (mode == "lines") views[tab] else rectOf(tab)?.bmp
+            if (img == null) {
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                SpPhoto(
+                    modifier = Modifier.fillMaxSize(),
+                    img = img, tab = tab, mode = mode, rev = rev,
+                    prep = prep, ab = ab(tab), frame = frameOf(tab), rect = rectOf(tab),
+                    sel = sel, active = active, show = show,
+                    onSelect = { s, e, measure -> selectMark(s, e, measure) },
+                    onGrab = { g -> grabbed(g) },
+                    onBeforeChange = { snapshot() },
+                    onMoved = { rev++ },
+                    onChanged = { changed() },
+                    onDelete = { deleteMark(it) },
+                    stepAt = { x, y -> routeS(x, y) },
+                    onStep = { k -> goStepS(k) })
+            }
+            note?.let { SpNote(it, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
+        }
+    }
+
+    // one surface squared, with codes and dimensions, and its table: every surface on the room's List tab, the open
+    // face alone on its 3 · List
+    val surfaceBlock: @Composable (String, Boolean) -> Unit = { s, room ->
+        val a = ab(s); val tg = SurveyPrep.sizeTag(s)
+        val act = active
+        val actHere = act != null && prep.markOf(act)?.first == s
+        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
+            Row(Modifier.fillMaxWidth().padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (room) SurveyPrep.NAME.getValue(s) else "${SurveyPrep.NAME[s]} · its list", color = SP_FG,
+                    fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · laser", color = SP_MUTED, fontSize = 12.sp)
+                else SpD2(Modifier, "D2 → $act") { fire() }
+            }
+            val r = if (room) { if (prep.surface(s).done()) rectOf(s) else null } else rectOf(s)
+            when {
+                room && !prep.surface(s).done() -> Text("Set its four lines first.", color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
+                !room && frameOf(s) == null -> Text("Set its four lines in 1 · Lines to see it squared.", color = SP_MUTED, fontSize = 12.sp,
+                    modifier = Modifier.padding(4.dp))
+                r == null -> CircularProgressIndicator(Modifier.padding(12.dp))
+                else -> Canvas(Modifier.fillMaxWidth().aspectRatio(r.sq.width.toFloat() / r.sq.height).clip(RoundedCornerShape(8.dp))) {
+                    rev; show; active
+                    val sc = size.width / r.sq.width
+                    drawIntoCanvas { cv ->
+                        val nc = cv.nativeCanvas
+                        nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
+                        SurveyPrepDraw.drawMarks(nc, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
+                            size.width, size.height, null, density), { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
+                    }
+                }
+            }
+            if (!room || prep.surface(s).done()) {
+                SpTable(s, prep, a, rev, sel, active, show,
+                    onRow = { e, code -> selectMark(s, e, code) },
+                    onDelete = { deleteMark(it) },
+                    onFocus = { active = it },
+                    onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
+                    onFire = { code -> active = code; fire() },
+                    emptyText = if (room) "Nothing marked on this surface." else "No marks yet — add one in 2 · Mark")
+            }
+        }
+    }
+
+    // ---- THE LIST (3 · List, and the room's List tab): only the list scrolls
+    val listPane: @Composable ColumnScope.() -> Unit = {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                if (tab == "list") for (s in SurveyPrep.SURFACES) surfaceBlock(s, true)
+                else surfaceBlock(tab, false)
+            }
+            note?.let { SpNote(it, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
+        }
+    }
+
+    // ---- under the photo in 1 · Lines: EVERY LINE HAS ITS OWN CONTROLS, always there, in a compact panel (Amit,
+    // 2026-10-10: "why not every line ... have its own control. currently i have to select it first ... lines are one
+    // time settings"), then what is left to place
+    val linesPanel: @Composable () -> Unit = {
+        val names = SurveyPrep.lineNames(tab)
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            for (k in SurveyPrep.SLOTS) {
+                val col = Color(SurveyPrepDraw.argb(SurveyPrepDraw.LINE_COLOUR.getValue(k)))
+                val h = k == "bottom" || k == "top"
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(Modifier.width(74.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(col))
+                        Spacer(Modifier.width(4.dp))
+                        Text(names.getValue(k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 12.sp, maxLines = 1)
+                    }
+                    val bs = if (h) listOf("▼5" to -5.0, "▼1" to -1.0, "▲1" to 1.0, "▲5" to 5.0)
+                             else listOf("◀5" to -5.0, "◀1" to -1.0, "1▶" to 1.0, "5▶" to 5.0)
+                    for ((lab, v) in bs) SpButton(lab, Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, v, 0.0) }
+                    SpButton("↺", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, -0.1) }
+                    SpButton("↻", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, 0.1) }
+                }
+            }
+            Text(statusText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 11.sp, lineHeight = 13.sp,
+                modifier = Modifier.padding(start = 4.dp))
+            Text(boundedText, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(start = 4.dp))
+        }
+    }
+
+    // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the mark types
+    val markPanel: @Composable () -> Unit = {
+        val sm = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
+        if (sm != null) {
+            val p = sel!!.part
+            val edge = p != "body"
+            val horiz = edge && (p.contains('t') || p.contains('b')) && !(p.contains('l') || p.contains('r'))
+            val vert = edge && (p.contains('l') || p.contains('r')) && !(p.contains('t') || p.contains('b'))
+            val what = when { p == "body" -> "move"; p.length > 1 -> "corner"
+                else -> mapOf("l" to "left edge", "r" to "right edge", "t" to "top edge", "b" to "bottom edge")[p] ?: p }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${sm.code}\n$what", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
+                val bs: List<Triple<String, Double, Double>> = when {
+                    horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0))
+                    vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0))
+                    else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0))
+                }
+                for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land) { nudgeMark(dx, dy) }
+                SpButton("Delete", Modifier.weight(1.4f), SP_GOLD, compact = land) { deleteMark(sm.id) }
+            }
+        }
+        // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering
+        val act = active
+        val am = act?.let { prep.markOf(it) }?.takeIf { mode == "mark" && it.first == tab }
+        val mm = am?.let { (s, e) -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).firstOrNull { e.code + "." + it.key == act } }
+        if (am != null && mm != null && act != null) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("▶ ${am.second.code} ${mm.what}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, modifier = Modifier.weight(1f))
+                Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                SpMmField(act, prep.actual[act], true, Modifier.width(72.dp), onFocus = { active = act }) { v ->
+                    if (v != null) reading(act, v) else { prep.actual.remove(act); changed() } }
+                SpD2(Modifier) { fire() }
+            }
+        }
+        SpMarkToolbar(SurveyPrep.types(tab)) { addMark(it) }
+    }
+
+    // ---- BEHIND ⋮ (sp.js 1412: "The status, the laser notes, Start over and Discard this 360 sit behind ⋮ in the top
+    // bar"): what a non-scrolling screen cannot hold above the photo, one tap away
+    val menu: @Composable () -> Unit = {
+        Column(Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(12.dp)).background(SP_CHIP)
+            .border(1.dp, SP_LINE_BORDER, RoundedCornerShape(12.dp))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }   // a tap inside never closes it
+            .verticalScroll(rememberScrollState())
+            .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp)) {
+            Text("THIS 360", color = SP_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+            // ---- the status
+            Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
+                Text(statusText, color = SP_MUTED, fontSize = 12.sp)
+                if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp)
+                prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let { Text(it, color = SP_OUT, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
+                Text(boundedText, color = SP_MUTED, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+            }
+            // ---- the laser sizes: a tap opens the size sheet under them (v51)
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
+                .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
+                .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(v.roundToInt().toString(), color = SP_FG, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 16.sp)
+                        }
+                        Text(cap, color = SP_MUTED, fontSize = 10.sp)
+                    }
+                }
+                Text("✎", color = SP_MUTED, fontSize = 14.sp)
+            }
+            Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+            webState?.let { (msg, good) ->
+                Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+            }
+            readingsMsg?.let { msg ->
+                Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
+                                  else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+            }
+            if (onDiscard != null) {
+                Text("New 360 — ← keeps it in the room, and its lines and marks save as you go.",
+                    color = SP_GOLD, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+            }
+            // ---- start over, discard: each takes two taps
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else SP_LINE_BORDER, RoundedCornerShape(12.dp))
+                .clickable {
+                    if (!armed) armed = true
+                    else {
+                        armed = false; hist.clear(); sel = null; active = null
+                        prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
+                    }
+                }.padding(9.dp), contentAlignment = Alignment.Center) {
+                Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
+                    color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (onDiscard != null) {
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else SP_LINE_BORDER, RoundedCornerShape(12.dp))
+                    .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
+                    .padding(9.dp), contentAlignment = Alignment.Center) {
+                    Text(if (armedDiscard) "Tap again to discard this 360 — nothing is kept" else "Discard this 360",
+                        color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+
+    // The phone's Back is the screen's own ←: nothing is lost, the work is already saved.
+    // ... and with the size sheet open, Back closes the sheet only; with ⋮ open, the menu only.
+    Dialog(onDismissRequest = {
+            if (lwhOpen) lwhOpen = false
+            else if (menuOpen) menuOpen = false
+            else onCancel(prep.copy(), roomSize.copyOf())
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Surface(Modifier.fillMaxSize(), color = SP_BG) {
           Box(Modifier.fillMaxSize().onGloballyPositioned { rootTop = it.positionInRoot().y }.onSizeChanged { rootH = it.height }) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp)) {
-                rev    // read, so every model change recomposes this column
-                // ---- bar
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SpText("←", SP_FG, 20, Modifier.clip(CircleShape).clickable { onCancel(prep.copy(), roomSize.copyOf()) }.padding(8.dp))
-                    Text("$title · survey prep", Modifier.weight(1f), color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    Text(savedMsg, color = SP_OK, fontSize = 10.sp, textAlign = TextAlign.End, modifier = Modifier.width(96.dp))
-                    SpText("↶", if (hist.isEmpty()) SP_DIM else SP_FG, 20,
-                        Modifier.clip(CircleShape).clickable(enabled = hist.isNotEmpty()) { undo() }.padding(8.dp))
-                }
-                // ---- the laser sizes: a tap opens the size sheet under them (v51)
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
-                    .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
-                    .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Spacer(Modifier.width(4.dp))
-                                Text(v.roundToInt().toString(), color = SP_FG, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 16.sp)
-                            }
-                            Text(cap, color = SP_MUTED, fontSize = 10.sp)
-                        }
-                    }
-                    Text("✎", color = SP_MUTED, fontSize = 14.sp)
-                }
-                Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-                prepNote?.let { Text(it, color = SP_AMB, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)) }
-                webState?.let { (msg, good) ->
-                    Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
-                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-                }
-                readingsMsg?.let { msg ->
-                    Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
-                                      else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp,
-                        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-                }
-                if (onDiscard != null) {
-                    Text("New 360 \u2014 \u2190 keeps it in the room, and its lines and marks save as you go.",
-                        color = SP_GOLD, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-                }
-
-                // ---- tabs
-                for (row in listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list"))) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for (t in row) {
-                            val lab = if (t == "list") "List" else SurveyPrep.TAB.getValue(t) + if (prep.surface(t).done()) " ✓" else ""
-                            SpPill(lab, tab == t, Modifier.weight(1f)) { showTab(t) }
-                        }
+            rev    // read, so every model change recomposes the screen
+            if (!land) {
+                // PORTRAIT, 360 x 780: bar 40 · tabs 64 + strip 28 = 92 · (Show) · caption · THE PHOTO · what works on it
+                Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)) {
+                    bar()
+                    openedLine()
+                    tabsUi()
+                    if (face) stripUi()
+                    if (listView || mode == "mark") showRow()
+                    if (listView) listPane()
+                    else {
+                        caption()
+                        photoPane()
+                        if (mode == "lines") linesPanel() else markPanel()
                     }
                 }
-                if (tab != "list") {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        SpPill("1 · Lines", mode == "lines", Modifier.weight(1f), square = true) { setMode("lines") }
-                        SpPill("2 · Mark", mode == "mark", Modifier.weight(1f), square = true) { setMode("mark") }
-                    }
-                }
-                if (tab != "list" && mode == "mark") {
-                    SpMarkToolbar(SurveyPrep.types(tab)) { addMark(it) }
-                }
-                // the photo-vs-measured toggle belongs to marks only (Amit, 2026-10-10: "lines should not show that")
-                if (tab == "list" || mode == "mark") {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Show", color = SP_MUTED, fontSize = 11.sp)
-                        for ((k, lab) in listOf("derived" to "≈ Photo", "actual" to "Measured", "both" to "Both")) {
-                            SpPill(lab, show == k, Modifier.weight(1f), outline = true) { show = k; rev++ }
-                        }
-                    }
-                }
-
-                if (tab != "list") {
-                    val ab0 = ab(tab); val tags = SurveyPrep.sizeTag(tab)
-                    // the surface's title is a caption ABOVE the photo, never on it
-                    Text(if (mode == "lines") "${SurveyPrep.NAME[tab]} · set its four lines"
-                         else "${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
-                        color = SP_FG, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
-                    val img: Bitmap? = if (mode == "lines") views[tab] else rectOf(tab)?.bmp
-                    if (img == null) {
-                        Box(Modifier.fillMaxWidth().aspectRatio(1.2f).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                    } else {
-                        SpPhoto(
-                            img = img, tab = tab, mode = mode, rev = rev,
-                            prep = prep, ab = ab0, frame = frameOf(tab), rect = rectOf(tab),
-                            sel = sel, active = active, show = show,
-                            onSelect = { s, e, measure -> selectMark(s, e, measure) },
-                            onGrab = { g -> grabbed(g) },
-                            onBeforeChange = { snapshot() },
-                            onMoved = { rev++ },
-                            onChanged = { changed() },
-                            onDelete = { deleteMark(it) })
-                    }
-
-                    // ---- under the photo: the selected mark's buttons, then the measurement being taken
-                    val sm = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
-                    if (sm != null) {
-                        val p = sel!!.part
-                        val edge = p != "body"
-                        val horiz = edge && (p.contains('t') || p.contains('b')) && !(p.contains('l') || p.contains('r'))
-                        val vert = edge && (p.contains('l') || p.contains('r')) && !(p.contains('t') || p.contains('b'))
-                        val what = when { p == "body" -> "move"; p.length > 1 -> "corner"
-                            else -> mapOf("l" to "left edge", "r" to "right edge", "t" to "top edge", "b" to "bottom edge")[p] ?: p }
-                        Row(Modifier.fillMaxWidth().padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("${sm.code}\n$what", color = SP_GOLD, fontSize = 10.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
-                            val bs: List<Triple<String, Double, Double>> = when {
-                                horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0))
-                                vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0))
-                                else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0))
-                            }
-                            for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD) { nudgeMark(dx, dy) }
-                            SpButton("Delete", Modifier.weight(1.4f), SP_GOLD) { deleteMark(sm.id) }
-                        }
-                    }
-                    // THE MEASUREMENT BEING TAKEN, right under the photo, so the list need not be scrolled to while lasering
-                    val act = active
-                    val am = act?.let { prep.markOf(it) }?.takeIf { mode == "mark" && it.first == tab }
-                    val mm = am?.let { (s, e) -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).firstOrNull { e.code + "." + it.key == act } }
-                    if (am != null && mm != null && act != null) {
-                        Row(Modifier.fillMaxWidth().background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(6.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("▶ ${am.second.code} ${mm.what}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                            Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                            SpMmField(act, prep.actual[act], true, Modifier.width(72.dp), onFocus = { active = act }) { v ->
-                                if (v != null) reading(act, v) else { prep.actual.remove(act); changed() } }
-                            SpD2(Modifier) { fire() }
-                        }
-                    }
-
-                    // ---- 1 · Lines: EVERY LINE HAS ITS OWN CONTROLS, always there (Amit, 2026-10-10: "why not every line ...
-                    // have its own control. currently i have to select it first ... lines are one time settings")
-                    if (mode == "lines") {
-                        val names = SurveyPrep.lineNames(tab)
-                        Column(Modifier.padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            for (k in SurveyPrep.SLOTS) {
-                                val col = Color(SurveyPrepDraw.argb(SurveyPrepDraw.LINE_COLOUR.getValue(k)))
-                                val h = k == "bottom" || k == "top"
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Row(Modifier.width(78.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(col))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(names.getValue(k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 12.sp)
-                                    }
-                                    val bs = if (h) listOf("▼5" to -5.0, "▼1" to -1.0, "▲1" to 1.0, "▲5" to 5.0)
-                                             else listOf("◀5" to -5.0, "◀1" to -1.0, "1▶" to 1.0, "5▶" to 5.0)
-                                    for ((lab, v) in bs) SpButton(lab, Modifier.weight(1f), SP_LINE_BORDER) { nudgeLine(k, v, 0.0) }
-                                    SpButton("↺", Modifier.weight(1f), SP_LINE_BORDER) { nudgeLine(k, 0.0, -0.1) }
-                                    SpButton("↻", Modifier.weight(1f), SP_LINE_BORDER) { nudgeLine(k, 0.0, 0.1) }
-                                }
-                            }
-                        }
-                    } else {
-                        // ---- this surface's own list
-                        Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Text("${SurveyPrep.NAME[tab]} · its list", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                if (am != null && act != null) SpD2(Modifier, "D2 → $act") { fire() }
-                            }
-                            SpTable(tab, prep, ab0, rev, sel, active, show,
-                                onRow = { e, code -> selectMark(tab, e, code) },
-                                onDelete = { deleteMark(it) },
-                                onFocus = { active = it },
-                                onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
-                                onFire = { code -> active = code; fire() },
-                                emptyText = "No marks yet \u2014 add one with + above")
-                        }
-                    }
-                } else {
-                    // ---- the room at once: every surface squared, with codes and dimensions, and its table
-                    for (s in SurveyPrep.SURFACES) {
-                        val a = ab(s); val tg = SurveyPrep.sizeTag(s)
-                        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
-                            Row(Modifier.fillMaxWidth().padding(2.dp)) {
-                                Text(SurveyPrep.NAME.getValue(s), color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · laser", color = SP_MUTED, fontSize = 12.sp)
-                            }
-                            val r = if (prep.surface(s).done()) rectOf(s) else null
-                            if (!prep.surface(s).done()) Text("Set its four lines first.", color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
-                            else if (r == null) CircularProgressIndicator(Modifier.padding(12.dp))
-                            else {
-                                Canvas(Modifier.fillMaxWidth().aspectRatio(r.sq.width.toFloat() / r.sq.height).clip(RoundedCornerShape(8.dp))) {
-                                    rev; show; active
-                                    val sc = size.width / r.sq.width
-                                    drawIntoCanvas { cv ->
-                                        val nc = cv.nativeCanvas
-                                        nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
-                                        SurveyPrepDraw.drawMarks(nc, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
-                                            size.width, size.height, null, density), { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
-                                    }
-                                }
-                                SpTable(s, prep, a, rev, sel, active, show,
-                                    onRow = { e, code -> selectMark(s, e, code) },
-                                    onDelete = { deleteMark(it) },
-                                    onFocus = { active = it },
-                                    onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
-                                    onFire = { code -> active = code; fire() })
-                            }
-                        }
-                    }
-                }
-
-                // ---- status, save, start over
-                val statusText = when {
-                    tab == "list" -> {
-                        val marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size }
-                        val items = SurveyPrep.SURFACES.sumOf { s -> prep.surface(s).marks.sumOf { e -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).size } }
-                        "The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. "
-                    }
-                    mode == "lines" -> {
-                        val left = SurveyPrep.SLOTS.filter { prep.surface(tab).set[it] != true }.map { SurveyPrep.lineNames(tab).getValue(it) }
-                        (if (left.isNotEmpty()) "Place: ${left.joinToString(", ")}. " else "All four lines placed — go to 2 · Mark. ")
-                    }
-                    else -> "Squared to the laser size. Add what is on this ${if (SurveyPrep.isPlan(tab)) "surface" else "wall"}; tap a mark to edit it. "
-                }
-                Column(Modifier.padding(6.dp)) {
-                    Text(statusText, color = SP_MUTED, fontSize = 12.sp)
-                    if (tab != "list" && mode == "lines" && frameOf(tab) == null)
-                        Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp)
-                    Text("$done of 6 surfaces bounded. Save needs all six; marks and readings never block it.", color = SP_MUTED, fontSize = 11.sp)
-                    prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let { Text(it, color = SP_OUT, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
-                    note?.let { Text(it, color = SP_AMB, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
-                }
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (done == 6) SP_GOLD else Color(0xFF3A3E35))
-                    .clickable(enabled = done == 6) {
-                        // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
-                        // read back queues nothing, so the web never gets a prep this phone does not hold.
-                        if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
-                            unsaved[0] = false
-                            AsIsUpload.enqueue(context, id)
-                            webState = AsIsUpload.status(context, id)
-                        }
-                        onDone(prep.copy(), roomSize.copyOf())
-                    }.padding(12.dp), contentAlignment = Alignment.Center) {
-                    Text("Save survey prep", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-                Spacer(Modifier.height(6.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else Color(0xFF3A3E35), RoundedCornerShape(12.dp))
-                    .clickable {
-                        if (!armed) armed = true
+            } else {
+                // LANDSCAPE, 780 x 360: the photo (or the list) on the left at full height; on the right, 318 dp of
+                // controls -- bar 32 · tabs 56 + strip 24 = 80 (48 + 20 = 68 in 3 · List) · (Show) · gap · what works on it
+                Row(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        if (listView) listPane()
                         else {
-                            armed = false; hist.clear(); sel = null; active = null
-                            prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
+                            caption()
+                            photoPane()
                         }
-                    }.padding(9.dp), contentAlignment = Alignment.Center) {
-                    Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
-                        color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
-                if (onDiscard != null) {
-                    Spacer(Modifier.height(6.dp))
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else Color(0xFF3A3E35), RoundedCornerShape(12.dp))
-                        .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
-                        .padding(9.dp), contentAlignment = Alignment.Center) {
-                        Text(if (armedDiscard) "Tap again to discard this 360 \u2014 nothing is kept" else "Discard this 360",
-                            color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.width(318.dp).fillMaxHeight()) {
+                        bar()
+                        openedLine()
+                        tabsUi()
+                        if (face) stripUi()
+                        if (listView || mode == "mark") showRow()
+                        // the empty gap under the controls takes part in the strip's touch area (sp.js .spgap)
+                        Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { gapAt = it.positionInRoot() }
+                            .pointerInput(Unit) { routeToStep({ gapAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) })
+                        if (!listView) {
+                            if (mode == "lines") linesPanel() else markPanel()
+                        }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+            }
+            // ---- ⋮: a tap anywhere outside the menu closes it, and does nothing else
+            if (menuOpen) {
+                Box(Modifier.fillMaxSize()
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menuOpen = false })
+                Box(Modifier.align(Alignment.TopEnd).padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = if (land) 40.dp else 48.dp)) {
+                    menu()
+                }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
             if (lwhOpen) {
                 Box(Modifier.fillMaxSize().background(Color(0x66000000))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { lwhOpen = false })
-                val dens = LocalDensity.current
                 val gap = with(dens) { 2.dp.toPx() }; val edge = with(dens) { 4.dp.toPx() }
                 val left = max(with(dens) { 8.dp.toPx() }, lwhRowLeft).roundToInt()
                 val top = min(lwhRowBottom - rootTop + gap, rootH - sheetH - edge).coerceAtLeast(edge).roundToInt()
@@ -774,6 +987,8 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  */
 @Composable
 private fun SpPhoto(
+    /** Its size: the height the controls leave (v52 slice 6), the whole picture letterboxed inside. */
+    modifier: Modifier,
     img: Bitmap, tab: String, mode: String, rev: Int,
     prep: SurveyPrep.Prep, ab: DoubleArray, frame: SurveyPrep.Frame?, rect: SpRect?,
     sel: SpSel?, active: String?, show: String,
@@ -784,6 +999,10 @@ private fun SpPhoto(
     onChanged: () -> Unit,
     /** The floating trash pressed beside the picked mark: delete it. */
     onDelete: (String) -> Unit,
+    /** Which step of the strip a press at this root position (px) belongs to (StepRoute.stepFor), or null. */
+    stepAt: (Float, Float) -> String?,
+    /** A press routed to a step: open it. */
+    onStep: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -794,6 +1013,7 @@ private fun SpPhoto(
     val onSelectS by rememberUpdatedState(onSelect); val onGrabS by rememberUpdatedState(onGrab)
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
     val onChangedS by rememberUpdatedState(onChanged); val onDeleteS by rememberUpdatedState(onDelete)
+    val stepAtS by rememberUpdatedState(stepAt); val onStepS by rememberUpdatedState(onStep)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -810,7 +1030,7 @@ private fun SpPhoto(
     var fitAt by remember { mutableStateOf<Rect?>(null) }
 
     // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
-    // for marking"): the scale fits both sides, and the box itself is never taller than most of the screen.
+    // for marking"): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left).
     fun k() = SurveyPrep.fitScale(boxW.toDouble(), boxH.toDouble(), iw, ih) * z
     fun toS(x: Double, y: Double): FloatArray { val kk = k()
         return floatArrayOf(((x - cx) * kk + boxW / 2).toFloat(), ((y - cy) * kk + boxH / 2).toFloat()) }
@@ -889,10 +1109,7 @@ private fun SpPhoto(
         return SpLoupe(j ?: listOf(doubleArrayOf(ix, iy)), finger)
     }
 
-    val conf = LocalConfiguration.current
-    val maxBoxH = conf.screenHeightDp * 0.62f
-    val boxAspect = max((iw / ih).toFloat(), (conf.screenWidthDp - 20).coerceAtLeast(1) / maxBoxH)
-    Box(Modifier.fillMaxWidth().aspectRatio(boxAspect).clip(RoundedCornerShape(12.dp)).background(Color.Black)
+    Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
         .pointerInput(img, tab, mode, rect) {
@@ -910,6 +1127,18 @@ private fun SpPhoto(
                     } while (ev.changes.any { it.pressed })
                     val picked = selS?.id
                     if (picked != null && hypot(at.x - tr[0], at.y - tr[1]) <= tr[2]) onDeleteS(picked)
+                    return@awaitEachGesture
+                }
+                // A PRESS JUST UNDER THE STEP STRIP IS THE STEP'S (v52 slice 6, ct52 X1 / FX3): within 48 dp below a
+                // step's top it opens that step, on release, and is never a pan, a grab or a draw; 70 dp down it is the
+                // photo's again. The trash above and the fit button (its own tap) keep theirs.
+                val routed = stepAtS(first.position.x + photoAt.x, first.position.y + photoAt.y)
+                if (routed != null) {
+                    do {
+                        val ev = awaitPointerEvent()
+                        ev.changes.forEach { it.consume() }
+                    } while (ev.changes.any { it.pressed })
+                    onStepS(routed)
                     return@awaitEachGesture
                 }
                 var grab: SpGrab? = null; var pinch = false; var moved = false; var snapped = false
@@ -1155,20 +1384,21 @@ private fun SpD2(modifier: Modifier, label: String = "D2", small: Boolean = fals
 }
 
 @Composable
-private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolean = false, outline: Boolean = false, onClick: () -> Unit) {
+private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolean = false, outline: Boolean = false,
+                   compact: Boolean = false, onClick: () -> Unit) {
     val shape = RoundedCornerShape(if (square) 10.dp else 50.dp)
     val bg = if (on) (if (outline) Color(0xFF3A3E35) else SP_GOLD) else SP_CHIP
     val fg = if (on) (if (outline) Color.White else Color(0xFF1A1A12)) else SP_MUTED
     Box(modifier.clip(shape).background(bg).let { if (on && outline) it.border(1.5.dp, SP_GOLD, shape) else it }
-        .clickable { onClick() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        .clickable { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
         Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
 @Composable
-private fun SpButton(text: String, modifier: Modifier, border: Color, onClick: () -> Unit) {
+private fun SpButton(text: String, modifier: Modifier, border: Color, compact: Boolean = false, onClick: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black).border(1.5.dp, border, RoundedCornerShape(7.dp))
-        .clickable { onClick() }.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        .clickable { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
         Text(text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
@@ -1176,6 +1406,54 @@ private fun SpButton(text: String, modifier: Modifier, border: Color, onClick: (
 @Composable
 private fun SpText(text: String, color: Color, sizeSp: Int, modifier: Modifier) {
     Text(text, color = color, fontSize = sizeSp.sp, modifier = modifier)
+}
+
+/**
+ * One face tab (v52 slice 6): plain upper-case text, no fill -- 11 sp, weight 500, letter spacing 0.5, #AEB3AA; the
+ * open one white and bold over a 3 dp gold bar inset 12 % each side; a bounded face carries ' ✓' in green.
+ * The 'Ref w × h' subtitle of a squared face arrives with the reference (slice 12).
+ */
+@Composable
+private fun SpTab(name: String, on: Boolean, tick: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(modifier.clickable(role = Role.Tab) { onClick() }.semantics { selected = on }, contentAlignment = Alignment.Center) {
+        Text(buildAnnotatedString {
+                append(name.uppercase())
+                if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") }
+            },
+            color = if (on) Color.White else SP_TAB, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
+            fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+            modifier = Modifier.padding(horizontal = 2.dp))
+        if (on) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth(0.76f).height(3.dp)
+            .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)).background(SP_GOLD))
+    }
+}
+
+/** A passing note ("Tap a measurement first", a refusal), over the bottom of the photo or the list for 2.6 s. */
+@Composable
+private fun SpNote(text: String, modifier: Modifier) {
+    Text(text, color = SP_AMB, fontSize = 12.sp, lineHeight = 15.sp,
+        modifier = modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xE6111311))
+            .border(1.dp, SP_LINE_BORDER, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp))
+}
+
+/**
+ * THE STEP STRIP'S TOUCH AREA (v52 slice 6): a press here that StepRoute gives to a step (within 48 dp under its top)
+ * opens that step when it lifts, and is nobody else's; any other press is left alone. [at] is this element's top-left
+ * in root px, read on each press. A press something under it has already taken -- a Show chip's own tap, which
+ * consumes its down -- is never routed: awaitFirstDown passes over a consumed down (ct52 FX3).
+ */
+private suspend fun PointerInputScope.routeToStep(at: () -> Offset, route: (Float, Float) -> String?, go: (String) -> Unit) {
+    awaitEachGesture {
+        val down = awaitFirstDown()
+        val o = at()
+        val k = route(down.position.x + o.x, down.position.y + o.y) ?: return@awaitEachGesture
+        down.consume()
+        do {
+            val ev = awaitPointerEvent()
+            ev.changes.forEach { it.consume() }
+        } while (ev.changes.any { it.pressed })
+        go(k)
+    }
 }
 
 private val SP_BG = Color(0xFF111311)
@@ -1188,5 +1466,10 @@ private val SP_GOLD = Color(0xFFE0B040)
 private val SP_OK = Color(0xFF7DFF8A)
 private val SP_AMB = Color(0xFFFFC46B)
 private val SP_LINE_BORDER = Color(0xFF3A3E35)
+/** The face tabs and the step strip (v52 slice 6): tab text, a step's ring, a past step, the joins. */
+private val SP_TAB = Color(0xFFAEB3AA)
+private val SP_RING = Color(0xFF7E847A)
+private val SP_PAST = Color(0xFFB9A35A)
+private val SP_JOIN = Color(0xFF4A4E45)
 /** A mark past its face, and a refused size (v51). */
 private val SP_OUT = Color(0xFFFF5C5C)
