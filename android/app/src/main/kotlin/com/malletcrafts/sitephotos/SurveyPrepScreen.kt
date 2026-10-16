@@ -102,6 +102,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.GestureClassifier
+import com.malletcrafts.sitephotos.pano.MmBox
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyChain
@@ -2446,7 +2447,7 @@ private fun SpTable(
      * rose, read-only ([readOnly]: no D2 either) -- and Δ: a segment against its photo figure, the total its check.
      */
     @Composable
-    fun chainLine(code: String, label: String, est: Double, shown: Double?, tint: Color?, readOnly: Boolean, delta: Double?, pick: () -> Unit) {
+    fun chainLine(code: String, label: String, est: Double, shown: Double?, isReading: Boolean, tint: Color?, readOnly: Boolean, delta: Double?, pick: () -> Unit) {
         val act = active == code
         Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
             .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2454,7 +2455,8 @@ private fun SpTable(
             Text(if (show == "actual") "" else "≈" + est.roundToInt(), color = Color(0xFFCFD3CB),
                 fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
             Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SpMmField(code, shown, act, Modifier.weight(1f), onFocus = { if (!readOnly) onFocus(code) }, tint = tint, readOnly = readOnly) { v ->
+                SpMmField(code, shown, act, Modifier.weight(1f), onFocus = { if (!readOnly) onFocus(code) }, tint = tint, readOnly = readOnly,
+                    isReading = isReading) { v ->
                     if (!readOnly) onValue(code, v) }
                 if (!readOnly) { Spacer(Modifier.width(3.dp)); SpD2(Modifier, small = true) { onFire(code) } }
             }
@@ -2477,13 +2479,14 @@ private fun SpTable(
                         val ro = SurveyChain.totalReadOnly(kv)
                         val tag = when (kv.src) { SurveyChain.LASER -> " · laser"; SurveyChain.DERIVED -> " · derived"; else -> "" }
                         val sum = kv.sum?.takeIf { kv.src != SurveyChain.DERIVED }?.let { " · Σ " + it.roundToInt() } ?: ""
-                        chainLine(code, "total$tag$sum", kv.estT, kv.total,
+                        chainLine(code, "total$tag$sum", kv.estT, kv.total, kv.src == SurveyChain.MEASURED,
                             when (kv.src) { SurveyChain.LASER -> SP_CHAIN; SurveyChain.DERIVED -> SP_DER; else -> null }, ro, kv.check) {
                             if (!ro) onChainRow(k, code) else onChainRow(k, null) }
                     } else {
                         val der = kv.der == i
                         val shown: Double? = kv.meas.getOrNull(i) ?: (if (der) kv.value.getOrNull(i) else null)
-                        chainLine(code, code + (if (der) " · derived" else ""), mm.est ?: 0.0, shown, if (der) SP_DER else null, false,
+                        chainLine(code, code + (if (der) " · derived" else ""), mm.est ?: 0.0, shown, kv.meas.getOrNull(i) != null,
+                            if (der) SP_DER else null, false,
                             shown?.let { it - (mm.est ?: 0.0) }) { onChainRow(k, code) }
                     }
                 }
@@ -2495,17 +2498,19 @@ private fun SpTable(
 
 /** A reading box: typed mm, kept on Done or when the box loses focus; cleared to remove a reading. [tint]: the figure's
  *  colour when it is not a reading (a chain's derived segment, the laser's total -- v52 slice 11); [readOnly]: shown,
- *  not typed into. */
+ *  not typed into; [isReading]: [value] is a stored reading, not a derived figure. Only what was TYPED is written
+ *  (MmBox.commit, sp.js `change`): focusing a box and leaving it writes nothing, so a derived 2404.5 shown "2405"
+ *  never becomes a reading nobody took. */
 @Composable
 private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: Modifier, onFocus: () -> Unit,
-                      tint: Color? = null, readOnly: Boolean = false, onCommit: (Double?) -> Unit) {
+                      tint: Color? = null, readOnly: Boolean = false, isReading: Boolean = true, onCommit: (Double?) -> Unit) {
     val focus = LocalFocusManager.current
-    var text by remember(code, value) { mutableStateOf(value?.roundToInt()?.toString() ?: "") }
+    var text by remember(code, value) { mutableStateOf(MmBox.shownText(value)) }
     var focused by remember { mutableStateOf(false) }
     fun commit() {
-        val v = text.toDoubleOrNull()
-        if (v != null && v > 0) { if (v != value) onCommit(v) }
-        else if (text.isBlank() && value != null) onCommit(null)
+        if (readOnly) return
+        val c = MmBox.commit(value, text, isReading) ?: return
+        onCommit(c.value)
     }
     BasicTextField(
         value = text, onValueChange = { t -> text = t.filter { it.isDigit() }.take(6) }, singleLine = true, readOnly = readOnly,
