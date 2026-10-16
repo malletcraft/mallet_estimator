@@ -27,7 +27,9 @@ object QuoteStageSync {
     private const val TAG = "QuoteStage"
     private const val PREFS = "quote_stage"
 
-    private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    /** The cache's preferences; the project screen listens on them so any write redraws the line. */
+    fun prefs(context: Context): android.content.SharedPreferences =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     private fun url() = BuildConfig.WEB_URL.trimEnd('/') + "/api/asis"
 

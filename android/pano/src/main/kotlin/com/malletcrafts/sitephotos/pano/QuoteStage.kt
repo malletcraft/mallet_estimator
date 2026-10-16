@@ -14,7 +14,8 @@ import java.time.ZonedDateTime
  * it and never moves it. This is the pure half: what the phone keeps per project ([Cache])
  * and the line it draws from that ([lineFor]), worded as decided on 15 Oct (decision 1):
  * 404 / not listed -> "not on S5 yet"; 200 with no time -> "<stage> · not set on S5 yet";
- * 200 with a time -> "since d MMM, HH:mm IST on S5"; the read time on the second line only
+ * 200 with a time -> "since d MMM, HH:mm IST on S5" (en-GB short months, so September
+ * is "Sept" as the prototype prints it); the read time on the second line only
  * when the cached copy is older than today (IST).
  */
 object QuoteStage {
@@ -31,9 +32,10 @@ object QuoteStage {
 
     val IST: ZoneId = ZoneId.of("Asia/Kolkata")
 
-    // Fixed, not the locale's: en-GB's short September is "Sept" on newer JDKs and phones,
-    // and a line that changes with the handset's locale data is not one line.
-    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    // Fixed, not the locale's, so the line does not change with the handset's locale data --
+    // but spelled as the prototype shows it: its en-GB `month:'short'` gives "Sept" for
+    // September in Chrome and WebView, and the prototype is the spec character for character.
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec")
 
     /**
      * What the phone keeps for one project after reading S5's list. [listed] false means the

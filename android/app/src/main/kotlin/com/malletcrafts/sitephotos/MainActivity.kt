@@ -413,6 +413,47 @@ private fun AppScreen() {
     // masters (what the server sent) and dataTick (what was typed here).
     val cs = remember(masters, dataTick) { cat.snapshot(masters) }
 
+    // S5's QUOTE stage (v52 item 16), read ONCE per project open: ONE GET of the caller's
+    // list, cached for every project this phone knows, and the line drawn from that cache.
+    // Held here, above every early return, so going into a room, the search overlay or a
+    // capture and back does not leave composition and send the read again -- only a change
+    // of the opened project does. A project only on this phone never asks S5. A failed read
+    // changes nothing -- the cached copy stays and QuoteStageSync logs it once.
+    var quoteTick by remember { mutableStateOf(0) }
+    LaunchedEffect(navProject?.serverId) {
+        val id = navProject?.serverId
+        if (id.isNullOrBlank()) return@LaunchedEffect
+        val known = cs.projects.map { it.serverId } + id
+        val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
+        if (read) quoteTick += 1
+    }
+    // ANY write to the quote cache redraws the line -- the hourly SyncWorker run included,
+    // which no work observer here watches. SharedPreferences holds listeners weakly, so the
+    // listener is kept by this effect until it leaves composition.
+    DisposableEffect(context) {
+        val qp = QuoteStageSync.prefs(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            quoteTick += 1
+        }
+        qp.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { qp.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    // The IST day, moved at IST midnight: a cached copy read yesterday shows its read time
+    // (decision 1, 15 Oct), so the line is recomputed when the day turns even if nothing
+    // else on the screen changes.
+    var istDay by remember {
+        mutableStateOf(LocalDate.now(com.malletcrafts.sitephotos.pano.QuoteStage.IST))
+    }
+    LaunchedEffect(Unit) {
+        val ist = com.malletcrafts.sitephotos.pano.QuoteStage.IST
+        while (true) {
+            val next = LocalDate.now(ist).plusDays(1).atStartOfDay(ist).toInstant()
+            val wait = java.time.Duration.between(java.time.Instant.now(), next).toMillis()
+            kotlinx.coroutines.delay(wait.coerceAtLeast(1_000L))
+            istDay = LocalDate.now(ist)
+        }
+    }
+
     val rooms = cat.rooms(masters)
     fun siteTypeOf(client: String, site: String) =
         cs.sitesOf(client).firstOrNull { it.name.equals(site, true) }?.type.orEmpty()
@@ -984,19 +1025,6 @@ private fun AppScreen() {
         val site = navSite
         val scopeDrawer = rememberCoroutineScope()
 
-        // S5's QUOTE stage (v52 item 16), read on opening a project: ONE GET of the caller's
-        // list, cached for every project this phone knows, and the line drawn from that cache.
-        // A project only on this phone never asks S5. A failed read changes nothing -- the
-        // cached copy stays and QuoteStageSync logs it once; SyncWorker reads it again too.
-        var quoteTick by remember { mutableStateOf(0) }
-        LaunchedEffect(proj?.serverId) {
-            val id = proj?.serverId
-            if (id.isNullOrBlank()) return@LaunchedEffect
-            val known = cs.projects.map { it.serverId } + id
-            val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
-            if (read) quoteTick += 1
-        }
-
         // Descending through a single child is a level nobody chose from, so
         // it is filled in rather than presented — and Back skips it again on
         // the way out, or the two directions disagree.
@@ -1168,9 +1196,11 @@ private fun AppScreen() {
                             },
                             onOpen = { navRoom = it },
                             onStage = { showStagePicker = true },
-                            // Re-read from the cache after this screen's own read
-                            // (quoteTick) and after every sync (dataTick).
-                            quote = remember(proj.serverId, dataTick, quoteTick) {
+                            // Re-read from the cache after any write to it
+                            // (quoteTick: this screen's read or any sync), after a
+                            // reload (dataTick), and when the IST day turns, since
+                            // the read time shows only on a copy from before today.
+                            quote = remember(proj.serverId, dataTick, quoteTick, istDay) {
                                 QuoteStageSync.lineFor(context, proj)
                             },
                             onDetail = { showDetail = true })

@@ -91,7 +91,7 @@ class QuoteStageTest {
         assertEquals("since 1 Nov, 01:30 IST on S5", QuoteStage.since("2026-10-31T20:00:00Z"))
         // An offset time is taken as the instant it names.
         assertEquals("since 14 Oct, 08:08 IST on S5", QuoteStage.since("2026-10-14T08:08:00+05:30"))
-        assertEquals("since 5 Sep, 05:30 IST on S5", QuoteStage.since("2026-09-05T00:00:00Z"))
+        assertEquals("since 5 Sept, 05:30 IST on S5", QuoteStage.since("2026-09-05T00:00:00Z"))
         assertNull(QuoteStage.since(""))
         assertNull(QuoteStage.since("not a time"))
     }
