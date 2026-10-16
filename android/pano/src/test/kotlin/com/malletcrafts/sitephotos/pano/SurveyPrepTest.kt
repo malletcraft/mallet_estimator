@@ -533,9 +533,65 @@ class SurveyPrepTest {
         assertEquals(once.prep.actual, twice.prep.actual)
         for (s in SurveyPrep.SURFACES) assertEquals(
             once.prep.surface(s).marks.map { listOf(it.x0, it.x1, it.y0, it.y1) }, twice.prep.surface(s).marks.map { listOf(it.x0, it.x1, it.y0, it.y1) }, s)
-        // a 50 mm spot with old keys is left as it is (as sp.js: only a box that is not a spot is converted)
+        // a 50 mm spot is not re-centred, but an edge key it still carries is converted with its own half (25)
         val spot = prepWith("front" to SurveyPrep.Mark("e", "E", "FE2", 350.0, 400.0, 350.0, 400.0), readings = mapOf("FE2.l" to 350.0))
-        assertEquals(0, SurveyPrep.normPoints(spot).points)
+        val sr = SurveyPrep.normPoints(spot)
+        assertEquals(0, sr.points); assertTrue(sr.changed)
+        assertEquals("FE2.cl=375", readingsOf(sr.prep, "FE2"))
+        assertFalse(SurveyPrep.normPoints(sr.prep).changed, "and then nothing is left to do")
+    }
+
+    /** FE9 converted on opening from the phone's local edge readings (l 300, s 300, 150 x 150 box). */
+    private fun convertedFe9(): SurveyPrep.Prep {
+        val p = prepWith("front" to SurveyPrep.Mark("fe9", "E", "FE9", 300.0, 450.0, 300.0, 450.0),
+            readings = mapOf("FE9.l" to 300.0, "FE9.s" to 300.0))
+        val once = SurveyPrep.normPoints(p).prep
+        assertEquals("FE9.cl=375,FE9.cs=375", readingsOf(once, "FE9"))
+        val e = once.surface("front").marks.single()
+        assertEquals(listOf(150.0, 150.0), (e.extra[SurveyPrep.WAS] as List<*>).map { (it as Number).toDouble() })
+        return once
+    }
+
+    @Test fun `an edge reading pulled from the web AFTER the conversion still converts, with the size the point had`() {
+        val once = convertedFe9()
+        // the phone never saw FE9.r; staff typed it on S5 to the edge
+        val seen = once.actual.mapValues { (_, v) -> Readings.Seen(v, "t0") }
+        val m = Readings.pull(once.actual, seen, mapOf("FE9.r" to Readings.Remote(900.0, "staff", "t9"),
+            "FE9.cl" to Readings.Remote(375.0, "phone", "t0"), "FE9.cs" to Readings.Remote(375.0, "phone", "t0")))
+        assertEquals(listOf("FE9.r"), m.taken)
+        val pulled = once.copy().apply { actual.clear(); actual.putAll(m.actual) }
+        val r = SurveyPrep.normPoints(pulled)
+        assertTrue(r.changed); assertEquals(0, r.points, "the box is already a spot")
+        assertEquals("FE9.cl=375,FE9.cr=975,FE9.cs=375", readingsOf(r.prep, "FE9"), "900 + 150 / 2: the box it had, not the spot's 50")
+        assertFalse(SurveyPrep.normPoints(r.prep).changed)
+        // and the web is told: the edge key deleted on the `at` the phone saw, the centre key set
+        val push = Readings.push(r.prep.actual, m.seen)
+        assertEquals(mapOf("FE9.cr" to 975.0, "FE9.r" to null), push.set); assertEquals("t9", push.base["FE9.r"])
+    }
+
+    @Test fun `a conflict handing back a NEWER edge reading replaces the phone's own conversion, never staff's centre figure`() {
+        val once = convertedFe9()
+        // the phone last saw l 300 at A; staff corrected it to 320 at B before this phone updated
+        val seen = mapOf("FE9.l" to Readings.Seen(300.0, "A"), "FE9.s" to Readings.Seen(300.0, "A2"))
+        val push = Readings.push(once.actual, seen)
+        assertEquals(mapOf("FE9.cl" to 375.0, "FE9.cs" to 375.0, "FE9.l" to null, "FE9.s" to null), push.set)
+        val server = mapOf("FE9.l" to Readings.Remote(320.0, "staff", "B"),
+            "FE9.cl" to Readings.Remote(375.0, "phone", "C"), "FE9.cs" to Readings.Remote(375.0, "phone", "C2"))
+        val m = Readings.afterPush(once.actual, seen, push, listOf("FE9.cl", "FE9.cs", "FE9.s"),
+            mapOf("FE9.l" to Readings.Remote(320.0, "staff", "B")), server)
+        assertEquals(320.0, m.actual["FE9.l"], "the server's value comes back under the edge key")
+        val back = once.copy().apply { actual.clear(); actual.putAll(m.actual) }
+        val r = SurveyPrep.normPoints(back)
+        assertEquals("FE9.cl=395,FE9.cs=375", readingsOf(r.prep, "FE9"), "320 + 75 replaces the 375 made from the superseded 300")
+        assertTrue(r.log.single().contains("replacing this phone's earlier 375"), r.log.toString())
+        val again = Readings.push(r.prep.actual, m.seen)
+        assertEquals(mapOf("FE9.cl" to 395.0, "FE9.l" to null), again.set); assertEquals("B", again.base["FE9.l"]); assertEquals("C", again.base["FE9.cl"])
+        assertFalse(SurveyPrep.normPoints(r.prep).changed)
+        // a centre figure staff typed (not the phone's own conversion) is kept; the late edge reading only goes
+        val typed = r.prep.copy().apply { actual["FE9.cl"] = 401.0; actual["FE9.l"] = 330.0 }
+        val t = SurveyPrep.normPoints(typed)
+        assertEquals("FE9.cl=401,FE9.cs=375", readingsOf(t.prep, "FE9"))
+        assertTrue(t.log.single().contains("FE9.l 330 removed, FE9.cl 401 kept"), t.log.toString())
     }
 
     @Test fun `a type is placed by what it IS -- no switch plate on the floor, no step on a wall`() {

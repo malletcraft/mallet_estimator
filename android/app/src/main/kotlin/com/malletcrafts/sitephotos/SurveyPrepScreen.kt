@@ -202,7 +202,7 @@ internal fun SurveyPrepDialog(
     LaunchedEffect(Unit) {
         if (SurveyPrepFile.saveOnOpen(opened)) {
             val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
-            if (ok && SurveyPrepFile.pointsOf(opened) > 0 && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
+            if (ok && SurveyPrepFile.convertedOf(opened) && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
         }
     }
     // Closing the screen inside that moment must not lose the last change.
@@ -288,7 +288,19 @@ internal fun SurveyPrepDialog(
             else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room) } }
         val remote = fetched?.getOrNull()
         val (applied, moved) = ReadingsSync.merge(context, id, prep.actual, remote)
-        if (moved) changed()
+        // AN EDGE READING THAT ARRIVED NOW (a web reading not seen before, or a conflict handing the server's
+        // value back) is converted to the centre like the ones on opening -- or it would sit under l / s for
+        // good, unasked by the checklist. normPoints converts only what still carries an edge key, so this is
+        // nothing on every ordinary pull; when it does convert, the prep is written at once and the upload is
+        // queued again so the delete of the edge key and the set of the centre key reach the web.
+        val fix = SurveyPrep.normPoints(prep)
+        if (fix.changed) {
+            for (line in fix.log) android.util.Log.i("SurveyPrep", "$id: $line")
+            prep = fix.prep
+            val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
+            if (ok && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
+        }
+        if (moved || fix.changed) changed()
         val head = if (applied.isEmpty()) "" else ReadingsSync.conflictText(applied) + " · "
         val e = fetched?.exceptionOrNull()
         readingsMsg = when {

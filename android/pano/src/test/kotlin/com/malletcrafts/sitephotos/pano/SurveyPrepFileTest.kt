@@ -251,13 +251,17 @@ class SurveyPrepFileTest {
         assertTrue(o.decoded.pointLog.single().startsWith("front FE9: 150 x 150 re-centred"), o.decoded.pointLog.toString())
         val e = o.decoded.prep.surface("front").marks.first { it.code == "FE9" }
         assertEquals(listOf(350.0, 400.0, 350.0, 400.0), listOf(e.x0, e.x1, e.y0, e.y1))
-        assertEquals(mapOf("locked" to true), e.extra, "what the file carried for the mark is kept")
+        assertEquals(true, e.extra["locked"], "what the file carried for the mark is kept")
+        assertEquals(listOf(150.0, 150.0), e.extra[SurveyPrep.WAS], "and the size its edge readings converted with, for a later one")
+        assertEquals(mapOf("cl" to 375.0, "cs" to 375.0), e.extra[SurveyPrep.CONV])
         assertEquals(mapOf("FE9.cl" to 375.0, "FE9.cs" to 375.0, "FD1.w" to 905.0, "FD1.h" to 2050.5), o.decoded.prep.actual)
         assertTrue(SurveyPrepFile.saveOnOpen(o), "the conversion is written at once")
         // what the screen writes then opens Restored with nothing to do: once only
         val z = o.decoded.size!!
         val again = open(write(SurveyPrepFile.encode(o.decoded.prep, z[0], z[1], z[2])), Disk()).opened as SurveyPrepFile.Opened.Restored
-        assertEquals(0, again.decoded.points); assertNull(SurveyPrepFile.pointsNote(again))
+        assertEquals(0, again.decoded.points); assertNull(SurveyPrepFile.pointsNote(again)); assertFalse(SurveyPrepFile.convertedOf(again))
+        val e2 = again.decoded.prep.surface("front").marks.first { it.code == "FE9" }
+        assertEquals(listOf(150.0, 150.0), (e2.extra[SurveyPrep.WAS] as List<*>).map { (it as Number).toDouble() }, "the size survives a save")
         assertFalse(SurveyPrepFile.saveOnOpen(again))
         assertEquals(o.decoded.prep.actual, again.decoded.prep.actual)
     }

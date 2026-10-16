@@ -370,9 +370,13 @@ object FaceWriter {
                 val surveyName = surveyFilename(deviceId, face)
                 deleteByName(context, surveyName)
                 if (prep.surface(s).marks.isNotEmpty()) {
+                    // A saved picture has no screen density: everything in it scales with u = width / 960, so its
+                    // "dp" (a spot's rim and its 6 dp floor, v52 slice 4) does too -- 2 u, about what one dp is to
+                    // the drawing unit on the phone's own sheet -- or a 1.6 px rim vanishes on a 4000 px picture.
+                    val pu = flat.width / 960f
                     SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
-                        null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null),
-                        { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, flat.width / 960f)
+                        null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu),
+                        { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, pu)
                     val marked = captionedBitmap(flat, Handover.captionText(
                         deviceId, room, "$label survey marks", captureDate, stage))
                     try {

@@ -43,7 +43,7 @@ object SurveyPrepFile {
      *  [points] / [pointLog]: the older points [open] made 50 mm spots, and what that did to them and their readings
      *  (SurveyPrep.normPoints, v52 slice 4). */
     class Decoded(val prep: SurveyPrep.Prep, val size: DoubleArray?, val problems: List<String>,
-                  val points: Int = 0, val pointLog: List<String> = emptyList())
+                  val points: Int = 0, val pointLog: List<String> = emptyList(), val converted: Boolean = points > 0)
 
     private fun num(v: Any?): Double? = when (v) {
         is Number -> v.toDouble().takeIf { it.isFinite() }
@@ -223,7 +223,7 @@ object SurveyPrepFile {
         // OLDER POINTS ARE MADE SPOTS ON OPENING (v52 slice 4), their readings converted with them; once
         // saved, the next open finds nothing to do (normPoints is idempotent)
         val fix = SurveyPrep.normPoints(d0.prep)
-        val d = if (fix.points == 0) d0 else Decoded(fix.prep, d0.size, d0.problems, fix.points, fix.log)
+        val d = if (!fix.changed) d0 else Decoded(fix.prep, d0.size, d0.problems, fix.points, fix.log, true)
         if (d.problems.isEmpty()) return Opening(Opened.Restored(d), hold = false)
         val to = runCatching(copyAside).getOrNull()
         return Opening(Opened.Salvaged(d, to), hold = to == null)
@@ -239,13 +239,20 @@ object SurveyPrepFile {
      * prep whose copy failed: that file is the only copy of what was lost.
      */
     fun saveOnOpen(o: Opened): Boolean = o is Opened.Missing || (o is Opened.Salvaged && o.aside != null) ||
-        (o is Opened.Restored && o.decoded.points > 0)
+        (o is Opened.Restored && o.decoded.converted)
 
     /** The points [open] re-centred, for the log and the note; 0 when none (or nothing was read). */
     fun pointsOf(o: Opened): Int = when (o) {
         is Opened.Restored -> o.decoded.points
         is Opened.Salvaged -> o.decoded.points
         is Opened.Missing, is Opened.Unreadable -> 0
+    }
+
+    /** Whether [open] changed anything about older points (a box re-centred, or a reading converted). */
+    fun convertedOf(o: Opened): Boolean = when (o) {
+        is Opened.Restored -> o.decoded.converted
+        is Opened.Salvaged -> o.decoded.converted
+        is Opened.Missing, is Opened.Unreadable -> false
     }
 
     /** The one-time note when opening re-centred older points; null when it did not. */
