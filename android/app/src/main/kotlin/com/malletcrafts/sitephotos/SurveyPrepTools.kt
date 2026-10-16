@@ -2,10 +2,12 @@ package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
@@ -54,7 +56,9 @@ import kotlinx.coroutines.delay
 internal fun SpMarkToolbar(types: List<SurveyPrep.MarkType>, onAdd: (String) -> Unit) {
     var hint by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(hint) { if (hint != null) { delay(1600); hint = null } }
-    Column(Modifier.fillMaxWidth().padding(bottom = 5.dp)) {
+    // The long-press name is drawn OVER the row, not under it: a row that grows on a long press pushes the bottom of a
+    // landscape column off the screen (v52 slice 6), and the row is only 48 dp + 5.
+    Box(Modifier.fillMaxWidth().padding(bottom = 5.dp)) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (ty in types) {
@@ -67,11 +71,17 @@ internal fun SpMarkToolbar(types: List<SurveyPrep.MarkType>, onAdd: (String) -> 
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Canvas(Modifier.size(24.dp)) { drawMarkIcon(ty.name, col) }
-                    Text(ty.letter, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    // 13 sp line, not the theme's 24: a tile is 5 + 24 + 13 + 5 = 47, so the 48 dp minimum holds it
+                    Text(ty.letter, color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 }
             }
         }
-        hint?.let { Text(it, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp, top = 3.dp)) }
+        hint?.let {
+            Text(it, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp,
+                modifier = Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 3.dp).clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xE6111311)).border(1.dp, Color(0xFF3A3E35), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp))
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,6 +91,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -457,6 +459,12 @@ internal fun SurveyPrepDialog(
     var capAt by remember { mutableStateOf(Offset.Zero) }
     var showAt by remember { mutableStateOf(Offset.Zero) }
     var gapAt by remember { mutableStateOf(Offset.Zero) }
+    // Where ← and ✓ Save are, in root px, and the ⋮ overlay's own top-left: with ⋮ open a tap outside the menu closes
+    // it, and a tap that lands on ← or ✓ Save then goes on to Back or Save (sp.js 1559). Read only by the overlay's
+    // tap handler, never by composition.
+    var backBox by remember { mutableStateOf(Rect.Zero) }
+    var saveBox by remember { mutableStateOf(Rect.Zero) }
+    var overlayAt by remember { mutableStateOf(Offset.Zero) }
     fun stepAt(x: Float, y: Float): String? =
         if (!StepRoute.showStrip(tab)) null
         else StepRoute.stepFor(x.toDouble(), y.toDouble(),
@@ -487,10 +495,33 @@ internal fun SurveyPrepDialog(
     val openShape = face && mode == "lines" && frameOf(tab) == null
     val boundedText = "$done of 6 surfaces bounded. Save needs all six; marks and readings never block it."
 
+    fun back() { menuOpen = false; onCancel(prep.copy(), roomSize.copyOf()) }
+    /** ✓ Save: only with all six surfaces bounded. */
+    fun saveNow() {
+        menuOpen = false
+        if (done != 6) return
+        // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
+        // read back queues nothing, so the web never gets a prep this phone does not hold.
+        if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
+            unsaved[0] = false
+            AsIsUpload.enqueue(context, id)
+            webState = AsIsUpload.status(context, id)
+        }
+        onDone(prep.copy(), roomSize.copyOf())
+    }
+    // The ⋮ overlay's tap: closes the menu; on ← or ✓ Save it then does that too
+    val outsideTapS by rememberUpdatedState<(Offset) -> Unit>(newValue = { off ->
+        val pt = off + overlayAt
+        menuOpen = false
+        if (backBox.contains(pt)) back()
+        else if (saveBox.contains(pt)) saveNow()
+    })
+
     // ---- the bar: ← · title (and the save state under it) · ↶ · ⋮ · ✓ Save
     val bar: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().height(if (land) 32.dp else 40.dp), verticalAlignment = Alignment.CenterVertically) {
-            SpText("←", SP_FG, 20, Modifier.clip(CircleShape).clickable { onCancel(prep.copy(), roomSize.copyOf()) }
+            SpText("←", SP_FG, 20, Modifier.onGloballyPositioned { backBox = it.boundsInRoot() }
+                .clip(CircleShape).clickable { back() }
                 .padding(horizontal = 8.dp, vertical = 2.dp))
             Column(Modifier.weight(1f)) {
                 Text("$title · survey prep", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 18.sp,
@@ -505,18 +536,10 @@ internal fun SurveyPrepDialog(
                     .semantics { contentDescription = "More: status, Start over, Discard" }
                     .padding(horizontal = 8.dp, vertical = 2.dp))
             // ✓ SAVE: gold once all six surfaces are bounded, and only then does it do anything
-            Box(Modifier.padding(start = 2.dp).height(if (land) 28.dp else 32.dp).clip(RoundedCornerShape(16.dp))
+            Box(Modifier.padding(start = 2.dp).onGloballyPositioned { saveBox = it.boundsInRoot() }
+                .height(if (land) 28.dp else 32.dp).clip(RoundedCornerShape(16.dp))
                 .background(if (done == 6) SP_GOLD else SP_LINE_BORDER)
-                .clickable(enabled = done == 6) {
-                    // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
-                    // read back queues nothing, so the web never gets a prep this phone does not hold.
-                    if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
-                        unsaved[0] = false
-                        AsIsUpload.enqueue(context, id)
-                        webState = AsIsUpload.status(context, id)
-                    }
-                    onDone(prep.copy(), roomSize.copyOf())
-                }
+                .clickable(enabled = done == 6) { saveNow() }
                 .semantics { contentDescription = "Save survey prep" }
                 .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
                 Text("✓ Save", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold,
@@ -533,6 +556,7 @@ internal fun SurveyPrepDialog(
 
     // ---- THE PARENT: the faces as text tabs, two rows, the open one white and bold over a 3 dp gold bar
     val tabsUi: @Composable () -> Unit = {
+        rev    // read: a drag only bumps rev, and the ✓ on a face that just closed must follow it live
         val rowH = StepRoute.tabRowDp(land, listView).dp
         Column(Modifier.fillMaxWidth()) {
             for (row in StepRoute.TAB_ROWS) {
@@ -595,7 +619,7 @@ internal fun SurveyPrepDialog(
             .pointerInput(Unit) { routeToStep({ showAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
             .padding(top = 3.dp, bottom = if (land) 3.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Show", color = SP_MUTED, fontSize = 11.sp)
+            Text("Show", color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp)
             for ((k, lab) in listOf("derived" to "≈ Photo", "actual" to "Measured", "both" to "Both")) {
                 SpPill(lab, show == k, Modifier.weight(1f), outline = true, compact = land) { show = k; rev++ }
             }
@@ -697,6 +721,7 @@ internal fun SurveyPrepDialog(
     // 2026-10-10: "why not every line ... have its own control. currently i have to select it first ... lines are one
     // time settings"), then what is left to place
     val linesPanel: @Composable () -> Unit = {
+        rev    // read: a line dragged into place updates 'Place: ...' and the bounded count while the finger is down
         val names = SurveyPrep.lineNames(tab)
         Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             for (k in SurveyPrep.SLOTS) {
@@ -706,7 +731,7 @@ internal fun SurveyPrepDialog(
                     Row(Modifier.width(74.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(col))
                         Spacer(Modifier.width(4.dp))
-                        Text(names.getValue(k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 12.sp, maxLines = 1)
+                        Text(names.getValue(k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 11.sp, maxLines = 2)
                     }
                     val bs = if (h) listOf("▼5" to -5.0, "▼1" to -1.0, "▲1" to 1.0, "▲5" to 5.0)
                              else listOf("◀5" to -5.0, "◀1" to -1.0, "1▶" to 1.0, "5▶" to 5.0)
@@ -724,6 +749,7 @@ internal fun SurveyPrepDialog(
 
     // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the mark types
     val markPanel: @Composable () -> Unit = {
+        rev    // read: a mark's edge dragged moves its live ≈ value while the finger is down
         val sm = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
         if (sm != null) {
             val p = sel!!.part
@@ -752,9 +778,10 @@ internal fun SurveyPrepDialog(
         if (am != null && mm != null && act != null) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("▶ ${am.second.code} ${mm.what}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text("▶ ${am.second.code} ${mm.what}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, modifier = Modifier.weight(1f))
-                Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp, lineHeight = 15.sp)
                 SpMmField(act, prep.actual[act], true, Modifier.width(72.dp), onFocus = { active = act }) { v ->
                     if (v != null) reading(act, v) else { prep.actual.remove(act); changed() } }
                 SpD2(Modifier) { fire() }
@@ -763,75 +790,100 @@ internal fun SurveyPrepDialog(
         SpMarkToolbar(SurveyPrep.types(tab)) { addMark(it) }
     }
 
+    // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
+    // inherits the theme's 24 sp line (bodyLarge) and the menu outgrows a landscape screen.
+    val menuSizes: @Composable () -> Unit = {
+        Text("THIS 360", color = SP_MUTED, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+        // ---- the status
+        Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
+            Text(statusText, color = SP_MUTED, fontSize = 12.sp, lineHeight = 15.sp)
+            if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp, lineHeight = 15.sp)
+            prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let {
+                Text(it, color = SP_OUT, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp)) }
+            Text(boundedText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+        // ---- the laser sizes: a tap opens the size sheet under them (v51)
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
+            .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
+            .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(v.roundToInt().toString(), color = SP_FG, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                            fontSize = 16.sp, lineHeight = 20.sp)
+                    }
+                    Text(cap, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
+                }
+            }
+            Text("✎", color = SP_MUTED, fontSize = 14.sp, lineHeight = 18.sp)
+        }
+        Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
+            lineHeight = 14.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+    }
+    // The actions half: the web lines (two lines at most each -- a list of web conflicts is cut, not grown), the
+    // new-360 note, then Start over and Discard this 360, each still two taps.
+    val menuActions: @Composable () -> Unit = {
+        webState?.let { (msg, good) ->
+            Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+        }
+        readingsMsg?.let { msg ->
+            Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
+                              else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+        }
+        if (onDiscard != null) {
+            Text("New 360 — ← keeps it in the room, and its lines and marks save as you go.",
+                color = SP_GOLD, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+        }
+        // ---- start over, discard: each takes two taps
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else SP_LINE_BORDER, RoundedCornerShape(12.dp))
+            .clickable {
+                if (!armed) armed = true
+                else {
+                    armed = false; hist.clear(); sel = null; active = null
+                    prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
+                }
+            }.padding(9.dp), contentAlignment = Alignment.Center) {
+            Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
+                color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center)
+        }
+        if (onDiscard != null) {
+            Spacer(Modifier.height(6.dp))
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else SP_LINE_BORDER, RoundedCornerShape(12.dp))
+                .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
+                .padding(9.dp), contentAlignment = Alignment.Center) {
+                Text(if (armedDiscard) "Tap again to discard this 360 — nothing is kept" else "Discard this 360",
+                    color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp,
+                    fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            }
+        }
+    }
     // ---- BEHIND ⋮ (sp.js 1412: "The status, the laser notes, Start over and Discard this 360 sit behind ⋮ in the top
-    // bar"): what a non-scrolling screen cannot hold above the photo, one tap away
+    // bar"): what a non-scrolling screen cannot hold above the photo, one tap away. NOTHING IN IT SCROLLS: portrait is one
+    // 300 dp column (~470 dp at its tallest, of ~650 under the bar); landscape is two 264 dp columns side by side, the
+    // sizes on the left (~258 dp at their tallest) and the web lines with Start over and Discard on the right (~224 dp
+    // with both armed), of the 286 dp under the bar -- so the two-tap actions are never below a fold.
     val menu: @Composable () -> Unit = {
-        Column(Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(12.dp)).background(SP_CHIP)
+        val shell = Modifier.clip(RoundedCornerShape(12.dp)).background(SP_CHIP)
             .border(1.dp, SP_LINE_BORDER, RoundedCornerShape(12.dp))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }   // a tap inside never closes it
-            .verticalScroll(rememberScrollState())
-            .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp)) {
-            Text("THIS 360", color = SP_MUTED, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
-                modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
-            // ---- the status
-            Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
-                Text(statusText, color = SP_MUTED, fontSize = 12.sp)
-                if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp)
-                prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let { Text(it, color = SP_OUT, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
-                Text(boundedText, color = SP_MUTED, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+            .padding(start = 10.dp, end = 10.dp, top = 8.dp, bottom = 10.dp)
+        if (land) {
+            Row(Modifier.widthIn(max = 560.dp).then(shell), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) { menuSizes() }
+                Column(Modifier.weight(1f).padding(top = 20.dp)) { menuActions() }
             }
-            // ---- the laser sizes: a tap opens the size sheet under them (v51)
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
-                .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
-                .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
-                    Column(Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.Bottom) {
-                            Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(v.roundToInt().toString(), color = SP_FG, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, fontSize = 16.sp)
-                        }
-                        Text(cap, color = SP_MUTED, fontSize = 10.sp)
-                    }
-                }
-                Text("✎", color = SP_MUTED, fontSize = 14.sp)
-            }
-            Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
-                modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-            webState?.let { (msg, good) ->
-                Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-            }
-            readingsMsg?.let { msg ->
-                Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
-                                  else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-            }
-            if (onDiscard != null) {
-                Text("New 360 — ← keeps it in the room, and its lines and marks save as you go.",
-                    color = SP_GOLD, fontSize = 11.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
-            }
-            // ---- start over, discard: each takes two taps
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else SP_LINE_BORDER, RoundedCornerShape(12.dp))
-                .clickable {
-                    if (!armed) armed = true
-                    else {
-                        armed = false; hist.clear(); sel = null; active = null
-                        prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
-                    }
-                }.padding(9.dp), contentAlignment = Alignment.Center) {
-                Text(if (armed) "Tap again to clear every line, mark and reading" else "Start over",
-                    color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
-            if (onDiscard != null) {
-                Spacer(Modifier.height(6.dp))
-                Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else SP_LINE_BORDER, RoundedCornerShape(12.dp))
-                    .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
-                    .padding(9.dp), contentAlignment = Alignment.Center) {
-                    Text(if (armedDiscard) "Tap again to discard this 360 — nothing is kept" else "Discard this 360",
-                        color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                }
+        } else {
+            Column(Modifier.widthIn(max = 300.dp).then(shell)) {
+                menuSizes()
+                menuActions()
             }
         }
     }
@@ -863,12 +915,20 @@ internal fun SurveyPrepDialog(
                     }
                 }
             } else {
-                // LANDSCAPE, 780 x 360: the photo (or the list) on the left at full height; on the right, 318 dp of
-                // controls -- bar 32 · tabs 56 + strip 24 = 80 (48 + 20 = 68 in 3 · List) · (Show) · gap · what works on it
+                // LANDSCAPE, 780 x 360 (a ~336 dp window under the status bar): the photo on the left at full height;
+                // on the right, 318 dp of controls -- bar 32 · tabs 56 + strip 24 = 80 · (Show) · gap · what works on it.
+                // 3 · List and the List tab (v42.css .spv.land.lst): the tabs, the strip and Show go to the top of the
+                // LEFT column, over the list, and only the bar stays on the right. The salvaged-prep line sits on the
+                // left in landscape too, where it shortens the photo rather than clipping the panel under the controls.
                 Row(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp)) {
                     Column(Modifier.weight(1f).fillMaxHeight()) {
-                        if (listView) listPane()
-                        else {
+                        openedLine()
+                        if (listView) {
+                            tabsUi()
+                            if (face) stripUi()
+                            showRow()
+                            listPane()
+                        } else {
                             caption()
                             photoPane()
                         }
@@ -876,10 +936,11 @@ internal fun SurveyPrepDialog(
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.width(318.dp).fillMaxHeight()) {
                         bar()
-                        openedLine()
-                        tabsUi()
-                        if (face) stripUi()
-                        if (listView || mode == "mark") showRow()
+                        if (!listView) {
+                            tabsUi()
+                            if (face) stripUi()
+                            if (mode == "mark") showRow()
+                        }
                         // the empty gap under the controls takes part in the strip's touch area (sp.js .spgap)
                         Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { gapAt = it.positionInRoot() }
                             .pointerInput(Unit) { routeToStep({ gapAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) })
@@ -889,10 +950,12 @@ internal fun SurveyPrepDialog(
                     }
                 }
             }
-            // ---- ⋮: a tap anywhere outside the menu closes it, and does nothing else
+            // ---- ⋮: a tap anywhere outside the menu closes it; one on ← or ✓ Save then goes on to Back or Save
+            // (sp.js 1559: `if(!ev.target.closest('#save,#spBack')) return;`), anything else does nothing more
             if (menuOpen) {
-                Box(Modifier.fillMaxSize()
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { menuOpen = false })
+                Box(Modifier.fillMaxSize().onGloballyPositioned { overlayAt = it.positionInRoot() }
+                    .pointerInput(Unit) { detectTapGestures { off -> outsideTapS(off) } }
+                    .semantics { onClick(label = "Close the menu") { menuOpen = false; true } })
                 Box(Modifier.align(Alignment.TopEnd).padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = if (land) 40.dp else 48.dp)) {
                     menu()
                 }
@@ -1391,7 +1454,8 @@ private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolea
     val fg = if (on) (if (outline) Color.White else Color(0xFF1A1A12)) else SP_MUTED
     Box(modifier.clip(shape).background(bg).let { if (on && outline) it.border(1.5.dp, SP_GOLD, shape) else it }
         .clickable { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            lineHeight = if (compact) 14.sp else TextUnit.Unspecified)   // compact: 4 + 14 + 4 = 22 dp, not the theme's 24 sp line
     }
 }
 
@@ -1399,7 +1463,8 @@ private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolea
 private fun SpButton(text: String, modifier: Modifier, border: Color, compact: Boolean = false, onClick: () -> Unit) {
     Box(modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black).border(1.5.dp, border, RoundedCornerShape(7.dp))
         .clickable { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(text, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            lineHeight = if (compact) 14.sp else TextUnit.Unspecified)   // compact: 4 + 14 + 4 = 22 dp, not the theme's 24 sp line
     }
 }
 
