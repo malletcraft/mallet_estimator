@@ -56,14 +56,31 @@ class WishListTest {
     }
 
     @Test fun `stage not read - editable, says so, never Finish the survey first (FX16)`() {
-        for (c in listOf(null, QuoteStage.Cache(listed = false), QuoteStage.Cache(listed = true, stage = ""),
+        for (c in listOf(null, QuoteStage.Cache(listed = true, stage = ""),
                          QuoteStage.Cache(listed = true, stage = "Quoted"))) {
             val i = WishList.stageIndex(c)
             assertEquals(null, i, "$c")
             assertTrue(WishList.editable(i))
             assertFalse(WishList.warnAfterQuote(i))
-            assertEquals(listOf("Quote stage not read yet — S5 decides when online"), WishList.banners(i, warned = true))
+            assertFalse(WishList.notOnS5(synced = true, cache = c), "$c")
+            assertEquals(listOf("Quote stage not read yet — S5 decides when online"),
+                WishList.banners(i, warned = true, notOnS5 = WishList.notOnS5(true, c)))
         }
+    }
+
+    @Test fun `not on S5 - phone-only or not listed - editable, and no 'S5 decides when online' under 'not on S5 yet'`() {
+        // A phone-only project never asks S5; a not-listed one is 404 until its first room upload (decision 3).
+        for ((synced, c) in listOf(false to null, true to QuoteStage.Cache(listed = false),
+                                   false to QuoteStage.Cache(listed = true, stage = "Survey"))) {
+            assertTrue(WishList.notOnS5(synced, c), "$synced $c")
+            val i = if (synced) WishList.stageIndex(c) else null
+            assertTrue(WishList.editable(i))
+            assertEquals(emptyList(), WishList.banners(i, warned = true, notOnS5 = true))
+        }
+        // and the sub-line those projects show says the same thing
+        assertEquals("QUOTE STAGE · not on S5 yet", QuoteStage.phoneOnly().title)
+        assertEquals("QUOTE STAGE · not on S5 yet",
+            QuoteStage.lineFor(QuoteStage.Cache(listed = false), java.time.Instant.parse("2026-10-16T05:00:00Z")).title)
     }
 
     @Test fun `applies-to line and the row's second line (ct52 W(b))`() {
@@ -115,18 +132,87 @@ class WishListTest {
         assertEquals(mapOf(k to "PROJ-0031"), WishList.rekeys(locals, erp))
     }
 
-    @Test fun `adopt - the phone's list moves under the id and stays dirty, only an unsent list there beats it`() {
+    @Test fun `adopt - the phone's list moves under the id, dirty, on its own base so S5 answers 409 and wins`() {
         val local = Local("C", "T", mapOf("cctv" to Row(on = true)), dirty = true, savedAt = "2026-10-16T05:00:00Z")
-        val moved = WishList.adopt(local, null)
+        val moved = WishList.adopt(local, null)!!
         assertEquals("", moved.at)
         assertTrue(moved.dirty)
         assertEquals(1, WishList.count(moved.rows))
+        // S5's list (staff's Painting) pulled under the id: the offline list does NOT take its
+        // stamp, so its PUT goes on base "" and S5 answers 409 rather than losing staff's rows
         val fetched = Local("C", "T", mapOf("painting" to Row(on = true)), at = "2026-10-15T10:00:00Z")
-        val onTop = WishList.adopt(local, fetched)
-        assertEquals("2026-10-15T10:00:00Z", onTop.at)
+        val onTop = WishList.adopt(local, fetched)!!
+        assertEquals("", onTop.at)
         assertEquals(local.rows, onTop.rows)
-        val unsent = fetched.copy(dirty = true)
-        assertEquals(unsent, WishList.adopt(local, unsent))
+        assertTrue(onTop.dirty)
+        val after409 = WishList.afterConflict(onTop, fetched.rows, fetched.at)
+        assertEquals(fetched.rows, after409.rows)
+        assertEquals(WishList.REPLACED, after409.note)
+        // an unsent list already under the id: the local one is not moved over it, nor dropped
+        assertEquals(null, WishList.adopt(local, fetched.copy(dirty = true)))
+    }
+
+    @Test fun `a stale phone-only project reads and edits the moved list through its forward`() {
+        val localKey = WishList.localKey("C", "T")
+        val store = linkedMapOf<String, Any>(
+            localKey to Local("C", "T", mapOf("cctv" to Row(on = true), "painting" to Row(on = true)), dirty = true))
+        // the re-key, as WishSync.rekey writes it: the list under the id, a forward at the old key
+        val to = WishList.rekeys(mapOf(localKey to store[localKey] as Local), listOf(WishList.Erp("PROJ-0042", "C", "T")))[localKey]!!
+        store[to] = WishList.adopt(store[localKey] as Local, null)!!
+        store[WishList.forwardKey(localKey)] = to
+        store.remove(localKey)
+        val lookup: (String) -> String? = { k -> store[k] as? String }
+        // the screen still holding the local project resolves to the moved list: 2 of 12, not 0
+        val k = WishList.resolve(localKey, lookup)
+        assertEquals("PROJ-0042", k)
+        val cur = store[k] as Local
+        assertEquals(2, WishList.count(cur.rows))
+        // an edit there lands on the full list, never a one-row list under the old key
+        store[k] = WishList.edited(cur, WishList.toggle(cur.rows, "intercom"), "2026-10-16T06:00:00Z")
+        assertEquals(3, WishList.count((store[k] as Local).rows))
+        assertFalse(localKey in store)
+        // a key that was never moved, and an ERP id, resolve to themselves
+        assertEquals("local:C|Other", WishList.resolve("local:C|Other", lookup))
+        assertEquals("PROJ-0042", WishList.resolve("PROJ-0042", lookup))
+        assertTrue(WishList.isForward(WishList.forwardKey(localKey)))
+        assertFalse(WishList.isLocal(WishList.forwardKey(localKey)))
+    }
+
+    @Test fun `a phone-only project or client renamed takes its list along`() {
+        val a = WishList.localKey("Demo Client", "Flat A")
+        val b = WishList.localKey("Demo Client", "Flat B")
+        val locals = mapOf(
+            a to Local("Demo Client", "Flat A", mapOf("cctv" to Row(on = true)), dirty = true),
+            b to Local("Demo Client", "Flat B", mapOf("painting" to Row(on = true)), dirty = true),
+            WishList.localKey("Other", "Flat A") to Local("Other", "Flat A"),
+            "PROJ-0001" to Local("Demo Client", "Flat A"))
+        // a project rename: only that project's list, under its new title
+        val newA = WishList.localKey("Demo Client", "Flat A Kothrud")
+        val p = WishList.renamed(locals, "project", "demo client", "flat a", " Flat A Kothrud ", live = setOf(newA, b))
+        assertEquals(setOf(a), p.keys)
+        assertEquals(newA, p.getValue(a).to)
+        assertEquals("Flat A Kothrud", p.getValue(a).list.title)
+        assertEquals(locals.getValue(a).rows, p.getValue(a).list.rows)
+        assertTrue(p.getValue(a).list.dirty)
+        assertFalse(p.getValue(a).keepOld)
+        // and the re-key then finds it under the new name
+        assertEquals(mapOf(newA to "PROJ-0050"),
+            WishList.rekeys(mapOf(newA to p.getValue(a).list), listOf(WishList.Erp("PROJ-0050", "Demo Client", "Flat A Kothrud"))))
+        // a client rename: every phone-only project's list under that client
+        val c = WishList.renamed(locals, "client", "Demo Client", "", "Demo Client Pune", live = emptySet())
+        assertEquals(setOf(a, b), c.keys)
+        assertEquals(WishList.localKey("Demo Client Pune", "Flat B"), c.getValue(b).to)
+        assertEquals("Demo Client Pune", c.getValue(b).list.client)
+        // a site rename moves nothing; neither does a blank name
+        assertEquals(emptyMap(), WishList.renamed(locals, "site", "Demo Client", "", "Wing B", emptySet()))
+        assertEquals(emptyMap(), WishList.renamed(locals, "project", "Demo Client", "Flat A", "  ", emptySet()))
+        // the old title still names a project at another site: copied, not taken from it
+        assertTrue(WishList.renamed(locals, "project", "Demo Client", "Flat A", "Flat C", setOf(a)).getValue(a).keepOld)
+        // a new name whose key already holds a list keeps that list
+        assertEquals(emptyMap(), WishList.renamed(locals, "project", "Demo Client", "Flat A", "Flat B", setOf(b)))
+        // a rename that only changes case still moves the list (keys are exact)
+        assertEquals(WishList.localKey("Demo Client", "flat a"),
+            WishList.renamed(locals, "project", "Demo Client", "Flat A", "flat a", emptySet()).getValue(a).to)
     }
 
     @Test fun `409 - S5 wins, the phone takes its rows and stamp, the note says so, dirty cleared (decision 2)`() {
@@ -143,16 +229,46 @@ class WishListTest {
         assertEquals("", WishList.edited(after, after.rows, "2026-10-16T06:00:00Z").note)
     }
 
-    @Test fun `200 - S5's stamp is the base, an edit made while the PUT was out stays dirty`() {
+    @Test fun `409 after a lost 200 - S5 holds the phone's own list - no 'replaced' note, the stamp adopted`() {
+        val mine = WishList.edited(Local("C", "T", at = "2026-10-15T10:00:00Z"),
+            mapOf("cctv" to Row(on = true, note = "tiles ", rooms = listOf("Kitchen"))), "2026-10-16T05:00:00Z")
+        // what S5 saved from the PUT whose answer was lost: every service, trimmed
+        val s5 = WishList.forPut(mapOf("cctv" to Row(on = true, note = "tiles", rooms = listOf("Kitchen"))))
+        val after = WishList.afterConflict(mine, s5, "2026-10-16T05:00:02Z")
+        assertEquals("", after.note)
+        assertFalse(after.dirty)
+        assertEquals("2026-10-16T05:00:02Z", after.at)
+        assertEquals(mine.rows, after.rows)
+    }
+
+    @Test fun `refused for good - 403 for a key that is not staff, 400, 413 - one note, not dirty, the next GET takes S5's copy`() {
+        assertEquals(listOf(400, 403, 413), listOf(400, 401, 403, 404, 405, 409, 413, 500, 503).filter { WishList.refusedForGood(it) })
+        val sent = mapOf("cctv" to Row(on = true))
+        val mine = WishList.edited(Local("C", "T", at = "2026-10-15T10:00:00Z"), sent, "2026-10-16T05:00:00Z")
+        val after = WishList.afterRefused(mine, sent, "Only MCFT staff can change the wish list")
+        assertFalse(after.dirty)
+        assertEquals("Not sent to S5 — Only MCFT staff can change the wish list", after.note)
+        assertEquals(sent, after.rows)
+        // no longer dirty, so the GET on open shows staff's list again
+        val s5 = mapOf("painting" to Row(on = true))
+        assertEquals(s5, WishList.afterGet(after, s5, "2026-10-16T06:00:00Z").rows)
+        // an edit made while the refused PUT was out stays dirty and tries once more
+        val moved = mine.copy(rows = WishList.toggle(sent, "intercom"))
+        assertEquals(moved, WishList.afterRefused(moved, sent, "Only MCFT staff can change the wish list"))
+        // and the next edit clears the note
+        assertEquals("", WishList.edited(after, after.rows, "2026-10-16T07:00:00Z").note)
+    }
+
+    @Test fun `200 - S5's stamp is the base, the phone's own rows kept, an edit made while the PUT was out stays dirty`() {
         val sent = mapOf("cctv" to Row(on = true, note = "x "))
         val l = Local("C", "T", sent, dirty = true)
-        val s5 = WishList.forPut(mapOf("cctv" to Row(on = true, note = "x")))
-        val ok = WishList.afterPut(l, sent, s5, "2026-10-16T05:00:01Z")
+        val ok = WishList.afterPut(l, sent, "2026-10-16T05:00:01Z")
         assertFalse(ok.dirty)
         assertEquals("2026-10-16T05:00:01Z", ok.at)
-        assertEquals("x", WishList.row(ok.rows, "cctv").note)
+        // S5 saved "x" (trimmed); the Note field under the cursor keeps the space being typed
+        assertEquals("x ", WishList.row(ok.rows, "cctv").note)
         val moved = l.copy(rows = WishList.toggle(sent, "painting"))
-        val later = WishList.afterPut(moved, sent, s5, "2026-10-16T05:00:01Z")
+        val later = WishList.afterPut(moved, sent, "2026-10-16T05:00:01Z")
         assertTrue(later.dirty)
         assertEquals("2026-10-16T05:00:01Z", later.at)
         assertEquals(2, WishList.count(later.rows))
@@ -165,6 +281,22 @@ class WishListTest {
         assertEquals(s5, WishList.afterGet(clean, s5, "b").rows)
         val dirty = clean.copy(dirty = true)
         assertEquals(dirty, WishList.afterGet(dirty, s5, "b"))
+    }
+
+    @Test fun `GET on open is a compare-and-set - a PUT's 200 landing while it was out is not rolled back`() {
+        val before = Local("C", "T", mapOf("cctv" to Row(on = true)), at = "2026-10-16T05:00:00.000Z", dirty = true)
+        val s5Old = mapOf("cctv" to Row(on = true))
+        // the GET went out with `before` stored; SyncWorker's PUT then landed (clean, newer stamp)
+        val sent = WishList.edited(before, WishList.toggle(before.rows, "painting"), "2026-10-16T05:01:00Z")
+        val afterPut = WishList.afterPut(sent, sent.rows, "2026-10-16T05:02:00.000Z")
+        val got = WishList.afterGet(afterPut, s5Old, "2026-10-16T05:00:00.000Z", seen = before)
+        assertEquals(afterPut, got)
+        assertEquals(2, WishList.count(got.rows))
+        // an answer older than the stored stamp is dropped even when nothing else moved
+        assertEquals(afterPut, WishList.afterGet(afterPut, s5Old, "2026-10-16T05:00:00.000Z"))
+        // the same list unchanged while the GET was out takes S5's newer copy
+        val staff = mapOf("intercom" to Row(on = true))
+        assertEquals(staff, WishList.afterGet(afterPut, staff, "2026-10-16T06:00:00.000Z", seen = afterPut).rows)
     }
 
     @Test fun `the head - nothing saved, saved on this phone, on S5 since in IST`() {

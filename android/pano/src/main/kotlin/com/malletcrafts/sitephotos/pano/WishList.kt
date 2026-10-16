@@ -66,6 +66,8 @@ object WishList {
     const val NOTHING_SAVED = "nothing saved yet"
     /** Decision 2: shown after a 409 replaced the phone's list with S5's. */
     const val REPLACED = "S5 had a newer list; yours was replaced, re-apply what is missing"
+    /** Before S5's own reason when S5 refused the list for good (a non-staff key, a bad shape). */
+    const val NOT_SENT = "Not sent to S5"
 
     /** One service's row: wanted or not, the rooms it applies to (none = the whole flat), a note, a vendor. */
     data class Row(
@@ -104,6 +106,21 @@ object WishList {
 
     fun isLocal(key: String): Boolean = key.startsWith(LOCAL)
 
+    private const val MOVED = "moved:"
+
+    /**
+     * Where a moved local list is forwarded from: written beside the list when [rekeys] moves
+     * it, so a screen still holding the phone-only project (MainActivity's navProject is not
+     * re-read after a sync) reads and edits the moved list instead of starting an empty one.
+     */
+    fun forwardKey(localKey: String): String = MOVED + localKey
+
+    fun isForward(key: String): Boolean = key.startsWith(MOVED)
+
+    /** The key a list is really kept under: a moved local key follows its forward ([lookup] reads one). */
+    fun resolve(key: String, lookup: (String) -> String?): String =
+        if (isLocal(key)) lookup(forwardKey(key))?.trim()?.ifBlank { null } ?: key else key
+
     /** Names compared as the catalogue compares them (Catalogue.keyOf): trimmed, case-blind, runs of space or _ as one. */
     fun norm(s: String): String = s.trim().lowercase().replace(Regex("[\\s_]+"), " ")
 
@@ -129,14 +146,52 @@ object WishList {
 
     /**
      * A local list moved under its ERP id, where [existing] is anything already kept there.
-     * The list made on the phone carries the person's work, so it is kept and stays dirty
-     * (it still has to reach S5), on top of the base S5 last showed for that id ("" when
-     * nothing was ever read, so S5 answers 409 if staff made one meanwhile -- and S5 wins).
-     * Only an existing list that is itself unsent beats it: that is already work under the id.
+     * The list made on the phone carries the person's work, so it moves and stays dirty (it
+     * still has to reach S5) -- on its OWN base, "", never the stamp this phone read for the
+     * id: whoever typed it offline never saw S5's copy, so taking that stamp would let the
+     * PUT overwrite staff's list with no 409. With "" S5 answers 409 whenever it holds a saved
+     * list, and S5 wins with the REPLACED note (decision 2).
+     * Null when an unsent list is already under the id: that is work too, so the local list
+     * is not moved over it (nor dropped) -- it stays under its local key and moves on a later
+     * sync, once the list under the id has gone.
      */
-    fun adopt(local: Local, existing: Local?): Local {
-        if (existing != null && existing.dirty) return existing
-        return local.copy(at = existing?.at ?: "")
+    fun adopt(local: Local, existing: Local?): Local? {
+        if (existing != null && existing.dirty) return null
+        return local.copy(at = "")
+    }
+
+    /** One list moved by a rename: its new key, the list as it now reads, and whether the old key stays (copy). */
+    data class Rename(val to: String, val list: Local, val keepOld: Boolean)
+
+    /**
+     * A phone-only client or project renamed on this phone (Catalogue.renameLocal): which
+     * local lists move, old key -> (new key, the list with its new client or title). A site
+     * rename moves nothing (the key holds no site). [live] is the local keys still in use
+     * AFTER the rename: a list whose old key still names another phone-only project (the same
+     * title at another site) is copied ([Rename.keepOld]) rather than taken from it, and a new key that already
+     * holds a list keeps that list (it belongs to a project that already has the name).
+     */
+    fun renamed(
+        locals: Map<String, Local>, kind: String, client: String, title: String, newName: String,
+        live: Set<String>,
+    ): Map<String, Rename> {
+        val n = newName.trim()
+        if (n.isEmpty()) return emptyMap()
+        // Keys are matched EXACTLY (the screen looks a list up by the project's own spelling),
+        // so a rename that only changes case still moves the list; names match as the catalogue does.
+        val out = linkedMapOf<String, Rename>()
+        for ((k, l) in locals) {
+            if (!isLocal(k)) continue
+            val next = when (kind) {
+                "client" -> if (norm(l.client) == norm(client)) l.copy(client = n) else null
+                "project" -> if (norm(l.client) == norm(client) && norm(l.title) == norm(title)) l.copy(title = n) else null
+                else -> null
+            } ?: continue
+            val to = localKey(next.client, next.title)
+            if (to == k || to in locals) continue
+            out[k] = Rename(to, next, keepOld = k in live)
+        }
+        return out
     }
 
     // ---- counts and texts ---------------------------------------------------
@@ -187,10 +242,21 @@ object WishList {
     /** From Vendor quoted on an edit warns (and still saves); the prototype only warns. */
     fun warnAfterQuote(stageIdx: Int?): Boolean = stageIdx != null && stageIdx >= 2
 
-    /** The banners over the list, in the prototype's order. [warned]: changed after a vendor quoted, this visit. */
-    fun banners(stageIdx: Int?, warned: Boolean): List<String> = buildList {
+    /**
+     * The project is not on S5, which is not the same as a stage not read: a phone-only
+     * project (it never asks S5) or one S5 answered "not listed" for (404 until its first room
+     * upload, decision 3). The sub-line already says "not on S5 yet" (QuoteStage.phoneOnly /
+     * lineFor), so the unread banner -- "S5 decides when online" -- would contradict it.
+     */
+    fun notOnS5(synced: Boolean, cache: QuoteStage.Cache?): Boolean = !synced || (cache != null && !cache.listed)
+
+    /**
+     * The banners over the list, in the prototype's order. [warned]: changed after a vendor
+     * quoted, this visit. [notOnS5]: no unread banner, since going online changes nothing.
+     */
+    fun banners(stageIdx: Int?, warned: Boolean, notOnS5: Boolean = false): List<String> = buildList {
         if (stageIdx == 0) add(FINISH_SURVEY)
-        if (stageIdx == null) add(UNREAD)
+        if (stageIdx == null && !notOnS5) add(UNREAD)
         if (warned && warnAfterQuote(stageIdx)) add(AFTER_QUOTE)
     }
 
@@ -239,23 +305,66 @@ object WishList {
     fun forPut(rows: Map<String, Row>): Map<String, Row> = SERVICES.associate { it.id to row(rows, it.id) }
 
     /**
-     * After a 200 to the PUT of [sent]: S5's stamp becomes the base. When nothing was edited
-     * while the PUT was out, S5's normalised rows are kept and the list is clean; an edit made
-     * meanwhile stays, dirty, and goes next time on the new base.
+     * The rows as S5 stores them (validWishlist): every service, rooms trimmed, blank and
+     * repeated rooms gone, note and vendor on one line and trimmed. Two lists that agree here
+     * are the same list to S5.
      */
-    fun afterPut(current: Local, sent: Map<String, Row>, s5Rows: Map<String, Row>?, at: String): Local =
-        if (forPut(current.rows) == forPut(sent))
-            current.copy(rows = s5Rows ?: current.rows, at = at, dirty = false)
+    fun normalised(rows: Map<String, Row>): Map<String, Row> = forPut(rows).mapValues { (_, r) ->
+        Row(on = r.on, rooms = r.rooms.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
+            note = oneLine(r.note).trim(), vendor = oneLine(r.vendor).trim())
+    }
+
+    /**
+     * After a 200 to the PUT of [sent]: S5's stamp becomes the base. When nothing was edited
+     * while the PUT was out the list is clean and KEEPS THE PHONE'S OWN ROWS -- they are what
+     * S5 saved, up to S5's trim, and taking S5's trimmed copy would rewrite a Note field under
+     * the cursor (a trailing space typed and lost). An edit made meanwhile stays, dirty, and
+     * goes next time on the new base.
+     */
+    fun afterPut(current: Local, sent: Map<String, Row>, at: String): Local =
+        if (forPut(current.rows) == forPut(sent)) current.copy(at = at, dirty = false)
         else current.copy(at = at, dirty = true)
 
     /**
      * A 409 because the base was stale (decision 2): S5 WINS. The phone takes S5's rows and
-     * stamp, the dirty flag is cleared and the note says what happened.
+     * stamp and the dirty flag is cleared. The note says the list was replaced only when it
+     * really was: after a lost 200 (S5 saved the PUT, the answer never arrived) the next PUT's
+     * 409 carries the phone's own list back, and nothing is missing to re-apply.
      */
     fun afterConflict(current: Local, s5Rows: Map<String, Row>, at: String): Local =
-        current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED)
+        if (normalised(s5Rows) == normalised(current.rows)) current.copy(at = at, dirty = false)
+        else current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED)
 
-    /** A GET on project open: a clean list takes S5's copy (staff edits on /projects); an unsent edit is never touched. */
-    fun afterGet(current: Local, s5Rows: Map<String, Row>, at: String): Local =
-        if (current.dirty) current else current.copy(rows = s5Rows, at = at)
+    /**
+     * Whether S5 refused the PUT for good, so sending the same list again can only be refused
+     * again: 403 (a key that is not MCFT staff -- vendors and clients may read the list but
+     * not change it), 400 (a shape S5 will not take) and 413 (too large). Everything else
+     * waits on the phone and goes next sync: 401 (the key is fixed in Settings, then the edit
+     * goes), 404 (not on S5 yet), 405, 409 at Survey, a 5xx, no network.
+     */
+    fun refusedForGood(code: Int): Boolean = code == 400 || code == 403 || code == 413
+
+    /**
+     * S5 refused the list for good ([refusedForGood]): it is no longer dirty, so it is not
+     * PUT again every sync (PLAN slice 16: "one note and no endless retry") and the next GET
+     * on project open takes S5's copy again; the note carries S5's own reason. The rows stay
+     * as typed until then, and the next edit clears the note and tries once more -- as does
+     * an edit made while the refused PUT was out, which is left dirty here.
+     */
+    fun afterRefused(current: Local, sent: Map<String, Row>, message: String): Local =
+        if (forPut(current.rows) != forPut(sent)) current
+        else current.copy(dirty = false,
+            note = listOf(NOT_SENT, message.trim()).filter { it.isNotEmpty() }.joinToString(" — "))
+
+    /**
+     * A GET on project open: a clean list takes S5's copy (staff edits on /projects); an
+     * unsent edit is never touched. The GET is a compare-and-set: [seen] is the list as it was
+     * stored when the GET went out, and when anything wrote it meanwhile (a PUT's 200, an
+     * edit) the GET's answer is older than what is stored and is dropped. A stamp older than
+     * the stored one is dropped too (both are S5's toISOString, so they compare as text).
+     */
+    fun afterGet(current: Local, s5Rows: Map<String, Row>, at: String, seen: Local? = current): Local =
+        if (current.dirty || current != seen ||
+            (at.isNotBlank() && current.at.isNotBlank() && at < current.at)) current
+        else current.copy(rows = s5Rows, at = at)
 }

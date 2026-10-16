@@ -70,6 +70,8 @@ fun WishListScreen(
     quote: QuoteStage.Line,
     /** The quote stage's place (WishList.stageIndex), null when it is not read. */
     stageIdx: Int?,
+    /** The project is not on S5 (phone-only, or S5 does not list it): no "not read yet" banner (WishList.notOnS5). */
+    notOnS5: Boolean,
     /** Bumped by any write to the lists' preferences (a sync, a read on project open). */
     tick: Int,
     /** Changed after a vendor quoted, this visit: the warning shows. */
@@ -126,7 +128,7 @@ fun WishListScreen(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             list?.note?.takeIf { it.isNotBlank() }?.let { Banner(it) }
-            WishList.banners(stageIdx, warned).forEach { Banner(it) }
+            WishList.banners(stageIdx, warned, notOnS5).forEach { Banner(it) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                 itemsIndexed(WishList.SERVICES, key = { _, s -> s.id }) { i, s ->
                     WishRow(

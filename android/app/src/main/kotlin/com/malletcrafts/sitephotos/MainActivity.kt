@@ -766,6 +766,13 @@ private fun AppScreen() {
                 // be reported as done until the server says so.
                 if (t.serverId.isBlank()) {
                     cat.renameLocal(t.kind, t.client, t.site, t.project, newName)
+                    // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
+                    // for a phone-only project, so it follows the new name -- or the chip reads
+                    // 0/12 and the re-key never finds it. The keys still in use AFTER the rename
+                    // decide a move from a copy (the same title at another site keeps its list).
+                    WishSync.renameLocal(context, t.kind, t.client, t.project, newName,
+                        cat.projects(store.masters()).filter { !it.synced }
+                            .map { WishList.localKey(it.client, it.title) }.toSet())
                     reload()
                     // Follow the rename: a person renaming the thing they are
                     // standing in should not be thrown back to the root.
@@ -1118,6 +1125,7 @@ private fun AppScreen() {
                     QuoteStageSync.lineFor(context, proj)
                 },
                 stageIdx = WishList.stageIndex(wishCache),
+                notOnS5 = WishList.notOnS5(proj.synced, wishCache),
                 tick = wishTick,
                 warned = wishWarned,
                 onWarn = { wishWarned = true },
