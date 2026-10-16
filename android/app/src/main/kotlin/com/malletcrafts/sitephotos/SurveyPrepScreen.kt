@@ -104,6 +104,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.GestureClassifier
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
+import com.malletcrafts.sitephotos.pano.SurveyChain
 import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
@@ -136,8 +137,10 @@ import kotlin.math.roundToInt
  *  - 2 · Mark: the surface squared to the laser size; boxes for what is on
  *    it, each with its checklist of measurements, the photo's estimate, and
  *    the site reading from the DISTO D2 or typed. The palette under the
- *    photo (v52 slice 7): Select, three types, More ▸; a type stays on and
- *    every tap on empty photo places one where the finger is.
+ *    photo (v52 slice 7, complete in slice 11): Select, Tape, Line, Chain,
+ *    three types, More ▸; a type stays on and every tap on empty photo
+ *    places one where the finger is; Chain taps a run of points along one
+ *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
  *  - The faces are tabs and the steps a strip under them; the photo takes
@@ -213,10 +216,15 @@ internal fun SurveyPrepDialog(
     var endG by remember { mutableStateOf<SurveyGuide.Guide?>(null) }
     // THE PLANE GRID BUTTON (v52 slice 10, in the fit column): the grid on the face whether or not anything is drawn
     var grid by remember { mutableStateOf(false) }
+    // A CHAIN BEING DRAWN (v52 slice 11): its points so far, changed in place as the finger taps and drags (rev follows
+    // it); null when none. A tool, a face or a step changed ENDS it -- plotted with two points or more (flushChain);
+    // ✕ on the chip, a clear or Start over drops it (sp.js kFlush, d.cancel)
+    var kdraft by remember { mutableStateOf<SurveyChain.Draft?>(null) }
     /** No Tape or Line half drawn and no end being dragged: a drag let go of, the area's corners forgotten (a tool, a
-     *  face or a step changed -- sp.js gClear, ct52 FX11), so no guide is left on.
+     *  face or a step changed -- sp.js gClear, ct52 FX11), so no guide is left on; a chain being drawn dropped (a
+     *  caller that should keep it -- a tool, face or step change -- ends it first with flushChain).
      *  Declared here, above every caller -- a local function is visible only below its declaration. */
-    fun dropDrafts() { mdrag = null; area = null; areaS = null; endG = null }
+    fun dropDrafts() { mdrag = null; area = null; areaS = null; endG = null; kdraft = null }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
@@ -314,13 +322,10 @@ internal fun SurveyPrepDialog(
     fun undo() {
         if (hist.isEmpty()) return
         val old = hist.removeAt(hist.size - 1)
-        // Readings are not geometry: the ones taken since stay, and a reading a delete took away comes back with its mark.
-        val merged = old.actual.toMutableMap().apply { putAll(prep.actual) }
-        val back = SurveyPrep.Prep(old.surfaces, mutableMapOf(), old.extra, old.extraSurfaces)
-        // (a Line's or an area's reading too, v52 slice 9: Prep.ownerOf knows marks and Lines alike)
-        for ((k, v) in merged) if (back.ownerOf(k) != null) back.actual[k] = v
-        // a code handed out since is not handed out again: the web may hold readings under it (v52 slice 8)
-        SurveyPrepEdit.keepSeq(prep, back)
+        // Readings are not geometry: the ones taken since stay, and a reading a delete took away comes back with its
+        // owner -- a mark, a Line's or an area's (v52 slice 9), a chain's FK1.1 … FK1.t (slice 11); and a code handed
+        // out since is not handed out again: the web may hold readings under it (v52 slice 8). SurveyPrepEdit.undoTo, tested
+        val back = SurveyPrepEdit.undoTo(prep, old)
         hideSnack(); ctx = null
         prep = back; sel = null
         if (active != null && back.ownerOf(active!!) == null) active = null
@@ -453,7 +458,13 @@ internal fun SurveyPrepDialog(
     fun grabbed(g: SpSel) {
         val fresh = g.id != null && sel?.id != g.id
         sel = g
-        if (fresh) prep.markById(g.id!!)?.let { (s, e) -> active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) } }
+        val gid = g.id
+        if (fresh && gid != null) {
+            val e = prep.markById(gid)
+            if (e != null) active = ab(e.first).let { prep.nextOpen(e.first, e.second, null, it[0], it[1]) }
+            // a chain's point pressed (v52 slice 11): the chain picked, its first open segment the one being read
+            else prep.chainById(gid)?.let { (s, c) -> active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) } }
+        }
         rev++
     }
     /**
@@ -474,9 +485,59 @@ internal fun SurveyPrepDialog(
         changed()
         return e
     }
-    /** A palette slot (or a More tile, or ✕ on the chip): that tool on, or Select when it was already on. A Line area
-     *  half tapped is let go (sp.js setTool: st.mdraft=null). */
+    /**
+     * A CHAIN ENDED (v52 slice 11, sp.js kFinish) -- a double tap, ✓ on the chip, or the tool, the face or the step
+     * changed with two points or more: its points in order along its axis, plotted as FK1 … (the next K number, never
+     * one handed out before), picked, its first segment the one being read; one ↶ step. Fewer than two different points:
+     * nothing plotted, and it says why ("A chain needs two points or more").
+     */
+    fun finishChain(d: SurveyChain.Draft) {
+        kdraft = null
+        when (val f = SurveyChain.finish(d)) {
+            is SurveyChain.Finish.Refused -> f.text?.let { say(it) }
+            is SurveyChain.Finish.Done -> {
+                snapshot()
+                val c = prep.addChain(d.s, f.axis, f.nodes, f.snaps, java.util.UUID.randomUUID().toString().take(8))
+                sel = SpSel(d.s, id = c.id)
+                active = ab(d.s).let { prep.nextOpen(c, null, it[0], it[1]) }
+                changed()
+            }
+        }
+        rev++
+    }
+    /** A tool, a face or a step changed with a chain half drawn (sp.js kFlush): two points or more, it is plotted;
+     *  fewer, it goes. */
+    fun flushChain() {
+        val d = kdraft ?: return
+        kdraft = null
+        if (d.nodes.size >= 2) finishChain(d)
+    }
+    /** A tap (or the start of a drag) with Chain on, at [mm] on the open face: a point added -- the first starts a chain,
+     *  the second fixes its axis, each after it sits on that axis -- snapped within [tol] mm (SurveyChain.press). The new
+     *  point's index, or null when refused (a chain is being drawn on another face: said). */
+    fun chainPress(mm: DoubleArray, tol: Double): Int? {
+        val s = tab; val a = ab(s)
+        return when (val r = SurveyChain.press(kdraft, s, mm, a[0], a[1], prep.surface(s).marks, tol)) {
+            is SurveyChain.Press.Busy -> { say(r.text); null }
+            is SurveyChain.Press.Added -> { kdraft = r.draft; rev++; r.idx }
+        }
+    }
+    /** The point just added follows the finger (its axis re-decided while it is the second). */
+    fun chainMove(idx: Int, mm: DoubleArray, tol: Double) {
+        val d = kdraft ?: return
+        val a = ab(d.s)
+        if (SurveyChain.move(d, idx, mm, a[0], a[1], prep.surface(d.s).marks, tol)) rev++
+    }
+    /** A second finger: the point this press added is taken back (the draft goes when it is empty). */
+    fun chainCancel(idx: Int) {
+        val d = kdraft ?: return
+        if (SurveyChain.cancel(d, idx)) kdraft = null
+        rev++
+    }
+    /** A palette slot (or a More tile): that tool on, or Select when it was already on. A Line area half tapped is let go
+     *  (sp.js setTool: st.mdraft=null); a chain half drawn is ENDED first -- plotted with two points or more (kFlush). */
     fun pickTool(t: String) {
+        flushChain()
         tool = SurveyPrepPalette.next(tool, t); moreOpen = false; dropDrafts()
         if (t != SurveyPrepPalette.SEL) note = null
     }
@@ -529,6 +590,11 @@ internal fun SurveyPrepDialog(
             val c = SurveyPrepEdit.duplicate(prep, mid, a[0], a[1], nid)
             if (c == null) { hist.removeAt(hist.size - 1); return }
             sel = SpSel(s, id = c.id); active = prep.nextOpen(s, c, null, a[0], a[1])
+        } else if (prep.chainById(mid) != null) {
+            // a chain (v52 slice 11): 100 mm across its axis, the next K number, picked, its first segment active
+            val c = SurveyPrepEdit.duplicateChain(prep, mid, a[0], a[1], nid)
+            if (c == null) { hist.removeAt(hist.size - 1); return }
+            sel = SpSel(s, id = c.id); active = prep.nextOpen(c, null, a[0], a[1])
         } else {
             // a Tape, a Line or an area (v52 slice 9): the next number of its own prefix, picked, its reading active
             val c = SurveyPrepEdit.duplicateMeas(prep, mid, a[0], a[1], nid)
@@ -548,6 +614,17 @@ internal fun SurveyPrepDialog(
                 lockAllOf(s, g.t, !g.all, g.kind) } ?: run { ctx = null }
             else -> ctx = null
         }
+    }
+    /** A chain picked (sp.js kPick): selected; on a FRESH pick its first open reading becomes the one being taken (the
+     *  laser's total skipped) -- or [measure], when a list row named it (v52 slice 11). */
+    fun selectChain(s: String, cid: String, measure: String? = null) {
+        val c = prep.chainById(cid)?.second ?: return
+        val fresh = sel?.id != cid
+        sel = SpSel(s, id = cid)
+        if (measure != null) active = measure
+        else if (fresh) active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) }
+        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
+        rev++
     }
     /** A Tape, a Line or an area picked (sp.js mPick): selected; a newly picked Line's reading becomes the one being
      *  taken -- or [measure], when a list row named it. A tape has none. */
@@ -631,10 +708,12 @@ internal fun SurveyPrepDialog(
         sf.set[slot] = true
         changed()
     }
-    // a face or a step changed: back to Select, the More sheet shut (sp.js showTab / setMode)
-    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
+    // setMode: kFlush, then gClear)
+    fun showTab(t: String) { flushChain(); tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
+        flushChain()
         mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
@@ -910,7 +989,8 @@ internal fun SurveyPrepDialog(
                     onStep = { k -> goStepS(k) },
                     tool = tool,
                     onPlace = { t, mx, my -> placeMark(t, mx, my) },
-                    onTool = { t -> pickTool(t) },
+                    // ✕ on the chip: a chain half drawn is DROPPED, not plotted (sp.js d.cancel), then back to Select
+                    onTool = { t -> kdraft = null; pickTool(t) },
                     onLongPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
                     onRefuse = { code -> refuse(code) },
                     onLinesLocked = { say(SurveyPrepEdit.LINES_REFUSAL) },
@@ -923,7 +1003,14 @@ internal fun SurveyPrepDialog(
                     onAreaTap = { mm, near, dbl -> areaTap(mm, near, dbl) },
                     onTapeTap = { say(SurveyMeas.TAPE_TAP) },
                     onPickMeas = { mid -> selectMeas(tab, mid) },
-                    guide = SurveyGuide.now(mdrag, endG, areaS, area, tool),
+                    // v52 slice 11: the chain being drawn, its taps, a second finger, its end (a double tap or ✓), a pick
+                    chain = kdraft,
+                    onChainPress = { mm, tol -> chainPress(mm, tol) },
+                    onChainMove = { i, mm, tol -> chainMove(i, mm, tol) },
+                    onChainCancel = { i -> chainCancel(i) },
+                    onChainFinish = { kdraft?.let { finishChain(it) } },
+                    onPickChain = { cid -> selectChain(tab, cid) },
+                    guide = SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft),
                     grid = grid,
                     onGrid = { grid = !grid; rev++ },
                     onEndGuide = { g -> endG = g; rev++ },
@@ -967,6 +1054,7 @@ internal fun SurveyPrepDialog(
                 SpTable(s, prep, a, rev, sel, active, show, room,
                     onRow = { e, code -> selectMark(s, e, code) },
                     onMeasRow = { m, code -> selectMeas(s, m.id, code) },
+                    onChainRow = { k, code -> selectChain(s, k.id, code) },
                     onDelete = { deleteMark(it) },
                     onFocus = { active = it },
                     onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
@@ -1062,6 +1150,24 @@ internal fun SurveyPrepDialog(
                 SpPadlock(lk, if (lk) "Unlock ${sq.code}" else "Lock ${sq.code}") { toggleLock(sq.id) }
                 SpButton("Delete", Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sq.id) ?: "Delete" },
                     SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
+            }
+        }
+        // A PICKED CHAIN (v52 slice 11, sp.js 1503, ct52 K): its own row -- "FK1 ≈905 · ≈2405 · Σ 3310 laser", each
+        // segment its reading, "2410 d" derived, or the photo's ≈ -- with its padlock and Delete; the D2 strip follows,
+        // on its first open segment
+        val sk = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).chains.firstOrNull { it.id == sl.id } }
+        if (sk != null) {
+            val lk = SurveyPrep.isLocked(sk)
+            val kv = ab(tab).let { SurveyChain.vals(sk, prep.actual, it[0], it[1]) }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(sk.code, color = SP_CHAIN, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                    lineHeight = 16.sp, maxLines = 1)
+                Text(SurveyChain.rowValue(kv), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
+                    lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                SpPadlock(lk, if (lk) "Unlock ${sk.code}" else "Lock ${sk.code}") { toggleLock(sk.id) }
+                SpButton("Delete", Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sk.id) ?: "Delete" },
+                    SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
             }
         }
         // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, or a
@@ -1393,6 +1499,9 @@ private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSl
                      val focus: (() -> DoubleArray)? = null,
                      /** A second finger: what it does besides putting the moved geometry back (an end drag's guide off). */
                      val cancel: (() -> Unit)? = null,
+                     /** v52 slice 11: it moves only once the finger has left the dead zone, as an end does (SurveyGuide.EndGate)
+                      *  -- a chain's point, which snaps 25 mm, must not jump onto an edge on a tap that picks its chain. */
+                     val gate: Boolean = false,
                      val move: (Double, Double) -> Unit)
 
 /** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
@@ -1467,6 +1576,18 @@ private fun SpPhoto(
     onEndGuide: (SurveyGuide.Guide?) -> Unit,
     /** A note to say (sp.js say): a locked end's refusal. */
     onSay: (String) -> Unit,
+    /** v52 slice 11: the chain being drawn (drawn dashed; its points counted on the chip), or null. */
+    chain: SurveyChain.Draft?,
+    /** A tap (or a drag's start) with Chain on at (x, y) mm, with the snapping distance in mm: the point's index, or null. */
+    onChainPress: (DoubleArray, Double) -> Int?,
+    /** That point follows the finger. */
+    onChainMove: (Int, DoubleArray, Double) -> Unit,
+    /** A second finger took it back. */
+    onChainCancel: (Int) -> Unit,
+    /** A double tap with Chain on, or ✓ on its chip: the chain ends. */
+    onChainFinish: () -> Unit,
+    /** A chain picked: a press on its point (any tool but a type) or, with Select on, within 12 dp of its line. */
+    onPickChain: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1487,6 +1608,9 @@ private fun SpPhoto(
     val onAreaTapS by rememberUpdatedState(onAreaTap); val onTapeTapS by rememberUpdatedState(onTapeTap)
     val onPickMeasS by rememberUpdatedState(onPickMeas)
     val onEndGuideS by rememberUpdatedState(onEndGuide); val onSayS by rememberUpdatedState(onSay)
+    val onChainPressS by rememberUpdatedState(onChainPress); val onChainMoveS by rememberUpdatedState(onChainMove)
+    val onChainCancelS by rememberUpdatedState(onChainCancel); val onChainFinishS by rememberUpdatedState(onChainFinish)
+    val onPickChainS by rememberUpdatedState(onPickChain); val chainS by rememberUpdatedState(chain)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -1505,7 +1629,10 @@ private fun SpPhoto(
     var chipAt by remember { mutableStateOf<Rect?>(null) }
     // With Tape or Line on (v52 slice 9) the chip says what the tool does, live while a drag is pulled, and the
     // caution under it; with a type on, "Placing Door · tap the photo"
-    val measTool = tool in SurveyPrepPalette.TOOLS
+    val measTool = SurveyPrepPalette.isMeasTool(tool)
+    // With Chain on (v52 slice 11) the chip counts the points, with the caution, and from the second a ✓ ends it
+    val chainTool = tool == SurveyPrepPalette.CHAIN
+    val chainN = chain?.takeIf { it.s == tab }?.nodes?.size ?: 0
     // THE GUIDE'S FADE (v52 slice 10, sp.js guideState): while a Tape or a Line is drawn, or an end dragged, the grid
     // and the two rays come in at 45 % and reach full in 150 ms; when the drawing ends they go out in 300 ms (the grid
     // stays if its button is on). The last guide is kept for the fade out: what was being drawn has gone by then.
@@ -1522,6 +1649,7 @@ private fun SpPhoto(
         }
     }
     val chipText = if (mode != "mark") null
+                   else if (chainTool) SurveyChain.chipText(chainN)
                    else if (measTool) SurveyMeas.chipText(tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
                    else SurveyPrepPalette.chipText(tab, tool)
 
@@ -1568,6 +1696,54 @@ private fun SpPhoto(
             sf.lines[slot] = Array(2) { i -> doubleArrayOf(start[i][0] + ix - at[0], start[i][1] + iy - at[1]) }; sf.set[slot] = true }
     }
 
+    /** Every chain on this face with its points on the canvas, px (v52 slice 11). */
+    fun chainsOnScreen(): List<Pair<String, List<DoubleArray>>> {
+        val r = rectS ?: return emptyList(); val sq = r.sq
+        return prepS.surface(tab).chains.map { c ->
+            c.id to c.nodes.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } } }
+    }
+
+    /**
+     * A CHAIN'S POINT PRESSED (v52 slice 11, sp.js kNodeGrab; items 7 and 14): the chain is picked (through the grab's
+     * selection) and the point moves ALONG the chain, between its neighbours, snapping onto the face's and the marks'
+     * edges within 25 mm or 14 dp (SurveyChain.nodeMove), one ↶ step, once the finger leaves the dead zone ([SpGrab.gate]).
+     * A locked chain is picked and nothing moves: "FK1 is locked — unlock to move it". Null: no such point.
+     */
+    fun nodeGrab(cid: String, i: Int): SpGrab? {
+        val r = rectS ?: return null; val sq = r.sq
+        val c = prepS.surface(tab).chains.firstOrNull { it.id == cid } ?: return null
+        val p0 = c.nodes.getOrNull(i) ?: return null
+        val px = sq.x(p0[0]); val py = sq.y(p0[1])
+        val pick = SpSel(tab, id = c.id)
+        if (SurveyPrep.isLocked(c)) return SpGrab(px, py, pick, null, c.code, endLock = true, gate = true) { _, _ -> }
+        // 14 dp in face mm at the scale the press was made at
+        val tol = SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(sq.mpp, k()))
+        val s = tab
+        return SpGrab(px, py, pick, null, gate = true,
+            focus = { c.nodes.getOrNull(i)?.let { q -> doubleArrayOf(sq.x(q[0]), sq.y(q[1])) } ?: doubleArrayOf(px, py) }) { ix, iy ->
+            val ab = abS
+            SurveyChain.nodeMove(s, c, i, doubleArrayOf(sq.mmX(ix), sq.mmY(iy)), ab[0], ab[1], prepS.surface(s).marks, tol)
+        }
+    }
+
+    /** With Chain on: a press within 16 dp of a chain's point grabs that point (sp.js hit, before the Chain tool's new
+     *  point); null: the press is a new point. */
+    fun chainNodeAt(sx: Float, sy: Float): SpGrab? =
+        SurveyChain.nodeAt(chainsOnScreen(), sx.toDouble(), sy.toDouble(), SurveyChain.NODE_HIT_DP * density.density)
+            ?.let { (cid, i) -> nodeGrab(cid, i) }
+
+    /** HIT-ORDER STEP 9 (v52 slice 11, sp.js kHitLine): with Select on and nothing else under the finger, the chain whose
+     *  line is within 12 dp -- before a tape or a Line. Its id, or null. */
+    fun hitChain(sx: Float, sy: Float): String? =
+        SurveyChain.pick(chainsOnScreen(), sx.toDouble(), sy.toDouble(), SurveyChain.PICK_DP * density.density)
+
+    /** Canvas px ([sx], [sy]) as mm on the squared face, with the chain's snapping distance there (25 mm or 14 dp). */
+    fun chainAt(sx: Float, sy: Float): Pair<DoubleArray, Double>? {
+        val r = rectS ?: return null; val at = fromS(sx, sy)
+        return doubleArrayOf(r.sq.mmX(at[0]), r.sq.mmY(at[1])) to
+            SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(r.sq.mpp, k()))
+    }
+
     /**
      * THE HIT ORDER (v52 item 14; Amit, 13 Oct 2026 21:06 IST: "Check any mark tools handles , not every
      * handle works as expected like center handles"): the picked mark's eight tabs first, then a number tag
@@ -1587,8 +1763,13 @@ private fun SpPhoto(
         val tol = with(density) { 16.dp.toPx() }.toDouble()
         // a LOCKED picked mark has no tabs (v52 slice 8): it is tested as a mark like any other, so a press on it holds it
         val selId = selS?.id?.takeIf { sid -> els.firstOrNull { it.id == sid }?.let { !SurveyPrep.isLocked(it) } == true }
-        return when (val h = SurveyPrepTouch.hit(drawn, selId, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble())) {
+        // A CHAIN'S POINTS (v52 slice 11), with Select on: AFTER the picked mark's tabs (ct52 X5: "a chain point on a
+        // door's left tab resizes the door") and before every tag and mark -- 16 dp each (sp.js hit)
+        val nodes = if (toolS == SurveyPrepPalette.SEL) chainsOnScreen().map { (id, pts) -> SurveyPrepTouch.Nodes(id, pts) } else emptyList()
+        return when (val h = SurveyPrepTouch.hit(drawn, selId, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble(),
+                nodes, SurveyChain.NODE_HIT_DP * density.density)) {
             null -> null
+            is SurveyPrepTouch.Hit.Node -> nodeGrab(h.id, h.i)
             is SurveyPrepTouch.Hit.Tag -> {
                 prepS.markOf(h.code)?.let { (s, e) -> onSelectS(s, e, h.code) }
                 tagged()
@@ -1750,7 +1931,14 @@ private fun SpPhoto(
                 val placing = mode == "mark" && SurveyPrepPalette.isType(tool0)
                 // TAPE OR LINE ON (v52 slice 9): a drag pulls one from where the finger went down; a tap is a Line area's
                 // corner (or, with Tape, the hint); nothing under the finger is picked or moved meanwhile (sp.js hit)
-                val measOn = mode == "mark" && tool0 in SurveyPrepPalette.TOOLS
+                val measOn = mode == "mark" && SurveyPrepPalette.isMeasTool(tool0)
+                // CHAIN ON (v52 slice 11, sp.js hit / kGrab): a press on a chain's point grabs it; anything else is a point --
+                // a tap adds it where the finger lifts, a drag adds it where the finger went down and carries it; a double
+                // tap ends the chain. Nothing else under the finger is picked or moved meanwhile.
+                val chainOn = mode == "mark" && tool0 == SurveyPrepPalette.CHAIN
+                // the point this press added to the chain being drawn (its index), and whether the press tried to add one
+                var chainIdx: Int? = null
+                var chainTried = false
                 var draft: SurveyMeas.Draft? = null
                 var measDragged = false
                 // a long still press with Tape or Line on is a slow tap: it acts when the finger lifts without a drag
@@ -1762,6 +1950,8 @@ private fun SpPhoto(
                 // very point (tapes laid end to end, ct52 FX13); with Select on, the press grabbed an end
                 var startAt: DoubleArray? = null
                 var endGrabbed = false
+                // the grab moves only past the dead zone: an end's (slice 10) or a chain's point (slice 11, SpGrab.gate)
+                var gated = false
                 // v52 slice 10 review: an end moves only once the finger has left the touch slop (4 dp at least), so a
                 // press that lifts as a tap never moved it; and a cancel puts it back only for a second finger
                 val endGate = SurveyGuide.EndGate(max(SurveyGuide.END_DEAD_DP.dp.toPx().toDouble(), viewConfiguration.touchSlop.toDouble()))
@@ -1780,6 +1970,12 @@ private fun SpPhoto(
                             SurveyMeas.nearFirst(doubleArrayOf(q[0].toDouble(), q[1].toDouble()), x, y, a.size, 1.dp.toPx().toDouble()) }
                     onAreaTapS(mm, near, dbl)
                 }
+                /** A tap with Chain on at canvas ([x], [y]): a new point there -- unless the press grabbed a chain's point. */
+                fun chainTap(x: Double, y: Double) {
+                    if (grab != null || chainTried) return
+                    chainTried = true
+                    chainAt(x.toFloat(), y.toFloat())?.let { (mm, tl) -> onChainPressS(mm, tl) }
+                }
                 fun act(evs: List<GestureClassifier.Event>) {
                     for (e in evs) if (!spent) when (e) {
                         // the press: what is under it is picked now, as sp.js picks on pointerdown
@@ -1789,15 +1985,23 @@ private fun SpPhoto(
                             val eh = endHit(e.x.toFloat(), e.y.toFloat(), tool0)
                             val eg = eh?.grab
                             if (eh != null && eg == null) startAt = eh.mm
-                            else if (eg != null) { grab = eg; endGrabbed = true; onGrabS(eg.sel); gc.grabbed() }
+                            else if (eg != null) { grab = eg; endGrabbed = true; gated = true; onGrabS(eg.sel); gc.grabbed() }
+                            // CHAIN ON: a chain's point under the finger is grabbed (and its chain picked); else nothing yet
+                            else if (chainOn) chainNodeAt(e.x.toFloat(), e.y.toFloat())?.let { g ->
+                                grab = g; gated = true; onGrabS(g.sel); gc.grabbed() }
                             else if (!measOn) {
                                 val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
                                         else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
-                                // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it
-                                if (h != null) { grab = h; onGrabS(h.sel); gc.grabbed() }
-                                // nothing grabbed and Select on: a Tape or a Line within 12 dp is picked (it does not move)
-                                else if (mode == "mark" && tool0 == SurveyPrepPalette.SEL && !tagged)
-                                    hitMeas(e.x.toFloat(), e.y.toFloat())?.let { mid -> pickedMeas = mid; onPickMeasS(mid) }
+                                // a grab follows the finger from the first pixel (no slop dead zone), as sp.js moves it --
+                                // except a chain's point, which waits for the dead zone as an end does (SpGrab.gate)
+                                if (h != null) { grab = h; if (h.gate) gated = true; onGrabS(h.sel); gc.grabbed() }
+                                // nothing grabbed and Select on: a chain within 12 dp of its line (v52 slice 11), else a Tape
+                                // or a Line within 12 dp, is picked (it does not move)
+                                else if (mode == "mark" && tool0 == SurveyPrepPalette.SEL && !tagged) {
+                                    val cid = hitChain(e.x.toFloat(), e.y.toFloat())
+                                    if (cid != null) { pickedMeas = cid; onPickChainS(cid) }
+                                    else hitMeas(e.x.toFloat(), e.y.toFloat())?.let { mid -> pickedMeas = mid; onPickMeasS(mid) }
+                                }
                             }
                         }
                         // A DRAG WITH TAPE OR LINE ON PULLS ONE (v52 slice 9): from the down point, snapped at 5° to the face's
@@ -1827,6 +2031,21 @@ private fun SpPhoto(
                                 loupe = SpLoupe(listOf(look), Offset(e.x.toFloat(), e.y.toFloat()))
                                 onDragMoveS()
                             }
+                        } else if (chainOn && grab == null) {
+                            // A DRAG WITH CHAIN ON (v52 slice 11, sp.js kGrab): the point goes where the finger went down
+                            // and follows it -- on the chain's axis once two points fix it -- the magnifier on the point
+                            if (!chainTried) {
+                                chainTried = true
+                                chainAt((e.x - e.dx).toFloat(), (e.y - e.dy).toFloat())?.let { (mm, tl) -> chainIdx = onChainPressS(mm, tl) }
+                            }
+                            val ci = chainIdx
+                            if (ci != null) chainAt(e.x.toFloat(), e.y.toFloat())?.let { (mm, tl) ->
+                                onChainMoveS(ci, mm, tl)
+                                val rq = rectS; val nd = chainS?.nodes?.getOrNull(ci)
+                                val look = if (rq != null && nd != null) doubleArrayOf(rq.sq.x(nd[0]), rq.sq.y(nd[1]))
+                                           else fromS(e.x.toFloat(), e.y.toFloat())
+                                loupe = SpLoupe(listOf(look), Offset(e.x.toFloat(), e.y.toFloat()))
+                            }
                         } else {
                             // a drag from empty photo with a type on: placed where the finger went down, then carried
                             if (e.first && grab == null && placing && !tagged) {
@@ -1845,7 +2064,7 @@ private fun SpPhoto(
                             } else if (g != null) {
                                 // an END stays put (no move, no undo step) until the finger leaves the touch slop: a tap on its
                                 // handle must not snap it onto an edge (review); a mark follows from the first pixel
-                                if (!endGrabbed || endGate.move(e.dx, e.dy)) {
+                                if (!gated || endGate.move(e.dx, e.dy)) {
                                     if (!snapped) { onBeforeChangeS(); snapped = true }
                                     val kk = k()
                                     val ix = (g.x0 + e.dx / kk).coerceIn(0.0, iw)
@@ -1864,19 +2083,23 @@ private fun SpPhoto(
                         // here: the Line's area and the Chain give it a meaning of its own (slices 9 and 11).
                         // An end that moved and still lifted as a tap is put back, with its undo step (review).
                         is GestureClassifier.Event.Tap -> {
-                            if (SurveyGuide.revertOnTap(endGrabbed, moved)) { onRevertS(); moved = false; snapped = false }
-                            if (measOn) measTap(e.x, e.y, false) else tapAt(e.x, e.y)
+                            if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
+                            if (measOn) measTap(e.x, e.y, false) else if (chainOn) chainTap(e.x, e.y) else tapAt(e.x, e.y)
                         }
-                        // a double tap closes a Line area of three corners or more (v52 slice 9)
+                        // a double tap closes a Line area of three corners or more (v52 slice 9), and ENDS a chain (slice 11,
+                        // sp.js kDown: the second tap of the pair adds no point -- the first already did)
                         is GestureClassifier.Event.DoubleTap -> {
-                            if (SurveyGuide.revertOnTap(endGrabbed, moved)) { onRevertS(); moved = false; snapped = false }
-                            if (measOn) measTap(e.x, e.y, true) else tapAt(e.x, e.y)
+                            if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
+                            if (measOn) measTap(e.x, e.y, true)
+                            else if (chainOn) { if (grab == null) onChainFinishS() }
+                            else tapAt(e.x, e.y)
                         }
                         // A LONG PRESS WITH A TYPE ON IS A SLOW TAP: sp.js places on the press however long it is held
                         // (its long-press timer is armed for Select only, sp.js 929 / 1177), so the type goes where
                         // the finger went down and a slide after it carries the mark. With Select on it opens the
                         // menu of the mark under it (below).
-                        is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else {
+                        // with Chain on a long still press is a slow tap: a point where the finger went down, at the lift
+                        is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else if (chainOn) { if (grab == null) heldTap = true } else {
                             val gid = grab?.sel?.id ?: pickedMeas
                             if (grab == null && placing && !tagged)
                                 placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
@@ -1897,6 +2120,9 @@ private fun SpPhoto(
                             val g = grab
                             grab = null; loupe = null; gone = true
                             if (draft != null) { draft = null; onDragCancelS() }
+                            // a chain's point this press added goes again with a second finger (sp.js kDown's cancel): the
+                            // pinch never leaves a stray point; a system cancel keeps it, as a lift does
+                            chainIdx?.let { ci -> if (secondFinger) { chainIdx = null; onChainCancelS(ci) } }
                             // AN END BEING DRAGGED GOES BACK (v52 slice 10, ct52 FX3: "a second finger puts the end
                             // back"): the drag's own undo step is taken back off with its geometry, so the end is where
                             // it was and there is no undo entry; its guide goes off. A SYSTEM cancel (palm rejection)
@@ -1952,6 +2178,7 @@ private fun SpPhoto(
                     }
                     // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
                     if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
+                    if (chainOn && heldTap && !gone) chainTap(first.position.x.toDouble(), first.position.y.toDouble())
                 } finally {
                     // a drag the loop left (the gesture ended any other way): nothing plotted
                     if (draft != null) { draft = null; onDragCancelS() }
@@ -1963,7 +2190,7 @@ private fun SpPhoto(
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide
+            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
             val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
             // THE GUIDE AS DRAWN THIS FRAME (v52 slice 10): the one on now, or the last one while it fades out; reading
             // the Animatable's value here redraws the photo on every step of the fade
@@ -1992,7 +2219,8 @@ private fun SpPhoto(
                         SurveyPrepDraw.drawMarks(c, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
                             density.density, drag = drag?.takeIf { it.s == tab }, area = area,
-                            gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL), mm, u)
+                            gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL,
+                            chain = chain?.takeIf { it.s == tab }), mm, u)
                     }
                 }
                 tags.clear()
@@ -2005,17 +2233,20 @@ private fun SpPhoto(
                 val picked = pickedId?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } }
                 // ... or beside a picked Tape, Line or area (v52 slice 9): round the box of its points
                 val pickedM = if (picked == null) pickedId?.let { sid -> prep.surface(tab).meas.firstOrNull { it.id == sid && it.pts.isNotEmpty() } } else null
+                // ... or a picked chain (v52 slice 11): round the box of its points, clear of them
+                val pickedK = if (picked == null && pickedM == null) pickedId?.let { sid -> prep.surface(tab).chains.firstOrNull { it.id == sid && it.nodes.isNotEmpty() } } else null
+                val pickedPts: List<DoubleArray>? = pickedM?.pts ?: pickedK?.nodes
                 val rr = rect
-                if ((picked != null || pickedM != null) && rr != null) {
+                if ((picked != null || pickedPts != null) && rr != null) {
                     val dpx = density.density
-                    val bb = if (pickedM != null) pickedM.pts.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])) }.let { ps ->
+                    val bb = if (pickedPts != null) pickedPts.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])) }.let { ps ->
                         SurveyPrepTouch.Box(ps.minOf { it[0] }.toDouble(), ps.minOf { it[1] }.toDouble(), ps.maxOf { it[0] }.toDouble(), ps.maxOf { it[1] }.toDouble()) }
                     else if (SurveyPrep.isPoint(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
                         SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
                     else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
                         SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
                     // the selected Tape's, Line's or area's end handles: the disc keeps off them (v52 slice 10 review)
-                    val handles = pickedM?.pts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }.orEmpty()
+                    val handles = pickedPts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }.orEmpty()
                     SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
                         handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)?.let { ts ->
                         val rad = 18f * dpx; val tx = ts.left.toFloat() + rad; val ty = ts.top.toFloat() + rad
@@ -2084,7 +2315,8 @@ private fun SpPhoto(
             Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
                 SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool),
                     Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() },
-                    caution = if (measTool) SurveyMeas.CAUTION else null) { onTool(SurveyPrepPalette.SEL) }
+                    caution = if (measTool || chainTool) SurveyMeas.CAUTION else null,
+                    onDone = if (chainTool && SurveyChain.showDone(chainN)) ({ onChainFinish() }) else null) { onTool(SurveyPrepPalette.SEL) }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
@@ -2120,6 +2352,8 @@ private fun SpTable(
     sel: SpSel?, active: String?, show: String, room: Boolean,
     onRow: (SurveyPrep.Mark, String) -> Unit,
     onMeasRow: (SurveyPrep.Meas, String?) -> Unit,
+    /** A chain's row tapped (v52 slice 11): the chain, and the reading key the row is (FK1.2, FK1.t). */
+    onChainRow: (SurveyPrep.Chain, String?) -> Unit,
     onDelete: (String) -> Unit,
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
@@ -2129,7 +2363,8 @@ private fun SpTable(
     rev
     val els = prep.surface(s).marks
     val meas = prep.surface(s).meas.filter { SurveyMeas.known(it.kind) }
-    if (els.isEmpty() && meas.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
+    val chains = prep.surface(s).chains
+    if (els.isEmpty() && meas.isEmpty() && chains.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
     val where = if (room) " · " + SurveyPrep.NAME.getValue(s) else ""
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
         Text("Mark", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
@@ -2205,11 +2440,65 @@ private fun SpTable(
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
     }
+    /**
+     * One row of a chain (v52 slice 11, sp.js chainPanel): [label] (FK1.1, "FK1.2 · derived", "total · laser"), the
+     * photo's ≈, the box with what the row IS -- its reading, else the derived figure in violet, the laser's total in
+     * rose, read-only ([readOnly]: no D2 either) -- and Δ: a segment against its photo figure, the total its check.
+     */
+    @Composable
+    fun chainLine(code: String, label: String, est: Double, shown: Double?, tint: Color?, readOnly: Boolean, delta: Double?, pick: () -> Unit) {
+        val act = active == code
+        Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
+            .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text((if (act) "▶ " else "") + label, color = SP_FG, fontSize = 11.sp, lineHeight = 12.sp, modifier = Modifier.weight(1f))
+            Text(if (show == "actual") "" else "≈" + est.roundToInt(), color = Color(0xFFCFD3CB),
+                fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
+            Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SpMmField(code, shown, act, Modifier.weight(1f), onFocus = { if (!readOnly) onFocus(code) }, tint = tint, readOnly = readOnly) { v ->
+                    if (!readOnly) onValue(code, v) }
+                if (!readOnly) { Spacer(Modifier.width(3.dp)); SpD2(Modifier, small = true) { onFire(code) } }
+            }
+            Text(if (show == "both" && delta != null) SurveyPrepDraw.sgn(delta) else "",
+                color = if (delta != null && kotlin.math.abs(delta) <= SurveyPrep.TOL) SP_OK else SP_AMB,
+                fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
+        }
+    }
+    // THE CHAINS (v52 slice 11): "Chain · horizontal · 2 parts" under the code, each segment a row, then the total --
+    // the laser's when the chain runs edge to edge (read-only then), else its reading or the sum of the segments
+    for (k in chains) {
+        val selK = sel?.id == k.id
+        val kv = SurveyChain.vals(k, prep.actual, ab[0], ab[1])
+        Row(Modifier.fillMaxWidth().background(if (selK) Color(0xFF2A2614) else Color.Transparent)) {
+            head(k.id, k.code, SP_CHAIN, SurveyChain.listName(s, k, room))
+            Column(Modifier.weight(1f)) {
+                for ((i, mm) in SurveyChain.measures(k).withIndex()) {
+                    val code = k.code + "." + mm.key
+                    if (mm.key == SurveyChain.TOTAL) {
+                        val ro = SurveyChain.totalReadOnly(kv)
+                        val tag = when (kv.src) { SurveyChain.LASER -> " · laser"; SurveyChain.DERIVED -> " · derived"; else -> "" }
+                        val sum = kv.sum?.takeIf { kv.src != SurveyChain.DERIVED }?.let { " · Σ " + it.roundToInt() } ?: ""
+                        chainLine(code, "total$tag$sum", kv.estT, kv.total,
+                            when (kv.src) { SurveyChain.LASER -> SP_CHAIN; SurveyChain.DERIVED -> SP_DER; else -> null }, ro, kv.check) {
+                            if (!ro) onChainRow(k, code) else onChainRow(k, null) }
+                    } else {
+                        val der = kv.der == i
+                        val shown: Double? = kv.meas.getOrNull(i) ?: (if (der) kv.value.getOrNull(i) else null)
+                        chainLine(code, code + (if (der) " · derived" else ""), mm.est ?: 0.0, shown, if (der) SP_DER else null, false,
+                            shown?.let { it - (mm.est ?: 0.0) }) { onChainRow(k, code) }
+                    }
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
+    }
 }
 
-/** A reading box: typed mm, kept on Done or when the box loses focus; cleared to remove a reading. */
+/** A reading box: typed mm, kept on Done or when the box loses focus; cleared to remove a reading. [tint]: the figure's
+ *  colour when it is not a reading (a chain's derived segment, the laser's total -- v52 slice 11); [readOnly]: shown,
+ *  not typed into. */
 @Composable
-private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: Modifier, onFocus: () -> Unit, onCommit: (Double?) -> Unit) {
+private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: Modifier, onFocus: () -> Unit,
+                      tint: Color? = null, readOnly: Boolean = false, onCommit: (Double?) -> Unit) {
     val focus = LocalFocusManager.current
     var text by remember(code, value) { mutableStateOf(value?.roundToInt()?.toString() ?: "") }
     var focused by remember { mutableStateOf(false) }
@@ -2219,8 +2508,8 @@ private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: M
         else if (text.isBlank() && value != null) onCommit(null)
     }
     BasicTextField(
-        value = text, onValueChange = { t -> text = t.filter { it.isDigit() }.take(6) }, singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End),
+        value = text, onValueChange = { t -> text = t.filter { it.isDigit() }.take(6) }, singleLine = true, readOnly = readOnly,
+        textStyle = TextStyle(color = tint ?: Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End),
         cursorBrush = SolidColor(SP_GOLD),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { commit(); focus.clearFocus() }),
@@ -2346,3 +2635,6 @@ private val SP_PAST = Color(0xFFB9A35A)
 private val SP_JOIN = Color(0xFF4A4E45)
 /** A mark past its face, and a refused size (v51). */
 private val SP_OUT = Color(0xFFFF5C5C)
+/** The chain's rose (v52 slice 11, sp.js KC #fb7185), and a derived segment's violet in its box (sp.js .der). */
+private val SP_CHAIN = Color(0xFFFB7185)
+private val SP_DER = Color(0xFFC4B5FD)

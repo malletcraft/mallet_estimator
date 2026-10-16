@@ -89,7 +89,7 @@ class LockTest {
     @Test fun `Lock all per kind, and every item on a surface`() {
         val p = room()
         assertEquals(5, SurveyPrepEdit.lockAll(p, "front", null, true, kind = "mark"))
-        assertEquals(0, SurveyPrepEdit.lockAll(p, "front", null, true, kind = "chain"), "no chains yet (slice 11)")
+        assertEquals(0, SurveyPrepEdit.lockAll(p, "front", null, true, kind = "chain"), "no chains on this room")
         assertEquals(5, SurveyPrepEdit.lockAll(p, "front", null, false))
         assertEquals(1, SurveyPrepEdit.lockAll(p, "right", null, true))
         assertTrue(p.itemsOf("right").all { it.locked }); assertTrue(p.itemsOf("front").none { it.locked })

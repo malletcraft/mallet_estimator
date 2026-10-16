@@ -14,8 +14,8 @@ import kotlin.math.max
  *  - Duplicate is a copy 100 mm away (back the other way at an edge) with the NEXT code and no readings;
  *  - ⋮ clears this surface or the whole room after a second tap -- every UNLOCKED item and its readings;
  *  - Start over keeps a locked surface's lines, every locked item and its readings; the rest starts fresh.
- * Everything walks [SurveyPrep.Prep.itemsOf], so the Line and Tape (slice 9: in that list now) and the chains
- * (slice 11) join a clear and a count by joining it; Start over, Lock all, the menu and Duplicate name them.
+ * Everything walks [SurveyPrep.Prep.itemsOf], so the Line and Tape (slice 9) and the chains (slice 11) join a clear
+ * and a count by joining it; Start over, Lock all, the menu and Duplicate name them.
  */
 object SurveyPrepEdit {
 
@@ -76,6 +76,12 @@ object SurveyPrepEdit {
     fun setLocked(p: SurveyPrep.Prep, id: String, on: Boolean?): Boolean? {
         val e = p.markById(id)?.second
         if (e == null) {
+            // a chain (v52 slice 11) locks the same way
+            p.chainById(id)?.second?.let { c ->
+                val v = on ?: !SurveyPrep.isLocked(c)
+                if (SurveyPrep.isLocked(c) != v) c.extra = SurveyPrep.withKey(c.extra, SurveyPrep.LOCKED, v)
+                return v
+            }
             // a Tape, a Line or an area (v52 slice 9) locks the same way
             val m = p.measById(id)?.second ?: return null
             val v = on ?: !SurveyPrep.isLocked(m)
@@ -100,10 +106,12 @@ object SurveyPrepEdit {
     const val KIND_MARK = "mark"
     const val KIND_TAPE = "tape"
     const val KIND_LINE = "meas"
+    /** Every chain (v52 slice 11): "Lock all chains". */
+    const val KIND_CHAIN = SurveyChain.KIND
 
     /**
      * LOCK ALL: every mark on [s] of type [t] (a mark type's letter); or every item of [kind] -- [KIND_MARK] the marks,
-     * [KIND_TAPE] the tapes only, [KIND_LINE] the Lines and areas only, never a tape ("chain" joins with slice 11); or
+     * [KIND_TAPE] the tapes only, [KIND_LINE] the Lines and areas only, never a tape, [KIND_CHAIN] the chains; or
      * EVERY item there when both are null -- locked ([on]) or unlocked. Returns how many CHANGED -- what the
      * snackbar counts (sp.js lockAll).
      */
@@ -122,6 +130,10 @@ object SurveyPrepEdit {
             if (kind != null && kind != KIND_TAPE && kind != KIND_LINE) continue
             if (SurveyPrep.isLocked(m) == on) continue
             m.extra = SurveyPrep.withKey(m.extra, SurveyPrep.LOCKED, on); n++
+        }
+        if (t == null && (kind == null || kind == KIND_CHAIN)) for (c in sf.chains) {
+            if (SurveyPrep.isLocked(c) == on) continue
+            c.extra = SurveyPrep.withKey(c.extra, SurveyPrep.LOCKED, on); n++
         }
         return n
     }
@@ -143,10 +155,17 @@ object SurveyPrepEdit {
             if (tape) KIND_TAPE else KIND_LINE)
     }
 
+    /** ... for a chain, every chain there ([KIND_CHAIN], "chains": "Lock all chains", v52 slice 11). */
+    fun lockGroup(p: SurveyPrep.Prep, s: String, @Suppress("UNUSED_PARAMETER") c: SurveyPrep.Chain): Group {
+        val l = p.surface(s).chains
+        return Group(null, SurveyChain.GROUP, l.isNotEmpty() && l.all { SurveyPrep.isLocked(it) }, l.size, KIND_CHAIN)
+    }
+
     /** [lockGroup] for any item by its id; null when there is none. */
     fun lockGroupOf(p: SurveyPrep.Prep, id: String): Pair<String, Group>? {
         p.markById(id)?.let { (s, e) -> return s to lockGroup(p, s, e) }
         p.measById(id)?.let { (s, m) -> return s to lockGroup(p, s, m) }
+        p.chainById(id)?.let { (s, c) -> return s to lockGroup(p, s, c) }
         return null
     }
 
@@ -155,10 +174,11 @@ object SurveyPrepEdit {
     fun labelOf(p: SurveyPrep.Prep, id: String): String? {
         p.markById(id)?.let { (s, e) -> return e.code + " " + SurveyPrep.typeOf(s, e.t).name }
         p.measById(id)?.let { (_, m) -> return SurveyMeas.label(m) }
+        p.chainById(id)?.let { (_, c) -> return SurveyChain.label(c) }
         return null
     }
 
-    /** The trash's label: "Delete F-M1 marked length" (ct52 FX9). */
+    /** The trash's label: "Delete F-M1 marked length", "Delete FK1 chain" (ct52 FX9). */
     fun deleteLabel(p: SurveyPrep.Prep, id: String): String? = labelOf(p, id)?.let { "Delete $it" }
 
     // ------------------------------------------------------------ the long-press menu
@@ -176,9 +196,13 @@ object SurveyPrepEdit {
     /** ... on a Tape or a Line: "F-T1 tape", "🔒 F-M1 marked length". */
     fun menuHeader(m: SurveyPrep.Meas): String = (if (SurveyPrep.isLocked(m)) "🔒 " else "") + SurveyMeas.label(m)
 
+    /** ... on a chain: "FK1 chain", "🔒 FK1 chain" (v52 slice 11). */
+    fun menuHeader(c: SurveyPrep.Chain): String = (if (SurveyPrep.isLocked(c)) "🔒 " else "") + SurveyChain.label(c)
+
     /** The head for any item by its id; null when there is none. */
     fun menuHeaderOf(p: SurveyPrep.Prep, id: String): String? =
         p.markById(id)?.let { (s, e) -> menuHeader(s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
+            ?: p.chainById(id)?.let { (_, c) -> menuHeader(c) }
 
     /** The menu on a mark, in order, as (action, text): Delete · Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel
      *  (ct52: "Delete|Duplicate|Lock|Lock all Door|Cancel"). */
@@ -189,9 +213,14 @@ object SurveyPrepEdit {
     fun menuItems(p: SurveyPrep.Prep, s: String, m: SurveyPrep.Meas): List<Pair<String, String>> =
         menu(lockGroup(p, s, m), SurveyPrep.isLocked(m))
 
+    /** ... on a chain: "Delete|Duplicate|Lock|Lock all chains|Cancel" (ct52 N, v52 slice 11). */
+    fun menuItems(p: SurveyPrep.Prep, s: String, c: SurveyPrep.Chain): List<Pair<String, String>> =
+        menu(lockGroup(p, s, c), SurveyPrep.isLocked(c))
+
     /** The menu for any item by its id; empty when there is none. */
     fun menuItemsOf(p: SurveyPrep.Prep, id: String): List<Pair<String, String>> =
-        p.markById(id)?.let { (s, e) -> menuItems(p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(p, s, m) } ?: emptyList()
+        p.markById(id)?.let { (s, e) -> menuItems(p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(p, s, m) }
+            ?: p.chainById(id)?.let { (s, c) -> menuItems(p, s, c) } ?: emptyList()
 
     private fun menu(g: Group, locked: Boolean) =
         listOf(DELETE to "Delete", DUPLICATE to "Duplicate", LOCK to if (locked) "Unlock" else "Lock",
@@ -218,6 +247,10 @@ object SurveyPrepEdit {
         p.surface(s).marks.add(c)
         return c
     }
+
+    /** DUPLICATE A CHAIN (v52 slice 11): see SurveyChain.duplicate -- ±100 mm across its axis, the next K number. */
+    fun duplicateChain(p: SurveyPrep.Prep, id: String, a: Double, b: Double, newId: String): SurveyPrep.Chain? =
+        SurveyChain.duplicate(p, id, a, b, newId)
 
     /**
      * DUPLICATE A TAPE, A LINE OR AN AREA (sp.js duplicateItem, v52 slice 9): every point [DUP_MM] right and up -- or
@@ -308,6 +341,7 @@ object SurveyPrepEdit {
             val probe = SurveyPrep.Prep(mutableMapOf(s to old), mutableMapOf())
             probe.recordCodes(s, gone)
             probe.recordTypes(s, old.meas.filter { !SurveyPrep.isLocked(it) }.map { SurveyMeas.seqKey(it.kind) })
+            probe.recordTypes(s, old.chains.filter { !SurveyPrep.isLocked(it) }.map { SurveyChain.LETTER })
             old.extra[SurveyPrep.SEQ]?.let { ex[SurveyPrep.SEQ] = it }
             sf.extra = ex
             val keep = old.marks.filter { SurveyPrep.isLocked(it) }
@@ -320,8 +354,29 @@ object SurveyPrepEdit {
             sf.measKey = old.measKey
             kept += keepM.size
             for (m in keepM) for ((k, v) in p.actual) if (k.startsWith(m.code + ".")) out.actual[k] = v
+            // a locked chain stays too, with its segments' and its total's readings (v52 slice 11)
+            val keepC = old.chains.filter { SurveyPrep.isLocked(it) }
+            sf.chains.addAll(keepC)
+            sf.chainsKey = old.chainsKey
+            kept += keepC.size
+            for (c in keepC) for ((k, v) in p.actual) if (k.startsWith(c.code + ".")) out.actual[k] = v
         }
         return Restarted(out, kept)
+    }
+
+    /**
+     * ↶ (sp.js undo): the older prep [old] put back -- its geometry -- with the readings of NOW and of then merged, now
+     * winning, and kept only where their owner is there again (a mark, a Tape / Line / area, or a chain: FK1.2 stays
+     * with FK1, v52 slice 11); and every code counter raised to what [cur] handed out ([keepSeq]). Readings are not
+     * geometry: one taken since stays, and one a delete took away comes back with its owner. Pure: neither is changed.
+     */
+    fun undoTo(cur: SurveyPrep.Prep, old: SurveyPrep.Prep): SurveyPrep.Prep {
+        val merged = old.actual.toMutableMap().apply { putAll(cur.actual) }
+        val o = old.copy()
+        val back = SurveyPrep.Prep(o.surfaces, mutableMapOf(), o.extra, o.extraSurfaces)
+        for ((k, v) in merged) if (back.ownerOf(k) != null) back.actual[k] = v
+        keepSeq(cur, back)
+        return back
     }
 
     /**
@@ -333,7 +388,7 @@ object SurveyPrepEdit {
         for (s in SurveyPrep.SURFACES) {
             val a = from.surfaces[s] ?: continue
             val b = into.surfaces[s] ?: continue
-            val types = (a.marks.map { it.t } + a.meas.map { SurveyMeas.seqKey(it.kind) } +
+            val types = (a.marks.map { it.t } + a.meas.map { SurveyMeas.seqKey(it.kind) } + a.chains.map { SurveyChain.LETTER } +
                 ((a.extra[SurveyPrep.SEQ] as? Map<*, *>)?.keys?.filterIsInstance<String>() ?: emptyList())).distinct()
             val seq = LinkedHashMap<String, Any?>().apply { (b.extra[SurveyPrep.SEQ] as? Map<*, *>)?.forEach { (k, v) -> if (k is String) put(k, v) } }
             var any = false

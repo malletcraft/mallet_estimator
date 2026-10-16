@@ -29,9 +29,11 @@ import java.time.format.DateTimeFormatter
  * Shape (v = 1, unchanged: the change is additive): {v, L, W, H, w: {front:
  * {bottom, top, left, right: [[x, y], [x, y]], set: {bottom: true, ...},
  * els: [{id, t, code, x0, x1, y0, y1}], meas: [{id, code, kind, locked, pts:
- * [[x, y], ...]}]}, ...}, actual: {"FW1.w": 1200, "F-M1.len": 1000}}. `meas`
- * (v52 slice 9: Tapes, Lines and areas) is written only where there is one,
- * or where the file had the key, so an older prep re-encodes unchanged.
+ * [[x, y], ...]}], chains: [{id, code, axis, locked, nodes: [[x, y], ...], snaps:
+ * [tag or null, ...]}]}, ...}, actual: {"FW1.w": 1200, "F-M1.len": 1000, "FK1.1": 905,
+ * "FK1.t": 3310}}. `meas` (v52 slice 9: Tapes, Lines and areas) and `chains`
+ * (v52 slice 11) are written only where there is one, or where the file had
+ * the key, so an older prep re-encodes unchanged.
  */
 object SurveyPrepFile {
 
@@ -39,10 +41,12 @@ object SurveyPrepFile {
 
     /** The keys this build reads, at each level; every other key is kept as it came. */
     val PREP_KEYS = setOf("v", "L", "W", "H", "w", "actual")
-    val SURFACE_KEYS = SurveyPrep.SLOTS.toSet() + setOf("set", "els", "meas")
+    val SURFACE_KEYS = SurveyPrep.SLOTS.toSet() + setOf("set", "els", "meas", "chains")
     val MARK_KEYS = setOf("id", "t", "code", "x0", "x1", "y0", "y1")
     /** A Tape's, a Line's or an area's keys this build reads (v52 slice 9); its `locked` and anything else are kept as they came. */
     val MEAS_KEYS = setOf("id", "code", "kind", "pts")
+    /** A chain's keys this build reads (v52 slice 11); its `locked` and anything else are kept as they came. */
+    val CHAIN_KEYS = setOf("id", "code", "axis", "nodes", "snaps")
 
     /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be dropped.
      *  [points] / [pointLog]: the older points [open] made 50 mm spots, and what that did to them and their readings
@@ -153,7 +157,26 @@ object SurveyPrepFile {
                 }
                 meas.add(SurveyPrep.Meas(id!!, kind!!, code!!, pts!!.map { it!! }.toMutableList(), unknown(m!!, MEAS_KEYS)))
             }
-            out[s] = SurveyPrep.Surface(lines, set, marks, unknown(so, SURFACE_KEYS), meas, so.containsKey("meas"))
+            // THE CHAINS (v52 slice 11): {id, code, axis, locked, nodes, snaps}. Two points or more; an axis that is not
+            // "y" is "x" (sp.js: `axis:D.axis||'x'`); snaps padded with nulls to the points. One that cannot be read costs itself
+            val chains = mutableListOf<SurveyPrep.Chain>()
+            val co = so["chains"]
+            if (co != null && co !is List<*>) problems.add("${SurveyPrep.NAME.getValue(s)}: its chains were unreadable")
+            (co as? List<*>)?.forEachIndexed { i, cv ->
+                val c = cv as? Map<*, *>
+                val id = str(c?.get("id")); val code = str(c?.get("code"))
+                val nodes = (c?.get("nodes") as? List<*>)?.map { point(it) }
+                if (c == null || id == null || code == null || nodes == null || nodes.size < 2 || nodes.any { it == null }) {
+                    problems.add("${SurveyPrep.NAME.getValue(s)}: chain ${code ?: "#" + (i + 1)} was unreadable, left out")
+                    return@forEachIndexed
+                }
+                val sl = c["snaps"] as? List<*>
+                val snaps = MutableList(nodes.size) { k -> sl?.getOrNull(k) as? String }
+                chains.add(SurveyPrep.Chain(id, code, if (str(c["axis"]) == "y") "y" else "x", nodes.map { it!! }.toMutableList(),
+                    snaps, unknown(c, CHAIN_KEYS)))
+            }
+            out[s] = SurveyPrep.Surface(lines, set, marks, unknown(so, SURFACE_KEYS), meas, so.containsKey("meas"),
+                chains, so.containsKey("chains"))
         }
         val actual = LinkedHashMap<String, Double>()
         val ao = o["actual"]
@@ -201,6 +224,15 @@ object SurveyPrepFile {
                     put("id", m.id); put("code", m.code); put("kind", m.kind)
                     for ((k, v) in m.extra) if (k !in MEAS_KEYS) put(k, v)
                     put("pts", m.pts.map { listOf(it[0], it[1]) })
+                }
+            }
+            // the chains, in the prototype's own key order: id, code, axis, then what it keeps (locked), nodes, snaps
+            if (sf.chains.isNotEmpty() || sf.chainsKey) so["chains"] = sf.chains.map { c ->
+                LinkedHashMap<String, Any?>().apply {
+                    put("id", c.id); put("code", c.code); put("axis", c.axis)
+                    for ((k, v) in c.extra) if (k !in CHAIN_KEYS) put(k, v)
+                    put("nodes", c.nodes.map { listOf(it[0], it[1]) })
+                    put("snaps", c.nodes.indices.map { c.snaps.getOrNull(it) })
                 }
             }
             for ((k, v) in sf.extra) if (k !in SURFACE_KEYS) so[k] = v

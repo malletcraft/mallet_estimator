@@ -69,13 +69,19 @@ class SurveyPrepFileTest {
         val (o, back) = roundTrip(proto)
         assertEquals(norm(o), norm(back))
         @Suppress("UNCHECKED_CAST") val w = back["w"] as Map<String, Map<String, Any?>>
-        // meas is read since slice 9 and written straight after els; the rest stay where they were
-        assertEquals(listOf("bottom", "top", "left", "right", "set", "els", "meas", "lock", "chains", "ref"), w.getValue("front").keys.toList())
+        // meas is read since slice 9 and chains since slice 11, each written straight after els; the rest stay where they were
+        assertEquals(listOf("bottom", "top", "left", "right", "set", "els", "meas", "chains", "lock", "ref"), w.getValue("front").keys.toList())
         assertTrue("wall360" in w.keys)
         assertEquals("v52", (back["note"] as Map<*, *>)["by"])
         // a decoded prep knows nothing of the others, and keeps them anyway
         val d = SurveyPrepFile.decode(parse(proto))!!
-        assertEquals(setOf("lock", "chains", "ref"), d.prep.surface("front").extra.keys)
+        assertEquals(setOf("lock", "ref"), d.prep.surface("front").extra.keys)
+        // the chain is read as one (v52 slice 11): its axis, points, snaps -- a null kept a null -- and its lock
+        val k = d.prep.surface("front").chains.single()
+        assertEquals("FK1", k.code); assertEquals("x", k.axis); assertEquals(listOf(null, "l"), k.snaps)
+        assertTrue(SurveyPrep.isLocked(k)); assertEquals(listOf(listOf(0.0, 900.0), listOf(600.0, 900.0)), k.nodes.map { it.toList() })
+        @Suppress("UNCHECKED_CAST") val c0 = (w.getValue("front")["chains"] as List<Map<String, Any?>>)[0]
+        assertEquals(listOf("id", "code", "axis", "locked", "nodes", "snaps"), c0.keys.toList())
         assertEquals(mapOf("locked" to true), d.prep.surface("front").marks[0].extra)
         // the tape is read as one (v52 slice 9), its locked flag kept with it in the prototype's own key order
         val t = d.prep.surface("front").meas.single()
@@ -86,8 +92,9 @@ class SurveyPrepFileTest {
 
     @Test fun `copies keep what the file carried -- an undo or a Save never drops it`() {
         val p = SurveyPrepFile.decode(parse(proto))!!.prep.copy().copy()
-        assertEquals(setOf("lock", "chains", "ref"), p.surface("front").extra.keys)
+        assertEquals(setOf("lock", "ref"), p.surface("front").extra.keys)
         assertEquals(1, p.surface("front").meas.size)
+        assertEquals(1, p.surface("front").chains.size)
         assertEquals(true, p.surface("front").marks[0].copy().extra["locked"])
         assertEquals(setOf("note"), p.extra.keys)
         assertEquals(setOf("wall360"), p.extraSurfaces.keys)

@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import com.malletcrafts.sitephotos.pano.SurveyChain
 import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPrep
@@ -146,6 +147,8 @@ internal object SurveyPrepDraw {
         val guideAlpha: Float = 0f,
         /** The picked Line's or tape's ends, and an area's corners, are handles (Select on). */
         val ends: Boolean = false,
+        /** v52 slice 11: a chain being drawn on this surface -- dashed, its segments' photo figures. */
+        val chain: SurveyChain.Draft? = null,
     )
 
     /**
@@ -276,6 +279,9 @@ internal object SurveyPrepDraw {
         fun face(x: Double, y: Double) = m(sq.x(x), sq.y(y))
         if (o.mode == "main" && o.gridAlpha > 0f) drawGrid(c, o.a, o.b, ::face, o.gridAlpha, o.dp)
         if (o.mode != "loupe") drawMeas(c, s, o, m)
+        // v52 slice 11: the chains after the Lines and tapes, as sp.js overlay draws them (drawMeas, drawTapes, drawChains)
+        // -- not in the loupe either
+        if (o.mode != "loupe") drawChains(c, s, o, m)
         if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
     }
 
@@ -451,6 +457,81 @@ internal object SurveyPrepDraw {
             tw.toDouble(), pw.toDouble(), dp.toDouble(), o.width.toDouble(), o.height.toDouble()).let { floatArrayOf(it[0].toFloat(), it[1].toFloat()) }
         label(c, txt, k[0], k[1], if (off) 0xffd0d0 else 0xfff7c2, 12f * dp, dp)
         if (pw > 0f) padPill(c, k[0] + tw + pw, k[1] - 13f * dp, TAPE_C, dp)
+    }
+
+    // ------------------------------------------------------------ v52 slice 11: the chains
+
+    /**
+     * THE CHAINS ON A SURFACE (sp.js drawChains), then the one being drawn: see [chain]. Every figure comes from
+     * SurveyChain.vals -- the readings, the laser's total, the derived segment -- so the photo says what the list says.
+     */
+    private fun drawChains(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray) {
+        val sq = o.sq
+        fun toS(p: DoubleArray) = m(sq.x(p[0]), sq.y(p[1]))
+        for (k in o.prep.surface(s).chains) if (k.nodes.isNotEmpty())
+            chain(c, k.nodes, k.axis, k.code, SurveyChain.vals(k, o.prep.actual, o.a, o.b), o.selId == k.id, false,
+                SurveyPrep.isLocked(k), o, ::toS)
+        o.chain?.takeIf { it.s == s && it.nodes.isNotEmpty() }?.let { d ->
+            chain(c, d.nodes, d.axis ?: "x", null, null, false, true, false, o, ::toS) }
+    }
+
+    /**
+     * ONE CHAIN (sp.js drawChains; Amit, 13 Oct 2026 19:20 IST, the "divider"): its line in rose, 2.6 dp (3.6 picked),
+     * an arrow head at both ends of every segment, a draft dashed 7 / 5 dp; a tick across it at every point (10 dp
+     * either side) and the point a white dot ringed in rose -- the handle a finger finds within 16 dp; each segment's
+     * figure 15 dp off the chain -- its reading white, a derived one violet with " d", else the photo's "≈905" grey; the
+     * total under the last point, "FK1 Σ 3310 laser" (amber when the readings disagree with it), kept on the canvas; a
+     * locked chain's padlock over its first point. Sized in dp ([Marks.dp]).
+     */
+    private fun chain(c: Canvas, nodes: List<DoubleArray>, axis: String, code: String?, v: SurveyChain.Vals?, sel: Boolean,
+                      draft: Boolean, locked: Boolean, o: Marks, toS: (DoubleArray) -> FloatArray) {
+        val dp = o.dp; val col = SurveyChain.COLOUR
+        val ai = SurveyChain.axisIndex(axis)
+        // across the chain, in the face's mm: up for a chain along it, right for one up it
+        val perp = if (ai == 1) doubleArrayOf(1.0, 0.0) else doubleArrayOf(0.0, 1.0)
+        val scr = nodes.map(toS)
+        val ln = stroke(argb(col), ((if (sel) SurveyChain.LINE_SEL_DP else SurveyChain.LINE_DP) * dp).toFloat())
+        if (draft) ln.pathEffect = DashPathEffect(floatArrayOf((SurveyChain.DASH_DP * dp).toFloat(), (SurveyChain.GAP_DP * dp).toFloat()), 0f)
+        for (i in 1 until scr.size) {
+            val a = scr[i - 1]; val b = scr[i]
+            c.drawLine(a[0], a[1], b[0], b[1], ln)
+            if (hypot(b[0] - a[0], b[1] - a[1]) >= 3 * SurveyMeas.HEAD_LEN_DP.toFloat() * dp) { head(c, a, b, col, dp); head(c, b, a, col, dp) }
+        }
+        if (locked && !draft) padPill(c, scr[0][0] + 8f * dp, scr[0][1] - 30f * dp, col, dp)
+        val tick = stroke(argb(col), (SurveyChain.TICK_W_DP * dp).toFloat())
+        val r = ((if (sel) SurveyChain.NODE_R_SEL_DP else SurveyChain.NODE_R_DP) * dp).toFloat()
+        val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff) }
+        val ring = stroke(argb(col), (SurveyChain.NODE_RING_DP * dp).toFloat())
+        for (j in nodes.indices) {
+            val p = scr[j]; val n = nodes[j]
+            val q = toS(doubleArrayOf(n[0] + perp[0] * 100, n[1] + perp[1] * 100))
+            val dx = q[0] - p[0]; val dy = q[1] - p[1]; val l = hypot(dx, dy).takeIf { it > 0f } ?: 1f
+            val kk = (SurveyChain.TICK_DP * dp).toFloat() / l
+            c.drawLine(p[0] - dx * kk, p[1] - dy * kk, p[0] + dx * kk, p[1] + dy * kk, tick)
+            c.drawCircle(p[0], p[1], r, dot); c.drawCircle(p[0], p[1], r, ring)
+        }
+        val fs = 12f * dp
+        val fp = Paint().apply { textSize = fs; isFakeBoldText = true }
+        val off = (SurveyChain.FIGURE_OFF_DP * dp).toFloat()
+        for (i in 1 until nodes.size) {
+            val mid = doubleArrayOf((nodes[i - 1][0] + nodes[i][0]) / 2, (nodes[i - 1][1] + nodes[i][1]) / 2)
+            val p = toS(mid); val q = toS(doubleArrayOf(mid[0] + perp[0] * 100, mid[1] + perp[1] * 100))
+            var dx = q[0] - p[0]; var dy = q[1] - p[1]; val l = hypot(dx, dy)
+            if (l > 0f) { dx /= l; dy /= l } else { dx = 0f; dy = -1f }
+            val (t, tc) = if (v != null) SurveyChain.segFigure(v, i - 1)
+                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR
+            val w = fp.measureText(t)
+            label(c, t, p[0] + dx * off - w / 2, p[1] + dy * off + 4f * dp, tc, fs, dp)
+        }
+        if (v != null && code != null) {
+            val p = scr[scr.size - 1]
+            val t = SurveyChain.totalTag(code, v)
+            val ts = 11f * dp
+            val tw = Paint().apply { textSize = ts; isFakeBoldText = true }.measureText(t)
+            // kept inside the picture (sp.js: "kept inside the picture")
+            val x = max(4f * dp, minOf(o.width - tw - 6f * dp, p[0] + 8f * dp))
+            label(c, t, x, p[1] + 20f * dp, SurveyChain.totalColour(v), ts, dp)
+        }
     }
 
     /** Dimension lines for one mark, each with its estimate and / or reading. */

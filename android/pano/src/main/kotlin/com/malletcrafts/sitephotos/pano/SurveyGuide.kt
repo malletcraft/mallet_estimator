@@ -72,21 +72,27 @@ object SurveyGuide {
      */
     class Guide(val s: String, val o: DoubleArray, val tool: String, val snap: String?, val off: Boolean = false)
 
-    /** The rays' colour: the Tape's yellow or the Line's blue. */
-    fun colour(tool: String): Int = if (tool == SurveyPrepPalette.TAPE) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR
+    /** The rays' colour: the Tape's yellow, the Chain's rose (v52 slice 11) or the Line's blue (sp.js guideCol). */
+    fun colour(tool: String): Int = when (tool) {
+        SurveyPrepPalette.TAPE -> SurveyMeas.TAPE_COLOUR
+        SurveyPrepPalette.CHAIN -> SurveyChain.COLOUR
+        else -> SurveyMeas.LINE_COLOUR
+    }
 
     /**
      * THE GUIDE NOW (sp.js guideNow), in its order: a Tape or a Line being pulled ([drag]: from where the finger went
      * down); an end being dragged ([end]: through the FIXED end, an area's corner through itself); a Line area being
      * tapped on [areaS] ([area]: through its last corner) -- but only with the Line tool on, so a draft left behind
-     * under another tool never keeps a guide (ct52 FX11). Null: no guide.
+     * under another tool never keeps a guide (ct52 FX11); then a chain being drawn ([chain], v52 slice 11: through its
+     * first point, bold on its axis once two points fix it -- SurveyChain.guide). Null: no guide.
      */
-    fun now(drag: SurveyMeas.Draft?, end: Guide?, areaS: String?, area: List<DoubleArray>?, tool: String): Guide? = when {
+    fun now(drag: SurveyMeas.Draft?, end: Guide?, areaS: String?, area: List<DoubleArray>?, tool: String,
+            chain: SurveyChain.Draft? = null): Guide? = when {
         drag != null -> Guide(drag.s, drag.from.copyOf(), if (drag.kind == SurveyMeas.TAPE) SurveyPrepPalette.TAPE else SurveyPrepPalette.LINE,
             drag.snap, drag.off)
         end != null -> end
         areaS != null && !area.isNullOrEmpty() && tool == SurveyPrepPalette.LINE -> Guide(areaS, area.last().copyOf(), SurveyPrepPalette.LINE, null)
-        else -> null
+        else -> SurveyChain.guide(chain)
     }
 
     /** One straight piece on the face, mm. */
@@ -251,7 +257,8 @@ object SurveyGuide {
      */
     fun endPress(mark: Boolean, tool: String, sel: SurveyPrep.Meas?, areaOpen: Boolean, scr: List<DoubleArray>,
                  x: Double, y: Double, rPx: Double): EndPress? {
-        if (!mark || !(tool == SurveyPrepPalette.SEL || tool in SurveyPrepPalette.TOOLS)) return null
+        // Select, Tape or Line -- never the Chain, whose taps are its points (sp.js hit: `st.tool==='M'||st.tool==='T'`)
+        if (!mark || !(tool == SurveyPrepPalette.SEL || SurveyPrepPalette.isMeasTool(tool))) return null
         if (areaOpen || sel == null || !SurveyMeas.known(sel.kind) || scr.size != sel.pts.size) return null
         val i = endAt(scr, x, y, rPx) ?: return null
         return when {

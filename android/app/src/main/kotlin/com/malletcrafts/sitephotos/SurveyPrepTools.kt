@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.sitephotos.pano.SurveyChain
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepPalette
 
@@ -54,8 +55,8 @@ import com.malletcrafts.sitephotos.pano.SurveyPrepPalette
  * Tape which act as a actual tape and can plot measurements like a real tape measure"; 20:45: "i had requested
  * two separate tools. one tape measure like anothr is actual marking simple line." -- v52's eight slots are
  * Select, Tape, Line, Chain, three types and More ▸. A SLOT APPEARS ONLY WHEN ITS TOOL WORKS: Tape and Line
- * joined in slice 9 and Chain joins in slice 11 through SurveyPrepPalette.TOOLS; the slot list is SurveyPrepPalette.slots,
- * tested in :pano. Amit, 11 Oct 2026 20:36 (item 11): "electric control panels plate are rectangle. add mark
+ * joined in slice 9 and Chain (rose, #fb7185) in slice 11 through SurveyPrepPalette.TOOLS, which COMPLETES the eight;
+ * the slot list is SurveyPrepPalette.slots, tested in :pano (PaletteTest: exactly 8). Amit, 11 Oct 2026 20:36 (item 11): "electric control panels plate are rectangle. add mark
  * type for it. also add seprate mark type for fan" -- the Switch plate and the Fan are in More ▸, with their
  * own icons. The old one-row SpMarkToolbar (a tap added a mark at its default place) is gone: there is no
  * second way to add a mark.
@@ -101,8 +102,11 @@ internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) 
                         SurveyPrepPalette.SlotKind.SELECT -> drawSelectIcon(SP_SELECT)
                         // the More icon keeps its grey dots when a More type is on; only the tint and ring take its colour
                         SurveyPrepPalette.SlotKind.MORE -> drawMoreIcon(SP_MORE)
-                        SurveyPrepPalette.SlotKind.TOOL ->
-                            if (slot.key == SurveyPrepPalette.TAPE) drawTapeIcon(col) else drawLineIcon(col)
+                        SurveyPrepPalette.SlotKind.TOOL -> when (slot.key) {
+                            SurveyPrepPalette.TAPE -> drawTapeIcon(col)
+                            SurveyPrepPalette.CHAIN -> drawChainIcon(col)
+                            else -> drawLineIcon(col)
+                        }
                         SurveyPrepPalette.SlotKind.TYPE -> drawMarkIcon(slot.type?.name ?: "", col)
                     }
                 }
@@ -169,15 +173,22 @@ internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (S
  * Select on. It takes no touch of its own except ✕, so a tap under it still reaches the photo.
  * With Tape or Line on (v52 slice 9) it says what the tool does -- live while a drag is pulled ("↔ along the face ·
  * 1234 mm") -- with the amber [caution] under it: "Only things on this surface measure correctly." (sp.js .caut).
+ * With Chain on (v52 slice 11) it counts the points ("Chain · 2 points · tap points along the surface, double-tap or ✓
+ * to end"), and from the second point a green ✓ ([onDone], sp.html data-kdone "End the chain") ends the chain.
  */
 @Composable
-internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: String? = null, onClose: () -> Unit) {
+internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: String? = null, onDone: (() -> Unit)? = null,
+                        onClose: () -> Unit) {
     val col = Color(SurveyPrepDraw.argb(colour)); val shape = RoundedCornerShape(16.dp)
     Row(modifier.heightIn(min = 32.dp).clip(shape).background(Color(0xD0000000)).border(1.5.dp, col, shape).padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f, fill = false).padding(vertical = 4.dp)) {
             Text(text, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (caution != null) Text(caution, color = SP_CAUT, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2)
+        }
+        if (onDone != null) Box(Modifier.size(32.dp).clip(shape).clickable { onDone() }
+            .semantics { contentDescription = SurveyChain.DONE_LABEL; role = Role.Button }, contentAlignment = Alignment.Center) {
+            Text("✓", color = SP_DONE, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
         }
         Box(Modifier.size(32.dp).clip(shape).clickable { onClose() }.semantics { contentDescription = "Back to Select" },
             contentAlignment = Alignment.Center) {
@@ -220,6 +231,13 @@ private fun DrawScope.drawLineIcon(c: Color) {
     hd(20f, 4f, r, -r); hd(4f, 20f, -r, r)
 }
 
+/** Chain (v52 slice 11, sp.js chainIcon): a line across with a tick at each end and one between -- a dimension chain. */
+private fun DrawScope.drawChainIcon(c: Color) {
+    val k = size.width / 24f; val w = 2f * k
+    drawLine(c, Offset(2f * k, 12f * k), Offset(22f * k, 12f * k), w)
+    for (x in listOf(2f, 10f, 22f)) drawLine(c, Offset(x * k, 7f * k), Offset(x * k, 17f * k), w)
+}
+
 /** More: nine dots (sp.js moreIcon). */
 private fun DrawScope.drawMoreIcon(c: Color) {
     val k = size.width / 24f
@@ -234,6 +252,8 @@ private val SP_TILE = Color(0xFF2A2D25)
 /** The tape icon's ink, and the chip's amber caution line (sp.js .caut). */
 private val SP_INK = Color(0xFF14160F)
 private val SP_CAUT = Color(0xFFFFC46B)
+/** The chain chip's ✓ (v42.css .toolchip button[data-kdone]: #7dff8a, bold). */
+private val SP_DONE = Color(0xFF7DFF8A)
 
 /** One mark type's icon, by its NAME (letters repeat across surfaces: C is a column everywhere, B a beam). */
 private fun DrawScope.drawMarkIcon(name: String, c: Color) {

@@ -14,9 +14,8 @@ package com.malletcrafts.sitephotos.pano
  * types are Window, Door and Electric (Loft moved into More); on the floor Column, Step and Electric (Bulb into
  * More); on the ceiling Beam, Electric and Bulb (Column into More).
  *
- * A SLOT APPEARS ONLY WHEN ITS TOOL WORKS (no dead buttons): this build (slice 9) has Select, Tape, Line, the
- * three types and More ▸ -- seven slots; Chain arrives in slice 11 by joining [TOOLS] -- [slots] already places
- * it between Line and the types, so the eighth slot needs no other change.
+ * A SLOT APPEARS ONLY WHEN ITS TOOL WORKS (no dead buttons): Tape and Line joined in slice 9 and Chain in slice 11
+ * (v52 slice 11: the palette is COMPLETE -- Select, Tape, Line, Chain, three types, More ▸: exactly eight slots).
  *
  * Pure, so the slots, the More order, the labels and the sticky rule are tested here; SpPalette only draws.
  */
@@ -25,17 +24,21 @@ object SurveyPrepPalette {
     /** The Select tool's key; a type tool's key is its letter. */
     const val SEL = "sel"
 
-    /** The drawing tools that work in this build, in palette order: Tape "T" and Line "M" (v52 slice 9); Chain "K"
-     *  joins in slice 11. */
+    /** The drawing tools, in palette order: Tape "T" and Line "M" (v52 slice 9), Chain "K" (v52 slice 11). */
     const val TAPE = "T"
     const val LINE = "M"
-    val TOOLS: List<String> = listOf(TAPE, LINE)
+    const val CHAIN = "K"
+    val TOOLS: List<String> = listOf(TAPE, LINE, CHAIN)
+
+    /** Tape or Line -- the two that pull a figure by a drag (SurveyMeas); the Chain is tapped point by point. */
+    fun isMeasTool(tool: String) = tool == TAPE || tool == LINE
 
     /** A drawing tool's name on its slot (sp.js 1381): never "Measure" -- the v46 Measure tool is the Line (item 6). */
-    fun toolName(key: String) = when (key) { TAPE -> "Tape"; LINE -> "Line"; else -> key }
+    fun toolName(key: String) = when (key) { TAPE -> "Tape"; LINE -> "Line"; CHAIN -> "Chain"; else -> key }
 
-    /** A drawing tool's colour: tape yellow, Line blue (sp.js TC, MC). */
-    fun toolColour(key: String) = when (key) { TAPE -> SurveyMeas.TAPE_COLOUR; LINE -> SurveyMeas.LINE_COLOUR; else -> 0xcfd3cb }
+    /** A drawing tool's colour: tape yellow, Line blue, chain rose (sp.js TC, MC, KC). */
+    fun toolColour(key: String) = when (key) {
+        TAPE -> SurveyMeas.TAPE_COLOUR; LINE -> SurveyMeas.LINE_COLOUR; CHAIN -> SurveyChain.COLOUR; else -> 0xcfd3cb }
 
     /** Whether [tool] is a mark type (a tap places one), not Select nor a drawing tool. */
     fun isType(tool: String) = tool != SEL && tool !in TOOLS

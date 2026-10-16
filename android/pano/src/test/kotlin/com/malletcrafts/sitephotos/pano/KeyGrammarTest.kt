@@ -68,8 +68,24 @@ class KeyGrammarTest {
         assertTrue(bad.isEmpty(), "S5 would refuse: $bad")
     }
 
+    @Test fun `a chain's segments and total, FK1_1 and FK1_t, on every surface, up to the highest code, are accepted (v52 slice 11)`() {
+        val p = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+        val keys = mutableListOf<String>()
+        for (s in SurveyPrep.SURFACES) for (i in 0 until 3) {
+            val nodes = (0..(4 + i)).map { doubleArrayOf(it * 400.0, 900.0) }
+            keys += p.keysOf(p.addChain(s, "x", nodes, nodes.map { null }, "k$s$i"))
+        }
+        assertTrue("FK1.1" in keys && "FK1.t" in keys && "GK3.6" in keys && "CK2.t" in keys, keys.toString())
+        // a chain of 999 segments, and the longest code the grammar takes
+        for (code in listOf("FK1", "RK12", "BK999", "LK99999999999999999999")) for (k in listOf("1", "9", "999", "t")) keys += "$code.$k"
+        val bad = keys.filterNot { keyRe.matches(it) }
+        assertTrue(bad.isEmpty(), "S5 would refuse: $bad")
+    }
+
     @Test fun `the copied pattern still refuses what S5 refuses`() {
         for (k in listOf("FE1", "1FE.l", "FE1.", ".l", "FE1.cl.x", "FE1.toolongforakey", "F E1.l", "FE1.1234")) assertFalse(keyRe.matches(k), k)
         for (k in listOf("FE1.cl", "F-M1.len", "F-M2.per", "G-M3.len", "C-M1.per", "FK1.1", "FK1.t", "GP9.ck")) assertTrue(keyRe.matches(k), k)
+        // a chain of a thousand segments is refused: the phone's segment keys stop at three digits
+        assertFalse(keyRe.matches("FK1.1000"))
     }
 }

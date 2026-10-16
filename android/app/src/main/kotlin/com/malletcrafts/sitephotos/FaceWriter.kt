@@ -369,8 +369,8 @@ object FaceWriter {
                 }
                 val surveyName = surveyFilename(deviceId, face)
                 deleteByName(context, surveyName)
-                // a surface with only Tapes or Lines on it (v52 slice 9) gets its marked picture too
-                if (prep.surface(s).marks.isNotEmpty() || prep.surface(s).meas.isNotEmpty()) {
+                // a surface with only Tapes or Lines (v52 slice 9) or chains (slice 11) on it gets its marked picture too
+                if (prep.surface(s).marks.isNotEmpty() || prep.surface(s).meas.isNotEmpty() || prep.surface(s).chains.isNotEmpty()) {
                     // A saved picture has no screen density: everything in it scales with u = width / 960, so its
                     // "dp" (a spot's rim and its 6 dp floor, v52 slice 4) does too -- 2 u, about what one dp is to
                     // the drawing unit on the phone's own sheet -- or a 1.6 px rim vanishes on a 4000 px picture.

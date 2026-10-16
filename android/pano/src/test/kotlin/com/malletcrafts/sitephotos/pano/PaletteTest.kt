@@ -35,11 +35,11 @@ class PaletteTest {
         assertEquals("Every mark type · Ceiling", SurveyPrepPalette.sheetTitle("ceil"))
     }
 
-    @Test fun `slots now Select, Tape, Line, three types, More, and Chain slots in before the types`() {
+    @Test fun `palette - exactly 8 slots, Select, Tape, Line, Chain, three types, More (ct52 T, v52 slice 11)`() {
         val now = SurveyPrepPalette.slots("wall")
-        assertEquals(7, now.size)
-        // ct52 T2 without Chain (slice 11): Select · Tape · Line · Window · Door · Electric · More ▸ -- never "Measure"
-        assertEquals("Select|Tape|Line|Window|Door|Electric|More ▸", now.joinToString("|") { s ->
+        // ct52 T: "palette: exactly 8 slots, Select · Tape · Line · Chain · Window · Door · Electric · More ▸" -- never "Measure"
+        assertEquals(8, now.size)
+        assertEquals("Select|Tape|Line|Chain|Window|Door|Electric|More ▸", now.joinToString("|") { s ->
             when (s.kind) {
                 SurveyPrepPalette.SlotKind.SELECT -> "Select"
                 SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel("wall", SurveyPrepPalette.SEL)
@@ -48,6 +48,15 @@ class PaletteTest {
             } })
         assertEquals(0xfacc15, SurveyPrepPalette.toolColour("T"))
         assertEquals(0x7dd3fc, SurveyPrepPalette.toolColour("M"))
+        assertEquals(0xfb7185, SurveyPrepPalette.toolColour("K"))
+        // Tape, Line and Chain all present, as tools, and every surface kind has its eight
+        for (kind in listOf("wall", "floor", "ceil")) {
+            val sl = SurveyPrepPalette.slots(kind)
+            assertEquals(8, sl.size, kind)
+            assertEquals(listOf("T", "M", "K"), sl.filter { it.kind == SurveyPrepPalette.SlotKind.TOOL }.map { it.key }, kind)
+        }
+        assertFalse(SurveyPrepPalette.isType("K")); assertNull(SurveyPrepPalette.chipText("front", "K"))
+        assertTrue(SurveyPrepPalette.isMeasTool("T") && SurveyPrepPalette.isMeasTool("M")); assertFalse(SurveyPrepPalette.isMeasTool("K"))
         assertFalse(SurveyPrepPalette.isType("T")); assertFalse(SurveyPrepPalette.isType("M")); assertTrue(SurveyPrepPalette.isType("W"))
         assertNull(SurveyPrepPalette.chipText("front", "T")); assertNull(SurveyPrepPalette.moreArmed("wall", "M"))
         // slice 11's palette: Tape, Line, Chain between Select and the types -- exactly eight
@@ -76,7 +85,7 @@ class PaletteTest {
     }
 
     @Test fun `exactly one slot is lit`() {
-        for ((kind, tool) in listOf("wall" to SurveyPrepPalette.SEL, "wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M")) {
+        for ((kind, tool) in listOf("wall" to SurveyPrepPalette.SEL, "wall" to "D", "wall" to "L", "ceil" to "F", "floor" to "S", "wall" to "T", "floor" to "M", "ceil" to "K")) {
             val lit = SurveyPrepPalette.slots(kind).filter { SurveyPrepPalette.isOn(it, kind, tool) }
             assertEquals(1, lit.size, "$kind $tool")
         }

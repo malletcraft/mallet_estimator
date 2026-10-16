@@ -106,7 +106,12 @@ object SurveyPrepTouch {
         class Mark(val id: String, val part: String) : Hit()
         /** A number tag: its measure becomes the one being taken. */
         class Tag(val code: String) : Hit()
+        /** Point [i] of chain [id] (v52 slice 11): the chain is picked and the point moves along it. */
+        class Node(val id: String, val i: Int) : Hit()
     }
+
+    /** A chain's points as drawn: its id and each point on the canvas, px (v52 slice 11). */
+    class Nodes(val id: String, val pts: List<DoubleArray>)
 
     /**
      * THE HIT ORDER on 2 · Mark, [marks] in drawing order (the last on top),
@@ -115,13 +120,16 @@ object SurveyPrepTouch {
      *     its centre nearer than the tab ([tabOrTag]); a picked SPOT has no
      *     tabs and is grabbed whole within [spotReachPicked] of its centre,
      *     unless a tag under the finger has its centre nearer;
-     *  2. a tag under the finger, the nearest centre;
-     *  3. the marks, topmost first: a spot within [spotReach] of its centre,
+     *  2. a CHAIN POINT within [nodeR] (16 dp) of the finger, the nearest (v52 slice 11, sp.js hit: after the picked
+     *     mark's tabs -- ct52 X5, "a chain point on a door's left tab resizes the door" -- and before any tag or mark);
+     *  3. a tag under the finger, the nearest centre;
+     *  4. the marks, topmost first: a spot within [spotReach] of its centre,
      *     moved whole, never resized; the picked box within [tol] of its edge
      *     (a tab there still resizes), any other box only inside it.
      * Null: nothing, and the finger slides the photo.
      */
-    fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16): Hit? {
+    fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
+            nodes: List<Nodes> = emptyList(), nodeR: Double = tol): Hit? {
         val under = tags.filter { it.box.contains(x, y) }.minByOrNull { it.box.centreDist(x, y) }
         val sel = selId?.let { id -> marks.lastOrNull { it.id == id } }
         if (sel != null) {
@@ -134,6 +142,7 @@ object SurveyPrepTouch {
                 if (t != null && tabOrTag(t.second, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, t.first)
             }
         }
+        SurveyChain.nodeAt(nodes.map { it.id to it.pts }, x, y, nodeR)?.let { (id, i) -> return Hit.Node(id, i) }
         if (under != null) return Hit.Tag(under.code)
         for (m in marks.asReversed()) {
             val sp = m.spot

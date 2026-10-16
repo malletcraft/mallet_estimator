@@ -23,6 +23,11 @@ import java.time.format.DateTimeFormatter
  *  - pull: survey prep, on open and resume, GETs the readings and takes what
  *    changed on the web, never an unsent local edit.
  *
+ * Every key is sent alike, whatever owns it: a mark's FD1.w, a Line's F-M1.len,
+ * a chain's segments FK1.1 … FK1.n and its total FK1.t (v52 slice 11; S5's
+ * grammar takes them since slice 3, KeyGrammarTest). A chain deleted or cleared
+ * takes its keys out of `actual`, so the next push sends each as a delete.
+ *
  * Without signal everything works on the phone as before; the next upload
  * or open reconciles. A web without the endpoint yet (404/405) is a quiet
  * "web readings not available yet", never a failed room upload.
