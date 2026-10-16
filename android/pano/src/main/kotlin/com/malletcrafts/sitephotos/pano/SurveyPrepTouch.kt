@@ -161,7 +161,8 @@ object SurveyPrepTouch {
      * trash went, so a tap meant for the figure deleted the point); none clear, the first.
      * Null when the mark is off the photo: no trash.
      */
-    fun trashSpot(bb: Box, tags: List<Box>, w: Double, h: Double, dp: Double): Spot? {
+    fun trashSpot(bb: Box, tags: List<Box>, w: Double, h: Double, dp: Double,
+                  keep: List<DoubleArray> = emptyList(), keepR: Double = 0.0): Spot? {
         if (bb.r < 0 || bb.l > w || bb.b < 0 || bb.t > h) return null
         val size = 36 * dp
         fun at(l0: Double, t0: Double, how: String): Spot {
@@ -178,7 +179,10 @@ object SurveyPrepTouch {
             c.add(at(bb.r + 2 * dp, bb.b + 2 * dp + out, "below-right"))
             c.add(at(bb.l - 38 * dp, bb.b + 2 * dp + out, "below-left"))
         }
-        return c.firstOrNull { clear(it) } ?: c[0]
+        // the selected Tape's, Line's or area's end handles ([keep], canvas px): the disc's edge stays [keepR] off each,
+        // even where the clamps above push it into a corner (v52 slice 10 review); clear of a handle beats clear of a tag
+        fun kept(sp: Spot) = keep.all { p -> hypot(sp.left + size / 2 - p[0], sp.top + size / 2 - p[1]) >= size / 2 + keepR }
+        return c.firstOrNull { clear(it) && kept(it) } ?: c.firstOrNull { kept(it) } ?: c[0]
     }
 
     // ------------------------------------------------------------ the magnifier

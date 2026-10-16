@@ -224,4 +224,75 @@ object SurveyGuide {
     /** The guide an end drag shows: through [EndMove.o], in the item's tool colour, on the axis it snapped onto. */
     fun endGuide(s: String, m: SurveyPrep.Meas, r: EndMove): Guide =
         Guide(s, r.o.copyOf(), if (m.kind == SurveyMeas.TAPE) SurveyPrepPalette.TAPE else SurveyPrepPalette.LINE, r.snap)
+
+    // ------------------------------------------------------------ the press on an end, and what the drag does after (review)
+
+    /** The snapping distance [endTol] needs, face mm per canvas px: the squared picture's mm per px ([sqMpp]) over its
+     *  canvas px per squared px ([k], the zoom included). */
+    fun mmPerCanvasPx(sqMpp: Double, k: Double): Double = sqMpp / k
+
+    /** What a press on the selected item's end is (sp.js hit, endHit, endGrab). */
+    sealed class EndPress {
+        /** Select on: point [i] is grabbed and dragged. */
+        class Grab(val i: Int) : EndPress()
+        /** Select on, the item locked: point [i] is picked and does not move; a drag says [lockedEnd] of [code]. */
+        class Locked(val i: Int, val code: String) : EndPress()
+        /** Tape or Line on: a NEW one starts from exactly point [i], [mm] on the face -- whether or not the item is
+         *  locked, since nothing of it moves (ct52 FX13). */
+        class StartNew(val i: Int, val mm: DoubleArray) : EndPress()
+    }
+
+    /**
+     * HIT-ORDER STEP 0 (v52 slice 10, sp.js hit): a press at ([x], [y]) canvas px within [rPx] of one of [sel]'s points
+     * ([scr], on screen, in its order) -- [sel] being the item selected on this face, or null. Only in 2 · Marks
+     * ([mark]) with Select, Tape or Line on ([tool]); never while a Line area is being tapped ([areaOpen]: its taps are
+     * corners, sp.js `if(st.mdraft||st.kdraft) return null`); only a Tape, a Line or an area. Null: the press goes on
+     * down the hit order.
+     */
+    fun endPress(mark: Boolean, tool: String, sel: SurveyPrep.Meas?, areaOpen: Boolean, scr: List<DoubleArray>,
+                 x: Double, y: Double, rPx: Double): EndPress? {
+        if (!mark || !(tool == SurveyPrepPalette.SEL || tool in SurveyPrepPalette.TOOLS)) return null
+        if (areaOpen || sel == null || !SurveyMeas.known(sel.kind) || scr.size != sel.pts.size) return null
+        val i = endAt(scr, x, y, rPx) ?: return null
+        return when {
+            tool != SurveyPrepPalette.SEL -> EndPress.StartNew(i, sel.pts[i].copyOf())
+            SurveyPrep.isLocked(sel) -> EndPress.Locked(i, sel.code)
+            else -> EndPress.Grab(i)
+        }
+    }
+
+    /**
+     * A NEW TAPE OR LINE FROM A SELECTED END follows the end PLUS the finger's movement, never the finger itself (sp.js
+     * measureGrab: `x0:at`, moved by `(x - sx0)/k`): [start] the end, [down] where the finger went down and [finger]
+     * where it is, all face mm. So the finger's miss of the end (up to 14 dp) never reaches the new one's length or
+     * angle: pressed 10 dp under an end and pulled level, it is level at the end's height.
+     */
+    fun dragFrom(start: DoubleArray, down: DoubleArray, finger: DoubleArray): DoubleArray =
+        doubleArrayOf(start[0] + finger[0] - down[0], start[1] + finger[1] - down[1])
+
+    /** An end does not move until the finger has gone this far from its down point -- the locked refusal's 4 dp at
+     *  least; the screen uses the touch slop when that is more, so a press that lifts as a tap never moved its end. */
+    const val END_DEAD_DP = 4.0
+
+    /**
+     * A TAP ON AN END MOVES NOTHING: a grabbed press is reported from the first pixel (GestureClassifier), and one
+     * pixel of jitter would snap the end up to 14 dp onto an edge. [move] is false until the finger has gone more than
+     * [deadPx] from its down point, and true from then on, even back inside it.
+     */
+    class EndGate(private val deadPx: Double) {
+        var live = false; private set
+        fun move(dx: Double, dy: Double): Boolean { if (!live && hypot(dx, dy) > deadPx) live = true; return live }
+    }
+
+    /** A press on an end that ends as a tap (or a double tap) after it did move -- past the dead zone, inside the
+     *  slop: put back, with its undo step, as a long press is. */
+    fun revertOnTap(endGrab: Boolean, moved: Boolean) = endGrab && moved
+
+    /** A cancel during an end drag puts the end back only for a SECOND FINGER (ct52 FX3); a system cancel (palm
+     *  rejection) keeps what was dragged, as a lift does and as sp.js's pointercancel does (`up` -> `gr.end(moved)`). */
+    fun revertOnCancel(secondFinger: Boolean, moved: Boolean) = secondFinger && moved
+
+    /** The floating trash keeps its disc this far (dp) clear of the selected item's end handles: the handle's 5.5 dp
+     *  and a 2 dp margin, so the disc never covers a handle -- and the press on a handle is the end's (hit order). */
+    const val HANDLE_CLEAR_DP = END_R_DP + 2.0
 }

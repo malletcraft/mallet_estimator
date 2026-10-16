@@ -138,4 +138,84 @@ class EndMoveTest {
         assertNull(SurveyGuide.endAt(scr, 100.0, 140.0, r))
         assertEquals(5.5, SurveyGuide.END_R_DP)
     }
+
+    // ------------------------------------------------------------ the slice 10 review
+
+    @Test fun `the press on an end -- Select grabs, Tape and Line start a new one even on a locked item, an open area or another item's end gives nothing`() {
+        val m = meas(SurveyMeas.TAPE, "F-T1", pt(800.0, 1200.0), pt(2000.0, 1200.0))
+        val scr = listOf(doubleArrayOf(100.0, 300.0), doubleArrayOf(400.0, 300.0))
+        val r = SurveyGuide.END_HIT_DP * 2.0
+        fun press(tool: String, sel: SurveyPrep.Meas? = m, area: Boolean = false, mark: Boolean = true, x: Double = 405.0, y: Double = 300.0) =
+            SurveyGuide.endPress(mark, tool, sel, area, scr, x, y, r)
+        val g = press(SurveyPrepPalette.SEL)
+        assertTrue(g is SurveyGuide.EndPress.Grab && g.i == 1, "Select grabs the nearer end")
+        val t = press(SurveyPrepPalette.TAPE)
+        assertTrue(t is SurveyGuide.EndPress.StartNew && t.i == 1 && t.mm.toList() == listOf(2000.0, 1200.0), "Tape starts at the end itself")
+        assertTrue(press(SurveyPrepPalette.LINE) is SurveyGuide.EndPress.StartNew)
+        val locked = meas(SurveyMeas.TAPE, "F-T2", pt(800.0, 1200.0), pt(2000.0, 1200.0), locked = true)
+        val l = press(SurveyPrepPalette.SEL, locked)
+        assertTrue(l is SurveyGuide.EndPress.Locked && l.code == "F-T2", "a locked end is picked and refuses")
+        assertTrue(press(SurveyPrepPalette.TAPE, locked) is SurveyGuide.EndPress.StartNew, "a new tape may start on a locked end")
+        assertNull(press(SurveyPrepPalette.LINE, area = true), "a Line area being tapped: its taps are corners")
+        assertNull(press(SurveyPrepPalette.SEL, area = true))
+        assertNull(press(SurveyPrepPalette.SEL, sel = null), "nothing selected on this face")
+        assertNull(press(SurveyPrepPalette.SEL, x = 250.0, y = 300.0), "the middle of the tape, or another item's end, is not an end")
+        assertNull(press(SurveyPrepPalette.SEL, mark = false), "1 · Lines has no ends")
+        assertNull(press("D"), "with a type on, the press places")
+    }
+
+    @Test fun `14 dp in face mm follows the zoom`() {
+        // squared picture 2 mm per px, shown at 0.5 canvas px per squared px: 4 mm per canvas px; zoomed x4: 1
+        assertEquals(4.0, SurveyGuide.mmPerCanvasPx(2.0, 0.5), 1e-12)
+        assertEquals(1.0, SurveyGuide.mmPerCanvasPx(2.0, 2.0), 1e-12)
+        // at 2.75 px per dp: 14 dp is 154 mm at fit, 38.5 mm zoomed -- never under 25
+        assertEquals(154.0, SurveyGuide.endTol(2.75, SurveyGuide.mmPerCanvasPx(2.0, 0.5)), 1e-9)
+        assertEquals(38.5, SurveyGuide.endTol(2.75, SurveyGuide.mmPerCanvasPx(2.0, 2.0)), 1e-9)
+        assertEquals(25.0, SurveyGuide.endTol(2.75, SurveyGuide.mmPerCanvasPx(2.0, 8.0)), 1e-9)
+    }
+
+    @Test fun `a new tape from an end pressed 10 dp below it and pulled level stays level at the end's height`() {
+        // Mi A3 at fit, about 9.7 mm per dp: the press lands 97 mm under F-T1's end at (2000, 1200)
+        val end = pt(2000.0, 1200.0); val down = pt(2000.0, 1103.0)
+        val d = SurveyMeas.Draft("front", SurveyMeas.TAPE, end, A, B)
+        d.move(SurveyGuide.dragFrom(end, down, pt(2400.0, 1103.0)))
+        assertEquals("h", d.snap)
+        assertEquals(listOf(2400.0, 1200.0), d.to.toList())
+        assertEquals(400.0, d.len(), 1e-9)
+        // pressed 10 dp to the RIGHT of the end: the new tape is as long as the pull, not 97 mm more
+        val e = SurveyMeas.Draft("front", SurveyMeas.TAPE, end, A, B)
+        e.move(SurveyGuide.dragFrom(end, pt(2097.0, 1200.0), pt(2497.0, 1200.0)))
+        assertEquals(400.0, e.len(), 1e-9)
+        // the finger's own position would have made it a 13.6° diagonal
+        val f = SurveyMeas.Draft("front", SurveyMeas.TAPE, end, A, B)
+        f.move(pt(2400.0, 1103.0))
+        assertEquals("d", f.snap)
+    }
+
+    @Test fun `a tap on an end handle moves nothing -- the drift inside the slop never opens the gate`() {
+        val gc = GestureClassifier(slop = 16.0, doubleDist = 48.0)
+        val gate = SurveyGuide.EndGate(16.0)
+        var moves = 0
+        fun feed(evs: List<GestureClassifier.Event>): List<GestureClassifier.Event> {
+            for (e in evs) if (e is GestureClassifier.Event.Drag && gate.move(e.dx, e.dy)) moves++
+            return evs
+        }
+        feed(gc.down(100.0, 100.0, 0)); gc.grabbed()
+        val drift = feed(gc.move(100.5, 100.0, 20))
+        assertTrue(drift.any { it is GestureClassifier.Event.Drag }, "a grab reports the half-pixel drift ...")
+        val up = feed(gc.up(100.5, 100.0, 120))
+        assertEquals(0, moves, "... and the end does not follow it")
+        assertTrue(up.single() is GestureClassifier.Event.Tap)
+        assertTrue(!SurveyGuide.revertOnTap(true, false), "nothing moved: nothing to put back")
+        assertTrue(SurveyGuide.revertOnTap(true, true)); assertTrue(!SurveyGuide.revertOnTap(false, true), "a mark keeps its move")
+        // a real drag opens the gate and it stays open, even back over the down point
+        val g2 = SurveyGuide.EndGate(16.0)
+        assertTrue(!g2.move(10.0, 0.0)); assertTrue(g2.move(20.0, 0.0)); assertTrue(g2.move(0.0, 0.0)); assertTrue(g2.live)
+    }
+
+    @Test fun `only a second finger puts a dragged end back -- a system cancel keeps it`() {
+        assertTrue(SurveyGuide.revertOnCancel(secondFinger = true, moved = true), "ct52 FX3")
+        assertTrue(!SurveyGuide.revertOnCancel(secondFinger = false, moved = true), "palm rejection keeps the drag, as sp.js pointercancel")
+        assertTrue(!SurveyGuide.revertOnCancel(secondFinger = true, moved = false), "nothing moved: nothing to put back")
+    }
 }

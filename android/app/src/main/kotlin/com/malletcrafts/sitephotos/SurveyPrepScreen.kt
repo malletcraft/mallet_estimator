@@ -339,7 +339,9 @@ internal fun SurveyPrepDialog(
         for ((k, v) in prep.actual) if (back.ownerOf(k) != null) back.actual[k] = v
         SurveyPrepEdit.keepSeq(prep, back)
         prep = back
-        rev++
+        // SAVED AGAIN (v52 slice 10 review): the 800 ms save may have written the half-dragged geometry while the press
+        // was still down; the reverted prep is marked unsaved so it is written back (one write, no undo entry)
+        changed()
     }
 
     // ---- the DISTO D2: a reading lands in the ACTIVE field, then the next unmeasured one of that mark is active
@@ -1394,8 +1396,8 @@ private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSl
                      val move: (Double, Double) -> Unit)
 
 /** A press on the selected Line's or tape's end (or an area's corner), v52 slice 10: with Select on, [grab] moves it;
- *  with Tape or Line on, a new one starts from exactly that point, [mm] on the face. */
-private class SpEnd(val grab: SpGrab, val mm: DoubleArray)
+ *  with Tape or Line on ([grab] null), a new one starts from exactly that point, [mm] on the face. */
+private class SpEnd(val grab: SpGrab?, val mm: DoubleArray)
 
 /** The magnifier(s) while dragging: picture points to centre on, and the finger, canvas px. */
 private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
@@ -1653,18 +1655,24 @@ private fun SpPhoto(
      * fixed end; a locked one is picked and does not move. Not while a Line area is being tapped (its taps are
      * corners). Null: no end under the finger.
      */
-    fun endHit(sx: Float, sy: Float): SpEnd? {
+    fun endHit(sx: Float, sy: Float, tool: String): SpEnd? {
         val r = rectS ?: return null; val sq = r.sq
-        if (!areaS.isNullOrEmpty()) return null
         val sid = selS?.takeIf { it.s == tab }?.id ?: return null
-        val m = prepS.surface(tab).meas.firstOrNull { it.id == sid && SurveyMeas.known(it.kind) } ?: return null
+        val m = prepS.surface(tab).meas.firstOrNull { it.id == sid } ?: return null
         val scr = m.pts.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }
-        val i = SurveyGuide.endAt(scr, sx.toDouble(), sy.toDouble(), SurveyGuide.END_HIT_DP * density.density) ?: return null
+        // WHAT THE PRESS IS -- grab, locked, or a new one from the end -- is decided in :pano, where it is tested
+        val ep = SurveyGuide.endPress(mode == "mark", tool, m, !areaS.isNullOrEmpty(), scr, sx.toDouble(), sy.toDouble(),
+            SurveyGuide.END_HIT_DP * density.density) ?: return null
+        val i = when (ep) {
+            is SurveyGuide.EndPress.StartNew -> return SpEnd(null, ep.mm)
+            is SurveyGuide.EndPress.Locked -> ep.i
+            is SurveyGuide.EndPress.Grab -> ep.i
+        }
         val p0 = m.pts[i].copyOf(); val px = sq.x(p0[0]); val py = sq.y(p0[1])
         val pick = SpSel(tab, id = m.id)
-        if (SurveyPrep.isLocked(m)) return SpEnd(SpGrab(px, py, pick, null, m.code, endLock = true) { _, _ -> }, p0)
-        // 14 dp in face mm at the scale the press was made at: squared px per mm over canvas px per squared px
-        val tol = SurveyGuide.endTol(density.density.toDouble(), sq.mpp / k())
+        if (ep is SurveyGuide.EndPress.Locked) return SpEnd(SpGrab(px, py, pick, null, ep.code, endLock = true) { _, _ -> }, p0)
+        // 14 dp in face mm at the scale the press was made at
+        val tol = SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(sq.mpp, k()))
         val s = tab
         val g = SpGrab(px, py, pick, null,
             focus = { m.pts.getOrNull(i)?.let { q -> doubleArrayOf(sq.x(q[0]), sq.y(q[1])) } ?: doubleArrayOf(px, py) },
@@ -1701,7 +1709,10 @@ private fun SpPhoto(
                 // Only with Select on (sp.js fTrashSurf): with a type on, the disc is not there, so a placing tap
                 // beside the mark just placed can never land on it and delete that mark
                 val tr = if (mode == "mark" && toolS == SurveyPrepPalette.SEL) trashAt[0] else null
-                if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2]) {
+                // ... except over the selected item's end handle: the handle is the end's, never the disc's (v52 slice
+                // 10 review: a clamped disc could sit on a handle and delete the tape the press meant to stretch)
+                if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2] &&
+                    endHit(first.position.x, first.position.y, SurveyPrepPalette.SEL) == null) {
                     gc.reset()
                     var at = first.position
                     do {
@@ -1751,6 +1762,10 @@ private fun SpPhoto(
                 // very point (tapes laid end to end, ct52 FX13); with Select on, the press grabbed an end
                 var startAt: DoubleArray? = null
                 var endGrabbed = false
+                // v52 slice 10 review: an end moves only once the finger has left the touch slop (4 dp at least), so a
+                // press that lifts as a tap never moved it; and a cancel puts it back only for a second finger
+                val endGate = SurveyGuide.EndGate(max(SurveyGuide.END_DEAD_DP.dp.toPx().toDouble(), viewConfiguration.touchSlop.toDouble()))
+                var secondFinger = false
 
                 fun tapAt(x: Double, y: Double) {
                     if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat(), tool0)
@@ -1771,9 +1786,10 @@ private fun SpPhoto(
                         is GestureClassifier.Event.Down -> {
                             // FIRST, THE SELECTED ITEM'S ENDS (v52 slice 10, sp.js hit): with Select on the press grabs
                             // the end; with Tape or Line on it starts a NEW one there -- it never stretches the old one
-                            val eh = if (mode == "mark" && (tool0 == SurveyPrepPalette.SEL || measOn)) endHit(e.x.toFloat(), e.y.toFloat()) else null
-                            if (eh != null && measOn) startAt = eh.mm
-                            else if (eh != null) { grab = eh.grab; endGrabbed = true; onGrabS(eh.grab.sel); gc.grabbed() }
+                            val eh = endHit(e.x.toFloat(), e.y.toFloat(), tool0)
+                            val eg = eh?.grab
+                            if (eh != null && eg == null) startAt = eh.mm
+                            else if (eg != null) { grab = eg; endGrabbed = true; onGrabS(eg.sel); gc.grabbed() }
                             else if (!measOn) {
                                 val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
                                         else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
@@ -1798,8 +1814,17 @@ private fun SpPhoto(
                             }
                             val d = draft
                             if (d != null) {
-                                mmAt(e.x.toFloat(), e.y.toFloat())?.let { d.move(it) }
-                                loupe = SpLoupe(listOf(fromS(e.x.toFloat(), e.y.toFloat())), Offset(e.x.toFloat(), e.y.toFloat()))
+                                // FROM A SELECTED END (review): the end plus the finger's movement (SurveyGuide.dragFrom),
+                                // so the finger's miss of the end never reaches the new one; else the finger itself
+                                val fin = mmAt(e.x.toFloat(), e.y.toFloat())
+                                val st = startAt
+                                val dn = if (st != null) mmAt((e.x - e.dx).toFloat(), (e.y - e.dy).toFloat()) else null
+                                val p = if (st != null && dn != null && fin != null) SurveyGuide.dragFrom(st, dn, fin) else fin
+                                p?.let { d.move(it) }
+                                val rq = rectS
+                                val look = if (st != null && p != null && rq != null) doubleArrayOf(rq.sq.x(p[0]), rq.sq.y(p[1]))
+                                           else fromS(e.x.toFloat(), e.y.toFloat())
+                                loupe = SpLoupe(listOf(look), Offset(e.x.toFloat(), e.y.toFloat()))
                                 onDragMoveS()
                             }
                         } else {
@@ -1818,13 +1843,17 @@ private fun SpPhoto(
                                     if (g.endLock) onSayS(SurveyGuide.lockedEnd(g.locked)) else onRefuseS(g.locked)
                                 }
                             } else if (g != null) {
-                                if (!snapped) { onBeforeChangeS(); snapped = true }
-                                val kk = k()
-                                val ix = (g.x0 + e.dx / kk).coerceIn(0.0, iw)
-                                val iy = (g.y0 + e.dy / kk).coerceIn(0.0, ih)
-                                g.move(ix, iy); moved = true
-                                loupe = loupeFor(g, ix, iy, Offset(e.x.toFloat(), e.y.toFloat()))
-                                onMovedS()
+                                // an END stays put (no move, no undo step) until the finger leaves the touch slop: a tap on its
+                                // handle must not snap it onto an edge (review); a mark follows from the first pixel
+                                if (!endGrabbed || endGate.move(e.dx, e.dy)) {
+                                    if (!snapped) { onBeforeChangeS(); snapped = true }
+                                    val kk = k()
+                                    val ix = (g.x0 + e.dx / kk).coerceIn(0.0, iw)
+                                    val iy = (g.y0 + e.dy / kk).coerceIn(0.0, ih)
+                                    g.move(ix, iy); moved = true
+                                    loupe = loupeFor(g, ix, iy, Offset(e.x.toFloat(), e.y.toFloat()))
+                                    onMovedS()
+                                }
                             } else if (z > 1.001) {
                                 cx = slideCx - e.dx / k(); cy = slideCy - e.dy / k(); clampView()
                                 tick++
@@ -1833,9 +1862,16 @@ private fun SpPhoto(
                         // A TAP: with Select on, the press already picked what was under it; with a type on and
                         // nothing under it, the type goes where the finger went down. A double tap acts as a tap
                         // here: the Line's area and the Chain give it a meaning of its own (slices 9 and 11).
-                        is GestureClassifier.Event.Tap -> if (measOn) measTap(e.x, e.y, false) else tapAt(e.x, e.y)
+                        // An end that moved and still lifted as a tap is put back, with its undo step (review).
+                        is GestureClassifier.Event.Tap -> {
+                            if (SurveyGuide.revertOnTap(endGrabbed, moved)) { onRevertS(); moved = false; snapped = false }
+                            if (measOn) measTap(e.x, e.y, false) else tapAt(e.x, e.y)
+                        }
                         // a double tap closes a Line area of three corners or more (v52 slice 9)
-                        is GestureClassifier.Event.DoubleTap -> if (measOn) measTap(e.x, e.y, true) else tapAt(e.x, e.y)
+                        is GestureClassifier.Event.DoubleTap -> {
+                            if (SurveyGuide.revertOnTap(endGrabbed, moved)) { onRevertS(); moved = false; snapped = false }
+                            if (measOn) measTap(e.x, e.y, true) else tapAt(e.x, e.y)
+                        }
                         // A LONG PRESS WITH A TYPE ON IS A SLOW TAP: sp.js places on the press however long it is held
                         // (its long-press timer is armed for Select only, sp.js 929 / 1177), so the type goes where
                         // the finger went down and a slide after it carries the mark. With Select on it opens the
@@ -1863,59 +1899,67 @@ private fun SpPhoto(
                             if (draft != null) { draft = null; onDragCancelS() }
                             // AN END BEING DRAGGED GOES BACK (v52 slice 10, ct52 FX3: "a second finger puts the end
                             // back"): the drag's own undo step is taken back off with its geometry, so the end is where
-                            // it was and there is no undo entry; its guide goes off
+                            // it was and there is no undo entry; its guide goes off. A SYSTEM cancel (palm rejection)
+                            // keeps the end where it was dragged, as a lift does (sp.js pointercancel -> up; review)
                             g?.cancel?.let { c ->
-                                if (moved) { onRevertS(); moved = false; snapped = false }
+                                if (SurveyGuide.revertOnCancel(secondFinger, moved)) { onRevertS(); moved = false; snapped = false }
                                 c()
                             }
                         }
                     }
                 }
 
-                act(gc.down(first.position.x.toDouble(), first.position.y.toDouble(), first.uptimeMillis))
-                while (true) {
-                    // the long press needs the clock: wait for the next event no longer than its deadline
-                    val dl = gc.deadline()
-                    val ev = if (dl == null) awaitPointerEvent()
-                             else withTimeoutOrNull(max(1L, dl - SystemClock.uptimeMillis())) { awaitPointerEvent() }
-                    if (ev == null) { act(gc.timeout(dl!!)); continue }
-                    val t = ev.changes.maxOf { it.uptimeMillis }
-                    val down = ev.changes.filter { it.pressed }
-                    if (down.size >= 2) {
-                        act(gc.move(down[0].position.x.toDouble(), down[0].position.y.toDouble(), t, down.size))
-                        // PINCH AND PAN, as before: zoom about where the fingers started, follow their midpoint
-                        val a = down[0].position; val b = down[1].position
-                        val d = hypot(a.x - b.x, a.y - b.y).coerceAtLeast(1f); val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
-                        if (!pinch) { pinch = true; grab = null; loupe = null; lastPinch = d; lastMid = mid }
-                        else {
-                            zoomAt(z * d / lastPinch, lastMid.x, lastMid.y)
-                            cx -= (mid.x - lastMid.x) / k(); cy -= (mid.y - lastMid.y) / k(); clampView()
-                            lastPinch = d; lastMid = mid
+                // THE CLEAN-UP RUNS HOWEVER THE GESTURE ENDS (review): a pointerInput restarted by a step, mode or face
+                // change mid-drag cancels this coroutine, and without the finally the end's guide stayed on and the
+                // moved end was never saved
+                try {
+                    act(gc.down(first.position.x.toDouble(), first.position.y.toDouble(), first.uptimeMillis))
+                    while (true) {
+                        // the long press needs the clock: wait for the next event no longer than its deadline
+                        val dl = gc.deadline()
+                        val ev = if (dl == null) awaitPointerEvent()
+                                 else withTimeoutOrNull(max(1L, dl - SystemClock.uptimeMillis())) { awaitPointerEvent() }
+                        if (ev == null) { act(gc.timeout(dl!!)); continue }
+                        val t = ev.changes.maxOf { it.uptimeMillis }
+                        val down = ev.changes.filter { it.pressed }
+                        if (down.size >= 2) {
+                            secondFinger = true
+                            act(gc.move(down[0].position.x.toDouble(), down[0].position.y.toDouble(), t, down.size))
+                            // PINCH AND PAN, as before: zoom about where the fingers started, follow their midpoint
+                            val a = down[0].position; val b = down[1].position
+                            val d = hypot(a.x - b.x, a.y - b.y).coerceAtLeast(1f); val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
+                            if (!pinch) { pinch = true; grab = null; loupe = null; lastPinch = d; lastMid = mid }
+                            else {
+                                zoomAt(z * d / lastPinch, lastMid.x, lastMid.y)
+                                cx -= (mid.x - lastMid.x) / k(); cy -= (mid.y - lastMid.y) / k(); clampView()
+                                lastPinch = d; lastMid = mid
+                            }
+                            tick++
+                            ev.changes.forEach { it.consume() }
+                        } else if (down.size == 1) {
+                            val ch = down[0]; ch.consume()
+                            act(gc.move(ch.position.x.toDouble(), ch.position.y.toDouble(), t, 1))
+                        } else {
+                            // A SYSTEM CANCEL IS NOT A LIFT: Compose delivers ACTION_CANCEL (palm rejection, a system
+                            // gesture, the window losing touch) as every pointer up AND already consumed -- the test its
+                            // own waitForUpOrCancellation uses. Fed to up() it would be a Tap and place a mark.
+                            val cancelled = ev.changes.all { it.isConsumed }
+                            ev.changes.forEach { it.consume() }
+                            val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
+                            act(if (cancelled) gc.cancel() else gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
+                            break
                         }
-                        tick++
-                        ev.changes.forEach { it.consume() }
-                    } else if (down.size == 1) {
-                        val ch = down[0]; ch.consume()
-                        act(gc.move(ch.position.x.toDouble(), ch.position.y.toDouble(), t, 1))
-                    } else {
-                        // A SYSTEM CANCEL IS NOT A LIFT: Compose delivers ACTION_CANCEL (palm rejection, a system
-                        // gesture, the window losing touch) as every pointer up AND already consumed -- the test its
-                        // own waitForUpOrCancellation uses. Fed to up() it would be a Tap and place a mark.
-                        val cancelled = ev.changes.all { it.isConsumed }
-                        ev.changes.forEach { it.consume() }
-                        val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
-                        act(if (cancelled) gc.cancel() else gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
-                        break
                     }
+                    // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
+                    if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
+                } finally {
+                    // a drag the loop left (the gesture ended any other way): nothing plotted
+                    if (draft != null) { draft = null; onDragCancelS() }
+                    // an end let go (or cancelled, or its long press opened the menu): its guide fades out
+                    if (endGrabbed) onEndGuideS(null)
+                    loupe = null
+                    if (moved) onChangedS() else tick++
                 }
-                // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
-                if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
-                // a drag the loop left (the gesture ended any other way): nothing plotted
-                if (draft != null) { draft = null; onDragCancelS() }
-                // an end let go (or cancelled, or its long press opened the menu): its guide fades out
-                if (endGrabbed) onEndGuideS(null)
-                loupe = null
-                if (moved) onChangedS() else tick++
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
@@ -1970,7 +2014,10 @@ private fun SpPhoto(
                         SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
                     else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
                         SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
-                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble())?.let { ts ->
+                    // the selected Tape's, Line's or area's end handles: the disc keeps off them (v52 slice 10 review)
+                    val handles = pickedM?.pts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }.orEmpty()
+                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
+                        handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)?.let { ts ->
                         val rad = 18f * dpx; val tx = ts.left.toFloat() + rad; val ty = ts.top.toFloat() + rad
                         val pt = Paint(Paint.ANTI_ALIAS_FLAG)
                         pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tx, ty, rad, pt)

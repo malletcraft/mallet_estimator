@@ -67,4 +67,23 @@ class TrashSpotTest {
         val s = SurveyPrepTouch.trashSpot(bb, tags, w, h, dp)!!
         assertTrue(tags.none { covers(s, it) }, dpOf(s).toString())
     }
+
+    @Test fun `the disc keeps off the selected tape's end handles, even where the top-right clamp pushes it`() {
+        // a tape along the ceiling line, its right end at (w - 80 dp, 30 dp): the above-right candidate is clamped to
+        // the top and pushed left of the fit column, onto the handle
+        val l = 340.0 - 300.0; val r = 340.0 - 80.0
+        val ends = listOf(doubleArrayOf(l * dp, 30 * dp), doubleArrayOf(r * dp, 30 * dp))
+        val bb = box(l, 30.0, r, 30.0)
+        fun gap(s: SurveyPrepTouch.Spot) = ends.minOf { p -> kotlin.math.hypot(s.left + 18 * dp - p[0], s.top + 18 * dp - p[1]) } / dp - 18
+        val old = SurveyPrepTouch.trashSpot(bb, emptyList(), w, h, dp)!!
+        assertTrue(gap(old) < 0, "without the handles the disc sits over one: ${gap(old)} dp")
+        val keepR = SurveyGuide.HANDLE_CLEAR_DP * dp
+        val s = SurveyPrepTouch.trashSpot(bb, emptyList(), w, h, dp, ends, keepR)!!
+        assertTrue(gap(s) >= SurveyGuide.HANDLE_CLEAR_DP, "${dpOf(s)} is ${gap(s)} dp off the nearer handle")
+        // in the open, the handles do not move it from where the prototype puts it
+        val mid = box(100.0, 150.0, 140.0, 150.0)
+        val open = SurveyPrepTouch.trashSpot(mid, emptyList(), w, h, dp, listOf(doubleArrayOf(100 * dp, 150 * dp), doubleArrayOf(140 * dp, 150 * dp)), keepR)!!
+        assertEquals(dpOf(SurveyPrepTouch.trashSpot(mid, emptyList(), w, h, dp)!!), dpOf(open))
+        assertEquals("above-right", open.how)
+    }
 }
