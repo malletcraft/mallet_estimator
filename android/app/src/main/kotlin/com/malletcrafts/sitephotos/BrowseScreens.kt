@@ -1,5 +1,6 @@
 package com.malletcrafts.sitephotos
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,12 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.sitephotos.pano.QuoteStage
 import com.malletcrafts.sitephotos.pano.RoomToken
 
 /**
@@ -267,6 +273,9 @@ fun RoomsScreen(
     lastPano: (String) -> String?,
     onOpen: (String) -> Unit,
     onStage: () -> Unit,
+    /** S5's QUOTE stage for this project, as QuoteStageSync last read it (v52 item 16):
+     *  drawn under the work stage, read-only. MainActivity always passes one. */
+    quote: QuoteStage.Line?,
     /** The project sheet (job type, status, ERP id, phase). The dates chip is
      *  the only way into it, so that chip is drawn on every project. */
     onDetail: () -> Unit,
@@ -292,6 +301,7 @@ fun RoomsScreen(
 
     Column(Modifier.fillMaxSize()) {
         StageBar(project, pending, onStage)
+        quote?.let { QuoteLine(it) }
         // The facts about this job, each a tap to the thing behind it. The
         // dates chip is not decoration: "is this job even running this week"
         // is asked more often on site than anything else on the screen.
@@ -387,6 +397,89 @@ private fun StageBar(project: Catalogue.Project, pending: Int, onClick: () -> Un
                     else "every photographed room is current",
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+/**
+ * THE QUOTE STAGE under the work stage (v52 item 16; Amit, 14 Oct 2026, 06:53 IST: "survey,
+ * client wish list, vendor quoted, client approved, estimated"). The COMMERCIAL state of the
+ * job, which staff move on S5 QUOTE; the phone only shows it, so there is no tap. Outlined,
+ * not filled -- a surface with a teal bar on the left -- so it never reads as the tappable
+ * PROJECT IS AT card above it. Sizes are the prototype's (.qst, wish.css): padding 7/16/8/13
+ * after a 3 dp bar, the title at 14/20 sp medium with .4 sp tracking in #0F5E57, five 12 x 4 dp
+ * pips 3 dp apart, the second line at 12/16 sp: 7 + 20 + 16 + 8 = 51 dp in portrait. In
+ * landscape it is one row, 5 + 20 + 5 = 30 dp, with the second line beside the pips.
+ */
+@Composable
+private fun QuoteLine(line: QuoteStage.Line) {
+    val teal = Color(0xFF0F766E)
+    val ink = Color(0xFF0F5E57)
+    val rule = MaterialTheme.colorScheme.outlineVariant
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val titleStyle = MaterialTheme.typography.titleSmall.copy(
+        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.4.sp, fontWeight = FontWeight.Medium)
+    val secondStyle = MaterialTheme.typography.bodySmall.copy(
+        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp, fontWeight = FontWeight.Normal)
+    val secondColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val frame = Modifier
+        .fillMaxWidth()
+        .background(MaterialTheme.colorScheme.surface)
+        .drawBehind {
+            drawRect(teal, size = Size(3.dp.toPx(), size.height))
+            val y = size.height - 0.5.dp.toPx()
+            drawLine(rule, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+        }
+    if (landscape) {
+        Row(
+            frame.padding(start = 16.dp, top = 5.dp, end = 16.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(line.title, style = titleStyle, color = ink, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                QuotePips(line.lit, teal)
+            }
+            Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+        }
+    } else {
+        Column(frame.padding(start = 16.dp, top = 7.dp, end = 16.dp, bottom = 8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(line.title, style = titleStyle, color = ink, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                QuotePips(line.lit, teal)
+            }
+            // One line, so the block stays within 52 dp whatever it says.
+            Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** The five quote stages as 12 x 4 dp steps, lit up to and including the current one. */
+@Composable
+private fun QuotePips(lit: Int, on: Color) {
+    val off = MaterialTheme.colorScheme.outlineVariant
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        for (i in QuoteStage.STAGES.indices) {
+            Box(
+                Modifier
+                    .size(width = 12.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (i < lit) on else off))
         }
     }
 }

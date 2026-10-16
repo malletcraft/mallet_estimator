@@ -984,6 +984,19 @@ private fun AppScreen() {
         val site = navSite
         val scopeDrawer = rememberCoroutineScope()
 
+        // S5's QUOTE stage (v52 item 16), read on opening a project: ONE GET of the caller's
+        // list, cached for every project this phone knows, and the line drawn from that cache.
+        // A project only on this phone never asks S5. A failed read changes nothing -- the
+        // cached copy stays and QuoteStageSync logs it once; SyncWorker reads it again too.
+        var quoteTick by remember { mutableStateOf(0) }
+        LaunchedEffect(proj?.serverId) {
+            val id = proj?.serverId
+            if (id.isNullOrBlank()) return@LaunchedEffect
+            val known = cs.projects.map { it.serverId } + id
+            val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
+            if (read) quoteTick += 1
+        }
+
         // Descending through a single child is a level nobody chose from, so
         // it is filled in rather than presented — and Back skips it again on
         // the way out, or the two directions disagree.
@@ -1155,6 +1168,11 @@ private fun AppScreen() {
                             },
                             onOpen = { navRoom = it },
                             onStage = { showStagePicker = true },
+                            // Re-read from the cache after this screen's own read
+                            // (quoteTick) and after every sync (dataTick).
+                            quote = remember(proj.serverId, dataTick, quoteTick) {
+                                QuoteStageSync.lineFor(context, proj)
+                            },
                             onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(
                             onRename = { p -> renaming = RenameTarget(

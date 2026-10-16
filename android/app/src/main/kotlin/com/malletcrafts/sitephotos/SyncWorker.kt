@@ -248,6 +248,15 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             cat.pruneLocalsCoveredBy(store.masters())
         }
 
+        // S5's QUOTE stage for every ERP project this phone knows (v52 item 16): ONE read of
+        // the caller's list, after the captures are up and the masters fresh, so a project
+        // created in this run is asked about too. Read-only, and NEVER counted in `failures`:
+        // QuoteStageSync swallows every refusal, 5xx and IO error with one Log.w, so S5 being
+        // unreachable can never turn this sync into a retry that backs off the captures.
+        val known = runCatching { cat.projects(store.masters()).map { it.serverId } }
+            .getOrDefault(emptyList())
+        QuoteStageSync.refresh(applicationContext, known)
+
         // Update check rides the sync too: when the server holds a newer
         // camera build, remember it so the screen can offer the install.
         runCatching {
