@@ -1039,7 +1039,7 @@ internal fun SurveyPrepDialog(
                     val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                     hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
                     ctx = null; armedClear = null; menuOpen = false; hideSnack()
-                    prep = r.prep; say(SurveyPrepEdit.startedOver(r.kept)); changed()
+                    prep = r.prep; SurveyPrepEdit.startedOver(r.kept)?.let { say(it) }; changed()
                 }
             }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
             Text(if (armed) SurveyPrepEdit.START_OVER_ARMED else SurveyPrepEdit.START_OVER,
