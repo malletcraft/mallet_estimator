@@ -2,6 +2,7 @@ package com.malletcrafts.sitephotos
 
 import android.graphics.Bitmap
 import android.graphics.Paint
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -96,10 +97,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.malletcrafts.sitephotos.pano.GestureClassifier
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import com.malletcrafts.sitephotos.pano.SurveyPrepFile
+import com.malletcrafts.sitephotos.pano.SurveyPrepPalette
 import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -125,7 +128,9 @@ import kotlin.math.roundToInt
  *    buttons under the photo (1 or 5 mm, 0.1 degree). No numbers on lines.
  *  - 2 · Mark: the surface squared to the laser size; boxes for what is on
  *    it, each with its checklist of measurements, the photo's estimate, and
- *    the site reading from the DISTO D2 or typed.
+ *    the site reading from the DISTO D2 or typed. The palette under the
+ *    photo (v52 slice 7): Select, three types, More ▸; a type stays on and
+ *    every tap on empty photo places one where the finger is.
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
  *  - The faces are tabs and the steps a strip under them; the photo takes
@@ -187,6 +192,10 @@ internal fun SurveyPrepDialog(
     var armedDiscard by remember { mutableStateOf(false) }
     // ⋮ (v52 slice 6): the status, the laser sizes, the web lines, Start over and Discard
     var menuOpen by remember { mutableStateOf(false) }
+    // THE PALETTE (v52 slice 7): the tool on in 2 · Mark -- Select, or a type's letter, STICKY until another is
+    // picked or the one on is tapped again -- and whether the More sheet is open
+    var tool by remember { mutableStateOf(SurveyPrepPalette.SEL) }
+    var moreOpen by remember { mutableStateOf(false) }
     val views = remember { mutableStateMapOf<String, Bitmap>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     LaunchedEffect(note) { if (note != null) { delay(2600); note = null } }
@@ -376,11 +385,27 @@ internal fun SurveyPrepDialog(
         if (fresh) prep.markById(g.id!!)?.let { (s, e) -> active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) } }
         rev++
     }
-    fun addMark(t: String) {
-        val s = tab; val a = ab(s); snapshot()
-        val e = prep.addMark(s, t, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
+    /**
+     * A TAP WITH A TYPE ON PLACES IT WHERE THE FINGER IS (v52 slice 7; Amit, 11 Oct 2026 20:35: "electric points
+     * are spots . dont let them resize. have its da 50 mm." -- a spot centred where he taps): the type's default
+     * size centred on ([mx], [my]) mm and kept inside the face (SurveyPrep.placeAt), the new mark selected with its
+     * first measurement active, one undo step. Off the face it says "Tap inside the front wall to place it" and
+     * places nothing. The tool stays on: the next tap places another.
+     */
+    fun placeMark(mx: Double, my: Double): SurveyPrep.Mark? {
+        val s = tab; val t = tool; val a = ab(s)
+        if (mode != "mark" || SurveyPrep.types(s).none { it.letter == t }) return null
+        if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { note = SurveyPrep.placeMiss(s); return null }
+        snapshot()
+        val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
         changed()
+        return e
+    }
+    /** A palette slot (or a More tile, or ✕ on the chip): that tool on, or Select when it was already on. */
+    fun pickTool(t: String) {
+        tool = SurveyPrepPalette.next(tool, t); moreOpen = false
+        if (t != SurveyPrepPalette.SEL) note = null
     }
     fun deleteMark(mid: String) {
         val mo = prep.markById(mid) ?: return
@@ -409,10 +434,11 @@ internal fun SurveyPrepDialog(
         sf.set[slot] = true
         changed()
     }
-    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; rev++ }
+    // a face or a step changed: back to Select, the More sheet shut (sp.js showTab / setMode)
+    fun showTab(t: String) { tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { note = "These four lines do not make a closed shape yet"; return }
-        mode = m; sel = null; rev++
+        mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; rev++
     }
 
     fun openLwh() {
@@ -658,7 +684,10 @@ internal fun SurveyPrepDialog(
                     onChanged = { changed() },
                     onDelete = { deleteMark(it) },
                     stepAt = { x, y -> routeS(x, y) },
-                    onStep = { k -> goStepS(k) })
+                    onStep = { k -> goStepS(k) },
+                    tool = tool,
+                    onPlace = { mx, my -> placeMark(mx, my) },
+                    onTool = { t -> pickTool(t) })
             }
             note?.let { SpNote(it, Modifier.align(Alignment.BottomCenter).padding(8.dp)) }
         }
@@ -747,7 +776,7 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the mark types
+    // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the palette
     val markPanel: @Composable () -> Unit = {
         rev    // read: a mark's edge dragged moves its live ≈ value while the finger is down
         val sm = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
@@ -787,7 +816,9 @@ internal fun SurveyPrepDialog(
                 SpD2(Modifier) { fire() }
             }
         }
-        SpMarkToolbar(SurveyPrep.types(tab)) { addMark(it) }
+        // THE PALETTE (v52 slice 7) in place of the old toolbar: 6 + 50 dp (6 + 46 in landscape), where SpMarkToolbar
+        // took 48 + 5 -- the photo gives up 3 dp in portrait and gains 1 in landscape
+        SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })
     }
 
     // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
@@ -845,7 +876,7 @@ internal fun SurveyPrepDialog(
             .clickable {
                 if (!armed) armed = true
                 else {
-                    armed = false; hist.clear(); sel = null; active = null
+                    armed = false; hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
                     prep = SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2]); changed()
                 }
             }.padding(9.dp), contentAlignment = Alignment.Center) {
@@ -893,6 +924,7 @@ internal fun SurveyPrepDialog(
     Dialog(onDismissRequest = {
             if (lwhOpen) lwhOpen = false
             else if (menuOpen) menuOpen = false
+            else if (moreOpen) moreOpen = false
             else onCancel(prep.copy(), roomSize.copyOf())
         },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
@@ -949,6 +981,13 @@ internal fun SurveyPrepDialog(
                         }
                     }
                 }
+            }
+            // ---- MORE ▸ (v52 slice 7): "Every mark type · <Face>" over the bottom of the screen -- the whole width in
+            // portrait, 340 dp at the right in landscape (v42.css .moresheet); a pick or ✕ closes it
+            if (moreOpen && face && mode == "mark") {
+                SpMoreSheet(tab, tool,
+                    if (land) Modifier.align(Alignment.BottomEnd).width(340.dp) else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                    onPick = { t -> pickTool(t) }, onClose = { moreOpen = false })
             }
             // ---- ⋮: a tap anywhere outside the menu closes it; one on ← or ✓ Save then goes on to Back or Save
             // (sp.js 1559: `if(!ev.target.closest('#save,#spBack')) return;`), anything else does nothing more
@@ -1046,7 +1085,8 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  * The editing photo: one zoomable picture with the lines (1) or the marks
  * (2) over it. Pinch to zoom, one finger off anything slides when zoomed,
  * "fit" resets; a magnifier follows a drag, and two watch the corners while
- * a line swings.
+ * a line swings. In 2 · Mark a tap with Select picks, a tap with a type on
+ * places one where the finger is, and the tool's chip sits top-left (v52 slice 7).
  */
 @Composable
 private fun SpPhoto(
@@ -1066,6 +1106,12 @@ private fun SpPhoto(
     stepAt: (Float, Float) -> String?,
     /** A press routed to a step: open it. */
     onStep: (String) -> Unit,
+    /** The palette's tool (v52 slice 7): SurveyPrepPalette.SEL, or the letter of the type a tap places. */
+    tool: String,
+    /** Place the tool's type centred at (x, y) mm on this face: the new mark, or null when refused (off the face). */
+    onPlace: (Double, Double) -> SurveyPrep.Mark?,
+    /** ✕ on the tool chip: a tool picked (SurveyPrepPalette.SEL). */
+    onTool: (String) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1077,6 +1123,7 @@ private fun SpPhoto(
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
     val onChangedS by rememberUpdatedState(onChanged); val onDeleteS by rememberUpdatedState(onDelete)
     val stepAtS by rememberUpdatedState(stepAt); val onStepS by rememberUpdatedState(onStep)
+    val toolS by rememberUpdatedState(tool); val onPlaceS by rememberUpdatedState(onPlace)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -1091,6 +1138,9 @@ private fun SpPhoto(
     // Where the photo and the fit button sit on screen, for keeping the magnifier off the button (v52 item 15)
     var photoAt by remember { mutableStateOf(Offset.Zero) }
     var fitAt by remember { mutableStateOf<Rect?>(null) }
+    // ... and off the tool chip (v52 slice 7, ct52 FX14): read only while a chip is shown
+    var chipAt by remember { mutableStateOf<Rect?>(null) }
+    val chipText = if (mode == "mark") SurveyPrepPalette.chipText(tab, tool) else null
 
     // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
     // for marking"): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left).
@@ -1137,7 +1187,7 @@ private fun SpPhoto(
      * FREELY, THEN SET ITS BOUNDARIES: anywhere on a mark moves it, only the picked mark's tabs resize.
      * The order itself is SurveyPrepTouch.hit, tested in :pano; this only measures and acts.
      */
-    fun hitMarks(sx: Float, sy: Float): SpGrab? {
+    fun hitMarks(sx: Float, sy: Float, tagged: () -> Unit = {}): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         val els = prepS.surface(tab).marks
         // a point (v52) is a spot: its 25 mm on screen goes with it, so it is grabbed round its centre and never resized
@@ -1151,6 +1201,7 @@ private fun SpPhoto(
             null -> null
             is SurveyPrepTouch.Hit.Tag -> {
                 prepS.markOf(h.code)?.let { (s, e) -> onSelectS(s, e, h.code) }
+                tagged()
                 null
             }
             is SurveyPrepTouch.Hit.Mark -> {
@@ -1167,6 +1218,22 @@ private fun SpPhoto(
         }
     }
 
+    /**
+     * A type placed under the finger at ([sx], [sy]) canvas px, and a grab that moves the new mark whole -- a drag
+     * that starts on empty photo with a type on places it where the finger went down and carries it (sp.js
+     * placeAt, called on the press). Null when refused (off the face: the note says so) or without a squared face.
+     */
+    fun placeGrab(sx: Float, sy: Float): SpGrab? {
+        val r = rectS ?: return null; val sq = r.sq; val ab = abS
+        val at = fromS(sx, sy); val mx = sq.mmX(at[0]); val my = sq.mmY(at[1])
+        val e = onPlaceS(mx, my) ?: return null
+        val start = e.copy()
+        return SpGrab(at[0], at[1], SpSel(tab, id = e.id), null) { jx, jy ->
+            SurveyPrep.moveMark(e, start, "body", sq.mmX(jx) - mx, sq.mmY(jy) - my, ab[0], ab[1])
+            SurveyPrep.snapMark(e, "body", ab[0], ab[1])
+        }
+    }
+
     fun loupeFor(g: SpGrab, ix: Double, iy: Double, finger: Offset): SpLoupe {
         val j = g.focusSlot?.let { SurveyPrep.junctions(tab, prepS.surface(tab).lines, it) }
         return SpLoupe(j ?: listOf(doubleArrayOf(ix, iy)), finger)
@@ -1176,12 +1243,18 @@ private fun SpPhoto(
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
         .pointerInput(img, tab, mode, rect) {
+            // THE ONE GESTURE LOOP (v52 slice 7). What a finger is doing -- press, drag, tap, long press, double tap,
+            // or cancelled by a second finger -- is decided by GestureClassifier in :pano, where it is tested; this
+            // only feeds it what the system reports (and the clock, for the long press) and acts on its answers.
+            // It outlives gestures, so a double tap is seen across two of them.
+            val gc = GestureClassifier(viewConfiguration.touchSlop.toDouble(), GestureClassifier.DOUBLE_TAP_DP.dp.toPx().toDouble())
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
                 // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there
                 val tr = if (mode == "mark") trashAt[0] else null
                 if (tr != null && hypot(first.position.x - tr[0], first.position.y - tr[1]) <= tr[2]) {
+                    gc.reset()
                     var at = first.position
                     do {
                         val ev = awaitPointerEvent()
@@ -1197,6 +1270,7 @@ private fun SpPhoto(
                 // photo's again. The trash above and the fit button (its own tap) keep theirs.
                 val routed = stepAtS(first.position.x + photoAt.x, first.position.y + photoAt.y)
                 if (routed != null) {
+                    gc.reset()
                     do {
                         val ev = awaitPointerEvent()
                         ev.changes.forEach { it.consume() }
@@ -1205,14 +1279,71 @@ private fun SpPhoto(
                     return@awaitEachGesture
                 }
                 var grab: SpGrab? = null; var pinch = false; var moved = false; var snapped = false
-                val h = if (mode == "lines") hitLines(first.position.x, first.position.y) else hitMarks(first.position.x, first.position.y)
-                if (h != null) { grab = h; onGrabS(h.sel) }
-                var lastPinch = 0f; var lastMid = Offset.Zero; val sx0 = first.position.x; val sy0 = first.position.y
+                // the press picked a number tag (its measure is now the one being taken): no tap places under it
+                var tagged = false
+                var lastPinch = 0f; var lastMid = Offset.Zero
                 val slideCx = cx; val slideCy = cy
-                do {
-                    val ev = awaitPointerEvent()
+                // the tool as the press began: a tap places the type that was on when the finger went down
+                val tool0 = toolS
+                val placing = mode == "mark" && tool0 != SurveyPrepPalette.SEL
+
+                fun tapAt(x: Double, y: Double) {
+                    if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat())
+                }
+                fun act(evs: List<GestureClassifier.Event>) {
+                    for (e in evs) when (e) {
+                        // the press: what is under it is picked now, as sp.js picks on pointerdown
+                        is GestureClassifier.Event.Down -> {
+                            val h = if (mode == "lines") hitLines(e.x.toFloat(), e.y.toFloat())
+                                    else hitMarks(e.x.toFloat(), e.y.toFloat()) { tagged = true }
+                            if (h != null) { grab = h; onGrabS(h.sel) }
+                        }
+                        is GestureClassifier.Event.Drag -> {
+                            // a drag from empty photo with a type on: placed where the finger went down, then carried
+                            if (e.first && grab == null && placing && !tagged) {
+                                val sx0 = (e.x - e.dx).toFloat(); val sy0 = (e.y - e.dy).toFloat()
+                                placeGrab(sx0, sy0)?.let { grab = it; snapped = true }   // placing was its one undo step
+                            }
+                            val g = grab
+                            if (g != null) {
+                                if (!snapped) { onBeforeChangeS(); snapped = true }
+                                val kk = k()
+                                val ix = (g.x0 + e.dx / kk).coerceIn(0.0, iw)
+                                val iy = (g.y0 + e.dy / kk).coerceIn(0.0, ih)
+                                g.move(ix, iy); moved = true
+                                loupe = loupeFor(g, ix, iy, Offset(e.x.toFloat(), e.y.toFloat()))
+                                onMovedS()
+                            } else if (z > 1.001) {
+                                cx = slideCx - e.dx / k(); cy = slideCy - e.dy / k(); clampView()
+                                tick++
+                            }
+                        }
+                        // A TAP: with Select on, the press already picked what was under it; with a type on and
+                        // nothing under it, the type goes where the finger went down. A double tap acts as a tap
+                        // here: the Line's area and the Chain give it a meaning of its own (slices 9 and 11).
+                        is GestureClassifier.Event.Tap -> tapAt(e.x, e.y)
+                        is GestureClassifier.Event.DoubleTap -> tapAt(e.x, e.y)
+                        // A LONG PRESS is classified and left alone: it opens the mark's menu in slice 8 (sp.js
+                        // openCtx). Until then a finger that moves on after it still drags.
+                        is GestureClassifier.Event.LongPress -> Unit
+                        is GestureClassifier.Event.DragEnd -> Unit
+                        // a second finger: the pinch takes over, and the grab lets go (what it moved stays)
+                        is GestureClassifier.Event.Cancel -> { grab = null; loupe = null }
+                    }
+                }
+
+                act(gc.down(first.position.x.toDouble(), first.position.y.toDouble(), first.uptimeMillis))
+                while (true) {
+                    // the long press needs the clock: wait for the next event no longer than its deadline
+                    val dl = gc.deadline()
+                    val ev = if (dl == null) awaitPointerEvent()
+                             else withTimeoutOrNull(max(1L, dl - SystemClock.uptimeMillis())) { awaitPointerEvent() }
+                    if (ev == null) { act(gc.timeout(dl!!)); continue }
+                    val t = ev.changes.maxOf { it.uptimeMillis }
                     val down = ev.changes.filter { it.pressed }
                     if (down.size >= 2) {
+                        act(gc.move(down[0].position.x.toDouble(), down[0].position.y.toDouble(), t, down.size))
+                        // PINCH AND PAN, as before: zoom about where the fingers started, follow their midpoint
                         val a = down[0].position; val b = down[1].position
                         val d = hypot(a.x - b.x, a.y - b.y).coerceAtLeast(1f); val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
                         if (!pinch) { pinch = true; grab = null; loupe = null; lastPinch = d; lastMid = mid }
@@ -1223,29 +1354,22 @@ private fun SpPhoto(
                         }
                         tick++
                         ev.changes.forEach { it.consume() }
-                    } else if (down.size == 1 && !pinch) {
+                    } else if (down.size == 1) {
                         val ch = down[0]; ch.consume()
-                        val g = grab
-                        if (g != null) {
-                            if (!snapped) { onBeforeChangeS(); snapped = true }
-                            val kk = k()
-                            val ix = (g.x0 + (ch.position.x - sx0) / kk).coerceIn(0.0, iw)
-                            val iy = (g.y0 + (ch.position.y - sy0) / kk).coerceIn(0.0, ih)
-                            g.move(ix, iy); moved = true
-                            loupe = loupeFor(g, ix, iy, ch.position)
-                            onMovedS()
-                        } else if (z > 1.001) {
-                            cx = slideCx - (ch.position.x - sx0) / k(); cy = slideCy - (ch.position.y - sy0) / k(); clampView()
-                            tick++
-                        }
+                        act(gc.move(ch.position.x.toDouble(), ch.position.y.toDouble(), t, 1))
+                    } else {
+                        ev.changes.forEach { it.consume() }
+                        val ch = ev.changes.firstOrNull { it.id == first.id } ?: ev.changes[0]
+                        act(gc.up(ch.position.x.toDouble(), ch.position.y.toDouble(), t))
+                        break
                     }
-                } while (ev.changes.any { it.pressed })
+                }
                 loupe = null
                 if (moved) onChangedS() else tick++
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt
+            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText
             val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
             val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
             drawIntoCanvas { cv ->
@@ -1316,8 +1440,10 @@ private fun SpPhoto(
                     // above, the top corner farthest from it -- never below it, never under it, never under the
                     // fit button. The rule is SurveyPrepTouch.loupePlace / loupePair, tested in :pano.
                     val gap = 8f * density.density
-                    val obst = fitAt?.let { f -> listOf(SurveyPrepTouch.Box((f.left - photoAt.x).toDouble(), (f.top - photoAt.y).toDouble(),
-                        (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble())) } ?: emptyList()
+                    // the buttons on the photo: fit, and the tool chip while it is shown (v52 slice 7, ct52 FX14)
+                    val obst = listOfNotNull(fitAt, if (chipText != null) chipAt else null).map { f ->
+                        SurveyPrepTouch.Box((f.left - photoAt.x).toDouble(), (f.top - photoAt.y).toDouble(),
+                            (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble()) }
                     val dd = density.density.toDouble()
                     if (lp.points.size == 2) {
                         val pr = SurveyPrepTouch.loupePair(lp.finger.y.toDouble(), size.width.toDouble(), size.height.toDouble(),
@@ -1329,6 +1455,14 @@ private fun SpPhoto(
                         one(lp.points[0], sp.left.toFloat(), sp.top.toFloat())
                     }
                 }
+            }
+        }
+        // THE TOOL CHIP (v52 slice 7): "Placing Door · tap the photo", top-left, as wide as the photo less 70 dp so
+        // the fit button stays clear; ✕ goes back to Select. Hidden with Select on.
+        if (chipText != null) {
+            Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
+                SpToolChip(chipText, SurveyPrep.typeOf(tab, tool).colour,
+                    Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() }) { onTool(SurveyPrepPalette.SEL) }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {

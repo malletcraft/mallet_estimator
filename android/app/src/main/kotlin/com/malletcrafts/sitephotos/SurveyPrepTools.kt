@@ -1,89 +1,205 @@
 package com.malletcrafts.sitephotos
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.sitephotos.pano.SurveyPrep
-import kotlinx.coroutines.delay
+import com.malletcrafts.sitephotos.pano.SurveyPrepPalette
 
 /**
- * Survey prep's 2 · Mark toolbar: ONE row of icon buttons, scrolling sideways,
- * in place of the three rows of "+ Window" text chips (Amit, 2026-10-11).
- * Each button is the mark type's little picture in its colour with its letter
- * under it; a tap adds a mark exactly as the chips did, a long press names it.
- * The icons are drawn here, so there are no image assets to ship.
+ * SURVEY PREP'S 2 · MARK PALETTE (prototype v52, sp.js 1356-1399 and v42.css .tb.pt; v52 slice 7). ONE row at
+ * the bottom, every slot the same width, nothing scrolling sideways: Select, then the three types of the
+ * surface, then More ▸ -- a sheet of every type with its name. Exactly one slot is lit: a 26 % tint of its
+ * colour and a 2 dp ring. A type is STICKY (each tap on empty photo places one more); tapping the slot that is
+ * on goes back to Select. A More type that is on lights the More slot in its colour and names it ("Loft ▾").
  *
- * v52 slice 4 (interim until the palette of slice 7): the Bulb point, the
- * Switch plate and the Fan join the row with their own icons, as TYPES lists
- * them for the surface -- Switch plate on walls only, Fan on walls and the
- * ceiling.
+ * Amit, 14 Oct 2026 11:48 IST (item 5): "i am getting confused between measure. add one more tool called as
+ * Tape which act as a actual tape and can plot measurements like a real tape measure"; 20:45: "i had requested
+ * two separate tools. one tape measure like anothr is actual marking simple line." -- v52's eight slots are
+ * Select, Tape, Line, Chain, three types and More ▸. A SLOT APPEARS ONLY WHEN ITS TOOL WORKS: Tape and Line
+ * join in slice 9 and Chain in slice 11 through SurveyPrepPalette.TOOLS; the slot list is SurveyPrepPalette.slots,
+ * tested in :pano. Amit, 11 Oct 2026 20:36 (item 11): "electric control panels plate are rectangle. add mark
+ * type for it. also add seprate mark type for fan" -- the Switch plate and the Fan are in More ▸, with their
+ * own icons. The old one-row SpMarkToolbar (a tap added a mark at its default place) is gone: there is no
+ * second way to add a mark.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SpMarkToolbar(types: List<SurveyPrep.MarkType>, onAdd: (String) -> Unit) {
-    var hint by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(hint) { if (hint != null) { delay(1600); hint = null } }
-    // The long-press name is drawn OVER the row, not under it: a row that grows on a long press pushes the bottom of a
-    // landscape column off the screen (v52 slice 6), and the row is only 48 dp + 5.
-    Box(Modifier.fillMaxWidth().padding(bottom = 5.dp)) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (ty in types) {
-                val col = Color(SurveyPrepDraw.argb(ty.colour))
-                Column(
-                    Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.5.dp, col, RoundedCornerShape(10.dp))
-                        .combinedClickable(onClick = { onAdd(ty.letter) }, onLongClick = { hint = ty.name })
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally) {
-                    Canvas(Modifier.size(24.dp)) { drawMarkIcon(ty.name, col) }
-                    // 13 sp line, not the theme's 24: a tile is 5 + 24 + 13 + 5 = 47, so the 48 dp minimum holds it
-                    Text(ty.letter, color = Color.White, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                }
+internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) -> Unit, onMore: () -> Unit) {
+    val kind = SurveyPrep.kind(s)
+    // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape)
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        for (slot in SurveyPrepPalette.slots(kind)) {
+            val on = SurveyPrepPalette.isOn(slot, kind, tool)
+            val armed = if (slot.kind == SurveyPrepPalette.SlotKind.MORE) SurveyPrepPalette.moreArmed(kind, tool) else null
+            val col = when (slot.kind) {
+                SurveyPrepPalette.SlotKind.SELECT -> SP_SELECT
+                SurveyPrepPalette.SlotKind.MORE -> armed?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
+                SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TOOL ->
+                    slot.type?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
             }
-        }
-        hint?.let {
-            Text(it, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp,
-                modifier = Modifier.align(Alignment.TopStart).padding(start = 6.dp, top = 3.dp).clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xE6111311)).border(1.dp, Color(0xFF3A3E35), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp))
+            val name = when (slot.kind) {
+                SurveyPrepPalette.SlotKind.SELECT -> "Select"
+                SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(kind, tool)
+                SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.short(slot.type?.name ?: slot.key)
+            }
+            val aria = when (slot.kind) {
+                SurveyPrepPalette.SlotKind.SELECT -> "Select"
+                SurveyPrepPalette.SlotKind.MORE -> "More"
+                SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TOOL -> slot.type?.name ?: slot.key
+            }
+            val shape = RoundedCornerShape(12.dp)
+            Column(
+                Modifier.weight(1f).height(if (land) 46.dp else 50.dp).clip(shape)
+                    .background(if (on) col.copy(alpha = 0.26f) else Color.Transparent)
+                    .let { if (on) it.border(2.dp, col, shape) else it }
+                    .clickable { if (slot.kind == SurveyPrepPalette.SlotKind.MORE) onMore() else onTool(slot.key) }
+                    .semantics { contentDescription = aria; role = Role.Button; selected = on }
+                    .padding(top = 4.dp, bottom = 3.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Canvas(Modifier.size(22.dp)) {
+                    when (slot.kind) {
+                        SurveyPrepPalette.SlotKind.SELECT -> drawSelectIcon(SP_SELECT)
+                        // the More icon keeps its grey dots when a More type is on; only the tint and ring take its colour
+                        SurveyPrepPalette.SlotKind.MORE -> drawMoreIcon(SP_MORE)
+                        SurveyPrepPalette.SlotKind.TYPE, SurveyPrepPalette.SlotKind.TOOL -> drawMarkIcon(slot.type?.name ?: "", col)
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                // 9.5 sp (9 in landscape), a 12 sp line, #AEB3AA; the one on white -- never cut, never two lines
+                Text(name, color = if (on) Color.White else SP_SLOT, fontSize = if (land) 9.sp else 9.5.sp, lineHeight = 12.sp,
+                    letterSpacing = if (on) (-0.3).sp else if (land) (-0.3).sp else (-0.2).sp, fontWeight = FontWeight.Medium,
+                    maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+            }
         }
     }
 }
+
+/**
+ * MORE ▸: "Every mark type · <Face>", every type of the surface in a grid of five -- its icon, its letter in its
+ * colour, its short name (sp.js 1455, v42.css .moresheet). The type on is tinted. A pick turns that type on (or,
+ * already on, back to Select) and closes the sheet; ✕ closes it. Three rows at most (twelve wall types), about
+ * 265 dp: it fits a portrait screen and a landscape one (340 dp wide, at the right) without scrolling.
+ */
+@Composable
+internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (String) -> Unit, onClose: () -> Unit) {
+    val all = SurveyPrepPalette.forSurface(s).all
+    Column(modifier.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).background(SP_SHEET_MORE)
+        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }   // a tap inside never falls through
+        .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(SurveyPrepPalette.sheetTitle(s), color = Color(0xFFECEEE8), fontSize = 13.sp, lineHeight = 16.sp,
+                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).clickable { onClose() }
+                .semantics { contentDescription = "Close" }, contentAlignment = Alignment.Center) {
+                Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp)
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (row in all.chunked(5)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (ty in row) {
+                        val col = Color(SurveyPrepDraw.argb(ty.colour))
+                        val on = ty.letter == tool
+                        val shape = RoundedCornerShape(12.dp)
+                        Column(Modifier.weight(1f).clip(shape)
+                            .background(if (on) lerpColour(SP_TILE, col, 0.30f) else SP_TILE)
+                            .border(1.5.dp, col, shape)
+                            .clickable { onPick(ty.letter) }
+                            .semantics { contentDescription = ty.name; selected = on }
+                            .padding(horizontal = 2.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Canvas(Modifier.size(24.dp)) { drawMarkIcon(ty.name, col) }
+                            Text(ty.letter, color = col, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(SurveyPrepPalette.short(ty.name), color = Color(0xFFECEEE8), fontSize = 10.sp, lineHeight = 12.sp,
+                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * THE TOOL CHIP over the top-left of the photo while a type is on (sp.js 1454, v42.css .toolchip): "Placing Door
+ * · tap the photo" on black at 82 %, a 1.5 dp ring in the type's colour, and ✕ -- back to Select. Hidden with
+ * Select on. It takes no touch of its own except ✕, so a tap under it still reaches the photo.
+ */
+@Composable
+internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, onClose: () -> Unit) {
+    val col = Color(SurveyPrepDraw.argb(colour)); val shape = RoundedCornerShape(16.dp)
+    Row(modifier.heightIn(min = 32.dp).clip(shape).background(Color(0xD0000000)).border(1.5.dp, col, shape).padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(text, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).padding(vertical = 4.dp))
+        Box(Modifier.size(32.dp).clip(shape).clickable { onClose() }.semantics { contentDescription = "Back to Select" },
+            contentAlignment = Alignment.Center) {
+            Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp)
+        }
+    }
+}
+
+private fun lerpColour(a: Color, b: Color, t: Float) =
+    Color(a.red + (b.red - a.red) * t, a.green + (b.green - a.green) * t, a.blue + (b.blue - a.blue) * t, 1f)
+
+/** Select: an arrow pointer (sp.js selIcon, drawn on a 24 grid). */
+private fun DrawScope.drawSelectIcon(c: Color) {
+    val k = size.width / 24f
+    val p = Path().apply {
+        moveTo(6 * k, 3 * k); lineTo(6 * k, 19 * k); lineTo(10 * k, 15 * k); lineTo(13 * k, 21 * k)
+        lineTo(15.5f * k, 20 * k); lineTo(12.6f * k, 14 * k); lineTo(18 * k, 14 * k); close()
+    }
+    drawPath(p, c)
+}
+
+/** More: nine dots (sp.js moreIcon). */
+private fun DrawScope.drawMoreIcon(c: Color) {
+    val k = size.width / 24f
+    for (x in listOf(6f, 12f, 18f)) for (y in listOf(6f, 12f, 18f)) drawCircle(c, 1.8f * k, Offset(x * k, y * k))
+}
+
+private val SP_SELECT = Color(0xFFE0B040)
+private val SP_MORE = Color(0xFFCFD3CB)
+private val SP_SLOT = Color(0xFFAEB3AA)
+private val SP_SHEET_MORE = Color(0xFF1E211B)
+private val SP_TILE = Color(0xFF2A2D25)
 
 /** One mark type's icon, by its NAME (letters repeat across surfaces: C is a column everywhere, B a beam). */
 private fun DrawScope.drawMarkIcon(name: String, c: Color) {

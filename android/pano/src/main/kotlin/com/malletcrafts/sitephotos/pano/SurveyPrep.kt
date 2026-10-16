@@ -493,6 +493,34 @@ object SurveyPrep {
         }
     }
 
+    /**
+     * WHERE A TAPPED MARK GOES (v52 slice 7, sp.js addElAt; Amit, 11 Oct 2026 20:35: "electric points are spots
+     * . dont let them resize. have its da 50 mm." -- "a 50 mm spot centred where Amit taps"): the type's
+     * [defaults] size, no wider than the face ([a]) nor taller ([b]), CENTRED ON THE TAP at ([x], [y]) mm and
+     * then slid back inside the face where it would reach past an edge. A point stays [SPOT] square, centred on
+     * the tap unless that is within 25 mm of an edge. A Column (full height), a Beam or a Loft (full width) keeps
+     * the side that spans the face. Returns x0, x1, y0, y1.
+     */
+    fun placeAt(t: String, s: String, x: Double, y: Double, a: Double, b: Double): DoubleArray {
+        val d = defaults(s, t, a, b)
+        val w = min(a, d[1] - d[0]); val h = min(b, d[3] - d[2])
+        val x0 = (x - w / 2).coerceIn(0.0, max(0.0, a - w)); val y0 = (y - h / 2).coerceIn(0.0, max(0.0, b - h))
+        return doubleArrayOf(x0, x0 + w, y0, y0 + h)
+    }
+
+    /**
+     * Is ([x], [y]) mm on an [a] x [b] face? Within max(25 mm, 1 % of its longer side) past an edge still counts
+     * (sp.js onFace): a finger on the boundary line itself is on the face, and [placeAt] slides the mark inside.
+     */
+    fun onFace(a: Double, b: Double, x: Double, y: Double): Boolean {
+        if (x.isNaN() || y.isNaN()) return false
+        val t = max(25.0, 0.01 * max(a, b))
+        return x >= -t && y >= -t && x <= a + t && y <= b + t
+    }
+
+    /** What a tap off the face says (sp.js placeAt): "Tap inside the front wall to place it". */
+    fun placeMiss(s: String) = "Tap inside the ${NAME.getValue(s).lowercase()} to place it"
+
     /** One line of a mark's checklist: its key, what it is, and the photo's estimate (null: site only). */
     class Measure(val key: String, val what: String, val est: Double?)
 
@@ -634,10 +662,21 @@ object SurveyPrep {
          * handed out twice while its mark (and its readings) still exist.
          */
         fun addMark(s: String, t: String, a: Double, b: Double, id: String): Mark {
+            val d = defaults(s, t, a, b)
+            return Mark(id, t, nextCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+        }
+
+        /** The next code of type [t] on [s]: one past the highest still there (FW1, FW2 …). */
+        fun nextCode(s: String, t: String): String {
             val head = CODE.getValue(s) + t
             val n = (surface(s).marks.filter { it.t == t }.mapNotNull { it.code.removePrefix(head).toIntOrNull() }.maxOrNull() ?: 0) + 1
-            val d = defaults(s, t, a, b)
-            return Mark(id, t, head + n, d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+            return head + n
+        }
+
+        /** A new mark of type [t] on [s] where the finger is, ([x], [y]) mm: [placeAt], numbered as [addMark]. */
+        fun addMarkAt(s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String): Mark {
+            val d = placeAt(t, s, x, y, a, b)
+            return Mark(id, t, nextCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
         }
 
         /** A mark and its readings go together. */
