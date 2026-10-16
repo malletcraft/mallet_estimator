@@ -142,10 +142,13 @@ object ReadingsSync {
     /**
      * Survey prep's half, on the main thread: any waiting conflict is applied
      * (the server value wins), then [remote] (null: not fetched) is merged into
-     * [actual] in place. Returns the conflicts applied and whether [actual] changed.
+     * [actual] in place. A conflict on a key whose mark is gone ([live] false: deleted or cleared here) is not
+     * put back: the phone's delete stands and is pushed again on the server's new `at` (Readings.orphans).
+     * Returns the conflicts applied (those excepted), whether [actual] changed, and the keys deleted again.
      */
     fun merge(context: Context, id: String, actual: MutableMap<String, Double>,
-              remote: Map<String, Readings.Remote>?): Pair<Map<String, Readings.Remote>, Boolean> =
+              remote: Map<String, Readings.Remote>?,
+              live: (String) -> Boolean = { true }): Triple<Map<String, Readings.Remote>, Boolean, List<String>> =
         update(context, id) { st ->
             var changed = false
             val applied = st.conflicts.toMap()
@@ -155,6 +158,7 @@ object ReadingsSync {
                 else { actual[k] = v; st.seen[k] = Readings.Seen(v, r.at) }
                 changed = true
             }
+            val orphans = Readings.orphans(actual, st.seen, applied, live)
             st.conflicts.clear()
             if (remote != null) {
                 val m = Readings.pull(actual.toMap(), st.seen.toMap(), remote)
@@ -163,7 +167,7 @@ object ReadingsSync {
                 }
                 st.seen.clear(); st.seen.putAll(m.seen)
             }
-            applied to changed
+            Triple(applied.filterKeys { it !in orphans }, changed, orphans)
         }
 
     fun now(): String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))

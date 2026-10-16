@@ -184,4 +184,52 @@ class GestureClassifierTest {
         assertEquals("Drag,LongPress", names(g.move(3.0, 0.0, 510)))
         assertEquals(emptyList(), g.up(3.0, 0.0, 600))
     }
+
+    // ---- v52 slice 8 review: a grab that has moved is not a long press (sp.js gs.moved), drift excepted.
+    // At density 2, GRAB_STILL_DP = 3 dp is 6 px.
+    private fun gcStill() = GestureClassifier(slop = 16.0, doubleDist = 48.0, still = GestureClassifier.GRAB_STILL_DP * 2)
+
+    @Test fun `a grab dragged 4 dp then held 600 ms opens no menu, and lifting it is no long press either`() {
+        val g = gcStill()
+        g.down(100.0, 100.0, 0); g.grabbed()
+        assertEquals("Drag", names(g.move(108.0, 100.0, 100)))   // 8 px = 4 dp: past `still`, inside the slop
+        assertNull(g.deadline())                                    // no clock to feed: the screen waits for events
+        assertEquals(emptyList(), g.timeout(600))
+        assertEquals("Drag", names(g.move(109.0, 100.0, 650)))   // still moving the mark, no menu
+        // lifted inside the slop past 500 ms: a tap (Select acts on nothing for it), never a long press
+        assertEquals(listOf<Event>(Event.Tap(100.0, 100.0)), g.up(109.0, 100.0, 700))
+    }
+
+    @Test fun `a grab that only drifted within 3 dp still long-presses (the screen puts the drift back)`() {
+        val g = gcStill()
+        g.down(100.0, 100.0, 0); g.grabbed()
+        assertEquals("Drag", names(g.move(103.0, 101.0, 100)))   // ~3.2 px of drift
+        assertEquals(500L, g.deadline())
+        assertEquals("LongPress", names(g.timeout(500)))
+    }
+
+    @Test fun `a drift that comes back does not restore the long press, the furthest reach counts`() {
+        val g = gcStill()
+        g.down(100.0, 100.0, 0); g.grabbed()
+        g.move(110.0, 100.0, 100); g.move(100.0, 100.0, 200)
+        assertEquals(emptyList(), g.timeout(600))
+    }
+
+    @Test fun `a locked mark's refusal at 4 dp is past the still radius, so the menu never follows it`() {
+        assertTrue(GestureClassifier.GRAB_STILL_DP < 4.0)
+    }
+
+    @Test fun `a press that grabbed nothing keeps the whole slop for its long press`() {
+        val g = gcStill()
+        g.down(100.0, 100.0, 0)
+        assertEquals(emptyList(), g.move(112.0, 100.0, 100))       // 6 dp, no grab: still a press
+        assertEquals("LongPress", names(g.timeout(500)))
+    }
+
+    @Test fun `the next press starts with no reach`() {
+        val g = gcStill()
+        g.down(100.0, 100.0, 0); g.grabbed(); g.move(130.0, 100.0, 50); g.up(130.0, 100.0, 80)
+        g.down(300.0, 300.0, 1000); g.grabbed()
+        assertEquals("LongPress", names(g.timeout(1500)))
+    }
 }

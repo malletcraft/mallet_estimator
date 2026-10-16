@@ -26,6 +26,14 @@ import kotlin.math.hypot
  * as sp.js moves a grab on every pointermove: within the slop it still reports [Event.Drag] on every move, while
  * tap-versus-drag and the long press keep the slop -- a fine adjustment under the loupe is never a dead zone.
  * Timings as the prototype's: long press 500 ms (sp.js 929), double tap 450 ms within 24 dp (sp.js 531).
+ *
+ * A GRAB THAT HAS MOVED IS NOT A LONG PRESS (v52 slice 8 review). sp.js refuses its menu once a grab has moved
+ * (`if(!gs||gs.moved||gs.pinch) return`, sp.js 929 / 1178), and a grab moves on every pointermove -- but a
+ * finger resting on glass reports a few px of drift, so taken literally the menu would hardly ever open on the
+ * phone. So a grabbed press whose finger has gone further than [still] px from where it went down gets no long
+ * press at all (a deliberate small move under the loupe carries on as a move), and one that stayed within [still]
+ * still long-presses: the caller then PUTS BACK whatever that drift moved before it opens the menu, so the menu
+ * never opens on a mark that has moved (sp.js's rule, kept on a jittery finger).
  */
 class GestureClassifier(
     /** Movement under this, px, is still a press (the system's touch slop). */
@@ -34,12 +42,18 @@ class GestureClassifier(
     private val doubleDist: Double,
     private val longMs: Long = LONG_PRESS_MS,
     private val doubleMs: Long = DOUBLE_TAP_MS,
+    /** A grabbed press that has gone further than this from its down point, px, never long-presses (see above);
+     *  the screen passes [GRAB_STILL_DP]. Unset: any press within the slop long-presses, as before. */
+    private val still: Double = Double.POSITIVE_INFINITY,
 ) {
     companion object {
         const val LONG_PRESS_MS = 500L
         const val DOUBLE_TAP_MS = 450L
         /** The double tap's reach, dp. */
         const val DOUBLE_TAP_DP = 24.0
+        /** How far, dp, a grabbed finger may drift and still open the long-press menu: under the 4 dp at which a
+         *  locked mark's refusal is said, so a refused drag never opens the menu too. To be tuned on the Mi A3. */
+        const val GRAB_STILL_DP = 3.0
     }
 
     sealed class Event {
@@ -64,11 +78,16 @@ class GestureClassifier(
     private var grab = false
     /** A Drag was already reported for this press (within the slop, for a grab). */
     private var dragged = false
+    /** The furthest the finger has gone from its down point during this press, px. */
+    private var reach = 0.0
     /** The last tap's point and lift time, while a double tap is still possible. */
     private var lastTap: DoubleArray? = null; private var lastTapT = 0L
 
     /** When [timeout] will report a long press if nothing else happens first; null when none is pending. */
-    fun deadline(): Long? = if (state == State.PRESSED && !long) t0 + longMs else null
+    fun deadline(): Long? = if (state == State.PRESSED && !long && mayLong()) t0 + longMs else null
+
+    /** A grab that went further than [still] has given up its long press (see the class comment). */
+    private fun mayLong() = !grab || reach <= still
 
     /** A finger down; [pointers] how many are down now, this one included. */
     fun down(x: Double, y: Double, t: Long, pointers: Int = 1): List<Event> {
@@ -76,7 +95,7 @@ class GestureClassifier(
         val lt = lastTap
         double = lt != null && t - lastTapT <= doubleMs && hypot(x - lt[0], y - lt[1]) < doubleDist
         if (!double) lastTap = null
-        state = State.PRESSED; x0 = x; y0 = y; t0 = t; long = false; grab = false; dragged = false
+        state = State.PRESSED; x0 = x; y0 = y; t0 = t; long = false; grab = false; dragged = false; reach = 0.0
         return listOf(Event.Down(x, y))
     }
 
@@ -88,6 +107,7 @@ class GestureClassifier(
         if (pointers >= 2) return second()
         return when (state) {
             State.PRESSED -> {
+                reach = maxOf(reach, hypot(x - x0, y - y0))
                 if (hypot(x - x0, y - y0) > slop) {
                     state = State.DRAGGING; lastTap = null
                     val first = !dragged; dragged = true
@@ -105,7 +125,7 @@ class GestureClassifier(
 
     /** The clock reached [t] with nothing else happening. */
     fun timeout(t: Long): List<Event> {
-        if (state != State.PRESSED || long || t - t0 < longMs) return emptyList()
+        if (state != State.PRESSED || long || t - t0 < longMs || !mayLong()) return emptyList()
         long = true; lastTap = null
         return listOf(Event.LongPress(x0, y0))
     }
@@ -134,10 +154,10 @@ class GestureClassifier(
     }
 
     /** Forget everything: the press was handled elsewhere (the floating trash, a step of the strip). */
-    fun reset() { state = State.IDLE; lastTap = null; long = false; double = false; grab = false; dragged = false }
+    fun reset() { state = State.IDLE; lastTap = null; long = false; double = false; grab = false; dragged = false; reach = 0.0 }
 
     private fun timeoutOnLift(t: Long): List<Event> {
-        if (long || t - t0 < longMs) return emptyList()
+        if (long || t - t0 < longMs || !mayLong()) return emptyList()
         long = true
         return listOf(Event.LongPress(x0, y0))
     }

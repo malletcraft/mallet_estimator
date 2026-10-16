@@ -89,4 +89,31 @@ class ReadingsTest {
         assertNull(m.actual["FD1.w"]); assertNull(m.seen["FD1.w"])
         assertTrue(m.taken.isEmpty())
     }
+
+    // v52 slice 8 review: a conflict on a key whose mark is gone -- the phone's delete stands, sent again once
+    @Test fun `a conflict on a key whose mark is gone is kept out and pushed again as a delete on the new at`() {
+        val actual = mutableMapOf("FW2.w" to 900.0)
+        val seen = mutableMapOf("FW2.w" to Seen(900.0, "t1"))
+        val applied = mapOf("FW1.w" to r(612.0, "t9", "staff@x"), "FW2.w" to r(905.0, "t8"))
+        // FW1 was cleared here; FW2 still has its mark: its conflict is applied as before, by merge
+        val live = { k: String -> k.startsWith("FW2.") }
+        assertEquals(listOf("FW1.w"), Readings.orphans(actual, seen, applied, live))
+        assertNull(actual["FW1.w"])
+        assertEquals(900.0, actual["FW2.w"])                      // a live key is not this function's
+        val p = Readings.push(actual, seen)
+        assertEquals(mapOf<String, Double?>("FW1.w" to null), p.set.filterKeys { it == "FW1.w" })
+        assertEquals("t9", p.base["FW1.w"])                       // based on the server's newest at: it is written
+        // the next pull of the same server state does not bring it back
+        val m = Readings.pull(actual, seen, mapOf("FW1.w" to r(612.0, "t9", "staff@x")))
+        assertNull(m.actual["FW1.w"])
+        assertTrue(Readings.orphanText(listOf("FW1.w"))!!.startsWith("FW1.w changed on the web after its mark was deleted here"))
+        assertNull(Readings.orphanText(emptyList()))
+    }
+
+    @Test fun `a conflict the server answered with a delete on a gone mark needs nothing`() {
+        val actual = mutableMapOf<String, Double>()
+        val seen = mutableMapOf("FW1.w" to Seen(600.0, "t1"))
+        assertEquals(emptyList(), Readings.orphans(actual, seen, mapOf("FW1.w" to r(null, "t9")), { false }))
+        assertTrue(Readings.push(actual, seen).isEmpty())
+    }
 }

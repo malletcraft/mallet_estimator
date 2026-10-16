@@ -209,12 +209,19 @@ internal fun SurveyPrepDialog(
     var ctx by remember { mutableStateOf<SpCtx?>(null) }
     // ⋮'s clears, armed by a first tap (SurveyPrepEdit.SURF / ROOM), done by a second within 4 s
     var armedClear by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(note) { if (note != null) { delay(SurveyPrepEdit.SAY_MS); note = null } }
+    // SAY (sp.js say): a note lasts 2.6 s from the LAST time it was said -- the same words said again restart the
+    // timer (the sequence number is its key, as the snackbar's), so a second refusal is never cut short
+    var noteSeq by remember { mutableIntStateOf(0) }
+    fun say(t: String) { note = t; noteSeq++ }
+    LaunchedEffect(noteSeq) { if (note != null) { delay(SurveyPrepEdit.SAY_MS); note = null } }
     LaunchedEffect(armed) { if (armed) { delay(SurveyPrepEdit.ARM_MS); armed = false } }
     LaunchedEffect(armedDiscard) { if (armedDiscard) { delay(SurveyPrepEdit.ARM_MS); armedDiscard = false } }
     LaunchedEffect(armedClear) { if (armedClear != null) { delay(SurveyPrepEdit.ARM_MS); armedClear = null } }
     LaunchedEffect(snackSeq) { if (snackSeq > 0) { delay(SurveyPrepEdit.SNACK_MS); snackText = null } }
-    fun snack(text: String, undo: Boolean = true) { snackText = text; snackUndo = undo; snackSeq++ }
+    // hist's size when the snackbar was shown: its UNDO undoes only while nothing has been done since (with
+    // snapshot() hiding the snackbar, as sp.js does, this is belt and braces)
+    var snackHist by remember { mutableIntStateOf(-1) }
+    fun snack(text: String, undo: Boolean = true) { snackText = text; snackUndo = undo; snackSeq++; snackHist = hist.size }
     fun hideSnack() { snackText = null }
     /** A locked mark's move, resize or delete refused: the no-UNDO snackbar, and no undo entry (sp.js refuse). */
     fun refuse(code: String) { ctx = null; snack(SurveyPrepEdit.refusal(code), undo = false) }
@@ -282,7 +289,9 @@ internal fun SurveyPrepDialog(
         onDispose { prepLifecycle.removeObserver(obs) }
     }
 
-    fun snapshot() { hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0) }
+    // A NEW UNDO STEP HIDES THE SNACKBAR (sp.js snapshot: hideSnack() first), so its UNDO can never undo a later,
+    // different change than the one it names; deleteMark, lockAllOf and clearTap show theirs after it
+    fun snapshot() { hideSnack(); hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0) }
     fun undo() {
         if (hist.isEmpty()) return
         val old = hist.removeAt(hist.size - 1)
@@ -298,6 +307,21 @@ internal fun SurveyPrepDialog(
         changed()
     }
 
+    /**
+     * A LONG PRESS ON A MARK THE FINGER'S DRIFT HAD ALREADY MOVED (v52 slice 8 review): the press's own undo step is
+     * taken back off and its geometry put back, so the menu opens on the mark where it was -- nothing moved, nothing
+     * snapped, no undo entry, nothing to save (sp.js never opens its menu on a grab that moved). Readings are kept.
+     */
+    fun revertPress() {
+        if (hist.isEmpty()) return
+        val old = hist.removeAt(hist.size - 1)
+        val back = SurveyPrep.Prep(old.surfaces, mutableMapOf(), old.extra, old.extraSurfaces)
+        for ((k, v) in prep.actual) if (back.markOf(k) != null) back.actual[k] = v
+        SurveyPrepEdit.keepSeq(prep, back)
+        prep = back
+        rev++
+    }
+
     // ---- the DISTO D2: a reading lands in the ACTIVE field, then the next unmeasured one of that mark is active
     val disto = remember { DistoClient(context) }
     var distoState by remember { mutableStateOf(DistoClient.State.OFF) }
@@ -307,7 +331,7 @@ internal fun SurveyPrepDialog(
         else arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
     }
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.all { it }) disto.start() else note = "Bluetooth permission refused — the laser can't connect"
+        if (granted.values.all { it }) disto.start() else say("Bluetooth permission refused — the laser can't connect")
     }
     fun reading(code: String, v: Double) {
         prep.actual[code] = v
@@ -316,18 +340,18 @@ internal fun SurveyPrepDialog(
         changed()
     }
     fun fire() {
-        if (active == null) { note = "Tap a measurement first"; return }
+        if (active == null) { say("Tap a measurement first"); return }
         when (distoState) {
             DistoClient.State.OFF -> askBle.launch(blePerms)
             DistoClient.State.READY -> disto.measure()
-            else -> note = "The laser is still connecting…"
+            else -> say("The laser is still connecting…")
         }
     }
-    disto.onState = { s, n -> distoState = s; if (n != null) note = n }
-    disto.onRefused = { why -> note = why }
+    disto.onState = { s, n -> distoState = s; if (n != null) say(n) }
+    disto.onRefused = { why -> say(why) }
     disto.onReading = { r ->
         val a = active
-        if (a == null || prep.markOf(a) == null) note = "D2 ${r.mm} mm — tap a measurement first, then read again"
+        if (a == null || prep.markOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
         else reading(a, r.mm.toDouble())
     }
 
@@ -340,7 +364,10 @@ internal fun SurveyPrepDialog(
             if (row == null || row.project.isBlank() || auth == null) null
             else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room) } }
         val remote = fetched?.getOrNull()
-        val (applied, moved) = ReadingsSync.merge(context, id, prep.actual, remote)
+        // a conflict on a reading whose mark was deleted or cleared here is not put back as an orphan: the delete
+        // stands and is sent again (Readings.orphans), so the upload is queued for it (v52 slice 8 review)
+        val (applied, moved, orphans) = ReadingsSync.merge(context, id, prep.actual, remote) { k -> prep.markOf(k) != null }
+        if (orphans.isNotEmpty() && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
         // AN EDGE READING THAT ARRIVED NOW (a web reading not seen before, or a conflict handing the server's
         // value back) is converted to the centre like the ones on opening -- or it would sit under l / s for
         // good, unasked by the checklist. normPoints converts only what still carries an edge key, so this is
@@ -354,10 +381,12 @@ internal fun SurveyPrepDialog(
             if (ok && AsIsUpload.status(context, id) != null) AsIsUpload.enqueue(context, id)
         }
         if (moved || fix.changed) changed()
-        val head = if (applied.isEmpty()) "" else ReadingsSync.conflictText(applied) + " · "
+        val said = listOfNotNull(applied.takeIf { it.isNotEmpty() }?.let { ReadingsSync.conflictText(it) },
+            com.malletcrafts.sitephotos.pano.Readings.orphanText(orphans))
+        val head = if (said.isEmpty()) "" else said.joinToString("; ") + " · "
         val e = fetched?.exceptionOrNull()
         readingsMsg = when {
-            fetched == null -> if (applied.isEmpty()) readingsMsg else head.removeSuffix(" · ")
+            fetched == null -> if (said.isEmpty()) readingsMsg else head.removeSuffix(" · ")
             e == null -> head + "Readings from web ✓ " + ReadingsSync.now()
             ReadingsSync.notAvailable(e!!) -> head + ReadingsSync.NOT_YET
             else -> head + "Readings from web: " + (e?.message ?: "failed").take(160)
@@ -416,7 +445,7 @@ internal fun SurveyPrepDialog(
     fun placeMark(t: String, mx: Double, my: Double): SurveyPrep.Mark? {
         val s = tab; val a = ab(s)
         if (mode != "mark" || SurveyPrep.types(s).none { it.letter == t }) return null
-        if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { note = SurveyPrep.placeMiss(s); return null }
+        if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { say(SurveyPrep.placeMiss(s)); return null }
         snapshot()
         val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
@@ -457,7 +486,7 @@ internal fun SurveyPrepDialog(
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
     fun toggleLinesLock() {
         snapshot(); val v = SurveyPrepEdit.setLinesLocked(prep, tab, null)
-        note = SurveyPrepEdit.linesSaid(tab, v); changed()
+        say(SurveyPrepEdit.linesSaid(tab, v)); changed()
     }
     /** Lock all / Unlock all of type [t] on [s]: "Locked N items · front wall" with UNDO; no change, no undo entry. */
     fun lockAllOf(s: String, t: String, on: Boolean) {
@@ -504,11 +533,11 @@ internal fun SurveyPrepDialog(
     }
     fun nudgeLine(slot: String, mm: Double, deg: Double) {
         val s = tab; val sf = prep.surface(s)
-        if (SurveyPrep.linesLocked(sf)) { note = SurveyPrepEdit.LINES_REFUSAL; return }
+        if (SurveyPrep.linesLocked(sf)) { say(SurveyPrepEdit.LINES_REFUSAL); return }
         sel = SpSel(s, line = slot)
         if (mm != 0.0) {
             val moved = SurveyPrep.nudgeLine(sf.lines.getValue(slot), slot, frameOf(s), mm)
-            if (moved == null) { note = "These four lines do not make a closed shape yet — drag them first"; return }
+            if (moved == null) { say("These four lines do not make a closed shape yet — drag them first"); return }
             snapshot(); sf.lines[slot] = moved
         } else {
             snapshot(); sf.lines[slot] = SurveyPrep.turnLine(sf.lines.getValue(slot), deg)
@@ -519,7 +548,7 @@ internal fun SurveyPrepDialog(
     // a face or a step changed: back to Select, the More sheet shut (sp.js showTab / setMode)
     fun showTab(t: String) { tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; rev++ }
     fun setMode(m: String) {
-        if (m == "mark" && frameOf(tab) == null) { note = "These four lines do not make a closed shape yet"; return }
+        if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
         mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; rev++
     }
 
@@ -536,8 +565,8 @@ internal fun SurveyPrepDialog(
         lwhOpen = false
         if (r.same) return
         roomSize = z
-        note = prep.outsideNote(z[0], z[1], z[2])
-            ?: "Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm"
+        say(prep.outsideNote(z[0], z[1], z[2])
+            ?: "Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm")
         changed()
     }
 
@@ -767,7 +796,7 @@ internal fun SurveyPrepDialog(
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             note?.let { SpNote(it, Modifier) }
-            snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo) { hideSnack(); undo() } } }
+            snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo && hist.size == snackHist) { hideSnack(); undo() } else hideSnack() } }
         }
     }
 
@@ -798,7 +827,8 @@ internal fun SurveyPrepDialog(
                     onTool = { t -> pickTool(t) },
                     onLongPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
                     onRefuse = { code -> refuse(code) },
-                    onLinesLocked = { note = SurveyPrepEdit.LINES_REFUSAL })
+                    onLinesLocked = { say(SurveyPrepEdit.LINES_REFUSAL) },
+                    onRevert = { revertPress() })
             }
             notesOver()
         }
@@ -1009,7 +1039,7 @@ internal fun SurveyPrepDialog(
                     val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                     hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
                     ctx = null; armedClear = null; menuOpen = false; hideSnack()
-                    prep = r.prep; note = SurveyPrepEdit.startedOver(r.kept); changed()
+                    prep = r.prep; say(SurveyPrepEdit.startedOver(r.kept)); changed()
                 }
             }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
             Text(if (armed) SurveyPrepEdit.START_OVER_ARMED else SurveyPrepEdit.START_OVER,
@@ -1231,14 +1261,11 @@ internal class SpRect(val key: String, val sq: SurveyPrep.Square, val bmp: Bitma
 /** The long-press menu open on mark [id]; the press was at ([x], [y]) root px. */
 internal data class SpCtx(val id: String, val x: Float, val y: Float)
 
-/** A drag in progress: where it started on the picture, and what moving it does. [locked]: what is under the finger
- *  is locked (v52 slice 8) -- it is picked, nothing moves, and a drag says why once: a mark's code, or
- *  [LINES_LOCKED] for a surface's lines. */
+/** A drag in progress: where it started on the picture, and what moving it does. [locked]: the mark under the finger
+ *  is locked (v52 slice 8) -- it is picked, nothing moves, and a drag says why once: the mark's code. (Locked lines
+ *  make no grab at all: they are refused at the press.) */
 private class SpGrab(val x0: Double, val y0: Double, val sel: SpSel, val focusSlot: String?, val locked: String? = null,
                      val move: (Double, Double) -> Unit)
-
-/** [SpGrab.locked] for a surface's locked lines. */
-private const val LINES_LOCKED = "lines"
 
 /** The magnifier(s) while dragging: picture points to centre on, and the finger, canvas px. */
 private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
@@ -1279,8 +1306,10 @@ private fun SpPhoto(
     onLongPress: (String, Offset) -> Unit,
     /** A locked mark dragged, resized or nudged: its code (the refusal snackbar, once per gesture). */
     onRefuse: (String) -> Unit,
-    /** A locked surface's lines dragged: said once per gesture. */
+    /** A locked surface's lines pressed: said at the press, and nothing is picked (sp.js hitLines). */
     onLinesLocked: () -> Unit,
+    /** A long press opened the menu on a grab the finger's drift had moved: put the press's change back. */
+    onRevert: () -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1294,7 +1323,7 @@ private fun SpPhoto(
     val stepAtS by rememberUpdatedState(stepAt); val onStepS by rememberUpdatedState(onStep)
     val toolS by rememberUpdatedState(tool); val onPlaceS by rememberUpdatedState(onPlace)
     val onLongPressS by rememberUpdatedState(onLongPress); val onRefuseS by rememberUpdatedState(onRefuse)
-    val onLinesLockedS by rememberUpdatedState(onLinesLocked)
+    val onLinesLockedS by rememberUpdatedState(onLinesLocked); val onRevertS by rememberUpdatedState(onRevert)
     var z by remember(img) { mutableStateOf(1.0) }
     var cx by remember(img) { mutableStateOf(iw / 2) }
     var cy by remember(img) { mutableStateOf(ih / 2) }
@@ -1335,11 +1364,12 @@ private fun SpPhoto(
             val q = toS(p[0], p[1]); val d = hypot(q[0] - sx, q[1] - sy)
             if (d < grip && (best == null || d < best!!.third)) best = Triple(slot, j, d)
         }
-        // LOCKED LINES (v52 slice 8): a grip or a line under the finger is held still, and a drag says so once
-        val lk = if (SurveyPrep.linesLocked(sf)) LINES_LOCKED else null
+        // LOCKED LINES (v52 slice 8, sp.js 947-950): a grip or a line under the finger says so AT THE PRESS and
+        // nothing is picked -- no selection, no nudge row, no grab (a drag then pans, as on empty photo)
+        val lk = SurveyPrep.linesLocked(sf)
         best?.let { (slot, j, _) ->
             val p0 = sf.lines.getValue(slot)[j]
-            if (lk != null) return SpGrab(p0[0], p0[1], SpSel(tab, line = slot), null, lk) { _, _ -> }
+            if (lk) { onLinesLockedS(); return null }
             return SpGrab(p0[0], p0[1], SpSel(tab, line = slot), slot) { ix, iy ->
                 sf.lines.getValue(slot)[j] = doubleArrayOf(ix, iy); sf.set[slot] = true }
         }
@@ -1349,7 +1379,7 @@ private fun SpPhoto(
             if (d < body && (near == null || d < near!!.second)) near = slot to d
         }
         val slot = near?.first ?: return null
-        if (lk != null) return SpGrab(at[0], at[1], SpSel(tab, line = slot), null, lk) { _, _ -> }
+        if (lk) { onLinesLockedS(); return null }
         val start = sf.lines.getValue(slot).map { it.copyOf() }
         return SpGrab(at[0], at[1], SpSel(tab, line = slot), slot) { ix, iy ->
             sf.lines[slot] = Array(2) { i -> doubleArrayOf(start[i][0] + ix - at[0], start[i][1] + iy - at[1]) }; sf.set[slot] = true }
@@ -1427,7 +1457,8 @@ private fun SpPhoto(
             // or cancelled by a second finger -- is decided by GestureClassifier in :pano, where it is tested; this
             // only feeds it what the system reports (and the clock, for the long press) and acts on its answers.
             // It outlives gestures, so a double tap is seen across two of them.
-            val gc = GestureClassifier(viewConfiguration.touchSlop.toDouble(), GestureClassifier.DOUBLE_TAP_DP.dp.toPx().toDouble())
+            val gc = GestureClassifier(viewConfiguration.touchSlop.toDouble(), GestureClassifier.DOUBLE_TAP_DP.dp.toPx().toDouble(),
+                still = GestureClassifier.GRAB_STILL_DP.dp.toPx().toDouble())
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
@@ -1496,7 +1527,7 @@ private fun SpPhoto(
                                 // moved (4 dp, sp.js 935), the refusal -- once per gesture
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
-                                    if (g.locked == LINES_LOCKED) onLinesLockedS() else onRefuseS(g.locked)
+                                    onRefuseS(g.locked)
                                 }
                             } else if (g != null) {
                                 if (!snapped) { onBeforeChangeS(); snapped = true }
@@ -1525,8 +1556,11 @@ private fun SpPhoto(
                             if (grab == null && placing && !tagged)
                                 placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
                             // THE LONG-PRESS MENU (v52 slice 8, sp.js openCtx): with Select on, held on a mark (locked
-                            // or not), the menu opens at the press; on empty photo, nothing
+                            // or not), the menu opens at the press; on empty photo, nothing. A grab moved further than
+                            // GRAB_STILL_DP gets no long press (GestureClassifier); one the drift moved less is put
+                            // back first, with its undo step, so the menu never opens on a mark that has moved
                             else if (!placing && mode == "mark" && gid != null) {
+                                if (moved) { onRevertS(); moved = false; snapped = false }
                                 grab = null; loupe = null; spent = true
                                 onLongPressS(gid, Offset(e.x.toFloat() + photoAt.x, e.y.toFloat() + photoAt.y))
                             }

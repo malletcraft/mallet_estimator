@@ -96,4 +96,32 @@ object Readings {
         val m = pull(actual, now, readings)
         return Merge(m.actual, m.seen, m.taken, conflicts)
     }
+
+    /**
+     * A CONFLICT ON A READING WHOSE MARK IS GONE HERE (v52 slice 8 review). Delete or a clear takes FW1 and its
+     * readings; the push sends {FW1.w: null}; if staff changed FW1.w on the web meanwhile, the server answers a
+     * conflict, and applying it as-is would put FW1.w back with no FW1 to show it under -- an orphan the phone can
+     * neither display nor remove, which the next ↶ (keeping only readings with a mark) would then delete on the
+     * web without anybody asking. The rule, made on purpose: THE PHONE'S DELETE STANDS. Each [applied] conflict
+     * whose key is not [live] (its mark is gone) is kept out of [actual], and [seen] takes the server's value and
+     * new `at`, so the key is an unsent delete based on the latest `at` -- the next push sends it once and it is
+     * written. A conflict the server answered with a delete needs nothing. Returns the keys re-deleted, sorted,
+     * for the screen to say ([orphanText]).
+     */
+    fun orphans(actual: MutableMap<String, Double>, seen: MutableMap<String, Seen>,
+                applied: Map<String, Remote>, live: (String) -> Boolean): List<String> {
+        val out = mutableListOf<String>()
+        for ((k, r) in applied) {
+            if (live(k)) continue
+            actual.remove(k)
+            val v = r.v
+            if (v == null) seen.remove(k) else { seen[k] = Seen(v, r.at); out.add(k) }
+        }
+        return out.sorted()
+    }
+
+    /** What the screen says about [orphans]' keys, or null when there are none. */
+    fun orphanText(keys: List<String>): String? =
+        if (keys.isEmpty()) null
+        else keys.joinToString("; ") { "$it changed on the web after its mark was deleted here" } + " — deleted on the web too"
 }
