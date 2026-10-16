@@ -253,9 +253,18 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // created in this run is asked about too. Read-only, and NEVER counted in `failures`:
         // QuoteStageSync swallows every refusal, 5xx and IO error with one Log.w, so S5 being
         // unreachable can never turn this sync into a retry that backs off the captures.
-        val known = runCatching { cat.projects(store.masters()).map { it.serverId } }
-            .getOrDefault(emptyList())
-        QuoteStageSync.refresh(applicationContext, known)
+        val projects = runCatching { cat.projects(store.masters()) }.getOrDefault(emptyList())
+        QuoteStageSync.refresh(applicationContext, projects.map { it.serverId })
+
+        // THE CLIENT'S WISH LIST (v52 item 16, slice 5b), after the quote stage and on the same
+        // terms: NEVER counted in `failures`. First a list made on a phone-only project moves
+        // under the ERP id that project has now -- matched on client and title against the
+        // masters as refreshed above, after ensureSite and pruneLocalsCoveredBy, so a list made
+        // offline is not orphaned (decision 3). Then ONE PUT per dirty list that has an ERP id,
+        // with its base; a 409 is S5's copy winning (decision 2), a 404 waits on the phone, and
+        // every refusal, 5xx or IO error is one Log.w inside WishSync.
+        WishSync.rekey(applicationContext, projects)
+        WishSync.push(applicationContext)
 
         // Update check rides the sync too: when the server holds a newer
         // camera build, remember it so the screen can offer the install.

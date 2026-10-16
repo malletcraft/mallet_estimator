@@ -70,6 +70,7 @@ import com.malletcrafts.sitephotos.pano.Handover
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.RoomToken
 import com.malletcrafts.sitephotos.pano.SurveyPrep
+import com.malletcrafts.sitephotos.pano.WishList
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,6 +106,14 @@ private fun AppScreen() {
     var navSite by remember { mutableStateOf<String?>(null) }
     var navProject by remember { mutableStateOf<Catalogue.Project?>(null) }
     var navRoom by remember { mutableStateOf<String?>(null) }
+    // THE CLIENT'S WISH LIST (v52 item 16, slice 5b): the Project.key whose list is open, in
+    // place of that project's rooms. A screen of the PROJECT, never of a room or survey prep
+    // (Amit, 14 Oct 06:36 IST: "the wishlist should never get mixed with survey"), so it is
+    // let go the moment a room, another project, another tab or survey prep opens. The search
+    // overlay is not a leave: Search then Back returns to it, as in the prototype.
+    var wishFor by remember { mutableStateOf<String?>(null) }
+    // Changed after a vendor quoted, this visit: the warning shows until the list is left.
+    var wishWarned by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     var showNewSite by remember { mutableStateOf(false) }
@@ -217,6 +226,17 @@ private fun AppScreen() {
     // A kept 360 with no laser sizes stored: they are asked for before it opens.
     var surveyAskDims by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var annotating by remember { mutableStateOf<Pair<String, String>?>(null) }
+
+    // The wish list is let go when its project is left (the prototype's view(): another
+    // project, a room, another tab, survey prep). Here, above every early return, so it runs
+    // whichever screen the leave opened.
+    LaunchedEffect(wishFor, navProject?.key, navRoom, tab, surveyKept, facePrep) {
+        if (wishFor != null && (navProject?.key != wishFor || navRoom != null || tab != "browse" ||
+                surveyKept != null || facePrep != null)) {
+            wishFor = null
+            wishWarned = false
+        }
+    }
 
     // EVERY branch below returns early, so each one needs its own
     // BackHandler — a branch without one falls through to Android's default,
@@ -437,6 +457,26 @@ private fun AppScreen() {
         }
         qp.registerOnSharedPreferenceChangeListener(listener)
         onDispose { qp.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    // THE WISH LISTS (slice 5b): any write to them -- an edit, the sync taking S5's copy or
+    // a 409, the read on project open -- redraws the chip and the open list, held like the
+    // quote listener above.
+    var wishTick by remember { mutableStateOf(0) }
+    DisposableEffect(context) {
+        val wp = WishSync.prefs(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            wishTick += 1
+        }
+        wp.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { wp.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    // S5's copy of the opened project's wish list, read once per project open (when online):
+    // a list with no unsent edit takes it, so staff edits on /projects show on the phone. A
+    // project only on this phone never asks S5; a failed read is one Log.w in WishSync.
+    LaunchedEffect(navProject?.serverId) {
+        val p = navProject ?: return@LaunchedEffect
+        if (!p.synced) return@LaunchedEffect
+        withContext(Dispatchers.IO) { WishSync.pull(context, p) }
     }
     // The IST day, moved at IST midnight: a cached copy read yesterday shows its read time
     // (decision 1, 15 Oct), so the line is recomputed when the day turns even if nothing
@@ -1058,6 +1098,34 @@ private fun AppScreen() {
             }
         }
 
+        // The project's rooms as its grid shows them: the APPLIES TO chips of the wish list
+        // are the same list.
+        fun gridRooms(p: Catalogue.Project): List<String> = cat.roomsInScope(
+            rooms, p.client, p.site, siteTypeOf(p.client, p.site),
+        ) { r -> queue.any { it.room == r && it.projectTitle.equals(p.title, true) } }
+
+        // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
+        // tree's, so it wins) goes to the project; no bottom bar, as on a capture.
+        if (proj != null && wishFor != null && proj.key == wishFor) {
+            BackHandler { wishFor = null; wishWarned = false }
+            val wishCache = remember(proj.serverId, dataTick, quoteTick) {
+                if (proj.synced) QuoteStageSync.cached(context, proj.serverId) else null
+            }
+            WishListScreen(
+                project = proj,
+                rooms = gridRooms(proj),
+                quote = remember(proj.serverId, dataTick, quoteTick, istDay) {
+                    QuoteStageSync.lineFor(context, proj)
+                },
+                stageIdx = WishList.stageIndex(wishCache),
+                tick = wishTick,
+                warned = wishWarned,
+                onWarn = { wishWarned = true },
+                onBack = { wishFor = null; wishWarned = false },
+                onSearch = { showSearch = true; searchQuery = "" })
+            return
+        }
+
         val crumbs = buildList {
             add(Crumb(
                 label = "Clients",
@@ -1202,6 +1270,13 @@ private fun AppScreen() {
                             // the read time shows only on a copy from before today.
                             quote = remember(proj.serverId, dataTick, quoteTick, istDay) {
                                 QuoteStageSync.lineFor(context, proj)
+                            },
+                            // The client's wish list (slice 5b), kept per project on this
+                            // phone; the count follows any write to the lists (wishTick).
+                            onWish = { wishWarned = false; wishFor = proj.key },
+                            wishLabel = remember(proj.key, proj.serverId, wishTick, dataTick) {
+                                WishList.chip(WishSync.count(context,
+                                    WishList.keyOf(proj.serverId, proj.client, proj.title)))
                             },
                             onDetail = { showDetail = true })
                         site != null && client != null -> ProjectsScreen(

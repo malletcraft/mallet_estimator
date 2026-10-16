@@ -1,6 +1,7 @@
 package com.malletcrafts.sitephotos
 
 import android.content.res.Configuration
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -276,6 +277,10 @@ fun RoomsScreen(
     /** S5's QUOTE stage for this project, as QuoteStageSync last read it (v52 item 16):
      *  drawn under the work stage, read-only. MainActivity always passes one. */
     quote: QuoteStage.Line?,
+    /** The client's wish list (v52 item 16, slice 5b): the chip after rooms shot reads
+     *  [wishLabel] ("Wish list N/12") and opens the list. Null draws no chip. */
+    onWish: (() -> Unit)?,
+    wishLabel: String,
     /** The project sheet (job type, status, ERP id, phase). The dates chip is
      *  the only way into it, so that chip is drawn on every project. */
     onDetail: () -> Unit,
@@ -316,6 +321,18 @@ fun RoomsScreen(
         ) {
             AssistChip(onClick = { }, enabled = false,
                 label = { Text(plural(shot.size, "room") + " shot") })
+            // The wish list (v52 item 16; Amit, 14 Oct 06:36 IST: "the wishlist should never get
+            // mixed with survey as this wishlist comes after survey"): reached from the PROJECT
+            // only, never from a room, a capture or survey prep. Teal so it reads as the
+            // quote line's, not the survey's (wish.css .chip.wq: a 1 dp #0F766E outline, #0F5E57
+            // text, 12 dp side padding -- the chip's own 8 dp plus 4 dp round the label).
+            onWish?.let {
+                AssistChip(
+                    onClick = it,
+                    label = { Text(wishLabel, modifier = Modifier.padding(horizontal = 4.dp)) },
+                    colors = AssistChipDefaults.assistChipColors(labelColor = Color(0xFF0F5E57)),
+                    border = BorderStroke(1.dp, Color(0xFF0F766E)))
+            }
             // The scope control sits with the other facts about this job, not
             // in a menu: choosing the rooms IS a fact about the site, and it
             // is the first thing worth doing on arriving at one.

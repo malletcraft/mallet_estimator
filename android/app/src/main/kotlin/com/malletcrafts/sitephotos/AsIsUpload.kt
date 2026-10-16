@@ -117,8 +117,17 @@ object AsIsUpload {
             .build()
     }
 
-    /** One request to the web; the answer's body. [method] is GET, PUT or PATCH. */
-    internal fun send(method: String, url: String, auth: String, body: ByteArray?, contentType: String?): String {
+    /** The web's answer, whatever its status: the status and the body. */
+    internal class Answer(val code: Int, val body: String) {
+        val ok: Boolean get() = code in 200..299
+    }
+
+    /**
+     * One request to the web, returning the answer WITHOUT judging its status -- for the
+     * caller that has to read a refusal's body (the wish list's 409 carries S5's rows).
+     * [method] is GET, PUT or PATCH. A network failure still throws (IOException).
+     */
+    internal fun exchange(method: String, url: String, auth: String, body: ByteArray?, contentType: String?): Answer {
         val b = Request.Builder().url(url).header("Authorization", auth)
         val rb = body?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
         when (method) {
@@ -126,14 +135,24 @@ object AsIsUpload {
             "PATCH" -> b.patch(rb ?: ByteArray(0).toRequestBody(null))
             else -> b.get()
         }
-        http.newCall(b.build()).execute().use { resp ->
-            val raw = resp.body?.string() ?: ""
-            if (resp.isSuccessful) return raw
-            val text = runCatching { JSONObject(raw).optString("error").ifBlank { null } }.getOrNull()
-                ?: raw
-            val clean = text.replace(Regex("\\s+"), " ").take(160)
-            throw HttpError(resp.code, "web answered ${resp.code}" + if (clean.isNotBlank()) ": $clean" else "")
+        return http.newCall(b.build()).execute().use { resp ->
+            Answer(resp.code, resp.body?.string() ?: "")
         }
+    }
+
+    /** The [HttpError] for a refused [a]: its status and S5's own error text, never more than 160 characters. */
+    internal fun errorOf(a: Answer): HttpError {
+        val text = runCatching { JSONObject(a.body).optString("error").ifBlank { null } }.getOrNull()
+            ?: a.body
+        val clean = text.replace(Regex("\\s+"), " ").take(160)
+        return HttpError(a.code, "web answered ${a.code}" + if (clean.isNotBlank()) ": $clean" else "")
+    }
+
+    /** One request to the web; the answer's body. [method] is GET, PUT or PATCH. A refusal throws [HttpError]. */
+    internal fun send(method: String, url: String, auth: String, body: ByteArray?, contentType: String?): String {
+        val a = exchange(method, url, auth, body, contentType)
+        if (a.ok) return a.body
+        throw errorOf(a)
     }
 
     internal fun put(url: String, auth: String, body: ByteArray, contentType: String) {
