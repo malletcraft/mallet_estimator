@@ -204,18 +204,42 @@ class ExtCutTest {
         assertNull(SurveyPrep.junctions("right", cornersAt(300.0, SurveyPrep.xAt(86.0)), "right"), "past ±84°")
     }
 
+    /** A 360 lit everywhere, so a black pixel in a squared face can only be one outside the clip. */
+    private val lit = Panorama.Image(64, 32, IntArray(64 * 32) { 0xFF808080.toInt() })
+    private val bareClip = doubleArrayOf(0.0, 0.0, SurveyPrep.VW.toDouble(), SurveyPrep.VH.toDouble())
+
     @Test fun `the squared face is drawn as far as lim, where the bare view would leave it black`() {
         val f = assertNotNull(SurveyPrep.frame(linesThrough(htuRight), 2800.0, 2700.0))
         val sq = SurveyPrep.Square.screen(f.a, f.b)
-        val lit = Panorama.Image(64, 32, IntArray(64 * 32) { 0xFF808080.toInt() })
         fun black(img: Panorama.Image) = img.pixels.count { it == 0 }
-        val bare = SurveyPrep.render(lit, "right", f, sq)
-        val wide = SurveyPrep.render(lit, "right", f, sq, clip = SurveyPrep.lim("right"))
+        val bare = SurveyPrep.render(lit, "right", f, sq, clip = bareClip)
+        val wide = SurveyPrep.render(lit, "right", f, sq)
+        assertContentEquals(wide.pixels, SurveyPrep.render(lit, "right", f, sq, clip = SurveyPrep.lim("right")).pixels, "lim is the default")
         assertTrue(black(wide) < black(bare), "lim draws more: ${black(wide)} black vs ${black(bare)}")
         // the face's right end (its right corner, 72.3°) is drawn: the pixel just inside the bottom-right corner
         val px = sq.x(f.a - 20).toInt(); val py = sq.y(20.0).toInt()
         assertEquals(0, bare.pixels[py * sq.width + px], "black in the bare view")
         assertTrue(wide.pixels[py * sq.width + px] != 0, "drawn within lim")
+    }
+
+    @Test fun `the saved elevation and the as-is upload show the htu right corner the screen shows - one squaring rule, as the prototype`() {
+        val f = assertNotNull(SurveyPrep.frame(linesThrough(htuRight), 2800.0, 2700.0))
+        // the S5 upload (AsIsUpload): squared, no margin -- not one black pixel inside the surface, both right corners in
+        val asis = SurveyPrep.renderAsIs(lit, "right", f)
+        assertEquals(0, asis.pixels.count { it == 0 }, "the as-is face is drawn edge to edge")
+        val aq = SurveyPrep.asisSquare(f.a, f.b)
+        for (mmY in listOf(20.0, f.b - 20)) {
+            val px = aq.x(f.a - 20).toInt(); val py = aq.y(mmY).toInt()
+            assertTrue(asis.pixels[py * aq.width + px] != 0, "as-is: just inside the right corner at $mmY mm up")
+            assertNotNull(SurveyPrep.asisDirection("right", f, aq, px + 0.5, py + 0.5), "asisDirection agrees")
+        }
+        // the gallery elevation (FaceWriter.writeSurvey): the same call, the elevation square
+        val eq = SurveyPrep.Square.elevation(f.a, f.b, 1600, 0.06)
+        val el = SurveyPrep.render(lit, "right", f, eq)
+        for (mmY in listOf(20.0, f.b - 20)) {
+            val px = eq.x(f.a - 20).toInt(); val py = eq.y(mmY).toInt()
+            assertTrue(el.pixels[py * eq.width + px] != 0, "elevation: just inside the right corner at $mmY mm up")
+        }
     }
 
     // ------------------------------------------------------------ the photo box (sp.js V.clamp)
@@ -226,5 +250,105 @@ class ExtCutTest {
         close(1248.0, SurveyPrep.clampOver(5000.0, 288.0, 1536.0), 0.0, "right edge of the cut")
         close(-100.0, SurveyPrep.clampOver(-100.0, 288.0, 1536.0), 0.0, "free, in the border")
         close(0.0, SurveyPrep.clampOver(-5.0, 0.0, 960.0), 0.0, "a squared face has no offset")
+    }
+
+    // ------------------------------------------------------------ the photo box's view (sp.js Viewer; ct52 F)
+
+    /** A portrait photo box on the Mi A3, px. */
+    private val bw = 720.0; private val bh = 1000.0
+
+    /** The htu Right wall as 1 · Lines shows it: its cut, and the box over it fitted to the surface. */
+    private fun htuBox(): SurveyPrep.PhotoBox {
+        val lines = linesThrough(htuRight)
+        val e = SurveyPrep.needExt("right", lines, htuRight)
+        val fr = SurveyPrep.fitRectFor("right", lines, htuRight, e)
+        return SurveyPrep.PhotoBox(bw, bh, fr, -e[0].toDouble(), -e[1].toDouble(), (e[2] - e[0]).toDouble(), (e[3] - e[1]).toDouble())
+    }
+
+    @Test fun `fitted, the box shows the fit rect whole, centred, and 10 degrees beyond the htu right corner (ct52 F)`() {
+        val b = htuBox(); val v = SurveyPrep.PhotoView()
+        assertTrue(v.fitted); assertEquals(1.0, v.zoom()); assertNull(v.label(), "no zoom label while fitted")
+        close((b.fr[0] + b.fr[2]) / 2, v.centreX(b), 1e-9, "centred on the fit rect")
+        close(SurveyPrep.fitScale(bw, bh, b.fr[2] - b.fr[0], b.fr[3] - b.fr[1]), v.k(b), 1e-12, "k is the fit rect's scale")
+        // every corner of the fit rect is inside the box
+        for (x in listOf(b.fr[0], b.fr[2])) for (y in listOf(b.fr[1], b.fr[3])) {
+            val s = v.toS(b, x, y); assertTrue(s[0] >= -1e-6 && s[0] <= bw + 1e-6 && s[1] >= -1e-6 && s[1] <= bh + 1e-6, "(${s[0]}, ${s[1]}) in the box")
+        }
+        val corner = SurveyPrep.aAt(htuRight[1][0])
+        val edge = SurveyPrep.aAt(v.fromS(b, bw, bh / 2)[0])
+        assertTrue(edge >= corner + 10, "the box's right edge is at $edge°, the corner at $corner°")
+        // toS and fromS are each other's inverse
+        val p = v.fromS(b, 123.0, 456.0); val q = v.toS(b, p[0], p[1])
+        close(123.0, q[0], 1e-9, "x"); close(456.0, q[1], 1e-9, "y")
+    }
+
+    @Test fun `zoom out goes to a third of fit and no further, the level shown (ct52 F)`() {
+        val b = htuBox(); val v0 = SurveyPrep.PhotoView()
+        val v = v0.zoomAt(b, 0.2, bw / 2, bh / 2)
+        assertTrue(!v.fitted); close(1.0 / 3, v.z, 1e-12, "clamped to ZMIN")
+        assertTrue(v.k(b) < v0.k(b), "wider than fit")
+        assertEquals("0.33×", v.label())
+        assertEquals(SurveyPrep.ZMAX, v0.zoomAt(b, 50.0, 10.0, 10.0).z, "and in to 8x")
+        assertEquals("8.0×", v0.zoomAt(b, 50.0, 10.0, 10.0).label())
+        // the point under the finger stays under it
+        val at = v0.fromS(b, 300.0, 400.0); val z2 = v0.zoomAt(b, 2.0, 300.0, 400.0)
+        val s = z2.toS(b, at[0], at[1]); close(300.0, s[0], 1e-6, "x"); close(400.0, s[1], 1e-6, "y")
+    }
+
+    @Test fun `a drag on empty photo pans at any zoom, fitted or zoomed out, and fit brings back zoom 1 on the fit rect (ct52 F)`() {
+        val b = htuBox()
+        // fitted: the drag unfits and moves the centre against the finger
+        val f0 = SurveyPrep.PhotoView()
+        val c0x = f0.centreX(b); val c0y = f0.centreY(b)
+        val p = f0.pan(b, c0x, c0y, -60.0, -30.0)
+        assertTrue(!p.fitted); assertEquals(1.0, p.z)
+        close(c0x + 60 / f0.k(b), p.cx, 1e-9, "x"); close(c0y + 30 / f0.k(b), p.cy, 1e-9, "y")
+        // zoomed out (ct52: the drag from the bottom-right corner up and left moves the centre right and down)
+        val zo = f0.zoomAt(b, 0.2, bw / 2, bh / 2)
+        val zp = zo.pan(b, zo.cx, zo.cy, -60.0, -30.0)
+        assertTrue(zp.cx > zo.cx && zp.cy > zo.cy, "${zo.cx},${zo.cy} -> ${zp.cx},${zp.cy}")
+        // the centre stays over the picture, past the corner as far as the cut and no further
+        val far = zo.pan(b, zo.cx, zo.cy, -1e6, 1e6)
+        close(b.iw - b.ox, far.cx, 1e-9, "the cut's right edge"); close(-b.oy, far.cy, 1e-9, "the cut's top edge")
+        // fit: zoom 1, fitted, centred on the fit rect, no label
+        val fit = far.fit()
+        assertTrue(fit.fitted); assertEquals(1.0, fit.zoom()); assertNull(fit.label())
+        close((b.fr[0] + b.fr[2]) / 2, fit.centreX(b), 1e-9, "centre x"); close((b.fr[1] + b.fr[3]) / 2, fit.centreY(b), 1e-9, "centre y")
+    }
+
+    @Test fun `fitted, the view follows the fit rect as the lines move, and a pinch zooms about the fingers`() {
+        val b = htuBox(); val v = SurveyPrep.PhotoView()
+        val moved = SurveyPrep.PhotoBox(b.w, b.h, doubleArrayOf(b.fr[0] - 100, b.fr[1], b.fr[2] + 300, b.fr[3]), b.ox, b.oy, b.iw, b.ih)
+        close((moved.fr[0] + moved.fr[2]) / 2, v.centreX(moved), 1e-9, "follows")
+        assertTrue(v.k(moved) < v.k(b), "a wider fit rect, a smaller scale")
+        // out of fit it stays where it was
+        val u = v.unfit(b); close(v.centreX(b), u.centreX(moved), 1e-9, "unfitted stays")
+        // two fingers 2x apart about (300, 400), not moving: that point stays put and the zoom doubles
+        val at = v.fromS(b, 300.0, 400.0)
+        val pz = v.pinch(b, 2.0, 300.0, 400.0, 300.0, 400.0)
+        close(2.0, pz.z, 1e-12, "doubled"); val s = pz.toS(b, at[0], at[1]); close(300.0, s[0], 1e-6, "x"); close(400.0, s[1], 1e-6, "y")
+        // the midpoint moving 50 px right carries the picture with it
+        val pm = v.pinch(b, 1.0, 300.0, 400.0, 350.0, 400.0)
+        close(350.0, pm.toS(b, at[0], at[1])[0], 1e-6, "follows the midpoint")
+    }
+
+    @Test fun `a dragged end is kept on the picture, past the 960 view as far as the cut`() {
+        val b = htuBox()
+        close(b.iw - b.ox, b.keepX(1e9), 0.0, "right"); close(-b.ox, b.keepX(-1e9), 0.0, "left")
+        close(-b.oy, b.keepY(-1e9), 0.0, "top"); close(b.ih - b.oy, b.keepY(1e9), 0.0, "bottom")
+        val x75 = SurveyPrep.xAt(75.0)
+        assertTrue(x75 > SurveyPrep.VW); close(x75, b.keepX(x75), 0.0, "a corner at 75° stays where it is put")
+    }
+
+    // ------------------------------------------------------------ a cut nobody wants stops early
+
+    @Test fun `cutView calls onRow before every row, and a cancelled cut stops there`() {
+        var rows = 0
+        val c = SurveyPrep.cutView(pano, "right", intArrayOf(-10, -5, 30, 15)) { rows++ }
+        assertEquals(20, rows); assertEquals(40, c.img.width)
+        class Stop : RuntimeException()
+        var seen = 0
+        val r = runCatching { SurveyPrep.cutView(pano, "right", SurveyPrep.baseExt("right")) { if (++seen > 3) throw Stop() } }
+        assertTrue(r.exceptionOrNull() is Stop, "the cancellation propagates"); assertEquals(4, seen, "it stopped at the fourth row")
     }
 }

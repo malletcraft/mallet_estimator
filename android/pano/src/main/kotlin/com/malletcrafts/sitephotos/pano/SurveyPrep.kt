@@ -208,13 +208,16 @@ object SurveyPrep {
     }
 
     /** A surface's view cut over [ext], view px, at pixel centres (sp.js cutView): the same projection as the bare
-     *  view, so a point keeps its 360 direction however wide the cut. */
-    fun cutView(pano: Panorama.Image, s: String, ext: IntArray): Cut {
+     *  view, so a point keeps its 360 direction however wide the cut. [onRow] runs before every row: the screen passes
+     *  its coroutine's ensureActive, so a cut nobody wants any more (a newer nudge restarted it) stops at the next row
+     *  instead of running a full-width cut to the end and being thrown away (review). */
+    fun cutView(pano: Panorama.Image, s: String, ext: IntArray, onRow: () -> Unit = {}): Cut {
         val w = ext[2] - ext[0]; val h = ext[3] - ext[1]
         require(w > 0 && h > 0) { "empty cut ${ext.joinToString()}" }
         val out = IntArray(w * h)
-        for (y in 0 until h) for (x in 0 until w) {
-            out[y * w + x] = WallCorners.sample(pano, ray(s, ext[0] + x + 0.5, ext[1] + y + 0.5))
+        for (y in 0 until h) {
+            onRow()
+            for (x in 0 until w) out[y * w + x] = WallCorners.sample(pano, ray(s, ext[0] + x + 0.5, ext[1] + y + 0.5))
         }
         return Cut(Panorama.Image(w, h, out), ext.copyOf())
     }
@@ -251,6 +254,71 @@ object SurveyPrep {
     /** A centre, along one axis, once the view is zoomed or panned (sp.js V.clamp): anywhere over the picture, whose
      *  view coordinates run from -[o] to [extent] - [o]. */
     fun clampOver(c: Double, o: Double, extent: Double): Double = c.coerceIn(-o, extent - o)
+
+    /**
+     * THE PHOTO BOX'S GEOMETRY (sp.js Viewer: cv.width / height, V.FR, V.ox / oy, V.IW / IH): the box, [w] x [h] px;
+     * what zoom 1 fits, [fr] (view px x0, y0, x1, y1); and the picture, [iw] x [ih] px, with view (0, 0) at ([ox], [oy])
+     * in it. The screen builds one from what it shows NOW, so a wider cut that lands between two gestures is simply the
+     * next one's geometry -- everything a [PhotoView] holds is in view coordinates and means the same place.
+     */
+    class PhotoBox(val w: Double, val h: Double, val fr: DoubleArray, val ox: Double, val oy: Double, val iw: Double, val ih: Double) {
+        /** A dragged point is kept on the picture (sp.js 936), which in 1 · Lines reaches past the 960 x 800 view. */
+        fun keepX(x: Double): Double = x.coerceIn(-ox, iw - ox)
+        fun keepY(y: Double): Double = y.coerceIn(-oy, ih - oy)
+    }
+
+    /**
+     * THE PHOTO BOX'S VIEW (sp.js Viewer, v43: V.fitted, V.z, V.cx, V.cy and V.k / toS / fromS / clamp / zoomAt / fit),
+     * in view coordinates. FITTED, zoom is 1 and the centre is the fit rect's, so the view follows the lines as they move;
+     * a pinch or a pan leaves it, and zoom then runs from a third of fit ([ZMIN]) to [ZMAX] with the centre anywhere
+     * over the picture. The screen's gesture and its drawing both map through this, so the mapping exists once.
+     */
+    data class PhotoView(val fitted: Boolean = true, val z: Double = 1.0, val cx: Double = 0.0, val cy: Double = 0.0) {
+        /** The zoom in force (sp.js V.clamp holds it at 1 while fitted). */
+        fun zoom(): Double = if (fitted) 1.0 else z
+        /** The centre in force, view px (while fitted, the fit rect's). */
+        fun centreX(b: PhotoBox): Double = if (fitted) (b.fr[0] + b.fr[2]) / 2 else cx
+        fun centreY(b: PhotoBox): Double = if (fitted) (b.fr[1] + b.fr[3]) / 2 else cy
+        /** Box px per view px (sp.js V.k): the FIT RECT in the box at zoom 1, letterboxed, times the zoom. */
+        fun k(b: PhotoBox): Double = fitScale(b.w, b.h, b.fr[2] - b.fr[0], b.fr[3] - b.fr[1]) * zoom()
+        /** View px to box px (sp.js V.toS). */
+        fun toS(b: PhotoBox, x: Double, y: Double): DoubleArray {
+            val kk = k(b); return doubleArrayOf((x - centreX(b)) * kk + b.w / 2, (y - centreY(b)) * kk + b.h / 2)
+        }
+        /** Box px to view px (sp.js V.fromS). */
+        fun fromS(b: PhotoBox, sx: Double, sy: Double): DoubleArray {
+            val kk = k(b); return doubleArrayOf((sx - b.w / 2) / kk + centreX(b), (sy - b.h / 2) / kk + centreY(b))
+        }
+        /** Out of fit, from where the fitted view is now (sp.js zoomAt and a pan set V.fitted = false). */
+        fun unfit(b: PhotoBox): PhotoView = if (fitted) PhotoView(false, 1.0, centreX(b), centreY(b)) else this
+        /** sp.js V.clamp: zoom a third of fit to 8x; the centre anywhere over the picture, no further. */
+        fun clamp(b: PhotoBox): PhotoView =
+            if (fitted) this else PhotoView(false, z.coerceIn(ZMIN, ZMAX), clampOver(cx, b.ox, b.iw), clampOver(cy, b.oy, b.ih))
+        /** sp.js V.zoomAt: zoom to [nz] about box point ([sx], [sy]), which keeps its place under the finger. */
+        fun zoomAt(b: PhotoBox, nz: Double, sx: Double, sy: Double): PhotoView {
+            val u = unfit(b)
+            val before = u.fromS(b, sx, sy)
+            val v = u.copy(z = nz.coerceIn(ZMIN, ZMAX))
+            val after = v.fromS(b, sx, sy)
+            return v.copy(cx = v.cx + before[0] - after[0], cy = v.cy + before[1] - after[1]).clamp(b)
+        }
+        /** A drag on empty photo (sp.js 938): out of fit, the centre [cx0], [cy0] at the press moved against the finger's
+         *  [dx], [dy] box px -- at any zoom. */
+        fun pan(b: PhotoBox, cx0: Double, cy0: Double, dx: Double, dy: Double): PhotoView {
+            val u = unfit(b); val kk = u.k(b)
+            return u.copy(cx = cx0 - dx / kk, cy = cy0 - dy / kk).clamp(b)
+        }
+        /** Two fingers (sp.js 933): zoom by [ratio] about their last midpoint ([m0x], [m0y]), then follow it to
+         *  ([mx], [my]). */
+        fun pinch(b: PhotoBox, ratio: Double, m0x: Double, m0y: Double, mx: Double, my: Double): PhotoView {
+            val v = zoomAt(b, zoom() * ratio, m0x, m0y); val kk = v.k(b)
+            return v.copy(cx = v.cx - (mx - m0x) / kk, cy = v.cy - (my - m0y) / kk).clamp(b)
+        }
+        /** sp.js V.fit: zoom 1 on the fit rect, fitted again -- it follows the lines from here. */
+        fun fit(): PhotoView = PhotoView(true, 1.0, cx, cy)
+        /** The zoom label (sp.js zl): hidden while fitted, two places below 1. */
+        fun label(): String? = if (fitted) null else String.format(java.util.Locale.ROOT, if (z < 1) "%.2f×" else "%.1f×", z)
+    }
 
     // ------------------------------------------------ the laser size of a surface
 
@@ -451,14 +519,16 @@ object SurveyPrep {
     /**
      * The surface squared to size, sampled straight from the 360 (so a saved
      * elevation is as sharp as the pano allows). Outside [clip] -- view px
-     * x0, y0, x1, y1; by default the surface's own view -- is black. The
-     * screen passes [lim] (sp.js rectify: "as far as a wall can be cut,
-     * ±84°"), so a corner past the bare view is in the squared face too.
+     * x0, y0, x1, y1 -- is black. It is [lim] for every caller (sp.js rectify:
+     * "as far as a wall can be cut, ±84°", its one squaring rule), so a corner
+     * past the bare view is in the squared face on screen, in the saved
+     * elevations (FaceWriter) and in the as-is upload ([renderAsIs]) alike --
+     * never drawn on one and black on another (review).
      * [flipY] turns it upside down -- the ceiling saved the way the split's
      * "up" face looks, back wall at the top.
      */
     fun render(pano: Panorama.Image, s: String, f: Frame, sq: Square, flipY: Boolean = false,
-               clip: DoubleArray = dimOf(s).let { doubleArrayOf(0.0, 0.0, it[0].toDouble(), it[1].toDouble()) }): Panorama.Image {
+               clip: DoubleArray = lim(s)): Panorama.Image {
         val out = IntArray(sq.width * sq.height)
         val pt = DoubleArray(2)
         for (row in 0 until sq.height) {
@@ -495,13 +565,13 @@ object SurveyPrep {
     /**
      * The direction to sample the 360 at for picture point ([px], [py]) of
      * [sq] (continuous: pixel i's centre is i + 0.5), through the surface's
-     * frame; null where that point falls outside the surface's own view.
-     * The same mapping [render] uses, one point at a time.
+     * frame; null where that point falls outside what the surface's view can
+     * be cut to ([lim]). The same mapping [render] uses, one point at a time.
      */
     fun asisDirection(s: String, f: Frame, sq: Square, px: Double, py: Double): DoubleArray? {
         val p = apply(f.m2p, doubleArrayOf(sq.mmX(px), sq.mmY(py)))
-        val d = dimOf(s)
-        if (p[0].isNaN() || p[1].isNaN() || p[0] < 0 || p[1] < 0 || p[0] > d[0] || p[1] > d[1]) return null
+        val l = lim(s)
+        if (p[0].isNaN() || p[1].isNaN() || p[0] < l[0] || p[1] < l[1] || p[0] > l[2] || p[1] > l[3]) return null
         return ray(s, p[0], p[1])
     }
 

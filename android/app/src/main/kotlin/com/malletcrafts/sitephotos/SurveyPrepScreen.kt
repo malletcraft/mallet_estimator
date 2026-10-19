@@ -55,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -120,6 +121,8 @@ import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import com.malletcrafts.sitephotos.pano.SurveyRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -261,6 +264,8 @@ internal fun SurveyPrepDialog(
      *  Declared here, above every caller -- a local function is visible only below its declaration. */
     fun dropDrafts() { mdrag = null; area = null; areaS = null; endG = null; kdraft = null }
     val views = remember { mutableStateMapOf<String, SpCut>() }
+    // a finger is on the photo (SpPhoto, from its first down to its last up): a wider cut waits for it to lift
+    var photoBusy by remember { mutableStateOf(false) }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
     // replaces the old and restarts the five seconds (the sequence number is the timer's key)
@@ -502,15 +507,21 @@ internal fun SurveyPrepDialog(
     // furthest of them, at least ±70°, at most ±84° (SurveyPrep.needExt) -- and cut again, wider, after a line is moved
     // or nudged towards the edge. Never during a drag (dirty moves only when a change is DONE: a drag let go, a nudge, an
     // undo), and never narrower than it was (SurveyPrep.growExt).
+    // A cut that lands while a finger is on the photo WAITS for the finger to lift (sp.js 1527: ensureCut only when
+    // !surfV.busy()), so a line held near the edge is never re-pictured, nor its fit moved, under the finger (review).
+    // A burst of nudges makes ONE cut: the effect restarts on every change, waits 150 ms first, and a cut it no longer
+    // wants stops at its next row (cutView's onRow) rather than running full width and being thrown away (review).
     val cutHere = views[tab]
     LaunchedEffect(tab, mode, dirty, cutHere != null) {
         if (mode != "lines" || !StepRoute.isFace(tab) || SurveyPrep.isPlan(tab)) return@LaunchedEffect
         val s = tab
+        delay(150)
         val have = views[s] ?: return@LaunchedEffect
         val need = SurveyPrep.needExt(s, prep.surface(s).lines, frameOf(s)?.q)
         val grow = SurveyPrep.growExt(have.ext, need) ?: return@LaunchedEffect
-        val c = withContext(Dispatchers.Default) { SurveyPrep.cutView(previewPano, s, grow) }
+        val c = withContext(Dispatchers.Default) { val cutting = this; SurveyPrep.cutView(previewPano, s, grow) { cutting.ensureActive() } }
         val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(c.img) }
+        snapshotFlow { photoBusy }.first { !it }
         val now = views[s]
         // a wider one made meanwhile is kept: a cut never shrinks
         if (now == null || SurveyPrep.growExt(now.ext, c.ext) != null) views[s] = SpCut(bmp, c.ox, c.oy, c.ext)
@@ -527,9 +538,9 @@ internal fun SurveyPrepDialog(
             if (rects[s]?.key == k) continue
             val f = frameOf(s) ?: continue
             val sq = SurveyPrep.Square.screen(f.a, f.b)
-            // drawn as far as a wall can be cut, ±84° (sp.js rectify's lim), so a corner past the bare view is in the
-            // squared face too -- the saved and uploaded pictures keep the bare view (FaceWriter, AsIsUpload)
-            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(previewPano, s, f, sq, clip = SurveyPrep.lim(s))) }
+            // drawn as far as a wall can be cut, ±84° (sp.js rectify's lim, render's default), so a corner past the bare
+            // view is in the squared face -- and in the saved elevations and the as-is upload, which square it the same way
+            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(previewPano, s, f, sq)) }
             rects[s] = SpRect(k, sq, bmp)
         }
     }
@@ -1206,7 +1217,8 @@ internal fun SurveyPrepDialog(
                     grid = grid,
                     onGrid = { grid = !grid; rev++ },
                     onEndGuide = { g -> endG = g; rev++ },
-                    onSay = { t -> say(t) })
+                    onSay = { t -> say(t) },
+                    onBusy = { b -> photoBusy = b })
             }
             notesOver()
         }
@@ -1923,6 +1935,9 @@ private fun SpPhoto(
     onChainFinish: () -> Unit,
     /** A chain picked: a press on its point (any tool but a type) or, with Select on, within 12 dp of its line. */
     onPickChain: (String) -> Unit,
+    /** A finger is on the photo (true at the first down, false when the gesture ends however it ends): a wider cut waits
+     *  for it to lift (sp.js surfV.busy). */
+    onBusy: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
@@ -1930,7 +1945,13 @@ private fun SpPhoto(
     // It follows the lines while they move, so it is read through a State by the gesture, which outlives recompositions.
     val fr = fitTo ?: doubleArrayOf(-ox, -oy, iw - ox, ih - oy)
     val frS by rememberUpdatedState(fr)
-    // The gesture below outlives recompositions (it restarts only for a new picture, surface, mode or
+    // THE PICTURE'S GEOMETRY, read through States too: in 1 · Lines the gesture is not restarted by a wider cut of the
+    // same wall (its key has no picture in it), so it must see the cut on show now -- its offset and size -- not the one
+    // it started with. Everything it holds is in view coordinates, which a wider cut does not move.
+    val oxS by rememberUpdatedState(ox); val oyS by rememberUpdatedState(oy)
+    val iwS by rememberUpdatedState(iw); val ihS by rememberUpdatedState(ih)
+    val onBusyS by rememberUpdatedState(onBusy)
+    // The gesture below outlives recompositions (it restarts only for a new surface, mode or -- off 1 · Lines --
     // squaring), so everything it reads that can change under it is read through these.
     val prepS by rememberUpdatedState(prep); val selS by rememberUpdatedState(sel)
     val rectS by rememberUpdatedState(rect); val abS by rememberUpdatedState(ab)
@@ -1954,11 +1975,10 @@ private fun SpPhoto(
     // keeps its zoom and centre, which mean the same place in view coordinates. A 2 · Mark face is a new picture whenever
     // it is squared again, as before. While fitted, zoom is 1 and the centre is the fit rect's -- following the lines as
     // they move; a pinch or a pan leaves it, and zoom then goes from a third of fit (ZMIN) to 8x.
+    // The view itself -- fitted, zoom, centre and every rule over them -- is SurveyPrep.PhotoView in :pano, where it is
+    // tested; the gesture and the drawing below both map through it, so the mapping exists once.
     val viewKey: Any = if (mode == "lines") "lines:$tab" else img
-    var fitted by remember(viewKey) { mutableStateOf(true) }
-    var z by remember(viewKey) { mutableStateOf(1.0) }
-    var cx by remember(viewKey) { mutableStateOf((fr[0] + fr[2]) / 2) }
-    var cy by remember(viewKey) { mutableStateOf((fr[1] + fr[3]) / 2) }
+    var view by remember(viewKey) { mutableStateOf(SurveyPrep.PhotoView()) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
@@ -2001,26 +2021,11 @@ private fun SpPhoto(
     // THE FIT RECT IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto for marking"; sp.js
     // V.k): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left). The
     // picture beyond the fit rect -- a wall's cut past its corners -- shows round it and is reached by panning.
-    fun zNow() = if (fitted) 1.0 else z
-    fun cxNow() = if (fitted) (frS[0] + frS[2]) / 2 else cx
-    fun cyNow() = if (fitted) (frS[1] + frS[3]) / 2 else cy
-    fun k() = SurveyPrep.fitScale(boxW.toDouble(), boxH.toDouble(), frS[2] - frS[0], frS[3] - frS[1]) * zNow()
-    fun toS(x: Double, y: Double): FloatArray { val kk = k()
-        return floatArrayOf(((x - cxNow()) * kk + boxW / 2).toFloat(), ((y - cyNow()) * kk + boxH / 2).toFloat()) }
-    fun fromS(sx: Float, sy: Float): DoubleArray { val kk = k()
-        return doubleArrayOf((sx - boxW / 2) / kk + cxNow(), (sy - boxH / 2) / kk + cyNow()) }
-    /** Out of fit (sp.js zoomAt / a pan): from where the fitted view is now. */
-    fun unfit() { if (fitted) { cx = cxNow(); cy = cyNow(); z = 1.0; fitted = false } }
-    /** sp.js V.clamp: zoom a third of fit to 8x; the centre anywhere over the picture, no further. */
-    fun clampView() {
-        if (fitted) return
-        z = z.coerceIn(SurveyPrep.ZMIN, SurveyPrep.ZMAX)
-        cx = SurveyPrep.clampOver(cx, ox, iw); cy = SurveyPrep.clampOver(cy, oy, ih)
-    }
-    fun zoomAt(nz: Double, sx: Float, sy: Float) {
-        unfit()
-        val b = fromS(sx, sy); z = nz.coerceIn(SurveyPrep.ZMIN, SurveyPrep.ZMAX); val a = fromS(sx, sy); cx += b[0] - a[0]; cy += b[1] - a[1]; clampView()
-    }
+    /** The box as it is now: its size, what zoom 1 fits, and the picture on show (SurveyPrep.PhotoBox). */
+    fun box() = SurveyPrep.PhotoBox(boxW.toDouble(), boxH.toDouble(), frS, oxS, oyS, iwS, ihS)
+    fun k() = view.k(box())
+    fun toS(x: Double, y: Double): FloatArray = view.toS(box(), x, y).let { floatArrayOf(it[0].toFloat(), it[1].toFloat()) }
+    fun fromS(sx: Float, sy: Float): DoubleArray = view.fromS(box(), sx.toDouble(), sy.toDouble())
 
     /**
      * WHAT A FINGER TAKES ON 1 · LINES (v52 slice 12, sp.js hitLines; the order is SurveyRef.linesHit, tested in :pano):
@@ -2246,7 +2251,10 @@ private fun SpPhoto(
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
-        .pointerInput(img, tab, mode, rect) {
+        // NOT KEYED ON THE PICTURE (review): in 1 · Lines a wider cut of the same wall is a new bitmap, and a restart
+        // under a held finger dropped the drag; the gesture reads the picture through States instead. Off 1 · Lines a new
+        // squaring is a new face (its rect), as before; in 1 · Lines the rect is not read, so it restarts nothing.
+        .pointerInput(tab, mode, if (mode == "lines") null else rect) {
             // THE ONE GESTURE LOOP (v52 slice 7). What a finger is doing -- press, drag, tap, long press, double tap,
             // or cancelled by a second finger -- is decided by GestureClassifier in :pano, where it is tested; this
             // only feeds it what the system reports (and the clock, for the long press) and acts on its answers.
@@ -2295,7 +2303,7 @@ private fun SpPhoto(
                 // the press picked a number tag (its measure is now the one being taken): no tap places under it
                 var tagged = false
                 var lastPinch = 0f; var lastMid = Offset.Zero
-                val slideCx = cxNow(); val slideCy = cyNow()
+                val slideCx = view.centreX(box()); val slideCy = view.centreY(box())
                 // the tool as the press began: a tap places the type that was on when the finger went down
                 val tool0 = toolS
                 val placing = mode == "mark" && SurveyPrepPalette.isType(tool0)
@@ -2440,9 +2448,9 @@ private fun SpPhoto(
                                 if (!gated || endGate.move(e.dx, e.dy)) {
                                     if (!snapped) { onBeforeChangeS(); snapped = true }
                                     // kept on the picture, which in 1 · Lines reaches past the view (sp.js 936)
-                                    val kk = k()
-                                    val ix = (g.x0 + e.dx / kk).coerceIn(-ox, iw - ox)
-                                    val iy = (g.y0 + e.dy / kk).coerceIn(-oy, ih - oy)
+                                    val b = box(); val kk = view.k(b)
+                                    val ix = b.keepX(g.x0 + e.dx / kk)
+                                    val iy = b.keepY(g.y0 + e.dy / kk)
                                     g.move(ix, iy); moved = true
                                     loupe = loupeFor(g, ix, iy, Offset(e.x.toFloat(), e.y.toFloat()))
                                     onMovedS()
@@ -2450,8 +2458,7 @@ private fun SpPhoto(
                             } else {
                                 // A DRAG ON EMPTY PHOTO PANS, at any zoom (sp.js v43: "pan anywhere"), so the cut past a
                                 // wall's corners can be brought into the box
-                                unfit()
-                                cx = slideCx - e.dx / k(); cy = slideCy - e.dy / k(); clampView()
+                                view = view.pan(box(), slideCx, slideCy, e.dx, e.dy)
                                 tick++
                             }
                         }
@@ -2517,6 +2524,7 @@ private fun SpPhoto(
                 // THE CLEAN-UP RUNS HOWEVER THE GESTURE ENDS (review): a pointerInput restarted by a step, mode or face
                 // change mid-drag cancels this coroutine, and without the finally the end's guide stayed on and the
                 // moved end was never saved
+                onBusyS(true)
                 try {
                     act(gc.down(first.position.x.toDouble(), first.position.y.toDouble(), first.uptimeMillis))
                     while (true) {
@@ -2535,8 +2543,8 @@ private fun SpPhoto(
                             val d = hypot(a.x - b.x, a.y - b.y).coerceAtLeast(1f); val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
                             if (!pinch) { pinch = true; grab = null; loupe = null; lastPinch = d; lastMid = mid }
                             else {
-                                zoomAt(z * d / lastPinch, lastMid.x, lastMid.y)
-                                cx -= (mid.x - lastMid.x) / k(); cy -= (mid.y - lastMid.y) / k(); clampView()
+                                view = view.pinch(box(), (d / lastPinch).toDouble(), lastMid.x.toDouble(), lastMid.y.toDouble(),
+                                    mid.x.toDouble(), mid.y.toDouble())
                                 lastPinch = d; lastMid = mid
                             }
                             tick++
@@ -2565,11 +2573,12 @@ private fun SpPhoto(
                     if (endGrabbed) onEndGuideS(null)
                     loupe = null
                     if (moved) onChangedS() else tick++
+                    onBusyS(false)
                 }
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; fitted; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
+            rev; tick; view; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
             val fw = fr[2] - fr[0]; val fh = fr[3] - fr[1]
             val u = min(size.width, (size.height * fw / fh).toFloat()) / 480f
             // THE GUIDE AS DRAWN THIS FRAME (v52 slice 10): the one on now, or the last one while it fades out; reading
@@ -2578,9 +2587,10 @@ private fun SpPhoto(
             val gNow = (guideHere ?: lastGuide[0])?.takeIf { it.s == tab && mode == "mark" && SurveyGuide.shown(ga.toDouble()) }
             // the plane grid: full with its button on, else with the guide's fade (sp.js `gridOn()?1:G?G.a:0`)
             val gridA = if (grid) 1f else if (gNow != null) ga else 0f
-            val zz = if (fitted) 1.0 else z
-            val vx = if (fitted) (fr[0] + fr[2]) / 2 else cx; val vy = if (fitted) (fr[1] + fr[3]) / 2 else cy
-            val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), fw, fh) * zz
+            // the same mapping the gesture uses (SurveyPrep.PhotoView), over the canvas as drawn
+            val pb = SurveyPrep.PhotoBox(size.width.toDouble(), size.height.toDouble(), fr, ox, oy, iw, ih)
+            val zz = view.zoom(); val vx = view.centreX(pb); val vy = view.centreY(pb)
+            val kk = view.k(pb)
             drawIntoCanvas { cv ->
                 val nc = cv.nativeCanvas
                 nc.save(); nc.clipRect(0f, 0f, size.width, size.height)
@@ -2710,7 +2720,7 @@ private fun SpPhoto(
                 Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         // sp.js V.fit: zoom 1 on the fit rect, and fitted again -- it follows the lines from here
-                        fitted = true; z = 1.0; tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        view = view.fit(); tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // THE GRID BUTTON (v52 slice 10) joins the fit column, so it costs no height: the plane grid on the face
                 // with it on (#22d3ee), and still by itself while a Tape or a Line is drawn
                 Text("grid", color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -2719,8 +2729,8 @@ private fun SpPhoto(
                         .semantics { contentDescription = "Plane grid"; selected = grid }
                         .clickable(role = Role.Button) { onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
-                if (!fitted) Text((if (z < 1) "%.2f×" else "%.1f×").format(z), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp))
+                view.label()?.let { zl -> Text(zl, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp)) }
             }
         }
     }
