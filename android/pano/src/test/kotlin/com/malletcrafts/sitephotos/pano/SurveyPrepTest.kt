@@ -379,11 +379,6 @@ class SurveyPrepTest {
         close(0.5, SurveyPrep.fitScale(1000.0, 800.0, 960.0, 1600.0), 1e-12, "tall")
         // a wall in a tall box: width decides
         close(1000.0 / 960, SurveyPrep.fitScale(1000.0, 1600.0, 960.0, 800.0), 1e-12, "wide")
-        // the centre stays put when the whole picture is in view, and keeps the view on it when zoomed
-        close(480.0, SurveyPrep.clampCentre(100.0, 960.0, 1200.0), 1e-12, "letterboxed")
-        close(240.0, SurveyPrep.clampCentre(100.0, 960.0, 480.0), 1e-12, "left edge")
-        close(720.0, SurveyPrep.clampCentre(900.0, 960.0, 480.0), 1e-12, "right edge")
-        close(500.0, SurveyPrep.clampCentre(500.0, 960.0, 480.0), 1e-12, "free")
     }
 
     // ------------------------------------------------------------ v52 slice 4: spots, Switch plate, Fan

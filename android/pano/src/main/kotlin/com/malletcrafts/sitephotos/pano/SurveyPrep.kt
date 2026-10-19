@@ -2,7 +2,10 @@ package com.malletcrafts.sitephotos.pano
 
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan
+import kotlin.math.ceil
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -113,7 +116,8 @@ object SurveyPrep {
         return doubleArrayOf(((x * rx + z * rz) / d / TH + 1) / 2 * VW, (1 - y / d / TV) / 2 * VH)
     }
 
-    /** A surface's view, cut from the 360 at pixel centres. */
+    /** A surface's BARE view, 0..width x 0..height, cut from the 360 at pixel centres. The screen shows the extended
+     *  cut instead ([cutView] over [baseExt] / [needExt]), which holds exactly these pixels at its offset. */
     fun cutView(pano: Panorama.Image, s: String): Panorama.Image {
         val (w, h) = dimOf(s).let { it[0] to it[1] }
         val out = IntArray(w * h)
@@ -122,6 +126,131 @@ object SurveyPrep {
         }
         return Panorama.Image(w, h, out)
     }
+
+    // ------------------------------------- THE EXTENDED CUT (sp.js 60-97, v41 / v43)
+
+    /*
+     * A WALL'S VIEW REACHES ITS CORNERS (Amit, 11 Oct 2026: "right side of wall is cropped. i cant see both right side
+     * corners." and "right side corners not visible in foto"; again on 19 Oct on the htu Living Room right face). A
+     * wall's view is a flat picture looking straight at it, and its sideways reach is an ANGLE: the bare 960 x 800 view
+     * stops 60 degrees off centre, so a corner the camera stood near (the htu Right wall's sits past 60) was simply not
+     * in the picture. As the prototype does, every surface is cut with a 30 % border of the SAME projection all round,
+     * and a wall is cut as wide as its own lines need: 15 degrees beyond the furthest of them, rounded out to 5, at
+     * least 70 and at most 84 degrees each side. The coordinates do not change -- (0, 0) is still the 960 x 800 view's
+     * corner, and a point keeps its 360 direction -- so saved lines load exactly where they were; the picture is
+     * simply drawn [Cut.ox], [Cut.oy] up and left of it.
+     */
+
+    /** The narrowest cut a wall takes each side, degrees off its centre (sp.js AMIN). */
+    const val AMIN = 70.0
+    /** The widest (sp.js AMAX): as far as a wall's view is ever cut, or panned, or squared. */
+    const val AMAX = 84.0
+    /** How far beyond the outermost line point a wall is cut (sp.js ABEYOND). */
+    const val ABEYOND = 15.0
+    /** How far beyond the outermost line point a wall's fit reaches (sp.js fitRectFor's 12). */
+    const val AFIT = 12.0
+    /** The 30 % border every cut starts with, of each side (sp.js needExt / cutView). */
+    const val BORDER = 0.3
+
+    /** View x of a horizontal angle [a] degrees off a wall's centre (sp.js xAt). */
+    fun xAt(a: Double): Double = VW / 2.0 * (1 + tan(Math.toRadians(a)) / TH)
+
+    /** The horizontal angle, degrees off a wall's centre, of view x [x] (sp.js aAt). */
+    fun aAt(x: Double): Double = Math.toDegrees(atan((2 * x / VW - 1) * TH))
+
+    /** As far as a surface's view coordinates reach (sp.js lim): a plan's 30 % border, a wall's ±[AMAX] across and 30 %
+     *  up and down -- x0, y0, x1, y1. Where a line's junction counts as in view, and what a squared face is drawn from. */
+    fun lim(s: String): DoubleArray {
+        val d = dimOf(s); val w0 = d[0].toDouble(); val h0 = d[1].toDouble()
+        return if (isPlan(s)) doubleArrayOf(-BORDER * w0, -BORDER * h0, (1 + BORDER) * w0, (1 + BORDER) * h0)
+               else doubleArrayOf(xAt(-AMAX), -BORDER * h0, xAt(AMAX), (1 + BORDER) * h0)
+    }
+
+    /** The cut every surface starts with (sp.js cutView's default): its view and a 30 % border all round, view px,
+     *  x0, y0, x1, y1. */
+    fun baseExt(s: String): IntArray {
+        val d = dimOf(s); val ox = (d[0] * BORDER).roundToInt(); val oy = (d[1] * BORDER).roundToInt()
+        return intArrayOf(-ox, -oy, d[0] + ox, d[1] + oy)
+    }
+
+    /**
+     * THE CUT A WALL NEEDS (sp.js needExt): its lines' points and its frame's corners ([frameQ], when it has one),
+     * [ABEYOND] beyond the outermost each side, rounded out to 5 degrees, between [AMIN] and [AMAX]; never narrower than
+     * [baseExt]. A plan, or a surface with no lines, is its base.
+     */
+    fun needExt(s: String, lines: Map<String, Array<DoubleArray>>?, frameQ: List<DoubleArray>?): IntArray {
+        val base = baseExt(s)
+        if (isPlan(s) || lines == null) return base
+        val xs = SLOTS.flatMap { k -> lines[k]?.map { it[0] }.orEmpty() } + frameQ?.map { it[0] }.orEmpty()
+        val angles = xs.filter { it.isFinite() }.map { aAt(it) }
+        if (angles.isEmpty()) return base
+        fun r5(a: Double) = ceil(a / 5) * 5
+        val aL = min(AMAX, max(AMIN, r5(-angles.min() + ABEYOND)))
+        val aR = min(AMAX, max(AMIN, r5(angles.max() + ABEYOND)))
+        return intArrayOf(min(base[0], floor(xAt(-aL)).toInt()), base[1], max(base[2], ceil(xAt(aR)).toInt()), base[3])
+    }
+
+    /**
+     * A CUT GROWS, NEVER SHRINKS (sp.js ensureCut): the cut to make when a surface's lines need [need] and it has
+     * [have] -- the two together, across -- or null when [have] already holds it (half a pixel's grace). The screen
+     * asks only after a change, never during a drag.
+     */
+    fun growExt(have: IntArray?, need: IntArray): IntArray? {
+        if (have != null && have[0] <= need[0] + .5 && have[2] >= need[2] - .5) return null
+        return if (have == null) need.copyOf() else intArrayOf(min(have[0], need[0]), need[1], max(have[2], need[2]), need[3])
+    }
+
+    /** A cut of a surface's view: [img] covers view px [ext] (x0, y0, x1, y1), so view (x, y) is picture
+     *  (x + [ox], y + [oy]). */
+    class Cut(val img: Panorama.Image, val ext: IntArray) {
+        val ox: Int get() = -ext[0]
+        val oy: Int get() = -ext[1]
+    }
+
+    /** A surface's view cut over [ext], view px, at pixel centres (sp.js cutView): the same projection as the bare
+     *  view, so a point keeps its 360 direction however wide the cut. */
+    fun cutView(pano: Panorama.Image, s: String, ext: IntArray): Cut {
+        val w = ext[2] - ext[0]; val h = ext[3] - ext[1]
+        require(w > 0 && h > 0) { "empty cut ${ext.joinToString()}" }
+        val out = IntArray(w * h)
+        for (y in 0 until h) for (x in 0 until w) {
+            out[y * w + x] = WallCorners.sample(pano, ray(s, ext[0] + x + 0.5, ext[1] + y + 0.5))
+        }
+        return Cut(Panorama.Image(w, h, out), ext.copyOf())
+    }
+
+    /**
+     * WHAT THE PHOTO BOX FITS AT ZOOM 1 in 1 · Lines (sp.js fitRectFor): the view itself and the whole surface its
+     * lines enclose -- its frame's corners when it has a frame, else every line point -- with a margin: 4 % of the
+     * longer span up and down (and across on a plan), and on a wall [AFIT] degrees beyond each outermost point
+     * sideways (at most [AMAX]), so the room on the far side of a corner is in the picture. Never past the cut [ext]
+     * (null: the base border). View px, x0, y0, x1, y1.
+     */
+    fun fitRectFor(s: String, lines: Map<String, Array<DoubleArray>>?, frameQ: List<DoubleArray>?, ext: IntArray?): DoubleArray {
+        val d = dimOf(s); val w0 = d[0].toDouble(); val h0 = d[1].toDouble()
+        val e = ext?.let { x -> DoubleArray(4) { x[it].toDouble() } }
+            ?: doubleArrayOf(-BORDER * w0, -BORDER * h0, (1 + BORDER) * w0, (1 + BORDER) * h0)
+        var x0 = 0.0; var y0 = 0.0; var x1 = w0; var y1 = h0
+        val pts = frameQ ?: SLOTS.flatMap { k -> lines?.get(k)?.toList().orEmpty() }
+        val fx = pts.map { it[0] }.filter { it.isFinite() }; val fy = pts.map { it[1] }.filter { it.isFinite() }
+        if (fx.isNotEmpty() && fy.isNotEmpty()) {
+            val m = .04 * max(fx.max() - fx.min(), fy.max() - fy.min())
+            if (isPlan(s)) { x0 = min(x0, fx.min() - m); x1 = max(x1, fx.max() + m) }
+            else { x0 = min(x0, xAt(max(-AMAX, aAt(fx.min()) - AFIT))); x1 = max(x1, xAt(min(AMAX, aAt(fx.max()) + AFIT))) }
+            y0 = min(y0, fy.min() - m); y1 = max(y1, fy.max() + m)
+        }
+        return doubleArrayOf(max(e[0], x0), max(e[1], y0), min(e[2], x1), min(e[3], y1))
+    }
+
+    // ------------------------------------------------ the photo box (sp.js Viewer, v43)
+
+    /** Zoom OUT below fit, to a third of it (sp.js ZMIN), and in to 8x. */
+    const val ZMIN = 1.0 / 3
+    const val ZMAX = 8.0
+
+    /** A centre, along one axis, once the view is zoomed or panned (sp.js V.clamp): anywhere over the picture, whose
+     *  view coordinates run from -[o] to [extent] - [o]. */
+    fun clampOver(c: Double, o: Double, extent: Double): Double = c.coerceIn(-o, extent - o)
 
     // ------------------------------------------------ the laser size of a surface
 
@@ -321,20 +450,23 @@ object SurveyPrep {
 
     /**
      * The surface squared to size, sampled straight from the 360 (so a saved
-     * elevation is as sharp as the pano allows). Outside the surface's own
-     * view is black. [flipY] turns it upside down -- the ceiling saved the
-     * way the split's "up" face looks, back wall at the top.
+     * elevation is as sharp as the pano allows). Outside [clip] -- view px
+     * x0, y0, x1, y1; by default the surface's own view -- is black. The
+     * screen passes [lim] (sp.js rectify: "as far as a wall can be cut,
+     * ±84°"), so a corner past the bare view is in the squared face too.
+     * [flipY] turns it upside down -- the ceiling saved the way the split's
+     * "up" face looks, back wall at the top.
      */
-    fun render(pano: Panorama.Image, s: String, f: Frame, sq: Square, flipY: Boolean = false): Panorama.Image {
+    fun render(pano: Panorama.Image, s: String, f: Frame, sq: Square, flipY: Boolean = false,
+               clip: DoubleArray = dimOf(s).let { doubleArrayOf(0.0, 0.0, it[0].toDouble(), it[1].toDouble()) }): Panorama.Image {
         val out = IntArray(sq.width * sq.height)
-        val (sw, sh) = dimOf(s).let { it[0].toDouble() to it[1].toDouble() }
         val pt = DoubleArray(2)
         for (row in 0 until sq.height) {
             val my = sq.mmY((if (flipY) sq.height - 1 - row else row) + 0.5)
             for (col in 0 until sq.width) {
                 pt[0] = sq.mmX(col + 0.5); pt[1] = my
                 val p = apply(f.m2p, pt)
-                if (p[0] >= 0 && p[1] >= 0 && p[0] < sw && p[1] < sh) out[row * sq.width + col] = WallCorners.sample(pano, ray(s, p[0], p[1]))
+                if (p[0] >= clip[0] && p[1] >= clip[1] && p[0] < clip[2] && p[1] < clip[3]) out[row * sq.width + col] = WallCorners.sample(pano, ray(s, p[0], p[1]))
             }
         }
         return Panorama.Image(sq.width, sq.height, out)
@@ -385,11 +517,12 @@ object SurveyPrep {
         return abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / (hypot(dx, dy).takeIf { it > 0 } ?: 1.0)
     }
 
-    /** Where a line meets the two it crosses, when both are inside its view; else null. */
+    /** Where a line meets the two it crosses, when both are inside what its view can be cut to ([lim], sp.js
+     *  junctions); else null. */
     fun junctions(s: String, lines: Map<String, Array<DoubleArray>>, slot: String): List<DoubleArray>? {
-        val (w, h) = dimOf(s).let { it[0] to it[1] }
+        val l = lim(s)
         val f = CROSSES.getValue(slot).map { o ->
-            cross(lines.getValue(slot), lines.getValue(o))?.takeIf { it[0] >= 0 && it[0] <= w && it[1] >= 0 && it[1] <= h }
+            cross(lines.getValue(slot), lines.getValue(o))?.takeIf { it[0] >= l[0] && it[0] <= l[2] && it[1] >= l[1] && it[1] <= l[3] }
         }
         return if (f.all { it != null }) f.map { it!! } else null
     }
@@ -1115,11 +1248,6 @@ object SurveyPrep {
      */
     fun fitScale(bw: Double, bh: Double, iw: Double, ih: Double): Double =
         if (iw <= 0 || ih <= 0 || bw <= 0 || bh <= 0) 1.0 else min(bw / iw, bh / ih)
-
-    /** A view's centre along one axis, picture px: kept so the view never
-     *  leaves the picture, and the picture centred when the view is wider. */
-    fun clampCentre(c: Double, extent: Double, view: Double): Double =
-        if (view >= extent) extent / 2 else c.coerceIn(view / 2, extent - view / 2)
 
     // ------------------------------------------------- reopening a kept capture
 

@@ -260,7 +260,7 @@ internal fun SurveyPrepDialog(
      *  caller that should keep it -- a tool, face or step change -- ends it first with flushChain).
      *  Declared here, above every caller -- a local function is visible only below its declaration. */
     fun dropDrafts() { mdrag = null; area = null; areaS = null; endG = null; kdraft = null }
-    val views = remember { mutableStateMapOf<String, Bitmap>() }
+    val views = remember { mutableStateMapOf<String, SpCut>() }
     val rects = remember { mutableStateMapOf<String, SpRect>() }
     // THE SNACKBAR (v52 slice 8, sp.js snack): five seconds, with UNDO -- or, for a refusal, without; a new one
     // replaces the old and restarts the five seconds (the sequence number is the timer's key)
@@ -486,11 +486,34 @@ internal fun SurveyPrepDialog(
     }
 
     // ---- pictures: the six views once, and each surface squared whenever its lines change
+    // EVERY VIEW IS CUT WITH A 30 % BORDER of the same projection (sp.js loadPano / cutView, v41), so a corner at or past
+    // the edge of the 960 x 800 view is still in the picture; the coordinates do not move -- (0, 0) is still the view's
+    // corner and the picture is drawn ox, oy up and left of it
     LaunchedEffect(Unit) {
         for (s in listOf(tab) + SurveyPrep.SURFACES.filter { it != tab }) {
-            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.cutView(previewPano, s)) }
-            views[s] = bmp
+            val c = withContext(Dispatchers.Default) { SurveyPrep.cutView(previewPano, s, SurveyPrep.baseExt(s)) }
+            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(c.img) }
+            // a cut the wall's lines have already grown (below) is never put back to the border alone
+            if (views[s] == null) views[s] = SpCut(bmp, c.ox, c.oy, c.ext)
         }
+    }
+    // A WALL'S VIEW REACHES ITS CORNERS (sp.js ensureCut, v43; Amit, 11 Oct 2026: "right side of wall is cropped. i cant
+    // see both right side corners."): in 1 · Lines the wall on show is cut as wide as its lines need -- 15° beyond the
+    // furthest of them, at least ±70°, at most ±84° (SurveyPrep.needExt) -- and cut again, wider, after a line is moved
+    // or nudged towards the edge. Never during a drag (dirty moves only when a change is DONE: a drag let go, a nudge, an
+    // undo), and never narrower than it was (SurveyPrep.growExt).
+    val cutHere = views[tab]
+    LaunchedEffect(tab, mode, dirty, cutHere != null) {
+        if (mode != "lines" || !StepRoute.isFace(tab) || SurveyPrep.isPlan(tab)) return@LaunchedEffect
+        val s = tab
+        val have = views[s] ?: return@LaunchedEffect
+        val need = SurveyPrep.needExt(s, prep.surface(s).lines, frameOf(s)?.q)
+        val grow = SurveyPrep.growExt(have.ext, need) ?: return@LaunchedEffect
+        val c = withContext(Dispatchers.Default) { SurveyPrep.cutView(previewPano, s, grow) }
+        val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(c.img) }
+        val now = views[s]
+        // a wider one made meanwhile is kept: a cut never shrinks
+        if (now == null || SurveyPrep.growExt(now.ext, c.ext) != null) views[s] = SpCut(bmp, c.ox, c.oy, c.ext)
     }
     val need = when {
         tab == "list" -> SurveyPrep.SURFACES.filter { prep.surface(it).done() }
@@ -504,7 +527,9 @@ internal fun SurveyPrepDialog(
             if (rects[s]?.key == k) continue
             val f = frameOf(s) ?: continue
             val sq = SurveyPrep.Square.screen(f.a, f.b)
-            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(previewPano, s, f, sq)) }
+            // drawn as far as a wall can be cut, ±84° (sp.js rectify's lim), so a corner past the bare view is in the
+            // squared face too -- the saved and uploaded pictures keep the bare view (FaceWriter, AsIsUpload)
+            val bmp = withContext(Dispatchers.Default) { FaceWriter.bitmapOf(SurveyPrep.render(previewPano, s, f, sq, clip = SurveyPrep.lim(s))) }
             rects[s] = SpRect(k, sq, bmp)
         }
     }
@@ -1126,7 +1151,11 @@ internal fun SurveyPrepDialog(
     // ---- THE PHOTO, with all the height the controls leave (1 · Lines and 2 · Mark)
     val photoPane: @Composable ColumnScope.() -> Unit = {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            val img: Bitmap? = if (mode == "lines") views[tab] else rectOf(tab)?.bmp
+            // 1 · Lines: the wall's cut, drawn at its offset, fitted to the surface its lines enclose and 12° beyond its
+            // corners (sp.js fitRectFor); 2 · Mark: the squared face, fitted whole
+            val cut = if (mode == "lines") views[tab] else null
+            val img: Bitmap? = if (mode == "lines") cut?.bmp else rectOf(tab)?.bmp
+            val fitTo: DoubleArray? = cut?.let { c -> SurveyPrep.fitRectFor(tab, prep.surface(tab).lines, frameOf(tab)?.q, c.ext) }
             if (mode == "360") {
                 // 4 · 360 (v52 slice 17): the same marks on the 360 itself, edited through the same functions as 2 · Mark
                 Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,
@@ -1138,7 +1167,8 @@ internal fun SurveyPrepDialog(
             } else {
                 SpPhoto(
                     modifier = Modifier.fillMaxSize(),
-                    img = img, tab = tab, mode = mode, rev = rev,
+                    img = img, ox = (cut?.ox ?: 0).toDouble(), oy = (cut?.oy ?: 0).toDouble(), fitTo = fitTo,
+                    tab = tab, mode = mode, rev = rev,
                     prep = prep, ab = ab(tab), frame = frameOf(tab), rect = rectOf(tab),
                     sel = sel, active = active, show = show,
                     onSelect = { s, e, measure -> selectMark(s, e, measure) },
@@ -1776,6 +1806,10 @@ internal data class SpSel(val s: String, val line: String? = null, val id: Strin
 /** A surface squared to size, and the frame key it was made for. */
 internal class SpRect(val key: String, val sq: SurveyPrep.Square, val bmp: Bitmap)
 
+/** A surface's view as cut (SurveyPrep.Cut): [bmp] covers view px [ext] (x0, y0, x1, y1), so view (x, y) is bitmap
+ *  (x + [ox], y + [oy]). */
+internal class SpCut(val bmp: Bitmap, val ox: Int, val oy: Int, val ext: IntArray)
+
 /** The long-press menu open on mark [id]; the press was at ([x], [y]) root px. */
 internal data class SpCtx(val id: String, val x: Float, val y: Float)
 
@@ -1807,8 +1841,9 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
 
 /**
  * The editing photo: one zoomable picture with the lines (1) or the marks
- * (2) over it. Pinch to zoom, one finger off anything slides when zoomed,
- * "fit" resets; a magnifier follows a drag, and two watch the corners while
+ * (2) over it. Pinch to zoom (down to a third of fit), one finger off
+ * anything pans at any zoom -- in 1 · Lines as far as the wall's cut, past
+ * its corners -- "fit" resets; a magnifier follows a drag, and two watch the corners while
  * a line swings. In 2 · Mark a tap with Select picks, a tap with a type on
  * places one where the finger is, and the tool's chip sits top-left (v52 slice 7).
  */
@@ -1816,7 +1851,13 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
 private fun SpPhoto(
     /** Its size: the height the controls leave (v52 slice 6), the whole picture letterboxed inside. */
     modifier: Modifier,
-    img: Bitmap, tab: String, mode: String, rev: Int,
+    img: Bitmap,
+    /** Where view (0, 0) is in [img], px (sp.js c.ox / c.oy): a wall's cut reaches past its 960 x 800 view (v43), and
+     *  everything over it -- lines, handles, marks, taps -- stays in VIEW coordinates. 0 for a squared face. */
+    ox: Double, oy: Double,
+    /** What zoom 1 fits, view px x0, y0, x1, y1 (sp.js fitRectFor); null: the whole picture. */
+    fitTo: DoubleArray?,
+    tab: String, mode: String, rev: Int,
     prep: SurveyPrep.Prep, ab: DoubleArray, frame: SurveyPrep.Frame?, rect: SpRect?,
     sel: SpSel?, active: String?, show: String,
     onSelect: (String, SurveyPrep.Mark, String?) -> Unit,
@@ -1885,6 +1926,10 @@ private fun SpPhoto(
 ) {
     val density = LocalDensity.current
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
+    // WHAT ZOOM 1 FITS (sp.js V.FR): the wall and 12° beyond its corners in 1 · Lines, the whole squared face in 2 · Mark.
+    // It follows the lines while they move, so it is read through a State by the gesture, which outlives recompositions.
+    val fr = fitTo ?: doubleArrayOf(-ox, -oy, iw - ox, ih - oy)
+    val frS by rememberUpdatedState(fr)
     // The gesture below outlives recompositions (it restarts only for a new picture, surface, mode or
     // squaring), so everything it reads that can change under it is read through these.
     val prepS by rememberUpdatedState(prep); val selS by rememberUpdatedState(sel)
@@ -1905,9 +1950,15 @@ private fun SpPhoto(
     val onChainPressS by rememberUpdatedState(onChainPress); val onChainMoveS by rememberUpdatedState(onChainMove)
     val onChainCancelS by rememberUpdatedState(onChainCancel); val onChainFinishS by rememberUpdatedState(onChainFinish)
     val onPickChainS by rememberUpdatedState(onPickChain); val chainS by rememberUpdatedState(chain)
-    var z by remember(img) { mutableStateOf(1.0) }
-    var cx by remember(img) { mutableStateOf(iw / 2) }
-    var cy by remember(img) { mutableStateOf(ih / 2) }
+    // THE VIEW (sp.js Viewer, v43), in view coordinates. A new surface or step starts FITTED; the same wall with a wider cut
+    // keeps its zoom and centre, which mean the same place in view coordinates. A 2 · Mark face is a new picture whenever
+    // it is squared again, as before. While fitted, zoom is 1 and the centre is the fit rect's -- following the lines as
+    // they move; a pinch or a pan leaves it, and zoom then goes from a third of fit (ZMIN) to 8x.
+    val viewKey: Any = if (mode == "lines") "lines:$tab" else img
+    var fitted by remember(viewKey) { mutableStateOf(true) }
+    var z by remember(viewKey) { mutableStateOf(1.0) }
+    var cx by remember(viewKey) { mutableStateOf((fr[0] + fr[2]) / 2) }
+    var cy by remember(viewKey) { mutableStateOf((fr[1] + fr[3]) / 2) }
     var loupe by remember { mutableStateOf<SpLoupe?>(null) }
     var tick by remember { mutableIntStateOf(0) }
     val tags = remember { mutableListOf<SurveyPrepTouch.Tag>() }
@@ -1947,19 +1998,28 @@ private fun SpPhoto(
                    else if (measTool) SurveyMeas.chipText(tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
                    else SurveyPrepPalette.chipText(tab, tool)
 
-    // THE WHOLE PICTURE IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto
-    // for marking"): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left).
-    fun k() = SurveyPrep.fitScale(boxW.toDouble(), boxH.toDouble(), iw, ih) * z
+    // THE FIT RECT IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto for marking"; sp.js
+    // V.k): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left). The
+    // picture beyond the fit rect -- a wall's cut past its corners -- shows round it and is reached by panning.
+    fun zNow() = if (fitted) 1.0 else z
+    fun cxNow() = if (fitted) (frS[0] + frS[2]) / 2 else cx
+    fun cyNow() = if (fitted) (frS[1] + frS[3]) / 2 else cy
+    fun k() = SurveyPrep.fitScale(boxW.toDouble(), boxH.toDouble(), frS[2] - frS[0], frS[3] - frS[1]) * zNow()
     fun toS(x: Double, y: Double): FloatArray { val kk = k()
-        return floatArrayOf(((x - cx) * kk + boxW / 2).toFloat(), ((y - cy) * kk + boxH / 2).toFloat()) }
+        return floatArrayOf(((x - cxNow()) * kk + boxW / 2).toFloat(), ((y - cyNow()) * kk + boxH / 2).toFloat()) }
     fun fromS(sx: Float, sy: Float): DoubleArray { val kk = k()
-        return doubleArrayOf((sx - boxW / 2) / kk + cx, (sy - boxH / 2) / kk + cy) }
+        return doubleArrayOf((sx - boxW / 2) / kk + cxNow(), (sy - boxH / 2) / kk + cyNow()) }
+    /** Out of fit (sp.js zoomAt / a pan): from where the fitted view is now. */
+    fun unfit() { if (fitted) { cx = cxNow(); cy = cyNow(); z = 1.0; fitted = false } }
+    /** sp.js V.clamp: zoom a third of fit to 8x; the centre anywhere over the picture, no further. */
     fun clampView() {
-        z = z.coerceIn(1.0, 8.0); val kk = k()
-        cx = SurveyPrep.clampCentre(cx, iw, boxW / kk); cy = SurveyPrep.clampCentre(cy, ih, boxH / kk)
+        if (fitted) return
+        z = z.coerceIn(SurveyPrep.ZMIN, SurveyPrep.ZMAX)
+        cx = SurveyPrep.clampOver(cx, ox, iw); cy = SurveyPrep.clampOver(cy, oy, ih)
     }
     fun zoomAt(nz: Double, sx: Float, sy: Float) {
-        val b = fromS(sx, sy); z = nz.coerceIn(1.0, 8.0); val a = fromS(sx, sy); cx += b[0] - a[0]; cy += b[1] - a[1]; clampView()
+        unfit()
+        val b = fromS(sx, sy); z = nz.coerceIn(SurveyPrep.ZMIN, SurveyPrep.ZMAX); val a = fromS(sx, sy); cx += b[0] - a[0]; cy += b[1] - a[1]; clampView()
     }
 
     /**
@@ -2235,7 +2295,7 @@ private fun SpPhoto(
                 // the press picked a number tag (its measure is now the one being taken): no tap places under it
                 var tagged = false
                 var lastPinch = 0f; var lastMid = Offset.Zero
-                val slideCx = cx; val slideCy = cy
+                val slideCx = cxNow(); val slideCy = cyNow()
                 // the tool as the press began: a tap places the type that was on when the finger went down
                 val tool0 = toolS
                 val placing = mode == "mark" && SurveyPrepPalette.isType(tool0)
@@ -2379,14 +2439,18 @@ private fun SpPhoto(
                                 // handle must not snap it onto an edge (review); a mark follows from the first pixel
                                 if (!gated || endGate.move(e.dx, e.dy)) {
                                     if (!snapped) { onBeforeChangeS(); snapped = true }
+                                    // kept on the picture, which in 1 · Lines reaches past the view (sp.js 936)
                                     val kk = k()
-                                    val ix = (g.x0 + e.dx / kk).coerceIn(0.0, iw)
-                                    val iy = (g.y0 + e.dy / kk).coerceIn(0.0, ih)
+                                    val ix = (g.x0 + e.dx / kk).coerceIn(-ox, iw - ox)
+                                    val iy = (g.y0 + e.dy / kk).coerceIn(-oy, ih - oy)
                                     g.move(ix, iy); moved = true
                                     loupe = loupeFor(g, ix, iy, Offset(e.x.toFloat(), e.y.toFloat()))
                                     onMovedS()
                                 }
-                            } else if (z > 1.001) {
+                            } else {
+                                // A DRAG ON EMPTY PHOTO PANS, at any zoom (sp.js v43: "pan anywhere"), so the cut past a
+                                // wall's corners can be brought into the box
+                                unfit()
                                 cx = slideCx - e.dx / k(); cy = slideCy - e.dy / k(); clampView()
                                 tick++
                             }
@@ -2505,22 +2569,26 @@ private fun SpPhoto(
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; z; cx; cy; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
-            val u = min(size.width, (size.height * iw / ih).toFloat()) / 480f
+            rev; tick; z; cx; cy; fitted; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
+            val fw = fr[2] - fr[0]; val fh = fr[3] - fr[1]
+            val u = min(size.width, (size.height * fw / fh).toFloat()) / 480f
             // THE GUIDE AS DRAWN THIS FRAME (v52 slice 10): the one on now, or the last one while it fades out; reading
             // the Animatable's value here redraws the photo on every step of the fade
             val ga = gAlpha.value
             val gNow = (guideHere ?: lastGuide[0])?.takeIf { it.s == tab && mode == "mark" && SurveyGuide.shown(ga.toDouble()) }
             // the plane grid: full with its button on, else with the guide's fade (sp.js `gridOn()?1:G?G.a:0`)
             val gridA = if (grid) 1f else if (gNow != null) ga else 0f
-            val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), iw, ih) * z
+            val zz = if (fitted) 1.0 else z
+            val vx = if (fitted) (fr[0] + fr[2]) / 2 else cx; val vy = if (fitted) (fr[1] + fr[3]) / 2 else cy
+            val kk = SurveyPrep.fitScale(size.width.toDouble(), size.height.toDouble(), fw, fh) * zz
             drawIntoCanvas { cv ->
                 val nc = cv.nativeCanvas
                 nc.save(); nc.clipRect(0f, 0f, size.width, size.height)
-                nc.translate((size.width / 2 - cx * kk).toFloat(), (size.height / 2 - cy * kk).toFloat()); nc.scale(kk.toFloat(), kk.toFloat())
-                nc.drawBitmap(img, 0f, 0f, Paint().apply { isFilterBitmap = z < 2.5 })
+                nc.translate((size.width / 2 - vx * kk).toFloat(), (size.height / 2 - vy * kk).toFloat()); nc.scale(kk.toFloat(), kk.toFloat())
+                // the picture at its offset: view (0, 0) is bitmap (ox, oy) (sp.js drawImage(V.img, -V.ox, -V.oy))
+                nc.drawBitmap(img, (-ox).toFloat(), (-oy).toFloat(), Paint().apply { isFilterBitmap = zz < 2.5 })
                 nc.restore()
-                val m: (Double, Double) -> FloatArray = { x, y -> floatArrayOf(((x - cx) * kk + size.width / 2).toFloat(), ((y - cy) * kk + size.height / 2).toFloat()) }
+                val m: (Double, Double) -> FloatArray = { x, y -> floatArrayOf(((x - vx) * kk + size.width / 2).toFloat(), ((y - vy) * kk + size.height / 2).toFloat()) }
                 fun overlay(c: android.graphics.Canvas, mm: (Double, Double) -> FloatArray, which: String) {
                     if (mode == "lines") {
                         // the plane grid in 1 · Lines (its button on), through the face's own mapping, so it leans with
@@ -2592,7 +2660,7 @@ private fun SpPhoto(
                         nc.clipPath(android.graphics.Path().apply { addCircle(ccx, ccy, dia / 2, android.graphics.Path.Direction.CW) })
                         nc.drawColor(android.graphics.Color.BLACK)
                         nc.save(); nc.translate((ccx - p[0] * sc).toFloat(), (ccy - p[1] * sc).toFloat()); nc.scale(sc.toFloat(), sc.toFloat())
-                        nc.drawBitmap(img, 0f, 0f, Paint()); nc.restore()
+                        nc.drawBitmap(img, (-ox).toFloat(), (-oy).toFloat(), Paint()); nc.restore()
                         overlay(nc, { x, y -> floatArrayOf(((x - p[0]) * sc + ccx).toFloat(), ((y - p[1]) * sc + ccy).toFloat()) }, "loupe")
                         val cross = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 3f; color = android.graphics.Color.BLACK }
                         nc.drawLine(ccx, top, ccx, top + dia, cross); nc.drawLine(left, ccy, left + dia, ccy, cross)
@@ -2641,7 +2709,8 @@ private fun SpPhoto(
             Column(Modifier.onGloballyPositioned { fitAt = it.boundsInRoot() }, horizontalAlignment = Alignment.End) {
                 Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
-                        z = 1.0; cx = iw / 2; cy = ih / 2; tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        // sp.js V.fit: zoom 1 on the fit rect, and fitted again -- it follows the lines from here
+                        fitted = true; z = 1.0; tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // THE GRID BUTTON (v52 slice 10) joins the fit column, so it costs no height: the plane grid on the face
                 // with it on (#22d3ee), and still by itself while a Tape or a Line is drawn
                 Text("grid", color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
@@ -2649,7 +2718,8 @@ private fun SpPhoto(
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
                         .semantics { contentDescription = "Plane grid"; selected = grid }
                         .clickable(role = Role.Button) { onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
-                if (z > 1.01) Text("%.1f×".format(z), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
+                // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
+                if (!fitted) Text((if (z < 1) "%.2f×" else "%.1f×").format(z), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp))
             }
         }
