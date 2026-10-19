@@ -27,9 +27,12 @@ import java.io.File
  *  - the PDF is painted by android.graphics.pdf.PdfDocument from the SAME sheet, the drawing through paintItems -- the
  *    one painter the screen uses -- at the sheet's scale, in points (A4 landscape, 842 × 595 pt);
  *  - each file goes to Downloads through MediaStore (the Downloads collection; minSdk is 29, so it is always there and
- *    no storage permission is asked for), replacing this app's earlier copy of the same name;
- *  - a private copy under filesDir/drawings/ is what Share hands out, through the app's FileProvider with a read grant
- *    (file_paths.xml "drawings") -- the same provider the update installer and the camera already use.
+ *    no storage permission is asked for). NOTHING IN DOWNLOADS IS EVER DELETED OR REPLACED (slice 14a review): two
+ *    drawings can share a name -- "Master Bedroom" and "Master Bathroom" are both MB -- so a second save of a name is
+ *    named beside the first by MediaStore ("… (1).pdf"), and the snackbar says the name it got;
+ *  - a private copy under filesDir/drawings/<capture>/ is what Share hands out, through the app's FileProvider with a
+ *    read grant (file_paths.xml "drawings") -- the same provider the update installer and the camera already use. It is
+ *    written to a ".part" file and renamed only once whole, so a failed write never leaves a half file to be shared.
  * Nothing here runs on its own: the screen calls it when a button is pressed, never on save or sync.
  */
 internal object PlanExport {
@@ -57,27 +60,7 @@ internal object PlanExport {
         val doc = PdfDocument()
         try {
             val page = doc.startPage(PdfDocument.PageInfo.Builder(PAGE_W, PAGE_H, 1).create())
-            val c = page.canvas
-            fun p(v: Double) = (v * PT).toFloat()
-            c.drawColor(android.graphics.Color.WHITE)
-            val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = argb(SurveyPlan.INK) }
-            val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = android.graphics.Color.WHITE }
-            val fr = SurveyExport.FRAME
-            stroke.strokeWidth = p(0.5)
-            c.drawRect(p(fr[0]), p(fr[1]), p(fr[0] + fr[2]), p(fr[1] + fr[3]), stroke)
-            // the drawing: its mm at (tx, ty) + mm / scale on the sheet, in points
-            paintItems(c, s.drawing.items, s.k * PT, s.tx * PT, s.ty * PT)
-            // the title block over it, white, as the SVG has it
-            val tb = SurveyExport.TITLE_BOX
-            c.drawRect(p(tb[0]), p(tb[1]), p(tb[0] + tb[2]), p(tb[1] + tb[3]), fill)
-            stroke.strokeWidth = p(0.4)
-            c.drawRect(p(tb[0]), p(tb[1]), p(tb[0] + tb[2]), p(tb[1] + tb[3]), stroke)
-            val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.LEFT }
-            for (l in s.labels) {
-                text.color = argb(l.colour); text.textSize = p(l.size)
-                text.typeface = if (l.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-                c.drawText(l.text, p(l.x), p(l.y), text)   // on its baseline, as the SVG's labels are
-            }
+            paintSheet(page.canvas, s, PT, 0.0, 0.0)
             doc.finishPage(page)
             val out = ByteArrayOutputStream()
             doc.writeTo(out)
@@ -87,30 +70,78 @@ internal object PlanExport {
         }
     }
 
+    /**
+     * The whole sheet onto a canvas at `canvas = (ox, oy) + sheet mm × k`: the white A4, its border, the drawing at its
+     * sheet scale (through paintItems, the screen's own painter), the title block and the footnotes. The PDF page (k =
+     * points per mm) and the export overlay's preview of the sheet (k = px per mm) both paint through this ONE function,
+     * so what the phone shows before a save is the file it saves.
+     */
+    fun paintSheet(c: android.graphics.Canvas, s: SurveyExport.Sheet, k: Double, ox: Double, oy: Double) {
+        if (!(k > 0) || k.isInfinite()) return
+        fun x(v: Double) = (ox + v * k).toFloat()
+        fun y(v: Double) = (oy + v * k).toFloat()
+        fun len(v: Double) = (v * k).toFloat()
+        val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = argb(SurveyPlan.INK) }
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = android.graphics.Color.WHITE }
+        c.drawRect(x(0.0), y(0.0), x(SurveyExport.SHEET_W), y(SurveyExport.SHEET_H), fill)
+        val fr = SurveyExport.FRAME
+        stroke.strokeWidth = len(0.5)
+        c.drawRect(x(fr[0]), y(fr[1]), x(fr[0] + fr[2]), y(fr[1] + fr[3]), stroke)
+        // the drawing: its mm at (tx, ty) + mm / scale on the sheet
+        paintItems(c, s.drawing.items, s.k * k, ox + s.tx * k, oy + s.ty * k)
+        // the title block over it, white, as the SVG has it
+        val tb = SurveyExport.TITLE_BOX
+        c.drawRect(x(tb[0]), y(tb[1]), x(tb[0] + tb[2]), y(tb[1] + tb[3]), fill)
+        stroke.strokeWidth = len(0.4)
+        c.drawRect(x(tb[0]), y(tb[1]), x(tb[0] + tb[2]), y(tb[1] + tb[3]), stroke)
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { textAlign = Paint.Align.LEFT }
+        for (l in s.labels) {
+            text.color = argb(l.colour); text.textSize = len(l.size)
+            text.typeface = if (l.bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            c.drawText(l.text, x(l.x), y(l.y), text)   // on its baseline, as the SVG's labels are
+        }
+    }
+
     private fun argb(rgb: Int): Int = (0xFF shl 24) or (rgb and 0xFFFFFF)
 
     /**
-     * [bytes] saved as "<name>.<ext>": a private copy for Share, and the file in Downloads. Throws when Downloads will
-     * not take it; the caller says so.
+     * [bytes] saved as "<name>.<ext>": a private copy for Share (in capture [deviceId]'s own folder), and the file in
+     * Downloads. Throws when either will not take it; the caller says so.
      */
-    fun save(context: Context, name: String, ext: String, bytes: ByteArray): Saved {
+    fun save(context: Context, deviceId: String, name: String, ext: String, bytes: ByteArray): Saved {
         val display = "$name.$ext"; val mime = mimeOf(ext)
-        val dir = File(context.filesDir, "drawings").apply { mkdirs() }
-        val file = File(dir, display)
-        file.writeBytes(bytes)
+        val file = keep(context, deviceId, display, bytes)
         return Saved(file, toDownloads(context, display, mime, bytes), mime)
     }
 
-    /** Into Downloads through MediaStore: this app's earlier file of the same name removed first (one it cannot remove
-     *  -- another install wrote it -- is left, and MediaStore names the new one beside it). The name it was given. */
+    /** [bytes] as the private copy only, for Share: nothing goes to Downloads, so sharing never piles up "(1)" files. */
+    fun keepOnly(context: Context, deviceId: String, name: String, ext: String, bytes: ByteArray): Saved {
+        val display = "$name.$ext"
+        return Saved(keep(context, deviceId, display, bytes), display, mimeOf(ext))
+    }
+
+    /** The private copy: written whole to "<display>.part", then renamed over "<display>" -- a write that fails leaves
+     *  the earlier copy (or none) and never a truncated one. */
+    private fun keep(context: Context, deviceId: String, display: String, bytes: ByteArray): File {
+        val dir = File(File(context.filesDir, "drawings"), SurveyExport.keepDir(deviceId))
+        if (!dir.isDirectory && !dir.mkdirs()) error("could not make a folder for $display")
+        val file = File(dir, display); val part = File(dir, "$display.part")
+        try {
+            part.writeBytes(bytes)
+            if (!part.renameTo(file)) error("could not keep $display")
+        } catch (e: Exception) {
+            part.delete()
+            throw e
+        }
+        return file
+    }
+
+    /** Into Downloads through MediaStore, never replacing anything there: a name already taken is named beside it by
+     *  MediaStore ("… (1).pdf"). The name it was given. A write that fails removes only its own half-written entry. */
     private fun toDownloads(context: Context, display: String, mime: String, bytes: ByteArray): String {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val rel = Environment.DIRECTORY_DOWNLOADS
-        runCatching {
-            resolver.delete(collection, "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
-                arrayOf(display, "$rel/"))
-        }
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, display)
             put(MediaStore.MediaColumns.MIME_TYPE, mime)

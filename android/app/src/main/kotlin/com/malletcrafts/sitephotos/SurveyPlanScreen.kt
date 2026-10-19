@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.sitephotos.pano.SurveyExport
 import com.malletcrafts.sitephotos.pano.SurveyPlan
 import com.malletcrafts.sitephotos.pano.SurveyPrep
 import kotlin.math.roundToInt
@@ -154,17 +155,21 @@ private fun PlanPill(text: String, on: Boolean, onClick: () -> Unit) {
 }
 
 /**
- * THE EXPORT BAR (v52 slice 14a, item 10): over the foot of the drawing, costing no height. "Export · AP_LR_htu_front-
- * elevation" -- the file name already says which drawing it is (plan.js v52 fix), whole at 360 dp or cut with an
- * ellipsis -- with ✕, then SVG and PDF (each SAVES that file to Downloads; the screen says which in its snackbar) and
- * Share (the file last saved, or the PDF saved first, through the share sheet). Nothing here runs on its own: every file
- * is written because a button was pressed. The prototype's "On the phone this saves …" note is the prototype's -- the
- * phone says what it saved instead. While a save runs ([busy]) the buttons are dimmed and take no press.
+ * THE EXPORT OVERLAY (v52 slice 14a, item 10; v42.css .planx): over the WHOLE drawing pane, as the prototype's is
+ * (inset 0), so it costs no height. Top to bottom: the bar, "Export · AP_LR_htu_front-elevation" -- the file name
+ * already says which drawing it is (plan.js v52 fix), whole at 360 dp or cut with an ellipsis -- with ✕; then THE SHEET
+ * ITSELF (.pxsheet), the A4 page the file will hold, painted by PlanExport.paintSheet -- the same painter as the PDF --
+ * so the scale, the title block and the footnotes are seen before anything is saved; then SVG and PDF (each SAVES that
+ * file to Downloads; the screen says which in its snackbar) and Share (the drawing as it stands now, in the format last
+ * saved or as a PDF, through the share sheet). Nothing here runs on its own: every file is written because a button was
+ * pressed. The prototype's "On the phone this saves …" note is the prototype's -- the phone says what it saved instead.
+ * While a save runs ([busy]) the buttons are dimmed and take no press. [sheet] is null only when the sheet could not be
+ * built; the buttons then say why when pressed.
  */
 @Composable
-internal fun SpPlanExport(name: String, busy: Boolean, modifier: Modifier, onSvg: () -> Unit, onPdf: () -> Unit,
-                          onShare: () -> Unit, onClose: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(10.dp)).background(PLAN_X_BG).padding(horizontal = 10.dp, vertical = 8.dp),
+internal fun SpPlanExport(name: String, sheet: SurveyExport.Sheet?, busy: Boolean, modifier: Modifier, onSvg: () -> Unit,
+                          onPdf: () -> Unit, onShare: () -> Unit, onClose: () -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(12.dp)).background(PLAN_X_BG).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // v42.css .planx .pxbar: 13 sp on 18, #ECEEE8, the name bold and cut with an ellipsis rather than wrapped
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,6 +179,20 @@ internal fun SpPlanExport(name: String, busy: Boolean, modifier: Modifier, onSvg
             Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { onClose() }
                 .semantics { contentDescription = "Close" }, contentAlignment = Alignment.Center) {
                 Text("✕", color = PLAN_X_FG, fontSize = 16.sp, lineHeight = 18.sp)
+            }
+        }
+        // v42.css .planx .pxsheet: the A4 sheet, landscape, as large as the pane leaves, centred (xMidYMid meet)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (sheet != null) {
+                val what = "A4 sheet, ${SurveyPlan.DTITLE.getValue(sheet.view)} at 1:${sheet.scale}"
+                Canvas(Modifier.fillMaxSize().semantics { contentDescription = what }) {
+                    val cw = size.width.toDouble(); val ch = size.height.toDouble()
+                    val k = minOf(cw / SurveyExport.SHEET_W, ch / SurveyExport.SHEET_H)
+                    if (k > 0) {
+                        val ox = (cw - SurveyExport.SHEET_W * k) / 2; val oy = (ch - SurveyExport.SHEET_H * k) / 2
+                        drawIntoCanvas { c -> PlanExport.paintSheet(c.nativeCanvas, sheet, k, ox, oy) }
+                    }
+                }
             }
         }
         // v42.css .planx .pxbtns: centred, 10 dp apart

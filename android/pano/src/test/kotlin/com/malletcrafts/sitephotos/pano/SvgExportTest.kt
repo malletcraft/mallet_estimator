@@ -134,6 +134,38 @@ class SvgExportTest {
         assertEquals("Kitchen", SurveyExport.roomToken("Kitchen"))
     }
 
+    @Test fun `the room part never drops out of a name -- a token that makes nothing safe is room, beside the initials and the project`() {
+        // plan.js keeps the room part (split(' · ')[0]||'room'); a Marathi room or an unsynced site must not collapse
+        // two different rooms or clients onto one shorter name
+        assertEquals("AP_room_htu_plan", SurveyExport.exportName("AP", "स्वयंपाकघर", "htu", "floor"))
+        assertEquals("AP_room_htu_front-elevation", SurveyExport.exportName("AP", "देवघर", "htu", "front"))
+        assertEquals("AP_room_plan", SurveyExport.exportName("AP", "", "", "floor"))
+        assertEquals("AP_LR_plan", SurveyExport.exportName("AP", "LR", "", "floor"), "no project code on an unsynced site: left out")
+        assertEquals("room_htu_ceiling-plan", SurveyExport.exportName("", "  ", "htu", "ceil"))
+        for ((v, _) in SurveyPlan.VIEWS) {
+            val parts = SurveyExport.exportName("AP", "§", "htu", v).removeSuffix(SurveyExport.SUFFIX.getValue(v)).split('_')
+            assertEquals(listOf("AP", "room", "htu"), parts, v)
+        }
+    }
+
+    @Test fun `Share sends the format last saved for this drawing, else the PDF -- the format only, never an old file`() {
+        assertEquals("svg", SurveyExport.shareExt("AP_LR_htu_plan.svg", "AP_LR_htu_plan"))
+        assertEquals("pdf", SurveyExport.shareExt("AP_LR_htu_plan.pdf", "AP_LR_htu_plan"))
+        assertEquals("pdf", SurveyExport.shareExt(null, "AP_LR_htu_plan"))
+        // a file saved for another drawing says nothing about this one
+        assertEquals("pdf", SurveyExport.shareExt("AP_LR_htu_plan.svg", "AP_LR_htu_front-elevation"))
+        assertEquals("pdf", SurveyExport.shareExt("AP_LR_htu_plan (1).svg", "AP_LR_htu_plan"))
+    }
+
+    @Test fun `each capture keeps its copies in its own folder, named safely`() {
+        assertEquals("cap-7f3a_01", SurveyExport.keepDir("cap-7f3a_01"))
+        assertEquals("a-b", SurveyExport.keepDir("a/b"))
+        assertEquals("capture", SurveyExport.keepDir(""))
+        assertEquals("capture", SurveyExport.keepDir(null))
+        assertEquals("capture", SurveyExport.keepDir(".."))
+        assertTrue(Regex("^[A-Za-z0-9_-]+$").matches(SurveyExport.keepDir("../../etc")))
+    }
+
     // ------------------------------------------------------------------ the title block and the footnotes
 
     @Test fun `the title block names the drawing -- Drawing then its full name -- and carries initials and the project code, never a name`() {

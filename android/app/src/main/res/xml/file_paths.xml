@@ -10,6 +10,7 @@
     <files-path name="shots" path="shots/" />
     <!-- The Plan tab's exports (v52 slice 14a): each drawing's SVG or PDF is
          saved to Downloads through MediaStore, and a private copy here is what
-         Share hands to another app, with a read grant and nothing more. -->
+         Share hands to another app, with a read grant and nothing more (one
+         folder per capture, drawings/<capture>/). -->
     <files-path name="drawings" path="drawings/" />
 </paths>

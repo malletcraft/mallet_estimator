@@ -78,17 +78,36 @@ object SurveyExport {
 
     /**
      * The file name of [drawing] (one of SurveyPlan.VIEWS), without its extension: the client's INITIALS, the room's
-     * title (its token, "LR") and the project's code joined by '_', each part made safe ([safePart]), the empty ones
-     * left out -- "room" when nothing is left -- and then the drawing's [SUFFIX]: "AP_LR_htu_front-elevation",
-     * "AP_LR_htu_plan". Never empty, never ending _plan_plan (a suffix already at the end of the parts is not doubled).
+     * title (its token, "LR") and the project's code joined by '_', each part made safe ([safePart]), and then the
+     * drawing's [SUFFIX]: "AP_LR_htu_front-elevation", "AP_LR_htu_plan". Never empty, never ending _plan_plan (a suffix
+     * already at the end of the parts is not doubled).
+     *
+     * THE ROOM PART IS ALWAYS THERE (slice 14a review): an empty initials or project part is left out, but a room whose
+     * token makes nothing safe -- a Marathi room name, or none at all -- is "room", as plan.js's
+     * `split(' · ')[0]||'room'` keeps it, so the room never silently drops out of the name. Two drawings CAN still share
+     * a name ("Master Bedroom" and "Master Bathroom" are both MB); the phone never deletes a file to make room for
+     * another of the same name -- Downloads names the second one beside the first.
      */
     fun exportName(clientInitials: String?, roomTitle: String?, project: String?, drawing: String): String {
         val suf = SUFFIX[drawing] ?: throw IllegalArgumentException("not a drawing: $drawing")
-        var base = listOf(clientInitials, roomTitle, project).map { safePart(it) }.filter { it.isNotEmpty() }.joinToString("_")
-        if (base.isEmpty()) base = "room"
+        val room = safePart(roomTitle).ifEmpty { "room" }
+        var base = listOf(safePart(clientInitials), room, safePart(project)).filter { it.isNotEmpty() }.joinToString("_")
         while (base.length > suf.length && base.endsWith(suf, ignoreCase = true)) base = base.dropLast(suf.length)
         return base + suf
     }
+
+    /**
+     * What Share sends for drawing [name] (slice 14a review): the format of the file last saved, when that file was
+     * THIS drawing ([lastKept] is its kept file name, "<name>.<ext>"), else the PDF. Share always builds the sheet again
+     * from the prep as it stands -- a mark moved or a figure keyed after the save is in what it sends -- so this picks
+     * the FORMAT only, never an old file.
+     */
+    fun shareExt(lastKept: String?, name: String): String = if (lastKept == "$name.svg") "svg" else "pdf"
+
+    /** The folder, under the app's private drawings/, that a capture's kept copies go in: its id made safe, "capture"
+     *  when nothing is left. One folder per capture, so two rooms whose files share a name never overwrite each other's
+     *  copy. */
+    fun keepDir(deviceId: String?): String = safePart(deviceId).ifEmpty { "capture" }
 
     /** The room's title for the file name: its token, what comes before " · " in the screen's title ("LR · Living Room"
      *  → "LR"; plan.js: spTitle.split(' · ')[0]). */

@@ -801,7 +801,7 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
         flushChain(); refShot = SurveyRef.leave(refShot)
@@ -1173,50 +1173,60 @@ internal fun SurveyPrepDialog(
     // the client's initials, the room's token and the project's code (SurveyExport.exportName); the phone says what it
     // saved in the snackbar (the prototype's "On the phone this saves …" note is the prototype's alone).
     fun planName(): String = SurveyExport.exportName(clientInitials, SurveyExport.roomToken(title), projectCode, planV)
+    /** The drawing shown, on its sheet, from the prep and the room size as they stand NOW (main thread; it is cheap). */
+    fun planSheet(): SurveyExport.Sheet =
+        SurveyExport.sheet(planV, prep, roomSize[0], roomSize[1], roomSize[2],
+            SurveyExport.Meta(clientInitials, projectCode, title, captureDate,
+                SurveyExport.drawn(LocalDate.now(ZoneId.of("Asia/Kolkata")))), SurveyPlan.roomName(title))
+    /**
+     * SVG or PDF: saved to Downloads (and kept privately), the snackbar naming what Downloads called it. Share
+     * ([thenShare]): the sheet as it stands now, written to the private copy ONLY -- never an older file, so a mark moved
+     * or a figure keyed since the last save is in what is sent, and sharing never piles copies into Downloads.
+     */
     fun exportPlan(ext: String, thenShare: Boolean) {
         if (planBusy) return
         // the sheet is built here, on the main thread, from the prep as it stands; only the bytes and the files are not
-        val sheet = runCatching {
-            SurveyExport.sheet(planV, prep, roomSize[0], roomSize[1], roomSize[2],
-                SurveyExport.Meta(clientInitials, projectCode, title, captureDate,
-                    SurveyExport.drawn(LocalDate.now(ZoneId.of("Asia/Kolkata")))), SurveyPlan.roomName(title))
-        }.getOrElse { e -> snack("Not saved: ${e.message ?: e.javaClass.simpleName}", undo = false); return }
+        val sheet = runCatching { planSheet() }
+            .getOrElse { e -> snack("${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}", undo = false); return }
         planBusy = true
         scope.launch {
             val r = withContext(Dispatchers.IO) {
                 runCatching {
                     val bytes = if (ext == PlanExport.SVG) PlanExport.svgBytes(sheet) else PlanExport.pdfBytes(sheet)
-                    PlanExport.save(context, sheet.name, ext, bytes)
+                    if (thenShare) PlanExport.keepOnly(context, id, sheet.name, ext, bytes)
+                    else PlanExport.save(context, id, sheet.name, ext, bytes)
                 }
             }
             planBusy = false
             r.onSuccess { sv ->
-                planSaved = sv
-                snack("Saved ${sv.shown} to Downloads", undo = false)
                 if (thenShare) runCatching { PlanExport.share(context, sv) }
-                    .onFailure { e -> snack("Saved ${sv.shown}; could not share it: ${e.message ?: e.javaClass.simpleName}", undo = false) }
-            }.onFailure { e -> snack("Not saved: ${e.message ?: e.javaClass.simpleName}", undo = false) }
+                    .onFailure { e -> snack("Could not share ${sv.shown}: ${e.message ?: e.javaClass.simpleName}", undo = false) }
+                else { planSaved = sv; snack("Saved ${sv.shown} to Downloads", undo = false) }
+            }.onFailure { e ->
+                // a failed save says nothing about what Share should send: forget the last one
+                if (!thenShare) planSaved = null
+                snack("${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}", undo = false)
+            }
         }
     }
-    /** Share: the file last saved for THIS drawing, or -- nothing saved for it yet -- its PDF, saved first. */
-    fun sharePlan() {
-        val sv = planSaved
-        if (sv != null && sv.file.exists() && sv.file.nameWithoutExtension == planName()) {
-            runCatching { PlanExport.share(context, sv) }
-                .onFailure { e -> snack("Could not share ${sv.file.name}: ${e.message ?: e.javaClass.simpleName}", undo = false) }
-        } else exportPlan(PlanExport.PDF, thenShare = true)
-    }
-    // over the drawing: the note and the snackbar as over a photo (notesOver), and under them the export bar when open
+    /** Share: the drawing as it stands now, in the format last saved for it, else as a PDF (SurveyExport.shareExt). */
+    fun sharePlan() = exportPlan(SurveyExport.shareExt(planSaved?.file?.name, planName()), thenShare = true)
+    // over the drawing: the export overlay when open (the whole pane, as v42.css .planx), and over it the note and the
+    // snackbar as over a photo (notesOver), lifted clear of the overlay's buttons
     val planOver: @Composable BoxScope.() -> Unit = {
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            note?.let { SpNote(it, Modifier) }
-            snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo && hist.size == snackHist) { hideSnack(); undo() } else hideSnack() } }
-            if (planExp) SpPlanExport(planName(), planBusy, Modifier.fillMaxWidth(),
+        if (planExp) {
+            val sheet = remember(planV, rev, prep, roomSize, title, clientInitials, projectCode, captureDate) { runCatching { planSheet() }.getOrNull() }
+            SpPlanExport(sheet?.name ?: planName(), sheet, planBusy, Modifier.matchParentSize(),
                 onSvg = { exportPlan(PlanExport.SVG, thenShare = false) },
                 onPdf = { exportPlan(PlanExport.PDF, thenShare = false) },
                 onShare = { sharePlan() },
                 onClose = { planExp = false })
+        }
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = if (planExp) 56.dp else 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            note?.let { SpNote(it, Modifier) }
+            snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo && hist.size == snackHist) { hideSnack(); undo() } else hideSnack() } }
         }
     }
     // ---- THE PLAN TAB (v52 slice 13, items 10 and 11): the six drawings in one box with all the height the controls
