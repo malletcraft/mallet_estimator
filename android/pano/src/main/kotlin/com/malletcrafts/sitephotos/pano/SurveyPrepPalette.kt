@@ -98,9 +98,10 @@ object SurveyPrepPalette {
         SlotKind.MORE -> moreArmed(kind, tool) != null
     }
 
-    /** What the tool chip over the photo says with a type on (sp.js 1454); null with Select, which shows no chip. */
-    fun chipText(s: String, tool: String): String? =
-        if (tool == SEL || tool in TOOLS) null else "Placing ${SurveyPrep.typeOf(s, tool).name} · tap the photo"
+    /** What the tool chip over the photo says with a type on (sp.js 1454); null with Select, which shows no chip.
+     *  [where]: "photo" on 2 · Mark, "360" on 4 · 360 (v52 slice 17, ct52 G: "Placing Window · tap the 360"). */
+    fun chipText(s: String, tool: String, where: String = "photo"): String? =
+        if (tool == SEL || tool in TOOLS) null else "Placing ${SurveyPrep.typeOf(s, tool).name} · tap the $where"
 
     /** The More sheet's heading. */
     fun sheetTitle(s: String) = "Every mark type · ${SurveyPrep.NAME.getValue(s)}"

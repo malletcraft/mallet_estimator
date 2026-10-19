@@ -75,11 +75,11 @@ object StepRoute {
     fun tabTick(t: String, bounded: Boolean): Boolean = isFace(t) && bounded
 
     /**
-     * The steps of a face, in order: 1 · Lines, 2 · Mark, 3 · List. 4 · 360 is
-     * NOT here until it works (slice 17; Amit, 15 Oct: "Yes, last, after
-     * everything else") -- no greyed dead step, by the no-fallbacks rule.
+     * The steps of a face, in order: 1 · Lines, 2 · Mark, 3 · List, 4 · 360. 4 · 360 joined with slice 17, once it
+     * works (Amit, 15 Oct 2026: "Yes, last, after everything else"); until then it was hidden, never greyed -- no dead
+     * step, by the no-fallbacks rule.
      */
-    val STEPS: List<Pair<String, String>> = listOf("lines" to "Lines", "mark" to "Mark", "list" to "List")
+    val STEPS: List<Pair<String, String>> = listOf("lines" to "Lines", "mark" to "Mark", "list" to "List", "360" to "360")
 
     /** The step's name as it is read out and labelled: "2 · Mark". */
     fun label(i: Int): String = "${i + 1} · ${STEPS[i].second}"

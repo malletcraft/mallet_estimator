@@ -104,6 +104,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.sitephotos.pano.GestureClassifier
 import com.malletcrafts.sitephotos.pano.MmBox
+import com.malletcrafts.sitephotos.pano.Pano360
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyChain
@@ -151,6 +152,10 @@ import kotlin.math.roundToInt
  *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
+ *  - 4 · 360 (v52 slice 17, SurveyPrep360): the same marks, tapes, Lines,
+ *    chains and reference on the 360 itself, turned by the finger, and
+ *    placed and edited there through the same functions -- one model, two
+ *    views; the maths is Pano360 in :pano.
  *  - PLAN, the 8th tab (v52 slice 13): six drawings -- the floor plan, the
  *    reflected ceiling plan and the four wall elevations -- from one pure
  *    display list (SurveyPlan in :pano), painted by SpPlanPane.
@@ -207,6 +212,10 @@ internal fun SurveyPrepDialog(
     var rev by remember { mutableIntStateOf(0) }
     var tab by remember { mutableStateOf("front") }
     var mode by remember { mutableStateOf("lines") }
+    // 4 · 360 (v52 slice 17): where the 360 looks -- yaw, pitch and fov; the viewer sizes it to its box. A face tab, the
+    // step and fit face the open face again (sp.js P3.face); a look round or a pinch moves it. Not stored with the prep:
+    // the 360 is a VIEW of the same marks, and nothing is kept per view.
+    var p3Look by remember { mutableStateOf(Pano360.faceView("front", 1.0, 1.0)) }
     // THE PLAN TAB (v52 slice 13): the drawing it shows -- kept while other tabs are open, so List and back keeps it
     // (ct52 DR) -- and a counter bumped each time the tab is opened, which fits the drawing again (sp.js showTab)
     var planV by remember { mutableStateOf("floor") }
@@ -507,7 +516,7 @@ internal fun SurveyPrepDialog(
         sel = SpSel(s, id = e.id)
         if (measure != null) active = measure
         else if (fresh) active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
         rev++
     }
     /** A finger down on a line or a mark: it is selected, with the part grabbed; a newly selected mark's
@@ -539,6 +548,22 @@ internal fun SurveyPrepDialog(
         snapshot()
         val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
+        changed()
+        return e
+    }
+    /**
+     * A TAP ON THE 360 WITH A TYPE ON (v52 slice 17, sp.js addElAt): type [t], picked on the open tab's palette, placed on
+     * the surface the finger is on, [s], centred on ([mx], [my]) mm and kept inside it (SurveyPrep.placeAt) -- but only
+     * when [s] has a type of that NAME (Pano360.placeRefusal; item 11: "A Switch plate cannot go on the floor", said, and
+     * nothing placed). The new mark picked, its first measurement active, the tab following it; one undo step.
+     */
+    fun place360(s: String, t: String, mx: Double, my: Double): SurveyPrep.Mark? {
+        if (mode != "360" || !StepRoute.isFace(tab) || s !in SurveyPrep.SURFACES) return null
+        Pano360.placeRefusal(tab, s, t)?.let { say(it); return null }
+        val a = ab(s)
+        snapshot()
+        val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
+        tab = s; sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
         changed()
         return e
     }
@@ -714,7 +739,7 @@ internal fun SurveyPrepDialog(
         sel = SpSel(s, id = cid)
         if (measure != null) active = measure
         else if (fresh) active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
         rev++
     }
     /** A Tape, a Line or an area picked (sp.js mPick): selected; a newly picked Line's reading becomes the one being
@@ -724,7 +749,7 @@ internal fun SurveyPrepDialog(
         val fresh = sel?.id != mid
         sel = SpSel(s, id = mid)
         active = SurveyMeas.pickActive(m, fresh, measure, active)
-        if (tab != s && tab != "list") { tab = s; mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
         rev++
     }
     /**
@@ -801,10 +826,15 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false; tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
+        // on 4 · 360 a face tab turns the 360 to that face (sp.js showTab: P3.face)
+        if (mode == "360" && StepRoute.isFace(t)) p3Look = Pano360.faceView(t, 1.0, 1.0)
+        tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
         if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
         flushChain(); refShot = SurveyRef.leave(refShot)
+        // 4 · 360 opens facing the open face (sp.js setMode: P3.face)
+        if (m == "360") p3Look = Pano360.faceView(tab, 1.0, 1.0)
         mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
@@ -848,6 +878,8 @@ internal fun SurveyPrepDialog(
     val listView = StepRoute.listView(tab, mode)
     // a FACE has lines, steps, marks and its own clear; the List and Plan tabs have none of them (slice 13)
     val face = StepRoute.isFace(tab)
+    // 2 · Mark and 4 · 360 edit the same marks: the selection rows, the D2 strip, the palette and More ▸ serve both
+    val marking = face && (mode == "mark" || mode == "360")
     val planTab = StepRoute.isPlan(tab)
     val dens = LocalDensity.current
     // Where each step of the strip is, and the strip's own top-left, in root px: a press within 48 dp under a step
@@ -873,6 +905,41 @@ internal fun SurveyPrepDialog(
     // The long-lived pointer handlers below read these, so a handler started on an earlier frame acts on this one.
     val routeS by rememberUpdatedState(newValue = { x: Float, y: Float -> stepAt(x, y) })
     val goStepS by rememberUpdatedState(newValue = { k: String -> setMode(k) })
+
+    // ---- 4 · 360 (v52 slice 17): what a press on the 360 does -- the SAME edits 2 · Mark makes, through the same
+    // functions, into the same prep fields; only the surface comes from the press (the tab follows it, sp.js st.tab=s)
+    val p3Actions = P3Actions(
+        grab = { g -> grabbed(g) },
+        focus = { s -> if (tab != s) { tab = s; rev++ } },
+        before = { snapshot() },
+        moved = { rev++ },
+        changed = { changed() },
+        revert = { revertPress() },
+        deselect = { if (sel != null) { sel = null; rev++ } },
+        place = { s, t, mx, my -> place360(s, t, mx, my) },
+        pickChain = { s, cid -> selectChain(s, cid) },
+        pickMeas = { s, mid -> selectMeas(s, mid) },
+        chainPress = { s, mm, tol -> tab = s; chainPress(mm, tol) },
+        chainMove = { i, mm, tol -> chainMove(i, mm, tol) },
+        chainCancel = { i -> chainCancel(i) },
+        chainFinish = { kdraft?.let { finishChain(it) } },
+        dragStart = { d -> mdrag = d; rev++ },
+        dragMove = { rev++ },
+        dragEnd = { d -> endDrag(d) },
+        dragCancel = { mdrag = null; rev++ },
+        areaTap = { s, mm, near, dbl -> tab = s; areaTap(mm, near, dbl) },
+        tapeTap = { say(SurveyMeas.TAPE_TAP) },
+        endGuide = { g -> endG = g; rev++ },
+        say = { t -> say(t) },
+        refuse = { code -> refuse(code) },
+        longPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
+        look = { v -> p3Look = v },
+        // ✕ on the chip: a chain half drawn is DROPPED, not plotted (sp.js d.cancel), then back to Select
+        tool = { t -> kdraft = null; pickTool(t) },
+        grid = { grid = !grid; rev++ },
+        stepAt = { x, y -> routeS(x, y) },
+        step = { k -> goStepS(k) },
+    )
 
     val statusText = when {
         tab == "list" || planTab -> {
@@ -1038,6 +1105,7 @@ internal fun SurveyPrepDialog(
             .pointerInput(Unit) { routeToStep({ capAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) },
             verticalAlignment = Alignment.CenterVertically) {
             Text(if (mode == "lines") "${SurveyPrep.NAME[tab]} · set its four lines"
+                 else if (mode == "360") Pano360.caption(tab)
                  else "${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
                 color = SP_FG, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 6.dp, top = 3.dp, bottom = 3.dp))
@@ -1058,7 +1126,11 @@ internal fun SurveyPrepDialog(
     val photoPane: @Composable ColumnScope.() -> Unit = {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val img: Bitmap? = if (mode == "lines") views[tab] else rectOf(tab)?.bmp
-            if (img == null) {
+            if (mode == "360") {
+                // 4 · 360 (v52 slice 17): the same marks on the 360 itself, edited through the same functions as 2 · Mark
+                Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,
+                    mdrag, area, areaS, kdraft, SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft), grid, p3Actions)
+            } else if (img == null) {
                 Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
@@ -1321,7 +1393,7 @@ internal fun SurveyPrepDialog(
     // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the palette
     val markPanel: @Composable () -> Unit = {
         rev    // read: a mark's edge dragged moves its live ≈ value while the finger is down
-        val sm = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
+        val sm = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
         if (sm != null) {
             val p = sel!!.part
             val edge = p != "body"
@@ -1350,7 +1422,7 @@ internal fun SurveyPrepDialog(
         // A PICKED TAPE, LINE OR AREA (v52 slice 9, sp.js 1505-1507): its own row -- "F-T1 · Tape · 1234 mm", "F-M1 ·
         // 1234 mm" once read (else "≈1234 mm"), "F-M2 · 1.86 m²" -- with its padlock and Delete. A tape has NO D2 strip
         // under it (it has no reading); a Line's strip follows, as a mark's does.
-        val sq = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).meas.firstOrNull { it.id == sl.id } }
+        val sq = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).meas.firstOrNull { it.id == sl.id } }
         if (sq != null) {
             val lk = SurveyPrep.isLocked(sq)
             val tp = sq.kind == SurveyMeas.TAPE
@@ -1368,7 +1440,7 @@ internal fun SurveyPrepDialog(
         // A PICKED CHAIN (v52 slice 11, sp.js 1503, ct52 K): its own row -- "FK1 ≈905 · ≈2405 · Σ 3310 laser", each
         // segment its reading, "2410 d" derived, or the photo's ≈ -- with its padlock and Delete; the D2 strip follows,
         // on its first open segment
-        val sk = sel?.takeIf { mode == "mark" && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).chains.firstOrNull { it.id == sl.id } }
+        val sk = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).chains.firstOrNull { it.id == sl.id } }
         if (sk != null) {
             val lk = SurveyPrep.isLocked(sk)
             val kv = ab(tab).let { SurveyChain.vals(sk, prep.actual, it[0], it[1]) }
@@ -1386,7 +1458,7 @@ internal fun SurveyPrepDialog(
         // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, or a
         // Line's length / an area's perimeter (v52 slice 9: the D2 and the keyboard land on F-M1.len, F-M2.per)
         val act = active
-        val am = act?.let { a -> prep.readingOf(a) { ab(it) } }?.takeIf { mode == "mark" && it.first == tab }
+        val am = act?.let { a -> prep.readingOf(a) { ab(it) } }?.takeIf { marking && it.first == tab }
         val mm = am?.second
         if (am != null && mm != null && act != null) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
@@ -1594,7 +1666,7 @@ internal fun SurveyPrepDialog(
             }
             // ---- MORE ▸ (v52 slice 7): "Every mark type · <Face>" over the bottom of the screen -- the whole width in
             // portrait, 340 dp at the right in landscape (v42.css .moresheet); a pick or ✕ closes it
-            if (moreOpen && face && mode == "mark") {
+            if (moreOpen && marking) {
                 SpMoreSheet(tab, tool,
                     if (land) Modifier.align(Alignment.BottomEnd).width(340.dp) else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                     onPick = { t -> pickTool(t) }, onClose = { moreOpen = false })

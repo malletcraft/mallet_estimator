@@ -173,6 +173,9 @@ object SurveyMeas {
             to = r.p; snap = r.snap
             off = !SurveyPrep.onFace(a, b, from[0], from[1]) || !SurveyPrep.onFace(a, b, to[0], to[1])
         }
+        /** The finger where no direction meets the surface's PLANE (4 · 360, v52 slice 17; sp.js `if(!m2){ L.off=true }`):
+         *  the far end stays where it was last on the plane, and the drag is off -- refused on release. */
+        fun offPlane() { off = true }
         fun pts(): List<DoubleArray> = listOf(from, to)
         fun len() = plen(pts())
     }

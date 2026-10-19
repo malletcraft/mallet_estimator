@@ -463,13 +463,11 @@ object SurveyPrep {
      * PLACING A TYPE ON ANOTHER SURFACE compares what the type IS, not its letter (v52 fix):
      * a Switch plate dragged onto the floor would otherwise become a Step. Null when [t], as
      * it is on [from], may go on [to]; else the refusal the screen shows, as sp.js words it.
-     * Its caller is the 4 · 360 step (slice 17), where a tap may land on another surface than
-     * the tab the type was picked on; 2 · Mark adds only to the surface it shows.
+     * The ONE rule is Pano360.placeRefusal, by type NAME, which the 4 · 360 step calls (slice 17),
+     * where a tap may land on another surface than the tab the type was picked on; 2 · Mark adds
+     * only to the surface it shows.
      */
-    fun placeRefusal(from: String, to: String, t: String): String? {
-        val ok = types(to).any { it.letter == t } && typeOf(to, t).name == typeOf(from, t).name
-        return if (ok) null else "A ${typeOf(from, t).name} cannot go on the ${NAME.getValue(to).lowercase()}"
-    }
+    fun placeRefusal(from: String, to: String, t: String): String? = Pano360.placeRefusal(from, to, t)
 
     fun canPlace(from: String, to: String, t: String): Boolean = placeRefusal(from, to, t) == null
 

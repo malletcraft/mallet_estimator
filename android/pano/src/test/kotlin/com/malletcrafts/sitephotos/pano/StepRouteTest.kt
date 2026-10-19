@@ -127,11 +127,14 @@ class StepRouteTest {
     }
 
     @Test
-    fun `the steps are 1 · Lines, 2 · Mark, 3 · List -- no 4 · 360 until it works`() {
-        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · List"), StepRoute.STEPS.indices.map { StepRoute.label(it) })
+    fun `the steps are 1 · Lines, 2 · Mark, 3 · List, 4 · 360 -- the 360 shown now it works (slice 17)`() {
+        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · List", "4 · 360"), StepRoute.STEPS.indices.map { StepRoute.label(it) })
         assertEquals(1, StepRoute.stepIndex("mark"))
         assertEquals(2, StepRoute.stepIndex("list"))
-        assertEquals(-1, StepRoute.stepIndex("360"))
+        assertEquals(3, StepRoute.stepIndex("360"))
+        assertEquals(-1, StepRoute.stepIndex("plan"))
+        // 4 · 360 is a face's step, never a list view: it draws the 360, not a list
+        assertFalse(StepRoute.listView("front", "360"))
         assertEquals("Front wall ·", StepRoute.stripFace("front"))
         assertEquals("Ceiling ·", StepRoute.stripFace("ceil"))
         assertTrue(StepRoute.showStrip("front"))
