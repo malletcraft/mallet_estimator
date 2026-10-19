@@ -598,6 +598,26 @@ object SurveyPlan {
         return doubleArrayOf(vb[0] - dx / k, vb[1] - dy / k, vb[2], vb[3])
     }
 
+    /**
+     * Where drawing point (0, 0) lands on the screen, px: with [scale] it is the whole mm-to-px mapping the Canvas paints
+     * by -- `screen = origin + mm × k`, the same sums as [toScreen], so the painted picture and the zoom anchor
+     * ([fromScreen]) can never disagree.
+     */
+    fun origin(vb: DoubleArray, cw: Double, ch: Double): DoubleArray = toScreen(vb, cw, ch, 0.0, 0.0)
+
+    /**
+     * One gesture event on the view [vb] (null = fitted, the drawing's [box]), plan.js's rule (pointermove): a PINCH only
+     * zooms, about the fingers' centroid ([cx], [cy]), and never pans -- however far the centroid drifts; a one-finger
+     * drag ([factor] == 1) only pans. The result is null when it is fitted, the box shown whole.
+     */
+    fun gesture(vb: DoubleArray?, box: DoubleArray, cx: Double, cy: Double, panX: Double, panY: Double, factor: Double,
+                cw: Double, ch: Double): DoubleArray? {
+        if (!(cw > 0) || !(ch > 0)) return vb
+        val v0 = vb ?: box
+        val v = if (factor != 1.0) zoom(v0, box, factor, cx, cy, cw, ch) else pan(v0, box, panX, panY, cw, ch)
+        return if (fitted(v, box)) null else v
+    }
+
     /** The fit button: "fit" when fitted, else the zoom on it, "fit · 150%" (v52 fix). */
     fun fitLabel(vb: DoubleArray, box: DoubleArray): String =
         if (fitted(vb, box)) "fit" else "fit · ${rnd(box[2] / vb[2] * 100)}%"

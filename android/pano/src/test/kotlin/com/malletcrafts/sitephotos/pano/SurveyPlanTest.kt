@@ -276,6 +276,18 @@ class SurveyPlanTest {
         val q = room(); put(q, "front", "W", "FW3", 0.5, 800.0, 900.0, 1500.0)
         assertNull(SurveyPlan.drawing("front", q, L, W, H).dim("FW3.l"))
         assertNotNull(SurveyPlan.drawing("front", q, L, W, H).dim("FW3.w"), "its width still is")
+        // ... and once it is READ the offset joins its row (plan.js 127: `hx[2]>=ZERO || st.actual[...] != null`), so the row
+        // starts at the corner: FW3 (0.5 mm off) now packs ahead of FW5 (0.3 mm off) and takes row 0. Its own line is
+        // still not drawn -- the drawing places it by the mark's 0.5 mm, and plan.js's dim draws nothing under 1 mm.
+        put(q, "front", "W", "FW5", 0.3, 1500.0, 900.0, 1500.0)
+        val unread = SurveyPlan.drawing("front", q, L, W, H)
+        val row0 = dimLine(unread, "FW5.w").y1
+        near(row0 + unread.fs * 1.9, dimLine(unread, "FW3.w").y1, 1e-9, "unread: FW3 a row down, behind FW5")
+        q.actual["FW3.l"] = 3.0
+        val read = SurveyPlan.drawing("front", q, L, W, H)
+        near(row0, dimLine(read, "FW3.w").y1, 1e-9, "read: FW3's row starts at the corner, so it takes row 0")
+        near(row0 + read.fs * 1.9, dimLine(read, "FW5.w").y1, 1e-9, "and FW5 goes a row down")
+        assertNull(read.dim("FW3.l"), "a line under 1 mm is never drawn, read or not")
         // ... and from 1 mm it is
         val q1 = room(); put(q1, "front", "W", "FW4", 1.0, 800.0, 900.0, 1500.0)
         assertEquals("≈1", SurveyPlan.drawing("front", q1, L, W, H).dim("FW4.l")?.text)
@@ -391,5 +403,29 @@ class SurveyPlanTest {
         val s0 = SurveyPlan.toScreen(box, cw, ch, box[0], box[1]); val s1 = SurveyPlan.toScreen(box, cw, ch, box[0] + box[2], box[1] + box[3])
         near(cw - s1[0], s0[0], 1e-9, "centred x"); near(ch - s1[1], s0[1], 1e-9, "centred y")
         assertTrue(min(s0[0], s0[1]) >= -1e-9)
+        // origin is toScreen's (0, 0): screen = origin + mm × k, for a fitted and a zoomed view alike
+        for (vv in listOf(box, z)) {
+            val o = SurveyPlan.origin(vv, cw, ch); val kk = SurveyPlan.scale(vv, cw, ch)
+            val t = SurveyPlan.toScreen(vv, cw, ch, 1234.0, -56.0)
+            near(t[0], o[0] + 1234.0 * kk, 1e-9, "origin x"); near(t[1], o[1] - 56.0 * kk, 1e-9, "origin y")
+        }
+    }
+
+    @Test fun `a pinch only zooms -- the centroid drifting does not pan it -- a one-finger drag only pans, a zoom out to fit is null`() {
+        val box = doubleArrayOf(-100.0, -200.0, 3000.0, 4000.0); val cw = 340.0; val ch = 500.0
+        val sx = 200.0; val sy = 260.0
+        // a pinch out with the fingers' midpoint drifting 40 px right: the point under the midpoint stays, no translation
+        val u = SurveyPlan.fromScreen(box, cw, ch, sx, sy)
+        val z = assertNotNull(SurveyPlan.gesture(null, box, sx, sy, 40.0, 0.0, 1.5, cw, ch), "zoomed in")
+        val u2 = SurveyPlan.fromScreen(z, cw, ch, sx, sy); near(u[0], u2[0], 1e-6, "x under the fingers"); near(u[1], u2[1], 1e-6, "y")
+        assertEquals(SurveyPlan.zoom(box, box, 1.5, sx, sy, cw, ch).toList(), z.toList(), "the drift adds nothing")
+        // a one-finger drag pans a zoomed drawing with the finger, and only pans
+        val p = assertNotNull(SurveyPlan.gesture(z, box, sx, sy, 30.0, -20.0, 1.0, cw, ch))
+        assertEquals(SurveyPlan.pan(z, box, 30.0, -20.0, cw, ch).toList(), p.toList())
+        // a drag on a fitted drawing leaves it fitted (null); a zoom out past the drawing fits it again (null)
+        assertNull(SurveyPlan.gesture(null, box, sx, sy, 30.0, 30.0, 1.0, cw, ch))
+        assertNull(SurveyPlan.gesture(z, box, sx, sy, 0.0, 0.0, 1 / 3.0, cw, ch))
+        // no canvas yet: the view is left as it is
+        assertEquals(z.toList(), SurveyPlan.gesture(z, box, sx, sy, 5.0, 5.0, 1.0, 0.0, 0.0)?.toList())
     }
 }

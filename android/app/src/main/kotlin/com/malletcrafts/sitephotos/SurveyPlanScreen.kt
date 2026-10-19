@@ -86,13 +86,9 @@ internal fun SpPlanPane(
     var cs by remember { mutableStateOf(IntSize.Zero) }
     // the long-lived gesture handler reads the CURRENT drawing, view and canvas size through this
     val gesture by rememberUpdatedState<(Offset, Offset, Float) -> Unit>(newValue = { c, pan, z ->
-        val cw = cs.width.toDouble(); val ch = cs.height.toDouble()
-        if (cw > 0 && ch > 0) {
-            var v = vb ?: d.box
-            if (z != 1f) v = SurveyPlan.zoom(v, d.box, z.toDouble(), c.x.toDouble(), c.y.toDouble(), cw, ch)
-            v = SurveyPlan.pan(v, d.box, pan.x.toDouble(), pan.y.toDouble(), cw, ch)
-            vb = if (SurveyPlan.fitted(v, d.box)) null else v
-        }
+        // plan.js: a pinch only zooms (never pans, however the fingers drift); a one-finger drag only pans -- in :pano
+        vb = SurveyPlan.gesture(vb, d.box, c.x.toDouble(), c.y.toDouble(), pan.x.toDouble(), pan.y.toDouble(), z.toDouble(),
+            cs.width.toDouble(), cs.height.toDouble())
     })
     val shown = vb ?: d.box
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color(0xFF000000.toInt() or SurveyPlan.PAPER))) {
@@ -144,7 +140,7 @@ internal fun SpPlanFoot(info: String) {
 private fun paintPlan(nc: android.graphics.Canvas, d: SurveyPlan.Drawing, vb: DoubleArray, w: Float, h: Float) {
     val k = SurveyPlan.scale(vb, w.toDouble(), h.toDouble())
     if (!(k > 0) || k.isInfinite()) return
-    val ox = (w - vb[2] * k) / 2 - vb[0] * k; val oy = (h - vb[3] * k) / 2 - vb[1] * k
+    val o = SurveyPlan.origin(vb, w.toDouble(), h.toDouble()); val ox = o[0]; val oy = o[1]
     fun px(v: Double) = (ox + v * k).toFloat()
     fun py(v: Double) = (oy + v * k).toFloat()
     fun len(v: Double) = (v * k).toFloat()
