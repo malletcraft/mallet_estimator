@@ -447,4 +447,52 @@ class Pano360Test {
             if ('t' !in part) assertEquals(start.y1, e.y1); if ('b' !in part) assertEquals(start.y0, e.y0)
         }
     }
+
+    // ------------------------------------------------------------------ slice 17 review fixes
+
+    @Test fun `a quick second tap with Select on is a tap -- the DoubleTap the classifier sends resolves as the Tap does`() {
+        // the classifier: a tap, then within 450 ms and 24 dp another, is a DoubleTap at the second press
+        val g = GestureClassifier(8.0, GestureClassifier.DOUBLE_TAP_DP * DP)
+        g.down(100.0, 100.0, 0); val t1 = g.up(100.0, 100.0, 60).single()
+        g.down(130.0, 110.0, 300); val t2 = g.up(130.0, 110.0, 360).single()
+        assertTrue(t1 is GestureClassifier.Event.Tap); assertTrue(t2 is GestureClassifier.Event.DoubleTap)
+        // ... and on the 360 with Select on it picks, or lets go, exactly as a tap would
+        for (chain in listOf(false, true)) for (meas in listOf(false, true)) {
+            val want = Pano360.lookTap(t1, chain, meas, false)
+            assertNotNull(want)
+            assertEquals(want, Pano360.lookTap(t2, chain, meas, false), "chain $chain meas $meas")
+        }
+        assertEquals(Pano360.LookTap.CHAIN, Pano360.lookTap(t2, true, true, false))
+        assertEquals(Pano360.LookTap.MEAS, Pano360.lookTap(t2, false, true, false))
+        assertEquals(Pano360.LookTap.LET_GO, Pano360.lookTap(t2, false, false, false))
+        // a drag that looked round is no tap; nor is a long press or a drag event
+        assertNull(Pano360.lookTap(t2, true, false, true))
+        assertNull(Pano360.lookTap(GestureClassifier.Event.LongPress(1.0, 1.0), true, false, false))
+    }
+
+    @Test fun `the floating trash on the 360 -- beside the picked mark, Tape or chain, with Select on, never for the reference`() {
+        val p = room(); val fr = frames(p)
+        val v = Pano360.faceView("front", 680.0, 840.0)
+        p.surface("front").marks.add(SurveyPrep.Mark("m1", "D", "F-D1", 900.0, 1800.0, 400.0, 2000.0))
+        val t = p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(400.0, 1000.0), doubleArrayOf(1400.0, 1000.0)), "t1")
+        // a mark: the box of its four corners as drawn, no handles
+        val m = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "m1"))
+        val corners = listOf(900.0 to 400.0, 1800.0 to 400.0, 1800.0 to 2000.0, 900.0 to 2000.0).map { (x, y) -> Pano360.toS(v, "front", fr.getValue("front"), x, y)!! }
+        assertEquals(corners.minOf { it[0] }, m.box.l, 1e-9); assertEquals(corners.maxOf { it[0] }, m.box.r, 1e-9)
+        assertEquals(corners.minOf { it[1] }, m.box.t, 1e-9); assertEquals(corners.maxOf { it[1] }, m.box.b, 1e-9)
+        assertTrue(m.handles.isEmpty())
+        // a Tape: its two ends are the box and the handles the disc keeps off
+        val tt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, t.id))
+        assertEquals(2, tt.handles.size)
+        assertNotNull(SurveyPrepTouch.trashSpot(tt.box, emptyList(), 680.0, 840.0, DP, tt.handles, SurveyGuide.HANDLE_CLEAR_DP * DP))
+        // with a tool on, nothing picked, the reference, or the item behind the camera: no trash
+        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.TAPE, "m1"))
+        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, null))
+        assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "${SurveyRef.KEY}:front"))
+        assertNull(Pano360.trashOf(Pano360.faceView("back", 680.0, 840.0), fr, p, SurveyPrepPalette.SEL, "m1"))
+        // on a surface whose lines are not all set: no trash
+        val q = room(); q.surface("front").marks.add(SurveyPrep.Mark("m1", "D", "F-D1", 900.0, 1800.0, 400.0, 2000.0))
+        q.surface("front").set[SurveyPrep.SLOTS[0]] = false
+        assertNull(Pano360.trashOf(v, Pano360.frames(q, L, W, H), q, SurveyPrepPalette.SEL, "m1"))
+    }
 }

@@ -467,6 +467,50 @@ object Pano360 {
         polys.filter { inPoly(x, y, it.pts) }
             .sortedWith(compareBy<Poly>({ if (it.id == selId) 0 else 1 }, { it.area })).firstOrNull()
 
+    /** What a tap on nothing grabbed does with Select on: picks the chain's line under it, else the Tape's / Line's, else
+     *  lets go of the pick. */
+    enum class LookTap { CHAIN, MEAS, LET_GO }
+
+    /**
+     * A TAP WITH SELECT ON THAT WENT TO [Pick.Look] (sp.js P3 pointerup on gs.look): [chain] / [meas], whether a chain's
+     * line / a Tape's or Line's was within [LINE_PICK_DP] at the press; [moved], whether the drag looked round (then it
+     * was no tap). A QUICK SECOND TAP IS A TAP HERE: GestureClassifier reports one within 450 ms and 24 dp of the last as
+     * a DoubleTap, which 2 · Mark sends to its tap as well and sp.js never tells apart on the 360 -- so a [Event.DoubleTap]
+     * resolves exactly as an [Event.Tap] (fix 1 of the slice 17 review: it was dropped). Null for any other event.
+     */
+    fun lookTap(e: GestureClassifier.Event, chain: Boolean, meas: Boolean, moved: Boolean): LookTap? {
+        if (moved || (e !is GestureClassifier.Event.Tap && e !is GestureClassifier.Event.DoubleTap)) return null
+        return if (chain) LookTap.CHAIN else if (meas) LookTap.MEAS else LookTap.LET_GO
+    }
+
+    // ------------------------------------------------------------------ the floating trash
+
+    /** The trash's place, on the screen: [box] round the picked item, and [handles] the disc keeps off (its ends). */
+    class Trash(val box: SurveyPrepTouch.Box, val handles: List<DoubleArray>)
+
+    /**
+     * THE FLOATING TRASH ON THE 360 (sp.js fTrashP3): with [tool] Select and [selId] picked, the screen box of its points
+     * in its surface's mm (sp.js itemMM) -- a mark's four corners, a Tape's / Line's / area's points, a chain's nodes --
+     * through the view [v]; the Tape's, Line's, area's or chain's points are also the handles the disc keeps clear of, as
+     * on 2 · Mark. Null with another tool on, for the reference (never deleted), on a surface not bounded ([fr] has no
+     * frame for it), or when no point is in front of the camera. SurveyPrepTouch.trashSpot places the disc from this.
+     */
+    fun trashOf(v: View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep, tool: String, selId: String?): Trash? {
+        if (tool != SurveyPrepPalette.SEL || selId == null || SurveyRef.isId(selId)) return null
+        var ends = true
+        val (s, mm) = prep.markById(selId)?.let { (s, e) ->
+            ends = false
+            s to listOf(doubleArrayOf(e.x0, e.y0), doubleArrayOf(e.x1, e.y0), doubleArrayOf(e.x1, e.y1), doubleArrayOf(e.x0, e.y1))
+        } ?: prep.measById(selId)?.let { (s, m) -> s to m.pts }
+          ?: prep.chainById(selId)?.let { (s, c) -> s to c.nodes }
+          ?: return null
+        val f = fr[s] ?: return null
+        val q = mm.mapNotNull { toS(v, s, f, it[0], it[1]) }
+        if (q.isEmpty()) return null
+        return Trash(SurveyPrepTouch.Box(q.minOf { it[0] }, q.minOf { it[1] }, q.maxOf { it[0] }, q.maxOf { it[1] }),
+            if (ends) q else emptyList())
+    }
+
     // ------------------------------------------------------------------ the view's pixels
 
     /**

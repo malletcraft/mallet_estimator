@@ -932,6 +932,7 @@ internal fun SurveyPrepDialog(
         endGuide = { g -> endG = g; rev++ },
         say = { t -> say(t) },
         refuse = { code -> refuse(code) },
+        delete = { mid -> deleteMark(mid) },
         longPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
         look = { v -> p3Look = v },
         // ✕ on the chip: a chain half drawn is DROPPED, not plotted (sp.js d.cancel), then back to Select
