@@ -346,6 +346,9 @@ private fun AppScreen() {
         SurveyPrepDialog(
             deviceId = k.row.deviceId, previewPano = k.pano, title = k.title,
             lengthMm = k.size[0], widthMm = k.size[1], heightMm = k.size[2],
+            // the Plan tab's export names its files and fills its title block from these: initials, never the name
+            clientInitials = RoomToken.initials(k.row.customerName), projectCode = k.row.project,
+            captureDate = k.row.captureDate,
             onDone = { p, size ->
                 surveyKept = null; surveyTick++
                 // The room size as survey prep now has it (v51: its size line is editable) goes to the
@@ -2770,6 +2773,9 @@ private fun NewCaptureSurvey(
         previewPano = session.previewPano,
         title = RoomToken.label(pending.room),
         lengthMm = d[0], widthMm = d[1], heightMm = d[2],
+        // the Plan tab's export names its files and fills its title block from these: initials, never the name
+        clientInitials = RoomToken.initials(pending.customerName), projectCode = pending.projectName,
+        captureDate = pending.captureDate,
         onDone = { p, size -> keepWith(p, size) },
         onCancel = { p, size -> keepWith(p, size) },
         onDiscard = onDiscard)

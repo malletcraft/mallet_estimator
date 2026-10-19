@@ -52,6 +52,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -106,6 +107,7 @@ import com.malletcrafts.sitephotos.pano.MmBox
 import com.malletcrafts.sitephotos.pano.Panorama
 import com.malletcrafts.sitephotos.pano.StepRoute
 import com.malletcrafts.sitephotos.pano.SurveyChain
+import com.malletcrafts.sitephotos.pano.SurveyExport
 import com.malletcrafts.sitephotos.pano.SurveyGuide
 import com.malletcrafts.sitephotos.pano.SurveyMeas
 import com.malletcrafts.sitephotos.pano.SurveyPlan
@@ -117,8 +119,11 @@ import com.malletcrafts.sitephotos.pano.SurveyPrepTouch
 import com.malletcrafts.sitephotos.pano.SurveyRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.hypot
 import kotlin.math.max
@@ -169,6 +174,12 @@ internal fun SurveyPrepDialog(
     lengthMm: Double,
     widthMm: Double,
     heightMm: Double,
+    /** For the Plan tab's export (v52 slice 14a): the client's INITIALS -- never the name -- the project's code, and the
+     *  capture's date. They name the file ("AP_LR_htu_front-elevation") and fill the sheet's title block; no client
+     *  name, phone or address is ever handed to this screen for it. */
+    clientInitials: String = "",
+    projectCode: String = "",
+    captureDate: String = "",
     /** Save: the prep, and the room size it is squared to now (L, W, H mm -- the size line may have changed it). */
     onDone: (SurveyPrep.Prep, DoubleArray) -> Unit,
     /** Back without Save: the work is kept on the phone either way, and handed back as it stands, with its size. */
@@ -200,6 +211,11 @@ internal fun SurveyPrepDialog(
     // (ct52 DR) -- and a counter bumped each time the tab is opened, which fits the drawing again (sp.js showTab)
     var planV by remember { mutableStateOf("floor") }
     var planFit by remember { mutableIntStateOf(0) }
+    // THE EXPORT BAR (v52 slice 14a): open or not, a save running, and the file last saved (what Share hands out)
+    var planExp by remember { mutableStateOf(false) }
+    var planBusy by remember { mutableStateOf(false) }
+    var planSaved by remember { mutableStateOf<PlanExport.Saved?>(null) }
+    val scope = rememberCoroutineScope()
     var show by remember { mutableStateOf("both") }
     var sel by remember { mutableStateOf<SpSel?>(null) }
     var active by remember { mutableStateOf<String?>(null) }
@@ -1151,16 +1167,69 @@ internal fun SurveyPrepDialog(
         }
     }
 
+    // EXPORT (v52 slice 14a, item 10): the drawing shown, on its own A4 sheet (SurveyExport: 1:50 or the first coarser
+    // 1:10n that fits, the title block 'Drawing <DTITLE>', the two footnotes), saved to Downloads as SVG or PDF and
+    // shared -- only ever because a button on the export bar was pressed, never on Save or sync. The file is named from
+    // the client's initials, the room's token and the project's code (SurveyExport.exportName); the phone says what it
+    // saved in the snackbar (the prototype's "On the phone this saves …" note is the prototype's alone).
+    fun planName(): String = SurveyExport.exportName(clientInitials, SurveyExport.roomToken(title), projectCode, planV)
+    fun exportPlan(ext: String, thenShare: Boolean) {
+        if (planBusy) return
+        // the sheet is built here, on the main thread, from the prep as it stands; only the bytes and the files are not
+        val sheet = runCatching {
+            SurveyExport.sheet(planV, prep, roomSize[0], roomSize[1], roomSize[2],
+                SurveyExport.Meta(clientInitials, projectCode, title, captureDate,
+                    SurveyExport.drawn(LocalDate.now(ZoneId.of("Asia/Kolkata")))), SurveyPlan.roomName(title))
+        }.getOrElse { e -> snack("Not saved: ${e.message ?: e.javaClass.simpleName}", undo = false); return }
+        planBusy = true
+        scope.launch {
+            val r = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = if (ext == PlanExport.SVG) PlanExport.svgBytes(sheet) else PlanExport.pdfBytes(sheet)
+                    PlanExport.save(context, sheet.name, ext, bytes)
+                }
+            }
+            planBusy = false
+            r.onSuccess { sv ->
+                planSaved = sv
+                snack("Saved ${sv.shown} to Downloads", undo = false)
+                if (thenShare) runCatching { PlanExport.share(context, sv) }
+                    .onFailure { e -> snack("Saved ${sv.shown}; could not share it: ${e.message ?: e.javaClass.simpleName}", undo = false) }
+            }.onFailure { e -> snack("Not saved: ${e.message ?: e.javaClass.simpleName}", undo = false) }
+        }
+    }
+    /** Share: the file last saved for THIS drawing, or -- nothing saved for it yet -- its PDF, saved first. */
+    fun sharePlan() {
+        val sv = planSaved
+        if (sv != null && sv.file.exists() && sv.file.nameWithoutExtension == planName()) {
+            runCatching { PlanExport.share(context, sv) }
+                .onFailure { e -> snack("Could not share ${sv.file.name}: ${e.message ?: e.javaClass.simpleName}", undo = false) }
+        } else exportPlan(PlanExport.PDF, thenShare = true)
+    }
+    // over the drawing: the note and the snackbar as over a photo (notesOver), and under them the export bar when open
+    val planOver: @Composable BoxScope.() -> Unit = {
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            note?.let { SpNote(it, Modifier) }
+            snackText?.let { t -> SpSnack(t, snackUndo, Modifier.fillMaxWidth()) { if (snackText != null && snackUndo && hist.size == snackHist) { hideSnack(); undo() } else hideSnack() } }
+            if (planExp) SpPlanExport(planName(), planBusy, Modifier.fillMaxWidth(),
+                onSvg = { exportPlan(PlanExport.SVG, thenShare = false) },
+                onPdf = { exportPlan(PlanExport.PDF, thenShare = false) },
+                onShare = { sharePlan() },
+                onClose = { planExp = false })
+        }
+    }
     // ---- THE PLAN TAB (v52 slice 13, items 10 and 11): the six drawings in one box with all the height the controls
     // leave -- nothing scrolls -- and the line under it naming the drawing. No step strip, no Show row, no caption, and
     // no Clear this surface behind ⋮ (face is false here); the note and the snackbar sit over the drawing as over a photo.
     val planPane: @Composable ColumnScope.() -> Unit = {
         SpPlanPane(Modifier.weight(1f).fillMaxWidth(), prep, roomSize, SurveyPlan.roomName(title), rev, planV, planFit, land,
-            onView = { v -> planV = v }, overlay = notesOver)
+            onView = { v -> planV = v }, overlay = planOver)
     }
     val planFoot: @Composable () -> Unit = {
         rev    // read: the mark count follows every change
-        SpPlanFoot(SurveyPlan.infoOf(planV, prep, roomSize[0], roomSize[1], roomSize[2], SurveyPlan.roomName(title)))
+        SpPlanFoot(SurveyPlan.infoOf(planV, prep, roomSize[0], roomSize[1], roomSize[2], SurveyPlan.roomName(title)),
+            onExport = { planExp = true })
     }
 
     // ---- under the photo in 1 · Lines: EVERY LINE HAS ITS OWN CONTROLS, always there, in a compact panel (Amit,

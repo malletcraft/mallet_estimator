@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -131,16 +132,74 @@ internal fun SpPlanPane(
  * 2 marks", "Living Room · 3310 × 5458" -- 11 sp on 14, never cut at 360 dp: one line, or two when it must.
  */
 @Composable
-internal fun SpPlanFoot(info: String) {
-    Text(info, color = PLAN_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 6.dp, bottom = 2.dp))
+internal fun SpPlanFoot(info: String, onExport: () -> Unit) {
+    // v42.css .planfoot: the line, then the gold Export pill (36 dp, radius 18, 16 dp each side, 14 sp bold), 8 dp apart
+    Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 6.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(info, color = PLAN_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f))
+        PlanPill("Export", true, onExport)
+    }
+}
+
+/** A gold pill (v42.css .pexp): 36 dp high, radius 18, 16 dp each side, 14 sp bold on #1A1A12; dimmed while [on] is
+ *  false (a save is running), and then it takes no press. */
+@Composable
+private fun PlanPill(text: String, on: Boolean, onClick: () -> Unit) {
+    Box(Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(if (on) PLAN_GOLD else PLAN_GOLD.copy(alpha = 0.45f))
+        .clickable(enabled = on, role = Role.Button) { onClick() }.padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center) {
+        Text(text, color = PLAN_ON_INK, fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    }
+}
+
+/**
+ * THE EXPORT BAR (v52 slice 14a, item 10): over the foot of the drawing, costing no height. "Export · AP_LR_htu_front-
+ * elevation" -- the file name already says which drawing it is (plan.js v52 fix), whole at 360 dp or cut with an
+ * ellipsis -- with ✕, then SVG and PDF (each SAVES that file to Downloads; the screen says which in its snackbar) and
+ * Share (the file last saved, or the PDF saved first, through the share sheet). Nothing here runs on its own: every file
+ * is written because a button was pressed. The prototype's "On the phone this saves …" note is the prototype's -- the
+ * phone says what it saved instead. While a save runs ([busy]) the buttons are dimmed and take no press.
+ */
+@Composable
+internal fun SpPlanExport(name: String, busy: Boolean, modifier: Modifier, onSvg: () -> Unit, onPdf: () -> Unit,
+                          onShare: () -> Unit, onClose: () -> Unit) {
+    Column(modifier.clip(RoundedCornerShape(10.dp)).background(PLAN_X_BG).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // v42.css .planx .pxbar: 13 sp on 18, #ECEEE8, the name bold and cut with an ellipsis rather than wrapped
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Export · $name", color = PLAN_X_FG, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+                    .semantics { contentDescription = "Export · $name" })
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { onClose() }
+                .semantics { contentDescription = "Close" }, contentAlignment = Alignment.Center) {
+                Text("✕", color = PLAN_X_FG, fontSize = 16.sp, lineHeight = 18.sp)
+            }
+        }
+        // v42.css .planx .pxbtns: centred, 10 dp apart
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
+            PlanPill("SVG", !busy, onSvg)
+            PlanPill("PDF", !busy, onPdf)
+            PlanPill("Share", !busy, onShare)
+        }
+    }
 }
 
 /** A display list onto an [w] × [h] px canvas, [vb] (mm) shown whole and centred. Paints; decides nothing. */
 private fun paintPlan(nc: android.graphics.Canvas, d: SurveyPlan.Drawing, vb: DoubleArray, w: Float, h: Float) {
     val k = SurveyPlan.scale(vb, w.toDouble(), h.toDouble())
     if (!(k > 0) || k.isInfinite()) return
-    val o = SurveyPlan.origin(vb, w.toDouble(), h.toDouble()); val ox = o[0]; val oy = o[1]
+    val o = SurveyPlan.origin(vb, w.toDouble(), h.toDouble())
+    paintItems(nc, d.items, k, o[0], o[1])
+}
+
+/**
+ * Display-list [items] onto a canvas at `canvas = (ox, oy) + mm × k`: the screen's drawing box ([paintPlan], k px per
+ * mm) and the export's PDF page (PlanExport, k points per drawing mm at the sheet scale) paint through this ONE
+ * function, so the PDF is the drawing on the screen, item for item. Paints; decides nothing.
+ */
+internal fun paintItems(nc: android.graphics.Canvas, items: List<SurveyPlan.Item>, k: Double, ox: Double, oy: Double) {
+    if (!(k > 0) || k.isInfinite()) return
     fun px(v: Double) = (ox + v * k).toFloat()
     fun py(v: Double) = (oy + v * k).toFloat()
     fun len(v: Double) = (v * k).toFloat()
@@ -152,7 +211,7 @@ private fun paintPlan(nc: android.graphics.Canvas, d: SurveyPlan.Drawing, vb: Do
         stroke.color = argb(c); stroke.strokeWidth = len(width)
         stroke.pathEffect = dash?.takeIf { it.size >= 2 && it[0] > 0 && it[1] > 0 }?.let { DashPathEffect(floatArrayOf(len(it[0]), len(it[1])), 0f) }
     }
-    for (item in d.items) when (item) {
+    for (item in items) when (item) {
         is SurveyPlan.Line -> { setStroke(item.colour, item.width, item.dash); nc.drawLine(px(item.x1), py(item.y1), px(item.x2), py(item.y2), stroke) }
         is SurveyPlan.Poly -> {
             val p = Path()
@@ -207,3 +266,6 @@ private val PLAN_CHIP = Color(0xFFE4E0D2)
 private val PLAN_CHIP_INK = Color(0xFF3F433A)
 private val PLAN_ON_INK = Color(0xFF1A1A12)
 private val PLAN_MUTED = Color(0xFF9AA096)
+/** The export bar (v42.css .planx: #111311F2, its bar #ECEEE8). */
+private val PLAN_X_BG = Color(0xF2111311)
+private val PLAN_X_FG = Color(0xFFECEEE8)
