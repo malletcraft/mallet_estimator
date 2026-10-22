@@ -1,0 +1,77 @@
+# Export the release keystore for Play App Signing, encrypted with Google's
+# PEPK tool. Run ONCE, by hand, during Play Console's "Change app signing
+# key" step — the point where Amit chooses "Upload a new app signing key
+# from Java Keystore" so Play signs with the SAME key every sideloaded and
+# OTA build already carries (a different Play key would make Play installs
+# and sideloads refuse to update each other).
+#
+# The Console page at that step hands out an ENCRYPTION PUBLIC KEY. Paste it
+# into this workflow's input; the run produces pepk-out.zip as a 7-day
+# artifact. That zip is encrypted TO GOOGLE — only Play can open it — so an
+# artifact is a safe place for it. The keystore itself never leaves the
+# repository secrets.
+#
+# workflow_dispatch ONLY: this must never ride a push.
+name: Play PEPK export
+on:
+  workflow_dispatch:
+    inputs:
+      encryption_key:
+        description: >-
+          The encryption public key from Play Console's "Change app signing
+          key" page. Either the long HEX string shown inline, or the
+          base64 of the downloadable encryption_public_key.pem.
+        required: true
+        type: string
+      key_is_pem_b64:
+        description: "true when the input is base64 of the .pem file"
+        required: false
+        default: "false"
+        type: string
+
+jobs:
+  pepk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decode the keystore
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::error::ANDROID_KEYSTORE_B64 secret is not set"; exit 1
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          ls -la "$RUNNER_TEMP/release.keystore"
+      - name: Fetch pepk.jar from Google
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/pepk.jar" \
+            https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar
+          ls -la "$RUNNER_TEMP/pepk.jar"
+      - name: Run PEPK
+        env:
+          PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          EK: ${{ github.event.inputs.encryption_key }}
+          PEM: ${{ github.event.inputs.key_is_pem_b64 }}
+        run: |
+          set -e
+          if [ "$PEM" = "true" ]; then
+            printf '%s' "$EK" | base64 -d > "$RUNNER_TEMP/play_key.pem"
+            KEYARGS="--rsa-aes-encryption --encryption-key-path=$RUNNER_TEMP/play_key.pem"
+          else
+            KEYARGS="--encryptionkey=$EK"
+          fi
+          # pepk prompts for the keystore and key passwords; with no console
+          # it reads stdin, so feed the password twice (same pass for both,
+          # as the release signingConfig sets it).
+          printf '%s\n%s\n' "$PW" "$PW" | java -jar "$RUNNER_TEMP/pepk.jar" \
+            --keystore="$RUNNER_TEMP/release.keystore" \
+            --alias=mcft-upload \
+            --output="$RUNNER_TEMP/pepk-out.zip" \
+            --include-cert $KEYARGS
+          cp "$RUNNER_TEMP/pepk-out.zip" pepk-out.zip
+          ls -la pepk-out.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pepk-out
+          path: pepk-out.zip
+          retention-days: 7

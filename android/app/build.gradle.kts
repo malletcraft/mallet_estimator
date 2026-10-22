@@ -6,7 +6,11 @@ plugins {
 
 android {
     namespace = "com.malletcrafts.sitephotos"
-    compileSdk = 35
+    // 36 (Android 16): Play refuses NEW apps targeting below 36 since
+    // 31 Aug 2026, and the Play Console listing for this app is created
+    // after that date. AGP 8.7.3 predates official 36 support, so
+    // gradle.properties carries android.suppressUnsupportedCompileSdk.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.malletcrafts.sitephotos"
@@ -14,7 +18,10 @@ android {
         // inserts into Pictures/ need no storage permission at all. A site
         // phone bought for this job will not be older.
         minSdk = 29
-        targetSdk = 35
+        // Play's new-app floor (see compileSdk above). Runtime behaviour
+        // changes gated on targetSdk 36 apply only on Android 16 handsets;
+        // the site fleet (Mi A3 = Android 10) is untouched.
+        targetSdk = 36
         // Play refuses any upload whose versionCode is not strictly higher
         // than the last, and hands-off publishing means nobody is around to
         // bump a number. CI supplies both from the workflow run number, which
@@ -34,6 +41,13 @@ android {
         // talks to stage: survey prep's as-is upload goes here. One constant,
         // so nothing else in the app spells the host.
         buildConfigField("String", "WEB_URL", "\"https://stage.estimate.woodugift.com\"")
+
+        // The in-app OTA installer exists only in sideload builds; the Play
+        // bundle ships without it (Play itself is the updater there, and
+        // Play refuses apps carrying REQUEST_INSTALL_PACKAGES — see the
+        // :selfupdate module).
+        buildConfigField("boolean", "SELF_UPDATE",
+            if (providers.gradleProperty("withSelfUpdate").isPresent) "true" else "false")
     }
 
     signingConfigs {
@@ -95,6 +109,9 @@ dependencies {
     // (CameraCapability), so this block absent changes nothing at compile.
     if (providers.gradleProperty("withCamera").isPresent) {
         implementation(project(":camera"))
+    }
+    if (providers.gradleProperty("withSelfUpdate").isPresent) {
+        implementation(project(":selfupdate"))
     }
 
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

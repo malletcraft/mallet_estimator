@@ -73,7 +73,8 @@ jobs:
         # embeds the proprietary Insta360 SDK, which must never appear in a
         # world-downloadable artifact — the android-latest release stays
         # SDK-free. The camera build happens below, artifact-only.
-        run: gradle -PwithApp :app:assembleRelease :app:assembleDebug --console=plain
+        # -PwithSelfUpdate: sideload builds keep the in-app OTA installer.
+        run: gradle -PwithApp -PwithSelfUpdate :app:assembleRelease :app:assembleDebug --console=plain
       - name: Rename with commit
         run: cp android/app/build/outputs/apk/release/app-release.apk
           "mcft-site-photos-${GITHUB_SHA::7}.apk"
@@ -103,33 +104,12 @@ jobs:
           gh release edit android-latest \
             --notes "Always the newest main build (currently ${GITHUB_SHA::7}, $(date -u +%Y-%m-%dT%H:%MZ)). Same signature every build, so it installs over the previous one."
 
-      # Straight into the managed-Play private app, no human upload. The
-      # Android Publisher API can UPDATE an app but not create one, so the
-      # very first version goes up by hand in the admin console; every
-      # version after that lands here. Gated on the service-account secret:
-      # absent means Play publishing is not wired yet, and the GitHub release
-      # above remains the delivery channel — noted loudly, never silently.
-      - name: Is Play publishing configured?
-        id: play
-        if: github.ref == 'refs/heads/main'
-        env:
-          SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-        run: |
-          if [ -n "$SA" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::PLAY_SERVICE_ACCOUNT_JSON not set — skipping Play publish, GitHub release is the only channel this build"
-          fi
-      - name: Publish to Google Play (production track)
-        if: github.ref == 'refs/heads/main' && steps.play.outputs.enabled == 'true'
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.malletcrafts.sitephotos
-          releaseFiles: mcft-site-photos.apk
-          track: production
-          status: completed
+      # Play carries the CAMERA build (Amit, 22 Oct 2026: "i want 360 capture
+      # in app published on playstore. this is critical requirement for my
+      # app"), so the Play publish lives at the END of the camera section
+      # below — it needs the camera AAB, which does not exist yet at this
+      # point in the job. The public build's only channel stays the
+      # android-latest release above.
 
       # ---- The camera build. The Insta360 SDK is licensed to MCFT and is
       # parked in a PRIVATE Drive folder the mcft-erpnext-drive service
@@ -235,7 +215,18 @@ jobs:
         working-directory: android
         env:
           MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        run: gradle -PwithApp -PwithCamera :app:assembleRelease --console=plain
+        # -PwithSelfUpdate: the sideload/OTA APK keeps the in-app installer.
+        run: gradle -PwithApp -PwithCamera -PwithSelfUpdate :app:assembleRelease --console=plain
+      - name: Bundle the camera build for Play (no self-update)
+        if: steps.sdk.outputs.present == 'true'
+        working-directory: android
+        env:
+          MCFT_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        # Google Play accepts only .aab for new apps (every track, internal
+        # included), and refuses apps carrying REQUEST_INSTALL_PACKAGES —
+        # so the Play artifact is a BUNDLE built WITHOUT -PwithSelfUpdate:
+        # no installer permission, no in-app OTA, Play is the updater.
+        run: gradle -PwithApp -PwithCamera :app:bundleRelease --console=plain
       # The camera module contributes android:networkSecurityConfig to the
       # app's <application> through manifest merging, and a merge that
       # silently drops it would look EXACTLY like the camera failing to
@@ -264,6 +255,50 @@ jobs:
             echo "::error::the network security config no longer names the \
           X3's address"; exit 1; }
           echo "cleartext to 192.168.42.1 is permitted in the shipped manifest"
+      - name: Keep the camera bundle (Play's artifact)
+        if: steps.sdk.outputs.present == 'true'
+        run: cp android/app/build/outputs/bundle/release/app-release.aab
+          "mcft-site-photos-camera-${GITHUB_SHA::7}.aab"
+      - uses: actions/upload-artifact@v4
+        if: steps.sdk.outputs.present == 'true'
+        with:
+          name: mcft-site-photos-camera-aab
+          path: mcft-site-photos-camera-*.aab
+          retention-days: 30
+
+      # The Play leg: the CAMERA bundle to the INTERNAL TESTING track
+      # (testers-only, max 100 — not world-downloadable, so the SDK rule
+      # about public artifacts is respected; Amit chose the camera build for
+      # Play on 22 Oct 2026). The Android Publisher API can UPDATE an app
+      # but not create one, so the very first version goes up by hand in
+      # Play Console; every version after that lands here. Gated on the
+      # service-account secret: absent means Play publishing is not wired
+      # yet — noted loudly, never silently. Until the first manual release
+      # clears Google review the app is a "draft app" and this step fails
+      # with "Only releases with status draft may be created on draft app";
+      # that is the known first-run state, not a bug here.
+      - name: Is Play publishing configured?
+        id: play
+        if: github.ref == 'refs/heads/main' && steps.sdk.outputs.present == 'true'
+        env:
+          SA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -n "$SA" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::PLAY_SERVICE_ACCOUNT_JSON not set — skipping Play publish, sideload and OTA are the only channels this build"
+          fi
+      - name: Publish the camera bundle to Google Play (internal testing)
+        if: github.ref == 'refs/heads/main' && steps.play.outputs.enabled == 'true'
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.malletcrafts.sitephotos
+          releaseFiles: mcft-site-photos-camera-*.aab
+          tracks: internal
+          status: completed
+
       # The OTA leg: every green camera build lands in the private Drive
       # releases folder with a manifest; the bench mirrors it and phones
       # self-update from inside the app. main only — batch-next camera

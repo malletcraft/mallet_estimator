@@ -2420,6 +2420,9 @@ internal fun appVersion(context: android.content.Context): String =
 private fun pendingUpdate(
     context: android.content.Context,
 ): org.json.JSONObject? {
+    // The Play build has no installer permission and Play itself is its
+    // updater: no drawer row, no install, whatever an old sync stored.
+    if (!BuildConfig.SELF_UPDATE) return null
     // Fully qualified, like every other android.content reference in this
     // file: MainActivity.kt imports no android.content types, and the bare
     // name compiled nowhere.

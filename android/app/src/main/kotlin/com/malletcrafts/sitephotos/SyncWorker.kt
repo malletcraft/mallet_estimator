@@ -268,7 +268,9 @@ class SyncWorker(context: Context, params: WorkerParameters) :
 
         // Update check rides the sync too: when the server holds a newer
         // camera build, remember it so the screen can offer the install.
-        runCatching {
+        // Not in the Play build — Play is its updater, and the pref would
+        // only ever feed a drawer row that pendingUpdate refuses anyway.
+        if (BuildConfig.SELF_UPDATE) runCatching {
             val info = client.appUpdateInfo()
             val prefs = applicationContext.getSharedPreferences(
                 "capture", Context.MODE_PRIVATE)

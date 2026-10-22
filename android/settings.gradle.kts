@@ -70,3 +70,10 @@ if (providers.gradleProperty("withApp").isPresent) {
 if (providers.gradleProperty("withCamera").isPresent) {
     include(":camera")
 }
+// :selfupdate holds ONLY the REQUEST_INSTALL_PACKAGES permission the in-app
+// OTA installer needs. Google Play refuses ordinary apps carrying that
+// permission and forbids self-update outside Play, so the Play bundle is
+// built WITHOUT -PwithSelfUpdate while sideload/OTA builds keep it.
+if (providers.gradleProperty("withSelfUpdate").isPresent) {
+    include(":selfupdate")
+}
