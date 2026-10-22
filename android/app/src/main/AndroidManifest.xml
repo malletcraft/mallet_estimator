@@ -55,7 +55,7 @@
     <!-- tools:replace: the Insta360 SDK's library manifest ships its own
          android:label; ours wins, by declaration rather than by luck. The backup
          rules are replaced the same way, so no library's own can drop the
-         s5_session exclusion (the ERP password, S5Session) -- res/xml/backup_rules.xml
+         s5_session exclusion (the ERP password, S5Session): res/xml/backup_rules.xml
          and data_extraction_rules.xml. -->
     <application
         android:name=".SitePhotosApp"
