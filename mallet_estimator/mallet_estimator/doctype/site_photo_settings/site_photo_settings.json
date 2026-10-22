@@ -83,7 +83,7 @@
    "fieldname": "twa_package",
    "fieldtype": "Data",
    "label": "Android Package Name",
-   "description": "e.g. com.malletcrafts.sitephotos \u2014 must match the app on Play."
+   "description": "e.g. com.malletcrafts.interiorestimate \u2014 must match the app on Play."
   },
   {
    "fieldname": "twa_fingerprints",

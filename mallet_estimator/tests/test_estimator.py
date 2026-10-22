@@ -1780,7 +1780,7 @@ class TestRoomMaster(unittest.TestCase):
 
         import mallet_estimator
         kt = (pathlib.Path(mallet_estimator.__file__).parent.parent
-              / "android/app/src/main/kotlin/com/malletcrafts/sitephotos/Catalogue.kt")
+              / "android/app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt")
         if not kt.exists():          # the bench installs no android/ tree
             return None
         body = re.search(r"FALLBACK_ROOMS\s*=\s*listOf\((.*?)\n\s*\)", kt.read_text(), re.S)

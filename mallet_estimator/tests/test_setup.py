@@ -843,14 +843,14 @@ class TestMasters(MalletTestCase):
         self.assertEqual(A._assetlinks(), [])
         self.assertFalse(A.SitePhotoAssetRenderer(path=".well-known/assetlinks.json").can_render())
 
-        s.twa_package = "com.malletcrafts.sitephotos"
+        s.twa_package = "com.malletcrafts.interiorestimate"
         s.twa_fingerprints = "AA:BB:CC\n dd:ee:ff "
         s.save(ignore_permissions=True)
         frappe.clear_cache()
         links = A._assetlinks()
         self.assertEqual(len(links), 1)
         t = links[0]["target"]
-        self.assertEqual(t["package_name"], "com.malletcrafts.sitephotos")
+        self.assertEqual(t["package_name"], "com.malletcrafts.interiorestimate")
         # both certificates matter: Play re-signs, so the upload key alone
         # leaves the shipped app showing a browser URL bar
         self.assertEqual(t["sha256_cert_fingerprints"], ["AA:BB:CC", "DD:EE:FF"])

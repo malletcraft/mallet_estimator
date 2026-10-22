@@ -7,7 +7,7 @@
 # script so a missed run (phone unplugged) simply retries next time.
 set -euo pipefail
 REPO="malletcraft/mallet_estimator"
-ARTIFACT="mcft-site-photos-camera-apk"
+ARTIFACT="mcft-interior-estimate-camera-apk"
 STATE="$HOME/.mcft-auto-update-run"
 WORK="$HOME/.mcft-auto-update"
 LOG="$WORK/log.txt"
@@ -149,7 +149,7 @@ if adb install -r "$apk"; then
   # for "adb did not error", and the whole reason today's twelve-day gap went
   # unnoticed is that nothing ever compared what shipped against what the
   # handset actually runs. Now the log says which version is on it.
-  got=$(adb shell dumpsys package com.malletcrafts.sitephotos 2>/dev/null \
+  got=$(adb shell dumpsys package com.malletcrafts.interiorestimate 2>/dev/null \
         | awk -F= '/versionName/{print $2; exit}' | tr -d '\r')
   echo "INSTALLED run $run — phone now reports versionName=${got:-unknown}"
 else

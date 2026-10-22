@@ -26,7 +26,7 @@ any number of offline days.
 ## Building
 
 APK: CI (`android-app.yml`) on every push touching `android/`, artifact
-`mcft-site-photos-apk`. Locally: `gradle -PwithApp :app:assembleDebug`
+`mcft-interior-estimate-apk`. Locally: `gradle -PwithApp :app:assembleDebug`
 (needs the Android SDK).
 
 Contract tests only: `gradle :pano:test` (no SDK needed).

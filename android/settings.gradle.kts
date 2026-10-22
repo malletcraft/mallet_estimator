@@ -57,7 +57,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "mcft-site-photos"
+rootProject.name = "mcft-interior-estimate"
 include(":pano")
 if (providers.gradleProperty("withApp").isPresent) {
     include(":app")

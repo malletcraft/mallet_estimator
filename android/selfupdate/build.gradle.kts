@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.malletcrafts.sitephotos.selfupdate"
+    namespace = "com.malletcrafts.interiorestimate.selfupdate"
     compileSdk = 36
     defaultConfig {
         minSdk = 29

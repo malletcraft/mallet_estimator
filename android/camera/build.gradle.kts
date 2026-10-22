@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "com.malletcrafts.sitephotos.camera"
+    namespace = "com.malletcrafts.interiorestimate.camera"
     compileSdk = 35
     defaultConfig { minSdk = 29 }
     compileOptions {

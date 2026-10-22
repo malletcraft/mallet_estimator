@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.malletcrafts.sitephotos"
+    namespace = "com.malletcrafts.interiorestimate"
     // 36 (Android 16): Play refuses NEW apps targeting below 36 since
     // 31 Aug 2026, and the Play Console listing for this app is created
     // after that date. AGP 8.7.3 predates official 36 support, so
@@ -13,7 +13,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.malletcrafts.sitephotos"
+        applicationId = "com.malletcrafts.interiorestimate"
         // 29 = Android 10: MediaStore RELATIVE_PATH exists, and app-owned
         // inserts into Pictures/ need no storage permission at all. A site
         // phone bought for this job will not be older.

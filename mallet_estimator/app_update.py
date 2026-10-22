@@ -27,7 +27,7 @@ from mallet_estimator.drive_client import DriveClient, DriveError
 RELEASES_FOLDER = "MCFT App Releases (private)"
 MANIFEST = "camera-latest.json"
 SETTINGS = "Site Photo Settings"
-FILE_PREFIX = "mcft-site-photos-camera-"
+FILE_PREFIX = "mcft-interior-estimate-camera-"
 # The mirror runs on a worker, where an uncaught death is invisible from
 # outside (Error Log needs System Manager, and an OOM-killed worker writes
 # nothing at all). The job parks its last traceback here so app_update_info

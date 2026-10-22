@@ -9,7 +9,7 @@ returns.*
 - **Managed devices**: install from the company's private Google Play app
   (auto-updates from then on).
 - **Direct link** (testing/fallback):
-  `https://github.com/malletcraft/mallet_estimator/releases/download/android-latest/mcft-site-photos.apk`
+  `https://github.com/malletcraft/mallet_estimator/releases/download/android-latest/mcft-interior-estimate.apk`
   — the same link always serves the newest build and installs over the old.
 - First launch → **Settings**: site URL (pre-filled), plus your **API key
   and secret** — generated once on your ERPNext user page (Settings → API
