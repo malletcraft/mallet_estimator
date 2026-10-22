@@ -392,6 +392,21 @@ def ensure_uoms():
     return made
 
 
+def ensure_stock_settings():
+    """ERPNext v16 (validate_serial_and_batch_no_enabled_in_stock_settings,
+    landed upstream between 19 and 22 Oct 2026) refuses has_serial_no on an
+    Item while Stock Settings' 'Enable Serial and Batch No for Item' is off —
+    and every Estimate SKU creates its finished article serialized, so on a
+    fresh site every SKU insert died. Flip the one flag, guarded so older
+    ERPNext without the field is untouched. Reached from BOTH hooks via
+    ensure_manufacturing_masters; the patch entry forces it onto sites that
+    already exist (staging would hit the same wall at its next ERPNext bump)."""
+    field = "enable_serial_and_batch_no_for_item"
+    if frappe.get_meta("Stock Settings").has_field(field) and \
+            not frappe.db.get_single_value("Stock Settings", field):
+        frappe.db.set_single_value("Stock Settings", field, 1)
+
+
 def ensure_core_seed():
     """Core ERPNext records the estimator cannot live without, created
     idempotently: fresh sites seed these through ERPNext's own fixtures, but
@@ -519,6 +534,7 @@ def ensure_manufacturing_masters():
     # The units first: both hooks call this function, so it is the one place
     # that reaches a fresh install AND every migrate. See ensure_uoms.
     _safe(ensure_uoms)
+    _safe(ensure_stock_settings)
     settings = frappe.get_single("Estimate Settings")
     rates = {w["name"]: w for w in workstation_rates(settings)}
     result = {"workstations": 0, "workstations_costed": 0, "operations": 0, "routing": 0, "errors": []}
@@ -723,6 +739,12 @@ def verify_setup():
 
     m = missing("Warehouse", WAREHOUSE_LEAVES, by_field="warehouse_name")
     chk("Warehouses", not m, ("missing: " + ", ".join(m)) if m else f"{len(WAREHOUSE_LEAVES)} present")
+
+    sb_field = "enable_serial_and_batch_no_for_item"
+    chk("Serial/Batch enabled (Stock Settings)",
+        not frappe.get_meta("Stock Settings").has_field(sb_field)
+        or bool(frappe.db.get_single_value("Stock Settings", sb_field)),
+        "SKU articles are serialized; ERPNext v16 refuses has_serial_no without this flag")
 
     m = missing("Workstation", [w["name"] for w in WORKSTATIONS])
     chk("Workstations", not m, ("missing: " + ", ".join(m)) if m else f"{len(WORKSTATIONS)} present")

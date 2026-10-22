@@ -238,3 +238,10 @@ mallet_estimator.patches.seed_dry_balcony
 # install and the role is minted by the button on Estimate Settings, like the
 # reader's.
 mallet_estimator.patches.add_ratewriter_role
+# post_model_sync: ERPNext v16 started refusing has_serial_no on an Item
+# while Stock Settings "Enable Serial and Batch No for Item" is off, and
+# every Estimate SKU creates its finished article serialized. A Python-only
+# deploy runs no migrate, so without this entry a live site never gets the
+# flag and hits the wall at its next ERPNext bump. post: the field must
+# exist before it is set.
+mallet_estimator.patches.enable_serial_batch_for_items

@@ -361,18 +361,37 @@ class TestMasters(MalletTestCase):
 
             # An assumed rate names no vendor and no client: vendor_rate would
             # serve a supplier-tagged assumed row as that vendor's real price.
-            # The parties are REAL, so link validation passes and only the
-            # guard can refuse.
+            # The parties are REAL, so link validation passes. TWO hands may
+            # refuse: the guard throws, or ERPNext v16's own
+            # clear_party_not_applicable (landed upstream Oct 2026) silently
+            # empties the party a buying-only row cannot carry — it runs in
+            # the controller's validate, BEFORE this app's hook, so the guard
+            # never sees the value. The INVARIANT is the same either way —
+            # no assumed row lands naming a party — so that is what is
+            # asserted, not which hand got there first.
             for field, party in parties.items():
-                with self.assertRaisesRegex(frappe.PermissionError, "name no"):
-                    frappe.get_doc({
+                try:
+                    made = frappe.get_doc({
                         "doctype": "Item Price", "item_code": fresh, "price_list": assumed,
                         "buying": 1, "price_list_rate": 1, field: party,
                     }).insert()
+                except frappe.PermissionError:
+                    pass
+                else:
+                    self.assertFalse(made.get(field),
+                                     f"an assumed row landed naming a {field}")
+                    frappe.delete_doc("Item Price", made.name,
+                                      ignore_permissions=True, force=True)
                 tagged = frappe.get_doc("Item Price", row.name)
                 tagged.set(field, party)
-                with self.assertRaisesRegex(frappe.PermissionError, "name no"):
+                try:
                     tagged.save()
+                except frappe.PermissionError:
+                    pass
+                else:
+                    self.assertFalse(
+                        frappe.db.get_value("Item Price", row.name, field),
+                        f"the saved assumed row kept its {field}")
 
             # Zero or negative never lands, on insert or on save: material_rate
             # would price a negative figure as a negative cost.
