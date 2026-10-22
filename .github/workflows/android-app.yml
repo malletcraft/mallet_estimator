@@ -104,6 +104,7 @@ jobs:
           # One-time sweep: the asset kept its old name until 22 Oct 2026.
           gh release delete-asset android-latest mcft-site-photos.apk --yes 2>/dev/null || true
           gh release edit android-latest \
+            --title "MCFT Interior Estimate (sideload, rolling)" \
             --notes "Always the newest main build (currently ${GITHUB_SHA::7}, $(date -u +%Y-%m-%dT%H:%MZ)). Same signature every build, so it installs over the previous one."
 
       # Play carries the CAMERA build (Amit, 22 Oct 2026: "i want 360 capture
