@@ -10,6 +10,18 @@ except Exception:
     from frappe.tests.utils import FrappeTestCase as MalletTestCase
 
 
+def setUpModule():
+    """ensure_site refuses a site with no Company. This module used to run
+    after test_sitephoto, whose setup makes one, and leaned on that leftover
+    without saying so — until the v16 test runner stopped letting records
+    leak across modules (Oct 2026: five tests here died with 'no Company
+    yet' while every sitephoto test passed). The same trap test_sitephoto
+    itself records: a precondition a test depends on is made HERE, not
+    inherited from whoever happened to run first."""
+    from mallet_estimator.tests.test_sitephoto import _company
+    _company()
+
+
 class TestSubcontractMasters(MalletTestCase):
 
     def test_every_subcontract_article_has_somewhere_to_hold_a_rate(self):
