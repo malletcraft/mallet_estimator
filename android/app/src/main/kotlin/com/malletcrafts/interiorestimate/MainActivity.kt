@@ -96,8 +96,17 @@ private fun AppScreen() {
     val scope = rememberCoroutineScope()
 
     var masters by remember { mutableStateOf(store.masters()) }
-    var configured by remember { mutableStateOf(FrappeClient.configured(context)) }
-    var showSettings by remember { mutableStateOf(!FrappeClient.configured(context)) }
+    // CONFIGURED = AN S5 SIGN-IN OR A STORED ERP PAIR (Amit, 22 Oct 2026: "remove the erp key
+    // pair dependency and let S5 be store for apk"). Either one is enough to file and send
+    // captures; the pair stays honoured during the migration, and showSettings now opens the
+    // S5 sign-in, with the old key dialog behind its "ERP key (legacy)" link.
+    var configured by remember {
+        mutableStateOf(FrappeClient.configured(context) || S5Session.signedIn(context))
+    }
+    var showSettings by remember {
+        mutableStateOf(!(FrappeClient.configured(context) || S5Session.signedIn(context)))
+    }
+    var showLegacyKey by remember { mutableStateOf(false) }
 
     // Where we are in the folder tree: client > SITE > project > room. Null
     // means "not that deep yet", which is also what Back unwinds.
@@ -404,6 +413,10 @@ private fun AppScreen() {
                         store.saveMasters(it)
                     }
                 }
+                // No pair, an S5 sign-in: S5's project list is the masters' projects
+                // (S5Masters merges; null keeps what is here), as the sync does.
+                if (FrappeClient.load(context) == null && S5Session.signedIn(context))
+                    S5Masters.fetch(context)?.let { store.saveMasters(it) }
             }
             masters = store.masters()
         }
@@ -744,13 +757,32 @@ private fun AppScreen() {
     ) { ok: Boolean -> if (ok) shotUri?.let { ingest(it, kind = "Photo") } }
 
     if (showSettings) {
+        S5SignInDialog(
+            onDismiss = { showSettings = false },
+            onSignedIn = {
+                configured = true
+                showSettings = false
+                SyncWorker.syncNow(context)
+            },
+            onSignOut = {
+                S5Session.signOut(context)
+                configured = FrappeClient.configured(context) || S5Session.signedIn(context)
+                // signOut drops the projects only S5 listed for that person: redraw without them.
+                masters = store.masters()
+            },
+            onLegacy = { showSettings = false; showLegacyKey = true })
+    }
+
+    // The ERP key dialog, reachable ONLY through the sign-in's "ERP key (legacy)" link
+    // during the migration (22 Oct 2026).
+    if (showLegacyKey) {
         SettingsDialog(
             initialUrl = FrappeClient.savedUrl(context),
-            onDismiss = { showSettings = false },
+            onDismiss = { showLegacyKey = false },
             onSave = { url, key, secret ->
                 FrappeClient.save(context, url, key, secret)
                 configured = true
-                showSettings = false
+                showLegacyKey = false
                 SyncWorker.syncNow(context)
             })
     }
@@ -949,8 +981,11 @@ private fun AppScreen() {
     // One drawer, shared by every tab: the settings are the app's, not a
     // screen's, and building it twice would let the two drift.
     val drawerContent: @Composable () -> Unit = {
+        // Signed in to S5: the drawer names the PERSON (S5's who), not a URL they never typed.
+        val s5Name = S5Session.who(context)?.optString("full_name")?.ifBlank { null }
+            ?.takeIf { S5Session.signedIn(context) }
         SettingsDrawerContent(
-            user = FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" },
+            user = s5Name ?: FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" },
             server = FrappeClient.savedUrl(context),
             groups = drawerGroups(
                 queued = unsent,
@@ -964,7 +999,9 @@ private fun AppScreen() {
                 onUpdate = startUpdate,
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
-                server = FrappeClient.savedUrl(context),
+                // The "Server" row: who is signed in to S5, else the legacy pair's URL.
+                // Its onClick (onServer) opens the S5 sign-in either way.
+                server = s5Name ?: FrappeClient.savedUrl(context),
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()
@@ -980,8 +1017,12 @@ private fun AppScreen() {
                     prefsTick++
                 },
                 onSignOut = {
+                    // Out of BOTH: the S5 session and the legacy pair (22 Oct 2026). Neither
+                    // touches the capture queue, so a phone handed on keeps its unsent work.
+                    S5Session.signOut(context)
                     FrappeClient.forget(context)
-                    configured = false
+                    configured = FrappeClient.configured(context) || S5Session.signedIn(context)
+                    masters = store.masters()
                     showSettings = true
                 },
                 onImageMeterSync = { importFromImageMeter() },
@@ -1223,8 +1264,14 @@ private fun AppScreen() {
                 },
             ) { pad ->
                 Column(Modifier.padding(pad).fillMaxSize()) {
+                    // A renewal ERP refused signs the phone out of S5 in the background
+                    // (S5Session.relogin): say so, and why, rather than go on looking signed in.
+                    val s5Refused = S5Session.refusal(context)
+                        ?.takeIf { !S5Session.signedIn(context) && !FrappeClient.configured(context) }
                     if (!configured) {
-                        Banner("Set the server and API key in Settings to begin.")
+                        Banner("Sign in with your ERP email and password (menu → Server) to begin.")
+                    } else if (s5Refused != null) {
+                        Banner("Sign in again (menu → Server): $s5Refused")
                     } else if (masters == null) {
                         Banner("Waiting for the first master list — go online once.")
                     }
@@ -1252,6 +1299,8 @@ private fun AppScreen() {
                             // room typed offline could not be resolved
                             // against the master, and a phone-only room is
                             // exactly the forked prefix this avoids.
+                            // With an S5 sign-in and no pair (22 Oct 2026) the
+                            // room is added on the phone: S5 settles it on upload.
                             onAddRoom = if (configured && masters != null)
                                 ({ addRoom = true }) else null,
                             captureCount = { r ->
@@ -1849,8 +1898,37 @@ private fun AppScreen() {
                     enabled = typed.isNotBlank() && !working,
                     onClick = {
                         working = true; problem = null
+                        // Read on the main thread: the site's type comes from Compose state.
+                        val forProject = navProject
+                        val forSiteType = forProject?.let { siteTypeOf(it.client, it.site) }.orEmpty()
                         scope.launch(Dispatchers.IO) {
-                            val r = runCatching {
+                            // <Unit>: the local branch returns early, and nothing reads the bench's answer.
+                            val r = runCatching<Unit> {
+                                // S5 IS THE STORE (no ERP pair, an S5 sign-in -- 22 Oct 2026):
+                                // a room on S5 is settled by the upload itself and needs no
+                                // bench, so it is added HERE -- to the room list in the
+                                // masters (S5Masters keeps it across syncs) and to this
+                                // site's rooms, so its tile appears now. The bench's prefix
+                                // check does not run; with no bench there is no master to
+                                // collide with.
+                                if (FrappeClient.load(context) == null && S5Session.signedIn(context)) {
+                                    val name = typed.trim()
+                                    val m = store.masters()?.let { JSONObject(it.toString()) } ?: JSONObject()
+                                    val have = cat.rooms(m)
+                                    val room = have.firstOrNull { it.equals(name, true) } ?: name
+                                    if (room == name && have.none { it.equals(name, true) }) {
+                                        val arr = org.json.JSONArray()
+                                        (have + name).forEach { arr.put(it) }
+                                        m.put("rooms", arr)
+                                        store.saveMasters(m)
+                                    }
+                                    if (forProject != null) {
+                                        val chosen = cat.roomScope(forProject.client, forProject.site)
+                                            .ifEmpty { cat.defaultScope(forSiteType) }
+                                        cat.setRoomScope(forProject.client, forProject.site, chosen + room)
+                                    }
+                                    return@runCatching
+                                }
                                 // load(), not a constructor: the credentials
                                 // live in prefs and the client is built from
                                 // them. The tile is only drawn when the app
@@ -1859,13 +1937,14 @@ private fun AppScreen() {
                                 // a sentence rather than a crash.
                                 val client = FrappeClient.load(context)
                                     ?: throw IllegalStateException(
-                                        "Sign in to the bench first \u2014 a room is created there, not on the phone.")
+                                        "Sign in first \u2014 menu \u2192 Server.")
                                 client.ensureRoom(typed.trim())
                             }
                             withContext(Dispatchers.Main) {
                                 working = false
                                 r.onSuccess {
                                     addRoom = false
+                                    reload()
                                     // Re-read the masters so the new room is
                                     // in the grid immediately; a room you
                                     // just made and cannot see reads as a
@@ -2230,6 +2309,103 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * THE SIGN-IN (Amit, 22 Oct 2026: "remove the erp key pair dependency and let S5 be store
+ * for apk"): the ERP email and password, exchanged once by S5 for its own session
+ * (S5Session). No API key and secret to generate and type any more; that dialog stays
+ * behind the "ERP key (legacy)" link for the length of the migration.
+ *
+ * Signed in, it says who S5 thinks this is and offers Sign out. The sign-in runs off the
+ * main thread and the dialog cannot be dismissed while it is out.
+ */
+@Composable
+private fun S5SignInDialog(onDismiss: () -> Unit, onSignedIn: () -> Unit,
+                           onSignOut: () -> Unit, onLegacy: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var signedIn by remember { mutableStateOf(S5Session.signedIn(context)) }
+    var usr by remember { mutableStateOf(S5Session.who(context)?.optString("user").orEmpty()) }
+    var pwd by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    // Opened after a refused renewal: why the phone was signed out (S5Session.refusal).
+    var problem by remember { mutableStateOf(S5Session.refusal(context)) }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Sign in") },
+        text = {
+            Column {
+                if (signedIn) {
+                    val who = S5Session.who(context)
+                    val name = who?.optString("full_name")?.ifBlank { null }
+                        ?: who?.optString("user").orEmpty()
+                    val kind = who?.optString("kind").orEmpty()
+                    Text("Signed in as $name" + if (kind.isNotBlank()) " ($kind)" else "",
+                        style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Captures go to MCFT Interior Estimate (${BuildConfig.WEB_URL}).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    OutlinedTextField(usr, { usr = it; problem = null },
+                        label = { Text("ERP email") }, singleLine = true, enabled = !busy,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Email))
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(pwd, { pwd = it; problem = null },
+                        label = { Text("Password") }, singleLine = true, enabled = !busy,
+                        visualTransformation =
+                            androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Password))
+                    Spacer(Modifier.height(8.dp))
+                    Text("The same email and password you use for ERPNext.",
+                        style = MaterialTheme.typography.bodySmall)
+                    problem?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onLegacy, enabled = !busy) {
+                    Text("ERP key (legacy)", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            if (signedIn) {
+                TextButton(onClick = {
+                    onSignOut()
+                    signedIn = S5Session.signedIn(context)
+                    pwd = ""
+                }) { Text("Sign out") }
+            } else {
+                TextButton(
+                    enabled = usr.isNotBlank() && pwd.isNotBlank() && !busy,
+                    onClick = {
+                        busy = true; problem = null
+                        val u = usr; val w = pwd
+                        scope.launch(Dispatchers.IO) {
+                            val err = S5Session.login(context, u, w)
+                            withContext(Dispatchers.Main) {
+                                busy = false
+                                if (err == null) {
+                                    signedIn = true
+                                    onSignedIn()
+                                } else problem = err
+                            }
+                        }
+                    }) { Text(if (busy) "Signing in…" else "Sign in") }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy) {
+                Text(if (signedIn) "Close" else "Cancel")
+            }
+        },
     )
 }
 

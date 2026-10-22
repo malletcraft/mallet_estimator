@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and newer (android:dataExtractionRules): the same exclusion as backup_rules.xml,
+     for the cloud backup AND for device-to-device transfer. s5_session holds the person's ERP
+     password; a new phone signs in again. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="s5_session.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="s5_session.xml" />
+    </device-transfer>
+</data-extraction-rules>

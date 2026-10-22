@@ -53,11 +53,16 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- tools:replace: the Insta360 SDK's library manifest ships its own
-         android:label; ours wins, by declaration rather than by luck. -->
+         android:label; ours wins, by declaration rather than by luck. The backup
+         rules are replaced the same way, so no library's own can drop the
+         s5_session exclusion (the ERP password, S5Session) -- res/xml/backup_rules.xml
+         and data_extraction_rules.xml. -->
     <application
         android:name=".SitePhotosApp"
         android:label="MCFT Interior Estimate"
-        tools:replace="android:label"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:replace="android:label,android:fullBackupContent,android:dataExtractionRules"
         android:icon="@mipmap/ic_launcher"
         android:largeHeap="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older (android:fullBackupContent). Everything backs up as before EXCEPT
+     s5_session: it holds the person's ERP email and password (S5Session keeps the password so
+     an expired web session renews itself), and a Google Drive backup is not where that goes. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="s5_session.xml" />
+</full-backup-content>

@@ -211,7 +211,7 @@ object WishSync {
      * never throws, never retries, never a failure of the sync that called it.
      */
     fun push(context: Context) {
-        val auth = FrappeClient.authorization(context) ?: return
+        val auth = S5Auth.fresh(context) ?: return
         val dirty = try {
             all(context).filter { (k, l) -> l.dirty && !WishList.isLocal(k) }
         } catch (e: Exception) {
@@ -283,7 +283,7 @@ object WishSync {
      */
     fun pull(context: Context, project: Catalogue.Project): Boolean {
         if (!project.synced) return false
-        val auth = FrappeClient.authorization(context) ?: return false
+        val auth = S5Auth.fresh(context) ?: return false
         val key = WishList.keyOf(project.serverId, project.client, project.title)
         val blank = WishList.Local(project.client, project.title)
         return try {

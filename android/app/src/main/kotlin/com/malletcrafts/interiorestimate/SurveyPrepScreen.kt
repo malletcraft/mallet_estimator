@@ -456,7 +456,8 @@ internal fun SurveyPrepDialog(
     LaunchedEffect(pullTick) {
         if (pullTick == 0) return@LaunchedEffect
         val row = withContext(Dispatchers.IO) { CaptureStore(context).all().firstOrNull { it.deviceId == id } }
-        val auth = FrappeClient.authorization(context)
+        // Off the main thread: a session past its renewal time is renewed first (S5Auth.fresh).
+        val auth = withContext(Dispatchers.IO) { S5Auth.fresh(context) }
         val fetched: Result<Map<String, com.malletcrafts.interiorestimate.pano.Readings.Remote>>? =
             if (row == null || row.project.isBlank() || auth == null) null
             else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room) } }

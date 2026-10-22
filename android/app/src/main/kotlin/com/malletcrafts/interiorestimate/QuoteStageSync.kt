@@ -11,8 +11,8 @@ import java.time.Instant
  * wish list, vendor quoted, client approved, estimated"). Staff move a project's quote stage
  * on MCFT Interior Estimate's /projects page; the phone only shows it.
  *
- * ONE GET <WEB_URL>/api/asis per read, with the same ERP Authorization header ReadingsSync
- * sends. The LIST, not GET /api/asis/:project: that call also settles the project and lists
+ * ONE GET <WEB_URL>/api/asis per read, with the same credentials ReadingsSync sends
+ * (S5Auth.fresh: the S5 session when signed in, renewed near its end, else the legacy ERP key -- 22 Oct 2026). The LIST, not GET /api/asis/:project: that call also settles the project and lists
  * its photos, which is not work to cause once per project per sync. The answer is cached per
  * ERP project id (Project.serverId) in preferences with the time this phone read it, and a
  * known project the list does not carry is cached as not listed.
@@ -67,7 +67,7 @@ object QuoteStageSync {
         val ids = known.filter { it.isNotBlank() }.distinct()
         // Only phone-only projects: nothing on this phone can be on S5, so S5 is not asked.
         if (ids.isEmpty()) return false
-        val auth = FrappeClient.authorization(context) ?: return false
+        val auth = S5Auth.fresh(context) ?: return false
         return try {
             val body = JSONObject(AsIsUpload.send("GET", url(), auth, null, null))
             // A 200 without the list is not "nothing listed": it would mark every project not sent.
