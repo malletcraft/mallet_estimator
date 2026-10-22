@@ -1177,6 +1177,21 @@ def ensure_warehouses(company=None):
     def wh(name, is_group, parent):
         full = f"{name} - {abbr}"
         if frappe.db.exists("Warehouse", full):
+            # ERPNext's company setup creates "Work In Progress"/"Finished
+            # Goods" as LEAF warehouses, and a leaf cannot hold children —
+            # every child insert under it fails, which is how five of the
+            # eight leaves went missing on a fresh site (CI, 22 Oct 2026)
+            # while "Raw Materials" (a name ERPNext does not pre-create)
+            # kept its children. A pre-existing leaf with no stock simply
+            # becomes the group the tree needs; on sites where the tree is
+            # already right this reads is_group=1 and does nothing.
+            if is_group and not frappe.db.get_value("Warehouse", full, "is_group"):
+                try:
+                    w = frappe.get_doc("Warehouse", full)
+                    w.is_group = 1
+                    w.save(ignore_permissions=True)
+                except Exception as exc:
+                    result["errors"].append(f"Warehouse {name} (leaf→group): {exc}")
             return full
         try:
             w = frappe.new_doc("Warehouse")
