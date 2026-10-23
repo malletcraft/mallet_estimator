@@ -1,0 +1,6 @@
+# CLAUDE'S PHONE-SHOT REQUEST FILE. The dock (mcft-auto-update.sh) reads this
+# from main every tick; when the nonce line below changes, it takes ONE adb
+# screencap of the cabled phone into ~/Desktop/MCFT Phone Shots/ and pushes it
+# to the PRIVATE mcft-workspace repo under phone-shots/ (never this public
+# repo). A request is served once. The nonce is an opaque line, nothing more.
+none

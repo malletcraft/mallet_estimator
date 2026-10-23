@@ -9,7 +9,10 @@
 # mcft-auto-update.sh, the same self-refreshing dock that installs the APK —
 # Claude ships a change, the next tick carries it, nobody types.
 set -euo pipefail
-OUT="$HOME/Desktop/phone-$(date +%H%M%S).png"
+# Into a folder, not loose on the Desktop (Amit, 23 Oct 2026: "just dont store
+# the screesnshot directly on desktop but inside a folder in desktop").
+SHOTDIR="$HOME/Desktop/MCFT Phone Shots"; mkdir -p "$SHOTDIR"
+OUT="$SHOTDIR/phone-$(date +%H%M%S).png"
 if ! command -v adb >/dev/null; then
   echo "adb is missing — the dock's setup installs it; run tools/mac/setup.sh once."; exit 1
 fi
