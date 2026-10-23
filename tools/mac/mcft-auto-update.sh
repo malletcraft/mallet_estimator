@@ -58,6 +58,24 @@ if [ -z "${MCFT_UPDATER_FRESH:-}" ]; then
   rm -f "$new"
 fi
 
+# THE PHONE-SHOT ICON RIDES THIS TICK (23 Oct 2026). Amit: a webcam photo of
+# the handset and any typed command are both too much — so the dock, which
+# already holds the cable and refreshes itself from main, keeps a
+# double-clickable "MCFT Phone Shot.command" on the Desktop current too.
+# Double-click = the phone's screen on the Desktop and the clipboard. Fetched
+# exactly like the self-refresh above; a failed fetch keeps the copy in place.
+SHOT="$HOME/Desktop/MCFT Phone Shot.command"
+shotnew="$WORK/phone-shot.command.new"
+if gh api "repos/$REPO/contents/tools/mac/phone-shot.command?ref=main" \
+     -H "Accept: application/vnd.github.raw" > "$shotnew" 2>/dev/null \
+   && [ -s "$shotnew" ] && bash -n "$shotnew"; then
+  if ! cmp -s "$shotnew" "$SHOT" 2>/dev/null; then
+    chmod +x "$shotnew" && mv "$shotnew" "$SHOT"
+    echo "phone-shot icon installed/refreshed on the Desktop"
+  fi
+fi
+rm -f "$shotnew"
+
 # Newest green run of the android workflow on main.
 run=$(gh run list -R "$REPO" -w "android-app.yml" -b main -s success -L 1 \
       --json databaseId -q '.[0].databaseId' || true)
