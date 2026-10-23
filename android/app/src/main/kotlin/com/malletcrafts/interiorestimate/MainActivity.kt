@@ -1000,8 +1000,13 @@ private fun AppScreen() {
                 cached = cacheSize(context),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
                 // The "Server" row: who is signed in to S5, else the legacy pair's URL.
-                // Its onClick (onServer) opens the S5 sign-in either way.
-                server = s5Name ?: FrappeClient.savedUrl(context),
+                // Its onClick (onServer) opens the S5 sign-in either way. When the stored
+                // ERP pair is refused (SyncWorker's bootstrap probe, 23 Oct 2026) AND there
+                // is no S5 session to fall back on, the row says so and the tap signs in —
+                // the alternative was each queued row reading "HTTP 401" with no way out.
+                server = s5Name
+                    ?: if (FrappeClient.refused(context)) "ERP key refused — tap to sign in to S5"
+                       else FrappeClient.savedUrl(context),
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()

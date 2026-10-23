@@ -437,8 +437,27 @@ class FrappeClient(private val baseUrl: String, private val key: String,
          *  handing the phone on should not take unsent captures with them. */
         fun forget(context: Context) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .remove("key").remove("secret").apply()
+                .remove("key").remove("secret").remove("refused").apply()
         }
+
+        /** THE STORED ERP KEY WAS REFUSED (401/403), set by SyncWorker's ERP
+         *  leg on the one bootstrap probe it runs first. 23 Oct 2026: a dead
+         *  pair used to run the whole capture loop and stamp every row
+         *  "HTTP 401", AND it starved the S5 leg, which never ran while a pair
+         *  was stored — so a phone signed in to S5 could not send a single
+         *  capture while a long-dead key sat in prefs. Now the probe decides:
+         *  a refused key is treated as absent for this pass (the S5 leg runs
+         *  instead), and this flag lets the Server screen say the key is dead
+         *  rather than leaving the person to read "HTTP 401" on each row. It is
+         *  cleared the moment the key works again, or on sign-out. */
+        fun setRefused(context: Context, refused: Boolean) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean("refused", refused).apply()
+        }
+
+        fun refused(context: Context): Boolean =
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getBoolean("refused", false)
 
         fun savedUrl(context: Context): String =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

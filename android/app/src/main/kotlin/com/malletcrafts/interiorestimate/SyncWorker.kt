@@ -46,7 +46,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         val store = CaptureStore(applicationContext)
         val cat = Catalogue(applicationContext)
 
-        val failures = if (client != null) erpLeg(client, store, cat) else { s5Leg(store); 0 }
+        // The ERP leg goes first when a pair is stored, but a DEAD pair (401/403 on its one
+        // bootstrap probe) is treated as absent for this pass: the S5 leg runs instead, so a
+        // phone signed in to S5 can still send its captures, and the Server screen is told the
+        // key is refused. A live pair, or no pair at all, behaves exactly as before.
+        val erp = if (client != null) erpLeg(client, store, cat) else null
+        if (erp == null || erp.keyDead) { if (s5) s5Leg(store) }
+        if (client != null) FrappeClient.setRefused(applicationContext, erp?.keyDead == true)
+        val failures = if (erp != null && !erp.keyDead) erp.failures else 0
 
         // An as-is upload that ENDED for want of a sign-in goes again now there is one -- in
         // either leg, and only those: a job still in WorkManager is never replaced.
@@ -156,11 +163,23 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         }
     }
 
-    /** THE ERP LEG, as it ran before 22 Oct 2026, for a phone holding a pair. Returns its failures. */
-    private fun erpLeg(client: FrappeClient, store: CaptureStore, cat: Catalogue): Int {
+    /** The ERP leg's outcome: how many captures failed, and whether the stored
+     *  pair itself was refused (401/403) — in which case the loop never ran and
+     *  doWork hands the pass to the S5 leg. */
+    private data class ErpOutcome(val failures: Int, val keyDead: Boolean)
+
+    /** THE ERP LEG, as it ran before 22 Oct 2026, for a phone holding a pair. */
+    private fun erpLeg(client: FrappeClient, store: CaptureStore, cat: Catalogue): ErpOutcome {
         // Masters first: a phone that syncs captures but shows week-old rooms
-        // files tomorrow's photo against the wrong wall.
-        runCatching { store.saveMasters(client.bootstrap()) }
+        // files tomorrow's photo against the wrong wall. This bootstrap is also
+        // the ERP key's auth probe: a 401/403 here means the stored pair is dead,
+        // so the leg stops before it stamps every queued row "HTTP 401" and hands
+        // the pass to the S5 leg (doWork). A network or parse error stays swallowed
+        // as before — the capture loop below then retries with WorkManager backoff.
+        try { store.saveMasters(client.bootstrap()) }
+        catch (e: FrappeClient.ApiException) {
+            if (e.code == 401 || e.code == 403) return ErpOutcome(0, keyDead = true)
+        } catch (e: Exception) { /* network/parse: unchanged */ }
 
         var failures = 0
         // Plus every capture marked SYNCED by the S5-only leg (no serverName: on the web, never on
@@ -379,7 +398,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             store.saveMasters(fresh)
             cat.pruneLocalsCoveredBy(store.masters())
         }
-        return failures
+        return ErpOutcome(failures, keyDead = false)
     }
 
     companion object {
