@@ -73,7 +73,13 @@ jobs:
 
   integration:
     name: Integration (Frappe v16 + ERPNext)
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest (26 Oct 2026): GitHub moved ubuntu-latest to Ubuntu 26.04,
+    # whose mariadb-client (11.8) refuses a server without TLS -- "ERROR 2026 (HY000): TLS/SSL
+    # error: SSL is required, but the server does not support it" -- so the utf8mb4 step died
+    # against the MariaDB 10.6 service container before a bench existed. 24.04's client (10.11)
+    # connects as it always did. Move the pin only with a service image that serves TLS, or
+    # with --skip-ssl on every mysql call AND a check that nothing bench runs shells out to it.
+    runs-on: ubuntu-24.04
     services:
       mariadb:
         image: mariadb:10.6
