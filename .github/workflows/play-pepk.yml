@@ -60,12 +60,20 @@ jobs:
           else
             KEYARGS="--encryptionkey=$EK"
           fi
-          # pepk prompts for the keystore and key passwords; with no console
-          # it reads stdin, so feed the password twice (same pass for both,
-          # as the release signingConfig sets it).
-          printf '%s\n%s\n' "$PW" "$PW" | java -jar "$RUNNER_TEMP/pepk.jar" \
+          # pepk reads its passwords from System.console(), which is NULL on a
+          # runner - run 1 (26 Oct 2026) died with a NullPointerException in
+          # KeystoreHelper.loadKeystore and never looked at the password piped
+          # on stdin. So the passwords go as flags; the same one serves the
+          # keystore and the key, as the release signingConfig sets it. The
+          # tool's own usage is printed first so a refused flag explains itself.
+          echo "::group::pepk usage"
+          java -jar "$RUNNER_TEMP/pepk.jar" --help 2>&1 | head -60 || true
+          echo "::endgroup::"
+          java -jar "$RUNNER_TEMP/pepk.jar" \
             --keystore="$RUNNER_TEMP/release.keystore" \
             --alias=mcft-upload \
+            --keystore-pass="$PW" \
+            --key-pass="$PW" \
             --output="$RUNNER_TEMP/pepk-out.zip" \
             --include-cert $KEYARGS
           cp "$RUNNER_TEMP/pepk-out.zip" pepk-out.zip
