@@ -78,8 +78,21 @@ jobs:
             --include-cert $KEYARGS
           cp "$RUNNER_TEMP/pepk-out.zip" pepk-out.zip
           ls -la pepk-out.zip
+          # Play reads the zip's ENTRIES, not its name, and GitHub wraps every
+          # artifact in a zip of its own. Run 2 (26 Oct 2026) shipped pepk's
+          # zip inside that wrapper, and the Console answered "Zip file
+          # contains no encrypted private key" - it saw one entry, pepk-out.zip.
+          # So the artifact carries the entries themselves (encryptedPrivateKey
+          # and certificate.pem), and the file GitHub hands out IS the zip Play
+          # wants: download it and upload it as it is, never unzipped.
+          mkdir -p pepk-entries
+          unzip -o pepk-out.zip -d pepk-entries
+          ls -la pepk-entries
+          if [ ! -f pepk-entries/encryptedPrivateKey ]; then
+            echo "::error::pepk's zip has no encryptedPrivateKey entry - see the listing above"; exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: pepk-out
-          path: pepk-out.zip
+          path: pepk-entries/
           retention-days: 7
