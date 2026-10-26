@@ -56,10 +56,10 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * ct52 W asserts "it scrolls up and down"): twelve rows of at least 56 dp, one of them open,
  * do not fit 780 dp. The project screen keeps its no-scroll rule; this one is a list.
  *
- * The stage rules are WishList's: read-only at Survey, editable at Client wish list and Vendor
- * quoted and when the stage is not read, at Vendor quoted an edit warns ([warned], held by the
- * caller for this visit) and still saves, and from Estimated on the list is read-only again
- * (v61b: the banner names the phase). Every edit goes straight to WishSync on this phone.
+ * The stage rules are WishList's: read-only at Survey and at Estimated (v61b: the prototype's
+ * "Estimation — the wish list is read-only" banner), editable at every other stage and when the
+ * stage is not read, and from Vendor quoted on an edit warns ([warned], held by the caller for
+ * this visit) and still saves. Every edit goes straight to WishSync on this phone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

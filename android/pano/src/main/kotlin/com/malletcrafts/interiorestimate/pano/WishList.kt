@@ -8,13 +8,16 @@ package com.malletcrafts.interiorestimate.pano
  * survey as this wishlist comes after survey".
  *
  * So it hangs off the PROJECT, never a room or survey prep, and it is gated by S5 QUOTE's
- * quote stage (read by QuoteStageSync): read-only at Survey, editable at Client wish list and
- * Vendor quoted (an edit at Vendor quoted still saves but warns), and READ-ONLY AGAIN from
- * Estimated on -- v61b (26 Oct 2026): Estimation is the hand-off, Revisions and Client
- * approved keep the ticks locked (the prototype's TOOLS.wishEdit; its refuse line names the
- * phase and says to move it back on the project screen). A stage the phone has not read is
- * UNKNOWN, never silently Survey -- the list stays editable then (FX16), so a basement with no
- * signal never blocks marking scope with a vendor.
+ * quote stage (read by QuoteStageSync): read-only at Survey, editable from Client wish list on
+ * (from Vendor quoted on an edit still saves but warns), and READ-ONLY AT ESTIMATED -- v61b
+ * (26 Oct 2026): Estimation is the hand-off, and the prototype's wish screen refuses there with
+ * refuse.readonly.wishlist, its one lock line. At Revisions and Client approved the SCREEN Amit
+ * approved is editable again, with the after-quote warning (P54.wishMode maps only phase 3 to
+ * read-only; wish.js: ro = idx === 0, after = idx >= 2), even though the prototype's TOOLS
+ * table says the ticks stay locked at Revisions -- that split is the prototype's to settle,
+ * and until it does the phone follows the screen, not the table, so no string is invented
+ * here. A stage the phone has not read is UNKNOWN, never silently Survey -- the list stays
+ * editable then (FX16), so a basement with no signal never blocks marking scope with a vendor.
  *
  * The sync model is decided (15 Oct 2026): ONE list per project against ONE `wishlist_at`
  * on S5 (decision 2); on a 409 S5 WINS -- the phone takes S5's rows, says so, and the person
@@ -62,12 +65,8 @@ object WishList {
     const val FINISH_SURVEY = "Finish the survey first — the stage moves to Client wish list on S5"
     const val UNREAD = QuoteStage.UNREAD
     const val AFTER_QUOTE = "Changing the wish list after a vendor quoted — tell the vendor"
-    /**
-     * From Estimated on the ticks are locked (v61b). The prototype's refuse.readonly.wishlist line,
-     * character for character at Estimated ("Estimation — ..."); Revisions and Client approved, which
-     * keep the lock, take the same line with their own name in front.
-     */
-    const val READ_ONLY = " — the wish list is read-only; move the phase back on the project screen to change it"
+    /** At Estimated the ticks are locked (v61b): the prototype's refuse.readonly.wishlist line, character for character. */
+    const val READ_ONLY = "Estimation — the wish list is read-only; move the phase back on the project screen to change it"
     const val WHOLE_FLAT = "Whole flat"
     const val NOT_ASKED = "not asked for"
     const val APPLIES_TO = "APPLIES TO"
@@ -245,25 +244,20 @@ object WishList {
         return if (i < 0) null else i
     }
 
-    /** The first stage whose ticks are locked: Estimated (3); Revisions and Client approved follow it. */
-    const val LOCKED_FROM = 3
+    /** The one stage whose ticks are locked: Estimated (v61b's hand-off phase, Estimation). */
+    const val LOCKED_AT = 3
 
     /**
-     * Read-only at Survey and again from Estimated on (v61b); editable at Client wish list and
-     * Vendor quoted, and when the stage is not read (FX16).
+     * Read-only at Survey and at Estimated (v61b); editable at every other stage, and when the
+     * stage is not read (FX16).
      */
-    fun editable(stageIdx: Int?): Boolean = stageIdx == null || stageIdx in 1 until LOCKED_FROM
+    fun editable(stageIdx: Int?): Boolean = stageIdx == null || (stageIdx >= 1 && stageIdx != LOCKED_AT)
 
-    /** At Vendor quoted an edit warns (and still saves); the prototype only warns. From Estimated on nothing saves. */
-    fun warnAfterQuote(stageIdx: Int?): Boolean = stageIdx == 2
+    /** From Vendor quoted on an edit warns (and still saves); the prototype only warns (after = idx >= 2). */
+    fun warnAfterQuote(stageIdx: Int?): Boolean = stageIdx != null && stageIdx >= 2
 
-    /** The prototype's phase name for a locked stage, in front of [READ_ONLY]: "Estimation" at Estimated. */
-    private val LOCK_NAMES = mapOf(3 to "Estimation", 4 to "Revisions", 5 to "Client approved")
-
-    /** The read-only line for a locked stage, or null when the list is editable or the stage unknown. */
-    fun lockedLine(stageIdx: Int?): String? =
-        if (stageIdx == null || stageIdx < LOCKED_FROM) null
-        else (LOCK_NAMES[stageIdx] ?: QuoteStage.STAGES.getOrNull(stageIdx) ?: "Estimation") + READ_ONLY
+    /** The read-only line at Estimated, or null at every other stage and when the stage is unknown. */
+    fun lockedLine(stageIdx: Int?): String? = if (stageIdx == LOCKED_AT) READ_ONLY else null
 
     /**
      * The project is not on S5, which is not the same as a stage not read: a phone-only
