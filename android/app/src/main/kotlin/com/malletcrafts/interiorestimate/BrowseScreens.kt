@@ -424,7 +424,7 @@ private fun StageBar(project: Catalogue.Project, pending: Int, onClick: () -> Un
  * job, which staff move on S5 QUOTE; the phone only shows it, so there is no tap. Outlined,
  * not filled -- a surface with a teal bar on the left -- so it never reads as the tappable
  * PROJECT IS AT card above it. Sizes are the prototype's (.qst, wish.css): padding 7/16/8/13
- * after a 3 dp bar, the title at 14/20 sp medium with .4 sp tracking in #0F5E57, five 12 x 4 dp
+ * after a 3 dp bar, the title at 14/20 sp medium with .4 sp tracking in #0F5E57, six 12 x 4 dp
  * pips 3 dp apart, the second line at 12/16 sp: 7 + 20 + 16 + 8 = 51 dp in portrait. In
  * landscape it is one row, 5 + 20 + 5 = 30 dp, with the second line beside the pips.
  */
@@ -483,7 +483,7 @@ private fun QuoteLine(line: QuoteStage.Line) {
     }
 }
 
-/** The five quote stages as 12 x 4 dp steps, lit up to and including the current one. */
+/** The six quote stages (v61b) as 12 x 4 dp steps, lit up to and including the current one. */
 @Composable
 private fun QuotePips(lit: Int, on: Color) {
     val off = MaterialTheme.colorScheme.outlineVariant

@@ -20,13 +20,23 @@ class QuoteStageTest {
     // "Now" on the phone: 14 Oct 2026, 15:00 IST.
     private val now = Instant.parse("2026-10-14T09:30:00Z")
 
-    @Test fun `the five stages are S5's QUOTE_STAGES, in order`() {
-        // A copy of functions/_lib/asis.js QUOTE_STAGES (S5 QUOTE, live on stage since 14 Oct 08:08 IST,
-        // migration 0004). Change it here only together with S5.
-        val s5 = listOf("Survey", "Client wish list", "Vendor quoted", "Client approved", "Estimated")
+    @Test fun `the six stages are S5's QUOTE_STAGES, in order`() {
+        // A copy of functions/_lib/asis.js QUOTE_STAGES (S5 QUOTE; five since 14 Oct 08:08 IST, migration
+        // 0004; six, reordered, since v61b on 26 Oct 2026). Change it here only together with S5.
+        val s5 = listOf("Survey", "Client wish list", "Vendor quoted", "Estimated", "Revisions", "Client approved")
         assertEquals(s5, QuoteStage.STAGES)
         assertEquals(1, QuoteStage.indexOf("Client wish list"))
+        assertEquals(3, QuoteStage.indexOf("Estimated"))
+        assertEquals(4, QuoteStage.indexOf("Revisions"))
+        assertEquals(5, QuoteStage.indexOf(QuoteStage.APPROVED))
+        assertEquals("Client approved", QuoteStage.STAGES.last(), "execution begins at the last stage (v61b)")
         assertEquals(-1, QuoteStage.indexOf("Quoted"))
+    }
+
+    @Test fun `Client approved lights every pip - Estimated is the fourth of six (v61b)`() {
+        assertEquals(6, QuoteStage.lineFor(Cache(true, "Client approved", "", at, now.toString()), now).lit)
+        assertEquals(4, QuoteStage.lineFor(Cache(true, "Estimated", "", at, now.toString()), now).lit)
+        assertEquals(5, QuoteStage.lineFor(Cache(true, "Revisions", "", at, now.toString()), now).lit)
     }
 
     @Test fun `never read - not read yet, S5 decides when online, nothing lit (FX16)`() {

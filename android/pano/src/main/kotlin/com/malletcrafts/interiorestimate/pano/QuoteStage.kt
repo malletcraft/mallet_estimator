@@ -8,6 +8,10 @@ import java.time.ZonedDateTime
 /**
  * THE QUOTE STAGE ON THE PROJECT SCREEN (v52 item 16; Amit, 14 Oct 2026, 06:53 IST,
  * the stages: "survey, client wish list, vendor quoted, client approved, estimated").
+ * SIX SINCE v61b (Amit approved the prototype on 26 Oct 2026): Estimated and Client approved
+ * swapped and Revisions put between them -- the estimate is made, the designer, client and
+ * vendors revise it, the client approves, and only then does execution begin. S5 QUOTE's
+ * list changed the same day (functions/_lib/asis.js); the phone shows what S5 answers.
  *
  * The COMMERCIAL state of the job, held by S5 QUOTE (one per project, set by staff on
  * /projects) -- not the ERP work stage the PROJECT IS AT card shows. The phone only reads
@@ -21,7 +25,10 @@ import java.time.ZonedDateTime
 object QuoteStage {
 
     /** S5's QUOTE_STAGES (functions/_lib/asis.js), in order. QuoteStageTest holds the two equal. */
-    val STAGES: List<String> = listOf("Survey", "Client wish list", "Vendor quoted", "Client approved", "Estimated")
+    val STAGES: List<String> = listOf("Survey", "Client wish list", "Vendor quoted", "Estimated", "Revisions", "Client approved")
+
+    /** The last stage: the client has approved the estimate and execution begins (v61b). */
+    const val APPROVED = "Client approved"
 
     const val TITLE = "QUOTE STAGE"
     const val NOT_READ = "not read yet"
@@ -53,7 +60,7 @@ object QuoteStage {
     /** One project as S5's GET /api/asis lists it. */
     data class Listed(val project: String, val stage: String, val by: String, val at: String)
 
-    /** The drawn line: the title, how many of the five pips are lit, the second line, and whether it carries the read time. */
+    /** The drawn line: the title, how many of the six pips are lit, the second line, and whether it carries the read time. */
     data class Line(val title: String, val lit: Int, val second: String, val showRead: Boolean)
 
     /** The 0-based place of [stage] in [STAGES], or -1 when it is not one of them. */
@@ -91,8 +98,8 @@ object QuoteStage {
         if (!cache.listed) return Line("$TITLE · $NOT_ON_S5", 0, NOT_SENT + read, old)
         val stage = cache.stage.trim()
         if (stage.isEmpty()) return Line("$TITLE · $NOT_READ", 0, UNREAD + read, old)
-        // S5 answers only its five names; a name the phone does not know is shown as S5 wrote
-        // it, with no pip lit, rather than guessed onto one of the five.
+        // S5 answers only its six names; a name the phone does not know is shown as S5 wrote
+        // it, with no pip lit, rather than guessed onto one of the six.
         val lit = indexOf(stage) + 1
         val second = since(cache.at) ?: "$stage · $NOT_SET"
         return Line("$TITLE · $stage", lit, second + read, old)

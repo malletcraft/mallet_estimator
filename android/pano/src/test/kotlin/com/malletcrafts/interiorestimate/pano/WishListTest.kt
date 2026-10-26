@@ -43,16 +43,21 @@ class WishListTest {
         assertEquals(1, WishList.count(rows))
     }
 
-    @Test fun `stage rules - read-only at Survey, editable from Client wish list on, warn from Vendor quoted on`() {
+    @Test fun `stage rules - read-only at Survey, editable at Client wish list and Vendor quoted, locked from Estimated on (v61b)`() {
         val idx = QuoteStage.STAGES.map { WishList.stageIndex(cache(it)) }
-        assertEquals(listOf(0, 1, 2, 3, 4), idx)
-        assertEquals(listOf(false, true, true, true, true), idx.map { WishList.editable(it) })
-        assertEquals(listOf(false, false, true, true, true), idx.map { WishList.warnAfterQuote(it) })
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), idx)
+        assertEquals(listOf(false, true, true, false, false, false), idx.map { WishList.editable(it) })
+        assertEquals(listOf(false, false, true, false, false, false), idx.map { WishList.warnAfterQuote(it) })
         assertEquals(listOf(WishList.FINISH_SURVEY), WishList.banners(0, warned = true))
         assertEquals(emptyList(), WishList.banners(1, warned = true))
         assertEquals(emptyList(), WishList.banners(2, warned = false))
         assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(2, warned = true))
         assertEquals("Finish the survey first — the stage moves to Client wish list on S5", WishList.FINISH_SURVEY)
+        // v61b: the prototype's refuse.readonly.wishlist line at Estimated, and the same line named for the two stages after it
+        assertEquals(listOf("Estimation — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(3, warned = true))
+        assertEquals(listOf("Revisions — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(4, warned = false))
+        assertEquals(listOf("Client approved — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(5, warned = true))
+        assertEquals(null, WishList.lockedLine(2)); assertEquals(null, WishList.lockedLine(null))
     }
 
     @Test fun `stage not read - editable, says so, never Finish the survey first (FX16)`() {
