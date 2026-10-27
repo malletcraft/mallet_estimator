@@ -294,7 +294,7 @@ object SvgWriter {
         return b.toString()
     }
 
-    fun hex(c: Int): String = "#%06x".format(c and 0xffffff)
+    fun hex(c: Int): String = "#%06x".format(Locale.ROOT, c and 0xffffff)
 
     /** A coordinate, mm: at most two decimals, never an exponent, never "-0". */
     fun f(v: Double): String = num(v, 100.0)

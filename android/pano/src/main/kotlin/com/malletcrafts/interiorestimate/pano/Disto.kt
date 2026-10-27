@@ -90,7 +90,7 @@ object Disto {
         return lo or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
     }
 
-    fun hex(bytes: ByteArray): String = bytes.joinToString(" ") { "%02X".format(it) }
+    fun hex(bytes: ByteArray): String = bytes.joinToString(" ") { "%02X".format(java.util.Locale.ROOT, it) }
 
     /** What became of one distance indication. Exactly one of the two is set. */
     data class Outcome(val reading: Reading?, val refused: String?)
@@ -123,7 +123,7 @@ object Disto {
         }
 
         private fun judge(metres: Float): Outcome = when {
-            !plausible(metres) -> Outcome(null, "Not a length (%.4f)".format(metres))
+            !plausible(metres) -> Outcome(null, "Not a length (%.4f)".format(java.util.Locale.ROOT, metres))
             !isMetric(unit) -> Outcome(null,
                 "Meter is not showing metres/mm (unit code $unit) — set it to m or mm")
             else -> Outcome(Reading(toMm(metres), unit), null)

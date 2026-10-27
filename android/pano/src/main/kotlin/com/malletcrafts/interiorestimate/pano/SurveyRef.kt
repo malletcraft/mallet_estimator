@@ -211,7 +211,7 @@ object SurveyRef {
     }
 
     /** What makes a reference frame different from another with the same crossings and size: its w × h and corners. */
-    fun key(r: Ref): String = "${r.w}x${r.h}:" + r.q!!.joinToString(";") { "%.3f,%.3f".format(it[0], it[1]) }
+    fun key(r: Ref): String = "${r.w}x${r.h}:" + r.q!!.joinToString(";") { "%.3f,%.3f".format(java.util.Locale.ROOT, it[0], it[1]) }
 
     /**
      * WHERE A NEW REFERENCE IS PLACED (sp.js setRefMode): with the face's EDGES · LASER frame, the rectangle 35-65 % across

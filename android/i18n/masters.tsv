@@ -1,0 +1,99 @@
+# Which keys SHOW an identity value (design-marathi §2.6). Read by GenTx into Masters.kt.
+#
+# Every key flagged erp-master or s5-master in strings-en.json is already in the map of its own
+# family (room, site, job, article, articlekind, stage, workphase, work) without a line here.
+# A line here ADDS a key to a map, for identity values whose key lives in another family. The map
+# holds the key's ENGLISH byte for byte -> its accessor, so the English of each key below must be
+# the stored value exactly; two keys with one English in one map are refused (no second answer).
+#
+# map<TAB>key
+
+# QuoteStage.STAGES: the six quote stages, S5's QUOTE_STAGES.
+quote	quote.survey
+quote	quote.client_wish_list
+quote	quote.vendor_quoted
+quote	quote.estimated
+quote	common.revisions
+quote	life.cok
+
+# Album.STATES: a work's five states.
+state	album.st_not_started
+state	album.st_in_progress
+state	album.st_on_hold
+state	common.done
+state	album.st_abandoned
+
+# Album.WORKS: the two of S5's sixteen works whose key is not a work.* key.
+work	part.waterproofing
+work	trade.false-ceiling
+
+# Album.STAGE_WORK: the one worksite stage whose key is not a stage.* key.
+stage	trade.curtains
+
+# FlatPresets: "Other" is both a site type and a room.
+site	type.x
+room	type.x
+
+# The default site's name.
+site_name	common.main_site
+
+# WishList.SERVICES names (CCTV is an abbreviation and is shown as written).
+service	svc.electrical
+service	svc.intercom
+service	trade.false-ceiling
+service	trade.doors-windows
+service	svc.balcony-grill
+service	svc.carpentry
+service	svc.master-bath
+service	svc.guest-bath
+service	trade.painting.short
+service	svc.curtains
+service	trade.plumbing
+# WishList.SERVICES descriptions (the plumbing one has no key yet: slice 4).
+service_note	wish.safety_door_aluminium_main
+
+# SurveyPrep.TYPES: the mark types by name. Step is the floor's S.
+type	type.w
+type	type.d
+type	type.c
+type	type.b
+type	type.o
+type	type.n
+type	type.l
+type	type.e
+type	type.p
+type	type.s
+type	type.f
+type	type.x
+type	type.s.floor
+
+# SurveyPrepPalette.SHORT: a type's name on its slot and its More tile.
+type_short	type.w
+type_short	type.d
+type_short	type.c
+type_short	type.b
+type_short	type.o
+type_short	type.n
+type_short	type.l
+type_short	type.e.short
+type_short	type.p.short
+type_short	type.x
+type_short	type.s.floor
+type_short	type.s.short
+type_short	type.f
+
+# SurveyPrep.NAME: a surface's name.
+surface	surface.front
+surface	surface.right
+surface	surface.back
+surface	surface.left
+surface	surface.floor
+surface	surface.ceil
+
+# SurveyPrep.TAB and Handover.FACE_LABELS: a face tab's name (Top and Bottom are export-only, English).
+surface_tab	surface.front.short
+surface_tab	surface.right.short
+surface_tab	surface.back.short
+surface_tab	surface.left.short
+surface_tab	surface.floor
+surface_tab	surface.ceil

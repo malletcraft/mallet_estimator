@@ -61,7 +61,7 @@ object Handover {
      *  every annotation. */
     fun mintDeviceId(randomBytes: ByteArray): String {
         require(randomBytes.size >= 6) { "need at least 6 random bytes" }
-        return "MCAP-" + randomBytes.take(6).joinToString("") { "%02x".format(it) }
+        return "MCAP-" + randomBytes.take(6).joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }
     }
 
     fun isDeviceId(token: String?): Boolean =

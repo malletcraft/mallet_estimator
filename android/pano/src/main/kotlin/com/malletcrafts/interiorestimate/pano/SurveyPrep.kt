@@ -431,7 +431,7 @@ object SurveyPrep {
                 /** ... and then the crossings in the face's mm, which a reference measures rather than assumes. */
                 val mm: List<DoubleArray>? = null) {
         /** What a squared picture of this face was made for: redrawn whenever it changes. */
-        fun key(): String = q.joinToString(";") { "%.3f,%.3f".format(it[0], it[1]) } + "|" + a + "x" + b + (ref?.let { "|$it" } ?: "")
+        fun key(): String = q.joinToString(";") { "%.3f,%.3f".format(java.util.Locale.ROOT, it[0], it[1]) } + "|" + a + "x" + b + (ref?.let { "|$it" } ?: "")
     }
 
     fun frame(lines: Map<String, Array<DoubleArray>>, a: Double, b: Double): Frame? {

@@ -34,6 +34,11 @@ jobs:
       # build is the pure-JVM projection contract and never needs the SDK.
       - name: Projection + naming contract first
         working-directory: android
+        # :pano:test also runs the Marathi table's checks (android/i18n, design-marathi §3.3). The
+        # client-name list is OPTIONAL: absent (a fork, a run without secrets) the structural deny
+        # patterns committed in android/i18n/deny-patterns.txt still run and the step stays green.
+        env:
+          I18N_DENY_NAMES: ${{ secrets.I18N_DENY_NAMES }}
         run: gradle :pano:test --console=plain
       # RELEASE, not debug. Managed Google Play refuses a debuggable APK
       # outright ('APK is marked as debuggable', 2026-08-17, at the private

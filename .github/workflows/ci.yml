@@ -69,6 +69,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Kotlin projection must match the published goldens
         working-directory: android
+        # Also the Marathi table's checks; the client-name secret is optional (see android-app.yml).
+        env:
+          I18N_DENY_NAMES: ${{ secrets.I18N_DENY_NAMES }}
         run: gradle :pano:test --console=plain
 
   integration:

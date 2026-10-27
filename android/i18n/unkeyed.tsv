@@ -1,0 +1,1527 @@
+# THE SHRINKING WORKLIST (design-marathi §3.3): every text a person sees on the phone that is not keyed yet.
+#   file  the source, from android/
+#   text  the literal's body exactly as written between its quotes (a real tab or newline as \t / \n)
+# Seeded 27 Oct 2026 (slice 1a, which keys nothing) from the readers' inventory: the 1,019 Kotlin rows of :app
+# and the 691 shown rows of :pano, 1,516 distinct (file, text) rows. Every one was found in its file by
+# LiteralScan, and LiteralScan found no UI-position text outside them. (The AndroidManifest label, the
+# product name, is not Kotlin and is not scanned.)
+# Each slice REMOVES the rows it keys. I18nLiteralTest fails on a shown literal missing from here (a), on a row
+# whose text is gone from its file -- prune it (c) -- and on a row for a file listed in ported.txt (d). When it
+# is empty and ported.txt names every source, any new shown literal fails CI, and the भाषा · Language row may show.
+file	text
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.quads.size} openings · ${ann.pins.size} notes
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${capture.projectTitle} — ${capture.room}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	+ Measure
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	+ Note
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	+ Opening
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Annotate every wall — measured faces are what the 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Bluetooth permission refused — the laser can't connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Cancel
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Clear
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Delete
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Drag the 4 corners onto the opening · Tag says what it is
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Drag the ends onto the wall · Value, or shoot the laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Finding…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Linking…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Measured ${Annotation.label(r.mm, showImperial)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Measurement
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Note
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Note (optional)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Pinch to zoom · drag to move around
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Pinch to zoom · tap something to select it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Play
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Record
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Recording — say what a carpenter needs to know
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Save
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Select a measure first
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Shoot
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	SketchUp model gets built from.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Stop
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Tag
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Tap a face to look at it.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	This face's image is no longer on the phone.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Undo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	Value
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	What is this?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	What's here?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	image not on this phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	m · ft
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	not annotated
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	tap Value
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	tap to view
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	voice note
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	▶ 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	Annotated in ImageMeter; matched by the app's stamp
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	could not read the annotated image
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	 · $it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	 · no photos, the 360 is not on this phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	: $clean
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	Not on web: 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	On web ✓ $hm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	Waiting to upload
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	no survey prep saved for this capture
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	not enough memory to square the 360 — will try again
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	not signed in - open the menu and sign in
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	readings not sent: ${e.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	refused
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	sign in again (menu → Server) - 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	sign in again (menu → Server) - $it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	the web refused the saved password
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	this capture is no longer on the phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	upload failed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	waiting for the capture to be filed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	waiting for the project to reach ERP
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web answered ${a.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session expired - renewing when the web answers
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session renewed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session to be renewed when the web answers
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in refused - sending with the ERP key
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	 shot
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	 · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	$n $word
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	${plural(pending, "room")} not shot at this stage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	${plural(s, "site")} · ${plural(p, "project")}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	+ Room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	+${rest.size}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	Choose rooms
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	Hide
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	New client
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	New project
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	New site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	No clients yet. Go online once to pull them from ERP, 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	No dates
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	PRJ
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	PROJECT IS AT
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	Rooms \u00b7 $hiddenRooms hidden
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	SITE
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	a flat, bungalow or office
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	every photographed room is current
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	job type, dates, scope
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	no stage set — tap to choose
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	offline
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	or use New site to start one here.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	project
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	s
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	since ${Catalogue.day(it)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	works with no signal
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 over ${plural(days, "day")}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 · tap to correct (recorded)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.annotated}/6
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.date} ${c.stage}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${capture.deviceId}.jpg
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	All ${captures.size}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Annotated
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Close
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete this capture
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete this capture?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Details
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	FILED AT
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Import from ImageMeter
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone AND from ERPNext, for 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone — the queue row, the 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Keep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No captures in this room yet. Use Capture 360 below.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No stage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No stage set
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged on this face — tap to say what
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Not annotated
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Not tagged to a SKU
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Original
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Original 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	PHOTO
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove local copy
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove local copy ($size)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove the local copy?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	SKU
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	STG
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	SVY
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Survey prep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Tap to open. To mark it up: add it to ImageMeter from your 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	The original 360 and its survey prep \u2014 lines, marks and 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	annotated
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	can no longer be opened for it here.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	day
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	everyone — the original, the faces, and the SKU 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	faces in the gallery and the copy on the bench stay. Survey prep 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	gallery, then Import from ImageMeter here.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	if this was the only photograph holding it up.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	marked
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	no phase
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	on phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	original, and the faces in the gallery. It never 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	reached the server, so there is nothing there to 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	readings \u2014 go from this phone to free space. The capture, its 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	remove.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	synced
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to bound, square and mark the room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to say what this wall needs
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to say what work is expected here
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the original 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the photograph
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the work expected on this wall · tap to change
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	$d ${MONTHS[m - 1]}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	${Catalogue.day(start)} → ${Catalogue.day(end)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	(no site)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Apr
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Aug
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Balcony
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bathroom
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bedroom 4
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bedroom 5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bungalow
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Car Porch
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dec
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dining Room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dry Balcony
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Family Lounge
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Feb
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Flat
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Foyer
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Garden
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Guest Bedroom
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Home Theatre
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jan
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jul
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jun
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Kids Bedroom
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Kitchen
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Living Room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Main site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Mar
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Master Bedroom
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	May
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	New work
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Nos
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Nov
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Oct
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Office
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Other
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Passage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Pooja Room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Repair
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Row House
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Sep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Servant Room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Shop
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Staircase
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Store
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Study
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Supply & install
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Terrace
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 3
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 4
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Utility
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	active
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	cancelled
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	done
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	due ${Catalogue.day(end)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	from ${Catalogue.day(start)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	offline
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt	/
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt	Jump up to
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt	Switch
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt	…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	 — $it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	, 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	/
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Bluetooth connect permission refused
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Bluetooth refused: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	DISTO
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Disconnected ($status)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Meter disconnected
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Meter is missing the distance characteristic
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	No BLE scanner
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	No DISTO found — press its Bluetooth button and try again
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Not a DISTO (no DISTO service)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Reconnecting ($status)…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Scan failed ($errorCode)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Scan refused: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Turn Bluetooth on
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	accepted
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	advertises the DISTO service
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	characteristics: 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	distance [${Disto.hex(bytes)}] = %.4f m
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	found '${name ?: "?"}' rssi ${result.rssi} — 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	matched by name only
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	no command characteristic — cannot send '$cmd'
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	refused by Android
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	refused: $why
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	sent '$cmd' (${if (ok) "accepted" else "refused by Android"})
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	state ${s.name}${note?.let { " — $it" } ?: ""}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	subscribed ${d.characteristic.uuid.toString().substring(0, 8)} (status $s)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	unit [${Disto.hex(bytes)}] = code $u
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$a | ${len - a} mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$mm from ${loc.to}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$tot mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	${FacePrep.stepLabel(s.kind).split(" ")[0]} ${sCount[s.kind]}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	${g.left} | ${g.right} mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	E$n ${pc.len}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	L${i + 1}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	L${i + 1} $tot
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	 wall
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$lab — ${HINT.getValue(m)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$roomName measures ($deviceId)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$roomName · $deviceId
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$roomName · ${FacePrep.LABEL[face]} · face ${w}×${h} mm · mm scaled, Disto is the real figure
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	${FacePrep.LABEL[face]} ▾
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	${ds.first { it.key == k }.label}: site $mm mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	0
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	3
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	4
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	6
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	7
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	8
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	9
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Across mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Bluetooth permission refused — the laser can't connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Bold every mm (0 = none)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Box
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Camera back ↕ front of centre
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Camera left ↔ right of centre
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Cancel
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Ceiling
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Clear
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Close
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Columns
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Connect laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Count across from
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Count up from
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	DISTO ready
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Delete
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Details
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Divide the longest piece in half
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Dividers
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Done
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Duplicate
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Every figure on this face is measured
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Face Prep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Finding…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Fit photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Floor
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Grid settings…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Height
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Help
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Laser connected — tap a figure, then fire
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Laser · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Left
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Length ↕ (front to back)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Lens height
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Line
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Linking…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Loading…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Measure
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	More
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	No ${FacePrep.LABEL[face]} photo for this capture on this phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	No face photos found to save
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Nothing selected.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Nothing to measure on this face yet
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	OK
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Or use Dividers and tap the line where it should be divided.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Redo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Reference grid
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Reset
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Reset box to the corners
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Right
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Room box, mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Room sizes reshape every face. A wall's own figures (Measure) never move anything — they are kept beside the calculated ones.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Room size…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Room,Face,Measure,Calculated mm,Site mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Save photos for ImageMeter
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Saved $n ImageMeter photos next to the faces (…-faceprep.jpg)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Saving photos…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Share measures
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Share measures (CSV)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Shift across
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Shift up
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Snap
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Strength
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Tap a figure to give it its site figure. The yellow button connects the laser.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	The laser is connecting…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	The laser is still connecting…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Two fingers zoom and move the photo. Undo and redo are in the top bar; snap, grid, saving and the laser are in ⋮.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Undo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Up mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	What it is
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	Width ↔ (left to right)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	calculated ${cur.calc} · ${ds.count { it.site != null }}/${ds.size} measured
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	connected (tap to disconnect)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	drag a corner grip or a box line onto the room's corner lines. On an elevation from the split the box is already on the corners.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	drag a straight line in any direction (snaps level or upright within 3°). Drag an end to stretch, drag it to move.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	finding…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	linking…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	mm labels
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	mm · site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	pick a type and drag a rectangle over it, starting at the corner its sizes are measured from. Tap one to select it: delete, duplicate, change its type.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	pick column, beam or other step, then drag a rectangle over the part of the face it takes away. Drag a side, a corner or the middle to adjust.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	tap a line, a door/window arrow or a box edge to divide it; drag a divider to slide it — the guide shows the mm either side.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	tap any figure: its arrow lights up white and the keypad opens. Fire the D2 (the yellow button, or the D2's own) or type the site figure, then Save & next. The calculated figure stays; the site figure shows beside it in green and goes into the ImageMeter photo and the CSV.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	—
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	←
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	↔
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	↶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	↷
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	⊡
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	⋮
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	⌫
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	┆
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	╱
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	▢
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	▥
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	◉
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	◉ Fire
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	⚙
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	✓ Save & next
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	✕
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	⧉
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	🗑
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	 (from photo)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	$label elevation
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	$label survey marks
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	${Math.round(bar.mm)} mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	\u2248 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	could not decode the photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	could not decode the selected photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	could not open the selected photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	could not write to the gallery
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	export the 360 from the Insta360 app first
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	gallery refused the file
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a 360 photo (${bounds.outWidth}\u00d7${bounds.outHeight} is not 2:1) \u2014 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a decodable image
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt	download: HTTP ${resp.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${RoomToken.of(resume.room)} · ${resume.room}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${plural(queued, "capture")} waiting to upload
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${plural(waiting.size, "item")} waiting
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${r.client} · ${r.site}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${resume.client} / ${resume.site} / ${resume.projectTitle}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Carry on
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Client, site, project, room or SKU
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Close search
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Everything on this phone has been sent
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Nothing captured on this phone yet. Open Browse, pick a 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Nothing matches “$query”.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Nothing waiting
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Recent rooms
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Sent
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Try
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Waiting
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	Wi-Fi only · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	capture
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	item
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	last shot ${resume.lastDate}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	queued
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	retrying
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	room, and shoot.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	sending
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	sent
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	$it mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	${clock.format(Date())}  $line
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	4) leave it idle and note when it disconnects. Then Share the log.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Bluetooth permission refused — the laser can't connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Checks: 1) press measure on the D2 · 2) tap Fire · 3) set the D2 to mm, m, ft, in and measure once in each · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Connected — press the measure button on the D2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Connecting…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Disconnect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Fire
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Laser off
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Laser on
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Laser test · DISTO D2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Looking for the meter…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	MCFT Interior Estimate ${appVersion(context)} — laser test\n
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Not connected
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	READING ${r.mm} mm (unit code ${r.unitCode})
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Share
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	Share laser log
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	\n$it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	connect pressed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	permission refused
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	— mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 ${k.basis}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 ($kind)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 / 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 from the gallery.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 to $server
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 · ${cap.stage}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$code on this face
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$it — ${c.error}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$n BHK
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$queued waiting
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$r \u00b7 has photos
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$title · laser sizes
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${(ticked + withPhotos).size} of ${rooms.size} rooms
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPrep.SURFACES.count { p.surface(it).done() }} of 6 bounded \u00b7 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${bytes / 1024} KB
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${c.room} · ${c.captureDate}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.date} · ${cap.stage.ifBlank { "no stage" }}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.deviceId} · ${cap.date}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.sku} · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${it.faceCount} pictures saved to ${it.relativePath}\n
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} / ${p.site} · ${p.jobType}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} · site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.site} / ${p.title}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${proj.jobType} · ${site.orEmpty()}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated already sent, nothing new.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated, but their captures 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${sku.article} · ${p.title}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${surveySaved.actual.size} read \u00b7 tap to add site readings
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	%.1f MB
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	(Settings → API Access). The secret is shown once.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	(before 0.3.204), so survey prep can't open it here. The capture, its room 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	360 not on this phone (removed after upload)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API key
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API secret
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Add
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Adding\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Address
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Android is hiding other apps' photos from 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cached annotated copies cleared
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cached photos
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cancel
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted here and on the bench
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted, and the SKU nobody else was using
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Captures go to MCFT Interior Estimate (${BuildConfig.WEB_URL}).
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cleared the work on this face
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Client
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Clients
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Close
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not open the 360: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not re-file on the bench: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not read the gallery.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not rename: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not save: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not send the annotation: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not split: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	DISTO D2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Deleted ${t.current}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Deleted here. The bench copy 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discard 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discarded \u2014 nothing was saved to your photos.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Display
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Downloading update ${info.optString("version_name")}\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP email
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key (legacy)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key refused — tap to sign in to S5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERROR
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Estimate → Permissions → Photos.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Fewer details
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Filing the photo…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Flat
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Flat / building, street, area, city
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Gallery access granted — looking for annotations now.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Generate both on your User page in ERPNext 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Height floor→ceiling
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Home Theatre
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter wrote. Settings → Apps → MCFT Interior 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Import from ImageMeter
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Importing from ImageMeter…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Its SKU code prefix appears here.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Job type
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	KIT
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Keep the original 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Kothrud
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Laser test
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Length front→back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Local copy removed \u2014 the capture and the bench copy stay
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Looked at ${scan.looked} gallery photos, none 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	MB
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	MCFT Interior Estimate
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	More details \u2014 type, address, job
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	New room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	New site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No camera app answered: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No photos in the gallery to look at.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Not done yet \u00b7 tap to bound, square and mark each surface
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	OK
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Open ImageMeter \u2192 the room folder \u2192 add photos.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Opening the 360\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	PRJ
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Password
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Photo filed in ${it.relativePath}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Project
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Renamed to $newName
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Room \"${typed.trim()}\" ready
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Room name
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Rooms at $ss
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SITE
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SKU
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SKU codes will read \u2026_${tok}_\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Save
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Saving six faces\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $n annotated 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $sent annotated 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Server
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Shooting on the X3…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Show all
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in again (menu → Server): $s5Refused
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in first \u2014 menu \u2192 Server.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in with your ERP email and password (menu → Server) to begin.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign out
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signed in as $name
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signing in…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site URL
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site name
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Split faces on device
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Splitting the 360 into six faces…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage for new photos
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage of this photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Storage & app
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep can't open this 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved \u00b7 $c pictures in the room folder
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved \u2014 writing its pictures\u2026
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved on this phone; pictures not written: ${e.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep squares every surface to these, in mm. Take them with the D2.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync now
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync queue
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 is no longer on this phone \u00b7 tap for why
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 photo for this capture was removed from the phone after upload 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The same email and password you use for ERPNext.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The server refused, without saying why
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Units
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update available
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update failed: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Upload on Wi-Fi only
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use these rooms
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use this site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Version
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Waiting for the first master list — go online once.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Width left→right
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Without gallery access the app cannot see what 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Work
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Works offline. When the phone syncs, these become the 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	X3 capture failed: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	all sent
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	and its project are unchanged and saved.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	annotate that one.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	capture
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	carrying this app's stamp. Only faces captured 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	client
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	could not add that room
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	did not go: ${it.message}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	empty
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	face
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	faces
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	have not reached the server yet — sync first.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	mm · ft-in
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no server configured
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no stage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not set
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not started \u00b7 tap to start
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	nothing yet
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ones that already exist, however the names were spelled.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	real client, site and project in ERPNext \u2014 or match 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	s
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	surfaces bounded \u00b7 ${surveySaved.surfaces.values.sumOf { it.marks.size }} marks \u00b7 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	then untick anything it doesn't have. Every project at this site 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this again.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this app — grant Photos access and press 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	uses these rooms. A room holding photos is always shown, ticked or not.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	waiting
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	with 0.3.93 or later are stamped — re-shoot and 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	work
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	Downloads refused $display
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	Share ${saved.file.name}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not keep $display
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not make a folder for $display
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not write $display to Downloads
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	 by ${r.by}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	$k changed on the web
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	; 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	web readings not available yet
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	(no client)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	ERP did not accept that email and password
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Email and password are needed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Only MCFT staff can send captures from this app; this ERP account is 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	a $kind account
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	not staff
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	signed out meanwhile
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	the web did not start a session
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web answered ${a.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web unreachable
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	A4 sheet, ${SurveyPlan.DTITLE.getValue(sheet.view)} at 1:${sheet.scale}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Close
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Export
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Export · $name
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	PDF
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	SVG
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Share
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	✕
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	Plane grid
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	fit
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	grid
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	≈
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	 | 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	+
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	?
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	±
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	—
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	−
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	≈
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	▶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	Off
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	On
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	Show on faces
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	UNDO
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · derived
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · Σ 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 ✓
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	$done of 6 surfaces bounded. Save needs all six; marks and readings never block it.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	$title · survey prep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[s]} · its list
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]} · set its four lines
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]}: ${els.size} mark${if (els.size == 1) "" else "s"}, $n measurement${if (n == 1) "" else "s"}. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${sm.code}\n${if (lk) "locked" else what}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) "ref" else "laser"}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	, 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	1▶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	5▶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	; 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	All four lines placed — go to 2 · Mark. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Apply
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Bluetooth permission refused — the laser can't connect
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Both
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Cancel
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Close the menu
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Could not share ${sv.shown}: ${e.message ?: e.javaClass.simpleName}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2 ${r.mm} mm — tap a measurement first, then read again
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2 → $act
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Delete
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Delete $code
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Discard this 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	H
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	L
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Laser D2 readings from the room capture, in mm. Tap the size line to change them.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sk.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sm.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sq.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Mark
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Measure
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Measured
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	More: status, Start over, Discard
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	New 360 — ← keeps it in the room, and its lines and marks save as you go.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	No marks yet — add one in 2 · Mark
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not saved
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not saved: did not read back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not shared
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Nothing marked on this surface.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Place: ${left.joinToString(", ")}. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Plane grid
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Readings from web ✓ 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Readings from web: 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Room size · mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Save survey prep
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Saved ${sv.shown} to Downloads
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Saved ✓ 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Set its four lines first.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Set its four lines in 1 · Lines to see it squared.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Show
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Squared to the laser size. Add what is on this ${if (SurveyPrep.isPlan(tab)) "surface" else "wall"}; tap a mark to edit it. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	THIS 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Tap a measurement first
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Tap again to discard this 360 — nothing is kept
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	The laser is still connecting…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape yet
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape yet — drag them first
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sk.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sm.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sq.code}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	W
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	bottom edge
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	corner
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	failed
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	fit
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	floor→ceiling
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	front→back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	grid
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	laser
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	left edge
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	left→right
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	locked
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	mm
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	move
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	ref
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	right edge
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	s
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	site only
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	surface
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	top edge
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	total$tag$sum
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	wall
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Δ
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	←
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↺
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↻
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	≈
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	≈ Photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	⋮
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶ 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶ ${act.substringBeforeLast('.')} ${mm.what}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀1
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀5
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	✎
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	✓ Save
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Back to Select
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Close
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	More
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Select
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	✓
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	✕
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - save its survey prep to send it to the web
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - the web takes a 360's survey prep, not a photo
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 and everything in it
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 name
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 · 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$heading · $jobType · ${shown.size} stages
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$hidden more a $jobType job does not normally reach
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$photos on this phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$stageCount in the master for this job type
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${plan.unfittedFaces.joinToString("/")} face, past what the 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	/
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A SINGLE PHOTO
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A client is the office's customer record, so it is not 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	About to delete
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Anything already quoted on an estimate is kept.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	At stage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Back
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Browse
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Camera
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Cancel
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Capture 360
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Client
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Delete 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Deleting removes it from ERP for everyone. 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP and every other device. Photos already filed under 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP id
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Elsewhere on this project
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Ends
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	FILED AT
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Gallery
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Height in MM, ${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Height, floor to ceiling (required)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	In ${RoomToken.of(room)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Job type
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Length front\u2192back (carpet max)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Move the project to
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	No stage set
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not signed in
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not synced — still only on this phone
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Phase
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Phases
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Photos
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Pick a 360 from the gallery
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Queue
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ROOM SIZE (MM)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename $what
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename or remove $what
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Save
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Saving…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Search
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Settings
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Shoot 360 on the X3
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Showing all ${allStages.size} stages
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Site
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Stages
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Starts
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Status
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Tag this photo to a SKU
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} has not synced yet, so this is a change on 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} is on the server, so the new name reaches 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This project has no SKUs yet. The office adds them from 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This room needs ${Math.round(plan.floorFovDeg)}\u00b0 on its 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Type the carpet length (front\u2192back) and width (left\u2192right) 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Type the height to shoot or pick a 360 \u2014 it sets the 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Width left\u2192right (carpet max)
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Work
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Working…
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	X3 connected
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	X3 not connected
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	a room photo, not tied to one article
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 every corner 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	in frame, and the photo is checked against the tape.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	it keep their place — only the label changes.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	join the camera's Wi-Fi first, then tap
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	mm scale on every elevation.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	no server set
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not a $jobType stage
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not set
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ready to shoot
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	removed from a phone. Delete the sites under it here; 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	shoot it in two halves, or accept it.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	since ${Catalogue.day(it)}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	split can sample. Those corners will still crop \u2014 
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to change — it can be corrected on the photo too
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to go back to the $jobType stages
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to show every stage in the master
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the customer itself is a desk job.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the estimate, and they arrive on the next sync.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this ${what}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this phone. It will go up under the corrected name.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	too, wall to wall at the widest \u2014 the room is set from them.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	—
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	— none —
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Note
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Vendor
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Wish list · ${project.title}
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	filled in when a vendor is chosen
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	one line — what exactly
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	%.1f×  ·  double-tap to fit
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	Pinch to zoom  ·  double-tap to magnify
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	$pl · survey to handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	A change request is already raised
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	A client adds no photos
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	A reason is needed to change a Done work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Abandoned
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Accept
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Accepted by
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Accepted · the client sees it now
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	After
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Album
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Album closed at Handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Album closed · Cleaning & handover is Done
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Album of $title: $pl, survey to handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Album · $title
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Already in that state
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Already reviewed that way
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	As-built site measure
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Before
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Before $work starts
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Caption (optional)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Change request
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Change request · raised $day by
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Change request: $name
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Change requests: $n
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Chapter $n: $name
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Civil & masonry
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Cleaning & handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Clear change request
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Client
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Countertops
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Cove & profile-light recesses
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Curtains & blinds
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Data, network & CCTV conduit
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Deep clean
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Defect recorded
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Demolition & debris removal
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Demolition & site preparation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Designer
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Done
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Door & window frames (chowkat)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Doors, shutters & hardware
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Electrical first fix — conduit & wiring
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Electrical second fix — switches & points
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Electrical, concealed wiring
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Existing condition — builder handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	False ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	False ceiling framing (GI grid)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Floor tiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Flooring & wall tiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Glass & mirrors
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Glass, mirrors & furnishing
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	HVAC / AC piping & drain
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	In progress
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	In the approved scope — nothing to request
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Iron & metal fabrication
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Kept from the client
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Latest photos are $stage — move the project?
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Light installation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Lights, fans, fixtures & security
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Loose furniture
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Masonry & block work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Material delivered on site
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Modular carpentry install
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Modular furniture, factory-made
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Modular units delivered
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Move the project
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Moved to $stage · in the stage log
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Next photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No approved scope recorded yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No caption
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No change request to clear
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No photos yet — the survey's 360s come first
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No stage moves recorded yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No work open yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	No work state recorded yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Not a review state
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Not for client
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Not one of the five states
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Not one of the sixteen works
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Not started
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	On hold
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Only a vendor's photo is reviewed
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Only the Project Manager raises or clears a change request
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Only the Project Manager reviews a vendor's photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Only the Project Manager sets a work's state
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Onsite carpentry & panelling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Open: $works
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Opening measured
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	POP / gypsum board & finish
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Paint, wallpaper or texture
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Painting & wall finishes
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Payment milestones of $work: $list
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Payment: $list
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Photo $i of $n
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Pick the work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Plaster & waterproofing
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Plumbing first fix — concealed lines
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Plumbing second fix — CP & sanitary
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Plumbing, concealed
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Previous photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Progress shot
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Progress shot filed at $stage
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Project Manager
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Putty & primer
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Quote journey
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	ROOM
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Raise change request
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Rectified & verified
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	SITE IS AT
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	STAGE
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Sanitaryware & CP fittings
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	See the after photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	See the before photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Snag rectification
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Snagging
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Staff
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Stage log ($n)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	State of $work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	State of $work: $state
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Stone & marble polish
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Suggestion from the latest photos
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Take a progress shot
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Take the photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	The album closes at Handover
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	The album closes when Cleaning & handover is Done
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	To review: $n
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Upload a photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Upload a photo to $work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Uploaded to $work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Vendor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Viewing as $role
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Viewing as — prototype test
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	WORK
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Wall moulding & trims
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Wall panelling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Wall tiling / dado
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Waterproofing
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	When $work is done
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Which room?
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Which work?
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Why change a Done work? (required)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Window jali, mesh & grill
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Wooden, vinyl or laminate flooring
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Work log ($n)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Work starts once the client approves the estimate
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	Your photos show to the client once the Project Manager accepts them
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	awaiting review
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	from the album's latest photos
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	last photo $day
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	moved by
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	no photos
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	no photos yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	not filed to a work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	not reached yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	not your work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	now
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	picked from the stage list
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	sees accepted photos and work states only
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	sees everything · sets work states · accepts vendor photos
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	sees everything · takes progress shots · changes no state
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	sees only their own work · uploads photos for review
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	tap to change
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	the as-is survey, before any work
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	the work stage moves the project once the quote is Estimated
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 $eighths/8
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 ${eighths / 2}/4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 ${eighths / 4}/2
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	$feet' $inches$frac\"
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	$mm mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	${(m * 100).roundToInt() / 100.0} m
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	${metricLabel(mm)} · ${imperialLabel(mm)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	Beam
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	Column
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	Door
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	Opening
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	Window
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	cm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	ft
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	in
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	m
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	A client is the office's customer record. Delete the sites 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	Can't identify this $kind on the office system. Pull to 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	Removed from this phone — $what had never reached the office system.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	refresh — deleting now clears this phone only.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	under it here; the customer itself is a desk job.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Meter is not showing metres/mm (unit code $unit) — set it to m or mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Not a length (%.4f)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn from ${loc.to}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${SIDE_NAME.getValue(sd)} total
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${detailLabel(t).split(" ")[0]} $n
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepLabel(k).split(" ")[0]} $n
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepName(f, i)} · $wall wall · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepName(room.face(plate), i)} · $plate plan · ${c.d.roundToInt()} mm deep
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Back wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Beam
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Bottom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Column
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Door
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	E${n + 1} · ${pc.side?.let { SIDE_NAME.getValue(it).lowercase() + " edge" } ?: "step face"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Electrical point
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Front wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Left
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Left wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Line ${i + 1}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Line ${i + 1} piece ${k + 1}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Loft
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Opening
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Other step
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Top
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Window
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	back wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	corrected for ${best[1].roundToInt()} mm depth
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	depth unknown — draw it here to correct
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	front wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	left wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	right wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Balcony
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bathroom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bedroom 4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bedroom 5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bungalow
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Car Porch
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Dining Room
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Dry Balcony
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Flat
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Foyer
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Garden
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Guest Bedroom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Kids Bedroom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Kitchen
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Living Room
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Master Bedroom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Office
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Other
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Passage
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Pooja Room
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Row House
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Shop
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Staircase
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Store
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Study
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Terrace
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 1
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 2
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 3
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Utility
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	 · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Back
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Bottom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Front
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Left
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Right
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Top
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	${fov.roundToInt()}°
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	4 · 360 · drag to look round · ${SurveyPrep.NAME[s] ?: s}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	A $typeName cannot go on the ${SurveyPrep.NAME.getValue(to).lowercase()}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	Set this surface's lines first
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	 · read ${hhmm(instantOf(cache.readAt)!!.atZone(IST))}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $NOT_ON_S5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $NOT_READ
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $stage
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$stage · $NOT_SET
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}, ${hhmm(z)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Apr
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Aug
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Client approved
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Client wish list
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Dec
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Estimated
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Feb
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jul
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jun
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Mar
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	May
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Nov
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Oct
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	QUOTE STAGE
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Quote stage not read yet — S5 decides when online
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Revisions
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Sept
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Survey
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Vendor quoted
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not on S5 yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not on S5 yet — this project has not been sent
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not read yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not set on S5 yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	since ${dayTime(it)} IST on S5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	 — deleted on the web too
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	$it changed on the web after its mark was deleted here
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	HTTP $code
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	…
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	 ·
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	${i + 1} · ${STEPS[i].second}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	360
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Lines
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	List
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Mark
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Plan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 d
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 laser
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 · Σ 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	$code Σ ${totalText(v)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	$points point${if (points == 1) "" else "s"} · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	${c.code} chain
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	${r(d)} d
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	A chain needs two different points
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	A chain needs two points or more
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Chain · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Chain · ${direction(c)} · $n part${if (n == 1) "" else "s"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	End the chain
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Finish the chain on the ${SurveyPrep.NAME.getValue(s).lowercase()} first — ✓ or a double tap
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	chains
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	horizontal
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	segment ${i + 1}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	tap points along the surface, double-tap or ✓ to end
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	total
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	vertical
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	≈
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	${SurveyPlan.DTITLE.getValue(view)} from survey prep · laser sizes
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	1:$sc on A4 · drawn ${meta.drawn}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Captured
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Client
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Drawing
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Project
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Room
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Scale
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	—
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	…
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	≈ = from the photo, not yet measured · MCFT S2
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt	$code is locked — unlock to move it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked area
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked length
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 tape
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	$code 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	$code ${m2txt(parea(pts))}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	${m2txt(parea(pts))}…
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	${v.roundToInt()} mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Line · area · $n corner${if (n == 1) "" else "s"} · double-tap to end
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Line · drag = a marked length · tap corners = an area
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked area
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked area · ${m2txt(parea(m.pts))}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked length
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	No reading box: a tape's figure is what the photo says. A reading by D2 or keyboard goes on a Line.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Off this surface — nothing will be plotted
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Only things on this surface measure correctly.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · ${mmTxt(plen(m.pts))}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · ${mmTxt(plen(m.pts))} · from the photo
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · drag along the face · the photo gives its length
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape: drag along the face to pull it out
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	diagonal on the face · $n mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	length
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	on the ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	on the floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	perimeter
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↔ along the face · $n mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↔ left–right $w · $n mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↕ front–back $w · $n mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↕ up the face · $n mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	≈${mmTxt(plen(m.pts))}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam over
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 loft
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 loft over
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 ▸
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	$ta ${rnd(a)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${SurveyPrep.NAME.getValue(view).removeSuffix(" wall")} · ${rnd(d[0])} × ${rnd(d[1])} · $n mark${if (n == 1) "" else "s"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${e.code} ${fw.t}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${e.code} ${k.fig(e.code + ".w", get("w")?.est).t}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${fo.t} from $sideName corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${room?.takeIf { it.isNotBlank() } ?: "Room"} · ${rnd(w)} × ${rnd(l)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	1 m
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back wall elevation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	FRONT
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Floor plan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front wall elevation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	H ${rnd(b)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	L ${rnd(l)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left wall elevation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	REFLECTED CEILING PLAN
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Reflected ceiling plan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right wall elevation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	W ${rnd(w)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	at the $sideName corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit · ${rnd(box[2] / vb[2] * 100)}%
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	≈
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	◂ 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	 (+${o.size - 1} more)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	$code is outside the face: edit or delete it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	, to centre
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	300 to 30000 mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Back
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Back wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Beam
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Bulb point
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Column
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Door
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Electric point
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Fan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Front
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Front wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	H
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	L
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	L front→back · W left→right · H floor→ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Left
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Left wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Loft
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Niche
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Opening
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Other
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Right
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Right wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Step
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Switch plate
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Tap inside the ${NAME.getValue(s).lowercase()} to place it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	W
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Window
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	back edge
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	ceiling line
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	depth into wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	depth, front–back
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	drop below ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	floor line
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from back wall$to
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from ceiling$to
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from front wall$to
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from left corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from left wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from right corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from right wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	front edge
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	height
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	left corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	left edge
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	loft depth
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	loft height
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	projection from wall
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	reveal depth
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	right corner
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	right edge
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	sill, from floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	underside, from floor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	width
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	width, left–right
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$code deleted
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$code is locked — unlock first
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$locked locked — nothing to clear
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$n item${if (n == 1) "" else "s"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${SurveyPrep.NAME.getValue(s)} lines ${if (on) "locked" else "unlocked"}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${if (g.all) "Unlock" else "Lock"} all ${g.name}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${if (on) "Locked" else "Unlocked"} ${items(n)} · ${SurveyPrep.NAME.getValue(s).lowercase()}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${items(n)} cleared
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Cancel
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Clear this surface… ($n)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Clear whole room… ($n)
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Cleared ${items(n)}, $kept locked kept
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Delete
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Delete $it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Duplicate
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Line marks
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lines are locked — unlock first
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lock
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lock lines
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Locked
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Nothing in the room to clear
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Nothing on this surface to clear
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Start over
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Started over — $kept locked kept
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Tap again to clear ${items(n)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Tap again to clear every line, mark and reading
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlock
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlock lines
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlocked
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	tapes
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	🔒 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	 …
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	$n point${if (n == 1) "" else "s"} re-centred
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: ${if (wo.containsKey(s)) "unreadable" else "missing"}, started again
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: chain ${code ?: "#" + (i + 1)} was unreadable, left out
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its ${SurveyPrep.lineNames(s).getValue(k)} was unreadable, placed again
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its chains were unreadable
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its marks were unreadable
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its measurements were unreadable
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: mark ${code ?: "#" + (i + 1)} was unreadable, left out
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: measurement ${code ?: "#" + (i + 1)} was unreadable, left out
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Nothing saved yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Part of the saved prep could not be read ($n thing${if (n == 1) "" else "s"}: 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Restored in part
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Restored ✓
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Started fresh
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The file as it was could not be copied aside: nothing here is saved, so it is not overwritten.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The file as it was is kept as $it.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The saved prep could not be read, nor moved aside: nothing here is saved, so it is not overwritten.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The saved prep could not be read. It is kept as $it, and this room starts fresh.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	reading $key was unreadable, left out
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	the readings were unreadable
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Beam
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Bulb
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Chain
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Column
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Door
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Electric
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Every mark type · ${SurveyPrep.NAME.getValue(s)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Fan
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Line
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Loft
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	More ▸
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Niche
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Opening
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Other
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Placing ${SurveyPrep.typeOf(s, tool).name} · tap the $where
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Step
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Switch
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Tape
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Window
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	 ▾
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 · differs by ${sgn(dA)} / ${sgn(dB)} mm
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 ✓
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	${SurveyPrep.NAME.getValue(s)} reference
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	${if (locked) "Unlock" else "Lock"} the ${name(s).lowercase()}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Cancel
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	D2 $mm mm — not used: the reference box was left
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Drag the four cyan corners onto a rectangle on this surface, then type its width and height
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Edges · laser
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Lock
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Measured ${t.first} ${f.a.roundToInt()} × ${t.second} ${f.b.roundToInt()} · laser ${laser[0].roundToInt()} × ${laser[1].roundToInt()}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Ref ${fig(r.w)} × ${fig(r.h)}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference hidden on the faces — it still squares the ${SurveyPrep.NAME.getValue(s).lowercase()}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference shown on 2 · Mark, 3 · List and 4 · 360
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference ▭
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Show on faces
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Size from
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	The reference stays — hide it with the eye in 1 · Lines
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Unlock
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	±
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	🔒 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	 · 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	 — 
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	$n of ${SERVICES.size} wanted
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	APPLIES TO
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Balcony grill
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	CCTV
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Carpentry / furniture
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Changing the wish list after a vendor quoted — tell the vendor
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Curtains — roller blinds
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Doors & windows
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Electrical works
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Estimation — the wish list is read-only; move the phase back on the project screen to change it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	False ceiling
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Finish the survey first — the stage moves to Client wish list on S5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Guest bathroom — complete renovation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Intercom
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Master bathroom — complete renovation
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Not sent to S5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Painting
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Plumbing & sanitary
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	S5 had a newer list; yours was replaced, re-apply what is missing
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	What the client wants, after the survey — the vendor quotes against it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Whole flat
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Wish list $n/${SERVICES.size}
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	not asked for
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	nothing saved yet
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	on S5 since ${QuoteStage.dayTime(it)} IST
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	safety door, aluminium main door, UPVC
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	saved on this phone
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	vendor $it
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	water and drain points, taps, geyser, sanitary ware outside the bathroom renovations

@@ -1,0 +1,5010 @@
+{
+ "act.remove.sym": {
+  "mr": "✕ काढा"
+ },
+ "act.repair.sym": {
+  "mr": "⚒ दुरुस्ती"
+ },
+ "act.replace.sym": {
+  "mr": "↻ बदला"
+ },
+ "act.shift.sym": {
+  "mr": "⇢ हलवा"
+ },
+ "album.accept": {
+  "mr": "स्वीकारा"
+ },
+ "album.accepted_by": {
+  "mr": "स्वीकारणारे:"
+ },
+ "album.accepted_res": {
+  "mr": "स्वीकारला · आता ग्राहकाला दिसतो"
+ },
+ "album.after": {
+  "mr": "नंतर"
+ },
+ "album.album": {
+  "mr": "अल्बम"
+ },
+ "album.aria.chapter_x": {
+  "mr": "भाग {n}: {name}"
+ },
+ "album.aria.cr_x": {
+  "mr": "बदल विनंती: {name}"
+ },
+ "album.aria.next_photo": {
+  "mr": "पुढचा फोटो"
+ },
+ "album.aria.nudge": {
+  "mr": "नव्या फोटोंवरून सूचना"
+ },
+ "album.aria.payment_x": {
+  "mr": "{work} चे पेमेंटचे टप्पे: {list}"
+ },
+ "album.aria.previous_photo": {
+  "mr": "मागचा फोटो"
+ },
+ "album.aria.state_x": {
+  "mr": "{work} ची स्थिती: {state}"
+ },
+ "album.aria.take_photo": {
+  "mr": "फोटो काढा"
+ },
+ "album.aria.take_progress": {
+  "mr": "कामाचा फोटो काढा"
+ },
+ "album.aria.tile_x": {
+  "mr": "{title} चा अल्बम: {pl}, सर्व्हेपासून हस्तांतरणापर्यंत"
+ },
+ "album.aria.upload_x": {
+  "mr": "{work} मध्ये फोटो अपलोड करा"
+ },
+ "album.awaiting_review": {
+  "mr": "तपासणी बाकी"
+ },
+ "album.before": {
+  "mr": "आधी"
+ },
+ "album.caption_optional": {
+  "mr": "कॅप्शन (हवे असल्यास)"
+ },
+ "album.change_request": {
+  "mr": "बदल विनंती"
+ },
+ "album.change_requests_x": {
+  "mr": "बदल विनंत्या: {n}"
+ },
+ "album.closed_cleaning": {
+  "mr": "अल्बम पूर्ण झाला · \"स्वच्छता व हस्तांतरण\" पूर्ण"
+ },
+ "album.closed_handover": {
+  "mr": "हस्तांतरणाला अल्बम पूर्ण झाला"
+ },
+ "album.closes_cleaning": {
+  "mr": "\"स्वच्छता व हस्तांतरण\" पूर्ण झाल्यावर अल्बम पूर्ण होतो"
+ },
+ "album.closes_handover": {
+  "mr": "हस्तांतरणाला अल्बम पूर्ण होतो"
+ },
+ "album.cr_clear": {
+  "mr": "बदल विनंती रद्द करा"
+ },
+ "album.cr_raise": {
+  "mr": "बदल विनंती नोंदवा"
+ },
+ "album.cr_raised_x": {
+  "mr": "बदल विनंती · {day} रोजी नोंदवली —"
+ },
+ "album.done_reason_label": {
+  "mr": "पूर्ण झालेले काम का बदलायचे? (आवश्यक)"
+ },
+ "album.done_reason_need": {
+  "mr": "पूर्ण झालेले काम बदलण्यासाठी कारण आवश्यक आहे"
+ },
+ "album.empty": {
+  "mr": "अजून फोटो नाहीत — आधी सर्व्हेचे 360 येतात"
+ },
+ "album.exec_lock_banner": {
+  "mr": "ग्राहकाने अंदाजपत्रक मंजूर केल्यावर काम सुरू होते"
+ },
+ "album.filed_x": {
+  "mr": "कामाचा फोटो \"{stage}\" मध्ये ठेवला"
+ },
+ "album.kept_res": {
+  "mr": "ग्राहकापासून राखून ठेवला"
+ },
+ "album.last_photo_x": {
+  "mr": "शेवटचा फोटो {day}"
+ },
+ "album.move_project": {
+  "mr": "प्रोजेक्ट हलवा"
+ },
+ "album.moved_by": {
+  "mr": "हलवणारे:"
+ },
+ "album.moved_x": {
+  "mr": "\"{stage}\" वर हलवला · टप्प्यांच्या नोंदीत लिहिले"
+ },
+ "album.no_caption": {
+  "mr": "कॅप्शन नाही"
+ },
+ "album.no_moves_yet": {
+  "mr": "अजून टप्पा हलवल्याची नोंद नाही"
+ },
+ "album.no_open_work": {
+  "mr": "अजून कोणतेही काम चालू नाही"
+ },
+ "album.no_photos": {
+  "mr": "फोटो नाहीत"
+ },
+ "album.no_photos_yet": {
+  "mr": "अजून फोटो नाहीत"
+ },
+ "album.no_work_log": {
+  "mr": "अजून कामाच्या स्थितीची नोंद नाही"
+ },
+ "album.not_for_client": {
+  "mr": "ग्राहकासाठी नाही"
+ },
+ "album.not_reached": {
+  "mr": "अजून इथपर्यंत आलो नाही"
+ },
+ "album.not_your_work": {
+  "mr": "तुमचे काम नाही"
+ },
+ "album.now": {
+  "mr": "आता"
+ },
+ "album.nudge_x": {
+  "mr": "नवे फोटो \"{stage}\" चे आहेत — प्रोजेक्ट तिथे हलवायचा?"
+ },
+ "album.open_x": {
+  "mr": "चालू कामे: {works}"
+ },
+ "album.pay_before_x": {
+  "mr": "{work} सुरू होण्यापूर्वी"
+ },
+ "album.pay_when_x": {
+  "mr": "{work} पूर्ण झाल्यावर"
+ },
+ "album.payment_x": {
+  "mr": "पेमेंट: {list}"
+ },
+ "album.photo_x_of_x": {
+  "mr": "फोटो {i} / {n}"
+ },
+ "album.pick_work": {
+  "mr": "काम निवडा"
+ },
+ "album.progress_shot": {
+  "mr": "कामाचा फोटो"
+ },
+ "album.quote_journey": {
+  "mr": "कोटेशनचा प्रवास"
+ },
+ "album.quote_journey_sub": {
+  "mr": "काम सुरू होण्यापूर्वीचा, जसा आहे तसा सर्व्हे"
+ },
+ "album.role_client_line": {
+  "mr": "फक्त स्वीकारलेले फोटो आणि कामाची स्थिती पाहतो"
+ },
+ "album.role_designer_line": {
+  "mr": "सगळे पाहतो · कामाचे फोटो काढतो · स्थिती बदलत नाही"
+ },
+ "album.role_pm_line": {
+  "mr": "सगळे पाहतो · कामाची स्थिती ठरवतो · व्हेंडरचे फोटो स्वीकारतो"
+ },
+ "album.role_vendor_line": {
+  "mr": "फक्त स्वतःचे काम पाहतो · तपासणीसाठी फोटो अपलोड करतो"
+ },
+ "album.room_caps": {
+  "mr": "खोली"
+ },
+ "album.see_after": {
+  "mr": "नंतरचा फोटो पाहा"
+ },
+ "album.see_before": {
+  "mr": "आधीचा फोटो पाहा"
+ },
+ "album.site_is_at": {
+  "mr": "साइटचा टप्पा"
+ },
+ "album.st_abandoned": {
+  "mr": "सोडून दिलेले"
+ },
+ "album.st_in_progress": {
+  "mr": "चालू आहे"
+ },
+ "album.st_not_started": {
+  "mr": "सुरू झाले नाही"
+ },
+ "album.st_on_hold": {
+  "mr": "थांबवलेले"
+ },
+ "album.staff": {
+  "mr": "स्टाफ"
+ },
+ "album.stage_caps": {
+  "mr": "टप्पा"
+ },
+ "album.stage_log_x": {
+  "mr": "टप्प्यांची नोंद ({n})"
+ },
+ "album.state_of_x": {
+  "mr": "{work} ची स्थिती"
+ },
+ "album.state_pm_only": {
+  "mr": "कामाची स्थिती फक्त प्रोजेक्ट मॅनेजर ठरवतो"
+ },
+ "album.sub_x": {
+  "mr": "{pl} · सर्व्हेपासून हस्तांतरणापर्यंत"
+ },
+ "album.tap_to_change": {
+  "mr": "बदलण्यासाठी टॅप करा"
+ },
+ "album.title_x": {
+  "mr": "अल्बम · {title}"
+ },
+ "album.to_review_x": {
+  "mr": "तपासायचे: {n}"
+ },
+ "album.unfiled": {
+  "mr": "कोणत्याही कामात ठेवलेला नाही"
+ },
+ "album.upload_photo": {
+  "mr": "फोटो अपलोड करा"
+ },
+ "album.uploaded_to_x": {
+  "mr": "{work} मध्ये अपलोड केला"
+ },
+ "album.vendor_note": {
+  "mr": "प्रोजेक्ट मॅनेजरने स्वीकारल्यावरच तुमचे फोटो ग्राहकाला दिसतात"
+ },
+ "album.via_nudge": {
+  "mr": "अल्बममधील नव्या फोटोंवरून"
+ },
+ "album.via_sheet": {
+  "mr": "टप्प्यांच्या यादीतून निवडले"
+ },
+ "album.viewing_as_title": {
+  "mr": "कोण म्हणून पाहायचे — प्रोटोटाइप चाचणी"
+ },
+ "album.viewing_as_x": {
+  "mr": "{role} म्हणून पाहत आहे"
+ },
+ "album.which_room": {
+  "mr": "कोणती खोली?"
+ },
+ "album.which_work": {
+  "mr": "कोणते काम?"
+ },
+ "album.work_caps": {
+  "mr": "काम"
+ },
+ "album.work_log_x": {
+  "mr": "कामांची नोंद ({n})"
+ },
+ "album.work_stage_moves": {
+  "mr": "कोटेशन \"अंदाजपत्रक झाले\" वर गेल्यावर कामाचा टप्पा प्रोजेक्ट पुढे नेतो"
+ },
+ "app.360_no_longer_phone": {
+  "mr": "360 आता या फोनवर नाही · कारणासाठी टॅप करा"
+ },
+ "app.360_not_phone_removed": {
+  "mr": "360 या फोनवर नाही (अपलोडनंतर काढला)"
+ },
+ "app.360_photo_capture_was": {
+  "mr": "या कॅप्चरचा 360 फोटो अपलोडनंतर फोनवरून काढला गेला (0.3.204 पूर्वी), त्यामुळे सर्व्हे तयारी तो इथे उघडू शकत नाही. कॅप्चर, त्याची खोली आणि प्रोजेक्ट जसेच्या तसे सेव्ह आहेत."
+ },
+ "app.about_delete": {
+  "mr": "हटवले जाणार"
+ },
+ "app.active": {
+  "mr": "चालू"
+ },
+ "app.adding": {
+  "mr": "जोडत आहे…"
+ },
+ "app.address": {
+  "mr": "पत्ता"
+ },
+ "app.all_sent": {
+  "mr": "सर्व पाठवले"
+ },
+ "app.all_x": {
+  "mr": "सर्व {length}"
+ },
+ "app.api_key": {
+  "mr": "API की"
+ },
+ "app.api_secret": {
+  "mr": "API सिक्रेट"
+ },
+ "app.aria.close_search": {
+  "mr": "शोध बंद करा"
+ },
+ "app.aria.search": {
+  "mr": "शोधा"
+ },
+ "app.aria.settings": {
+  "mr": "सेटिंग्ज"
+ },
+ "app.at_stage": {
+  "mr": "सध्याचा टप्पा"
+ },
+ "app.cached_photos": {
+  "mr": "कॅशमधील फोटो"
+ },
+ "app.cancelled": {
+  "mr": "रद्द"
+ },
+ "app.capture": {
+  "mr": "कॅप्चर"
+ },
+ "app.carry_on": {
+  "mr": "पुढे चला"
+ },
+ "app.characteristics_3ab10101_notify_read": {
+  "mr": "characteristics: 3ab10101/notify+read, 3ab10102/notify+read, 3ab10109/write",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.checks_1_press_measure": {
+  "mr": "तपासणी: 1) D2 वरचे मापाचे बटण दाबा · 2) फायर वर टॅप करा · 3) D2 mm, m, ft, in वर ठेवून प्रत्येकात एकदा मोजा · 4) तसाच ठेवा आणि तो कधी डिस्कनेक्ट होतो ते नोंदवा. मग लॉग शेअर करा."
+ },
+ "app.choose_rooms": {
+  "mr": "खोल्या निवडा"
+ },
+ "app.cleared_work_face": {
+  "mr": "या बाजूचे काम काढले"
+ },
+ "app.client_office_s_customer": {
+  "mr": "ग्राहक हा ऑफिसचा कस्टमर रेकॉर्ड आहे, त्यामुळे तो फोनवरून काढता येत नाही. त्याखालच्या साइट्स इथे हटवा; ग्राहक हटवणे हे ऑफिसचे काम आहे."
+ },
+ "app.client_site_project_room": {
+  "mr": "ग्राहक, साइट, प्रोजेक्ट, खोली किंवा SKU"
+ },
+ "app.connect": {
+  "mr": "कनेक्ट करा"
+ },
+ "app.connect_pressed": {
+  "mr": "connect pressed",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.connected_press_measure_button": {
+  "mr": "कनेक्ट झाले — D2 वरचे मापाचे बटण दाबा"
+ },
+ "app.connecting": {
+  "mr": "कनेक्ट होत आहे…"
+ },
+ "app.copy_clipboard_simulated": {
+  "mr": "क्लिपबोर्डवर कॉपी करा (सिम्युलेटेड)"
+ },
+ "app.delete_capture": {
+  "mr": "हे कॅप्चर हटवा"
+ },
+ "app.delete_capture_2": {
+  "mr": "हे कॅप्चर हटवायचे?"
+ },
+ "app.delete_x": {
+  "mr": "{v} हटवा",
+  "note": "{v} falls back to English 'this '+kind (fragment) — needs a Marathi kind word, see app.this"
+ },
+ "app.delete_x_everything": {
+  "mr": "{v} आणि त्यातील सर्व काही हटवा"
+ },
+ "app.deleting_removes_erp_everyone": {
+  "mr": "हटवल्यावर ते ERP मधून सर्वांसाठी जाते. अंदाजपत्रकात आधीच कोट झालेले राहते."
+ },
+ "app.details": {
+  "mr": "तपशील"
+ },
+ "app.discard_360": {
+  "mr": "360 टाकून द्या"
+ },
+ "app.disconnect": {
+  "mr": "डिस्कनेक्ट करा"
+ },
+ "app.display": {
+  "mr": "डिस्प्ले"
+ },
+ "app.distance_x_x_m": {
+  "mr": "distance [{v}] = {m} m",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.do_you_want_install": {
+  "mr": "या अ‍ॅपचे अपडेट इन्स्टॉल करायचे का? तुमचा सध्याचा डेटा जाणार नाही."
+ },
+ "app.done": {
+  "mr": "पूर्ण"
+ },
+ "app.due_x": {
+  "mr": "{end} पर्यंत"
+ },
+ "app.elsewhere_project": {
+  "mr": "या प्रोजेक्टमध्ये इतरत्र"
+ },
+ "app.empty": {
+  "mr": "रिकामे"
+ },
+ "app.ends": {
+  "mr": "शेवट"
+ },
+ "app.erp_id": {
+  "mr": "ERP आयडी"
+ },
+ "app.every_photographed_room_current": {
+  "mr": "फोटो काढलेल्या सर्व खोल्या अपडेट आहेत",
+  "note": "review: register — अद्ययावत → अपडेट"
+ },
+ "app.everything_phone_has_been": {
+  "mr": "या फोनवरचे सर्व पाठवले गेले आहे"
+ },
+ "app.export_project": {
+  "mr": "प्रोजेक्ट एक्सपोर्ट करा…"
+ },
+ "app.fewer_details": {
+  "mr": "कमी तपशील"
+ },
+ "app.filed_at": {
+  "mr": "इथे ठेवला"
+ },
+ "app.filing_photo": {
+  "mr": "फोटो फोल्डरमध्ये ठेवत आहे…"
+ },
+ "app.fire": {
+  "mr": "फायर",
+  "note": "laser 'Fire' button; alt: मोजा"
+ },
+ "app.flat_building_street_area": {
+  "mr": "फ्लॅट / इमारत, रस्ता, परिसर, शहर"
+ },
+ "app.flat_bungalow_office": {
+  "mr": "फ्लॅट, बंगला किंवा ऑफिस"
+ },
+ "app.found_disto_d2_4512": {
+  "mr": "found 'DISTO D2 4512' rssi -58 — advertises the DISTO service",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.from_x": {
+  "mr": "{start} पासून"
+ },
+ "app.generate_both_your_user": {
+  "mr": "दोन्ही ERPNext मधील तुमच्या User पानावर तयार करा (Settings → API Access). सिक्रेट एकदाच दिसते."
+ },
+ "app.gmail_simulated": {
+  "mr": "Gmail (सिम्युलेटेड)"
+ },
+ "app.goes_phone_erpnext_everyone": {
+  "mr": "हे या फोनवरून आणि ERPNext मधूनही, सर्वांसाठी जाते — मूळ फोटो, बाजू, आणि SKU फक्त याच फोटोवर टिकून असेल तर तो SKU सुद्धा."
+ },
+ "app.goes_phone_queue_row": {
+  "mr": "हे या फोनवरून जाते — रांगेतील ओळ, मूळ फोटो आणि गॅलरीतील बाजू. ते सर्व्हरवर पोहोचलेच नाही, त्यामुळे तिथे काढण्यासारखे काही नाही."
+ },
+ "app.height_floor_ceiling": {
+  "mr": "उंची जमीन→छत"
+ },
+ "app.height_floor_ceiling_required": {
+  "mr": "उंची, जमीन ते छत (आवश्यक)"
+ },
+ "app.height_mm_1829_6096": {
+  "mr": "उंची MM मध्ये, 1829–6096. 9 फूट छत म्हणजे 2743."
+ },
+ "app.home_screen_simulated_tap": {
+  "mr": "होम स्क्रीन (सिम्युलेटेड). अ‍ॅप उघडण्यासाठी आयकॉनवर टॅप करा."
+ },
+ "app.import_imagemeter": {
+  "mr": "ImageMeter मधून इम्पोर्ट करा",
+  "note": "आयात as in S5 (Import backup); alt: ImageMeter मधून इम्पोर्ट · DECIDED 21 Oct: D1 register"
+ },
+ "app.in_x": {
+  "mr": "{v} मध्ये"
+ },
+ "app.installer_install": {
+  "mr": "इन्स्टॉल करा",
+  "note": "review fix 4: installing the APP. articlekind.install (बसवणे) stays the fitting work on site"
+ },
+ "app.job_type": {
+  "mr": "कामाचा प्रकार"
+ },
+ "app.job_type_dates_scope": {
+  "mr": "कामाचा प्रकार, तारखा, स्कोप"
+ },
+ "app.join_camera_s_wi": {
+  "mr": "आधी कॅमेऱ्याच्या Wi-Fi ला जोडा, मग टॅप करा",
+  "note": "fragment: followed by a button name in the English sentence — make it one template"
+ },
+ "app.jump_up": {
+  "mr": "इथे वर जा:"
+ },
+ "app.keep_original_360": {
+  "mr": "मूळ 360 ठेवा"
+ },
+ "app.laser": {
+  "mr": "लेझर"
+ },
+ "app.laser_off": {
+  "mr": "लेझर बंद"
+ },
+ "app.laser_on": {
+  "mr": "लेझर चालू"
+ },
+ "app.laser_test": {
+  "mr": "लेझर चाचणी"
+ },
+ "app.laser_test_disto_d2": {
+  "mr": "लेझर चाचणी · DISTO D2"
+ },
+ "app.last_shot_x": {
+  "mr": "शेवटचा फोटो {lastDate}"
+ },
+ "app.length_front_back": {
+  "mr": "लांबी समोर→मागे"
+ },
+ "app.length_front_back_carpet": {
+  "mr": "लांबी समोर→मागे (कार्पेट कमाल)",
+  "note": "long"
+ },
+ "app.looking_meter": {
+  "mr": "मीटर शोधत आहे…"
+ },
+ "app.meter_disconnected": {
+  "mr": "मीटर डिस्कनेक्ट झाला"
+ },
+ "app.more_details_type_address": {
+  "mr": "अधिक तपशील — प्रकार, पत्ता, काम"
+ },
+ "app.move_project": {
+  "mr": "प्रोजेक्ट इथे हलवा",
+  "note": "review fix 6: the trailing \":\" dropped (the list after it is joined with \" · \")"
+ },
+ "app.msg.cached_annotated_copies_cleared": {
+  "mr": "कॅशमधील खुणा केलेल्या प्रती साफ केल्या",
+  "note": "annotate = खुणा करणे (ImageMeter); 'मार्क' is kept for survey-prep marks"
+ },
+ "app.msg.capture_deleted": {
+  "mr": "कॅप्चर हटवले"
+ },
+ "app.msg.capture_deleted_here_bench": {
+  "mr": "कॅप्चर इथे आणि बेंचवरही हटवले",
+  "note": "'bench' (the server) kept as बेंच; alt: सर्व्हर"
+ },
+ "app.msg.deleted_x": {
+  "mr": "{current} हटवले"
+ },
+ "app.msg.discarded_nothing_was_saved": {
+  "mr": "टाकून दिले — तुमच्या फोटोंमध्ये काहीही सेव्ह झाले नाही."
+ },
+ "app.msg.downloading_update_x": {
+  "mr": "अपडेट {update} डाउनलोड होत आहे…"
+ },
+ "app.msg.importing_imagemeter": {
+  "mr": "ImageMeter मधून इम्पोर्ट होत आहे…"
+ },
+ "app.msg.local_copy_removed_capture": {
+  "mr": "फोनवरची प्रत काढली — कॅप्चर आणि बेंचवरची प्रत राहते"
+ },
+ "app.msg.looked_14_gallery_photos": {
+  "mr": "गॅलरीतील 14 फोटो पाहिले, एकावरही या अ‍ॅपचा शिक्का नाही. फक्त 0.3.93 किंवा नंतरच्या आवृत्तीने कॅप्चर केलेल्या बाजूंवर शिक्का असतो — तो फोटो पुन्हा काढा आणि खुणा करा."
+ },
+ "app.msg.photo_filed_x": {
+  "mr": "फोटो {v} मध्ये ठेवला"
+ },
+ "app.msg.renamed_x": {
+  "mr": "नवीन नाव: {n}"
+ },
+ "app.msg.room_x_ready": {
+  "mr": "खोली \"{n}\" तयार"
+ },
+ "app.msg.saving_six_faces": {
+  "mr": "सहा बाजू सेव्ह होत आहेत…"
+ },
+ "app.msg.shooting_x3": {
+  "mr": "X3 वर फोटो काढत आहे…"
+ },
+ "app.msg.survey_prep_saved_writing": {
+  "mr": "सर्व्हे तयारी सेव्ह झाली — चित्रे सेव्ह होत आहेत…"
+ },
+ "app.msg.survey_prep_saved_x": {
+  "mr": "सर्व्हे तयारी सेव्ह झाली · खोलीच्या फोल्डरमध्ये {done} चित्रे"
+ },
+ "app.msg.x_pictures_saved_x": {
+  "mr": "{v} चित्रे {v2} मध्ये सेव्ह झाली\nImageMeter उघडा → खोलीचा फोल्डर → फोटो जोडा."
+ },
+ "app.msg.x_was_only_phone": {
+  "mr": "{current} फक्त या फोनवर होते — इथून काढले"
+ },
+ "app.name": {
+  "mr": " नाव",
+  "note": "fragment: glued after a kind word ('Site'+' name') — make whole keys per kind"
+ },
+ "app.new_client": {
+  "mr": "नवीन ग्राहक"
+ },
+ "app.new_project": {
+  "mr": "नवीन प्रोजेक्ट"
+ },
+ "app.new_room": {
+  "mr": "नवीन खोली"
+ },
+ "app.no_captures_room_yet": {
+  "mr": "या खोलीत अजून कॅप्चर नाहीत. खालील \"360 कॅप्चर\" वापरा."
+ },
+ "app.no_clients_yet_go": {
+  "mr": "अजून ग्राहक नाहीत. ERP मधून आणण्यासाठी एकदा ऑनलाइन या, किंवा इथेच सुरू करण्यासाठी \"नवीन साइट\" वापरा."
+ },
+ "app.no_dates": {
+  "mr": "तारखा नाहीत"
+ },
+ "app.no_phase": {
+  "mr": "फेज नाही"
+ },
+ "app.no_server_set": {
+  "mr": "सर्व्हर सेट नाही"
+ },
+ "app.no_stage": {
+  "mr": "टप्पा नाही"
+ },
+ "app.no_stage_2": {
+  "mr": "टप्पा नाही"
+ },
+ "app.no_stage_set_tap": {
+  "mr": "टप्पा सेट नाही — निवडण्यासाठी टॅप करा"
+ },
+ "app.no_work_tagged": {
+  "mr": "काम टॅग केलेले नाही"
+ },
+ "app.no_work_tagged_face": {
+  "mr": "या बाजूवर काम टॅग केलेले नाही — काय करायचे ते सांगण्यासाठी टॅप करा",
+  "note": "long"
+ },
+ "app.none": {
+  "mr": "— काही नाही —"
+ },
+ "app.not_annotated": {
+  "mr": "खुणा केलेल्या नाहीत"
+ },
+ "app.not_connected": {
+  "mr": "कनेक्ट नाही"
+ },
+ "app.not_done_yet_tap": {
+  "mr": "अजून झाले नाही · टॅप करून प्रत्येक पृष्ठभागाची हद्द आखा, सरळ करा व मार्क करा",
+  "note": "long; 'bound' = हद्द आखणे, 'square' = सरळ करणे (alt: काटकोनात आणणे)"
+ },
+ "app.not_started_tap_start": {
+  "mr": "सुरू नाही · सुरू करण्यासाठी टॅप करा"
+ },
+ "app.not_synced_still_only": {
+  "mr": "सिंक नाही — अजून फक्त या फोनवर"
+ },
+ "app.not_tagged_sku": {
+  "mr": "SKU ला टॅग नाही"
+ },
+ "app.not_x_stage": {
+  "mr": "{job} चा टप्पा नाही"
+ },
+ "app.nothing_captured_phone_yet": {
+  "mr": "या फोनवर अजून काहीही कॅप्चर केलेले नाही. \"ब्राउझ\" उघडा, खोली निवडा आणि फोटो काढा."
+ },
+ "app.nothing_matches_x": {
+  "mr": "“{q}” शी काहीही जुळत नाही."
+ },
+ "app.nothing_waiting": {
+  "mr": "काहीही बाकी नाही"
+ },
+ "app.nothing_yet": {
+  "mr": "अजून काही नाही"
+ },
+ "app.offline": {
+  "mr": "ऑफलाइन"
+ },
+ "app.ok": {
+  "mr": "ठीक"
+ },
+ "app.on_phone": {
+  "mr": "फोनवर"
+ },
+ "app.open": {
+  "mr": "उघडा"
+ },
+ "app.original": {
+  "mr": "मूळ"
+ },
+ "app.original_360": {
+  "mr": "मूळ 360"
+ },
+ "app.original_360_survey_prep": {
+  "mr": "मूळ 360 आणि त्याची सर्व्हे तयारी — रेषा, मार्क आणि रीडिंग — या फोनवरून काढून जागा मोकळी होईल. कॅप्चर, गॅलरीतील त्याच्या बाजू आणि बेंचवरची प्रत राहतील. त्यासाठी सर्व्हे तयारी इथे पुन्हा उघडता येणार नाही."
+ },
+ "app.over_x": {
+  "mr": " · {pl}",
+  "note": "review: ' {pl} मध्ये' printed '3 दिवस मध्ये' (needs दिवसांत); ' · 3 दिवस' after the photo count says the same. {pl} = plural(n,'day') → noun.day"
+ },
+ "app.phase": {
+  "mr": "फेज"
+ },
+ "app.phases": {
+  "mr": "फेज"
+ },
+ "app.phone_camera_simulated": {
+  "mr": "फोन कॅमेरा · सिम्युलेटेड"
+ },
+ "app.photos": {
+  "mr": "फोटो"
+ },
+ "app.pick_360_gallery": {
+  "mr": "गॅलरीतून 360 निवडा"
+ },
+ "app.project_has_no_skus": {
+  "mr": "या प्रोजेक्टमध्ये अजून SKU नाहीत. ऑफिस ते अंदाजपत्रकातून जोडते, आणि पुढच्या सिंकला ते येतात."
+ },
+ "app.project_is_at": {
+  "mr": "प्रोजेक्टचा टप्पा"
+ },
+ "app.queued": {
+  "mr": "रांगेत"
+ },
+ "app.reading_x_mm_unit": {
+  "mr": "READING {mm} mm (unit code 0)",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.ready_shoot": {
+  "mr": "फोटोसाठी तयार"
+ },
+ "app.recent": {
+  "mr": "अलीकडील"
+ },
+ "app.recent_rooms": {
+  "mr": "अलीकडील खोल्या"
+ },
+ "app.remove_local_copy": {
+  "mr": "फोनवरची प्रत काढायची?"
+ },
+ "app.remove_local_copy_x": {
+  "mr": "फोनवरची प्रत काढा ({v} MB)"
+ },
+ "app.rename_remove_x": {
+  "mr": "{kind} चे नाव बदला किंवा काढा",
+  "note": "{kind} is the English kind word (client/site/project/room) — needs a Marathi kind map"
+ },
+ "app.rename_x": {
+  "mr": "{kind} चे नाव बदला",
+  "note": "{kind} needs a Marathi kind map"
+ },
+ "app.retrying": {
+  "mr": "पुन्हा प्रयत्न"
+ },
+ "app.room": {
+  "mr": "+ खोली"
+ },
+ "app.room_name": {
+  "mr": "खोलीचे नाव"
+ },
+ "app.room_needs_x_x": {
+  "mr": "या खोलीच्या {v} बाजूला {floor}° लागतात, स्प्लिट जेवढे घेऊ शकते त्यापेक्षा जास्त. ते कोपरे तरीही कापले जातील — दोन भागांत फोटो काढा, किंवा असेच स्वीकारा.",
+  "note": "review: {v} = plan.unf.join('/') — English keys front/back/down/up; map to समोर/मागे/जमीन/छत before Marathi works"
+ },
+ "app.room_photo_not_tied": {
+  "mr": "खोलीचा फोटो, एका वस्तूशी जोडलेला नाही",
+  "note": "article = वस्तू; alt: आर्टिकल"
+ },
+ "app.room_size_mm": {
+  "mr": "खोलीचा आकार (MM)"
+ },
+ "app.rooms_x": {
+  "mr": "{ss} मधील खोल्या"
+ },
+ "app.rooms_x_hidden": {
+  "mr": "खोल्या · {hidden} लपवलेल्या"
+ },
+ "app.select_photo": {
+  "mr": "फोटो निवडा"
+ },
+ "app.sending": {
+  "mr": "पाठवत आहे"
+ },
+ "app.sent": {
+  "mr": "पाठवले"
+ },
+ "app.sent_2": {
+  "mr": "पाठवले"
+ },
+ "app.sent_g_accepted": {
+  "mr": "sent 'g' (accepted)",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.sent_x_accepted": {
+  "mr": "sent '{v}' (accepted)",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.server": {
+  "mr": "सर्व्हर"
+ },
+ "app.set_server_api_key": {
+  "mr": "सुरू करण्यासाठी सेटिंग्जमध्ये सर्व्हर आणि API की सेट करा."
+ },
+ "app.set_survey_work_stage": {
+  "mr": "सर्व्हेने ठरवलेला — कोटेशन \"अंदाजपत्रक झाले\" वर गेल्यावर कामाचा टप्पा हे ठरवतो",
+  "note": "v56 delta. The head of this row is the stage master value As-built site measure (stage.built_site_measure)"
+ },
+ "app.share_laser_log": {
+  "mr": "लेझर लॉग शेअर करा"
+ },
+ "app.shoot_360_x3": {
+  "mr": "X3 वर 360 काढा"
+ },
+ "app.shot": {
+  "mr": " फोटो",
+  "note": "fragment (count+' shot')"
+ },
+ "app.showing_all_x_stages": {
+  "mr": "सर्व {length} टप्पे दाखवत आहे"
+ },
+ "app.sign_out": {
+  "mr": "साइन आउट"
+ },
+ "app.since_x": {
+  "mr": "{stageSince} पासून"
+ },
+ "app.single_photo": {
+  "mr": "एकच फोटो"
+ },
+ "app.site_name": {
+  "mr": "साइटचे नाव"
+ },
+ "app.site_type": {
+  "mr": "साइटचा प्रकार"
+ },
+ "app.site_type_x_pick": {
+  "mr": "साइटचा प्रकार: {v}. साइटचा प्रकार निवडा, मग जे तिथे नाही त्यावरची खूण काढा. या साइटवरचा प्रत्येक प्रोजेक्ट याच खोल्या वापरतो. फोटो असलेली खोली नेहमी दिसते, खूण असो वा नसो.",
+  "note": "{v} falls back to English 'not set' — supply 'सेट नाही' · DECIDED 21 Oct: D1 register"
+ },
+ "app.site_url": {
+  "mr": "साइट URL"
+ },
+ "app.sku_code_prefix_appears": {
+  "mr": "त्याचा SKU कोड प्रीफिक्स इथे दिसतो."
+ },
+ "app.sku_codes_will_read": {
+  "mr": "SKU कोड असे दिसतील …_{t}_…"
+ },
+ "app.split_faces_device": {
+  "mr": "फोनवरच बाजू वेगळ्या करा"
+ },
+ "app.splitting_360_into_six": {
+  "mr": "360 चे सहा बाजूंमध्ये विभाजन होत आहे…"
+ },
+ "app.stage_new_photos": {
+  "mr": "नवीन फोटोंचा टप्पा"
+ },
+ "app.stage_photo": {
+  "mr": "या फोटोचा टप्पा"
+ },
+ "app.stages": {
+  "mr": "टप्पे"
+ },
+ "app.starts": {
+  "mr": "सुरुवात"
+ },
+ "app.state_x_x": {
+  "mr": "state {s}{v}",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.status": {
+  "mr": "स्थिती"
+ },
+ "app.status_open": {
+  "mr": "चालू",
+  "note": "review fix 4: the project STATUS Open (a state). app.open (उघडा) stays the imperative. Kotlin: its own R.string at the Status row"
+ },
+ "app.stg_locked_quote": {
+  "mr": " · कोटेशन \"अंदाजपत्रक झाले\" वर जाईपर्यंत लॉक",
+  "note": "fix 9 (Amit, 22 Oct: STG locked during the journey); the same words as app.set_survey_work_stage (\"अंदाजपत्रक झाले\" वर) and sp.locked (लॉक)"
+ },
+ "app.storage_app": {
+  "mr": "स्टोरेज व अ‍ॅप"
+ },
+ "app.subscribed_3ab10101_status_0": {
+  "mr": "subscribed 3ab10101 (status 0)",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.subscribed_3ab10102_status_0": {
+  "mr": "subscribed 3ab10102 (status 0)",
+  "note": "diagnostic log line: kept English (inventory ambiguity 11)"
+ },
+ "app.survey_prep_can_t": {
+  "mr": "सर्व्हे तयारी हा 360 उघडू शकत नाही"
+ },
+ "app.survey_prep_squares_every": {
+  "mr": "सर्व्हे तयारी प्रत्येक पृष्ठभाग या मापांवर सरळ करते, mm मध्ये. ही मापे D2 ने घ्या."
+ },
+ "app.sync": {
+  "mr": "सिंक"
+ },
+ "app.sync_queue": {
+  "mr": "सिंक रांग"
+ },
+ "app.synced": {
+  "mr": "सिंक झाले"
+ },
+ "app.system_photo_picker_simulated": {
+  "mr": "सिस्टमचा फोटो पिकर · सिम्युलेटेड"
+ },
+ "app.tag_photo_sku": {
+  "mr": "हा फोटो SKU ला टॅग करा"
+ },
+ "app.tap_bound_square_mark": {
+  "mr": "टॅप करून खोलीची हद्द आखा, सरळ करा व मार्क करा"
+ },
+ "app.tap_change_can_corrected": {
+  "mr": "बदलण्यासाठी टॅप करा — फोटोवरही दुरुस्त करता येते"
+ },
+ "app.tap_correct_recorded": {
+  "mr": " · दुरुस्तीसाठी टॅप करा (नोंदवलेले)"
+ },
+ "app.tap_go_back_x": {
+  "mr": "{job} टप्प्यांवर परत जाण्यासाठी टॅप करा"
+ },
+ "app.tap_open_mark_up": {
+  "mr": "उघडण्यासाठी टॅप करा. खुणा करायच्या असतील तर: गॅलरीतून ImageMeter मध्ये जोडा, मग इथे \"ImageMeter मधून इम्पोर्ट करा\"."
+ },
+ "app.tap_say_what_wall": {
+  "mr": "या भिंतीला काय हवे ते सांगण्यासाठी टॅप करा"
+ },
+ "app.tap_say_what_work": {
+  "mr": "इथे कोणते काम अपेक्षित आहे ते सांगण्यासाठी टॅप करा"
+ },
+ "app.tap_show_every_stage": {
+  "mr": "मास्टरमधील प्रत्येक टप्पा दाखवण्यासाठी टॅप करा"
+ },
+ "app.this": {
+  "mr": "हे ",
+  "note": "fragment ('this '+kind) — Marathi needs gender per kind (हा प्रकल्प / ही साइट / ही खोली / हा ग्राहक); make whole keys per kind"
+ },
+ "app.tours": {
+  "mr": " टूर",
+  "note": "fragment"
+ },
+ "app.try": {
+  "mr": "करून पाहा",
+  "note": "long — snackbar action was 3 letters"
+ },
+ "app.type_carpet_length_front": {
+  "mr": "कार्पेटची लांबी (समोर→मागे) आणि रुंदी (डावी→उजवी) सुद्धा टाका, सर्वात रुंद ठिकाणी भिंत ते भिंत — खोली त्यांवरून ठरते."
+ },
+ "app.type_height_shoot_pick": {
+  "mr": "360 काढण्यापूर्वी किंवा निवडण्यापूर्वी उंची टाका — तिच्यावरून प्रत्येक एलिव्हेशनचे mm स्केल ठरते.",
+  "note": "review: draft read 'type the height to shoot, OR pick a 360' (skip the height); app.js:338 shows the height is required for both. Scale = स्केल as common.scale"
+ },
+ "app.unfiled": {
+  "mr": "फोल्डरबाहेर"
+ },
+ "app.units": {
+  "mr": "मापाचे युनिट",
+  "note": "review: register — एकके → मापाचे युनिट (row value is mm / mm · ft-in)"
+ },
+ "app.update_available": {
+  "mr": "अपडेट उपलब्ध"
+ },
+ "app.upload_wi_fi_only": {
+  "mr": "फक्त Wi-Fi वर अपलोड"
+ },
+ "app.use_site": {
+  "mr": "ही साइट वापरा"
+ },
+ "app.use_these_rooms": {
+  "mr": "या खोल्या वापरा"
+ },
+ "app.version": {
+  "mr": "आवृत्ती"
+ },
+ "app.waiting": {
+  "mr": " बाकी",
+  "note": "fragment"
+ },
+ "app.waiting_2": {
+  "mr": "बाकी"
+ },
+ "app.walls_x_floor_ceiling": {
+  "mr": "भिंती {wall}°, जमीन व छत {floor}° — प्रत्येक कोपरा फ्रेममध्ये, आणि फोटो टेपशी पडताळला जातो."
+ },
+ "app.wi_fi_only": {
+  "mr": "फक्त Wi-Fi · ",
+  "note": "fragment"
+ },
+ "app.width_left_right": {
+  "mr": "रुंदी डावी→उजवी"
+ },
+ "app.width_left_right_carpet": {
+  "mr": "रुंदी डावी→उजवी (कार्पेट कमाल)",
+  "note": "long"
+ },
+ "app.work_expected_wall_tap": {
+  "mr": "या भिंतीवर अपेक्षित काम · बदलण्यासाठी टॅप करा"
+ },
+ "app.works_no_signal": {
+  "mr": "नेटवर्कशिवाय चालते"
+ },
+ "app.works_offline_when_phone": {
+  "mr": "ऑफलाइन चालते. फोन सिंक झाल्यावर हे ERPNext मधील खरे ग्राहक, साइट आणि प्रोजेक्ट बनतात — किंवा आधीपासून असलेल्यांशी जुळतात, नावाचे स्पेलिंग कसेही असो."
+ },
+ "app.x3_connected": {
+  "mr": "X3 कनेक्ट झाला"
+ },
+ "app.x3_not_connected": {
+  "mr": "X3 कनेक्ट नाही"
+ },
+ "app.x_6_bounded_x": {
+  "mr": "6 पैकी {done} आखले · {marks} मार्क · {read} रीडिंग",
+  "note": "review: आखल्या (fem, बाजू) → आखले, as app.x_6_surfaces_bounded (पृष्ठभाग). {pl} dropped: bare English 's' suffix"
+ },
+ "app.x_6_surfaces_bounded": {
+  "mr": "6 पैकी {done} पृष्ठभाग आखले · {marks} मार्क · {read} रीडिंग · साइट रीडिंग जोडण्यासाठी टॅप करा",
+  "note": "long"
+ },
+ "app.x_face": {
+  "mr": "{code} या बाजूवर"
+ },
+ "app.x_has_not_synced": {
+  "mr": "हा {kind} अजून सिंक झालेला नाही, त्यामुळे हा बदल फक्त या फोनवर आहे. तो दुरुस्त नावानेच वर जाईल.",
+  "note": "gender agrees with kind (ही साइट / ही खोली) — whole key per kind needed"
+ },
+ "app.x_has_photos": {
+  "mr": "{r} · फोटो आहेत"
+ },
+ "app.x_laser_sizes": {
+  "mr": "{title} · लेझर मापे"
+ },
+ "app.x_master_job_type": {
+  "mr": "या कामाच्या प्रकारासाठी मास्टरमध्ये {length}"
+ },
+ "app.x_more_x_job": {
+  "mr": "{job} प्रकारात सहसा न लागणारे आणखी {hidden}",
+  "note": "review fix 6: was \"{job} कामात …\" (नवीन काम कामात)"
+ },
+ "app.x_not_shot_stage": {
+  "mr": "{pl}: या टप्प्याचे फोटो नाहीत"
+ },
+ "app.x_over_x": {
+  "mr": "{pl2} मध्ये {pl}"
+ },
+ "app.x_phone": {
+  "mr": "{v} या फोनवर"
+ },
+ "app.x_server_so_new": {
+  "mr": "हा {kind} सर्व्हरवर आहे, त्यामुळे नवीन नाव ERP आणि इतर प्रत्येक डिव्हाइसवर पोहोचते. आधीच त्याखाली ठेवलेले फोटो जागीच राहतात — फक्त नाव बदलते.",
+  "note": "gender agrees with kind — whole key per kind needed"
+ },
+ "app.x_shot": {
+  "mr": "फोटो झाले: {pl}",
+  "note": "v57: the whole chip as one template (the fragment app.shot glued \"2 खोल्या फोटो\")"
+ },
+ "app.x_site": {
+  "mr": "{client} · साइट"
+ },
+ "app.x_still_has_x": {
+  "mr": "{serverId} मध्ये अजून {caps} कॅप्चर आहेत"
+ },
+ "app.x_waiting": {
+  "mr": "{q} बाकी"
+ },
+ "app.x_waiting_upload": {
+  "mr": "{pl} अपलोड बाकी"
+ },
+ "app.x_would_abbreviate_x": {
+  "mr": "\"{n}\" चे संक्षिप्त रूप {v} होईल, जे {clash} आधीच वापरते — दुसरे नाव निवडा."
+ },
+ "app.x_x_rooms": {
+  "mr": "{length} पैकी {size} खोल्या"
+ },
+ "app.x_x_x_stages": {
+  "mr": "{heading} · {job} · {length} टप्पे"
+ },
+ "article.bed": {
+  "mr": "बेड"
+ },
+ "article.bld": {
+  "mr": "ब्लाइंड्स"
+ },
+ "article.crd": {
+  "mr": "क्रॉकरी युनिट"
+ },
+ "article.dem": {
+  "mr": "तोडकाम"
+ },
+ "article.dor": {
+  "mr": "फ्लश दरवाजा"
+ },
+ "article.drw": {
+  "mr": "ड्रॉवर सेट"
+ },
+ "article.elf": {
+  "mr": "दिवे व पंखा फिटिंग"
+ },
+ "article.elp": {
+  "mr": "इलेक्ट्रिकल पॉइंट"
+ },
+ "article.elw": {
+  "mr": "इलेक्ट्रिकल वायरिंग"
+ },
+ "article.frm": {
+  "mr": "दरवाजाची चौकट",
+  "note": "alt: डोअर फ्रेम"
+ },
+ "article.grl": {
+  "mr": "सेफ्टी ग्रिल"
+ },
+ "article.hng": {
+  "mr": "बिजागरी व हार्डवेअर"
+ },
+ "article.hvc": {
+  "mr": "HVAC / AC पाइपिंग"
+ },
+ "article.kit": {
+  "mr": "किचन खालचे युनिट",
+  "note": "long; S5 says खालची कॅबिनेट्स — alt: किचन खालचे युनिट · DECIDED 21 Oct: D1 register"
+ },
+ "article.kwl": {
+  "mr": "किचन वरचे युनिट",
+  "note": "long; S5 says वरची कॅबिनेट्स — alt: किचन वरचे युनिट · DECIDED 21 Oct: D1 register"
+ },
+ "article.lam": {
+  "mr": "लॅमिनेट पॅच"
+ },
+ "article.msh": {
+  "mr": "मच्छर जाळी"
+ },
+ "article.par": {
+  "mr": "पार्टिशन"
+ },
+ "article.pop": {
+  "mr": "POP / जिप्सम सीलिंग"
+ },
+ "article.puj": {
+  "mr": "देव्हारा",
+  "note": "alt: देव्हारा · DECIDED 21 Oct: C4 pooja"
+ },
+ "article.pvc": {
+  "mr": "PVC बाथरूम दरवाजा"
+ },
+ "article.sho": {
+  "mr": "शू रॅक"
+ },
+ "article.sht": {
+  "mr": "शटर"
+ },
+ "article.stn": {
+  "mr": "दगड व मार्बल",
+  "note": "alt: स्टोन व मार्बल"
+ },
+ "article.sto": {
+  "mr": "स्टोरेज"
+ },
+ "article.stu": {
+  "mr": "स्टडी टेबल"
+ },
+ "article.sub": {
+  "mr": "सबकॉन्ट्रॅक्ट (एकरकमी)"
+ },
+ "article.tvu": {
+  "mr": "TV युनिट"
+ },
+ "article.van": {
+  "mr": "व्हॅनिटी"
+ },
+ "article.war": {
+  "mr": "वॉर्डरोब"
+ },
+ "article.wlp": {
+  "mr": "वॉलपेपर"
+ },
+ "articlekind.build": {
+  "mr": "बनवणे",
+  "note": "alt: कारखान्यात बनवणे"
+ },
+ "articlekind.install": {
+  "mr": "बसवणे"
+ },
+ "articlekind.subcontract": {
+  "mr": "सबकॉन्ट्रॅक्ट"
+ },
+ "bundle.aria.x_five_parts_x": {
+  "mr": "पाचही भाग {v}{v2}",
+  "note": "{v} is English Hide/Show and {v2} an English fragment — rebuild as two whole templates || review fix 6: was \"{v} पाच भाग{v2}\" (दाखवा पाच भाग, English order)"
+ },
+ "bundle.not_asked": {
+  "mr": "मागितलेले नाही"
+ },
+ "bundle.parts": {
+  "mr": "भाग"
+ },
+ "bundle.parts_for": {
+  "mr": "यासाठी भाग"
+ },
+ "bundle.parts_x_x": {
+  "mr": "भाग{v} {v2}"
+ },
+ "bundle.parts_x_x_x": {
+  "mr": "भाग {of} पैकी {done} · {v}"
+ },
+ "bundle.pick_bathroom_s_room": {
+  "mr": "या बाथरूमची खोली \"कुठे लागू\" मध्ये निवडा आणि ही ओळ तिथे पाचही टिक करते"
+ },
+ "bundle.project_has_no_rooms": {
+  "mr": "या प्रोजेक्टमध्ये अजून खोल्या नाहीत"
+ },
+ "bundle.row_ticks_all_five": {
+  "mr": "ही ओळ {v} साठी पाचही टिक करते"
+ },
+ "bundle.waterproofing_tiling_are_not": {
+  "mr": "वॉटरप्रूफिंग आणि टाइलिंग S5 च्या बारा सेवांमध्ये नाहीत, म्हणून ते या फोनवरच राहतात; पूर्ण बाथरूम तरीही S5 कडे स्वतःची टिक केलेली ओळ म्हणून पोहोचते"
+ },
+ "bundle.x_plumbing_electrical_painting": {
+  "mr": "{v} · प्लंबिंग, इलेक्ट्रिकल आणि रंगकाम या ओळी 12, 1 आणि 10 आहेत · वॉटरप्रूफिंग आणि टाइलिंग या फोनवरच राहतात",
+  "note": "{v} embeds English sentences — point it at bundle.row_ticks_all_five / bundle.pick_bathroom_s_room"
+ },
+ "bundle.x_x_ticked_x": {
+  "mr": " — {v} साठी {of} पैकी {done} टिक"
+ },
+ "common.add": {
+  "mr": "जोडा"
+ },
+ "common.all": {
+  "mr": "सर्व"
+ },
+ "common.all_trades": {
+  "mr": "सर्व ट्रेड",
+  "note": "trade = काम (Electrical, Plumbing…); alt: सर्व ट्रेड · DECIDED 21 Oct: D2 trade"
+ },
+ "common.apply": {
+  "mr": "लागू करा"
+ },
+ "common.approval": {
+  "mr": "मंजुरी"
+ },
+ "common.both": {
+  "mr": "दोन्ही"
+ },
+ "common.browse": {
+  "mr": "ब्राउझ",
+  "note": "tab name; alt: यादी"
+ },
+ "common.camera": {
+  "mr": "कॅमेरा"
+ },
+ "common.cancel": {
+  "mr": "रद्द करा"
+ },
+ "common.capture_360": {
+  "mr": "360 कॅप्चर"
+ },
+ "common.captured": {
+  "mr": "कॅप्चर केले"
+ },
+ "common.chain": {
+  "mr": "साखळी",
+  "note": "dimension chain; alt: चेन"
+ },
+ "common.client": {
+  "mr": "ग्राहक"
+ },
+ "common.client_vendors": {
+  "mr": "ग्राहक व व्हेंडर"
+ },
+ "common.clients": {
+  "mr": "ग्राहक"
+ },
+ "common.close": {
+  "mr": "बंद करा"
+ },
+ "common.code": {
+  "mr": "कोड"
+ },
+ "common.cover": {
+  "mr": "कव्हर",
+  "note": "PDF cover page; alt: मुखपृष्ठ"
+ },
+ "common.delete": {
+  "mr": "हटवा"
+ },
+ "common.delete_selected_item": {
+  "mr": "निवडलेले हटवा"
+ },
+ "common.discard_360": {
+  "mr": "हा 360 टाकून द्या"
+ },
+ "common.done": {
+  "mr": "पूर्ण"
+ },
+ "common.drawing": {
+  "mr": "ड्रॉइंग"
+ },
+ "common.drawings": {
+  "mr": "ड्रॉइंग्ज"
+ },
+ "common.duplicate": {
+  "mr": "प्रत बनवा"
+ },
+ "common.estimation": {
+  "mr": "अंदाजपत्रक"
+ },
+ "common.export": {
+  "mr": "एक्सपोर्ट",
+  "note": "as S5 (Export CSV => CSV निर्यात); alt: एक्सपोर्ट · DECIDED 21 Oct: D1 register"
+ },
+ "common.export_2": {
+  "mr": "एक्सपोर्ट…"
+ },
+ "common.faces": {
+  "mr": "बाजू"
+ },
+ "common.gallery": {
+  "mr": "गॅलरी"
+ },
+ "common.help": {
+  "mr": "मदत"
+ },
+ "common.hide": {
+  "mr": "लपवा"
+ },
+ "common.image": {
+  "mr": "चित्र"
+ },
+ "common.issued": {
+  "mr": "जारी"
+ },
+ "common.keep": {
+  "mr": "ठेवा"
+ },
+ "common.legend": {
+  "mr": "खुणांचा अर्थ",
+  "note": "drawing legend; alt: खुणांचा अर्थ · DECIDED 21 Oct: C3 legend"
+ },
+ "common.line": {
+  "mr": "रेषा"
+ },
+ "common.lines": {
+  "mr": "रेषा"
+ },
+ "common.list": {
+  "mr": "यादी"
+ },
+ "common.lock": {
+  "mr": "लॉक"
+ },
+ "common.lock_all": {
+  "mr": "सर्व लॉक"
+ },
+ "common.lock_all_marks": {
+  "mr": "सर्व मार्क लॉक करा"
+ },
+ "common.locked": {
+  "mr": "लॉक केले"
+ },
+ "common.main_site": {
+  "mr": "मुख्य साइट"
+ },
+ "common.mark": {
+  "mr": "मार्क"
+ },
+ "common.marked_area": {
+  "mr": "मार्क केलेले क्षेत्रफळ"
+ },
+ "common.marked_length": {
+  "mr": "मार्क केलेली लांबी"
+ },
+ "common.measure": {
+  "mr": "मोजा"
+ },
+ "common.measured": {
+  "mr": "मोजलेले"
+ },
+ "common.more": {
+  "mr": "आणखी ▸"
+ },
+ "common.more_2": {
+  "mr": "आणखी"
+ },
+ "common.move": {
+  "mr": "हलवा"
+ },
+ "common.new_site": {
+  "mr": "नवीन साइट"
+ },
+ "common.next": {
+  "mr": "पुढे"
+ },
+ "common.no_stage_set": {
+  "mr": "टप्पा सेट नाही"
+ },
+ "common.not_set": {
+  "mr": "सेट नाही"
+ },
+ "common.nothing_saved_yet": {
+  "mr": "अजून काहीही सेव्ह नाही"
+ },
+ "common.office_only": {
+  "mr": "फक्त ऑफिस"
+ },
+ "common.pack": {
+  "mr": "पॅक"
+ },
+ "common.page": {
+  "mr": "पान"
+ },
+ "common.photo": {
+  "mr": "≈ फोटो"
+ },
+ "common.photo_2": {
+  "mr": "फोटो"
+ },
+ "common.plan": {
+  "mr": "प्लॅन"
+ },
+ "common.project": {
+  "mr": "प्रोजेक्ट",
+  "note": "as S5; alt: प्रोजेक्ट (what site staff usually say) · DECIDED 21 Oct: D1 register"
+ },
+ "common.queue": {
+  "mr": "रांग"
+ },
+ "common.quote": {
+  "mr": "कोटेशन",
+  "note": "v57: the list row joins its parts with \" · \", so \"Quote\" and the stage are two parts of it; common.quote_x is the same words as one template"
+ },
+ "common.quote_x": {
+  "mr": "कोटेशन · {quote}",
+  "note": "v56 delta. {quote} is the S5 stage name: display it through quote.* (Survey → सर्व्हे …), the stored value stays English. The app.js site is a concatenation — rewrite it as this one template"
+ },
+ "common.reading": {
+  "mr": "रीडिंग"
+ },
+ "common.ref": {
+  "mr": "संदर्भ"
+ },
+ "common.remove": {
+  "mr": "काढा"
+ },
+ "common.reset": {
+  "mr": "रीसेट"
+ },
+ "common.restore": {
+  "mr": "परत आणा"
+ },
+ "common.restored": {
+  "mr": "परत आणले ✓"
+ },
+ "common.revisions": {
+  "mr": "फेरबदल"
+ },
+ "common.room": {
+  "mr": "खोली"
+ },
+ "common.rooms": {
+  "mr": "खोल्या"
+ },
+ "common.save": {
+  "mr": "सेव्ह",
+  "note": "shortened from सेव्ह करा to fit the button"
+ },
+ "common.save_downloads": {
+  "mr": "Downloads मध्ये सेव्ह करा"
+ },
+ "common.saving": {
+  "mr": "सेव्ह होत आहे…"
+ },
+ "common.scale": {
+  "mr": "स्केल",
+  "note": "alt: प्रमाण"
+ },
+ "common.select": {
+  "mr": "निवडा"
+ },
+ "common.share": {
+  "mr": "शेअर करा"
+ },
+ "common.show": {
+  "mr": "दाखवा"
+ },
+ "common.show_all": {
+  "mr": "सर्व दाखवा"
+ },
+ "common.site": {
+  "mr": "साइट"
+ },
+ "common.start": {
+  "mr": "सुरू करा"
+ },
+ "common.start_over": {
+  "mr": "पुन्हा सुरुवात"
+ },
+ "common.state": {
+  "mr": "स्थिती"
+ },
+ "common.survey_prep": {
+  "mr": "सर्व्हे तयारी",
+  "note": "S5 client pages say सर्वेक्षण; staff say सर्व्हे — alt: सर्वेक्षण तयारी"
+ },
+ "common.sync_now": {
+  "mr": "आता सिंक"
+ },
+ "common.tape": {
+  "mr": "टेप",
+  "note": "measuring tape"
+ },
+ "common.total": {
+  "mr": "एकूण"
+ },
+ "common.trade": {
+  "mr": "ट्रेड",
+  "note": "trade (Electrical, Plumbing, Carpentry…) = कामाचा प्रकार; alt: ट्रेड · DECIDED 21 Oct: D2 trade"
+ },
+ "common.trades": {
+  "mr": "ट्रेड",
+  "note": "alt: ट्रेड · DECIDED 21 Oct: D2 trade"
+ },
+ "common.unlock": {
+  "mr": "अनलॉक"
+ },
+ "common.unlock_all_marks": {
+  "mr": "सर्व मार्क अनलॉक करा"
+ },
+ "common.unlocked": {
+  "mr": "अनलॉक केले",
+  "note": "review: state ≠ button common.unlock (अनलॉक); parallel to common.locked लॉक केले"
+ },
+ "common.vendor": {
+  "mr": "व्हेंडर",
+  "note": "as S5; long in chips — alt: व्हेंडर (shorter, and what some staff say) · DECIDED 21 Oct: D1 register"
+ },
+ "common.waiting_upload": {
+  "mr": "अपलोड बाकी"
+ },
+ "common.what": {
+  "mr": "काय"
+ },
+ "common.whole_flat": {
+  "mr": "संपूर्ण फ्लॅट"
+ },
+ "common.whole_project": {
+  "mr": "संपूर्ण प्रोजेक्ट"
+ },
+ "common.wish_list": {
+  "mr": "इच्छा-यादी",
+  "note": "alt: पसंती-यादी"
+ },
+ "common.work": {
+  "mr": "काम"
+ },
+ "common.working": {
+  "mr": "काम सुरू आहे…"
+ },
+ "date.month.1": {
+  "mr": "Jan",
+  "note": "month names translated; numbers stay 0–9 (ambiguity 10) — alt: keep Jan…Dec · DECIDED 21 Oct: D3 months"
+ },
+ "date.month.10": {
+  "mr": "Oct"
+ },
+ "date.month.11": {
+  "mr": "Nov"
+ },
+ "date.month.12": {
+  "mr": "Dec"
+ },
+ "date.month.2": {
+  "mr": "Feb"
+ },
+ "date.month.3": {
+  "mr": "Mar"
+ },
+ "date.month.4": {
+  "mr": "Apr"
+ },
+ "date.month.5": {
+  "mr": "May"
+ },
+ "date.month.6": {
+  "mr": "Jun"
+ },
+ "date.month.7": {
+  "mr": "Jul"
+ },
+ "date.month.8": {
+  "mr": "Aug"
+ },
+ "date.month.9": {
+  "mr": "Sep"
+ },
+ "demo.demo_bathroom_door": {
+  "mr": "Demo bathroom door",
+  "note": "demo names translated TOGETHER with every tour body that names them (ambiguity 5); alt: keep demo names English everywhere · DECIDED 21 Oct: C7 demo names"
+ },
+ "demo.demo_client": {
+  "mr": "Demo Client",
+  "note": "tours say 'Tap डेमो ग्राहक' — keep the two in step · DECIDED 21 Oct: C7 demo names"
+ },
+ "demo.demo_flat_interiors": {
+  "mr": "Demo flat interiors"
+ },
+ "demo.demo_office_fit_out": {
+  "mr": "Demo office fit-out"
+ },
+ "demo.demo_office_pune": {
+  "mr": "Demo Office, Pune"
+ },
+ "demo.demo_site_pune": {
+  "mr": "Demo Site, Pune"
+ },
+ "demo.kothrud": {
+  "mr": "Kothrud"
+ },
+ "demo.pune": {
+  "mr": "Pune"
+ },
+ "demo.sample_customer": {
+  "mr": "Sample Customer"
+ },
+ "demo.sample_wardrobe_repair": {
+  "mr": "Sample wardrobe repair"
+ },
+ "edge.back_edge": {
+  "mr": "मागची कडा"
+ },
+ "edge.bottom_edge": {
+  "mr": "खालची कडा"
+ },
+ "edge.ceiling_line": {
+  "mr": "छताची रेषा"
+ },
+ "edge.floor_line": {
+  "mr": "जमिनीची रेषा"
+ },
+ "edge.front_edge": {
+  "mr": "पुढची कडा"
+ },
+ "edge.left_corner": {
+  "mr": "डावा कोपरा"
+ },
+ "edge.left_edge": {
+  "mr": "डावी कडा"
+ },
+ "edge.right_corner": {
+  "mr": "उजवा कोपरा"
+ },
+ "edge.right_edge": {
+  "mr": "उजवी कडा"
+ },
+ "edge.top_edge": {
+  "mr": "वरची कडा"
+ },
+ "export.1_x_a4_drawn": {
+  "mr": "1:{sc}, A4 वर · काढले {today}"
+ },
+ "export.all_rooms": {
+  "mr": "सर्व खोल्या"
+ },
+ "export.approval_page": {
+  "mr": "मंजुरी पान"
+ },
+ "export.approval_sign": {
+  "mr": "मंजुरीसाठी · सही करण्यासाठी"
+ },
+ "export.approved_date": {
+  "mr": "मंजूर करणारे ______________________   तारीख ____________"
+ },
+ "export.aria.earlier_pages": {
+  "mr": "आधीची पाने"
+ },
+ "export.aria.format": {
+  "mr": "फॉरमॅट"
+ },
+ "export.aria.later_pages": {
+  "mr": "पुढची पाने"
+ },
+ "export.aria.move_marks": {
+  "mr": "यांचे मार्क हलवा:"
+ },
+ "export.aria.next_page": {
+  "mr": "पुढचे पान"
+ },
+ "export.aria.previous_page": {
+  "mr": "मागचे पान"
+ },
+ "export.client_no_office_notes": {
+  "mr": "ग्राहकासाठी — ऑफिसच्या नोंदी नाहीत, व्हेंडर्सची नावे नाहीत"
+ },
+ "export.client_what_vendors_approved": {
+  "mr": "ग्राहकासाठी — व्हेंडर्सनी मंजूर केलेले, सहीसाठी"
+ },
+ "export.cover": {
+  "mr": "कव्हर",
+  "note": "fix 8: the summary atom (lower case, as the English shows it); common.cover (Cover) is the same word"
+ },
+ "export.face": {
+  "mr": " · बाजू"
+ },
+ "export.figure_scope": {
+  "mr": "या स्कोपमधील आकडा",
+  "note": "feeds export.x_x_photo_not, which is reordered in Marathi · DECIDED 21 Oct: C1 scope"
+ },
+ "export.figures_scope_are": {
+  "mr": "या स्कोपमधील आकडे"
+ },
+ "export.for_a_vendor": {
+  "mr": "व्हेंडरसाठी"
+ },
+ "export.for_approval": {
+  "mr": "मंजुरीसाठी"
+ },
+ "export.for_the_client": {
+  "mr": "ग्राहकासाठी"
+ },
+ "export.for_the_office": {
+  "mr": "ऑफिससाठी"
+ },
+ "export.grey_what_trade_sees": {
+  "mr": "राखाडी: ट्रेडला दिसणारे — फक्त कोड, आकडे नाहीत"
+ },
+ "export.images": {
+  "mr": " चित्रे",
+  "note": "fragment"
+ },
+ "export.last_exports": {
+  "mr": "अलीकडील एक्सपोर्ट"
+ },
+ "export.left_out_x_faces": {
+  "mr": "एक्सपोर्टमध्ये नाही: {room} च्या बाजू — त्यांची चित्रे बनवण्यासाठी ती खोली या फोनवर उघडा",
+  "note": "review: Left out ≠ Dropped · DECIDED 21 Oct: D1 register"
+ },
+ "export.left_out_x_not": {
+  "mr": "एक्सपोर्टमध्ये नाही: {n} — या फोनवर सर्व्हे झालेला नाही",
+  "note": "review: Left out ≠ Dropped · DECIDED 21 Oct: D1 register"
+ },
+ "export.left_out_x_photos": {
+  "mr": "एक्सपोर्टमध्ये नाही: {room} — या खोलीचे फोटो या फोनवर नाहीत",
+  "note": "review: Left out ≠ Dropped; त्याचे (masc) did not agree with खोली · DECIDED 21 Oct: D1 register"
+ },
+ "export.left_out_x_x": {
+  "mr": "एक्सपोर्टमध्ये नाही: {room} · {s} — चार रेषा सेट नाहीत",
+  "note": "review: Left out ≠ Dropped; pronoun dropped — {s} is a surface of either gender · DECIDED 21 Oct: D1 register"
+ },
+ "export.left_out_x_x_2": {
+  "mr": "एक्सपोर्टमध्ये नाही: {v}{v2} — {tnMarks} मार्क नाहीत",
+  "note": "review: Left out ≠ Dropped · DECIDED 21 Oct: D1 register"
+ },
+ "export.list_x_x_x": {
+  "mr": "यादी · {name} · {tn}{v}",
+  "note": "{v} embeds English ' of ' — use export.x_x_2"
+ },
+ "export.making_x": {
+  "mr": "{name} तयार होत आहे…"
+ },
+ "export.making_x_2": {
+  "mr": "{v} तयार होत आहे…",
+  "note": "{v} embeds English ' images' — use export.images"
+ },
+ "export.marks_trade_state": {
+  "mr": "ट्रेडनुसार व स्थितीनुसार मार्क"
+ },
+ "export.more": {
+  "mr": "आणखी…"
+ },
+ "export.move_x": {
+  "mr": "{length} हलवा"
+ },
+ "export.no_marks_match": {
+  "mr": "कोणतेही मार्क जुळत नाहीत — "
+ },
+ "export.no_marks_scope": {
+  "mr": "या स्कोपमध्ये मार्क नाहीत"
+ },
+ "export.not_now": {
+  "mr": "आत्ता नाही"
+ },
+ "export.not_phone": {
+  "mr": "या फोनवर नाही: "
+ },
+ "export.not_saved_declined": {
+  "mr": "सेव्ह नाही — नाकारले"
+ },
+ "export.not_saved_x": {
+  "mr": "सेव्ह नाही ({v})",
+  "note": "{v} falls back to English 'error'"
+ },
+ "export.not_surveyed": {
+  "mr": " — सर्व्हे नाही"
+ },
+ "export.nothing_shared_project_yet": {
+  "mr": "या प्रोजेक्टमधून अजून काहीही शेअर केलेले नाही"
+ },
+ "export.office_everything_office_notes": {
+  "mr": "ऑफिससाठी — सर्व काही, ऑफिसच्या नोंदींसह"
+ },
+ "export.office_only": {
+  "mr": " · फक्त ऑफिस"
+ },
+ "export.office_scope_quantities": {
+  "mr": "ऑफिससाठी — स्कोप, प्रमाणासह"
+ },
+ "export.one_list_page": {
+  "mr": "यादीचे 1 पान",
+  "note": "review fix 6: agreement with the neuter singular; export.x_list_x stays for 2+ (यादीची 2 पाने)"
+ },
+ "export.only_when_client_has": {
+  "mr": "ग्राहकाने होकार दिल्यावरच — सही केलेली प्रत किंवा मेसेज"
+ },
+ "export.only_when_client_has_2": {
+  "mr": "ग्राहकाने होकार दिल्यावरच — सही केलेली प्रत किंवा मेसेज. पॅक {id} चे {length} {pl} \"ग्राहक मंजूर\" म्हणून नोंदवा{v}",
+  "note": "{pl} = export53's word-only plural → noun.mark"
+ },
+ "export.pack_x_x": {
+  "mr": "पॅक {id}, {v}"
+ },
+ "export.page_x_x": {
+  "mr": "पान {v} / {length}"
+ },
+ "export.page_x_x_2": {
+  "mr": "पान {v} / {n}"
+ },
+ "export.pages": {
+  "mr": "पाने"
+ },
+ "export.phone_android_s_share": {
+  "mr": " · फोनवर Android चे शेअर पॅनेल उघडते"
+ },
+ "export.photo_not_scale": {
+  "mr": "फोटो, स्केलनुसार नाही"
+ },
+ "export.photo_not_yet_measured": {
+  "mr": "≈ = फोटोवरून, अजून मोजलेले नाही · MCFT S2"
+ },
+ "export.pick_faces_drawings_list": {
+  "mr": "बाजू, ड्रॉइंग्ज किंवा यादी निवडा"
+ },
+ "export.pick_vendor_s_trades": {
+  "mr": "व्हेंडरचे ट्रेड निवडा"
+ },
+ "export.preview_only_here_phone": {
+  "mr": "इथे फक्त प्रिव्ह्यू · फोनवर हे {v} ({pages} {pl}) Downloads मध्ये सेव्ह करते, किंवा शेअर करते",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "export.quantities_estimate": {
+  "mr": "अंदाजपत्रकासाठी प्रमाण"
+ },
+ "export.record_client_s_yes": {
+  "mr": "ग्राहकाचा होकार नोंदवा…"
+ },
+ "export.record_x": {
+  "mr": "{length} नोंदवा"
+ },
+ "export.saved_x": {
+  "mr": "सेव्ह ✓ {name}"
+ },
+ "export.saved_x_x": {
+  "mr": "सेव्ह ✓ {v}{v2}",
+  "note": "{v}/{v2} embed English — use export.x_x_files and export.phone_android_s_share"
+ },
+ "export.saved_x_x_2": {
+  "mr": "{length} पैकी {saved} सेव्ह · "
+ },
+ "export.scope_estimate": {
+  "mr": "अंदाजपत्रकासाठी स्कोप"
+ },
+ "export.shared_x_vendor_move": {
+  "mr": "{who} व्हेंडरला शेअर केले? {length} \"ग्राहकाची इच्छा\" {pl} \"व्हेंडर तपासणी\" मध्ये हलवा",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "export.states": {
+  "mr": "स्थिती:"
+ },
+ "export.states_2": {
+  "mr": "स्थिती: "
+ },
+ "export.states_drawn": {
+  "mr": "काढलेल्या स्थिती"
+ },
+ "export.svg_exactly_one_drawing": {
+  "mr": "SVG फक्त एका ड्रॉइंगसाठी असते"
+ },
+ "export.this_room": {
+  "mr": "ही खोली"
+ },
+ "export.this_room_2": {
+  "mr": "ही खोली"
+ },
+ "export.this_wall": {
+  "mr": "ही भिंत"
+ },
+ "export.this_wall_2": {
+  "mr": "ही भिंत"
+ },
+ "export.totals_trade": {
+  "mr": "ट्रेडनुसार एकूण"
+ },
+ "export.trades_export": {
+  "mr": "या एक्सपोर्टमधील ट्रेड"
+ },
+ "export.types": {
+  "mr": "प्रकार: "
+ },
+ "export.vendor_their_trades_only": {
+  "mr": "व्हेंडरसाठी — फक्त त्याचे ट्रेड, ऑफिसच्या नोंदी नाहीत, ग्राहकाचे नाव नाही"
+ },
+ "export.wall_x": {
+  "mr": "ही भिंत · {wall}"
+ },
+ "export.whole_project": {
+  "mr": "संपूर्ण प्रोजेक्ट"
+ },
+ "export.x_already_moved": {
+  "mr": " · {skip} आधीच पुढे गेले"
+ },
+ "export.x_face": {
+  "mr": "{s} · बाजू"
+ },
+ "export.x_list_x": {
+  "mr": "यादीची {nl} {pl}",
+  "note": "{pl} = word-only plural of 'page' → पान / पाने"
+ },
+ "export.x_more": {
+  "mr": "+ आणखी {v}"
+ },
+ "export.x_more_notes_list": {
+  "mr": "… आणि यादीत आणखी {v} नोंदी"
+ },
+ "export.x_more_rooms_not": {
+  "mr": "+ या फोनवर नसलेल्या आणखी {v} खोल्या"
+ },
+ "export.x_moved_vendor_review": {
+  "mr": "{moved} \"व्हेंडर तपासणी\" मध्ये हलवले{r}"
+ },
+ "export.x_not_saved_open": {
+  "mr": " · {unsaved} सेव्ह नाही: {v} उघडा"
+ },
+ "export.x_pack": {
+  "mr": "{name} पॅक"
+ },
+ "export.x_photo": {
+  "mr": "{s} फोटो"
+ },
+ "export.x_recorded_client_approved": {
+  "mr": "{moved} \"ग्राहक मंजूर\" म्हणून नोंदवले{r}"
+ },
+ "export.x_skipped": {
+  "mr": " · {skipped} तसेच राहिले",
+  "note": "review: skipped ≠ Dropped (वगळले is the state life.drop)"
+ },
+ "export.x_skipped_2": {
+  "mr": " · {v} तसेच राहिले",
+  "note": "review: skipped ≠ Dropped (वगळले is the state life.drop)"
+ },
+ "export.x_survey_prep_laser": {
+  "mr": "सर्व्हे तयारीतून {what} · लेझर मापे"
+ },
+ "export.x_why_x": {
+  "mr": "{code} कारण: {why}"
+ },
+ "export.x_x": {
+  "mr": "{v} / {n}"
+ },
+ "export.x_x_2": {
+  "mr": " · {v} / {ln}"
+ },
+ "export.x_x_3": {
+  "mr": " ({v} / {ln})"
+ },
+ "export.x_x_client_approved": {
+  "mr": "{moved} {pl} → ग्राहक मंजूर{v}{r}",
+  "note": "{v} embeds English ' skipped' — use export.x_skipped_2"
+ },
+ "export.x_x_files": {
+  "mr": "{files0} … {length} फाइल्स"
+ },
+ "export.x_x_ist": {
+  "mr": "{v}, {v2} IST",
+  "note": "{v} comes from toLocaleDateString('en-GB') — keep en-GB (mr-IN would print Devanagari digits) and swap the month from date.month.*"
+ },
+ "export.x_x_photo_not": {
+  "mr": "{v}: {approx} ≈ फोटोवरून, अजून मोजमाप नाही",
+  "note": "review: 'मोजलेले नाहीत' (plural) disagreed with the singular आकडा; मोजमाप नाही fits both. {v} (या व्याप्तीतील आकडा/आकडे) comes first"
+ },
+ "export.x_x_vendor_review": {
+  "mr": "{moved} {pl} → व्हेंडर तपासणी{v}{r}",
+  "note": "{v} embeds English ' skipped' · DECIDED 21 Oct: D1 register"
+ },
+ "export.x_x_vendors_approved": {
+  "mr": "व्हेंडर्सनी मंजूर केलेले किंवा जोडलेले {length} {pl}, या आधीच्या पानांवर"
+ },
+ "fb.aria.remove_screenshot_x": {
+  "mr": "स्क्रीनशॉट {n} काढा"
+ },
+ "fb.aria.screenshot_send": {
+  "mr": "पाठवायचा स्क्रीनशॉट",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.aria.what_should_change_which": {
+  "mr": "काय बदलायला हवे, आणि कोणत्या स्क्रीनवर?",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.checking": {
+  "mr": "तपासत आहे…",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.claude_reads_next_check": {
+  "mr": " — Claude पुढच्या तपासणीला ते वाचेल (दर तासाला, 06:00–23:00 IST) आणि इथे वाचले अशी खूण करेल.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.db_feedback_x": {
+  "mr": "\n(db feedback/{did})",
+  "note": "machine reference in the message Claude reads — kept English"
+ },
+ "fb.did_not_read_back": {
+  "mr": "परत वाचता आले नाही",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.earlier_feedback_could_not": {
+  "mr": "आधीचा फीडबॅक वाचता आला नाही: {v}",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.feedback_claude": {
+  "mr": "Claude साठी फीडबॅक",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.ist": {
+  "mr": " IST",
+  "note": "time-zone suffix — kept"
+ },
+ "fb.max_screenshots": {
+  "mr": "एका नोंदीत जास्तीत जास्त 6 स्क्रीनशॉट."
+ },
+ "fb.not_saved": {
+  "mr": "सेव्ह नाही: ",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.note_still_box_press": {
+  "mr": " — नोंद अजून बॉक्समध्ये आहे; पुन्हा दाबा.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.paste_screenshot_ctrl_v": {
+  "mr": "स्क्रीनशॉट पेस्ट करा (Ctrl/⌘+V), इथे टाका, किंवा फाइल निवडा.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.paste_screenshots_add": {
+  "mr": "स्क्रीनशॉट पेस्ट करा (Ctrl/⌘+V), इथे टाका, किंवा फाइल निवडा. प्रत्येक नवीन जोडला जातो; आधीचा बदलत नाही."
+ },
+ "fb.prototype_feedback_s2_apk": {
+  "mr": "Prototype feedback, S2 APK mock-up {v}, saved {v2}:\n",
+  "note": "header of the message Claude reads — kept English"
+ },
+ "fb.read_claude_x": {
+  "mr": "Claude ने वाचले · {v}",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.save_send_claude": {
+  "mr": "सेव्ह करा व Claude ला पाठवा",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.saved": {
+  "mr": "सेव्ह ✓ ",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.saved_claude_reads_next": {
+  "mr": "सेव्ह · Claude पुढच्या तासाच्या तपासणीला वाचेल",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.saved_feedback_newest_first": {
+  "mr": "सेव्ह केलेला फीडबॅक, नवीन आधी{html}",
+  "note": "prototype-only; {html} embeds English 'waiting for Claude' — use fb.x_waiting_claude"
+ },
+ "fb.saved_sent_claude_answer": {
+  "mr": "सेव्ह करून Claude ला पाठवले ✓ — उत्तर त्याच कमेंट थ्रेडमध्ये येईल.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.screenshot": {
+  "mr": "स्क्रीनशॉट",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.screenshot_asset_x": {
+  "mr": "\nScreenshot: asset {id}",
+  "note": "machine reference in the message Claude reads — kept English"
+ },
+ "fb.screenshot_only": {
+  "mr": "(फक्त स्क्रीनशॉट)",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.screenshots_assets_x": {
+  "mr": "\nScreenshots: assets {ids}"
+ },
+ "fb.sending_claude": {
+  "mr": " — Claude ला पाठवत आहे…",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.sent_claude_waiting_read": {
+  "mr": "Claude ला पाठवले · वाचण्याची वाट",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.use_png_jpeg_webp": {
+  "mr": "PNG, JPEG, WebP किंवा GIF स्क्रीनशॉट वापरा.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "fb.x_screenshots_ready": {
+  "mr": "{n} स्क्रीनशॉट तयार — आणखी जोडा, किंवा Save दाबा"
+ },
+ "fb.x_waiting_claude": {
+  "mr": "· {waiting} Claude च्या वाचनाची वाट",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "help.each_tour_opens_demo": {
+  "mr": "प्रत्येक टूर डेमो फ्लॅट उघडते (Demo Client · गेस्ट बेडरूम), कुठे टॅप करायचे ते उजळवते आणि तुम्हाला ते करू देते. पुढे जाण्यासाठी \"पुढे\" दाबा; थांबण्यासाठी \"टूर वगळा\" किंवा ◁. टूर संपल्यावर सर्व काही पूर्वीसारखे होते."
+ },
+ "help.row": {
+  "mr": "मदत · मार्गदर्शक टूर"
+ },
+ "help.subtitle": {
+  "mr": "मार्गदर्शक टूर · डेमो फ्लॅटवर"
+ },
+ "help.tour.aria": {
+  "mr": "मार्गदर्शक टूर"
+ },
+ "help.tour.mode.do": {
+  "mr": "करून पाहा"
+ },
+ "help.tour.mode.look": {
+  "mr": "फक्त पाहा"
+ },
+ "help.tour.skip": {
+  "mr": "टूर वगळा"
+ },
+ "job.new_work": {
+  "mr": "नवीन काम"
+ },
+ "job.repair": {
+  "mr": "दुरुस्ती",
+  "note": "same Marathi as the client-wish act Repair — no split needed"
+ },
+ "job.supply_install": {
+  "mr": "पुरवठा व बसवणे"
+ },
+ "life.a_note_on_this": {
+  "mr": "या ",
+  "note": "fragment ('A note on this '+length/area) — whole keys needed: 'या लांबीवर नोंद' / 'या क्षेत्रफळावर नोंद'"
+ },
+ "life.after_estimate_tell_office": {
+  "mr": "अंदाजपत्रकानंतर — ऑफिसला कळवा"
+ },
+ "life.all_x_vendor_side": {
+  "mr": "व्हेंडरकडचे सर्व {vside} मार्क मंजूर — S5 वरचा टप्पा \"व्हेंडरचे कोटेशन\" वर जाऊ शकतो",
+  "note": "{pl} dropped (bare 's'); long · DECIDED 21 Oct: D1 register"
+ },
+ "life.all_x_vendor_side_2": {
+  "mr": "ग्राहकाने व्हेंडरकडचे सर्व {vside} मार्क मंजूर केले — S5 वरचा टप्पा \"ग्राहक मंजूर\" वर जाऊ शकतो",
+  "note": "{pl} dropped (bare 's'); long · DECIDED 21 Oct: D1 register"
+ },
+ "life.area": {
+  "mr": "क्षेत्रफळ",
+  "note": "fragment — see life.a_note_on_this"
+ },
+ "life.aria.mark_sheet": {
+  "mr": "मार्क तपशील",
+  "note": "UI 'sheet' is a panel, NOT शीट (glossary clash 8); alt: मार्क पॅनेल"
+ },
+ "life.aria.marks_are_placed_x": {
+  "mr": "या फेजमध्ये मार्क {v} ठेवले जातात"
+ },
+ "life.aria.open_mark_sheet_x": {
+  "mr": "{code} चा मार्क तपशील उघडा",
+  "note": "review fix 6: was \"{code} ची मार्क शीट उघडा\" -- the sheet is मार्क तपशील everywhere else"
+ },
+ "life.aria.place_marks_x_tap": {
+  "mr": "मार्क {v} ठेवा — बदलण्यासाठी टॅप करा"
+ },
+ "life.back_existing": {
+  "mr": "← परत \"सध्याचे\" कडे"
+ },
+ "life.cleared_x_item_x": {
+  "mr": "{n} आयटम काढले · {v}",
+  "note": "{pl} dropped (bare 's')"
+ },
+ "life.client_approved": {
+  "mr": "→ ग्राहक मंजूर"
+ },
+ "life.client_changes": {
+  "mr": "ग्राहकाला बदल हवा"
+ },
+ "life.client_wants_changed": {
+  "mr": "ग्राहकाला यात बदल हवा आहे"
+ },
+ "life.client_wish": {
+  "mr": "→ ग्राहकाची इच्छा",
+  "note": "long — state button"
+ },
+ "life.client_wish_2": {
+  "mr": "← ग्राहकाची इच्छा",
+  "note": "long — state button"
+ },
+ "life.cok": {
+  "mr": "ग्राहक मंजूर",
+  "note": "same words as quote stage Client approved — no split needed"
+ },
+ "life.cok.short": {
+  "mr": "ग्रा. मंजूर",
+  "note": "long — re-measure in its slot"
+ },
+ "life.decided_x": {
+  "mr": " · ठरवणारे: {v}",
+  "note": "{v} from AS_WORDS (life.the_client / the_surveyor / the_vendor)"
+ },
+ "life.drop": {
+  "mr": "वगळले",
+  "note": "alt: रद्द"
+ },
+ "life.dropped": {
+  "mr": "→ वगळले"
+ },
+ "life.every_approved_mark_scope": {
+  "mr": "मंजूर झालेले सर्व मार्क स्कोपमध्ये आहेत — अंदाजपत्रकासाठी तयार"
+ },
+ "life.exist": {
+  "mr": "सध्याचे"
+ },
+ "life.export": {
+  "mr": "⇪ एक्सपोर्ट"
+ },
+ "life.length": {
+  "mr": "लांबी",
+  "note": "fragment — see life.a_note_on_this"
+ },
+ "life.marks": {
+  "mr": "मार्क: "
+ },
+ "life.move_x": {
+  "mr": "{mv} हलवा ▸"
+ },
+ "life.move_x_x_mark": {
+  "mr": "{length} {v} मार्क हलवा",
+  "note": "{pl} dropped (bare 's')"
+ },
+ "life.msg.empty_note_removed": {
+  "mr": "रिकामी नोंद काढली"
+ },
+ "life.msg.export_export_sheet_opens": {
+  "mr": "एक्सपोर्ट — एक्सपोर्ट पॅनेल इथे उघडते"
+ },
+ "life.msg.nothing_moved_x_skipped": {
+  "mr": "काहीही हलवले नाही · {k} तसेच राहिले",
+  "note": "review: skipped ≠ Dropped (वगळले is the state life.drop)"
+ },
+ "life.msg.x_restored_x": {
+  "mr": "{code} पुन्हा \"{v}\" मध्ये आणले"
+ },
+ "life.no_marks_match_x": {
+  "mr": "कोणतेही मार्क जुळत नाहीत{v}"
+ },
+ "life.not_mark": {
+  "mr": "मार्क नाही"
+ },
+ "life.note": {
+  "mr": "नोंद"
+ },
+ "life.note_has_no_state": {
+  "mr": "नोंदीला स्थिती नसते"
+ },
+ "life.note_mark_optional": {
+  "mr": "या मार्कवर नोंद (ऐच्छिक)"
+ },
+ "life.on_this_phone": {
+  "mr": "या फोनवर"
+ },
+ "life.out_scope": {
+  "mr": "← स्कोपबाहेर"
+ },
+ "life.quote_stage_not_read": {
+  "mr": "कोटेशनचा टप्पा अजून वाचलेला नाही — ऑनलाइन आल्यावर S5 ठरवते"
+ },
+ "life.replace": {
+  "mr": "बदला"
+ },
+ "life.restore": {
+  "mr": "↺ परत आणा"
+ },
+ "life.scope": {
+  "mr": "स्कोप",
+  "note": "life state 'Scope' = in the scope of work (S5: Move out of scope => कामाबाहेर हलवा) · DECIDED 21 Oct: C1 scope"
+ },
+ "life.scope_2": {
+  "mr": "→ स्कोप"
+ },
+ "life.shift": {
+  "mr": "हलवा"
+ },
+ "life.show_marks_state": {
+  "mr": "या स्थितीतील मार्क दाखवा"
+ },
+ "life.since_x_x_ist": {
+  "mr": "{day}, {hm} IST पासून"
+ },
+ "life.state_x": {
+  "mr": "स्थिती: {lab} ▾"
+ },
+ "life.the_client": {
+  "mr": "ग्राहक"
+ },
+ "life.the_surveyor": {
+  "mr": "सर्व्हेयर",
+  "note": "alt: सर्व्हे करणारे"
+ },
+ "life.the_vendor": {
+  "mr": "व्हेंडर"
+ },
+ "life.to_x": {
+  "mr": "{v} कडे"
+ },
+ "life.trade": {
+  "mr": "ट्रेड"
+ },
+ "life.trade_x": {
+  "mr": "ट्रेड · {code}"
+ },
+ "life.vadd": {
+  "mr": "व्हेंडरने जोडले",
+  "note": "long — state chip/button · DECIDED 21 Oct: D1 register"
+ },
+ "life.vadd.short": {
+  "mr": "व्हें. जोडले",
+  "note": "long — re-measure in its slot · DECIDED 21 Oct: D1 register"
+ },
+ "life.vendor_added": {
+  "mr": "← व्हेंडरने जोडले",
+  "note": "long — state button · DECIDED 21 Oct: D1 register"
+ },
+ "life.vendor_approved": {
+  "mr": "→ व्हेंडर मंजूर"
+ },
+ "life.vendor_asks_change": {
+  "mr": "व्हेंडरला बदल हवा"
+ },
+ "life.vendor_cannot_do": {
+  "mr": "व्हेंडरला हे जमत नाही"
+ },
+ "life.vendor_review": {
+  "mr": "→ व्हेंडर तपासणी",
+  "note": "long — state button · DECIDED 21 Oct: D1 register"
+ },
+ "life.vok": {
+  "mr": "व्हेंडर मंजूर"
+ },
+ "life.vok.short": {
+  "mr": "व्हें. मंजूर",
+  "note": "long — re-measure in its slot · DECIDED 21 Oct: D1 register"
+ },
+ "life.vrev": {
+  "mr": "व्हेंडर तपासणी",
+  "note": "long — state chip; alt: कंत्राटदाराकडे · DECIDED 21 Oct: D1 register"
+ },
+ "life.vrev.short": {
+  "mr": "व्हें. तपासणी",
+  "note": "long — re-measure in its slot · DECIDED 21 Oct: D1 register"
+ },
+ "life.what_should_office_vendor": {
+  "mr": "ऑफिस किंवा व्हेंडरला इथे काय कळायला हवे?"
+ },
+ "life.why_least_3_characters": {
+  "mr": "का? — किमान 3 अक्षरे"
+ },
+ "life.wish": {
+  "mr": "ग्राहकाची इच्छा",
+  "note": "long — state chip; alt: ग्राहकाची पसंती"
+ },
+ "life.x_item_x_cleared": {
+  "mr": "{n} आयटम काढले",
+  "note": "{pl} dropped (bare 's')"
+ },
+ "life.x_locked_kept": {
+  "mr": "{lockedKept} लॉक केलेले ठेवले"
+ },
+ "life.x_locked_only_note": {
+  "mr": "{code} लॉक आहे — फक्त त्याची नोंद बदलता येते"
+ },
+ "life.x_mark_x_past": {
+  "mr": "\"सध्याचे\" च्या पुढे गेलेले {pastKept} मार्क ठेवले — ते एकेक करून वगळा",
+  "note": "{pl} dropped (bare 's')"
+ },
+ "life.x_mark_x_past_2": {
+  "mr": "\"सध्याचे\" च्या पुढे गेलेले {n} मार्क ठेवले — ते एकेक करून वगळा",
+  "note": "{pl} dropped (bare 's')"
+ },
+ "life.x_moved": {
+  "mr": "{n} हलवले"
+ },
+ "life.x_moved_x_skipped": {
+  "mr": "{n} हलवले · {k} तसेच राहिले",
+  "note": "review: skipped ≠ Dropped (वगळले is the state life.drop)"
+ },
+ "life.x_scope_mark_x": {
+  "mr": "स्कोपमधील {n} मार्क लॉक राहतात",
+  "note": "{pl} and {pl2} dropped (English noun/verb agreement) · DECIDED 21 Oct: C1 scope"
+ },
+ "life.x_show_dropped_x": {
+  "mr": "{v}वगळलेले दाखवा{v2}"
+ },
+ "life.x_states": {
+  "mr": "{length} स्थिती"
+ },
+ "life.x_x": {
+  "mr": "{length} पैकी {ok}"
+ },
+ "measure.back_wall": {
+  "mr": "मागच्या भिंतीपासून"
+ },
+ "measure.depth_front_back": {
+  "mr": "डेप्थ, समोर–मागे",
+  "note": "depth = डेप्थ (what staff say); खोली would read as 'room' on these screens"
+ },
+ "measure.depth_into_wall": {
+  "mr": "भिंतीत आत डेप्थ",
+  "note": "S5 says भिंतीत आत गेलेले अंतर (longer)"
+ },
+ "measure.depth_wall": {
+  "mr": "भिंतीपासून डेप्थ",
+  "note": "depth = डेप्थ (what staff say); खोली would read as 'room' on these screens"
+ },
+ "measure.drop_below_ceiling": {
+  "mr": "छतापासून खाली",
+  "note": "alt: छताखाली ड्रॉप"
+ },
+ "measure.drop_below_slab": {
+  "mr": "स्लॅबपासून खाली"
+ },
+ "measure.from_ceiling": {
+  "mr": "छतापासून"
+ },
+ "measure.from_floor": {
+  "mr": "जमिनीपासून"
+ },
+ "measure.front_wall": {
+  "mr": "समोरच्या भिंतीपासून"
+ },
+ "measure.height": {
+  "mr": "उंची"
+ },
+ "measure.left_corner": {
+  "mr": "डाव्या कोपऱ्यापासून"
+ },
+ "measure.left_wall": {
+  "mr": "डाव्या भिंतीपासून"
+ },
+ "measure.loft_depth": {
+  "mr": "लॉफ्टची डेप्थ",
+  "note": "depth = डेप्थ (what staff say); खोली would read as 'room' on these screens"
+ },
+ "measure.loft_height": {
+  "mr": "लॉफ्टची उंची"
+ },
+ "measure.perimeter": {
+  "mr": "परिमिती"
+ },
+ "measure.projection_wall": {
+  "mr": "भिंतीपासून पुढे आलेले"
+ },
+ "measure.reveal_depth": {
+  "mr": "रिव्हील डेप्थ",
+  "note": "window/door reveal; alt: चौकटीतील भिंतीची जाडी"
+ },
+ "measure.right_corner": {
+  "mr": "उजव्या कोपऱ्यापासून"
+ },
+ "measure.right_wall": {
+  "mr": "उजव्या भिंतीपासून"
+ },
+ "measure.sill_floor": {
+  "mr": "सिल, जमिनीपासून"
+ },
+ "measure.to_centre": {
+  "mr": ", मध्यापर्यंत"
+ },
+ "measure.total": {
+  "mr": "एकूण"
+ },
+ "measure.track_length": {
+  "mr": "ट्रॅकची लांबी"
+ },
+ "measure.underside_floor": {
+  "mr": "खालची बाजू, जमिनीपासून"
+ },
+ "measure.width": {
+  "mr": "रुंदी"
+ },
+ "measure.width_left_right": {
+  "mr": "रुंदी, डावी–उजवी"
+ },
+ "noun.capture": {
+  "mr": "कॅप्चर",
+  "note": "plural: कॅप्चर"
+ },
+ "noun.capture.other": {
+  "mr": "कॅप्चर",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.client": {
+  "mr": "ग्राहक"
+ },
+ "noun.client.other": {
+  "mr": "ग्राहक",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.day": {
+  "mr": "दिवस",
+  "note": "plural: दिवस"
+ },
+ "noun.day.other": {
+  "mr": "दिवस",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.drawing": {
+  "mr": "ड्रॉइंग",
+  "note": "plural: ड्रॉइंग्ज"
+ },
+ "noun.drawing.other": {
+  "mr": "ड्रॉइंग",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.face": {
+  "mr": "बाजू",
+  "note": "plural: बाजू"
+ },
+ "noun.face.other": {
+  "mr": "बाजू",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.item": {
+  "mr": "आयटम",
+  "note": "plural: आयटम"
+ },
+ "noun.item.other": {
+  "mr": "आयटम",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.mark": {
+  "mr": "मार्क",
+  "note": "plural: मार्क"
+ },
+ "noun.mark.other": {
+  "mr": "मार्क",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.note": {
+  "mr": "नोंद",
+  "note": "plural: नोंदी"
+ },
+ "noun.note.other": {
+  "mr": "नोंदी",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.page": {
+  "mr": "पान",
+  "note": "plural: पाने"
+ },
+ "noun.page.other": {
+  "mr": "पाने",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.photo": {
+  "mr": "फोटो",
+  "note": "plural: फोटो"
+ },
+ "noun.photo.other": {
+  "mr": "फोटो",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.point": {
+  "mr": "पॉइंट",
+  "note": "plural: पॉइंट"
+ },
+ "noun.point.other": {
+  "mr": "पॉइंट",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.project": {
+  "mr": "प्रोजेक्ट"
+ },
+ "noun.project.other": {
+  "mr": "प्रोजेक्ट",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.room": {
+  "mr": "खोली",
+  "note": "plural: खोल्या"
+ },
+ "noun.room.other": {
+  "mr": "खोल्या",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.service": {
+  "mr": "सेवा",
+  "note": "plural: सेवा"
+ },
+ "noun.service.other": {
+  "mr": "सेवा",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.site": {
+  "mr": "साइट"
+ },
+ "noun.site.other": {
+  "mr": "साइट",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.state": {
+  "mr": "स्थिती"
+ },
+ "noun.state.other": {
+  "mr": "स्थिती",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.surveyed_room": {
+  "mr": "सर्व्हे झालेली खोली",
+  "note": "plural: सर्व्हे झालेल्या खोल्या"
+ },
+ "noun.surveyed_room.other": {
+  "mr": "सर्व्हे झालेल्या खोल्या",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.type": {
+  "mr": "प्रकार"
+ },
+ "noun.type.other": {
+  "mr": "प्रकार",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.wish_mark": {
+  "mr": "इच्छा मार्क",
+  "note": "plural: इच्छा मार्क"
+ },
+ "noun.wish_mark.other": {
+  "mr": "इच्छा मार्क",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "noun.wished_mark": {
+  "mr": "इच्छित मार्क",
+  "note": "plural: इच्छित मार्क"
+ },
+ "noun.wished_mark.other": {
+  "mr": "इच्छित मार्क",
+  "note": "v57: the plural (CLDR \"other\") form; Android <plurals> quantity=\"other\""
+ },
+ "part.bundle_name": {
+  "mr": "बाथरूम नूतनीकरण — पूर्ण"
+ },
+ "part.plumbing": {
+  "mr": "प्लंबिंग पॉइंट व सॅनिटरी फिटिंग"
+ },
+ "part.waterproofing": {
+  "mr": "वॉटरप्रूफिंग"
+ },
+ "phase.approved_chip": {
+  "mr": "मंजूर"
+ },
+ "phase.aria.approved_fold": {
+  "mr": "ग्राहक मंजूर — अंमलबजावणी मध्ये. घडी करण्यासाठी टॅप करा"
+ },
+ "phase.aria.move_phase_back": {
+  "mr": "फेज मागे न्या"
+ },
+ "phase.aria.phase_project": {
+  "mr": "या प्रोजेक्टची फेज"
+ },
+ "phase.aria.phase_x_4_x": {
+  "mr": "फेज {n}/5: {name}{v}",
+  "note": "{v} is English ' (now)' — supply ' (सध्या)'"
+ },
+ "phase.aria.quote_journey_done": {
+  "mr": "कोटेशनचे टप्पे पूर्ण — अंमलबजावणी मध्ये"
+ },
+ "phase.aria.quote_stage_estimated_four": {
+  "mr": "कोटेशनचा टप्पा \"ग्राहक मंजूर\": पाचही फेज पूर्ण आणि ग्राहकाने मंजूर केले. पाहण्यासाठी टॅप करा"
+ },
+ "phase.back_x_quote_stage": {
+  "mr": "{name} वर परत जायचे? S5 वरचा कोटेशनचा टप्पा {quote} वरून {quote2} वर परत जातो."
+ },
+ "phase.band.estimation": {
+  "mr": "सुपूर्द · फक्त वाचन · नवीन काहीही मार्क होत नाही"
+ },
+ "phase.band.survey": {
+  "mr": "कॅप्चर · हद्द · जे आहे ते मार्क · रीडिंग"
+ },
+ "phase.band.vendor": {
+  "mr": "ट्रेड · व्हेंडर पॅक · नवीन मार्क = व्हेंडरने जोडले",
+  "note": "long · DECIDED 21 Oct: D1 register, D2 trade"
+ },
+ "phase.band.wish": {
+  "mr": "तुम्ही ठेवलेला प्रत्येक मार्क ग्राहकाची इच्छा असतो"
+ },
+ "phase.capture_bound_walls_mark": {
+  "mr": "कॅप्चर · भिंतींची हद्द आखा · जे आहे ते मार्क करा"
+ },
+ "phase.capture_room_bound_walls": {
+  "mr": "खोली कॅप्चर करा, 1 · रेषा मध्ये भिंतींची हद्द आखा, जे आहे ते मार्क करा, रीडिंग घ्या"
+ },
+ "phase.every_mark_stays_tools": {
+  "mr": "प्रत्येक मार्क राहतो; साधने फेजनुसार बदलतात."
+ },
+ "phase.every_room_scope_shot": {
+  "mr": "स्कोपमधील प्रत्येक खोलीचे फोटो झाले"
+ },
+ "phase.goes_estimation": {
+  "mr": "अंदाजपत्रकाकडे जाते"
+ },
+ "phase.hand_off_estimate_nothing": {
+  "mr": "अंदाजपत्रकाकडे सुपूर्द · नवीन काही नाही"
+ },
+ "phase.hand_off_what_goes": {
+  "mr": "सुपूर्द: अंदाजपत्रकाकडे काय जाते — नवीन काहीही मार्क होत नाही"
+ },
+ "phase.keep_x": {
+  "mr": "{name} ठेवा"
+ },
+ "phase.move_back": {
+  "mr": "मागे न्या"
+ },
+ "phase.no_wished_marks_yet": {
+  "mr": "अजून इच्छित मार्क नाहीत — इच्छा-यादी फेजमध्ये ते मार्क होतात"
+ },
+ "phase.now": {
+  "mr": " (आता)"
+ },
+ "phase.phase_not_read_yet": {
+  "mr": "फेज अजून वाचलेली नाही — ऑनलाइन आल्यावर S5 ठरवते"
+ },
+ "phase.phase_x_4_x": {
+  "mr": "फेज {n}/5: {name} — {band}. फेज प्रोजेक्टच्या स्क्रीनवर पुढे सरकते."
+ },
+ "phase.scope_estimate": {
+  "mr": "अंदाजपत्रकासाठी स्कोप ⇪"
+ },
+ "phase.survey_coverage": {
+  "mr": "सर्व्हे कव्हरेज"
+ },
+ "phase.tap_view": {
+  "mr": "पाहण्यासाठी टॅप करा",
+  "note": "v56 delta; long next to \"कोटेशन · अंदाजपत्रक झाले\" in the one-line chip — measure at 360 dp"
+ },
+ "phase.this": {
+  "mr": "ही",
+  "note": "fragment ('This' + phase) — feminine, agrees with फेज"
+ },
+ "phase.trades_vendor_packs_made": {
+  "mr": "ट्रेड आणि व्हेंडर पॅक, इच्छा-यादी फेजमधील इच्छांवरून बनवलेले: प्रत्येक पॅक त्याच्या ट्रेडचे इच्छित मार्क घेतो"
+ },
+ "phase.trades_vendor_packs_wishes": {
+  "mr": "ट्रेड आणि व्हेंडर पॅक, इच्छांवरून"
+ },
+ "phase.vendor_packs": {
+  "mr": "व्हेंडर पॅक"
+ },
+ "phase.walk_client_through_mark": {
+  "mr": "ग्राहकाला सोबत फिरवा: इच्छा मार्क करा"
+ },
+ "phase.walk_client_through_mark_2": {
+  "mr": "ग्राहकाला सोबत फिरवा: इच्छा मार्क करा, इच्छा-यादीत प्रत्येक खोलीच्या सेवांवर टिक करा"
+ },
+ "phase.x_client_approved_not": {
+  "mr": "{cok} ग्राहक-मंजूर, अजून स्कोपमध्ये नाहीत"
+ },
+ "phase.x_not_shot_yet": {
+  "mr": "{pl}: अजून फोटो नाहीत",
+  "note": "v56 delta. Same shape as app.x_not_shot_stage, which this row replaces in the journey"
+ },
+ "phase.x_scope": {
+  "mr": "{pl} स्कोपमध्ये",
+  "note": "{pl} = phase54 plural phrase ('3 marks') → '3 मार्क' via noun.mark · DECIDED 21 Oct: C1 scope"
+ },
+ "phase.x_still_client_vendor": {
+  "mr": "{open} अजून ग्राहक किंवा व्हेंडरकडे"
+ },
+ "phase.x_surveyed": {
+  "mr": "सर्व्हे झाले: {pl}",
+  "note": "reordered; {pl} = '3 खोल्या' via noun.room"
+ },
+ "phase.x_wish_list": {
+  "mr": "इच्छा-यादीत {pl}"
+ },
+ "phase.x_x_shot": {
+  "mr": "{pl} पैकी {n} चे फोटो झाले",
+  "note": "v56 delta. {pl} = noun.room phrase (\"3 खोल्या\"); order as app.x_x_rooms"
+ },
+ "plan.aria.floor_plan_arrange_x": {
+  "mr": "फ्लोअर प्लॅन: {title} च्या {pl} मांडा"
+ },
+ "plan.aria.floor_plan_x_drag": {
+  "mr": "{title} चा फ्लोअर प्लॅन: खोली हलवण्यासाठी ओढा, झूमसाठी दोन बोटे, कागद सरकवण्यासाठी ओढा"
+ },
+ "plan.back_start_row_every": {
+  "mr": "सुरुवातीच्या ओळीवर परत जायचे? सर्व जागा आणि वळणे जातील."
+ },
+ "plan.fit": {
+  "mr": "बसवा"
+ },
+ "plan.floor_plan_x": {
+  "mr": "फ्लोअर प्लॅन · {title}"
+ },
+ "plan.loft_suffix": {
+  "mr": " लॉफ्ट"
+ },
+ "plan.no_room_size": {
+  "mr": " (खोलीचा आकार नाही)"
+ },
+ "plan.not_surveyed_yet_x": {
+  "mr": "अजून सर्व्हे नाही ({nn}): {v}"
+ },
+ "plan.reset_layout": {
+  "mr": "मांडणी रीसेट",
+  "note": "shortened to fit the button"
+ },
+ "plan.stage_1_hand_door": {
+  "mr": "टप्पा 1 — हाताने; दरवाजे जुळवणे नंतर येईल"
+ },
+ "plan.turn_x_quarter_turn": {
+  "mr": "{room} घड्याळाच्या दिशेने पाव वळण फिरवा"
+ },
+ "plan.turned_x": {
+  "mr": " · {rot}° फिरवले"
+ },
+ "plan.x_drag_move_pinch": {
+  "mr": "{pl} · हलवण्यासाठी ओढा · झूमसाठी दोन बोटे"
+ },
+ "plan.x_overlap": {
+  "mr": "{v} एकमेकांवर येतात",
+  "note": "{v} joins pairs with English ' and ' — supply ' व '"
+ },
+ "plan.x_surveyed_x": {
+  "mr": "सर्व्हे झाले: {v} पैकी {pl}",
+  "note": "reordered"
+ },
+ "quote.client_wish_list": {
+  "mr": "ग्राहकाची इच्छा-यादी",
+  "note": "long — five-step stepper on 360 dp; alt: इच्छा-यादी"
+ },
+ "quote.estimated": {
+  "mr": "अंदाजपत्रक झाले",
+  "note": "long — five-step stepper on 360 dp; alt: अंदाज झाला"
+ },
+ "quote.survey": {
+  "mr": "सर्व्हे",
+  "note": "same Survey word is used for quote stage, phase, work phase and pack — one Marathi word fits all, no split needed"
+ },
+ "quote.vendor_quoted": {
+  "mr": "व्हेंडरचे कोटेशन",
+  "note": "long — five-step stepper on 360 dp; alt: कोटेशन आले · DECIDED 21 Oct: D1 register"
+ },
+ "refuse.export.drawing_not_available": {
+  "mr": "ड्रॉइंग उपलब्ध नाही"
+ },
+ "refuse.export.nothing_export_no_marks": {
+  "mr": "एक्सपोर्टसाठी काही नाही — कोणतेही मार्क जुळत नाहीत"
+ },
+ "refuse.export.phone_saves_x_downloads": {
+  "mr": "फोनवर हे {name} Downloads मध्ये सेव्ह करते (आणि शेअरचा पर्याय देते). इथे सेव्ह करता येत नाही — वरचे पॅनेल त्यात काय असेल ते दाखवते.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "refuse.fb.feedback_needs_published_page": {
+  "mr": "फीडबॅकसाठी प्रकाशित पान लागते (इथे उपलब्ध नाही)",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "refuse.life.finish_survey_first_stage": {
+  "mr": "आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो"
+ },
+ "refuse.life.no_move": {
+  "mr": "इथून हलवता येत नाही: ",
+  "note": "fragment ('No move from '+name) — use the whole template refuse.phase.no_move_x"
+ },
+ "refuse.life.note_needs_words_type": {
+  "mr": "नोंदीत शब्द हवेत — ते टाइप करा, किंवा नोंद हटवा"
+ },
+ "refuse.life.x_scope_take_out": {
+  "mr": "{code} स्कोपमध्ये आहे — त्याच्या तपशीलात \"स्कोपबाहेर\" करा"
+ },
+ "refuse.life.x_x_cannot_move": {
+  "mr": "{code}: {v} वरून {v2} वर जाता येत नाही"
+ },
+ "refuse.lines_first": {
+  "mr": "आधी या पृष्ठभागाच्या रेषा सेट करा"
+ },
+ "refuse.lines_locked": {
+  "mr": "रेषा लॉक आहेत — आधी अनलॉक करा"
+ },
+ "refuse.locked_unlock_first": {
+  "mr": "{code} लॉक आहे — आधी अनलॉक करा"
+ },
+ "refuse.locked_unlock_move": {
+  "mr": "{code} लॉक आहे — हलवण्यासाठी अनलॉक करा"
+ },
+ "refuse.lwh.range": {
+  "mr": "300 ते 30000 mm"
+ },
+ "refuse.phase.clearing_locking_every_mark": {
+  "mr": "सर्व मार्क काढणे आणि लॉक करणे हे सर्व्हेचे साधन आहे — वापरण्यासाठी फेज मागे न्या"
+ },
+ "refuse.phase.no_move_x": {
+  "mr": "{name} वरून हलवता येत नाही"
+ },
+ "refuse.phase.start_over_survey_tool": {
+  "mr": "पुन्हा सुरुवात हे सर्व्हेचे साधन आहे — वापरण्यासाठी फेज मागे न्या",
+  "note": "common.start_over + the wording of refuse.phase.clearing_locking_every_mark"
+ },
+ "refuse.phase.x_estimation_changes_nothing": {
+  "mr": "{code} · अंदाजपत्रक फेजमध्ये काहीही बदलता येत नाही — प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या",
+  "note": "review: बदलत नाही (nothing changes) → बदलता येत नाही (nothing can be changed) · DECIDED 21 Oct: D1 register"
+ },
+ "refuse.phase.x_estimation_moves_nothing": {
+  "mr": "{name} · अंदाजपत्रक फेजमध्ये काहीही हलवता येत नाही — प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या",
+  "note": "review: हलत नाही → हलवता येत नाही · DECIDED 21 Oct: D1 register"
+ },
+ "refuse.phase.x_next_move_vendor": {
+  "mr": "{name} · पुढचे पाऊल \"व्हेंडर तपासणी\" मध्ये आहे"
+ },
+ "refuse.phase.x_was_marked_x": {
+  "mr": "{code} {v} मध्ये मार्क झाला होता — बदलण्यासाठी फेज मागे न्या"
+ },
+ "refuse.phase.x_wish_marked_wish": {
+  "mr": "{name} · इच्छा \"इच्छा-यादी\" फेजमध्ये मार्क होते"
+ },
+ "refuse.plan.no_room_has_survey": {
+  "mr": "अजून कोणत्याही खोलीची सर्व्हे तयारी नाही — आधी खोलीचा 360 आणि त्याची सर्व्हे तयारी उघडा"
+ },
+ "refuse.plan.nothing_arrange_yet": {
+  "mr": "अजून मांडण्यासारखे काही नाही"
+ },
+ "refuse.readonly.readings": {
+  "mr": "रीडिंग सर्व्हे फेजमध्ये घेतले जातात — रीडिंग टाकण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या"
+ },
+ "refuse.readonly.wishlist": {
+  "mr": "अंदाजपत्रक — इच्छा-यादी फक्त वाचण्यासाठी आहे; बदलण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या"
+ },
+ "refuse.sp.chain_needs_two_different": {
+  "mr": "साखळीसाठी दोन वेगवेगळे पॉइंट हवेत"
+ },
+ "refuse.sp.chain_needs_two_points": {
+  "mr": "साखळीसाठी दोन किंवा जास्त पॉइंट हवेत"
+ },
+ "refuse.sp.finish_chain_x_first": {
+  "mr": "आधी साखळी पूर्ण करा ({v}) — ✓ किंवा डबल टॅप",
+  "note": "review: name in brackets, no postposition on a surface name; {v} = surface name, map to surface.*"
+ },
+ "refuse.sp.off_surface_nothing_will": {
+  "mr": "या पृष्ठभागाबाहेर — काहीही प्लॉट होणार नाही"
+ },
+ "refuse.sp.only_things_surface_measure": {
+  "mr": "फक्त या पृष्ठभागावरच्या गोष्टीच बरोबर मोजल्या जातात."
+ },
+ "refuse.sp.phone_saves_x_x": {
+  "mr": "फोनवर हे {name}.{k} — {v} — Downloads मध्ये सेव्ह करते (आणि शेअरचा पर्याय देते). प्रोटोटाइप फाइल सेव्ह करू शकत नाही — हे पॅनेल त्यात काय असेल ते दाखवते.",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "refuse.sp.tap_measurement_first": {
+  "mr": "आधी एखाद्या मापावर टॅप करा"
+ },
+ "refuse.sp.these_four_lines_do": {
+  "mr": "या चार रेषांनी अजून बंद आकार बनत नाही — आधी त्या ओढा",
+  "note": "three near-duplicates (ambiguity 13) — harmonise before translating twice"
+ },
+ "refuse.sp.these_four_lines_do_2": {
+  "mr": "या चार रेषांनी अजून बंद आकार बनत नाही"
+ },
+ "refuse.sp.these_four_lines_do_3": {
+  "mr": "या चार रेषांनी बंद आकार बनत नाही."
+ },
+ "refuse.sp.x_locked_nothing_clear": {
+  "mr": "{v} लॉक — काढण्यासारखे काही नाही"
+ },
+ "refuse.sp.x_outside_face_edit": {
+  "mr": "{code} बाजूच्या बाहेर आहे: बदला किंवा हटवा"
+ },
+ "refuse.sp.x_reference_locked_unlock": {
+  "mr": "{s} संदर्भ लॉक आहे — आधी अनलॉक करा"
+ },
+ "refuse.t53.x_x_cannot_go": {
+  "mr": "{a} {name} {v} लावता येत नाही",
+  "note": "review: {v} now carries वर itself (छतावर / जमिनीवर / भिंतीवर); {a} is the English article — supply ''"
+ },
+ "refuse.t53.x_x_goes_ceiling": {
+  "mr": "{a} {name} फक्त छतावरच लावता येईल",
+  "note": "review: लागतो was masculine whatever {name} is; येईल does not inflect for gender. {a} — supply ''"
+ },
+ "refuse.v360.x_cannot_go_x": {
+  "mr": "{surfName}: इथे {n} लावता येत नाही",
+  "note": "review: avoids 'समोरील भिंत वर' (needs oblique भिंतीवर); {surfName} must come from surface.* in Marathi"
+ },
+ "refuse.wish.finish_survey_first_stage": {
+  "mr": "आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो"
+ },
+ "role.designer": {
+  "mr": "डिझायनर"
+ },
+ "role.project_manager": {
+  "mr": "प्रोजेक्ट मॅनेजर"
+ },
+ "room.balcony": {
+  "mr": "बाल्कनी"
+ },
+ "room.bathroom": {
+  "mr": "बाथरूम"
+ },
+ "room.bedroom_4": {
+  "mr": "बेडरूम 4",
+  "note": "as S5 (Bedroom => शयनकक्ष); alt: बेडरूम 4 — what staff say · DECIDED 21 Oct: D1 register"
+ },
+ "room.bedroom_5": {
+  "mr": "बेडरूम 5"
+ },
+ "room.car_porch": {
+  "mr": "कार पोर्च"
+ },
+ "room.dining_room": {
+  "mr": "डायनिंग"
+ },
+ "room.dry_balcony": {
+  "mr": "ड्राय बाल्कनी"
+ },
+ "room.family_lounge": {
+  "mr": "फॅमिली लाउंज"
+ },
+ "room.foyer": {
+  "mr": "फोयर",
+  "note": "as S5; alt: फोयर · DECIDED 21 Oct: D1 register"
+ },
+ "room.garden": {
+  "mr": "बाग"
+ },
+ "room.guest_bedroom": {
+  "mr": "गेस्ट बेडरूम"
+ },
+ "room.home_theatre": {
+  "mr": "होम थिएटर"
+ },
+ "room.kids_bedroom": {
+  "mr": "मुलांची बेडरूम"
+ },
+ "room.kitchen": {
+  "mr": "किचन",
+  "note": "as S5; alt: किचन · DECIDED 21 Oct: D1 register"
+ },
+ "room.living_room": {
+  "mr": "हॉल",
+  "note": "as S5; alt: हॉल — what staff say · DECIDED 21 Oct: D1 register"
+ },
+ "room.master_bedroom": {
+  "mr": "मास्टर बेडरूम"
+ },
+ "room.master_bedroom_balcony": {
+  "mr": "मास्टर बेडरूम बाल्कनी",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "room.mb_balcony_garden": {
+  "mr": "मास्टर बेडरूम बाल्कनी बाग",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "room.passage": {
+  "mr": "पॅसेज"
+ },
+ "room.pooja_room": {
+  "mr": "देवघर"
+ },
+ "room.servant_room": {
+  "mr": "सर्व्हंट रूम",
+  "note": "alt: नोकरांची खोली"
+ },
+ "room.staircase": {
+  "mr": "जिना"
+ },
+ "room.store": {
+  "mr": "स्टोअर"
+ },
+ "room.study": {
+  "mr": "स्टडी"
+ },
+ "room.terrace": {
+  "mr": "टेरेस"
+ },
+ "room.toilet_1": {
+  "mr": "टॉयलेट 1"
+ },
+ "room.toilet_2": {
+  "mr": "टॉयलेट 2"
+ },
+ "room.toilet_3": {
+  "mr": "टॉयलेट 3"
+ },
+ "room.toilet_4": {
+  "mr": "टॉयलेट 4"
+ },
+ "room.toilet_5": {
+  "mr": "टॉयलेट 5"
+ },
+ "room.utility": {
+  "mr": "युटिलिटी"
+ },
+ "site.bungalow": {
+  "mr": "बंगला"
+ },
+ "site.flat": {
+  "mr": "फ्लॅट"
+ },
+ "site.office": {
+  "mr": "ऑफिस"
+ },
+ "site.row_house": {
+  "mr": "रो हाउस"
+ },
+ "site.shop": {
+  "mr": "दुकान"
+ },
+ "sp.1_x_a4_drawn": {
+  "mr": "1:{sc}, A4 वर · काढले {today}"
+ },
+ "sp.all_four_lines_placed": {
+  "mr": "चारही रेषा ठेवल्या — 2 · मार्क वर जा. "
+ },
+ "sp.along_face_x_mm": {
+  "mr": "↔ बाजूवर आडवे · {n} mm"
+ },
+ "sp.aria.back_select": {
+  "mr": "परत \"निवडा\" वर"
+ },
+ "sp.aria.close_legend": {
+  "mr": "खुणांचा अर्थ बंद करा"
+ },
+ "sp.aria.delete_x": {
+  "mr": "{code} हटवा"
+ },
+ "sp.aria.end_chain": {
+  "mr": "साखळी संपवा"
+ },
+ "sp.aria.face_surface_again": {
+  "mr": "या पृष्ठभागाकडे पुन्हा वळा"
+ },
+ "sp.aria.h_floor_ceiling_mm": {
+  "mr": "H, जमीन ते छत, mm"
+ },
+ "sp.aria.kind_x_tap_change": {
+  "mr": "प्रकार: {nm} — बदलण्यासाठी टॅप करा"
+ },
+ "sp.aria.l_front_back_mm": {
+  "mr": "L, समोर ते मागे, mm"
+ },
+ "sp.aria.laser_sizes_l_front": {
+  "mr": "लेझर मापे: L समोर→मागे · W डावी→उजवी · H जमीन→छत (बदलण्यासाठी टॅप करा; ही सूचना पाहण्यासाठी दाबून धरा)",
+  "note": "L/W/H letters kept as codes"
+ },
+ "sp.aria.lock_x": {
+  "mr": "{what} लॉक करा",
+  "note": "v57: {what} is a mark code or a surface name"
+ },
+ "sp.aria.more_status_start_over": {
+  "mr": "आणखी: स्थिती, पुन्हा सुरुवात, टाकून द्या"
+ },
+ "sp.aria.plane_grid": {
+  "mr": "पृष्ठभागाची ग्रिड",
+  "note": "geometric plane, NOT रंधा (glossary clash 8); alt: प्रतल ग्रिड"
+ },
+ "sp.aria.room_size": {
+  "mr": "खोलीचा आकार"
+ },
+ "sp.aria.show_faces": {
+  "mr": "बाजूंवर दाखवा"
+ },
+ "sp.aria.simulated_no_web_readings": {
+  "mr": "सिम्युलेटेड: प्रोटोटाइपमध्ये वेबवरून रीडिंग नाहीत",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "sp.aria.simulated_no_web_upload": {
+  "mr": "सिम्युलेटेड: प्रोटोटाइपमध्ये वेब अपलोड नाही",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "sp.aria.tools": {
+  "mr": "साधने"
+ },
+ "sp.aria.undo": {
+  "mr": "मागे घ्या"
+ },
+ "sp.aria.unlock_x": {
+  "mr": "{what} अनलॉक करा"
+ },
+ "sp.aria.w_left_right_mm": {
+  "mr": "W, डावी ते उजवी, mm"
+ },
+ "sp.aria.x_x_s_four": {
+  "mr": "{v2}: चार रेषा {v}",
+  "note": "review: name-first; {v} must become लॉक करा / अनलॉक करा, {v2} a surface.* name"
+ },
+ "sp.at_left_corner": {
+  "mr": "डाव्या कोपऱ्यात",
+  "note": "review fix 6: sp.x_corner gave डावीकडे कोपऱ्यात"
+ },
+ "sp.at_right_corner": {
+  "mr": "उजव्या कोपऱ्यात",
+  "note": "review fix 6: sp.x_corner gave उजवीकडे कोपऱ्यात"
+ },
+ "sp.beam": {
+  "mr": " बीम",
+  "note": "fragment"
+ },
+ "sp.beam_over": {
+  "mr": " वर बीम",
+  "note": "fragment"
+ },
+ "sp.bottom": {
+  "mr": " तळ",
+  "note": "fragment"
+ },
+ "sp.chain": {
+  "mr": " साखळी",
+  "note": "fragment"
+ },
+ "sp.chain_x_tap_points": {
+  "mr": "साखळी · {pl}पृष्ठभागावर पॉइंट टॅप करा, संपवण्यासाठी डबल टॅप किंवा ✓",
+  "note": "{pl} builds English 'n point(s) · ' — rebuild as 'n पॉइंट · '"
+ },
+ "sp.chain_x_x_part": {
+  "mr": "साखळी · {dir} · {n} भाग{v}",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.clear_surface": {
+  "mr": "हा पृष्ठभाग रिकामा करा…"
+ },
+ "sp.clear_surface_x": {
+  "mr": "हा पृष्ठभाग रिकामा करा… ({nS})"
+ },
+ "sp.clear_whole_room": {
+  "mr": "संपूर्ण खोली रिकामी करा…",
+  "note": "long — overflow-menu row"
+ },
+ "sp.clear_whole_room_x": {
+  "mr": "संपूर्ण खोली रिकामी करा… ({nR})"
+ },
+ "sp.cleared_x_item_x": {
+  "mr": "{n} आयटम काढले, {kept} लॉक केलेले ठेवले",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.client_vendor_sees": {
+  "mr": "ग्राहक किंवा व्हेंडरला दिसते तसे"
+ },
+ "sp.colour_x": {
+  "mr": "रंगीत{v}",
+  "note": "{v} embeds English — use sp.grey_what_sees_codes"
+ },
+ "sp.corner": {
+  "mr": "कोपरा"
+ },
+ "sp.delete_x": {
+  "mr": "{label} हटवा"
+ },
+ "sp.derived": {
+  "mr": "हिशोबाने"
+ },
+ "sp.diagonal_face_x_mm": {
+  "mr": "बाजूवर तिरके · {n} mm"
+ },
+ "sp.differs_x_x_mm": {
+  "mr": " · {v} / {v2} mm फरक"
+ },
+ "sp.dimension_chain": {
+  "mr": "मापांची साखळी"
+ },
+ "sp.drag_four_cyan_corners": {
+  "mr": "चारही आकाशी कोपरे या पृष्ठभागावरच्या एखाद्या आयतावर ओढा, मग त्याची रुंदी आणि उंची टाका"
+ },
+ "sp.edges_laser": {
+  "mr": "कडा · लेझर"
+ },
+ "sp.engineer_s_sheet_x": {
+  "mr": "इंजिनिअरचा तक्ता: {marks} मार्क, {items} मापे, {v} रीडिंग. ",
+  "note": "{pl}/{pl2} dropped; 'sheet' = a report here, not शीट — तक्ता"
+ },
+ "sp.every_mark_type_x": {
+  "mr": "प्रत्येक मार्क प्रकार · {T}"
+ },
+ "sp.export": {
+  "mr": "एक्सपोर्ट · "
+ },
+ "sp.export_plan": {
+  "mr": "प्लॅन एक्सपोर्ट ·"
+ },
+ "sp.fit": {
+  "mr": "बसवा"
+ },
+ "sp.fit_x": {
+  "mr": "बसवा · {v}%"
+ },
+ "sp.front": {
+  "mr": "समोर"
+ },
+ "sp.front_back_x_x": {
+  "mr": "↕ समोर–मागे {w} · {n} mm"
+ },
+ "sp.gb_guest_bedroom_survey": {
+  "mr": "GB · गेस्ट बेडरूम · सर्व्हे तयारी"
+ },
+ "sp.grey_what_sees_codes": {
+  "mr": " · राखाडी: त्याला दिसणारे, फक्त कोड ({length})"
+ },
+ "sp.grey_what_trade_sees": {
+  "mr": " · राखाडी: ट्रेडला दिसणारे, फक्त कोड"
+ },
+ "sp.grid": {
+  "mr": "ग्रिड"
+ },
+ "sp.laser_d2_readings_room": {
+  "mr": "खोलीच्या कॅप्चरवेळचे लेझर D2 रीडिंग, mm मध्ये. बदलण्यासाठी आकाराच्या ओळीवर टॅप करा."
+ },
+ "sp.laser_suffix": {
+  "mr": " लेझर"
+ },
+ "sp.left": {
+  "mr": " डावीकडे",
+  "note": "fragment"
+ },
+ "sp.left_right_x_x": {
+  "mr": "↔ डावी–उजवी {w} · {n} mm"
+ },
+ "sp.legend_x": {
+  "mr": "खुणांचा अर्थ · {view}"
+ },
+ "sp.line_area_x_corner": {
+  "mr": "रेषा · क्षेत्र · कोपरे {length} · संपवण्यासाठी डबल टॅप",
+  "note": "{pl} dropped; number put after the noun so कोपरा/कोपरे needs no agreement"
+ },
+ "sp.line_drag_marked_length": {
+  "mr": "रेषा · ओढा = मार्क केलेली लांबी · कोपरे टॅप करा = क्षेत्र"
+ },
+ "sp.line_marks": {
+  "mr": "रेषा मार्क"
+ },
+ "sp.loading": {
+  "mr": "लोड होत आहे…"
+ },
+ "sp.locked": {
+  "mr": "लॉक"
+ },
+ "sp.locked_tap_unlock": {
+  "mr": "लॉक — अनलॉकसाठी टॅप करा"
+ },
+ "sp.loft_over": {
+  "mr": " वर लॉफ्ट",
+  "note": "fragment"
+ },
+ "sp.lwh.axes": {
+  "mr": "L समोर→मागे · W डावी→उजवी · H जमीन→छत"
+ },
+ "sp.lwh.hint": {
+  "mr": "लेझर मापे: L समोर→मागे · W डावी→उजवी · H जमीन→छत"
+ },
+ "sp.lwh.title": {
+  "mr": "खोलीचा आकार · mm"
+ },
+ "sp.marked_area": {
+  "mr": " मार्क केलेले क्षेत्रफळ"
+ },
+ "sp.marked_area_x": {
+  "mr": "मार्क केलेले क्षेत्रफळ · {v}"
+ },
+ "sp.marked_length": {
+  "mr": " मार्क केलेली लांबी"
+ },
+ "sp.measured_x_x_x": {
+  "mr": "मोजले {ta} {A} × {tb} {B} · लेझर {LS0} × {LS1}"
+ },
+ "sp.mi_a3_360_780": {
+  "mr": "Mi A3 · 360 × 780 dp",
+  "note": "device frame label — prototype-only — no APK equivalent"
+ },
+ "sp.mi_a3_x_dp": {
+  "mr": "Mi A3 · {v} dp",
+  "note": "device frame label — prototype-only — no APK equivalent"
+ },
+ "sp.move": {
+  "mr": "हलवा"
+ },
+ "sp.msg.export_export_sheet_opens": {
+  "mr": "एक्सपोर्ट — एक्सपोर्ट पॅनेल इथे उघडते"
+ },
+ "sp.msg.not_saved": {
+  "mr": "सेव्ह नाही: "
+ },
+ "sp.msg.not_saved_did_not": {
+  "mr": "सेव्ह नाही: परत वाचता आले नाही"
+ },
+ "sp.msg.not_saving": {
+  "mr": "सेव्ह होत नाही: "
+ },
+ "sp.msg.not_saving_no_storage": {
+  "mr": "सेव्ह होत नाही: या व्ह्यूमध्ये स्टोरेज नाही"
+ },
+ "sp.msg.reference_stays_hide_eye": {
+  "mr": "संदर्भ राहतो — 1 · रेषा मध्ये डोळ्याच्या चिन्हाने लपवा"
+ },
+ "sp.msg.saved": {
+  "mr": "सेव्ह ✓ "
+ },
+ "sp.msg.started_over_x": {
+  "mr": "पुन्हा सुरुवात — {v}"
+ },
+ "sp.msg.started_over_x_locked": {
+  "mr": "पुन्हा सुरुवात — {kept} लॉक केलेले ठेवले"
+ },
+ "sp.msg.tap_inside_x_place": {
+  "mr": "{v}: ठेवण्यासाठी आत टॅप करा",
+  "note": "review: name-first, no postposition on a surface name; {v} = surface name, map to surface.*"
+ },
+ "sp.msg.tape_drag_along_face": {
+  "mr": "टेप: बाहेर ओढण्यासाठी बाजूवरून ओढा"
+ },
+ "sp.msg.x_deleted": {
+  "mr": "{code} हटवले"
+ },
+ "sp.msg.x_x_item_x": {
+  "mr": "{v} {length} आयटम · {v2}",
+  "note": "{v} is an English word chosen in code (Lock/Unlock, left/right, on/off…) — map it to Marathi first; {pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.new_360_keeps_room": {
+  "mr": "नवीन 360 — ← ते खोलीत ठेवते, आणि त्याच्या रेषा व मार्क आपोआप सेव्ह होत जातात."
+ },
+ "sp.no_marks_yet_add": {
+  "mr": "अजून मार्क नाहीत — 2 · मार्क मध्ये जोडा"
+ },
+ "sp.no_reading_box_tape": {
+  "mr": "रीडिंग बॉक्स नाही: टेपचा आकडा फोटोवरून येतो. D2 किंवा कीबोर्डने घेतलेले रीडिंग रेषेवर जाते."
+ },
+ "sp.no_x_marks_here": {
+  "mr": "इथे {short} मार्क नाहीत"
+ },
+ "sp.notes": {
+  "mr": "नोंदी: "
+ },
+ "sp.nothing_room_clear": {
+  "mr": "खोलीत काढण्यासारखे काही नाही"
+ },
+ "sp.nothing_surface_clear": {
+  "mr": "या पृष्ठभागावर काढण्यासारखे काही नाही"
+ },
+ "sp.off": {
+  "mr": "बंद"
+ },
+ "sp.office_only_notes_shown": {
+  "mr": "फक्त-ऑफिस नोंदी दाखवल्या"
+ },
+ "sp.office_view_x": {
+  "mr": "ऑफिस व्ह्यू: {v}",
+  "note": "{v} is English on/off — use sp.on / sp.off"
+ },
+ "sp.on": {
+  "mr": "चालू"
+ },
+ "sp.on_the_ceiling": {
+  "mr": "छतावर"
+ },
+ "sp.on_the_floor": {
+  "mr": "जमिनीवर"
+ },
+ "sp.photo_lc": {
+  "mr": "फोटो"
+ },
+ "sp.photo_not_yet_measured": {
+  "mr": "≈ = फोटोवरून, अजून मोजलेले नाही · MCFT S2"
+ },
+ "sp.place_x": {
+  "mr": "ठेवा: {v}. "
+ },
+ "sp.placing": {
+  "mr": "ठेवत आहे:",
+  "note": "v57: the chip is split by the sub-kind button (\"Placing [Wash basin ▾] · tap the photo\"), so its two halves are keys of their own"
+ },
+ "sp.placing_x_tap_x": {
+  "mr": "{v} ठेवत आहे · {v2} वर टॅप करा",
+  "note": "{v2} is English '360'/'photo' — map 'photo' to फोटो"
+ },
+ "sp.plan": {
+  "mr": "_plan",
+  "note": "file-name suffix — kept"
+ },
+ "sp.point": {
+  "mr": " पॉइंट",
+  "note": "fragment"
+ },
+ "sp.readings_web": {
+  "mr": "वेबवरून रीडिंग ✓ "
+ },
+ "sp.ref_x_x": {
+  "mr": "संदर्भ {v} × {v2}"
+ },
+ "sp.reference": {
+  "mr": "संदर्भ ▭"
+ },
+ "sp.reference_2": {
+  "mr": " संदर्भ"
+ },
+ "sp.reference_hidden_faces_still": {
+  "mr": "बाजूंवर संदर्भ लपवला — तरीही तो {v} सरळ करतो",
+  "note": "{v} = lowercased English surface name"
+ },
+ "sp.reference_shown_2_mark": {
+  "mr": "संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर दिसतो"
+ },
+ "sp.right": {
+  "mr": " उजवीकडे",
+  "note": "fragment"
+ },
+ "sp.room_size_l_x": {
+  "mr": "खोलीचा आकार: L {L}, W {W}, H {H} mm. बदलण्यासाठी टॅप करा"
+ },
+ "sp.room_size_l_x_2": {
+  "mr": "खोलीचा आकार L {z0} · W {z1} · H {z2} mm"
+ },
+ "sp.save": {
+  "mr": "✓ सेव्ह"
+ },
+ "sp.save.aria": {
+  "mr": "सर्व्हे तयारी सेव्ह करा"
+ },
+ "sp.segment": {
+  "mr": "भाग ",
+  "note": "fragment"
+ },
+ "sp.show_faces_reference_2": {
+  "mr": "बाजूंवर दाखवा: संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर"
+ },
+ "sp.showing": {
+  "mr": "दाखवत आहे"
+ },
+ "sp.shown_x_fit_window": {
+  "mr": " · ही विंडो बसवण्यासाठी {v}% वर दाखवले",
+  "note": "prototype-only — no APK equivalent"
+ },
+ "sp.site_only": {
+  "mr": "फक्त साइट"
+ },
+ "sp.size_from": {
+  "mr": "आकार इथून"
+ },
+ "sp.states": {
+  "mr": "स्थिती"
+ },
+ "sp.states_2": {
+  "mr": "स्थिती: "
+ },
+ "sp.survey_prep": {
+  "mr": " · सर्व्हे तयारी"
+ },
+ "sp.tap_360_frag": {
+  "mr": "· 360 वर टॅप करा"
+ },
+ "sp.tap_again_clear_every": {
+  "mr": "प्रत्येक रेषा, मार्क आणि रीडिंग काढण्यासाठी पुन्हा टॅप करा"
+ },
+ "sp.tap_again_clear_x": {
+  "mr": "{nS} आयटम काढण्यासाठी पुन्हा टॅप करा",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.tap_again_clear_x_2": {
+  "mr": "{nR} आयटम काढण्यासाठी पुन्हा टॅप करा",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.tap_again_discard_360": {
+  "mr": "हा 360 टाकून देण्यासाठी पुन्हा टॅप करा — काहीही ठेवले जात नाही"
+ },
+ "sp.tap_photo_frag": {
+  "mr": "· फोटोवर टॅप करा"
+ },
+ "sp.tape_drag_along_face": {
+  "mr": "टेप · बाजूवरून ओढा · लांबी फोटोवरून मिळते"
+ },
+ "sp.tape_suffix": {
+  "mr": " टेप"
+ },
+ "sp.tape_x_mm": {
+  "mr": "टेप · {v} mm"
+ },
+ "sp.tape_x_mm_photo": {
+  "mr": "टेप · {v} mm · फोटोवरून"
+ },
+ "sp.the": {
+  "mr": "",
+  "note": "fragment: English article 'the ' — empty in Marathi"
+ },
+ "sp.this_360": {
+  "mr": "हा 360"
+ },
+ "sp.toolchip.as_existing": {
+  "mr": "सध्याचे म्हणून"
+ },
+ "sp.toolchip.as_vadd": {
+  "mr": "व्हेंडरने जोडले म्हणून",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "sp.toolchip.as_wish": {
+  "mr": "ग्राहकाची इच्छा म्हणून",
+  "note": "long — tool chip"
+ },
+ "sp.top": {
+  "mr": " वर",
+  "note": "fragment"
+ },
+ "sp.trades": {
+  "mr": "ट्रेड: "
+ },
+ "sp.types": {
+  "mr": "प्रकार"
+ },
+ "sp.unlocked_tap_lock": {
+  "mr": "अनलॉक — लॉकसाठी टॅप करा"
+ },
+ "sp.up_face_x_mm": {
+  "mr": "↕ बाजूवर उभे · {n} mm"
+ },
+ "sp.x_6_surfaces_bounded": {
+  "mr": "6 पैकी {done} पृष्ठभाग आखले. सेव्हसाठी सहाही लागतात; मार्क आणि रीडिंगमुळे ते कधीच अडत नाही."
+ },
+ "sp.x_all_x": {
+  "mr": "{v} सर्व {name}",
+  "note": "{v} is an English word chosen in code (Lock/Unlock, left/right, on/off…) — map it to Marathi first"
+ },
+ "sp.x_corner": {
+  "mr": "{v} कोपऱ्यात",
+  "note": "{v} is an English word chosen in code (Lock/Unlock, left/right, on/off…) — map it to Marathi first (left/right → डाव्या/उजव्या)"
+ },
+ "sp.x_from_left_corner": {
+  "mr": "डाव्या कोपऱ्यापासून {t}",
+  "note": "review fix 6: whole template per side (sp.x_x_corner gave डावीकडे कोपऱ्यापासून); same form as measure.left_corner"
+ },
+ "sp.x_from_right_corner": {
+  "mr": "उजव्या कोपऱ्यापासून {t}",
+  "note": "review fix 6: whole template per side; same form as measure.right_corner"
+ },
+ "sp.x_general": {
+  "mr": "{gen} सामान्य"
+ },
+ "sp.x_grey": {
+  "mr": "{length} राखाडी"
+ },
+ "sp.x_item_x_cleared": {
+  "mr": "{n} आयटम काढले",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.x_kind": {
+  "mr": "{v} · प्रकार"
+ },
+ "sp.x_lines_locked": {
+  "mr": "{s} रेषा लॉक"
+ },
+ "sp.x_lines_unlocked": {
+  "mr": "{s} रेषा अनलॉक"
+ },
+ "sp.x_locked_x": {
+  "mr": "{v}: {nl} लॉक",
+  "note": "review: name-first, no postposition on a surface name; {v} = surface name, map to surface.*"
+ },
+ "sp.x_more": {
+  "mr": " (+आणखी {v})"
+ },
+ "sp.x_more_3_list": {
+  "mr": "… आणखी {more} 3 · यादी मध्ये"
+ },
+ "sp.x_outside_face_more": {
+  "mr": "{code} बाजूच्या बाहेर आहे: बदला किंवा हटवा (+{n} आणखी)"
+ },
+ "sp.x_reference": {
+  "mr": "{s} संदर्भ"
+ },
+ "sp.x_set_four_lines": {
+  "mr": "{listS} · सरळ दिसण्यासाठी 1 · रेषा मध्ये चार रेषा सेट करा",
+  "note": "review: त्याच्या dropped — {listS} is a surface of either gender"
+ },
+ "sp.x_set_four_lines_2": {
+  "mr": "{T} · चार रेषा सेट करा",
+  "note": "review: त्याच्या dropped — {T} is a surface of either gender"
+ },
+ "sp.x_survey_prep_laser": {
+  "mr": "सर्व्हे तयारीतून {V} · लेझर मापे"
+ },
+ "sp.x_unlocked_x": {
+  "mr": "{v2}: {v} अनलॉक",
+  "note": "review: name-first, no postposition on a surface name; {v2} = surface name, map to surface.*"
+ },
+ "sp.x_x_corner": {
+  "mr": "{v} कोपऱ्यापासून {t}",
+  "note": "{v} is an English word chosen in code (Lock/Unlock, left/right, on/off…) — map it to Marathi first (left/right → डाव्या/उजव्या)"
+ },
+ "sp.x_x_mark_x": {
+  "mr": "{T}: {length} मार्क, {v} मापे. ",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
+ },
+ "sp.x_x_x_x": {
+  "mr": "{v} · {A} × {B} · {n} मार्क",
+  "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many); {v} strips English ' wall' by regex — use surface.*.short"
+ },
+ "stage.built_site_measure": {
+  "mr": "साइटचे प्रत्यक्ष मोजमाप"
+ },
+ "stage.cove_profile_light": {
+  "mr": "कोव्ह व प्रोफाइल-लाइट खाचा"
+ },
+ "stage.data_network_cctv": {
+  "mr": "डेटा, नेटवर्क व CCTV कंड्युइट"
+ },
+ "stage.deep_clean": {
+  "mr": "डीप क्लीनिंग"
+ },
+ "stage.defect_recorded": {
+  "mr": "दोष नोंदवला"
+ },
+ "stage.demolition_debris_removal": {
+  "mr": "तोडकाम व राडारोडा उचलणे"
+ },
+ "stage.door_window_frames": {
+  "mr": "दरवाजा व खिडकीच्या चौकटी",
+  "note": "(chowkat) dropped — चौकट IS the Marathi word"
+ },
+ "stage.doors_shutters_hardware": {
+  "mr": "दरवाजे, शटर व हार्डवेअर",
+  "note": "shutter = शटर as S5"
+ },
+ "stage.electrical_first_fix": {
+  "mr": "इलेक्ट्रिकल फर्स्ट फिक्स — कंड्युइट व वायरिंग",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा; long"
+ },
+ "stage.electrical_second_fix": {
+  "mr": "इलेक्ट्रिकल सेकंड फिक्स — स्विच व पॉइंट",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा; long"
+ },
+ "stage.existing_condition_builder": {
+  "mr": "सध्याची स्थिती — बिल्डरकडून ताबा",
+  "note": "long"
+ },
+ "stage.false_ceiling_framing": {
+  "mr": "फॉल्स सीलिंग फ्रेमिंग (GI ग्रिड)"
+ },
+ "stage.floor_tiling": {
+  "mr": "फ्लोअर टाइलिंग"
+ },
+ "stage.glass_mirrors": {
+  "mr": "काच व आरसे"
+ },
+ "stage.handover": {
+  "mr": "हस्तांतरण"
+ },
+ "stage.hvac_ac_piping": {
+  "mr": "HVAC / AC पाइपिंग व ड्रेन"
+ },
+ "stage.light_installation": {
+  "mr": "दिवे बसवणे"
+ },
+ "stage.loose_furniture": {
+  "mr": "लूज फर्निचर"
+ },
+ "stage.masonry_block_work": {
+  "mr": "बांधकाम व ब्लॉक काम"
+ },
+ "stage.material_delivered_site": {
+  "mr": "साहित्य साइटवर पोहोचले"
+ },
+ "stage.modular_carpentry_install": {
+  "mr": "मॉड्युलर सुतारकाम बसवणे"
+ },
+ "stage.modular_units_delivered": {
+  "mr": "मॉड्युलर युनिट्स पोहोचले"
+ },
+ "stage.opening_measured": {
+  "mr": "ओपनिंगचे मोजमाप झाले"
+ },
+ "stage.paint_wallpaper_texture": {
+  "mr": "रंग, वॉलपेपर किंवा टेक्स्चर"
+ },
+ "stage.plaster_waterproofing": {
+  "mr": "प्लास्टर व वॉटरप्रूफिंग"
+ },
+ "stage.plumbing_first_fix": {
+  "mr": "प्लंबिंग फर्स्ट फिक्स — लपवलेल्या लाइन",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा; long"
+ },
+ "stage.plumbing_second_fix": {
+  "mr": "प्लंबिंग सेकंड फिक्स — CP व सॅनिटरी",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा; long"
+ },
+ "stage.pop_gypsum_board": {
+  "mr": "POP / जिप्सम बोर्ड व फिनिश"
+ },
+ "stage.putty_primer": {
+  "mr": "पुट्टी व प्रायमर"
+ },
+ "stage.rectified_verified": {
+  "mr": "दुरुस्त करून तपासले"
+ },
+ "stage.snag_rectification": {
+  "mr": "त्रुटी दुरुस्ती"
+ },
+ "stage.snagging": {
+  "mr": "त्रुटी तपासणी",
+  "note": "S5: snag list = त्रुटी यादी"
+ },
+ "stage.stone_marble_polish": {
+  "mr": "दगड व मार्बल पॉलिश"
+ },
+ "stage.wall_moulding_trims": {
+  "mr": "भिंत मोल्डिंग व ट्रिम"
+ },
+ "stage.wall_panelling": {
+  "mr": "भिंत पॅनेलिंग"
+ },
+ "stage.wall_tiling_dado": {
+  "mr": "भिंत टाइलिंग / डॅडो"
+ },
+ "stage.window_jali_mesh": {
+  "mr": "खिडकी जाळी, मेश व ग्रिल"
+ },
+ "stage.wooden_vinyl_laminate": {
+  "mr": "लाकडी, व्हिनाइल किंवा लॅमिनेट फ्लोअरिंग",
+  "note": "long"
+ },
+ "surface.back": {
+  "mr": "मागील भिंत"
+ },
+ "surface.back.short": {
+  "mr": "मागे"
+ },
+ "surface.ceil": {
+  "mr": "छत",
+  "note": "same word as the work phase 'Ceiling' would be — no split needed"
+ },
+ "surface.floor": {
+  "mr": "जमीन"
+ },
+ "surface.front": {
+  "mr": "समोरील भिंत"
+ },
+ "surface.front.short": {
+  "mr": "समोर"
+ },
+ "surface.left": {
+  "mr": "डावी भिंत"
+ },
+ "surface.left.short": {
+  "mr": "डावी"
+ },
+ "surface.right": {
+  "mr": "उजवी भिंत"
+ },
+ "surface.right.short": {
+  "mr": "उजवी"
+ },
+ "svc.balcony-grill": {
+  "mr": "बाल्कनी ग्रिल"
+ },
+ "svc.carpentry": {
+  "mr": "सुतारकाम / फर्निचर"
+ },
+ "svc.curtains": {
+  "mr": "पडदे — रोलर ब्लाइंड्स"
+ },
+ "svc.electrical": {
+  "mr": "इलेक्ट्रिकल कामे"
+ },
+ "svc.guest-bath": {
+  "mr": "गेस्ट बाथरूम — संपूर्ण नूतनीकरण",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "svc.intercom": {
+  "mr": "इंटरकॉम"
+ },
+ "svc.master-bath": {
+  "mr": "मास्टर बाथरूम — संपूर्ण नूतनीकरण",
+  "note": "long · DECIDED 21 Oct: D1 register"
+ },
+ "t53.a_wall": {
+  "mr": "भिंतीवर",
+  "note": "review: carries its own postposition (oblique) — used only in refuse.t53.x_x_cannot_go"
+ },
+ "t53.aria.show_marks_x": {
+  "mr": "यांचे मार्क दाखवा: {v}",
+  "note": "{v} falls back to English 'All' — use common.all"
+ },
+ "t53.in_this_room": {
+  "mr": "या खोलीत"
+ },
+ "t53.no_x_marks_x": {
+  "mr": "{v} {short} मार्क नाहीत"
+ },
+ "t53.on_this_face": {
+  "mr": "या बाजूवर"
+ },
+ "t53.plumbing_point_x": {
+  "mr": "प्लंबिंग पॉइंट · {label}"
+ },
+ "t53.show_marks": {
+  "mr": "यांचे मार्क दाखवा"
+ },
+ "t53.the_ceiling": {
+  "mr": "छतावर",
+  "note": "review: carries its own postposition (oblique) — used only in refuse.t53.x_x_cannot_go"
+ },
+ "t53.the_floor": {
+  "mr": "जमिनीवर",
+  "note": "review: carries its own postposition (oblique) — used only in refuse.t53.x_x_cannot_go"
+ },
+ "tour.360.1.body": {
+  "mr": "टूरने सर्व्हे फेजमध्ये गेस्ट बेडरूमची सर्व्हे तयारी उघडली आहे; शेवटी सर्व काही पूर्वीसारखे होते. संपूर्ण खोली फिरून पाहण्यासाठी 360 वर टॅप करा."
+ },
+ "tour.360.1.title": {
+  "mr": "360 टॅब उघडा"
+ },
+ "tour.360.2.body": {
+  "mr": "खोलीत फिरण्यासाठी चित्र ओढा, आणि झूमसाठी दोन बोटे वापरा. ओढणे मोकळ्या भिंतीवरून सुरू करा: मार्कवरून सुरू केलेले ओढणे तो मार्कच हलवते."
+ },
+ "tour.360.2.title": {
+  "mr": "फिरून पाहण्यासाठी ओढा"
+ },
+ "tour.360.3.body": {
+  "mr": "360 मध्ये पायऱ्यांची पट्टी नाही: तो हद्द आखलेल्या प्रत्येक पृष्ठभागावर एकाच वेळी, प्रत्येक प्रकाराने मार्क करतो."
+ },
+ "tour.360.3.title": {
+  "mr": "360 मध्ये पायऱ्या नाहीत"
+ },
+ "tour.360.4.body": {
+  "mr": "पॅलेट पृष्ठभागावर चालते तसेच इथेही चालते, आणि \"आणखी ▸\" मध्ये प्रत्येक पृष्ठभागाचा प्रत्येक प्रकार असतो."
+ },
+ "tour.360.4.title": {
+  "mr": "सर्वांसाठी एकच पॅलेट"
+ },
+ "tour.360.5.body": {
+  "mr": "\"इलेक्ट्रिक\" वर टॅप करा. 360 मध्येही पृष्ठभागाप्रमाणेच निवडलेला प्रकार निवडलेलाच राहतो."
+ },
+ "tour.360.5.title": {
+  "mr": "पॉइंटचा प्रकार निवडा"
+ },
+ "tour.360.6.body": {
+  "mr": "टूरने 360 समोरील भिंतीकडे वळवला आहे. सरावासाठी, उजळलेल्या भागात, खिडकीखाली मोकळ्या भिंतीवर टॅप करा: पॉइंट तुमच्या बोटाखालच्या पृष्ठभागावर पडतो, समोरील भिंतीवर FE2. प्रकार फक्त जिथे बसू शकतो तिथेच जातो: जमिनीवर टॅप केलेली खिडकी नाकारली जाते."
+ },
+ "tour.360.6.title": {
+  "mr": "जिथे आहे तिथे टॅप करा"
+ },
+ "tour.360.7.body": {
+  "mr": "पृष्ठभागाचा टॅब 360 सोडून, तो पृष्ठभाग ज्या पायरीवर होता तिथे परत नेतो."
+ },
+ "tour.360.7.title": {
+  "mr": "पृष्ठभागावर परत"
+ },
+ "tour.360.line": {
+  "mr": "360 टॅब: खोलीत फिरून पाहा आणि हद्द आखलेल्या कोणत्याही पृष्ठभागावर थेट मार्क करा."
+ },
+ "tour.360.name": {
+  "mr": "360"
+ },
+ "tour.existing.1.body": {
+  "mr": "टूरने सर्व्हे फेजमध्ये समोरील भिंतीवर गेस्ट बेडरूमचा 360 उघडला आहे; शेवटी सर्व काही पूर्वीसारखे होते. पॅलेट: निवडा, टेप, रेषा, साखळी, इथले सर्वात जास्त लागणारे तीन प्रकार, आणि आणखी ▸."
+ },
+ "tour.existing.1.title": {
+  "mr": "मार्क पॅलेट"
+ },
+ "tour.existing.10.body": {
+  "mr": "एखाद्या ओळीवर टॅप करा, मग तिच्या mm बॉक्समध्ये लेझरचा आकडा टाका; Δ दाखवते की फोटो किती चुकला होता. रीडिंग फक्त सर्व्हे फेजमध्ये घेतले जातात."
+ },
+ "tour.existing.10.title": {
+  "mr": "रीडिंग टाका"
+ },
+ "tour.existing.11.body": {
+  "mr": "Leica D2 चालू असताना D2 वर टॅप करा, त्याचे रीडिंग चालू ओळीत येते. टूर ते दाबत नाही."
+ },
+ "tour.existing.11.title": {
+  "mr": "किंवा D2 ने वाचा"
+ },
+ "tour.existing.12.body": {
+  "mr": "\"दाखवा\" फोटोचे अंदाज (≈ फोटो), लेझर रीडिंग (मोजलेले) आणि दोन्ही एकत्र — यांमध्ये बदलते."
+ },
+ "tour.existing.12.title": {
+  "mr": "फोटो, मोजलेले किंवा दोन्ही"
+ },
+ "tour.existing.13.body": {
+  "mr": "मार्क मोजून झाला की कुलपावर टॅप करा: लॉक केलेला मार्क चुकून बोट लागल्याने हलत नाही की हटत नाही. अनलॉकसाठी पुन्हा टॅप करा."
+ },
+ "tour.existing.13.title": {
+  "mr": "पूर्ण झालेला मार्क लॉक करा"
+ },
+ "tour.existing.2.body": {
+  "mr": "\"इलेक्ट्रिक\" वर टॅप करा — स्विच बोर्ड किंवा सॉकेटसाठीचा पॉइंट. प्रकार निवडलेलाच राहतो, त्यामुळे फोटोवरच्या प्रत्येक टॅपने आणखी एक ठेवला जातो."
+ },
+ "tour.existing.2.title": {
+  "mr": "प्रकार निवडा"
+ },
+ "tour.existing.3.body": {
+  "mr": "चिप सांगते तुम्ही काय ठेवत आहात. सर्व्हे फेजमध्ये प्रत्येक मार्क \"सध्याचे\" म्हणूनच तयार होतो — खोलीत आधीपासून असलेली गोष्ट — त्यामुळे चिपवर आणखी शब्द लागत नाहीत.",
+  "note": "review: register — जन्मतो → तयार होतो"
+ },
+ "tour.existing.3.title": {
+  "mr": "\"सध्याचे\" म्हणून ठेवले"
+ },
+ "tour.existing.4.body": {
+  "mr": "सरावासाठी, उजळलेल्या भागात मोकळ्या भिंतीवर टॅप करा; साइटवर वस्तू खरोखर जिथे आहे तिथे टॅप करा. मार्कला कोड मिळतो: F म्हणजे समोरील भिंत (Front), E म्हणजे इलेक्ट्रिक (Electric), मग क्रमांक. FE1 आधीच इथे आहे, म्हणून तुमचा FE2. आधीपासून असलेल्या मार्कवर — जसे खिडकी FW1 — टॅप केल्यास दुसरा न ठेवता तोच निवडला जातो.",
+  "note": "code letters stay English (ambiguity 9), so the English word is given in brackets to explain them"
+ },
+ "tour.existing.4.title": {
+  "mr": "ठेवण्यासाठी टॅप करा"
+ },
+ "tour.existing.5.body": {
+  "mr": "झाल्यावर \"निवडा\" वर टॅप करा. ते विसरणे हे डुप्लिकेट मार्कचे सर्वात मोठे कारण आहे."
+ },
+ "tour.existing.5.title": {
+  "mr": "\"निवडा\" ठेवणे थांबवते"
+ },
+ "tour.existing.6.body": {
+  "mr": "या पृष्ठभागावर लागू शकणाऱ्या इतर सर्व प्रकारांसाठी \"आणखी ▸\" वर टॅप करा."
+ },
+ "tour.existing.6.title": {
+  "mr": "\"आणखी ▸\" मध्ये सर्व प्रकार"
+ },
+ "tour.existing.7.body": {
+  "mr": "प्रकार ट्रेडनुसार गटात आहेत: सिव्हिल, दरवाजे व खिडक्या, इलेक्ट्रिकल, प्लंबिंग आणि बाकीचे. एक निवडा आणि तसाच ठेवा."
+ },
+ "tour.existing.7.title": {
+  "mr": "प्रत्येक ट्रेडची एक ओळ"
+ },
+ "tour.existing.8.body": {
+  "mr": "टूरने \"आणखी ▸\" बंद करून FW1 निवडला आहे — आधीपासून असलेली खिडकी. ही ओळ त्याला थोडे हलवते, लॉक करते किंवा हटवते; त्याचा कोड मार्क तपशील उघडतो."
+ },
+ "tour.existing.8.title": {
+  "mr": "निवडलेला मार्क"
+ },
+ "tour.existing.9.body": {
+  "mr": "3 · यादी मध्ये प्रत्येक मार्कची एक चिप असते, त्यावर झालेली रीडिंग, जसे 0/5. त्या मार्कवर काम करण्यासाठी चिपवर टॅप करा."
+ },
+ "tour.existing.9.title": {
+  "mr": "3 · यादी मध्ये रीडिंग"
+ },
+ "tour.existing.line": {
+  "mr": "पॅलेट, प्रकार, मोकळ्या भिंतीवर मार्क ठेवणे, \"आणखी ▸\" आणि त्याच्या ट्रेडच्या ओळी, मग रीडिंग, D2 आणि लॉक."
+ },
+ "tour.existing.name": {
+  "mr": "सध्याच्या वस्तू मार्क करा"
+ },
+ "tour.phases.1.body": {
+  "mr": "टूरने \"Demo flat interiors\" हा सरावाचा प्रोजेक्ट उघडला आहे; शेवटी सर्व काही पूर्वीसारखे होते. ही पट्टी त्याची फेज आहे: सर्व्हे, इच्छा-यादी, व्हेंडर तपासणी, अंदाजपत्रक."
+ },
+ "tour.phases.1.title": {
+  "mr": "चार फेज, एक पट्टी"
+ },
+ "tour.phases.10.body": {
+  "mr": "टूरने गेस्ट बेडरूमचा 360 उघडला आहे. वरची पट्टी इथेही फेज दाखवते, आणि ती काय करू देते तेही."
+ },
+ "tour.phases.10.title": {
+  "mr": "सर्व्हे तयारीतील फेज"
+ },
+ "tour.phases.2.body": {
+  "mr": "सर्व्हेमध्ये तुम्ही खोली कॅप्चर करता, भिंतींची हद्द आखता, आधीपासून असलेल्या गोष्टी मार्क करता आणि लेझर रीडिंग घेता. पट्टीखालची ओळ नेहमी सांगते की सध्याची फेज कशासाठी आहे.",
+  "note": "review: 'आधीपासून असलेले मार्क करता' read as 'do the marks that already exist'"
+ },
+ "tour.phases.2.title": {
+  "mr": "आधी सर्व्हे"
+ },
+ "tour.phases.3.body": {
+  "mr": "\"इच्छा-यादी\" वर टॅप करा. पुढे जाणे लगेच होते, काहीही न विचारता."
+ },
+ "tour.phases.3.title": {
+  "mr": "इच्छा-यादीकडे जा"
+ },
+ "tour.phases.4.body": {
+  "mr": "इच्छा-यादी फेजपासून पुढे प्रोजेक्टवर \"इच्छा-यादी\" चिप दिसते: ग्राहक मागतो त्या सेवा. सर्व्हेमध्ये ती लपलेली असते."
+ },
+ "tour.phases.4.title": {
+  "mr": "इच्छा-यादी दिसते"
+ },
+ "tour.phases.5.body": {
+  "mr": "फेज बदलली की या ओळीवरचा कोटेशनचा टप्पाही बदलतो. फोनवर हा बदल ऑफिसकडे (S5) जातो; प्रोटोटाइप काहीही पाठवत नाही.",
+  "note": "prototype-only clause ('the prototype sends nothing') — the APK body drops it"
+ },
+ "tour.phases.5.title": {
+  "mr": "कोटेशनचा टप्पा मागोमाग"
+ },
+ "tour.phases.6.body": {
+  "mr": "व्हेंडर तपासणी ग्राहकाच्या इच्छांमधून ट्रेड आणि व्हेंडर पॅक बनवते. या फेजमध्ये ठेवलेला मार्क \"व्हेंडरने जोडले\" म्हणून तयार होतो.",
+  "note": "review: register — जन्मतो → तयार होतो · DECIDED 21 Oct: D1 register, D2 trade"
+ },
+ "tour.phases.6.title": {
+  "mr": "मग व्हेंडर तपासणी"
+ },
+ "tour.phases.7.body": {
+  "mr": "अंदाजपत्रक फेज म्हणजे सुपूर्द: नवीन काहीही मार्क होत नाही आणि इच्छा-यादी फक्त वाचण्यासाठी असते. कोटेशन \"अंदाजपत्रक झाले\" वर गेले की ही पट्टी एका ✓ चिपमध्ये मिटते, आणि तेव्हापासून कामाचा टप्पा (\"प्रोजेक्टचा टप्पा\") प्रोजेक्ट पुढे नेतो.",
+  "note": "v56 delta: English changed in v56 (was \"Estimation is the hand-off to the estimate. Nothing new is marked, and the wish list is read-only.\")"
+ },
+ "tour.phases.7.title": {
+  "mr": "अंदाजपत्रकाकडे सुपूर्द"
+ },
+ "tour.phases.8.body": {
+  "mr": "\"सर्व्हे\" वर टॅप करा. मागे जाणे कधीच गुपचूप होत नाही: फेज बदलण्यापूर्वी अ‍ॅप विचारते."
+ },
+ "tour.phases.8.title": {
+  "mr": "मागे जाताना आधी विचारते"
+ },
+ "tour.phases.9.body": {
+  "mr": "\"ठेवा\" इच्छा-यादीतच ठेवते; \"मागे न्या\" प्रोजेक्ट सर्व्हेवर परत नेते. यांपैकी एकावर टॅप करा."
+ },
+ "tour.phases.9.title": {
+  "mr": "ठेवा किंवा मागे न्या"
+ },
+ "tour.phases.line": {
+  "mr": "प्रोजेक्टच्या चार फेज, प्रत्येक काय दाखवते, आणि पुढे किंवा मागे जाणे कसे चालते."
+ },
+ "tour.phases.name": {
+  "mr": "फेज"
+ },
+ "tour.plan.1.body": {
+  "mr": "टूरने \"Demo flat interiors\" उघडले आहे आणि शेवटी मांडणी पूर्वीसारखी करते. \"फ्लोअर प्लॅन\" टाइल प्रोजेक्टच्या सर्व्हे झालेल्या खोल्या एका प्लॅनवर मांडते: तिच्यावर टॅप करा."
+ },
+ "tour.plan.1.title": {
+  "mr": "फ्लोअर प्लॅन टाइल"
+ },
+ "tour.plan.2.body": {
+  "mr": "सर्व्हे झालेली प्रत्येक खोली तिच्या लेझर मापांनुसार, दरवाजे व खिडक्यांसह काढलेली असते. \"गेस्ट बेडरूम\" हलवण्यासाठी ओढा."
+ },
+ "tour.plan.2.title": {
+  "mr": "खोली ओढा"
+ },
+ "tour.plan.3.body": {
+  "mr": "खोलीवर टॅप केल्यास ती निवडली जाते आणि ↻ 90° दिसते. खोली पाव वळण फिरवण्यासाठी त्यावर टॅप करा."
+ },
+ "tour.plan.3.title": {
+  "mr": "90° फिरवा"
+ },
+ "tour.plan.4.body": {
+  "mr": "खोली दुसऱ्या खोलीच्या 150 mm आत सोडली की त्यांच्या भिंती कडेला कडा जुळतात. डेमोमध्ये एकच सर्व्हे झालेली खोली आहे, त्यामुळे अजून जुळण्यासारखे काही नाही."
+ },
+ "tour.plan.4.title": {
+  "mr": "कडा आपोआप जुळतात"
+ },
+ "tour.plan.5.body": {
+  "mr": "दोन बोटांनी झूम, आणि कागदावर एका बोटाने सरकवा. \"बसवा\" सर्व खोल्या पुन्हा नजरेत आणते."
+ },
+ "tour.plan.5.title": {
+  "mr": "\"बसवा\" सगळ्या दाखवते"
+ },
+ "tour.plan.6.body": {
+  "mr": "\"मांडणी रीसेट\" विचारून प्रत्येक खोली सुरुवातीच्या ओळीत परत ठेवते. टूर ते दाबत नाही."
+ },
+ "tour.plan.6.title": {
+  "mr": "रीसेट पुन्हा सुरुवात करते"
+ },
+ "tour.plan.line": {
+  "mr": "प्रोजेक्टच्या सर्व्हे झालेल्या खोल्या एका प्लॅनवर मांडा: ओढा, 90° फिरवा, आणि कडा जुळू द्या."
+ },
+ "tour.plan.name": {
+  "mr": "फ्लोअर प्लॅन"
+ },
+ "tour.survey.1.body": {
+  "mr": "टूरने \"ग्राहक\" उघडले आहे आणि सर्व्हे फेजमध्ये सरावाचा डेटा \"Demo Client\" वापरते; शेवटी सर्व काही पूर्वीसारखे होते. \"Demo Client\" वर टॅप करा."
+ },
+ "tour.survey.1.title": {
+  "mr": "ग्राहकांपासून सुरुवात"
+ },
+ "tour.survey.10.body": {
+  "mr": "2 · मार्क वर टॅप करा. इथे तुम्ही पृष्ठभागावर दरवाजे, खिडक्या आणि पॉइंट ठेवता; \"सध्याच्या वस्तू मार्क करा\" टूर ते कसे ते दाखवते."
+ },
+ "tour.survey.10.title": {
+  "mr": "2 · जे आहे ते मार्क करा"
+ },
+ "tour.survey.11.body": {
+  "mr": "3 · यादी वर टॅप करा: प्रत्येक मार्क, फोटोचा अंदाज, लेझर रीडिंग आणि फरकासह."
+ },
+ "tour.survey.11.title": {
+  "mr": "3 · यादी हाच तक्ता",
+  "note": "'sheet' = the list as a table, not शीट"
+ },
+ "tour.survey.12.body": {
+  "mr": "सहाही पृष्ठभागांची हद्द आखली की \"✓ सेव्ह\" सोनेरी होते, आणि सर्व्हे खोलीच्या फोल्डरमध्ये सेव्ह करते. तसेही तुमचे काम करता करता सेव्ह होत राहते. टूर ते दाबत नाही.",
+  "note": "review: 'चालू असतानाच राहते' did not say the work is saved as you go"
+ },
+ "tour.survey.12.title": {
+  "mr": "सहाही झाल्यावर ✓ सेव्ह"
+ },
+ "tour.survey.2.body": {
+  "mr": "एका ग्राहकाच्या एक किंवा अधिक साइट्स असतात: फ्लॅट, बंगला किंवा ऑफिस. \"Demo Site, Pune\" वर टॅप करा."
+ },
+ "tour.survey.2.title": {
+  "mr": "मग साइट"
+ },
+ "tour.survey.3.body": {
+  "mr": "साइटमध्ये तिचे प्रोजेक्ट असतात, प्रत्येकाच्या स्वतःच्या खोल्या आणि फेज. \"Demo flat interiors\" वर टॅप करा."
+ },
+ "tour.survey.3.title": {
+  "mr": "मग प्रोजेक्ट"
+ },
+ "tour.survey.4.body": {
+  "mr": "फोटो असलेल्या खोल्या आधी येतात, त्यांच्या संख्येसह. \"गेस्ट बेडरूम\" वर टॅप करा."
+ },
+ "tour.survey.4.title": {
+  "mr": "खोली निवडा"
+ },
+ "tour.survey.5.body": {
+  "mr": "साइटवर, \"360 कॅप्चर\" खोलीची तीन लेझर मापे घेतल्यानंतर नवीन 360 काढते. टूर ते दाबत नाही: इथे आधीच काढलेला 360 वापरते."
+ },
+ "tour.survey.5.title": {
+  "mr": "\"360 कॅप्चर\" नवीन सुरू करते"
+ },
+ "tour.survey.6.body": {
+  "mr": "ठेवलेल्या प्रत्येक 360 ची टाइल असते; खालची ओळ सांगते की त्याची सर्व्हे तयारी कुठपर्यंत झाली. सर्व्हे तयारी उघडण्यासाठी चित्रावर टॅप करा."
+ },
+ "tour.survey.6.title": {
+  "mr": "360 उघडा"
+ },
+ "tour.survey.7.body": {
+  "mr": "प्रत्येक पृष्ठभागाला चार रेषा मिळतात: जमिनीची आणि छताची रेषा आणि दोन कोपरे. प्रत्येक रेषा फोटोतील खऱ्या कडेवर ओढा; रेषेला एकदा हात लावला की ती सेट झाली असे धरले जाते.",
+  "note": "review: 'ती धरली जाते' (it is held) did not say 'it counts as set'"
+ },
+ "tour.survey.7.title": {
+  "mr": "1 · रेषा हद्द आखते"
+ },
+ "tour.survey.8.body": {
+  "mr": "प्रत्येक रेषेची इथे एक ओळ असते, शेवटच्या काही मिलिमीटरसाठी थोडे हलवण्याची बटणे आणि फिरवण्यासाठी ↺ ↻."
+ },
+ "tour.survey.8.title": {
+  "mr": "शेवटचे मिलिमीटर जुळवा"
+ },
+ "tour.survey.9.body": {
+  "mr": "सहाही पृष्ठभागांची हद्द आखा: चार भिंती, जमीन आणि छत. रेषा सेट झाल्या की टॅबवर ✓ दिसते; ही सरावाची खोली आधीच पूर्ण आहे."
+ },
+ "tour.survey.9.title": {
+  "mr": "प्रत्येक पृष्ठभागाला ✓"
+ },
+ "tour.survey.line": {
+  "mr": "ग्राहकांपासून खोलीच्या 360 पर्यंत, मग त्याच्या तीन पायऱ्या — 1 · रेषा, 2 · मार्क, 3 · यादी — आणि ✓ सेव्ह."
+ },
+ "tour.survey.name": {
+  "mr": "खोलीचा सर्व्हे"
+ },
+ "tour.vendor.1.body": {
+  "mr": "टूरने \"Demo flat interiors\" इच्छा-यादी फेजमध्ये उघडला आहे, गेस्ट बेडरूमच्या समोरील भिंतीवर सरावाच्या दोन इच्छांसह; शेवटी सर्व काही पूर्वीसारखे होते. \"व्हेंडर तपासणी\" वर टॅप करा: इच्छा व्हेंडर्सकडे जातात आणि कोटेशनचा टप्पा \"व्हेंडरचे कोटेशन\" होतो."
+ },
+ "tour.vendor.1.title": {
+  "mr": "व्हेंडर तपासणीकडे जा"
+ },
+ "tour.vendor.10.body": {
+  "mr": "\"⇪ एक्सपोर्ट\" वर टॅप करा. व्हेंडर तपासणीमध्ये एक्सपोर्ट शीट व्हेंडरचा स्वतःचा पॅक देते."
+ },
+ "tour.vendor.10.title": {
+  "mr": "एका व्हेंडरसाठी एक्सपोर्ट"
+ },
+ "tour.vendor.11.body": {
+  "mr": "टूरने \"दरवाजे व खिडक्या\" निवडले आहे: या पॅकमध्ये फक्त त्या ट्रेडचे मार्क असतात, त्यात FW1, पण इलेक्ट्रिक पॉइंट, ऑफिसच्या नोंदी किंवा ग्राहकाचे नाव कधीच नाही. PDF, PNG किंवा JPEG ने फाइलचा प्रकार ठरतो. टूर तो सेव्ह करत नाही."
+ },
+ "tour.vendor.11.title": {
+  "mr": "त्यांचे ट्रेड, PDF किंवा चित्र म्हणून"
+ },
+ "tour.vendor.12.body": {
+  "mr": "टूरने गेस्ट बेडरूमच्या 360 चा तपशील उघडला आहे. कोटेशनच्या प्रवासात त्याची STG ओळ कोटेशन \"अंदाजपत्रक झाले\" वर जाईपर्यंत लॉक असते; मग कामाचा टप्पा प्रोजेक्ट पुढे नेतो. \"पूर्ण\" सर्व काही पूर्वीसारखे करते."
+ },
+ "tour.vendor.12.title": {
+  "mr": "फोटोचा टप्पा \"अंदाजपत्रक झाले\" ची वाट पाहतो"
+ },
+ "tour.vendor.2.body": {
+  "mr": "\"व्हेंडर पॅक\" इच्छा ट्रेडनुसार गटात लावते: खिडकी FW1 \"दरवाजे व खिडक्या\" कडे, इलेक्ट्रिक पॉइंट FE1 \"इलेक्ट्रिकल\" कडे जातो. प्रत्येक आकडा अजून व्हेंडरकडे असलेल्या इच्छा मोजतो."
+ },
+ "tour.vendor.2.title": {
+  "mr": "इच्छांचे ट्रेड बनतात"
+ },
+ "tour.vendor.3.body": {
+  "mr": "\"दारे-खिडक्या\" खिडकीच्या व्हेंडरचा पॅक बनवते: फक्त त्या ट्रेडचे मार्क, ऑफिसच्या नोंदी नाहीत, ग्राहकाचे नाव नाही. टूर तो इथे उघडत नाही; याच टूरमध्ये पुढे सर्व्हे तयारीचे एक्सपोर्ट तेच करते."
+ },
+ "tour.vendor.3.title": {
+  "mr": "प्रत्येक व्हेंडरसाठी एक पॅक"
+ },
+ "tour.vendor.4.body": {
+  "mr": "टूरने व्हेंडर तपासणी फेजमध्ये गेस्ट बेडरूमचा 360 उघडला आहे. ट्रेड चिप \"सर्व ▾\" फक्त याच फेजमध्ये असते: एक ट्रेड निवडा आणि सर्व्हे तयारी फक्त त्या व्हेंडरचे मार्क दाखवते."
+ },
+ "tour.vendor.4.title": {
+  "mr": "एका ट्रेडचे मार्क दाखवा"
+ },
+ "tour.vendor.5.body": {
+  "mr": "टूरने \"इलेक्ट्रिक\" निवडला आहे. या फेजमध्ये चिप \"व्हेंडरने जोडले म्हणून\" जोडते: ग्राहकाच्या इच्छांपलीकडे साइटवर आणखी जे लागते ते व्हेंडरला दिसते."
+ },
+ "tour.vendor.5.title": {
+  "mr": "\"व्हेंडरने जोडले\" म्हणून ठेवले"
+ },
+ "tour.vendor.6.body": {
+  "mr": "सरावासाठी, उजळलेल्या भागात मोकळ्या भिंतीवर टॅप करा: इलेक्ट्रिशियनला तिथे नवीन पॉइंट हवा आहे. FE2 \"व्हेंडरने जोडले\" म्हणून तयार होतो आणि त्यावर V+ बॅज असतो. टूर शेवटी तो काढून टाकते."
+ },
+ "tour.vendor.6.title": {
+  "mr": "व्हेंडरचा मार्क ठेवा"
+ },
+ "tour.vendor.7.body": {
+  "mr": "3 · यादी मध्ये आता मार्क वेगवेगळ्या स्थितीत आहेत: सध्याचे, ग्राहकाची इच्छा, आणि FE2 ठेवला असेल तर व्हेंडरने जोडले. सर्व्हेमध्ये प्रत्येक मार्क \"सध्याचे\" असतो, म्हणून तिथे हा फिल्टर दिसत नाही. \"स्थिती ▾\" वर टॅप करा."
+ },
+ "tour.vendor.7.title": {
+  "mr": "\"स्थिती ▾\" आता उपयोगी"
+ },
+ "tour.vendor.8.body": {
+  "mr": "\"ग्राहकाची इच्छा\" वर टॅप करा: यादीत फक्त दोन इच्छा, FW1 आणि FE1, राहतात. \"सर्व\" पुन्हा प्रत्येक मार्क दाखवते."
+ },
+ "tour.vendor.8.title": {
+  "mr": "एक स्थिती निवडा"
+ },
+ "tour.vendor.9.body": {
+  "mr": "एक स्थिती निवडलेली असताना \"2 हलवा ▸\" यादीतील प्रत्येक मार्क एकदम पुढे हलवते, इथे दोन्ही इच्छा व्हेंडर तपासणीकडे. जिथे हलवता येते तिथेच ते दिसते, म्हणून सर्व्हे किंवा अंदाजपत्रकात कधीच नाही. टूर ते दाबत नाही."
+ },
+ "tour.vendor.9.title": {
+  "mr": "सगळे मिळून पुढे हलवा"
+ },
+ "tour.vendor.line": {
+  "mr": "व्हेंडर तपासणीकडे जा, इच्छांमधून ट्रेड आणि व्हेंडर पॅक बनलेले पाहा, व्हेंडरचा मार्क ठेवा, स्थितीनुसार फिल्टर करा आणि एका व्हेंडरसाठी एक्सपोर्ट करा."
+ },
+ "tour.vendor.name": {
+  "mr": "व्हेंडर तपासणी",
+  "note": "same text as life.vrev (the phase name)"
+ },
+ "tour.wish.1.body": {
+  "mr": "टूरने \"Demo flat interiors\" हा सरावाचा प्रोजेक्ट उघडला आहे; शेवटी सर्व काही पूर्वीसारखे होते. इच्छा इच्छा-यादी फेजमध्ये सुरू होतात: \"इच्छा-यादी\" वर टॅप करा."
+ },
+ "tour.wish.1.title": {
+  "mr": "इच्छा-यादीकडे जा"
+ },
+ "tour.wish.10.body": {
+  "mr": "मार्क तपशील FW1 \"सध्याचे\" म्हणून दाखवतो. \"→ ग्राहकाची इच्छा\" वर टॅप करा: ग्राहकाला त्यात काही करून हवे आहे."
+ },
+ "tour.wish.10.title": {
+  "mr": "त्याला इच्छा बनवा"
+ },
+ "tour.wish.11.body": {
+  "mr": "ग्राहकाला काय हवे ते निवडा: ↻ बदला, ⇢ हलवा, ⚒ दुरुस्ती किंवा ✕ काढा. \"→ ग्राहकाची इच्छा\" वर टॅप केल्यावर हे चार दिसतात."
+ },
+ "tour.wish.11.title": {
+  "mr": "काय हवे ते सांगा"
+ },
+ "tour.wish.12.body": {
+  "mr": "\"पूर्ण\" वर टॅप करा: FW1 त्या निवडीसह ग्राहकाची इच्छा बनतो.",
+  "note": "review: act = निवड, not काम (काम = trade/work here)"
+ },
+ "tour.wish.12.title": {
+  "mr": "\"पूर्ण\" लागू करते"
+ },
+ "tour.wish.13.body": {
+  "mr": "\"पूर्ण\" नंतर FW1 तुटक रेषेत, \"ग्राहकाची इच्छा\" टॅग आणि त्याच्या निवडीसह काढला जातो: ग्राहकाला त्यात काय करून हवे ते व्हेंडर्सना दिसते. (त्याऐवजी \"पुढे\" दाबले? मग तो अजून \"सध्याचे\" आहे.) टूर संपल्यावर टूरने बदललेले सर्व काही पूर्वीसारखे होते.",
+  "note": "review: act = निवड, not काम (काम = trade/work here) · DECIDED 21 Oct: D1 register"
+ },
+ "tour.wish.13.title": {
+  "mr": "FW1 आता इच्छा आहे"
+ },
+ "tour.wish.2.body": {
+  "mr": "\"इच्छा-यादी\" चिप दिसू लागली आहे. ग्राहक मागू शकतो त्या सेवा पाहण्यासाठी त्यावर टॅप करा."
+ },
+ "tour.wish.2.title": {
+  "mr": "इच्छा-यादी उघडा"
+ },
+ "tour.wish.3.body": {
+  "mr": "वरचा भाग हव्या असलेल्या सेवा मोजतो. व्हेंडर या यादीवर कोटेशन देतात."
+ },
+ "tour.wish.3.title": {
+  "mr": "ग्राहकाला काय हवे"
+ },
+ "tour.wish.4.body": {
+  "mr": "टिक करण्यासाठी \"इलेक्ट्रिकल कामे\" वर टॅप करा. टिक केलेली सेवा ती कोणत्या खोल्यांना लागू आहे ते आणि एक नोंद दाखवते; व्हेंडर नंतर, \"व्हेंडर तपासणी\" मध्ये जोडला जातो."
+ },
+ "tour.wish.4.title": {
+  "mr": "सेवा टिक करा"
+ },
+ "tour.wish.5.body": {
+  "mr": "बाथरूम नूतनीकरण हा पाच भागांचा एक संच आहे: वॉटरप्रूफिंग, टाइलिंग, प्लंबिंग, इलेक्ट्रिकल पॉइंट आणि रंगकाम; \"भाग ▾\" ते दाखवते. \"कुठे लागू\" खाली निवडलेल्या बाथरूमसाठी टिक केल्यास त्या खोलीसाठी पाचही टिक होतात, आणि प्रत्येक भाग वेगळा अनटिक करता येतो."
+ },
+ "tour.wish.5.title": {
+  "mr": "बाथरूम संच",
+  "note": "bundle = संच; alt: पॅकेज"
+ },
+ "tour.wish.6.body": {
+  "mr": "टूरने गेस्ट बेडरूमचा 360 उघडला आहे. या फेजमध्ये 1 · रेषा नाही आणि रीडिंग नाहीत: तुम्ही ठेवलेला प्रत्येक मार्क ग्राहकाची इच्छा असतो."
+ },
+ "tour.wish.6.title": {
+  "mr": "सर्व्हे तयारीत इच्छा"
+ },
+ "tour.wish.7.body": {
+  "mr": "आधीसारखा प्रकार निवडा; टूरने \"इलेक्ट्रिक\" निवडला आहे. आता चिप \"ग्राहकाची इच्छा म्हणून\" जोडते."
+ },
+ "tour.wish.7.title": {
+  "mr": "\"ग्राहकाची इच्छा\" म्हणून ठेवले"
+ },
+ "tour.wish.8.body": {
+  "mr": "सरावासाठी, उजळलेल्या भागात मोकळ्या भिंतीवर टॅप करा: ग्राहकाला तिथे नवीन स्विच बोर्ड हवा आहे. पॉइंट FE2 \"ग्राहकाची इच्छा\" म्हणून तयार होतो आणि त्यावर \"ग्राहकाची इच्छा\" टॅग असतो. टूर शेवटी तो काढून टाकते.",
+  "note": "review: register — जन्मतो → तयार होतो"
+ },
+ "tour.wish.8.title": {
+  "mr": "इच्छा ठेवा"
+ },
+ "tour.wish.9.body": {
+  "mr": "खोलीत आधीपासून असलेले काही बदलण्यासाठी त्याच्या कोडवर टॅप करा. टूरने FW1 निवडला आहे — सध्या तिथे असलेली खिडकी."
+ },
+ "tour.wish.9.title": {
+  "mr": "सध्याचा मार्क उघडा"
+ },
+ "tour.wish.line": {
+  "mr": "इच्छा-यादी फेजकडे जा, सेवा आणि बाथरूम संच टिक करा, ग्राहकाची इच्छा ठेवा, मग सध्याच्या मार्कला इच्छा बनवा."
+ },
+ "tour.wish.name": {
+  "mr": "इच्छा-यादी बनवा"
+ },
+ "trade.carpentry": {
+  "mr": "सुतारकाम व फर्निचर"
+ },
+ "trade.carpentry.short": {
+  "mr": "सुतारकाम"
+ },
+ "trade.civil": {
+  "mr": "सिव्हिल व स्ट्रक्चर",
+  "note": "S5 has सिव्हिल व बांधकाम for 'Civil & masonry'; alt: सिव्हिल व बांधकाम"
+ },
+ "trade.civil.short": {
+  "mr": "सिव्हिल"
+ },
+ "trade.curtains": {
+  "mr": "पडदे व ब्लाइंड्स"
+ },
+ "trade.curtains.short": {
+  "mr": "पडदे"
+ },
+ "trade.doors-windows": {
+  "mr": "दरवाजे व खिडक्या"
+ },
+ "trade.doors-windows.short": {
+  "mr": "दारे-खिडक्या",
+  "note": "long — re-measure in its slot"
+ },
+ "trade.electrical": {
+  "mr": "इलेक्ट्रिकल"
+ },
+ "trade.false-ceiling": {
+  "mr": "फॉल्स सीलिंग"
+ },
+ "trade.false-ceiling.short": {
+  "mr": "फॉ. सीलिंग",
+  "note": "long — re-measure in its slot"
+ },
+ "trade.general": {
+  "mr": "सामान्य"
+ },
+ "trade.grills": {
+  "mr": "ग्रिल व रेलिंग",
+  "note": "railing = रेलिंग, NOT रेल (glossary clash 8)"
+ },
+ "trade.grills.short": {
+  "mr": "ग्रिल"
+ },
+ "trade.hvac": {
+  "mr": "AC व व्हेंटिलेशन"
+ },
+ "trade.lowvolt": {
+  "mr": "CCTV, इंटरकॉम व डेटा"
+ },
+ "trade.lowvolt.short": {
+  "mr": "CCTV व डेटा"
+ },
+ "trade.painting": {
+  "mr": "रंगकाम व फिनिश"
+ },
+ "trade.painting.short": {
+  "mr": "रंगकाम"
+ },
+ "trade.plumbing": {
+  "mr": "प्लंबिंग व सॅनिटरी"
+ },
+ "trade.plumbing.short": {
+  "mr": "प्लंबिंग"
+ },
+ "trade.tiling": {
+  "mr": "टाइलिंग"
+ },
+ "type.ac": {
+  "mr": "AC युनिट"
+ },
+ "type.b": {
+  "mr": "बीम"
+ },
+ "type.c": {
+  "mr": "कॉलम"
+ },
+ "type.cdp": {
+  "mr": "छताचा ड्रॉप"
+ },
+ "type.cdp.short": {
+  "mr": "ड्रॉप"
+ },
+ "type.crp": {
+  "mr": "सुतारकाम युनिट"
+ },
+ "type.crp.short": {
+  "mr": "युनिट"
+ },
+ "type.ctr": {
+  "mr": "पडद्याचा ट्रॅक"
+ },
+ "type.ctr.short": {
+  "mr": "ट्रॅक"
+ },
+ "type.d": {
+  "mr": "दरवाजा"
+ },
+ "type.def": {
+  "mr": "दोष",
+  "note": "alt: डिफेक्ट / खराबी"
+ },
+ "type.e": {
+  "mr": "इलेक्ट्रिक पॉइंट"
+ },
+ "type.e.short": {
+  "mr": "इलेक्ट्रिक",
+  "note": "long — 43–45 dp tile label, re-measure"
+ },
+ "type.f": {
+  "mr": "पंखा"
+ },
+ "type.grl": {
+  "mr": "ग्रिल"
+ },
+ "type.l": {
+  "mr": "लॉफ्ट"
+ },
+ "type.lv": {
+  "mr": "लो-व्होल्टेज पॉइंट",
+  "note": "long"
+ },
+ "type.lv.short": {
+  "mr": "LV पॉइंट"
+ },
+ "type.n": {
+  "mr": "कोनाडा",
+  "note": "S5 renders 'Recess' as कोनाडा and 'niches' as खाचा; alt: खाच"
+ },
+ "type.note": {
+  "mr": "नोंद"
+ },
+ "type.o": {
+  "mr": "ओपनिंग",
+  "note": "as S5 (Opening => उघडणी); alt: ओपनिंग · DECIDED 21 Oct: C6 opening"
+ },
+ "type.p": {
+  "mr": "बल्ब पॉइंट"
+ },
+ "type.p.short": {
+  "mr": "बल्ब"
+ },
+ "type.plb": {
+  "mr": "प्लंबिंग पॉइंट"
+ },
+ "type.s": {
+  "mr": "स्विच प्लेट"
+ },
+ "type.s.floor": {
+  "mr": "पायरी",
+  "note": "the floor's 'Step' (stair step) — not a survey-prep step"
+ },
+ "type.s.short": {
+  "mr": "स्विच"
+ },
+ "type.san": {
+  "mr": "सॅनिटरीवेअर"
+ },
+ "type.san.short": {
+  "mr": "सॅनिटरी",
+  "note": "long — tile label, re-measure"
+ },
+ "type.sub.balcony_grill": {
+  "mr": "बाल्कनी ग्रिल"
+ },
+ "type.sub.bathtub": {
+  "mr": "बाथटब"
+ },
+ "type.sub.bed": {
+  "mr": "बेड"
+ },
+ "type.sub.broken_hollow_tile": {
+  "mr": "तुटलेली / पोकळ टाइल"
+ },
+ "type.sub.bulkhead": {
+  "mr": "बल्कहेड"
+ },
+ "type.sub.camera": {
+  "mr": "कॅमेरा"
+ },
+ "type.sub.cassette": {
+  "mr": "कॅसेट"
+ },
+ "type.sub.cold": {
+  "mr": "थंड"
+ },
+ "type.sub.cove": {
+  "mr": "कोव्ह"
+ },
+ "type.sub.crack": {
+  "mr": "तडा"
+ },
+ "type.sub.damp_seepage": {
+  "mr": "ओल / पाझर",
+  "note": "alt: ओल / गळती"
+ },
+ "type.sub.data_lan": {
+  "mr": "डेटा / LAN"
+ },
+ "type.sub.db_mcb_board": {
+  "mr": "DB / MCB बोर्ड"
+ },
+ "type.sub.ductable_grille": {
+  "mr": "डक्टेबल ग्रिल"
+ },
+ "type.sub.floor_trap": {
+  "mr": "फ्लोअर ट्रॅप"
+ },
+ "type.sub.full_false_ceiling": {
+  "mr": "पूर्ण फॉल्स सीलिंग"
+ },
+ "type.sub.geyser": {
+  "mr": "गीझर"
+ },
+ "type.sub.hollow_plaster": {
+  "mr": "पोकळ प्लास्टर"
+ },
+ "type.sub.hot": {
+  "mr": "गरम"
+ },
+ "type.sub.intercom_video_door_phone": {
+  "mr": "इंटरकॉम / व्हिडिओ डोअर फोन",
+  "note": "long"
+ },
+ "type.sub.island": {
+  "mr": "आयलंड"
+ },
+ "type.sub.kitchen_base": {
+  "mr": "किचन खालचे युनिट",
+  "note": "long — More ▸ row; alt: किचन खालचे युनिट · DECIDED 21 Oct: D1 register"
+ },
+ "type.sub.kitchen_platform": {
+  "mr": "किचन ओटा",
+  "note": "alt: किचन प्लॅटफॉर्म · DECIDED 21 Oct: D1 register"
+ },
+ "type.sub.kitchen_sink": {
+  "mr": "किचन सिंक"
+ },
+ "type.sub.kitchen_wall_unit": {
+  "mr": "किचन वरचे युनिट",
+  "note": "long — More ▸ row; alt: किचन वरचे युनिट · DECIDED 21 Oct: D1 register"
+ },
+ "type.sub.meter_board": {
+  "mr": "मीटर बोर्ड"
+ },
+ "type.sub.mirror_cabinet": {
+  "mr": "आरसा कॅबिनेट"
+ },
+ "type.sub.mixer_hot_cold": {
+  "mr": "मिक्सर (गरम + थंड)"
+ },
+ "type.sub.other_unit": {
+  "mr": "इतर युनिट"
+ },
+ "type.sub.outdoor_unit": {
+  "mr": "आउटडोअर युनिट"
+ },
+ "type.sub.peeling_paint": {
+  "mr": "निघालेला रंग"
+ },
+ "type.sub.railing": {
+  "mr": "रेलिंग",
+  "note": "NOT रेल (glossary rail = frame member)"
+ },
+ "type.sub.ro_purifier": {
+  "mr": "RO / प्युरिफायर"
+ },
+ "type.sub.rod": {
+  "mr": "रॉड"
+ },
+ "type.sub.roller_blind": {
+  "mr": "रोलर ब्लाइंड"
+ },
+ "type.sub.safety_door_grill": {
+  "mr": "सेफ्टी डोअर ग्रिल"
+ },
+ "type.sub.shoe_rack": {
+  "mr": "शू रॅक"
+ },
+ "type.sub.shower": {
+  "mr": "शॉवर"
+ },
+ "type.sub.shower_area": {
+  "mr": "शॉवर एरिया"
+ },
+ "type.sub.smoke_detector": {
+  "mr": "स्मोक डिटेक्टर"
+ },
+ "type.sub.split_indoor_unit": {
+  "mr": "स्प्लिट इनडोअर युनिट",
+  "note": "long"
+ },
+ "type.sub.study": {
+  "mr": "स्टडी"
+ },
+ "type.sub.switch_plate": {
+  "mr": "स्विच प्लेट"
+ },
+ "type.sub.tv_point": {
+  "mr": "TV पॉइंट"
+ },
+ "type.sub.tv_unit": {
+  "mr": "TV युनिट"
+ },
+ "type.sub.vanity": {
+  "mr": "व्हॅनिटी"
+ },
+ "type.sub.vertical_blind": {
+  "mr": "व्हर्टिकल ब्लाइंड"
+ },
+ "type.sub.wall_hung_wc": {
+  "mr": "वॉल-हँग WC"
+ },
+ "type.sub.wardrobe": {
+  "mr": "वॉर्डरोब"
+ },
+ "type.sub.wash_basin": {
+  "mr": "वॉश बेसिन"
+ },
+ "type.sub.washing_machine": {
+  "mr": "वॉशिंग मशीन"
+ },
+ "type.sub.waste_outlet": {
+  "mr": "वेस्ट आउटलेट"
+ },
+ "type.sub.wi_fi_access_point": {
+  "mr": "Wi-Fi ॲक्सेस पॉइंट"
+ },
+ "type.sub.window_ac": {
+  "mr": "विंडो AC"
+ },
+ "type.sub.window_grill": {
+  "mr": "खिडकी ग्रिल"
+ },
+ "type.w": {
+  "mr": "खिडकी"
+ },
+ "type.x": {
+  "mr": "इतर",
+  "note": "same Marathi as room.other / site.other — no split needed"
+ },
+ "v360.360_drag_look_round": {
+  "mr": "360 · फिरून पाहण्यासाठी ओढा · कोणताही पृष्ठभाग"
+ },
+ "v360.every_mark_type_360": {
+  "mr": "प्रत्येक मार्क प्रकार · 360"
+ },
+ "v360.every_surface_every_mark": {
+  "mr": "प्रत्येक पृष्ठभाग · प्रत्येक मार्क प्रकार"
+ },
+ "view.back_elevation": {
+  "mr": "मागील एलिव्हेशन"
+ },
+ "view.back_elevation.lc": {
+  "mr": "मागील एलिव्हेशन"
+ },
+ "view.back_wall_elevation": {
+  "mr": "मागील भिंतीचे एलिव्हेशन"
+ },
+ "view.ceiling_plan": {
+  "mr": "छताचा प्लॅन"
+ },
+ "view.ceiling_plan.lc": {
+  "mr": "छताचा प्लॅन"
+ },
+ "view.floor_plan": {
+  "mr": "फ्लोअर प्लॅन"
+ },
+ "view.floor_plan.lc": {
+  "mr": "फ्लोअर प्लॅन"
+ },
+ "view.front_elevation": {
+  "mr": "समोरील एलिव्हेशन"
+ },
+ "view.front_elevation.lc": {
+  "mr": "समोरील एलिव्हेशन"
+ },
+ "view.front_wall_elevation": {
+  "mr": "समोरील भिंतीचे एलिव्हेशन"
+ },
+ "view.left_elevation": {
+  "mr": "डावे एलिव्हेशन"
+ },
+ "view.left_elevation.lc": {
+  "mr": "डावे एलिव्हेशन"
+ },
+ "view.left_wall_elevation": {
+  "mr": "डाव्या भिंतीचे एलिव्हेशन"
+ },
+ "view.reflected_ceiling_plan": {
+  "mr": "रिफ्लेक्टेड सीलिंग प्लॅन",
+  "note": "alt: छताचा उलटा प्लॅन (RCP)"
+ },
+ "view.reflected_ceiling_plan.caps": {
+  "mr": "रिफ्लेक्टेड सीलिंग प्लॅन"
+ },
+ "view.right_elevation": {
+  "mr": "उजवे एलिव्हेशन"
+ },
+ "view.right_elevation.lc": {
+  "mr": "उजवे एलिव्हेशन"
+ },
+ "view.right_wall_elevation": {
+  "mr": "उजव्या भिंतीचे एलिव्हेशन"
+ },
+ "wish.applies_to": {
+  "mr": "कुठे लागू"
+ },
+ "wish.are": {
+  "mr": "नाहीत",
+  "note": "fragment used only in wish.x_x_not_any — carries the negative plural verb in Marathi"
+ },
+ "wish.changing_wish_list_after": {
+  "mr": "व्हेंडरच्या कोटेशननंतर इच्छा-यादी बदलताय — व्हेंडरला कळवा"
+ },
+ "wish.client_pack": {
+  "mr": "ग्राहक पॅक ⇪"
+ },
+ "wish.filled_when_vendor_chosen": {
+  "mr": "व्हेंडर निवडल्यावर भरले जाईल"
+ },
+ "wish.is": {
+  "mr": "नाही",
+  "note": "fragment used only in wish.x_x_not_any — carries the negative singular verb in Marathi"
+ },
+ "wish.kitchen_utility_other_points": {
+  "mr": "किचन, युटिलिटी आणि बाथरूमबाहेरचे इतर पॉइंट"
+ },
+ "wish.no_marks_yet_mark": {
+  "mr": "अजून मार्क नाहीत — ते भिंतींवर मार्क करा"
+ },
+ "wish.not_asked": {
+  "mr": "मागितलेले नाही"
+ },
+ "wish.not_read_yet": {
+  "mr": "अजून वाचलेले नाही"
+ },
+ "wish.not_s5_yet_project": {
+  "mr": "अजून S5 वर नाही — हा प्रोजेक्ट पाठवलेला नाही"
+ },
+ "wish.nothing_saved_yet": {
+  "mr": "अजून काहीही सेव्ह नाही"
+ },
+ "wish.of": {
+  "mr": " पैकी ",
+  "note": "fragment — Marathi order is '{total} पैकी {n}'; make it a template"
+ },
+ "wish.one_line_what_exactly": {
+  "mr": "एक ओळ — नेमके काय"
+ },
+ "wish.quote_stage_not_read": {
+  "mr": "कोटेशनचा टप्पा अजून वाचलेला नाही — ऑनलाइन आल्यावर S5 ठरवते"
+ },
+ "wish.quote_stage_x": {
+  "mr": "कोटेशन टप्पा · {v}"
+ },
+ "wish.safety_door_aluminium_main": {
+  "mr": "सेफ्टी डोअर, ॲल्युमिनियम मुख्य दरवाजा, UPVC"
+ },
+ "wish.saved_phone": {
+  "mr": "या फोनवर सेव्ह"
+ },
+ "wish.since_x_x_ist": {
+  "mr": "S5 वर {d}, {h} IST पासून"
+ },
+ "wish.vendor_pack": {
+  "mr": "व्हेंडर पॅक ⇪"
+ },
+ "wish.vendor_x": {
+  "mr": "व्हेंडर {vendor}"
+ },
+ "wish.what_client_wants_after": {
+  "mr": "सर्व्हेनंतर ग्राहकाला काय हवे — व्हेंडर त्यावर कोटेशन देतो"
+ },
+ "wish.what_client_wants_after_2": {
+  "mr": "सर्व्हेनंतर ग्राहकाला काय हवे"
+ },
+ "wish.wish_list_x": {
+  "mr": "इच्छा-यादी · {title}"
+ },
+ "wish.wish_list_x_x": {
+  "mr": "इच्छा-यादी {v}/{length}"
+ },
+ "wish.x_approved": {
+  "mr": "{ok} मंजूर"
+ },
+ "wish.x_but_not_list": {
+  "mr": "{pl} पण यादीत नाहीत — टिक करायचे?"
+ },
+ "wish.x_scope": {
+  "mr": "{scope} स्कोपमध्ये"
+ },
+ "wish.x_vendor": {
+  "mr": "{vrev} व्हेंडरकडे"
+ },
+ "wish.x_wished": {
+  "mr": "{wish} इच्छित"
+ },
+ "wish.x_x": {
+  "mr": "{pl2} मध्ये {pl}",
+  "note": "reordered; needs the oblique plural (3 खोल्यांमध्ये) — pl() must return it"
+ },
+ "wish.x_x_not_any": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत {v} — टिक करायचे? ",
+  "note": "{v} = wish.is / wish.are, which carry नाही / नाहीत"
+ },
+ "wish.x_x_not_any_svc": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत {v} — टिक करायचे? {svc}",
+  "note": "v57: wish.x_x_not_any with the service name the line ends with"
+ },
+ "wish.x_x_wanted": {
+  "mr": "{length} पैकी {n} हवे"
+ },
+ "work.civil_masonry": {
+  "mr": "सिव्हिल व बांधकाम"
+ },
+ "work.cleaning_handover": {
+  "mr": "स्वच्छता व हस्तांतरण"
+ },
+ "work.countertops": {
+  "mr": "काउंटरटॉप"
+ },
+ "work.demolition_site_prep": {
+  "mr": "तोडकाम व साइट तयारी"
+ },
+ "work.electrical_concealed": {
+  "mr": "इलेक्ट्रिकल, लपवलेले वायरिंग"
+ },
+ "work.flooring_wall_tiling": {
+  "mr": "फ्लोअरिंग व भिंत टाइलिंग"
+ },
+ "work.glass_furnishing": {
+  "mr": "काच, आरसे व फर्निशिंग"
+ },
+ "work.iron_metal": {
+  "mr": "लोखंड व धातू फॅब्रिकेशन"
+ },
+ "work.lights_fans": {
+  "mr": "दिवे, पंखे, फिक्स्चर व सुरक्षा"
+ },
+ "work.modular_factory": {
+  "mr": "मॉड्युलर फर्निचर, कारखान्यात बनवलेले"
+ },
+ "work.onsite_carpentry": {
+  "mr": "साइटवरील सुतारकाम व पॅनेलिंग"
+ },
+ "work.painting_finishes": {
+  "mr": "रंगकाम व भिंत फिनिश"
+ },
+ "work.plumbing_concealed": {
+  "mr": "प्लंबिंग, लपवलेले"
+ },
+ "work.sanitary_cp": {
+  "mr": "सॅनिटरीवेअर व CP फिटिंग्ज"
+ },
+ "workphase.ceiling": {
+  "mr": "सीलिंग"
+ },
+ "workphase.closing": {
+  "mr": "शेवट"
+ },
+ "workphase.delivery": {
+  "mr": "डिलिव्हरी"
+ },
+ "workphase.finishing": {
+  "mr": "फिनिशिंग"
+ },
+ "workphase.first_fix": {
+  "mr": "फर्स्ट फिक्स",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा"
+ },
+ "workphase.joinery": {
+  "mr": "सुतारकाम",
+  "note": "alt: जॉइनरी"
+ },
+ "workphase.second_fix": {
+  "mr": "सेकंड फिक्स",
+  "note": "first fix / second fix kept as फर्स्ट / सेकंड फिक्स; alt: पहिला / दुसरा टप्पा"
+ },
+ "workphase.surfaces": {
+  "mr": "पृष्ठभाग"
+ }
+}

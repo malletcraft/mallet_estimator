@@ -1,0 +1,101 @@
+# Latin letter runs that may appear in a MARATHI rendering (design-marathi §3.3, TxRenderTest's leak scan).
+# Every template is rendered in Marathi with sample arguments; any Latin run not listed here fails the build.
+# An entry nothing needs any more fails too, so the list stays exactly what the tables use.
+#   token<TAB>where   where = comma-separated keys, or a key prefix ending in *; no where = anywhere.
+# The ten laser-test log lines (flag diagnostic-log) are not scanned: English by the 21 Oct decision.
+
+## Units, written as on the tape and the laser
+mm
+MM	app.height_mm_1829_6096,app.room_size_mm
+m	app.checks_1_press_measure
+ft	app.checks_1_press_measure
+in	app.checks_1_press_measure
+MB	app.remove_local_copy_x
+
+## Product, platform and file-format names
+DISTO	app.laser_test_disto_d2
+D2
+Leica	tour.existing.11.body
+X3
+ImageMeter
+ERPNext
+Android	export.phone_android_s_share
+Wi-Fi
+PDF
+PNG	tour.vendor.11.body
+JPEG	tour.vendor.11.body
+SVG	export.svg_exactly_one_drawing
+A4
+Downloads	common.save_downloads
+
+## The suite's own codes and abbreviations
+S5
+S2	export.photo_not_yet_measured,sp.photo_not_yet_measured
+ERP
+MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured
+SKU
+API
+URL	app.site_url
+STG	tour.vendor.12.body
+IST
+GB	sp.gb_guest_bedroom_survey
+
+## Trade and material abbreviations as staff say them
+AC
+HVAC
+CCTV
+TV
+LAN	type.sub.data_lan
+LV	type.lv.short
+DB	type.sub.db_mcb_board
+MCB	type.sub.db_mcb_board
+RO	type.sub.ro_purifier
+WC	type.sub.wall_hung_wc
+PVC	article.pvc
+UPVC	wish.safety_door_aluminium_main
+POP
+CP
+GI	stage.false_ceiling_framing
+
+## Mark codes and the letters they are made of (code letters stay English: inventory ambiguity 9)
+FE1	tour.*
+FE2	tour.*
+FW1	tour.*
+E	tour.existing.4.body
+F	tour.existing.4.body
+Front	tour.existing.4.body
+Electric	tour.existing.4.body
+V	tour.vendor.6.body
+H	sp.*
+L	sp.*
+W	sp.*
+
+## Demo data named inside the guided tours (demo names stay English)
+Demo	tour.*,help.*
+Client	tour.*,help.*
+Site	tour.*
+Pune	tour.*
+flat	tour.*
+interiors	tour.*
+
+## ERPNext's own screen names, as its English screen shows them
+User	app.generate_both_your_user
+Settings	app.generate_both_your_user
+Access	app.generate_both_your_user
+
+## A file-name suffix
+plan	sp.plan
+
+## Months stay English, Jan–Dec (decision 3 of 21 Oct)
+Jan	date.month.*
+Feb	date.month.*
+Mar	date.month.*
+Apr	date.month.*
+May	date.month.*
+Jun	date.month.*
+Jul	date.month.*
+Aug	date.month.*
+Sep	date.month.*
+Oct	date.month.*
+Nov	date.month.*
+Dec	date.month.*

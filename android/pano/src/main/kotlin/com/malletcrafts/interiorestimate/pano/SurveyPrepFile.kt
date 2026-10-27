@@ -364,7 +364,7 @@ object SurveyPrepFile {
      * at [epochMs] in [zone]; [n] > 1 when that name is already taken.
      */
     fun asideName(id: String, epochMs: Long, zone: ZoneId, n: Int = 1): String =
-        "$id.bad-" + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").withZone(zone).format(Instant.ofEpochMilli(epochMs)) +
+        "$id.bad-" + DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", java.util.Locale.ROOT).withZone(zone).format(Instant.ofEpochMilli(epochMs)) +
             (if (n > 1) "-$n" else "") + ".json"
 
     /** Whether a file name is a prep set aside for [id]. */

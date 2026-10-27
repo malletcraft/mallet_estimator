@@ -1,0 +1,15 @@
+# SHAPES THAT MUST NEVER BE IN THE TWO TABLES, which enter the PUBLIC mallet_estimator repository
+# (design-marathi §3.3, I18nTableTest check 8). name<TAB>Java regex. Every string in both files is checked --
+# values, reviewer notes and locations alike. A match fails the build naming the key and the pattern, never
+# the matched text, because CI logs of a public repository are public too.
+# The check needs no secret: these patterns ARE the protection a fork, a pull request or a run without
+# secrets gets. A real client-name list is checked as well when one is present (the I18N_DENY_NAMES secret
+# on CI, -Pi18n.deny=<file> locally), and is never committed.
+# email, phone, digits10 and currency are required; the test proves each still catches its own example.
+email	[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}
+phone	(?<![\d.])(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?![\d.])
+digits10	(?<![\d.])\d{10,}(?![\d.])
+currency	(?:₹|(?<![A-Za-z])Rs|(?<![A-Za-z])INR)\.?\s?\d
+lakh	(?i)\d+(?:\.\d+)?\s?(?:lakh|lakhs|lac|lacs|crore|crores)(?![a-z])
+grouped	(?<![\d,.])\d{1,2}(?:,\d{2})+,\d{3}(?![\d,])
+pincode	(?<![\d.])4[01]\d{4}(?![\d.])
