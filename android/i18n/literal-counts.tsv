@@ -23,6 +23,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceSkus.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt	15
 app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	0
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LocalFaces.kt	6
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	6

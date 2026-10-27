@@ -10,6 +10,10 @@
 # is empty and ported.txt names every source, any new shown literal fails CI, and the भाषा · Language row may show.
 # The :camera rows (X3Bridge.kt: the X3's connect and capture messages, shown on the capture sheet and in the
 # result banner) were added by the slice 1a review, 27 Oct 2026, when :camera joined the scanned modules.
+# Slice 1b (27 Oct 2026) removed the settings drawer's 23 rows: 19 keyed (the group titles, the lines, and the
+# values "nothing yet", "all sent", "$queued waiting", TreeShell's "no server set") and 4 marked `// text:value`
+# (ImageMeter, DISTO D2, mm · ft-in, mm). "Server", "not set" and "Sign out" stay: they are still shown unkeyed
+# elsewhere in MainActivity.kt. "Not signed in" stays until the v61c card carries it.
 file	text
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
@@ -474,7 +478,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$code on t
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$it — ${c.error}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$n BHK
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$queued waiting
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$r \u00b7 has photos
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$title · laser sizes
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${(ticked + withPhotos).size} of ${rooms.size} rooms
@@ -507,9 +510,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Adding\u20
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Address
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Android is hiding other apps' photos from 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cached annotated copies cleared
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cached photos
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted here and on the bench
@@ -526,12 +527,10 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not save: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not send the annotation: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not split: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	DISTO D2
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Deleted ${t.current}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Deleted here. The bench copy 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discard 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discarded \u2014 nothing was saved to your photos.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Display
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Downloading update ${info.optString("version_name")}\u2026
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP email
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key (legacy)
@@ -546,17 +545,12 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Gallery ac
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Generate both on your User page in ERPNext 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Height floor→ceiling
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Home Theatre
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter wrote. Settings → Apps → MCFT Interior 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Import from ImageMeter
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Importing from ImageMeter…
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Its SKU code prefix appears here.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Job type
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	KIT
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Keep the original 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Kothrud
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Laser
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Laser test
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Length front→back
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Local copy removed \u2014 the capture and the bench copy stay
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Looked at ${scan.looked} gallery photos, none 
@@ -600,38 +594,29 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site URL
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site name
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Split faces on device
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Splitting the 360 into six faces…
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage for new photos
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage of this photo
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Storage & app
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep can't open this 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved \u00b7 $c pictures in the room folder
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved \u2014 writing its pictures\u2026
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved on this phone; pictures not written: ${e.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep squares every surface to these, in mm. Take them with the D2.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync now
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync queue
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 is no longer on this phone \u00b7 tap for why
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 photo for this capture was removed from the phone after upload 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The same email and password you use for ERPNext.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The server refused, without saying why
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Units
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update available
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Upload on Wi-Fi only
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use these rooms
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use this site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Version
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Waiting for the first master list — go online once.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Width left→right
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Without gallery access the app cannot see what 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Work
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Works offline. When the phone syncs, these become the 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	X3 capture failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	all sent
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	and its project are unchanged and saved.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	annotate that one.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	capture
@@ -643,13 +628,10 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	empty
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	face
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	faces
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	have not reached the server yet — sync first.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	mm · ft-in
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no server configured
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no stage
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not started \u00b7 tap to start
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	nothing yet
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ones that already exist, however the names were spelled.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	real client, site and project in ERPNext \u2014 or match 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	s
@@ -906,7 +888,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	in frame, and
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	it keep their place — only the label changes.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	join the camera's Wi-Fi first, then tap
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	mm scale on every elevation.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	no server set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not a $jobType stage
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ready to shoot

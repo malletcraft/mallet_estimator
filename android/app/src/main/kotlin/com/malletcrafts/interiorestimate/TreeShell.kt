@@ -50,13 +50,15 @@ fun SettingsDrawerContent(
     server: String,
     groups: List<DrawerGroup>,
 ) {
+    val tx = LocalTx.current
     ModalDrawerSheet(Modifier.width(300.dp)) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(20.dp))
             Column(Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
+                // "Not signed in" has no prototype key yet: keyed once the v61c card carries it.
                 Text(user.ifBlank { "Not signed in" },
                     style = MaterialTheme.typography.titleMedium)
-                Text(server.ifBlank { "no server set" },
+                Text(server.ifBlank { tx.app_no_server_set },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

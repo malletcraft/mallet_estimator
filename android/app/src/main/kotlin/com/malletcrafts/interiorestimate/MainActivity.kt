@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +72,8 @@ import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.WishList
+import com.malletcrafts.interiorestimate.pano.i18n.LangRow
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -89,9 +92,39 @@ class MainActivity : ComponentActivity() {
 
 private data class ProjectRow(val name: String, val title: String, val customer: String)
 
+/**
+ * The language, provided ONCE above every screen (design-marathi §2.4, slice 1b).
+ *
+ * Here, and not around the drawers alone: [AppScreenBody] returns early into the laser test,
+ * Face Prep, the annotator, the sign-in sheets and the search overlay, and a later slice's
+ * `LocalTx.current` on any of those would crash at launch outside the provider -- which CI,
+ * compiling but never launching, could not see. Dialogs and sheets inherit it as well.
+ *
+ * The choice is read only under [LangRow.VISIBLE] (Amit, 27 Oct 2026, decision 2: the row and
+ * the ability to pick मराठी switch on together, in the last slice): until then this is always
+ * [Tx.EN], whatever the phone's system language or the stored pref. The body's onToggle calls
+ * `onLang` after flipping "lang", which re-reads it; the static local then
+ * recomposes the whole tree and every `remember` survives, so the drawer stays open.
+ */
 @Composable
 private fun AppScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("capture", android.content.Context.MODE_PRIVATE)
+    }
+    var langTick by remember { mutableStateOf(0) }
+    val tx = remember(langTick) {
+        Tx.of(if (LangRow.VISIBLE) AppPrefs.read(prefs).lang else null)
+    }
+    CompositionLocalProvider(LocalTx provides tx) {
+        AppScreenBody(onLang = { langTick++ })
+    }
+}
+
+@Composable
+private fun AppScreenBody(onLang: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val tx = LocalTx.current
     val store = remember { CaptureStore(context) }
     val scope = rememberCoroutineScope()
 
@@ -988,8 +1021,9 @@ private fun AppScreen() {
             user = s5Name ?: FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" },
             server = FrappeClient.savedUrl(context),
             groups = drawerGroups(
+                tx = tx,
                 queued = unsent,
-                lastSync = if (queue.isEmpty()) "nothing yet" else "all sent",
+                lastSync = if (queue.isEmpty()) tx.app_nothing_yet else tx.app_all_sent,
                 version = appVersion(context),
                 // Re-read on every drawer open, and re-judged against the
                 // running build, so an update already installed never shows.
@@ -1018,6 +1052,9 @@ private fun AppScreen() {
                         // it up — a toggle that only changes a boolean
                         // would be decoration.
                         if (key == "wifi_only") SyncWorker.schedule(context)
+                        // The language is provided above this screen (AppScreen), which
+                        // re-reads it: every screen redraws at once and the drawer stays open.
+                        if (key == "lang") onLang()
                     }
                     prefsTick++
                 },
@@ -2621,7 +2658,14 @@ private fun pendingUpdate(
     return info
 }
 
+/**
+ * The drawer's groups and lines (design-marathi slice 1b), every word keyed through [tx] with
+ * the prototype's own keys (v53build/app.js:215-227). The English is byte-for-byte what the
+ * drawer said before, so with the language row hidden nothing on screen changes. Product names
+ * and units stay as written, marked `// text:value`.
+ */
 private fun drawerGroups(
+    tx: Tx,
     queued: Int,
     lastSync: String,
     version: String,
@@ -2638,17 +2682,17 @@ private fun drawerGroups(
     onSignOut: () -> Unit,
     onLaserTest: () -> Unit,
 ): List<DrawerGroup> = listOf(
-    DrawerGroup("Sync", listOf(
-        DrawerLine("Sync now",
-            value = if (queued == 0) lastSync else "$queued waiting",
+    DrawerGroup(tx.app_sync, listOf(
+        DrawerLine(tx.common_sync_now,
+            value = if (queued == 0) lastSync else tx.app_x_waiting(queued.toString()),
             icon = R.drawable.ic_mcft_cloud, onClick = onSyncNow),
         // Real, not decorative: this is the WorkManager constraint the
         // uploader runs under. A 20 MB pano on a site's mobile data is
         // somebody's bill.
-        DrawerLine("Upload on Wi-Fi only", toggled = prefs.wifiOnly,
+        DrawerLine(tx.app_upload_wi_fi_only, toggled = prefs.wifiOnly,
             icon = R.drawable.ic_mcft_wifi, onClick = { onToggle("wifi_only") }),
     )),
-    DrawerGroup("ImageMeter", listOf(
+    DrawerGroup("ImageMeter", listOf( // text:value product name; the prototype has no key for it either
         // The "Exported-annotations folder" row lived here and is GONE. It
         // was a folder grant for the case where somebody exports an annotated
         // image to an ordinary folder by hand — which nobody does, because
@@ -2663,7 +2707,7 @@ private fun drawerGroups(
         // 2026-08-22: "a simple import from imagemeter button should simply
         // import the images back to apk as the stamp is genrated by apk and
         // it should know where to put what."
-        DrawerLine("Import from ImageMeter", icon = R.drawable.ic_mcft_cloud,
+        DrawerLine(tx.app_import_imagemeter, icon = R.drawable.ic_mcft_cloud,
             onClick = onImageMeterSync),
         // "Pull annotated copies" stood here and did NOTHING. It was the
         // Drive pull's switch: read into the prefs object, drawn with a tick,
@@ -2672,7 +2716,7 @@ private fun drawerGroups(
         // row directly above this one carries a comment about the last time
         // that happened. Removed with the Drive leg, 2026-09-04.
     )),
-    DrawerGroup("Capture", listOf(
+    DrawerGroup(tx.app_capture, listOf(
         // Was a dead row for two builds: it displayed the setting and could
         // not change it, while the only real control was buried in the
         // capture sheet. A settings row that shows a value you cannot edit
@@ -2686,35 +2730,43 @@ private fun drawerGroups(
         // Off means the bench does the split instead. The projection contract
         // in CI is what makes the two agree, so this is a real choice rather
         // than a quality trade.
-        DrawerLine("Split faces on device", toggled = prefs.splitOnDevice,
+        DrawerLine(tx.app_split_faces_device, toggled = prefs.splitOnDevice,
             icon = R.drawable.ic_mcft_folder, onClick = { onToggle("split_on_device") }),
-        DrawerLine("Keep the original 360", toggled = prefs.keepOriginal,
+        DrawerLine(tx.app_keep_original_360, toggled = prefs.keepOriginal,
             icon = R.drawable.ic_mcft_cube, onClick = { onToggle("keep_original") }),
     )),
     // Proving ground for the Leica DISTO D2 link (Amit, 2026-10-09: "Laser test
     // screen in APK"), until readings land on the Face Prep photo itself.
-    DrawerGroup("Laser", listOf(
-        DrawerLine("Laser test", value = "DISTO D2",
+    DrawerGroup(tx.app_laser, listOf(
+        DrawerLine(tx.app_laser_test, value = "DISTO D2", // text:value product name
             icon = R.drawable.ic_mcft_ruler, onClick = onLaserTest),
     )),
-    DrawerGroup("Display", listOf(
-        DrawerLine("Units", value = if (prefs.imperial) "mm · ft-in" else "mm",
+    DrawerGroup(tx.app_display, listOfNotNull(
+        DrawerLine(tx.app_units, value = if (prefs.imperial) "mm · ft-in" else "mm", // text:value units
             icon = R.drawable.ic_mcft_ruler, onClick = { onToggle("imperial") }),
+        // भाषा · Language, straight after Units, exactly as the prototype draws it (v57,
+        // index61b.html:7571): the label in BOTH scripts so a person who reads only one of them
+        // finds it, the value English / मराठी, no Switch, no sheet, no confirm. One tap flips it;
+        // onToggle never closes the drawer, so it stays open showing the new value. HIDDEN until
+        // every screen is translated (Amit, 27 Oct 2026, decision 2): LangRow.VISIBLE is the one
+        // switch, and AppScreen reads the stored choice only under it too.
+        if (LangRow.VISIBLE) DrawerLine("भाषा · Language", value = if (prefs.lang == "mr") "मराठी" else "English", // text:value both scripts by design (prototype v57)
+            icon = R.drawable.ic_mcft_info, onClick = { onToggle("lang") }) else null,
     )),
-    DrawerGroup("Storage & app", listOfNotNull(
+    DrawerGroup(tx.app_storage_app, listOfNotNull(
         updateVersion?.let {
-            DrawerLine("Update available", value = it,
+            DrawerLine(tx.app_update_available, value = it,
                 icon = R.drawable.ic_mcft_cloud, onClick = onUpdate)
         },
-        DrawerLine("Cached photos", value = cached, icon = R.drawable.ic_mcft_disk,
+        DrawerLine(tx.app_cached_photos, value = cached, icon = R.drawable.ic_mcft_disk,
             onClick = { onToggle("clear_cache") }),
         // The API-key dialog had NO row: onServer was handed to this function
         // and no line ever called it, so the only way in was the search
         // button, which is how a magnifier came to be showing people their
         // server credentials. One route, and it is a settings row.
-        DrawerLine("Server", value = server.ifBlank { "not set" },
+        DrawerLine(tx.app_server, value = server.ifBlank { tx.common_not_set },
             icon = R.drawable.ic_mcft_link, onClick = onServer),
-        DrawerLine("Version", value = version, icon = R.drawable.ic_mcft_info),
+        DrawerLine(tx.app_version, value = version, icon = R.drawable.ic_mcft_info),
         // THE UPDATE LIVES HERE, next to the version it replaces, and nowhere
         // else. Amit, 2026-09-21: "update app is not a client / project
         // thing. dont show these kind of banner at places where its not
@@ -2723,7 +2775,7 @@ private fun drawerGroups(
         // the one screen whose whole job is the room in front of him. The
         // drawer already carries the version, the server and the cache, so it
         // is where an app-level fact belongs.
-        DrawerLine("Sign out", icon = R.drawable.ic_mcft_out, onClick = onSignOut),
+        DrawerLine(tx.app_sign_out, icon = R.drawable.ic_mcft_out, onClick = onSignOut),
     )),
 )
 
@@ -2736,15 +2788,29 @@ data class AppPrefs(
     val splitOnDevice: Boolean,
     val keepOriginal: Boolean,
     val imperial: Boolean,
+    /**
+     * The भाषा · Language choice as stored: "mr" or "en", null until first tapped. Read with
+     * Tx.of, so only exactly "mr" is Marathi and anything else is English -- the default on first
+     * run, whatever the phone's system language (design-marathi §4). Per phone, like Units:
+     * never written into a prep, never sent to S5 or ERP.
+     */
+    val lang: String?,
 ) {
     companion object {
         fun read(p: android.content.SharedPreferences) = AppPrefs(
             wifiOnly = p.getBoolean("wifi_only", false),
             splitOnDevice = p.getBoolean("split_on_device", true),
             keepOriginal = p.getBoolean("keep_original", true),
-            imperial = p.getBoolean("imperial", true))
+            imperial = p.getBoolean("imperial", true),
+            lang = p.getString("lang", null))
 
         fun flip(p: android.content.SharedPreferences, key: String) {
+            // The one String pref: Marathi when it was not, else English (the prototype's
+            // L57.set(lang==='mr'?'en':'mr')).
+            if (key == "lang") {
+                p.edit().putString(key, if (p.getString(key, null) == "mr") "en" else "mr").apply()
+                return
+            }
             val now = when (key) {
                 "wifi_only" -> p.getBoolean(key, false)
                 "split_on_device", "keep_original", "imperial" ->

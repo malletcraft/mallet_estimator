@@ -37,6 +37,15 @@ android {
         // costs it nothing.
         ndk { abiFilters += listOf("arm64-v8a") }
 
+        // ENGLISH-ONLY LIBRARY STRINGS, by decision (design-marathi §2.5, 27 Oct 2026). The
+        // app's own words come from the generated Tx table in :pano, chosen by the भाषा ·
+        // Language row alone; Compose and material3 bring their own translated strings (the
+        // drawer, sheet and drag-handle content descriptions) that would follow the phone's
+        // SYSTEM language instead -- a second answer to "which language". Keeping only "en"
+        // makes them always English, and drops the libraries' unused translations from the
+        // APK and the .aab. The app has no values-* of its own, so nothing of ours moves.
+        resourceConfigurations += listOf("en")
+
         // The web half of MCFT Interior Estimate (S5). This APK IS stage, so it
         // talks to stage: survey prep's as-is upload goes here. One constant,
         // so nothing else in the app spells the host.

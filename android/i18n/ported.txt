@@ -1,3 +1,4 @@
 # Files whose every shown text is keyed (design-marathi §3.3): one path from android/ per line.
 # A file listed here may have no row in unkeyed.tsv (I18nLiteralTest d). Each slice adds the files it finished.
-# Empty on 27 Oct 2026: slice 1a keys nothing.
+# Slice 1a keyed nothing. Slice 1b (27 Oct 2026) adds Lang.kt, which holds LocalTx and no shown text.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt

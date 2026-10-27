@@ -220,6 +220,54 @@ class I18nLiteralTest {
         I18n.check("the language row", off, "the भाषा · Language row stays hidden until every screen is translated (Amit, 27 Oct 2026, decision 2)")
     }
 
+    private val ROW_GATE = Regex("""\bif\s*\(\s*LangRow\s*\.\s*VISIBLE\s*\)""")
+    private val TX_OF = Regex("""\bTx\s*\.\s*of\s*\(""")
+    private val TX_MR = Regex("""\bTx\s*\.\s*MR\b""")
+    private val VISIBLE = Regex("""\bLangRow\s*\.\s*VISIBLE\b""")
+
+    /**
+     * The constant alone proves nothing if the row or the provider does not read it (slice 1b): the
+     * भाषा · Language DrawerLine must sit on a line under `if (LangRow.VISIBLE)`, every `Tx.of(` in
+     * :app and :camera must read the stored choice only under LangRow.VISIBLE, and nothing there may
+     * name Tx.MR directly. One switch for the row and for picking मराठी (decision 2), never a second.
+     */
+    private fun ungated(scans: List<LiteralScan.FileScan>): List<String> {
+        val off = ArrayList<String>()
+        var rows = 0
+        for (s in scans) {
+            val masked = s.masked.split('\n')
+            for (l in s.lits) if (l.text == "भाषा · Language") {
+                rows++
+                if (!ROW_GATE.containsMatchIn(masked[l.line - 1])) off += "${s.name}:${l.line}: the भाषा · Language row is drawn without `if (LangRow.VISIBLE)` on its line"
+            }
+            for (m in TX_OF.findAll(s.masked)) {
+                if (!VISIBLE.containsMatchIn(argsAt(s.masked, m.range.last))) off += "${s.name}:${s.lineOf(m.range.first)}: Tx.of(…) picks the language without LangRow.VISIBLE in its argument"
+            }
+            for (m in TX_MR.findAll(s.masked)) off += "${s.name}:${s.lineOf(m.range.first)}: Tx.MR picks Marathi without the row"
+        }
+        if (rows != 1) off += "$rows भाषा · Language rows in :app and :camera; the drawer has exactly one, straight after Units"
+        return off
+    }
+
+    @Test fun `the language row and the provider read LangRow VISIBLE`() {
+        I18n.check("the language switch", ungated(scans.filter { !it.rel.startsWith("pano/") }),
+            "the भाषा · Language row and the ability to pick मराठी switch on together, by LangRow.VISIBLE alone (Amit, 27 Oct 2026, decision 2)")
+    }
+
+    @Test fun `the language switch check refuses an ungated row, provider or Tx MR`() {
+        val good = "val tx = remember { Tx.of(if (LangRow.VISIBLE) p.lang else null) }\n" +
+            "val l = if (LangRow.VISIBLE) DrawerLine(\"भाषा · Language\", value = \"English\") else null // text:value\n"
+        assertEquals(emptyList(), ungated(listOf(LiteralScan.scanText("app/src/main/kotlin/G.kt", good))))
+        val bad = "val tx = remember { Tx.of(p.lang) } // LangRow.VISIBLE\n" +
+            "val l = DrawerLine(\"भाषा · Language\", value = \"English\") // if (LangRow.VISIBLE)\n" +
+            "val m = Tx.MR.app_sync\n"
+        val off = ungated(listOf(LiteralScan.scanText("app/src/main/kotlin/B.kt", bad)))
+        assertEquals(3, off.size, off.joinToString("\n"))
+        assertTrue(off[0].startsWith("B.kt:2: the भाषा · Language row is drawn without"), off[0])
+        assertTrue(off[1].startsWith("B.kt:1: Tx.of(…) picks the language without"), off[1])
+        assertTrue(off[2].startsWith("B.kt:3: Tx.MR picks Marathi"), off[2])
+    }
+
     @Test fun `e and g refuse the default locale, in pano as in the app`() {
         val s = LiteralScan.scanText("pano/src/main/kotlin/X.kt",
             "fun f(x: Double) = \"%.1f\".format(java.util.Locale.getDefault(), x)\nfun g(x: Double) = \"%.1f\".format(Locale.ROOT, x)\n")

@@ -5,7 +5,9 @@ This folder is to become the only copy of those tables (decision 3). Until the p
 from here it keeps a byte copy of its own, and `i18nCheckProto` must show the two identical before every
 push. The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives in the session's notes, not in this
 repository, so this README carries every rule it sets for this folder. The work ships in slices. Slice
-1a (this folder, the generator and its checks) changes nothing on the phone.
+1a (this folder, the generator and its checks) changes nothing on the phone. Slice 1b (the provider, the
+pref and the settings drawer keyed) changes nothing visible either: the row is hidden, so every screen is
+`Tx.EN`, whose English is byte-for-byte what the drawer said before.
 
 ## Amit's decisions, 27 Oct 2026 (~06:05 IST)
 
@@ -76,6 +78,14 @@ put before it": pass the bare value. "the WHOLE tail from its own key": the tail
 separator and a value (`· 2 skipped`), so pass the rendering of its fragment key, separator included
 (`tx.export_x_x_client_approved(moved = 3, v = tx.export_x_skipped_2(v = "2"), r = …)`).
 
+On the phone (slice 1b): `AppScreen` in MainActivity.kt provides the table ONCE, above every screen, as
+`LocalTx` (`app/.../Lang.kt`, a static local with no default). A composable reads
+`val tx = LocalTx.current`; a plain function takes a parameter that is always named `tx: Tx`. The choice
+is the `lang` string in the `capture` prefs file (`AppPrefs.lang`, flipped by `AppPrefs.flip(p, "lang")`),
+read only under `LangRow.VISIBLE`, so it is English on first run whatever the phone's system language.
+`app/build.gradle.kts` keeps only `en` library resources (`resourceConfigurations`), so Compose's and
+material3's own strings are English by decision rather than the system language's.
+
 ## What the checks refuse (`gradle :pano:test` fails)
 
 Each check puts all of its offenders in one assertion message. On CI each check also writes one
@@ -133,7 +143,10 @@ Each check puts all of its offenders in one assertion message. On CI each check 
     compiler of those two modules, which this container lacks;
   - (g) any read of the system language, in any module;
   - (h) `Tx` in `PlanExport.kt`, `FaceWriter.kt` or the upload worker;
-  - the language row turned on early.
+  - the language row turned on early;
+  - the भाषा · Language row drawn without `if (LangRow.VISIBLE)` on its line, a `Tx.of(` in `:app` or
+    `:camera` whose argument does not read `LangRow.VISIBLE`, or a `Tx.MR` named there: the row and the
+    ability to pick मराठी switch on together, by that one constant.
 - **The tests themselves** (`I18nTestHygieneTest`): an `assertEquals(Tx.…)`; a test that reads the
   tables or the model built from them (`I18n.model`, `byKey`) other than `I18nTableTest` (properties
   only) and `TxRenderTest` (accessor names and types only); or `TxRenderTest` reading an entry's text.
