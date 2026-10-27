@@ -183,8 +183,7 @@ fun ClientsScreen(
     LazyColumn(Modifier.fillMaxSize()) {
         if (clients.isEmpty()) {
             item {
-                Empty("No clients yet. Go online once to pull them from ERP, " +
-                      "or use New site to start one here.")
+                Empty(tx.app_no_clients_yet_go)
             }
         }
         items(clients) { c ->
@@ -324,8 +323,9 @@ fun RoomsScreen(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             AssistChip(onClick = { }, enabled = false,
-                // "3 rooms shot", composed as the prototype composes it (v53 app.js:460): the count, then app.shot
-                label = { Text(tx.pl_room(shot.size) + tx.app_shot) })
+                // "3 rooms shot": the WHOLE template app.x_shot (v57), never pl_room + the fragment app.shot,
+                // which glued "3 खोल्या फोटो" -- the form v57 rejected for "फोटो झाले: 3 खोल्या"
+                label = { Text(tx.app_x_shot(shot.size)) })
             // The wish list (v52 item 16; Amit, 14 Oct 06:36 IST: "the wishlist should never get
             // mixed with survey as this wishlist comes after survey"): reached from the PROJECT
             // only, never from a room, a capture or survey prep. Teal so it reads as the

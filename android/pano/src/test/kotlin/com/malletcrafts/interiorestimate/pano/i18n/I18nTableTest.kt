@@ -6,7 +6,8 @@ import kotlin.test.assertTrue
 /**
  * THE TABLE AND ITS GENERATED CODE (design-marathi §3.3, I18nTableTest 1–8; slice 1a). Every check
  * asserts a PROPERTY of the two tables or compares the committed files with what GenTx writes; none
- * compares the table with a copy of itself (I18nTestHygieneTest).
+ * compares the table with a copy of itself (I18nTestHygieneTest). Check 9 (the slice 1c review) holds
+ * the sources to one property of the table: a fragment a whole template supersedes is never glued.
  */
 class I18nTableTest {
 
@@ -91,6 +92,83 @@ class I18nTableTest {
             else if (f.readText() != text) off += "$rel: stale"
         }
         I18n.check("6 · generated code", off, "run `gradle :pano:i18nGen` and commit what it writes (never edit a GENERATED file by hand)")
+    }
+
+    // ---------------------------------------------------------------- a whole sentence, never a glued fragment
+
+    /** A prototype site, `v53build/app.js:460` of `v53build/app.js:460 · z`. */
+    private fun site(where: String) = where.substringBefore(" · ").trim()
+
+    /**
+     * Fragment accessor -> the whole template that supersedes it: a fragment key whose English (trimmed,
+     * as whole words) sits inside a template's English at the SAME prototype site. The prototype's display
+     * layer tries a whole template before it glues a suffix, so at that site the fragment glued to a value
+     * is the form the prototype rejected -- v57's `app.x_shot` exists because `app.shot` made "3 खोल्या फोटो"
+     * where the chip reads "फोटो झाले: 3 खोल्या" (design §9: a fragment may stand alone as a label, never
+     * be joined into a sentence). A property of the table: no text is compared.
+     */
+    private val superseded: Map<String, String> by lazy {
+        val templates = m.entries.filter { it.kind == GenTx.Kind.TEMPLATE && it.accessor != null && it.where.isNotEmpty() }
+            .groupBy { site(it.where) }
+        val out = LinkedHashMap<String, String>()
+        for (e in m.entries) {
+            val acc = e.accessor ?: continue
+            if ("fragment" !in e.flags || e.where.isEmpty()) continue
+            if (e.kind != GenTx.Kind.STATIC && e.kind != GenTx.Kind.TEMPLATE) continue
+            val words = e.en.trim(); if (words.isEmpty()) continue
+            val rx = Regex("(?<![A-Za-z])" + Regex.escape(words) + "(?![A-Za-z])")
+            templates[site(e.where)]?.firstOrNull { it.key != e.key && rx.containsMatchIn(it.en) }?.let { out[acc] = it.accessor!! }
+        }
+        out
+    }
+
+    private val TX_USE = Regex("""(?<![\w.])(?:tx|Tx\s*\.\s*(?:EN|MR))\s*\.\s*([A-Za-z_]\w*)""")
+
+    /** Each use, in [scans], of a fragment [sup] supersedes that is JOINED: `+` or `+=` either side, or inside a string. */
+    private fun gluedFragments(scans: List<LiteralScan.FileScan>, sup: Map<String, String>): List<String> {
+        val off = ArrayList<String>()
+        for (s in scans) {
+            val t = s.masked
+            for (u in TX_USE.findAll(t)) {
+                val name = u.groupValues[1]; val whole = sup[name] ?: continue
+                var a = u.range.first - 1; while (a >= 0 && t[a].isWhitespace()) a--
+                var b = u.range.last + 1; while (b < t.length && t[b].isWhitespace()) b++
+                if (b < t.length && t[b] == '(') {                       // a template fragment: skip its arguments
+                    var d = 0
+                    while (b < t.length) { if (t[b] == '(') d++ else if (t[b] == ')') { d--; if (d == 0) break }; b++ }
+                    b++; while (b < t.length && t[b].isWhitespace()) b++
+                }
+                val before = a >= 0 && (t[a] == '+' || (t[a] == '=' && a >= 1 && t[a - 1] == '+'))
+                val after = b < t.length && t[b] == '+'
+                val inString = s.lits.any { u.range.first in it.start until it.end }
+                if (before || after || inString) off += "${s.name}:${s.lineOf(u.range.first)}: tx.$name is glued into a sentence; the table has the whole one, tx.$whole"
+            }
+        }
+        return off
+    }
+
+    @Test fun `9 no fragment a whole template supersedes is glued into a sentence`() {
+        val scans = LiteralScan.sources(I18n.android).map { LiteralScan.scan(I18n.android, it) }
+        I18n.check("9 · glued fragment", gluedFragments(scans, superseded),
+            "call the whole template the prototype draws at that site (tx.app_x_shot(n), not tx.pl_room(n) + tx.app_shot): glued, the Marathi keeps the English word order")
+    }
+
+    @Test fun `9 the glued-fragment check sees each way of joining, and lets a fragment stand alone`() {
+        // the table's own v57 case is found, and a fragment with no whole template at its site is not
+        assertTrue(superseded["app_shot"] == "app_x_shot", "app.shot is superseded by app.x_shot at v53build/app.js:460")
+        assertTrue("app_wi_fi_only" !in superseded, "app.wi_fi_only has no whole template at its site: it may still be glued")
+        val src = "fun f() {\n" +
+            "    Text(tx.pl_room(n) + tx.app_shot)\n" +
+            "    Text(tx.app_shot + \"!\")\n" +
+            "    Text(\"${'$'}{tx.pl_room(n)}${'$'}{tx.app_shot}\")\n" +
+            "    s += Tx.EN.app_shot\n" +
+            "    Text(tx.app_shot)\n" +
+            "    Text(tx.app_x_shot(n))\n" +
+            "    Text((if (w) tx.app_wi_fi_only else \"\") + tx.app_x_waiting(q = \"3\"))\n" +
+            "}\n"
+        val off = gluedFragments(listOf(LiteralScan.scanText("app/src/main/kotlin/X.kt", src)), mapOf("app_shot" to "app_x_shot"))
+        val lines = off.map { it.substringAfter("X.kt:").substringBefore(':').toInt() }
+        assertTrue(lines == listOf(2, 3, 4, 5), off.joinToString("\n"))
     }
 
     // ---------------------------------------------------------------- what may never enter a PUBLIC repo

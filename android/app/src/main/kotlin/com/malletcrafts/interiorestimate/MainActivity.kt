@@ -1116,8 +1116,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 topBar = {
                     TreeTopBar(
                         title = if (tab == "work") "Work" else "Sync queue",
-                        // "3 waitings" is the phone's English today; the prototype's app.x_waiting says
-                        // "3 waiting". Kept, and unkeyed, until Amit's decision 5 is taken (27 Oct 2026).
+                        // "3 waitings": the prototype draws this same subtitle as plural(unsent(),'waiting')
+                        // (v53 app.js:565, unchanged in v61b), byte for byte the phone's. No whole key exists
+                        // at this site (app.x_waiting is the drawer's Sync-now value, app.js:215), so it stays
+                        // English and listed until the v61c card gives it one -- not a decision-5 case.
                         subtitle = if (tab == "work") "MCFT Interior Estimate"
                                    else "$unsent waiting" + (if (unsent == 1) "" else "s"),
                         onMenu = { scopeTab.launch { drawerState.open() } },
@@ -2062,8 +2064,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         busy = null
                         outcome.onSuccess {
                             SyncWorker.syncNow(context)
-                            lastResult = { _ -> "${it.faceCount} pictures saved to ${it.relativePath}\n" +
-                                "Open ImageMeter \u2192 the room folder \u2192 add photos." }
+                            // read into vals first: the banner is drawn later, from these
+                            val count = it.faceCount.toString()
+                            val path = it.relativePath
+                            lastResult = { tx -> tx.app_msg_x_pictures_saved_x(v = count, v2 = path) }
                         }.onFailure { lastResult = { _ -> "Could not save: ${it.message}" } }
                         refreshQueue()
                     }

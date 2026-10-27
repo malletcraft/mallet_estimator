@@ -16,10 +16,14 @@
 # elsewhere in MainActivity.kt. "Not signed in" stays until the v61c card carries it.
 # Slice 1c (27 Oct 2026) removed the project list's rows -- BrowseScreens, HomeScreens, Crumbs, the Clients title
 # and crumbs, the plural() words (now Tx's pl_* accessors) and the lastResult / busy messages that have prototype
-# keys -- and marked Crumbs' two glyphs `// text:value`. It ADDED one row: MainActivity's "$unsent waiting", the
-# Sync queue's subtitle, which says "3 waitings" (the old plural() on a verb) where the prototype's app.x_waiting
-# says "3 waiting"; decision 5 is not taken, so the phone keeps its English, unkeyed. BrowseScreens' "SITE" badge
-# stays too: the prototype draws it as an unkeyed literal, and noun.site is "site".
+# keys -- and marked Crumbs' two glyphs `// text:value`. Its review (same day) keyed two texts the slice had
+# missed because the phone splits their literal with `+`: the Clients empty state (app.no_clients_yet_go) and
+# the keep-faces banner (app.msg.x_pictures_saved_x), so the keyed lastResult / busy messages are 20, at 21 sites. The
+# slice ADDED one row: MainActivity's "$unsent waiting", the Sync queue's subtitle, "3 waitings". The prototype
+# draws that same subtitle as plural(unsent(),'waiting') (v53 app.js:565, unchanged in v61b), so the phone already
+# matches it byte for byte; it has no whole key at that site (app.x_waiting is the drawer's Sync-now value,
+# app.js:215, and app.waiting a fragment), so it waits for a key on the v61c card, not for decision 5.
+# BrowseScreens' "SITE" badge stays too: the prototype draws it as an unkeyed literal, and noun.site is "site".
 file	text
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
@@ -95,10 +99,8 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	 · 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	+${rest.size}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	No clients yet. Go online once to pull them from ERP, 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	PRJ
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	SITE
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	or use New site to start one here.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 · tap to correct (recorded)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.annotated}/6
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.date} ${c.stage}
@@ -441,7 +443,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${c.room} 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.date} · ${cap.stage.ifBlank { "no stage" }}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.deviceId} · ${cap.date}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.sku} · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${it.faceCount} pictures saved to ${it.relativePath}\n
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} / ${p.site} · ${p.jobType}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} · site
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.site} / ${p.title}
@@ -505,7 +506,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No camera 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No photos in the gallery to look at.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Not done yet \u00b7 tap to bound, square and mark each surface
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	OK
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Open ImageMeter \u2192 the room folder \u2192 add photos.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Opening the 360\u2026
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	PRJ
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Password

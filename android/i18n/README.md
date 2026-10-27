@@ -94,7 +94,10 @@ still English, drawn with `Text(it(tx))`. Name the lambda's parameter, always (a
 implicit one): with an implicit `it`, an `it.message` inside would mean the Tx. A literal in such a lambda keeps the assignment's UI position, so
 (a) judges it. Any value computed from state that may change (a text field's `typed`) is read into a `val`
 BEFORE the lambda, or the banner shows what the field says when it is drawn. Counts use the generated
-`tx.pl_<noun>(n)` ("3 rooms"); the old `plural()` helper is gone.
+`tx.pl_<noun>(n)` ("3 rooms"); the old `plural()` helper is gone. Where the table has a WHOLE template for a
+site, call it rather than a count glued to a fragment: `tx.app_x_shot(n)`, never `tx.pl_room(n) + tx.app_shot`,
+which the English cannot tell apart but which keeps the English word order in Marathi ("3 खोल्या फोटो" where
+the prototype draws "फोटो झाले: 3 खोल्या"). A fragment may stand alone as a label (design §9).
 
 ## What the checks refuse (`gradle :pano:test` fails)
 
@@ -108,7 +111,10 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - a Marathi value has a placeholder the English lacks, or drops one that is not a plural suffix;
   - the refused templates differ from the pinned 14 (that list may only shrink);
   - two keys give the same accessor;
-  - the committed generated files differ from what GenTx writes. The fix is `gradle :pano:i18nGen`.
+  - the committed generated files differ from what GenTx writes. The fix is `gradle :pano:i18nGen`;
+  - (9) a fragment key that a whole template at the same prototype site contains (`app.shot` inside
+    `app.x_shot`, both v53 app.js:460) glued into a sentence in any scanned module -- `+` or `+=` on
+    either side, or inside a string. Call the whole template; the fragment may still stand alone.
 - **The public repository**:
   - a currency figure (`₹`, `Rs`, `INR` before a digit) anywhere in either file, notes included;
   - anything matching `deny-patterns.txt`;
