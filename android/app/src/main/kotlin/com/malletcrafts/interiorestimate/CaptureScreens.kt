@@ -194,6 +194,7 @@ fun CapturesScreen(
 /** The stage a run of photographs belongs to, with how long it ran. */
 @Composable
 private fun StageHeading(stage: String, photos: Int, days: Int) {
+    val tx = LocalTx.current
     Column(Modifier.fillMaxWidth()
         .background(MaterialTheme.colorScheme.secondaryContainer)
         .padding(horizontal = 14.dp, vertical = 8.dp)) {
@@ -202,8 +203,7 @@ private fun StageHeading(stage: String, photos: Int, days: Int) {
             fontWeight = FontWeight.Bold,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSecondaryContainer)
-        Text(plural(photos, "photo") +
-             (if (days > 1) " over ${plural(days, "day")}" else ""),
+        Text(if (days > 1) tx.app_x_over_x(plN = photos, pl2N = days) else tx.pl_photo(photos),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSecondaryContainer)
     }

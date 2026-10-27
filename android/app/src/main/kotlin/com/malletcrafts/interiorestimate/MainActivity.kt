@@ -73,6 +73,7 @@ import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -240,8 +241,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
         mutableStateOf(capturePrefs.getString("update_available", null))
     }
 
-    var busy by remember { mutableStateOf<String?>(null) }
-    var lastResult by remember { mutableStateOf<String?>(null) }
+    // Msg, not String (design-marathi §2.4, slice 1c): drawn in whatever language is on WHEN
+    // drawn, so a message raised before the language changes redraws in the new one. Every
+    // assignment is a lambda with a NAMED parameter -- `{ tx -> … }` for a keyed text, `{ _ -> … }`
+    // for one still English -- so an `it` inside means the enclosing lambda's, never the Tx.
+    var busy by remember { mutableStateOf<Msg?>(null) }
+    var lastResult by remember { mutableStateOf<Msg?>(null) }
     var queue by remember { mutableStateOf(store.all()) }
     // Captures AND recorded work. The Queue badge is the one number in the
     // app that must never be optimistic, and an SKU sitting unsent on a
@@ -365,7 +370,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             withContext(Dispatchers.Main) {
                 surveyLoading = false
                 r.onSuccess { surveyKept = KeptSurvey(row, title, it, size) }
-                    .onFailure { lastResult = "Could not open the 360: ${it.message}" }
+                    .onFailure { lastResult = { _ -> "Could not open the 360: ${it.message}" } }
             }
         }
     }
@@ -398,7 +403,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // stand, squared to THAT size, REPLACING the earlier ones (FaceWriter.writeSurvey).
                 val row = k.row
                 keepRoomSize(row.deviceId, size)
-                lastResult = "Survey prep saved \u2014 writing its pictures\u2026"
+                lastResult = { tx -> tx.app_msg_survey_prep_saved_writing }
                 scope.launch(Dispatchers.Default) {
                     val n = runCatching {
                         FaceWriter.rewriteSurvey(context, File(row.panoPath), row.deviceId, row.room,
@@ -406,9 +411,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             Handover.relativePath(row.customerName, row.projectTitle, row.room), p, size)
                     }
                     withContext(Dispatchers.Main) {
-                        lastResult = n.fold(
-                            onSuccess = { c -> "Survey prep saved \u00b7 $c pictures in the room folder" },
-                            onFailure = { e -> "Survey prep saved on this phone; pictures not written: ${e.message}" })
+                        n.onSuccess { c -> lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) } }
+                            .onFailure { e -> lastResult = { _ -> "Survey prep saved on this phone; pictures not written: ${e.message}" } }
                     }
                 }
             },
@@ -568,8 +572,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // nine times in ten and is exactly what the server would have filled
         // in anyway — writing it locally is what lets the phone SHOW it.
         val stageNow = stage.ifBlank { navProject?.stage.orEmpty() }
-        busy = if (kind == "Photo") "Filing the photo…"
-               else "Splitting the 360 into six faces…"
+        busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
         lastResult = null
         scope.launch(Dispatchers.Default) {
             val outcome = runCatching {
@@ -635,18 +638,17 @@ private fun AppScreenBody(onLang: () -> Unit) {
             }
             withContext(Dispatchers.Main) {
                 busy = null
-                lastResult = outcome.fold(
-                    onSuccess = {
-                        // null means a 360 is waiting on his approval; the
-                        // preview sheet is the message, so there is nothing
-                        // to say in the banner.
-                        if (it == null) null
-                        else {
-                            SyncWorker.syncNow(context)
-                            "Photo filed in ${it.relativePath}"
-                        }
-                    },
-                    onFailure = { "Could not split: ${it.message}" })
+                // A null result means a 360 is waiting on his approval; the
+                // preview sheet is the message, so there is nothing to say
+                // in the banner.
+                lastResult = null
+                outcome.onSuccess { filed ->
+                    if (filed != null) {
+                        SyncWorker.syncNow(context)
+                        val path = filed.relativePath
+                        lastResult = { tx -> tx.app_msg_photo_filed_x(path) }
+                    }
+                }.onFailure { lastResult = { _ -> "Could not split: ${it.message}" } }
                 refreshQueue()
             }
         }
@@ -678,10 +680,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         mediaTick += 1
-        lastResult = if (granted) "Gallery access granted — looking for annotations now."
+        lastResult = { _ -> if (granted) "Gallery access granted — looking for annotations now."
                      else "Without gallery access the app cannot see what " +
                           "ImageMeter wrote. Settings → Apps → MCFT Interior " +
-                          "Estimate → Permissions → Photos."
+                          "Estimate → Permissions → Photos." }
         if (granted) SyncWorker.syncNow(context)
     }
     LaunchedEffect(configured) {
@@ -695,7 +697,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // person is looking at when they come back from ImageMeter. A feature
     // that only exists in a menu is a feature nobody finds twice.
     fun importFromImageMeter() {
-                    busy = "Importing from ImageMeter…"
+                    busy = { tx -> tx.app_msg_importing_imagemeter }
                     scope.launch(Dispatchers.IO) {
                         // "Now" means now: drop the remembered misses so the
                         // gallery is read fresh. A picture scanned before it
@@ -779,7 +781,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         // and the sentence that confused the answer.
                         withContext(Dispatchers.Main) {
                             busy = null
-                            lastResult = localLine
+                            lastResult = { _ -> localLine }
                         }
                     }
     }
@@ -849,7 +851,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         "site" -> { navSite = newName; navProject = null }
                         else -> navProject = null
                     }
-                    lastResult = "Renamed to $newName"
+                    lastResult = { tx -> tx.app_msg_renamed_x(newName) }
                     renaming = null
                 } else {
                     renameBusy = true
@@ -875,10 +877,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     "site" -> { navSite = newName; navProject = null }
                                     else -> navProject = null
                                 }
-                                lastResult = "Renamed to $newName"
+                                lastResult = { tx -> tx.app_msg_renamed_x(newName) }
                                 renaming = null
                             }.onFailure {
-                                lastResult = "Could not rename: ${it.message}"
+                                lastResult = { _ -> "Could not rename: ${it.message}" }
                             }
                         }
                     }
@@ -911,7 +913,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         "site" -> { navSite = null; navProject = null }
                         else -> navProject = null
                     }
-                    lastResult = Deletes.localOnlyMessage(t.current)
+                    lastResult = { _ -> Deletes.localOnlyMessage(t.current) }
                     deleteBlocker = null
                     deleteFatal = false
                     renaming = null
@@ -942,7 +944,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     "site" -> { navSite = null; navProject = null }
                                     else -> navProject = null
                                 }
-                                lastResult = "Deleted ${t.current}"
+                                lastResult = { tx -> tx.app_msg_deleted_x(t.current) }
                                 deleteBlocker = null
                                 deleteFatal = false
                                 renaming = null
@@ -988,7 +990,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // sit over the captures list. Same mechanism, one caller.
     val startUpdate: () -> Unit = {
         pendingUpdate(context)?.let { info ->
-            busy = "Downloading update ${info.optString("version_name")}\u2026"
+            val update = info.optString("version_name")
+            busy = { tx -> tx.app_msg_downloading_update_x(update) }
             scope.launch(Dispatchers.IO) {
                 val outcome = runCatching {
                     val dest = File(context.filesDir, "updates/update.apk")
@@ -1005,7 +1008,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 }
                 withContext(Dispatchers.Main) {
                     busy = null
-                    outcome.onFailure { lastResult = "Update failed: ${it.message}" }
+                    outcome.onFailure { lastResult = { _ -> "Update failed: ${it.message}" } }
                 }
             }
         }
@@ -1031,7 +1034,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     pendingUpdate(context)?.optString("version_name")
                 },
                 onUpdate = startUpdate,
-                cached = cacheSize(context),
+                cached = cacheSize(context, tx),
                 prefs = remember(prefsTick) { AppPrefs.read(capturePrefs) },
                 // The "Server" row: who is signed in to S5, else the legacy pair's URL.
                 // Its onClick (onServer) opens the S5 sign-in either way. When the stored
@@ -1044,7 +1047,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 onToggle = { key ->
                     if (key == "clear_cache") {
                         context.cacheDir.resolve("ann").deleteRecursively()
-                        lastResult = "Cached annotated copies cleared"
+                        lastResult = { tx -> tx.app_msg_cached_annotated_copies_cleared }
                     } else {
                         AppPrefs.flip(capturePrefs, key)
                         // The Wi-Fi choice is a WorkManager constraint,
@@ -1113,8 +1116,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 topBar = {
                     TreeTopBar(
                         title = if (tab == "work") "Work" else "Sync queue",
+                        // "3 waitings" is the phone's English today; the prototype's app.x_waiting says
+                        // "3 waiting". Kept, and unkeyed, until Amit's decision 5 is taken (27 Oct 2026).
                         subtitle = if (tab == "work") "MCFT Interior Estimate"
-                                   else plural(unsent, "waiting"),
+                                   else "$unsent waiting" + (if (unsent == 1) "" else "s"),
                         onMenu = { scopeTab.launch { drawerState.open() } },
                         onSearch = { showSearch = true; searchQuery = "" })
                 },
@@ -1222,7 +1227,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
 
         val crumbs = buildList {
             add(Crumb(
-                label = "Clients",
+                label = tx.common_clients,
                 onUp = { navClient = null; navSite = null; navProject = null }))
             if (client != null) add(Crumb(
                 label = shortName(client),
@@ -1251,9 +1256,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
             proj != null -> { title = proj.title; subtitle = "${proj.jobType} · ${site.orEmpty()}" }
             site != null -> { title = site; subtitle = client.orEmpty() }
             client != null -> { title = client
-                subtitle = plural(cs.siteCount(client), "site") }
-            else -> { title = "Clients"
-                subtitle = plural(cs.clients.size, "client") }
+                subtitle = tx.pl_site(cs.siteCount(client)) }
+            else -> { title = tx.common_clients
+                subtitle = tx.pl_client(cs.clients.size) }
         }
 
         if (showStagePicker && proj != null) {
@@ -1514,10 +1519,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     AnnotationPush.push(context, server, cap.deviceId, annotatedLocal)
                 }
             }.onSuccess { n ->
-                if (n > 0) lastResult = "Sent $n annotated " +
-                    (if (n == 1) "face" else "faces") + " to $server"
+                if (n > 0) lastResult = { _ -> "Sent $n annotated " +
+                    (if (n == 1) "face" else "faces") + " to $server" }
             }.onFailure {
-                lastResult = "Could not send the annotation: ${it.message}"
+                lastResult = { _ -> "Could not send the annotation: ${it.message}" }
             }
         }
         LaunchedEffect(cap.deviceId) {
@@ -1629,7 +1634,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     SurveyPrepStore(context).delete(cap.deviceId)
                     surveyTick++
                     refreshQueue()
-                    lastResult = "Local copy removed \u2014 the capture and the bench copy stay"
+                    lastResult = { tx -> tx.app_msg_local_copy_removed_capture }
                 }) else null
             Box(Modifier.padding(pad)) {
                 CaptureScreen(
@@ -1678,7 +1683,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         }
                         navCapture = null; navFace = null
                         refreshQueue()
-                        lastResult = "Capture deleted"
+                        lastResult = { tx -> tx.app_msg_capture_deleted }
 
                         // And on the bench, if it ever got there. Amit,
                         // 2026-08-23: "when captures are deleted its sku is
@@ -1711,12 +1716,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                         val gone = j?.optJSONArray("removed")
                                         val tookSku = (0 until (gone?.length() ?: 0))
                                             .any { gone!!.optString(it).startsWith("sku:") }
-                                        lastResult = if (tookSku)
+                                        lastResult = { tx -> if (tookSku)
                                             "Capture deleted, and the SKU nobody else was using"
-                                        else "Capture deleted here and on the bench"
+                                        else tx.app_msg_capture_deleted_here_bench }
                                     }.onFailure {
-                                        lastResult = "Deleted here. The bench copy " +
-                                            "did not go: ${it.message}"
+                                        lastResult = { _ -> "Deleted here. The bench copy " +
+                                            "did not go: ${it.message}" }
                                     }
                                 }
                             }
@@ -1732,7 +1737,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         else -> "Not done yet \u00b7 tap to bound, square and mark each surface"
                     },
                     onRemoveLocal = removeLocal,
-                    localSize = keptFile?.let { "%.1f MB".format(it.length() / 1024.0 / 1024.0) } ?: "")
+                    localSize = keptFile?.let { "%.1f MB".format(java.util.Locale.ROOT, it.length() / 1024.0 / 1024.0) } ?: "")
             }
         }
 
@@ -1762,7 +1767,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         ?.setCaptureTags(serverName, workStage = newStage, sku = newSku)
                 }
                 withContext(Dispatchers.Main) {
-                    out.onFailure { lastResult = "Could not re-file on the bench: ${it.message}" }
+                    out.onFailure { lastResult = { _ -> "Could not re-file on the bench: ${it.message}" } }
                 }
             }
         }
@@ -1809,8 +1814,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             }.onSuccess { FaceSkus.markSynced(context, devId, face) }
                         }
                     }
-                    lastResult = if (code.isBlank()) "Cleared the work on this face"
-                                 else "$code on this face"
+                    lastResult = { tx -> if (code.isBlank()) tx.app_cleared_work_face
+                                 else tx.app_x_face(code) }
                 })
         }
         return
@@ -1864,7 +1869,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
     BackHandler { navRoom = null }
 
     val roomCrumbs = buildList {
-        add(Crumb(label = "Clients", onUp = {
+        add(Crumb(label = tx.common_clients, onUp = {
             navClient = null; navSite = null; navProject = null; navRoom = null
         }))
         navClient?.let { c ->
@@ -1992,7 +1997,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     // just made and cannot see reads as a
                                     // failure.
                                     SyncWorker.syncNow(context)
-                                    lastResult = "Room \"${typed.trim()}\" ready"
+                                    val made = typed.trim()
+                                    lastResult = { tx -> tx.app_msg_room_x_ready(made) }
                                 }.onFailure { e ->
                                     // ApiException already carries the
                                     // bench's own humanised message — which
@@ -2021,12 +2027,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 FaceWriter.discard(ps.session)
                 SurveyPrepStore(context).delete(ps.session.deviceId)
                 pending = null
-                lastResult = "Discarded \u2014 nothing was saved to your photos."
+                lastResult = { tx -> tx.app_msg_discarded_nothing_was_saved }
             },
             onKeep = {
                 val keep = ps
                 pending = null
-                busy = "Saving six faces\u2026"
+                busy = { tx -> tx.app_msg_saving_six_faces }
                 scope.launch(Dispatchers.Default) {
                     val outcome = runCatching {
                         val res = FaceWriter.commit(context, keep.session)
@@ -2054,13 +2060,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     }
                     withContext(Dispatchers.Main) {
                         busy = null
-                        lastResult = outcome.fold(
-                            onSuccess = {
-                                SyncWorker.syncNow(context)
-                                "${it.faceCount} pictures saved to ${it.relativePath}\n" +
-                                    "Open ImageMeter \u2192 the room folder \u2192 add photos."
-                            },
-                            onFailure = { "Could not save: ${it.message}" })
+                        outcome.onSuccess {
+                            SyncWorker.syncNow(context)
+                            lastResult = { _ -> "${it.faceCount} pictures saved to ${it.relativePath}\n" +
+                                "Open ImageMeter \u2192 the room folder \u2192 add photos." }
+                        }.onFailure { lastResult = { _ -> "Could not save: ${it.message}" } }
                         refreshQueue()
                     }
                 }
@@ -2219,7 +2223,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             onShoot = {
                 cam?.let { c ->
                 showCaptureSheet = false
-                busy = "Shooting on the X3…"
+                busy = { tx -> tx.app_msg_shooting_x3 }
                 lastResult = null
                 val out = File(context.filesDir, "x3-${System.currentTimeMillis()}.jpg")
                 c.shootAndExport(out.path) { result ->
@@ -2227,7 +2231,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         busy = null
                         result.fold(
                             onSuccess = { path -> ingest(Uri.fromFile(File(path))) },
-                            onFailure = { lastResult = "X3 capture failed: ${it.message}" })
+                            onFailure = { lastResult = { _ -> "X3 capture failed: ${it.message}" } })
                     }
                 }
                 }
@@ -2240,7 +2244,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     context, "com.malletcrafts.interiorestimate.fileprovider", f)
                 shotUri = u
                 runCatching { camera.launch(u) }.onFailure {
-                    lastResult = "No camera app answered: ${it.message}"
+                    lastResult = { _ -> "No camera app answered: ${it.message}" }
                 }
             },
             onPickPhoto = {
@@ -2262,7 +2266,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         title = RoomToken.label(roomName),
                         subtitle = listOfNotNull(
                             navProject?.title,
-                            plural(roomCaptures.size, "capture"),
+                            tx.pl_capture(roomCaptures.size),
                         ).joinToString(" · "),
                         onMenu = { scopeRoom.launch { drawerState.open() } },
                         onSearch = { showSearch = true; searchQuery = "" })
@@ -2289,7 +2293,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.width(18.dp).height(18.dp))
                         Spacer(Modifier.width(12.dp))
-                        Text(it, style = MaterialTheme.typography.bodySmall)
+                        Text(it(tx), style = MaterialTheme.typography.bodySmall)
                     }
                 }
                 lastResult?.let {
@@ -2299,7 +2303,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         modifier = Modifier.fillMaxWidth()
                             .clickableRow { lastResult = null },
                     ) {
-                        Text(it, Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                        Text(it(tx), Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -2932,15 +2936,15 @@ private fun searchTree(
 }
 
 /** Roughly how much disk the cached annotated copies hold. */
-private fun cacheSize(context: android.content.Context): String {
+private fun cacheSize(context: android.content.Context, tx: Tx): String {
     val bytes = runCatching {
         context.cacheDir.resolve("ann").walkTopDown()
             .filter { it.isFile }.sumOf { it.length() }
     }.getOrDefault(0L)
     return when {
-        bytes <= 0 -> "empty"
+        bytes <= 0 -> tx.app_empty
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        else -> String.format("%.1f MB", bytes / 1024.0 / 1024.0)
+        else -> String.format(java.util.Locale.ROOT, "%.1f MB", bytes / 1024.0 / 1024.0)
     }
 }
 

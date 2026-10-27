@@ -179,6 +179,7 @@ fun ClientsScreen(
     onRename: (String) -> Unit,
     onNew: () -> Unit,
 ) {
+    val tx = LocalTx.current
     LazyColumn(Modifier.fillMaxSize()) {
         if (clients.isEmpty()) {
             item {
@@ -192,11 +193,11 @@ fun ClientsScreen(
             FolderRow(
                 badge = initials(c),
                 title = c,
-                subtitle = "${plural(s, "site")} · ${plural(p, "project")}",
+                subtitle = "${tx.pl_site(s)} · ${tx.pl_project(p)}",
                 onClick = { onOpen(c) },
                 onLongClick = { onRename(c) })
         }
-        item { NewRow("New client", "works with no signal", onNew) }
+        item { NewRow(tx.app_new_client, tx.app_works_no_signal, onNew) }
     }
 }
 
@@ -209,20 +210,21 @@ fun SitesScreen(
     onRename: (Catalogue.Site) -> Unit,
     onNew: () -> Unit,
 ) {
+    val tx = LocalTx.current
     LazyColumn(Modifier.fillMaxSize()) {
         items(sites) { s ->
             FolderRow(
                 badge = if (s.type.isNotBlank()) s.type.take(3).uppercase() else "SITE",
                 title = s.name,
                 subtitle = listOf(s.type, s.city).filter { it.isNotBlank() }
-                    .joinToString(" · ").ifBlank { plural(projectCount(s), "project") },
+                    .joinToString(" · ").ifBlank { tx.pl_project(projectCount(s)) },
                 count = projectCount(s),
-                pill = if (s.local) "offline" else null,
+                pill = if (s.local) tx.app_offline else null,
                 muted = true,
                 onClick = { onOpen(s) },
                 onLongClick = { onRename(s) })
         }
-        item { NewRow("New site", "a flat, bungalow or office", onNew) }
+        item { NewRow(tx.common_new_site, tx.app_flat_bungalow_office, onNew) }
     }
 }
 
@@ -235,6 +237,7 @@ fun ProjectsScreen(
     onRename: (Catalogue.Project) -> Unit,
     onNew: () -> Unit,
 ) {
+    val tx = LocalTx.current
     LazyColumn(Modifier.fillMaxSize()) {
         items(projects) { p ->
             FolderRow(
@@ -255,7 +258,7 @@ fun ProjectsScreen(
                 onClick = { onOpen(p) },
                 onLongClick = { onRename(p) })
         }
-        item { NewRow("New project", "job type, dates, scope", onNew) }
+        item { NewRow(tx.app_new_project, tx.app_job_type_dates_scope, onNew) }
     }
 }
 
@@ -299,6 +302,7 @@ fun RoomsScreen(
      *  a narrowed list never looks like a list that lost something. */
     hiddenRooms: Int = 0,
 ) {
+    val tx = LocalTx.current
     var showAll by remember { mutableStateOf(false) }
     val shot = rooms.filter { captureCount(it) > 0 }
     val rest = rooms.filter { captureCount(it) == 0 }
@@ -320,7 +324,8 @@ fun RoomsScreen(
             horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             AssistChip(onClick = { }, enabled = false,
-                label = { Text(plural(shot.size, "room") + " shot") })
+                // "3 rooms shot", composed as the prototype composes it (v53 app.js:460): the count, then app.shot
+                label = { Text(tx.pl_room(shot.size) + tx.app_shot) })
             // The wish list (v52 item 16; Amit, 14 Oct 06:36 IST: "the wishlist should never get
             // mixed with survey as this wishlist comes after survey"): reached from the PROJECT
             // only, never from a room, a capture or survey prep. Teal so it reads as the
@@ -338,12 +343,12 @@ fun RoomsScreen(
             // is the first thing worth doing on arriving at one.
             onChooseRooms?.let {
                 AssistChip(onClick = it, label = {
-                    Text(if (hiddenRooms > 0) "Rooms \u00b7 $hiddenRooms hidden"
-                         else "Choose rooms")
+                    Text(if (hiddenRooms > 0) tx.app_rooms_x_hidden(hiddenRooms.toString())
+                         else tx.app_choose_rooms)
                 })
             }
             AssistChip(onClick = onDetail,
-                label = { Text(project.dateRange.ifBlank { "No dates" }) })
+                label = { Text(project.dateRange.ifBlank { tx.app_no_dates }) })
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -363,7 +368,7 @@ fun RoomsScreen(
                         .clickable { showAll = !showAll },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (showAll) "Hide" else "+${rest.size}",
+                    Text(if (showAll) tx.common_hide else "+${rest.size}",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary)
                 }
@@ -383,7 +388,7 @@ fun RoomsScreen(
                                 .clickable { add() },
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("+ Room",
+                            Text(tx.app_room,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary)
                         }
@@ -396,22 +401,23 @@ fun RoomsScreen(
 
 @Composable
 private fun StageBar(project: Catalogue.Project, pending: Int, onClick: () -> Unit) {
+    val tx = LocalTx.current
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 11.dp)) {
-            Text("PROJECT IS AT", style = MaterialTheme.typography.labelSmall)
-            Text(project.stage.ifBlank { "no stage set — tap to choose" },
+            Text(tx.app_project_is_at, style = MaterialTheme.typography.labelSmall)
+            Text(project.stage.ifBlank { tx.app_no_stage_set_tap },
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 listOfNotNull(
                     project.stageSince.ifBlank { null }
-                        ?.let { "since ${Catalogue.day(it)}" },
-                    if (pending > 0) "${plural(pending, "room")} not shot at this stage"
-                    else "every photographed room is current",
+                        ?.let { tx.app_since_x(Catalogue.day(it)) },
+                    if (pending > 0) tx.app_x_not_shot_stage(pending)
+                    else tx.app_every_photographed_room_current,
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall)
         }
@@ -574,8 +580,6 @@ private fun RoomTile(
 }
 
 // ---- small shared helpers ----------------------------------------------
-
-fun plural(n: Int, word: String) = "$n $word" + if (n == 1) "" else "s"
 
 fun initials(name: String): String {
     val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }

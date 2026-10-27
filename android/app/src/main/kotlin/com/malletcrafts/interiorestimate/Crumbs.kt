@@ -45,6 +45,7 @@ data class Crumb(
 @Composable
 fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
     if (crumbs.isEmpty()) return
+    val tx = LocalTx.current
     var sheetFor by remember { mutableStateOf<Int?>(null) }
     var showHidden by remember { mutableStateOf(false) }
 
@@ -67,7 +68,7 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
         shown.forEachIndexed { pos, idx ->
             if (pos > 0) Separator()
             if (collapse && pos == 1 && hidden.isNotEmpty()) {
-                CrumbPill("…", current = false) { showHidden = true }
+                CrumbPill("…", current = false) { showHidden = true } // text:value glyph
                 Separator()
             }
             val c = crumbs[idx]
@@ -83,7 +84,8 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
     sheetFor?.let { idx ->
         val c = crumbs[idx]
         ModalBottomSheet(onDismissRequest = { sheetFor = null }) {
-            SheetTitle("Switch")
+            // The prototype's key for its switcher's title is the one "Switch" it has (type.s.short, v53 app.js:590)
+            SheetTitle(tx.type_s_short)
             c.siblings.forEach { (key, label) ->
                 ListItem(
                     headlineContent = { Text(label) },
@@ -102,7 +104,7 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
 
     if (showHidden && hidden.isNotEmpty()) {
         ModalBottomSheet(onDismissRequest = { showHidden = false }) {
-            SheetTitle("Jump up to")
+            SheetTitle(tx.app_jump_up)
             hidden.forEach { c ->
                 ListItem(
                     headlineContent = { Text(c.label) },
@@ -118,13 +120,14 @@ fun CrumbRail(crumbs: List<Crumb>, modifier: Modifier = Modifier) {
 
 @Composable
 private fun Separator() {
-    Text("/", style = MaterialTheme.typography.labelMedium,
+    Text("/", style = MaterialTheme.typography.labelMedium, // text:value glyph
         color = MaterialTheme.colorScheme.outline,
         modifier = Modifier.padding(horizontal = 2.dp))
 }
 
 @Composable
 private fun CrumbPill(label: String, current: Boolean, onClick: () -> Unit) {
+    val tx = LocalTx.current
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(18.dp),
@@ -138,7 +141,7 @@ private fun CrumbPill(label: String, current: Boolean, onClick: () -> Unit) {
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 180.dp))
             if (current) {
-                Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = "Switch",
+                Icon(painterResource(R.drawable.ic_mcft_down), contentDescription = tx.type_s_short,
                     modifier = Modifier.size(18.dp))
             }
         }

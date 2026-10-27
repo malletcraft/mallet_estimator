@@ -90,7 +90,7 @@ object AsIsUpload {
         when (o.optString("state")) {
             "done" -> {
                 val hm = Instant.ofEpochMilli(o.optLong("at")).atZone(ZoneId.systemDefault())
-                    .toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                    .toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
                 val extra = o.optString("error", "").let { if (it.isBlank()) "" else " · $it" }
                 ("On web ✓ $hm" + (if (o.optBoolean("image", true)) "" else " · no photos, the 360 is not on this phone") + extra) to true
             }

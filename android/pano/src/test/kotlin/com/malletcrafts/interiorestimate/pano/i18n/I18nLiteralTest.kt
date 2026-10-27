@@ -56,18 +56,6 @@ class I18nLiteralTest {
         I18n.check("d · ported file", off, "a file in android/i18n/ported.txt is done: key the text, or take the file out of ported.txt")
     }
 
-    /** The :app format calls that name no Locale today; slice 1c gives each Locale.ROOT and empties this list. */
-    private val APP_FORMATS_PINNED = setOf(
-        "AsIsUpload.kt: .toLocalTime().format(DateTimeFormatter.ofPattern(\"HH:mm\"))",
-        "DistoClient.kt: event(\"distance [\${Disto.hex(bytes)}] = %.4f m\".format(m))",
-        "MainActivity.kt: localSize = keptFile?.let { \"%.1f MB\".format(it.length() / 1024.0 / 1024.0) } ?: \"\")",
-        "MainActivity.kt: else -> String.format(\"%.1f MB\", bytes / 1024.0 / 1024.0)",
-        "ReadingsSync.kt: fun now(): String = LocalTime.now().format(DateTimeFormatter.ofPattern(\"HH:mm\"))",
-        "S5Session.kt: return \"S5-\" + d.joinToString(\"\") { \"%02x\".format(it) }.take(10)",
-        "SurveyPrepScreen.kt: savedMsg = if (ok) \"Saved ✓ \" + LocalTime.now().format(DateTimeFormatter.ofPattern(\"HH:mm\")) else \"Not saved: did not read back\"",
-        "ZoomableImage.kt: if (view.zoomed) \"%.1f×  ·  double-tap to fit\".format(view.scale)",
-    )
-
     private val FORMATS = listOf(Regex("""\bString\s*\.\s*format\s*\("""), Regex(""""\s*\.\s*format\s*\("""),
         Regex("""\bofPattern\s*\("""), Regex("""\bSimpleDateFormat\s*\("""))
 
@@ -93,10 +81,8 @@ class I18nLiteralTest {
     }
 
     @Test fun `e every format call names a Locale`() {
-        val found = formatsWithoutLocale(scans)
-        val off = found.filter { it !in APP_FORMATS_PINNED } +
-            (APP_FORMATS_PINNED - found).map { "$it: pinned but gone — remove it from APP_FORMATS_PINNED" }
-        I18n.check("e · format without a Locale", off,
+        // No pinned exceptions since slice 1c (27 Oct 2026): the 8 :app sites named Locale.ROOT, as the 7 :pano ones did in 1a.
+        I18n.check("e · format without a Locale", formatsWithoutLocale(scans),
             "name a fixed Locale (Locale.ROOT): with none, or the default one, a phone whose SYSTEM language is Marathi prints Devanagari digits")
     }
 
@@ -335,6 +321,42 @@ class I18nLiteralTest {
         val (marked, plain) = s.lits
         assertEquals(listOf(false, true), listOf(marked, plain).map { LiteralScan.counted(s, it, emptySet()) })
         assertEquals(false, LiteralScan.counted(s, plain, setOf("app/src/main/kotlin/Lang.kt" to "Meter is busy")))
+    }
+
+    /** `lastResult = {`, `busy = {` or `note = {` not followed by a named parameter and `->`. */
+    private val MSG_IMPLICIT = Regex("""\b(?:lastResult|busy|note)\s*=\s*\{(?!\s*[A-Za-z_]\w*\s*(?::\s*Tx\s*)?->)""")
+
+    private fun implicitMsgParams(scans: List<LiteralScan.FileScan>): List<String> = scans.flatMap { s ->
+        MSG_IMPLICIT.findAll(s.masked).map { "${s.name}:${s.lineOf(it.range.first)}: ${s.lineText(s.lineOf(it.range.first)).trim()}" }.toList()
+    }
+
+    @Test fun `a Msg lambda names its parameter`() {
+        // slice 1c: with an implicit `it`, an `it.message` inside a `lastResult = { … }` means the Tx, a
+        // break only :app's compiler (CI) would find; `{ tx -> … }` or `{ _ -> … }` keeps `it` the enclosing lambda's
+        I18n.check("a Msg lambda's parameter", implicitMsgParams(scans),
+            "name the parameter of a lambda assigned to lastResult, busy or note: `{ tx -> … }`, or `{ _ -> … }` for a text still English")
+        val src = "fun f() {\n    lastResult = { _ -> \"a\" }\n    busy = { tx -> tx.app_sync }\n    note = { tx: Tx -> \"b\" }\n" +
+            "    lastResult = { \"Could not: ${'$'}{it.message}\" }\n    busy = {\n        \"c\" }\n}\n"
+        val off = implicitMsgParams(listOf(LiteralScan.scanText("app/src/main/kotlin/M.kt", src)))
+        assertEquals(listOf(5, 6), off.map { it.substringAfter("M.kt:").substringBefore(':').toInt() }, off.joinToString("\n"))
+    }
+
+    @Test fun `a Msg lambda assigned to lastResult, busy or note is a UI position`() {
+        // slice 1c: the transient messages hold a Msg, so the text a person sees is the lambda's value
+        val src = """
+            fun f() {
+                lastResult = { _ -> "Could not rename: ${'$'}{it.message}" }
+                busy = { tx -> if (photo) tx.app_filing_photo else "Splitting the 360" }
+                onFailure { note = { _ -> "Not saved" +
+                    " here" } }
+                lastResult = { _ -> info.optString("version_name") }
+                val m: Msg = { _ -> "a Msg kept for later" }
+                other = { _ -> "another lambda" }
+            }
+        """.trimIndent()
+        val s = LiteralScan.scanText("fixture/M.kt", src)
+        assertEquals(listOf("Could not rename: ", "Splitting the 360", "Not saved", " here"), s.lits.filter { it.ui }.map { it.text })
+        assertEquals(listOf("version_name", "a Msg kept for later", "another lambda"), s.lits.filter { !it.ui }.map { it.text })
     }
 
     @Test fun `the tokenizer sees what the readers' tokenizer saw`() {

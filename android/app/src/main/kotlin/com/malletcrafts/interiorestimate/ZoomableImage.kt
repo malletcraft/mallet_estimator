@@ -143,7 +143,7 @@ fun ZoomableImage(
         // affordance is invisible and has to be stated; once zoomed the only
         // questions left are how far in you are and how to get back.
         Text(
-            if (view.zoomed) "%.1f×  ·  double-tap to fit".format(view.scale)
+            if (view.zoomed) "%.1f×  ·  double-tap to fit".format(java.util.Locale.ROOT, view.scale)
             else "Pinch to zoom  ·  double-tap to magnify",
             color = Color(0xFFEDEFEA), fontSize = 11.sp,
             modifier = Modifier

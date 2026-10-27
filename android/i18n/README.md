@@ -7,7 +7,8 @@ push. The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives in the session's 
 repository, so this README carries every rule it sets for this folder. The work ships in slices. Slice
 1a (this folder, the generator and its checks) changes nothing on the phone. Slice 1b (the provider, the
 pref and the settings drawer keyed) changes nothing visible either: the row is hidden, so every screen is
-`Tx.EN`, whose English is byte-for-byte what the drawer said before.
+`Tx.EN`, whose English is byte-for-byte what the drawer said before. Slice 1c (the project list, the
+result banner and the counts) is the same: keyed English, identical on screen.
 
 ## Amit's decisions, 27 Oct 2026 (~06:05 IST)
 
@@ -86,6 +87,15 @@ read only under `LangRow.VISIBLE`, so it is English on first run whatever the ph
 `app/build.gradle.kts` keeps only `en` library resources (`resourceConfigurations`), so Compose's and
 material3's own strings are English by decision rather than the system language's.
 
+The transient messages (slice 1c) hold a `Msg` (`pano/.../i18n/Msg.kt`, `(Tx) -> String`), not a String,
+so a message raised before the language changes is drawn in the new one: `lastResult = { tx ->
+tx.app_msg_renamed_x(newName) }`, or `lastResult = { _ -> "Could not rename: ${it.message}" }` for one
+still English, drawn with `Text(it(tx))`. Name the lambda's parameter, always (a check below refuses an
+implicit one): with an implicit `it`, an `it.message` inside would mean the Tx. A literal in such a lambda keeps the assignment's UI position, so
+(a) judges it. Any value computed from state that may change (a text field's `typed`) is read into a `val`
+BEFORE the lambda, or the banner shows what the field says when it is drawn. Counts use the generated
+`tx.pl_<noun>(n)` ("3 rooms"); the old `plural()` helper is gone.
+
 ## What the checks refuse (`gradle :pano:test` fails)
 
 Each check puts all of its offenders in one assertion message. On CI each check also writes one
@@ -136,13 +146,15 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - (c) an `unkeyed.tsv` row whose text is gone from its file;
   - (d) an `unkeyed.tsv` row for a file listed in `ported.txt`;
   - (e) a `.format(`, `String.format(`, `ofPattern(` or `SimpleDateFormat(` that names no FIXED Locale
-    (`Locale.ROOT`, `US` or `ENGLISH`; `Locale.getDefault()` is the system language again). The 8
-    `:app` sites stay pinned until slice 1c;
+    (`Locale.ROOT`, `US` or `ENGLISH`; `Locale.getDefault()` is the system language again). There are
+    no exceptions: the 7 `:pano` sites took `Locale.ROOT` in slice 1a, the 8 `:app` ones in 1c;
   - (f) a `tx.<name>` or `Masters.<name>` in `:app` or `:camera` that does not exist, has the wrong
     number of arguments, or passes two or more arguments without naming each. This stands in for the
     compiler of those two modules, which this container lacks;
   - (g) any read of the system language, in any module;
   - (h) `Tx` in `PlanExport.kt`, `FaceWriter.kt` or the upload worker;
+  - a lambda assigned to `lastResult`, `busy` or `note` that does not name its parameter (`{ tx -> … }`,
+    `{ _ -> … }`): its `it` would be the Tx, a break only `:app`'s compiler would find;
   - the language row turned on early;
   - the भाषा · Language row drawn other than as exactly
     `if (LangRow.VISIBLE) DrawerLine("भाषा · Language", …) else null`, a `Tx.of(` in `:app` or `:camera`

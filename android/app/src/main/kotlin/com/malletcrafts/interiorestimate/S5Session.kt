@@ -245,7 +245,7 @@ object S5Auth {
     fun localKey(client: String, site: String, title: String): String {
         val src = Catalogue.keyOf(client, site, title)
         val d = MessageDigest.getInstance("SHA-256").digest(src.toByteArray(Charsets.UTF_8))
-        return "S5-" + d.joinToString("") { "%02x".format(it) }.take(10)
+        return "S5-" + d.joinToString("") { "%02x".format(java.util.Locale.ROOT, it) }.take(10)
     }
 }
 

@@ -315,7 +315,7 @@ class DistoClient(private val context: Context) {
         val outcome = when (c.uuid) {
             uuid(Disto.CH_DISTANCE) -> {
                 val m = Disto.readFloat32Le(bytes)
-                event("distance [${Disto.hex(bytes)}] = %.4f m".format(m))
+                event("distance [${Disto.hex(bytes)}] = %.4f m".format(java.util.Locale.ROOT, m))
                 pairing.onDistance(m)
             }
             uuid(Disto.CH_DISTANCE_UNIT) -> {

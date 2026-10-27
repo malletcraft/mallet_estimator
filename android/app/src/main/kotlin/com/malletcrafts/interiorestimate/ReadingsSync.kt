@@ -175,5 +175,5 @@ object ReadingsSync {
             Triple(applied.filterKeys { it !in orphans }, changed, orphans)
         }
 
-    fun now(): String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+    fun now(): String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
 }

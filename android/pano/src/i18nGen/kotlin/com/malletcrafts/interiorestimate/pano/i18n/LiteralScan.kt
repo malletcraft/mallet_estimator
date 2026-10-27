@@ -12,8 +12,9 @@ import kotlin.system.exitProcess
  * directly, inside an if/when that is the argument, or through a template or `+` -- of `Text(`,
  * `DrawerLine(`, `DrawerGroup(`, `say(`, `snack(`, `Banner(` or `drawText(`, or the value of
  * `label =`, `title =`, `text =`, `placeholder =`, `contentDescription =`, `stateDescription =`, or
- * of an assignment to `lastResult`, `busy` or `note`. Everything else is counted, not judged: the
- * per-file ratchet of PROSE literals ([prose]).
+ * of an assignment to `lastResult`, `busy` or `note` -- a String, or (slice 1c) a `Msg` lambda
+ * assigned to one, `lastResult = { tx -> … }`, whose value is the shown text. Everything else is
+ * counted, not judged: the per-file ratchet of PROSE literals ([prose]).
  *
  *   ratchet <androidDir>    lower android/i18n/literal-counts.tsv to the counts in the sources
  */
@@ -190,6 +191,12 @@ object LiteralScan {
     private val CTL = setOf("if", "when", "for", "while", "catch")
     /** A lambda whose value IS the expression's value (`server.ifBlank { "not set" }`): it inherits the position. */
     private val VALUE_LAMBDAS = setOf("ifBlank", "ifEmpty", "let", "run", "getOrElse")
+    /**
+     * The transient messages, which hold a `Msg` (design-marathi §2.4, slice 1c): a lambda assigned to
+     * one (`lastResult = { tx -> … }`) is drawn later, and its value is the text a person sees, so it
+     * inherits the assignment's UI position like [VALUE_LAMBDAS] do.
+     */
+    private val MSG_TARGETS = setOf("lastResult", "busy", "note")
 
     private fun classify(stack: List<Frame>): Boolean {
         for (f in stack.asReversed()) when (f) {
@@ -258,6 +265,7 @@ object LiteralScan {
                             p.t == T.IDENT && p.s == "when" -> true to true
                             p.t == T.OP && p.s == "->" -> true to false
                             p.t == T.IDENT && p.s in VALUE_LAMBDAS -> true to false
+                            p.t == T.OP && p.s == "=" && top is Frame.Block && top.target in MSG_TARGETS -> true to false
                             else -> false to false
                         }
                         stack += Frame.Block(ctl, isWhen)

@@ -79,6 +79,7 @@ fun WorkScreen(
     queued: Int,
     onOpen: (RecentRoom) -> Unit,
 ) {
+    val tx = LocalTx.current
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Surface(
@@ -94,8 +95,8 @@ fun WorkScreen(
                                         else R.drawable.ic_mcft_wifi),
                         contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text(if (synced) "Everything on this phone has been sent"
-                         else "${plural(queued, "capture")} waiting to upload",
+                    Text(if (synced) tx.app_everything_phone_has_been
+                         else tx.app_x_waiting_upload(queued),
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -103,14 +104,13 @@ fun WorkScreen(
 
         if (resume == null) {
             item {
-                Text("Nothing captured on this phone yet. Open Browse, pick a " +
-                     "room, and shoot.",
+                Text(tx.app_nothing_captured_phone_yet,
                     Modifier.padding(24.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            item { Head("Carry on") }
+            item { Head(tx.app_carry_on) }
             item {
                 Box(
                     Modifier.fillMaxWidth().aspectRatio(16f / 7f)
@@ -133,7 +133,7 @@ fun WorkScreen(
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (resume.lastDate.isNotBlank()) {
-                        Text("last shot ${resume.lastDate}", color = Color.White,
+                        Text(tx.app_last_shot_x(resume.lastDate), color = Color.White,
                             fontSize = 10.sp,
                             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
                                 .clip(RoundedCornerShape(4.dp))
@@ -145,7 +145,7 @@ fun WorkScreen(
         }
 
         if (recents.isNotEmpty()) {
-            item { Head("Recent rooms") }
+            item { Head(tx.app_recent_rooms) }
             items(recents) { r ->
                 Column {
                     Row(
@@ -181,6 +181,7 @@ fun WorkScreen(
 /** Queue — what is still on the phone, and why. */
 @Composable
 fun QueueScreen(waiting: List<QueueRow>, sent: List<QueueRow>, wifiOnly: Boolean) {
+    val tx = LocalTx.current
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Surface(
@@ -191,19 +192,19 @@ fun QueueScreen(waiting: List<QueueRow>, sent: List<QueueRow>, wifiOnly: Boolean
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    if (waiting.isEmpty()) "Nothing waiting"
-                    else (if (wifiOnly) "Wi-Fi only · " else "") +
-                         "${plural(waiting.size, "item")} waiting",
+                    if (waiting.isEmpty()) tx.app_nothing_waiting
+                    else (if (wifiOnly) tx.app_wi_fi_only else "") +
+                         tx.app_x_waiting(tx.pl_item(waiting.size)),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp))
             }
         }
         if (waiting.isNotEmpty()) {
-            item { Head("Waiting") }
+            item { Head(tx.app_waiting_2) }
             items(waiting) { QueueLine(it) }
         }
         if (sent.isNotEmpty()) {
-            item { Head("Sent") }
+            item { Head(tx.app_sent_2) }
             items(sent) { QueueLine(it) }
         }
         item { Spacer(Modifier.height(90.dp)) }
@@ -212,6 +213,7 @@ fun QueueScreen(waiting: List<QueueRow>, sent: List<QueueRow>, wifiOnly: Boolean
 
 @Composable
 private fun QueueLine(q: QueueRow) {
+    val tx = LocalTx.current
     Column {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 62.dp)
@@ -238,10 +240,10 @@ private fun QueueLine(q: QueueRow) {
             Spacer(Modifier.width(8.dp))
             Pill(
                 when (q.state) {
-                    "SYNCED" -> "sent"
-                    "SYNCING" -> "sending"
-                    "ERROR" -> "retrying"
-                    else -> "queued"
+                    "SYNCED" -> tx.app_sent
+                    "SYNCING" -> tx.app_sending
+                    "ERROR" -> tx.app_retrying
+                    else -> tx.app_queued
                 },
                 warn = q.state != "SYNCED")
         }
@@ -265,18 +267,19 @@ fun SearchOverlay(
     onPick: (SearchHit) -> Unit,
     onClose: () -> Unit,
 ) {
+    val tx = LocalTx.current
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         Row(Modifier.fillMaxWidth().padding(6.dp, 8.dp, 12.dp, 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onClose) {
-                Icon(painterResource(R.drawable.ic_mcft_back), contentDescription = "Close search")
+                Icon(painterResource(R.drawable.ic_mcft_back), contentDescription = tx.app_aria_close_search)
             }
             TextField(
                 value = query,
                 onValueChange = onQuery,
-                placeholder = { Text("Client, site, project, room or SKU") },
+                placeholder = { Text(tx.app_client_site_project_room) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 colors = TextFieldDefaults.colors(
@@ -289,7 +292,7 @@ fun SearchOverlay(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         if (query.isBlank()) {
-            Head("Try")
+            Head(tx.app_try)
             LazyColumn {
                 items(recents) { t ->
                     Row(
@@ -306,7 +309,7 @@ fun SearchOverlay(
                 }
             }
         } else if (hits.isEmpty()) {
-            Text("Nothing matches “$query”.", Modifier.padding(24.dp),
+            Text(tx.app_nothing_matches_x(query), Modifier.padding(24.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {

@@ -314,7 +314,7 @@ internal fun SurveyPrepDialog(
         delay(800)
         val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
         if (ok) unsaved[0] = false
-        savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")) else "Not saved: did not read back"
+        savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT)) else "Not saved: did not read back"
     }
     // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
     // with it even if nothing is changed (a kept capture reopens on exactly these). So is a prep read
