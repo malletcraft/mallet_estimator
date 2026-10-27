@@ -220,28 +220,60 @@ class I18nLiteralTest {
         I18n.check("the language row", off, "the भाषा · Language row stays hidden until every screen is translated (Amit, 27 Oct 2026, decision 2)")
     }
 
-    private val ROW_GATE = Regex("""\bif\s*\(\s*LangRow\s*\.\s*VISIBLE\s*\)""")
+    /** The row's gate, straight in front of the call: `if (LangRow.VISIBLE) DrawerLine(`. */
+    private val ROW_GATE = Regex("""\bif\s*\(\s*LangRow\s*\.\s*VISIBLE\s*\)\s*DrawerLine\s*\(""")
+    /** An argument that opens with the gate: `if (LangRow.VISIBLE)`. */
+    private val ARG_GATE = Regex("""^\s*if\s*\(\s*LangRow\s*\.\s*VISIBLE\s*\)""")
+    /** `else null`, and nothing that would make the else-branch more than `null` (`?: x`, `.let`, `as`, `==`…). */
+    private val ELSE_NULL = Regex("""^\s*else\s+null\b(?!\s*(?:[.?!=<>+\-*/%&|]|as\b|in\b|is\b))""")
     private val TX_OF = Regex("""\bTx\s*\.\s*of\s*\(""")
     private val TX_MR = Regex("""\bTx\s*\.\s*MR\b""")
-    private val VISIBLE = Regex("""\bLangRow\s*\.\s*VISIBLE\b""")
 
     /**
-     * The constant alone proves nothing if the row or the provider does not read it (slice 1b): the
-     * भाषा · Language DrawerLine must sit on a line under `if (LangRow.VISIBLE)`, every `Tx.of(` in
-     * :app and :camera must read the stored choice only under LangRow.VISIBLE, and nothing there may
-     * name Tx.MR directly. One switch for the row and for picking मराठी (decision 2), never a second.
+     * [lit] is the whole first argument of the DrawerLine whose `(` is at [open] in [masked], and the
+     * call is followed by `else null`: with [ROW_GATE] in front, `if (LangRow.VISIBLE) DrawerLine(lit, …) else null`.
+     */
+    private fun gatedRow(masked: String, open: Int, lit: LiteralScan.Lit): Boolean {
+        val first = argList(masked, open).firstOrNull() ?: return false
+        if (open + 1 + (first.length - first.trimStart().length) != lit.start || first.trim().length != lit.end - lit.start) return false
+        val close = open + argsAt(masked, open).length - 1
+        return masked.getOrNull(close) == ')' && ELSE_NULL.containsMatchIn(masked.substring(close + 1))
+    }
+
+    /** [arg] is exactly `if (LangRow.VISIBLE) <expr> else null`: one `else` at the gate's own depth, and its branch is `null`. */
+    private fun gatedElseNull(arg: String): Boolean {
+        val g = ARG_GATE.find(arg) ?: return false
+        val rest = arg.substring(g.range.last + 1)
+        fun word(c: Char?) = c != null && (c.isLetterOrDigit() || c == '_')
+        var d = 0; val elses = ArrayList<Int>()
+        for ((i, c) in rest.withIndex()) {
+            if (c in "([{") d++ else if (c in ")]}") d--
+            else if (d == 0 && rest.startsWith("else", i) && !word(rest.getOrNull(i - 1)) && !word(rest.getOrNull(i + 4))) elses += i
+        }
+        return elses.size == 1 && rest.substring(0, elses[0]).isNotBlank() && rest.substring(elses[0] + 4).trim() == "null"
+    }
+
+    /**
+     * The constant alone proves nothing if the row or the provider does not read it (slice 1b), and a
+     * mention is not a gate: the भाषा · Language row must be drawn as exactly
+     * `if (LangRow.VISIBLE) DrawerLine("भाषा · Language", …) else null`, every `Tx.of(` in :app and
+     * :camera must be exactly `Tx.of(if (LangRow.VISIBLE) <the stored choice> else null)`, and nothing
+     * there may name Tx.MR directly. So an inverted gate (`if (LangRow.VISIBLE) null else …`), a negated
+     * one or a gate in a comment is refused. One switch for the row and for picking मराठी (decision 2),
+     * never a second.
      */
     private fun ungated(scans: List<LiteralScan.FileScan>): List<String> {
         val off = ArrayList<String>()
         var rows = 0
         for (s in scans) {
-            val masked = s.masked.split('\n')
+            val calls = ROW_GATE.findAll(s.masked).map { it.range.last }.toList()
             for (l in s.lits) if (l.text == "भाषा · Language") {
                 rows++
-                if (!ROW_GATE.containsMatchIn(masked[l.line - 1])) off += "${s.name}:${l.line}: the भाषा · Language row is drawn without `if (LangRow.VISIBLE)` on its line"
+                if (calls.none { gatedRow(s.masked, it, l) }) off += "${s.name}:${l.line}: the भाषा · Language row is drawn other than as `if (LangRow.VISIBLE) DrawerLine(\"भाषा · Language\", …) else null`"
             }
             for (m in TX_OF.findAll(s.masked)) {
-                if (!VISIBLE.containsMatchIn(argsAt(s.masked, m.range.last))) off += "${s.name}:${s.lineOf(m.range.first)}: Tx.of(…) picks the language without LangRow.VISIBLE in its argument"
+                val args = argList(s.masked, m.range.last)
+                if (args.size != 1 || !gatedElseNull(args[0])) off += "${s.name}:${s.lineOf(m.range.first)}: Tx.of(…) picks the language other than as `Tx.of(if (LangRow.VISIBLE) <the stored choice> else null)`"
             }
             for (m in TX_MR.findAll(s.masked)) off += "${s.name}:${s.lineOf(m.range.first)}: Tx.MR picks Marathi without the row"
         }
@@ -254,18 +286,24 @@ class I18nLiteralTest {
             "the भाषा · Language row and the ability to pick मराठी switch on together, by LangRow.VISIBLE alone (Amit, 27 Oct 2026, decision 2)")
     }
 
-    @Test fun `the language switch check refuses an ungated row, provider or Tx MR`() {
+    @Test fun `the language switch check refuses an ungated or inverted row, provider or Tx MR`() {
         val good = "val tx = remember { Tx.of(if (LangRow.VISIBLE) p.lang else null) }\n" +
             "val l = if (LangRow.VISIBLE) DrawerLine(\"भाषा · Language\", value = \"English\") else null // text:value\n"
         assertEquals(emptyList(), ungated(listOf(LiteralScan.scanText("app/src/main/kotlin/G.kt", good))))
         val bad = "val tx = remember { Tx.of(p.lang) } // LangRow.VISIBLE\n" +
             "val l = DrawerLine(\"भाषा · Language\", value = \"English\") // if (LangRow.VISIBLE)\n" +
-            "val m = Tx.MR.app_sync\n"
+            "val m = Tx.MR.app_sync\n" +
+            // inverted: each names the gate where the old check looked for it, and turns decision 2 off
+            "val t2 = remember { Tx.of(if (LangRow.VISIBLE) null else AppPrefs.read(prefs).lang) }\n" +
+            "val l2 = if (LangRow.VISIBLE) null else DrawerLine(\"भाषा · Language\", value = \"English\") // text:value\n"
         val off = ungated(listOf(LiteralScan.scanText("app/src/main/kotlin/B.kt", bad)))
-        assertEquals(3, off.size, off.joinToString("\n"))
-        assertTrue(off[0].startsWith("B.kt:2: the भाषा · Language row is drawn without"), off[0])
-        assertTrue(off[1].startsWith("B.kt:1: Tx.of(…) picks the language without"), off[1])
-        assertTrue(off[2].startsWith("B.kt:3: Tx.MR picks Marathi"), off[2])
+        assertEquals(6, off.size, off.joinToString("\n"))
+        assertTrue(off[0].startsWith("B.kt:2: the भाषा · Language row is drawn other than as"), off[0])
+        assertTrue(off[1].startsWith("B.kt:5: the भाषा · Language row is drawn other than as"), off[1])
+        assertTrue(off[2].startsWith("B.kt:1: Tx.of(…) picks the language other than as"), off[2])
+        assertTrue(off[3].startsWith("B.kt:4: Tx.of(…) picks the language other than as"), off[3])
+        assertTrue(off[4].startsWith("B.kt:3: Tx.MR picks Marathi"), off[4])
+        assertTrue(off[5].startsWith("2 भाषा · Language rows"), off[5])
     }
 
     @Test fun `e and g refuse the default locale, in pano as in the app`() {

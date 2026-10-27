@@ -144,9 +144,12 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - (g) any read of the system language, in any module;
   - (h) `Tx` in `PlanExport.kt`, `FaceWriter.kt` or the upload worker;
   - the language row turned on early;
-  - the भाषा · Language row drawn without `if (LangRow.VISIBLE)` on its line, a `Tx.of(` in `:app` or
-    `:camera` whose argument does not read `LangRow.VISIBLE`, or a `Tx.MR` named there: the row and the
-    ability to pick मराठी switch on together, by that one constant.
+  - the भाषा · Language row drawn other than as exactly
+    `if (LangRow.VISIBLE) DrawerLine("भाषा · Language", …) else null`, a `Tx.of(` in `:app` or `:camera`
+    other than exactly `Tx.of(if (LangRow.VISIBLE) <the stored choice> else null)`, or a `Tx.MR` named
+    there: the row and the ability to pick मराठी switch on together, by that one constant. A mention of
+    the constant is not a gate, so an inverted (`if (LangRow.VISIBLE) null else …`), negated or
+    commented-out gate is refused too.
 - **The tests themselves** (`I18nTestHygieneTest`): an `assertEquals(Tx.…)`; a test that reads the
   tables or the model built from them (`I18n.model`, `byKey`) other than `I18nTableTest` (properties
   only) and `TxRenderTest` (accessor names and types only); or `TxRenderTest` reading an entry's text.
