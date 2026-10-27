@@ -1,10 +1,11 @@
 # android/i18n: the phone's two string tables
 
 S2 APK shows Marathi from a table generated from the prototype's own two string files.
-This folder is the only copy of those tables. The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives
-in the session's notes, not in this repository, so this README carries every rule it sets for this
-folder. The work ships in slices. Slice 1a (this folder, the generator and its checks) changes nothing
-on the phone.
+This folder is to become the only copy of those tables (decision 3). Until the prototype build reads
+from here it keeps a byte copy of its own, and `i18nCheckProto` must show the two identical before every
+push. The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives in the session's notes, not in this
+repository, so this README carries every rule it sets for this folder. The work ships in slices. Slice
+1a (this folder, the generator and its checks) changes nothing on the phone.
 
 ## Amit's decisions, 27 Oct 2026 (~06:05 IST)
 
@@ -15,8 +16,10 @@ on the phone.
    last one ships keyed English that looks the same as today. The row is behind one constant,
    `LangRow.VISIBLE` in `pano/.../i18n/Msg.kt`, and the last slice turns it on. `I18nLiteralTest`
    fails if it is turned on while `unkeyed.tsv` still has a row.
-3. **This folder is the ONE home of the two tables.** The prototype build reads them from here.
-   A table edit is a reviewed commit here, so a lost session loses nothing.
+3. **This folder is the ONE home of the two tables.** The prototype build is to read them from here
+   (not yet: it still reads its own copy, and the switch is item 7 of the v61c card). Until then each
+   prototype version is imported with `i18nImport` and checked with `i18nCheckProto`. A table edit is a
+   reviewed commit here, so a lost session loses nothing.
 4. **The Marathi for new phone texts is approved ONCE, as the whole prototype v61c card, before
    slice 2.** Slices 1a, 1b and 1c may go ahead first: they key only texts that already have a
    prototype key, and they show nothing new.
@@ -30,9 +33,9 @@ on the phone.
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |
 | `ported.txt` | Files whose every shown text is keyed. | each slice adds its files |
-| `literal-counts.tsv` | Per-file count of prose literals outside UI positions: the ratchet. | `i18nRatchet` (only lowers counts) |
+| `literal-counts.tsv` | Per-file count of prose literals outside UI positions, minus those listed in `unkeyed.tsv` or marked `// text:value`: the ratchet. | `i18nRatchet` (only lowers counts) |
 | `latin-ok.txt` | The Latin words a Marathi text may contain: units, product names, codes, demo names, months. | by hand, with a reason |
-| `deny-patterns.txt` | The shapes that must never be in the tables: email, phone, 10-digit number, currency figure, lakh/crore, PIN code. | by hand |
+| `deny-patterns.txt` | The shapes that must never be in the tables, keys included: email, mobile and landline numbers, 10-digit number, currency figure, lakh/crore, PIN code. | by hand |
 
 GenTx also writes `Tx.kt`, `TxEn.kt`, `TxMr.kt` and `Masters.kt` into
 `android/pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/i18n/`. Each starts
@@ -63,6 +66,16 @@ Accessor names follow the key: every `.` and `-` becomes `_`, so `app.display` i
 parameter. A plural suffix (`n===1?'':'s'`) folds into the count it agrees with. Each `{name}` is filled
 in one pass, so a typed note that contains `{x}` is shown as typed.
 
+Parameters follow the ENGLISH placeholder order, so a prototype that rewords its English can reorder
+them. A call to an accessor with two or more parameters therefore NAMES every argument
+(`tx.app_x_x_rooms(size = done, length = total)`); check (f) refuses a positional one, which would still
+compile with the two values swapped.
+
+An optional tail (`{v}`, `String?`) is one of two kinds, and the KDoc says which. "the tail; ' · ' is
+put before it": pass the bare value. "the WHOLE tail from its own key": the tail holds more than a
+separator and a value (`· 2 skipped`), so pass the rendering of its fragment key, separator included
+(`tx.export_x_x_client_approved(moved = 3, v = tx.export_x_skipped_2(v = "2"), r = …)`).
+
 ## What the checks refuse (`gradle :pano:test` fails)
 
 Each check puts all of its offenders in one assertion message. On CI each check also writes one
@@ -80,36 +93,51 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - a currency figure (`₹`, `Rs`, `INR` before a digit) anywhere in either file, notes included;
   - anything matching `deny-patterns.txt`;
   - when one is present, a name from the client-name list. On CI that list is the `I18N_DENY_NAMES`
-    secret; locally it is `-Pi18n.deny=<file>`. It is never committed. Without it the step stays green
-    on the structural patterns, so a fork or a run without secrets is still protected.
+    secret; locally it is `-Pi18n.deny=<file>` (a relative path is resolved against `android/pano`). It
+    is never committed. Without it the step stays green on the structural patterns and prints a
+    `::warning` that names were NOT checked: a fork or a run without secrets is protected against
+    figures, emails and phone numbers, NOT against names. **The secret is not set yet (27 Oct 2026), so
+    CI checks no client names today.** A list that was asked for and cannot be used -- a
+    `-Pi18n.deny` path that is not a readable file, or a list with no usable name -- fails the check;
+    a usable one prints a `::notice` with its count.
 
-  These failures name the key and the pattern, never the matched text, because CI logs are public.
+  Keys are checked as well as values: a key is built from the English and never renamed. These failures
+  name the key and the pattern, never the matched text, because CI logs are public; when a KEY matched,
+  only the entry's position is named.
 - **Rendering** (`TxRenderTest`):
   - a Latin word in a Marathi rendering that is not in `latin-ok.txt`, or an entry in that list that
     nothing uses any more;
   - a `{placeholder}` left in any rendering;
+  - a separator printed twice, with each optional tail filled from the fragment key at its prototype
+    location;
   - the plural and placeholder-fill rules break, or `Tx.of()` stops treating everything except exactly
     `"mr"` as English.
 - **Identity values** (`MastersTest`):
   - a stored identity value (a stage, work, state, room, site type, mark type, surface, service) that
     does not show its own English bytes under English, or has no Marathi name. The pass-through list
     (CCTV, Nos, Top/Bottom, the plumbing description) is the exception;
-  - a wire, storage or export builder that takes a `Tx`.
-- **The sources** (`I18nLiteralTest`, over `app/` and `pano/` main):
+  - a wire, storage or export builder that takes a `Tx`, a `Msg` or any i18n type, or (for the whole
+    export objects) whose compiled code names the i18n package at all.
+- **The sources** (`I18nLiteralTest`, over `app/`, `camera/` and `pano/` main):
   - (a) a shown Latin literal that is not keyed, not listed in `unkeyed.tsv`, and not marked
     `// text:value <why>`;
-  - (b) a per-file count of prose literals that differs from `literal-counts.tsv`;
+  - (b) a per-file count of prose literals that differs from `literal-counts.tsv`. A literal listed in
+    `unkeyed.tsv` or marked `// text:value <why>` is not counted, so either remedy lowers the count;
   - (c) an `unkeyed.tsv` row whose text is gone from its file;
   - (d) an `unkeyed.tsv` row for a file listed in `ported.txt`;
-  - (e) a `.format(`, `String.format(`, `ofPattern(` or `SimpleDateFormat(` that names no Locale. The 8
+  - (e) a `.format(`, `String.format(`, `ofPattern(` or `SimpleDateFormat(` that names no FIXED Locale
+    (`Locale.ROOT`, `US` or `ENGLISH`; `Locale.getDefault()` is the system language again). The 8
     `:app` sites stay pinned until slice 1c;
-  - (f) a `tx.<name>` or `Masters.<name>` in `:app` that does not exist or has the wrong number of
-    arguments. This stands in for `:app`'s compiler, which this container lacks;
-  - (g) any read of the system language in `:app`;
+  - (f) a `tx.<name>` or `Masters.<name>` in `:app` or `:camera` that does not exist, has the wrong
+    number of arguments, or passes two or more arguments without naming each. This stands in for the
+    compiler of those two modules, which this container lacks;
+  - (g) any read of the system language, in any module;
   - (h) `Tx` in `PlanExport.kt`, `FaceWriter.kt` or the upload worker;
   - the language row turned on early.
-- **The tests themselves** (`I18nTestHygieneTest`): an `assertEquals(Tx.…)`, or a test other than
-  `I18nTableTest` that reads the tables. Comparing the table with itself proves nothing.
+- **The tests themselves** (`I18nTestHygieneTest`): an `assertEquals(Tx.…)`; a test that reads the
+  tables or the model built from them (`I18n.model`, `byKey`) other than `I18nTableTest` (properties
+  only) and `TxRenderTest` (accessor names and types only); or `TxRenderTest` reading an entry's text.
+  Comparing the table with itself proves nothing.
 
 ## Rules that do not change
 

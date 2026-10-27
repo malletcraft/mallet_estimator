@@ -22,8 +22,12 @@ object LiteralScan {
     val UI_CALLS = setOf("Text", "DrawerLine", "DrawerGroup", "say", "snack", "Banner", "drawText")
     val UI_NAMES = setOf("label", "title", "text", "placeholder", "contentDescription", "stateDescription", "lastResult", "busy", "note")
 
-    /** The two source trees scanned, relative to `android/`. */
-    val ROOTS = listOf("app/src/main/kotlin", "pano/src/main/kotlin")
+    /**
+     * The source trees scanned, relative to `android/`: every module whose texts reach a screen. `:camera`
+     * is compiled only into the camera build (the one Play ships), and its connect and capture messages
+     * are shown on the capture sheet, so it is scanned like the others although nothing compiles it here.
+     */
+    val ROOTS = listOf("app/src/main/kotlin", "camera/src/main/kotlin", "pano/src/main/kotlin")
 
     const val COUNTS_TSV = "literal-counts.tsv"
     const val UNKEYED_TSV = "unkeyed.tsv"
@@ -305,9 +309,23 @@ object LiteralScan {
     private val PROSE = Regex("""[A-Za-z]{2,}\s|\s[A-Za-z]{2,}|(?<![A-Za-z0-9_])[A-Z][a-z]+(?![A-Za-z0-9_])""")
     fun prose(l: Lit): Boolean = PROSE.containsMatchIn(l.text)
 
-    /** Per-file count of prose literals outside UI positions. */
-    fun counts(android: File): Map<String, Int> =
-        sources(android).associateWith { rel -> scan(android, rel).lits.count { !it.ui && prose(it) } }
+    /**
+     * Whether a literal counts against its file's ratchet (§3.3 b): prose OUTSIDE a UI position that is
+     * neither marked on its line `// text:value <why>` nor listed in unkeyed.tsv ([listed], file to cell).
+     * The two remedies the check names must lower the count, or the only way to land a log line or a
+     * wire value would be to raise literal-counts.tsv by hand, which nothing may do.
+     */
+    fun counted(s: FileScan, l: Lit, listed: Set<Pair<String, String>>): Boolean =
+        !l.ui && prose(l) && !s.marked(l) && (s.rel to l.cell) !in listed
+
+    /** android/i18n/unkeyed.tsv as (file, cell) pairs. */
+    fun unkeyed(android: File): Set<Pair<String, String>> = readTsv(android.resolve("i18n/$UNKEYED_TSV"), "file").toSet()
+
+    /** Per-file count of the literals [counted] counts. */
+    fun counts(android: File): Map<String, Int> {
+        val listed = unkeyed(android)
+        return sources(android).associateWith { rel -> scan(android, rel).let { s -> s.lits.count { counted(s, it, listed) } } }
+    }
 
     /** Reads a two-column TSV (comments `#`, a header row starting with [header]). */
     fun readTsv(f: File, header: String): List<Pair<String, String>> = f.readLines()
@@ -315,9 +333,11 @@ object LiteralScan {
         .map { val i = it.indexOf('\t'); require(i > 0) { "${f.name}: not 'a<TAB>b': $it" }; it.substring(0, i) to it.substring(i + 1) }
 
     const val COUNTS_HEAD = "# Per-file count of PROSE literals OUTSIDE UI positions (design-marathi §3.3 b): a Latin word beside a\n" +
-        "# space, or a capitalised word. I18nLiteralTest fails when a file's count differs. A rise means a new literal:\n" +
-        "# key it, list it in unkeyed.tsv, or mark it `// text:value <why>`. A fall: run gradle :pano:i18nRatchet,\n" +
-        "# which only ever LOWERS these counts. Never raise one by hand.\n"
+        "# space, or a capitalised word, that is neither listed in unkeyed.tsv nor marked `// text:value <why>`.\n" +
+        "# I18nLiteralTest fails when a file's count differs. A rise means a new literal: key it, list it in\n" +
+        "# unkeyed.tsv (a text a person sees), or mark its line `// text:value <why>` (a log line, a wire value,\n" +
+        "# a code); each of the three lowers the count. A fall: run gradle :pano:i18nRatchet, which only ever\n" +
+        "# LOWERS these counts. Never raise one by hand.\n"
 
     fun writeCounts(f: File, counts: Map<String, Int>) {
         val sb = StringBuilder(COUNTS_HEAD).append("file\tcount\n")
@@ -335,7 +355,7 @@ object LiteralScan {
         val fell = next.filter { (k, v) -> v < (old[k] ?: 0) }
         println("i18nRatchet: ${fell.size} counts lowered${if (fell.isEmpty()) "" else ": $fell"}; ${(old.keys - now.keys).size} files gone")
         if (rose.isNotEmpty()) {
-            System.err.println("i18nRatchet never raises a count. These files have MORE prose literals than listed -- key them, list them in unkeyed.tsv, or mark them // text:value: $rose")
+            System.err.println("i18nRatchet never raises a count. These files have MORE prose literals than listed -- key them, list them in unkeyed.tsv (a shown text) or mark their lines // text:value <why> (a log line, a wire value); any of the three lowers the count: $rose")
             return 1
         }
         return 0

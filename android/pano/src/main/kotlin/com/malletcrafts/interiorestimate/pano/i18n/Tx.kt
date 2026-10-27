@@ -1814,8 +1814,8 @@ class Tx private constructor(val lang: Lang, private val tab: Array<String>) {
     /** `export.list_x_x_x` — List · {name} · {tn}{v}
      * @param name as given
      * @param tn as given
-     * @param v null, or the tail; " · " is put before it */
-    fun export_list_x_x_x(name: String, tn: String, v: String?): String = f(tab[546], "name", name, "tn", tn, "v", opt(" · ", v))
+     * @param v null, or the WHOLE tail from its own key */
+    fun export_list_x_x_x(name: String, tn: String, v: String?): String = f(tab[546], "name", name, "tn", tn, "v", v ?: "")
 
     /** `export.making_x` — Making {name}…
      * @param name as given */
@@ -1878,8 +1878,8 @@ class Tx private constructor(val lang: Lang, private val tab: Array<String>) {
     /** `export.only_when_client_has_2` — Only when the client has said yes — signed copy or message. Record {length} {pl} of pack {id} as Cl…
      * @param length a count
      * @param id as given
-     * @param v null, or the tail; " · " is put before it */
-    fun export_only_when_client_has_2(length: Int, id: String, v: String?): String = f(tab[565], "length", length.toString(), "pl", noun_mark(length), "id", id, "v", opt(" · ", v))
+     * @param v null, or the WHOLE tail from its own key */
+    fun export_only_when_client_has_2(length: Int, id: String, v: String?): String = f(tab[565], "length", length.toString(), "pl", noun_mark(length), "id", id, "v", v ?: "")
 
     /** `export.pack_x_x` — Pack {id}, {v}
      * @param id as given
@@ -2065,9 +2065,9 @@ class Tx private constructor(val lang: Lang, private val tab: Array<String>) {
 
     /** `export.x_x_client_approved` — {moved} {pl} → Client approved{v}{r}
      * @param moved a count
-     * @param v null, or the tail; " · " is put before it
+     * @param v null, or the WHOLE tail from its own key
      * @param r as given */
-    fun export_x_x_client_approved(moved: Int, v: String?, r: String): String = f(tab[614], "moved", moved.toString(), "pl", noun_mark(moved), "v", opt(" · ", v), "r", r)
+    fun export_x_x_client_approved(moved: Int, v: String?, r: String): String = f(tab[614], "moved", moved.toString(), "pl", noun_mark(moved), "v", v ?: "", "r", r)
 
     /** `export.x_x_files` — {files0} … {length} files
      * @param files0 as given
@@ -2081,9 +2081,9 @@ class Tx private constructor(val lang: Lang, private val tab: Array<String>) {
 
     /** `export.x_x_vendor_review` — {moved} {pl} → Vendor review{v}{r}
      * @param moved a count
-     * @param v null, or the tail; " · " is put before it
+     * @param v null, or the WHOLE tail from its own key
      * @param r as given */
-    fun export_x_x_vendor_review(moved: Int, v: String?, r: String): String = f(tab[617], "moved", moved.toString(), "pl", noun_mark(moved), "v", opt(" · ", v), "r", r)
+    fun export_x_x_vendor_review(moved: Int, v: String?, r: String): String = f(tab[617], "moved", moved.toString(), "pl", noun_mark(moved), "v", v ?: "", "r", r)
 
     /** `export.x_x_vendors_approved` — {length} {pl} the vendors approved or added, on the pages before this one
      * @param length a count */

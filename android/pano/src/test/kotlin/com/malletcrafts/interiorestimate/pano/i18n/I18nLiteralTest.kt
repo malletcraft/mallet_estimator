@@ -2,12 +2,13 @@ package com.malletcrafts.interiorestimate.pano.i18n
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * EVERY TEXT A PERSON SEES IS KEYED, LISTED OR MARKED (design-marathi §3.3, I18nLiteralTest a–h).
- * Scans `android/app/src/main/kotlin` and `android/pano/src/main/kotlin` (the generated table
- * excepted) with [LiteralScan]. This is also the local stand-in for :app's compiler on the
- * commonest break, an unresolved name (f): two of those broke `main` on 21 Sep.
+ * Scans every module in [LiteralScan.ROOTS] -- `:app`, `:camera` and `:pano` main, the generated table
+ * excepted. This is also the local stand-in for the compiler of `:app` and `:camera` (neither builds
+ * here) on the commonest break, an unresolved name (f): two of those broke `main` on 21 Sep.
  */
 class I18nLiteralTest {
 
@@ -30,11 +31,12 @@ class I18nLiteralTest {
 
     @Test fun `b the per-file count of prose literals is the ratchet's`() {
         val listed = LiteralScan.readTsv(I18n.i18n.resolve(LiteralScan.COUNTS_TSV), "file").associate { it.first to it.second.toInt() }
+        val worklist = unkeyed.toSet()
         val off = ArrayList<String>()
         for (s in scans) {
-            val prose = s.lits.filter { !it.ui && LiteralScan.prose(it) }
+            val prose = s.lits.filter { LiteralScan.counted(s, it, worklist) }
             val want = listed[s.rel] ?: 0
-            if (prose.size > want) off += "${s.rel}: ${prose.size} prose literals, ${want} listed — a new one: key it, list it in unkeyed.tsv, or mark it `// text:value`. " +
+            if (prose.size > want) off += "${s.rel}: ${prose.size} prose literals, ${want} listed — a new one: key it, list it in unkeyed.tsv (a text a person sees), or mark its line `// text:value <why>` (a log line, a wire value); each lowers the count. " +
                 "Its prose literals: " + prose.take(60).joinToString(" | ") { "${it.line}: ${it.cell.take(60)}" }
             if (prose.size < want) off += "${s.rel}: ${prose.size} prose literals, $want listed — run `gradle :pano:i18nRatchet`"
         }
@@ -75,15 +77,27 @@ class I18nLiteralTest {
         return masked.substring(open, minOf(i + 1, masked.length))
     }
 
-    @Test fun `e every format call names a Locale`() {
+    /**
+     * A FIXED locale. `Locale.getDefault()`, `Locale("mr")` or a variable is the system language again,
+     * which prints Devanagari digits on a phone whose system language is Marathi -- the hazard (e) exists for.
+     */
+    private val FIXED_LOCALE = Regex("""\bLocale\s*\.\s*(?:ROOT|US|ENGLISH)\b""")
+
+    /** Every format call in [scans] that names no fixed Locale, as `File.kt: <its line>`. */
+    private fun formatsWithoutLocale(scans: List<LiteralScan.FileScan>): Set<String> {
         val found = LinkedHashSet<String>()
         for (s in scans) for (rx in FORMATS) for (m in rx.findAll(s.masked)) {
-            if ("Locale" !in argsAt(s.masked, m.range.last)) found += "${s.name}: ${s.lineText(s.lineOf(m.range.first)).trim()}"
+            if (!FIXED_LOCALE.containsMatchIn(argsAt(s.masked, m.range.last))) found += "${s.name}: ${s.lineText(s.lineOf(m.range.first)).trim()}"
         }
+        return found
+    }
+
+    @Test fun `e every format call names a Locale`() {
+        val found = formatsWithoutLocale(scans)
         val off = found.filter { it !in APP_FORMATS_PINNED } +
             (APP_FORMATS_PINNED - found).map { "$it: pinned but gone — remove it from APP_FORMATS_PINNED" }
         I18n.check("e · format without a Locale", off,
-            "name a Locale (Locale.ROOT): with none, a phone whose SYSTEM language is Marathi prints Devanagari digits")
+            "name a fixed Locale (Locale.ROOT): with none, or the default one, a phone whose SYSTEM language is Marathi prints Devanagari digits")
     }
 
     private val TX_REF = Regex("""(?<![\w.])tx\s*\.\s*([A-Za-z_]\w*)""")
@@ -101,33 +115,73 @@ class I18nLiteralTest {
         return n
     }
 
-    @Test fun `f every tx accessor the app calls exists with that many arguments`() {
+    /** The top-level arguments of the call whose `(` is at [open] in [masked] (string bodies already blank). */
+    private fun argList(masked: String, open: Int): List<String> {
+        val a = argsAt(masked, open).removePrefix("(").removeSuffix(")")
+        if (a.isBlank()) return emptyList()
+        val out = ArrayList<String>(); var d = 0; var from = 0
+        for ((i, c) in a.withIndex()) { if (c in "([{") d++ else if (c in ")]}") d-- else if (c == ',' && d == 0) { out += a.substring(from, i); from = i + 1 } }
+        out += a.substring(from)
+        return out
+    }
+
+    private val NAMED_ARG = Regex("""^\s*([A-Za-z_]\w*)\s*=(?!=)""")
+
+    /**
+     * Each template accessor's parameter names, in order, from the generated android/i18n/index.tsv
+     * (check 6 keeps it current). They follow the ENGLISH placeholder order, so a prototype that rewords
+     * its English can reorder them; a call that names its arguments survives that, a positional one
+     * swaps two same-typed values and still compiles.
+     */
+    private val paramNames: Map<String, List<String>> by lazy {
+        I18n.i18n.resolve(GenTx.INDEX_TSV).readLines().filter { !it.startsWith("#") && !it.startsWith("key\t") && it.isNotBlank() }
+            .map { it.split('\t') }.filter { it.size >= 4 && it[2] == "template" && it[3] != "-" }
+            .associate { c -> c[1] to c[3].split(" · ").map { it.substringBefore(':').trim() } }
+    }
+
+    /** Check (f) over [scans]: unresolved accessors, wrong arity, and positional or misnamed arguments. */
+    private fun unresolved(scans: List<LiteralScan.FileScan>): List<String> {
         val tx = Tx::class.java.methods.groupBy { it.name }
         val ms = Masters::class.java.methods.groupBy { it.name }
         fun has(map: Map<String, List<java.lang.reflect.Method>>, name: String, n: Int): Boolean =
             if (n < 0) map["get" + name.replaceFirstChar { it.uppercase() }]?.any { it.parameterCount == 0 } == true
             else map[name]?.any { it.parameterCount == n } == true
         val off = ArrayList<String>()
-        for (s in scans.filter { it.rel.startsWith("app/") }) {
+        for (s in scans) {
             for (rx in listOf(TX_REF, TX_STATIC_REF)) for (m in rx.findAll(s.masked)) {
                 val name = m.groupValues[1]; val n = arity(s.masked, m.range.last + 1)
-                if (!has(tx, name, n)) off += "${s.name}:${s.lineOf(m.range.first)}: tx.$name${if (n < 0) "" else "/$n"} is not on Tx"
+                val at = "${s.name}:${s.lineOf(m.range.first)}"
+                if (!has(tx, name, n)) { off += "$at: tx.$name${if (n < 0) "" else "/$n"} is not on Tx"; continue }
+                if (n < 2) continue
+                val want = paramNames[name] ?: continue
+                var i = m.range.last + 1; while (i < s.masked.length && s.masked[i].isWhitespace()) i++
+                val args = argList(s.masked, i).map { NAMED_ARG.find(it)?.groupValues?.get(1) }
+                if (args.any { it == null }) off += "$at: tx.$name takes ${want.joinToString(", ")} -- name every argument (${want.joinToString(", ") { "$it = …" }}), or a reworded English silently swaps them"
+                else args.filter { it !in want }.forEach { off += "$at: tx.$name has no parameter '$it' (it takes ${want.joinToString(", ")})" }
             }
             for (m in MASTERS_REF.findAll(s.masked)) {
                 val name = m.groupValues[1]; val n = arity(s.masked, m.range.last + 1)
                 if (!has(ms, name, n)) off += "${s.name}:${s.lineOf(m.range.first)}: Masters.$name${if (n < 0) "" else "/$n"} does not exist"
             }
         }
-        I18n.check("f · unresolved accessor", off, "the app calls an accessor the generated table does not have: check the key in android/i18n/index.tsv")
+        return off
+    }
+
+    @Test fun `f every tx accessor the app calls exists with that many arguments`() {
+        // :app and :camera: the modules this container cannot compile (:pano's own calls are compiled here)
+        val off = unresolved(scans.filter { !it.rel.startsWith("pano/") })
+        I18n.check("f · unresolved accessor", off, "the app calls an accessor the generated table does not have, or passes two or more without naming them: check the key in android/i18n/index.tsv")
     }
 
     private val SYSTEM_LANGUAGE = Regex("""\bLocale\s*\.\s*getDefault\b|\bLocaleList\b|\.\s*locales\b|\bconfiguration\s*\.\s*locale\b""")
 
-    @Test fun `g the app never reads the system language`() {
-        val off = scans.filter { it.rel.startsWith("app/") }.flatMap { s ->
-            SYSTEM_LANGUAGE.findAll(s.masked).map { "${s.name}:${s.lineOf(it.range.first)}: ${it.value}" }.toList()
-        }
-        I18n.check("g · system language", off, "the language comes from the भाषा · Language row alone; English on first run whatever the phone's language")
+    private fun systemLanguageReads(scans: List<LiteralScan.FileScan>): List<String> = scans.flatMap { s ->
+        SYSTEM_LANGUAGE.findAll(s.masked).map { "${s.name}:${s.lineOf(it.range.first)}: ${it.value}" }.toList()
+    }
+
+    @Test fun `g no source reads the system language`() {
+        // every module: :pano's redraw keys and exports would change bytes with the system language too
+        I18n.check("g · system language", systemLanguageReads(scans), "the language comes from the भाषा · Language row alone; English on first run whatever the phone's language")
     }
 
     private val TX_MENTION = Regex("""(?<![\w.])tx\b|\bTx\b|\bLocalTx\b|\bMasters\b|\bMsg\b""")
@@ -164,6 +218,37 @@ class I18nLiteralTest {
         val off = if (LangRow.VISIBLE && (unkeyed.isNotEmpty() || notPorted > 0))
             listOf("LangRow.VISIBLE is true with ${unkeyed.size} unkeyed rows and $notPorted files not in ported.txt") else emptyList()
         I18n.check("the language row", off, "the भाषा · Language row stays hidden until every screen is translated (Amit, 27 Oct 2026, decision 2)")
+    }
+
+    @Test fun `e and g refuse the default locale, in pano as in the app`() {
+        val s = LiteralScan.scanText("pano/src/main/kotlin/X.kt",
+            "fun f(x: Double) = \"%.1f\".format(java.util.Locale.getDefault(), x)\nfun g(x: Double) = \"%.1f\".format(Locale.ROOT, x)\n")
+        assertEquals(setOf("X.kt: fun f(x: Double) = \"%.1f\".format(java.util.Locale.getDefault(), x)"), formatsWithoutLocale(listOf(s)))
+        assertEquals(listOf("X.kt:1: Locale.getDefault"), systemLanguageReads(listOf(s)))
+    }
+
+    @Test fun `f requires named arguments for an accessor with two or more parameters`() {
+        val src = "fun f() {\n" +
+            "    a = tx.app_x_x_rooms(3, 12)\n" +
+            "    b = tx.app_x_x_rooms(size = 3, length = 12)\n" +
+            "    c = tx.app_x_x_rooms(length = 12, size = 3)\n" +
+            "    d = tx.app_x_x_rooms(size = 3, total = 12)\n" +
+            "    e = Tx.EN.app_x_x_rooms(size = f(1, 2), length = 12)\n" +
+            "    g = tx.pl_room(3)\n" +
+            "}\n"
+        val off = unresolved(listOf(LiteralScan.scanText("app/src/main/kotlin/X.kt", src)))
+        assertEquals(2, off.size, off.joinToString("\n"))
+        assertTrue(off[0].startsWith("X.kt:2: tx.app_x_x_rooms takes size, length -- name every argument"), off[0])
+        assertTrue(off[1].startsWith("X.kt:5: tx.app_x_x_rooms has no parameter 'total'"), off[1])
+    }
+
+    @Test fun `b counts neither a marked nor a listed literal`() {
+        val src = "val LocalTx = staticCompositionLocalOf<Tx> { error(\"LocalTx not provided\") } // text:value developer error, never shown\n" +
+            "fun refuse() = \"Meter is busy\"\n"
+        val s = LiteralScan.scanText("app/src/main/kotlin/Lang.kt", src)
+        val (marked, plain) = s.lits
+        assertEquals(listOf(false, true), listOf(marked, plain).map { LiteralScan.counted(s, it, emptySet()) })
+        assertEquals(false, LiteralScan.counted(s, plain, setOf("app/src/main/kotlin/Lang.kt" to "Meter is busy")))
     }
 
     @Test fun `the tokenizer sees what the readers' tokenizer saw`() {

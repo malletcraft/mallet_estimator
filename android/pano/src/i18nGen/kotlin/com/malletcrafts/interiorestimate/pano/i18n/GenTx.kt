@@ -76,8 +76,13 @@ object GenTx {
         data class Plural(val count: String, val noun: String) : Shape()
         /** `cond?'A':'B'` with both plain strings. */
         data class Alt(val a: String, val b: String) : Shape()
-        /** `cond?' · '+x:''`: an optional tail with a known start. */
-        data class Opt(val prefix: String) : Shape()
+        /**
+         * `cond?' · '+x:''`: an optional tail with a known start. [whole] when the tail holds more than
+         * that start and ONE trailing value (text after it, a second value, a further `+'…'`): the
+         * table then carries the whole tail as its own fragment key, separator included, and the
+         * caller passes that fragment's rendering, so nothing may be put before it.
+         */
+        data class Opt(val prefix: String, val whole: Boolean = false) : Shape()
     }
 
     private val QS = """(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
@@ -85,7 +90,7 @@ object GenTx {
     private val RX_PLURAL = Regex("""(?:plural|pl)\(\s*(.+?)\s*,\s*'([\w ]+)'\s*\)""")
     private val RX_COUNT = Regex("""[\w.]+\.(?:length|size)|nl""")
     private val RX_ALT = Regex("""[^?]+?\?\s*($QS)\s*:\s*($QS)""")
-    private val RX_OPT = Regex("""[^?]+?\?\s*(?:`([^`$]*)\$\{[\s\S]*`|'([^']*)'\s*\+[\s\S]*)\s*:\s*(?:''|"")""")
+    private val RX_OPT = Regex("""[^?]+?\?\s*(?:`([\s\S]*\$\{[\s\S]*)`|'([^']*)'\s*\+([\s\S]*))\s*:\s*(?:''|"")""")
 
     private fun unquote(q: String): String {
         val b = q.substring(1, q.length - 1)
@@ -108,10 +113,43 @@ object GenTx {
         if (RX_COUNT.matches(x)) return Shape.Count
         RX_ALT.matchEntire(x)?.let { m -> return Shape.Alt(unquote(m.groupValues[1]), unquote(m.groupValues[2])) }
         RX_OPT.matchEntire(x)?.let { m ->
-            val pre = if (m.groups[1] != null) m.groupValues[1] else m.groupValues[2]
-            if (pre.isNotBlank()) return Shape.Opt(pre)
+            val (pre, whole) = if (m.groups[1] != null) templateTail(m.groupValues[1]) else m.groupValues[2] to concatenates(m.groupValues[3])
+            if (pre.isNotBlank()) return Shape.Opt(pre, whole)
         }
         return Shape.Word
+    }
+
+    /**
+     * A template-literal tail `<prefix>${expr}…`: its prefix, and whether anything follows the first
+     * interpolation's closing `}` (more text, or a second `${…}`). Only `<prefix>${expr}` and nothing
+     * after it is a tail the generated code may rebuild as prefix + value.
+     */
+    private fun templateTail(body: String): Pair<String, Boolean> {
+        val open = body.indexOf("\${")
+        var depth = 0; var i = open + 2
+        while (i < body.length) {
+            val c = body[i]
+            if (c == '{') depth++ else if (c == '}') { if (depth == 0) break; depth-- }
+            i++
+        }
+        return body.substring(0, open) to (i + 1 < body.length)
+    }
+
+    /** The rest of `'<prefix>'+rest` continues with another `+` at its top level (`x+' items'`, `a+'/'+b`). */
+    private fun concatenates(rest: String): Boolean {
+        var depth = 0; var q: Char? = null; var i = 0
+        while (i < rest.length) {
+            val c = rest[i]
+            when {
+                q != null -> { if (c == '\\') i++ else if (c == q) q = null }
+                c == '\'' || c == '"' || c == '`' -> q = c
+                c == '(' || c == '[' || c == '{' -> depth++
+                c == ')' || c == ']' || c == '}' -> depth--
+                c == '+' && depth == 0 -> return true
+            }
+            i++
+        }
+        return false
     }
 
     private val PH = Regex("""\{(\w+)\}""")
@@ -136,6 +174,8 @@ object GenTx {
         val fills: List<Pair<String, String>> = emptyList(),
         val slot: Int = -1, val slotOther: Int = -1,
         val why: String = "",
+        /** The prototype's `where` (file:line · node): a whole-tail template and its fragment key share it. */
+        val where: String = "",
     )
 
     class Model(
@@ -216,14 +256,15 @@ object GenTx {
             val e = en.getValue(k); val m = mr.getValue(k)
             val enV = e["en"] as String; val mrV = m["mr"] as String
             val flags = strList(e["flags"])
+            val wh = e["where"] as? String ?: ""
             for ((which, s) in listOf("en" to enV, "mr" to mrV)) {
                 s.firstOrNull { badChar(it) }?.let { errors += "$k: control character U+%04X in $which".format(java.util.Locale.ROOT, it.code) }
             }
             if (!Regex("""[A-Za-z][A-Za-z0-9_.\-]*""").matches(k)) errors += "$k: not a key the accessor rule can name"
             val skip = skipReason(k, flags)
-            if (skip != null) { entries += Entry(k, enV, mrV, flags, Kind.SKIPPED, null, why = skip); continue }
+            if (skip != null) { entries += Entry(k, enV, mrV, flags, Kind.SKIPPED, null, why = skip, where = wh); continue }
             if (k.startsWith("noun.") && k.endsWith(".other")) {
-                entries += Entry(k, enV, mrV, flags, Kind.NOUN_OTHER, accessorOf(k.removeSuffix(".other")), why = "the plural form of ${k.removeSuffix(".other")}")
+                entries += Entry(k, enV, mrV, flags, Kind.NOUN_OTHER, accessorOf(k.removeSuffix(".other")), why = "the plural form of ${k.removeSuffix(".other")}", where = wh)
                 continue
             }
             if (mrV.isEmpty() && k != EMPTY_OK) errors += "$k: no Marathi"
@@ -234,13 +275,13 @@ object GenTx {
                 if (!claim(acc, k) || !claim(plName(k), k)) continue
                 val i = slot(enV, mrV)
                 val j = slot(en.getValue(other)["en"] as String, mr.getValue(other)["mr"] as String)
-                entries += Entry(k, enV, mrV, flags, Kind.NOUN, acc, listOf(Param("n", "Int", "the count")), slot = i, slotOther = j)
+                entries += Entry(k, enV, mrV, flags, Kind.NOUN, acc, listOf(Param("n", "Int", "the count")), slot = i, slotOther = j, where = wh)
                 continue
             }
             if (e["kind"] != "template") {
                 if (PH.containsMatchIn(enV)) errors += "$k: a static with a {placeholder}"
                 if (!claim(acc, k)) continue
-                entries += Entry(k, enV, mrV, flags, Kind.STATIC, acc, slot = slot(enV, mrV))
+                entries += Entry(k, enV, mrV, flags, Kind.STATIC, acc, slot = slot(enV, mrV), where = wh)
                 continue
             }
             // ---- a template
@@ -258,7 +299,7 @@ object GenTx {
             val refusedBy = shapes.entries.firstOrNull { (_, s) -> s is Shape.Alt && "diagnostic-log" !in flags && (latinWord(s.a) || latinWord(s.b)) }
             if (refusedBy != null) {
                 val s = refusedBy.value as Shape.Alt
-                entries += Entry(k, enV, mrV, flags, Kind.REFUSED, null,
+                entries += Entry(k, enV, mrV, flags, Kind.REFUSED, null, where = wh,
                     why = "{${refusedBy.key}} is the English '${s.a}' / '${s.b}', chosen in code; split into two whole keys in the prototype table")
                 continue
             }
@@ -291,7 +332,7 @@ object GenTx {
                         else { val n = pname(p) + "N"; params += Param(n, "Int", "the count, shown as \"3 ${s.noun.replace('_', ' ')}s\""); fills += p to "${plName(noun)}($n)" }
                     }
                     p in asInt || s == Shape.Count -> { params += Param(pname(p), "Int", "a count"); fills += p to "${p}.toString()" }
-                    s is Shape.Opt && s.prefix.isNotBlank() && !latinWord(s.prefix) ->
+                    s is Shape.Opt && !s.whole && s.prefix.isNotBlank() && !latinWord(s.prefix) ->
                         { params += Param(pname(p), "String?", "null, or the tail; \"${s.prefix}\" is put before it"); fills += p to "opt(${kt(s.prefix)}, $p)" }
                     s is Shape.Opt -> { params += Param(pname(p), "String?", "null, or the WHOLE tail from its own key"); fills += p to "$p ?: \"\"" }
                     s is Shape.Alt -> { params += Param(pname(p), "String", "'${s.a}' or '${s.b}', as written"); fills += p to p }
@@ -301,7 +342,7 @@ object GenTx {
             val pn = params.map { it.name }
             pn.groupBy { it }.filter { it.value.size > 1 }.keys.takeIf { it.isNotEmpty() }?.let { errors += "$k: parameter names repeat: $it"; bad = true }
             if (bad || !claim(acc, k)) continue
-            entries += Entry(k, enV, mrV, flags, Kind.TEMPLATE, acc, params, fills, slot = slot(enV, mrV))
+            entries += Entry(k, enV, mrV, flags, Kind.TEMPLATE, acc, params, fills, slot = slot(enV, mrV), where = wh)
         }
         val masters = masters(mastersText, entries, errors)
         return Model(entries, enTab, mrTab, masters, errors)

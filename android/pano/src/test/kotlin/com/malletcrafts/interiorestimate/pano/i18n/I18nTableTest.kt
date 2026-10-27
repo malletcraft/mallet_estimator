@@ -1,7 +1,5 @@
 package com.malletcrafts.interiorestimate.pano.i18n
 
-import com.malletcrafts.interiorestimate.pano.MiniJson
-import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -97,79 +95,47 @@ class I18nTableTest {
 
     // ---------------------------------------------------------------- what may never enter a PUBLIC repo
 
-    /** Every string in a table file: values, notes and locations alike, each with where it was found. */
-    @Suppress("UNCHECKED_CAST")
-    private fun leaves(name: String, text: String): List<Pair<String, String>> {
-        val out = ArrayList<Pair<String, String>>()
-        fun walk(path: String, v: Any?) {
-            when (v) {
-                is String -> out += path to v
-                is Map<*, *> -> v.forEach { (k, x) -> walk(if (path.isEmpty()) k.toString() else "$path.$k", x) }
-                is List<*> -> v.forEachIndexed { i, x -> walk("$path[$i]", x) }
-                else -> {}
-            }
-        }
-        (MiniJson.parse(text) as Map<String, Any?>).forEach { (k, v) -> walk("$name:$k", v) }
-        return out
-    }
-    private val allLeaves by lazy { leaves("en", enText) + leaves("mr", mrText) }
+    /** Every string in both table files: values, notes, locations and KEYS alike (keys outlive their text). */
+    private val allLeaves by lazy { PublicScan.leaves("en", enText) + PublicScan.leaves("mr", mrText) }
 
-    /** ₹, Rs or INR, an optional dot or space, and a digit: a cost figure (design §3.3, check 7). A real failure, not a "should". */
-    private val CURRENCY = Regex("""(?:₹|(?<![A-Za-z])Rs|(?<![A-Za-z])INR)\.?\s?\d""")
+    /**
+     * ₹, Rs or INR (any case), an optional dot or space, and a digit; or a figure ending `/-`: a cost
+     * figure (design §3.3, check 7). A real failure, not a "should". deny-patterns.txt's `currency` agrees.
+     */
+    private val CURRENCY = Regex("""(?i)(?:₹|(?<![a-z])(?:rs|inr))\.?\s?\d|\d[\d,]*\s?/-""")
 
     @Test fun `7 no cost figure in either table`() {
-        val off = allLeaves.filter { CURRENCY.containsMatchIn(it.second) }.map { "${it.first}: a currency figure" }
+        val off = PublicScan.offenders(allLeaves, listOf("a currency figure" to CURRENCY))
         I18n.check("7 · cost figure", off, "these tables enter the PUBLIC mallet_estimator repo; no rate, cost or price may be in them")
     }
 
-    /** The committed STRUCTURAL deny list (emails, phone numbers, figures), and what each pattern must catch. */
+    /** The committed STRUCTURAL deny list, and the forms each required pattern must still catch (all made up). */
     private val REQUIRED = mapOf(
-        "email" to "write to someone@example.com",
-        "phone" to "call 90000 00000",
-        "digits10" to "ref 1234567890",
-        "currency" to "Rs. 0 as a sample",
+        "email" to listOf("write to someone@example.com"),
+        "phone" to listOf("call 90000 00000", "call 090000 00000", "+91 90 0000 0000", "90000 000 00", "9000 000 000"),
+        "landline" to listOf("office 020-0000 0000", "office 020 00000000"),
+        "digits10" to listOf("ref 1234567890"),
+        "currency" to listOf("Rs. 0 as a sample", "RS. 0 as a sample", "rs 0 as a sample", "₹ 0", "0/- as a sample"),
     )
 
-    private fun denyPatterns(): Map<String, Regex> {
-        val f = I18n.i18n.resolve("deny-patterns.txt")
-        return f.readLines().filter { it.isNotBlank() && !it.startsWith("#") }.associate { line ->
-            val i = line.indexOf('\t')
-            require(i > 0) { "deny-patterns.txt: not 'name<TAB>regex': $line" }
-            line.substring(0, i) to Regex(line.substring(i + 1))
-        }
-    }
-
-    /**
-     * The optional CLIENT-NAME list, never committed: the I18N_DENY_NAMES secret on CI, or
-     * -Pi18n.deny=<file> locally; one name per line (or comma-separated). Absent, the structural
-     * patterns still run, so a fork or a run without secrets is protected and stays green.
-     */
-    private fun denyNames(): List<String>? {
-        val raw = System.getProperty("mcft.i18n.deny")?.let { File(it).takeIf { f -> f.isFile }?.readText() }
-            ?: System.getenv("I18N_DENY_NAMES")?.takeIf { it.isNotBlank() }
-            ?: return null
-        return raw.split('\n', ',', ';').map { it.trim() }.filter { it.length >= 3 && !it.startsWith("#") }
-    }
-
     @Test fun `8 no client name, phone number, email or figure in either table`() {
-        val pats = denyPatterns()
+        val pats = PublicScan.denyPatterns(I18n.i18n.resolve("deny-patterns.txt"))
         val off = ArrayList<String>()
-        for ((name, sample) in REQUIRED) {
+        for ((name, samples) in REQUIRED) {
             val rx = pats[name]
             if (rx == null) off += "deny-patterns.txt: the required pattern '$name' is missing"
-            else if (!rx.containsMatchIn(sample)) off += "deny-patterns.txt: '$name' no longer catches its own example"
+            else samples.filter { !rx.containsMatchIn(it) }.forEach { off += "deny-patterns.txt: '$name' no longer catches its own example '$it'" }
         }
-        // The matched text is NEVER printed: these logs are public. The key and the pattern's name say where to look.
-        for ((where, v) in allLeaves) for ((name, rx) in pats) if (rx.containsMatchIn(v)) off += "$where: matches '$name'"
-        val names = denyNames()
-        if (names == null) println("i18n check 8: no client-name list (I18N_DENY_NAMES / -Pi18n.deny) — structural patterns only")
-        else {
-            println("i18n check 8: ${names.size} client names checked as well")
-            for ((i, n) in names.withIndex()) {
-                val rx = if (n.any { it in 'A'..'Z' || it in 'a'..'z' }) Regex("(?i)(?<![A-Za-z])" + Regex.escape(n) + "(?![A-Za-z])") else Regex(Regex.escape(n))
-                for ((where, v) in allLeaves) if (rx.containsMatchIn(v)) off += "$where: matches client-name entry #${i + 1}"
-            }
-        }
+        // The client-name list: absent is green on the structural patterns but SAYS so in the CI log; a
+        // list asked for that cannot be used is a failure, never a quiet run without names.
+        val deny = PublicScan.denyList(System.getProperty("mcft.i18n.deny"), System.getenv("I18N_DENY_NAMES"))
+        off += deny.problems
+        deny.annotation?.let { I18n.annotate(it); println("i18n check 8: $it") }
+        // The matched text is NEVER printed: these logs are public. The key (or, when a key matched, only its
+        // position) and the pattern's name say where to look.
+        val rules = pats.map { (name, rx) -> "'$name'" to rx } +
+            (deny.names ?: emptyList()).mapIndexed { i, n -> "client-name entry #${i + 1}" to PublicScan.nameRegex(n) }
+        off += PublicScan.offenders(allLeaves, rules)
         I18n.check("8 · names and figures", off, "the tables enter the PUBLIC repo: remove the client name, phone, email or figure (the text itself is not printed)")
     }
 }

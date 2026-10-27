@@ -43,8 +43,8 @@ java {
 val i18nDir: File = rootDir.resolve("i18n")
 val i18nOut: File = projectDir.resolve("src/main/kotlin/com/malletcrafts/interiorestimate/pano/i18n")
 val i18nReportDir: File = layout.buildDirectory.dir("i18n").get().asFile
-fun protoDir(): String = providers.gradleProperty("proto").orNull
-    ?: throw GradleException("pass the prototype build folder: -Pproto=<dir holding strings-en.json and strings-mr.json>")
+// The CommandLineArgumentProviders below read ONLY locals of their own register block: a script-level
+// val or fun is a member of the build script object, which the configuration cache cannot store.
 
 tasks.register<JavaExec>("i18nGen") {
     group = "i18n"
@@ -59,7 +59,10 @@ tasks.register<JavaExec>("i18nImport") {
     description = "Byte-copies a prototype build's strings-en.json / strings-mr.json into android/i18n and regenerates (-Pproto=<dir>)."
     classpath = i18nGen.runtimeClasspath
     mainClass.set("com.malletcrafts.interiorestimate.pano.i18n.GenTx")
-    argumentProviders.add(CommandLineArgumentProvider { listOf("import", protoDir(), i18nDir.path, i18nOut.path) })
+    val proto = providers.gradleProperty("proto"); val tables = i18nDir.path; val out = i18nOut.path
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf("import", proto.orNull ?: throw GradleException("pass the prototype build folder: -Pproto=<dir holding strings-en.json and strings-mr.json>"), tables, out)
+    })
 }
 
 tasks.register<JavaExec>("i18nCheckProto") {
@@ -67,7 +70,10 @@ tasks.register<JavaExec>("i18nCheckProto") {
     description = "Fails when a prototype build's two tables differ from the committed android/i18n copies (-Pproto=<dir>)."
     classpath = i18nGen.runtimeClasspath
     mainClass.set("com.malletcrafts.interiorestimate.pano.i18n.GenTx")
-    argumentProviders.add(CommandLineArgumentProvider { listOf("check-proto", protoDir(), i18nDir.path) })
+    val proto = providers.gradleProperty("proto"); val tables = i18nDir.path
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf("check-proto", proto.orNull ?: throw GradleException("pass the prototype build folder: -Pproto=<dir holding strings-en.json and strings-mr.json>"), tables)
+    })
 }
 
 tasks.register<JavaExec>("i18nRatchet") {
@@ -105,12 +111,21 @@ tasks.test {
     // Where the i18n tests find the tables and the sources they scan (design §3.3).
     systemProperty("mcft.android", rootDir.path)
     systemProperty("mcft.i18n.out", i18nReportDir.path)
-    // The tables, the worklists and the :app sources are read by the tests, so a change to
-    // any of them must re-run :pano:test rather than leave it UP-TO-DATE.
+    // The tests read SOURCE TEXT, not only classes: the tables and worklists, every scanned module's
+    // sources (LiteralScan.ROOTS: :app, :camera and :pano main, comments and `// text:value` markers
+    // included), the generated files check 6 compares byte for byte, and :pano's own tests (the hygiene
+    // check). A comment-only edit changes no bytecode, so each is declared, or :pano:test would stay
+    // UP-TO-DATE locally on a tree CI fails.
     inputs.dir(i18nDir).withPropertyName("i18nTables").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(rootDir.resolve("app/src/main/kotlin")).withPropertyName("appSources").withPathSensitivity(PathSensitivity.RELATIVE)
-    // The OPTIONAL client-name list: a file (-Pi18n.deny=<file>) or the I18N_DENY_NAMES secret.
-    // Only its hash is an input, so the names never reach Gradle's task history.
+    inputs.dir(rootDir.resolve("camera/src/main/kotlin")).withPropertyName("cameraSources").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(projectDir.resolve("src/main/kotlin")).withPropertyName("panoSources").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(projectDir.resolve("src/test/kotlin")).withPropertyName("panoTestSources").withPathSensitivity(PathSensitivity.RELATIVE)
+    // I18nBuildTest reads this script itself.
+    inputs.file(projectDir.resolve("build.gradle.kts")).withPropertyName("panoBuildScript").withPathSensitivity(PathSensitivity.RELATIVE)
+    // The OPTIONAL client-name list: a file (-Pi18n.deny=<file>, resolved against android/pano) or the
+    // I18N_DENY_NAMES secret. Only its hash is an input, so the names never reach Gradle's task history.
+    // A path that is not a readable file is passed on as given, and check 8 FAILS on it, naming it.
     providers.gradleProperty("i18n.deny").orNull?.let { f ->
         val deny = file(f)
         systemProperty("mcft.i18n.deny", deny.path)

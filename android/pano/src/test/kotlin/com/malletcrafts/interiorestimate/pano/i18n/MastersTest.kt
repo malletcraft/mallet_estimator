@@ -9,9 +9,19 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SvgWriter
+import com.malletcrafts.interiorestimate.pano.WireCleanProbe
+import com.malletcrafts.interiorestimate.pano.WireLeakProbe
 import com.malletcrafts.interiorestimate.pano.WishList
+import java.io.File
+import java.lang.reflect.GenericArrayType
+import java.lang.reflect.Method
+import java.lang.reflect.ParameterizedType
+import java.lang.reflect.Type
+import java.lang.reflect.TypeVariable
+import java.lang.reflect.WildcardType
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * STORAGE NEVER SEES MARATHI (design-marathi §2.6). Identity values stay English constants byte for
@@ -72,10 +82,42 @@ class MastersTest {
         I18n.check("identity values", off, "every identity value is shown through Masters: English unchanged, Marathi present")
     }
 
+    private val i18nPkg = Tx::class.java.packageName
+
+    /** [t] is, or is built from, a type of the i18n package: `Tx`, `Msg` (`Function1<Tx, String>`), `List<Msg>`… */
+    private fun i18nType(t: Type): Boolean = when (t) {
+        is Class<*> -> if (t.isArray) i18nType(t.componentType) else t.name.startsWith("$i18nPkg.")
+        is ParameterizedType -> i18nType(t.rawType) || t.actualTypeArguments.any(::i18nType) || (t.ownerType?.let(::i18nType) == true)
+        is WildcardType -> t.upperBounds.any(::i18nType) || t.lowerBounds.any(::i18nType)
+        is GenericArrayType -> i18nType(t.genericComponentType)
+        is TypeVariable<*> -> t.bounds.any(::i18nType)
+        else -> false
+    }
+
+    /** A parameter or the result names an i18n type, generics included (an erased `Msg` is only `Function1`). */
+    private fun takesI18n(m: Method) = m.genericParameterTypes.any(::i18nType) || m.parameterTypes.any(::i18nType) || i18nType(m.genericReturnType)
+
+    /**
+     * The compiled class files of [c] and of every class nested in it (`C$…`) that name the i18n package
+     * anywhere -- a `Tx.MR.x` read in a body, a `Masters` call, a `Msg` in a signature. A body can reach
+     * Marathi with no i18n parameter at all, so for an object whose every method builds wire or export
+     * text the bytes are the check, not the signatures.
+     */
+    private fun bytecodeNamesI18n(c: Class<*>): List<String> {
+        val root = File(c.protectionDomain.codeSource.location.toURI())
+        val dir = root.resolve(c.name.substringBeforeLast('.').replace('.', '/'))
+        val files = dir.listFiles { f -> f.name == "${c.simpleName}.class" || (f.name.startsWith("${c.simpleName}$") && f.name.endsWith(".class")) }.orEmpty()
+        require(files.any { it.name == "${c.simpleName}.class" }) { "no class file for ${c.name} in $dir" }
+        val needle = (i18nPkg.replace('.', '/') + "/").toByteArray(Charsets.US_ASCII)
+        fun has(b: ByteArray) = (0..b.size - needle.size).any { i -> needle.indices.all { b[i + it] == needle[it] } }
+        return files.filter { has(it.readBytes()) }.map { it.name }.sorted()
+    }
+
     /**
      * THE WIRE, STORAGE AND EXPORT BUILDERS TAKE NO Tx, so they cannot become Marathi (the phone's
-     * ct57-8). A whole object where every method builds wire or export text; a named method where the
-     * object also composes screen text that WILL take a Tx in its slice.
+     * ct57-8). A whole object where every method builds wire or export text: its compiled bytes may not
+     * name the i18n package at all. A named method where the object also composes screen text that WILL
+     * take a Tx in its slice: no parameter or result of an i18n type, generics included.
      */
     @Test fun `the wire, storage and export builders have no Tx parameter`() {
         val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java)
@@ -85,13 +127,23 @@ class MastersTest {
             SurveyPrepFile::class.java to listOf("encode"),
         )
         val off = ArrayList<String>()
-        fun tx(c: Class<*>) = c.name.startsWith(Tx::class.java.packageName + ".")
-        for (c in whole) for (m in c.declaredMethods) if (m.parameterTypes.any(::tx)) off += "${c.simpleName}.${m.name}"
+        for (c in whole) {
+            c.declaredMethods.filter(::takesI18n).forEach { off += "${c.simpleName}.${it.name}: an i18n type in its signature" }
+            bytecodeNamesI18n(c).forEach { off += "${c.simpleName}: $it names the i18n package (Tx, Masters or Msg)" }
+        }
         for ((c, names) in named) for (n in names) {
             val ms = c.declaredMethods.filter { it.name == n }
             if (ms.isEmpty()) off += "${c.simpleName}.$n: no such method (update this list with the builder's new name)"
-            ms.filter { m -> m.parameterTypes.any(::tx) }.forEach { off += "${c.simpleName}.${it.name}" }
+            ms.filter(::takesI18n).forEach { off += "${c.simpleName}.${it.name}: an i18n type in its signature" }
         }
         I18n.check("wire has no Tx", off, "a wire, storage or export builder took a Tx or an i18n type: what is stored or sent must stay English")
+    }
+
+    @Test fun `the wire check sees a Msg parameter and a Tx read in a body`() {
+        val leak = WireLeakProbe::class.java
+        assertTrue(takesI18n(leak.declaredMethods.single { it.name == "shown" }), "a Msg parameter erases to Function1 and must still be seen")
+        assertTrue(bytecodeNamesI18n(leak).isNotEmpty(), "a body reading Tx.MR has no i18n parameter and must still be seen")
+        assertEquals(emptyList(), WireCleanProbe::class.java.declaredMethods.filter(::takesI18n).map { it.name })
+        assertEquals(emptyList(), bytecodeNamesI18n(WireCleanProbe::class.java))
     }
 }

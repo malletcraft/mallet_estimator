@@ -25,6 +25,11 @@ internal object I18n {
      * and ONE GitHub annotation per check naming at most 25 (GitHub drops the eleventh annotation of a
      * level in a step, and the full list is in the assertion message anyway).
      */
+    /** One line for the CI log that is not a failure (a `::warning` or `::notice`): i18nReport prints it at the start of a line. */
+    fun annotate(line: String) {
+        synchronized(this) { out.resolve("annotations.txt").appendText(line.replace("\n", " ") + "\n") }
+    }
+
     fun check(name: String, offenders: Collection<String>, hint: String) {
         if (offenders.isEmpty()) return
         synchronized(this) {

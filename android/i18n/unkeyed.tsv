@@ -8,6 +8,8 @@
 # Each slice REMOVES the rows it keys. I18nLiteralTest fails on a shown literal missing from here (a), on a row
 # whose text is gone from its file -- prune it (c) -- and on a row for a file listed in ported.txt (d). When it
 # is empty and ported.txt names every source, any new shown literal fails CI, and the भाषा · Language row may show.
+# The :camera rows (X3Bridge.kt: the X3's connect and capture messages, shown on the capture sheet and in the
+# result banner) were added by the slice 1a review, 27 Oct 2026, when :camera joined the scanned modules.
 file	text
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
@@ -929,6 +931,17 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	filled i
 app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	one line — what exactly
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	%.1f×  ·  double-tap to fit
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	Pinch to zoom  ·  double-tap to magnify
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	$problem — join the X3's Wi-Fi in Settings, then try again
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	(Insta360 app) is holding the camera
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	Wi-Fi is joined in Android Settings, and no other app 
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	camera connect error $errorCode — check the X3 is on, its 
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	camera reported capture finished but returned no file
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	cannot watch Wi-Fi: ${it.message}
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	capture error $errorCode
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	no ConnectivityManager
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	phone is not on the camera's Wi-Fi
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	stitch export cancelled
+camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	stitch export failed ($errorCode): $message
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	$pl · survey to handover
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	A change request is already raised
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	A client adds no photos
