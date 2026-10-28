@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import com.malletcrafts.interiorestimate.pano.CaptureSchema
 import org.json.JSONObject
 import java.io.File
 
@@ -14,7 +15,7 @@ import java.io.File
  * basement.
  */
 class CaptureStore(context: Context) :
-    SQLiteOpenHelper(context, "captures.db", null, 5) {
+    SQLiteOpenHelper(context, "captures.db", null, CaptureSchema.VERSION) {
 
     private val mastersFile = File(context.filesDir, "masters.json")
 
@@ -38,7 +39,8 @@ class CaptureStore(context: Context) :
                  fov REAL NOT NULL DEFAULT 0,
                  room_l_in REAL NOT NULL DEFAULT 0,
                  room_w_in REAL NOT NULL DEFAULT 0,
-                 room_h_in REAL NOT NULL DEFAULT 0
+                 room_h_in REAL NOT NULL DEFAULT 0,
+                 work INTEGER
                )"""
         )
     }
@@ -49,35 +51,15 @@ class CaptureStore(context: Context) :
      *  upgrade are the ones carrying unsent captures. A drop-and-recreate
      *  migration would throw those away on the version that finally fixed
      *  the thing they were waiting for, so every future change to this
-     *  schema has to be additive in exactly this shape. */
+     *  schema has to be additive in exactly this shape.
+     *
+     *  The statements are CaptureSchema's (in :pano, where a test pins them):
+     *  a new version appends its ADD COLUMN there, raises its VERSION, and
+     *  gives the column the same shape in onCreate above. Nothing else runs
+     *  here, and each statement runs in its own runCatching, as each did
+     *  under its own `if (old < N)` before version 6. */
     override fun onUpgrade(db: SQLiteDatabase, old: Int, new: Int) {
-        if (old < 2) {
-            runCatching {
-                db.execSQL("ALTER TABLE captures ADD COLUMN sku TEXT NOT NULL DEFAULT ''")
-            }
-        }
-        if (old < 3) {
-            runCatching {
-                db.execSQL("ALTER TABLE captures ADD COLUMN kind TEXT NOT NULL DEFAULT '360'")
-            }
-        }
-        if (old < 4) {
-            runCatching {
-                db.execSQL("ALTER TABLE captures ADD COLUMN fov REAL NOT NULL DEFAULT 0")
-            }
-        }
-        if (old < 5) {
-            // The measured room, in inches. Stored rather than the six face
-            // angles it implies, so there is one source of truth and a
-            // capture cannot mean one thing on the phone and another on the
-            // bench. 0 means unmeasured, which is every capture already in
-            // this queue -- they keep splitting at the single `fov`.
-            for (col in listOf("room_l_in", "room_w_in", "room_h_in")) {
-                runCatching {
-                    db.execSQL("ALTER TABLE captures ADD COLUMN $col REAL NOT NULL DEFAULT 0")
-                }
-            }
-        }
+        for (sql in CaptureSchema.upgrade(old)) runCatching { db.execSQL(sql) }
     }
 
     /** A downgrade leaves the database exactly as it is.
@@ -100,10 +82,10 @@ class CaptureStore(context: Context) :
      *
      *  The helper then writes this build's version back, so the next newer
      *  build runs its upgrade again over columns that already exist. That is
-     *  why every ALTER above sits inside runCatching: the duplicate-column
-     *  failure is the expected case there, and a down-then-up cycle is
-     *  harmless. A schema change that is NOT additive must replace this no-op
-     *  in the same commit. */
+     *  why every upgrade statement runs inside runCatching: the
+     *  duplicate-column failure is the expected case there, and a
+     *  down-then-up cycle is harmless. A schema change that is NOT additive
+     *  must replace this no-op in the same commit. */
     override fun onDowngrade(db: SQLiteDatabase, old: Int, new: Int) {}
 
     data class Capture(
@@ -136,6 +118,11 @@ class CaptureStore(context: Context) :
         val roomLengthIn: Double = 0.0,
         val roomWidthIn: Double = 0.0,
         val roomHeightIn: Double = 0.0,
+        /** The work this capture is filed under: 0 the quote journey, else
+         *  one of the sixteen work ids (Album.WORKS). null is "filed by its
+         *  stage": every row from before schema 6, and every capture until
+         *  the phone files by work -- nothing writes this yet. */
+        val work: Int? = null,
     )
 
     fun insert(c: Capture) {
@@ -156,6 +143,8 @@ class CaptureStore(context: Context) :
             put("room_l_in", c.roomLengthIn)
             put("room_w_in", c.roomWidthIn)
             put("room_h_in", c.roomHeightIn)
+            // Only when filed by work: a row left out stays NULL, "filed by its stage".
+            c.work?.let { put("work", it) }
         })
     }
 
@@ -184,6 +173,17 @@ class CaptureStore(context: Context) :
         }
         if (values.size() == 0) return
         writableDatabase.update("captures", values, "device_id = ?", arrayOf(deviceId))
+    }
+
+    /** File a capture by work: 0 the quote journey, else one of the sixteen
+     *  work ids (Album.WORKS). The stage it was taken at stays as history.
+     *  Never null: NULL in this column means "filed by its stage", a row from
+     *  before the phone filed by work, and a re-file must not make a capture
+     *  look older. */
+    fun setWork(deviceId: String, work: Int) {
+        writableDatabase.update("captures", ContentValues().apply {
+            put("work", work)
+        }, "device_id = ?", arrayOf(deviceId))
     }
 
     /** The room's measured size, in inches, as survey prep now has it (v51: the
@@ -243,6 +243,9 @@ class CaptureStore(context: Context) :
                     roomLengthIn = runCatching { cur.getDouble(ix("room_l_in")) }.getOrDefault(0.0),
                     roomWidthIn = runCatching { cur.getDouble(ix("room_w_in")) }.getOrDefault(0.0),
                     roomHeightIn = runCatching { cur.getDouble(ix("room_h_in")) }.getOrDefault(0.0),
+                    // NULL must stay null: getInt reads it as 0, the quote journey,
+                    // which would file every capture not yet filed by work there.
+                    work = runCatching { ix("work").let { i -> if (cur.isNull(i)) null else cur.getInt(i) } }.getOrNull(),
                 ))
             }
         }

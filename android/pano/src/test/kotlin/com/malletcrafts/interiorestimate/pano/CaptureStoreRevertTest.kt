@@ -7,31 +7,37 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
- * THE CAPTURE STORE STAYS REVERT-SAFE (port 61c slice D0, and the review of it, 28 Oct 2026).
+ * THE CAPTURE STORE STAYS REVERT-SAFE (port 61c slices D0 and D1, 28 Oct 2026).
  *
  * CaptureStore's onDowngrade does nothing, so a build that reverts a schema change -- a NEWER versionCode carrying
  * OLDER schema code -- still opens the offline queue on the phone that may be holding unsent captures. Doing nothing
- * is safe only while the rules in its KDoc hold, and until this test the KDoc was the only thing holding them: "a
- * hazard written down in a comment is not a hazard handled". :app has no unit tests and cannot compile here, so this
- * reads CaptureStore.kt from beside :pano (as RefFrameTest reads the app) and refuses, each by name:
+ * is safe only while the rules in its KDoc hold, and until D0's review the KDoc was the only thing holding them: "a
+ * hazard written down in a comment is not a hazard handled". Since D1 the upgrade statements are [CaptureSchema]'s,
+ * here in :pano, and this test reads them as values; :app has no unit tests and cannot compile here, so the rest is
+ * read from CaptureStore.kt beside :pano (as RefFrameTest reads the app). It refuses, each by name:
  *
  *  - no onDowngrade, or one that does anything (SQLiteOpenHelper's own throws);
- *  - an upgrade statement that is not `ALTER TABLE captures ADD COLUMN`, or any other db call in onUpgrade;
- *  - one outside a runCatching, or in one that rethrows: after a downgrade the helper writes the older version back,
- *    so the next newer build re-runs its ALTERs over columns that exist, and the duplicate column is the expected
- *    failure there;
- *  - one SQLite refuses on ADD COLUMN -- NOT NULL with no DEFAULT or DEFAULT NULL, a DEFAULT that is not a constant,
- *    PRIMARY KEY or UNIQUE. Inside runCatching that refusal is SWALLOWED, so the column would simply be missing on
- *    every upgraded phone, with no error, and only a fresh install would have it;
- *  - one under `if (old < N)` past the helper's version, which never runs;
+ *  - a step that is not `ALTER TABLE captures ADD COLUMN`; an onUpgrade that runs anything but the steps of
+ *    `for (sql in CaptureSchema.upgrade(old))`, SQL of its own, or any other db call;
+ *  - a step run outside a runCatching, in one that rethrows, or in ONE runCatching around the whole loop: after a
+ *    downgrade the helper writes the older version back, so the next newer build re-runs its steps over columns that
+ *    exist, and the duplicate column is the expected failure there -- one that skipped the steps after it would leave
+ *    their columns missing for good;
+ *  - a step SQLite refuses on ADD COLUMN -- NOT NULL with no DEFAULT or DEFAULT NULL, a DEFAULT that is not a
+ *    constant, PRIMARY KEY or UNIQUE. Inside runCatching that refusal is SWALLOWED, so the column would simply be
+ *    missing on every upgraded phone, with no error, and only a fresh install would have it;
+ *  - a step for a version that never runs (1, which is onCreate's, or past the helper's version), steps out of
+ *    order, a helper version that is not the newest step's (a version raised with no step marks every phone as
+ *    already having the next real one), or a helper that does not take CaptureSchema.VERSION;
  *  - an added column whose shape in onCreate differs from its ADD COLUMN (an upgraded phone and a fresh install
- *    would then hold different tables), a column in onCreate that no ADD COLUMN adds and version 1 did not create,
- *    or a version-1 column gone from onCreate (a drop or a rename);
- *  - a row read by position, or a positional INSERT: a column this build does not know must never be read or moved.
+ *    would then hold different tables), a column in onCreate that no step adds and version 1 did not create, or a
+ *    version-1 column gone from onCreate (a drop or a rename);
+ *  - a row read by position, or a positional INSERT: a column this build does not know must never be read or moved;
+ *  - the work column read without its NULL: getInt reads NULL as 0, the quote journey, and NULL is "filed by its
+ *    stage", every capture not yet filed by work (every row from before version 6 among them).
  *
- * The second test proves the reader sees every one of those on the real file with one thing changed, so it cannot
- * pass by reading nothing. When the upgrade statements move out of CaptureStore.kt (D1 plans a :pano CaptureSchema
- * object), this reader moves with them and keeps every rule and every probe.
+ * The third test proves the reader sees every one of those on the real file and the real steps with one thing
+ * changed, so it cannot pass by reading nothing.
  */
 class CaptureStoreRevertTest {
 
@@ -42,20 +48,25 @@ class CaptureStoreRevertTest {
         return file.readText()
     }
 
-    /** One ADD COLUMN: the `if (old < N)` it runs under, the column, and its definition with spaces collapsed. */
+    /** What the reader reads: CaptureStore.kt's text, and CaptureSchema's version and steps. */
+    private data class Input(val src: String, val version: Int, val steps: List<CaptureSchema.Step>)
+
+    private fun real() = Input(source(), CaptureSchema.VERSION, CaptureSchema.STEPS)
+
+    /** One ADD COLUMN: the version that added it, the column, and its definition with spaces collapsed. */
     private data class Add(val since: Int, val column: String, val def: String)
 
-    private class Reading(val version: Int?, val adds: List<Add>, val offences: List<String>)
+    private class Reading(val adds: List<Add>, val offences: List<String>)
 
-    /** The columns version 1 created. No ADD COLUMN adds them, and this list never grows: a new column is an ADD
-     *  COLUMN, never a line added here. Every other column in onCreate is one an upgrade adds. */
+    /** The columns version 1 created. No step adds them, and this list never grows: a new column is a step, never a
+     *  line added here. Every other column in onCreate is one a step adds. */
     private val V1 = setOf("device_id", "project", "project_title", "customer_name", "room", "stage", "capture_date",
         "pano_path", "created_at", "state", "server_name", "error")
 
     @Test fun `the capture store opens a newer database and its schema only ever grows`() {
-        val r = read(source())
+        val r = read(real())
         assertEquals(emptyList(), r.offences)
-        assertEquals(5, r.version, "the helper's schema version")
+        assertEquals(6, CaptureSchema.VERSION, "the helper's schema version")
         // A pin, so the rules above cannot pass by finding no statement at all. A new version adds its row here.
         assertEquals(listOf(
             Add(2, "sku", "TEXT NOT NULL DEFAULT ''"),
@@ -64,70 +75,106 @@ class CaptureStoreRevertTest {
             Add(5, "room_l_in", "REAL NOT NULL DEFAULT 0"),
             Add(5, "room_w_in", "REAL NOT NULL DEFAULT 0"),
             Add(5, "room_h_in", "REAL NOT NULL DEFAULT 0"),
+            Add(6, "work", "INTEGER"),
         ), r.adds)
     }
 
+    @Test fun `a database at each version runs exactly the steps it has not had`() {
+        val sku = "ALTER TABLE captures ADD COLUMN sku TEXT NOT NULL DEFAULT ''"
+        val kind = "ALTER TABLE captures ADD COLUMN kind TEXT NOT NULL DEFAULT '360'"
+        val fov = "ALTER TABLE captures ADD COLUMN fov REAL NOT NULL DEFAULT 0"
+        val room = listOf("ALTER TABLE captures ADD COLUMN room_l_in REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE captures ADD COLUMN room_w_in REAL NOT NULL DEFAULT 0",
+            "ALTER TABLE captures ADD COLUMN room_h_in REAL NOT NULL DEFAULT 0")
+        val work = "ALTER TABLE captures ADD COLUMN work INTEGER"
+        assertEquals(listOf(sku, kind, fov) + room + work, CaptureSchema.upgrade(1), "a version-1 phone runs every step")
+        assertEquals(listOf(fov) + room + work, CaptureSchema.upgrade(3))
+        assertEquals(room + work, CaptureSchema.upgrade(4))
+        // Every phone on 0.3.262 is at 5, and runs this one statement; so does a phone a reverted build wrote 5 back
+        // on, over a column it already has.
+        assertEquals(listOf(work), CaptureSchema.upgrade(5), "version 5 to 6 adds exactly `work INTEGER`")
+        assertEquals(emptyList(), CaptureSchema.upgrade(6), "a current database runs nothing")
+    }
+
     @Test fun `the reader sees every way the rule can be broken`() {
-        val real = source()
-        val v = read(real).version ?: error("the helper's version is not found")
-        val probes: List<Triple<String, (String) -> String, String>> = listOf(
-            Triple("the override deleted", { s: String ->
-                s.replace("override fun onDowngrade(db: SQLiteDatabase, old: Int, new: Int) {}", "") },
+        val real = real()
+        val v = real.version
+        fun src(change: (String) -> String): (Input) -> Input = { it.copy(src = change(it.src)) }
+        fun steps(change: (List<CaptureSchema.Step>) -> List<CaptureSchema.Step>): (Input) -> Input =
+            { it.copy(steps = change(it.steps)) }
+        fun swap(from: String, to: String) = steps { l -> l.map { if (from in it.sql) it.copy(sql = it.sql.replace(from, to)) else it } }
+        fun add(since: Int, sql: String) = steps { it + CaptureSchema.Step(since, sql) }
+        val loop = "for (sql in CaptureSchema.upgrade(old)) runCatching { db.execSQL(sql) }"
+        val readWork = "ix(\"work\").let { i -> if (cur.isNull(i)) null else cur.getInt(i) }"
+        val probes: List<Triple<String, (Input) -> Input, String>> = listOf(
+            // onDowngrade
+            Triple("the override deleted", src { it.replace("override fun onDowngrade(db: SQLiteDatabase, old: Int, new: Int) {}", "") },
                 "no onDowngrade"),
-            Triple("the override commented out", { s: String ->
-                s.replace("override fun onDowngrade(", "// override fun onDowngrade(") },
+            Triple("the override commented out", src { it.replace("override fun onDowngrade(", "// override fun onDowngrade(") },
                 "no onDowngrade"),
-            Triple("the default behaviour called", { s: String ->
-                s.replace("new: Int) {}", "new: Int) { super.onDowngrade(db, old, new) }") },
+            Triple("the default behaviour called", src { it.replace("new: Int) {}", "new: Int) { super.onDowngrade(db, old, new) }") },
                 "onDowngrade does something"),
-            Triple("an expression body", { s: String -> s.replace("new: Int) {}", "new: Int) = Unit") },
+            Triple("an expression body", src { it.replace("new: Int) {}", "new: Int) = Unit") },
                 "onDowngrade is not an empty block"),
-            Triple("a rebuild", { s: String ->
-                s.replace("if (old < 5) {", "if (old < 5) {\n            db.execSQL(\"DROP TABLE captures\")") },
-                "not an ADD COLUMN"),
-            Triple("another db call in onUpgrade", { s: String ->
-                s.replace("if (old < 5) {", "if (old < 5) {\n            db.delete(\"captures\", null, null)") },
+            // onUpgrade runs CaptureSchema's steps and nothing else
+            Triple("a rebuild in onUpgrade", src { it.replace(loop, "db.execSQL(\"DROP TABLE captures\")\n        $loop") },
+                "of its own"),
+            Triple("another db call in onUpgrade", src { it.replace(loop, "db.delete(\"captures\", null, null)\n        $loop") },
                 "db.delete"),
-            Triple("an ALTER outside runCatching", { s: String ->
-                Regex("""runCatching \{\s*(db\.execSQL\("ALTER TABLE captures ADD COLUMN kind[^\n]*\))\s*\}""")
-                    .replace(s, "$1") },
+            Triple("a step outside runCatching", src { it.replace("runCatching { db.execSQL(sql) }", "db.execSQL(sql)") },
                 "outside a runCatching"),
-            Triple("a runCatching that rethrows", { s: String ->
-                Regex("""(ADD COLUMN kind[^\n]*\n\s*\})""").replace(s, "$1.getOrThrow()") },
+            Triple("one runCatching around every step", src { it.replace(loop, "runCatching { for (sql in CaptureSchema.upgrade(old)) db.execSQL(sql) }") },
+                "ONE runCatching"),
+            Triple("a runCatching that rethrows", src { it.replace("runCatching { db.execSQL(sql) }", "runCatching { db.execSQL(sql) }.getOrThrow()") },
                 "rethrows"),
-            Triple("NOT NULL with no DEFAULT", { s: String ->
-                s.replace("ADD COLUMN sku TEXT NOT NULL DEFAULT ''", "ADD COLUMN sku TEXT NOT NULL") },
+            Triple("the steps of the wrong version", src { it.replace("CaptureSchema.upgrade(old)", "CaptureSchema.upgrade(new)") },
+                "not a step of"),
+            Triple("the steps never run", src { it.replace(loop, "") },
+                "runs no CaptureSchema step"),
+            Triple("the helper's version written out", src { it.replace("null, CaptureSchema.VERSION)", "null, $v)") },
+                "does not take CaptureSchema.VERSION"),
+            // the steps, as values
+            Triple("a rebuild step", add(v, "DROP TABLE captures"),
+                "not an ADD COLUMN"),
+            Triple("NOT NULL with no DEFAULT", swap("ADD COLUMN sku TEXT NOT NULL DEFAULT ''", "ADD COLUMN sku TEXT NOT NULL"),
                 "NOT NULL with no DEFAULT"),
-            Triple("a DEFAULT that is not a constant", { s: String ->
-                s.replace("ADD COLUMN fov REAL NOT NULL DEFAULT 0", "ADD COLUMN fov REAL NOT NULL DEFAULT (1.0 * 0)") },
+            Triple("a DEFAULT that is not a constant", swap("ADD COLUMN fov REAL NOT NULL DEFAULT 0", "ADD COLUMN fov REAL NOT NULL DEFAULT (1.0 * 0)"),
                 "not a constant"),
-            Triple("a UNIQUE column", { s: String ->
-                s.replace("ADD COLUMN fov REAL NOT NULL DEFAULT 0", "ADD COLUMN fov REAL UNIQUE") },
+            Triple("a UNIQUE column", swap("ADD COLUMN fov REAL NOT NULL DEFAULT 0", "ADD COLUMN fov REAL UNIQUE"),
                 "PRIMARY KEY or UNIQUE"),
-            Triple("an upgrade past the helper's version", { s: String -> s.replace("if (old < $v)", "if (old < ${v + 1})") },
+            Triple("a step past the helper's version", add(v + 1, "ALTER TABLE captures ADD COLUMN probe_col INTEGER"),
                 "past the helper's version $v"),
-            Triple("onCreate's shape differs from the ADD COLUMN", { s: String ->
-                s.replace("kind TEXT NOT NULL DEFAULT '360',", "kind TEXT NOT NULL DEFAULT 'Photo',") },
-                "onCreate gives kind"),
-            Triple("a column in onCreate no upgrade adds", { s: String ->
-                s.replace("room TEXT NOT NULL,", "room TEXT NOT NULL,\n                 probe_col INTEGER,") },
-                "probe_col is in onCreate but no ADD COLUMN adds it"),
-            Triple("a looped column onCreate does not have", { s: String ->
-                s.replaceFirst("\"room_h_in\")", "\"room_h_in\", \"room_d_in\")") },
+            Triple("a step for version 1", steps { listOf(CaptureSchema.Step(1, "ALTER TABLE captures ADD COLUMN error TEXT")) + it },
+                "version 1 is onCreate's"),
+            Triple("a version raised with no step", { i: Input -> i.copy(version = v + 1) },
+                "not the newest step's"),
+            Triple("steps out of order", steps { it.takeLast(1) + it.dropLast(1) },
+                "out of order"),
+            Triple("a step's column onCreate does not have", add(v, "ALTER TABLE captures ADD COLUMN room_d_in REAL NOT NULL DEFAULT 0"),
                 "room_d_in is added but onCreate does not create it"),
-            Triple("a version-1 column dropped", { s: String -> s.replace("error TEXT,", "") },
+            Triple("a column added twice in two shapes", add(v, "ALTER TABLE captures ADD COLUMN work TEXT"),
+                "work is added twice"),
+            // onCreate gives every column the shape its step does
+            Triple("onCreate's shape differs from the ADD COLUMN", src { it.replace("kind TEXT NOT NULL DEFAULT '360',", "kind TEXT NOT NULL DEFAULT 'Photo',") },
+                "onCreate gives kind"),
+            Triple("a column in onCreate no step adds", src { it.replace("room TEXT NOT NULL,", "room TEXT NOT NULL,\n                 probe_col INTEGER,") },
+                "probe_col is in onCreate but no ADD COLUMN adds it"),
+            Triple("the work column missing from onCreate", src { it.replace("room_h_in REAL NOT NULL DEFAULT 0,\n                 work INTEGER", "room_h_in REAL NOT NULL DEFAULT 0") },
+                "work is added but onCreate does not create it"),
+            Triple("a version-1 column dropped", src { it.replace("error TEXT,", "") },
                 "version-1 column error is gone"),
-            Triple("a row read by position", { s: String ->
-                s.replace("cur.getString(ix(\"room\"))", "cur.getString(4)") },
+            // rows read and written by name, and work read as null when NULL
+            Triple("a row read by position", src { it.replace("cur.getString(ix(\"room\"))", "cur.getString(4)") },
                 "by position"),
-            Triple("a positional insert", { s: String ->
-                s.replace("    fun all(): List<Capture>",
-                    "    fun bad() = writableDatabase.execSQL(\"INSERT INTO captures VALUES ('a')\")\n    fun all(): List<Capture>") },
+            Triple("a positional insert", src { it.replace("    fun all(): List<Capture>",
+                "    fun bad() = writableDatabase.execSQL(\"INSERT INTO captures VALUES ('a')\")\n    fun all(): List<Capture>") },
                 "positional INSERT"),
+            Triple("work read without its NULL", src { it.replace(readWork, "cur.getInt(ix(\"work\"))") },
+                "work is read without isNull"),
         )
         for ((why, change, said) in probes) {
             val bad = change(real)
-            assertNotEquals(real, bad, "$why: the probe changed nothing in CaptureStore.kt, so it proves nothing")
+            assertNotEquals(real, bad, "$why: the probe changed nothing in CaptureStore.kt or the steps, so it proves nothing")
             val off = read(bad).offences
             assertTrue(off.any { said in it }, "$why: expected an offence saying '$said', got $off")
         }
@@ -135,12 +182,12 @@ class CaptureStoreRevertTest {
 
     // ---- the reader ----------------------------------------------------------------------------------------------
 
-    private fun read(src: String): Reading {
-        val code = stripComments(src)
+    private fun read(input: Input): Reading {
+        val code = stripComments(input.src)
+        val version = input.version
         val off = ArrayList<String>()
-        val version = Regex("""SQLiteOpenHelper\(\s*\w+\s*,\s*"captures\.db"\s*,\s*null\s*,\s*(\d+)\s*\)""")
-            .find(code)?.groupValues?.get(1)?.toInt()
-        if (version == null) off += "the SQLiteOpenHelper(context, \"captures.db\", null, N) call is not found"
+        if (!Regex("""SQLiteOpenHelper\(\s*\w+\s*,\s*"captures\.db"\s*,\s*null\s*,\s*CaptureSchema\s*\.\s*VERSION\s*\)""").containsMatchIn(code))
+            off += "the helper does not take CaptureSchema.VERSION: SQLiteOpenHelper(context, \"captures.db\", null, CaptureSchema.VERSION)"
 
         // onDowngrade: present, a block, and empty
         val down = bodyOf(code, "onDowngrade")
@@ -149,36 +196,54 @@ class CaptureStoreRevertTest {
         else if (down.text(code).isNotBlank())
             off += "onDowngrade does something (${down.text(code).trim().take(60)}); it must leave the database as it is"
 
-        // onUpgrade: every statement an additive ADD COLUMN, in a runCatching, under a reachable version
+        // the steps: each an additive ADD COLUMN, for a version that runs, in order
         val adds = ArrayList<Add>()
+        val newest = input.steps.maxOfOrNull { it.since }
+        if (newest != version) off += "the helper's version $version is not the newest step's ($newest): a phone marked $version " +
+            "would never run a later step written for it"
+        input.steps.zipWithNext().filter { (a, b) -> b.since < a.since }.forEach { (a, b) ->
+            off += "steps out of order: version ${b.since}'s '${b.sql.take(50)}' after version ${a.since}'s" }
+        for (st in input.steps) {
+            val where = "CaptureSchema step '${st.sql.trim().take(70)}'"
+            if (st.since < 2) off += "$where is for version ${st.since}, which never runs: version 1 is onCreate's"
+            else if (st.since > version) off += "$where is for version ${st.since}, past the helper's version $version, so it never runs"
+            val m = Regex("""^\s*ALTER\s+TABLE\s+captures\s+ADD\s+COLUMN\s+(\w+)\s+(\S.*?)\s*;?\s*$""",
+                setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(st.sql)
+            if (m == null) { off += "$where is not an ADD COLUMN on captures; a schema change here is additive only"; continue }
+            val (col, raw) = m.destructured
+            val def = norm(raw)
+            off += columnRules(col, def)
+            adds += Add(st.since, col, def)
+        }
+
+        // onUpgrade: the steps of CaptureSchema.upgrade(old), each in a runCatching, and nothing else
+        val sig = Regex("""\boverride\s+fun\s+onUpgrade\s*\(\s*(\w+)\s*:\s*SQLiteDatabase\s*,\s*(\w+)\s*:\s*Int\s*,\s*\w+\s*:\s*Int\s*\)""").find(code)
         val up = bodyOf(code, "onUpgrade")
-        if (up == null || !up.block) off += "no onUpgrade block"
+        if (sig == null || up == null || !up.block) off += "no onUpgrade(db: SQLiteDatabase, old: Int, new: Int) block"
         else {
-            Regex("""\bdb\s*\.\s*(\w+)""").findAll(up.text(code)).map { it.groupValues[1] }
-                .filter { it != "execSQL" }.forEach { off += "onUpgrade calls db.$it; an upgrade only ever ADDs a COLUMN" }
+            val (db, old) = sig.destructured
+            Regex("""\b$db\s*\.\s*(\w+)""").findAll(up.text(code)).map { it.groupValues[1] }
+                .filter { it != "execSQL" }.forEach { off += "onUpgrade calls $db.$it; an upgrade only ever runs a CaptureSchema step" }
+            var runs = 0
             for (st in statements(code, up)) {
-                val where = "onUpgrade statement '${st.sql.trim().take(70)}'"
-                if (st.notLiteral) { off += "$where is not one string literal, so it cannot be checked"; continue }
+                val where = "onUpgrade's execSQL(${st.arg.take(70)})"
+                if (st.literal != null) { off += "onUpgrade runs '${st.literal.trim().take(70)}' of its own: every upgrade statement is a CaptureSchema step, where this test reads it"; continue }
+                // the loop's header sits in an enclosing block's opener, or (a loop with no braces) in this statement's prefix
+                val ctx = st.openers.map { it.text } + st.prefix
+                val loop = Regex("""\bfor\s*\(\s*(\w+)\s+in\s+CaptureSchema\s*\.\s*upgrade\s*\(\s*$old\s*\)\s*\)""")
+                val loopAt = ctx.indexOfFirst { loop.containsMatchIn(it) }
+                val each = if (loopAt < 0) null else loop.find(ctx[loopAt])?.groupValues?.get(1)
+                if (each == null || st.arg != each) { off += "$where is not a step of `for (sql in CaptureSchema.upgrade($old))`"; continue }
+                runs++
                 val inner = st.openers.lastOrNull()
                 if (inner == null || !Regex("""\brunCatching$""").containsMatchIn(inner.text))
                     off += "$where is outside a runCatching: a down-then-up cycle re-runs it over a column that exists"
+                else if (loopAt == ctx.size - 1)
+                    off += "$where runs every step in ONE runCatching: the first column that exists would skip every step after it"
                 else if (code.substring(close(code, inner.at) + 1).trimStart().startsWith(".getOrThrow"))
                     off += "$where sits in a runCatching that rethrows"
-                val since = st.openers.reversed().firstNotNullOfOrNull {
-                    Regex("""\bif\s*\(\s*\w+\s*<\s*(\d+)\s*\)$""").find(it.text)?.groupValues?.get(1)?.toInt() }
-                if (since == null) off += "$where is not under an `if (old < N)`"
-                else if (version != null && (since < 2 || since > version))
-                    off += "$where runs under `if (old < $since)`, past the helper's version $version, so it never runs"
-                for (sql in expand(st, off, where)) {
-                    val m = Regex("""^\s*ALTER\s+TABLE\s+captures\s+ADD\s+COLUMN\s+(\w+)\s+(\S.*?)\s*;?\s*$""",
-                        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(sql)
-                    if (m == null) { off += "$where is not an ADD COLUMN on captures; a schema change here is additive only"; continue }
-                    val (col, raw) = m.destructured
-                    val def = norm(raw)
-                    off += columnRules(col, def)
-                    adds += Add(since ?: 0, col, def)
-                }
             }
+            if (runs == 0) off += "onUpgrade runs no CaptureSchema step: every upgraded phone would lack every new column"
         }
 
         // onCreate: the same shape as every ADD COLUMN, and nothing an upgraded phone would lack
@@ -204,7 +269,15 @@ class CaptureStoreRevertTest {
         if (!code.contains("getColumnIndexOrThrow(")) off += "rows are not read through getColumnIndexOrThrow"
         Regex("""(?:INSERT(?:\s+OR\s+\w+)?|REPLACE)\s+INTO\s+captures\s+(?:VALUES|SELECT)""", RegexOption.IGNORE_CASE)
             .findAll(code).forEach { off += "a positional INSERT at line ${lineOf(code, it.range.first)}: name every column" }
-        return Reading(version, adds, off)
+
+        // work: NULL is "filed by its stage", and getInt would read it as 0, the quote journey
+        val workReads = Regex("""\b(?:ix|getColumnIndexOrThrow|getColumnIndex)\(\s*"work"\s*\)""").findAll(code).toList()
+        if (workReads.isEmpty()) off += "the work column is not read by name"
+        workReads.forEach {
+            if (!lineText(code, it.range.first).contains("isNull(")) off += "work is read without isNull at line " +
+                "${lineOf(code, it.range.first)}: a NULL would read as 0, the quote journey, for every capture not yet filed by work"
+        }
+        return Reading(adds, off)
     }
 
     /** What SQLite refuses on ADD COLUMN, which runCatching would swallow, leaving the column missing. */
@@ -225,10 +298,10 @@ class CaptureStoreRevertTest {
     private fun createdColumns(code: String, off: MutableList<String>): Map<String, String>? {
         val b = bodyOf(code, "onCreate")
         if (b == null || !b.block) { off += "no onCreate block"; return null }
-        val sts = statements(code, b)
-        val create = sts.firstNotNullOfOrNull {
-            Regex("""^\s*CREATE\s+TABLE\s+captures\s*\((.*)\)\s*$""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-                .find(it.sql)?.groupValues?.get(1) }
+        val create = statements(code, b).firstNotNullOfOrNull { st ->
+            st.literal?.let {
+                Regex("""^\s*CREATE\s+TABLE\s+captures\s*\((.*)\)\s*$""", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                    .find(it)?.groupValues?.get(1) } }
         if (create == null) { off += "onCreate has no CREATE TABLE captures literal"; return null }
         val out = LinkedHashMap<String, String>()
         for (part in splitTop(create)) {
@@ -261,7 +334,9 @@ class CaptureStoreRevertTest {
     private class Opener(val text: String, val at: Int)
     /** A function's body: the code between its braces, [from] until [to]; [block] false for an expression body. */
     private class Body(val from: Int, val to: Int, val block: Boolean) { fun text(code: String) = code.substring(from, to) }
-    private class Stmt(val sql: String, val notLiteral: Boolean, val openers: List<Opener>)
+    /** One `execSQL(...)`: its argument as written, the SQL when that argument is one string literal, the blocks it sits
+     *  in, outermost first, and the code before it in the innermost one ([prefix]: where a loop with no braces is). */
+    private class Stmt(val arg: String, val literal: String?, val openers: List<Opener>, val prefix: String)
 
     /** The source with every comment blanked to spaces, newlines kept so line numbers hold; strings untouched. */
     private fun stripComments(s: String): String {
@@ -302,33 +377,35 @@ class CaptureStoreRevertTest {
         else -> i
     }
 
-    /** The `}` closing the `{` at [open]. */
-    private fun close(code: String, open: Int): Int {
-        var depth = 0; var i = open
+    /** The [shut] closing the [open] at [at] (a `{` by default), string and char literals skipped. */
+    private fun close(code: String, at: Int, open: Char = '{', shut: Char = '}'): Int {
+        var depth = 0; var i = at
         while (i < code.length) {
             val j = skipLiteral(code, i)
             if (j != i) { i = j; continue }
-            when (code[i]) { '{' -> depth++; '}' -> { depth--; if (depth == 0) return i } }
+            when (code[i]) { open -> depth++; shut -> { depth--; if (depth == 0) return i } }
             i++
         }
-        error("unbalanced braces from offset $open")
+        error("unbalanced '$open' from offset $at")
     }
 
     /** The inside of `override fun [name](...) { ... }`: null when there is no such function. */
     private fun bodyOf(code: String, name: String): Body? {
         val m = Regex("""\boverride\s+fun\s+$name\s*\(""").find(code) ?: return null
-        var depth = 0; var i = m.range.last
-        while (i < code.length) {
-            if (code[i] == '(') depth++ else if (code[i] == ')') { depth--; if (depth == 0) break }
-            i++
-        }
+        val i = close(code, m.range.last, '(', ')')
         var k = i + 1
         while (k < code.length && code[k].isWhitespace()) k++
         if (k >= code.length || code[k] != '{') return Body(k, k, block = false)
         return Body(k + 1, close(code, k), block = true)
     }
 
-    /** Every `execSQL(` in [body], with its literal and the blocks it sits in, outermost first. */
+    /** The body of the string literal that is the whole of [arg], or null when [arg] is anything else. */
+    private fun literalOf(arg: String): String? {
+        if (arg.isEmpty() || arg[0] != '"' || skipLiteral(arg, 0) != arg.length) return null
+        return if (arg.startsWith("\"\"\"")) arg.substring(3, arg.length - 3) else arg.substring(1, arg.length - 1)
+    }
+
+    /** Every `execSQL(` in [body], with its argument and the blocks it sits in, outermost first. */
     private fun statements(code: String, body: Body): List<Stmt> {
         val out = ArrayList<Stmt>(); val stack = ArrayList<Opener>()
         var boundary = body.from; var i = body.from
@@ -339,36 +416,21 @@ class CaptureStoreRevertTest {
             if (c == '{') { stack += Opener(code.substring(boundary, i).trim(), i); boundary = i + 1 }
             else if (c == '}') { if (stack.isNotEmpty()) stack.removeAt(stack.size - 1); boundary = i + 1 }
             else if (code.startsWith("execSQL(", i) && (i == 0 || !code[i - 1].isLetterOrDigit())) {
-                var k = i + "execSQL(".length
-                while (k < code.length && code[k].isWhitespace()) k++
-                val end = skipLiteral(code, k)
-                val lit = if (end == k || code[k] == '\'') null
-                    else if (code.startsWith("\"\"\"", k)) code.substring(k + 3, end - 3) else code.substring(k + 1, end - 1)
-                var e = end
-                while (e < code.length && code[e].isWhitespace()) e++
-                val ok = lit != null && e < code.length && code[e] == ')'
-                out += Stmt(lit ?: code.substring(k, minOf(k + 70, code.length)), !ok, stack.toList())
-                i = maxOf(end, i + 1); continue
+                val open = i + "execSQL".length
+                val end = close(code, open, '(', ')')
+                val arg = code.substring(open + 1, end).trim()
+                out += Stmt(arg, literalOf(arg), stack.toList(), code.substring(boundary, i).trim())
+                i = end + 1; continue
             }
             i++
         }
         return out
     }
 
-    /** The statement's SQL once each `$name` is filled from an enclosing `for (name in listOf("a", "b"))`. */
-    private fun expand(st: Stmt, off: MutableList<String>, where: String): List<String> {
-        val vars = Regex("""\$\{?([A-Za-z_]\w*)\}?""").findAll(st.sql).map { it.groupValues[1] }.distinct().toList()
-        if (vars.isEmpty()) return listOf(st.sql)
-        if (vars.size > 1) { off += "$where fills more than one template, which this check cannot expand"; return emptyList() }
-        val v = vars.single()
-        val items = st.openers.reversed().firstNotNullOfOrNull {
-            Regex("""\bfor\s*\(\s*$v\s+in\s+listOf\(([^()]*)\)\s*\)$""").find(it.text)?.groupValues?.get(1) }
-        if (items == null || !Regex("""^\s*"\w+"(\s*,\s*"\w+")*\s*,?\s*$""").matches(items)) {
-            off += "$where fills \$$v from something other than a listOf of column names"; return emptyList()
-        }
-        return Regex(""""(\w+)"""").findAll(items).map { n ->
-            st.sql.replace(Regex("""\$\{?$v\}?(?!\w)"""), n.groupValues[1]) }.toList()
-    }
-
     private fun lineOf(s: String, at: Int) = s.substring(0, at).count { it == '\n' } + 1
+
+    private fun lineText(s: String, at: Int): String {
+        val from = s.lastIndexOf('\n', at - 1) + 1
+        return s.substring(from, s.indexOf('\n', at).let { if (it < 0) s.length else it })
+    }
 }

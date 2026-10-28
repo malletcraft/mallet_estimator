@@ -12,7 +12,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	5
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CameraCapability.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	3
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureStore.kt	12
+app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureStore.kt	9
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	0
@@ -52,6 +52,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraPort.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	4
