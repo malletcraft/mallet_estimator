@@ -80,6 +80,32 @@ class CaptureStore(context: Context) :
         }
     }
 
+    /** A downgrade leaves the database exactly as it is.
+     *
+     *  versionCode is 100 + the CI run number, so reverting a schema change
+     *  ships as a NEWER build carrying OLDER schema code, and that build meets
+     *  a database whose version is higher than its own. SQLiteOpenHelper's
+     *  default answer is to throw, so the app could not open its own queue --
+     *  on exactly the phone that may be holding unsent captures. Doing nothing
+     *  is safe, and stays safe only while the rule above holds:
+     *
+     *  - every column ever added is additive: ADD COLUMN, nullable or with a
+     *    DEFAULT, never a rebuild, a rename or a drop, and onCreate gives each
+     *    column the same shape its ADD COLUMN does. So an older build's insert,
+     *    which does not name the newer columns, still succeeds and leaves them
+     *    NULL or at their default;
+     *  - rows are read BY NAME with getColumnIndexOrThrow (query, below) and
+     *    every write names its columns, so a column this build does not know
+     *    is never read and never touched.
+     *
+     *  The helper then writes this build's version back, so the next newer
+     *  build runs its upgrade again over columns that already exist. That is
+     *  why every ALTER above sits inside runCatching: the duplicate-column
+     *  failure is the expected case there, and a down-then-up cycle is
+     *  harmless. A schema change that is NOT additive must replace this no-op
+     *  in the same commit. */
+    override fun onDowngrade(db: SQLiteDatabase, old: Int, new: Int) {}
+
     data class Capture(
         val deviceId: String,
         val project: String,
