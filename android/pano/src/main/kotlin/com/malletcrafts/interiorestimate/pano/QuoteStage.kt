@@ -119,4 +119,23 @@ object QuoteStage {
             out[p.project] = Cache(listed = true, stage = p.stage, by = p.by, at = p.at, readAt = readAt)
         return out
     }
+
+    /**
+     * The cache after an answer of S5's that NAMED the project's stage without who set it or when:
+     * the wish list PUT's refusals for the stage -- the `final` 409 at Client approved and the 409
+     * at Survey -- carry `quote_stage` and nothing more (wishView, asis.js). The phone keeps ONE
+     * copy of the stage, so the answer goes into it, and the Wish list, the project line and every
+     * other reader agree with what S5 has just said (port 61c slice W review: an Approve landing
+     * between the sync's read of the list and its PUT left the Wish list editable under S5's
+     * "not saved", and each edit there was thrown away by the next sync). Null when nothing
+     * changes: the cache already says [stage], or [stage] is not one of the six. Otherwise the
+     * project is listed at [stage], read at [readAt], its `by` and `at` unknown ("") until the next
+     * read of S5's list fills them in.
+     */
+    fun named(cache: Cache?, stage: String, readAt: String): Cache? {
+        val s = stage.trim()
+        if (indexOf(s) < 0) return null
+        if (cache != null && cache.listed && cache.stage.trim() == s) return null
+        return Cache(listed = true, stage = s, readAt = readAt)
+    }
 }

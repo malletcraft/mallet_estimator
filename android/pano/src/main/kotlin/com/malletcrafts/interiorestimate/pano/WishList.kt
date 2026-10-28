@@ -35,7 +35,9 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * re-applies what is missing. Two 409s are not a stale base, and say S5's own words on the
  * visit's status line ([Local.status]) instead of the REPLACED note: `final: true` at Client
  * approved ([afterFinal]: S5's list for good) and the Survey 409, which carries no list
- * ([afterSurvey]: the list waits, dirty). A project S5 has never had answers 404 and the list
+ * ([afterSurvey]: the list waits, dirty); [after409] tells the three apart, final first, and both
+ * refusals for the stage name it, which the phone's one copy of the stage takes (QuoteStage.named).
+ * A project S5 has never had answers 404 and the list
  * waits on the phone (decision 3); a phone-only project (no ERP id) keeps its list under a local key
  * that is re-keyed to the ERP id once the project has one, so a list made offline is not
  * orphaned. This is the pure half: the services, the texts, the stage rules and every
@@ -112,6 +114,12 @@ object WishList {
      * that can never be edited again would carry "…; not saved" under "Approved — changes go
      * through change requests" for ever (port 61c critic X6). A refusal that lands while the list
      * is not open is shown on the next visit and goes when that visit ends.
+     *
+     * [statusSeen] is true once a visit has drawn [status] ([shown]). A visit can end without a
+     * leave -- a rotation recreates the activity, the process is killed after Home -- and then the
+     * next visit clears a status already seen ([entered]), so "a new visit clears that line"
+     * (§16.4) holds without losing a refusal that landed while the list was closed, which has not
+     * been seen and shows once (slice W review). Every new status starts unseen.
      */
     data class Local(
         val client: String,
@@ -122,6 +130,7 @@ object WishList {
         val savedAt: String = "",
         val note: String = "",
         val status: String = "",
+        val statusSeen: Boolean = false,
     )
 
     // ---- keys ---------------------------------------------------------------
@@ -235,6 +244,16 @@ object WishList {
     /** The project screen's chip. */
     fun chip(n: Int): String = "Wish list $n/${SERVICES.size}"
 
+    /**
+     * Whether the project screen shows the Wish list chip: everywhere but Survey, the prototype's
+     * `#appv[data-ph54="0"] [data-sk=pchips] .chip.wq{display:none}` (index61c1.html:1255; TOOLS.
+     * wishlist [0,1,1,1,1] at :3953 documents it) -- the wish list comes after the survey (Amit,
+     * 14 Oct 06:36 IST). Shown with the stage unread (no data-ph54, as can() is true for an unread
+     * phase) and at Client approved, where the CSS hides nothing and the locked list is read
+     * (ct61c opens it there); so this is not can(), which reads Client approved's missing column as 0.
+     */
+    fun chipShown(stageIdx: Int?): Boolean = stageIdx != 0
+
     /** The head's count. */
     fun total(n: Int): String = "$n of ${SERVICES.size} wanted"
 
@@ -343,6 +362,18 @@ object WishList {
         if (warned && warnAfterQuote(stageIdx)) add(AFTER_QUOTE)
     }
 
+    /**
+     * The note to draw over the banners ([Local.note]: REPLACED, or NOT_SENT and S5's reason), or
+     * null. NEVER AT CLIENT APPROVED: both notes ask for something the locked list cannot take --
+     * re-applying, or an edit that tries once more -- and only an edit clears them ([edited]), so
+     * there they would stay for ever on a list nothing can change (slice W review). That includes a
+     * REPLACED written by APK 0.3.262, which read S5's `final` 409 as a stale base. The note is kept
+     * as stored: it is not the screen's to rewrite, and a stage read that is not Client approved
+     * shows it again. The prototype draws no note under its lock either (§16.3).
+     */
+    fun noteLine(l: Local?, stageIdx: Int?): String? =
+        l?.note?.takeIf { it.isNotBlank() && stageIdx != APPROVED }
+
     // ---- edits --------------------------------------------------------------
 
     /** One line, as the prototype and S5 keep a note: a newline and the spaces around it become one space. */
@@ -398,11 +429,21 @@ object WishList {
     }
 
     /** The list is left (the visit ends): S5's status line goes with it; the note keeps its own rule. */
-    fun left(l: Local): Local = if (l.status.isEmpty()) l else l.copy(status = "")
+    fun left(l: Local): Local = if (l.status.isEmpty() && !l.statusSeen) l else l.copy(status = "", statusSeen = false)
+
+    /** A visit has drawn S5's status line ([Local.statusSeen]); the same list when there is none or it was already seen. */
+    fun shown(l: Local): Local = if (l.status.isEmpty() || l.statusSeen) l else l.copy(statusSeen = true)
+
+    /**
+     * A visit begins (the chip is pressed): a status line an earlier visit already drew goes, since
+     * that visit ended without [left] (a rotation, the process killed); one not yet seen -- S5's
+     * refusal landed while the list was closed -- stays for this visit. The same list otherwise.
+     */
+    fun entered(l: Local): Local = if (l.statusSeen) l.copy(status = "", statusSeen = false) else l
 
     /** An edit kept on the phone at [now]: dirty until S5 takes it, and any old note and status gone. */
     fun edited(l: Local, rows: Map<String, Row>, now: String): Local =
-        l.copy(rows = rows, dirty = true, savedAt = now, note = "", status = "")
+        l.copy(rows = rows, dirty = true, savedAt = now, note = "", status = "", statusSeen = false)
 
     // ---- the sync -----------------------------------------------------------
 
@@ -427,8 +468,8 @@ object WishList {
      * goes next time on the new base.
      */
     fun afterPut(current: Local, sent: Map<String, Row>, at: String): Local =
-        if (forPut(current.rows) == forPut(sent)) current.copy(at = at, dirty = false, status = "")
-        else current.copy(at = at, dirty = true, status = "")
+        if (forPut(current.rows) == forPut(sent)) current.copy(at = at, dirty = false, status = "", statusSeen = false)
+        else current.copy(at = at, dirty = true, status = "", statusSeen = false)
 
     /**
      * A 409 because the base was stale (decision 2): S5 WINS. The phone takes S5's rows and
@@ -437,8 +478,8 @@ object WishList {
      * 409 carries the phone's own list back, and nothing is missing to re-apply.
      */
     fun afterConflict(current: Local, s5Rows: Map<String, Row>, at: String): Local =
-        if (normalised(s5Rows) == normalised(current.rows)) current.copy(at = at, dirty = false, status = "")
-        else current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED, status = "")
+        if (normalised(s5Rows) == normalised(current.rows)) current.copy(at = at, dirty = false, status = "", statusSeen = false)
+        else current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED, status = "", statusSeen = false)
 
     /**
      * A 409 with `final: true` (v61c.1): the project is at Client approved and S5 will never take
@@ -446,17 +487,55 @@ object WishList {
      * stamp for good (the stored list, which the answer carries in the stale-base 409's shape),
      * the dirty flag is cleared so nothing is PUT again, and the status line says S5's own words
      * ([error], its `error`) -- never REPLACED, since nothing is to be re-applied: an unsent list,
-     * and an edit made while the PUT was out, are discarded (S5 wins, 15 Oct). Any old note goes.
+     * and an edit made while the PUT was out, are discarded (S5 wins, 15 Oct). Any old note goes,
+     * and so does [Local.savedAt]: the phone's own save no longer stands, so the head reads "on S5
+     * since …" when S5 holds a stamp and "nothing saved yet" when S5 never stored a list (its
+     * `wishlist_at` is '' then) -- never "saved on this phone" over rows it just took from S5.
      */
     fun afterFinal(current: Local, s5Rows: Map<String, Row>, at: String, error: String): Local =
-        current.copy(rows = s5Rows, at = at, dirty = false, note = "", status = oneLine(error).trim())
+        current.copy(rows = s5Rows, at = at, dirty = false, savedAt = "", note = "",
+            status = oneLine(error).trim(), statusSeen = false)
 
     /**
      * A 409 that carries no list: S5 answers so at Survey (asis.js FINISH_SURVEY), where it takes
      * no list yet. The list waits on the phone, still dirty, and goes next sync; the status line
      * says S5's own words ([error]) until the visit ends, a later answer replaces them, or an edit.
+     * Each such answer is a refusal of its own, so it starts unseen ([Local.statusSeen]).
      */
-    fun afterSurvey(current: Local, error: String): Local = current.copy(status = oneLine(error).trim())
+    fun afterSurvey(current: Local, error: String): Local =
+        current.copy(status = oneLine(error).trim(), statusSeen = false)
+
+    /**
+     * The three 409s of S5's `PUT …/wishlist` (asis.js at 943dfd2), told apart in ONE order:
+     * [FINAL] first, because the `final` answer carries the stored list in the stale-base 409's
+     * shape and read as [STALE] it says REPLACED and asks the person to re-apply an edit S5 can
+     * never take (APK 0.3.262's defect); then [STALE], a list in the answer; else [SURVEY].
+     * [forStage]: the refusal is for the project's STAGE, so the answer's `quote_stage` is S5's
+     * current stage and the phone's copy of it takes that (QuoteStage.named).
+     */
+    enum class Kind409(val forStage: Boolean) { FINAL(true), STALE(false), SURVEY(true) }
+
+    /** Which 409 an answer is: [final] its `final`, [hasRows] whether it carries `rows`. */
+    fun kind409(final: Boolean, hasRows: Boolean): Kind409 = when {
+        final -> Kind409.FINAL
+        hasRows -> Kind409.STALE
+        else -> Kind409.SURVEY
+    }
+
+    /**
+     * The list after a 409 from the PUT, as WishSync parsed it: [final] its `final`, [s5Rows] its
+     * `rows` (null when it carries none), [at] its `wishlist_at` (null when absent), [error] S5's
+     * `error`. The one dispatch, pinned by WishListTest, since :app has no tests: [Kind409.FINAL]
+     * is [afterFinal] (a final answer without rows keeps the rows shown), [Kind409.STALE]
+     * [afterConflict], [Kind409.SURVEY] [afterSurvey]. An answer that does not parse is SURVEY's
+     * shape (no final, no rows) and waits dirty, as it did before this function.
+     */
+    fun after409(current: Local, final: Boolean, s5Rows: Map<String, Row>?, at: String?, error: String): Local =
+        when (kind409(final, s5Rows != null)) {
+            Kind409.FINAL -> afterFinal(current, s5Rows ?: current.rows, at ?: current.at, error)
+            Kind409.STALE -> afterConflict(current, s5Rows!!, at ?: "")
+            Kind409.SURVEY -> afterSurvey(current, error)
+        }
 
     /**
      * Whether S5 refused the PUT for good, so sending the same list again can only be refused
@@ -476,7 +555,7 @@ object WishList {
      */
     fun afterRefused(current: Local, sent: Map<String, Row>, message: String): Local =
         if (forPut(current.rows) != forPut(sent)) current
-        else current.copy(dirty = false, status = "",
+        else current.copy(dirty = false, status = "", statusSeen = false,
             note = listOf(NOT_SENT, message.trim()).filter { it.isNotEmpty() }.joinToString(" — "))
 
     /**

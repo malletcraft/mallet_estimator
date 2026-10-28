@@ -54,6 +54,27 @@ object QuoteStageSync {
         }
     }
 
+    /**
+     * An answer of S5's that named [serverId]'s stage (the wish list PUT's refusals for the stage,
+     * WishList.Kind409.forStage), written into this cache by QuoteStage.named, so the Wish list
+     * and the project line take what S5 has just said rather than the copy read earlier in the
+     * sync. Returns whether it wrote: then the caller re-reads the list ([refresh]) for who set
+     * the stage and when, which the answer does not carry. Never throws.
+     */
+    fun named(context: Context, serverId: String, stage: String): Boolean {
+        if (serverId.isBlank()) return false
+        return try {
+            val next = QuoteStage.named(cached(context, serverId), stage, Instant.now().toString())
+                ?: return false
+            prefs(context).edit().putString(serverId, encode(next)).apply()
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "quote stage from S5's answer not kept: " + // text:value log line
+                (e.message?.take(160) ?: e.javaClass.simpleName))
+            false
+        }
+    }
+
     /** The line the project screen draws. A project with no ERP id is only on this phone, so S5 is not consulted. */
     fun lineFor(context: Context, project: Catalogue.Project): QuoteStage.Line =
         if (!project.synced) QuoteStage.phoneOnly()

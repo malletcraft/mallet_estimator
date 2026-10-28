@@ -1214,13 +1214,17 @@ private fun AppScreenBody(onLang: () -> Unit) {
             rooms, p.client, p.site, siteTypeOf(p.client, p.site),
         ) { r -> queue.any { it.room == r && it.projectTitle.equals(p.title, true) } }
 
+        // The opened project's quote stage as the phone last knew it -- QuoteStageSync's read of
+        // S5's list, or a wish-list answer that named it since (QuoteStageSync.named) -- for the
+        // wish list and for its chip alike, so the two never read the stage differently.
+        val wishCache = remember(proj?.serverId, proj?.synced, dataTick, quoteTick) {
+            if (proj != null && proj.synced) QuoteStageSync.cached(context, proj.serverId) else null
+        }
+
         // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
         // tree's, so it wins) goes to the project; no bottom bar, as on a capture.
         if (proj != null && wishFor != null && proj.key == wishFor) {
             BackHandler { leaveWish() }
-            val wishCache = remember(proj.serverId, dataTick, quoteTick) {
-                if (proj.synced) QuoteStageSync.cached(context, proj.serverId) else null
-            }
             WishListScreen(
                 project = proj,
                 rooms = gridRooms(proj),
@@ -1392,11 +1396,17 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             },
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).
-                            onWish = {
+                            // No chip at Survey, as the prototype hides it there (WishList.
+                            // chipShown); shown with the stage unread and at Client approved.
+                            onWish = if (!WishList.chipShown(WishList.stageIndex(wishCache))) null else ({
                                 wishWarned = false
-                                wishKey = WishList.keyOf(proj.serverId, proj.client, proj.title)
+                                val k = WishList.keyOf(proj.serverId, proj.client, proj.title)
+                                // A visit begins: a status line an earlier visit drew and never
+                                // left (a rotation, the process killed) goes (WishList.entered).
+                                WishSync.enter(context, k)
+                                wishKey = k
                                 wishFor = proj.key
-                            },
+                            }),
                             wishLabel = remember(proj.key, proj.serverId, wishTick, dataTick) {
                                 WishList.chip(WishSync.count(context,
                                     WishList.keyOf(proj.serverId, proj.client, proj.title)))

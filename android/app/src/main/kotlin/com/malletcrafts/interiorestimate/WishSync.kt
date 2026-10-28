@@ -33,11 +33,16 @@ import java.time.Instant
  *    again (WishList.afterFinal) -- checked BEFORE the rows, which that answer carries too.
  *    409 with S5's rows: S5 WINS (decision 2) -- the phone takes them and says so. 409 with no
  *    list (Survey): kept on the phone, dirty, in S5's words (WishList.afterSurvey), sent next
- *    sync. 404 (S5 has never had the project): kept on the phone, dirty. 400/403/413 (a key
+ *    sync. Which 409 is which is WishList.after409's, in :pano. The two refusals for the stage
+ *    (final, Survey) name it, and QuoteStageSync.named keeps that as the phone's one copy of the
+ *    stage, so the screen locks on S5's answer and not on the read before it.
+ *    404 (S5 has never had the project): kept on the phone, dirty. 400/403/413 (a key
  *    that is not staff, a shape S5 will not take): refused for good -- one note, no longer
  *    dirty, never PUT again until the next edit (WishList.afterRefused).
  *  - [pull]: on project open -- a clean list takes S5's copy, so staff edits on /projects show.
- *  - [leave]: the list is left -- S5's status line goes with the visit (WishList.left).
+ *  - [enter], [shown], [leave]: the visit -- a status line an earlier visit drew and never left
+ *    (a rotation, the process killed) goes when the next begins (WishList.entered), the screen
+ *    marks the line drawn (WishList.shown), and leaving takes it (WishList.left).
  *
  * NEVER A FAILURE OF THE SYNC (slice 5's pattern): 400, 401, 403, 405, a 5xx, no network or an
  * answer that does not parse is one Log.w and nothing else, and SyncWorker never counts it, so
@@ -90,7 +95,7 @@ object WishSync {
         .put("rows", rowsJson(l.rows))
         .put("at", l.at).put("dirty", l.dirty)
         .put("savedAt", l.savedAt).put("note", l.note)
-        .put("status", l.status)
+        .put("status", l.status).put("statusSeen", l.statusSeen)
         .toString()
 
     private fun decode(raw: String?): WishList.Local? {
@@ -106,7 +111,9 @@ object WishSync {
                 savedAt = o.optString("savedAt"),
                 note = o.optString("note"),
                 // absent in a list kept before port 61c slice W: no status line
-                status = o.optString("status"))
+                status = o.optString("status"),
+                // absent before the slice W review: a status kept then has not been drawn
+                statusSeen = o.optBoolean("statusSeen", false))
         } catch (e: Exception) {
             null
         }
@@ -159,17 +166,39 @@ object WishSync {
      * rule. On the main thread, like [edit]. Never throws.
      */
     fun leave(context: Context, key: String) {
-        if (key.isBlank()) return
-        try {
+        visit(context, key) { WishList.left(it) }
+    }
+
+    /**
+     * A visit to the list kept under [key] begins (MainActivity's chip): a status line an earlier
+     * visit already drew goes, since that visit ended without [leave] -- a rotation recreates the
+     * activity, the process is killed after Home (WishList.entered). On the main thread. Never throws.
+     */
+    fun enter(context: Context, key: String) {
+        visit(context, key) { WishList.entered(it) }
+    }
+
+    /**
+     * The screen has drawn S5's status line for the list kept under [key] (WishList.shown).
+     * Returns the list as stored after it, null when there is none. On the main thread. Never throws.
+     */
+    fun shown(context: Context, key: String): WishList.Local? = visit(context, key) { WishList.shown(it) }
+
+    /** One of the visit's own writes ([leave], [enter], [shown]): [f] on the list as stored, written only when it changed. */
+    private fun visit(context: Context, key: String, f: (WishList.Local) -> WishList.Local): WishList.Local? {
+        if (key.isBlank()) return null
+        return try {
             synchronized(LOCK) {
                 val at = resolve(context, key)
-                val cur = load(context, at) ?: return
-                val next = WishList.left(cur)
+                val cur = load(context, at) ?: return null
+                val next = f(cur)
                 if (next != cur) write(context, at, next)
+                next
             }
         } catch (e: Exception) {
-            Log.w(TAG, "wish list status line not cleared: " + // text:value log line
+            Log.w(TAG, "wish list status line not updated: " + // text:value log line
                 (e.message?.take(160) ?: e.javaClass.simpleName))
+            null
         }
     }
 
@@ -264,41 +293,34 @@ object WishSync {
                     }
                 }
                 a.code == 409 -> {
+                    // Only the parse is here: which 409 it is, and what each does to the list, is
+                    // WishList.after409 in :pano, where WishListTest pins it -- `final` (Client
+                    // approved, v61c.1) BEFORE the rows, which that answer carries too, or the
+                    // phone says REPLACED and asks for an edit S5 can never take; then the stale
+                    // base (S5 WINS, decision 2); else the Survey 409, which carries no list.
                     val o = runCatching { JSONObject(a.body) }.getOrNull()
-                    val rows = o?.optJSONObject("rows")
-                    when {
-                        // Client approved (v61c.1): S5 takes no list again, and its answer carries
-                        // the stored one in the stale-base 409's shape -- so `final` is read BEFORE
-                        // the rows, or the phone would say REPLACED and the person would re-apply
-                        // an edit S5 can never take.
-                        o != null && o.optBoolean("final", false) -> {
-                            val at = if (o.isNull("wishlist_at")) null else o.optString("wishlist_at")
-                            synchronized(LOCK) {
-                                val cur = load(context, key) ?: return
-                                write(context, key, WishList.afterFinal(cur,
-                                    rows?.let { rowsOf(it) } ?: cur.rows, at ?: cur.at, s5Error(a)))
-                            }
+                    val final = o?.optBoolean("final", false) == true
+                    val rows = o?.optJSONObject("rows")?.let { rowsOf(it) }
+                    val at = if (o == null || o.isNull("wishlist_at")) null else o.optString("wishlist_at")
+                    val kind = WishList.kind409(final, rows != null)
+                    synchronized(LOCK) {
+                        val cur = load(context, key) ?: return
+                        val next = WishList.after409(cur, final, rows, at, s5Error(a))
+                        if (next != cur) write(context, key, next)
+                    }
+                    when (kind) {
+                        WishList.Kind409.FINAL ->
                             Log.i(TAG, "$key: approved on S5; the phone took the approved list") // text:value log line
-                        }
-                        // The base was stale: S5 WINS (decision 2).
-                        o != null && rows != null -> {
-                            val at = if (o.isNull("wishlist_at")) "" else o.optString("wishlist_at")
-                            synchronized(LOCK) {
-                                val cur = load(context, key) ?: return
-                                write(context, key, WishList.afterConflict(cur, rowsOf(rows), at))
-                            }
-                            Log.i(TAG, "$key: S5 had a newer wish list; the phone took it")
-                        }
-                        // No list in the answer -- S5 answers so at Survey, where it takes no list
-                        // yet: it waits here, dirty, for the stage to move, in S5's own words.
-                        else -> {
-                            synchronized(LOCK) {
-                                val cur = load(context, key) ?: return
-                                val next = WishList.afterSurvey(cur, s5Error(a))
-                                if (next != cur) write(context, key, next)
-                            }
-                            Log.w(TAG, "$key: " + AsIsUpload.errorOf(a).message)
-                        }
+                        WishList.Kind409.STALE -> Log.i(TAG, "$key: S5 had a newer wish list; the phone took it")
+                        WishList.Kind409.SURVEY -> Log.w(TAG, "$key: " + AsIsUpload.errorOf(a).message)
+                    }
+                    // A refusal for the STAGE names it: the phone's one copy of the stage takes
+                    // S5's word, so the screen locks now rather than after the next read (an
+                    // Approve can land between this sync's read of the list and this PUT); then
+                    // the list is read again for who set it and when, which the 409 does not carry.
+                    val stage = if (o == null || o.isNull("quote_stage")) "" else o.optString("quote_stage")
+                    if (kind.forStage && QuoteStageSync.named(context, key, stage)) {
+                        QuoteStageSync.refresh(context, listOf(key))
                     }
                 }
                 // S5 has never had this project: the list waits on the phone (decision 3).

@@ -68,7 +68,9 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * "— the vendor quotes against it", show only at Vendor quoted and Revisions or with the stage
  * unread (WishList.vendorUi). S5's own words for a refused save -- Approved, or Survey -- are the
  * visit's status line under the banners (WishList.statusLine); MainActivity clears them when the
- * list is left. Every edit goes straight to WishSync on this phone.
+ * list is left, and this screen marks them drawn so the next visit clears them if it never was
+ * (WishList.shown, WishList.entered). At Client approved no REPLACED or NOT_SENT note shows
+ * (WishList.noteLine). Every edit goes straight to WishSync on this phone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -96,6 +98,13 @@ fun WishListScreen(
     var list by remember(key) { mutableStateOf(WishSync.load(context, key)) }
     // A write from elsewhere -- the sync taking S5's copy, a 409, the read on open -- redraws.
     LaunchedEffect(key, tick) { list = WishSync.load(context, key) }
+    // S5's status line is on screen: marked drawn, so a later visit that begins with it still
+    // stored -- this one ended without a leave, by a rotation or the process killed -- starts
+    // without it (WishList.entered), while a refusal landing with the list closed shows once.
+    val unseen = list?.let { it.status.isNotBlank() && !it.statusSeen } == true
+    LaunchedEffect(key, unseen) {
+        if (unseen) WishSync.shown(context, key)?.let { list = it }
+    }
     val editable = WishList.editable(stageIdx)
     // The Vendor field and every vendor text (TOOLS.vendorUI): Vendor quoted and Revisions, or unread.
     val vendorUi = WishList.vendorUi(stageIdx)
@@ -140,7 +149,8 @@ fun WishListScreen(
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            list?.note?.takeIf { it.isNotBlank() }?.let { Banner(it) }
+            // The REPLACED or NOT_SENT note, never under the lock at Client approved (WishList.noteLine).
+            WishList.noteLine(list, stageIdx)?.let { Banner(it) }
             val banners = WishList.banners(tx, stageIdx, warned, notOnS5)
             banners.forEach { Banner(it) }
             // S5's answer to a refused save, in its words (v61c.1's [data-wish409] status line).

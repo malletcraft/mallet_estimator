@@ -371,6 +371,14 @@ class WishListTest {
         assertFalse(same.dirty)
         // S5's error is one line, trimmed
         assertEquals(s5Final, WishList.afterFinal(mine, s5, "x", "  Approved — changes go through change requests;\n not saved ").status)
+        // the phone's own save no longer stands (slice W review): the head reads S5's stamp, and "nothing saved yet"
+        // when S5 never stored a list (wishlist_at ''), never "saved on this phone" over the rows just taken from S5
+        assertEquals("", after.savedAt)
+        assertEquals("on S5 since 28 Oct, 07:30 IST", WishList.savedText(after))
+        val neverOnS5 = WishList.afterFinal(mine, WishList.forPut(emptyMap()), "", s5Final)
+        assertEquals("", neverOnS5.savedAt)
+        assertEquals(0, WishList.count(neverOnS5.rows))
+        assertEquals("nothing saved yet", WishList.savedText(neverOnS5))
         // the screen draws it under the banner at Client approved: S5's 409, beside the lock line, in the table's words
         val banners = WishList.banners(Tx.EN, 5, warned = false)
         assertEquals(s5Final, WishList.statusLine(Tx.EN, after, banners))
@@ -423,6 +431,138 @@ class WishListTest {
         // a list with nothing to clear is left as it was
         val plain = Local("C", "T", mapOf("cctv" to Row(on = true)))
         assertTrue(WishList.left(plain) === plain)
+    }
+
+    @Test fun `a 409 is told apart in one order - final before the rows, which the final answer carries too (0_3_262's defect)`() {
+        val mine = WishList.edited(Local("C", "T", at = "2026-10-27T10:00:00.000Z"),
+            mapOf("cctv" to Row(on = true), "painting" to Row(on = true, note = "two coats")), "2026-10-28T05:00:00Z")
+        val s5 = WishList.forPut(mapOf("painting" to Row(on = true, rooms = listOf("Kitchen"))))
+        assertEquals(WishList.Kind409.FINAL, WishList.kind409(final = true, hasRows = true))
+        assertEquals(WishList.Kind409.FINAL, WishList.kind409(final = true, hasRows = false))
+        assertEquals(WishList.Kind409.STALE, WishList.kind409(final = false, hasRows = true))
+        assertEquals(WishList.Kind409.SURVEY, WishList.kind409(final = false, hasRows = false))
+        // the final answer WITH rows: S5's rows, not dirty, S5's words on the status line, never REPLACED
+        val fin = WishList.after409(mine, final = true, s5Rows = s5, at = "2026-10-28T02:00:00.000Z", error = s5Final)
+        assertEquals(WishList.afterFinal(mine, s5, "2026-10-28T02:00:00.000Z", s5Final), fin)
+        assertEquals(s5, fin.rows)
+        assertFalse(fin.dirty)
+        assertEquals(s5Final, fin.status)
+        assertEquals("", fin.note)
+        assertFalse(fin.note == WishList.REPLACED)
+        // read as a stale base -- the rows looked at first -- it is REPLACED: the order is what this pins
+        assertEquals(WishList.REPLACED, WishList.afterConflict(mine, s5, "2026-10-28T02:00:00.000Z").note)
+        // a final answer without rows keeps the rows shown and S5's stamp, else the stamp it had
+        assertEquals(mine.rows, WishList.after409(mine, true, null, "s", s5Final).rows)
+        assertEquals(mine.at, WishList.after409(mine, true, s5, null, s5Final).at)
+        // the stale base: S5 WINS (decision 2); a missing stamp reads as none
+        val stale = WishList.after409(mine, final = false, s5Rows = s5, at = null, error = "Changed by staff meanwhile")
+        assertEquals(WishList.afterConflict(mine, s5, ""), stale)
+        assertEquals(WishList.REPLACED, stale.note)
+        // no list (Survey, or an answer that did not parse): the list waits, dirty, in S5's words
+        val survey = WishList.after409(mine, final = false, s5Rows = null, at = null, error = s5Survey)
+        assertEquals(WishList.afterSurvey(mine, s5Survey), survey)
+        assertTrue(survey.dirty)
+        assertEquals(mine.rows, survey.rows)
+        // the two refusals for the stage name it; the stale base does not refuse for the stage
+        assertEquals(listOf(true, false, true), WishList.Kind409.entries.map { it.forStage })
+    }
+
+    @Test fun `a final answer while the cached stage is Revisions locks the list now - S5's stage is the phone's copy`() {
+        // the sync read Revisions, then the PM approved before this sync's PUT (or the read failed and kept Revisions)
+        val revisions = cache("Revisions")
+        assertTrue(WishList.editable(WishList.stageIndex(revisions)))
+        val named = QuoteStage.named(revisions, "Client approved", "2026-10-28T03:00:00Z")!!
+        val i = WishList.stageIndex(named)
+        assertEquals(WishList.APPROVED, i)
+        assertFalse(WishList.editable(i))
+        assertFalse(WishList.vendorUi(i))
+        assertFalse(WishList.warnAfterQuote(i))
+        assertEquals("Approved — changes go through change requests", WishList.lockedLine(Tx.EN, i))
+        // so the screen reads the lock line with S5's 409 under it, and no field to type in
+        val after = WishList.after409(WishList.edited(Local("C", "T", at = "a"), mapOf("cctv" to Row(on = true)), "b"),
+            final = true, s5Rows = WishList.forPut(emptyMap()), at = "c", error = s5Final)
+        val banners = WishList.banners(Tx.EN, i, warned = true)
+        assertEquals(listOf("Approved — changes go through change requests"), banners)
+        assertEquals(s5Final, WishList.statusLine(Tx.EN, after, banners))
+        // and the 409 at Survey, read while the cache said Client wish list: read-only under Finish the survey first,
+        // the status line not drawn twice
+        val surveyed = QuoteStage.named(cache("Client wish list"), "Survey", "2026-10-28T03:00:00Z")!!
+        assertEquals(0, WishList.stageIndex(surveyed))
+        assertFalse(WishList.editable(0))
+        assertEquals(null, WishList.statusLine(Tx.EN, WishList.afterSurvey(Local("C", "T", dirty = true), s5Survey),
+            WishList.banners(Tx.EN, 0, warned = false)))
+    }
+
+    @Test fun `a status line already drawn does not come back on a visit that began without a leave (rotation, process death)`() {
+        // the refusal landed while the list was closed: unseen, so the next visit shows it
+        val refused = WishList.afterFinal(Local("C", "T", dirty = true), WishList.forPut(emptyMap()), "a", s5Final)
+        assertFalse(refused.statusSeen)
+        assertTrue(WishList.entered(refused) === refused)
+        val banners = WishList.banners(Tx.EN, 5, warned = false)
+        assertEquals(s5Final, WishList.statusLine(Tx.EN, WishList.entered(refused), banners))
+        // drawn: marked seen, once
+        val seen = WishList.shown(refused)
+        assertTrue(seen.statusSeen)
+        assertEquals(s5Final, seen.status)
+        assertTrue(WishList.shown(seen) === seen)
+        // the visit ends with no leave (the activity recreated); the next one begins without the line
+        val next = WishList.entered(seen)
+        assertEquals("", next.status)
+        assertFalse(next.statusSeen)
+        assertEquals(null, WishList.statusLine(Tx.EN, next, banners))
+        assertEquals(seen.rows, next.rows)
+        assertEquals(seen.at, next.at)
+        // a leave clears it whether drawn or not
+        assertEquals(Local("C", "T", rows = seen.rows, at = "a"), WishList.left(seen))
+        assertEquals("", WishList.left(refused).status)
+        // a NEW refusal after the line was seen starts unseen again, and so shows on the next visit
+        val again = WishList.afterSurvey(seen, s5Survey)
+        assertFalse(again.statusSeen)
+        assertEquals(s5Survey, WishList.entered(again).status)
+        // nothing to draw: shown changes nothing
+        val plain = Local("C", "T")
+        assertTrue(WishList.shown(plain) === plain)
+        // every answer and edit that clears the status clears the mark with it
+        for (l in listOf(WishList.edited(seen, seen.rows, "t"), WishList.afterPut(seen, seen.rows, "t"),
+                         WishList.afterConflict(seen, mapOf("cctv" to Row(on = true)), "t"),
+                         WishList.afterRefused(seen, seen.rows, "x"))) {
+            assertEquals("", l.status); assertFalse(l.statusSeen)
+        }
+    }
+
+    @Test fun `no REPLACED or NOT_SENT note under the lock at Client approved, including one 0_3_262 wrote`() {
+        // 0.3.262 met S5's final 409 as a stale base: REPLACED, not dirty; the new build then opens and leaves it
+        val old = WishList.afterConflict(Local("C", "T", mapOf("cctv" to Row(on = true)), dirty = true),
+            WishList.forPut(mapOf("painting" to Row(on = true))), "2026-10-28T02:42:00.000Z")
+        assertEquals(WishList.REPLACED, old.note)
+        assertFalse(old.dirty)
+        val visited = WishList.afterGet(WishList.left(WishList.entered(old)), old.rows, old.at)
+        assertEquals(WishList.REPLACED, visited.note)   // kept as stored: not the screen's to rewrite
+        assertFalse(WishList.editable(WishList.APPROVED))
+        assertEquals(null, WishList.noteLine(visited, WishList.APPROVED))
+        assertEquals(null, WishList.noteLine(old, WishList.APPROVED))
+        // NOT_SENT: S5 checks a 400's shape before the final check
+        val notSent = WishList.afterRefused(WishList.edited(Local("C", "T"), mapOf("cctv" to Row(on = true)), "t"),
+            mapOf("cctv" to Row(on = true)), "Send JSON")
+        assertEquals("Not sent to S5 — Send JSON", notSent.note)
+        assertEquals(null, WishList.noteLine(notSent, WishList.APPROVED))
+        // everywhere else the note shows as before, the stage unread included
+        for (i in listOf(null, 0, 1, 2, 3, 4)) {
+            assertEquals(WishList.REPLACED, WishList.noteLine(old, i), "noteLine($i)")
+            assertEquals("Not sent to S5 — Send JSON", WishList.noteLine(notSent, i), "noteLine($i)")
+        }
+        assertEquals(null, WishList.noteLine(Local("C", "T"), 2))
+        assertEquals(null, WishList.noteLine(null, 2))
+    }
+
+    @Test fun `the Wish list chip is hidden at Survey only, as the prototype's CSS hides it (index61c1 1255)`() {
+        assertEquals(listOf(true, false, true, true, true, true, true),
+            listOf(null, 0, 1, 2, 3, 4, 5).map { WishList.chipShown(it) })
+        // an unread stage shows it: never read, not listed, a name outside the six
+        for (c in listOf(null, QuoteStage.Cache(listed = false), QuoteStage.Cache(listed = true, stage = "Quoted")))
+            assertTrue(WishList.chipShown(WishList.stageIndex(c)), "$c")
+        assertFalse(WishList.chipShown(WishList.stageIndex(cache("Survey"))))
+        assertTrue(WishList.chipShown(WishList.stageIndex(cache("Client approved"))))
     }
 
     @Test fun `the head - nothing saved, saved on this phone, on S5 since in IST`() {

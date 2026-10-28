@@ -146,4 +146,23 @@ class QuoteStageTest {
         assertEquals("not on S5 yet — this project has not been sent",
             QuoteStage.lineFor(m["PROJ-0002"], Instant.parse(read)).second)
     }
+
+    @Test fun `an answer that names the stage goes into the one copy, its who and when unknown until the next read`() {
+        val read = Cache(listed = true, stage = "Revisions", by = "pm@mcft", at = at, readAt = "2026-10-28T01:00:00Z")
+        // another stage: listed at it, read now, by and at blank until the list is read again
+        assertEquals(Cache(listed = true, stage = "Client approved", readAt = "2026-10-28T03:00:00Z"),
+            QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"))
+        // the same stage changes nothing, so the who and when read from the list stay
+        assertNull(QuoteStage.named(read, "Revisions", "2026-10-28T03:00:00Z"))
+        assertNull(QuoteStage.named(read, " Revisions ", "2026-10-28T03:00:00Z"))
+        // a name that is not one of the six, or none, changes nothing
+        for (bad in listOf("", "  ", "Quoted", "client approved")) assertNull(QuoteStage.named(read, bad, "x"), bad)
+        // never read, or read as not listed: S5 has just answered for the project, so it is listed
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(null, "Survey", "r"))
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
+        // the line reads the stage at once, every pip lit
+        val line = QuoteStage.lineFor(QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"), Instant.parse("2026-10-28T04:00:00Z"))
+        assertEquals("QUOTE STAGE · Client approved", line.title)
+        assertEquals(6, line.lit)
+    }
 }
