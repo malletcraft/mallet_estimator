@@ -7,32 +7,34 @@
 ## Units, written as on the tape and the laser
 mm
 MM	app.height_mm_1829_6096,app.room_size_mm
-m	app.checks_1_press_measure
+m	app.checks_1_press_measure,sp.laser.not_metric_x
 ft	app.checks_1_press_measure
 in	app.checks_1_press_measure
 MB	app.remove_local_copy_x
 
 ## Product, platform and file-format names
-DISTO	app.laser_test_disto_d2
+DISTO	app.laser_test_disto_d2,sp.laser.no_disto_found,sp.laser.not_a_disto
 D2
 Leica	tour.existing.11.body
 X3
 ImageMeter
 ERPNext
-Android	export.phone_android_s_share
+Android	export.phone_android_s_share,export.saved_x_share,app.msg.android_hiding_photos,app.x3.connect_error_x
 Wi-Fi
 PDF
 PNG	tour.vendor.11.body
 JPEG	tour.vendor.11.body
 SVG	export.svg_exactly_one_drawing
 A4
-Downloads	common.save_downloads
+Downloads	common.save_downloads,sp.msg.saved_x_downloads,export.msg.downloads_refused_x,export.msg.could_not_write_x
+Insta360	app.x3.connect_error_x
+HTTP	app.download_http_x
 
 ## The suite's own codes and abbreviations
 S5
 S2	export.photo_not_yet_measured,sp.photo_not_yet_measured
 ERP
-MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured
+MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured,app.msg.without_gallery_access
 SKU
 API
 URL	app.site_url
@@ -76,6 +78,14 @@ Site	tour.*
 Pune	tour.*
 flat	tour.*
 interiors	tour.*
+
+## Android's own screens and permissions, and this app's name in them, as the phone shows them (the v61c card)
+Settings	app.msg.without_gallery_access,app.x3.x_join_wifi,app.x3.connect_error_x
+Apps	app.msg.without_gallery_access
+Permissions	app.msg.without_gallery_access
+Photos	app.msg.without_gallery_access,app.msg.android_hiding_photos
+Interior	app.msg.without_gallery_access
+Estimate	app.msg.without_gallery_access
 
 ## ERPNext's own screen names, as its English screen shows them
 User	app.generate_both_your_user

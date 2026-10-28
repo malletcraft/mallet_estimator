@@ -94,6 +94,32 @@ class I18nTableTest {
         I18n.check("6 · generated code", off, "run `gradle :pano:i18nGen` and commit what it writes (never edit a GENERATED file by hand)")
     }
 
+    /**
+     * A PHONE TEXT SAYS SO (port 61c slice L2). The v61c card's keys have no prototype site: each carries the
+     * flag `phone-text` and a `where` LIST whose every entry names the phone source, so GenTx reads no site
+     * for it (the site checks below and TxRenderTest's doubled separator cannot pair it with a prototype key)
+     * and the prototype builder, reading these tables, can tell it draws such a key nowhere. A property of
+     * the table: no text is compared.
+     */
+    @Test fun `10 a phone text names its phone source and no prototype site`() {
+        val tag = "S2 APK phone text · "
+        val off = ArrayList<String>()
+        for ((k, e) in en) {
+            val phone = "phone-text" in ((e["flags"] as? List<*>)?.map { it.toString() } ?: emptyList())
+            val where = e["where"]
+            val entries = (where as? List<*>)?.map { it.toString() } ?: listOfNotNull(where?.toString())
+            val named = entries.any { it.startsWith(tag) }
+            when {
+                phone && where !is List<*> -> off += "$k: a phone text whose where is not a list"
+                phone && (entries.isEmpty() || !entries.all { it.startsWith(tag) }) -> off += "$k: a phone text whose where does not start '$tag' in every entry"
+                !phone && named -> off += "$k: a where naming the phone, without the phone-text flag"
+            }
+        }
+        val phoneKeys = en.count { (_, e) -> "phone-text" in ((e["flags"] as? List<*>)?.map { it.toString() } ?: emptyList()) }
+        I18n.check("10 · phone texts", off, "a phone text's entry is {\"where\": [\"$tag<file:line> at <commit> · …\"], \"flags\": [\"phone-text\", …]}: see android/i18n/README.md, The v61c card")
+        assertTrue(phoneKeys >= 171, "the table holds $phoneKeys phone texts; the v61c card landed 171 (L2) and keys are never deleted")
+    }
+
     // ---------------------------------------------------------------- a whole sentence, never a glued fragment
 
     /** A prototype site, `v53build/app.js:460` of `v53build/app.js:460 · z`. */

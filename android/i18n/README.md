@@ -1,14 +1,16 @@
 # android/i18n: the phone's two string tables
 
-S2 APK shows Marathi from a table generated from the prototype's own two string files.
-This folder is to become the only copy of those tables (decision 3). Until the prototype build reads
-from here it keeps a byte copy of its own, and `i18nCheckProto` must show the two identical before every
-push. The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives in the session's notes, not in this
-repository, so this README carries every rule it sets for this folder. The work ships in slices. Slice
-1a (this folder, the generator and its checks) changes nothing on the phone. Slice 1b (the provider, the
-pref and the settings drawer keyed) changes nothing visible either: the row is hidden, so every screen is
-`Tx.EN`, whose English is byte-for-byte what the drawer said before. Slice 1c (the project list, the
-result banner and the counts) is the same: keyed English, identical on screen.
+S2 APK shows Marathi from a table generated from the two string files in this folder, which the phone
+and the prototype share. Since port 61c slice L2 (28 Oct 2026) this folder is the ONLY copy of them
+(decision 3): nothing imports a prototype's tables over them any more, a new or changed key is a
+reviewed commit here, and the prototype's next build reads them from here at a pinned commit (v61c.1,
+built before L2, still carries its own copy, without L2's keys). The design note (`DESIGN-marathi.md`,
+27 Oct 2026) lives in the session's notes, not in this repository, so this README carries every rule
+it sets for this folder. The work ships in slices. Slice 1a (this folder, the generator and its
+checks) changes nothing on the phone. Slice 1b (the provider, the pref and the settings drawer keyed)
+changes nothing visible either: the row is hidden, so every screen is `Tx.EN`, whose English is
+byte-for-byte what the drawer said before. Slice 1c (the project list, the result banner and the
+counts) is the same: keyed English, identical on screen. Port 61c slice L2 adds keys and no reader.
 
 ## Amit's decisions, 27 Oct 2026 (~06:05 IST)
 
@@ -19,19 +21,53 @@ result banner and the counts) is the same: keyed English, identical on screen.
    last one ships keyed English that looks the same as today. The row is behind one constant,
    `LangRow.VISIBLE` in `pano/.../i18n/Msg.kt`, and the last slice turns it on. `I18nLiteralTest`
    fails if it is turned on while `unkeyed.tsv` still has a row.
-3. **This folder is the ONE home of the two tables.** The prototype build is to read them from here
-   (not yet: it still reads its own copy, and the switch is item 7 of the v61c card). Until then each
-   prototype version is imported with `i18nImport` and checked with `i18nCheckProto`. A table edit is a
-   reviewed commit here, so a lost session loses nothing.
+3. **This folder is the ONE home of the two tables.** The prototype builder is to read them from here,
+   at a pinned commit, from its next build on. Up to v61c.1 each prototype version was imported over
+   them (`i18nImport`, checked with `i18nCheckProto`); L2 deleted both tasks, so no prototype table can
+   be imported over the card again, and a new prototype key is a reviewed commit here like any other.
+   A lost session loses nothing.
 4. **The Marathi for new phone texts is approved ONCE, as the whole prototype v61c card, before
-   slice 2.** Slices 1a, 1b and 1c may go ahead first: they key only texts that already have a
-   prototype key, and they show nothing new.
+   slice 2.** Slices 1a, 1b and 1c went ahead first: they key only texts that already have a
+   prototype key, and they show nothing new. The card was approved with v61c on 28 Oct 2026 and
+   landed in port 61c slice L2 (below).
+
+## Amit's decisions, 28 Oct 2026 (~07:15 IST)
+
+5. **The prototype's English wins.** Where the phone's English and the prototype's differ (case, a joined
+   word, one word), the phone takes the prototype's key, English and Marathi, screen by screen, in the
+   slice that keys that screen; each such commit lists the English that changed.
+6. **"Claude will do all Marathi translation at full authority. Amit will test it directly on fone apk".**
+   The screens the prototype never had (Face Prep, Annotate and voice notes, the Laser test, the S5
+   sign-in sheet) get Marathi written by Claude straight into these tables, in the slice that keys the
+   screen; Claude also finalises the card's wording. Amit tests it on the phone once the row is on.
+
+## The v61c card (port 61c slice L2, 28 Oct 2026)
+
+L2 added 194 keys (1,607 -> 1,801) and no reader: 171 are the phone's own texts on screens the prototype
+has (group 1), 23 are the 14 English-alternative templates split into whole keys (group 2; the card
+reuses 6 keys the table already had for the rest). The 8 pairs the card decided are among the 171. The 14
+old templates stay in both tables, refused, until the prototype's own sites use the split keys
+(`PINNED_REFUSED` in I18nTableTest only shrinks); the phone calls the split keys.
+
+- **A phone text's entry** (group 1) carries the flag `phone-text` and a `where` list naming the phone
+  source (`S2 APK phone text · MainActivity.kt:1045 at 6575b85 · …`): it has no prototype site, so the
+  prototype builder draws it nowhere. Its `placeholders` use the generator's grammar in the phone's
+  names: a `{pl}` is `n===1?'':'s'` and folds into `{n}` (an `Int`); every other value is a description,
+  so the accessor takes it as a `String`, shown as given.
+- **A split key** (group 2) keeps its old template's `where` and flags byte for byte, so the site checks
+  (I18nTableTest 9, TxRenderTest's doubled separator) see it where the prototype draws it; its Marathi
+  `note` names the template and the case it covers.
+- **Marathi Claude finalised** (decision 6), each with an `L2 finalised` note on the key:
+  `app.x_over_x` (left off the card: "2 दिवस मध्ये 3 फोटो" became "3 फोटो · 2 दिवस", as `app.over_x`'s
+  review fix), and nine card values: a doubled मीटर in `sp.laser.not_metric_x`, ब्लूटूथ for the one
+  Latin Bluetooth, the gendered त्याची / त्याचे / त्याच्या that was wrong for a wall or the floor in five
+  `sp.*` keys, and a plural गोष्टी that read "1 गोष्टी" in the two `sp.file.part_unreadable_*` keys.
 
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The prototype's tables, 1,607 keys each (v61c.1). Byte copies, never reformatted. | `i18nImport` |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,801 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |
@@ -47,15 +83,8 @@ GenTx also writes `Tx.kt`, `TxEn.kt`, `TxMr.kt` and `Masters.kt` into
 ## How to
 
 ```sh
-# Regenerate after editing a table or masters.tsv:
+# Regenerate after editing a table or masters.tsv (both tables, same keys in the same place):
 gradle -p /home/user/mallet_estimator/android :pano:i18nGen --offline
-
-# Import a new prototype version (byte copies of its two JSON files, then regenerate):
-gradle -p /home/user/mallet_estimator/android :pano:i18nImport -Pproto=<prototype build dir> --offline
-
-# Fail if a prototype build's tables differ from these. Run it before every push while the prototype
-# keeps a copy of its own:
-gradle -p /home/user/mallet_estimator/android :pano:i18nCheckProto -Pproto=<prototype build dir> --offline
 
 # After keying literals, lower the ratchet (it never raises a count):
 gradle -p /home/user/mallet_estimator/android :pano:i18nRatchet --offline
@@ -114,7 +143,9 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - the committed generated files differ from what GenTx writes. The fix is `gradle :pano:i18nGen`;
   - (9) a fragment key that a whole template at the same prototype site contains (`app.shot` inside
     `app.x_shot`, both v53 app.js:460) glued into a sentence in any scanned module -- `+` or `+=` on
-    either side, or inside a string. Call the whole template; the fragment may still stand alone.
+    either side, or inside a string. Call the whole template; the fragment may still stand alone;
+  - (10) a `phone-text` key whose `where` is not a list naming the phone source in every entry, or a
+    `where` naming the phone on a key without the flag (the v61c card, L2).
 - **The public repository**:
   - a currency figure (`₹`, `Rs`, `INR` before a digit) anywhere in either file, notes included;
   - anything matching `deny-patterns.txt`;
@@ -137,7 +168,9 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   - a separator printed twice, with each optional tail filled from the fragment key at its prototype
     location;
   - the plural and placeholder-fill rules break, or `Tx.of()` stops treating everything except exactly
-    `"mr"` as English.
+    `"mr"` as English;
+  - a split template's case (the v61c card's group 2) stops rendering as its whole sentence, in English
+    or in Marathi: each one is pinned with a literal.
 - **Identity values** (`MastersTest`):
   - a stored identity value (a stage, work, state, room, site type, mark type, surface, service) that
     does not show its own English bytes under English, or has no Marathi name. The pass-through list
@@ -179,7 +212,8 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   stay English constants on the wire, in the preps and in stored notes. They are shown through
   `Masters`, and a typed name is shown as typed. PDFs and exported images stay English (decision 4 of
   21 Oct). Digits stay Latin, and months stay Jan–Dec (decision 3 of 21 Oct).
-- **No text is invented on the phone.** A text the prototype lacks stays English and listed in
-  `unkeyed.tsv` until the prototype card carries it.
+- **No text is invented on the phone.** A text with no key stays English and listed in `unkeyed.tsv`
+  until a reviewed commit here keys it: the v61c card's 194 (L2), or, for a screen the prototype never
+  had, the Marathi Claude writes in the slice that keys it (decision 6).
 - **This repository is public.** The tables hold no client names, phone numbers, emails, rates or vendor
   names, and the checks above refuse any.

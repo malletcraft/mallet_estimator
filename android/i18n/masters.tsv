@@ -49,7 +49,8 @@ service	svc.guest-bath
 service	trade.painting.short
 service	svc.curtains
 service	trade.plumbing
-# WishList.SERVICES descriptions (the plumbing one has no key yet: slice 4).
+# WishList.SERVICES descriptions. The plumbing one has its key since port 61c slice L2
+# (wish.water_drain_points_taps); its row here lands with its reader, Marathi slice 4 (port M4).
 service_note	wish.safety_door_aluminium_main
 
 # SurveyPrep.TYPES: the mark types by name. Step is the floor's S.

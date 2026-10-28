@@ -935,6 +935,16 @@
    "length": "cards.length"
   }
  },
+ "app.annotated": {
+  "en": "Annotated",
+  "where": [
+   "S2 APK phone text · CaptureScreens.kt:668 at 6575b85 · Capture screen · photo and 360 details: the Original | Annotated switch on a face; its other state is app.not_annotated · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.api_key": {
   "en": "API key",
   "where": "v53build/app.js:260 · body",
@@ -945,11 +955,44 @@
   "where": "v53build/app.js:261 · body",
   "kind": "static"
  },
+ "app.aria.annotated": {
+  "en": "annotated",
+  "where": [
+   "S2 APK phone text · CaptureScreens.kt:85 at 6575b85 · Capture screen · photo and 360 details: the pen badge's screen-reader label · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "app.aria.close_search": {
   "en": "Close search",
   "where": "v53build/app.js:415 · h",
   "kind": "static",
   "flags": [
+   "aria-label"
+  ]
+ },
+ "app.aria.original_360": {
+  "en": "the original 360",
+  "where": [
+   "S2 APK phone text · CaptureScreens.kt:458 at 6575b85 · Capture screen · photo and 360 details: screen-reader label of the 360's picture · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
+ "app.aria.photograph": {
+  "en": "the photograph",
+  "where": [
+   "S2 APK phone text · CaptureScreens.kt:431 at 6575b85 · Capture screen · photo and 360 details: screen-reader label of a photo's picture · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
    "aria-label"
   ]
  },
@@ -985,6 +1028,26 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "app.cant_identify_project": {
+  "en": "Can't identify this project on the office system. Pull to refresh — deleting now clears this phone only.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt:73, DeleteRoute.kt:74 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.cant_identify_site": {
+  "en": "Can't identify this site on the office system. Pull to refresh — deleting now clears this phone only.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt:73, DeleteRoute.kt:74 at 6575b85 · Shell · drawer, banners, tree and dialogs: \"this $kind\": whole keys per kind (a client never reaches it) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "app.capture": {
@@ -1065,6 +1128,16 @@
    "prototype-only"
   ]
  },
+ "app.could_not_add_room": {
+  "en": "could not add that room",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:2013 at 6575b85 · Shell · drawer, banners, tree and dialogs: the Add room dialog's problem line when the server gives no message · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.delete_capture": {
   "en": "Delete this capture",
   "where": "v53build/app.js:528 · btns",
@@ -1074,6 +1147,26 @@
   "en": "Delete this capture?",
   "where": "v53build/app.js:582 · job",
   "kind": "static"
+ },
+ "app.delete_this_project": {
+  "en": "Delete this project",
+  "where": [
+   "S2 APK phone text · TreeShell.kt:754 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.delete_this_site": {
+  "en": "Delete this site",
+  "where": [
+   "S2 APK phone text · TreeShell.kt:754 at 6575b85 · Shell · drawer, banners, tree and dialogs: \"Delete \" + \"this \" + kind: whole keys per kind, as app.this's own note asks (the gender changes: ही साइट / हा प्रोजेक्ट). They replace app.this (\"this {kind}\") at TreeShell.kt:754, the Delete button; a client has no Delete (DeleteRoute) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.delete_x": {
   "en": "Delete {v}",
@@ -1141,6 +1234,19 @@
    "fragment"
   ]
  },
+ "app.download_http_x": {
+  "en": "download: HTTP {code}",
+  "where": [
+   "S2 APK phone text · FrappeClient.kt:180 at 6575b85 · Shell · drawer, banners, tree and dialogs: shown inside app.msg.update_failed_x · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.due_x": {
   "en": "due {end}",
   "where": "v53build/app.js:36 · dateRange",
@@ -1168,6 +1274,16 @@
   "en": "ERP id",
   "where": "v53build/app.js:256 · rows",
   "kind": "static"
+ },
+ "app.erp_key_refused_sign_s5": {
+  "en": "ERP key refused — tap to sign in to S5",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1045 at 6575b85 · Shell · drawer, banners, tree and dialogs: the drawer's Server line while the legacy key is refused · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.every_photographed_room_current": {
   "en": "every photographed room is current",
@@ -1388,6 +1504,16 @@
   "where": "v53build/app.js:395 · stTxt",
   "kind": "static"
  },
+ "app.marked": {
+  "en": "marked",
+  "where": [
+   "S2 APK phone text · CaptureScreens.kt:433 at 6575b85 · Capture screen · photo and 360 details: the pen badge's label on a photo with annotated faces · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.meter_disconnected": {
   "en": "Meter disconnected",
   "where": "v53build/app.js:403 · mm",
@@ -1403,6 +1529,16 @@
   "where": "v53build/app.js:237 · stageSheet",
   "kind": "static"
  },
+ "app.msg.android_hiding_photos": {
+  "en": "Android is hiding other apps' photos from this app — grant Photos access and press this again.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:745, MainActivity.kt:746, MainActivity.kt:747 at 6575b85 · ImageMeter import and annotation results: Photos is Android's permission name, as the phone shows it · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.cached_annotated_copies_cleared": {
   "en": "Cached annotated copies cleared",
   "where": "v53build/app.js:223 · groups",
@@ -1417,6 +1553,117 @@
   "en": "Capture deleted here and on the bench",
   "where": "v53build/app.js:585 · srv",
   "kind": "static"
+ },
+ "app.msg.capture_deleted_sku": {
+  "en": "Capture deleted, and the SKU nobody else was using",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1722 at 6575b85 · Capture screen · photo and 360 details: the twin of app.msg.capture_deleted_here_bench · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_open_360_x": {
+  "en": "Could not open the 360: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:373 at 6575b85 · Capture screen · photo and 360 details · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_read_gallery": {
+  "en": "Could not read the gallery.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:763 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_refile_x": {
+  "en": "Could not re-file on the bench: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1772 at 6575b85 · Capture screen · photo and 360 details: after re-tagging a photo's SKU (the stage half goes with v61c) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_rename_x": {
+  "en": "Could not rename: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:883 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the server's message, or app.no_server_configured"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_save_x": {
+  "en": "Could not save: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:2071 at 6575b85 · Room screen · Capture 360 and the X3: keeping a shot 360 into the room folder · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_send_annotation_x": {
+  "en": "Could not send the annotation: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1527 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.could_not_split_x": {
+  "en": "Could not split: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:651 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.deleted_here_bench_not_x": {
+  "en": "Deleted here. The bench copy did not go: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1725, MainActivity.kt:1726 at 6575b85 · Capture screen · photo and 360 details · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.msg.deleted_x": {
   "en": "Deleted {current}",
@@ -1439,6 +1686,16 @@
    "update": "S.update"
   }
  },
+ "app.msg.gallery_access_granted": {
+  "en": "Gallery access granted — looking for annotations now.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:683 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.importing_imagemeter": {
   "en": "Importing from ImageMeter…",
   "where": "v53build/app.js:232 · importIM",
@@ -1454,6 +1711,29 @@
   "where": "v53build/app.js:233 · importIM",
   "kind": "static"
  },
+ "app.msg.no_camera_app_x": {
+  "en": "No camera app answered: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:2251 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.no_photos_gallery": {
+  "en": "No photos in the gallery to look at.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:756 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.photo_filed_x": {
   "en": "Photo filed in {v}",
   "where": "v53build/app.js:360 · c",
@@ -1461,6 +1741,19 @@
   "placeholders": {
    "v": "relPath(p.client,p.title,r)"
   }
+ },
+ "app.msg.removed_phone_x_never": {
+  "en": "Removed from this phone — {name} had never reached the office system.",
+  "where": [
+   "S2 APK phone text · DeleteRoute.kt:87 at 6575b85 · Shell · drawer, banners, tree and dialogs: the twin of app.msg.x_was_only_phone · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the site or project name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.msg.renamed_x": {
   "en": "Renamed to {n}",
@@ -1483,10 +1776,52 @@
   "where": "v53build/app.js:366 · ps",
   "kind": "static"
  },
+ "app.msg.sent_x_annotated_gallery": {
+  "en": "Sent {n} annotated face{pl} from the gallery.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:748, MainActivity.kt:749 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.sent_x_annotated_to_x": {
+  "en": "Sent {n} annotated face{pl} to {server}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1524 at 6575b85 · ImageMeter import and annotation results: the phone joins life.to_x for \" to {server}\"; one whole key replaces the join · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'",
+   "server": "the capture's ERP name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.shooting_x3": {
   "en": "Shooting on the X3…",
   "where": "v53build/app.js:351 · h",
   "kind": "static"
+ },
+ "app.msg.survey_prep_saved_not_written_x": {
+  "en": "Survey prep saved on this phone; pictures not written: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:415 at 6575b85 · Survey prep · screen, menus, D2 and readings: the twin of app.msg.survey_prep_saved_x · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.msg.survey_prep_saved_writing": {
   "en": "Survey prep saved — writing its pictures…",
@@ -1500,6 +1835,68 @@
   "placeholders": {
    "done": "done"
   }
+ },
+ "app.msg.update_failed_x": {
+  "en": "Update failed: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1011 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the download's own message (FrappeClient \"download: HTTP {code}\", or the system's)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.without_gallery_access": {
+  "en": "Without gallery access the app cannot see what ImageMeter wrote. Settings → Apps → MCFT Interior Estimate → Permissions → Photos.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:684, MainActivity.kt:685, MainActivity.kt:686 at 6575b85 · ImageMeter import and annotation results: Android's own screen names stay as its English screen shows them (the app.generate_both_your_user rule) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.x3_capture_failed_x": {
+  "en": "X3 capture failed: {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:2238 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "X3Bridge's message (this group's camera lines), or the system's"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.x_annotated_already_sent": {
+  "en": "{n} annotated already sent, nothing new.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:754 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "a count"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.msg.x_annotated_not_reached": {
+  "en": "{n} annotated, but their captures have not reached the server yet — sync first.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:751, MainActivity.kt:752 at 6575b85 · ImageMeter import and annotation results · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "a count"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.msg.x_pictures_saved_x": {
   "en": "{v} pictures saved to {v2}\nOpen ImageMeter → the room folder → add photos.",
@@ -1546,6 +1943,16 @@
   "where": "v53build/app.js:493 · body",
   "kind": "static"
  },
+ "app.no_client": {
+  "en": "(no client)",
+  "where": [
+   "S2 APK phone text · S5Session.kt:342 at 6575b85 · Shell · drawer, banners, tree and dialogs: an identity value (the client folder of an S5 project nobody named a customer for): stored English, shown through Masters — masters.tsv gains the row · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.no_clients_yet_go": {
   "en": "No clients yet. Go online once to pull them from ERP, or use New site to start one here.",
   "where": "v53build/app.js:475 · cs",
@@ -1564,10 +1971,41 @@
    "fragment"
   ]
  },
+ "app.no_photos_360_not_phone": {
+  "en": " · no photos, the 360 is not on this phone",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:95 at 6575b85 · Sync and upload status lines: the optional tail after app.on_web_x (a fragment key, separator included) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "fragment"
+  ]
+ },
+ "app.no_server_configured": {
+  "en": "no server configured",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:862,926 at 6575b85 · Shell · drawer, banners, tree and dialogs: shown after \"Could not rename: \" and as the delete dialog's blocker · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.no_server_set": {
   "en": "no server set",
   "where": "v53build/app.js:227 · groups",
   "kind": "static"
+ },
+ "app.no_site": {
+  "en": "(no site)",
+  "where": [
+   "S2 APK phone text · Catalogue.kt:864 at 6575b85 · Shell · drawer, banners, tree and dialogs: an identity value (Catalogue.NO_SITE), shown through Masters as app.no_client is · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.no_stage": {
   "en": "No stage",
@@ -1627,6 +2065,29 @@
   "where": "v53build/app.js:525 · kept",
   "kind": "static"
  },
+ "app.not_on_web_x": {
+  "en": "Not on web: {why}",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:97 at 6575b85 · Sync and upload status lines · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "one of this group's stored notes, shown mapped; else S5's own error"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.not_signed_in": {
+  "en": "Not signed in",
+  "where": [
+   "S2 APK phone text · TreeShell.kt:58,59 at 6575b85 · Shell · drawer, banners, tree and dialogs: the drawer header with no S5 sign-in; slice 1b left it waiting for this card · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.not_started_tap_start": {
   "en": "not started · tap to start",
   "where": "v53build/app.js:372 · p",
@@ -1649,6 +2110,195 @@
   "placeholders": {
    "job": "esc(job)"
   }
+ },
+ "app.note.capture_no_longer_phone": {
+  "en": "this capture is no longer on the phone",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:239 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.no_survey_prep_saved": {
+  "en": "no survey prep saved for this capture",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:261 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.not_enough_memory": {
+  "en": "not enough memory to square the 360 — will try again",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:357 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.not_signed_in_open_menu": {
+  "en": "not signed in - open the menu and sign in",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:232 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.pano_file_missing": {
+  "en": "pano file missing on device",
+  "where": [
+   "S2 APK phone text · SyncWorker.kt:256 at 6575b85 · Sync and upload status lines: the queue row's stored error (CaptureStore), shown mapped; \"pano\" is the 360 file · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.phone_only_not_photo": {
+  "en": "on this phone only - the web takes a 360's survey prep, not a photo",
+  "where": [
+   "S2 APK phone text · SyncWorker.kt:141 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.phone_only_save_prep": {
+  "en": "on this phone only - save its survey prep to send it to the web",
+  "where": [
+   "S2 APK phone text · SyncWorker.kt:140 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) (SyncWorker noPrep: compared in code, NotesTest pins the bytes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.readings_not_sent_x": {
+  "en": "readings not sent: {why}",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:331 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.sign_again_x": {
+  "en": "sign in again (menu → Server) - {why}",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:231, AsIsUpload.kt:349 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "S5Session.refusal (the sign-in sheet's words), else app.note.web_refused_password"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.upload_failed": {
+  "en": "upload failed",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:97 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.waiting_capture_filed": {
+  "en": "waiting for the capture to be filed",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:238 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2); shown after \"Waiting to upload · \" · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.waiting_project_erp": {
+  "en": "waiting for the project to reach ERP",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:254 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_answered_x": {
+  "en": "web answered {code}",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:195 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2); S5's own error follows after \": \" as it comes · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the HTTP status"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_refused_password": {
+  "en": "the web refused the saved password",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:350 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_session_expired": {
+  "en": "web session expired - renewing when the web answers",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:343 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_session_renewed": {
+  "en": "web session renewed",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:341 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_session_to_renew": {
+  "en": "web session to be renewed when the web answers",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:227 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_signin_refused_key": {
+  "en": "web sign-in refused - sending with the ERP key",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:348 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.nothing_captured_phone_yet": {
   "en": "Nothing captured on this phone yet. Open Browse, pick a room, and shoot.",
@@ -1700,10 +2350,33 @@
    "fragment"
   ]
  },
+ "app.on_web_x": {
+  "en": "On web ✓ {hm}",
+  "where": [
+   "S2 APK phone text · AsIsUpload.kt:95 at 6575b85 · Sync and upload status lines · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "hm": "HH:mm of the upload, Latin digits"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.open": {
   "en": "Open",
   "where": "v53build/app.js:83 · projects",
   "kind": "static"
+ },
+ "app.opening_360": {
+  "en": "Opening the 360…",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1735 at 6575b85 · Capture screen · photo and 360 details: the capture screen's survey-prep row while the 360 loads; tour.survey.6.title (\"Open the 360\") is a guided-tour step title · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.original": {
   "en": "Original",
@@ -1759,6 +2432,16 @@
   "en": "Pick a 360 from the gallery",
   "where": "v53build/app.js:352 · h",
   "kind": "static"
+ },
+ "app.pinch_zoom_double_tap": {
+  "en": "Pinch to zoom  ·  double-tap to magnify",
+  "where": [
+   "S2 APK phone text · ZoomableImage.kt:147 at 6575b85 · Capture screen · photo and 360 details: the face viewer's hint before zooming · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.project_has_no_skus": {
   "en": "This project has no SKUs yet. The office adds them from the estimate, and they arrive on the next sync.",
@@ -1939,6 +2622,16 @@
   ],
   "kind": "static"
  },
+ "app.server_refused_no_reason": {
+  "en": "The server refused, without saying why",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:956 at 6575b85 · Shell · drawer, banners, tree and dialogs: the delete dialog's blocker when the bench gives no message · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.set_server_api_key": {
   "en": "Set the server and API key in Settings to begin.",
   "where": "v53build/app.js:453 · body",
@@ -1974,6 +2667,39 @@
   "placeholders": {
    "length": "all.length"
   }
+ },
+ "app.sign_again_menu_server_x": {
+  "en": "Sign in again (menu → Server): {why}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1323 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "S5Session.refusal: the sign-in sheet's own words (decision 6), shown as they come"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.sign_erp_email_password": {
+  "en": "Sign in with your ERP email and password (menu → Server) to begin.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1321 at 6575b85 · Shell · drawer, banners, tree and dialogs: the project-list banner before any sign-in; the prototype's app.set_server_api_key is the old API-key wording · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.sign_first_menu_server": {
+  "en": "Sign in first — menu → Server.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1989 at 6575b85 · Shell · drawer, banners, tree and dialogs: the Add room dialog, adding a room to the master with no sign-in · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.sign_out": {
   "en": "Sign out",
@@ -2284,6 +3010,16 @@
   "where": "v53build/app.js:442 · h",
   "kind": "static"
  },
+ "app.waiting_first_master_list": {
+  "en": "Waiting for the first master list — go online once.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1325 at 6575b85 · Shell · drawer, banners, tree and dialogs · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.walls_x_floor_ceiling": {
   "en": "Walls {wall}°, floor and ceiling {floor}° — every corner in frame, and the photo is checked against the tape.",
   "where": "v53build/app.js:340 · msg",
@@ -2325,6 +3061,102 @@
   "en": "Works offline. When the phone syncs, these become the real client, site and project in ERPNext — or match ones that already exist, however the names were spelled.",
   "where": "v53build/app.js:294 · i",
   "kind": "static"
+ },
+ "app.x3.cannot_watch_wifi_x": {
+  "en": "cannot watch Wi-Fi: {why}",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:83 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.capture_error_x": {
+  "en": "capture error {code}",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:178 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.connect_error_x": {
+  "en": "camera connect error {code} — check the X3 is on, its Wi-Fi is joined in Android Settings, and no other app (Insta360 app) is holding the camera",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:124, X3Bridge.kt:125, X3Bridge.kt:126 at 6575b85 · Room screen · Capture 360 and the X3: Android Settings and the Insta360 app are named as the phone shows them · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the SDK's error code"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.no_file": {
+  "en": "camera reported capture finished but returned no file",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:170 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.phone_not_camera_wifi": {
+  "en": "phone is not on the camera's Wi-Fi",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:87 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.stitch_cancelled": {
+  "en": "stitch export cancelled",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:204 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.stitch_failed_x": {
+  "en": "stitch export failed ({code}): {why}",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:202 at 6575b85 · Room screen · Capture 360 and the X3 · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)",
+   "why": "the SDK's own message"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.x3.x_join_wifi": {
+  "en": "{problem} — join the X3's Wi-Fi in Settings, then try again",
+  "where": [
+   "S2 APK phone text · X3Bridge.kt:148 at 6575b85 · Room screen · Capture 360 and the X3: Settings is Android's screen name, as the phone shows it · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "problem": "one of this group's X3 lines"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.x3_connected": {
   "en": "X3 connected",
@@ -2379,6 +3211,19 @@
   "placeholders": {
    "n": "done.length"
   }
+ },
+ "app.x_double_tap_fit": {
+  "en": "{zoom}×  ·  double-tap to fit",
+  "where": [
+   "S2 APK phone text · ZoomableImage.kt:146 at 6575b85 · Capture screen · photo and 360 details: the face viewer's hint while zoomed (two spaces either side of · as on the phone) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "zoom": "the zoom, one decimal, Locale.ROOT"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.x_face": {
   "en": "{code} on this face",
@@ -2523,6 +3368,20 @@
   "placeholders": {
    "q": "q"
   }
+ },
+ "app.x_waiting_queue": {
+  "en": "{n} waiting{pl}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:1124 at 6575b85 · Home · Work and Queue tabs: the Sync queue tab's subtitle (TreeTopBar), the prototype's plural(unsent(),'waiting'); app.x_waiting is the drawer's Sync-now value, a different site · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.x_waiting_upload": {
   "en": "{pl} waiting to upload",
@@ -2852,6 +3711,28 @@
   "kind": "static",
   "flags": [
    "erp-master"
+  ]
+ },
+ "bundle.aria.hide_five_parts_x": {
+  "en": "Hide the five parts{tail}",
+  "where": "v54build/bundle54.js:122 · btn",
+  "kind": "template",
+  "placeholders": {
+   "tail": "s.rooms.length?` — ${s.done} of ${s.of} ticked for ${esc0(s.rooms.join(', '))}`:''"
+  },
+  "flags": [
+   "aria-label"
+  ]
+ },
+ "bundle.aria.show_five_parts_x": {
+  "en": "Show the five parts{tail}",
+  "where": "v54build/bundle54.js:122 · btn",
+  "kind": "template",
+  "placeholders": {
+   "tail": "s.rooms.length?` — ${s.done} of ${s.of} ticked for ${esc0(s.rooms.join(', '))}`:''"
+  },
+  "flags": [
+   "aria-label"
   ]
  },
  "bundle.aria.x_five_parts_x": {
@@ -3200,6 +4081,16 @@
   "en": "Faces",
   "where": "v53build/export53.js:658 · W",
   "kind": "static"
+ },
+ "common.failed": {
+  "en": "failed",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:490 at 6575b85 · Survey prep · screen, menus, D2 and readings: \"Readings from web: \" with no message from the web · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "common.gallery": {
   "en": "Gallery",
@@ -4360,6 +5251,58 @@
    "length": "wish.length"
   }
  },
+ "export.msg.could_not_keep_x": {
+  "en": "could not keep {file}",
+  "where": [
+   "S2 APK phone text · PlanExport.kt:131 at 6575b85 · Survey plan and Export · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "export.msg.could_not_make_folder_x": {
+  "en": "could not make a folder for {file}",
+  "where": [
+   "S2 APK phone text · PlanExport.kt:127 at 6575b85 · Survey plan and Export · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "export.msg.could_not_write_x": {
+  "en": "could not write {file} to Downloads",
+  "where": [
+   "S2 APK phone text · PlanExport.kt:154 at 6575b85 · Survey plan and Export · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "export.msg.downloads_refused_x": {
+  "en": "Downloads refused {file}",
+  "where": [
+   "S2 APK phone text · PlanExport.kt:151 at 6575b85 · Survey plan and Export: shown after \"Not saved: \"; Downloads is the folder's name, as common.save_downloads keeps it · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "export.no_marks_match": {
   "en": "No marks match — ",
   "where": "v53build/export53.js:252 · trs",
@@ -4578,6 +5521,14 @@
    "name": "name"
   }
  },
+ "export.saved_x_share": {
+  "en": "Saved ✓ {name} · on the phone Android's Share sheet opens",
+  "where": "v53build/export53.js:709 · files",
+  "kind": "template",
+  "placeholders": {
+   "name": "name"
+  }
+ },
  "export.saved_x_x": {
   "en": "Saved ✓ {v}{v2}",
   "where": "v53build/export53.js:709 · files",
@@ -4603,6 +5554,19 @@
   "en": "Scope for estimate",
   "where": "v53build/export53.js:46 · PACKS",
   "kind": "static"
+ },
+ "export.share_x": {
+  "en": "Share {file}",
+  "where": [
+   "S2 APK phone text · PlanExport.kt:180 at 6575b85 · Survey plan and Export: the Android chooser's title; common.share is the button · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "the file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "export.shared_x_vendor_move": {
   "en": "Shared with the {who} vendor? Move {length} Client wish {pl} to Vendor review",
@@ -4733,6 +5697,22 @@
   "kind": "template",
   "placeholders": {
    "s": "NAME[s]"
+  }
+ },
+ "export.x_figure_photo_not": {
+  "en": "{approx} figure in this scope is ≈ from the photo, not measured",
+  "where": "v53build/export53.js:229 · red",
+  "kind": "template",
+  "placeholders": {
+   "approx": "approx"
+  }
+ },
+ "export.x_figures_photo_not": {
+  "en": "{approx} figures in this scope are ≈ from the photo, not measured",
+  "where": "v53build/export53.js:229 · red",
+  "kind": "template",
+  "placeholders": {
+   "approx": "approx"
   }
  },
  "export.x_list_x": {
@@ -6613,6 +7593,36 @@
    "aria-label"
   ]
  },
+ "phase.aria.phase_x_of_5_x": {
+  "en": "Phase {n} of 5: {name}",
+  "where": [
+   "v54build/phase54.js:141 · on",
+   "v61bbuild/integrate61b.py -> album61b (scope baseline + change requests)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "x.n",
+   "name": "esc(x.name)"
+  },
+  "flags": [
+   "aria-label"
+  ]
+ },
+ "phase.aria.phase_x_of_5_x_now": {
+  "en": "Phase {n} of 5: {name} (now)",
+  "where": [
+   "v54build/phase54.js:141 · on",
+   "v61bbuild/integrate61b.py -> album61b (scope baseline + change requests)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "x.n",
+   "name": "esc(x.name)"
+  },
+  "flags": [
+   "aria-label"
+  ]
+ },
  "phase.aria.quote_journey_done": {
   "en": "Quote journey done — in execution",
   "where": [
@@ -6988,6 +7998,21 @@
    "plural-by-suffix"
   ]
  },
+ "plan.aria.a4_sheet_x_x": {
+  "en": "A4 sheet, {view} at 1:{scale}",
+  "where": [
+   "S2 APK phone text · SurveyPlanScreen.kt:187 at 6575b85 · Survey plan and Export: the Export preview's screen-reader label · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "view": "SurveyPlan.DTITLE (plan.*)",
+   "scale": "the scale, digits"
+  },
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "plan.aria.floor_plan_arrange_x": {
   "en": "Floor plan: arrange the {pl} of {title}",
   "where": "v54build/arrange54.js:154 · sv",
@@ -7016,6 +8041,19 @@
   "en": "Back to the start row? Every place and turn goes.",
   "where": "v54build/arrange54.js:164 · paper",
   "kind": "static"
+ },
+ "plan.export_x": {
+  "en": "Export · {name}",
+  "where": [
+   "S2 APK phone text · SurveyPlanScreen.kt:176,178 at 6575b85 · Survey plan and Export: the export sheet's title (and its screen-reader label); life.export is the ⇪ button · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the drawing's name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "plan.fit": {
   "en": "Fit",
@@ -7170,6 +8208,136 @@
    "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · S5's 400 verbatim (asis.js, cr_clear approved / declined): the answer sheet refuses a date that is not a day, and stays open (review 11)"
   ],
   "kind": "static"
+ },
+ "refuse.album.cr_in_scope": {
+  "en": "This work is in the approved scope: nothing to add — a change to it is a remove or a change request",
+  "where": [
+   "S2 APK phone text · Album.kt:278 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet): SPEC61c §13 (27 Oct): a change request now has a KIND (add | remove | change) and the PM records the client's answer (approved | declined | withdrawn) instead of clearing it. Worded NOW the §13 way, in S5's own words (asis.js, the cr_raise 409 for an add on a work in scope); the phone's v61b literal (\"In the approved scope — nothing to request\") takes this text in the Album port. · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_live": {
+  "en": "A change request is already raised",
+  "where": [
+   "S2 APK phone text · Album.kt:279 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet): SPEC61c §13 (27 Oct): a change request now has a KIND (add | remove | change) and the PM records the client's answer (approved | declined | withdrawn) instead of clearing it. Still true: one live request per work. · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_no_baseline": {
+  "en": "No approved scope recorded yet",
+  "where": [
+   "S2 APK phone text · Album.kt:277 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_none": {
+  "en": "No live change request to answer on this work",
+  "where": [
+   "S2 APK phone text · Album.kt:280 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet): SPEC61c §13 (27 Oct): a change request now has a KIND (add | remove | change) and the PM records the client's answer (approved | declined | withdrawn) instead of clearing it. Worded NOW the §13 way (the PM records the client's answer; nothing is \"cleared\"); the phone's v61b literal (\"No change request to clear\") takes this text in the Album port. · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_pm_only": {
+  "en": "Only the Project Manager raises a change request or records the client's answer",
+  "where": [
+   "S2 APK phone text · Album.kt:281 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet): SPEC61c §13 (27 Oct): a change request now has a KIND (add | remove | change) and the PM records the client's answer (approved | declined | withdrawn) instead of clearing it. Worded NOW the §13 way (album.cr_raise / album.cr_answer's words); the phone's v61b literal (\"…raises or clears a change request\") takes this text in the Album port. · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.not_a_state": {
+  "en": "Not one of the five states",
+  "where": [
+   "S2 APK phone text · Album.kt:275 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.not_a_work": {
+  "en": "Not one of the sixteen works",
+  "where": [
+   "S2 APK phone text · Album.kt:274 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.not_review_state": {
+  "en": "Not a review state",
+  "where": [
+   "S2 APK phone text · Album.kt:286 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.photo_no_client": {
+  "en": "A client adds no photos",
+  "where": [
+   "S2 APK phone text · Album.kt:282 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.review_pm_only": {
+  "en": "Only the Project Manager reviews a vendor's photo",
+  "where": [
+   "S2 APK phone text · Album.kt:283 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.review_same": {
+  "en": "Already reviewed that way",
+  "where": [
+   "S2 APK phone text · Album.kt:285 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.review_vendor_only": {
+  "en": "Only a vendor's photo is reviewed",
+  "where": [
+   "S2 APK phone text · Album.kt:284 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.same_state": {
+  "en": "Already in that state",
+  "where": [
+   "S2 APK phone text · Album.kt:276 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "refuse.export.drawing_not_available": {
   "en": "Drawing not available",
@@ -7999,6 +9167,19 @@
    "today": "today"
   }
  },
+ "sp.360_drag_look_x": {
+  "en": "4 · 360 · drag to look round · {surface}",
+  "where": [
+   "S2 APK phone text · Pano360.kt:58 at 6575b85 · Survey prep · screen, menus, D2 and readings: the 360 tab's caption; v360.360_drag_look_round is the top-level 360's \"any surface\" form · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.all_four_lines_placed": {
   "en": "All four lines placed — go to 2 · Mark. ",
   "where": "v53build/sp.js:1540 · left",
@@ -8029,6 +9210,17 @@
   "where": "v53build/plan.js:449 · g",
   "kind": "static",
   "flags": [
+   "aria-label"
+  ]
+ },
+ "sp.aria.close_menu": {
+  "en": "Close the menu",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1723,1737 at 6575b85 · Survey prep · screen, menus, D2 and readings: screen-reader action of the scrim behind ⋮ and the long-press menu · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
    "aria-label"
   ]
  },
@@ -8102,12 +9294,34 @@
    "title"
   ]
  },
+ "sp.aria.lock_lines": {
+  "en": "Lock lines",
+  "where": [
+   "S2 APK phone text · SurveyPrepEdit.kt:35 at 6575b85 · Survey prep · screen, menus, D2 and readings: the lines' padlock, read aloud · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "sp.aria.lock_x": {
   "en": "Lock {what}",
   "where": "v53build/sp.js:853 · lockBtn",
   "kind": "template",
   "placeholders": {
    "what": "esc(what)"
+  },
+  "flags": [
+   "aria-label"
+  ]
+ },
+ "sp.aria.lock_x_four_lines": {
+  "en": "Lock the {surface}'s four lines",
+  "where": "v53build/sp.js:1513 · names",
+  "kind": "template",
+  "placeholders": {
+   "surface": "NAME[T].toLowerCase()"
   },
   "flags": [
    "aria-label"
@@ -8189,12 +9403,34 @@
    "html"
   ]
  },
+ "sp.aria.unlock_lines": {
+  "en": "Unlock lines",
+  "where": [
+   "S2 APK phone text · SurveyPrepEdit.kt:35 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "sp.aria.unlock_x": {
   "en": "Unlock {what}",
   "where": "v53build/sp.js:853 · lockBtn",
   "kind": "template",
   "placeholders": {
    "what": "esc(what)"
+  },
+  "flags": [
+   "aria-label"
+  ]
+ },
+ "sp.aria.unlock_x_four_lines": {
+  "en": "Unlock the {surface}'s four lines",
+  "where": "v53build/sp.js:1513 · names",
+  "kind": "template",
+  "placeholders": {
+   "surface": "NAME[T].toLowerCase()"
   },
   "flags": [
    "aria-label"
@@ -8369,6 +9605,17 @@
    "label": "it.label"
   }
  },
+ "sp.deleted_web_too": {
+  "en": " — deleted on the web too",
+  "where": [
+   "S2 APK phone text · Readings.kt:126 at 6575b85 · Survey prep · screen, menus, D2 and readings: the tail after the list of sp.x_changed_web_mark_deleted · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "fragment"
+  ]
+ },
  "sp.derived": {
   "en": "derived",
   "where": "v53build/sp.js:735 · a chain row's tag (one segment worked out from the total)",
@@ -8452,6 +9699,240 @@
    "html"
   ]
  },
+ "sp.file.part_unreadable_kept_x": {
+  "en": "Part of the saved prep could not be read ({n} thing{pl}: {first}{more}). The file as it was is kept as {file}.",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:386, SurveyPrepFile.kt:388 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'",
+   "first": "the first problem: one of this group's per-item notes",
+   "more": "' …' when there is more than one, else ''",
+   "file": "the kept file's name"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.part_unreadable_not_aside": {
+  "en": "Part of the saved prep could not be read ({n} thing{pl}: {first}{more}). The file as it was could not be copied aside: nothing here is saved, so it is not overwritten.",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:386, SurveyPrepFile.kt:389 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'",
+   "first": "as given",
+   "more": "as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.reading_x_left_out": {
+  "en": "reading {code} was unreadable, left out",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:187 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.readings_unreadable": {
+  "en": "the readings were unreadable",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:183 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.restored_in_part": {
+  "en": "Restored in part",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:377 at 6575b85 · Survey prep · opening a saved prep (salvage notes): the saved line, beside common.restored (\"Restored ✓\", परत आणले ✓) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.started_fresh": {
+  "en": "Started fresh",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:378 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.unreadable_kept_x": {
+  "en": "The saved prep could not be read. It is kept as {file}, and this room starts fresh.",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:392 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.unreadable_not_aside": {
+  "en": "The saved prep could not be read, nor moved aside: nothing here is saved, so it is not overwritten.",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:393 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_chain_x_left_out": {
+  "en": "{surface}: chain {code} was unreadable, left out",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:170 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*",
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_chains_unreadable": {
+  "en": "{surface}: its chains were unreadable",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:164 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_line_unreadable": {
+  "en": "{surface}: its {line} was unreadable, placed again",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:119 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*",
+   "line": "a line name (SurveyPrep.lineNames: floor line, left corner … shown through edge.*)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_mark_x_left_out": {
+  "en": "{surface}: mark {code} was unreadable, left out",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:136 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*",
+   "code": "the mark's code, else '#'+its position"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_marks_unreadable": {
+  "en": "{surface}: its marks were unreadable",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:130 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_measurement_x_left_out": {
+  "en": "{surface}: measurement {code} was unreadable, left out",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:155 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*",
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_measurements_unreadable": {
+  "en": "{surface}: its measurements were unreadable",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:145 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_missing_started": {
+  "en": "{surface}: missing, started again",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:109 at 6575b85 · Survey prep · opening a saved prep (salvage notes) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_points_recentred": {
+  "en": "{n} point{pl} re-centred",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:322 at 6575b85 · Survey prep · opening a saved prep (salvage notes): the one-time note when older points were re-centred as 50 mm spots · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.file.x_unreadable_started": {
+  "en": "{surface}: unreadable, started again",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt:109 at 6575b85 · Survey prep · opening a saved prep (salvage notes): \"unreadable\" or \"missing\" is an English word chosen in code: one whole key each · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.fit": {
   "en": "fit",
   "where": "v53build/plan.js:474 · r",
@@ -8468,12 +9949,32 @@
    "v": "Math.round(PLAN.box[2]/PLAN.vb[2]*100)"
   }
  },
+ "sp.floor_ceiling": {
+  "en": "floor→ceiling",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1542 at 6575b85 · Survey prep · screen, menus, D2 and readings: the caption under H · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.front": {
   "en": "FRONT",
   "where": "v53build/sp.js:1296 · yW",
   "kind": "static",
   "flags": [
    "pdf-text"
+  ]
+ },
+ "sp.front_back": {
+  "en": "front→back",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1542 at 6575b85 · Survey prep · screen, menus, D2 and readings: the caption under L in ⋮ THIS 360 (app.length_front_back's words) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.front_back_x_x": {
@@ -8520,6 +10021,187 @@
    "html"
   ]
  },
+ "sp.group.chains": {
+  "en": "chains",
+  "where": [
+   "S2 APK phone text · SurveyChain.kt:100 at 6575b85 · Survey prep · screen, menus, D2 and readings: {name} in \"Lock all {name}\" (group 2: sp.lock_all_x), as sp.line_marks is for Lines · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.group.tapes": {
+  "en": "tapes",
+  "where": [
+   "S2 APK phone text · SurveyPrepEdit.kt:144,156 at 6575b85 · Survey prep · screen, menus, D2 and readings: {name} in \"Lock all {name}\", beside sp.group.chains and sp.line_marks · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.horizontal": {
+  "en": "horizontal",
+  "where": [
+   "S2 APK phone text · SurveyChain.kt:102,103 at 6575b85 · Survey prep · screen, menus, D2 and readings: {dir} of sp.chain_x_x_part (साखळी is feminine) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.bluetooth_refused_x": {
+  "en": "Bluetooth refused: {why}",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:100 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's own message"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.connect_permission_refused": {
+  "en": "Bluetooth connect permission refused",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:207 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.disconnected_x": {
+  "en": "Disconnected ({status})",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:235 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep): beside app.meter_disconnected (\"Meter disconnected\", already keyed): the same moveTo, a failed status · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "status": "the Bluetooth status code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.no_ble_scanner": {
+  "en": "No BLE scanner",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:119 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep): BLE: Bluetooth Low Energy, said as ब्लूटूथ · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.no_distance_characteristic": {
+  "en": "Meter is missing the distance characteristic",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:252 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.no_disto_found": {
+  "en": "No DISTO found — press its Bluetooth button and try again",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:136 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.not_a_disto": {
+  "en": "Not a DISTO (no DISTO service)",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:243 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.not_a_length_x": {
+  "en": "Not a length ({x})",
+  "where": [
+   "S2 APK phone text · Disto.kt:126 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "x": "the figure the meter sent (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.not_metric_x": {
+  "en": "Meter is not showing metres/mm (unit code {unit}) — set it to m or mm",
+  "where": [
+   "S2 APK phone text · Disto.kt:128 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep): m and mm are the meter's own unit labels · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "unit": "the meter's unit code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.reconnecting_x": {
+  "en": "Reconnecting ({status})…",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:232 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "status": "the Bluetooth status code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.scan_failed_x": {
+  "en": "Scan failed ({code})",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:195 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "Android's scan error code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.scan_refused_x": {
+  "en": "Scan refused: {why}",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:132 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's own message"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.turn_bluetooth_on": {
+  "en": "Turn Bluetooth on",
+  "where": [
+   "S2 APK phone text · DistoClient.kt:114 at 6575b85 · Survey prep · the laser's state and refusals (said on survey prep) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.laser_d2_readings_room": {
   "en": "Laser D2 readings from the room capture, in mm. Tap the size line to change them.",
   "where": "index.html:1408 · #listfoot",
@@ -8542,6 +10224,16 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "sp.left_right": {
+  "en": "left→right",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1542 at 6575b85 · Survey prep · screen, menus, D2 and readings: the caption under W · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.left_right_x_x": {
@@ -8587,6 +10279,14 @@
   "en": "Loading…",
   "where": "v53build/sp.js:1541 · stH",
   "kind": "static"
+ },
+ "sp.lock_all_x": {
+  "en": "Lock all {name}",
+  "where": "v53build/sp.js:1471 · la",
+  "kind": "template",
+  "placeholders": {
+   "name": "g.name"
+  }
  },
  "sp.locked": {
   "en": "locked",
@@ -8697,10 +10397,83 @@
    "fragment"
   ]
  },
+ "sp.msg.bluetooth_refused": {
+  "en": "Bluetooth permission refused — the laser can't connect",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:411 at 6575b85 · Survey prep · screen, menus, D2 and readings: the Laser test and Annotate show the same words (decision 6) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.msg.could_not_share_x_x": {
+  "en": "Could not share {file}: {why}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1319 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "a file name (data)",
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.msg.d2_x_ref_left": {
+  "en": "D2 {mm} mm — not used: the reference box was left",
+  "where": [
+   "S2 APK phone text · SurveyRef.kt:378 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "mm": "a figure in mm"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.msg.d2_x_tap_measurement": {
+  "en": "D2 {mm} mm — tap a measurement first, then read again",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:450 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "mm": "the reading, whole mm"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.msg.export_export_sheet_opens": {
   "en": "Export — the Export sheet opens here",
   "where": "v53build/life53.js:367 · trades",
   "kind": "static"
+ },
+ "sp.msg.laser_still_connecting": {
+  "en": "The laser is still connecting…",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:423 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.msg.locked_x_item_x": {
+  "en": "Locked {n} item{pl} · {surface}",
+  "where": "v53build/sp.js:252 · L",
+  "kind": "template",
+  "placeholders": {
+   "n": "ch.length",
+   "pl": "ch.length===1?'':'s'",
+   "surface": "NAME[s].toLowerCase()"
+  },
+  "flags": [
+   "plural-by-suffix"
+  ]
  },
  "sp.msg.not_saved": {
   "en": "Not saved: ",
@@ -8728,6 +10501,19 @@
   "where": "v53build/sp.js:1647 · fromStart",
   "kind": "static"
  },
+ "sp.msg.not_shared_x": {
+  "en": "Not shared: {why}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1306,1324 at 6575b85 · Survey prep · screen, menus, D2 and readings: the phone picks \"Not shared\" or \"Not saved\" in code; this is the Share half (its Save half is the near match sp.msg.not_saved) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the system's or the server's own message, shown as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.msg.reference_stays_hide_eye": {
   "en": "The reference stays — hide it with the eye in 1 · Lines",
   "where": "v53build/sp.js:772 · refNoDelete",
@@ -8743,6 +10529,19 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "sp.msg.saved_x_downloads": {
+  "en": "Saved {file} to Downloads",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1320 at 6575b85 · Survey plan and Export: the plan export's result line; common.save_downloads is the button (Downloads as in its Marathi) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "file": "the file name (data)"
+  },
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.msg.started_over_x": {
@@ -8773,6 +10572,19 @@
   "en": "Tape: drag along the face to pull it out",
   "where": "v53build/sp.js:514 · r",
   "kind": "static"
+ },
+ "sp.msg.unlocked_x_item_x": {
+  "en": "Unlocked {n} item{pl} · {surface}",
+  "where": "v53build/sp.js:252 · L",
+  "kind": "template",
+  "placeholders": {
+   "n": "ch.length",
+   "pl": "ch.length===1?'':'s'",
+   "surface": "NAME[s].toLowerCase()"
+  },
+  "flags": [
+   "plural-by-suffix"
+  ]
  },
  "sp.msg.x_deleted": {
   "en": "{code} deleted",
@@ -8837,6 +10649,16 @@
    "fragment"
   ]
  },
+ "sp.nothing_marked_surface": {
+  "en": "Nothing marked on this surface.",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1270,2760 at 6575b85 · Survey prep · screen, menus, D2 and readings: the room List with a bounded surface and no marks · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.nothing_room_clear": {
   "en": "Nothing in the room to clear",
   "where": "v53build/sp.js:1475 · onS",
@@ -8857,6 +10679,16 @@
  },
  "sp.office_only_notes_shown": {
   "en": "office-only notes shown",
+  "where": "v53build/plan.js:458 · foot",
+  "kind": "static"
+ },
+ "sp.office_view_off": {
+  "en": "Office view: off",
+  "where": "v53build/plan.js:458 · foot",
+  "kind": "static"
+ },
+ "sp.office_view_on": {
+  "en": "Office view: on",
   "where": "v53build/plan.js:458 · foot",
   "kind": "static"
  },
@@ -8915,6 +10747,22 @@
    "fragment"
   ]
  },
+ "sp.placing_x_tap_360": {
+  "en": "Placing {tool} · tap the 360",
+  "where": "index.html@741775 (v53build/sp.js) · kn",
+  "kind": "template",
+  "placeholders": {
+   "tool": "t53subBtn(TS,tool)||tinfo(TS,tool)[1]"
+  }
+ },
+ "sp.placing_x_tap_photo": {
+  "en": "Placing {tool} · tap the photo",
+  "where": "index.html@741775 (v53build/sp.js) · kn",
+  "kind": "template",
+  "placeholders": {
+   "tool": "t53subBtn(TS,tool)||tinfo(TS,tool)[1]"
+  }
+ },
  "sp.placing_x_tap_x": {
   "en": "Placing {v} · tap the {v2}",
   "where": "index.html@741775 (v53build/sp.js) · kn",
@@ -8943,6 +10791,19 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "sp.readings_web_x": {
+  "en": "Readings from web: {why}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:490 at 6575b85 · Survey prep · screen, menus, D2 and readings: the readings line when the web read fails; sp.readings_web is its success line · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "the fetch's own message, or common.failed (on this card)"
+  },
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.ref_x_x": {
@@ -9078,6 +10939,26 @@
   "where": "v53build/sp.js:1512 · names",
   "kind": "static"
  },
+ "sp.squared_laser_add_surface": {
+  "en": "Squared to the laser size. Add what is on this surface; tap a mark to edit it. ",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:997, SurveyPrepScreen.kt:997 at 6575b85 · Survey prep · screen, menus, D2 and readings: \"surface\" or \"wall\" is an English word chosen in code: one whole key each (floor and ceiling say surface) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.squared_laser_add_wall": {
+  "en": "Squared to the laser size. Add what is on this wall; tap a mark to edit it. ",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:997, SurveyPrepScreen.kt:997 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.states": {
   "en": "States",
   "where": "v53build/plan.js:453 · g",
@@ -9186,6 +11067,19 @@
    "fragment"
   ]
  },
+ "sp.the_x_reference": {
+  "en": "the {s} reference",
+  "where": [
+   "S2 APK phone text · SurveyRef.kt:83 at 6575b85 · Survey prep · screen, menus, D2 and readings: the {what} of sp.aria.lock_x / sp.aria.unlock_x (\"Lock {what}\") for a reference's padlock: the prototype passes 'the '+NAME+' reference' there too (sp.js lockBtn), so this is the one unkeyed part; Marathi has no article · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "s": "NAME[s].toLowerCase(), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.this_360": {
   "en": "This 360",
   "where": "index.html:1405 · #spMenu",
@@ -9217,6 +11111,52 @@
    "fragment"
   ]
  },
+ "sp.total_derived": {
+  "en": "total · derived",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:2880 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.total_laser": {
+  "en": "total · laser",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:2880 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.total_laser_x": {
+  "en": "total · laser · Σ {sum}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:2880 at 6575b85 · Survey prep · screen, menus, D2 and readings: a chain's total row: \"total\", then \" · laser\" or \" · derived\", then \" · Σ {sum}\" joined in code; one whole key per form · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "sum": "the read segments' sum, whole mm"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.total_x": {
+  "en": "total · Σ {sum}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:2880 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "sum": "as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.trades": {
   "en": "Trades: ",
   "where": "v53build/plan.js:499 · G",
@@ -9230,6 +11170,14 @@
   "where": "v53build/plan.js:452 · g",
   "kind": "static"
  },
+ "sp.unlock_all_x": {
+  "en": "Unlock all {name}",
+  "where": "v53build/sp.js:1471 · la",
+  "kind": "template",
+  "placeholders": {
+   "name": "g.name"
+  }
+ },
  "sp.unlocked_tap_lock": {
   "en": "Unlocked — tap to lock",
   "where": "v53build/sp.js:853 · lockBtn",
@@ -9242,6 +11190,26 @@
   "placeholders": {
    "n": "n"
   }
+ },
+ "sp.vertical": {
+  "en": "vertical",
+  "where": [
+   "S2 APK phone text · SurveyChain.kt:102,103 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.web_readings_not_yet": {
+  "en": "web readings not available yet",
+  "where": [
+   "S2 APK phone text · ReadingsSync.kt:33,37 at 6575b85 · Survey prep · screen, menus, D2 and readings: ReadingsSync.NOT_YET, after \"Readings from web\" and on the upload line · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "sp.x_6_surfaces_bounded": {
   "en": "{done} of 6 surfaces bounded. Save needs all six; marks and readings never block it.",
@@ -9259,6 +11227,59 @@
    "v": "g.all?'Unlock':'Lock'",
    "name": "g.name"
   }
+ },
+ "sp.x_chain": {
+  "en": "{code} chain",
+  "where": [
+   "S2 APK phone text · SurveyChain.kt:97 at 6575b85 · Survey prep · screen, menus, D2 and readings: \"FK1 chain\" in the delete paths and menus; common.chain is the bare word · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the chain's code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.x_changed_web": {
+  "en": "{code} changed on the web",
+  "where": [
+   "S2 APK phone text · ReadingsSync.kt:145 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a reading key (F-M1.len …), as written"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.x_changed_web_by_x": {
+  "en": "{code} changed on the web by {by}",
+  "where": [
+   "S2 APK phone text · ReadingsSync.kt:145 at 6575b85 · Survey prep · screen, menus, D2 and readings: \" by {by}\" is an English tail joined in code: one whole key per form · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)",
+   "by": "the person's name (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.x_changed_web_mark_deleted": {
+  "en": "{code} changed on the web after its mark was deleted here",
+  "where": [
+   "S2 APK phone text · Readings.kt:126 at 6575b85 · Survey prep · screen, menus, D2 and readings · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "a code (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "sp.x_corner": {
   "en": "at the {v} corner",
@@ -9314,6 +11335,19 @@
   },
   "flags": [
    "plural-by-suffix"
+  ]
+ },
+ "sp.x_its_list": {
+  "en": "{surface} · its list",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1236 at 6575b85 · Survey prep · screen, menus, D2 and readings: the List tab's surface header · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*"
+  },
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.x_kind": {
@@ -9380,6 +11414,21 @@
    "n": "outs.length-1"
   }
  },
+ "sp.x_points_tail": {
+  "en": "{n} point{pl} · ",
+  "where": [
+   "S2 APK phone text · SurveyChain.kt:76 at 6575b85 · Survey prep · screen, menus, D2 and readings: the {pl} tail of sp.chain_x_tap_points, whose own note asks for it to be rebuilt in Marathi (a fragment key, separator included) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "n",
+   "pl": "n===1?'':'s'"
+  },
+  "flags": [
+   "phone-text",
+   "fragment"
+  ]
+ },
  "sp.x_reference": {
   "en": "{s} reference",
   "where": [
@@ -9407,6 +11456,19 @@
   "placeholders": {
    "T": "NAME[T]"
   }
+ },
+ "sp.x_survey_prep": {
+  "en": "{title} · survey prep",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1031 at 6575b85 · Survey prep · screen, menus, D2 and readings: the survey prep top bar; common.survey_prep is the bare name · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "title": "the room title (data, shown through room.*)"
+  },
+  "flags": [
+   "phone-text"
+  ]
  },
  "sp.x_survey_prep_laser": {
   "en": "{V} from survey prep · laser sizes",
@@ -9967,6 +12029,22 @@
   "en": "in this room",
   "where": "v53build/trades53.js:285 · emptyListText",
   "kind": "static"
+ },
+ "t53.no_x_marks_face": {
+  "en": "No {short} marks on this face",
+  "where": "v53build/trades53.js:285 · emptyListText",
+  "kind": "template",
+  "placeholders": {
+   "short": "TRADE[curTrade].short"
+  }
+ },
+ "t53.no_x_marks_room": {
+  "en": "No {short} marks in this room",
+  "where": "v53build/trades53.js:285 · emptyListText",
+  "kind": "template",
+  "placeholders": {
+   "short": "TRADE[curTrade].short"
+  }
  },
  "t53.no_x_marks_x": {
   "en": "No {short} marks {v}",
@@ -11816,6 +13894,16 @@
   "where": "v53build/wish.js:155 · sub",
   "kind": "static"
  },
+ "wish.not_on_s5_yet": {
+  "en": "not on S5 yet",
+  "where": [
+   "S2 APK phone text · QuoteStage.kt:20,36 at 6575b85 · Quote stage line (project line, v61c): row 1 for a project S5 does not list: \"Quote · not on S5 yet\" once v61c re-pins the QUOTE STAGE titles to Quote · (SPEC61c §9.2); joined after common.quote_x's \"Quote · \" · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "wish.not_read_yet": {
   "en": "not read yet",
   "where": [
@@ -11829,6 +13917,16 @@
   "where": "v53build/wish.js:55 · t",
   "kind": "static"
  },
+ "wish.not_sent_s5": {
+  "en": "Not sent to S5",
+  "where": [
+   "S2 APK phone text · WishList.kt:78 at 6575b85 · Wish list: WishList.NOT_SENT, before S5's own reason · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "wish.nothing_saved_yet": {
   "en": "nothing saved yet",
   "where": "v53build/wish.js:147 · head",
@@ -11840,6 +13938,19 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "wish.on_s5_since_x": {
+  "en": "on S5 since {dt} IST",
+  "where": [
+   "S2 APK phone text · WishList.kt:231 at 6575b85 · Wish list · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "dt": "QuoteStage.dayTime: \"14 Oct, 08:08\" (months stay English)"
+  },
+  "flags": [
+   "phone-text"
   ]
  },
  "wish.one_line_what_exactly": {
@@ -11862,6 +13973,30 @@
   "placeholders": {
    "v": "stageTxt(p)"
   }
+ },
+ "wish.read_x": {
+  "en": " · read {hm}",
+  "where": [
+   "S2 APK phone text · QuoteStage.kt:97 at 6575b85 · Quote stage line (project line, v61c): the tail on row 2 when the cached copy is older than today · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "hm": "HH:mm IST of the last read"
+  },
+  "flags": [
+   "phone-text",
+   "fragment"
+  ]
+ },
+ "wish.s5_newer_list_replaced": {
+  "en": "S5 had a newer list; yours was replaced, re-apply what is missing",
+  "where": [
+   "S2 APK phone text · WishList.kt:76 at 6575b85 · Wish list: WishList.REPLACED, after a 409 (decision 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "wish.safety_door_aluminium_main": {
   "en": "safety door, aluminium main door, UPVC",
@@ -11894,6 +14029,16 @@
   "placeholders": {
    "vendor": "r.vendor"
   }
+ },
+ "wish.water_drain_points_taps": {
+  "en": "water and drain points, taps, geyser, sanitary ware outside the bathroom renovations",
+  "where": [
+   "S2 APK phone text · WishList.kt:52 at 6575b85 · Wish list: the 12th service's description (WishList.SERVICES); masters.tsv's service_note gains it and the Masters pass-through loses it · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "wish.what_client_wants_after": {
   "en": "What the client wants, after the survey — the vendor quotes against it",
@@ -11939,6 +14084,67 @@
   },
   "flags": [
    "plural-by-suffix"
+  ]
+ },
+ "wish.x_not_any_many": {
+  "en": "{pl} are not on any ticked row — tick it? ",
+  "where": "v53build/wish.js:125 · uncoveredText",
+  "kind": "template",
+  "placeholders": {
+   "pl": "pl(u.n,'wished mark')"
+  },
+  "flags": [
+   "fragment",
+   "plural-by-suffix"
+  ]
+ },
+ "wish.x_not_any_many_svc": {
+  "en": "{pl} are not on any ticked row — tick it? {svc}",
+  "where": "v53build/wish.js:125 · uncoveredText + the service name",
+  "kind": "template",
+  "placeholders": {
+   "pl": "pl(u.n,'wished mark')",
+   "svc": "the service row the marks belong to"
+  },
+  "flags": [
+   "plural-by-suffix"
+  ]
+ },
+ "wish.x_not_any_one": {
+  "en": "{pl} is not on any ticked row — tick it? ",
+  "where": "v53build/wish.js:125 · uncoveredText",
+  "kind": "template",
+  "placeholders": {
+   "pl": "pl(u.n,'wished mark')"
+  },
+  "flags": [
+   "fragment",
+   "plural-by-suffix"
+  ]
+ },
+ "wish.x_not_any_one_svc": {
+  "en": "{pl} is not on any ticked row — tick it? {svc}",
+  "where": "v53build/wish.js:125 · uncoveredText + the service name",
+  "kind": "template",
+  "placeholders": {
+   "pl": "pl(u.n,'wished mark')",
+   "svc": "the service row the marks belong to"
+  },
+  "flags": [
+   "plural-by-suffix"
+  ]
+ },
+ "wish.x_not_set_s5_yet": {
+  "en": "{stage} · not set on S5 yet",
+  "where": [
+   "S2 APK phone text · QuoteStage.kt:38 at 6575b85 · Quote stage line (project line, v61c): row 2 when S5 lists the stage with no time · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "stage": "the S5 stage name, shown through quote.*"
+  },
+  "flags": [
+   "phone-text"
   ]
  },
  "wish.x_scope": {

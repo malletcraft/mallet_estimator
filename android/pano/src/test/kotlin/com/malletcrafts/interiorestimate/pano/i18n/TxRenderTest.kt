@@ -35,10 +35,11 @@ class TxRenderTest {
     @Test fun `a reordered template with two plurals fills each by name`() {
         // Catches a count passed where a plural word belongs, which would print "3 over 2".
         assertEquals("3 photos over 2 days", Tx.EN.app_x_over_x(3, 2))
-        // The Marathi puts the days first. Its wording ("2 दिवस मध्ये", which wants दिवसांत) is on the
-        // v61c card, so only the ORDER is pinned here -- a full literal would freeze the fault.
-        val mr = Tx.MR.app_x_over_x(3, 2)
-        assertTrue(mr.startsWith("2 ") && mr.endsWith(" 3 फोटो"), mr)
+        // The Marathi was "{pl2} मध्ये {pl}", which printed "2 दिवस मध्ये 3 फोटो" (it wants दिवसांत, a noun
+        // form the table does not have). Port 61c slice L2 finalised it as app.over_x's own review fix did,
+        // with " · ", so the whole literal is pinned now: each count with its own noun, photos first.
+        assertEquals("3 फोटो · 2 दिवस", Tx.MR.app_x_over_x(3, 2))
+        assertEquals("1 फोटो · 2 दिवस", Tx.MR.app_x_over_x(1, 2))
     }
 
     @Test fun `an optional tail is nothing, or its separator and the value`() {
@@ -60,6 +61,83 @@ class TxRenderTest {
         assertEquals("ग्राहकाने होकार दिल्यावरच — सही केलेली प्रत किंवा मेसेज. पॅक P चे 3 मार्क \"ग्राहक मंजूर\" म्हणून नोंदवा · 1 आधीच पुढे गेले",
             Tx.MR.export_only_when_client_has_2(3, "P", Tx.MR.export_x_already_moved("1")))
         assertEquals("3 marks → Client approved", Tx.EN.export_x_x_client_approved(3, null, ""))
+    }
+
+    /**
+     * THE 14 SPLIT TEMPLATES (the v61c card's group 2, landed in port 61c slice L2; design-marathi §3.3: "the
+     * 14 split pairs, once they exist: each half with a literal Marathi value"). Each English word the
+     * prototype's code chose (Hide / Show, on / off, Lock / Unlock, is / are, photo / 360, room / face) is
+     * now a whole key, so the Marathi inflects it; the old templates stay refused (check 4). The four
+     * pairs the card reuses (export.saved_x, sp.at_*_corner, sp.x_from_*_corner) were keyed before L2.
+     */
+    @Test fun `each split template renders each case as a whole sentence`() {
+        val tick = Tx.EN.bundle_x_x_ticked_x(done = "2", of = "5", v = "Kitchen")
+        assertEquals("Hide the five parts — 2 of 5 ticked for Kitchen", Tx.EN.bundle_aria_hide_five_parts_x(tick))
+        assertEquals("Show the five parts", Tx.EN.bundle_aria_show_five_parts_x(null))
+        assertEquals("पाचही भाग लपवा — किचन साठी 5 पैकी 2 टिक", Tx.MR.bundle_aria_hide_five_parts_x(Tx.MR.bundle_x_x_ticked_x(done = "2", of = "5", v = "किचन")))
+        assertEquals("पाचही भाग दाखवा", Tx.MR.bundle_aria_show_five_parts_x(null))
+
+        assertEquals("Saved ✓ plan.pdf · on the phone Android's Share sheet opens", Tx.EN.export_saved_x_share("plan.pdf"))
+        assertEquals("सेव्ह ✓ plan.pdf · फोनवर Android चे शेअर पॅनेल उघडते", Tx.MR.export_saved_x_share("plan.pdf"))
+        assertEquals("1 figure in this scope is ≈ from the photo, not measured", Tx.EN.export_x_figure_photo_not("1"))
+        assertEquals("3 figures in this scope are ≈ from the photo, not measured", Tx.EN.export_x_figures_photo_not("3"))
+        assertEquals("या व्याप्तीतील आकडा: 1 ≈ फोटोवरून, अजून मोजमाप नाही", Tx.MR.export_x_figure_photo_not("1"))
+        assertEquals("या व्याप्तीतील आकडे: 3 ≈ फोटोवरून, अजून मोजमाप नाही", Tx.MR.export_x_figures_photo_not("3"))
+
+        assertEquals("Phase 2 of 5: N", Tx.EN.phase_aria_phase_x_of_5_x(n = "2", name = "N"))
+        assertEquals("Phase 2 of 5: N (now)", Tx.EN.phase_aria_phase_x_of_5_x_now(n = "2", name = "N"))
+        assertEquals("फेज 2/5: N", Tx.MR.phase_aria_phase_x_of_5_x(n = "2", name = "N"))
+        assertEquals("फेज 2/5: N (सध्या)", Tx.MR.phase_aria_phase_x_of_5_x_now(n = "2", name = "N"))
+
+        assertEquals("Lock the floor's four lines", Tx.EN.sp_aria_lock_x_four_lines("floor"))
+        assertEquals("Unlock the floor's four lines", Tx.EN.sp_aria_unlock_x_four_lines("floor"))
+        assertEquals("जमीन: चार रेषा लॉक करा", Tx.MR.sp_aria_lock_x_four_lines("जमीन"))
+        assertEquals("जमीन: चार रेषा अनलॉक करा", Tx.MR.sp_aria_unlock_x_four_lines("जमीन"))
+
+        assertEquals("Locked 1 item · floor", Tx.EN.sp_msg_locked_x_item_x(n = 1, surface = "floor"))
+        assertEquals("Unlocked 3 items · floor", Tx.EN.sp_msg_unlocked_x_item_x(n = 3, surface = "floor"))
+        assertEquals("3 आयटम लॉक केले · जमीन", Tx.MR.sp_msg_locked_x_item_x(n = 3, surface = "जमीन"))
+        assertEquals("1 आयटम अनलॉक केले · जमीन", Tx.MR.sp_msg_unlocked_x_item_x(n = 1, surface = "जमीन"))
+
+        assertEquals("Office view: on", Tx.EN.sp_office_view_on)
+        assertEquals("Office view: off", Tx.EN.sp_office_view_off)
+        assertEquals("ऑफिस व्ह्यू: चालू", Tx.MR.sp_office_view_on)
+        assertEquals("ऑफिस व्ह्यू: बंद", Tx.MR.sp_office_view_off)
+
+        assertEquals("Placing Door · tap the photo", Tx.EN.sp_placing_x_tap_photo("Door"))
+        assertEquals("Placing Door · tap the 360", Tx.EN.sp_placing_x_tap_360("Door"))
+        assertEquals("दरवाजा ठेवत आहे · फोटोवर टॅप करा", Tx.MR.sp_placing_x_tap_photo("दरवाजा"))
+        assertEquals("दरवाजा ठेवत आहे · 360 वर टॅप करा", Tx.MR.sp_placing_x_tap_360("दरवाजा"))
+
+        assertEquals("Lock all tapes", Tx.EN.sp_lock_all_x(Tx.EN.sp_group_tapes))
+        assertEquals("Unlock all chains", Tx.EN.sp_unlock_all_x(Tx.EN.sp_group_chains))
+        assertEquals("सर्व टेप लॉक करा", Tx.MR.sp_lock_all_x(Tx.MR.sp_group_tapes))
+        assertEquals("सर्व साखळ्या अनलॉक करा", Tx.MR.sp_unlock_all_x(Tx.MR.sp_group_chains))
+
+        assertEquals("No E marks in this room", Tx.EN.t53_no_x_marks_room("E"))
+        assertEquals("No E marks on this face", Tx.EN.t53_no_x_marks_face("E"))
+        assertEquals("या खोलीत E मार्क नाहीत", Tx.MR.t53_no_x_marks_room("E"))
+        assertEquals("या बाजूवर E मार्क नाहीत", Tx.MR.t53_no_x_marks_face("E"))
+
+        assertEquals("1 wished mark is not on any ticked row — tick it? ", Tx.EN.wish_x_not_any_one(1))
+        assertEquals("3 wished marks are not on any ticked row — tick it? ", Tx.EN.wish_x_not_any_many(3))
+        assertEquals("1 wished mark is not on any ticked row — tick it? Electrical", Tx.EN.wish_x_not_any_one_svc(plN = 1, svc = "Electrical"))
+        assertEquals("3 wished marks are not on any ticked row — tick it? Electrical", Tx.EN.wish_x_not_any_many_svc(plN = 3, svc = "Electrical"))
+        assertEquals("1 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाही — टिक करायचे? ", Tx.MR.wish_x_not_any_one(1))
+        assertEquals("3 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? ", Tx.MR.wish_x_not_any_many(3))
+        assertEquals("3 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? विद्युत", Tx.MR.wish_x_not_any_many_svc(plN = 3, svc = "विद्युत"))
+    }
+
+    @Test fun `a phone text's count folds its plural suffix, and the Marathi drops it`() {
+        // the v61c card's group 1 (L2): {n} with {pl} = n===1?'':'s' is ONE Int parameter
+        assertEquals("1 waiting", Tx.EN.app_x_waiting_queue(1))
+        // "3 waitings" is the prototype's plural(unsent(),'waiting') and the phone's subtitle byte for byte
+        // (MainActivity.kt:1119-1124): the key keeps it, so a slice that calls it changes nothing on screen
+        assertEquals("3 waitings", Tx.EN.app_x_waiting_queue(3))
+        assertEquals("3 बाकी", Tx.MR.app_x_waiting_queue(3))
+        assertEquals("Sent 1 annotated face to MEST-PH-1", Tx.EN.app_msg_sent_x_annotated_to_x(n = 1, server = "MEST-PH-1"))
+        assertEquals("Sent 3 annotated faces to MEST-PH-1", Tx.EN.app_msg_sent_x_annotated_to_x(n = 3, server = "MEST-PH-1"))
+        assertEquals("1 पॉइंट मध्यावर आणले", Tx.MR.sp_file_x_points_recentred(1))
     }
 
     @Test fun `a value holding braces is never filled again`() {

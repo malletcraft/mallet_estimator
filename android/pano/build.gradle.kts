@@ -40,11 +40,15 @@ java {
 }
 
 // ---- i18n (android/i18n is the ONE home of the two tables; Amit, 27 Oct 2026) ----
+// Since port 61c slice L2 (28 Oct 2026) nothing imports a prototype's tables: a new key is a reviewed
+// commit to android/i18n, and the prototype builder is to read android/i18n at a pinned commit from its
+// next build on. i18nImport and i18nCheckProto are gone with that, so no copy is imported over the card.
 val i18nDir: File = rootDir.resolve("i18n")
 val i18nOut: File = projectDir.resolve("src/main/kotlin/com/malletcrafts/interiorestimate/pano/i18n")
 val i18nReportDir: File = layout.buildDirectory.dir("i18n").get().asFile
-// The CommandLineArgumentProviders below read ONLY locals of their own register block: a script-level
-// val or fun is a member of the build script object, which the configuration cache cannot store.
+// A CommandLineArgumentProvider here (none is left since L2) reads ONLY locals of its own register block:
+// a script-level val or fun is a member of the build script object, which the configuration cache cannot
+// store. I18nBuildTest still holds every future provider to that.
 
 tasks.register<JavaExec>("i18nGen") {
     group = "i18n"
@@ -52,28 +56,6 @@ tasks.register<JavaExec>("i18nGen") {
     classpath = i18nGen.runtimeClasspath
     mainClass.set("com.malletcrafts.interiorestimate.pano.i18n.GenTx")
     args("gen", i18nDir.path, i18nOut.path)
-}
-
-tasks.register<JavaExec>("i18nImport") {
-    group = "i18n"
-    description = "Byte-copies a prototype build's strings-en.json / strings-mr.json into android/i18n and regenerates (-Pproto=<dir>)."
-    classpath = i18nGen.runtimeClasspath
-    mainClass.set("com.malletcrafts.interiorestimate.pano.i18n.GenTx")
-    val proto = providers.gradleProperty("proto"); val tables = i18nDir.path; val out = i18nOut.path
-    argumentProviders.add(CommandLineArgumentProvider {
-        listOf("import", proto.orNull ?: throw GradleException("pass the prototype build folder: -Pproto=<dir holding strings-en.json and strings-mr.json>"), tables, out)
-    })
-}
-
-tasks.register<JavaExec>("i18nCheckProto") {
-    group = "i18n"
-    description = "Fails when a prototype build's two tables differ from the committed android/i18n copies (-Pproto=<dir>)."
-    classpath = i18nGen.runtimeClasspath
-    mainClass.set("com.malletcrafts.interiorestimate.pano.i18n.GenTx")
-    val proto = providers.gradleProperty("proto"); val tables = i18nDir.path
-    argumentProviders.add(CommandLineArgumentProvider {
-        listOf("check-proto", proto.orNull ?: throw GradleException("pass the prototype build folder: -Pproto=<dir holding strings-en.json and strings-mr.json>"), tables)
-    })
 }
 
 tasks.register<JavaExec>("i18nRatchet") {

@@ -25,8 +25,9 @@ class I18nBuildTest {
 
     /**
      * A CommandLineArgumentProvider that reads a script-level val or fun captures the build script object,
-     * which the configuration cache cannot store: i18nImport and i18nCheckProto did their work and the
-     * build still went red. Each provider reads locals of its own register block only.
+     * which the configuration cache cannot store: i18nImport and i18nCheckProto (deleted in port 61c
+     * slice L2) did their work and the build still went red. Each provider reads locals of its own
+     * register block only; none is left today, and this holds the next one to the same rule.
      */
     @Test fun `no argument provider reads a script-level name`() {
         val top = Regex("""(?m)^(?:val|var|fun)\s+([A-Za-z_]\w*)""").findAll(script).map { it.groupValues[1] }.toSet()

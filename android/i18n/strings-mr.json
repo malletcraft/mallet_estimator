@@ -353,14 +353,26 @@
  "app.all_x": {
   "mr": "सर्व {length}"
  },
+ "app.annotated": {
+  "mr": "खुणा केलेल्या"
+ },
  "app.api_key": {
   "mr": "API की"
  },
  "app.api_secret": {
   "mr": "API सिक्रेट"
  },
+ "app.aria.annotated": {
+  "mr": "खुणा केलेले"
+ },
  "app.aria.close_search": {
   "mr": "शोध बंद करा"
+ },
+ "app.aria.original_360": {
+  "mr": "मूळ 360"
+ },
+ "app.aria.photograph": {
+  "mr": "फोटो"
  },
  "app.aria.search": {
   "mr": "शोधा"
@@ -376,6 +388,12 @@
  },
  "app.cancelled": {
   "mr": "रद्द"
+ },
+ "app.cant_identify_project": {
+  "mr": "ऑफिस सिस्टमवर हा प्रोजेक्ट ओळखता येत नाही. रिफ्रेशसाठी खाली ओढा — आता हटवल्यास तो फक्त या फोनवरून जाईल."
+ },
+ "app.cant_identify_site": {
+  "mr": "ऑफिस सिस्टमवर ही साइट ओळखता येत नाही. रिफ्रेशसाठी खाली ओढा — आता हटवल्यास ती फक्त या फोनवरून जाईल."
  },
  "app.capture": {
   "mr": "कॅप्चर"
@@ -418,11 +436,20 @@
  "app.copy_clipboard_simulated": {
   "mr": "क्लिपबोर्डवर कॉपी करा (सिम्युलेटेड)"
  },
+ "app.could_not_add_room": {
+  "mr": "ती खोली जोडता आली नाही"
+ },
  "app.delete_capture": {
   "mr": "हे कॅप्चर हटवा"
  },
  "app.delete_capture_2": {
   "mr": "हे कॅप्चर हटवायचे?"
+ },
+ "app.delete_this_project": {
+  "mr": "हा प्रोजेक्ट हटवा"
+ },
+ "app.delete_this_site": {
+  "mr": "ही साइट हटवा"
  },
  "app.delete_x": {
   "mr": "{v} हटवा",
@@ -456,6 +483,9 @@
  "app.done": {
   "mr": "पूर्ण"
  },
+ "app.download_http_x": {
+  "mr": "डाउनलोड: HTTP {code}"
+ },
  "app.due_x": {
   "mr": "{end} पर्यंत"
  },
@@ -470,6 +500,9 @@
  },
  "app.erp_id": {
   "mr": "ERP आयडी"
+ },
+ "app.erp_key_refused_sign_s5": {
+  "mr": "ERP की नाकारली — S5 मध्ये साइन इन करण्यासाठी टॅप करा"
  },
  "app.every_photographed_room_current": {
   "mr": "फोटो काढलेल्या सर्व खोल्या अपडेट आहेत",
@@ -589,6 +622,9 @@
  "app.looking_meter": {
   "mr": "मीटर शोधत आहे…"
  },
+ "app.marked": {
+  "mr": "खुणा केल्या"
+ },
  "app.meter_disconnected": {
   "mr": "मीटर डिस्कनेक्ट झाला"
  },
@@ -598,6 +634,9 @@
  "app.move_project": {
   "mr": "प्रोजेक्ट इथे हलवा",
   "note": "review fix 6: the trailing \":\" dropped (the list after it is joined with \" · \")"
+ },
+ "app.msg.android_hiding_photos": {
+  "mr": "Android इतर अ‍ॅप्सचे फोटो या अ‍ॅपपासून लपवत आहे — Photos ची परवानगी द्या आणि हे पुन्हा दाबा."
  },
  "app.msg.cached_annotated_copies_cleared": {
   "mr": "कॅशमधील खुणा केलेल्या प्रती साफ केल्या",
@@ -610,6 +649,33 @@
   "mr": "कॅप्चर इथे आणि बेंचवरही हटवले",
   "note": "'bench' (the server) kept as बेंच; alt: सर्व्हर"
  },
+ "app.msg.capture_deleted_sku": {
+  "mr": "कॅप्चर हटवले, आणि इतर कोणी न वापरणारा SKU सुद्धा"
+ },
+ "app.msg.could_not_open_360_x": {
+  "mr": "360 उघडता आला नाही: {why}"
+ },
+ "app.msg.could_not_read_gallery": {
+  "mr": "गॅलरी वाचता आली नाही."
+ },
+ "app.msg.could_not_refile_x": {
+  "mr": "बेंचवर पुन्हा फाइल करता आले नाही: {why}"
+ },
+ "app.msg.could_not_rename_x": {
+  "mr": "नाव बदलता आले नाही: {why}"
+ },
+ "app.msg.could_not_save_x": {
+  "mr": "सेव्ह करता आले नाही: {why}"
+ },
+ "app.msg.could_not_send_annotation_x": {
+  "mr": "खुणा पाठवता आल्या नाहीत: {why}"
+ },
+ "app.msg.could_not_split_x": {
+  "mr": "360 च्या बाजू वेगळ्या करता आल्या नाहीत: {why}"
+ },
+ "app.msg.deleted_here_bench_not_x": {
+  "mr": "इथे हटवले. बेंचवरची प्रत गेली नाही: {why}"
+ },
  "app.msg.deleted_x": {
   "mr": "{current} हटवले"
  },
@@ -618,6 +684,9 @@
  },
  "app.msg.downloading_update_x": {
   "mr": "अपडेट {update} डाउनलोड होत आहे…"
+ },
+ "app.msg.gallery_access_granted": {
+  "mr": "गॅलरीची परवानगी मिळाली — आता खुणा केलेले फोटो शोधत आहे."
  },
  "app.msg.importing_imagemeter": {
   "mr": "ImageMeter मधून इम्पोर्ट होत आहे…"
@@ -628,8 +697,17 @@
  "app.msg.looked_14_gallery_photos": {
   "mr": "गॅलरीतील 14 फोटो पाहिले, एकावरही या अ‍ॅपचा शिक्का नाही. फक्त 0.3.93 किंवा नंतरच्या आवृत्तीने कॅप्चर केलेल्या बाजूंवर शिक्का असतो — तो फोटो पुन्हा काढा आणि खुणा करा."
  },
+ "app.msg.no_camera_app_x": {
+  "mr": "कोणत्याही कॅमेरा अ‍ॅपने उत्तर दिले नाही: {why}"
+ },
+ "app.msg.no_photos_gallery": {
+  "mr": "गॅलरीत पाहण्यासाठी फोटो नाहीत."
+ },
  "app.msg.photo_filed_x": {
   "mr": "फोटो {v} मध्ये ठेवला"
+ },
+ "app.msg.removed_phone_x_never": {
+  "mr": "या फोनवरून काढले — {name} कधीच ऑफिस सिस्टमवर पोहोचले नव्हते."
  },
  "app.msg.renamed_x": {
   "mr": "नवीन नाव: {n}"
@@ -640,14 +718,38 @@
  "app.msg.saving_six_faces": {
   "mr": "सहा बाजू सेव्ह होत आहेत…"
  },
+ "app.msg.sent_x_annotated_gallery": {
+  "mr": "गॅलरीतून खुणा केलेल्या {n} बाजू पाठवल्या."
+ },
+ "app.msg.sent_x_annotated_to_x": {
+  "mr": "खुणा केलेल्या {n} बाजू {server} कडे पाठवल्या"
+ },
  "app.msg.shooting_x3": {
   "mr": "X3 वर फोटो काढत आहे…"
+ },
+ "app.msg.survey_prep_saved_not_written_x": {
+  "mr": "सर्व्हे तयारी या फोनवर सेव्ह झाली; चित्रे लिहिली गेली नाहीत: {why}"
  },
  "app.msg.survey_prep_saved_writing": {
   "mr": "सर्व्हे तयारी सेव्ह झाली — चित्रे सेव्ह होत आहेत…"
  },
  "app.msg.survey_prep_saved_x": {
   "mr": "सर्व्हे तयारी सेव्ह झाली · खोलीच्या फोल्डरमध्ये {done} चित्रे"
+ },
+ "app.msg.update_failed_x": {
+  "mr": "अपडेट झाले नाही: {why}"
+ },
+ "app.msg.without_gallery_access": {
+  "mr": "गॅलरीच्या परवानगीशिवाय ImageMeter ने लिहिलेले अ‍ॅपला दिसत नाही. Settings → Apps → MCFT Interior Estimate → Permissions → Photos."
+ },
+ "app.msg.x3_capture_failed_x": {
+  "mr": "X3 कॅप्चर झाले नाही: {why}"
+ },
+ "app.msg.x_annotated_already_sent": {
+  "mr": "खुणा केलेले {n} आधीच पाठवले, नवीन काही नाही."
+ },
+ "app.msg.x_annotated_not_reached": {
+  "mr": "{n} वर खुणा केल्या, पण त्यांचे कॅप्चर अजून सर्व्हरवर पोहोचलेले नाहीत — आधी सिंक करा."
  },
  "app.msg.x_pictures_saved_x": {
   "mr": "{v} चित्रे {v2} मध्ये सेव्ह झाली\nImageMeter उघडा → खोलीचा फोल्डर → फोटो जोडा."
@@ -671,6 +773,9 @@
  "app.no_captures_room_yet": {
   "mr": "या खोलीत अजून कॅप्चर नाहीत. खालील \"360 कॅप्चर\" वापरा."
  },
+ "app.no_client": {
+  "mr": "(ग्राहक नाही)"
+ },
  "app.no_clients_yet_go": {
   "mr": "अजून ग्राहक नाहीत. ERP मधून आणण्यासाठी एकदा ऑनलाइन या, किंवा इथेच सुरू करण्यासाठी \"नवीन साइट\" वापरा."
  },
@@ -680,8 +785,17 @@
  "app.no_phase": {
   "mr": "फेज नाही"
  },
+ "app.no_photos_360_not_phone": {
+  "mr": " · फोटो नाहीत, 360 या फोनवर नाही"
+ },
+ "app.no_server_configured": {
+  "mr": "सर्व्हर सेट केलेला नाही"
+ },
  "app.no_server_set": {
   "mr": "सर्व्हर सेट नाही"
+ },
+ "app.no_site": {
+  "mr": "(साइट नाही)"
  },
  "app.no_stage": {
   "mr": "टप्पा नाही"
@@ -715,6 +829,12 @@
   "mr": "अजून झाले नाही · टॅप करून प्रत्येक पृष्ठभागाची हद्द आखा, सरळ करा व मार्क करा",
   "note": "long; 'bound' = हद्द आखणे, 'square' = सरळ करणे (alt: काटकोनात आणणे)"
  },
+ "app.not_on_web_x": {
+  "mr": "वेबवर नाही: {why}"
+ },
+ "app.not_signed_in": {
+  "mr": "साइन इन केलेले नाही"
+ },
  "app.not_started_tap_start": {
   "mr": "सुरू नाही · सुरू करण्यासाठी टॅप करा"
  },
@@ -726,6 +846,60 @@
  },
  "app.not_x_stage": {
   "mr": "{job} चा टप्पा नाही"
+ },
+ "app.note.capture_no_longer_phone": {
+  "mr": "हे कॅप्चर आता फोनवर नाही"
+ },
+ "app.note.no_survey_prep_saved": {
+  "mr": "या कॅप्चरसाठी सर्व्हे तयारी सेव्ह केलेली नाही"
+ },
+ "app.note.not_enough_memory": {
+  "mr": "360 सरळ करण्यासाठी पुरेशी मेमरी नाही — पुन्हा प्रयत्न होईल"
+ },
+ "app.note.not_signed_in_open_menu": {
+  "mr": "साइन इन केलेले नाही - मेनू उघडा आणि साइन इन करा"
+ },
+ "app.note.pano_file_missing": {
+  "mr": "360 ची फाइल फोनवर नाही"
+ },
+ "app.note.phone_only_not_photo": {
+  "mr": "फक्त या फोनवर - वेब 360 ची सर्व्हे तयारी घेते, फोटो नाही"
+ },
+ "app.note.phone_only_save_prep": {
+  "mr": "फक्त या फोनवर - वेबवर पाठवण्यासाठी त्याची सर्व्हे तयारी सेव्ह करा"
+ },
+ "app.note.readings_not_sent_x": {
+  "mr": "रीडिंग पाठवले नाहीत: {why}"
+ },
+ "app.note.sign_again_x": {
+  "mr": "पुन्हा साइन इन करा (मेनू → सर्व्हर) - {why}"
+ },
+ "app.note.upload_failed": {
+  "mr": "अपलोड झाले नाही"
+ },
+ "app.note.waiting_capture_filed": {
+  "mr": "कॅप्चर फाइल होण्याची वाट पाहत आहे"
+ },
+ "app.note.waiting_project_erp": {
+  "mr": "प्रोजेक्ट ERP मध्ये पोहोचण्याची वाट पाहत आहे"
+ },
+ "app.note.web_answered_x": {
+  "mr": "वेबचे उत्तर {code}"
+ },
+ "app.note.web_refused_password": {
+  "mr": "वेबने सेव्ह केलेला पासवर्ड नाकारला"
+ },
+ "app.note.web_session_expired": {
+  "mr": "वेब सेशन संपले - वेब उत्तर देईल तेव्हा नवीन होईल"
+ },
+ "app.note.web_session_renewed": {
+  "mr": "वेब सेशन नवीन झाले"
+ },
+ "app.note.web_session_to_renew": {
+  "mr": "वेब उत्तर देईल तेव्हा वेब सेशन नवीन होईल"
+ },
+ "app.note.web_signin_refused_key": {
+  "mr": "वेब साइन-इन नाकारले - ERP कीने पाठवत आहे"
  },
  "app.nothing_captured_phone_yet": {
   "mr": "या फोनवर अजून काहीही कॅप्चर केलेले नाही. \"ब्राउझ\" उघडा, खोली निवडा आणि फोटो काढा."
@@ -748,8 +922,14 @@
  "app.on_phone": {
   "mr": "फोनवर"
  },
+ "app.on_web_x": {
+  "mr": "वेबवर ✓ {hm}"
+ },
  "app.open": {
   "mr": "उघडा"
+ },
+ "app.opening_360": {
+  "mr": "360 उघडत आहे…"
  },
  "app.original": {
   "mr": "मूळ"
@@ -778,6 +958,9 @@
  },
  "app.pick_360_gallery": {
   "mr": "गॅलरीतून 360 निवडा"
+ },
+ "app.pinch_zoom_double_tap": {
+  "mr": "दोन बोटांनी झूम करा  ·  मोठे करण्यासाठी डबल टॅप करा"
  },
  "app.project_has_no_skus": {
   "mr": "या प्रोजेक्टमध्ये अजून SKU नाहीत. ऑफिस ते अंदाजपत्रकातून जोडते, आणि पुढच्या सिंकला ते येतात."
@@ -864,6 +1047,9 @@
  "app.server": {
   "mr": "सर्व्हर"
  },
+ "app.server_refused_no_reason": {
+  "mr": "सर्व्हरने कारण न सांगता नकार दिला"
+ },
  "app.set_server_api_key": {
   "mr": "सुरू करण्यासाठी सेटिंग्जमध्ये सर्व्हर आणि API की सेट करा."
  },
@@ -883,6 +1069,15 @@
  },
  "app.showing_all_x_stages": {
   "mr": "सर्व {length} टप्पे दाखवत आहे"
+ },
+ "app.sign_again_menu_server_x": {
+  "mr": "पुन्हा साइन इन करा (मेनू → सर्व्हर): {why}"
+ },
+ "app.sign_erp_email_password": {
+  "mr": "सुरू करण्यासाठी तुमच्या ERP ईमेल आणि पासवर्डने साइन इन करा (मेनू → सर्व्हर)."
+ },
+ "app.sign_first_menu_server": {
+  "mr": "आधी साइन इन करा — मेनू → सर्व्हर."
  },
  "app.sign_out": {
   "mr": "साइन आउट"
@@ -1049,6 +1244,9 @@
  "app.waiting_2": {
   "mr": "बाकी"
  },
+ "app.waiting_first_master_list": {
+  "mr": "पहिल्या मास्टर यादीची वाट पाहत आहे — एकदा ऑनलाइन या."
+ },
  "app.walls_x_floor_ceiling": {
   "mr": "भिंती {wall}°, जमीन व छत {floor}° — प्रत्येक कोपरा फ्रेममध्ये, आणि फोटो टेपशी पडताळला जातो."
  },
@@ -1072,6 +1270,30 @@
  "app.works_offline_when_phone": {
   "mr": "ऑफलाइन चालते. फोन सिंक झाल्यावर हे ERPNext मधील खरे ग्राहक, साइट आणि प्रोजेक्ट बनतात — किंवा आधीपासून असलेल्यांशी जुळतात, नावाचे स्पेलिंग कसेही असो."
  },
+ "app.x3.cannot_watch_wifi_x": {
+  "mr": "Wi-Fi वर लक्ष ठेवता येत नाही: {why}"
+ },
+ "app.x3.capture_error_x": {
+  "mr": "कॅप्चर त्रुटी {code}"
+ },
+ "app.x3.connect_error_x": {
+  "mr": "कॅमेरा कनेक्ट त्रुटी {code} — X3 चालू आहे, त्याचे Wi-Fi Android Settings मध्ये जोडले आहे आणि दुसरे कोणतेही अ‍ॅप (Insta360 अ‍ॅप) कॅमेरा वापरत नाही ना ते तपासा"
+ },
+ "app.x3.no_file": {
+  "mr": "कॅमेऱ्याने कॅप्चर पूर्ण झाल्याचे सांगितले, पण फाइल दिली नाही"
+ },
+ "app.x3.phone_not_camera_wifi": {
+  "mr": "फोन कॅमेऱ्याच्या Wi-Fi वर नाही"
+ },
+ "app.x3.stitch_cancelled": {
+  "mr": "स्टिच एक्सपोर्ट रद्द झाले"
+ },
+ "app.x3.stitch_failed_x": {
+  "mr": "स्टिच एक्सपोर्ट झाले नाही ({code}): {why}"
+ },
+ "app.x3.x_join_wifi": {
+  "mr": "{problem} — Settings मध्ये X3 च्या Wi-Fi ला जोडा, मग पुन्हा प्रयत्न करा"
+ },
  "app.x3_connected": {
   "mr": "X3 कनेक्ट झाला"
  },
@@ -1091,6 +1313,9 @@
  },
  "app.x_done": {
   "mr": "{n} पूर्ण"
+ },
+ "app.x_double_tap_fit": {
+  "mr": "{zoom}×  ·  बसवण्यासाठी डबल टॅप करा"
  },
  "app.x_face": {
   "mr": "{code} या बाजूवर"
@@ -1122,7 +1347,8 @@
   "mr": "{n} थांबवलेले"
  },
  "app.x_over_x": {
-  "mr": "{pl2} मध्ये {pl}"
+  "mr": "{pl} · {pl2}",
+  "note": "L2 finalised (28 Oct 2026, design-marathi §6 item 4): '{pl2} मध्ये {pl}' printed '2 दिवस मध्ये 3 फोटो', which wants दिवसांत and a noun form the table does not have; ' · ' as app.over_x's own review fix: '3 फोटो · 2 दिवस'"
  },
  "app.x_phone": {
   "mr": "{v} या फोनवर"
@@ -1143,6 +1369,9 @@
  },
  "app.x_waiting": {
   "mr": "{q} बाकी"
+ },
+ "app.x_waiting_queue": {
+  "mr": "{n} बाकी"
  },
  "app.x_waiting_upload": {
   "mr": "{pl} अपलोड बाकी"
@@ -1263,6 +1492,14 @@
  },
  "articlekind.subcontract": {
   "mr": "सबकॉन्ट्रॅक्ट"
+ },
+ "bundle.aria.hide_five_parts_x": {
+  "mr": "पाचही भाग लपवा{tail}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): bundle.aria.x_five_parts_x as a whole key, when open"
+ },
+ "bundle.aria.show_five_parts_x": {
+  "mr": "पाचही भाग दाखवा{tail}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): bundle.aria.x_five_parts_x as a whole key, when !open"
  },
  "bundle.aria.x_five_parts_x": {
   "mr": "पाचही भाग {v}{v2}",
@@ -1393,6 +1630,9 @@
  },
  "common.faces": {
   "mr": "बाजू"
+ },
+ "common.failed": {
+  "mr": "अयशस्वी"
  },
  "common.gallery": {
   "mr": "गॅलरी"
@@ -1858,6 +2098,18 @@
  "export.move_x": {
   "mr": "{length} हलवा"
  },
+ "export.msg.could_not_keep_x": {
+  "mr": "{file} ठेवता आले नाही"
+ },
+ "export.msg.could_not_make_folder_x": {
+  "mr": "{file} साठी फोल्डर बनवता आला नाही"
+ },
+ "export.msg.could_not_write_x": {
+  "mr": "{file} Downloads मध्ये लिहिता आले नाही"
+ },
+ "export.msg.downloads_refused_x": {
+  "mr": "Downloads ने {file} नाकारले"
+ },
  "export.no_marks_match": {
   "mr": "कोणतेही मार्क जुळत नाहीत — "
  },
@@ -1946,6 +2198,10 @@
  "export.saved_x": {
   "mr": "सेव्ह ✓ {name}"
  },
+ "export.saved_x_share": {
+  "mr": "सेव्ह ✓ {name} · फोनवर Android चे शेअर पॅनेल उघडते",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): export.saved_x_x as a whole key, when how==='shared'"
+ },
  "export.saved_x_x": {
   "mr": "सेव्ह ✓ {v}{v2}",
   "note": "{v}/{v2} embed English — use export.x_x_files and export.phone_android_s_share"
@@ -1955,6 +2211,9 @@
  },
  "export.scope_estimate": {
   "mr": "अंदाजपत्रकासाठी स्कोप"
+ },
+ "export.share_x": {
+  "mr": "{file} शेअर करा"
  },
  "export.shared_x_vendor_move": {
   "mr": "{who} व्हेंडरला शेअर केले? {length} \"ग्राहकाची इच्छा\" {pl} \"व्हेंडर तपासणी\" मध्ये हलवा",
@@ -2007,6 +2266,14 @@
  },
  "export.x_face": {
   "mr": "{s} · बाजू"
+ },
+ "export.x_figure_photo_not": {
+  "mr": "या व्याप्तीतील आकडा: {approx} ≈ फोटोवरून, अजून मोजमाप नाही",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): export.x_x_photo_not as a whole key, when approx===1"
+ },
+ "export.x_figures_photo_not": {
+  "mr": "या व्याप्तीतील आकडे: {approx} ≈ फोटोवरून, अजून मोजमाप नाही",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): export.x_x_photo_not as a whole key, when approx!==1"
  },
  "export.x_list_x": {
   "mr": "यादीची {nl} {pl}",
@@ -2766,6 +3033,14 @@
   "mr": "फेज {n}/5: {name}{v}",
   "note": "{v} is English ' (now)' — supply ' (सध्या)'"
  },
+ "phase.aria.phase_x_of_5_x": {
+  "mr": "फेज {n}/5: {name}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): phase.aria.phase_x_4_x as a whole key, when !on"
+ },
+ "phase.aria.phase_x_of_5_x_now": {
+  "mr": "फेज {n}/5: {name} (सध्या)",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): phase.aria.phase_x_4_x as a whole key, when on"
+ },
  "phase.aria.quote_journey_done": {
   "mr": "कोटेशनचे टप्पे पूर्ण — अंमलबजावणी मध्ये"
  },
@@ -2929,6 +3204,9 @@
   "mr": "{pl} पैकी {n} चे फोटो झाले",
   "note": "v56 delta. {pl} = noun.room phrase (\"3 खोल्या\"); order as app.x_x_rooms"
  },
+ "plan.aria.a4_sheet_x_x": {
+  "mr": "A4 शीट, {view} 1:{scale} मापात"
+ },
  "plan.aria.floor_plan_arrange_x": {
   "mr": "फ्लोअर प्लॅन: {title} च्या {pl} मांडा"
  },
@@ -2937,6 +3215,9 @@
  },
  "plan.back_start_row_every": {
   "mr": "सुरुवातीच्या ओळीवर परत जायचे? सर्व जागा आणि वळणे जातील."
+ },
+ "plan.export_x": {
+  "mr": "एक्सपोर्ट · {name}"
  },
  "plan.fit": {
   "mr": "बसवा"
@@ -2995,6 +3276,45 @@
  },
  "refuse.album.client_at_day": {
   "mr": "ग्राहकाने उत्तर दिल्याची तारीख वर्ष-महिना-दिवस या क्रमाने हवी"
+ },
+ "refuse.album.cr_in_scope": {
+  "mr": "हे काम मंजूर स्कोपमध्ये आहे: समावेशाची गरज नाही — त्यासाठी वगळणे किंवा बदल अशी विनंती करा"
+ },
+ "refuse.album.cr_live": {
+  "mr": "बदल विनंती आधीच नोंदवली आहे"
+ },
+ "refuse.album.cr_no_baseline": {
+  "mr": "अजून मंजूर स्कोप नोंदवलेला नाही"
+ },
+ "refuse.album.cr_none": {
+  "mr": "या कामावर उत्तर नोंदवण्यासाठी चालू बदल विनंती नाही"
+ },
+ "refuse.album.cr_pm_only": {
+  "mr": "बदल विनंती नोंदवणे किंवा ग्राहकाचे उत्तर नोंदवणे फक्त प्रोजेक्ट मॅनेजर करतो"
+ },
+ "refuse.album.not_a_state": {
+  "mr": "पाच स्थितींपैकी ही स्थिती नाही"
+ },
+ "refuse.album.not_a_work": {
+  "mr": "सोळा कामांपैकी हे काम नाही"
+ },
+ "refuse.album.not_review_state": {
+  "mr": "ही तपासणीची स्थिती नाही"
+ },
+ "refuse.album.photo_no_client": {
+  "mr": "ग्राहक फोटो जोडत नाही"
+ },
+ "refuse.album.review_pm_only": {
+  "mr": "व्हेंडरचा फोटो फक्त प्रोजेक्ट मॅनेजर तपासतो"
+ },
+ "refuse.album.review_same": {
+  "mr": "आधीच तसे तपासले आहे"
+ },
+ "refuse.album.review_vendor_only": {
+  "mr": "फक्त व्हेंडरचे फोटो तपासले जातात"
+ },
+ "refuse.album.same_state": {
+  "mr": "आधीपासूनच त्या स्थितीत आहे"
  },
  "refuse.export.drawing_not_available": {
   "mr": "ड्रॉइंग उपलब्ध नाही"
@@ -3294,6 +3614,9 @@
  "sp.1_x_a4_drawn": {
   "mr": "1:{sc}, A4 वर · काढले {today}"
  },
+ "sp.360_drag_look_x": {
+  "mr": "4 · 360 · फिरून पाहण्यासाठी ओढा · {surface}"
+ },
  "sp.all_four_lines_placed": {
   "mr": "चारही रेषा ठेवल्या — 2 · मार्क वर जा. "
  },
@@ -3305,6 +3628,9 @@
  },
  "sp.aria.close_legend": {
   "mr": "खुणांचा अर्थ बंद करा"
+ },
+ "sp.aria.close_menu": {
+  "mr": "मेनू बंद करा"
  },
  "sp.aria.delete_x": {
   "mr": "{code} हटवा"
@@ -3328,9 +3654,16 @@
   "mr": "लेझर मापे: L समोर→मागे · W डावी→उजवी · H जमीन→छत (बदलण्यासाठी टॅप करा; ही सूचना पाहण्यासाठी दाबून धरा)",
   "note": "L/W/H letters kept as codes"
  },
+ "sp.aria.lock_lines": {
+  "mr": "रेषा लॉक करा"
+ },
  "sp.aria.lock_x": {
   "mr": "{what} लॉक करा",
   "note": "v57: {what} is a mark code or a surface name"
+ },
+ "sp.aria.lock_x_four_lines": {
+  "mr": "{surface}: चार रेषा लॉक करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.aria.x_x_s_four as a whole key, when !lk"
  },
  "sp.aria.more_status_start_over": {
   "mr": "आणखी: स्थिती, पुन्हा सुरुवात, टाकून द्या"
@@ -3359,8 +3692,15 @@
  "sp.aria.undo": {
   "mr": "मागे घ्या"
  },
+ "sp.aria.unlock_lines": {
+  "mr": "रेषा अनलॉक करा"
+ },
  "sp.aria.unlock_x": {
   "mr": "{what} अनलॉक करा"
+ },
+ "sp.aria.unlock_x_four_lines": {
+  "mr": "{surface}: चार रेषा अनलॉक करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.aria.x_x_s_four as a whole key, when lk"
  },
  "sp.aria.w_left_right_mm": {
   "mr": "W, डावी ते उजवी, mm"
@@ -3431,6 +3771,9 @@
  "sp.delete_x": {
   "mr": "{label} हटवा"
  },
+ "sp.deleted_web_too": {
+  "mr": " — वेबवरूनही हटवले"
+ },
  "sp.derived": {
   "mr": "हिशोबाने"
  },
@@ -3462,14 +3805,80 @@
  "sp.export_plan": {
   "mr": "प्लॅन एक्सपोर्ट ·"
  },
+ "sp.file.part_unreadable_kept_x": {
+  "mr": "सेव्ह केलेल्या तयारीचा काही भाग वाचता आला नाही ({n} ठिकाणी: {first}{more}). मूळ फाइल {file} म्हणून ठेवली आहे.",
+  "note": "L2 finalised (28 Oct 2026): 'गोष्टी' is plural, so one problem read '1 गोष्टी'; 'ठिकाणी' (at {n} places) is right for 1 and for many"
+ },
+ "sp.file.part_unreadable_not_aside": {
+  "mr": "सेव्ह केलेल्या तयारीचा काही भाग वाचता आला नाही ({n} ठिकाणी: {first}{more}). मूळ फाइल बाजूला ठेवता आली नाही: इथे काहीही सेव्ह होत नाही, त्यामुळे ती बदलली जात नाही.",
+  "note": "L2 finalised (28 Oct 2026): 'गोष्टी' is plural, so one problem read '1 गोष्टी'; 'ठिकाणी' (at {n} places) is right for 1 and for many"
+ },
+ "sp.file.reading_x_left_out": {
+  "mr": "रीडिंग {code} वाचता आले नाही, वगळले"
+ },
+ "sp.file.readings_unreadable": {
+  "mr": "रीडिंग वाचता आले नाहीत"
+ },
+ "sp.file.restored_in_part": {
+  "mr": "अंशतः परत आणले"
+ },
+ "sp.file.started_fresh": {
+  "mr": "नव्याने सुरुवात"
+ },
+ "sp.file.unreadable_kept_x": {
+  "mr": "सेव्ह केलेली तयारी वाचता आली नाही. ती {file} म्हणून ठेवली आहे, आणि ही खोली नव्याने सुरू होते."
+ },
+ "sp.file.unreadable_not_aside": {
+  "mr": "सेव्ह केलेली तयारी वाचता आली नाही, बाजूलाही ठेवता आली नाही: इथे काहीही सेव्ह होत नाही, त्यामुळे ती बदलली जात नाही."
+ },
+ "sp.file.x_chain_x_left_out": {
+  "mr": "{surface}: साखळी {code} वाचता आली नाही, वगळली"
+ },
+ "sp.file.x_chains_unreadable": {
+  "mr": "{surface}: साखळ्या वाचता आल्या नाहीत",
+  "note": "L2 finalised (28 Oct 2026): 'त्याच्या' is wrong for a wall or the floor (feminine); the surface name before it already says whose"
+ },
+ "sp.file.x_line_unreadable": {
+  "mr": "{surface}: {line} वाचता आले नाही, पुन्हा ठेवले",
+  "note": "L2 finalised (28 Oct 2026): 'त्याची … आली … ठेवली' agreed with a feminine line only, and a corner is masculine; the impersonal 'वाचता आले नाही' fits every {line} and {surface}"
+ },
+ "sp.file.x_mark_x_left_out": {
+  "mr": "{surface}: मार्क {code} वाचता आला नाही, वगळला"
+ },
+ "sp.file.x_marks_unreadable": {
+  "mr": "{surface}: मार्क वाचता आले नाहीत",
+  "note": "L2 finalised (28 Oct 2026): 'त्याचे' is wrong for a wall or the floor (feminine); the surface name before it already says whose"
+ },
+ "sp.file.x_measurement_x_left_out": {
+  "mr": "{surface}: माप {code} वाचता आले नाही, वगळले"
+ },
+ "sp.file.x_measurements_unreadable": {
+  "mr": "{surface}: मापे वाचता आली नाहीत",
+  "note": "L2 finalised (28 Oct 2026): 'त्याची' is wrong for a wall or the floor (feminine); the surface name before it already says whose"
+ },
+ "sp.file.x_missing_started": {
+  "mr": "{surface}: सापडले नाही, पुन्हा सुरू केले"
+ },
+ "sp.file.x_points_recentred": {
+  "mr": "{n} पॉइंट मध्यावर आणले"
+ },
+ "sp.file.x_unreadable_started": {
+  "mr": "{surface}: वाचता आले नाही, पुन्हा सुरू केले"
+ },
  "sp.fit": {
   "mr": "बसवा"
  },
  "sp.fit_x": {
   "mr": "बसवा · {v}%"
  },
+ "sp.floor_ceiling": {
+  "mr": "जमीन→छत"
+ },
  "sp.front": {
   "mr": "समोर"
+ },
+ "sp.front_back": {
+  "mr": "समोर→मागे"
  },
  "sp.front_back_x_x": {
   "mr": "↕ समोर–मागे {w} · {n} mm"
@@ -3486,6 +3895,55 @@
  "sp.grid": {
   "mr": "ग्रिड"
  },
+ "sp.group.chains": {
+  "mr": "साखळ्या"
+ },
+ "sp.group.tapes": {
+  "mr": "टेप"
+ },
+ "sp.horizontal": {
+  "mr": "आडवी"
+ },
+ "sp.laser.bluetooth_refused_x": {
+  "mr": "ब्लूटूथने नकार दिला: {why}"
+ },
+ "sp.laser.connect_permission_refused": {
+  "mr": "ब्लूटूथ जोडण्याची परवानगी नाकारली"
+ },
+ "sp.laser.disconnected_x": {
+  "mr": "जोडणी तुटली ({status})"
+ },
+ "sp.laser.no_ble_scanner": {
+  "mr": "ब्लूटूथ स्कॅनर उपलब्ध नाही"
+ },
+ "sp.laser.no_distance_characteristic": {
+  "mr": "मीटरमध्ये अंतर पाठवण्याची सोय नाही"
+ },
+ "sp.laser.no_disto_found": {
+  "mr": "DISTO सापडला नाही — त्याचे ब्लूटूथ बटण दाबा आणि पुन्हा प्रयत्न करा"
+ },
+ "sp.laser.not_a_disto": {
+  "mr": "हा DISTO नाही (DISTO सेवा नाही)"
+ },
+ "sp.laser.not_a_length_x": {
+  "mr": "हे लांबीचे मोजमाप नाही ({x})"
+ },
+ "sp.laser.not_metric_x": {
+  "mr": "मीटरवर मीटर/mm दिसत नाही (युनिट कोड {unit}) — तो m किंवा mm वर सेट करा",
+  "note": "L2 finalised (28 Oct 2026): the card's 'मीटर मीटर/मिमी' read the device and the unit as one doubled word; mm is Latin everywhere else in the table"
+ },
+ "sp.laser.reconnecting_x": {
+  "mr": "पुन्हा जोडत आहे ({status})…"
+ },
+ "sp.laser.scan_failed_x": {
+  "mr": "स्कॅन अयशस्वी ({code})"
+ },
+ "sp.laser.scan_refused_x": {
+  "mr": "स्कॅन नाकारले: {why}"
+ },
+ "sp.laser.turn_bluetooth_on": {
+  "mr": "ब्लूटूथ सुरू करा"
+ },
  "sp.laser_d2_readings_room": {
   "mr": "खोलीच्या कॅप्चरवेळचे लेझर D2 रीडिंग, mm मध्ये. बदलण्यासाठी आकाराच्या ओळीवर टॅप करा."
  },
@@ -3495,6 +3953,9 @@
  "sp.left": {
   "mr": " डावीकडे",
   "note": "fragment"
+ },
+ "sp.left_right": {
+  "mr": "डावी→उजवी"
  },
  "sp.left_right_x_x": {
   "mr": "↔ डावी–उजवी {w} · {n} mm"
@@ -3514,6 +3975,10 @@
  },
  "sp.loading": {
   "mr": "लोड होत आहे…"
+ },
+ "sp.lock_all_x": {
+  "mr": "सर्व {name} लॉक करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.x_all_x as a whole key, when !g.all"
  },
  "sp.locked": {
   "mr": "लॉक"
@@ -3557,8 +4022,28 @@
  "sp.move": {
   "mr": "हलवा"
  },
+ "sp.msg.bluetooth_refused": {
+  "mr": "ब्लूटूथची परवानगी नाकारली — लेझर कनेक्ट होऊ शकत नाही",
+  "note": "L2 finalised (28 Oct 2026): ब्लूटूथ, as the card's five sp.laser.* keys write it, not a Latin Bluetooth in this one"
+ },
+ "sp.msg.could_not_share_x_x": {
+  "mr": "{file} शेअर करता आले नाही: {why}"
+ },
+ "sp.msg.d2_x_ref_left": {
+  "mr": "D2 {mm} mm — वापरले नाही: संदर्भ चौकट सोडली होती"
+ },
+ "sp.msg.d2_x_tap_measurement": {
+  "mr": "D2 {mm} mm — आधी एखाद्या मापावर टॅप करा, मग पुन्हा रीडिंग घ्या"
+ },
  "sp.msg.export_export_sheet_opens": {
   "mr": "एक्सपोर्ट — एक्सपोर्ट पॅनेल इथे उघडते"
+ },
+ "sp.msg.laser_still_connecting": {
+  "mr": "लेझर अजून कनेक्ट होत आहे…"
+ },
+ "sp.msg.locked_x_item_x": {
+  "mr": "{n} आयटम लॉक केले · {surface}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.msg.x_x_item_x as a whole key, when on"
  },
  "sp.msg.not_saved": {
   "mr": "सेव्ह नाही: "
@@ -3572,11 +4057,17 @@
  "sp.msg.not_saving_no_storage": {
   "mr": "सेव्ह होत नाही: या व्ह्यूमध्ये स्टोरेज नाही"
  },
+ "sp.msg.not_shared_x": {
+  "mr": "शेअर झाले नाही: {why}"
+ },
  "sp.msg.reference_stays_hide_eye": {
   "mr": "संदर्भ राहतो — 1 · रेषा मध्ये डोळ्याच्या चिन्हाने लपवा"
  },
  "sp.msg.saved": {
   "mr": "सेव्ह ✓ "
+ },
+ "sp.msg.saved_x_downloads": {
+  "mr": "{file} Downloads मध्ये सेव्ह केली"
  },
  "sp.msg.started_over_x": {
   "mr": "पुन्हा सुरुवात — {v}"
@@ -3590,6 +4081,10 @@
  },
  "sp.msg.tape_drag_along_face": {
   "mr": "टेप: बाहेर ओढण्यासाठी बाजूवरून ओढा"
+ },
+ "sp.msg.unlocked_x_item_x": {
+  "mr": "{n} आयटम अनलॉक केले · {surface}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.msg.x_x_item_x as a whole key, when !on"
  },
  "sp.msg.x_deleted": {
   "mr": "{code} हटवले"
@@ -3613,6 +4108,9 @@
  "sp.notes": {
   "mr": "नोंदी: "
  },
+ "sp.nothing_marked_surface": {
+  "mr": "या पृष्ठभागावर काहीही मार्क केलेले नाही."
+ },
  "sp.nothing_room_clear": {
   "mr": "खोलीत काढण्यासारखे काही नाही"
  },
@@ -3624,6 +4122,14 @@
  },
  "sp.office_only_notes_shown": {
   "mr": "फक्त-ऑफिस नोंदी दाखवल्या"
+ },
+ "sp.office_view_off": {
+  "mr": "ऑफिस व्ह्यू: बंद",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.office_view_x as a whole key, when !D53S.office"
+ },
+ "sp.office_view_on": {
+  "mr": "ऑफिस व्ह्यू: चालू",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.office_view_x as a whole key, when D53S.office"
  },
  "sp.office_view_x": {
   "mr": "ऑफिस व्ह्यू: {v}",
@@ -3651,6 +4157,14 @@
   "mr": "ठेवत आहे:",
   "note": "v57: the chip is split by the sub-kind button (\"Placing [Wash basin ▾] · tap the photo\"), so its two halves are keys of their own"
  },
+ "sp.placing_x_tap_360": {
+  "mr": "{tool} ठेवत आहे · 360 वर टॅप करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.placing_x_tap_x as a whole key, when p3"
+ },
+ "sp.placing_x_tap_photo": {
+  "mr": "{tool} ठेवत आहे · फोटोवर टॅप करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.placing_x_tap_x as a whole key, when !p3"
+ },
  "sp.placing_x_tap_x": {
   "mr": "{v} ठेवत आहे · {v2} वर टॅप करा",
   "note": "{v2} is English '360'/'photo' — map 'photo' to फोटो"
@@ -3665,6 +4179,9 @@
  },
  "sp.readings_web": {
   "mr": "वेबवरून रीडिंग ✓ "
+ },
+ "sp.readings_web_x": {
+  "mr": "वेबवरून रीडिंग: {why}"
  },
  "sp.ref_x_x": {
   "mr": "संदर्भ {v} × {v2}"
@@ -3718,6 +4235,12 @@
  "sp.size_from": {
   "mr": "आकार इथून"
  },
+ "sp.squared_laser_add_surface": {
+  "mr": "लेझर मापावर सरळ केले. या पृष्ठभागावर जे आहे ते जोडा; बदलण्यासाठी मार्कवर टॅप करा. "
+ },
+ "sp.squared_laser_add_wall": {
+  "mr": "लेझर मापावर सरळ केले. या भिंतीवर जे आहे ते जोडा; बदलण्यासाठी मार्कवर टॅप करा. "
+ },
  "sp.states": {
   "mr": "स्थिती"
  },
@@ -3763,6 +4286,9 @@
   "mr": "",
   "note": "fragment: English article 'the ' — empty in Marathi"
  },
+ "sp.the_x_reference": {
+  "mr": "{s} संदर्भ"
+ },
  "sp.this_360": {
   "mr": "हा 360"
  },
@@ -3781,11 +4307,27 @@
   "mr": " वर",
   "note": "fragment"
  },
+ "sp.total_derived": {
+  "mr": "एकूण · हिशोबाने"
+ },
+ "sp.total_laser": {
+  "mr": "एकूण · लेझर"
+ },
+ "sp.total_laser_x": {
+  "mr": "एकूण · लेझर · Σ {sum}"
+ },
+ "sp.total_x": {
+  "mr": "एकूण · Σ {sum}"
+ },
  "sp.trades": {
   "mr": "ट्रेड: "
  },
  "sp.types": {
   "mr": "प्रकार"
+ },
+ "sp.unlock_all_x": {
+  "mr": "सर्व {name} अनलॉक करा",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): sp.x_all_x as a whole key, when g.all"
  },
  "sp.unlocked_tap_lock": {
   "mr": "अनलॉक — लॉकसाठी टॅप करा"
@@ -3793,12 +4335,30 @@
  "sp.up_face_x_mm": {
   "mr": "↕ बाजूवर उभे · {n} mm"
  },
+ "sp.vertical": {
+  "mr": "उभी"
+ },
+ "sp.web_readings_not_yet": {
+  "mr": "वेबवरचे रीडिंग अजून उपलब्ध नाहीत"
+ },
  "sp.x_6_surfaces_bounded": {
   "mr": "6 पैकी {done} पृष्ठभाग आखले. सेव्हसाठी सहाही लागतात; मार्क आणि रीडिंगमुळे ते कधीच अडत नाही."
  },
  "sp.x_all_x": {
   "mr": "{v} सर्व {name}",
   "note": "{v} is an English word chosen in code (Lock/Unlock, left/right, on/off…) — map it to Marathi first"
+ },
+ "sp.x_chain": {
+  "mr": "{code} साखळी"
+ },
+ "sp.x_changed_web": {
+  "mr": "{code} वेबवर बदलले"
+ },
+ "sp.x_changed_web_by_x": {
+  "mr": "{code} वेबवर {by} यांनी बदलले"
+ },
+ "sp.x_changed_web_mark_deleted": {
+  "mr": "इथे मार्क हटवल्यानंतर {code} वेबवर बदलले"
  },
  "sp.x_corner": {
   "mr": "{v} कोपऱ्यात",
@@ -3822,6 +4382,10 @@
   "mr": "{n} आयटम काढले",
   "note": "{pl} dropped (bare 's' suffix; Marathi noun same for 1 and many)"
  },
+ "sp.x_its_list": {
+  "mr": "{surface} · यादी",
+  "note": "L2 finalised (28 Oct 2026): 'त्याची' is wrong for a wall or the floor (feminine); the surface name before it already says whose"
+ },
  "sp.x_kind": {
   "mr": "{v} · प्रकार"
  },
@@ -3844,6 +4408,9 @@
  "sp.x_outside_face_more": {
   "mr": "{code} बाजूच्या बाहेर आहे: बदला किंवा हटवा (+{n} आणखी)"
  },
+ "sp.x_points_tail": {
+  "mr": "{n} पॉइंट · "
+ },
  "sp.x_reference": {
   "mr": "{s} संदर्भ"
  },
@@ -3854,6 +4421,9 @@
  "sp.x_set_four_lines_2": {
   "mr": "{T} · चार रेषा सेट करा",
   "note": "review: त्याच्या dropped — {T} is a surface of either gender"
+ },
+ "sp.x_survey_prep": {
+  "mr": "{title} · सर्व्हे तयारी"
  },
  "sp.x_survey_prep_laser": {
   "mr": "सर्व्हे तयारीतून {V} · लेझर मापे"
@@ -4061,6 +4631,14 @@
  },
  "t53.in_this_room": {
   "mr": "या खोलीत"
+ },
+ "t53.no_x_marks_face": {
+  "mr": "या बाजूवर {short} मार्क नाहीत",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): t53.no_x_marks_x as a whole key, when !roomList"
+ },
+ "t53.no_x_marks_room": {
+  "mr": "या खोलीत {short} मार्क नाहीत",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): t53.no_x_marks_x as a whole key, when roomList"
  },
  "t53.no_x_marks_x": {
   "mr": "{v} {short} मार्क नाहीत"
@@ -5015,11 +5593,17 @@
  "wish.not_asked": {
   "mr": "मागितलेले नाही"
  },
+ "wish.not_on_s5_yet": {
+  "mr": "अजून S5 वर नाही"
+ },
  "wish.not_read_yet": {
   "mr": "अजून वाचलेले नाही"
  },
  "wish.not_s5_yet_project": {
   "mr": "अजून S5 वर नाही — हा प्रोजेक्ट पाठवलेला नाही"
+ },
+ "wish.not_sent_s5": {
+  "mr": "S5 ला पाठवले नाही"
  },
  "wish.nothing_saved_yet": {
   "mr": "अजून काहीही सेव्ह नाही"
@@ -5027,6 +5611,9 @@
  "wish.of": {
   "mr": " पैकी ",
   "note": "fragment — Marathi order is '{total} पैकी {n}'; make it a template"
+ },
+ "wish.on_s5_since_x": {
+  "mr": "{dt} IST पासून S5 वर"
  },
  "wish.one_line_what_exactly": {
   "mr": "एक ओळ — नेमके काय"
@@ -5036,6 +5623,12 @@
  },
  "wish.quote_stage_x": {
   "mr": "कोटेशन टप्पा · {v}"
+ },
+ "wish.read_x": {
+  "mr": " · {hm} ला वाचले"
+ },
+ "wish.s5_newer_list_replaced": {
+  "mr": "S5 कडे नवी यादी होती; तुमची यादी बदलली गेली, जे राहिले ते पुन्हा भरा"
  },
  "wish.safety_door_aluminium_main": {
   "mr": "सेफ्टी डोअर, ॲल्युमिनियम मुख्य दरवाजा, UPVC"
@@ -5051,6 +5644,9 @@
  },
  "wish.vendor_x": {
   "mr": "व्हेंडर {vendor}"
+ },
+ "wish.water_drain_points_taps": {
+  "mr": "पाणी व ड्रेनचे पॉइंट, नळ, गीझर, बाथरूम नूतनीकरणाबाहेरील सॅनिटरीवेअर"
  },
  "wish.what_client_wants_after": {
   "mr": "सर्व्हेनंतर ग्राहकाला काय हवे — व्हेंडर त्यावर कोटेशन देतो"
@@ -5069,6 +5665,25 @@
  },
  "wish.x_but_not_list": {
   "mr": "{pl} पण यादीत नाहीत — टिक करायचे?"
+ },
+ "wish.x_not_any_many": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? ",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): wish.x_x_not_any as a whole key, when u.n!==1"
+ },
+ "wish.x_not_any_many_svc": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? {svc}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): wish.x_x_not_any_svc as a whole key, when u.n!==1"
+ },
+ "wish.x_not_any_one": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत नाही — टिक करायचे? ",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): wish.x_x_not_any as a whole key, when u.n===1"
+ },
+ "wish.x_not_any_one_svc": {
+  "mr": "{pl} कोणत्याही टिक केलेल्या ओळीत नाही — टिक करायचे? {svc}",
+  "note": "card61c group 2, approved with v61c (28 Oct 2026): wish.x_x_not_any_svc as a whole key, when u.n===1"
+ },
+ "wish.x_not_set_s5_yet": {
+  "mr": "{stage} · अजून S5 वर सेट नाही"
  },
  "wish.x_scope": {
   "mr": "{scope} स्कोपमध्ये"

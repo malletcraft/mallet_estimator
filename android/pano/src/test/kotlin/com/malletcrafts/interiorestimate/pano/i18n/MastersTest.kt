@@ -50,7 +50,7 @@ class MastersTest {
         "Nos" to "a unit (latin-ok.txt)",
         "Top" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
         "Bottom" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
-        WishList.SERVICES.first { it.id == "plumbing" }.detail to "the plumbing service's description needs a key: slice 4",
+        WishList.SERVICES.first { it.id == "plumbing" }.detail to "the plumbing service's description: its key landed in L2 (wish.water_drain_points_taps); its masters.tsv row, and this entry's removal, are Marathi slice 4 (port M4)",
     )
 
     private val devanagari = Regex("[\\u0900-\\u097F]")
