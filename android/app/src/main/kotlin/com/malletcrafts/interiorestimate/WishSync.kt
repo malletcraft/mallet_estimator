@@ -125,6 +125,18 @@ object WishSync {
         return WishList.resolve(key) { f -> p.getString(f, null) }
     }
 
+    /**
+     * The ERP id [project]'s quote stage is read under (WishList.stageKey): its own, or -- for a
+     * phone-only project a screen still holds after the sync re-keyed its list -- the id that list
+     * moved to; null when the project is only on this phone.
+     */
+    fun stageKey(context: Context, project: Catalogue.Project): String? {
+        val p = prefs(context)
+        return WishList.stageKey(WishList.keyOf(project.serverId, project.client, project.title)) { f ->
+            p.getString(f, null)
+        }
+    }
+
     /** The list kept under [key] (or where it moved), or null when this phone has none. */
     fun load(context: Context, key: String): WishList.Local? =
         if (key.isBlank()) null else decode(prefs(context).getString(resolve(context, key), null))

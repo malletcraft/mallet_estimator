@@ -47,7 +47,7 @@ object QuoteStage {
     /**
      * What the phone keeps for one project after reading S5's list. [listed] false means the
      * caller's list did not carry the project (never uploaded, or not visible to this person);
-     * [at] is S5's quote_stage_at ("" when never set), [readAt] when THIS phone read it (UTC ISO).
+     * [at] is S5's quote_stage_at ("" when never set), [readAt] when THIS phone's read of it went out (UTC ISO).
      */
     data class Cache(
         val listed: Boolean,
@@ -119,6 +119,22 @@ object QuoteStage {
             out[p.project] = Cache(listed = true, stage = p.stage, by = p.by, at = p.at, readAt = readAt)
         return out
     }
+
+    /**
+     * The writes of one read of S5's list, as a COMPARE-AND-SET PER ID: [seen] is every id's copy as
+     * it was stored when the GET went out, [current] as it is stored now (an id absent from a map was
+     * not cached then). Only an id nothing wrote in between takes the read; an id written meanwhile
+     * keeps what is stored, since that is newer than this GET -- an answer that named the stage
+     * ([named]: the wish list's `final` 409 after an Approve) or a read that went out later and
+     * landed first. Without it a project-open read that went out before the Approve could land after
+     * the 409 and put Revisions back, unlocking the list under S5's "…; not saved" (slice W fix
+     * review). [readAt] is when the GET went OUT, so a slow answer is not dated as fresh. The same
+     * rule as WishList.afterGet for the list itself.
+     */
+    fun fromList(
+        listed: List<Listed>, known: Collection<String>, readAt: String,
+        seen: Map<String, Cache>, current: Map<String, Cache>,
+    ): Map<String, Cache> = fromList(listed, known, readAt).filter { (id, _) -> current[id] == seen[id] }
 
     /**
      * The cache after an answer of S5's that NAMED the project's stage without who set it or when:

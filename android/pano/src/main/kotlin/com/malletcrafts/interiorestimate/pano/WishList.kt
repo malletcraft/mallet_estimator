@@ -113,7 +113,8 @@ object WishList {
      * left ([left]), as well as by an edit and by any later answer to a PUT. Without that, a list
      * that can never be edited again would carry "…; not saved" under "Approved — changes go
      * through change requests" for ever (port 61c critic X6). A refusal that lands while the list
-     * is not open is shown on the next visit and goes when that visit ends.
+     * is not open is shown on the next visit and goes when that visit ends -- drawn only while the
+     * stage it refused for still holds ([statusLine]), so it never contradicts the stage line.
      *
      * [statusSeen] is true once a visit has drawn [status] ([shown]). A visit can end without a
      * leave -- a rotation recreates the activity, the process is killed after Home -- and then the
@@ -160,6 +161,16 @@ object WishList {
     /** The key a list is really kept under: a moved local key follows its forward ([lookup] reads one). */
     fun resolve(key: String, lookup: (String) -> String?): String =
         if (isLocal(key)) lookup(forwardKey(key))?.trim()?.ifBlank { null } ?: key else key
+
+    /**
+     * The ERP id the quote stage of the list kept under [key] is read under, or null when that list
+     * is only on this phone: [key] itself when it is an ERP id, else the id a moved local list went
+     * to ([resolve]). So a screen still holding the phone-only project after the sync that re-keyed
+     * its list reads the stage S5 named under that id -- the lock after a `final` 409 included --
+     * for the Wish list, its chip and the project line alike (slice W fix review), not "not on S5".
+     */
+    fun stageKey(key: String, lookup: (String) -> String?): String? =
+        resolve(key, lookup).trim().takeUnless { it.isEmpty() || isLocal(it) }
 
     /** Names compared as the catalogue compares them (Catalogue.keyOf): trimmed, case-blind, runs of space or _ as one. */
     fun norm(s: String): String = s.trim().lowercase().replace(Regex("[\\s_]+"), " ")
@@ -412,20 +423,32 @@ object WishList {
     /**
      * S5's stage refusal ([Local.status]) as the status line under [shown], the banners already
      * drawn; null when there is none, or when a banner already says exactly that (the Survey 409
-     * repeats FINISH_SURVEY word for word). Words S5 sends that are a key's English are drawn from
-     * that key, as the prototype's text match draws its refused line (L57): the `final` 409 is
-     * refuse.stage.approved_final, the Survey one refuse.wish.finish_survey_first_stage. Any
-     * other words are S5's, shown as sent.
+     * repeats FINISH_SURVEY word for word -- in English, which is how the banner draws it until M4
+     * keys it, so the Marathi line is not drawn under it either). Words S5 sends that are a key's
+     * English are drawn from that key, as the prototype's text match draws its refused line (L57):
+     * the `final` 409 is refuse.stage.approved_final, the Survey one refuse.wish.finish_survey_first_stage.
+     * Any other words are S5's, shown as sent.
+     *
+     * A REFUSAL FOR THE STAGE IS DRAWN ONLY WHILE THAT STAGE HOLDS ([stageIdx], the phone's one copy
+     * of the stage): the `final` words at Client approved, the Survey words at Survey, and either
+     * while the stage is unread (slice W fix review). The stored status outlives its cause -- a
+     * Survey 409 stays until a PUT's 200 or an edit, and the chip is hidden at Survey, so the line
+     * was only ever drawn after staff had moved the stage on, "Finish the survey first" over an
+     * editable list at Client wish list; and a D1 fix that takes a project back from Client approved
+     * would draw "…; not saved" over an editable list. Derived here, not cleared in storage: the
+     * words are S5's and stay as sent, and the stage decides only whether they are true now.
      */
-    fun statusLine(tx: Tx, l: Local?, shown: List<String>): String? {
+    fun statusLine(tx: Tx, l: Local?, shown: List<String>, stageIdx: Int?): String? {
         val words = l?.status?.trim().orEmpty()
         if (words.isEmpty()) return null
         val text = when (words) {
-            Tx.EN.refuse_stage_approved_final -> tx.refuse_stage_approved_final
-            Tx.EN.refuse_wish_finish_survey_first_stage -> tx.refuse_wish_finish_survey_first_stage
+            Tx.EN.refuse_stage_approved_final ->
+                tx.refuse_stage_approved_final.takeIf { stageIdx == null || stageIdx == APPROVED }
+            Tx.EN.refuse_wish_finish_survey_first_stage ->
+                tx.refuse_wish_finish_survey_first_stage.takeIf { stageIdx == null || stageIdx == 0 }
             else -> words
-        }
-        return text.takeIf { it !in shown }
+        } ?: return null
+        return text.takeIf { it !in shown && words !in shown }
     }
 
     /** The list is left (the visit ends): S5's status line goes with it; the note keeps its own rule. */

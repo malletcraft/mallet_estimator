@@ -1214,11 +1214,18 @@ private fun AppScreenBody(onLang: () -> Unit) {
             rooms, p.client, p.site, siteTypeOf(p.client, p.site),
         ) { r -> queue.any { it.room == r && it.projectTitle.equals(p.title, true) } }
 
+        // The ERP id the opened project's quote stage is read under (WishSync.stageKey): its own,
+        // or -- a phone-only project held across the sync that re-keyed its list (navProject is
+        // not re-read after a sync) -- the id that list moved to; null when it is only on this
+        // phone. Re-read on any write to the lists (wishTick), as the re-key is one.
+        val stageKey = remember(proj?.serverId, proj?.client, proj?.title, dataTick, wishTick) {
+            proj?.let { WishSync.stageKey(context, it) }
+        }
         // The opened project's quote stage as the phone last knew it -- QuoteStageSync's read of
         // S5's list, or a wish-list answer that named it since (QuoteStageSync.named) -- for the
-        // wish list and for its chip alike, so the two never read the stage differently.
-        val wishCache = remember(proj?.serverId, proj?.synced, dataTick, quoteTick) {
-            if (proj != null && proj.synced) QuoteStageSync.cached(context, proj.serverId) else null
+        // wish list, its chip and the project line alike, so none reads the stage differently.
+        val wishCache = remember(stageKey, dataTick, quoteTick) {
+            stageKey?.let { QuoteStageSync.cached(context, it) }
         }
 
         // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
@@ -1228,11 +1235,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
             WishListScreen(
                 project = proj,
                 rooms = gridRooms(proj),
-                quote = remember(proj.serverId, dataTick, quoteTick, istDay) {
-                    QuoteStageSync.lineFor(context, proj)
+                quote = remember(stageKey, dataTick, quoteTick, istDay) {
+                    QuoteStageSync.lineFor(context, stageKey)
                 },
                 stageIdx = WishList.stageIndex(wishCache),
-                notOnS5 = WishList.notOnS5(proj.synced, wishCache),
+                notOnS5 = WishList.notOnS5(stageKey != null, wishCache),
                 tick = wishTick,
                 warned = wishWarned,
                 onWarn = { wishWarned = true },
@@ -1391,8 +1398,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             // (quoteTick: this screen's read or any sync), after a
                             // reload (dataTick), and when the IST day turns, since
                             // the read time shows only on a copy from before today.
-                            quote = remember(proj.serverId, dataTick, quoteTick, istDay) {
-                                QuoteStageSync.lineFor(context, proj)
+                            quote = remember(stageKey, dataTick, quoteTick, istDay) {
+                                QuoteStageSync.lineFor(context, stageKey)
                             },
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).

@@ -67,10 +67,11 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * ([warned], held by the caller for this visit) and still saves. The Vendor field, and the head's
  * "— the vendor quotes against it", show only at Vendor quoted and Revisions or with the stage
  * unread (WishList.vendorUi). S5's own words for a refused save -- Approved, or Survey -- are the
- * visit's status line under the banners (WishList.statusLine); MainActivity clears them when the
- * list is left, and this screen marks them drawn so the next visit clears them if it never was
- * (WishList.shown, WishList.entered). At Client approved no REPLACED or NOT_SENT note shows
- * (WishList.noteLine). Every edit goes straight to WishSync on this phone.
+ * visit's status line under the banners while that stage holds (WishList.statusLine);
+ * MainActivity clears them when the list is left, and this screen marks them drawn so the next
+ * visit clears them if it never was (WishList.shown, WishList.entered). At Client approved no
+ * REPLACED or NOT_SENT note shows (WishList.noteLine). Every edit goes straight to WishSync on
+ * this phone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -101,6 +102,8 @@ fun WishListScreen(
     // S5's status line is on screen: marked drawn, so a later visit that begins with it still
     // stored -- this one ended without a leave, by a rotation or the process killed -- starts
     // without it (WishList.entered), while a refusal landing with the list closed shows once.
+    // One this visit does not draw, because the stage it refused for no longer holds
+    // (WishList.statusLine), is marked too: it is no longer true, so the next visit drops it.
     val unseen = list?.let { it.status.isNotBlank() && !it.statusSeen } == true
     LaunchedEffect(key, unseen) {
         if (unseen) WishSync.shown(context, key)?.let { list = it }
@@ -153,8 +156,9 @@ fun WishListScreen(
             WishList.noteLine(list, stageIdx)?.let { Banner(it) }
             val banners = WishList.banners(tx, stageIdx, warned, notOnS5)
             banners.forEach { Banner(it) }
-            // S5's answer to a refused save, in its words (v61c.1's [data-wish409] status line).
-            WishList.statusLine(tx, list, banners)?.let { StatusLine(it) }
+            // S5's answer to a refused save, in its words (v61c.1's [data-wish409] status line),
+            // only while the stage it refused for still holds (WishList.statusLine).
+            WishList.statusLine(tx, list, banners, stageIdx)?.let { StatusLine(it) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                 itemsIndexed(WishList.SERVICES, key = { _, s -> s.id }) { i, s ->
                     WishRow(
@@ -248,9 +252,13 @@ private fun WishRow(
                     }
                 }
                 if (landscape) {
+                    // Two equal columns whether or not the Vendor field shows: the prototype's grid
+                    // is 1fr 1fr in landscape and only hides the Vendor cell at Client wish list
+                    // (index61c1.html:938, :1256), so the Note keeps the first half there.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NoteField(row.note, onNote, Modifier.weight(1f))
                         if (vendorUi) VendorField(row.vendor, onVendor, Modifier.weight(1f))
+                        else Spacer(Modifier.weight(1f))
                     }
                 } else {
                     NoteField(row.note, onNote, Modifier.fillMaxWidth())
