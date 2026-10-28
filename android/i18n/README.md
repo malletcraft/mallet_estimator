@@ -31,7 +31,7 @@ result banner and the counts) is the same: keyed English, identical on screen.
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The prototype's tables, 1,555 keys each (v61b). Byte copies, never reformatted. | `i18nImport` |
+| `strings-en.json`, `strings-mr.json` | The prototype's tables, 1,607 keys each (v61c.1). Byte copies, never reformatted. | `i18nImport` |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

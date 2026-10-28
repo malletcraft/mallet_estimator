@@ -68,6 +68,17 @@
    "aria-label"
   ]
  },
+ "album.aria.cr_kind_x": {
+  "en": "Change request · {kind}: {name}",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the chapter's change-request chip, read aloud with its kind (the chip shows the kind only: review 12; album.aria.cr_x is v61b's)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "kind": "esc(c.cr.kind)",
+   "name": "esc(name)"
+  }
+ },
  "album.aria.cr_x": {
   "en": "Change request: {name}",
   "where": [
@@ -252,10 +263,94 @@
   ],
   "kind": "static"
  },
+ "album.cr_answer": {
+  "en": "Record the client's answer",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the PM's button on a live change request, the sheet's title and its primary button"
+  ],
+  "kind": "static"
+ },
+ "album.cr_answer_note": {
+  "en": "If approved, an add puts the work into the approved scope, a remove takes it out and a change leaves the scope as it is; declined or withdrawn changes nothing",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the answer sheet's note (§13.5: what each answer does to the approved scope)"
+  ],
+  "kind": "static"
+ },
  "album.cr_clear": {
   "en": "Clear change request",
   "where": [
    "v61bbuild/integrate61b.py -> album61b (scope baseline + change requests)"
+  ],
+  "kind": "static"
+ },
+ "album.cr_client_at": {
+  "en": "Date the client answered",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the answer sheet's date field (client_at)"
+  ],
+  "kind": "static"
+ },
+ "album.cr_how": {
+  "en": "How the client answered",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the answer sheet's note field label (short enough to show whole: v61c review 12)"
+  ],
+  "kind": "static"
+ },
+ "album.cr_how_eg": {
+  "en": "a call, WhatsApp, in person",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the helper line under the answer sheet's How field (its examples, moved out of the label: review 12)"
+  ],
+  "kind": "static"
+ },
+ "album.cr_kind_add_sub": {
+  "en": "a work outside the approved scope comes in",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the raise sheet's add row"
+  ],
+  "kind": "static"
+ },
+ "album.cr_kind_change_sub": {
+  "en": "a work in the approved scope changes",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the raise sheet's change row"
+  ],
+  "kind": "static"
+ },
+ "album.cr_kind_remove_sub": {
+  "en": "a work in the approved scope comes out",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the raise sheet's remove row"
+  ],
+  "kind": "static"
+ },
+ "album.cr_note_client": {
+  "en": "A note the client reads",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · the raise sheet's note field label"
+  ],
+  "kind": "static"
+ },
+ "album.cr_out_approved": {
+  "en": "Change approved by client",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · outcome 'approved': the sheet's choice and the work log's decided entry (\"Change approved by client · 27 Oct · add\")"
+  ],
+  "kind": "static"
+ },
+ "album.cr_out_declined": {
+  "en": "Change declined by client",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · outcome 'declined': the sheet's choice and the work log's decided entry"
+  ],
+  "kind": "static"
+ },
+ "album.cr_out_withdrawn": {
+  "en": "Change request withdrawn",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · outcome 'withdrawn': the sheet's choice and the work log's decided entry"
   ],
   "kind": "static"
  },
@@ -1084,6 +1179,13 @@
   "where": "v53build/app.js:428 · h",
   "kind": "static"
  },
+ "app.execution": {
+  "en": "Execution",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine's head at Client approved: the project line, the list row, the album header, the Wish list bar"
+  ],
+  "kind": "static"
+ },
  "app.export_project": {
   "en": "Export project…",
   "where": "index.html@833131 (v53build/app.js) · rows",
@@ -1483,6 +1585,13 @@
  "app.no_stage_set_tap": {
   "en": "no stage set — tap to choose",
   "where": "v53build/app.js:457 · shot",
+  "kind": "static"
+ },
+ "app.no_work_started": {
+  "en": "no work started yet",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine's only part at Client approved while no work is In progress, Done or On hold (§13.4)"
+  ],
   "kind": "static"
  },
  "app.no_work_tagged": {
@@ -1981,9 +2090,10 @@
   ]
  },
  "app.stg_locked_quote": {
-  "en": " · locked until the quote is Estimated",
+  "en": " · locked until the client approves the estimate",
   "where": [
-   "v57build/integrate57.py → app.js · captureScreen STG row, in the quote journey (57 fix 9)"
+   "v57build/integrate57.py → app.js · captureScreen STG row, in the quote journey (57 fix 9)",
+   "v61cbuild/integrate61c.py -> SPEC61c §6.3 (value rewritten)"
   ],
   "kind": "static"
  },
@@ -2250,6 +2360,26 @@
    "read": "sum.read"
   }
  },
+ "app.x_abandoned": {
+  "en": "{n} abandoned",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine's part at Client approved when nothing is in progress, done or on hold but a work was abandoned (review 4: never \"no work started yet\" then); the word of album.st_abandoned"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "abandoned.length"
+  }
+ },
+ "app.x_done": {
+  "en": "{n} done",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine part"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "done.length"
+  }
+ },
  "app.x_face": {
   "en": "{code} on this face",
   "where": "v53build/app.js:581 · job",
@@ -2272,6 +2402,16 @@
   "kind": "template",
   "placeholders": {
    "r": "r"
+  }
+ },
+ "app.x_in_progress": {
+  "en": "{n} in progress",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine part"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "inProgress.length"
   }
  },
  "app.x_laser_sizes": {
@@ -2309,6 +2449,16 @@
   "flags": [
    "plural-by-suffix"
   ]
+ },
+ "app.x_on_hold": {
+  "en": "{n} on hold",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · projectLine part (the same word as album.st_on_hold)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "onHold.length"
+  }
  },
  "app.x_over_x": {
   "en": "{pl} over {pl2}",
@@ -3669,6 +3819,27 @@
  "common.working": {
   "en": "Working…",
   "where": "v53build/app.js:271 · body",
+  "kind": "static"
+ },
+ "crkind.add": {
+  "en": "add",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · cr_raise value 'add': a work outside the approved scope"
+  ],
+  "kind": "static"
+ },
+ "crkind.change": {
+  "en": "change",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · cr_raise value 'change': a work in the approved scope changes"
+  ],
+  "kind": "static"
+ },
+ "crkind.remove": {
+  "en": "remove",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · cr_raise value 'remove': a work in the approved scope"
+  ],
   "kind": "static"
  },
  "date.month.1": {
@@ -6386,6 +6557,13 @@
   "where": "v54build/bundle54.js:33 · PARTS",
   "kind": "static"
  },
+ "phase.approve_estimate": {
+  "en": "Approve the estimate ▸",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the Revisions button, which now opens the scope sheet (unkeyed in v61b)"
+  ],
+  "kind": "static"
+ },
  "phase.approved_chip": {
   "en": "Approved",
   "where": [
@@ -6472,6 +6650,13 @@
   "where": "v54build/phase54.js:32 · PHASES",
   "kind": "static"
  },
+ "phase.band.rev": {
+  "en": "iterate the estimate · marks and packs move · nothing new is surveyed",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · PHASES[4].band, keyed whole like phase.band.estimation"
+  ],
+  "kind": "static"
+ },
  "phase.band.survey": {
   "en": "capture · bound · mark what is there · readings",
   "where": "v54build/phase54.js:26 · PHASES",
@@ -6522,6 +6707,13 @@
   "where": "v54build/phase54.js:31 · PHASES",
   "kind": "static"
  },
+ "phase.in_revision": {
+  "en": "IN REVISION",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the Revisions panel label (unkeyed in v61b)"
+  ],
+  "kind": "static"
+ },
  "phase.keep_x": {
   "en": "Keep {name}",
   "where": "v54build/phase54.js:147 · to",
@@ -6549,6 +6741,13 @@
    "fragment"
   ]
  },
+ "phase.open_client_vendors": {
+  "en": "open for the client and vendors",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the Revisions panel's last part, after ' · ' (the composite matcher translates part by part)"
+  ],
+  "kind": "static"
+ },
  "phase.phase_not_read_yet": {
   "en": "Phase not read yet — S5 decides when online",
   "where": "v54build/phase54.js:34 · UNREAD",
@@ -6567,10 +6766,112 @@
    "band": "x.band"
   }
  },
+ "phase.rev_does": {
+  "en": "Iterate the estimate with the client and vendors",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · PHASES[4].does"
+  ],
+  "kind": "static"
+ },
+ "phase.rev_long": {
+  "en": "Revisions: the designer, client and vendors iterate on the estimate — marks and vendor packs change; nothing new is surveyed",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · PHASES[4].long, the does-line's title tooltip"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_approved": {
+  "en": "Approved scope",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the view-mode title; S5 /projects' legend at Client approved"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_caps": {
+  "en": "APPROVED SCOPE",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the quote view's row label"
+  ],
+  "kind": "static"
+ },
  "phase.scope_estimate": {
   "en": "Scope for estimate ⇪",
   "where": "v54build/phase54.js:153 · hh",
   "kind": "static"
+ },
+ "phase.scope_move_approved": {
+  "en": "Move to Client approved",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the approve-mode primary button; S5 /projects' Move to <next> for this stage"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_none": {
+  "en": "none recorded",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the quote view's row with no baseline"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_note": {
+  "en": "Tick every work the client is approving: Move to Client approved sends them as the baseline. Approval is final — after it the scope changes only through change requests.",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the scope sheet's note in approve mode; S5 /projects' note verbatim (scopeHtml, 457cf98: approval is final -- v61c review 9)"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_record": {
+  "en": "Record the approved scope",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the quote view's button and the record-mode primary button; S5 /projects verbatim"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_record_note": {
+  "en": "Approved before a scope was recorded: tick the works the client approved and Record the approved scope. After that the scope changes only through change requests.",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the scope sheet's note in record mode; S5 /projects scopeHtml verbatim (457cf98 -- review 9)"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_since_x": {
+  "en": "the baseline since {hm} — approval is final: the scope changes only through a change request (add, remove or change a work) that the client answers",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the view-mode note; S5 /projects verbatim (scopeHtml, 457cf98 -- v61c review 9)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "hm": "A6.whenOf(A6.scopeAt(p))"
+  }
+ },
+ "phase.scope_ticked_x": {
+  "en": "{n} of {m} works ticked",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the scope sheet's count line"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "S.scope61c.ticks.length",
+   "m": "ALB60.WORKS.length"
+  }
+ },
+ "phase.scope_title": {
+  "en": "Works in the approved estimate",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the scope sheet's title (approve and record); S5 /projects' legend verbatim"
+  ],
+  "kind": "static"
+ },
+ "phase.scope_works_x": {
+  "en": "{n} of {m} works",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the quote view's row figure"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "sc.length",
+   "m": "A6.WORKS.length"
+  }
  },
  "phase.survey_coverage": {
   "en": "SURVEY COVERAGE",
@@ -6863,6 +7164,13 @@
   ],
   "kind": "static"
  },
+ "refuse.album.client_at_day": {
+  "en": "client_at must be the date the client answered, as YYYY-MM-DD",
+  "where": [
+   "v61cbuild/integrate61c.py -> album61c (SPEC61c §13: change-request kind, the client's answer) · S5's 400 verbatim (asis.js, cr_clear approved / declined): the answer sheet refuses a date that is not a day, and stays open (review 11)"
+  ],
+  "kind": "static"
+ },
  "refuse.export.drawing_not_available": {
   "en": "Drawing not available",
   "where": "v53build/export53.js:349 · dd",
@@ -7062,6 +7370,13 @@
   "where": "v54build/phase54.js:164 · ph",
   "kind": "static"
  },
+ "refuse.readonly.wishlist_approved": {
+  "en": "Approved — changes go through change requests",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 / wish (v61c.1) · the Wish list's read-only banner at Client approved: S5 asis.js APPROVED_FINAL verbatim (its 409 adds \"; not saved\", which is refuse.stage.approved_final, shown when a save is refused there); the Marathi is refuse.stage.approved_final's without its \"; not saved\" part"
+  ],
+  "kind": "static"
+ },
  "refuse.sp.chain_needs_two_different": {
   "en": "A chain needs two different points",
   "where": "v53build/sp.js:672 · a",
@@ -7152,6 +7467,80 @@
   "placeholders": {
    "s": "NAME[s]"
   }
+ },
+ "refuse.stage.approved_final": {
+  "en": "Approved — changes go through change requests; not saved",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5's 409 on any move FROM Client approved, verbatim (asis.js APPROVED_FINAL + '; not saved'; §13.5: approval is final -- v61c review 10)"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.changed": {
+  "en": "Changed meanwhile — not saved",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the same 409 with no name (avoids S5's unkeyed \"somebody\")"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.changed_x": {
+  "en": "Changed by {by} at {hm} — not saved",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · the stale-base 409, built from the reply's fields as /projects builds it ({by} is a person's name: data, passed through)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "by": "r.by",
+   "hm": "hm(r.at)"
+  }
+ },
+ "refuse.stage.no_answer": {
+  "en": "No answer to the save — showing the stage as it is now",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5 /projects' no-answer path verbatim; test61c.s5Mode('noanswer')"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.offline": {
+  "en": "Offline — the quote stage moves only when S5 answers",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · phone only: a guarded stage move is an online act, with no outbox; test61c.s5Mode('offline')"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.pm_approves": {
+  "en": "Only the Project Manager approves the estimate",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5's 403 PM_APPROVES (the stage PUT to Client approved); the Revisions panel's line in place of Approve for anyone else"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.pm_scope": {
+  "en": "Only the Project Manager records the approved scope",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5's 403 PM_SCOPE (PUT …/album/scope); the APPROVED SCOPE row's line in place of Record for anyone else"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.scope_changed": {
+  "en": "The scope was changed meanwhile; not saved — it now shows what is stored",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5 80a9ad9's 409 for a stale scope_base (SPEC61c D1); test61c.s5Mode('scopestale')"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.scope_missing": {
+  "en": "Tick the works in the approved estimate before moving to Client approved",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5 asis.js SCOPE_MISSING_MSG verbatim: an empty list (not sent) and the 409 scope_missing"
+  ],
+  "kind": "static"
+ },
+ "refuse.stage.staff_only": {
+  "en": "Only MCFT staff can set the quote stage",
+  "where": [
+   "v61cbuild/integrate61c.py -> P54 (project line, quote mover, scope sheet) · S5's 403; the Marathi omits MCFT (latin-ok.txt); test61c.s5Mode('forbidden')"
+  ],
+  "kind": "static"
  },
  "refuse.t53.x_x_cannot_go": {
   "en": "{a} {name} cannot go on {v}",
@@ -9923,10 +10312,11 @@
   "kind": "static"
  },
  "tour.phases.7.body": {
-  "en": "Estimation is the hand-off: nothing new is marked and the wish list is read-only. Once the quote is Estimated this strip folds into a ✓ chip, and from then on the work stage (PROJECT IS AT) moves the project.",
+  "en": "Estimation is the hand-off: nothing new is marked and the wish list is read-only. Once the client approves the estimate this strip folds into the project's one line, and from then on the Album's works carry the project.",
   "where": [
    "v55build/tour55-flows.js:109 · steps",
-   "v56build/integrate56.py:191 → page_patch PH7_NEW (v56 text)"
+   "v56build/integrate56.py:191 → page_patch PH7_NEW (v56 text)",
+   "v61cbuild/integrate61c.py -> SPEC61c §6.3 (value rewritten)"
   ],
   "kind": "static"
  },
@@ -10208,16 +10598,18 @@
   "kind": "static"
  },
  "tour.vendor.12.body": {
-  "en": "The tour has opened the Guest Bedroom 360's details. In the quote journey its STG line is locked until the quote is Estimated; then the work stage takes over. Done puts everything back.",
+  "en": "The tour has opened the Guest Bedroom 360's details. In the quote journey its WORK line stays on the Quote journey until the client approves the estimate; then the photo is filed to a work. Done puts everything back.",
   "where": [
-   "v58build/integrate58.py → TOURS' CONTENT · flow vendor (step 12)"
+   "v58build/integrate58.py → TOURS' CONTENT · flow vendor (step 12)",
+   "v61cbuild/integrate61c.py -> SPEC61c §6.3 (value rewritten)"
   ],
   "kind": "static"
  },
  "tour.vendor.12.title": {
-  "en": "Photo stages wait for Estimated",
+  "en": "Photos are filed by work",
   "where": [
-   "v58build/integrate58.py → TOURS' CONTENT · flow vendor (step 12)"
+   "v58build/integrate58.py → TOURS' CONTENT · flow vendor (step 12)",
+   "v61cbuild/integrate61c.py -> SPEC61c §6.3 (value rewritten)"
   ],
   "kind": "static"
  },
@@ -11378,6 +11770,13 @@
   "flags": [
    "fragment"
   ]
+ },
+ "wish.changed_after_approval": {
+  "en": "Changing the wish list after approval — tell the vendor; a change to the approved scope goes through a change request",
+  "where": [
+   "v61cbuild/integrate61c.py -> wish (P29f) · the Wish list notice after a change at Client approved (review 16, pending Amit's ruling: SPEC61c §14)"
+  ],
+  "kind": "static"
  },
  "wish.changing_wish_list_after": {
   "en": "Changing the wish list after a vendor quoted — tell the vendor",

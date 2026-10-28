@@ -36,7 +36,6 @@ MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured
 SKU
 API
 URL	app.site_url
-STG	tour.vendor.12.body
 IST
 GB	sp.gb_guest_bedroom_survey
 

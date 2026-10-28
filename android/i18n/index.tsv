@@ -11,6 +11,7 @@ album.accepted_res	album_accepted_res	static	-
 album.after	album_after	static	-
 album.album	album_album	static	-
 album.aria.chapter_x	album_aria_chapter_x	template	n: String · name: String
+album.aria.cr_kind_x	album_aria_cr_kind_x	template	kind: String · name: String
 album.aria.cr_x	album_aria_cr_x	template	name: String
 album.aria.next_photo	album_aria_next_photo	static	-
 album.aria.nudge	album_aria_nudge	static	-
@@ -30,7 +31,19 @@ album.closed_cleaning	album_closed_cleaning	static	-
 album.closed_handover	album_closed_handover	static	-
 album.closes_cleaning	album_closes_cleaning	static	-
 album.closes_handover	album_closes_handover	static	-
+album.cr_answer	album_cr_answer	static	-
+album.cr_answer_note	album_cr_answer_note	static	-
 album.cr_clear	album_cr_clear	static	-
+album.cr_client_at	album_cr_client_at	static	-
+album.cr_how	album_cr_how	static	-
+album.cr_how_eg	album_cr_how_eg	static	-
+album.cr_kind_add_sub	album_cr_kind_add_sub	static	-
+album.cr_kind_change_sub	album_cr_kind_change_sub	static	-
+album.cr_kind_remove_sub	album_cr_kind_remove_sub	static	-
+album.cr_note_client	album_cr_note_client	static	-
+album.cr_out_approved	album_cr_out_approved	static	-
+album.cr_out_declined	album_cr_out_declined	static	-
+album.cr_out_withdrawn	album_cr_out_withdrawn	static	-
 album.cr_raise	album_cr_raise	static	-
 album.cr_raised_x	album_cr_raised_x	template	day: String
 album.done_reason_label	album_done_reason_label	static	-
@@ -146,6 +159,7 @@ app.ends	app_ends	static	-
 app.erp_id	app_erp_id	static	-
 app.every_photographed_room_current	app_every_photographed_room_current	static	-
 app.everything_phone_has_been	app_everything_phone_has_been	static	-
+app.execution	app_execution	static	-
 app.export_project	app_export_project	static	-
 app.fewer_details	app_fewer_details	static	-
 app.filed_at	app_filed_at	static	-
@@ -213,6 +227,7 @@ app.no_server_set	app_no_server_set	static	-
 app.no_stage	app_no_stage	static	-
 app.no_stage_2	app_no_stage_2	static	-
 app.no_stage_set_tap	app_no_stage_set_tap	static	-
+app.no_work_started	app_no_work_started	static	-
 app.no_work_tagged	app_no_work_tagged	static	-
 app.no_work_tagged_face	app_no_work_tagged_face	static	-
 app.none	app_none	static	-
@@ -334,13 +349,17 @@ app.x3_connected	app_x3_connected	static	-
 app.x3_not_connected	app_x3_not_connected	static	-
 app.x_6_bounded_x	app_x_6_bounded_x	template	done: String · marks: Int · read: String
 app.x_6_surfaces_bounded	app_x_6_surfaces_bounded	template	done: String · marks: String · read: String
+app.x_abandoned	app_x_abandoned	template	n: Int
+app.x_done	app_x_done	template	n: Int
 app.x_face	app_x_face	template	code: String
 app.x_has_not_synced	app_x_has_not_synced	template	kind: String
 app.x_has_photos	app_x_has_photos	template	r: String
+app.x_in_progress	app_x_in_progress	template	n: Int
 app.x_laser_sizes	app_x_laser_sizes	template	title: String
 app.x_master_job_type	app_x_master_job_type	template	length: Int
 app.x_more_x_job	app_x_more_x_job	template	hidden: String · job: String
 app.x_not_shot_stage	app_x_not_shot_stage	template	plN: Int
+app.x_on_hold	app_x_on_hold	template	n: Int
 app.x_over_x	app_x_over_x	template	plN: Int · pl2N: Int
 app.x_phone	app_x_phone	template	v: String
 app.x_server_so_new	app_x_server_so_new	template	kind: String
@@ -503,6 +522,9 @@ common.whole_project	common_whole_project	static	-
 common.wish_list	common_wish_list	static	-
 common.work	common_work	static	-
 common.working	common_working	static	-
+crkind.add	crkind_add	static	-
+crkind.change	crkind_change	static	-
+crkind.remove	crkind_remove	static	-
 date.month.1	date_month_1	static	-
 date.month.10	date_month_10	static	-
 date.month.11	date_month_11	static	-
@@ -829,6 +851,7 @@ noun.wished_mark.other	noun_wished_mark	noun-other	the plural form of noun.wishe
 part.bundle_name	part_bundle_name	static	-
 part.plumbing	part_plumbing	static	-
 part.waterproofing	part_waterproofing	static	-
+phase.approve_estimate	phase_approve_estimate	static	-
 phase.approved_chip	phase_approved_chip	static	-
 phase.aria.approved_fold	phase_aria_approved_fold	static	-
 phase.aria.move_phase_back	phase_aria_move_phase_back	static	-
@@ -838,6 +861,7 @@ phase.aria.quote_journey_done	phase_aria_quote_journey_done	static	-
 phase.aria.quote_stage_estimated_four	phase_aria_quote_stage_estimated_four	static	-
 phase.back_x_quote_stage	phase_back_x_quote_stage	template	name: String · quote: String · quote2: String
 phase.band.estimation	phase_band_estimation	static	-
+phase.band.rev	phase_band_rev	static	-
 phase.band.survey	phase_band_survey	static	-
 phase.band.vendor	phase_band_vendor	static	-
 phase.band.wish	phase_band_wish	static	-
@@ -848,13 +872,28 @@ phase.every_room_scope_shot	phase_every_room_scope_shot	static	-
 phase.goes_estimation	phase_goes_estimation	static	-
 phase.hand_off_estimate_nothing	phase_hand_off_estimate_nothing	static	-
 phase.hand_off_what_goes	phase_hand_off_what_goes	static	-
+phase.in_revision	phase_in_revision	static	-
 phase.keep_x	phase_keep_x	template	name: String
 phase.move_back	phase_move_back	static	-
 phase.no_wished_marks_yet	phase_no_wished_marks_yet	static	-
 phase.now	phase_now	static	-
+phase.open_client_vendors	phase_open_client_vendors	static	-
 phase.phase_not_read_yet	phase_phase_not_read_yet	static	-
 phase.phase_x_4_x	phase_phase_x_4_x	template	n: String · name: String · band: String
+phase.rev_does	phase_rev_does	static	-
+phase.rev_long	phase_rev_long	static	-
+phase.scope_approved	phase_scope_approved	static	-
+phase.scope_caps	phase_scope_caps	static	-
 phase.scope_estimate	phase_scope_estimate	static	-
+phase.scope_move_approved	phase_scope_move_approved	static	-
+phase.scope_none	phase_scope_none	static	-
+phase.scope_note	phase_scope_note	static	-
+phase.scope_record	phase_scope_record	static	-
+phase.scope_record_note	phase_scope_record_note	static	-
+phase.scope_since_x	phase_scope_since_x	template	hm: String
+phase.scope_ticked_x	phase_scope_ticked_x	template	n: Int · m: Int
+phase.scope_title	phase_scope_title	static	-
+phase.scope_works_x	phase_scope_works_x	template	n: Int · m: Int
 phase.survey_coverage	phase_survey_coverage	static	-
 phase.tap_view	phase_tap_view	static	-
 phase.this	phase_this	static	-
@@ -889,6 +928,7 @@ quote.client_wish_list	quote_client_wish_list	static	-
 quote.estimated	quote_estimated	static	-
 quote.survey	quote_survey	static	-
 quote.vendor_quoted	quote_vendor_quoted	static	-
+refuse.album.client_at_day	refuse_album_client_at_day	static	-
 refuse.export.drawing_not_available	refuse_export_drawing_not_available	static	-
 refuse.export.nothing_export_no_marks	refuse_export_nothing_export_no_marks	static	-
 refuse.export.phone_saves_x_downloads	-	skipped	prototype-only
@@ -915,6 +955,7 @@ refuse.plan.no_room_has_survey	refuse_plan_no_room_has_survey	static	-
 refuse.plan.nothing_arrange_yet	refuse_plan_nothing_arrange_yet	static	-
 refuse.readonly.readings	refuse_readonly_readings	static	-
 refuse.readonly.wishlist	refuse_readonly_wishlist	static	-
+refuse.readonly.wishlist_approved	refuse_readonly_wishlist_approved	static	-
 refuse.sp.chain_needs_two_different	refuse_sp_chain_needs_two_different	static	-
 refuse.sp.chain_needs_two_points	refuse_sp_chain_needs_two_points	static	-
 refuse.sp.finish_chain_x_first	refuse_sp_finish_chain_x_first	template	v: String
@@ -928,6 +969,16 @@ refuse.sp.these_four_lines_do_3	refuse_sp_these_four_lines_do_3	static	-
 refuse.sp.x_locked_nothing_clear	refuse_sp_x_locked_nothing_clear	template	v: String
 refuse.sp.x_outside_face_edit	refuse_sp_x_outside_face_edit	template	code: String
 refuse.sp.x_reference_locked_unlock	refuse_sp_x_reference_locked_unlock	template	s: String
+refuse.stage.approved_final	refuse_stage_approved_final	static	-
+refuse.stage.changed	refuse_stage_changed	static	-
+refuse.stage.changed_x	refuse_stage_changed_x	template	by: String · hm: String
+refuse.stage.no_answer	refuse_stage_no_answer	static	-
+refuse.stage.offline	refuse_stage_offline	static	-
+refuse.stage.pm_approves	refuse_stage_pm_approves	static	-
+refuse.stage.pm_scope	refuse_stage_pm_scope	static	-
+refuse.stage.scope_changed	refuse_stage_scope_changed	static	-
+refuse.stage.scope_missing	refuse_stage_scope_missing	static	-
+refuse.stage.staff_only	refuse_stage_staff_only	static	-
 refuse.t53.x_x_cannot_go	refuse_t53_x_x_cannot_go	template	a: String · name: String · v: String
 refuse.t53.x_x_goes_ceiling	refuse_t53_x_x_goes_ceiling	template	a: String · name: String
 refuse.v360.x_cannot_go_x	refuse_v360_x_cannot_go_x	template	n: String · surfName: String
@@ -1502,6 +1553,7 @@ view.right_elevation.lc	view_right_elevation_lc	static	-
 view.right_wall_elevation	view_right_wall_elevation	static	-
 wish.applies_to	wish_applies_to	static	-
 wish.are	wish_are	static	-
+wish.changed_after_approval	wish_changed_after_approval	static	-
 wish.changing_wish_list_after	wish_changing_wish_list_after	static	-
 wish.client_pack	wish_client_pack	static	-
 wish.filled_when_vendor_chosen	wish_filled_when_vendor_chosen	static	-
