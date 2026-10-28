@@ -101,9 +101,10 @@ private data class ProjectRow(val name: String, val title: String, val customer:
  * `LocalTx.current` on any of those would crash at launch outside the provider -- which CI,
  * compiling but never launching, could not see. Dialogs and sheets inherit it as well.
  *
- * The choice is read only under [LangRow.VISIBLE] (Amit, 27 Oct 2026, decision 2: the row and
- * the ability to pick मराठी switch on together, in the last slice): until then this is always
- * [Tx.EN], whatever the phone's system language or the stored pref. The body's onToggle calls
+ * The choice is read only under [LangRow.VISIBLE] (the row and the ability to pick मराठी switch
+ * together, by that one constant). It is on since Amit's 28 Oct 2026 "Show it now, translate
+ * alongside", so this is the stored pref: [Tx.EN] on first run whatever the phone's system language,
+ * [Tx.MR] once मराठी is picked. The body's onToggle calls
  * `onLang` after flipping "lang", which re-reads it; the static local then
  * recomposes the whole tree and every `remember` survives, so the drawer stays open.
  */
@@ -2786,8 +2787,8 @@ private fun drawerGroups(
         // भाषा · Language, straight after Units, exactly as the prototype draws it (v57,
         // index61b.html:7571): the label in BOTH scripts so a person who reads only one of them
         // finds it, the value English / मराठी, no Switch, no sheet, no confirm. One tap flips it;
-        // onToggle never closes the drawer, so it stays open showing the new value. HIDDEN until
-        // every screen is translated (Amit, 27 Oct 2026, decision 2): LangRow.VISIBLE is the one
+        // onToggle never closes the drawer, so it stays open showing the new value. SHOWN since
+        // Amit's 28 Oct 2026 "Show it now, translate alongside": LangRow.VISIBLE is the one
         // switch, and AppScreen reads the stored choice only under it too.
         if (LangRow.VISIBLE) DrawerLine("भाषा · Language", value = if (prefs.lang == "mr") "मराठी" else "English", // text:value both scripts by design (prototype v57)
             icon = R.drawable.ic_mcft_info, onClick = { onToggle("lang") }) else null,

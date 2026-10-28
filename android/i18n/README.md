@@ -20,10 +20,13 @@ screen. Port 61c slice L2 adds keys and no reader.
 1. **Mechanism: a generated Kotlin table, `Tx`, in `:pano`.** Not Android resources. `:pano` holds
    691 of the shown texts and cannot see `R.string`. Play's `.aab` would also split `values-mr` away
    from a phone whose system language is English.
-2. **The भाषा · Language row stays HIDDEN until every screen is translated.** Every slice before the
-   last one ships keyed English that looks the same as today. The row is behind one constant,
-   `LangRow.VISIBLE` in `pano/.../i18n/Msg.kt`, and the last slice turns it on. `I18nLiteralTest`
-   fails if it is turned on while `unkeyed.tsv` still has a row.
+2. **The भाषा · Language row stayed HIDDEN until every screen was translated** — REVERSED 28 Oct 2026
+   (~13:10 IST): Amit asked "Why marathi is still not available in 0.3.264?" and chose "Show it now,
+   translate alongside". The row is shown from the build that carries port slices L1, L2 and W.
+   Under मराठी a screen not keyed yet stays English until its slice; `unkeyed.tsv` is the list of
+   those texts and only shrinks; English stays the default on first run. The row is still behind one
+   constant, `LangRow.VISIBLE` in `pano/.../i18n/Msg.kt`, now `true`, so turning Marathi off again is
+   that one line; `I18nLiteralTest` pins it shown.
 3. **This folder is the ONE home of the two tables.** The prototype builder is to read them from here,
    at a pinned commit, from its next build on. Up to v61c.1 each prototype version was imported over
    them (`i18nImport`, checked with `i18nCheckProto`); L2 deleted both tasks, so no prototype table can
@@ -127,7 +130,8 @@ On the phone (slice 1b): `AppScreen` in MainActivity.kt provides the table ONCE,
 `LocalTx` (`app/.../Lang.kt`, a static local with no default). A composable reads
 `val tx = LocalTx.current`; a plain function takes a parameter that is always named `tx: Tx`. The choice
 is the `lang` string in the `capture` prefs file (`AppPrefs.lang`, flipped by `AppPrefs.flip(p, "lang")`),
-read only under `LangRow.VISIBLE`, so it is English on first run whatever the phone's system language.
+read only under `LangRow.VISIBLE` (on since 28 Oct 2026), so it is English on first run whatever the
+phone's system language, and मराठी once picked in the drawer.
 `app/build.gradle.kts` keeps only `en` library resources (`resourceConfigurations`), so Compose's and
 material3's own strings are English by decision rather than the system language's.
 

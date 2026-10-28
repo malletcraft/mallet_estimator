@@ -13,7 +13,8 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * is the prototype's "the whole app switches at once" (v57).
  *
  * No default: a composable outside the provider is a bug to find, not an English to fall back on.
- * The choice itself is `AppPrefs.lang`, read by the provider only under `LangRow.VISIBLE` (Amit,
- * 27 Oct 2026, decision 2), so until the last slice every screen is `Tx.EN`.
+ * The choice itself is `AppPrefs.lang`, read by the provider only under `LangRow.VISIBLE`, which is
+ * on since Amit's 28 Oct 2026 "Show it now, translate alongside": English on first run, मराठी once
+ * picked, and a screen not keyed yet stays English under मराठी until its slice.
  */
 val LocalTx = staticCompositionLocalOf<Tx> { error("LocalTx not provided") } // text:value developer error, never shown

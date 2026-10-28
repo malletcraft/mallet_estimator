@@ -199,11 +199,14 @@ class I18nLiteralTest {
         I18n.check("h · Tx in an export or upload builder", off, "the PDF, the images and the upload body stay English (decision 4 of 21 Oct): they take no Tx")
     }
 
-    @Test fun `the language row stays hidden until every screen is translated`() {
-        val notPorted = scans.count { it.rel !in ported }
-        val off = if (LangRow.VISIBLE && (unkeyed.isNotEmpty() || notPorted > 0))
-            listOf("LangRow.VISIBLE is true with ${unkeyed.size} unkeyed rows and $notPorted files not in ported.txt") else emptyList()
-        I18n.check("the language row", off, "the भाषा · Language row stays hidden until every screen is translated (Amit, 27 Oct 2026, decision 2)")
+    @Test fun `the language row is shown while the screens are translated alongside`() {
+        // Amit, 28 Oct 2026, ~13:10 IST: "Show it now, translate alongside" -- decision 2 of 27 Oct
+        // (hidden until every screen is translated) is reversed. The row ships now; a screen not keyed
+        // yet stays English under मराठी until its slice. What stays is the worklist: every text still
+        // English is a row of unkeyed.tsv (checks a-h and the ratchet keep it complete and shrinking).
+        val visible: Boolean = LangRow.VISIBLE
+        val off = if (!visible) listOf("LangRow.VISIBLE is false: the भाषा · Language row is hidden again") else emptyList()
+        I18n.check("the language row", off, "the भाषा · Language row is shown (Amit, 28 Oct 2026: show it now, translate alongside)")
     }
 
     /** The row's gate, straight in front of the call: `if (LangRow.VISIBLE) DrawerLine(`. */

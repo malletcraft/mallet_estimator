@@ -10,12 +10,13 @@ package com.malletcrafts.interiorestimate.pano.i18n
 typealias Msg = (Tx) -> String
 
 /**
- * THE भाषा · Language ROW STAYS HIDDEN until every screen is translated (Amit, 27 Oct 2026,
- * ~06:05 IST, decision 2: he chose the alternative). Slices 1b … 8 ship keyed English that looks
- * the same as today; the LAST slice flips this one constant, and nothing else may show the row or
- * pick मराठी -- one switch, never a second code path. I18nLiteralTest pins it false while
- * android/i18n/unkeyed.tsv has a row.
+ * THE भाषा · Language ROW IS SHOWN (Amit, 28 Oct 2026, ~13:10 IST: "Show it now, translate
+ * alongside", reversing his decision 2 of 27 Oct, which kept it hidden until every screen was
+ * translated). Under मराठी a screen not keyed yet stays English until its slice;
+ * android/i18n/unkeyed.tsv is the list of those texts and only shrinks. English stays the default
+ * on first run. This stays the ONE switch: nothing else may show the row or pick मराठी, so turning
+ * Marathi off again is this line alone, never a second code path.
  */
 object LangRow {
-    const val VISIBLE: Boolean = false
+    const val VISIBLE: Boolean = true
 }
