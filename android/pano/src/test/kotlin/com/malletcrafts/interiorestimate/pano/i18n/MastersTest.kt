@@ -122,7 +122,8 @@ class MastersTest {
     @Test fun `the wire, storage and export builders have no Tx parameter`() {
         val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java)
         val named = mapOf(
-            WishList::class.java to listOf("forPut", "normalised", "edited", "afterPut"),
+            // afterFinal, afterSurvey and left (port 61c slice W) write the stored list: S5's words stay as S5 sent them
+            WishList::class.java to listOf("forPut", "normalised", "edited", "afterPut", "afterFinal", "afterSurvey", "left"),
             Album::class.java to listOf("provisional", "provisionalPhoto"),
             SurveyPrepFile::class.java to listOf("encode"),
         )

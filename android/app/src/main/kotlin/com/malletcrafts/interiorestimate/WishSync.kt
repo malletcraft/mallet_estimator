@@ -17,9 +17,10 @@ import java.time.Instant
  *
  * One list per project, in preferences under the project's key (WishList.keyOf: the ERP id, or
  * 'local:<client>|<title>' for a project made on this phone), holding the rows, the
- * `wishlist_at` S5 last showed (the next PUT's base), a dirty flag and a note. Every rule --
- * what an edit does, the 200, the 409, the GET, the re-key -- is WishList in :pano; this file
- * only stores and talks.
+ * `wishlist_at` S5 last showed (the next PUT's base), a dirty flag, a note and the visit's
+ * status line (S5's own words for a stage refusal, WishList.Local.status). Every rule --
+ * what an edit does, the 200, the 409s, the GET, the re-key, the leave -- is WishList in
+ * :pano; this file only stores and talks.
  *
  *  - [rekey]: SyncWorker, once the masters are fresh -- a list made on a phone-only project
  *    moves under the ERP id that project now has, so it is not orphaned (decision 3), and a
@@ -27,12 +28,16 @@ import java.time.Instant
  *    and edits the moved list ([load] and [edit] follow it).
  *  - [renameLocal]: a phone-only client or project renamed on this phone takes its list along.
  *  - [push]: SyncWorker, after QuoteStageSync -- ONE PUT of every dirty list that has an ERP
- *    id, with its base. 200: S5's stamp is the base and the list is clean. 409 with S5's rows:
- *    S5 WINS (decision 2) -- the phone takes them and says so. 409 at Survey and 404 (S5 has
- *    never had the project): kept on the phone, dirty, sent next sync. 400/403/413 (a key that
- *    is not staff, a shape S5 will not take): refused for good -- one note, no longer dirty,
- *    never PUT again until the next edit (WishList.afterRefused).
+ *    id, with its base. 200: S5's stamp is the base and the list is clean. 409 with
+ *    `final: true` (Client approved, v61c.1): S5's list for good, in S5's words, never PUT
+ *    again (WishList.afterFinal) -- checked BEFORE the rows, which that answer carries too.
+ *    409 with S5's rows: S5 WINS (decision 2) -- the phone takes them and says so. 409 with no
+ *    list (Survey): kept on the phone, dirty, in S5's words (WishList.afterSurvey), sent next
+ *    sync. 404 (S5 has never had the project): kept on the phone, dirty. 400/403/413 (a key
+ *    that is not staff, a shape S5 will not take): refused for good -- one note, no longer
+ *    dirty, never PUT again until the next edit (WishList.afterRefused).
  *  - [pull]: on project open -- a clean list takes S5's copy, so staff edits on /projects show.
+ *  - [leave]: the list is left -- S5's status line goes with the visit (WishList.left).
  *
  * NEVER A FAILURE OF THE SYNC (slice 5's pattern): 400, 401, 403, 405, a 5xx, no network or an
  * answer that does not parse is one Log.w and nothing else, and SyncWorker never counts it, so
@@ -85,6 +90,7 @@ object WishSync {
         .put("rows", rowsJson(l.rows))
         .put("at", l.at).put("dirty", l.dirty)
         .put("savedAt", l.savedAt).put("note", l.note)
+        .put("status", l.status)
         .toString()
 
     private fun decode(raw: String?): WishList.Local? {
@@ -98,7 +104,9 @@ object WishSync {
                 at = o.optString("at"),
                 dirty = o.optBoolean("dirty", false),
                 savedAt = o.optString("savedAt"),
-                note = o.optString("note"))
+                note = o.optString("note"),
+                // absent in a list kept before port 61c slice W: no status line
+                status = o.optString("status"))
         } catch (e: Exception) {
             null
         }
@@ -144,6 +152,26 @@ object WishSync {
             write(context, at, next)
             next
         }
+
+    /**
+     * The list kept under [key] is left (MainActivity ends the visit): S5's status line goes with
+     * the visit, as the prototype's refused line does (WishList.left); the note keeps its own
+     * rule. On the main thread, like [edit]. Never throws.
+     */
+    fun leave(context: Context, key: String) {
+        if (key.isBlank()) return
+        try {
+            synchronized(LOCK) {
+                val at = resolve(context, key)
+                val cur = load(context, at) ?: return
+                val next = WishList.left(cur)
+                if (next != cur) write(context, at, next)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "wish list status line not cleared: " + // text:value log line
+                (e.message?.take(160) ?: e.javaClass.simpleName))
+        }
+    }
 
     /**
      * A phone-only client or project renamed on this phone (Catalogue.renameLocal, already
@@ -238,17 +266,39 @@ object WishSync {
                 a.code == 409 -> {
                     val o = runCatching { JSONObject(a.body) }.getOrNull()
                     val rows = o?.optJSONObject("rows")
-                    if (o != null && rows != null) {
-                        // The base was stale: S5 WINS (decision 2).
-                        val at = if (o.isNull("wishlist_at")) "" else o.optString("wishlist_at")
-                        synchronized(LOCK) {
-                            val cur = load(context, key) ?: return
-                            write(context, key, WishList.afterConflict(cur, rowsOf(rows), at))
+                    when {
+                        // Client approved (v61c.1): S5 takes no list again, and its answer carries
+                        // the stored one in the stale-base 409's shape -- so `final` is read BEFORE
+                        // the rows, or the phone would say REPLACED and the person would re-apply
+                        // an edit S5 can never take.
+                        o != null && o.optBoolean("final", false) -> {
+                            val at = if (o.isNull("wishlist_at")) null else o.optString("wishlist_at")
+                            synchronized(LOCK) {
+                                val cur = load(context, key) ?: return
+                                write(context, key, WishList.afterFinal(cur,
+                                    rows?.let { rowsOf(it) } ?: cur.rows, at ?: cur.at, s5Error(a)))
+                            }
+                            Log.i(TAG, "$key: approved on S5; the phone took the approved list") // text:value log line
                         }
-                        Log.i(TAG, "$key: S5 had a newer wish list; the phone took it")
-                    } else {
-                        // At Survey S5 takes no list: it waits here, dirty, for the stage to move.
-                        Log.w(TAG, "$key: " + AsIsUpload.errorOf(a).message)
+                        // The base was stale: S5 WINS (decision 2).
+                        o != null && rows != null -> {
+                            val at = if (o.isNull("wishlist_at")) "" else o.optString("wishlist_at")
+                            synchronized(LOCK) {
+                                val cur = load(context, key) ?: return
+                                write(context, key, WishList.afterConflict(cur, rowsOf(rows), at))
+                            }
+                            Log.i(TAG, "$key: S5 had a newer wish list; the phone took it")
+                        }
+                        // No list in the answer -- S5 answers so at Survey, where it takes no list
+                        // yet: it waits here, dirty, for the stage to move, in S5's own words.
+                        else -> {
+                            synchronized(LOCK) {
+                                val cur = load(context, key) ?: return
+                                val next = WishList.afterSurvey(cur, s5Error(a))
+                                if (next != cur) write(context, key, next)
+                            }
+                            Log.w(TAG, "$key: " + AsIsUpload.errorOf(a).message)
+                        }
                     }
                 }
                 // S5 has never had this project: the list waits on the phone (decision 3).

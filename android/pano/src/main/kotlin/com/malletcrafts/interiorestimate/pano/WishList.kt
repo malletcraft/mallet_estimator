@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
+
 /**
  * THE CLIENT'S WISH LIST, ON THE PHONE (v52 item 16, built as slice 5b). Amit, 14 Oct 2026,
  * 06:35 IST: "also as you have services list , i should be able to quickly mark scope while
@@ -8,21 +10,33 @@ package com.malletcrafts.interiorestimate.pano
  * survey as this wishlist comes after survey".
  *
  * So it hangs off the PROJECT, never a room or survey prep, and it is gated by S5 QUOTE's
- * quote stage (read by QuoteStageSync): read-only at Survey, editable from Client wish list on
- * (from Vendor quoted on an edit still saves but warns), and READ-ONLY AT ESTIMATED -- v61b
- * (26 Oct 2026): Estimation is the hand-off, and the prototype's wish screen refuses there with
- * refuse.readonly.wishlist, its one lock line. At Revisions and Client approved the SCREEN Amit
- * approved is editable again, with the after-quote warning (P54.wishMode maps only phase 3 to
- * read-only; wish.js: ro = idx === 0, after = idx >= 2), even though the prototype's TOOLS
- * table says the ticks stay locked at Revisions -- that split is the prototype's to settle,
- * and until it does the phone follows the screen, not the table, so no string is invented
- * here. A stage the phone has not read is UNKNOWN, never silently Survey -- the list stays
- * editable then (FX16), so a basement with no signal never blocks marking scope with a vendor.
+ * quote stage (read by QuoteStageSync), exactly as prototype v61c.1 (Version 69) gates it at
+ * every one of the six stages (TOOLS.wishEdit [0,1,1,0,1], index61c1.html:3954, read by can()
+ * at :3976; wishMode at :4162-4165):
+ *  - the ticks are editable at Client wish list, Vendor quoted and Revisions (v61c ticks again
+ *    at Revisions); from Vendor quoted on an edit still saves but warns "tell the vendor";
+ *  - READ-ONLY at Survey (finish the survey first; S5 refuses the PUT there too);
+ *  - READ-ONLY at Estimated (v61b, 26 Oct 2026: Estimation is the hand-off, refuse.readonly.
+ *    wishlist), although S5 still saves there -- the read-only screen is the phone's own choice;
+ *  - READ-ONLY AT CLIENT APPROVED (v61c.1; Amit, 28 Oct 2026, ~07:15 IST, "Lock it at
+ *    approval"), under refuse.readonly.wishlist_approved, "Approved — changes go through change
+ *    requests": after approval the change requests are the ONE place a change is recorded, and
+ *    S5's PUT refuses there with its `final` 409. Client approved has no TOOLS column; can()
+ *    reads a missing one as 0, so [editable] and [vendorUi] are false there.
+ * The Vendor field and a row's "vendor X" show only at Vendor quoted and Revisions (TOOLS.
+ * vendorUI [0,0,1,0,1]; v54 finding 4: the Wish list phase shows no vendor text at all), and the
+ * head drops "— the vendor quotes against it" wherever the field is hidden ([head]). A stage
+ * the phone has not read is UNKNOWN, never silently Survey -- the list stays editable then,
+ * with its Vendor field (can() is true for an unread phase; FX16), so a basement with no
+ * signal never blocks marking scope with a vendor.
  *
  * The sync model is decided (15 Oct 2026): ONE list per project against ONE `wishlist_at`
  * on S5 (decision 2); on a 409 S5 WINS -- the phone takes S5's rows, says so, and the person
- * re-applies what is missing. A project S5 has never had answers 404 and the list waits on
- * the phone (decision 3); a phone-only project (no ERP id) keeps its list under a local key
+ * re-applies what is missing. Two 409s are not a stale base, and say S5's own words on the
+ * visit's status line ([Local.status]) instead of the REPLACED note: `final: true` at Client
+ * approved ([afterFinal]: S5's list for good) and the Survey 409, which carries no list
+ * ([afterSurvey]: the list waits, dirty). A project S5 has never had answers 404 and the list
+ * waits on the phone (decision 3); a phone-only project (no ERP id) keeps its list under a local key
  * that is re-keyed to the ERP id once the project has one, so a list made offline is not
  * orphaned. This is the pure half: the services, the texts, the stage rules and every
  * transition of what the phone keeps. WishListTest pins all of it.
@@ -60,13 +74,11 @@ object WishList {
     const val MAX_NOTE = 500
     const val MAX_VENDOR = 140
 
-    // The prototype's texts (wish.js), character for character.
-    const val HEAD = "What the client wants, after the survey — the vendor quotes against it"
+    // The prototype's texts (wish.js), character for character. The head and the two lock lines
+    // are keyed ([head], [lockedLine]); the rest of the file is keyed in port slice M4.
     const val FINISH_SURVEY = "Finish the survey first — the stage moves to Client wish list on S5"
     const val UNREAD = QuoteStage.UNREAD
     const val AFTER_QUOTE = "Changing the wish list after a vendor quoted — tell the vendor"
-    /** At Estimated the ticks are locked (v61b): the prototype's refuse.readonly.wishlist line, character for character. */
-    const val READ_ONLY = "Estimation — the wish list is read-only; move the phase back on the project screen to change it"
     const val WHOLE_FLAT = "Whole flat"
     const val NOT_ASKED = "not asked for"
     const val APPLIES_TO = "APPLIES TO"
@@ -89,7 +101,17 @@ object WishList {
      * What the phone keeps for one project. [client] and [title] are what a local key is
      * re-keyed by; [at] is S5's wishlist_at last seen ("" never) and is the `base` of the next
      * PUT; [dirty] means an edit S5 has not taken yet; [savedAt] when this phone last saved
-     * an edit ("" never); [note] a message for the screen (the 409 note), cleared by the next edit.
+     * an edit ("" never); [note] a message for the screen (the REPLACED or NOT_SENT note),
+     * cleared by the next edit.
+     *
+     * [status] is S5's own words when it refused a save for its STAGE -- the `final` 409 at
+     * Client approved, the 409 at Survey -- exactly as S5 sent them (English: storage never sees
+     * Marathi; [statusLine] draws them). It is the prototype's `[data-wish409][role=status]` line
+     * (§16.4), so it belongs to the VISIT: drawn under the banners and cleared when the list is
+     * left ([left]), as well as by an edit and by any later answer to a PUT. Without that, a list
+     * that can never be edited again would carry "…; not saved" under "Approved — changes go
+     * through change requests" for ever (port 61c critic X6). A refusal that lands while the list
+     * is not open is shown on the next visit and goes when that visit ends.
      */
     data class Local(
         val client: String,
@@ -99,6 +121,7 @@ object WishList {
         val dirty: Boolean = false,
         val savedAt: String = "",
         val note: String = "",
+        val status: String = "",
     )
 
     // ---- keys ---------------------------------------------------------------
@@ -218,10 +241,14 @@ object WishList {
     /** What the APPLIES TO choice reads as: the whole flat when no room is picked, else the rooms. */
     fun subLine(row: Row): String = if (row.rooms.isEmpty()) WHOLE_FLAT else row.rooms.joinToString(" · ")
 
-    /** The row's second line: where, the note, the vendor when wanted; the service's detail when not. */
-    fun rowLine(service: Service, row: Row): String =
+    /**
+     * The row's second line: where, the note, and the vendor when wanted and the Vendor field is
+     * shown ([vendorUi]: v54 finding 4, the Wish list phase shows no vendor text); the service's
+     * detail when not wanted.
+     */
+    fun rowLine(service: Service, row: Row, vendorUi: Boolean): String =
         if (row.on) listOfNotNull(subLine(row), row.note.ifBlank { null },
-            row.vendor.ifBlank { null }?.let { "vendor $it" }).joinToString(" · ")
+            row.vendor.takeIf { vendorUi }?.ifBlank { null }?.let { "vendor $it" }).joinToString(" · ")
         else service.detail.ifBlank { NOT_ASKED }
 
     /** The head's state: unsent here, on S5 since a time, or nothing yet. */
@@ -244,20 +271,58 @@ object WishList {
         return if (i < 0) null else i
     }
 
-    /** The one stage whose ticks are locked: Estimated (v61b's hand-off phase, Estimation). */
-    const val LOCKED_AT = 3
+    /** Estimated (v61b's hand-off phase, Estimation): the ticks are locked; S5 still saves there. */
+    const val ESTIMATED = 3
+
+    /** Client approved (v61c.1): the list is locked for good, and S5 refuses the PUT (`final`). */
+    const val APPROVED = 5
 
     /**
-     * Read-only at Survey and at Estimated (v61b); editable at every other stage, and when the
-     * stage is not read (FX16).
+     * The prototype's TOOLS rows over its five strip phases (index61c1.html:3954-3955), one column
+     * per quote stage from Survey to Revisions. Client approved is past every phase and has no
+     * column, which can() reads as 0 (index61c1.html:3976) -- so both are false there.
      */
-    fun editable(stageIdx: Int?): Boolean = stageIdx == null || (stageIdx >= 1 && stageIdx != LOCKED_AT)
+    private val WISH_EDIT = listOf(false, true, true, false, true)
+    private val VENDOR_UI = listOf(false, false, true, false, true)
 
-    /** From Vendor quoted on an edit warns (and still saves); the prototype only warns (after = idx >= 2). */
-    fun warnAfterQuote(stageIdx: Int?): Boolean = stageIdx != null && stageIdx >= 2
+    /** The prototype's can(tool, phase): true when the phase is not read, else the tool's column, a missing one 0. */
+    private fun can(row: List<Boolean>, stageIdx: Int?): Boolean = stageIdx == null || row.getOrElse(stageIdx) { false }
 
-    /** The read-only line at Estimated, or null at every other stage and when the stage is unknown. */
-    fun lockedLine(stageIdx: Int?): String? = if (stageIdx == LOCKED_AT) READ_ONLY else null
+    /**
+     * The ticks (TOOLS.wishEdit, v61c.1): editable at Client wish list, Vendor quoted and
+     * Revisions, and when the stage is not read (FX16); read-only at Survey, Estimated and
+     * Client approved.
+     */
+    fun editable(stageIdx: Int?): Boolean = can(WISH_EDIT, stageIdx)
+
+    /**
+     * The Vendor field and a row's "vendor X" (TOOLS.vendorUI): only at Vendor quoted and
+     * Revisions, and when the stage is not read (can() is true for an unread phase).
+     */
+    fun vendorUi(stageIdx: Int?): Boolean = can(VENDOR_UI, stageIdx)
+
+    /** The head's line: "— the vendor quotes against it" only where the Vendor field is shown (v54 finding 4). */
+    fun head(tx: Tx, vendorUi: Boolean): String =
+        if (vendorUi) tx.wish_what_client_wants_after else tx.wish_what_client_wants_after_2
+
+    /**
+     * From Vendor quoted on an edit warns (and still saves); the prototype only warns (after =
+     * idx >= 2). Never at Client approved, where nothing can be edited (§16.5: the after-approval
+     * notice cannot be reached; its key stays and no screen renders it).
+     */
+    fun warnAfterQuote(stageIdx: Int?): Boolean = stageIdx != null && stageIdx >= 2 && stageIdx != APPROVED
+
+    /**
+     * The read-only line (wishMode's banner): refuse.readonly.wishlist at Estimated and
+     * refuse.readonly.wishlist_approved at Client approved -- S5's APPROVED_FINAL verbatim, without
+     * the 409's "; not saved", since nothing was tried. Null at every other stage and when the
+     * stage is unknown.
+     */
+    fun lockedLine(tx: Tx, stageIdx: Int?): String? = when (stageIdx) {
+        ESTIMATED -> tx.refuse_readonly_wishlist
+        APPROVED -> tx.refuse_readonly_wishlist_approved
+        else -> null
+    }
 
     /**
      * The project is not on S5, which is not the same as a stage not read: a phone-only
@@ -271,9 +336,9 @@ object WishList {
      * The banners over the list, in the prototype's order. [warned]: changed after a vendor
      * quoted, this visit. [notOnS5]: no unread banner, since going online changes nothing.
      */
-    fun banners(stageIdx: Int?, warned: Boolean, notOnS5: Boolean = false): List<String> = buildList {
+    fun banners(tx: Tx, stageIdx: Int?, warned: Boolean, notOnS5: Boolean = false): List<String> = buildList {
         if (stageIdx == 0) add(FINISH_SURVEY)
-        lockedLine(stageIdx)?.let { add(it) }
+        lockedLine(tx, stageIdx)?.let { add(it) }
         if (stageIdx == null && !notOnS5) add(UNREAD)
         if (warned && warnAfterQuote(stageIdx)) add(AFTER_QUOTE)
     }
@@ -313,9 +378,31 @@ object WishList {
     fun setVendor(rows: Map<String, Row>, id: String, v: String): Map<String, Row> =
         rows + (id to row(rows, id).copy(vendor = cleanVendor(v)))
 
-    /** An edit kept on the phone at [now]: dirty until S5 takes it, and any old note gone. */
+    /**
+     * S5's stage refusal ([Local.status]) as the status line under [shown], the banners already
+     * drawn; null when there is none, or when a banner already says exactly that (the Survey 409
+     * repeats FINISH_SURVEY word for word). Words S5 sends that are a key's English are drawn from
+     * that key, as the prototype's text match draws its refused line (L57): the `final` 409 is
+     * refuse.stage.approved_final, the Survey one refuse.wish.finish_survey_first_stage. Any
+     * other words are S5's, shown as sent.
+     */
+    fun statusLine(tx: Tx, l: Local?, shown: List<String>): String? {
+        val words = l?.status?.trim().orEmpty()
+        if (words.isEmpty()) return null
+        val text = when (words) {
+            Tx.EN.refuse_stage_approved_final -> tx.refuse_stage_approved_final
+            Tx.EN.refuse_wish_finish_survey_first_stage -> tx.refuse_wish_finish_survey_first_stage
+            else -> words
+        }
+        return text.takeIf { it !in shown }
+    }
+
+    /** The list is left (the visit ends): S5's status line goes with it; the note keeps its own rule. */
+    fun left(l: Local): Local = if (l.status.isEmpty()) l else l.copy(status = "")
+
+    /** An edit kept on the phone at [now]: dirty until S5 takes it, and any old note and status gone. */
     fun edited(l: Local, rows: Map<String, Row>, now: String): Local =
-        l.copy(rows = rows, dirty = true, savedAt = now, note = "")
+        l.copy(rows = rows, dirty = true, savedAt = now, note = "", status = "")
 
     // ---- the sync -----------------------------------------------------------
 
@@ -340,8 +427,8 @@ object WishList {
      * goes next time on the new base.
      */
     fun afterPut(current: Local, sent: Map<String, Row>, at: String): Local =
-        if (forPut(current.rows) == forPut(sent)) current.copy(at = at, dirty = false)
-        else current.copy(at = at, dirty = true)
+        if (forPut(current.rows) == forPut(sent)) current.copy(at = at, dirty = false, status = "")
+        else current.copy(at = at, dirty = true, status = "")
 
     /**
      * A 409 because the base was stale (decision 2): S5 WINS. The phone takes S5's rows and
@@ -350,8 +437,26 @@ object WishList {
      * 409 carries the phone's own list back, and nothing is missing to re-apply.
      */
     fun afterConflict(current: Local, s5Rows: Map<String, Row>, at: String): Local =
-        if (normalised(s5Rows) == normalised(current.rows)) current.copy(at = at, dirty = false)
-        else current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED)
+        if (normalised(s5Rows) == normalised(current.rows)) current.copy(at = at, dirty = false, status = "")
+        else current.copy(rows = s5Rows, at = at, dirty = false, note = REPLACED, status = "")
+
+    /**
+     * A 409 with `final: true` (v61c.1): the project is at Client approved and S5 will never take
+     * a list again -- after approval a change is a change request. The phone takes S5's rows and
+     * stamp for good (the stored list, which the answer carries in the stale-base 409's shape),
+     * the dirty flag is cleared so nothing is PUT again, and the status line says S5's own words
+     * ([error], its `error`) -- never REPLACED, since nothing is to be re-applied: an unsent list,
+     * and an edit made while the PUT was out, are discarded (S5 wins, 15 Oct). Any old note goes.
+     */
+    fun afterFinal(current: Local, s5Rows: Map<String, Row>, at: String, error: String): Local =
+        current.copy(rows = s5Rows, at = at, dirty = false, note = "", status = oneLine(error).trim())
+
+    /**
+     * A 409 that carries no list: S5 answers so at Survey (asis.js FINISH_SURVEY), where it takes
+     * no list yet. The list waits on the phone, still dirty, and goes next sync; the status line
+     * says S5's own words ([error]) until the visit ends, a later answer replaces them, or an edit.
+     */
+    fun afterSurvey(current: Local, error: String): Local = current.copy(status = oneLine(error).trim())
 
     /**
      * Whether S5 refused the PUT for good, so sending the same list again can only be refused
@@ -371,7 +476,7 @@ object WishList {
      */
     fun afterRefused(current: Local, sent: Map<String, Row>, message: String): Local =
         if (forPut(current.rows) != forPut(sent)) current
-        else current.copy(dirty = false,
+        else current.copy(dirty = false, status = "",
             note = listOf(NOT_SENT, message.trim()).filter { it.isNotEmpty() }.joinToString(" — "))
 
     /**

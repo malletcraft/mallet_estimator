@@ -4,6 +4,7 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -35,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,10 +60,15 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * ct52 W asserts "it scrolls up and down"): twelve rows of at least 56 dp, one of them open,
  * do not fit 780 dp. The project screen keeps its no-scroll rule; this one is a list.
  *
- * The stage rules are WishList's: read-only at Survey and at Estimated (v61b: the prototype's
- * "Estimation — the wish list is read-only" banner), editable at every other stage and when the
- * stage is not read, and from Vendor quoted on an edit warns ([warned], held by the caller for
- * this visit) and still saves. Every edit goes straight to WishSync on this phone.
+ * The stage rules are WishList's, as prototype v61c.1 has them: read-only at Survey, at
+ * Estimated (v61b: "Estimation — the wish list is read-only") and at Client approved (v61c.1:
+ * "Approved — changes go through change requests"), editable at Client wish list, Vendor quoted
+ * and Revisions and when the stage is not read, and from Vendor quoted on an edit warns
+ * ([warned], held by the caller for this visit) and still saves. The Vendor field, and the head's
+ * "— the vendor quotes against it", show only at Vendor quoted and Revisions or with the stage
+ * unread (WishList.vendorUi). S5's own words for a refused save -- Approved, or Survey -- are the
+ * visit's status line under the banners (WishList.statusLine); MainActivity clears them when the
+ * list is left. Every edit goes straight to WishSync on this phone.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -82,11 +91,14 @@ fun WishListScreen(
     onSearch: () -> Unit,
 ) {
     val context = LocalContext.current
+    val tx = LocalTx.current
     val key = WishList.keyOf(project.serverId, project.client, project.title)
     var list by remember(key) { mutableStateOf(WishSync.load(context, key)) }
     // A write from elsewhere -- the sync taking S5's copy, a 409, the read on open -- redraws.
     LaunchedEffect(key, tick) { list = WishSync.load(context, key) }
     val editable = WishList.editable(stageIdx)
+    // The Vendor field and every vendor text (TOOLS.vendorUI): Vendor quoted and Revisions, or unread.
+    val vendorUi = WishList.vendorUi(stageIdx)
     val rows = list?.rows ?: emptyMap()
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val ink = Color(0xFF0F5E57)
@@ -113,7 +125,7 @@ fun WishListScreen(
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                Text(WishList.HEAD, style = MaterialTheme.typography.bodySmall,
+                Text(WishList.head(tx, vendorUi), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
                     Modifier.padding(top = 4.dp),
@@ -129,7 +141,10 @@ fun WishListScreen(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             list?.note?.takeIf { it.isNotBlank() }?.let { Banner(it) }
-            WishList.banners(stageIdx, warned, notOnS5).forEach { Banner(it) }
+            val banners = WishList.banners(tx, stageIdx, warned, notOnS5)
+            banners.forEach { Banner(it) }
+            // S5's answer to a refused save, in its words (v61c.1's [data-wish409] status line).
+            WishList.statusLine(tx, list, banners)?.let { StatusLine(it) }
             LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
                 itemsIndexed(WishList.SERVICES, key = { _, s -> s.id }) { i, s ->
                     WishRow(
@@ -137,6 +152,7 @@ fun WishListScreen(
                         service = s,
                         row = WishList.row(rows, s.id),
                         editable = editable,
+                        vendorUi = vendorUi,
                         rooms = rooms,
                         landscape = landscape,
                         onToggle = { change { WishList.toggle(it, s.id) } },
@@ -152,9 +168,19 @@ fun WishListScreen(
 }
 
 /**
+ * S5's own words for a refused save (WishList.statusLine), drawn as a banner and announced as a
+ * status (the prototype's role=status): it belongs to the visit, so it goes when the list is left.
+ */
+@Composable
+private fun StatusLine(text: String) {
+    Box(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) { Banner(text) }
+}
+
+/**
  * One service (wish.css .wrow): at least 56 dp, #EEF7F5 when wanted. A tap on the head ticks
  * it unless the list is read-only; a wanted row opens to APPLIES TO (Whole flat, then the
- * project's rooms), a one-line Note and a Vendor field -- side by side in landscape.
+ * project's rooms), a one-line Note and, where [vendorUi] shows it (Vendor quoted, Revisions),
+ * a Vendor field -- side by side in landscape.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -163,6 +189,7 @@ private fun WishRow(
     service: WishList.Service,
     row: WishList.Row,
     editable: Boolean,
+    vendorUi: Boolean,
     rooms: List<String>,
     landscape: Boolean,
     onToggle: () -> Unit,
@@ -189,7 +216,7 @@ private fun WishRow(
             Column(Modifier.weight(1f)) {
                 Text(service.name, style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(WishList.rowLine(service, row), style = MaterialTheme.typography.bodySmall,
+                Text(WishList.rowLine(service, row, vendorUi), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -213,11 +240,11 @@ private fun WishRow(
                 if (landscape) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NoteField(row.note, onNote, Modifier.weight(1f))
-                        VendorField(row.vendor, onVendor, Modifier.weight(1f))
+                        if (vendorUi) VendorField(row.vendor, onVendor, Modifier.weight(1f))
                     }
                 } else {
                     NoteField(row.note, onNote, Modifier.fillMaxWidth())
-                    VendorField(row.vendor, onVendor, Modifier.fillMaxWidth())
+                    if (vendorUi) VendorField(row.vendor, onVendor, Modifier.fillMaxWidth())
                 }
             }
         }

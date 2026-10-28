@@ -157,6 +157,17 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var wishFor by remember { mutableStateOf<String?>(null) }
     // Changed after a vendor quoted, this visit: the warning shows until the list is left.
     var wishWarned by remember { mutableStateOf(false) }
+    // The open list's key (WishList.keyOf), so the leave can find it whichever screen the
+    // leave opened: S5's status line belongs to the visit (port 61c slice W, v61c.1 §16.4).
+    var wishKey by remember { mutableStateOf<String?>(null) }
+    // The visit ends: the warning and S5's status line go together, as the prototype's
+    // onBack and leave() clear `warned` and `refused` together. The search overlay is not a leave.
+    fun leaveWish() {
+        wishKey?.let { WishSync.leave(context, it) }
+        wishKey = null
+        wishFor = null
+        wishWarned = false
+    }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     var showNewSite by remember { mutableStateOf(false) }
@@ -280,8 +291,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
     LaunchedEffect(wishFor, navProject?.key, navRoom, tab, surveyKept, facePrep) {
         if (wishFor != null && (navProject?.key != wishFor || navRoom != null || tab != "browse" ||
                 surveyKept != null || facePrep != null)) {
-            wishFor = null
-            wishWarned = false
+            leaveWish()
         }
     }
 
@@ -1207,7 +1217,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
         // tree's, so it wins) goes to the project; no bottom bar, as on a capture.
         if (proj != null && wishFor != null && proj.key == wishFor) {
-            BackHandler { wishFor = null; wishWarned = false }
+            BackHandler { leaveWish() }
             val wishCache = remember(proj.serverId, dataTick, quoteTick) {
                 if (proj.synced) QuoteStageSync.cached(context, proj.serverId) else null
             }
@@ -1222,7 +1232,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 tick = wishTick,
                 warned = wishWarned,
                 onWarn = { wishWarned = true },
-                onBack = { wishFor = null; wishWarned = false },
+                onBack = { leaveWish() },
                 onSearch = { showSearch = true; searchQuery = "" })
             return
         }
@@ -1382,7 +1392,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             },
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).
-                            onWish = { wishWarned = false; wishFor = proj.key },
+                            onWish = {
+                                wishWarned = false
+                                wishKey = WishList.keyOf(proj.serverId, proj.client, proj.title)
+                                wishFor = proj.key
+                            },
                             wishLabel = remember(proj.key, proj.serverId, wishTick, dataTick) {
                                 WishList.chip(WishSync.count(context,
                                     WishList.keyOf(proj.serverId, proj.client, proj.title)))

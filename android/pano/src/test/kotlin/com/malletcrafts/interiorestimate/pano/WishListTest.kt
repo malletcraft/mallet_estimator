@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.WishList.Local
 import com.malletcrafts.interiorestimate.pano.WishList.Row
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,7 +10,8 @@ import kotlin.test.assertTrue
 
 /**
  * The wish list on the phone (v52 item 16, slice 5b; decisions 2, 3 and 8 of 15 Oct 2026),
- * against the prototype's texts and rules (wish.js; ct52 W, W2, FX16) and S5's services.
+ * against the prototype's texts and rules (wish.js; ct52 W, W2, FX16; v61c.1's lock at Client
+ * approved, ct61c C61c-W) and S5's services and 409s (functions/_lib/asis.js at 943dfd2).
  */
 class WishListTest {
 
@@ -43,25 +45,56 @@ class WishListTest {
         assertEquals(1, WishList.count(rows))
     }
 
-    @Test fun `stage rules - read-only at Survey and at Estimated, editable elsewhere, warn from Vendor quoted on (v61b)`() {
+    @Test fun `stage rules - read-only at Survey, Estimated and Client approved, warn from Vendor quoted to Revisions (v61c_1)`() {
         val idx = QuoteStage.STAGES.map { WishList.stageIndex(cache(it)) }
         assertEquals(listOf(0, 1, 2, 3, 4, 5), idx)
-        assertEquals(listOf(false, true, true, false, true, true), idx.map { WishList.editable(it) })
-        assertEquals(listOf(false, false, true, true, true, true), idx.map { WishList.warnAfterQuote(it) })
-        assertEquals(listOf(WishList.FINISH_SURVEY), WishList.banners(0, warned = true))
-        assertEquals(emptyList(), WishList.banners(1, warned = true))
-        assertEquals(emptyList(), WishList.banners(2, warned = false))
-        assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(2, warned = true))
+        assertEquals(3, WishList.ESTIMATED)
+        assertEquals(QuoteStage.indexOf("Estimated"), WishList.ESTIMATED)
+        assertEquals(QuoteStage.indexOf(QuoteStage.APPROVED), WishList.APPROVED)
+        // TOOLS.wishEdit [0,1,1,0,1] (index61c1.html:3954); Client approved has no column, which can() reads as 0
+        assertEquals(listOf(false, true, true, false, true, false), idx.map { WishList.editable(it) })
+        // the after-quote notice: never at Client approved, where nothing can be edited (§16.5)
+        assertEquals(listOf(false, false, true, true, true, false), idx.map { WishList.warnAfterQuote(it) })
+        assertEquals(listOf(WishList.FINISH_SURVEY), WishList.banners(Tx.EN, 0, warned = true))
+        assertEquals(emptyList(), WishList.banners(Tx.EN, 1, warned = true))
+        assertEquals(emptyList(), WishList.banners(Tx.EN, 2, warned = false))
+        assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(Tx.EN, 2, warned = true))
         assertEquals("Finish the survey first — the stage moves to Client wish list on S5", WishList.FINISH_SURVEY)
-        // v61b: the prototype's refuse.readonly.wishlist line at Estimated -- its ONE lock string -- and, when an edit was
-        // made after a vendor quoted this visit, the vendor reminder beside it (the prototype keeps after = idx >= 2)
-        assertEquals(listOf("Estimation — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(3, warned = false))
+        // v61b: the prototype's refuse.readonly.wishlist line at Estimated and, when an edit was made after a vendor
+        // quoted this visit, the vendor reminder beside it (the prototype keeps after = idx >= 2)
+        assertEquals(listOf("Estimation — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(Tx.EN, 3, warned = false))
         assertEquals(listOf("Estimation — the wish list is read-only; move the phase back on the project screen to change it",
-                            "Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(3, warned = true))
-        // Revisions and Client approved: editable on the screen Amit approved, with the after-quote warning only
-        assertEquals(emptyList(), WishList.banners(4, warned = false))
-        assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(5, warned = true))
-        for (i in listOf(null, 0, 1, 2, 4, 5)) assertEquals(null, WishList.lockedLine(i), "lockedLine($i)")
+                            "Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(Tx.EN, 3, warned = true))
+        // Revisions: editable (v61c), with the after-quote warning only
+        assertEquals(emptyList(), WishList.banners(Tx.EN, 4, warned = false))
+        assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(Tx.EN, 4, warned = true))
+        // v61c.1: Client approved is READ-ONLY under S5's APPROVED_FINAL verbatim, without the 409's "; not saved",
+        // and no after-quote notice there even with an edit earlier in the visit
+        for (w in listOf(false, true)) assertEquals(listOf("Approved — changes go through change requests"), WishList.banners(Tx.EN, 5, warned = w))
+        assertEquals("Approved — changes go through change requests", WishList.lockedLine(Tx.EN, 5))
+        assertEquals("मंजूर झाले — पुढचे बदल \"बदल विनंती\" मधूनच होतात", WishList.lockedLine(Tx.MR, 5))
+        assertEquals("Estimation — the wish list is read-only; move the phase back on the project screen to change it", WishList.lockedLine(Tx.EN, 3))
+        assertEquals("अंदाजपत्रक — इच्छा-यादी फक्त वाचण्यासाठी आहे; बदलण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या", WishList.lockedLine(Tx.MR, 3))
+        for (i in listOf(null, 0, 1, 2, 4)) assertEquals(null, WishList.lockedLine(Tx.EN, i), "lockedLine($i)")
+    }
+
+    @Test fun `the Vendor field shows only at Vendor quoted and Revisions, and with the stage unread (TOOLS vendorUI)`() {
+        // TOOLS.vendorUI [0,0,1,0,1]; can() is true for an unread phase and reads Client approved's missing column as 0
+        assertEquals(listOf(true, false, false, true, false, true, false),
+            listOf(null, 0, 1, 2, 3, 4, 5).map { WishList.vendorUi(it) })
+        // an unread stage (never read, not listed, a name outside the six) shows it
+        for (c in listOf(null, QuoteStage.Cache(listed = false), QuoteStage.Cache(listed = true, stage = "Quoted")))
+            assertTrue(WishList.vendorUi(WishList.stageIndex(c)), "$c")
+    }
+
+    @Test fun `the head drops the vendor half where the Vendor field is hidden (v54 finding 4)`() {
+        assertEquals("What the client wants, after the survey — the vendor quotes against it", WishList.head(Tx.EN, vendorUi = true))
+        assertEquals("What the client wants, after the survey", WishList.head(Tx.EN, vendorUi = false))
+        assertEquals("सर्व्हेनंतर ग्राहकाला काय हवे — व्हेंडर त्यावर कोटेशन देतो", WishList.head(Tx.MR, vendorUi = true))
+        assertEquals("सर्व्हेनंतर ग्राहकाला काय हवे", WishList.head(Tx.MR, vendorUi = false))
+        // at each stage, as the screen picks it
+        assertEquals(listOf(true, false, false, true, false, true, false).map { if (it) "What the client wants, after the survey — the vendor quotes against it" else "What the client wants, after the survey" },
+            listOf(null, 0, 1, 2, 3, 4, 5).map { WishList.head(Tx.EN, WishList.vendorUi(it)) })
     }
 
     @Test fun `stage not read - editable, says so, never Finish the survey first (FX16)`() {
@@ -73,7 +106,7 @@ class WishListTest {
             assertFalse(WishList.warnAfterQuote(i))
             assertFalse(WishList.notOnS5(synced = true, cache = c), "$c")
             assertEquals(listOf("Quote stage not read yet — S5 decides when online"),
-                WishList.banners(i, warned = true, notOnS5 = WishList.notOnS5(true, c)))
+                WishList.banners(Tx.EN, i, warned = true, notOnS5 = WishList.notOnS5(true, c)))
         }
     }
 
@@ -84,7 +117,7 @@ class WishListTest {
             assertTrue(WishList.notOnS5(synced, c), "$synced $c")
             val i = if (synced) WishList.stageIndex(c) else null
             assertTrue(WishList.editable(i))
-            assertEquals(emptyList(), WishList.banners(i, warned = true, notOnS5 = true))
+            assertEquals(emptyList(), WishList.banners(Tx.EN, i, warned = true, notOnS5 = true))
         }
         // and the sub-line those projects show says the same thing
         assertEquals("QUOTE STAGE · not on S5 yet", QuoteStage.phoneOnly().title)
@@ -95,9 +128,9 @@ class WishListTest {
     @Test fun `applies-to line and the row's second line (ct52 W(b))`() {
         val svc = WishList.SERVICES[0]
         assertEquals("Whole flat", WishList.subLine(Row(on = true)))
-        assertEquals("Whole flat", WishList.rowLine(svc, Row(on = true)))
-        assertEquals("not asked for", WishList.rowLine(svc, Row()))
-        assertEquals("safety door, aluminium main door, UPVC", WishList.rowLine(WishList.SERVICES[4], Row()))
+        assertEquals("Whole flat", WishList.rowLine(svc, Row(on = true), vendorUi = true))
+        assertEquals("not asked for", WishList.rowLine(svc, Row(), vendorUi = true))
+        assertEquals("safety door, aluminium main door, UPVC", WishList.rowLine(WishList.SERVICES[4], Row(), vendorUi = false))
         val grid = listOf("Living Room", "Kitchen", "Master Bedroom")
         var rows = WishList.toggle(emptyMap(), "electrical")
         rows = WishList.toggleRoom(rows, "electrical", "Kitchen", grid)
@@ -105,13 +138,18 @@ class WishListTest {
         // kept in the grid's order whatever order they were pressed in
         assertEquals(listOf("Living Room", "Kitchen"), WishList.row(rows, "electrical").rooms)
         rows = WishList.setNote(rows, "electrical", "more\n  points")
-        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(svc, WishList.row(rows, "electrical")))
+        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = true))
         rows = WishList.setVendor(rows, "electrical", "V1")
-        assertEquals("Living Room · Kitchen · more points · vendor V1", WishList.rowLine(svc, WishList.row(rows, "electrical")))
+        assertEquals("Living Room · Kitchen · more points · vendor V1", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = true))
+        // v54 finding 4: where the Vendor field is hidden (Client wish list, Estimated, Client approved) the row
+        // names no vendor, though the vendor is kept: the rooms and the note still read what was asked for
+        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = false))
+        assertEquals("V1", WishList.row(rows, "electrical").vendor)
         rows = WishList.toggleRoom(rows, "electrical", "Living Room", grid)
         assertEquals(listOf("Kitchen"), WishList.row(rows, "electrical").rooms)
         rows = WishList.wholeFlat(rows, "electrical")
         assertEquals("Whole flat", WishList.subLine(WishList.row(rows, "electrical")))
+        assertEquals("Whole flat · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = false))
     }
 
     @Test fun `a room written on S5 that the grid does not show is kept`() {
@@ -306,6 +344,85 @@ class WishListTest {
         // the same list unchanged while the GET was out takes S5's newer copy
         val staff = mapOf("intercom" to Row(on = true))
         assertEquals(staff, WishList.afterGet(afterPut, staff, "2026-10-16T06:00:00.000Z", seen = afterPut).rows)
+    }
+
+    /** S5's words, verbatim from functions/_lib/asis.js at 943dfd2 (APPROVED_FINAL + '; not saved', and FINISH_SURVEY). */
+    private val s5Final = "Approved — changes go through change requests; not saved"
+    private val s5Survey = "Finish the survey first — the stage moves to Client wish list on S5"
+
+    @Test fun `409 final at Client approved - S5's list for good, not dirty, in S5's words, never REPLACED (v61c_1)`() {
+        val mine = WishList.edited(Local("C", "T", at = "2026-10-27T10:00:00.000Z"),
+            mapOf("cctv" to Row(on = true), "painting" to Row(on = true, note = "two coats")), "2026-10-28T05:00:00Z")
+        assertTrue(mine.dirty)
+        // the answer's rows: the stored list, every service, in the stale-base 409's shape
+        val s5 = WishList.forPut(mapOf("painting" to Row(on = true, rooms = listOf("Kitchen"))))
+        val after = WishList.afterFinal(mine, s5, "2026-10-28T02:00:00.000Z", s5Final)
+        assertEquals(s5, after.rows)
+        assertEquals("2026-10-28T02:00:00.000Z", after.at)
+        assertFalse(after.dirty)
+        assertEquals("", after.note)
+        assertEquals(s5Final, after.status)
+        assertFalse(after.note == WishList.REPLACED || after.status == WishList.REPLACED)
+        // an old REPLACED or NOT_SENT note goes too: S5's words are the one line
+        assertEquals("", WishList.afterFinal(mine.copy(note = WishList.REPLACED), s5, "x", s5Final).note)
+        // even when S5 holds exactly the phone's list (a lost 200 before the Approve), it is S5's words, not silence
+        val same = WishList.afterFinal(mine, WishList.forPut(mine.rows), "y", s5Final)
+        assertEquals(s5Final, same.status)
+        assertFalse(same.dirty)
+        // S5's error is one line, trimmed
+        assertEquals(s5Final, WishList.afterFinal(mine, s5, "x", "  Approved — changes go through change requests;\n not saved ").status)
+        // the screen draws it under the banner at Client approved: S5's 409, beside the lock line, in the table's words
+        val banners = WishList.banners(Tx.EN, 5, warned = false)
+        assertEquals(s5Final, WishList.statusLine(Tx.EN, after, banners))
+        assertEquals("मंजूर झाले — पुढचे बदल \"बदल विनंती\" मधूनच होतात; सेव्ह झाले नाही",
+            WishList.statusLine(Tx.MR, after, WishList.banners(Tx.MR, 5, warned = false)))
+    }
+
+    @Test fun `the 409 at Survey - no list in it - the list waits dirty, the status says S5's words`() {
+        val mine = WishList.edited(Local("C", "T", at = "2026-10-15T10:00:00Z"), mapOf("cctv" to Row(on = true)), "2026-10-16T05:00:00Z")
+        val after = WishList.afterSurvey(mine, s5Survey)
+        assertTrue(after.dirty)
+        assertEquals(mine.rows, after.rows)
+        assertEquals(mine.at, after.at)
+        assertEquals("", after.note)
+        assertEquals(s5Survey, after.status)
+        // the cache read Survey too: the banner already says it word for word, so it is not drawn twice
+        assertEquals(null, WishList.statusLine(Tx.EN, after, WishList.banners(Tx.EN, 0, warned = false)))
+        // a stale cache (S5 moved the stage back to Survey after the phone read Client wish list): S5's words show
+        assertEquals(s5Survey, WishList.statusLine(Tx.EN, after, WishList.banners(Tx.EN, 1, warned = false)))
+        assertEquals("आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो",
+            WishList.statusLine(Tx.MR, after, emptyList()))
+        // words S5 sends that are no key's English are shown as sent
+        assertEquals("Some other refusal", WishList.statusLine(Tx.MR, WishList.afterSurvey(mine, "Some other refusal"), emptyList()))
+        // when the stage moves, the next PUT's 200 takes the list and the status goes; so does an edit
+        assertEquals("", WishList.afterPut(after, after.rows, "2026-10-17T05:00:00.000Z").status)
+        assertFalse(WishList.afterPut(after, after.rows, "2026-10-17T05:00:00.000Z").dirty)
+        assertEquals("", WishList.edited(after, after.rows, "2026-10-17T06:00:00Z").status)
+        // and a later stale-base 409 or a refusal for good replaces it with their own note
+        assertEquals("", WishList.afterConflict(after, mapOf("painting" to Row(on = true)), "z").status)
+        assertEquals("", WishList.afterRefused(after, after.rows, "Only MCFT staff can change the wish list").status)
+        // nothing to draw without a status
+        assertEquals(null, WishList.statusLine(Tx.EN, mine, emptyList()))
+        assertEquals(null, WishList.statusLine(Tx.EN, null, emptyList()))
+    }
+
+    @Test fun `the status line belongs to the visit - leaving the list clears it, the note keeps its own rule (critic X6)`() {
+        val approved = WishList.afterFinal(Local("C", "T", dirty = true), WishList.forPut(emptyMap()), "a", s5Final)
+        val left = WishList.left(approved)
+        assertEquals("", left.status)
+        assertEquals(approved.rows, left.rows)
+        assertEquals(approved.at, left.at)
+        assertFalse(left.dirty)
+        // the next visit shows no "not saved" under the lock line
+        assertEquals(null, WishList.statusLine(Tx.EN, left, WishList.banners(Tx.EN, 5, warned = false)))
+        // REPLACED keeps today's rule: only an edit clears it, never a leave
+        val replaced = WishList.afterConflict(Local("C", "T", mapOf("cctv" to Row(on = true)), dirty = true),
+            mapOf("painting" to Row(on = true)), "b")
+        assertEquals(WishList.REPLACED, replaced.note)
+        assertEquals(replaced, WishList.left(replaced))
+        // a list with nothing to clear is left as it was
+        val plain = Local("C", "T", mapOf("cctv" to Row(on = true)))
+        assertTrue(WishList.left(plain) === plain)
     }
 
     @Test fun `the head - nothing saved, saved on this phone, on S5 since in IST`() {

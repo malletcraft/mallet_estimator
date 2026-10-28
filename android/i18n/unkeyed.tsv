@@ -1428,7 +1428,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Changing
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Curtains — roller blinds
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Doors & windows
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Electrical works
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Estimation — the wish list is read-only; move the phase back on the project screen to change it
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	False ceiling
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Finish the survey first — the stage moves to Client wish list on S5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Guest bathroom — complete renovation
@@ -1438,7 +1437,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Not sent
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Painting
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Plumbing & sanitary
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	S5 had a newer list; yours was replaced, re-apply what is missing
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	What the client wants, after the survey — the vendor quotes against it
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Whole flat
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Wish list $n/${SERVICES.size}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	not asked for
