@@ -1,16 +1,19 @@
 # android/i18n: the phone's two string tables
 
 S2 APK shows Marathi from a table generated from the two string files in this folder, which the phone
-and the prototype share. Since port 61c slice L2 (28 Oct 2026) this folder is the ONLY copy of them
-(decision 3): nothing imports a prototype's tables over them any more, a new or changed key is a
-reviewed commit here, and the prototype's next build reads them from here at a pinned commit (v61c.1,
-built before L2, still carries its own copy, without L2's keys). The design note (`DESIGN-marathi.md`,
-27 Oct 2026) lives in the session's notes, not in this repository, so this README carries every rule
-it sets for this folder. The work ships in slices. Slice 1a (this folder, the generator and its
-checks) changes nothing on the phone. Slice 1b (the provider, the pref and the settings drawer keyed)
-changes nothing visible either: the row is hidden, so every screen is `Tx.EN`, whose English is
-byte-for-byte what the drawer said before. Slice 1c (the project list, the result banner and the
-counts) is the same: keyed English, identical on screen. Port 61c slice L2 adds keys and no reader.
+and the prototype share. Since port 61c slice L2 (28 Oct 2026) this folder is their AUTHORITATIVE copy
+(decision 3): nothing imports a prototype's tables over them any more, and a new or changed key is a
+reviewed commit here. It is not the only copy yet, because the prototype has not switched to reading
+them from here. Prototype v61c.1 (Version 69) was built before L2. It embeds the 1,607-key pair that L1
+landed, which lacks L2's 194 keys and still has the old Marathi of `app.x_over_x`. Until the next
+prototype build reads this folder at a pinned commit, the old prototype builders refuse to run (decision
+3 below says how). The design note (`DESIGN-marathi.md`, 27 Oct 2026) lives in the session's notes, not
+in this repository, so this README carries every rule it sets for this folder. The work ships in
+slices. Slice 1a (this folder, the generator and its checks) changes nothing on the phone. Slice 1b
+(the provider, the pref and the settings drawer keyed) changes nothing visible either: the row is
+hidden, so every screen is `Tx.EN`, whose English is byte-for-byte what the drawer said before. Slice
+1c (the project list, the result banner and the counts) is the same: keyed English, identical on
+screen. Port 61c slice L2 adds keys and no reader.
 
 ## Amit's decisions, 27 Oct 2026 (~06:05 IST)
 
@@ -25,7 +28,19 @@ counts) is the same: keyed English, identical on screen. Port 61c slice L2 adds 
    at a pinned commit, from its next build on. Up to v61c.1 each prototype version was imported over
    them (`i18nImport`, checked with `i18nCheckProto`); L2 deleted both tasks, so no prototype table can
    be imported over the card again, and a new prototype key is a reviewed commit here like any other.
-   A lost session loses nothing.
+   A lost session loses no table.
+
+   **Where the prototype's switch stands (L2 review, 28 Oct 2026).** The prototype builders live in the
+   session's notes, not in this repository. Their shared reader there, `i18nhome.py`, does two things:
+   - `tables(pin)` gives a build this folder's pair at a pinned commit. It refuses a pin older than the
+     newest commit that changed the pair, and an uncommitted edit to it.
+   - `refuse_copy` is the drift guard. Before anything is written, it refuses any table pair that is not
+     this folder's, byte for byte, as committed.
+
+   The v61c builders (`_keys61c.py`, `fix61c.py` and `integrate61c.py`) call `refuse_copy`, so they
+   refuse today. A page rebuilt their way would draw the Marathi that L2 fixed. On the prototype's side,
+   this guard replaces the drift check that `i18nCheckProto` was. No prototype has been built from this
+   folder yet: that is the next prototype build, and it reads its pair with `tables(pin)`.
 4. **The Marathi for new phone texts is approved ONCE, as the whole prototype v61c card, before
    slice 2.** Slices 1a, 1b and 1c went ahead first: they key only texts that already have a
    prototype key, and they show nothing new. The card was approved with v61c on 28 Oct 2026 and

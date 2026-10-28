@@ -36,6 +36,11 @@ room	type.x
 
 # The default site's name.
 site_name	common.main_site
+# Two more identity values have had their keys since port 61c slice L2, and neither has a row here yet.
+# The v61c card says "masters.tsv gains the row" for both; each row lands with its reader:
+# - app.no_site, "(no site)" (Catalogue.NO_SITE), in Marathi slice 2 (port M2, which keys Catalogue.kt);
+# - app.no_client, "(no client)" (S5Session.NO_CLIENT), in Marathi slice 6 (port M6, which keys S5Session.kt).
+# (L2's commit message gave both to M2; app.no_client is M6's.)
 
 # WishList.SERVICES names (CCTV is an abbreviation and is shown as written).
 service	svc.electrical

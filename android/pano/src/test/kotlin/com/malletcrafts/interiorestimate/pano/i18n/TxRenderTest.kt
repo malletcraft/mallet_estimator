@@ -125,7 +125,27 @@ class TxRenderTest {
         assertEquals("3 wished marks are not on any ticked row — tick it? Electrical", Tx.EN.wish_x_not_any_many_svc(plN = 3, svc = "Electrical"))
         assertEquals("1 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाही — टिक करायचे? ", Tx.MR.wish_x_not_any_one(1))
         assertEquals("3 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? ", Tx.MR.wish_x_not_any_many(3))
+        assertEquals("1 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाही — टिक करायचे? विद्युत", Tx.MR.wish_x_not_any_one_svc(plN = 1, svc = "विद्युत"))
         assertEquals("3 इच्छित मार्क कोणत्याही टिक केलेल्या ओळीत नाहीत — टिक करायचे? विद्युत", Tx.MR.wish_x_not_any_many_svc(plN = 3, svc = "विद्युत"))
+    }
+
+    /**
+     * The test above pins every split case in BOTH languages, and this holds it to that: an accessor it pins in
+     * English only, or in Marathi only, fails here (L2 review: wish_x_not_any_one_svc had its English pin and no
+     * Marathi one). It reads this file's own source, never the tables.
+     */
+    @Test fun `every split template pinned in English is pinned in Marathi too`() {
+        val src = I18n.android.resolve("pano/src/test/kotlin/com/malletcrafts/interiorestimate/pano/i18n/TxRenderTest.kt").readText()
+        val start = src.indexOf("fun `each split template renders each case as a whole sentence`")
+        val end = if (start < 0) -1 else src.indexOf("@Test", start)
+        assertTrue(start >= 0 && end > start, "the split-template test is where this check looks for it")
+        val body = src.substring(start, end)
+        fun pinned(lang: String) = Regex("""\bTx\.$lang\.(\w+)""").findAll(body).map { m -> m.groupValues[1] }.toSortedSet()
+        val en = pinned("EN")
+        val mr = pinned("MR")
+        assertTrue(en.size >= 23, "the split-template test pins the 23 split keys; found ${en.size} accessors")
+        assertEquals(emptySet<String>(), en - mr, "pinned in English and not in Marathi")
+        assertEquals(emptySet<String>(), mr - en, "pinned in Marathi and not in English")
     }
 
     @Test fun `a phone text's count folds its plural suffix, and the Marathi drops it`() {
