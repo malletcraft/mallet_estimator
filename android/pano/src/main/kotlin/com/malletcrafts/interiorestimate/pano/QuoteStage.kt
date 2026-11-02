@@ -139,11 +139,32 @@ object QuoteStage {
      * phone whose clock steps back would hold every later read below a stamp in the future. The
      * sequence lives in memory only, which is enough: a read in flight never outlives its process.
      * [readAt] is when the GET went OUT, so a slow answer is not dated as fresh.
+     *
+     * S5'S OWN STAMP FIRST, the sequence second ([takes]): [stored] is every copy as stored now, by
+     * id. When went-out is not served-in -- a GET that waits on its connection or is retried reaches
+     * S5 after one sent later -- the earlier read can carry the newer stage, and only S5's
+     * quote_stage_at says so (batch B review of 7d13709).
      */
     fun fromList(
         listed: List<Listed>, known: Collection<String>, readAt: String,
-        seq: Long, written: Map<String, Long>,
-    ): Map<String, Cache> = fromList(listed, known, readAt).filter { (id, _) -> (written[id] ?: Long.MIN_VALUE) < seq }
+        seq: Long, written: Map<String, Long>, stored: Map<String, Cache>,
+    ): Map<String, Cache> = fromList(listed, known, readAt).filter { (id, c) -> takes(c, stored[id], seq, written[id]) }
+
+    /**
+     * Whether a read's copy [read], from the GET at [seq], replaces [stored], put there by the write
+     * at [wrote] (null: not written since the process started). Where both carry an S5 quote_stage_at
+     * and the two differ, the later stamp wins whichever GET went out first: S5 stamps every move
+     * with its own clock, so the stamp orders what S5 SERVED, which the sequence only guesses at.
+     * Otherwise -- a copy named from a 409 or read as not listed has no stamp, and two equal stamps
+     * are one state of S5's -- the read takes the id only when the stored copy came from something
+     * earlier in the sequence, so an older read in flight still cannot beat a stage S5 named.
+     */
+    fun takes(read: Cache, stored: Cache?, seq: Long, wrote: Long?): Boolean {
+        val r = instantOf(read.at)
+        val s = stored?.let { instantOf(it.at) }
+        if (r != null && s != null && r != s) return r.isAfter(s)
+        return (wrote ?: Long.MIN_VALUE) < seq
+    }
 
     /**
      * The cache after an answer of S5's that NAMED the project's stage without who set it or when:

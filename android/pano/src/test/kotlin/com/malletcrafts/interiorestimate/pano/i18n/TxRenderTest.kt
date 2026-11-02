@@ -160,6 +160,17 @@ class TxRenderTest {
         assertEquals("1 पॉइंट मध्यावर आणले", Tx.MR.sp_file_x_points_recentred(1))
     }
 
+    @Test fun `a Marathi phone text agrees with its subject, one room or many`() {
+        // batch B review: "खोल्या · 1 लपवलेल्या" put the plural participle on one room. A plain String count
+        // cannot pick the form, so the count follows a colon, label first, as app.x_shot's "फोटो झाले: {pl}"
+        assertEquals("Rooms · 1 hidden", Tx.EN.app_rooms_x_hidden("1"))
+        assertEquals("खोल्या · लपवलेल्या: 1", Tx.MR.app_rooms_x_hidden("1"))
+        assertEquals("खोल्या · लपवलेल्या: 3", Tx.MR.app_rooms_x_hidden("3"))
+        // two subjects joined by आणि take the plural verb, as app.original_360_survey_prep's "… राहतील" does
+        assertEquals("Local copy removed — the capture and the bench copy stay", Tx.EN.app_msg_local_copy_removed_capture)
+        assertEquals("फोनवरची प्रत काढली — कॅप्चर आणि बेंचवरची प्रत राहतात", Tx.MR.app_msg_local_copy_removed_capture)
+    }
+
     @Test fun `a value holding braces is never filled again`() {
         assertEquals("Chapter 3: {n} {name}", Tx.EN.album_aria_chapter_x("3", "{n} {name}"))
     }

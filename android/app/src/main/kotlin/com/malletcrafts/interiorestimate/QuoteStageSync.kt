@@ -15,9 +15,10 @@ import java.time.Instant
  * (S5Auth.fresh: the S5 session when signed in, renewed near its end, else the legacy ERP key -- 22 Oct 2026). The LIST, not GET /api/asis/:project: that call also settles the project and lists
  * its photos, which is not work to cause once per project per sync. The answer is cached per
  * ERP project id (Project.serverId) in preferences with the time this phone's read went out, and
- * a known project the list does not carry is cached as not listed -- each id only where nothing
- * that went out LATER has written it (QuoteStage.fromList, ordered by [seq]), since reads overlap:
- * the project-open read, a sync's, the wish list's own after S5 named the stage ([named]).
+ * a known project the list does not carry is cached as not listed -- each id only where its copy
+ * is not newer by S5's quote_stage_at, nor, without two stamps to compare, from something that went
+ * out LATER (QuoteStage.takes, ordered by [seq]), since reads overlap: the project-open read, a
+ * sync's, the wish list's own after S5 named the stage ([named]).
  *
  * READ-ONLY AND NEVER A FAILURE: any refusal (401, 403, 404, 405), a 5xx, no network or an
  * answer that does not parse is one Log.w and nothing else -- the cached copy stays, and the
@@ -133,12 +134,18 @@ object QuoteStageSync {
                     if (o.isNull("quote_stage_at")) "" else o.optString("quote_stage_at")))
             }
             synchronized(LOCK) {
-                val cache = QuoteStage.fromList(listed, ids, readAt, mine, written)
+                // The copies as stored now: S5's quote_stage_at orders this read against them before
+                // the sequence does, since a GET that went out first can reach S5 later (QuoteStage.takes).
+                val stored = HashMap<String, QuoteStage.Cache>()
+                for (id in ids + listed.map { it.project }) cached(context, id)?.let { stored[id] = it }
+                val cache = QuoteStage.fromList(listed, ids, readAt, mine, written, stored)
                 if (cache.isNotEmpty()) {
                     val ed = prefs(context).edit()
                     for ((id, c) in cache) ed.putString(id, encode(c))
                     ed.apply()
-                    for (id in cache.keys) written[id] = mine
+                    // Never lowered: a copy taken by its newer stamp from a read that went out earlier
+                    // is still at least as new as the later read it replaced.
+                    for (id in cache.keys) written[id] = maxOf(written[id] ?: Long.MIN_VALUE, mine)
                 }
             }
             true
