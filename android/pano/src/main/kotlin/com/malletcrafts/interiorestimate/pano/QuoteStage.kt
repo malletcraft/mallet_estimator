@@ -158,11 +158,16 @@ object QuoteStage {
      * Otherwise -- a copy named from a 409 or read as not listed has no stamp, and two equal stamps
      * are one state of S5's -- the read takes the id only when the stored copy came from something
      * earlier in the sequence, so an older read in flight still cannot beat a stage S5 named.
+     * One exception, as WishList.afterGet has it for wishlist_at: a read that LISTS the project with
+     * no stamp never replaces a stored copy that has one, whatever the sequence, because S5 has no
+     * way back to a stage never set -- such a read was served before the project's first move,
+     * however late it went out or landed.
      */
     fun takes(read: Cache, stored: Cache?, seq: Long, wrote: Long?): Boolean {
         val r = instantOf(read.at)
         val s = stored?.let { instantOf(it.at) }
         if (r != null && s != null && r != s) return r.isAfter(s)
+        if (read.listed && r == null && s != null) return false
         return (wrote ?: Long.MIN_VALUE) < seq
     }
 

@@ -260,6 +260,12 @@ class QuoteStageTest {
         // a stage never set on S5, or a stamp that is not a time, is no stamp
         assertFalse(QuoteStage.takes(Cache(true, "Survey", "", "", "r"), newer, 1L, 2L))
         assertFalse(QuoteStage.takes(Cache(true, "Survey", "", "soon", "r"), stamped, 1L, 2L))
+        // ... and a listed read with no stamp never replaces a copy that has one, even sent later:
+        // S5 has no way back to never set, so it was served before the project's first move
+        assertFalse(QuoteStage.takes(Cache(true, "Survey", "", "", "r"), newer, 3L, 2L))
+        assertFalse(QuoteStage.takes(Cache(true, "Survey", "", "", "r"), newer, 3L, null))
+        // a copy with no stamp of its own (never set, or named from a 409) is still replaced by the sequence
+        assertTrue(QuoteStage.takes(Cache(true, "Survey", "", "", "r"), Cache(true, "Survey", "", "", "q"), 3L, 2L))
         // equal stamps are one state of S5's: the sequence alone, so the same read twice writes once
         assertFalse(QuoteStage.takes(newer, newer, 2L, 2L))
         assertTrue(QuoteStage.takes(newer.copy(readAt = "later"), newer, 3L, 2L))
