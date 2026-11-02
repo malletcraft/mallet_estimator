@@ -166,35 +166,53 @@ class QuoteStageTest {
         assertEquals(6, line.lit)
     }
 
-    @Test fun `a read that went out before S5 named the stage never puts the old stage back (compare-and-set per id)`() {
+    @Test fun `a read that went out before S5 named the stage never puts the old stage back (ordered by when each went out)`() {
         val p = "PROJ-0001"; val q = "PROJ-0002"; val r = "PROJ-0003"
-        val revisions = Cache(listed = true, stage = "Revisions", by = "pm@mcft", at = at, readAt = "2026-10-28T01:00:00Z")
-        // A, the project-open read, goes out at 03:00:00 with p and q stored at Revisions and r never read
-        val seen = mapOf(p to revisions, q to revisions.copy(stage = "Vendor quoted"))
+        // A, the project-open read, goes out as seq 1; p and q were written before this process's reads
         val readA = "2026-10-28T03:00:00Z"
         val listedA = listOf(Listed(p, "Revisions", "pm@mcft", at), Listed(q, "Estimated", "pm@mcft", at),
             Listed(r, "Survey", "", ""))
-        // the PM approves; the worker's PUT meets the final 409 and named writes Client approved for p ...
-        val named = QuoteStage.named(revisions, "Client approved", "2026-10-28T03:00:01Z")!!
+        // the PM approves; the worker's PUT meets the final 409 and named writes Client approved for p as seq 2 ...
+        val written = mapOf(p to 2L)
         // ... and A's slow answer, read before the Approve, lands now: p keeps S5's later word
-        val afterNamed = QuoteStage.fromList(listedA, listOf(p, q), readA, seen, current = seen + (p to named))
+        val afterNamed = QuoteStage.fromList(listedA, listOf(p, q), readA, 1L, written)
         assertFalse(p in afterNamed, "the older read put Revisions back over Client approved")
-        // q and r: nothing wrote them meanwhile, so the read takes them, dated when the GET went OUT
+        // q and r: nothing later wrote them, so the read takes them, dated when the GET went OUT
         assertEquals(Cache(true, "Estimated", "pm@mcft", at, readA), afterNamed[q])
         assertEquals(Cache(true, "Survey", "", "", readA), afterNamed[r])
-        // the same when the worker's own read (B, after named) filled in who and when before A landed
+        // the worker's own read B goes out after named (seq 3) and takes p, who and when filled in
         val b = QuoteStage.fromList(listOf(Listed(p, "Client approved", "pm@mcft", "2026-10-28T02:59:30.000Z")),
-            listOf(p), "2026-10-28T03:00:02Z", seen + (p to named), seen + (p to named))
+            listOf(p), "2026-10-28T03:00:02Z", 3L, written)
         assertEquals("Client approved", b[p]!!.stage)
-        assertFalse(p in QuoteStage.fromList(listedA, listOf(p, q), readA, seen, current = seen + b))
-        // an id first cached while the read was out (absent from the snapshot) keeps that copy too
-        assertFalse(r in QuoteStage.fromList(listedA, listOf(p, q), readA, seen, current = seen + (r to named)))
-        // and a known id the list does not carry is "not listed" only where nothing wrote it meanwhile
-        val gone = QuoteStage.fromList(emptyList(), listOf(p, q), readA, seen, current = seen + (p to named))
+        // A landing after B wrote p (seq 3) still leaves p alone
+        assertFalse(p in QuoteStage.fromList(listedA, listOf(p, q), readA, 1L, mapOf(p to 3L)))
+        // an id first written while the read was out, by something later, keeps that copy too
+        assertFalse(r in QuoteStage.fromList(listedA, listOf(p, q), readA, 1L, mapOf(r to 2L)))
+        // and a known id the list does not carry is "not listed" only where nothing later wrote it
+        val gone = QuoteStage.fromList(emptyList(), listOf(p, q), readA, 1L, written)
         assertEquals(setOf(q), gone.keys)
         assertEquals(Cache(listed = false, readAt = readA), gone[q])
-        // nothing written meanwhile: the plain read, every id
-        assertEquals(QuoteStage.fromList(listedA, listOf(p, q), readA), QuoteStage.fromList(listedA, listOf(p, q), readA, seen, seen))
-        assertEquals(QuoteStage.fromList(listedA, listOf(p, q), readA), QuoteStage.fromList(listedA, listOf(p, q), readA, emptyMap(), emptyMap()))
+        // nothing written since the process started: the plain read, every id
+        assertEquals(QuoteStage.fromList(listedA, listOf(p, q), readA), QuoteStage.fromList(listedA, listOf(p, q), readA, 1L, emptyMap()))
+    }
+
+    @Test fun `of two reads out at once, the one that went out later wins whichever lands first`() {
+        val p = "PROJ-0001"
+        // A goes out (seq 1) while S5 says Revisions; the PM approves; C goes out (seq 2) and S5 says Client approved
+        val listedA = listOf(Listed(p, "Revisions", "pm@mcft", at))
+        val listedC = listOf(Listed(p, "Client approved", "pm@mcft", "2026-10-28T03:00:05.000Z"))
+        val readA = "2026-10-28T03:00:00Z"; val readC = "2026-10-28T03:00:06Z"
+        // IN ORDER, the usual case: A lands and writes p as seq 1, then C lands -- C must be kept.
+        // The equality compare of the first version dropped C here: A's write changed the copy C had seen.
+        val aFirst = QuoteStage.fromList(listedA, listOf(p), readA, 1L, emptyMap())
+        assertEquals("Revisions", aFirst[p]!!.stage)
+        val thenC = QuoteStage.fromList(listedC, listOf(p), readC, 2L, aFirst.keys.associateWith { 1L })
+        assertEquals(Cache(true, "Client approved", "pm@mcft", "2026-10-28T03:00:05.000Z", readC), thenC[p])
+        // OUT OF ORDER: C lands first and writes p as seq 2, then A lands -- A must be dropped
+        val cFirst = QuoteStage.fromList(listedC, listOf(p), readC, 2L, emptyMap())
+        assertEquals("Client approved", cFirst[p]!!.stage)
+        assertTrue(QuoteStage.fromList(listedA, listOf(p), readA, 1L, cFirst.keys.associateWith { 2L }).isEmpty())
+        // the same read landing twice (its own seq stored) writes nothing the second time
+        assertTrue(QuoteStage.fromList(listedC, listOf(p), readC, 2L, mapOf(p to 2L)).isEmpty())
     }
 }

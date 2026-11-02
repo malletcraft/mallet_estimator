@@ -16,7 +16,7 @@ import java.time.Instant
  * its photos, which is not work to cause once per project per sync. The answer is cached per
  * ERP project id (Project.serverId) in preferences with the time this phone's read went out, and
  * a known project the list does not carry is cached as not listed -- each id only where nothing
- * wrote it while the read was out (QuoteStage.fromList's compare-and-set), since reads overlap:
+ * that went out LATER has written it (QuoteStage.fromList, ordered by [seq]), since reads overlap:
  * the project-open read, a sync's, the wish list's own after S5 named the stage ([named]).
  *
  * READ-ONLY AND NEVER A FAILURE: any refusal (401, 403, 404, 405), a 5xx, no network or an
@@ -35,9 +35,16 @@ object QuoteStageSync {
 
     private fun url() = BuildConfig.WEB_URL.trimEnd('/') + "/api/asis"
 
-    // [named]'s read-and-write and [refresh]'s compare-and-set hold it, so a slow read of the list
-    // can never write over a stage S5 named after that read went out (QuoteStage.fromList).
+    // Guards [seq] and [written], and every write of the cache: [named]'s read-and-write and
+    // [refresh]'s ordered write, so a slow read of the list can never write over a stage S5 named,
+    // or another read took, after that read went out (QuoteStage.fromList).
     private val LOCK = Any()
+
+    // The one sequence a read takes as its GET goes out and a [named] write takes as it writes,
+    // and per ERP id the seq of the write that put its stored copy there. In memory: a read in
+    // flight never outlives the process, and a fresh process has no read to order against.
+    private var seq = 0L
+    private val written = HashMap<String, Long>()
 
     private fun encode(c: QuoteStage.Cache): String = JSONObject()
         .put("listed", c.listed).put("stage", c.stage).put("by", c.by)
@@ -64,13 +71,6 @@ object QuoteStageSync {
         return decode(prefs(context).getString(serverId, null))
     }
 
-    /** Every cached copy as stored now, by ERP id: one half of [refresh]'s compare-and-set. */
-    private fun snapshot(context: Context): Map<String, QuoteStage.Cache> {
-        val out = HashMap<String, QuoteStage.Cache>()
-        for ((k, v) in prefs(context).all) decode(v as? String)?.let { out[k] = it }
-        return out
-    }
-
     /**
      * An answer of S5's that named [serverId]'s stage (the wish list PUT's refusals for the stage,
      * WishList.Kind409.forStage), written into this cache by QuoteStage.named, so the Wish list
@@ -85,6 +85,7 @@ object QuoteStageSync {
                 val next = QuoteStage.named(cached(context, serverId), stage, Instant.now().toString())
                     ?: return false
                 prefs(context).edit().putString(serverId, encode(next)).apply()
+                written[serverId] = ++seq
             }
             true
         } catch (e: Exception) {
@@ -113,11 +114,11 @@ object QuoteStageSync {
         if (ids.isEmpty()) return false
         val auth = S5Auth.fresh(context) ?: return false
         return try {
-            // When the GET goes out, and every copy as stored then: the compare half of the
-            // compare-and-set, so an answer that lands after a newer write (QuoteStageSync.named
-            // from the wish list's 409, another read) leaves that write alone (QuoteStage.fromList).
+            // When the GET goes out, and its place in the sequence: an answer that lands after a
+            // write from something that went out later ([named] from the wish list's 409, another
+            // read) leaves that write alone (QuoteStage.fromList).
             val readAt = Instant.now().toString()
-            val seen = synchronized(LOCK) { snapshot(context) }
+            val mine = synchronized(LOCK) { ++seq }
             val body = JSONObject(AsIsUpload.send("GET", url(), auth, null, null))
             // A 200 without the list is not "nothing listed": it would mark every project not sent.
             val arr = body.getJSONArray("projects")
@@ -132,11 +133,12 @@ object QuoteStageSync {
                     if (o.isNull("quote_stage_at")) "" else o.optString("quote_stage_at")))
             }
             synchronized(LOCK) {
-                val cache = QuoteStage.fromList(listed, ids, readAt, seen, snapshot(context))
+                val cache = QuoteStage.fromList(listed, ids, readAt, mine, written)
                 if (cache.isNotEmpty()) {
                     val ed = prefs(context).edit()
                     for ((id, c) in cache) ed.putString(id, encode(c))
                     ed.apply()
+                    for (id in cache.keys) written[id] = mine
                 }
             }
             true

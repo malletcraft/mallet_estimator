@@ -361,8 +361,8 @@ object WishSync {
 
     /**
      * On project open (off the main thread): S5's copy for one ERP project. A clean list takes
-     * it; an unsent edit is never touched; and anything written while the GET was out (a PUT's
-     * 200, an edit) wins over the GET's older answer (WishList.afterGet's compare-and-set).
+     * it; an unsent edit is never touched; and a newer save S5 has answered while the GET was out
+     * (a PUT's 200, another GET) wins over the GET's older answer (WishList.afterGet, by S5's stamp).
      * Returns whether anything was written. Never throws.
      */
     fun pull(context: Context, project: Catalogue.Project): Boolean {
@@ -371,15 +371,13 @@ object WishSync {
         val key = WishList.keyOf(project.serverId, project.client, project.title)
         val blank = WishList.Local(project.client, project.title)
         return try {
-            // The list as stored when the GET goes out: the compare half of the compare-and-set.
-            val seen = synchronized(LOCK) { load(context, key) } ?: blank
             val o = JSONObject(AsIsUpload.send("GET", url(key), auth, null, null))
             // A 200 without the rows is not "nothing wanted": it would clear the list.
             val rows = rowsOf(o.getJSONObject("rows"))
             val at = if (o.isNull("wishlist_at")) "" else o.optString("wishlist_at")
             synchronized(LOCK) {
                 val cur = load(context, key) ?: blank
-                val next = WishList.afterGet(cur, rows, at, seen)
+                val next = WishList.afterGet(cur, rows, at)
                 // The same list again (or S5's blank one over none here) is not a change: no write, no redraw.
                 if (next.at == cur.at && WishList.forPut(next.rows) == WishList.forPut(cur.rows)) return false
                 write(context, key, next)

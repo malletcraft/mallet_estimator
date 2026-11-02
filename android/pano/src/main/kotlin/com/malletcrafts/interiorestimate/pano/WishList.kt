@@ -583,13 +583,19 @@ object WishList {
 
     /**
      * A GET on project open: a clean list takes S5's copy (staff edits on /projects); an
-     * unsent edit is never touched. The GET is a compare-and-set: [seen] is the list as it was
-     * stored when the GET went out, and when anything wrote it meanwhile (a PUT's 200, an
-     * edit) the GET's answer is older than what is stored and is dropped. A stamp older than
-     * the stored one is dropped too (both are S5's toISOString, so they compare as text).
+     * unsent edit is never touched. The GET is ORDERED BY S5'S OWN STAMP, wishlist_at, which
+     * moves on every save S5 takes: an answer whose stamp is older than the one stored (a PUT's
+     * 200 or another GET landed while it was out) is dropped, and so is a never-saved answer
+     * ("") once anything has been saved, since S5 has no path back to never saved -- so a GET
+     * that went out before the first PUT cannot clear the list that PUT saved. Both stamps are
+     * S5's toISOString, so they compare as text.
+     *
+     * The stamp and not equality: the first version also dropped the answer whenever the stored
+     * list differed from the list as it was when the GET went out, which kept the OLDER of two
+     * overlapping GETs whenever they landed in the order they went out (batch B review,
+     * 2 Nov 2026, the same fault as QuoteStage.fromList's).
      */
-    fun afterGet(current: Local, s5Rows: Map<String, Row>, at: String, seen: Local? = current): Local =
-        if (current.dirty || current != seen ||
-            (at.isNotBlank() && current.at.isNotBlank() && at < current.at)) current
+    fun afterGet(current: Local, s5Rows: Map<String, Row>, at: String): Local =
+        if (current.dirty || (current.at.isNotBlank() && (at.isBlank() || at < current.at))) current
         else current.copy(rows = s5Rows, at = at)
 }

@@ -330,20 +330,46 @@ class WishListTest {
         assertEquals(dirty, WishList.afterGet(dirty, s5, "b"))
     }
 
-    @Test fun `GET on open is a compare-and-set - a PUT's 200 landing while it was out is not rolled back`() {
+    @Test fun `GET on open is ordered by S5's stamp - a PUT's 200 landing while it was out is not rolled back`() {
         val before = Local("C", "T", mapOf("cctv" to Row(on = true)), at = "2026-10-16T05:00:00.000Z", dirty = true)
         val s5Old = mapOf("cctv" to Row(on = true))
         // the GET went out with `before` stored; SyncWorker's PUT then landed (clean, newer stamp)
         val sent = WishList.edited(before, WishList.toggle(before.rows, "painting"), "2026-10-16T05:01:00Z")
         val afterPut = WishList.afterPut(sent, sent.rows, "2026-10-16T05:02:00.000Z")
-        val got = WishList.afterGet(afterPut, s5Old, "2026-10-16T05:00:00.000Z", seen = before)
+        val got = WishList.afterGet(afterPut, s5Old, "2026-10-16T05:00:00.000Z")
         assertEquals(afterPut, got)
         assertEquals(2, WishList.count(got.rows))
-        // an answer older than the stored stamp is dropped even when nothing else moved
-        assertEquals(afterPut, WishList.afterGet(afterPut, s5Old, "2026-10-16T05:00:00.000Z"))
-        // the same list unchanged while the GET was out takes S5's newer copy
+        // a newer copy of S5's (staff saved on /projects since) is taken
         val staff = mapOf("intercom" to Row(on = true))
-        assertEquals(staff, WishList.afterGet(afterPut, staff, "2026-10-16T06:00:00.000Z", seen = afterPut).rows)
+        assertEquals(staff, WishList.afterGet(afterPut, staff, "2026-10-16T06:00:00.000Z").rows)
+        // the same stamp again is the same list: taken, and nothing moves
+        assertEquals(afterPut, WishList.afterGet(afterPut, afterPut.rows, afterPut.at))
+    }
+
+    @Test fun `of two GETs out at once, the newer answer wins whichever lands first`() {
+        val stored = Local("C", "T", mapOf("cctv" to Row(on = true)), at = "2026-10-16T05:00:00.000Z")
+        val rowsA = mapOf("cctv" to Row(on = true))
+        val rowsC = mapOf("intercom" to Row(on = true))
+        // A answered before staff saved on /projects, C after; in order (the usual case) C must be kept.
+        // The equality compare of the first version dropped C here: A's write changed the list C had seen.
+        val aFirst = WishList.afterGet(stored, rowsA, "2026-10-16T05:00:00.000Z")
+        val thenC = WishList.afterGet(aFirst, rowsC, "2026-10-16T06:00:00.000Z")
+        assertEquals(rowsC, thenC.rows)
+        assertEquals("2026-10-16T06:00:00.000Z", thenC.at)
+        // out of order: C lands first, then A's older answer is dropped
+        val cFirst = WishList.afterGet(stored, rowsC, "2026-10-16T06:00:00.000Z")
+        assertEquals(cFirst, WishList.afterGet(cFirst, rowsA, "2026-10-16T05:00:00.000Z"))
+    }
+
+    @Test fun `a GET that went out before the first save cannot clear the list that save put on S5`() {
+        // never saved anywhere: a GET out now answers S5's blank list with no stamp
+        val first = WishList.edited(Local("C", "T"), WishList.toggle(emptyMap(), "painting"), "2026-10-16T05:01:00Z")
+        val saved = WishList.afterPut(first, first.rows, "2026-10-16T05:02:00.000Z")
+        // the PUT's 200 landed first; the blank answer lands after it and is dropped -- S5 has no way back to never saved
+        assertEquals(saved, WishList.afterGet(saved, emptyMap(), ""))
+        // never saved on either side: S5's blank list is taken as it is
+        val clean = Local("C", "T")
+        assertEquals(clean, WishList.afterGet(clean, emptyMap(), ""))
     }
 
     /** S5's words, verbatim from functions/_lib/asis.js at 943dfd2 (APPROVED_FINAL + '; not saved', and FINISH_SURVEY). */

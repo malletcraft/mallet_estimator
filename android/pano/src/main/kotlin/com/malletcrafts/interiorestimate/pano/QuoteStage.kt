@@ -121,20 +121,29 @@ object QuoteStage {
     }
 
     /**
-     * The writes of one read of S5's list, as a COMPARE-AND-SET PER ID: [seen] is every id's copy as
-     * it was stored when the GET went out, [current] as it is stored now (an id absent from a map was
-     * not cached then). Only an id nothing wrote in between takes the read; an id written meanwhile
-     * keeps what is stored, since that is newer than this GET -- an answer that named the stage
-     * ([named]: the wish list's `final` 409 after an Approve) or a read that went out later and
-     * landed first. Without it a project-open read that went out before the Approve could land after
-     * the 409 and put Revisions back, unlocking the list under S5's "…; not saved" (slice W fix
-     * review). [readAt] is when the GET went OUT, so a slow answer is not dated as fresh. The same
-     * rule as WishList.afterGet for the list itself.
+     * The writes of one read of S5's list, ORDERED BY WHEN EACH WENT OUT: [seq] is this read's place
+     * in the one sequence every read takes as its GET goes out and every [named] write takes as it
+     * writes, and [written] is, per id, the seq of the write that put the stored copy there (an id
+     * absent from it has not been written since the process started). An id takes this read only
+     * when its stored copy came from something EARLIER in that sequence; one written by a later
+     * read or by a later answer that named the stage keeps what is stored, since that is newer
+     * than this GET. So of two reads out at once, the one that went out later wins whichever lands
+     * first -- and a project-open read that went out before the Approve cannot land after the
+     * wish list's `final` 409 and put Revisions back, unlocking the list under S5's "…; not saved"
+     * (slice W fix review).
+     *
+     * A sequence and not equality: the first version compared the copy stored now with the copy
+     * stored when the GET went out, which kept the OLDER of two overlapping reads whenever they
+     * landed in the order they went out -- the usual case -- because the first to land changed the
+     * copy the second had seen (batch B review, 2 Nov 2026). And a sequence and not the clock: a
+     * phone whose clock steps back would hold every later read below a stamp in the future. The
+     * sequence lives in memory only, which is enough: a read in flight never outlives its process.
+     * [readAt] is when the GET went OUT, so a slow answer is not dated as fresh.
      */
     fun fromList(
         listed: List<Listed>, known: Collection<String>, readAt: String,
-        seen: Map<String, Cache>, current: Map<String, Cache>,
-    ): Map<String, Cache> = fromList(listed, known, readAt).filter { (id, _) -> current[id] == seen[id] }
+        seq: Long, written: Map<String, Long>,
+    ): Map<String, Cache> = fromList(listed, known, readAt).filter { (id, _) -> (written[id] ?: Long.MIN_VALUE) < seq }
 
     /**
      * The cache after an answer of S5's that NAMED the project's stage without who set it or when:
