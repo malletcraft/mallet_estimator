@@ -467,9 +467,11 @@ internal fun SurveyPrepDialog(
         val row = withContext(Dispatchers.IO) { CaptureStore(context).all().firstOrNull { it.deviceId == id } }
         // Off the main thread: a session past its renewal time is renewed first (S5Auth.fresh).
         val auth = withContext(Dispatchers.IO) { S5Auth.fresh(context) }
+        // THIS capture's readings, by its device id -- and by its ERP name while S5 still holds it under that
+        // (port 61c slice AS1, ReadingsSync.fetch): never the room's, which could be another 360's
         val fetched: Result<Map<String, com.malletcrafts.interiorestimate.pano.Readings.Remote>>? =
             if (row == null || row.project.isBlank() || auth == null) null
-            else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room) } }
+            else withContext(Dispatchers.IO) { runCatching { ReadingsSync.fetch(auth, row.project, row.room, row.deviceId, row.serverName) } }
         val remote = fetched?.getOrNull()
         // a conflict on a reading whose mark was deleted or cleared here is not put back as an orphan: the delete
         // stands and is sent again (Readings.orphans), so the upload is queued for it (v52 slice 8 review)

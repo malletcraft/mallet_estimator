@@ -38,3 +38,5 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt
+# Port 61c slice AS1 (3 Nov 2026) adds pano/AsIsPath.kt, the as-is upload's three capture addresses (the record, a surface photo, the readings) and its record body: no shown text, every string a path segment or a JSON key, wire values.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AsIsPath.kt

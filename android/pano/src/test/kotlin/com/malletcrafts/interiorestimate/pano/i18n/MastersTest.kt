@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate.pano.i18n
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumQueue
 import com.malletcrafts.interiorestimate.pano.AlbumWire
+import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Phases
@@ -124,8 +125,10 @@ class MastersTest {
      * take a Tx in its slice: no parameter or result of an i18n type, generics included.
      */
     @Test fun `the wire, storage and export builders have no Tx parameter`() {
-        // port 61c slice AQ: the album outbox's requests and S5's answers -- every method builds or reads what is sent
-        val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java)
+        // port 61c slice AQ: the album outbox's requests and S5's answers -- every method builds or reads what is sent;
+        // port 61c slice AS1: the as-is upload's capture addresses and its record body, every method a wire value
+        val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java,
+            AsIsPath::class.java)
         val named = mapOf(
             // afterFinal, afterSurvey and left (port 61c slice W), and after409, shown and entered (its review), write the
             // stored list: S5's words stay as S5 sent them. Port M4 adds the two that write the stored notes (REPLACED,

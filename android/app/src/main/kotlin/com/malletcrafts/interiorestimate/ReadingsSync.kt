@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.Readings
 import org.json.JSONArray
 import org.json.JSONObject
@@ -18,10 +19,17 @@ import java.time.format.DateTimeFormatter
  * what this phone last SAW synced per key (value and the server's `at`), and
  * any conflict the upload job met that survey prep has not applied yet.
  *
- *  - push: the upload job, after the room record, PATCHes the keys whose
- *    local value differs from what was seen, each with its base `at`.
+ *  - push: the upload job, after the room record and its photos, PATCHes the
+ *    keys whose local value differs from what was seen, each with its base `at`.
  *  - pull: survey prep, on open and resume, GETs the readings and takes what
  *    changed on the web, never an unsent local edit.
+ *
+ * THE READINGS ARE ONE CAPTURE'S (port 61c slice AS1, 3 Nov 2026): every
+ * address names the capture by its device id, …/c/<deviceId>/readings
+ * (AsIsPath), so a room with two 360s never has one capture's figures merged
+ * into the other's survey prep -- S5's "ONE SERVER ROOM PER CAPTURE". The pull
+ * also asks the ERP name (MEST-PH-…) while S5 still holds the capture under it
+ * ([fetch]); a 404 on both stays the quiet NOT_YET.
  *
  * Every key is sent alike, whatever owns it: a mark's FD1.w, a Line's F-M1.len,
  * a chain's segments FK1.1 … FK1.n and its total FK1.t (v52 slice 11; S5's
@@ -103,19 +111,50 @@ object ReadingsSync {
 
     fun notAvailable(e: Throwable): Boolean = e is AsIsUpload.HttpError && (e.code == 404 || e.code == 405)
 
-    private fun url(project: String, room: String) =
-        BuildConfig.WEB_URL.trimEnd('/') + "/api/asis/" + AsIsUpload.seg(project) + "/" + AsIsUpload.seg(room) + "/readings"
+    /**
+     * Forget everything this phone last saw synced for [id]: the seen baseline AND any conflict waiting
+     * for survey prep. The upload job calls it when S5 answered the record with `created: true` -- the
+     * capture is new on the web, or was deleted there and is back -- so what was seen is of rows that no
+     * longer exist, and the push that follows sends every local reading as a first write (port item 4:
+     * without this, only the keys that changed would go, and the next pull would delete the rest on the
+     * phone as "gone from the web"). A waiting conflict is the web's value from before the delete, and
+     * is not applied either.
+     */
+    fun forget(context: Context, id: String) {
+        update(context, id) { st -> st.seen.clear(); st.conflicts.clear() }
+    }
 
-    /** GET the room's readings from the web. */
-    fun fetch(auth: String, project: String, room: String): Map<String, Readings.Remote> =
-        remoteOf(JSONObject(AsIsUpload.send("GET", url(project, room), auth, null, null)).optJSONObject("readings"))
+    /** The capture's readings on the web: …/<project>/<room>/c/<capture>/readings (AsIsPath), each segment encoded once. */
+    private fun url(project: String, room: String, capture: String) =
+        BuildConfig.WEB_URL.trimEnd('/') + AsIsPath.path(AsIsPath.readings(project, room, capture)) { AsIsUpload.seg(it) }
+
+    private fun get(auth: String, project: String, room: String, capture: String): Map<String, Readings.Remote> =
+        remoteOf(JSONObject(AsIsUpload.send("GET", url(project, room, capture), auth, null, null)).optJSONObject("readings"))
 
     /**
-     * The upload job's half: PATCH the unsent edits with their bases. Written
-     * keys become seen; conflicts wait in the state for survey prep to apply
-     * (the server value wins). Returns a note for the screen, or null.
+     * GET one capture's readings from the web, by its device id -- and, when that is a 404 and ERP has named the
+     * capture ([erpCapture], the row's serverName, MEST-PH-…), by that name (port 61c slice AS1, critic S3): until
+     * the capture's first record PUT from this build lands, S5 still holds it under the name 0.3.212's record gave
+     * it, and a pull that asked only the device id would read 404 as NOT_YET and quietly stop taking the web's
+     * edits. The two names are ONE capture (S5's C3 renames it onto the device id at that first PUT, after which
+     * the device id answers and the second name is never asked). Any other refusal, and a 404 on both, throws.
      */
-    fun push(context: Context, id: String, auth: String, project: String, room: String,
+    fun fetch(auth: String, project: String, room: String, capture: String, erpCapture: String? = null): Map<String, Readings.Remote> {
+        val older = erpCapture?.takeIf { it != capture }
+        return try {
+            get(auth, project, room, capture)
+        } catch (e: AsIsUpload.HttpError) {
+            if (e.code == 404 && older != null) get(auth, project, room, older) else throw e
+        }
+    }
+
+    /**
+     * The upload job's half: PATCH the unsent edits with their bases, to THIS capture (by its device id: the
+     * job has just put the record under it, so S5's C3 has renamed any older row and the PATCH needs no second
+     * name). Written keys become seen; conflicts wait in the state for survey prep to apply (the server value
+     * wins). Returns a note for the screen, or null.
+     */
+    fun push(context: Context, id: String, auth: String, project: String, room: String, capture: String,
              local: Map<String, Double>): String? {
         val seen = update(context, id) { it.seen.toMap() }
         val p = Readings.push(local, seen)
@@ -123,7 +162,7 @@ object ReadingsSync {
         val body = JSONObject()
             .put("set", JSONObject().apply { for ((k, v) in p.set) put(k, v ?: JSONObject.NULL) })
             .put("base", JSONObject().apply { for ((k, a) in p.base) put(k, a ?: JSONObject.NULL) })
-        val ans = JSONObject(AsIsUpload.send("PATCH", url(project, room), auth,
+        val ans = JSONObject(AsIsUpload.send("PATCH", url(project, room, capture), auth,
             body.toString().toByteArray(Charsets.UTF_8), "application/json; charset=utf-8"))
         val written = mutableListOf<String>()
         ans.optJSONArray("written")?.let { a: JSONArray -> for (i in 0 until a.length()) written.add(a.optString(i)) }

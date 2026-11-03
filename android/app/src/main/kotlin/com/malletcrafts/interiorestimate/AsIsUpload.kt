@@ -11,6 +11,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -28,11 +29,25 @@ import java.util.concurrent.TimeUnit
  * prep goes to the web half of MCFT Interior Estimate, where staff, the
  * project's vendors and its client open project -> room -> the room as it is.
  *
- * After "Save survey prep", one unique job per capture: each of the six
- * surfaces squared to size from the kept 360 -- NO margin, the picture is the
- * surface rectangle, long side 2000 px (SurveyPrep.asisSquare) -- PUT as a
- * JPEG, then the room record. The 360 gone: the record alone, image false.
- * Saving again REPLACES the queued job, so the web always ends on the latest.
+ * EVERY 360 IS ITS OWN S5 CAPTURE (port 61c slice AS1, 3 Nov 2026; S5's "ONE
+ * SERVER ROOM PER CAPTURE", 14 Oct 2026): after "Save survey prep", one unique
+ * job per capture sends, under the capture's DEVICE ID on S5's explicit routes
+ * (AsIsPath in :pano, where the addresses and the record are pinned):
+ *  1. the room record, PUT …/<project>/<room>/c/<deviceId> -- with the phone's
+ *     own filing (`work`), and `captured_at` byte for byte as 0.3.212 sent it,
+ *     so S5's C3 renames the capture it may hold under the ERP name
+ *     (MEST-PH-…) onto this id, readings and photos with it;
+ *  2. each of the six surfaces squared to size from the kept 360 -- NO margin,
+ *     the picture is the surface rectangle, long side 2000 px
+ *     (SurveyPrep.asisSquare) -- PUT …/c/<deviceId>/img/<surface>: S5 keeps
+ *     no photo that no record owns, so a 404 here is the record not being on
+ *     the web, and the job runs again from the record (RecordMissing);
+ *  3. the site readings, PATCH …/c/<deviceId>/readings (ReadingsSync) --
+ *     after forgetting what was last seen synced when S5 answered the record
+ *     with `created: true`, so a capture new on the web (or deleted there and
+ *     back) gets every reading as a first write.
+ * The 360 gone: the record alone, every image false. Saving again REPLACES
+ * the queued job, so the web always ends on the latest.
  *
  * Auth is S5Auth.current: the phone's S5 session (S5Session, ERP email and
  * password exchanged once for S5's own cookie) when it has one, else the
@@ -142,6 +157,14 @@ object AsIsUpload {
          *  big): retrying the same thing cannot help. 408/429 are waits. */
         val refused: Boolean get() = code in 400..499 && code != 408 && code != 429
     }
+
+    /**
+     * S5 answered 404 to a surface photo: the capture's record is not on the web, though this very job put
+     * it there moments ago (deleted there meanwhile -- S5 keeps no photo that no record owns). Not done,
+     * and not a refusal of the room: the next run sends the record again, which puts the capture back, and
+     * then its photos. The message is S5's own text, as [HttpError] carried it.
+     */
+    class RecordMissing(e: HttpError) : Exception(e.message)
 
     private val http by lazy {
         OkHttpClient.Builder()
@@ -263,35 +286,27 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
         }
         val l = prepJson.optDouble("L"); val w = prepJson.optDouble("W"); val h = prepJson.optDouble("H")
 
-        val base = BuildConfig.WEB_URL.trimEnd('/') + "/api/asis/" +
-            AsIsUpload.seg(c.project) + "/" + AsIsUpload.seg(c.room)
+        // Every address is the capture's own (AsIsPath): …/<project>/<room>/c/<deviceId>, then /img/<surface>
+        // or /readings. Each segment is encoded ONCE, here, the way the web decodes it.
+        fun url(segments: List<String>): String =
+            BuildConfig.WEB_URL.trimEnd('/') + AsIsPath.path(segments) { AsIsUpload.seg(it) }
 
         return try {
             val pano = File(c.panoPath)
             val keptPano = c.kind == "360" && pano.exists()
+            // ONE FRAME AND ONE SIZE (v52 slice 12): every surface's a x b, exactly as the phone squared the face --
+            // through its reference rectangle when that is on -- so the web draws every mark (in mm) where the phone
+            // placed it; and the frame of each surface that carries a photo (the kept 360 through a done surface).
+            // `image` names the surfaces THIS job sends, before they go: the record goes first now, and a job that
+            // dies between the record and a photo runs again from the record, so a record whose photos are not
+            // coming never stays on the web.
+            val frames = LinkedHashMap<String, SurveyPrep.Frame>()
             val surfaces = JSONObject()
-            var anyImage = false
-            if (keptPano) {
-                val full = FaceWriter.fullPano(pano)
-                for (s in SurveyPrep.SURFACES) {
-                    // ONE FRAME AND ONE SIZE (v52 slice 12): the picture is squared, and its a x b sent, exactly as the
-                    // phone squared the face -- through its reference rectangle when that is on -- so the web draws
-                    // every mark (in mm) where the phone placed it
-                    val ab = SurveyPrep.sizeOf(s, prep, l, w, h)
-                    val f = if (prep.surface(s).done()) SurveyPrep.frameOf(s, prep, l, w, h) else null
-                    var sent = false
-                    if (f != null) {
-                        val jpeg = FaceWriter.jpegOf(SurveyPrep.renderAsIs(full, s, f), AsIsUpload.JPEG_QUALITY)
-                        AsIsUpload.put("$base/img/${AsIsUpload.seg(s)}", auth, jpeg, "image/jpeg")
-                        sent = true; anyImage = true
-                    }
-                    surfaces.put(s, JSONObject().put("a", ab[0]).put("b", ab[1]).put("image", sent))
-                }
-            } else {
-                for (s in SurveyPrep.SURFACES) {
-                    val ab = SurveyPrep.sizeOf(s, prep, l, w, h)
-                    surfaces.put(s, JSONObject().put("a", ab[0]).put("b", ab[1]).put("image", false))
-                }
+            for (s in SurveyPrep.SURFACES) {
+                val ab = SurveyPrep.sizeOf(s, prep, l, w, h)
+                val f = if (keptPano && prep.surface(s).done()) SurveyPrep.frameOf(s, prep, l, w, h) else null
+                if (f != null) frames[s] = f
+                surfaces.put(s, JSONObject().put("a", ab[0]).put("b", ab[1]).put("image", f != null))
             }
 
             val customer = runCatching {
@@ -306,26 +321,49 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             val appVersion = runCatching {
                 ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
             }.getOrDefault("")
-            val record = JSONObject()
-                .put("v", 1)
-                .put("project", c.project)
-                .put("project_title", c.projectTitle)
-                .put("customer", customer)
-                .put("room", c.room)
-                .put("capture", c.serverName ?: c.deviceId)
-                .put("captured_at", Instant.ofEpochMilli(c.createdAt).atZone(ZoneId.systemDefault())
-                    .toOffsetDateTime().toString())
-                .put("app_version", appVersion)
-                .put("L", l).put("W", w).put("H", h)
-                .put("prep", prepJson)
-                .put("surfaces", surfaces)
-            AsIsUpload.put(base, auth, record.toString().toByteArray(Charsets.UTF_8),
-                "application/json; charset=utf-8")
-            // Then the site readings, per key, against what the web last said
-            // (ReadingsSync). Never blocks the room: a web without the readings
-            // endpoint yet answers quietly.
+            // THE RECORD FIRST, under the capture's device id (port 61c slice AS1; port items 1 and 2). The body is
+            // AsIsPath's -- S5's keys and JSON types, the phone's own filing as `work`, `captured_at` byte for byte
+            // as every build sent it (S5's C3 renames an older MEST-PH-… row onto this id by that text), ERP's name
+            // beside it as information -- and JSONObject(map) writes a null `work` as JSON null (AlbumQueue's rule:
+            // `put(k, null)` would DROP the key, and an absent `work` tells S5 to file by a `stage` this record
+            // does not carry).
+            val body = AsIsPath.body(
+                project = c.project, projectTitle = c.projectTitle, customer = customer, room = c.room,
+                capture = c.deviceId, erpCapture = c.serverName,
+                capturedAt = AsIsPath.capturedAt(c.createdAt, ZoneId.systemDefault()),
+                appVersion = appVersion, l = l, w = w, h = h, prep = prepJson, surfaces = surfaces,
+                work = c.work, stage = c.stage,
+            )
+            val record = JSONObject(body as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
+            val answer = JSONObject(AsIsUpload.send("PUT", url(AsIsPath.record(c.project, c.room, c.deviceId)), auth,
+                record, "application/json; charset=utf-8"))
+            // `created`: S5 had no row of this id before and it is no rename (C3) -- the capture is new on the web, or
+            // was deleted there and is back. What this phone last saw synced of its readings is of a capture that is
+            // gone, so it is forgotten below, before the push, and every reading goes as a first write (port item 4).
+            val created = answer.optBoolean("created", false)
+
+            // THEN THE PHOTOS, each under the capture. S5 keeps no photo that no record owns, so a 404 here means the
+            // record is not on the web (deleted there since the PUT above): not done, not refused -- the job runs
+            // again from the record (RecordMissing, below).
+            var anyImage = false
+            if (frames.isNotEmpty()) {
+                val full = FaceWriter.fullPano(pano)
+                for ((s, f) in frames) {
+                    val jpeg = FaceWriter.jpegOf(SurveyPrep.renderAsIs(full, s, f), AsIsUpload.JPEG_QUALITY)
+                    try {
+                        AsIsUpload.put(url(AsIsPath.image(c.project, c.room, c.deviceId, s)), auth, jpeg, "image/jpeg")
+                    } catch (e: AsIsUpload.HttpError) {
+                        if (e.code == 404) throw AsIsUpload.RecordMissing(e) else throw e
+                    }
+                    anyImage = true
+                }
+            }
+
+            // THEN THE SITE READINGS, per key, against what the web last said of THIS capture (ReadingsSync, by the
+            // device id). Never blocks the room: a web without the readings endpoint yet answers quietly.
+            if (created) ReadingsSync.forget(ctx, id)
             val readingsNote: String? = try {
-                ReadingsSync.push(ctx, id, auth, c.project, c.room, prep.actual.toMap())
+                ReadingsSync.push(ctx, id, auth, c.project, c.room, c.deviceId, prep.actual.toMap())
             } catch (e: AsIsUpload.HttpError) {
                 if (ReadingsSync.notAvailable(e)) ReadingsSync.NOT_YET
                 else if (e.refused) "readings not sent: ${e.message}"
@@ -353,6 +391,11 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // "refused" ENDS the job; "error" is a job WorkManager will run again (stateOf).
             AsIsUpload.setState(ctx, id, if (e.refused) "refused" else "error", e.message ?: "refused")
             if (e.refused) Result.failure() else Result.retry()
+        } catch (e: AsIsUpload.RecordMissing) {
+            // A photo's 404: the record this job sent is not on the web any more. "error" is a job WorkManager runs
+            // again (stateOf), and the next run starts with the record, which puts the capture back.
+            AsIsUpload.setState(ctx, id, "error", e.message)
+            Result.retry()
         } catch (e: OutOfMemoryError) {
             AsIsUpload.setState(ctx, id, "error", "not enough memory to square the 360 — will try again")
             Result.retry()
