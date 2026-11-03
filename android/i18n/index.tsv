@@ -1071,6 +1071,7 @@ refuse.stage.offline	refuse_stage_offline	static	-
 refuse.stage.pm_approves	refuse_stage_pm_approves	static	-
 refuse.stage.pm_scope	refuse_stage_pm_scope	static	-
 refuse.stage.scope_changed	refuse_stage_scope_changed	static	-
+refuse.stage.scope_final	refuse_stage_scope_final	static	-
 refuse.stage.scope_missing	refuse_stage_scope_missing	static	-
 refuse.stage.staff_only	refuse_stage_staff_only	static	-
 refuse.t53.x_x_cannot_go	refuse_t53_x_x_cannot_go	template	a: String · name: String · v: String

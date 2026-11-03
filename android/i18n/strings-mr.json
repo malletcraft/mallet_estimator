@@ -3443,6 +3443,10 @@
  "refuse.stage.scope_changed": {
   "mr": "मधल्या काळात स्कोप बदलला; सेव्ह झाले नाही — आता जे साठवले आहे ते दाखवत आहे"
  },
+ "refuse.stage.scope_final": {
+  "mr": "मंजूर झाले — स्कोप फक्त \"बदल विनंती\" मधूनच बदलतो; सेव्ह झाले नाही",
+  "note": "QM0: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. Worded as refuse.stage.approved_final (मंजूर झाले — … \"बदल विनंती\" मधूनच …; सेव्ह झाले नाही) and phase.scope_note (स्कोप फक्त बदल विनंतीमधूनच बदलतो)"
+ },
  "refuse.stage.scope_missing": {
   "mr": "\"ग्राहक मंजूर\" वर नेण्यापूर्वी मंजूर अंदाजपत्रकातील कामे टिक करा"
  },

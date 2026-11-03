@@ -356,8 +356,9 @@ object Album {
 
     /**
      * S5's `GET .../album` answer -- the phone's MIRROR of the project's album. `role` is S5's
-     * albumRole for this caller ([viewerOf]); `quoteStage` / `quoteStageAt` null / blank when S5
-     * sent none; `scope` null = no baseline; `pm` null = every staff member is PM. `toReview`,
+     * albumRole for this caller ([viewerOf]); `quoteStage` / `quoteStageAt` / `quoteStageBy` null / blank
+     * when S5 sent none (the stage, its stamp and who set it go into the project-state store,
+     * [QuoteStage.fromAlbum]); `scope` null = no baseline; `pm` null = every staff member is PM. `toReview`,
      * `changeRequests`, `closed` and `closedAt` are S5's figures AS SENT, for a list; the screen
      * derives its own through [chapters], so a merge after a POST never leaves a count behind.
      * `logNext` / `logMore` are S5's cursor: a `?since=` page is followed while `logMore`
@@ -372,6 +373,7 @@ object Album {
         val pm: String? = null,
         val quoteStage: String? = null,
         val quoteStageAt: String = "",
+        val quoteStageBy: String = "",
         val works: List<Work> = emptyList(),
         val log: List<Entry> = emptyList(),
         val logNext: Long = 0,

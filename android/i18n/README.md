@@ -135,11 +135,26 @@ four phone texts from L2's card that it draws (`wish.not_sent_s5`, `wish.s5_newe
   `statusLine` draw it in the language. The stored note stays S5's English. A 400's words name the input and are still
   drawn as S5 sent them.
 
+## Port 61c slice QM0 (3 Nov 2026): the project line and the quote move are born keyed
+
+`pano/QuoteMove.kt` (new) joined `ported.txt`: the guarded `PUT …/stage` and `PUT …/album/scope` and S5's answers to
+them, every status line a `tx.<key>` through `QuoteMove.text` / `localText` (the `refuse.stage.*` keys, each S5's
+asis.js words verbatim, and `wish.not_s5_yet_project`); S5's 400 words and its not-yet 409 are data, shown as sent.
+`QuoteStage.projectLine` and `coverageParts` (the one derived line, SURVEY COVERAGE) are keyed through existing keys
+(`common.quote_x`, `app.execution`, `app.x_in_progress`, `app.x_done`, `app.x_on_hold`, `app.x_abandoned`,
+`app.no_work_started`, `wish.*`, `phase.*`); `QuoteStage.kt` itself stays out of `ported.txt` until slice PL deletes
+`lineFor`, `phoneOnly`, `TITLE` and the `NOT_*` texts, whose `unkeyed.tsv` rows go with them.
+
+- **Added, 1 phone text** (flag `phone-text`; Marathi by Claude, decision 6): `refuse.stage.scope_final`, S5's 409 to
+  Record the approved scope at Client approved with a scope stored, `Approved — the scope changes only through change
+  requests; not saved` byte for byte (asis.js `FINAL_SCOPE` at 9a51733) -> `मंजूर झाले — स्कोप फक्त "बदल विनंती" मधूनच
+  बदलतो; सेव्ह झाले नाही`, worded as `refuse.stage.approved_final`. The prototype's recordScope has no such answer.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,793 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 6 phone texts (4 in K1b, 2 in M4 and its review, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,794 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 7 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

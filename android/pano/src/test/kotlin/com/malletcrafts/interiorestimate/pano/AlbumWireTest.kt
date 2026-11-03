@@ -71,6 +71,7 @@ class AlbumWireTest {
         assertEquals("pm@x", v.pm)
         assertEquals("Client approved", v.quoteStage)
         assertEquals("2026-11-03T05:16:04.183Z", v.quoteStageAt)
+        assertEquals("pm@x", v.quoteStageBy, "who set the stage, for the project-state store (QM0, QuoteStage.fromAlbum)")
         // works[16]: S5's order, the base in seq, the live request as its raise row with the kind in value
         assertEquals(Album.WORK_IDS, v.works.map { it.id })
         assertEquals(Work(10, "Done", "pm@x", "P M", "2026-11-03T05:16:04.196Z", 7, true, null, 0), v.works.first { it.id == 10 })
@@ -168,6 +169,7 @@ class AlbumWireTest {
         assertNull(v.scope, "scope null is no baseline")
         assertEquals("Survey", v.quoteStage)
         assertEquals("", v.quoteStageAt)
+        assertEquals("", v.quoteStageBy, "never moved: S5 sends '' for who")
         assertEquals(emptyList(), v.log)
         assertEquals(0L, v.logNext)
         assertEquals(16, v.works.size)

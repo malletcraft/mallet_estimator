@@ -1,11 +1,17 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.Album.WorkState
 import com.malletcrafts.interiorestimate.pano.QuoteStage.Cache
+import com.malletcrafts.interiorestimate.pano.QuoteStage.Coverage
+import com.malletcrafts.interiorestimate.pano.QuoteStage.LineKind
 import com.malletcrafts.interiorestimate.pano.QuoteStage.Listed
+import com.malletcrafts.interiorestimate.pano.QuoteStage.Shot
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -273,5 +279,254 @@ class QuoteStageTest {
         assertTrue(QuoteStage.takes(stamped, null, 1L, null))
         // ... but a copy kept from before this process still beats an older stamp
         assertFalse(QuoteStage.takes(stamped, newer, 1L, null))
+    }
+
+    // ---- port 61c slice QM0: the one project line, the store's merge rule, the dots and the coverage ----------
+
+    private fun tree(t: String): Any? = MiniJson.parse(t)
+    private fun rows(body: String): List<Listed> =
+        ((tree(body) as Map<*, *>)["projects"] as List<*>).map { assertNotNull(QuoteStage.listedOf(MiniRead, it)) }
+    private fun line(c: Cache?, tx: Tx = Tx.EN, phoneOnly: Boolean = false, queued: List<Album.Op> = emptyList(), t: Instant = now) =
+        QuoteStage.projectLine(c, phoneOnly, queued, tx, t)
+    private fun approved(states: Map<Int, WorkState>?) = Cache(true, "Client approved", "pm@x", at, now.toString(), states)
+
+    // S5's stamps in the QM0 harness run (S5Quote)
+    private val tApproved = "2026-11-03T07:01:08.769Z"
+
+    @Test fun `S5's list row reads whole - the stage, who and when, and work_states at each state row's own seq (S5-L)`() {
+        val l = rows(S5Quote.LIST)
+        assertEquals(listOf("PROJ-REC", "PROJ-DEMO"), l.map { it.project })
+        assertEquals(Listed("PROJ-DEMO", "Client approved", "pm@x", tApproved,
+            mapOf(10 to WorkState(Album.IN_PROGRESS, 7), 20 to WorkState(Album.DONE, 9))), l[1])
+        assertEquals(Listed("PROJ-REC", "Client approved", "pm@x", "2026-10-20T04:30:00.000Z", emptyMap()), l[0], "no state row: {} -- read, nothing started")
+        // a row of an S5 before S5-L has no work_states: not read in this shape, never "no work started"
+        assertNull(QuoteStage.listedOf(MiniRead, tree("""{"project":"P","quote_stage":"Survey","quote_stage_by":null,"quote_stage_at":null}"""))!!.states)
+        assertEquals(Listed("P", "Survey", "", ""), QuoteStage.listedOf(MiniRead, tree("""{"project":"P","quote_stage":"Survey","quote_stage_by":null,"quote_stage_at":null}""")))
+        // an entry with no integral seq, or for an id that is not a work, is left out; a state outside the five is Not started
+        val odd = QuoteStage.listedOf(MiniRead, tree("""{"project":"P","work_states":{"10":{"state":"Done"},"999":{"state":"Done","seq":4},"20":{"state":"Halfway","seq":5},"30":{"state":"Done","seq":6.0}}}"""))!!
+        assertEquals(mapOf(20 to WorkState(Album.NOT_STARTED, 5), 30 to WorkState(Album.DONE, 6)), odd.states)
+        assertNull(QuoteStage.listedOf(MiniRead, tree("""{"project":" "}""")))
+        assertNull(QuoteStage.listedOf(MiniRead, tree("[]")))
+        // the 3-argument fromList carries the states into the copy
+        assertEquals(mapOf(10 to WorkState(Album.IN_PROGRESS, 7), 20 to WorkState(Album.DONE, 9)),
+            QuoteStage.fromList(l, emptyList(), now.toString())["PROJ-DEMO"]!!.states)
+    }
+
+    @Test fun `projectLine - PROJ-DEMO reads Execution, 1 in progress, 1 done, over Quote, Client approved`() {
+        val demo = QuoteStage.fromList(rows(S5Quote.LIST), emptyList(), now.toString())["PROJ-DEMO"]
+        val l = line(demo)
+        assertEquals(LineKind.EXEC, l.kind)
+        assertEquals("Execution · 1 in progress · 1 done", l.text)
+        assertEquals(listOf("1 in progress", "1 done"), l.parts)
+        assertEquals("Quote · Client approved", l.second)
+        assertEquals("Client approved", l.quote)
+        assertEquals(6, l.lit)
+        val mr = line(demo, Tx.MR)
+        assertEquals("अंमलबजावणी · 1 चालू · 1 पूर्ण", mr.text)
+        assertEquals("कोटेशन · ग्राहक मंजूर", mr.second)
+        // the album GET's copy says the same, through the store
+        val album = QuoteStage.fromAlbum(assertNotNull(AlbumWire.view(MiniRead, tree(S5Quote.ALBUM))), now.toString())
+        assertEquals("Execution · 1 in progress · 1 done", line(album).text)
+    }
+
+    @Test fun `projectLine at Client approved - no work started, only abandoned, on hold in its place, never a bare Execution`() {
+        assertEquals("Execution · no work started yet", line(approved(emptyMap())).text, "every work Not started")
+        assertEquals("Execution · no work started yet", line(approved(mapOf(10 to WorkState(Album.NOT_STARTED, 3)))).text)
+        assertEquals("अंमलबजावणी · अजून कोणतेही काम सुरू नाही", line(approved(emptyMap()), Tx.MR).text)
+        // a work started and then abandoned WAS started: named when nothing else counts (review 4)
+        assertEquals("Execution · 2 abandoned", line(approved(mapOf(10 to WorkState(Album.ABANDONED, 4), 20 to WorkState(Album.ABANDONED, 5)))).text)
+        assertEquals("अंमलबजावणी · 2 सोडून दिलेले", line(approved(mapOf(10 to WorkState(Album.ABANDONED, 4), 20 to WorkState(Album.ABANDONED, 5))), Tx.MR).text)
+        assertEquals("Execution · 1 in progress", line(approved(mapOf(10 to WorkState(Album.ABANDONED, 4), 20 to WorkState(Album.IN_PROGRESS, 5)))).text)
+        // in progress · done · on hold, whatever the works' order
+        val mixed = mapOf(140 to WorkState(Album.ON_HOLD, 9), 10 to WorkState(Album.DONE, 3), 20 to WorkState(Album.IN_PROGRESS, 5), 30 to WorkState(Album.DONE, 6))
+        assertEquals("Execution · 1 in progress · 2 done · 1 on hold", line(approved(mixed)).text)
+        assertEquals(listOf("1 in progress", "2 done", "1 on hold"), line(approved(mixed)).parts)
+        assertEquals("Execution · 1 on hold", line(approved(mapOf(50 to WorkState(Album.ON_HOLD, 2)))).text)
+        assertEquals("अंमलबजावणी · 1 थांबवलेले", line(approved(mapOf(50 to WorkState(Album.ON_HOLD, 2))), Tx.MR).text)
+        // no states read yet (a copy 0.3.262 wrote, an S5 before S5-L): never a count it has not read, never bare
+        val unread = line(approved(null))
+        assertEquals("Execution · not read yet", unread.text)
+        assertEquals(emptyList(), unread.parts)
+        assertEquals("Quote · Client approved", unread.second)
+        assertEquals("अंमलबजावणी · अजून वाचलेले नाही", line(approved(null), Tx.MR).text)
+    }
+
+    @Test fun `projectLine - this phone's queued state writes lay over the states at once`() {
+        val ip = Album.stateOp(null, 30, Album.NOT_STARTED, Album.IN_PROGRESS, "")
+        assertEquals("Execution · 1 in progress", line(approved(emptyMap()), queued = listOf(ip)).text)
+        // a queued Done over a work S5 has In progress moves the count; a later op on the same work wins
+        val done = Album.stateOp(null, 10, Album.IN_PROGRESS, Album.DONE, "")
+        assertEquals("Execution · 1 done", line(approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7))), queued = listOf(done)).text)
+        assertEquals("Execution · 1 in progress", line(approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7))),
+            queued = listOf(done, Album.stateOp(null, 10, Album.DONE, Album.IN_PROGRESS, "back"))).text)
+        // a change request or a photo op counts nothing
+        assertEquals("Execution · no work started yet", line(approved(emptyMap()), queued = listOf(Album.crRaiseOp(null, 90, Album.CrKind.ADD, "x"))).text)
+        // and with no states read, a queued op is no count either
+        assertEquals("Execution · not read yet", line(approved(null), queued = listOf(ip)).text)
+    }
+
+    @Test fun `projectLine through the quote journey - Quote, the stage, its pips and since, or not set on S5 yet`() {
+        val l = line(Cache(true, "Client wish list", "staff@x", at, "2026-10-14T09:00:00Z"))
+        assertEquals(LineKind.QUOTE, l.kind)
+        assertEquals("Quote · Client wish list", l.text)
+        assertEquals("since 14 Oct, 08:08 IST on S5", l.second)
+        assertEquals(2, l.lit)
+        assertEquals("Client wish list", l.quote)
+        assertFalse(l.showRead)
+        assertEquals("कोटेशन · ग्राहकाची इच्छा-यादी", line(Cache(true, "Client wish list", "staff@x", at, "2026-10-14T09:00:00Z"), Tx.MR).text)
+        assertEquals("S5 वर 14 Oct, 08:08 IST पासून", line(Cache(true, "Client wish list", "staff@x", at, "2026-10-14T09:00:00Z"), Tx.MR).second)
+        QuoteStage.STAGES.dropLast(1).forEachIndexed { i, s -> assertEquals(i + 1, line(Cache(true, s, "", at, now.toString())).lit, s) }
+        // once S5 lists the project, a stage it has not timed reads 'not set on S5 yet' -- never the never-sent words
+        val untimed = line(Cache(true, "Survey", "", "", now.toString()))
+        assertEquals("Quote · Survey", untimed.text)
+        assertEquals("Survey · not set on S5 yet", untimed.second)
+        assertEquals("सर्व्हे · अजून S5 वर सेट नाही", line(Cache(true, "Survey", "", "", now.toString()), Tx.MR).second)
+        assertEquals("Vendor quoted · not set on S5 yet", line(Cache(true, "Vendor quoted", "", "yesterday", now.toString())).second)
+        // the read time from before today (IST)
+        assertEquals("since 14 Oct, 08:08 IST on S5 · read 17:45", line(Cache(true, "Survey", "", at, "2026-10-13T12:15:00Z")).second)
+        assertTrue(line(Cache(true, "Survey", "", at, "2026-10-13T12:15:00Z")).showRead)
+        assertEquals("S5 वर 14 Oct, 08:08 IST पासून · 17:45 ला वाचले", line(Cache(true, "Survey", "", at, "2026-10-13T12:15:00Z"), Tx.MR).second)
+    }
+
+    @Test fun `projectLine unread - never read, a blank stage, or a name outside the six (critic G6)`() {
+        for (c in listOf(null, Cache(true, "", "", "", now.toString()), Cache(true, "On hold", "", at, now.toString()), Cache(true, "Quoted", "", at, now.toString()))) {
+            val l = line(c)
+            assertEquals(LineKind.UNREAD, l.kind, "$c")
+            assertEquals("Quote · not read yet", l.text, "$c")
+            assertEquals("Quote stage not read yet — S5 decides when online", l.second, "$c")
+            assertEquals(0, l.lit, "$c")
+            assertNull(l.quote, "$c")
+        }
+        assertEquals("कोटेशन · अजून वाचलेले नाही", line(null, Tx.MR).text)
+        assertEquals("कोटेशनचा टप्पा अजून वाचलेला नाही — ऑनलाइन आल्यावर S5 ठरवते", line(null, Tx.MR).second)
+    }
+
+    @Test fun `v61c2 - a project S5 does not list reads not on S5 yet, whatever the phone holds`() {
+        val held = Cache(listed = false, stage = "Revisions", by = "pm@x", at = at, readAt = now.toString(),
+            states = mapOf(10 to WorkState(Album.DONE, 7)))
+        val queued = listOf(Album.stateOp(null, 10, Album.NOT_STARTED, Album.IN_PROGRESS, ""))
+        // read as not listed, with a stage, states and a queued write the phone still holds; and made on this phone,
+        // whatever its copy says -- even listed at Client approved with work under way
+        for ((c, phoneOnly) in listOf(Cache(listed = false, readAt = now.toString()) to false, held to false, null to true,
+                held to true, approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7))) to true)) {
+            val l = line(c, phoneOnly = phoneOnly, queued = queued)
+            assertEquals(LineKind.LOCAL, l.kind, "$c $phoneOnly")
+            assertEquals("Quote · not on S5 yet", l.text, "$c $phoneOnly")
+            assertEquals("not on S5 yet — this project has not been sent", l.second, "$c $phoneOnly")
+            assertEquals(0, l.lit, "no pip is lit")
+            assertNull(l.quote, "no stage is named")
+            assertEquals(emptyList(), l.parts)
+            val mr = line(c, Tx.MR, phoneOnly, queued)
+            assertEquals("कोटेशन · अजून S5 वर नाही", mr.text)
+            assertEquals("अजून S5 वर नाही — हा प्रोजेक्ट पाठवलेला नाही", mr.second)
+        }
+        // a not-listed copy read before today carries the read time; a phone-only project is never read, so never does
+        assertEquals("not on S5 yet — this project has not been sent · read 17:45", line(Cache(listed = false, readAt = "2026-10-13T12:15:00Z")).second)
+        assertEquals("not on S5 yet — this project has not been sent", line(Cache(listed = false, readAt = "2026-10-13T12:15:00Z"), phoneOnly = true).second)
+        assertFalse(line(Cache(listed = false, readAt = "2026-10-13T12:15:00Z"), phoneOnly = true).showRead)
+    }
+
+    @Test fun `v61c2 - the store holds no stage of its own for a project S5 does not list`() {
+        val stored = approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7)))
+        // a later read that does not list it: the copy is not listed, with no stage, no stamp and no states kept from before
+        val gone = QuoteStage.merge(stored, Cache(listed = false, readAt = "2026-10-14T10:00:00Z"), 3L, 2L)
+        assertEquals(Cache(listed = false, readAt = "2026-10-14T10:00:00Z"), gone)
+        assertNull(gone.states)
+        // the same through a read of the list, for a known id the list does not carry
+        assertEquals(Cache(listed = false, readAt = "r"), QuoteStage.fromList(emptyList(), listOf("P"), "r", 3L, mapOf("P" to 2L), mapOf("P" to stored))["P"])
+        // a held not-listed copy never lends its stage or states to anything (a copy written by an older build, or by hand)
+        val held = Cache(listed = false, stage = "Revisions", at = at, readAt = "r", states = mapOf(10 to WorkState(Album.DONE, 7)))
+        assertEquals(Cache(listed = false, readAt = "r"), QuoteStage.merge(null, held, 1L, null))
+        assertEquals(Cache(listed = false, readAt = "q"), QuoteStage.merge(held, Cache(listed = false, readAt = "q"), 2L, 1L))
+        assertEquals(Cache(listed = false, readAt = "r"), QuoteStage.merge(held, Cache(listed = false, readAt = "q"), 1L, 2L), "kept: still nothing of its own")
+        // S5 answering for the project (named from a 409) makes it listed: that stage is S5's, not the phone's
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
+    }
+
+    @Test fun `merge - an older read never wins the stage, and a work's state goes by the seq S5 knows it at, both orders (critic S1)`() {
+        val list = QuoteStage.fromList(rows(S5Quote.LIST), emptyList(), "2026-11-03T07:01:09Z")["PROJ-DEMO"]!!
+        val album = QuoteStage.fromAlbum(assertNotNull(AlbumWire.view(MiniRead, tree(S5Quote.ALBUM))), "2026-11-03T07:01:10Z")
+        // S5-L gives work 10 at its STATE ROW's seq (7); the album GET at its BASE (10: a change request was raised after it)
+        assertEquals(WorkState(Album.IN_PROGRESS, 7), list.states!![10])
+        assertEquals(Album.IN_PROGRESS, album.states!![10]!!.state)
+        assertEquals(10L, album.states!![10]!!.seq)
+        assertEquals("pm@x", album.by)
+        assertEquals(tApproved, album.at)
+        // list then album, and album then list: the same states, each at the higher seq it is known at
+        val a = QuoteStage.merge(list, album, 2L, 1L).states
+        val b = QuoteStage.merge(album, list, 2L, 1L).states
+        assertEquals(a, b)
+        assertEquals(10L, a!![10]!!.seq)
+        assertEquals(Album.DONE, a[20]!!.state)
+        assertEquals(album.states!![20], a[20], "an equal seq is one row of S5's: the copy that carries its time")
+        // a state row newer than the album's base (a later read of the list) wins; one older never does, whichever lands last
+        val later = list.copy(states = mapOf(10 to WorkState(Album.DONE, 11)), readAt = "2026-11-03T07:02:00Z")
+        assertEquals(WorkState(Album.DONE, 11), QuoteStage.merge(album, later, 3L, 2L).states!![10])
+        assertEquals(WorkState(Album.DONE, 11), QuoteStage.merge(QuoteStage.merge(album, later, 3L, 2L), album, 4L, 3L).states!![10],
+            "a slow album GET from before the state row never puts In progress back")
+        assertEquals("Execution · 2 done", line(QuoteStage.merge(album, later, 3L, 2L)).text)
+        // the stage: an older read whose stage loses still brings newer states; it never rolls the stage back
+        val revisions = Cache(true, "Revisions", "pm@x", "2026-11-03T07:01:08.710Z", "2026-11-03T07:01:08Z", mapOf(30 to WorkState(Album.ON_HOLD, 12)))
+        val kept = QuoteStage.merge(album, revisions, 5L, 4L)
+        assertEquals("Client approved", kept.stage, "S5's later stamp keeps Client approved")
+        assertEquals(tApproved, kept.at)
+        assertEquals(WorkState(Album.ON_HOLD, 12), kept.states!![30])
+        assertEquals(album.states!![10], kept.states!![10])
+        // a work absent from a read is a read that did not carry it: the log is append-only, nothing is taken away
+        assertEquals(album.states, QuoteStage.merge(album, album.copy(states = emptyMap(), readAt = "x"), 6L, 5L).states)
+        // fromList answers an id only when its merged copy differs: a read whose stage loses and brings nothing new writes nothing
+        assertTrue(QuoteStage.fromList(rows(S5Quote.LIST).filter { it.project == "PROJ-DEMO" }.map { it.copy(states = emptyMap()) },
+            emptyList(), "2026-11-03T07:00:00Z", 1L, mapOf("PROJ-DEMO" to 2L), mapOf("PROJ-DEMO" to album)).isEmpty())
+        // ... and one whose stage loses but whose states are newer writes them, the stage kept
+        val newer = QuoteStage.fromList(listOf(Listed("PROJ-DEMO", "Revisions", "pm@x", "2026-11-03T07:01:08.710Z", mapOf(10 to WorkState(Album.DONE, 11)))),
+            emptyList(), "2026-11-03T07:00:00Z", 1L, mapOf("PROJ-DEMO" to 2L), mapOf("PROJ-DEMO" to album))["PROJ-DEMO"]!!
+        assertEquals("Client approved", newer.stage)
+        assertEquals(WorkState(Album.DONE, 11), newer.states!![10])
+        // both sides null stays null (not read in this shape); one side read is that side
+        assertNull(QuoteStage.mergeStates(null, null))
+        assertEquals(emptyMap(), QuoteStage.mergeStates(null, emptyMap()))
+        assertEquals(mapOf(10 to WorkState(Album.DONE, 2)), QuoteStage.mergeStates(mapOf(10 to WorkState(Album.DONE, 2), 999 to WorkState(Album.DONE, 3)), null))
+    }
+
+    @Test fun `an answer that names the stage keeps the work states the store holds`() {
+        val withStates = approved(mapOf(10 to WorkState(Album.DONE, 7))).copy(stage = "Revisions")
+        assertEquals(mapOf(10 to WorkState(Album.DONE, 7)), QuoteStage.named(withStates, "Client approved", "r")!!.states)
+        assertEquals("Execution · 1 done", line(QuoteStage.named(withStates, "Client approved", "r")).text)
+    }
+
+    @Test fun `roomDot - before approval the survey journey rule, after it a capture filed to one of the sixteen works`() {
+        // before approval (v61b, byte for byte): As-built site measure, or no stage at all
+        assertTrue(QuoteStage.roomDot(listOf(Shot(null, QuoteStage.SURVEY_STAGE)), false))
+        assertTrue(QuoteStage.roomDot(listOf(Shot(0, "")), false), "a new capture carries stage ''")
+        assertTrue(QuoteStage.roomDot(listOf(Shot(null, null)), false), "synced without a stage")
+        assertTrue(QuoteStage.roomDot(listOf(Shot(null, "  AS-BUILT  site_measure ")), false), "the prototype's key(): trimmed, lower-cased, runs of spaces and _ as one")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(0, "Defect recorded")), false), "NOT workOfCapture == 0: a defect photo of the quote journey stays amber")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(null, " ")), false), "a stage of spaces is a stage, as in JavaScript")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(50, "Floor tiling")), false))
+        assertTrue(QuoteStage.roomDot(listOf(Shot(0, "Defect recorded"), Shot(null, "")), false))
+        assertFalse(QuoteStage.roomDot(emptyList(), false))
+        // after approval: any capture whose filing (workOfCapture) is a work -- neither the quote journey nor unfiled
+        assertTrue(QuoteStage.roomDot(listOf(Shot(50, "")), true))
+        assertTrue(QuoteStage.roomDot(listOf(Shot(null, "Plaster & waterproofing")), true), "an old capture filed by its stage, at 20")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(0, ""), Shot(null, QuoteStage.SURVEY_STAGE), Shot(null, "")), true), "the quote journey")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(null, "Material delivered on site")), true), "unfiled")
+        assertTrue(QuoteStage.roomDot(listOf(Shot(999, "Snagging")), true), "a stray id files by its stage (140)")
+        assertEquals("As-built site measure", QuoteStage.SURVEY_STAGE)
+    }
+
+    @Test fun `coverage - the rooms in scope with a survey capture, and its two parts`() {
+        val shots = mapOf("Kitchen" to listOf(Shot(null, QuoteStage.SURVEY_STAGE)), "Hall" to listOf(Shot(0, "Defect recorded")),
+            "Bedroom" to listOf(Shot(0, ""), Shot(null, "Opening measured")), "Balcony" to listOf(Shot(null, "")))
+        val c = assertNotNull(QuoteStage.coverage(listOf("Kitchen", "Hall", "Bedroom"), shots))
+        assertEquals(Coverage(2, 3), c)
+        assertEquals(1, c.left)
+        assertEquals(listOf("2 of 3 rooms shot", "1 room not shot yet"), QuoteStage.coverageParts(Tx.EN, c))
+        assertEquals(listOf("3 खोल्या पैकी 2 चे फोटो झाले", "1 खोली: अजून फोटो नाहीत"), QuoteStage.coverageParts(Tx.MR, c))
+        val all = assertNotNull(QuoteStage.coverage(listOf("Kitchen", "Balcony"), shots))
+        assertEquals(listOf("2 of 2 rooms shot", "every room in scope is shot"), QuoteStage.coverageParts(Tx.EN, all))
+        assertEquals(listOf("स्कोपमधील प्रत्येक खोलीचे फोटो झाले"), QuoteStage.coverageParts(Tx.MR, all).drop(1))
+        assertEquals(Coverage(0, 1), QuoteStage.coverage(listOf("Study"), shots), "a room with no capture")
+        assertEquals(listOf("0 of 1 room shot", "1 room not shot yet"), QuoteStage.coverageParts(Tx.EN, Coverage(0, 1)))
+        assertNull(QuoteStage.coverage(emptyList(), shots), "no room in scope: no coverage row")
     }
 }

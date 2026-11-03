@@ -42,8 +42,11 @@ object AlbumWire {
     private fun str(v: Any?): String? = v as? String
     private fun bool(v: Any?): Boolean? = v as? Boolean
 
-    /** An integral number, whatever the reader made of it (org.json an Integer or a Long, MiniJson a Long, 4.0 a Double). */
-    private fun long(v: Any?): Long? = when (v) {
+    /**
+     * An integral number, whatever the reader made of it (org.json an Integer or a Long, MiniJson a Long, 4.0 a Double).
+     * Internal: QuoteStage.listedOf reads S5-L's `work_states` seqs with it, so S5's numbers are read one way.
+     */
+    internal fun long(v: Any?): Long? = when (v) {
         is Long -> v
         is Number -> v.toDouble().let { d -> if (d.isFinite() && d == Math.floor(d) && Math.abs(d) < 9.0e15) d.toLong() else null }
         else -> null
@@ -51,7 +54,7 @@ object AlbumWire {
 
     private fun int(v: Any?): Int? = long(v)?.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
 
-    private fun ints(r: Read, v: Any?): List<Int> = r.items(v)?.mapNotNull { int(it) } ?: emptyList()
+    internal fun ints(r: Read, v: Any?): List<Int> = r.items(v)?.mapNotNull { int(it) } ?: emptyList()
 
     /** S5's '' for none, as null. */
     private fun none(v: Any?): String? = str(v)?.ifBlank { null }
@@ -147,6 +150,7 @@ object AlbumWire {
             pm = none(r.field(body, "pm")),
             quoteStage = none(r.field(body, "quote_stage")),
             quoteStageAt = str(r.field(body, "quote_stage_at")) ?: "",
+            quoteStageBy = str(r.field(body, "quote_stage_by")) ?: "",
             works = r.items(r.field(body, "works"))?.mapNotNull { work(r, it) } ?: emptyList(),
             log = r.items(r.field(body, "log"))?.mapNotNull { entry(r, it) } ?: emptyList(),
             logNext = long(r.field(body, "log_next")) ?: 0,

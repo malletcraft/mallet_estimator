@@ -5,6 +5,7 @@ import com.malletcrafts.interiorestimate.pano.AlbumQueue
 import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.SurveyExport
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
@@ -137,6 +138,13 @@ class MastersTest {
                 "merged", "statesOfWorks", "statesOfLog", "withQueued", "afterPost", "afterReplay", "afterConflict",
                 "afterLocked", "afterRefused", "refileOp"),
             SurveyPrepFile::class.java to listOf("encode"),
+            // port 61c slice QM0: the guarded quote move builds what is sent and reads S5's answers into what is stored
+            // (only text and localText take a Tx, for the status line) ...
+            QuoteMove::class.java to listOf("stage", "scope", "answer", "scopeAnswer", "copyOf", "nowIn", "worksOf", "notOnS5"),
+            // ... and the one project-state store keeps S5's words in English: every reader and merge of its copy (only
+            // projectLine and coverageParts take a Tx, to draw)
+            QuoteStage::class.java to listOf("merge", "mergeStates", "fromAlbum", "listedOf", "fromList", "takes", "named",
+                "roomDot", "surveyShot", "coverage"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

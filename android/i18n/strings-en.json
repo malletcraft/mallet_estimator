@@ -8626,6 +8626,16 @@
   ],
   "kind": "static"
  },
+ "refuse.stage.scope_final": {
+  "en": "Approved — the scope changes only through change requests; not saved",
+  "where": [
+   "S2 APK phone text · QuoteMove.kt text at 0fa7a1a+QM0 · the quote move (port 61c slice QM0, 3 Nov 2026), Marathi by Claude (decision 6): S5's 409 on PUT …/album/scope at Client approved with a scope stored, verbatim (asis.js at 9a51733: FINAL_SCOPE, with final: true) -- Record the approved scope after somebody recorded it meanwhile; the prototype's recordScope has no such answer, so the line is the phone's, worded as refuse.stage.approved_final"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "refuse.stage.scope_missing": {
   "en": "Tick the works in the approved estimate before moving to Client approved",
   "where": [
