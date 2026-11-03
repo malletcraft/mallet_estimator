@@ -63,7 +63,8 @@ object QuoteStage {
     /**
      * What the phone keeps for one project after reading S5's list. [listed] false means the
      * caller's list did not carry the project (never uploaded, or not visible to this person);
-     * [at] is S5's quote_stage_at ("" when never set), [readAt] when THIS phone's read of it went out (UTC ISO).
+     * [at] is S5's quote_stage_at ("" when never set -- unless [atUnknown]), [readAt] when THIS
+     * phone's read of it went out (UTC ISO).
      */
     data class Cache(
         val listed: Boolean,
@@ -78,6 +79,13 @@ object QuoteStage {
          * "no work started" ([projectLine]). Always null for a project S5 does not list ([merge]).
          */
         val states: Map<Int, WorkState>? = null,
+        /**
+         * True when an answer NAMED the stage without who set it or when ([named]): [by] and [at] are then
+         * UNKNOWN, not "never set", until a read of S5's list or the album GET fills them in ([merge]). No move
+         * is built on such a copy ([QuoteMove.stage]): sent as base "", it would be S5's stale 409 for a stage
+         * nobody moved after the phone learned it (port 61c slice QM0 review).
+         */
+        val atUnknown: Boolean = false,
     )
 
     /** One project as S5's GET /api/asis lists it ([listedOf]); [states] its `work_states`, null when the row has none. */
@@ -221,14 +229,14 @@ object QuoteStage {
      * between the sync's read of the list and its PUT left the Wish list editable under S5's
      * "not saved", and each edit there was thrown away by the next sync). Null when nothing
      * changes: the cache already says [stage], or [stage] is not one of the six. Otherwise the
-     * project is listed at [stage], read at [readAt], its `by` and `at` unknown ("") until the next
-     * read of S5's list fills them in.
+     * project is listed at [stage], read at [readAt], its `by` and `at` blank and marked UNKNOWN
+     * ([Cache.atUnknown], never "never set") until the next read of S5's list fills them in.
      */
     fun named(cache: Cache?, stage: String, readAt: String): Cache? {
         val s = stage.trim()
         if (indexOf(s) < 0) return null
         if (cache != null && cache.listed && cache.stage.trim() == s) return null
-        return Cache(listed = true, stage = s, readAt = readAt, states = cache?.states)
+        return Cache(listed = true, stage = s, readAt = readAt, states = cache?.states, atUnknown = true)
     }
 
 
@@ -247,6 +255,7 @@ object QuoteStage {
      *   as of a higher seq is never the older one, whichever source it came from (critic S1).
      * A copy that is NOT LISTED holds nothing but when it was read (v61c.2: a project S5 does not list has no
      * stage of its own): no stage, no who or when, no states -- never one kept from before, whatever wrote it.
+     * [Cache.atUnknown] goes with the stage: a read that takes the stage fills who and when in.
      */
     fun merge(stored: Cache?, incoming: Cache, seq: Long, wrote: Long?): Cache {
         val head = if (stored == null || takes(incoming, stored, seq, wrote)) incoming else stored

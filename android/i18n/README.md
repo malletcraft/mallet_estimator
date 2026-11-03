@@ -139,7 +139,9 @@ four phone texts from L2's card that it draws (`wish.not_sent_s5`, `wish.s5_newe
 
 `pano/QuoteMove.kt` (new) joined `ported.txt`: the guarded `PUT …/stage` and `PUT …/album/scope` and S5's answers to
 them, every status line a `tx.<key>` through `QuoteMove.text` / `localText` (the `refuse.stage.*` keys, each S5's
-asis.js words verbatim, and `wish.not_s5_yet_project`); S5's 400 words and its not-yet 409 are data, shown as sent.
+asis.js words verbatim, and `wish.not_s5_yet_project`; since the slice's review, S5's 401 through the phone's existing
+sign-in words, `app.sign_again_menu_server_x`, with S5's own words as its `why`); S5's 400 words and its not-yet 409 are
+data, shown as sent.
 `QuoteStage.projectLine` and `coverageParts` (the one derived line, SURVEY COVERAGE) are keyed through existing keys
 (`common.quote_x`, `app.execution`, `app.x_in_progress`, `app.x_done`, `app.x_on_hold`, `app.x_abandoned`,
 `app.no_work_started`, `wish.*`, `phase.*`); `QuoteStage.kt` itself stays out of `ported.txt` until slice PL deletes

@@ -3,16 +3,33 @@ package com.malletcrafts.interiorestimate.pano
 /**
  * S5 QUOTE'S OWN ANSWERS TO THE QUOTE MOVE, verbatim (port 61c slice QM0, 3 Nov 2026). Each was produced by S5 as shipped
  * on stage (mcft-interior-estimate 9a51733): its router and its REAL SQL (every migration, on SQLite, as S5's own `(SQL)`
- * tests run it), a fake ERP answering whoami, and every move and scope record sent in exactly the shape [QuoteMove.stage]
- * and [QuoteMove.scope] build (the SENT_ bodies, which QuoteMoveTest pins them to). The scenario: PROJ-DEMO moved from
- * Survey through the quote journey (a stale base, a move back), refused an Approve with no scope, a Designer's Approve
- * (the PM named), a vendor's and a client's moves, a stage that is not one of the six, a stale scope_base after the PM
- * recorded a scope at Revisions, then approved with six works and refused every move from Client approved; PROJ-REC
- * approved before it had a scope (set in SQL, as a project approved before migration 0008) and its scope recorded once;
- * PROJ-NEVER never uploaded; then two work states and a change request on PROJ-DEMO and the list and album GETs. Every
- * name is invented: mallet_estimator is public. The harness that drove S5 is in the session's notes (qm0/harness.mjs),
- * not in this repository: when S5 changes an answer, run it again against the new S5 and paste its output here -- a
- * body is never edited by hand.
+ * tests run it), a fake ERP answering whoami, and every move and scope record sent in the request shape [QuoteMove.stage]
+ * and [QuoteMove.scope] build ({stage, base, scope?, scope_base?, via} and {works, base}). The scenario: PROJ-DEMO moved
+ * from Survey through the quote journey (a stale base, a move back), refused an Approve with no scope, a Designer's
+ * Approve (the PM named), a vendor's and a client's moves, a stage that is not one of the six, a stale scope_base after
+ * the PM recorded a scope at Revisions, then approved with six works and refused every move from Client approved;
+ * PROJ-REC approved before it had a scope (set in SQL, as a project approved before migration 0008) and its scope
+ * recorded once; PROJ-NEVER never uploaded; then two work states and a change request on PROJ-DEMO and the list and
+ * album GETs.
+ *
+ * WHAT THE SENT_ BODIES ARE, three kinds (QM0 review: this note once said every one was phone-built and pinned):
+ * - NINE are built by QuoteMove from a copy that agrees with S5, byte for byte, and QuoteMoveTest's first test pins them
+ *   to it: MOVED_FIRST, STALE, MOVED_BACK, PM_ONLY, SCOPE_STALE, APPROVED, NEVER, REC_APPROVED, REC_FINAL;
+ * - TWO the phone never builds, and QuoteMoveTest pins that it does not: SCOPE_MISSING (an Approve with no scope, refused
+ *   on the phone) and BAD_STAGE (a stage outside the six, nothing built). The harness sent them only to draw out S5's
+ *   answer, which the verdict tests read as a defence;
+ * - SIX QuoteMove can build, but only from a copy that disagrees with S5 -- the harness sent them from S5's state, not
+ *   from a phone's: FINAL and FINAL_AGAIN carry the approval's own stamp as the base, from a copy not at Client
+ *   approved; FINAL_STALE carries Revisions's stamp to Revisions, from a copy at another stage; REC_REVISIONS,
+ *   REC_STALE and REC_NOT_YET are scope records, which the phone builds only from a copy at Client approved, while S5
+ *   was at Revisions or Survey. They are not pinned to a phone input. Their ANSWERS still reach a phone whose copy is
+ *   stale: FINAL_STALE's shape answers any move from a pre-approval copy after the web approved the project, and
+ *   REC_NOT_YET's a scope record after a direct D1 put-back of an approved project (one was made on 28 Oct 2026).
+ *
+ * Every name is invented: mallet_estimator is public. The harness that drove S5 is in the session's notes
+ * (qm0/harness.mjs; the 401s from qm0fix/h401.mjs, the same S5 with no sign-in and with a key ERP refuses), not in this
+ * repository: when S5 changes an answer, run it again against the new S5 and paste its output here -- a body is never
+ * edited by hand.
  */
 internal object S5Quote {
 
@@ -98,6 +115,10 @@ internal object S5Quote {
     const val REC_AGAIN = """{"error":"Approved — the scope changes only through change requests; not saved","final":true,"scope":[10,20,140],"scope_at":"2026-11-03T07:01:08.797Z","quote_stage":"Client approved","quote_stage_by":"pm@x","quote_stage_at":"2026-10-20T04:30:00.000Z"}"""
     /** 404 · record a scope on a project never uploaded */
     const val REC_NEVER = """{"error":"This project has never been uploaded"}"""
+    /** 401 · move, or record the scope, not signed in (no session S5 holds, no key) -- both routes answer it alike */
+    const val SIGN_IN = """{"error":"Sign in with your ERP account"}"""
+    /** 401 · move, or record the scope, with a key ERP refuses -- both routes answer it alike */
+    const val KEY_REFUSED = """{"error":"ERP did not accept this API key"}"""
     /** 200 · list pm */
     const val LIST = """{"projects":[{"project":"PROJ-REC","title":"Demo flat","customer":"CUST-DEMO","updated_at":"2026-11-03T07:01:08.789Z","rooms":1,"captures":1,"quote_stage":"Client approved","quote_stage_by":"pm@x","quote_stage_at":"2026-10-20T04:30:00.000Z","work_states":{}},{"project":"PROJ-DEMO","title":"Demo flat","customer":"CUST-DEMO","updated_at":"2026-11-03T07:01:08.680Z","rooms":1,"captures":1,"quote_stage":"Client approved","quote_stage_by":"pm@x","quote_stage_at":"2026-11-03T07:01:08.769Z","work_states":{"10":{"state":"In progress","seq":7},"20":{"state":"Done","seq":9}}}]}"""
     /** 200 · album pm */

@@ -155,8 +155,8 @@ class QuoteStageTest {
 
     @Test fun `an answer that names the stage goes into the one copy, its who and when unknown until the next read`() {
         val read = Cache(listed = true, stage = "Revisions", by = "pm@mcft", at = at, readAt = "2026-10-28T01:00:00Z")
-        // another stage: listed at it, read now, by and at blank until the list is read again
-        assertEquals(Cache(listed = true, stage = "Client approved", readAt = "2026-10-28T03:00:00Z"),
+        // another stage: listed at it, read now, by and at blank -- and marked UNKNOWN, not never set -- until the list is read again
+        assertEquals(Cache(listed = true, stage = "Client approved", readAt = "2026-10-28T03:00:00Z", atUnknown = true),
             QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"))
         // the same stage changes nothing, so the who and when read from the list stay
         assertNull(QuoteStage.named(read, "Revisions", "2026-10-28T03:00:00Z"))
@@ -164,8 +164,8 @@ class QuoteStageTest {
         // a name that is not one of the six, or none, changes nothing
         for (bad in listOf("", "  ", "Quoted", "client approved")) assertNull(QuoteStage.named(read, bad, "x"), bad)
         // never read, or read as not listed: S5 has just answered for the project, so it is listed
-        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(null, "Survey", "r"))
-        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r", atUnknown = true), QuoteStage.named(null, "Survey", "r"))
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r", atUnknown = true), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
         // the line reads the stage at once, every pip lit
         val line = QuoteStage.lineFor(QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"), Instant.parse("2026-10-28T04:00:00Z"))
         assertEquals("QUOTE STAGE · Client approved", line.title)
@@ -426,6 +426,39 @@ class QuoteStageTest {
         assertFalse(line(Cache(listed = false, readAt = "2026-10-13T12:15:00Z"), phoneOnly = true).showRead)
     }
 
+    @Test fun `projectLine's read time - an unread, not-listed or quote-journey copy read before today carries it, the approved line never does`() {
+        // read 17:45 IST on 13 Oct; now 15:00 IST on 14 Oct (QM0 review: only the QUOTE kind was pinned)
+        val old = "2026-10-13T12:15:00Z"
+        // unread: a blank stage, a name outside the six, 'On hold' -- each read yesterday
+        for (c in listOf(Cache(true, "", "", "", old), Cache(true, "On hold", "", at, old), Cache(true, "Quoted", "", at, old))) {
+            val l = line(c)
+            assertEquals(LineKind.UNREAD, l.kind, "$c")
+            assertEquals("Quote stage not read yet — S5 decides when online · read 17:45", l.second, "$c")
+            assertTrue(l.showRead, "$c")
+        }
+        assertEquals("कोटेशनचा टप्पा अजून वाचलेला नाही — ऑनलाइन आल्यावर S5 ठरवते · 17:45 ला वाचले", line(Cache(true, "", "", "", old), Tx.MR).second)
+        // ... and never read: no read time to show
+        assertEquals("Quote stage not read yet — S5 decides when online", line(null).second)
+        assertFalse(line(null).showRead)
+        // unread and read today: none
+        assertFalse(line(Cache(true, "", "", "", now.toString())).showRead)
+        assertEquals("Quote stage not read yet — S5 decides when online", line(Cache(true, "On hold", "", at, now.toString())).second)
+        // not listed, read yesterday: the second line carries it and says so
+        val gone = line(Cache(listed = false, readAt = old))
+        assertEquals(LineKind.LOCAL, gone.kind)
+        assertEquals("not on S5 yet — this project has not been sent · read 17:45", gone.second)
+        assertTrue(gone.showRead)
+        assertFalse(line(Cache(listed = false, readAt = now.toString())).showRead)
+        // Client approved, read yesterday: the second line is exactly the quote, with no read time
+        for (states in listOf(null, emptyMap(), mapOf(10 to WorkState(Album.DONE, 7)))) {
+            val ex = line(Cache(true, "Client approved", "pm@x", at, old, states))
+            assertEquals(LineKind.EXEC, ex.kind, "$states")
+            assertEquals("Quote · Client approved", ex.second, "$states")
+            assertFalse(ex.showRead, "$states")
+        }
+        assertEquals("कोटेशन · ग्राहक मंजूर", line(Cache(true, "Client approved", "pm@x", at, old, emptyMap()), Tx.MR).second)
+    }
+
     @Test fun `v61c2 - the store holds no stage of its own for a project S5 does not list`() {
         val stored = approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7)))
         // a later read that does not list it: the copy is not listed, with no stage, no stamp and no states kept from before
@@ -440,7 +473,7 @@ class QuoteStageTest {
         assertEquals(Cache(listed = false, readAt = "q"), QuoteStage.merge(held, Cache(listed = false, readAt = "q"), 2L, 1L))
         assertEquals(Cache(listed = false, readAt = "r"), QuoteStage.merge(held, Cache(listed = false, readAt = "q"), 1L, 2L), "kept: still nothing of its own")
         // S5 answering for the project (named from a 409) makes it listed: that stage is S5's, not the phone's
-        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r"), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
+        assertEquals(Cache(listed = true, stage = "Survey", readAt = "r", atUnknown = true), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
     }
 
     @Test fun `merge - an older read never wins the stage, and a work's state goes by the seq S5 knows it at, both orders (critic S1)`() {

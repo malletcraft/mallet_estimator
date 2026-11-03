@@ -47,9 +47,12 @@ object QuoteStageSync {
     private var seq = 0L
     private val written = HashMap<String, Long>()
 
+    // atUnknown with the stage it qualifies: a copy QuoteStage.named wrote has its who and when UNKNOWN,
+    // not "never set", and no move is built on it until a read fills them in (QuoteMove.stage) -- so the
+    // mark has to outlive the process, or a restart would read the blank stamp as never set.
     private fun encode(c: QuoteStage.Cache): String = JSONObject()
         .put("listed", c.listed).put("stage", c.stage).put("by", c.by)
-        .put("at", c.at).put("readAt", c.readAt).toString()
+        .put("at", c.at).put("readAt", c.readAt).put("atUnknown", c.atUnknown).toString()
 
     private fun decode(raw: String?): QuoteStage.Cache? {
         if (raw == null) return null
@@ -60,7 +63,8 @@ object QuoteStageSync {
                 stage = o.optString("stage"),
                 by = o.optString("by"),
                 at = o.optString("at"),
-                readAt = o.optString("readAt"))
+                readAt = o.optString("readAt"),
+                atUnknown = o.optBoolean("atUnknown", false))
         } catch (e: Exception) {
             null
         }

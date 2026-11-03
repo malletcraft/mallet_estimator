@@ -49,7 +49,10 @@ object QuoteMove {
         /** Refused on the phone, before any call ([localText] says why); nothing is sent or kept. */
         data class Refused(val why: Local) : Move
 
-        /** Nothing to send: the stage is the one asked for, not read yet, or not one of the six. */
+        /**
+         * Nothing to send: the stage is the one asked for, not read yet, or not one of the six -- or S5 named it
+         * without its stamp ([Cache.atUnknown]), so no base can be sent until a read fills the stamp in.
+         */
         data object None : Move
     }
 
@@ -63,7 +66,10 @@ object QuoteMove {
      * The move of [project] (S5's id) from the stage in [cache] (the store's copy; null = never read) to [to], in
      * the prototype's order (index61c2.html move): a project S5 does not list is refused before anything else;
      * [to] outside the six, an unread stage (no move is offered on it) or the stage it already is builds nothing;
-     * any move FROM Client approved is refused (approval is final); a move TO Client approved needs at least one
+     * any move FROM Client approved is refused (approval is final); a stage S5 named without its stamp
+     * ([Cache.atUnknown], [QuoteStage.named]) builds nothing until a read of the list or the album GET fills the
+     * stamp in -- its blank `at` is not "never set", and sent as the base it would be S5's stale 409 for a stage
+     * nobody moved after the phone learned it; a move TO Client approved needs at least one
      * work ticked in [scope] and carries them, de-duplicated in WORKS order, with `scope_base` [scopeAt] (the
      * album mirror's scope_at, '' when none is stored). [scope] goes with Client approved only (S5 answers 400
      * to a scope with any other stage). The PM-only rule is S5's: its 403 answers anyone else ([Verdict.PmOnly]).
@@ -75,6 +81,7 @@ object QuoteMove {
         val from = cache?.stage?.trim().orEmpty()
         if (cache == null || QuoteStage.indexOf(from) < 0 || from == target) return Move.None
         if (from == APPROVED) return Move.Refused(Local.APPROVED_FINAL)
+        if (cache.atUnknown) return Move.None
         val base = cache.at
         val fields = linkedMapOf<String, Any?>("stage" to target, "base" to base)
         var scopeBase: String? = null
@@ -153,9 +160,16 @@ object QuoteMove {
         data object NotOnS5 : Verdict
 
         /**
+         * 401 from S5: it refused the sign-in -- none, a session S5 no longer holds, or a key ERP did not accept
+         * (asis.js identify); [error] S5's own words, shown as data. The phone signs in again (menu → Server), as
+         * the album outbox's RELOGIN waits for; re-reading with the same credentials would be refused the same way.
+         */
+        data class SignIn(val error: String) : Verdict
+
+        /**
          * No answer of S5's handler: none came back ([code] null), or a body that is not S5's (a proxy's page, a
-         * cut body, a 200 without S5's fields), a 401, 405 or 5xx. The phone re-reads the stage, never resends
-         * with the old base.
+         * cut body, a 200 without S5's fields, a 401 without S5's `error`), a 405 or 5xx. The phone re-reads the
+         * stage, never resends with the old base.
          */
         data class NoAnswer(val code: Int?) : Verdict
 
@@ -202,6 +216,7 @@ object QuoteMove {
                 else -> Verdict.Stale(now)
             }
             400, 413 -> if (error != null) Verdict.Refused(code, error) else Verdict.NoAnswer(code)
+            401 -> if (error != null) Verdict.SignIn(error) else Verdict.NoAnswer(code)
             404 -> if (error != null) Verdict.NotOnS5 else Verdict.NoAnswer(code)
             else -> Verdict.NoAnswer(code)
         }
@@ -234,6 +249,7 @@ object QuoteMove {
                 }
             }
             400, 413 -> if (error != null) Verdict.Refused(code, error) else Verdict.NoAnswer(code)
+            401 -> if (error != null) Verdict.SignIn(error) else Verdict.NoAnswer(code)
             404 -> if (error != null) Verdict.NotOnS5 else Verdict.NoAnswer(code)
             else -> Verdict.NoAnswer(code)
         }
@@ -253,11 +269,14 @@ object QuoteMove {
 
     /**
      * The copy of S5's stage [v] names, read at [readAt], for [QuoteStage.merge] -- a move, and every 409, says what
-     * S5 holds now, so the next move carries S5's base; null when the answer names no stage (a 403, a 400, a 404,
-     * no answer, offline, a scope recorded). It carries no work states: [QuoteStage.merge] keeps the stored ones.
+     * S5 holds now, so the next move carries S5's base; S5's 404 says it holds NO record of the project, so its copy
+     * is not listed (v61c.2: the line, the mover and Approve read "not on S5 yet" until a read lists the project
+     * again); null when the answer names no stage (a 403, a 400, a 401, no answer, offline, a scope recorded). It
+     * carries no work states: [QuoteStage.merge] keeps the stored ones, and a copy not listed keeps none.
      */
     fun copyOf(v: Verdict, readAt: String): Cache? =
-        nowIn(v)?.let { Cache(listed = true, stage = it.stage, by = it.by, at = it.at, readAt = readAt) }
+        if (v == Verdict.NotOnS5) Cache(listed = false, readAt = readAt)
+        else nowIn(v)?.let { Cache(listed = true, stage = it.stage, by = it.by, at = it.at, readAt = readAt) }
 
     // ---- the status line: S5's words in the reader's language ----------------------------------------------
 
@@ -272,7 +291,7 @@ object QuoteMove {
      * The status line for [v] (index61c2.html: the strip's and the scope sheet's `role=status` line); null when S5
      * did what was asked. S5's words through their keys (each the asis.js text verbatim); a stale move names who
      * moved the stage and when, in IST, else `Changed meanwhile — not saved`; a 400, a 413 and the not-yet 409 are
-     * S5's own words, shown as data.
+     * S5's own words, shown as data, and so is a 401's, after the phone's sign-in words (app.sign_again_menu_server_x).
      */
     fun text(tx: Tx, v: Verdict): String? = when (v) {
         is Verdict.Moved, is Verdict.Recorded -> null
@@ -290,6 +309,7 @@ object QuoteMove {
         is Verdict.NotYet -> v.error
         is Verdict.Refused -> v.error
         Verdict.NotOnS5 -> tx.wish_not_s5_yet_project
+        is Verdict.SignIn -> tx.app_sign_again_menu_server_x(why = v.error)
         is Verdict.NoAnswer -> tx.refuse_stage_no_answer
         Verdict.Offline -> tx.refuse_stage_offline
     }

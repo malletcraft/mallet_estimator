@@ -8,6 +8,7 @@ import com.malletcrafts.interiorestimate.pano.QuoteStage.Cache
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -61,6 +62,12 @@ class QuoteMoveTest {
         // Record the approved scope: {works, base}, in WORKS order, at Client approved only
         assertEquals(S5Quote.SENT_REC_APPROVED, body(QuoteMove.scope("PROJ-REC", at("Client approved", "2026-10-20T04:30:00.000Z"), listOf(140, 20, 10, 20), "")))
         assertEquals(S5Quote.SENT_REC_FINAL, body(QuoteMove.scope(P, at("Client approved", tApproved), listOf(20, 10), tApproved)))
+        // the two S5Quote says the phone never builds: SENT_SCOPE_MISSING (an Approve with no scope) is refused on the
+        // phone, and SENT_BAD_STAGE (a stage outside the six) builds nothing -- from the copy the harness sent them from
+        assertEquals("""{"stage":"Client approved","base":"$tRevisions","via":"phone"}""", S5Quote.SENT_SCOPE_MISSING)
+        assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.stage(P, at("Revisions", tRevisions), "Client approved"))
+        assertEquals("""{"stage":"On hold","base":"$tRevisions","via":"phone"}""", S5Quote.SENT_BAD_STAGE)
+        assertEquals(Move.None, QuoteMove.stage(P, at("Revisions", tRevisions), "On hold"))
     }
 
     @Test fun `the route, the JSON types, and the base sent byte for byte - never reformatted (SPEC61c R6)`() {
@@ -92,6 +99,11 @@ class QuoteMoveTest {
             assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.stage(P, at("Revisions", tRevisions), "Client approved", ticks, tScope), "$ticks")
             assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.scope(P, at("Client approved", tApproved), ticks.orEmpty(), ""), "$ticks")
         }
+        // a scope record's empty list is refused BEFORE the stage is looked at (the prototype's recordScope order):
+        // at every stage before Client approved, and on a copy never read -- not the "nothing to send" of a stage
+        for (s in QuoteStage.STAGES.dropLast(1)) assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.scope(P, at(s, tRevisions), emptyList(), ""), s)
+        assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.scope(P, null, emptyList(), ""))
+        assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.scope(P, at("Estimated", tEstimated), listOf(0, 999), ""))
         assertEquals("[10,140]", json(send(QuoteMove.stage(P, at("Revisions", tRevisions), "Client approved", listOf(999, 140, 0, 10), "")).request.fields["scope"]))
         assertEquals(listOf(10, 20, 30, 40, 50, 60, 70, 80, 85, 90, 95, 100, 110, 120, 130, 140), QuoteMove.worksOf(Album.WORK_IDS.reversed()))
     }
@@ -195,6 +207,18 @@ class QuoteMoveTest {
         assertIs<Verdict.Final>(stage(409, both(tApproved, tApproved, ""","final":true"""), sent(tApproved, "")), "final before a scope_base that differs")
         assertIs<Verdict.ScopeStale>(stage(409, both(tRevisions, tScope, "").replace("\"error\":\"x\"", "\"error\":\"scope_missing\""), sent(tRevisions, "")),
             "a scope_base that differs before scope_missing")
+        // a scope record's not-yet is EVERY stage before Estimated (asis.js SCOPE_STAGES), not only Survey; and with no
+        // scope stored, from Estimated on, it is the scope changed meanwhile -- the bodies in asis.js's notYet and stale shapes
+        fun recAt(stage: String, at: String, error: String) =
+            """{"error":"$error","scope":null,"scope_at":"","quote_stage":"$stage","quote_stage_by":"pm@x","quote_stage_at":"$at"}"""
+        for ((st, t) in listOf("Client wish list" to tWish, "Vendor quoted" to "2026-11-03T07:01:08.706Z")) {
+            val words = "The scope is set from Estimated on — the quote stage is $st"
+            assertEquals(Verdict.NotYet(words, Now(st, "pm@x", t, null, "")), rec(409, recAt(st, t, words)), st)
+            assertIs<Verdict.NotYet>(rec(409, recAt(st, t, "x")), st)
+        }
+        assertEquals(Verdict.ScopeStale(Now("Revisions", "pm@x", tRevisions, null, "")),
+            rec(409, recAt("Revisions", tRevisions, "The scope was changed meanwhile; not saved — it now shows what is stored")))
+        assertIs<Verdict.ScopeStale>(rec(409, recAt("Estimated", tEstimated, "x")))
     }
 
     @Test fun `every S5 answer to a scope record reads as its verdict`() {
@@ -217,18 +241,89 @@ class QuoteMoveTest {
         assertEquals(Verdict.NoAnswer(null), stage(null, null, s))
         assertEquals(Verdict.NoAnswer(null), rec(null, null))
         // a body that is not S5's: a proxy's page, a cut body, a 200 without S5's fields
+        // (each 200 check alone, QM0 review: one body with S5's every field but no stamp, one with every field but no `ok`)
         for ((code, b) in listOf(200 to null, 200 to "\"<html>\"", 200 to """{"ok":true}""", 200 to """{"quote_stage":"Revisions"}""",
+                200 to """{"ok":true,"quote_stage":"Revisions","quote_stage_by":"pm@x","quote_stage_at":""}""",
+                200 to """{"quote_stage":"Revisions","quote_stage_by":"pm@x","quote_stage_at":"$tRevisions"}""",
+                200 to """{"ok":false,"quote_stage":"Revisions","quote_stage_by":"pm@x","quote_stage_at":"$tRevisions"}""",
                 403 to "\"Forbidden\"", 403 to "{}", 404 to "{}", 409 to """{"error":"x"}""", 409 to """{"quote_stage":"Revisions","quote_stage_at":""}""",
-                400 to "{}", 413 to null, 401 to """{"error":"Sign in again"}""", 405 to """{"error":"Method not allowed"}""", 500 to """{"error":"x"}""", 502 to null)) {
+                400 to "{}", 413 to null, 401 to "{}", 401 to null, 401 to "\"Unauthorized\"", 405 to """{"error":"Method not allowed"}""",
+                500 to """{"error":"x"}""", 502 to null)) {
             assertEquals(Verdict.NoAnswer(code), stage(code, b, s), "$code $b")
         }
-        for ((code, b) in listOf(200 to """{"ok":true,"scope":[10]}""", 200 to """{"ok":true,"scope_at":"t"}""", 403 to "{}", 409 to """{"error":"x"}""", 503 to null))
+        for ((code, b) in listOf(200 to """{"ok":true,"scope":[10]}""", 200 to """{"ok":true,"scope_at":"t"}""", 403 to "{}", 409 to """{"error":"x"}""",
+                401 to "{}", 401 to null, 503 to null))
             assertEquals(Verdict.NoAnswer(code), rec(code, b), "$code $b")
         assertEquals(Verdict.Refused(413, "Request too large"), stage(413, """{"error":"Request too large"}""", s))
         // none of them names a stage, so the store keeps its copy -- and with it no base the phone could resend
-        for (v in listOf(Verdict.NoAnswer(null), Verdict.NoAnswer(502), Verdict.Offline, Verdict.NotOnS5, Verdict.StaffOnly,
+        for (v in listOf(Verdict.NoAnswer(null), Verdict.NoAnswer(502), Verdict.Offline, Verdict.SignIn("x"), Verdict.StaffOnly,
                 Verdict.PmOnly("designer", "pm@x"), Verdict.PmScope(null, null), Verdict.Refused(400, "x"), Verdict.Recorded(listOf(10), tScope)))
             assertNull(QuoteMove.copyOf(v, "r"), "$v")
+    }
+
+    @Test fun `S5's 401 is a sign-in refused, not no answer - the status line says sign in again, on both routes (QM0 review)`() {
+        val s = sent(tRevisions, "")
+        // S5's own 401s (asis.js identify): no session S5 holds, and a key ERP refuses
+        assertEquals(Verdict.SignIn("Sign in with your ERP account"), stage(401, S5Quote.SIGN_IN, s))
+        assertEquals(Verdict.SignIn("ERP did not accept this API key"), stage(401, S5Quote.KEY_REFUSED, s))
+        assertEquals(Verdict.SignIn("Sign in with your ERP account"), rec(401, S5Quote.SIGN_IN))
+        assertEquals(Verdict.SignIn("ERP did not accept this API key"), rec(401, S5Quote.KEY_REFUSED))
+        // read by the field: S5's words reworded are still a sign-in refused
+        assertEquals(Verdict.SignIn("x"), stage(401, """{"error":"x"}""", s))
+        // the phone's sign-in words (app.sign_again_menu_server_x), then S5's as data -- never "No answer to the save"
+        assertEquals("Sign in again (menu → Server): Sign in with your ERP account", QuoteMove.text(Tx.EN, stage(401, S5Quote.SIGN_IN, s)))
+        assertEquals("पुन्हा साइन इन करा (मेनू → सर्व्हर): ERP did not accept this API key", QuoteMove.text(Tx.MR, rec(401, S5Quote.KEY_REFUSED)))
+        // it names no stage: the store keeps its copy
+        assertNull(QuoteMove.copyOf(stage(401, S5Quote.SIGN_IN, s), "r"))
+    }
+
+    @Test fun `S5's 404 goes into the one store as not listed - the line, the mover and Approve read not on S5 yet (QM0 review)`() {
+        val v = stage(404, S5Quote.NEVER, sent(""))
+        assertEquals(Verdict.NotOnS5, v)
+        assertEquals(Cache(listed = false, readAt = "r5"), QuoteMove.copyOf(v, "r5"))
+        assertEquals(Cache(listed = false, readAt = "r5"), QuoteMove.copyOf(rec(404, S5Quote.REC_NEVER), "r5"))
+        // a copy read as listed at Revisions, with a work state, and then S5 answers that it holds no such project
+        val stored = at("Revisions", tRevisions).copy(states = mapOf(10 to Album.WorkState(Album.DONE, 7)))
+        val gone = QuoteStage.merge(stored, QuoteMove.copyOf(v, "2026-11-03T07:02:00Z")!!, 5L, 3L)
+        assertEquals(Cache(listed = false, readAt = "2026-11-03T07:02:00Z"), gone)
+        val line = QuoteStage.projectLine(gone, false, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"))
+        assertEquals(QuoteStage.LineKind.LOCAL, line.kind)
+        assertEquals(QuoteMove.text(Tx.EN, v), line.second, "the status line and the project line say the same")
+        assertEquals(Move.Refused(Local.NOT_ON_S5), QuoteMove.stage(P, gone, "Estimated"))
+        assertEquals(Move.Refused(Local.NOT_ON_S5), QuoteMove.scope(P, gone, listOf(10), ""))
+        // a read that went out before the 404 (a lower seq) does not put the project back ...
+        val listedAgain = listOf(QuoteStage.Listed(P, "Revisions", "pm@x", tRevisions))
+        assertTrue(QuoteStage.fromList(listedAgain, listOf(P), "2026-11-03T07:01:30Z", 4L, mapOf(P to 5L), mapOf(P to gone)).isEmpty())
+        // ... and a read after it that lists the project makes it movable again, with S5's stamp as the base
+        val back = QuoteStage.fromList(listedAgain, listOf(P), "2026-11-03T07:03:00Z", 6L, mapOf(P to 5L), mapOf(P to gone))[P]!!
+        assertEquals(tRevisions, send(QuoteMove.stage(P, back, "Estimated")).base)
+    }
+
+    @Test fun `a stage S5 named without its stamp builds no move until a read fills the stamp in - never a false 409 (QM0 review)`() {
+        // the wish list's Survey 409 names the stage and nothing more (QuoteStageSync.named): who and when UNKNOWN
+        val named = QuoteStage.named(at("Client wish list", tWish), "Survey", "2026-11-03T07:01:10Z")!!
+        assertTrue(named.atUnknown)
+        for (to in QuoteStage.STAGES) assertEquals(Move.None, QuoteMove.stage(P, named, to, listOf(10), tScope), to)
+        // named Client approved (the final 409): refused as final, which needs no base
+        assertEquals(Move.Refused(Local.APPROVED_FINAL), QuoteMove.stage(P, QuoteStage.named(at("Revisions", tRevisions), QuoteStage.APPROVED, "r")!!, "Revisions"))
+        // a stage S5 NEVER set is not unknown: base '', which S5 accepts (S5Quote.MOVED_FIRST)
+        assertFalse(Cache(listed = true, stage = "Survey", readAt = "r").atUnknown)
+        assertEquals(S5Quote.SENT_MOVED_FIRST, body(QuoteMove.stage(P, Cache(listed = true, stage = "Survey", readAt = "r"), "Client wish list")))
+        // the follow-up read (a later seq) fills it in: the move carries S5's own stamp
+        val tBack = "2026-11-03T07:01:09.500Z"
+        val survey = listOf(QuoteStage.Listed(P, "Survey", "pm@x", tBack))
+        val filled = QuoteStage.fromList(survey, listOf(P), "2026-11-03T07:01:11Z", 3L, mapOf(P to 2L), mapOf(P to named))[P]!!
+        assertFalse(filled.atUnknown)
+        assertEquals(tBack, send(QuoteMove.stage(P, filled, "Client wish list")).base)
+        // ... or says S5 never set it: base ''
+        val never = QuoteStage.fromList(listOf(QuoteStage.Listed(P, "Survey", "", "")), listOf(P), "2026-11-03T07:01:11Z", 3L, mapOf(P to 2L), mapOf(P to named))[P]!!
+        assertEquals("", send(QuoteMove.stage(P, never, "Client wish list")).base)
+        // a read that went out before the answer (a lower seq) leaves the copy as named: still nothing is built
+        assertTrue(QuoteStage.fromList(survey, listOf(P), "2026-11-03T07:01:09Z", 1L, mapOf(P to 2L), mapOf(P to named)).isEmpty())
+        // a move's own answer, and the album GET, fill it in too
+        val staleAnswer = stage(409, S5Quote.STALE, sent(""))
+        assertEquals(tWish, send(QuoteMove.stage(P, QuoteStage.merge(named, QuoteMove.copyOf(staleAnswer, "r")!!, 3L, 2L), "Vendor quoted")).base)
+        assertFalse(QuoteStage.merge(named, QuoteStage.fromAlbum(AlbumWire.view(MiniRead, tree(S5Quote.ALBUM))!!, "r"), 3L, 2L).atUnknown)
     }
 
     @Test fun `every answer that says what S5 holds goes into the one store - the next move carries S5's base`() {
@@ -275,6 +370,7 @@ class QuoteMoveTest {
             Verdict.NotYet("The scope is set from Estimated on — the quote stage is Survey", n) to "The scope is set from Estimated on — the quote stage is Survey",
             Verdict.Refused(400, "scope must name at least one work") to "scope must name at least one work",
             Verdict.NotOnS5 to "not on S5 yet — this project has not been sent",
+            Verdict.SignIn("Sign in with your ERP account") to "Sign in again (menu → Server): Sign in with your ERP account",
             Verdict.NoAnswer(null) to "No answer to the save — showing the stage as it is now",
             Verdict.Offline to "Offline — the quote stage moves only when S5 answers",
         )
