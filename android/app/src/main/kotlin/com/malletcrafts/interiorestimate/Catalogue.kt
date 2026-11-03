@@ -57,14 +57,13 @@ class Catalogue(context: Context) {
          *  in the bootstrap payload — it was simply never read. */
         val clientId: String = "",
         val jobType: String,
-        val stage: String,
+        // No `stage` and no `stageSince` since port 61c slice PL: the ERP site stage (mallet_stage) is
+        // neither shown nor moved on the phone. The project's one state is S5's (QuoteStageSync).
         val local: Boolean,
         /** ERPNext's Project.status — Open, Completed, Cancelled. */
         val status: String = "",
         val start: String = "",
         val end: String = "",
-        /** When the project last moved stage, as the server recorded it. */
-        val stageSince: String = "",
     ) {
         val synced: Boolean get() = serverId.isNotBlank()
         /** Stable across a sync only for ERP rows; local rows key on names. */
@@ -477,12 +476,10 @@ class Catalogue(context: Context) {
                 serverId = o.optString("project"),
                 clientId = o.optString("customer"),
                 jobType = o.optString("job_type").ifBlank { JOB_NEW },
-                stage = o.optString("stage"),
                 local = false,
                 status = o.optString("status"),
                 start = o.optString("start"),
-                end = o.optString("end"),
-                stageSince = o.optString("stage_since")))
+                end = o.optString("end")))
         }
         return out
     }
@@ -498,7 +495,7 @@ class Catalogue(context: Context) {
             if (keyOf(l.client, l.site, l.project) in seen) continue
             if (keyOf(l.client, "", l.project) in erpTitles) continue
             out.add(Project(l.client, l.site, "", l.project, "",
-                clientId = "", jobType = l.jobType, stage = "", local = true))
+                clientId = "", jobType = l.jobType, local = true))
             seen.add(keyOf(l.client, l.site, l.project))
         }
         return out.sortedWith(compareBy({ it.client.lowercase() },

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -45,8 +47,13 @@ import com.malletcrafts.interiorestimate.pano.RoomToken
  *    width on gutters and shows eight rows where fourteen fit.
  *  - Rooms are a three-across TILE grid, not a list. Rooms are visual, the
  *    token is what you read, and a grid puts twelve on one screen.
- *  - The project's current stage leads the room grid, because that is the
- *    question being asked on site: what still needs shooting today.
+ *  - The project line leads the room grid (v61c; Amit, 27 Oct 2026: "everything
+ *    should be single truth"): ONE line derived from S5 -- the quote stage before
+ *    approval, the album's works after it -- never set by hand. PROJECT IS AT, the
+ *    ERP site stage's card, left the phone in port 61c slice PL.
+ *
+ * Every text here is keyed (port 61c slice PL); the two badges are the prototype's
+ * own unkeyed literals, marked `// text:value`.
  */
 
 private val ROW_HEIGHT = 64.dp
@@ -81,6 +88,8 @@ private fun FolderRow(
     pill: String? = null,
     warn: Boolean = true,
     muted: Boolean = false,
+    /** A project row's subtitle takes two lines, as the prototype's `.ell2` does (v61c: the line leads it). */
+    subtitleLines: Int = 1,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
@@ -105,7 +114,7 @@ private fun FolderRow(
                 if (subtitle.isNotBlank()) {
                     Text(subtitle, style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        maxLines = subtitleLines, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (pill != null) {
@@ -213,7 +222,7 @@ fun SitesScreen(
     LazyColumn(Modifier.fillMaxSize()) {
         items(sites) { s ->
             FolderRow(
-                badge = if (s.type.isNotBlank()) s.type.take(3).uppercase() else "SITE",
+                badge = if (s.type.isNotBlank()) s.type.take(3).uppercase() else "SITE", // text:value the prototype's badge, an unkeyed literal there too
                 title = s.name,
                 subtitle = listOf(s.type, s.city).filter { it.isNotBlank() }
                     .joinToString(" · ").ifBlank { tx.pl_project(projectCount(s)) },
@@ -232,6 +241,8 @@ fun SitesScreen(
 fun ProjectsScreen(
     projects: List<Catalogue.Project>,
     captureCount: (Catalogue.Project) -> Int,
+    /** The project's ONE derived line (QuoteStageSync.lineFor's text), read from the store S5's list GET fills. */
+    lineOf: (Catalogue.Project) -> String,
     onOpen: (Catalogue.Project) -> Unit,
     onRename: (Catalogue.Project) -> Unit,
     onNew: () -> Unit,
@@ -240,16 +251,16 @@ fun ProjectsScreen(
     LazyColumn(Modifier.fillMaxSize()) {
         items(projects) { p ->
             FolderRow(
-                badge = "PRJ",
+                badge = "PRJ", // text:value the prototype's badge, an unkeyed literal there too
                 title = p.title,
-                // Job type, then the dates, then where it has got to. That is
-                // the order the question is asked in — what kind of job, is it
-                // running now, and how far along.
+                // The project line first, then the job type, then the dates (v61c §14.1; index61c2.html row61c):
+                // where the job stands is the one state, so it leads; two lines, as the prototype's .ell2.
                 subtitle = listOfNotNull(
-                    p.jobType,
+                    lineOf(p).ifBlank { null },
+                    p.jobType.ifBlank { null },
                     p.dateRange.ifBlank { null },
-                    p.stage.ifBlank { null },
                 ).joinToString(" · "),
+                subtitleLines = 2,
                 count = captureCount(p),
                 pill = p.statusLabel.ifBlank { null },
                 warn = p.statusWarn,
@@ -271,19 +282,18 @@ fun RoomsScreen(
     project: Catalogue.Project,
     rooms: List<String>,
     captureCount: (String) -> Int,
-    shotAtStage: (String) -> Boolean,
+    /** A shot room's dot: green when true, amber when false (QuoteStage.roomDot). */
+    roomDot: (String) -> Boolean,
     /** The newest 360 in that room, on this phone. The tile wears it. */
     lastPano: (String) -> String?,
     onOpen: (String) -> Unit,
-    onStage: () -> Unit,
-    /** S5's QUOTE stage for this project, as QuoteStageSync last read it (v52 item 16):
-     *  drawn under the work stage, read-only. MainActivity always passes one. */
-    quote: QuoteStage.Line?,
+    /** THE PROJECT LINE (QuoteStageSync.lineFor): the one state, derived, never set by hand. */
+    line: QuoteStage.ProjectLine,
     /** The client's wish list (v52 item 16, slice 5b): the chip after rooms shot reads
      *  [wishLabel] ("Wish list N/12") and opens the list. Null draws no chip. */
     onWish: (() -> Unit)?,
     wishLabel: String,
-    /** The project sheet (job type, status, ERP id, phase). The dates chip is
+    /** The project sheet (job type, status, ERP id, dates). The dates chip is
      *  the only way into it, so that chip is drawn on every project. */
     onDetail: () -> Unit,
     /** Amit, 2026-09-21: "can i add new room under project? I can not see any
@@ -305,11 +315,9 @@ fun RoomsScreen(
     var showAll by remember { mutableStateOf(false) }
     val shot = rooms.filter { captureCount(it) > 0 }
     val rest = rooms.filter { captureCount(it) == 0 }
-    val pending = shot.count { !shotAtStage(it) }
 
     Column(Modifier.fillMaxSize()) {
-        StageBar(project, pending, onStage)
-        quote?.let { QuoteLine(it) }
+        ProjectLineBox(line)
         // The facts about this job, each a tap to the thing behind it. The
         // dates chip is not decoration: "is this job even running this week"
         // is asked more often on site than anything else on the screen.
@@ -358,7 +366,7 @@ fun RoomsScreen(
             contentPadding = PaddingValues(2.dp),
         ) {
             items(shot) { r ->
-                RoomTile(r, captureCount(r), shotAtStage(r), lastPano(r)) { onOpen(r) }
+                RoomTile(r, captureCount(r), roomDot(r), lastPano(r)) { onOpen(r) }
             }
             item {
                 Box(
@@ -399,47 +407,25 @@ fun RoomsScreen(
     }
 }
 
-@Composable
-private fun StageBar(project: Catalogue.Project, pending: Int, onClick: () -> Unit) {
-    val tx = LocalTx.current
-    Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-    ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 11.dp)) {
-            Text(tx.app_project_is_at, style = MaterialTheme.typography.labelSmall)
-            Text(project.stage.ifBlank { tx.app_no_stage_set_tap },
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(
-                listOfNotNull(
-                    project.stageSince.ifBlank { null }
-                        ?.let { tx.app_since_x(Catalogue.day(it)) },
-                    if (pending > 0) tx.app_x_not_shot_stage(pending)
-                    else tx.app_every_photographed_room_current,
-                ).joinToString(" · "),
-                style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-
 /**
- * THE QUOTE STAGE under the work stage (v52 item 16; Amit, 14 Oct 2026, 06:53 IST: "survey,
- * client wish list, vendor quoted, client approved, estimated"). The COMMERCIAL state of the
- * job, which staff move on S5 QUOTE; the phone only shows it, so there is no tap. Outlined,
- * not filled -- a surface with a teal bar on the left -- so it never reads as the tappable
- * PROJECT IS AT card above it. Sizes are the prototype's (.qst, wish.css): padding 7/16/8/13
- * after a 3 dp bar, the title at 14/20 sp medium with .4 sp tracking in #0F5E57, six 12 x 4 dp
- * pips 3 dp apart, the second line at 12/16 sp: 7 + 20 + 16 + 8 = 51 dp in portrait. In
- * landscape it is one row, 5 + 20 + 5 = 30 dp, with the second line beside the pips.
+ * THE PROJECT LINE (v61c; index61c2.html lineHTML): ONE line, derived from S5 (QuoteStage.projectLine), never
+ * set by hand -- it replaces both the PROJECT IS AT card and the QUOTE STAGE line under it. Outlined, not
+ * filled: a surface with a teal bar on the left. Sizes are the prototype's (.qst): padding 7/16/8/13 after a
+ * 3 dp bar, the line at 14/20 sp medium with .4 sp tracking in #0F5E57, the second line at 12/16 sp: 7 + 20 +
+ * 16 + 8 = 51 dp in portrait. In landscape it is one row, 5 + 20 + 5 = 30 dp, the second line beside it.
+ * - Through the quote journey (and unread, or not on S5): `Quote · <stage>` with the six 12 x 4 dp pips
+ *   3 dp apart, over `since …`, `<stage> · not set on S5 yet` or why there is no stage.
+ * - At Client approved (.qst.qx): an 18 dp teal ✓ 10 dp before `Execution · …`, over `Quote · Client
+ *   approved`, at least 48 dp tall (36 dp in landscape), as the prototype's tap target is. It is not a tap
+ *   yet and has no `tap to view`: the quote view it opens arrives with QV, so no dead control ships.
  */
 @Composable
-private fun QuoteLine(line: QuoteStage.Line) {
+private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
     val teal = Color(0xFF0F766E)
     val ink = Color(0xFF0F5E57)
     val rule = MaterialTheme.colorScheme.outlineVariant
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val exec = line.kind == QuoteStage.LineKind.EXEC
     val titleStyle = MaterialTheme.typography.titleSmall.copy(
         fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.4.sp, fontWeight = FontWeight.Medium)
     val secondStyle = MaterialTheme.typography.bodySmall.copy(
@@ -447,6 +433,8 @@ private fun QuoteLine(line: QuoteStage.Line) {
     val secondColor = MaterialTheme.colorScheme.onSurfaceVariant
     val frame = Modifier
         .fillMaxWidth()
+        // .qst.qx: min-height 48 px (36 px in landscape), padding included -- it binds only in landscape
+        .heightIn(min = if (!exec) 0.dp else if (landscape) 36.dp else 48.dp)
         .background(MaterialTheme.colorScheme.surface)
         .drawBehind {
             drawRect(teal, size = Size(3.dp.toPx(), size.height))
@@ -464,28 +452,53 @@ private fun QuoteLine(line: QuoteStage.Line) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(line.title, style = titleStyle, color = ink, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                QuotePips(line.lit, teal)
+                LineHead(line, exec, titleStyle, ink, teal)
             }
             Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
         }
     } else {
-        Column(frame.padding(start = 16.dp, top = 7.dp, end = 16.dp, bottom = 8.dp)) {
+        Column(
+            frame.padding(start = 16.dp, top = 7.dp, end = 16.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(line.title, style = titleStyle, color = ink, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                QuotePips(line.lit, teal)
+                LineHead(line, exec, titleStyle, ink, teal)
             }
             // One line, so the block stays within 52 dp whatever it says.
             Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/** The line's first row: the ✓ and the line at Client approved, else the line and its six pips. */
+@Composable
+private fun RowScope.LineHead(
+    line: QuoteStage.ProjectLine,
+    exec: Boolean,
+    style: androidx.compose.ui.text.TextStyle,
+    ink: Color,
+    teal: Color,
+) {
+    if (exec) ApprovedCheck(teal)
+    Text(line.text, style = style, color = ink, maxLines = 1,
+        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    if (!exec) QuotePips(line.lit, teal)
+}
+
+/** The prototype's .qck: an 18 dp teal disc with a white ✓ at 11/18 sp, hidden from TalkBack as it is aria-hidden there. */
+@Composable
+private fun ApprovedCheck(teal: Color) {
+    Box(
+        Modifier.size(18.dp).clip(CircleShape).background(teal).clearAndSetSemantics { },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("✓", color = Color.White, fontSize = 11.sp, lineHeight = 18.sp) // text:value the prototype's .qck glyph, in both languages
     }
 }
 
@@ -519,7 +532,8 @@ private fun QuotePips(lit: Int, on: Color) {
 private fun RoomTile(
     room: String,
     count: Int,
-    current: Boolean,
+    /** The dot's colour: green when true, amber when false (QuoteStage.roomDot). */
+    green: Boolean,
     pano: String?,
     onClick: () -> Unit,
 ) {
@@ -553,16 +567,17 @@ private fun RoomTile(
             },
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp))
         if (shot) {
-            // Green means this room has been shot at the stage the project is
-            // AT; amber means it has photos but none from this stage. That is
-            // the whole question on site: what still needs shooting today.
+            // The derived dot (SPEC61c §3.2, QuoteStage.roomDot): before approval green
+            // means the room has a survey capture, amber photos but none from the
+            // survey; after it, green means a capture filed to one of the sixteen
+            // works. That is the question on site: what still needs shooting.
             Box(
                 Modifier
                     .align(Alignment.TopEnd)
                     .padding(7.dp)
                     .size(9.dp)
                     .clip(RoundedCornerShape(5.dp))
-                    .background(if (current) Color(0xFF3F8F5B) else Color(0xFFB0740E)))
+                    .background(if (green) Color(0xFF3F8F5B) else Color(0xFFB0740E)))
             Text("$count", style = MaterialTheme.typography.labelSmall,
                 color = if (photo) Color.White
                         else MaterialTheme.colorScheme.onSecondaryContainer,

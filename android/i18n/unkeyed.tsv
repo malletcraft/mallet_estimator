@@ -24,6 +24,8 @@
 # matches it byte for byte; it has no whole key at that site (app.x_waiting is the drawer's Sync-now value,
 # app.js:215, and app.waiting a fragment), so it waits for a key on the v61c card, not for decision 5.
 # BrowseScreens' "SITE" badge stays too: the prototype draws it as an unkeyed literal, and noun.site is "site".
+# Port 61c slice PL (3 Nov 2026) ported BrowseScreens.kt and QuoteStage.kt and removed their 36 rows: "SITE" and "PRJ" are
+# marked `// text:value` (the prototype's own unkeyed badges); the old QUOTE STAGE line's texts left with the code.
 file	text
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
@@ -96,11 +98,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session renewed
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session to be renewed when the web answers
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in refused - sending with the ERP key
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	 · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	+${rest.size}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	PRJ
-app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt	SITE
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 · tap to correct (recorded)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.annotated}/6
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.date} ${c.stage}
@@ -744,11 +741,9 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phon
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 and everything in it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 · 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$heading · $jobType · ${shown.size} stages
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$hidden more a $jobType job does not normally reach
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$photos on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$stageCount in the master for this job type
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${plan.unfittedFaces.joinToString("/")} face, past what the 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	/
@@ -756,7 +751,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A SINGLE PHOT
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A client is the office's customer record, so it is not 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	About to delete
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Anything already quoted on an estimate is kept.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	At stage
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Back
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Browse
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Camera
@@ -780,8 +774,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Move the proj
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	No stage set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not signed in
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not synced — still only on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Phase
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Phases
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Photos
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Pick a 360 from the gallery
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Queue
@@ -795,7 +787,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Settings
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Shoot 360 on the X3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Showing all ${allStages.size} stages
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Stages
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Starts
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Status
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Tag this photo to a SKU
@@ -818,11 +809,9 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	it keep their
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	join the camera's Wi-Fi first, then tap
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	mm scale on every elevation.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not a $jobType stage
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ready to shoot
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	removed from a phone. Delete the sites under it here; 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	shoot it in two halves, or accept it.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	since ${Catalogue.day(it)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	split can sample. Those corners will still crop \u2014 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to change — it can be corrected on the photo too
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to go back to the $jobType stages
@@ -950,37 +939,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	${fov.rou
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	4 · 360 · drag to look round · ${SurveyPrep.NAME[s] ?: s}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	A $typeName cannot go on the ${SurveyPrep.NAME.getValue(to).lowercase()}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	Set this surface's lines first
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	 · read ${hhmm(instantOf(cache.readAt)!!.atZone(IST))}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $NOT_ON_S5
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $NOT_READ
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$TITLE · $stage
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	$stage · $NOT_SET
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}, ${hhmm(z)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Apr
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Aug
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Client approved
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Client wish list
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Dec
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Estimated
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Feb
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jan
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jul
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Jun
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Mar
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	May
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Nov
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Oct
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	QUOTE STAGE
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Quote stage not read yet — S5 decides when online
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Revisions
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Sept
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Survey
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	Vendor quoted
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not on S5 yet
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not on S5 yet — this project has not been sent
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not read yet
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	not set on S5 yet
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	since ${dayTime(it)} IST on S5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	 — deleted on the web too
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	$it changed on the web after its mark was deleted here
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room

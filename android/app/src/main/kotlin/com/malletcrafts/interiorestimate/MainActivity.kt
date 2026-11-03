@@ -69,6 +69,7 @@ import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.WishList
@@ -579,10 +580,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
         if (p == null || r == null) return
-        // Nothing chosen means "whatever the project is at", which is right
-        // nine times in ten and is exactly what the server would have filled
-        // in anyway — writing it locally is what lets the phone SHOW it.
-        val stageNow = stage.ifBlank { navProject?.stage.orEmpty() }
+        // Nothing chosen under FILED AT means no stage: the capture files to the
+        // Quote journey (Album.workOfCapture). The ERP site stage is no longer a
+        // default -- the phone neither shows nor moves it (port 61c slice PL).
+        val stageNow = stage
         busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
         lastResult = null
         scope.launch(Dispatchers.Default) {
@@ -993,7 +994,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 navSite = site
                 navProject = Catalogue.Project(
                     client = client, site = site, siteId = "", title = proj,
-                    serverId = "", jobType = jobType, stage = "", local = true)
+                    serverId = "", jobType = jobType, local = true)
             })
     }
 
@@ -1228,6 +1229,24 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val wishCache = remember(stageKey, dataTick, quoteTick) {
             stageKey?.let { QuoteStageSync.cached(context, it) }
         }
+        // THE PROJECT LINE (v61c; Amit, 27 Oct 2026: "everything should be single truth"): the ONE
+        // derived line the project screen and the Wish list's top bar draw, from the same store.
+        // Re-read after any write to it (quoteTick: this screen's read or any sync), after a reload
+        // (dataTick), when the IST day turns, since the read time shows only on a copy from before
+        // today, and when the language changes (tx).
+        val projectLine = remember(stageKey, dataTick, quoteTick, istDay, tx) {
+            QuoteStageSync.lineFor(context, stageKey, tx)
+        }
+        // The project list's rows lead with each project's line (index61c2.html row61c), read from
+        // the same store -- S5's one list GET carries every project's work_states, so a row needs no
+        // album GET of its own. Each under the id its stage is read under (WishSync.stageKey), so a
+        // re-keyed phone-only project's row and its screen agree (wishTick: the re-key is a write).
+        val projectLines = remember(client, site, cs, dataTick, quoteTick, wishTick, istDay, tx) {
+            if (client == null || site == null) emptyMap<String, String>()
+            else cs.projectsOf(client, site).associate { p ->
+                p.key to QuoteStageSync.lineFor(context, WishSync.stageKey(context, p), tx).text
+            }
+        }
 
         // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
         // tree's, so it wins) goes to the project; no bottom bar, as on a capture.
@@ -1236,9 +1255,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             WishListScreen(
                 project = proj,
                 rooms = gridRooms(proj),
-                quote = remember(stageKey, dataTick, quoteTick, istDay) {
-                    QuoteStageSync.lineFor(context, stageKey)
-                },
+                line = projectLine,
                 stageIdx = WishList.stageIndex(wishCache),
                 notOnS5 = WishList.notOnS5(stageKey != null, wishCache),
                 tick = wishTick,
@@ -1285,34 +1302,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 subtitle = tx.pl_client(cs.clients.size) }
         }
 
-        if (showStagePicker && proj != null) {
-            StageSheet(
-                stages = cat.stages(masters, proj.jobType),
-                allStages = cat.stages(masters),
-                current = proj.stage,
-                jobType = proj.jobType,
-                onDismiss = { showStagePicker = false },
-                onPick = { st ->
-                    showStagePicker = false
-                    // Optimistic locally, authoritative on the server: the
-                    // grid must repaint now, on a phone that may have no
-                    // signal, and the sync is what makes it true.
-                    navProject = proj.copy(stage = st.name)
-                    if (proj.synced) scope.launch(Dispatchers.IO) {
-                        runCatching {
-                            FrappeClient.load(context)
-                                ?.setProjectStage(proj.serverId, st.name)
-                        }
-                    }
-                })
-        }
         if (showDetail && proj != null) {
-            val all = cat.stages(masters, proj.jobType)
             ProjectSheet(
                 project = proj,
-                phase = all.firstOrNull { it.name == proj.stage }?.phase.orEmpty(),
-                phases = all.map { it.phase }.distinct(),
-                stageCount = all.size,
                 photos = queue.count { it.projectTitle.equals(proj.title, true) },
                 onDismiss = { showDetail = false })
         }
@@ -1378,12 +1370,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 queue.count { it.room == r &&
                                     it.projectTitle.equals(proj.title, true) }
                             },
-                            shotAtStage = { r ->
-                                proj.stage.isBlank() || queue.any {
-                                    it.room == r &&
-                                    it.projectTitle.equals(proj.title, true) &&
-                                    it.stage.equals(proj.stage, true)
-                                }
+                            // The derived dot (QuoteStage.roomDot): before approval a survey
+                            // capture, after it a capture filed to one of the sixteen works.
+                            roomDot = { r ->
+                                QuoteStage.roomDot(queue.filter {
+                                    it.room == r && it.projectTitle.equals(proj.title, true)
+                                }.map { QuoteStage.Shot(it.work, it.stage) }, projectLine.kind == QuoteStage.LineKind.EXEC)
                             },
                             // The newest 360 in that room, which is already on
                             // this phone — so the grid fills with no network.
@@ -1394,14 +1386,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 }?.panoPath
                             },
                             onOpen = { navRoom = it },
-                            onStage = { showStagePicker = true },
-                            // Re-read from the cache after any write to it
-                            // (quoteTick: this screen's read or any sync), after a
-                            // reload (dataTick), and when the IST day turns, since
-                            // the read time shows only on a copy from before today.
-                            quote = remember(stageKey, dataTick, quoteTick, istDay) {
-                                QuoteStageSync.lineFor(context, stageKey)
-                            },
+                            line = projectLine,
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).
                             // No chip at Survey, as the prototype hides it there (WishList.
@@ -1432,6 +1417,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             captureCount = { p ->
                                 queue.count { it.projectTitle.equals(p.title, true) }
                             },
+                            // Each row's ONE derived line, read from the store the list GET
+                            // fills (S5-L's work_states: no album GET per project).
+                            lineOf = { p -> projectLines[p.key].orEmpty() },
                             onOpen = { navProject = it },
                             onNew = { showNewSite = true })
                         client != null -> SitesScreen(
@@ -1931,7 +1919,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         StageSheet(
             stages = cat.stages(masters, p.jobType),
             allStages = cat.stages(masters),
-            current = stage.ifBlank { p.stage },
+            current = stage,
             jobType = p.jobType,
             heading = "Stage for new photos",
             onDismiss = { showStagePicker = false },
@@ -2215,7 +2203,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
 
     if (showCaptureSheet) {
         CaptureSheet(
-            stage = stage.ifBlank { navProject?.stage.orEmpty() },
+            stage = stage,
             roomLength = roomLength,
             roomWidth = roomWidth,
             roomHeight = roomHeight,

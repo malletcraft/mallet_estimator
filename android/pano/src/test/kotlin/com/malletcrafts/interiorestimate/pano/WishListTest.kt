@@ -124,10 +124,11 @@ class WishListTest {
             assertTrue(WishList.editable(i))
             assertEquals(emptyList(), WishList.banners(Tx.EN, i, warned = true, notOnS5 = true))
         }
-        // and the sub-line those projects show says the same thing
-        assertEquals("QUOTE STAGE · not on S5 yet", QuoteStage.phoneOnly().title)
-        assertEquals("QUOTE STAGE · not on S5 yet",
-            QuoteStage.lineFor(QuoteStage.Cache(listed = false), java.time.Instant.parse("2026-10-16T05:00:00Z")).title)
+        // and the sub-line those projects show says the same thing: the one project line's text (port 61c slice PL)
+        val t = java.time.Instant.parse("2026-10-16T05:00:00Z")
+        assertEquals("Quote · not on S5 yet", QuoteStage.projectLine(null, true, emptyList(), Tx.EN, t).text)
+        assertEquals("Quote · not on S5 yet", QuoteStage.projectLine(QuoteStage.Cache(listed = false), false, emptyList(), Tx.EN, t).text)
+        assertEquals("कोटेशन · अजून S5 वर नाही", QuoteStage.projectLine(null, true, emptyList(), Tx.MR, t).text)
     }
 
     @Test fun `applies-to line and the row's second line (ct52 W(b))`() {
@@ -742,8 +743,9 @@ class WishListTest {
         assertTrue(WishList.chipShown(i))
         assertEquals(listOf("Approved — changes go through change requests"),
             WishList.banners(Tx.EN, i, warned = false, notOnS5 = false))
-        assertEquals("QUOTE STAGE · Client approved",
-            QuoteStage.lineFor(named, java.time.Instant.parse("2026-10-28T04:00:00Z")).title)
+        // the top bar's sub-line, the one project line: approved, its states not read yet (port 61c slice PL)
+        assertEquals("Execution · not read yet",
+            QuoteStage.projectLine(named, false, emptyList(), Tx.EN, java.time.Instant.parse("2026-10-28T04:00:00Z")).text)
         // what the stale screen drew before: no stage, so editable, with no banner and no lock
         assertTrue(WishList.editable(WishList.stageIndex(null)))
         assertEquals(emptyList(), WishList.banners(Tx.EN, null, warned = false, notOnS5 = true))

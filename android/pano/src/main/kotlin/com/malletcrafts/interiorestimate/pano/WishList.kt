@@ -405,8 +405,8 @@ object WishList {
     /**
      * The project is not on S5, which is not the same as a stage not read: a phone-only
      * project (it never asks S5) or one S5 answered "not listed" for (404 until its first room
-     * upload, decision 3). The sub-line already says "not on S5 yet" (QuoteStage.phoneOnly /
-     * lineFor), so the unread banner -- "S5 decides when online" -- would contradict it.
+     * upload, decision 3). The sub-line, the one project line, already says "Quote · not on S5 yet"
+     * (QuoteStage.projectLine's LOCAL), so the unread banner -- "S5 decides when online" -- would contradict it.
      */
     fun notOnS5(synced: Boolean, cache: QuoteStage.Cache?): Boolean = !synced || (cache != null && !cache.listed)
 

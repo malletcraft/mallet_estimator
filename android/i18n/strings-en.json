@@ -7513,28 +7513,6 @@
    "aria-label"
   ]
  },
- "phase.aria.quote_journey_done": {
-  "en": "Quote journey done — in execution",
-  "where": [
-   "v56build/integrate56.py:102 → phase54.js · doneChip",
-   "v61bbuild/integrate61b.py -> album61b (scope baseline + change requests)"
-  ],
-  "kind": "static",
-  "flags": [
-   "aria-label"
-  ]
- },
- "phase.aria.quote_stage_estimated_four": {
-  "en": "Quote stage Client approved: the five phases are complete and the client has approved. Tap to view them",
-  "where": [
-   "v56build/integrate56.py:103 → phase54.js · doneChip",
-   "v61bbuild/integrate61b.py -> album61b (scope baseline + change requests)"
-  ],
-  "kind": "static",
-  "flags": [
-   "aria-label"
-  ]
- },
  "phase.back_x_quote_stage": {
   "en": "Back to {name}? The quote stage on S5 goes back from {quote} to {quote2}.",
   "where": "v54build/phase54.js:146 · to",

@@ -34,31 +34,28 @@ import java.time.ZonedDateTime
  * The wording of the second line is decision 1 of 15 Oct: 200 with no time -> "<stage> · not set
  * on S5 yet"; 200 with a time -> "since d MMM, HH:mm IST on S5" (en-GB short months, so September
  * is "Sept" as the prototype prints it); the read time on the second line only when the cached copy
- * is older than today (IST). [lineFor], [Line], [phoneOnly], [TITLE] and the NOT_* texts are the
- * QUOTE STAGE line before v61c: they stay, unkeyed, until slice PL moves their readers to
- * [projectLine] and deletes them.
+ * is older than today (IST). Every text is a tx accessor ([projectLine], [coverageParts]); the six
+ * stages, the months and the worksite stage are identity values, marked `// text:value`. Port 61c
+ * slice PL deleted the QUOTE STAGE line before v61c (lineFor, Line, phoneOnly, TITLE, the NOT_*
+ * texts and since), whose readers -- the project screen, the Wish list's top bar -- draw
+ * [projectLine] now, and gave the store its stored shape ([stored], [storedOf]) and its one
+ * writer's rule ([writes]).
  */
 object QuoteStage {
 
     /** S5's QUOTE_STAGES (functions/_lib/asis.js), in order. QuoteStageTest holds the two equal. */
-    val STAGES: List<String> = listOf("Survey", "Client wish list", "Vendor quoted", "Estimated", "Revisions", "Client approved")
+    val STAGES: List<String> = listOf("Survey", "Client wish list", "Vendor quoted", "Estimated", "Revisions", "Client approved") // text:value S5's six quote stages, identity values shown through Masters.quote
 
     /** The last stage: the client has approved the estimate and execution begins (v61b). */
-    const val APPROVED = "Client approved"
+    const val APPROVED = "Client approved" // text:value S5's last quote stage, an identity value shown through Masters.quote
 
-    const val TITLE = "QUOTE STAGE"
-    const val NOT_READ = "not read yet"
-    const val UNREAD = "Quote stage not read yet — S5 decides when online"
-    const val NOT_ON_S5 = "not on S5 yet"
-    const val NOT_SENT = "not on S5 yet — this project has not been sent"
-    const val NOT_SET = "not set on S5 yet"
-
-    val IST: ZoneId = ZoneId.of("Asia/Kolkata")
+    val IST: ZoneId = ZoneId.of("Asia/Kolkata") // text:value a zone id, never shown
 
     // Fixed, not the locale's, so the line does not change with the handset's locale data --
     // but spelled as the prototype shows it: its en-GB `month:'short'` gives "Sept" for
     // September in Chrome and WebView, and the prototype is the spec character for character.
-    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec")
+    // In both languages: the prototype prints these months under मराठी too ("S5 वर 14 Oct, 08:08 IST पासून").
+    private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec") // text:value the prototype's en-GB short months, in both languages
 
     /**
      * What the phone keeps for one project after reading S5's list. [listed] false means the
@@ -91,9 +88,6 @@ object QuoteStage {
     /** One project as S5's GET /api/asis lists it ([listedOf]); [states] its `work_states`, null when the row has none. */
     data class Listed(val project: String, val stage: String, val by: String, val at: String, val states: Map<Int, WorkState>? = null)
 
-    /** The drawn line: the title, how many of the six pips are lit, the second line, and whether it carries the read time. */
-    data class Line(val title: String, val lit: Int, val second: String, val showRead: Boolean)
-
     /** The 0-based place of [stage] in [STAGES], or -1 when it is not one of them. */
     fun indexOf(stage: String): Int = STAGES.indexOf(stage)
 
@@ -106,7 +100,7 @@ object QuoteStage {
     /** "14 Oct, 08:08" in IST. */
     fun dayTime(t: Instant): String {
         val z = t.atZone(IST)
-        return "${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}, ${hhmm(z)}"
+        return "${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}, ${hhmm(z)}" // text:value a day and a time, as the prototype's en-GB date prints them in both languages
     }
 
     private fun hhmm(z: ZonedDateTime): String =
@@ -116,34 +110,13 @@ object QuoteStage {
     fun hm(t: Instant): String = hhmm(t.atZone(IST))
 
     /** "14 Oct": [t]'s day and month in IST, months as [dayTime] spells them. */
-    fun day(t: Instant): String = t.atZone(IST).let { z -> "${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}" }
-
-    /** "since 14 Oct, 08:08 IST on S5" for S5's quote_stage_at, or null when it holds no time. */
-    fun since(at: String): String? = instantOf(at)?.let { "since ${dayTime(it)} IST on S5" }
+    fun day(t: Instant): String = t.atZone(IST).let { z -> "${z.dayOfMonth} ${MONTHS[z.monthValue - 1]}" } // text:value a day, as the prototype's en-GB date prints it in both languages
 
     /** True when [readAt] falls on a day before [now]'s day, both in IST (decision 1). */
     fun readIsOld(readAt: String, now: Instant): Boolean {
         val r = instantOf(readAt) ?: return false
         return r.atZone(IST).toLocalDate().isBefore(now.atZone(IST).toLocalDate())
     }
-
-    /** The line for a project. [cache] null: the phone has never read the stage. */
-    fun lineFor(cache: Cache?, now: Instant): Line {
-        if (cache == null) return Line("$TITLE · $NOT_READ", 0, UNREAD, false)
-        val old = readIsOld(cache.readAt, now)
-        val read = if (old) " · read ${hhmm(instantOf(cache.readAt)!!.atZone(IST))}" else ""
-        if (!cache.listed) return Line("$TITLE · $NOT_ON_S5", 0, NOT_SENT + read, old)
-        val stage = cache.stage.trim()
-        if (stage.isEmpty()) return Line("$TITLE · $NOT_READ", 0, UNREAD + read, old)
-        // S5 answers only its six names; a name the phone does not know is shown as S5 wrote
-        // it, with no pip lit, rather than guessed onto one of the six.
-        val lit = indexOf(stage) + 1
-        val second = since(cache.at) ?: "$stage · $NOT_SET"
-        return Line("$TITLE · $stage", lit, second + read, old)
-    }
-
-    /** A project only on this phone (no ERP id): it cannot be on S5, and S5 is never asked. */
-    fun phoneOnly(): Line = Line("$TITLE · $NOT_ON_S5", 0, NOT_SENT, false)
 
     /**
      * The cache after one read of S5's list at [readAt]: every listed project as listed, and
@@ -190,9 +163,19 @@ object QuoteStage {
     fun fromList(
         listed: List<Listed>, known: Collection<String>, readAt: String,
         seq: Long, written: Map<String, Long>, stored: Map<String, Cache>,
-    ): Map<String, Cache> {
+    ): Map<String, Cache> = writes(fromList(listed, known, readAt), seq, written, stored)
+
+    /**
+     * THE ONE WRITER'S RULE (port 61c slice PL): what the store writes when [copies] -- S5's answers by project id
+     * (a read of the list, and from QV on the album GET and the answers to a move) -- land at [seq] on the copies
+     * [stored] now, each put there by the write at [written] (QuoteStageSync.write holds the sequence). Each id goes
+     * through [merge], and is in the answer only when its merged copy differs from the one stored. Blank ids are
+     * ignored.
+     */
+    fun writes(copies: Map<String, Cache>, seq: Long, written: Map<String, Long>, stored: Map<String, Cache>): Map<String, Cache> {
         val out = linkedMapOf<String, Cache>()
-        for ((id, c) in fromList(listed, known, readAt)) {
+        for ((id, c) in copies) {
+            if (id.isBlank()) continue
             val m = merge(stored[id], c, seq, written[id])
             if (m != stored[id]) out[id] = m
         }
@@ -285,6 +268,48 @@ object QuoteStage {
             if (pick != null) out[w] = pick
         }
         return out
+    }
+
+    /**
+     * THE COPY AS THE STORE KEEPS IT (port 61c slice PL), with no JSON in it: :app writes `JSONObject(stored(c))` into the
+     * `quote_stage` preferences, one entry per S5 project id. The six fields every build since 0.3.262 wrote, by the same
+     * names, and -- only when [Cache.states] has been read -- `states`, each work by its id as text:
+     * `{"<id>": {state, seq, at}}`, a seq a number. A copy whose states were never read has no `states` key at all, so
+     * [storedOf] reads it back as not read in this shape, never as "no work started".
+     */
+    fun stored(c: Cache): Map<String, Any?> {
+        val out = linkedMapOf<String, Any?>(
+            "listed" to c.listed, "stage" to c.stage, "by" to c.by, "at" to c.at, "readAt" to c.readAt,
+            "atUnknown" to c.atUnknown,
+        )
+        c.states?.let { st ->
+            out["states"] = st.entries.associate { (w, ws) ->
+                w.toString() to linkedMapOf<String, Any?>("state" to ws.state, "seq" to ws.seq, "at" to ws.at)
+            }
+        }
+        return out
+    }
+
+    /**
+     * A stored copy read back through [AlbumWire.Read] (:app's org.json tree), or null when [o] is not an object. Tolerant,
+     * as an update must read what an older build wrote: a field absent or of another type reads as the [Cache] default --
+     * a copy 0.3.270 or older wrote (no `states`, no `atUnknown` before the QM0 review) keeps its stage, who and when, its
+     * states not read; a `states` entry without an integral seq, or for an id that is not one of the sixteen, is left out;
+     * a state outside the five reads Not started ([Album.stateName]).
+     */
+    fun storedOf(r: AlbumWire.Read, o: Any?): Cache? {
+        if (!r.isObject(o)) return null
+        fun s(k: String): String = r.field(o, k) as? String ?: ""
+        fun b(k: String): Boolean = r.field(o, k) as? Boolean ?: false
+        val st = r.field(o, "states")
+        val states = if (!r.isObject(st)) null else Album.WORK_IDS.mapNotNull { w ->
+            val e = r.field(st, w.toString())
+            val seq = if (r.isObject(e)) AlbumWire.long(r.field(e, "seq")) else null
+            if (seq == null) null
+            else w to WorkState(Album.stateName(r.field(e, "state") as? String), seq, r.field(e, "at") as? String ?: "")
+        }.toMap()
+        return Cache(listed = b("listed"), stage = s("stage"), by = s("by"), at = s("at"), readAt = s("readAt"),
+            states = states, atUnknown = b("atUnknown"))
     }
 
     /**

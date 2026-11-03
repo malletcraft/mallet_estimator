@@ -311,13 +311,6 @@ class FrappeClient(private val baseUrl: String, private val key: String,
     fun captureDetail(docname: String): JSONObject =
         post("mallet_estimator.sitephoto.detail", JSONObject().put("name", docname))
 
-    /** Move a project to a stage. The server refuses a stage the project's
-     *  job type never reaches, so a phone carrying a stale master list gets
-     *  a refusal rather than a wrong stage. */
-    fun setProjectStage(project: String, workStage: String): JSONObject =
-        post("mallet_estimator.sitephoto.set_project_stage",
-            JSONObject().put("project", project).put("work_stage", workStage))
-
     /** Re-file one capture: its stage, its SKU, or both.
      *
      *  Null means "leave alone", "" means "clear". Both distinctions matter:

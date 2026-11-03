@@ -152,11 +152,28 @@ data, shown as sent.
   requests; not saved` byte for byte (asis.js `FINAL_SCOPE` at 9a51733) -> `मंजूर झाले — स्कोप फक्त "बदल विनंती" मधूनच
   बदलतो; सेव्ह झाले नाही`, worded as `refuse.stage.approved_final`. The prototype's recordScope has no such answer.
 
+## Port 61c slice PL (3 Nov 2026): the one project line, keyed; PROJECT IS AT leaves the phone
+
+`pano/QuoteStage.kt` and `BrowseScreens.kt` joined `ported.txt`, and `JsonRead.kt` (new; org.json read through
+`AlbumWire.Read`, no shown text) with them. Their 36 `unkeyed.tsv` rows went, and the project sheet's 8 stage rows of
+`TreeShell.kt` with the code. The project screen, the project list row and the Wish list's top bar draw ONE line,
+`QuoteStage.projectLine` (QM0's keys, above): the last English text on the Wish list, M4's exception, is keyed now. The
+six stages, the months, the zone id, the ✓ and the two badges (`PRJ`, `SITE`, the prototype's own unkeyed literals) are
+marked `// text:value`. Deleted with their readers: the old QUOTE STAGE line (`lineFor`, `Line`, `phoneOnly`, `TITLE`,
+the `NOT_*` texts and `since`), StageBar and the project sheet's At stage, Phase, Phases and Stages rows.
+
+- **Deleted, 2 keys** (SPEC61c §6.4 ORPHAN: no phone reader and no prototype renderer): `phase.aria.quote_journey_done`
+  and `phase.aria.quote_stage_estimated_four`. 1,792 keys each.
+- **Kept, no phone reader any more** (LENS-ONLY, SPEC61c §6.4: the prototype's v53 lens still draws them):
+  `app.project_is_at`, `app.no_stage_set_tap`, `app.x_not_shot_stage`, `app.every_photographed_room_current`,
+  `app.since_x`, and the project sheet's `app.at_stage`, `app.phase`, `app.phases`, `app.stages`,
+  `app.x_master_job_type` (the sheet's texts were never keyed on the phone).
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,794 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 7 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,792 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 7 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

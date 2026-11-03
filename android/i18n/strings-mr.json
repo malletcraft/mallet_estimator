@@ -2999,12 +2999,6 @@
   "mr": "फेज {n}/5: {name} (सध्या)",
   "note": "card61c group 2, approved with v61c (28 Oct 2026): phase.aria.phase_x_4_x as a whole key, when on"
  },
- "phase.aria.quote_journey_done": {
-  "mr": "कोटेशनचे टप्पे पूर्ण — अंमलबजावणी मध्ये"
- },
- "phase.aria.quote_stage_estimated_four": {
-  "mr": "कोटेशनचा टप्पा \"ग्राहक मंजूर\": पाचही फेज पूर्ण आणि ग्राहकाने मंजूर केले. पाहण्यासाठी टॅप करा"
- },
  "phase.back_x_quote_stage": {
   "mr": "{name} वर परत जायचे? S5 वरचा कोटेशनचा टप्पा {quote} वरून {quote2} वर परत जातो."
  },

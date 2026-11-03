@@ -332,18 +332,12 @@ private fun SheetGroup(title: String) {
 @Composable
 fun ProjectSheet(
     project: Catalogue.Project,
-    phase: String,
-    phases: List<String>,
-    stageCount: Int,
     photos: Int,
     onDismiss: () -> Unit,
 ) {
+    // v61c: no site stage outside the v53 lens (index61c2.html projectSheet drops At stage, Phase, Phases
+    // and Stages), so the ERP site stage is neither shown nor moved on the phone (port 61c slice PL)
     val rows = buildList {
-        add("At stage" to project.stage.ifBlank { "not set" })
-        add("Phase" to listOfNotNull(
-            phase.ifBlank { null },
-            project.stageSince.ifBlank { null }?.let { "since ${Catalogue.day(it)}" },
-        ).joinToString(" · ").ifBlank { "—" })
         add("Job type" to project.jobType)
         add("Status" to when {
             project.local -> "Not synced — still only on this phone"
@@ -355,8 +349,6 @@ fun ProjectSheet(
         add("Client" to project.client)
         add("Starts" to project.start.ifBlank { "—" })
         add("Ends" to project.end.ifBlank { "—" })
-        add("Phases" to phases.joinToString(" · ").ifBlank { "—" })
-        add("Stages" to "$stageCount in the master for this job type")
         add("Photos" to "$photos on this phone")
     }
     ModalBottomSheet(onDismissRequest = onDismiss) {

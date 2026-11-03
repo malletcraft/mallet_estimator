@@ -142,9 +142,9 @@ class MastersTest {
             // (only text and localText take a Tx, for the status line) ...
             QuoteMove::class.java to listOf("stage", "scope", "answer", "scopeAnswer", "copyOf", "nowIn", "worksOf", "notOnS5"),
             // ... and the one project-state store keeps S5's words in English: every reader and merge of its copy (only
-            // projectLine and coverageParts take a Tx, to draw)
+            // projectLine and coverageParts take a Tx, to draw); port 61c slice PL adds its stored shape and its one writer
             QuoteStage::class.java to listOf("merge", "mergeStates", "fromAlbum", "listedOf", "fromList", "takes", "named",
-                "roomDot", "surveyShot", "coverage"),
+                "roomDot", "surveyShot", "coverage", "stored", "storedOf", "writes"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

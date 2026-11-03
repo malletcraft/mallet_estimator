@@ -54,7 +54,7 @@ import com.malletcrafts.interiorestimate.pano.WishList
  *
  * A full screen reached from the PROJECT's chip row only (never a room, a capture or survey
  * prep), with no bottom bar -- a sub-screen, like a capture. The prototype (v52 wish.js) is the
- * spec: the title 'Wish list · <title>', the sub-line the quote stage, a fixed head (what the
+ * spec: the title 'Wish list · <title>', the sub-line the project line, a fixed head (what the
  * list is, 'N of 12 wanted', where it is saved, the banners) and the twelve services under it.
  * THE LIST SCROLLS, as the prototype's does (wish.js puts the rows in its scroll pager, and
  * ct52 W asserts "it scrolls up and down"): twelve rows of at least 56 dp, one of them open,
@@ -73,14 +73,13 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * REPLACED or NOT_SENT note shows (WishList.noteLine). Every edit goes straight to WishSync on
  * this phone.
  *
- * Every text it draws but one is keyed (port 61c slice M4): the title, the head, the banners, the
- * notes, the twelve services, APPLIES TO and its chips, the Note and Vendor fields. The services and
- * the rooms are identity values drawn through Masters (WishList.name, WishList.roomName); what is
- * typed -- a note, a vendor, a room S5 holds that the catalogue does not -- is drawn as typed, and
- * every row goes to S5 in English. THE ONE EXCEPTION is the top bar's sub-line, [quote]'s title: it
- * is QuoteStage's quote line ("QUOTE STAGE · Client wish list"), built with no Tx, so it is English
- * under मराठी until slice PL replaces it with the one derived project line, keyed (its texts are
- * still QuoteStage.kt's rows in unkeyed.tsv).
+ * Every text it draws is keyed (port 61c slice M4): the title, the head, the banners, the notes,
+ * the twelve services, APPLIES TO and its chips, the Note and Vendor fields. The services and the
+ * rooms are identity values drawn through Masters (WishList.name, WishList.roomName); what is typed
+ * -- a note, a vendor, a room S5 holds that the catalogue does not -- is drawn as typed, and every
+ * row goes to S5 in English. The top bar's sub-line, the one exception M4 left in English (the
+ * QUOTE STAGE line, built with no Tx), is the one derived project line since port 61c slice PL,
+ * [line]'s text, keyed (index61c2.html: the bar's sub is `projectLine(p).text`).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -88,8 +87,8 @@ fun WishListScreen(
     project: Catalogue.Project,
     /** The rooms the project's grid shows, in its order: the APPLIES TO chips after Whole flat. */
     rooms: List<String>,
-    /** The quote line as QuoteStageSync last read it: its title is this screen's sub-line. */
-    quote: QuoteStage.Line,
+    /** The project line as the store last held it (QuoteStageSync.lineFor): its text is this screen's sub-line. */
+    line: QuoteStage.ProjectLine,
     /** The quote stage's place (WishList.stageIndex), null when it is not read. */
     stageIdx: Int?,
     /** The project is not on S5 (phone-only, or S5 does not list it): no "not read yet" banner (WishList.notOnS5). */
@@ -134,7 +133,7 @@ fun WishListScreen(
         topBar = {
             TreeTopBar(
                 title = tx.wish_wish_list_x(title = project.title),
-                subtitle = quote.title,
+                subtitle = line.text,
                 onSearch = onSearch,
                 onBack = onBack)
         },

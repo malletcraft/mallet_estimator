@@ -932,8 +932,6 @@ phase.aria.phase_project	phase_aria_phase_project	static	-
 phase.aria.phase_x_4_x	-	refused	{v} is the English ' (now)' / '', chosen in code; split into two whole keys in the table
 phase.aria.phase_x_of_5_x	phase_aria_phase_x_of_5_x	template	n: String · name: String
 phase.aria.phase_x_of_5_x_now	phase_aria_phase_x_of_5_x_now	template	n: String · name: String
-phase.aria.quote_journey_done	phase_aria_quote_journey_done	static	-
-phase.aria.quote_stage_estimated_four	phase_aria_quote_stage_estimated_four	static	-
 phase.back_x_quote_stage	phase_back_x_quote_stage	template	name: String · quote: String · quote2: String
 phase.band.estimation	phase_band_estimation	static	-
 phase.band.rev	phase_band_rev	static	-

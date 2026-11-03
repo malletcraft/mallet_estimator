@@ -39,23 +39,27 @@ class QuoteStageTest {
         assertEquals(-1, QuoteStage.indexOf("Quoted"))
     }
 
+    // ---- the six titles, re-pinned from `QUOTE STAGE · …` to `Quote · …` through projectLine (port 61c slice PL) ----
+
+    private fun pl(c: Cache?, t: Instant = now, phoneOnly: Boolean = false) = line(c, phoneOnly = phoneOnly, t = t)
+
     @Test fun `Client approved lights every pip - Estimated is the fourth of six (v61b)`() {
-        assertEquals(6, QuoteStage.lineFor(Cache(true, "Client approved", "", at, now.toString()), now).lit)
-        assertEquals(4, QuoteStage.lineFor(Cache(true, "Estimated", "", at, now.toString()), now).lit)
-        assertEquals(5, QuoteStage.lineFor(Cache(true, "Revisions", "", at, now.toString()), now).lit)
+        assertEquals(6, pl(Cache(true, "Client approved", "", at, now.toString())).lit)
+        assertEquals(4, pl(Cache(true, "Estimated", "", at, now.toString())).lit)
+        assertEquals(5, pl(Cache(true, "Revisions", "", at, now.toString())).lit)
     }
 
-    @Test fun `never read - not read yet, S5 decides when online, nothing lit (FX16)`() {
-        val l = QuoteStage.lineFor(null, now)
-        assertEquals("QUOTE STAGE · not read yet", l.title)
+    @Test fun `never read - Quote, not read yet, S5 decides when online, nothing lit (FX16)`() {
+        val l = pl(null)
+        assertEquals("Quote · not read yet", l.text)
         assertEquals("Quote stage not read yet — S5 decides when online", l.second)
         assertEquals(0, l.lit)
         assertFalse(l.showRead)
     }
 
-    @Test fun `listed with a time - the stage, its pips and since in IST (ct52 W(a))`() {
-        val l = QuoteStage.lineFor(Cache(true, "Client wish list", "staff@x", at, "2026-10-14T09:00:00Z"), now)
-        assertEquals("QUOTE STAGE · Client wish list", l.title)
+    @Test fun `listed with a time - Quote, the stage, its pips and since in IST (ct52 W(a))`() {
+        val l = pl(Cache(true, "Client wish list", "staff@x", at, "2026-10-14T09:00:00Z"))
+        assertEquals("Quote · Client wish list", l.text)
         assertEquals(2, l.lit)
         assertEquals("since 14 Oct, 08:08 IST on S5", l.second)
         assertFalse(l.showRead)
@@ -63,77 +67,80 @@ class QuoteStageTest {
 
     @Test fun `pips are lit to the index, one per stage`() {
         QuoteStage.STAGES.forEachIndexed { i, s ->
-            assertEquals(i + 1, QuoteStage.lineFor(Cache(true, s, "", at, now.toString()), now).lit)
+            assertEquals(i + 1, pl(Cache(true, s, "", at, now.toString())).lit, s)
         }
     }
 
-    @Test fun `listed with no time - the stage, not set on S5 yet`() {
-        val l = QuoteStage.lineFor(Cache(true, "Survey", "", "", now.toString()), now)
-        assertEquals("QUOTE STAGE · Survey", l.title)
+    @Test fun `listed with no time - Quote, the stage, not set on S5 yet`() {
+        val l = pl(Cache(true, "Survey", "", "", now.toString()))
+        assertEquals("Quote · Survey", l.text)
         assertEquals(1, l.lit)
         assertEquals("Survey · not set on S5 yet", l.second)
     }
 
     @Test fun `an unreadable time reads as not set, never a made-up date`() {
-        val l = QuoteStage.lineFor(Cache(true, "Vendor quoted", "", "yesterday", now.toString()), now)
+        val l = pl(Cache(true, "Vendor quoted", "", "yesterday", now.toString()))
         assertEquals("Vendor quoted · not set on S5 yet", l.second)
         assertEquals(3, l.lit)
     }
 
-    @Test fun `not listed - not on S5 yet, this project has not been sent`() {
-        val l = QuoteStage.lineFor(Cache(listed = false, readAt = now.toString()), now)
-        assertEquals("QUOTE STAGE · not on S5 yet", l.title)
+    @Test fun `not listed - Quote, not on S5 yet, this project has not been sent`() {
+        val l = pl(Cache(listed = false, readAt = now.toString()))
+        assertEquals("Quote · not on S5 yet", l.text)
         assertEquals("not on S5 yet — this project has not been sent", l.second)
         assertEquals(0, l.lit)
         assertFalse(l.showRead)
     }
 
-    @Test fun `a phone-only project reads as not on S5 yet`() {
-        val l = QuoteStage.phoneOnly()
-        assertEquals("QUOTE STAGE · not on S5 yet", l.title)
+    @Test fun `a phone-only project reads Quote, not on S5 yet`() {
+        val l = pl(null, phoneOnly = true)
+        assertEquals("Quote · not on S5 yet", l.text)
         assertEquals("not on S5 yet — this project has not been sent", l.second)
         assertEquals(0, l.lit)
         assertFalse(l.showRead)
     }
 
-    @Test fun `a stage name the phone does not know is shown as written, nothing lit`() {
-        val l = QuoteStage.lineFor(Cache(true, "On hold", "", at, now.toString()), now)
-        assertEquals("QUOTE STAGE · On hold", l.title)
+    @Test fun `a stage name the phone does not know reads as unread, nothing lit (critic G6, was shown as written)`() {
+        val l = pl(Cache(true, "On hold", "", at, now.toString()))
+        assertEquals("Quote · not read yet", l.text)
+        assertEquals(LineKind.UNREAD, l.kind)
         assertEquals(0, l.lit)
     }
 
     @Test fun `a UTC time is shown in IST, across the date line`() {
+        val since = { iso: String -> pl(Cache(true, "Survey", "", iso, now.toString())).second }
         // 20:00 UTC on 31 Oct is 01:30 IST on 1 Nov.
-        assertEquals("since 1 Nov, 01:30 IST on S5", QuoteStage.since("2026-10-31T20:00:00Z"))
+        assertEquals("since 1 Nov, 01:30 IST on S5", since("2026-10-31T20:00:00Z"))
         // An offset time is taken as the instant it names.
-        assertEquals("since 14 Oct, 08:08 IST on S5", QuoteStage.since("2026-10-14T08:08:00+05:30"))
-        assertEquals("since 5 Sept, 05:30 IST on S5", QuoteStage.since("2026-09-05T00:00:00Z"))
-        assertNull(QuoteStage.since(""))
-        assertNull(QuoteStage.since("not a time"))
+        assertEquals("since 14 Oct, 08:08 IST on S5", since("2026-10-14T08:08:00+05:30"))
+        assertEquals("since 5 Sept, 05:30 IST on S5", since("2026-09-05T00:00:00Z"))
+        assertEquals("Survey · not set on S5 yet", since(""))
+        assertEquals("Survey · not set on S5 yet", since("not a time"))
+        assertEquals("14 Oct, 08:08", QuoteStage.dayTime(Instant.parse(at)))
     }
 
     @Test fun `the read time shows only when the copy is from before today in IST`() {
         val c = { readAt: String -> Cache(true, "Survey", "", at, readAt) }
         // Read earlier today (IST): no read time.
-        assertFalse(QuoteStage.lineFor(c("2026-10-14T00:00:00Z"), now).showRead)
+        assertFalse(pl(c("2026-10-14T00:00:00Z")).showRead)
         // Read yesterday (IST): the second line carries it.
-        val l = QuoteStage.lineFor(c("2026-10-13T12:15:00Z"), now)
+        val l = pl(c("2026-10-13T12:15:00Z"))
         assertTrue(l.showRead)
         assertEquals("since 14 Oct, 08:08 IST on S5 · read 17:45", l.second)
         // Not listed, read yesterday: the same suffix.
         assertEquals("not on S5 yet — this project has not been sent · read 17:45",
-            QuoteStage.lineFor(Cache(listed = false, readAt = "2026-10-13T12:15:00Z"), now).second)
+            pl(Cache(listed = false, readAt = "2026-10-13T12:15:00Z")).second)
         // No read time recorded: never shown.
-        assertFalse(QuoteStage.lineFor(c(""), now).showRead)
+        assertFalse(pl(c("")).showRead)
     }
 
     @Test fun `the read-time rule turns over at midnight IST, not UTC`() {
         // Read 23:50 IST on 13 Oct (18:20 UTC).
         val c = Cache(true, "Survey", "", at, "2026-10-13T18:20:00Z")
         // Now 23:59 IST on 13 Oct: same IST day, not shown.
-        assertFalse(QuoteStage.lineFor(c, Instant.parse("2026-10-13T18:29:00Z")).showRead)
+        assertFalse(pl(c, Instant.parse("2026-10-13T18:29:00Z")).showRead)
         // Now 00:01 IST on 14 Oct (still 13 Oct in UTC): a day old in IST, shown.
-        val l = QuoteStage.lineFor(c, Instant.parse("2026-10-13T18:31:00Z"))
+        val l = pl(c, Instant.parse("2026-10-13T18:31:00Z"))
         assertTrue(l.showRead)
         assertTrue(l.second.endsWith(" · read 23:50"), l.second)
         // Read 00:10 IST on 14 Oct (18:40 UTC on 13 Oct), now 23:00 IST on 14 Oct: same IST day.
@@ -149,8 +156,7 @@ class QuoteStageTest {
         assertEquals(Cache(true, "Client wish list", "staff@x", at, read), m["PROJ-0001"])
         assertEquals(Cache(listed = false, readAt = read), m["PROJ-0002"])
         assertEquals(Cache(true, "Survey", "", "", read), m["PROJ-0009"])
-        assertEquals("not on S5 yet — this project has not been sent",
-            QuoteStage.lineFor(m["PROJ-0002"], Instant.parse(read)).second)
+        assertEquals("not on S5 yet — this project has not been sent", pl(m["PROJ-0002"], Instant.parse(read)).second)
     }
 
     @Test fun `an answer that names the stage goes into the one copy, its who and when unknown until the next read`() {
@@ -166,9 +172,12 @@ class QuoteStageTest {
         // never read, or read as not listed: S5 has just answered for the project, so it is listed
         assertEquals(Cache(listed = true, stage = "Survey", readAt = "r", atUnknown = true), QuoteStage.named(null, "Survey", "r"))
         assertEquals(Cache(listed = true, stage = "Survey", readAt = "r", atUnknown = true), QuoteStage.named(Cache(listed = false, readAt = "q"), "Survey", "r"))
-        // the line reads the stage at once, every pip lit
-        val line = QuoteStage.lineFor(QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"), Instant.parse("2026-10-28T04:00:00Z"))
-        assertEquals("QUOTE STAGE · Client approved", line.title)
+        // the line reads the stage at once, every pip lit: the approved line, its states not read yet (the named copy
+        // kept none), never a count it has not read
+        val line = pl(QuoteStage.named(read, "Client approved", "2026-10-28T03:00:00Z"), Instant.parse("2026-10-28T04:00:00Z"))
+        assertEquals(LineKind.EXEC, line.kind)
+        assertEquals("Execution · not read yet", line.text)
+        assertEquals("Quote · Client approved", line.second)
         assertEquals(6, line.lit)
     }
 
@@ -561,5 +570,66 @@ class QuoteStageTest {
         assertEquals(Coverage(0, 1), QuoteStage.coverage(listOf("Study"), shots), "a room with no capture")
         assertEquals(listOf("0 of 1 room shot", "1 room not shot yet"), QuoteStage.coverageParts(Tx.EN, Coverage(0, 1)))
         assertNull(QuoteStage.coverage(emptyList(), shots), "no room in scope: no coverage row")
+    }
+
+    // ---- the store's stored shape and its one writer (port 61c slice PL) ---------------------------------------
+
+    @Test fun `the store keeps every field and each work's state, and reads back exactly what it wrote`() {
+        val states = mapOf(10 to WorkState(Album.IN_PROGRESS, 7, "2026-11-03T07:02:00.000Z"), 20 to WorkState(Album.DONE, 9))
+        val c = Cache(true, "Client approved", "pm@x", tApproved, "2026-11-03T08:00:00Z", states)
+        val m = QuoteStage.stored(c)
+        assertEquals(listOf("listed", "stage", "by", "at", "readAt", "atUnknown", "states"), m.keys.toList())
+        assertEquals(mapOf("10" to mapOf("state" to "In progress", "seq" to 7L, "at" to "2026-11-03T07:02:00.000Z"),
+            "20" to mapOf("state" to "Done", "seq" to 9L, "at" to "")), m["states"])
+        assertEquals(c, QuoteStage.storedOf(MiniRead, m))
+        // states read as none: {} -- read, nothing started -- is kept as {}, never as not read
+        val none = Cache(true, "Client approved", "pm@x", tApproved, "r", emptyMap())
+        assertEquals(emptyMap<String, Any?>(), QuoteStage.stored(none)["states"])
+        assertEquals(none, QuoteStage.storedOf(MiniRead, QuoteStage.stored(none)))
+        assertEquals("Execution · no work started yet", line(QuoteStage.storedOf(MiniRead, QuoteStage.stored(none))).text)
+        // never read in this shape: no states key at all, and read back as null
+        val unread = Cache(true, "Revisions", "pm@x", at, "r", null, atUnknown = true)
+        assertFalse("states" in QuoteStage.stored(unread))
+        assertEquals(unread, QuoteStage.storedOf(MiniRead, QuoteStage.stored(unread)))
+        // the same through the JSON text the preferences hold
+        val text = """{"listed":true,"stage":"Client approved","by":"pm@x","at":"$tApproved","readAt":"2026-11-03T08:00:00Z",""" +
+            """"atUnknown":false,"states":{"10":{"state":"In progress","seq":7,"at":"2026-11-03T07:02:00.000Z"},"20":{"state":"Done","seq":9,"at":""}}}"""
+        assertEquals(c, QuoteStage.storedOf(MiniRead, tree(text)))
+        assertEquals("Execution · 1 in progress · 1 done", line(QuoteStage.storedOf(MiniRead, tree(text))).text)
+    }
+
+    @Test fun `a copy an older build stored reads back with its stage, who and when, its states not read`() {
+        // 0.3.270 (batch B) and every build before PL wrote the six fields only -- and before the QM0 review, five
+        val b270 = tree("""{"listed":true,"stage":"Client approved","by":"pm@x","at":"$tApproved","readAt":"2026-11-03T08:00:00Z","atUnknown":false}""")
+        val c = assertNotNull(QuoteStage.storedOf(MiniRead, b270))
+        assertEquals(Cache(true, "Client approved", "pm@x", tApproved, "2026-11-03T08:00:00Z"), c)
+        assertNull(c.states)
+        // on the approved project it reads Execution · not read yet until the read on project open lands -- never a count
+        assertEquals("Execution · not read yet", line(c).text)
+        assertEquals(Cache(listed = false, readAt = "q"), QuoteStage.storedOf(MiniRead, tree("""{"listed":false,"stage":"","by":"","at":"","readAt":"q"}""")))
+        assertEquals(Cache(true, "Survey", readAt = "q"), QuoteStage.storedOf(MiniRead, tree("""{"listed":true,"stage":"Survey","by":"","at":"","readAt":"q"}""")))
+        // tolerant: a field of another type is its default; an entry with no integral seq, or for an id that is not a work, is left out
+        val odd = tree("""{"listed":"yes","stage":3,"states":{"10":{"state":"Done"},"999":{"state":"Done","seq":1},"20":{"state":"Halfway","seq":5},"30":"Done","40":{"state":"Done","seq":6.0,"at":4}}}""")
+        assertEquals(Cache(listed = false, states = mapOf(20 to WorkState(Album.NOT_STARTED, 5), 40 to WorkState(Album.DONE, 6))),
+            QuoteStage.storedOf(MiniRead, odd))
+        assertNull(QuoteStage.storedOf(MiniRead, tree("[]")))
+        assertNull(QuoteStage.storedOf(MiniRead, null))
+    }
+
+    @Test fun `writes - the one writer merges each id by S5's order, writes only what changed, and ignores a blank id`() {
+        val stored = mapOf("P" to approved(mapOf(10 to WorkState(Album.IN_PROGRESS, 7))))
+        // the same copy again: nothing to write
+        assertEquals(emptyMap(), QuoteStage.writes(stored, 5L, emptyMap(), stored))
+        // a read whose stage loses (an older stamp) still brings a state S5 knows at a higher seq
+        val older = Cache(true, "Revisions", "pm@x", "2026-10-01T00:00:00.000Z", "r", mapOf(10 to WorkState(Album.DONE, 8), 20 to WorkState(Album.ON_HOLD, 3)))
+        val w = QuoteStage.writes(mapOf("P" to older, " " to older), 5L, mapOf("P" to 9L), stored)
+        assertEquals(setOf("P"), w.keys)
+        assertEquals("Client approved", w["P"]!!.stage)
+        assertEquals(mapOf(10 to WorkState(Album.DONE, 8), 20 to WorkState(Album.ON_HOLD, 3)), w["P"]!!.states)
+        assertEquals("Execution · 1 done · 1 on hold", line(w["P"]).text)
+        // the 6-argument fromList is exactly writes over the 3-argument one
+        val listed = listOf(Listed("P", "Revisions", "pm@x", "2026-10-01T00:00:00.000Z", mapOf(10 to WorkState(Album.DONE, 8))))
+        assertEquals(QuoteStage.writes(QuoteStage.fromList(listed, listOf("P", "Q"), "r"), 5L, mapOf("P" to 9L), stored),
+            QuoteStage.fromList(listed, listOf("P", "Q"), "r", 5L, mapOf("P" to 9L), stored))
     }
 }
