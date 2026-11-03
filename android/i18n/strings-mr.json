@@ -3464,6 +3464,10 @@
  "refuse.wish.finish_survey_first_stage": {
   "mr": "आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो"
  },
+ "refuse.wish.staff_only": {
+  "mr": "इच्छा-यादी फक्त स्टाफ बदलू शकतो",
+  "note": "M4 review: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. Worded as refuse.stage.staff_only (कोटेशनचा टप्पा फक्त स्टाफ ठरवू शकतो), MCFT omitted as there"
+ },
  "role.designer": {
   "mr": "डिझायनर"
  },

@@ -73,11 +73,14 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * REPLACED or NOT_SENT note shows (WishList.noteLine). Every edit goes straight to WishSync on
  * this phone.
  *
- * Every text it draws is keyed (port 61c slice M4): the title, the head, the banners, the notes,
- * the twelve services, APPLIES TO and its chips, the Note and Vendor fields. The services and the
- * rooms are identity values drawn through Masters (WishList.name, WishList.roomName); what is typed
- * -- a note, a vendor, a room S5 holds that the catalogue does not -- is drawn as typed, and every
- * row goes to S5 in English. The top bar's sub-line is the quote line (QuoteStage), keyed with it.
+ * Every text it draws but one is keyed (port 61c slice M4): the title, the head, the banners, the
+ * notes, the twelve services, APPLIES TO and its chips, the Note and Vendor fields. The services and
+ * the rooms are identity values drawn through Masters (WishList.name, WishList.roomName); what is
+ * typed -- a note, a vendor, a room S5 holds that the catalogue does not -- is drawn as typed, and
+ * every row goes to S5 in English. THE ONE EXCEPTION is the top bar's sub-line, [quote]'s title: it
+ * is QuoteStage's quote line ("QUOTE STAGE · Client wish list"), built with no Tx, so it is English
+ * under मराठी until slice PL replaces it with the one derived project line, keyed (its texts are
+ * still QuoteStage.kt's rows in unkeyed.tsv).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

@@ -102,7 +102,7 @@ its work names, five states and 39 worksite stages are S5's identity values, sho
 ## Port 61c slice M4 (3 Nov 2026): the wish list is keyed
 
 `WishListScreen.kt`, `WishSync.kt` and `pano/WishList.kt` joined `ported.txt` and their 34 `unkeyed.tsv` rows went.
-Every text the Wish list draws is a `tx.<key>`, through functions that take a `Tx` (`chip`, `total`, `subLine`,
+Every text the Wish list draws but one is a `tx.<key>` (the exception is the top bar's sub-line, below), through functions that take a `Tx` (`chip`, `total`, `subLine`,
 `rowLine`, `savedText`, `banners`, `noteLine`, `statusLine`); the twelve services and their two descriptions are S5's
 identity values, marked `// text:value` and shown through `Masters.service` / `Masters.service_note` (`WishList.name`,
 `WishList.detail`), and a room through `Masters.room` (`WishList.roomName`), a typed one as typed. Every key the screen
@@ -119,12 +119,27 @@ four phone texts from L2's card that it draws (`wish.not_sent_s5`, `wish.s5_newe
   English like the rest of the note), worded as `app.note.web_answered_x`.
 - **masters.tsv** gains the row `service_note` → `wish.water_drain_points_taps`, the 12th service's description, and MastersTest's
   pass-through list loses it.
+- **Still English under मराठी: the top bar's sub-line** (corrected by the M4 review; the M4 commit said every text was
+  Marathi). It is QuoteStage's quote line, `QUOTE STAGE · Client wish list` (or `· not read yet`, `· not on S5 yet`),
+  built by `QuoteStage.lineFor` / `phoneOnly`, which take no `Tx`; its texts are still `unkeyed.tsv` rows of
+  `QuoteStage.kt`. Slice PL replaces it with the one derived project line, keyed, and deletes `lineFor`, so it is not
+  keyed here. Until then it is the one English text on the Wish list, and a difference from the prototype, whose bar
+  draws `projectLine(p).text` through its text layer (`index61c1.html:8562`). With the stage unread the English
+  `QUOTE STAGE · not read yet` sits over the Marathi banner `wish.quote_stage_not_read`.
+- **Added by the M4 review, 1 phone text** (flag `phone-text`; Marathi by Claude, decision 6): `refuse.wish.staff_only`,
+  S5's 403 for a caller who is not staff, `Only MCFT staff can change the wish list` byte for byte (asis.js at 9a51733)
+  -> `इच्छा-यादी फक्त स्टाफ बदलू शकतो`, worded as `refuse.stage.staff_only`, the stage route's 403. It is the one
+  refusal for good a correctly built phone meets (a 400 needs a phone bug, a 413 a body past 2 MiB), and before it the
+  note read `S5 ला पाठवले नाही — Only MCFT staff can change the wish list`: `WishList.reasonLine` matches the stored
+  reason against the key's English, as `statusLine` matches `refuse.stage.approved_final`, so `noteLine` and
+  `statusLine` draw it in the language. The stored note stays S5's English. A 400's words name the input and are still
+  drawn as S5 sent them.
 
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,792 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 5 phone texts (4 in K1b, 1 in M4, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,793 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 6 phone texts (4 in K1b, 2 in M4 and its review, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

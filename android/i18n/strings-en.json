@@ -8673,6 +8673,16 @@
   "where": "v53build/wish.js:150 · head",
   "kind": "static"
  },
+ "refuse.wish.staff_only": {
+  "en": "Only MCFT staff can change the wish list",
+  "where": [
+   "S2 APK phone text · WishList.kt reasonLine at a098f77+M4 review · Wish list (port 61c slice M4 review, 3 Nov 2026), Marathi by Claude (decision 6): S5's 403 on PUT …/wishlist for a caller who is not staff, verbatim (asis.js at 9a51733: err(403, 'Only MCFT staff can change the wish list')). A stored reason: it stays English in the wish_list preferences after \"Not sent to S5 — \" and is matched byte for byte by WishList.reasonLine, which draws it through this key in WishList.noteLine and statusLine, as refuse.stage.staff_only is the stage route's 403; the prototype has no wish-list 403, so the line is the phone's"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "role.designer": {
   "en": "Designer",
   "where": [

@@ -122,9 +122,18 @@ object WishList {
     fun s5Answered(code: Int): String = "S5 answered $code" // text:value a stored reason, shown through tx.wish_s5_answered_x
     private val S5_ANSWERED = Regex("""S5 answered (\d{3})""") // text:value reads s5Answered's stored English back
 
-    /** A stored reason as the screen draws it: the phone's own stand-in through its key, S5's words as sent. */
-    private fun reasonLine(tx: Tx, reason: String): String =
-        S5_ANSWERED.matchEntire(reason)?.let { tx.wish_s5_answered_x(code = it.groupValues[1]) } ?: reason
+    /**
+     * A stored reason as the screen draws it: S5's fixed 403 for a caller who is not staff
+     * (asis.js, "Only MCFT staff can change the wish list") from refuse.wish.staff_only, matched byte
+     * for byte against that key's English as [statusLine] matches the final 409; the phone's own
+     * stand-in through its key; any other words of S5's (a 400's, which name the input) as sent.
+     * Without the first, the one refusal a correctly built phone meets for good was drawn half
+     * Marathi, half S5's English (port 61c slice M4 review).
+     */
+    private fun reasonLine(tx: Tx, reason: String): String = when (reason) {
+        Tx.EN.refuse_wish_staff_only -> tx.refuse_wish_staff_only
+        else -> S5_ANSWERED.matchEntire(reason)?.let { tx.wish_s5_answered_x(code = it.groupValues[1]) } ?: reason
+    }
 
     /** One service's row: wanted or not, the rooms it applies to (none = the whole flat), a note, a vendor. */
     data class Row(
@@ -423,9 +432,10 @@ object WishList {
      * shows it again. The prototype draws no note under its lock either (§16.3).
      *
      * DRAWN THROUGH ITS KEYS, STORED IN ENGLISH (port 61c slice M4): REPLACED is
-     * wish.s5_newer_list_replaced; NOT_SENT is wish.not_sent_s5, then " — " and S5's reason as S5
-     * sent it (its own words are data) or the phone's stand-in through wish.s5_answered_x
-     * ([s5Answered]). Any other stored note is drawn as stored.
+     * wish.s5_newer_list_replaced; NOT_SENT is wish.not_sent_s5, then " — " and S5's reason
+     * ([reasonLine]): its fixed 403 through refuse.wish.staff_only, the phone's stand-in through
+     * wish.s5_answered_x ([s5Answered]), any other words as S5 sent them (its own words are data).
+     * Any other stored note is drawn as stored.
      */
     fun noteLine(tx: Tx, l: Local?, stageIdx: Int?): String? {
         val note = l?.note?.takeIf { it.isNotBlank() && stageIdx != APPROVED } ?: return null
@@ -480,8 +490,9 @@ object WishList {
      * in the same language). Words S5 sends that are a key's
      * English are drawn from that key, as the prototype's text match draws its refused line (L57):
      * the `final` 409 is refuse.stage.approved_final, the Survey one refuse.wish.finish_survey_first_stage.
-     * The phone's own stand-in for a refusal with no words ([s5Answered]) is drawn through
-     * wish.s5_answered_x. Any other words are S5's, shown as sent.
+     * S5's 403 for a caller who is not staff and the phone's own stand-in for a refusal with no
+     * words ([s5Answered]) are drawn through refuse.wish.staff_only and wish.s5_answered_x
+     * ([reasonLine]). Any other words are S5's, shown as sent.
      *
      * A REFUSAL FOR THE STAGE IS DRAWN ONLY WHILE THAT STAGE HOLDS ([stageIdx], the phone's one copy
      * of the stage): the `final` words at Client approved, the Survey words at Survey, and either

@@ -1077,6 +1077,7 @@ refuse.t53.x_x_cannot_go	refuse_t53_x_x_cannot_go	template	a: String · name: St
 refuse.t53.x_x_goes_ceiling	refuse_t53_x_x_goes_ceiling	template	a: String · name: String
 refuse.v360.x_cannot_go_x	refuse_v360_x_cannot_go_x	template	n: String · surfName: String
 refuse.wish.finish_survey_first_stage	refuse_wish_finish_survey_first_stage	static	-
+refuse.wish.staff_only	refuse_wish_staff_only	static	-
 role.designer	role_designer	static	-
 role.project_manager	role_project_manager	static	-
 room.balcony	room_balcony	static	-

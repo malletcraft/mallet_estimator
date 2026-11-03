@@ -206,10 +206,15 @@ class WishListTest {
         assertEquals("S5 had a newer list; yours was replaced, re-apply what is missing", replaced.note)
         assertEquals("S5 had a newer list; yours was replaced, re-apply what is missing", WishList.noteLine(Tx.EN, replaced, 2))
         assertEquals("S5 कडे नवी यादी होती; तुमची यादी बदलली गेली, जे राहिले ते पुन्हा भरा", WishList.noteLine(Tx.MR, replaced, 2))
-        // refused for good with S5's own reason: the reason is S5's words, drawn as sent
+        // refused for good with S5's 403 (a caller who is not staff): stored as S5 sent it, drawn whole in the
+        // language through refuse.wish.staff_only -- never Marathi glued to S5's English (M4 review)
         val refused = WishList.afterRefused(mine, mine.rows, "Only MCFT staff can change the wish list")
         assertEquals("Not sent to S5 — Only MCFT staff can change the wish list", refused.note)
-        assertEquals("S5 ला पाठवले नाही — Only MCFT staff can change the wish list", WishList.noteLine(Tx.MR, refused, 1))
+        assertEquals("Not sent to S5 — Only MCFT staff can change the wish list", WishList.noteLine(Tx.EN, refused, 1))
+        assertEquals("S5 ला पाठवले नाही — इच्छा-यादी फक्त स्टाफ बदलू शकतो", WishList.noteLine(Tx.MR, refused, 1))
+        // any other words of S5's (a 400 names the input, asis.js validWishlist) are its own, drawn as sent
+        val shape = WishList.afterRefused(mine, mine.rows, "cctv: on must be true or false")
+        assertEquals("S5 ला पाठवले नाही — cctv: on must be true or false", WishList.noteLine(Tx.MR, shape, 1))
         // refused with no reason from S5: the phone's stand-in, stored English, drawn through wish.s5_answered_x
         val bare = WishList.afterRefused(mine, mine.rows, WishList.s5Answered(413))
         assertEquals("Not sent to S5 — S5 answered 413", bare.note)
@@ -229,6 +234,23 @@ class WishListTest {
         assertEquals("S5 चे उत्तर 409", WishList.statusLine(Tx.MR, status, emptyList(), 1))
         // only the whole stand-in is looked up: S5 words that merely start the same way are S5's
         assertEquals("S5 answered 4090 times", WishList.statusLine(Tx.MR, WishList.afterSurvey(mine, "S5 answered 4090 times"), emptyList(), 1))
+    }
+
+    @Test fun `port M4 review - S5's wish-list 403 is drawn from refuse_wish_staff_only, matched byte for byte`() {
+        // the key's English IS S5's words (asis.js at 9a51733, PUT …/wishlist: err(403, ...)): the match is exact
+        assertEquals("Only MCFT staff can change the wish list", Tx.EN.refuse_wish_staff_only)
+        assertEquals("इच्छा-यादी फक्त स्टाफ बदलू शकतो", Tx.MR.refuse_wish_staff_only)
+        val mine = WishList.edited(Local("C", "T", at = "a"), mapOf("cctv" to Row(on = true)), "t")
+        // WishSync's s5Error folds S5's `error` to one line and trims it, so this is what reaches the note
+        val refused = WishList.afterRefused(mine, mine.rows, Tx.EN.refuse_wish_staff_only)
+        assertEquals("S5 ला पाठवले नाही — इच्छा-यादी फक्त स्टाफ बदलू शकतो", WishList.noteLine(Tx.MR, refused, null))
+        // the same words reaching the status line are drawn the same way (statusLine's reasonLine)
+        val status = WishList.afterSurvey(mine, "Only MCFT staff can change the wish list")
+        assertEquals("इच्छा-यादी फक्त स्टाफ बदलू शकतो", WishList.statusLine(Tx.MR, status, emptyList(), 1))
+        assertEquals("Only MCFT staff can change the wish list", WishList.statusLine(Tx.EN, status, emptyList(), 1))
+        // only the whole sentence is looked up: words that merely contain it are S5's, drawn as sent
+        val longer = WishList.afterRefused(mine, mine.rows, "Only MCFT staff can change the wish list here")
+        assertEquals("S5 ला पाठवले नाही — Only MCFT staff can change the wish list here", WishList.noteLine(Tx.MR, longer, null))
     }
 
     @Test fun `a room written on S5 that the grid does not show is kept`() {
