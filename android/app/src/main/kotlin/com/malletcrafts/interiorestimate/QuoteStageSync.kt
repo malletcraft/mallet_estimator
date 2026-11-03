@@ -40,11 +40,14 @@ import java.time.Instant
  * sync that called this is not told, so S5 being unreachable can never make the capture
  * upload back off. No retry of its own: the next sync or the next project open reads again.
  *
- * ONE WRITE, ONLINE AND UNQUEUED (port 61c slice QV): [recordScope], Record the approved scope for a project
+ * TWO WRITES, ONLINE AND UNQUEUED: [recordScope] (port 61c slice QV), Record the approved scope for a project
  * approved before it had one (§13.6) -- `PUT …/album/scope` built by QuoteMove.scope, answered through
- * QuoteMove.scopeAnswer, S5's word on the stage going into this store ([write]), and its word on the scope -- and
- * on who records it, the 403's role and PM -- into the album mirror (AlbumSync.take). Refused, offline or
- * unanswered, nothing is kept to send later.
+ * QuoteMove.scopeAnswer -- and [move] (port 61c slice QM1), the phase strip's guarded quote move -- `PUT …/stage`
+ * built by QuoteMove.stage with the stored copy's quote_stage_at as its base, answered through QuoteMove.answer.
+ * Both send ONCE through [exchange] and put S5's word where it belongs through [take]: on the stage into this store
+ * ([write]), and on the scope -- and on who records or approves, a 403's role and PM -- into the album mirror
+ * (AlbumSync.take). Refused, offline or unanswered, nothing is kept to send later; after no answer the phone
+ * re-reads the stage rather than resend with the base it had.
  */
 object QuoteStageSync {
 
@@ -251,18 +254,10 @@ object QuoteStageSync {
             QuoteMove.Move.None -> return ScopeOutcome.None
             is QuoteMove.Move.Send -> move
         }
-        var auth = S5Auth.fresh(context) ?: return ScopeOutcome.Refused(QuoteMove.Local.NOT_SIGNED_IN)
-        val url = BuildConfig.WEB_URL.trimEnd('/') + send.request.path { AsIsUpload.seg(it) }
-        // JSONObject(fields): S5's JSON types as QuoteMove built them (a list of numbers, a string base)
-        val body = JSONObject(send.request.fields as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
-        val type = send.request.contentType + "; charset=utf-8" // text:value a wire value, the body's content type
+        val auth = S5Auth.fresh(context) ?: return ScopeOutcome.Refused(QuoteMove.Local.NOT_SIGNED_IN)
         val verdict = try {
-            var a = AsIsUpload.exchange("PUT", url, auth, body, type)
-            if (a.code == 401 && S5Session.signedIn(context) && S5Session.relogin(context)) {
-                auth = S5Auth.current(context) ?: auth
-                a = AsIsUpload.exchange("PUT", url, auth, body, type)
-            }
-            QuoteMove.scopeAnswer(JsonRead, a.code, runCatching { JSONObject(a.body) }.getOrNull())
+            val a = exchange(context, auth, send)
+            QuoteMove.scopeAnswer(JsonRead, a.code, bodyOf(a))
         } catch (e: IOException) {
             // no signal, DNS, TLS, a cut connection: not sent, or sent and never answered -- the phone re-reads
             QuoteMove.Verdict.Offline
@@ -270,14 +265,113 @@ object QuoteStageSync {
             Log.w(TAG, "$project: scope record not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
             QuoteMove.Verdict.NoAnswer(null)
         }
-        // S5's word on the stage, into the one store (a 404 as not listed); its word on the scope, and on who records
-        // it, into the mirror (AlbumSync.take, at its own place after every read in flight)
+        take(context, project, verdict)
+        return ScopeOutcome.Answered(verdict)
+    }
+
+    // ---- the guarded quote move (port 61c slice QM1; SPEC61c §4.1 item 3, decision 2 of 27 Oct; index61c2.html move) ----
+
+    /** The outcome of [move]: refused on the phone (nothing sent), nothing to send, or S5's verdict on the PUT. */
+    sealed interface MoveOutcome {
+        /** Refused before any call (QuoteMove.localText says why): S5 does not list the project, approval is final, not signed in. */
+        data class Refused(val why: QuoteMove.Local) : MoveOutcome
+
+        /** Nothing to send: the stage asked for is the one stored, or the stored copy offers no move (unread, or named without its stamp). */
+        data object None : MoveOutcome
+
+        /** S5 answered, or could not be reached (QuoteMove.Verdict.Offline). */
+        data class Answered(val verdict: QuoteMove.Verdict) : MoveOutcome
+    }
+
+    /** The strip's refusal line for [o] in [tx] (QuoteMove.text / localText): null when S5 moved the stage, or there was nothing to send. */
+    fun moveText(tx: Tx, o: MoveOutcome): String? = when (o) {
+        is MoveOutcome.Refused -> QuoteMove.localText(tx, o.why)
+        MoveOutcome.None -> null
+        is MoveOutcome.Answered -> QuoteMove.text(tx, o.verdict)
+    }
+
+    /** Whether [o] is the stage moved: the pending refusal, if any, goes (the prototype's `msg=null`). */
+    fun moved(o: MoveOutcome): Boolean = o is MoveOutcome.Answered && o.verdict is QuoteMove.Verdict.Moved
+
+    /**
+     * Move the quote stage of [project] (the S5 id the stage is read under) to [to], one of the six, as a tap on the
+     * phase strip asks (PhaseStrip): ONE online `PUT …/stage {stage, base, via}` built by QuoteMove.stage from the
+     * stored copy -- `base` its quote_stage_at VERBATIM, so a stage somebody else moved meanwhile comes back as S5's
+     * stale 409 instead of being overwritten -- with the same credentials every S5 call sends (S5Auth.fresh).
+     * Blocking; call it off the main thread. Never throws.
+     * - Refused on the phone, nothing sent: a project S5 does not list (v61c.2), any move from Client approved
+     *   (approval is final), or no credentials at all ([QuoteMove.Local.NOT_SIGNED_IN]); nothing to send on an unread
+     *   stage, the stage it already is, or a copy named without its stamp ([MoveOutcome.None]).
+     * - S5's 401 renews the sign-in once and sends once more ([exchange]).
+     * - Every answer that names the stage goes into this store ([take]: the 200, and every 409 echoes S5's stage as
+     *   it is now, a 404 as not listed), so the line and the strip redraw from S5's word and the next tap carries
+     *   S5's base; an answer that carries the scope as stored, or names who approves (QM2's Approve), goes into the
+     *   mirror.
+     * - No answer of S5's handler (a 5xx, a body that is not S5's): the phone RE-READS the list at once
+     *   ([refresh], the status line's "showing the stage as it is now") and never resends with the base it had;
+     *   offline, nothing is read or kept.
+     * Nothing is queued: the move is an online act, as it is on /projects.
+     */
+    fun move(context: Context, project: String, to: String): MoveOutcome {
+        val cache = cached(context, project)
+        val send = when (val m = QuoteMove.stage(project, cache, to)) {
+            is QuoteMove.Move.Refused -> return MoveOutcome.Refused(m.why)
+            QuoteMove.Move.None -> return MoveOutcome.None
+            is QuoteMove.Move.Send -> m
+        }
+        val auth = S5Auth.fresh(context) ?: return MoveOutcome.Refused(QuoteMove.Local.NOT_SIGNED_IN)
+        val verdict = try {
+            val a = exchange(context, auth, send)
+            QuoteMove.answer(JsonRead, a.code, bodyOf(a), send)
+        } catch (e: IOException) {
+            QuoteMove.Verdict.Offline
+        } catch (e: Exception) {
+            Log.w(TAG, "$project: quote move not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
+            QuoteMove.Verdict.NoAnswer(null)
+        }
+        take(context, project, verdict)
+        if (verdict is QuoteMove.Verdict.NoAnswer) refresh(context, listOf(project))
+        return MoveOutcome.Answered(verdict)
+    }
+
+    // ---- shared by the two writes ----------------------------------------------------------------------------
+
+    /**
+     * ONE request of [send] (QuoteMove's `PUT …/stage` or `PUT …/album/scope`) with [auth]: S5's answer whatever its
+     * status. S5's 401 (a session it no longer holds) renews the sign-in once (S5Session.relogin) and sends once
+     * more; a second refusal stands as S5's verdict. A network failure throws (IOException).
+     */
+    private fun exchange(context: Context, auth: String, send: QuoteMove.Move.Send): AsIsUpload.Answer {
+        val url = BuildConfig.WEB_URL.trimEnd('/') + send.request.path { AsIsUpload.seg(it) }
+        // JSONObject(fields): S5's JSON types as QuoteMove built them (a list of numbers, a string base)
+        val body = JSONObject(send.request.fields as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
+        val type = send.request.contentType + "; charset=utf-8" // text:value a wire value, the body's content type
+        var a = AsIsUpload.exchange("PUT", url, auth, body, type)
+        if (a.code == 401 && S5Session.signedIn(context) && S5Session.relogin(context)) {
+            a = AsIsUpload.exchange("PUT", url, S5Auth.current(context) ?: auth, body, type)
+        }
+        return a
+    }
+
+    /** S5's body as a JSON tree for QuoteMove's readers, or null when it is not JSON (a proxy's page: no answer). */
+    private fun bodyOf(a: AsIsUpload.Answer): Any? = runCatching { JSONObject(a.body) }.getOrNull()
+
+    /**
+     * S5's word in [verdict] goes where it belongs: on the stage into this store ([write]: a move's 200 and every 409
+     * echo S5's stage as it is now, a 404 says it holds no record of the project); on the scope into the mirror
+     * (AlbumSync.take, at its own place after every read in flight: a record's 200, the baseline an Approve's 200
+     * carries, and every 409 that echoes the scope as stored); and on who records or approves -- the 403's
+     * `album_role` and `pm`, a PM named on /projects meanwhile -- into the mirror too, so the row and the strip redraw
+     * who may (QV review: the first version read them into the verdict and dropped them). An answer that names none
+     * of these (a 400, a 401, no answer, offline) changes nothing.
+     */
+    private fun take(context: Context, project: String, verdict: QuoteMove.Verdict) {
         QuoteMove.copyOf(verdict, Instant.now().toString())?.let { write(context, mapOf(project to it)) }
         when (verdict) {
             is QuoteMove.Verdict.Recorded -> AlbumSync.take(context, project, Album.Answer(scope = verdict.scope, scopeAt = verdict.scopeAt))
             is QuoteMove.Verdict.PmScope -> verdict.role?.let { AlbumSync.take(context, project, Album.Answer(role = it, pm = verdict.pm)) }
+            is QuoteMove.Verdict.PmOnly -> AlbumSync.take(context, project, Album.Answer(role = verdict.role, pm = verdict.pm))
             else -> QuoteMove.nowIn(verdict)?.let { now -> now.scopeAt?.let { AlbumSync.take(context, project, Album.Answer(scope = now.scope, scopeAt = it)) } }
         }
-        return ScopeOutcome.Answered(verdict)
     }
 }

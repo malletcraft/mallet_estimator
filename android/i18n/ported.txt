@@ -26,3 +26,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/JsonRead.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSync.kt
+# Port 61c slice QM1 (3 Nov 2026) adds pano/Phases.kt (the phase strip's model: the five phases, the does-lines, the backward confirm, the rows -- every text a tx accessor, a quote stage through Masters; the row separator marked `// text:value`) and app/PhaseStrip.kt (draws it: every text through Phases; the circle's ✓ glyph marked `// text:value`).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PhaseStrip.kt

@@ -5,6 +5,7 @@ import com.malletcrafts.interiorestimate.pano.AlbumQueue
 import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.SurveyExport
@@ -145,6 +146,9 @@ class MastersTest {
             // projectLine and coverageParts take a Tx, to draw); port 61c slice PL adds its stored shape and its one writer
             QuoteStage::class.java to listOf("merge", "mergeStates", "fromAlbum", "listedOf", "fromList", "takes", "named",
                 "roomDot", "surveyShot", "coverage", "stored", "storedOf", "writes"),
+            // port 61c slice QM1: the strip's segment-to-stage mapping and tap rule decide what is SENT (the stage an
+            // identity value); only the texts (all, segments, doesLine, ask, the rows) take a Tx
+            Phases::class.java to listOf("stageOf", "phaseOf", "tap"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

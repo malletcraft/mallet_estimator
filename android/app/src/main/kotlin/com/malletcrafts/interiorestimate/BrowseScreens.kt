@@ -309,6 +309,8 @@ fun RoomsScreen(
     line: QuoteStage.ProjectLine,
     /** THE QUOTE VIEW at Client approved (QV): the line's tap and what it opens; null when the line is not at Client approved. */
     quote: QuoteViewArgs? = null,
+    /** THE PHASE STRIP through the quote journey (QM1): the five segments, the mover; null at Client approved, where [quote] is the strip. */
+    strip: PhaseStripArgs? = null,
     /** The client's wish list (v52 item 16, slice 5b): the chip after rooms shot reads
      *  [wishLabel] ("Wish list N/12") and opens the list. Null draws no chip. */
     onWish: (() -> Unit)?,
@@ -338,7 +340,8 @@ fun RoomsScreen(
 
     Column(Modifier.fillMaxSize()) {
         ProjectLineBox(line, quote)
-        if (quote != null) QuoteStrip(quote)
+        // the strip under the line (index61c2.html stripHTML): the quote view's at Client approved, the phase strip's before
+        if (quote != null) QuoteStrip(quote) else if (strip != null) PhaseStrip(strip)
         // The facts about this job, each a tap to the thing behind it. The
         // dates chip is not decoration: "is this job even running this week"
         // is asked more often on site than anything else on the screen.

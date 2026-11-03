@@ -387,6 +387,24 @@ class QuoteMoveTest {
         assertEquals("Approved — the scope changes only through change requests; not saved",
             (MiniJson.parse(S5Quote.REC_FINAL) as Map<*, *>)["error"])
     }
+    @Test fun `a segment's tap moves to that segment's stage - the strip and the mover agree on the body S5 accepted (QM1)`() {
+        // the strip's phase i stands for STAGES[i] (Phases.stageOf): a forward tap at Survey, base '', is S5Quote's first move
+        assertEquals(Phases.Tap.MOVE, Phases.tap(0, 1))
+        assertEquals(S5Quote.SENT_MOVED_FIRST, body(QuoteMove.stage(P, Cache(listed = true, stage = "Survey", readAt = "r"), Phases.stageOf(1))))
+        // a step back asks first (Phases.ask), and the move it confirms is the body S5 accepted for the move back
+        assertEquals(Phases.Tap.ASK, Phases.tap(3, 2))
+        assertEquals(S5Quote.SENT_MOVED_BACK, body(QuoteMove.stage(P, at("Estimated", tEstimated), Phases.stageOf(2))))
+        // the current segment is the line's stage, so the strip and the store never disagree on where the project is
+        for ((i, s) in QuoteStage.STAGES.dropLast(1).withIndex()) {
+            val line = QuoteStage.projectLine(at(s, tRevisions), false, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"))
+            assertEquals(i, Phases.phaseOf(line), s)
+            assertEquals(s, Phases.stageOf(i))
+        }
+        // v61c.2: the strip offers no tap on a project S5 does not list, and the mover refuses it anyway, before any call
+        assertTrue(Phases.segments(Tx.EN, Phases.phaseOf(QuoteStage.projectLine(null, true, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z")))).none { it.tap })
+        assertEquals(Move.Refused(Local.NOT_ON_S5), QuoteMove.stage("", null, Phases.stageOf(1)))
+    }
+
     @Test fun `a phone with nothing to send with refuses before any call, in its own sign-in words (QV)`() {
         // S5Auth.fresh is null: no S5 session and no ERP key. Nothing is sent, and the words are the phone's sign-in
         // line, not a 401 the phone could not read (QuoteMove.Verdict.SignIn carries S5's words, which never came)

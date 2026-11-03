@@ -197,6 +197,26 @@ the prototype's own keys (`phase.scope_*`, `phase.tap_view`, `phase.approved_chi
 `app.sign_first_menu_server`. Tx is not regenerated: the tables are unchanged. `AlbumSync.kt` shows nothing; its log
 lines are marked `// text:value`.
 
+## Port 61c slice QM1 (3 Nov 2026): the phase strip and the guarded stage move, born keyed
+
+`pano/Phases.kt` (new) and `PhaseStrip.kt` (new) joined `ported.txt`. Through the quote journey the project screen
+draws the phase strip under the line -- the five segments, the does-line, the refusal line, the backward confirm,
+SURVEY COVERAGE at Survey and IN REVISION at Revisions (the listed subset of the prototype's strip, Amit's answer 1 of
+28 Oct: no VENDOR PACKS, no GOES TO ESTIMATION, no hand-off counts; Approve the estimate ▸ is QM2's) -- and a tap on a
+segment is the phone's guarded move of the quote stage (`QuoteStageSync.move`). Every text is a `tx.<key>` through
+`Phases` (`all`, `segments`, `doesLine`, `ask`, `coverageRow`, `revisionRow`, `groupLabel`): the five names
+(`quote.survey`, `common.wish_list`, `life.vrev`, `common.estimation`, `common.revisions`, now the one home of the five
+that QuoteView's ticked steps read too), the does-lines (`phase.capture_bound_walls_mark`,
+`phase.walk_client_through_mark`, `phase.trades_vendor_packs_wishes`, `phase.hand_off_estimate_nothing`,
+`phase.rev_does`), the unread line (`phase.phase_not_read_yet`), the never-sent words (`wish.not_s5_yet_project`,
+v61c.2), the segment labels (`phase.aria.phase_x_of_5_x`, `phase.aria.phase_x_of_5_x_now`), the confirm
+(`phase.back_x_quote_stage`, `phase.every_mark_stays_tools`, `phase.keep_x`, `phase.move_back`,
+`phase.aria.move_phase_back`), the rows (`phase.survey_coverage` with QuoteStage.coverageParts' `phase.x_x_shot`,
+`phase.x_not_shot_yet`, `phase.every_room_scope_shot`; `phase.in_revision`, `phase.open_client_vendors`) and the
+group's label (`phase.aria.phase_project`); a quote stage in the confirm goes through `Masters.quote`. The refusal a
+move meets is `QuoteMove.text` / `localText` (QM0's keys). **No new key**; Tx is not regenerated. The row separator in
+`Phases` and the circle's ✓ in `PhaseStrip` are marked `// text:value`.
+
 ## What is here
 
 | File | What it is | Who writes it |

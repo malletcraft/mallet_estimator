@@ -24,12 +24,11 @@ object QuoteView {
 
     /**
      * The five steps as the strip names them (the prototype's PHASES, phase54.js: Survey, Wish list, Vendor review,
-     * Estimation, Revisions), each ticked at Client approved and none current -- so each label is the plain
-     * `Phase n of 5: name`, never the `(now)` one.
+     * Estimation, Revisions; [Phases.names], the one home of the five since port 61c slice QM1), each ticked at
+     * Client approved and none current -- so each label is the plain `Phase n of 5: name`, never the `(now)` one.
      */
     fun segments(tx: Tx): List<Segment> =
-        listOf(tx.quote_survey, tx.common_wish_list, tx.life_vrev, tx.common_estimation, tx.common_revisions)
-            .mapIndexed { i, name -> Segment(i + 1, name, tx.phase_aria_phase_x_of_5_x(n = (i + 1).toString(), name = name)) }
+        Phases.names(tx).mapIndexed { i, name -> Segment(i + 1, name, tx.phase_aria_phase_x_of_5_x(n = (i + 1).toString(), name = name)) }
 
     /** The chip after the five: `Approved`; a tap folds the view. */
     fun approvedChip(tx: Tx): String = tx.phase_approved_chip

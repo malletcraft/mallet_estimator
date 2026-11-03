@@ -70,6 +70,7 @@ import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
@@ -217,12 +218,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // the open sheet has had (each shows its status afresh, even in the same words) and how many were a stale 409
     // (each redraws its ticks from the scope as stored) -- both 0 when a sheet opens (QV review).
     var quoteOpen by remember { mutableStateOf<String?>(null) }
-    var quoteMsg by remember { mutableStateOf<Pair<String, String>?>(null) }
+    // Held as a Msg (design-marathi §2.4), so a refusal raised before the language changes redraws in the new one (QM1).
+    var quoteMsg by remember { mutableStateOf<Pair<String, Msg>?>(null) }
     var scopeSheet by remember { mutableStateOf<QuoteView.Mode?>(null) }
     var scopeStatus by remember { mutableStateOf<String?>(null) }
     var scopeBusy by remember { mutableStateOf(false) }
     var scopeAnswers by remember { mutableStateOf(0) }
     var scopeReset by remember { mutableStateOf(0) }
+    // THE PHASE STRIP's move (port 61c slice QM1): one PUT …/stage out at a time; while it is, no segment takes a tap.
+    var phaseBusy by remember { mutableStateOf(false) }
     // The visit: another project, or none, folds the view and closes the sheet (the refusal stays with its
     // key). Keyed on the project alone, so a room opened and closed keeps the view as it was, as the
     // prototype's open56 does.
@@ -1296,10 +1300,41 @@ private fun AppScreenBody(onLang: () -> Unit) {
             else QuoteViewArgs(
                 open = quoteOpen == proj.key,
                 onToggle = { quoteOpen = if (quoteOpen == proj.key) null else proj.key },
-                refusal = quoteMsg?.takeIf { it.first == proj.key }?.second,
+                refusal = quoteMsg?.takeIf { it.first == proj.key }?.let { it.second(tx) },
                 row = QuoteView.scopeRow(tx, mirror?.scope, mirror?.scopeAt.orEmpty(), mirror?.role),
                 onViewScope = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.VIEW },
                 onRecord = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.RECORD })
+        // THE PHASE STRIP through the quote journey (port 61c slice QM1; decision 2 of 27 Oct: the quote stage moves
+        // from the phone as it does on /projects, one guarded value on S5): the five segments under the line, each tap
+        // ONE online PUT …/stage (QuoteStageSync.move) whose answer goes into the one store -- its listener redraws the
+        // line and the strip, so the current segment is always S5's word -- and whose refusal stands on the strip's
+        // line (quoteMsg: the same pending refusal the quote view shows at Client approved, cleared by a move that
+        // landed). SURVEY COVERAGE at Survey, over the rooms in scope and their captures (QuoteStage.coverage, the
+        // rule the room dots use). A project S5 does not list draws the strip read-only (its line is LOCAL; the
+        // mover refuses NOT_ON_S5 before any call, v61c.2). Not drawn at Client approved: the quote view is the
+        // strip there.
+        val stripArgs = if (proj == null || projectLine.kind == QuoteStage.LineKind.EXEC) null else PhaseStripArgs(
+            line = projectLine,
+            refusal = quoteMsg?.takeIf { it.first == proj.key }?.let { it.second(tx) },
+            coverage = if (Phases.phaseOf(projectLine) != Phases.SURVEY) null else gridRooms(proj).let { inScope ->
+                QuoteStage.coverage(inScope, inScope.associateWith { r ->
+                    queue.filter { it.room == r && it.projectTitle.equals(proj.title, true) }.map { QuoteStage.Shot(it.work, it.stage) }
+                })
+            },
+            busy = phaseBusy,
+            onMove = { to ->
+                val key = stageKey.orEmpty()
+                phaseBusy = true
+                scope.launch {
+                    val out = withContext(Dispatchers.IO) { QuoteStageSync.move(context, key, to) }
+                    phaseBusy = false
+                    val text = QuoteStageSync.moveText(tx, out)
+                    when {
+                        QuoteStageSync.moved(out) -> quoteMsg = null
+                        text != null -> { val msg: Msg = { t -> QuoteStageSync.moveText(t, out).orEmpty() }; quoteMsg = proj.key to msg }
+                    }
+                }
+            })
         // The project list's rows lead with each project's line (index61c2.html row61c), read from
         // the same store -- S5's one list GET carries every project's work_states, so a row needs no
         // album GET of its own. Each under the id its stage is read under (WishSync.stageKey), so a
@@ -1400,7 +1435,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         when {
                             QuoteStageSync.scopeRecorded(out) -> { scopeSheet = null; scopeStatus = null; quoteMsg = null }
                             text == null -> { scopeSheet = null; scopeStatus = null }
-                            else -> { scopeStatus = text; quoteMsg = proj.key to text }
+                            else -> { scopeStatus = text; val msg: Msg = { t -> QuoteStageSync.scopeText(t, out).orEmpty() }; quoteMsg = proj.key to msg }
                         }
                     }
                 },
@@ -1486,6 +1521,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             onOpen = { navRoom = it },
                             line = projectLine,
                             quote = quoteArgs,
+                            strip = stripArgs,
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).
                             // No chip at Survey, as the prototype hides it there (WishList.
