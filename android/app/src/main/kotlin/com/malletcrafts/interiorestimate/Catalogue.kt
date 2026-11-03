@@ -712,8 +712,10 @@ class Catalogue(context: Context) {
     // ---- stages ----------------------------------------------------------
 
     /** The work-stage master, in trade order, narrowed to one job type.
-     *  Thirty-nine stages is a picker; it is not a filter row, so the phase
-     *  is what the capture list filters by. */
+     *  Thirty-nine stages is a picker (the capture sheet's FILED AT and the
+     *  photo's STG row, until FW2); the room screen no longer filters or
+     *  groups by any of them -- it groups by WORK (v61c), so the phase list
+     *  and the trade order that fed it are gone with their last callers. */
     fun stages(masters: JSONObject?, jobType: String? = null): List<Stage> {
         val arr = masters?.optJSONArray("stages") ?: return emptyList()
         val out = mutableListOf<Stage>()
@@ -727,25 +729,10 @@ class Catalogue(context: Context) {
         return out.sortedBy { it.sequence }
     }
 
-    fun phases(masters: JSONObject?, jobType: String? = null): List<String> =
-        stages(masters, jobType).map { it.phase }.distinct()
-
     /** The phase a work stage belongs to, or "" when the word is not one of
      *  the thirty-nine — which is exactly what a capture taken before the
      *  master existed carries, and why this returns blank rather than
      *  throwing. Its caller falls back to the stored word. */
-    /** Whether this user may re-stage a photograph, as the bench answered on
-     *  the last bootstrap. Absent (an older bench) means NO: refusing an act
-     *  the server would refuse anyway is the safe way to be wrong. */
-    fun canRestage(masters: JSONObject?): Boolean =
-        masters?.optBoolean("can_restage", false) ?: false
-
-    /** Trade order for a stage name. Unknown words sort to the BOTTOM, not
-     *  the top, so a capture from before the master existed cannot push
-     *  today's work off the screen. */
-    fun stageOrder(masters: JSONObject?, stage: String): Int =
-        stages(masters).firstOrNull { it.name.equals(stage, true) }?.sequence ?: -1
-
     fun phaseOfStage(masters: JSONObject?, stage: String): String {
         if (stage.isBlank()) return ""
         return stages(masters).firstOrNull { it.name.equals(stage, true) }?.phase ?: ""

@@ -307,6 +307,25 @@ regenerated and the tables hold 1,792 keys as before.
   labels), because every Masters map passes an unknown value through unchanged, so a lookup wired to the wrong map or fed the
   wrong identity prints the same English in every `Tx.EN` pin and leaks Latin only under मराठी (the PL review's fault).
 
+## Port 61c slice FW1 (3 Nov 2026): the room screen reads photos by work
+
+No file is added to `ported.txt`: `CaptureScreens.kt` keeps its STG row and the rest of its texts until FW2, and
+`MainActivity.kt` and `Catalogue.kt` are far from keyed. The room screen groups a room's captures by WORK (the
+prototype v61c.2 room screen, SPEC61c §4.5: work ids high to low, then the Quote journey, then not filed to a
+work; the order is `Album.filingRank` / `filingOrder`, pure and tested), with work chips in place of the phase
+chips, and every text it draws is a `tx.<key>` or a Masters name -- **no new key**: the empty line
+(`app.no_captures_room_yet`), the `All n` chip (`app.all_x`), the header's `n photos (over n days)`
+(`app.x_over_x`, `noun.photo`, as before), the Quote journey and not filed to a work (`album.quote_journey`,
+`album.unfiled`, through `Album.workName`) and the sixteen work names (`Masters.work`). The capture title is
+`date · <where filed>` and the viewer's sub-line drops the stage, both through `Album.workName`. Tx is not
+regenerated; the tables hold 1,792 keys as before. Their 7 `unkeyed.tsv` rows went (958 -> 951): CaptureScreens'
+`All ${captures.size}`, `No captures in this room yet. Use Capture 360 below.`, `No stage` and the tile's
+`${c.date} ${c.stage}` (its TalkBack label, now `date · <where filed>` like the title); MainActivity's
+`${cap.date} · ${cap.stage.ifBlank { "no stage" }}`, `no stage` and ` · ${cap.stage}`. **Still English under
+मराठी on the room screen**, FW2's: the tile's `Details`, `PHOTO`, `synced` / `on phone`, `Survey prep` and its
+hint, `No work tagged`, and the capture screen's rows. `literal-counts.tsv` gains the row `AsIsPath.kt 0` that
+slice AS1's new file never had: `i18nRatchet` rewrites the whole list, and the count is what the check expects.
+
 ## What is here
 
 | File | What it is | Who writes it |

@@ -56,6 +56,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumQueue.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AsIsPath.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraPort.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt	0

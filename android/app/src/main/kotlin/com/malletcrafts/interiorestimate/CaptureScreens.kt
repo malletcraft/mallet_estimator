@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.interiorestimate.pano.Album
 
 /**
  * A room's captures, as photographs.
@@ -38,8 +39,10 @@ import androidx.compose.ui.unit.sp
 data class CaptureCard(
     val deviceId: String,
     val date: String,
-    /** The PHASE the photo is filed under — one of the ten, the word the
-     *  capture doctype stores. The stage that produced it is [workStage]. */
+    /** The PHASE of the legacy stage — one of the ten, the word the capture
+     *  doctype stores. Read by the STG row alone until FW2 takes that row;
+     *  nothing groups or titles by it any more (v61c: photos are filed by
+     *  WORK, [work]). The stage that produced it is [workStage]. */
     val stage: String,
     val panoPath: String,
     val state: String,
@@ -59,6 +62,12 @@ data class CaptureCard(
     val kind: String = "360",
     /** A 360's survey prep, in one line ("n of 6 bounded · m marks · k read"). */
     val survey: String = "",
+    /** WHERE THE CAPTURE IS FILED (v61c, Amit 27 Oct 2026: photos are filed by
+     *  work): 0 the Quote journey, one of the sixteen work ids, or null for
+     *  not filed to a work. Always [Album.workOfCapture] over the stored row --
+     *  the one filing rule, which files a row from before the phone filed by
+     *  work through its legacy stage -- never the raw column. */
+    val work: Int? = null,
 )
 
 private val YELLOW = Color(0xFFE9FF3A)
@@ -92,55 +101,62 @@ private fun PenBadge(modifier: Modifier = Modifier, label: String? = null) {
 }
 
 /**
- * Level 5 — the captures in one room, STAGE first and dates under it.
+ * Level 5 — the captures in one room, WORK first and dates under it.
  *
  * A flat grid newest-first was the wrong shape for how a site actually runs.
  * Amit: "stage should come first and then its fotos on a particular date
  * because same stage can linger for many days but foto will keep
- * progressing." Exactly — a flat sits at Plaster & waterproofing for a week
- * and gets photographed every morning, and what you want to see is that
- * week's progress GROUPED under the thing that was happening, not eight
- * dates in a row with the same word stamped on each tile.
+ * progressing." Exactly — a flat sits at Civil & masonry for a week and gets
+ * photographed every morning, and what you want to see is that week's
+ * progress GROUPED under the thing that was happening, not eight dates in a
+ * row with the same word stamped on each tile.
  *
- * Stages run newest-work-first (highest sequence at the top), which is where
- * the job is now; dates inside a stage run newest-first too. A capture whose
- * stage predates the master falls into its own group at the bottom rather
- * than being dropped.
+ * THE THING THAT WAS HAPPENING IS A WORK, not a 39-stage name (v61c, Amit,
+ * 27 Oct 2026: a project has one state, in one place; photos are filed by
+ * work, and the 39 site stages survive only as the hidden map that files old
+ * photos into works). So the groups are the prototype's room screen
+ * (index61c2.html, §4.5): work ids from highest to lowest — where the job is
+ * now — then the Quote journey (the survey's 360s), then what is not filed
+ * to a work; dates inside a group run newest-first. An old 'Plaster &
+ * waterproofing' photo lands under Civil & masonry through the one filing
+ * rule ([Album.workOfCapture], applied by the caller into [CaptureCard.work]);
+ * no stage name appears here any more.
  */
 @Composable
 fun CapturesScreen(
     captures: List<CaptureCard>,
-    phases: List<String>,
-    /** Trade order for a stage name — higher is later in the build. Unknown
-     *  words sort to the bottom rather than to the top, where they would push
-     *  today's work off the screen. */
-    stageOrder: (String) -> Int,
     /** A capture's own screen (stage, local copy, delete). A 360's tile opens
      *  survey prep, so this is how its details are reached. */
     onDetails: (CaptureCard) -> Unit = {},
     onOpen: (CaptureCard) -> Unit,
 ) {
+    val tx = LocalTx.current
     if (captures.isEmpty()) {
-        Text("No captures in this room yet. Use Capture 360 below.",
+        Text(tx.app_no_captures_room_yet,
             Modifier.padding(24.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
+    // The chip picked, as a filing KEY: a work's id, the Quote journey's 0,
+    // or "unfiled" for not filed to a work — because null already means "All"
+    // here, and the prototype's S.capWork tells the two apart the same way.
     var picked by remember { mutableStateOf<String?>(null) }
-    // Only phases that actually have photos in THIS room. A chip that
-    // filters to nothing is a chip that looks broken.
-    val present = phases.filter { p -> captures.any { it.stage.equals(p, true) } }
-    val shown = picked?.let { p -> captures.filter { it.stage.equals(p, true) } }
+    // Only filings that actually have photos in THIS room, in the room
+    // screen's order. A chip that filters to nothing is a chip that looks
+    // broken.
+    val present = Album.filingOrder(captures.map { it.work })
+    val shown = picked?.let { k -> captures.filter { filingKey(it.work) == k } }
         ?: captures
 
-    // stage -> date -> photos, both newest first.
+    // work -> date -> photos: works high to low, then the Quote journey, then
+    // not filed; dates newest first.
     val grouped = remember(shown) {
-        shown.groupBy { it.workStage.ifBlank { it.stage.ifBlank { "No stage" } } }
+        shown.groupBy { it.work }
             .toList()
-            .sortedByDescending { (stage, _) -> stageOrder(stage) }
-            .map { (stage, rows) ->
-                stage to rows.groupBy { it.date }.toList().sortedByDescending { it.first }
+            .sortedByDescending { (work, _) -> Album.filingRank(work) }
+            .map { (work, rows) ->
+                work to rows.groupBy { it.date }.toList().sortedByDescending { it.first }
             }
     }
 
@@ -153,10 +169,11 @@ fun CapturesScreen(
                 horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 FilterChip(selected = picked == null, onClick = { picked = null },
-                    label = { Text("All ${captures.size}") })
-                present.forEach { p ->
-                    FilterChip(selected = picked == p, onClick = { picked = p },
-                        label = { Text(p) })
+                    label = { Text(tx.app_all_x(captures.size)) })
+                present.forEach { w ->
+                    val k = filingKey(w)
+                    FilterChip(selected = picked == k, onClick = { picked = k },
+                        label = { Text(Album.workName(tx, w)) })
                 }
             }
         }
@@ -167,16 +184,17 @@ fun CapturesScreen(
             contentPadding = PaddingValues(2.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
-            grouped.forEach { (stage, byDate) ->
+            grouped.forEach { (work, byDate) ->
                 val total = byDate.sumOf { it.second.size }
-                item(key = "stage:$stage", span = { GridItemSpan(maxLineSpan) }) {
-                    StageHeading(stage, total, byDate.size)
+                val k = filingKey(work)
+                item(key = "work:$k", span = { GridItemSpan(maxLineSpan) }) {
+                    WorkHeading(work, total, byDate.size)
                 }
                 byDate.forEach { (date, rows) ->
-                    // The date sub-head is dropped when the stage held only
+                    // The date sub-head is dropped when the work held only
                     // one day: a heading that never varies is furniture.
                     if (byDate.size > 1) {
-                        item(key = "date:$stage:$date", span = { GridItemSpan(maxLineSpan) }) {
+                        item(key = "date:$k:$date", span = { GridItemSpan(maxLineSpan) }) {
                             Text(date,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -191,14 +209,20 @@ fun CapturesScreen(
     }
 }
 
-/** The stage a run of photographs belongs to, with how long it ran. */
+/** A filing as a chip and grid key: the work's id, 0 for the Quote journey,
+ *  "unfiled" for not filed to a work (the prototype's `gk`). */
+private fun filingKey(work: Int?): String = work?.toString() ?: "unfiled"
+
+/** The work a run of photographs belongs to — the Quote journey, one of the
+ *  sixteen, or not filed to a work — with how long it ran. Upper-cased as the
+ *  prototype's CSS draws the heading (`.stageh .wkh`); a no-op on Devanagari. */
 @Composable
-private fun StageHeading(stage: String, photos: Int, days: Int) {
+private fun WorkHeading(work: Int?, photos: Int, days: Int) {
     val tx = LocalTx.current
     Column(Modifier.fillMaxWidth()
         .background(MaterialTheme.colorScheme.secondaryContainer)
         .padding(horizontal = 14.dp, vertical = 8.dp)) {
-        Text(stage.uppercase(),
+        Text(Album.workName(tx, work).uppercase(),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -227,15 +251,18 @@ private fun StageHeading(stage: String, photos: Int, days: Int) {
  */
 @Composable
 private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails: (CaptureCard) -> Unit) {
+    val tx = LocalTx.current
     Column(Modifier.clickable { onOpen(c) }) {
         Box(
             Modifier
                 .aspectRatio(4f / 3f),
         ) {
+            // Read out as the capture's own title reads: its date, then where
+            // it is filed — never a stage name, which no capture shows now.
             Thumb(ThumbSource.LocalFile(c.panoPath), Modifier.fillMaxSize(),
-                target = 400, contentDescription = "${c.date} ${c.stage}")
+                target = 400, contentDescription = "${c.date} · ${Album.workName(tx, c.work)}")
             Scrim()
-            // The stage is the HEADING now, so the tile no longer repeats it —
+            // The work is the HEADING now, so the tile no longer repeats it —
             // it says what kind of capture this is instead, which is the thing
             // you cannot tell from a thumbnail.
             if (c.kind == "Photo") {

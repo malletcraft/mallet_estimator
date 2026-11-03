@@ -103,9 +103,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in refused - sending with the ERP key
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 · tap to correct (recorded)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.annotated}/6
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.date} ${c.stage}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${capture.deviceId}.jpg
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	All ${captures.size}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Annotated
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Close
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete
@@ -117,8 +115,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Import f
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone AND from ERPNext, for 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone — the queue row, the 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Keep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No captures in this room yet. Use Capture 360 below.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No stage
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No stage set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged on this face — tap to say what
@@ -422,7 +418,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 /
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 from the gallery.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 to $server
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 · ${cap.stage}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$it — ${c.error}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$n BHK
@@ -434,7 +429,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPr
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${bytes / 1024} KB
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${c.room} · ${c.captureDate}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.date} · ${cap.stage.ifBlank { "no stage" }}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.deviceId} · ${cap.date}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.sku} · 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} / ${p.site} · ${p.jobType}
@@ -553,7 +547,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	face
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	faces
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	have not reached the server yet — sync first.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no server configured
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no stage
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not started \u00b7 tap to start
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ones that already exist, however the names were spelled.

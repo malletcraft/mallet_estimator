@@ -397,6 +397,25 @@ object Album {
 
     fun isWork(id: Int?): Boolean = id != null && WORK_IDS.contains(id)
 
+    /**
+     * The room screen's order of filings (the prototype's `rank`, index61c2.html room(), v61c §4.5): a
+     * work ranks by its id, the quote journey under every work, not filed to a work last. Sorted HIGH to
+     * LOW the newest work is at the top, where the job is now; the survey's 360s sit under it, and what
+     * nobody has filed sits at the bottom rather than pushing today's work off the screen.
+     */
+    fun filingRank(work: Int?): Int = when (work) {
+        null -> -2
+        QUOTE_WORK -> -1
+        else -> work
+    }
+
+    /**
+     * The filings present among [works] -- each once, in [filingRank] order high to low -- which is the room
+     * screen's group order and its chip order (one per filing present, after `All n`). Takes the FILINGS,
+     * [workOfCapture]'s answers, not the stored `work` column.
+     */
+    fun filingOrder(works: Iterable<Int?>): List<Int?> = works.distinct().sortedByDescending { filingRank(it) }
+
     /** The chapter an item sits in: 0 the quote journey, index + 1 for a work, null when unfiled or not a work. */
     fun chapterOf(work: Int?): Int? = when {
         work == null -> null

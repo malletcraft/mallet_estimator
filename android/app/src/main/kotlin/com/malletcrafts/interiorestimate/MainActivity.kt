@@ -1793,9 +1793,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
             val f = faces[faceIdx]
             FaceViewer(
                 title = f.name.replaceFirstChar { it.uppercase() },
+                // The prototype's viewer sub-line (v61c §4.4): the SKU, the id
+                // and the date; the stage is gone from it.
                 subtitle = (if (cap.sku.isNotBlank()) "${cap.sku} · " else "") +
-                    "${cap.deviceId} · ${cap.date}" +
-                    (if (cap.stage.isNotBlank()) " · ${cap.stage}" else ""),
+                    "${cap.deviceId} · ${cap.date}",
                 source = ThumbSource.Content(f.uri),
                 // The local copy wins. It is the same annotation, it is
                 // already here, and it is newer than anything the round trip
@@ -1820,7 +1821,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
 
         Scaffold(topBar = {
             TreeTopBar(
-                title = "${cap.date} · ${cap.stage.ifBlank { "no stage" }}",
+                // `<date> · <where filed>` (v61c §4.4): the Quote journey, the
+                // work, or not filed to a work. No stage name, for any capture.
+                title = "${cap.date} · ${Album.workName(tx, cap.work)}",
                 subtitle = RoomToken.label(navRoom ?: "") + " · " + cap.deviceId,
                 // The magnifier used to open the API-KEY dialog from here.
                 // That is the worst thing a button can do: a search icon that
@@ -1967,10 +1970,16 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     cat.skusOf(masters, navProject)
                         .firstOrNull { it.name == n }?.code ?: n
             }
+            // The filing follows the same rule the room screen applies: a
+            // stored work stands, and only a row the phone never filed by
+            // work (NULL) moves with its stage. refreshQueue() above has
+            // re-read the store, so this is the row as it is now.
+            val storedWork = queue.firstOrNull { it.deviceId == cap.deviceId }?.work
             navCapture = cap.copy(
                 workStage = newStage ?: cap.workStage,
                 stage = newStage?.let { cat.phaseOfStage(masters, it).ifBlank { it } }
                     ?: cap.stage,
+                work = Album.workOfCapture(storedWork, newStage ?: cap.workStage),
                 sku = shownSku ?: cap.sku)
             if (!serverName.isNullOrBlank()) scope.launch(Dispatchers.IO) {
                 val out = runCatching {
@@ -2061,8 +2070,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
         CaptureCard(
             deviceId = c.deviceId,
             date = c.captureDate,
-            // The card wears the PHASE — ten words the chip row can filter on
-            // — and remembers the stage behind it for the detail screen.
+            // WHERE IT IS FILED, through the one filing rule (v61c): the
+            // stored work when the phone filed it, else its legacy stage
+            // through the 39-stage table. The room screen groups, titles and
+            // labels by this and by nothing else.
+            work = Album.workOfCapture(c.work, c.stage),
+            // The legacy stage and its phase ride along for the STG row of
+            // the capture screen alone, until FW2 makes it the WORK line.
             stage = cat.phaseOfStage(masters, c.stage).ifBlank { c.stage },
             workStage = c.stage,
             panoPath = c.panoPath,
@@ -2522,8 +2536,6 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 }
                 CapturesScreen(
                     captures = roomCaptures,
-                    phases = cat.phases(masters, navProject?.jobType),
-                    stageOrder = { cat.stageOrder(masters, it) },
                     onDetails = { navCapture = it; navFace = null },
                 ) { c ->
                     // A 360 opens straight into survey prep, the one screen for all six
