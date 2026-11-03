@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.Album.Answer
+import com.malletcrafts.interiorestimate.pano.Album.BytesPatch
 import com.malletcrafts.interiorestimate.pano.Album.CrKind
 import com.malletcrafts.interiorestimate.pano.Album.CrOutcome
 import com.malletcrafts.interiorestimate.pano.Album.Entry
@@ -8,6 +9,7 @@ import com.malletcrafts.interiorestimate.pano.Album.Op
 import com.malletcrafts.interiorestimate.pano.Album.Outbox
 import com.malletcrafts.interiorestimate.pano.Album.Photo
 import com.malletcrafts.interiorestimate.pano.Album.Refusal
+import com.malletcrafts.interiorestimate.pano.Album.ReviewPatch
 import com.malletcrafts.interiorestimate.pano.Album.Verdict
 import com.malletcrafts.interiorestimate.pano.Album.View
 import com.malletcrafts.interiorestimate.pano.Album.Viewer
@@ -195,6 +197,43 @@ class AlbumTest {
         assertEquals("not your work", Refusal.NOT_YOUR_WORK.text(Tx.EN))
     }
 
+    @Test fun `each of the 22 refusals has its own words - the whole table pinned, none shared`() {
+        // a literal per refusal, as the English table words it: a swapped or doubled key reads as the wrong refusal on the queue row
+        val en = mapOf(
+            Refusal.STATE_PM_ONLY to "Only the Project Manager sets a work's state",
+            Refusal.EXEC_LOCKED to "Work starts once the client approves the estimate",
+            Refusal.NOT_A_WORK to "Not one of the sixteen works",
+            Refusal.NOT_A_STATE to "Not one of the five states",
+            Refusal.SAME_STATE to "Already in that state",
+            Refusal.DONE_REASON_NEED to "A reason is needed to change a Done work",
+            Refusal.CR_PM_ONLY to "Only the Project Manager raises a change request or records the client's answer",
+            Refusal.CR_NOT_APPROVED to "Change requests start once the client approves the estimate",
+            Refusal.CR_NO_BASELINE to "No approved scope recorded yet",
+            Refusal.CR_LIVE to "A change request is already raised",
+            Refusal.CR_IN_SCOPE to "This work is in the approved scope: nothing to add — a change to it is a remove or a change request",
+            Refusal.CR_OFF_SCOPE_REMOVE to "This work is not in the approved scope: nothing to remove — bringing it in is an add request",
+            Refusal.CR_OFF_SCOPE_CHANGE to "This work is not in the approved scope: nothing to change — bringing it in is an add request",
+            Refusal.CR_NONE to "No live change request to answer on this work",
+            Refusal.CLIENT_AT_DAY to "client_at must be the date the client answered, as YYYY-MM-DD",
+            Refusal.PHOTO_NO_CLIENT to "A client adds no photos",
+            Refusal.NOT_YOUR_WORK to "not your work",
+            Refusal.REVIEW_PM_ONLY to "Only the Project Manager reviews a vendor's photo",
+            Refusal.NOT_A_REVIEW to "Not a review state",
+            Refusal.REVIEW_VENDOR_ONLY to "Only a vendor's photo is reviewed",
+            Refusal.REVIEW_NO_IMAGE to "No image yet: a photo is reviewed once its JPEG has landed",
+            Refusal.REVIEW_SAME to "Already reviewed that way",
+        )
+        assertEquals(Refusal.entries.toSet(), en.keys, "every refusal is in the table")
+        assertEquals(22, Refusal.entries.size)
+        for (r in Refusal.entries) assertEquals(en[r], r.text(Tx.EN), "$r")
+        assertEquals(22, Refusal.entries.map { it.text(Tx.EN) }.toSet().size, "no two refusals share English")
+        assertEquals(22, Refusal.entries.map { it.text(Tx.MR) }.toSet().size, "no two refusals share Marathi")
+        // the raise sheet's three kind lines, each its own
+        assertEquals(listOf("a work outside the approved scope comes in", "a work in the approved scope comes out", "a work in the approved scope changes"),
+            CrKind.entries.map { it.sub(Tx.EN) })
+        assertEquals(3, CrKind.entries.map { it.sub(Tx.MR) }.toSet().size)
+    }
+
     @Test fun `the change-request kinds and answers - S5's wire values, shown from the table`() {
         assertEquals(listOf("add", "remove", "change"), CrKind.entries.map { it.wire })
         assertEquals(listOf("approved", "declined", "withdrawn"), CrOutcome.entries.map { it.wire })
@@ -226,6 +265,17 @@ class AlbumTest {
         assertEquals("27 Oct", Album.whenOf(Tx.EN, "2026-10-27"))
         assertEquals("", Album.whenOf(Tx.EN, "yesterday"))
         assertEquals("", Album.dayOf(Tx.EN, null))
+    }
+
+    @Test fun `the album's twelve months, Jan to Dec, under English and Marathi`() {
+        val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        for ((i, mo) in months.withIndex()) {
+            val day = "2026-%02d-15".format(i + 1)
+            assertEquals("15 $mo", Album.dayOf(Tx.EN, day), day)
+            assertEquals("15 $mo", Album.dayOf(Tx.MR, day), "months stay Jan-Dec under Marathi: $day")
+            // 05:00 UTC is 10:30 IST the same day
+            assertEquals("15 $mo, 10:30", Album.whenOf(Tx.EN, day + "T05:00:00.000Z"), day)
+        }
     }
 
     @Test fun `isDay is S5's - a real calendar day, a time after it allowed`() {
@@ -398,6 +448,22 @@ class AlbumTest {
         assertEquals("Vendor quoted", Album.quoteAt(later, "2026-10-26T05:00:00.000Z", "Vendor quoted", since))
     }
 
+    @Test fun `quoteAt reads stages rows as S5 sends them - stageView has no kind, every row is a move`() {
+        // asis.js stageView: { seq, id, value, prev, by, by_name, via, at } -- no `kind`, so a mapper's Entry carries ""
+        fun wire(seq: Long, value: String, at: String) = Entry(seq, "ALB-%012x".format(seq), "", null, value, at = at)
+        val stages = listOf(wire(1, "Client wish list", "2026-10-26T05:00:00.000Z"), wire(2, "Vendor quoted", "2026-10-27T05:00:00.000Z"),
+            wire(3, "Estimated", "2026-10-28T05:00:00.000Z"), wire(4, "Revisions", "2026-10-29T05:00:00.000Z"))
+        val at = listOf("2026-10-25T09:00:00.000Z", "2026-10-26T09:00:00.000Z", "2026-10-27T09:00:00.000Z", "2026-10-28T09:00:00.000Z", "2026-10-29T09:00:00.000Z")
+        assertEquals(listOf("Survey", "Client wish list", "Vendor quoted", "Estimated", "Revisions"),
+            at.map { Album.quoteAt(stages, it, "Revisions", "2026-10-29T05:00:00.000Z") })
+        // the chapters group the same way: one capture per stage, none left to the current-stage point alone
+        val items = at.mapIndexed { i, t -> Photo("MCAP-$i", 0, t, kind = Album.PHOTO_360) }
+        val c = Album.chapters(items, emptyList(), stages, null, "Revisions", "2026-10-29T05:00:00.000Z", emptyMap(), pm)
+        assertEquals(listOf(1, 1, 1, 1, 1, 0), c.quote.groups.map { it.items.size })
+        // a name outside the six is still left out, whatever the kind
+        assertEquals("Survey", Album.quoteAt(listOf(wire(5, "On hold", "2026-10-26T05:00:00.000Z")), "2026-10-27T05:00:00.000Z"))
+    }
+
     // ---- canSee: the one rule ----------------------------------------------------
 
     @Test fun `canSee - PM and Designer see everything`() {
@@ -531,6 +597,11 @@ class AlbumTest {
         // no state anywhere in the store: the recorded-work exemption does not apply, whatever the log holds
         assertTrue(ch(states = emptyMap()).execLocked)
         assertFalse(ch(states = emptyMap(), q = "Client approved").execLocked)
+        // ANY recorded state opens them, Not started included: S5's EXISTS (... kind = 'state') and `heads.states > 0`, the
+        // prototype's stateLog(p).length > 0 -- a project whose works were all moved back to Not started stays open
+        val back = ch(states = mapOf(10 to WorkState("Not started", 3, "2026-10-01T05:00:00.000Z")), q = "Survey")
+        assertFalse(back.execLocked)
+        assertTrue(back.works.none { it.locked })
     }
 
     @Test fun `chapters for a vendor - only its works, chapter 0 locked, no change request outside them`() {
@@ -547,6 +618,13 @@ class AlbumTest {
         val mine = ch(log = demoLog + raise(6, 50, "change", "membrane spec"), viewer = vendor)
         assertEquals(listOf(50), mine.changeRequests.map { it.id })
         assertNotNull(mine.works.first { it.id == 50 }.cr)
+        // the DECIDED requests follow the same rule (the prototype: done.length && (!vendor() || c.mine)): 90's answer is not
+        // the vendor's to see, 50's is
+        val decided = demoLog + clear(7, 90, "approved", "add", "2026-10-27") + raise(8, 50, "change") + clear(9, 50, "declined", "change", "2026-10-28")
+        val v = ch(log = decided, viewer = vendor).works.associateBy { it.id }
+        assertEquals(emptyList(), v[90]!!.decided)
+        assertEquals(listOf(CrOutcome.DECLINED), v[50]!!.decided.map { it.outcome })
+        assertEquals(listOf(CrOutcome.APPROVED), ch(log = decided, viewer = pm).works.first { it.id == 90 }.decided.map { it.outcome }, "the PM sees it")
     }
 
     @Test fun `chapters for the client - accepted vendor photos and staff photos, nothing unfiled`() {
@@ -594,6 +672,10 @@ class AlbumTest {
         assertNull(c.works.first { it.id == 90 }.cr)
         // the log saying 140 is Done does not close the album: the store is the state
         assertFalse(ch(emptyList(), log = listOf(state(1, 140, "Done")), states = emptyMap()).closed)
+        // 140 recorded but not Done: open, and no closing time whatever its row's time
+        val open = ch(emptyList(), q = "Client approved", states = mapOf(140 to WorkState("In progress", 3, "2026-12-01T05:00:00.000Z")))
+        assertFalse(open.closed)
+        assertNull(open.closedAt)
     }
 
     // ---- the writer gates ------------------------------------------------------------
@@ -730,7 +812,32 @@ class AlbumTest {
         val a = Album.crAnswerOp(m, live, 90, CrOutcome.APPROVED, " 2026-10-27 ", "on a call", Random(3))
         assertEquals(listOf("approved", "remove", "on a call", "2026-10-27", "0"), listOf(a.value, a.prev, a.note, a.clientAt, a.base))
         assertEquals("", Album.crAnswerOp(m, live, 90, CrOutcome.WITHDRAWN, "", "", Random(4)).clientAt)
-        assertEquals(Album.MAX_NOTE, Album.stateOp(m, 10, "Done", "On hold", "x".repeat(600)).note.length)
+        // S5's caps (asis.js validLogEntry, validPhoto) are on the TRIMMED text, and over one is a 400 that drops the op for good:
+        // every builder trims, then cuts
+        val long = "x".repeat(600)
+        assertEquals(Album.MAX_NOTE, Album.stateOp(m, 10, "Done", "On hold", long).note.length)
+        assertEquals(Album.MAX_NOTE, Album.crRaiseOp(m, 50, CrKind.CHANGE, long).note.length)
+        assertEquals(Album.MAX_NOTE, Album.crAnswerOp(m, live, 90, CrOutcome.APPROVED, "2026-10-27", how = long).note.length)
+        assertEquals("x".repeat(Album.MAX_NOTE), Album.crRaiseOp(m, 50, CrKind.CHANGE, "   " + long).note, "trimmed before it is cut")
+        assertEquals(500, Album.MAX_NOTE)
+    }
+
+    @Test fun `photoOp holds the caption and the room to S5's caps, trimmed first - S5's 400 would drop the record and its JPEG`() {
+        assertEquals(500, Album.MAX_CAPTION)
+        assertEquals(140, Album.MAX_ROOM)
+        val p = Album.photoOp(90, "r".repeat(200), "x".repeat(600))
+        assertEquals(Album.MAX_CAPTION, p.caption.length)
+        assertEquals(Album.MAX_ROOM, p.room!!.length)
+        // trimmed first: 500 characters between spaces are all kept (a cut before the trim would lose two)
+        val q = Album.photoOp(90, "  Kitchen  ", "  " + "y".repeat(500) + "  ")
+        assertEquals("y".repeat(500), q.caption)
+        assertEquals("Kitchen", q.room)
+        // a blank room is none, as S5 stores it; a caption S5 accepts is sent as it is
+        assertNull(Album.photoOp(90, "   ", "units in").room)
+        assertNull(Album.photoOp(90, null, "units in").room)
+        assertEquals("units in", Album.photoOp(90, null, "units in").caption)
+        // the queued tile shows what S5 will store
+        assertEquals(Album.MAX_CAPTION, Album.provisionalPhoto(p, Album.PM, "pm@x", "P M", "2026-10-24T05:00:00.000Z").caption.length)
     }
 
     // ---- the outbox and the verdict table -------------------------------------------
@@ -773,9 +880,12 @@ class AlbumTest {
         val p = Photo("ALB-d", 10, "2026-10-24T05:01:00.000Z", room = "Kitchen", caption = "debris out", by = "pm@x")
         val n2 = Album.afterPost(next, opD, Answer(photo = p))
         assertEquals("ALB-d", n2.mirror!!.photos.last().id)
-        val n3 = Album.afterPost(n2, Op("ALB-z", Album.OP_PHOTO, 10), Answer(photo = p.copy(bytes = 123456)))
+        // the JPEG's answer is {ok, written, bytes} (asis.js), no id and no row: the bytes land on the op's photo, nothing else moves
+        val n3 = Album.afterPost(n2, opD, Answer(bytes = BytesPatch("ALB-d", 123456)))
         assertEquals(demoItems.size + 1, n3.mirror!!.photos.size)
-        assertEquals(123456L, n3.mirror!!.photos.first { it.id == "ALB-d" }.bytes)
+        assertEquals(p.copy(bytes = 123456), n3.mirror!!.photos.first { it.id == "ALB-d" })
+        assertEquals(n2.mirror!!.photos.filter { it.id != "ALB-d" }, n3.mirror!!.photos.filter { it.id != "ALB-d" })
+        assertEquals(n2.mirror!!.photos, Album.merged(n2.mirror, Answer(bytes = BytesPatch("ALB-0000000000ff", 9)))!!.photos, "no row of that id: nothing added")
         // an entry already in the log (a lost 200, then the GET, then the replay) is replaced, not doubled
         assertEquals(5, Album.afterPost(next, opA, Answer(e.copy(note = "same row"))).mirror!!.log.size)
         // an op not in the queue (already dropped) changes nothing
@@ -802,17 +912,54 @@ class AlbumTest {
         assertEquals("2", Album.afterPost(Outbox(mirror, q), opA, Answer()).queue[1].base)
     }
 
-    @Test fun `a review's answer carries its log row - the next state op on its work takes that seq, the next review of the photo its review_at`() {
+    @Test fun `a review's answer is S5's flat body - the next state op on its work takes its row's seq, the next review of the photo its review_at`() {
         val rv = Op("ALB-r1", Album.OP_REVIEW, 50, "", Album.REVIEW_ACCEPTED, photo = "S7")
         val st = Op("ALB-s", Album.KIND_STATE, 50, "3", "Done", "In progress")
         val rv2 = Op("ALB-r2", Album.OP_REVIEW, 50, "", Album.REVIEW_INTERNAL, photo = "S7")
         val row = Entry(9, "ALB-r1", Album.KIND_REVIEW, 50, Album.REVIEW_ACCEPTED, Album.REVIEW_PENDING, photo = "S7", at = "2026-10-24T06:00:00.000Z")
-        val photo = demoItems.first { it.id == "S7" }.copy(review = Album.REVIEW_ACCEPTED, reviewAt = "2026-10-24T06:00:00.000Z")
-        val next = Album.afterPost(Outbox(mirror, listOf(rv, st, rv2)), rv, Answer(entry = row, photo = photo))
+        // asis.js: json({ ok: true, written: true, id: v.id, photo: id, ...review, entry }) -- `photo` is the id, the review fields flat, no row
+        val patch = ReviewPatch("S7", Album.REVIEW_ACCEPTED, "pm@x", "P M", "2026-10-24T06:00:00.000Z")
+        val next = Album.afterPost(Outbox(mirror, listOf(rv, st, rv2)), rv, Answer(entry = row, review = patch))
         assertEquals(listOf("ALB-s", "ALB-r2"), next.queue.map { it.id })
         assertEquals("9", next.queue[0].base)
         assertEquals("2026-10-24T06:00:00.000Z", next.queue[1].base)
-        assertEquals(Album.REVIEW_ACCEPTED, next.mirror!!.photos.first { it.id == "S7" }.review)
+        // the mirror's own row is patched, never replaced: still the vendor's photo on 50, its JPEG landed
+        val was = demoItems.first { it.id == "S7" }
+        assertEquals(was.copy(review = Album.REVIEW_ACCEPTED, reviewBy = "pm@x", reviewByName = "P M", reviewAt = "2026-10-24T06:00:00.000Z"),
+            next.mirror!!.photos.first { it.id == "S7" })
+        assertNull(Album.review(pm, next.mirror!!.photos.first { it.id == "S7" }, Album.REVIEW_INTERNAL), "still a vendor's photo to review")
+        assertEquals(demoItems.size, next.mirror!!.photos.size)
+        // the rebase reads the answer alone: it holds with no mirror (K2 GETs after a drain)
+        val bare = Album.afterPost(Outbox(null, listOf(rv, st, rv2)), rv, Answer(entry = row, review = patch))
+        assertEquals(listOf("9", "2026-10-24T06:00:00.000Z"), bare.queue.map { it.base })
+        assertNull(bare.mirror)
+        // a patch for a photo the mirror does not hold adds nothing: a patch is not a row
+        assertEquals(mirror.photos, Album.merged(mirror, Answer(review = ReviewPatch("ALB-0000000000ff", Album.REVIEW_ACCEPTED)))!!.photos)
+    }
+
+    @Test fun `a review rebases only a LATER review of the SAME photo, and a review op carries its photo's work`() {
+        val p7 = demoItems.first { it.id == "S7" }
+        val p8 = vend("S8", 50, "Demo Waterproofing Co.", at = "2026-10-22T05:50:00.000Z")
+        val rA = Album.reviewOp(p7, Album.REVIEW_ACCEPTED, Random(21))
+        val rB = Album.reviewOp(p8, Album.REVIEW_ACCEPTED, Random(22))
+        val rA2 = Album.reviewOp(p7, Album.REVIEW_INTERNAL, Random(23))
+        // a review's work is its photo's: what a 409 drops by, and what its log row rebases
+        assertEquals(listOf(50, 50, 50), listOf(rA, rB, rA2).map { it.work })
+        assertEquals(30,Album.reviewOp(p7.copy(work = 30), Album.REVIEW_ACCEPTED).work)
+        val t = "2026-10-24T06:00:00.000Z"
+        val rowA = Entry(9, rA.id, Album.KIND_REVIEW, 50, Album.REVIEW_ACCEPTED, Album.REVIEW_PENDING, photo = "S7", at = t)
+        // two photos on one work: posting S7's review moves S7's next review only, never S8's
+        val q = Album.afterPost(Outbox(mirror, listOf(rA, rB, rA2)), rA, Answer(entry = rowA, review = ReviewPatch("S7", Album.REVIEW_ACCEPTED, reviewAt = t))).queue
+        assertEquals(listOf(rB, rA2.copy(base = t)), q)
+        // an answer naming another photo hands no review_at on
+        val other = Album.afterPost(Outbox(mirror, listOf(rA, rA2)), rA, Answer(review = ReviewPatch("S8", Album.REVIEW_ACCEPTED, reviewAt = t))).queue
+        assertEquals(listOf(rA2), other)
+        // an EARLIER review of the same photo is not touched: only a later one rode on this one
+        val early = rA2.copy(base = "old")
+        assertEquals(listOf(early), Album.afterPost(Outbox(mirror, listOf(early, rA)), rA, Answer(entry = rowA, review = ReviewPatch("S7", Album.REVIEW_ACCEPTED, reviewAt = t))).queue)
+        // a posted review op (built by reviewOp) moves the base of the next state op on its photo's work
+        val st = Album.stateOp(mirror, 50, "In progress", "Done", "", Random(24))
+        assertEquals("9", Album.afterPost(Outbox(mirror, listOf(rA, st)), rA, Answer(entry = rowA, review = ReviewPatch("S7", Album.REVIEW_ACCEPTED, reviewAt = t))).queue.single().base)
     }
 
     @Test fun `a three-op offline chain on one work - posted, refused, posted - each op on the base S5 really has`() {
@@ -864,10 +1011,15 @@ class AlbumTest {
         val n2 = Album.afterConflict(box, opB, "x", Answer(cur, w))
         assertEquals(listOf("ALB-a", "ALB-c", "ALB-e"), n2.queue.map { it.id })
         assertEquals(listOf("ALB-b", "ALB-d"), n2.dropped.map { it.id })
-        // a 409 on the review: its photo's work is 50, nothing else queued on 50
-        val n3 = Album.afterConflict(box, opE, "Reviewed meanwhile", Answer(photo = demoItems.first { it.id == "S7" }.copy(review = Album.REVIEW_INTERNAL)))
+        // a 409 on the review: its photo's work is 50, nothing else queued on 50; the body is {error, photo: id, ...review} (asis.js)
+        val n3 = Album.afterConflict(box, opE, "Reviewed meanwhile", Answer(review = ReviewPatch("S7", Album.REVIEW_INTERNAL, "staff@x", "", "2026-10-23T05:00:00.000Z")))
         assertEquals(listOf("ALB-a", "ALB-b", "ALB-c", "ALB-d"), n3.queue.map { it.id })
-        assertEquals(Album.REVIEW_INTERNAL, n3.mirror!!.photos.first { it.id == "S7" }.review)
+        val s7 = demoItems.first { it.id == "S7" }
+        assertEquals(s7.copy(review = Album.REVIEW_INTERNAL, reviewBy = "staff@x", reviewAt = "2026-10-23T05:00:00.000Z"), n3.mirror!!.photos.first { it.id == "S7" })
+        // "No image yet" is the same shape: the vendor's row keeps its work, party and bytes, so the PM's queue keeps it
+        val noImg = Album.afterConflict(Outbox(mirror, listOf(opE)), opE, "No image yet", Answer(review = ReviewPatch("S7", Album.REVIEW_PENDING)))
+        assertEquals(s7, noImg.mirror!!.photos.first { it.id == "S7" })
+        assertEquals(Album.pending(mirror.photos), Album.pending(noImg.mirror!!.photos))
         // a 409 on an answer carries the scope as stored (asis.js `...sc`): the mirror takes it
         val n4 = Album.afterConflict(box, opC, "The scope was changed meanwhile", Answer(scope = demoScope + 85, scopeAt = "2026-10-29T05:00:00.000Z"))
         assertEquals(demoScope + 85, n4.mirror!!.scope)
@@ -886,6 +1038,16 @@ class AlbumTest {
         val n2 = Album.afterLocked(next, opC, banner)
         assertEquals(listOf("ALB-e"), n2.queue.map { it.id })
         assertEquals(4, n2.dropped.size)
+        // the LOG POST's locked 409 echoes the work, its newest entry and the scope (asis.js `...cur`): the mirror takes them;
+        // the photo record's locked 409 carries nothing (above), so the mirror stays
+        val cur = state(6, 10, "Done", "In progress", "kept", at = "2026-10-23T05:00:00.000Z")
+        val w = Work(10, "Done", "pm@x", "P M", cur.at, 6, true, null, 1)
+        val n3 = Album.afterLocked(box, opA, banner, Answer(cur, w, scope = demoScope + 85, scopeAt = "2026-10-29T05:00:00.000Z"))
+        assertEquals(listOf("ALB-c", "ALB-e"), n3.queue.map { it.id })
+        assertEquals(w, n3.mirror!!.works.first { it.id == 10 })
+        assertEquals(cur, n3.mirror!!.log.first { it.id == cur.id })
+        assertEquals(demoScope + 85, n3.mirror!!.scope)
+        assertEquals(6L, Album.baseOf(n3.mirror, 10))
     }
 
     @Test fun `afterRefused - dropped for good with one note - the next op that rode on it takes back S5's base and prev`() {
@@ -905,6 +1067,39 @@ class AlbumTest {
         val r2 = Op("ALB-r2", Album.OP_REVIEW, 50, "stale", Album.REVIEW_INTERNAL, photo = "S7")
         assertEquals(r2.copy(base = "2026-10-21T06:00:00.000Z"), Album.afterRefused(Outbox(mirror, listOf(r1, r2)), r1, "x").queue.single())
         // 401 / 404 / 5xx / IO: no transition exists -- the queue waits for the next pass (the verdict says STOP or RELOGIN)
+    }
+
+    @Test fun `a change request rides on the op before it like any log op - its base moves, its prev (the kind it answers) never takes a state`() {
+        val m = View(Album.PM, works = listOf(Work(10, "Done", at = "2026-10-01T04:00:00.000Z", seq = 6)), log = listOf(state(6, 10, "Done", "In progress")))
+        // 1. a state write then a raise on the same work: the raise rides on the state's row (S5's base is the newest seq of ANY kind)
+        val st = Album.stateOp(m, 10, "Done", "On hold", "snag", Random(31))
+        val cr = Album.crRaiseOp(m, 10, CrKind.REMOVE, "client drops it", Random(32))
+        val posted = Album.afterPost(Outbox(m, listOf(st, cr)), st, Answer(state(7, 10, "On hold", "Done", "snag").copy(id = st.id)))
+        assertEquals(listOf(cr.copy(base = "7")), posted.queue)
+        // 2. a raise refused, then an answer queued on it: the answer inherits the raise's base -- what S5 still has
+        val raise = Op("ALB-k1", Album.KIND_CR_RAISE, 10, "6", "remove")
+        val ans = Op("ALB-k2", Album.KIND_CR_CLEAR, 10, "99", "approved", "remove", clientAt = "2026-10-27")
+        assertEquals(listOf(ans.copy(base = "6")), Album.afterRefused(Outbox(m, listOf(raise, ans)), raise, "x").queue)
+        // 3. a state write refused, then an answer: the base is inherited, the prev stays the kind it answers -- never a state name
+        val st2 = Op("ALB-k3", Album.KIND_STATE, 10, "6", "On hold", "Done", "snag")
+        val q3 = Album.afterRefused(Outbox(m, listOf(st2, ans)), st2, "x").queue
+        assertEquals(listOf(ans.copy(base = "6")), q3)
+        assertEquals(CrKind.REMOVE, Album.provisional(q3.single(), 0, Album.PM, "pm@x", "P M", "2026-10-28T05:00:00.000Z").crKind, "a remove shows as a remove")
+    }
+
+    @Test fun `a refused state write hands its prev to the next STATE op, past a change request queued between them`() {
+        val m = View(Album.PM, works = listOf(Work(10, "Done", at = "2026-10-01T04:00:00.000Z", seq = 6)), log = listOf(state(6, 10, "Done", "In progress")))
+        val s1 = Album.stateOp(m, 10, "Done", "On hold", "snag", Random(41))
+        val cr = Album.crRaiseOp(m, 10, CrKind.CHANGE, "membrane spec", Random(42))
+        val s2 = Album.stateOp(m, 10, "On hold", "In progress", "", Random(43))
+        assertEquals(listOf("6", "6", "6"), listOf(s1, cr, s2).map { it.base })
+        // s1 refused (S5 still holds Done at 6): the raise takes the base, the next STATE op the prev
+        var o = Album.afterRefused(Outbox(m, listOf(s1, cr, s2)), s1, "refused")
+        assertEquals(listOf(cr, s2.copy(prev = "Done")), o.queue)
+        // the raise posts as seq 7: s2 rides on it, from the state S5 really has
+        o = Album.afterPost(o, cr, Answer(Entry(7, cr.id, Album.KIND_CR_RAISE, 10, "change", note = "membrane spec")))
+        assertEquals(listOf(s2.copy(base = "7", prev = "Done")), o.queue)
+        assertEquals(Album.stateOf(o.mirror!!.log, 10), o.queue.single().prev, "the prev S5's guard compares with the state it derives")
     }
 
     @Test fun `a null mirror stays null through every transition - a fragment cannot stand in for a GET`() {
@@ -956,6 +1151,24 @@ class AlbumTest {
         val m = Album.mergedLog(a, b)
         assertEquals(listOf(1L, 2L, 3L), m.map { it.seq })
         assertEquals("again", m.last().note)
+    }
+
+    @Test fun `paged takes everything but the log from the newer page - and an answer with no baseline clears the scope`() {
+        val first = View(Album.PM, scope = listOf(10), scopeAt = "2026-10-26T05:00:00.000Z", quoteStage = "Estimated", quoteStageAt = "2026-10-25T05:00:00.000Z",
+            works = listOf(Work(10, "In progress", at = "2026-10-20T05:00:00.000Z", seq = 2)), log = listOf(state(2, 10, "In progress")), logNext = 2, logMore = true)
+        // a write landed between the two reads: the newer page's works[] is ahead of any log row the phone holds
+        val page = View(Album.PM, scope = listOf(10, 90), scopeAt = "2026-10-28T05:00:00.000Z", quoteStage = "Client approved", quoteStageAt = "2026-10-27T05:00:00.000Z",
+            works = listOf(Work(10, "Done", at = "2026-10-28T05:00:00.000Z", seq = 9)), log = listOf(state(3, 10, "Done", "In progress")), logNext = 3, logMore = false)
+        val m = Album.paged(first, page)
+        assertEquals(page.works, m.works)
+        assertEquals(page.copy(log = m.log), m, "every field but the log is the newer page's")
+        assertEquals(listOf(2L, 3L), m.log.map { it.seq })
+        assertEquals(9L, Album.baseOf(m, 10), "the base from the newer works[]: a stale one is answered 409")
+        // a scope answer of null with its stamp is "no baseline": the mirror's scope goes, it is not kept
+        val cleared = Album.merged(mirror, Answer(scope = null, scopeAt = ""))!!
+        assertNull(cleared.scope)
+        assertEquals("", cleared.scopeAt)
+        assertEquals(demoScope, Album.merged(mirror, Answer())!!.scope, "no scope in the answer at all: kept")
     }
 
     @Test fun `450 log rows paged 200, 200, 50 derive the same states and bases as S5's works`() {

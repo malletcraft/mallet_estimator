@@ -119,8 +119,14 @@ object Album {
     const val PHOTO = "photo"
     const val PHOTO_360 = "360"
 
-    /** S5's cap on a remark or a CR note (`note` <= 500). */
+    /**
+     * S5's caps (asis.js ALBUM_MAX_NOTE, _CAPTION, _ROOM), each on the TRIMMED text: a remark or a CR
+     * note, a photo's caption, a photo's room. Over a cap S5 answers 400, which drops the op for good,
+     * so the op builders trim and cut to it ([clip]).
+     */
     const val MAX_NOTE = 500
+    const val MAX_CAPTION = 500
+    const val MAX_ROOM = 140
 
     /**
      * A change request's KIND (27 Oct 2026; S5 CR_KINDS), on the cr_raise row's `value`: [ADD] a
@@ -261,9 +267,11 @@ object Album {
 
     /**
      * One row of the append-only log (`log[]` and `stages[]`). `work` null on stage rows; `photo`
-     * on review rows. A change request's rows read the way S5's logView reads them ([crKind],
-     * [crOutcome]): a raise's `value` is its kind, a clear's `value` the client's answer and its
-     * `prev` the kind it answered.
+     * on review rows. A `stages[]` row comes from S5's stageView, which sends NO `kind` (S5's query is
+     * `kind = 'stage'`), so a mapper may leave [kind] blank there: [quoteAt] reads every row it is
+     * given as a stage move. A change request's rows read the way S5's logView reads them
+     * ([crKind], [crOutcome]): a raise's `value` is its kind, a clear's `value` the client's answer
+     * and its `prev` the kind it answered.
      */
     data class Entry(
         val seq: Long,
@@ -353,7 +361,7 @@ object Album {
      * `changeRequests`, `closed` and `closedAt` are S5's figures AS SENT, for a list; the screen
      * derives its own through [chapters], so a merge after a POST never leaves a count behind.
      * `logNext` / `logMore` are S5's cursor: a `?since=` page is followed while `logMore`
-     * ([paged]).
+     * ([paged]). `stages` are S5's `stages[]`, every row a stage move (stageView sends no `kind`).
      */
     data class View(
         val role: String,
@@ -611,11 +619,14 @@ object Album {
      * moves (`stage` rows) AND the current stage at its quote_stage_at ([current], [currentAt])
      * are one history, in time order; the newest point at or before [at] wins, else Survey. The
      * current point matters for a project that stood at a later stage before migration 0008 (26
-     * Oct 2026) began logging moves: without it every capture read Survey (critic G2b).
+     * Oct 2026) began logging moves: without it every capture read Survey (critic G2b). Every row of
+     * [stages] is a move whatever its `kind`: S5's `stages[]` is its `kind = 'stage'` query and its
+     * stageView sends no kind, so a kind test would drop every move S5 sends (only a name outside the
+     * six is left out).
      */
     fun quoteAt(stages: List<Entry>, at: String, current: String? = null, currentAt: String? = null): String {
         val h = ArrayList<Pair<String, Long>>()
-        for (e in bySeq(stages)) if (e.kind == KIND_STAGE && e.value in QuoteStage.STAGES) h += e.value to t0(e.at)
+        for (e in bySeq(stages)) if (e.value in QuoteStage.STAGES) h += e.value to t0(e.at)
         if (current != null && current.trim() in QuoteStage.STAGES && !currentAt.isNullOrBlank()) h += current.trim() to t0(currentAt)
         val t = t0(at)
         var q = QuoteStage.STAGES[0]
@@ -893,13 +904,16 @@ object Album {
         return maxOf(w, l)
     }
 
+    /** [s] as S5 measures it against [max]: trimmed FIRST, then cut (a cut before the trim would lose characters S5 accepts). */
+    private fun clip(s: String, max: Int): String = s.trim().take(max)
+
     /** A state write as its op: [from] is the derived state (sent as `prev`), [remark] the note. */
     fun stateOp(mirror: View?, work: Int, from: String, to: String, remark: String, random: Random = Random.Default): Op =
-        Op(mintId(random), KIND_STATE, work, base = baseOf(mirror, work).toString(), value = to, prev = from, note = remark.take(MAX_NOTE))
+        Op(mintId(random), KIND_STATE, work, base = baseOf(mirror, work).toString(), value = to, prev = from, note = clip(remark, MAX_NOTE))
 
     /** A change request raised: its kind on `value`, the note the client reads. */
     fun crRaiseOp(mirror: View?, work: Int, kind: CrKind, note: String, random: Random = Random.Default): Op =
-        Op(mintId(random), KIND_CR_RAISE, work, base = baseOf(mirror, work).toString(), value = kind.wire, note = note.take(MAX_NOTE))
+        Op(mintId(random), KIND_CR_RAISE, work, base = baseOf(mirror, work).toString(), value = kind.wire, note = clip(note, MAX_NOTE))
 
     /**
      * The client's answer recorded: the outcome on `value`, the day the client answered on
@@ -908,16 +922,21 @@ object Album {
      */
     fun crAnswerOp(mirror: View?, log: List<Entry>, work: Int, outcome: CrOutcome, clientAt: String, how: String, random: Random = Random.Default): Op =
         Op(mintId(random), KIND_CR_CLEAR, work, base = baseOf(mirror, work).toString(), value = outcome.wire,
-            prev = crOf(log, work)?.crKind?.wire ?: CrKind.ADD.wire, note = how.take(MAX_NOTE), clientAt = clientAt.trim())
+            prev = crOf(log, work)?.crKind?.wire ?: CrKind.ADD.wire, note = clip(how, MAX_NOTE), clientAt = clientAt.trim())
 
     /** A review of [photo]: a fresh id every time (the log row's), the base its `review_at` as seen. */
     fun reviewOp(photo: Photo, state: String, random: Random = Random.Default): Op =
         Op(mintId(random), OP_REVIEW, photo.work, base = photo.reviewAt ?: "", value = state, photo = photo.id)
 
-    /** A photo record (its JPEG follows): the record's id is the photo's. */
+    /**
+     * A photo record (its JPEG follows): the record's id is the photo's. The caption and the room are
+     * held to S5's caps ([MAX_CAPTION], [MAX_ROOM]) as the notes are: S5's 400 over a cap would drop
+     * the record for good, and its JPEG with it. A blank room is none, as S5 stores it.
+     */
     fun photoOp(work: Int, room: String?, caption: String, kind: String = PHOTO, random: Random = Random.Default): Op {
         val id = mintId(random)
-        return Op(id, OP_PHOTO, work, base = "", photo = id, room = room, caption = caption, photoKind = kind)
+        return Op(id, OP_PHOTO, work, base = "", photo = id, room = room?.let { clip(it, MAX_ROOM) }?.ifEmpty { null },
+            caption = clip(caption, MAX_CAPTION), photoKind = kind)
     }
 
     /**
@@ -929,10 +948,21 @@ object Album {
     data class Outbox(val mirror: View? = null, val queue: List<Op> = emptyList(), val dropped: List<Op> = emptyList())
 
     /**
-     * What S5's answer to one op carried, typed: the row(s) the mirror takes. Absent pieces leave
-     * the mirror as it was; [scopeAt] non-null means the answer carried the scope (every log POST
-     * answer does, asis.js: an approved add or remove has just moved it), [scope] null then being
-     * "no baseline".
+     * A review answer's photo fields, as S5 sends them FLAT beside the photo's id (asis.js, the review
+     * PUT's 200, its replay and its 409s: `{photo: <id>, review, review_by, review_by_name, review_at}`)
+     * -- never a photo row. Blank = none, as S5's reviewOf writes it.
+     */
+    data class ReviewPatch(val photo: String, val review: String, val reviewBy: String = "", val reviewByName: String = "", val reviewAt: String = "")
+
+    /** A JPEG answer (`{ok, written, bytes}`, no id: the photo is the op's) as the bytes now landed on that photo. */
+    data class BytesPatch(val photo: String, val bytes: Long)
+
+    /**
+     * What S5's answer to one op carried, typed: the row(s) the mirror takes, each in the shape S5
+     * sends. [photo] is a WHOLE row (the photo record PUT's `photo`); [review] and [bytes] patch the
+     * mirror's own row by id and never stand in for one. Absent pieces leave the mirror as it was;
+     * [scopeAt] non-null means the answer carried the scope (every log POST answer does, asis.js:
+     * an approved add or remove has just moved it), [scope] null then being "no baseline".
      */
     data class Answer(
         val entry: Entry? = null,
@@ -940,6 +970,8 @@ object Album {
         val photo: Photo? = null,
         val scope: List<Int>? = null,
         val scopeAt: String? = null,
+        val review: ReviewPatch? = null,
+        val bytes: BytesPatch? = null,
     )
 
     /** The verdict table of "Offline and conflicts". */
@@ -997,7 +1029,12 @@ object Album {
      */
     fun paged(mirror: View, page: View): View = page.copy(log = mergedLog(mirror.log, page.log))
 
-    /** The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row replaced, a photo replaced or added, the scope when sent. */
+    /**
+     * The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row
+     * replaced, a whole photo row replaced or added, a review or a bytes patch applied to the photo
+     * row of that id (a row the mirror does not hold is left to the next GET: a patch is not a row),
+     * the scope when sent.
+     */
     fun merged(mirror: View?, a: Answer): View? {
         if (mirror == null) return null
         var m: View = mirror
@@ -1010,6 +1047,13 @@ object Album {
             val rows = if (m.photos.any { it.id == p.id }) m.photos.map { if (it.id == p.id) p else it } else m.photos + p
             m = m.copy(photos = rows)
         }
+        a.review?.let { r ->
+            m = m.copy(photos = m.photos.map {
+                if (it.id != r.photo) it
+                else it.copy(review = r.review, reviewBy = r.reviewBy.ifBlank { null }, reviewByName = r.reviewByName.ifBlank { null }, reviewAt = r.reviewAt.ifBlank { null })
+            })
+        }
+        a.bytes?.let { b -> m = m.copy(photos = m.photos.map { if (it.id == b.photo) it.copy(bytes = b.bytes) else it }) }
         a.scopeAt?.let { m = m.copy(scope = a.scope, scopeAt = it) }
         return m
     }
@@ -1017,10 +1061,12 @@ object Album {
     private fun without(queue: List<Op>, id: String): List<Op> = queue.filter { it.id != id }
 
     /**
-     * The queue after [done] leaves it, with the op that next rides on its base given the new one.
-     * A LOG op on the same work takes [seq] (the base is the work's newest seq of ANY kind, so a
-     * review's row moves it too) and, when [prev] is given and both are state ops, [prev]; a review
-     * of the same photo takes [reviewAt].
+     * The queue after [done] leaves it, with the ops that next ride on it given what S5 now has.
+     * The next LOG op on the same work, of any kind, takes [seq] (the base is the work's newest seq
+     * of ANY kind, so a review's row moves it too); the next STATE op on the same work takes [prev]
+     * when given -- looked up on its own, because a change request between two state writes carries
+     * a base but no state (its `prev` is the kind it answers); a review of the same photo takes
+     * [reviewAt].
      */
     private fun rebased(queue: List<Op>, done: Op, seq: Long?, prev: String?, reviewAt: String?): List<Op> {
         val i = queue.indexOfFirst { it.id == done.id }
@@ -1029,7 +1075,11 @@ object Album {
         val after = queue.subList(i + 1, queue.size).map { it.id }.toSet()
         if (seq != null) {
             val k = rest.indexOfFirst { it.id in after && it.kind in LOG_KINDS && it.work == done.work }
-            if (k >= 0) rest[k] = rest[k].copy(base = seq.toString(), prev = if (prev != null && rest[k].kind == KIND_STATE) prev else rest[k].prev)
+            if (k >= 0) rest[k] = rest[k].copy(base = seq.toString())
+        }
+        if (prev != null) {
+            val k = rest.indexOfFirst { it.id in after && it.kind == KIND_STATE && it.work == done.work }
+            if (k >= 0) rest[k] = rest[k].copy(prev = prev)
         }
         if (reviewAt != null && done.kind == OP_REVIEW) {
             val k = rest.indexOfFirst { it.id in after && it.kind == OP_REVIEW && it.photo == done.photo }
@@ -1042,12 +1092,13 @@ object Album {
      * 200 `written: true`: the op leaves the queue and the mirror takes what S5 sent back; the
      * next queued op on the same work rides on S5's new row -- its base becomes the answer
      * entry's seq (a review's answer carries its log row too), and the next review of the same
-     * photo takes the photo's new `review_at` -- so an offline chain of writes on one work is not
-     * answered "Changed meanwhile" by its own first link. A null mirror stays null -- a fragment
-     * cannot stand in for a GET, and K2 GETs after a drain.
+     * photo takes the `review_at` of the answer's [ReviewPatch] for THAT photo -- so an offline
+     * chain of writes on one work is not answered "Changed meanwhile" by its own first link. The
+     * rebase reads the answer alone, so it holds with no mirror. A null mirror stays null -- a
+     * fragment cannot stand in for a GET, and K2 GETs after a drain.
      */
     fun afterPost(o: Outbox, op: Op, a: Answer): Outbox {
-        val reviewAt = if (op.kind == OP_REVIEW && a.photo != null && a.photo.id == op.photo) a.photo.reviewAt.orEmpty() else null
+        val reviewAt = if (op.kind == OP_REVIEW && a.review != null && a.review.photo == op.photo) a.review.reviewAt else null
         val q = if (o.queue.any { it.id == op.id }) rebased(o.queue, op, a.entry?.seq, null, reviewAt) else without(o.queue, op.id)
         return o.copy(mirror = merged(o.mirror, a), queue = q)
     }
@@ -1081,17 +1132,22 @@ object Album {
      * 409 `locked: true`: S5, the authority, answered the lock banner -- the quote stage there
      * is not Client approved and no work is recorded, whatever the phone believed (an unread
      * stage). The op and every later queued op on the same work are dropped, each row saying
-     * so in S5's words; the body carries no rows, so the mirror is as it was, and the next GET
-     * (or the quote-stage refresh) tells the phone the stage.
+     * so in S5's words. The mirror takes what the body echoes, as on [afterConflict]: the log
+     * POST's locked 409 carries the work row, its newest entry and the scope (asis.js `...cur`);
+     * the photo record's carries nothing, so [a] is empty there and the mirror stays as it was.
+     * The next GET (or the quote-stage refresh) tells the phone the stage.
      */
-    fun afterLocked(o: Outbox, op: Op, error: String): Outbox = dropWork(o, op, error)
+    fun afterLocked(o: Outbox, op: Op, error: String, a: Answer = Answer()): Outbox =
+        dropWork(o, op, error).let { it.copy(mirror = merged(it.mirror, a)) }
 
     /**
      * 400 / 403 / 413 / 415: refused for good -- dropped with one note (S5's [error]); nothing
      * else moves on S5, so ops after it, on the same work or not, still go -- and the next one
-     * that rode on it takes back what S5 still has: a log op on the same work inherits the
-     * refused log op's base, and, both being state writes, its `prev`; the next review of the same
-     * photo inherits the refused review's base. The mirror is untouched.
+     * that rode on it takes back what S5 still has: the next log op on the same work, of any
+     * kind, inherits the refused log op's base, and a refused STATE write's `prev` goes to the next
+     * state op on the work, past any change request queued between them (S5 still holds the state
+     * the refused op left); the next review of the same photo inherits the refused review's base.
+     * The mirror is untouched.
      */
     fun afterRefused(o: Outbox, op: Op, error: String): Outbox {
         if (o.queue.none { it.id == op.id }) return o
