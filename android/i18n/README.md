@@ -358,6 +358,15 @@ English and in Marathi by CaptureFilingTest), as the project line is.
   refusals ("Could not re-file on the bench: …"), all `MainActivity.kt`'s (M2); the camera's own note on the X3 row
   (`cameraNote`, the camera module's, M6).
 
+**The FW2 review (3 Nov 2026)** adds ONE phone text, born keyed: `app.not_refiled_web_x` — `Not re-filed on the
+web: {why}` / `वेबवर पुन्हा फाइल झाले नाही: {why}` (worded as `app.not_on_web_x` and `app.msg.could_not_refile_x`;
+`{why}` is S5's own message, data), drawn under survey prep's web line (`SurveyPrepScreen.kt`, which stays in
+`ported.txt`) when S5 refused a re-file by work, so the disagreement between the phone's filing and S5's is on the
+screen and not only in logcat; the tables hold 1,793 keys and Tx was regenerated. No other text changes: the photo's
+WORK line for a project only on this phone now reads `Survey` (`Masters.quote`, the prototype's own photo line,
+index61c2.html:7249) where FW2 drew `wish.not_on_s5_yet`, and `wish.not_read_yet` is read on the same line wherever
+the phone cannot place the capture's stage (`Album.quoteTakenAt`) — both keys the tables had.
+
 ## What is here
 
 | File | What it is | Who writes it |

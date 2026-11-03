@@ -259,6 +259,7 @@ app.not_annotated	app_not_annotated	static	-
 app.not_connected	app_not_connected	static	-
 app.not_done_yet_tap	app_not_done_yet_tap	static	-
 app.not_on_web_x	app_not_on_web_x	template	why: String
+app.not_refiled_web_x	app_not_refiled_web_x	template	why: String
 app.not_signed_in	app_not_signed_in	static	-
 app.not_started_tap_start	app_not_started_tap_start	static	-
 app.not_synced_still_only	app_not_synced_still_only	static	-

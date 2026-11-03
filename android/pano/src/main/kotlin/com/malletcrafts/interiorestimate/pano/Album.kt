@@ -510,6 +510,17 @@ object Album {
     }
 
     /**
+     * The PHOTO's WORK line's quote stage (the prototype's captureScreen, index61c2.html 8205-8207; FW2 review):
+     * [quoteLead] of [takenAt], [quoteTakenAt]'s answer -- except for a project only on this phone, which reads
+     * `Survey`, as the prototype's quoteAt answers for a project S5 does not list (7249: "its captures are filed
+     * at Survey, S5's default for the project its first upload creates"). The prototype's two rows differ here
+     * on purpose -- the capture SHEET's row reads `not on S5 yet` for the same project (workRow61c, 7878) -- and
+     * the phone follows each row's own wording.
+     */
+    fun photoQuoteLead(tx: Tx, line: QuoteStage.ProjectLine, takenAt: String?): String =
+        if (line.kind == QuoteStage.LineKind.LOCAL) Masters.quote(tx, QuoteStage.STAGES[0]) else quoteLead(tx, line, takenAt)
+
+    /**
      * The WORK row's and line's second text (the prototype's workRow61c and captureScreen, v61c §4.3-§4.4,
      * P23): for the Quote journey the stage ([quoteLead]), for an unfiled capture `not filed to a work`, for a
      * work its [state] as shown -- then, before approval, the lock (` · locked until the client approves the
@@ -530,7 +541,11 @@ object Album {
      * before AS1 at 0, so 0 needs no re-file -- and that this phone has not already told S5 ([told], the work
      * the record PUT or a re-file last sent, [toldKnown] false for an upload from before FW2, which told
      * nothing). The done-mark converging to the filing is what makes it once per capture: a later pick on the
-     * phone, or a record that went up while the pick moved, is caught by the next sync.
+     * phone, or a record that went up while the pick moved, is caught by the next sync. A re-file S5 REFUSED
+     * leaves the mark as it was (FW2 review): S5 did not take the work, so the two copies disagree and the sweep
+     * asks again at every sync -- one small PUT -- until S5 takes it, a sign-in or a re-keyed ERP key being the
+     * usual cure; marking it told would have recorded the disagreement as agreement for good, for a capture
+     * whose local copy was removed and so has no record PUT to carry the work ever again.
      */
     fun needsRefile(onWeb: Boolean, filing: Int?, told: Int?, toldKnown: Boolean): Boolean =
         onWeb && filing != QUOTE_WORK && !(toldKnown && told == filing)
@@ -706,6 +721,30 @@ object Album {
         var q = QuoteStage.STAGES[0]
         for ((s, ts) in h.withIndex().sortedWith(compareBy({ it.value.second }, { it.index })).map { it.value }) if (ts <= t) q = s
         return q
+    }
+
+    /**
+     * The quote stage a Quote-journey capture's WORK LINE names (captureScreen D4; port 61c slice FW2 review):
+     * [quoteAt] where the phone holds the history that answers it, and null -- `not read yet` through
+     * [photoQuoteLead] -- where it does not, so the line never prints a confident stage its inputs cannot
+     * support (the PL review's rule for the project line: an unknown stamp is `not read yet`, never an invented
+     * value). Null when:
+     *  - the stage was NAMED without its stamp ([atUnknown], QuoteStage.named): the current point cannot be
+     *    placed in time, and the project line reads `<stage> · not read yet` for the same copy;
+     *  - no mirror is held ([stages] null: AlbumSync reads one from Revisions on, so before that the current
+     *    stage at its stamp is the whole history the phone has) and the capture is OLDER than that stamp, or
+     *    the current stage is not one of the six. The prototype's quoteAt reads Survey there because it holds
+     *    the WHOLE move log, where Survey means "before the first move"; the phone cannot say that yet.
+     * A project at Survey with no stamp never moved (S5's default at creation, quote_stage_at null), so every
+     * capture of it is Survey's. With a mirror the answer is [quoteAt]'s, the album's own rule.
+     */
+    fun quoteTakenAt(stages: List<Entry>?, at: String, current: String?, currentAt: String?, atUnknown: Boolean): String? {
+        if (atUnknown) return null
+        if (stages != null) return quoteAt(stages, at, current, currentAt)
+        val cur = current?.trim().orEmpty()
+        if (cur !in QuoteStage.STAGES) return null
+        if (currentAt.isNullOrBlank()) return if (cur == QuoteStage.STAGES[0]) cur else null
+        return if (t0(at) >= t0(currentAt)) cur else null
     }
 
     // ---- the project-state store's view of the works ---------------------------------

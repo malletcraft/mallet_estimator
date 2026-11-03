@@ -23,6 +23,11 @@ import kotlin.test.assertTrue
  * the :app wiring -- the capture sheet's WORK row and Which work?, the photo's WORK line and its re-file through
  * CaptureStore.setWork and the WorkRefile job, the sweep in SyncWorker after both legs, and the deleted stage
  * pickers -- is read as source the same way.
+ *
+ * The FW2 review (3 Nov 2026) adds the photo line's own lead ([Album.photoQuoteLead]: Survey for a project only on
+ * this phone, the prototype's photo line) and the honest stage ([Album.quoteTakenAt]: null, `not read yet`, where
+ * the phone's inputs cannot support one), both pure, and reads as source that a refused re-file leaves the sweep's
+ * mark alone and is shown on survey prep's web line.
  */
 class CaptureFilingTest {
 
@@ -167,6 +172,56 @@ class CaptureFilingTest {
         assertEquals("अजून वाचलेले नाही", Album.quoteLead(Tx.MR, line(QuoteStage.LineKind.UNREAD, null), null))
     }
 
+    @Test fun `photoQuoteLead - the photo's line reads Survey for a project only on this phone, else quoteLead of the stage taken at`() {
+        // the prototype's two rows differ on a never-sent project (FW2 review): the capture sheet's row reads
+        // NOT_ON_S5_MSG (workRow61c, index61c2.html:7878), the photo's WORK line reads quoteAt's `Survey` for a
+        // project S5 does not list (7249, captureScreen 8205) -- the phone follows each row's own words
+        assertEquals("Survey", Album.photoQuoteLead(Tx.EN, line(QuoteStage.LineKind.LOCAL, null), null))
+        assertEquals("Survey", Album.photoQuoteLead(Tx.EN, line(QuoteStage.LineKind.LOCAL, null), "Client wish list"))
+        assertEquals("सर्व्हे", Album.photoQuoteLead(Tx.MR, line(QuoteStage.LineKind.LOCAL, null), null))
+        assertEquals("not on S5 yet", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.LOCAL, null), null), "the sheet's row keeps its words")
+        // a listed project: quoteLead of the stage the capture was taken at, or not read yet
+        assertEquals("Client wish list", Album.photoQuoteLead(Tx.EN, line(QuoteStage.LineKind.QUOTE, "Vendor quoted"), "Client wish list"))
+        assertEquals("not read yet", Album.photoQuoteLead(Tx.EN, line(QuoteStage.LineKind.QUOTE, "Vendor quoted"), null))
+        assertEquals("not read yet", Album.photoQuoteLead(Tx.EN, line(QuoteStage.LineKind.UNREAD, null), null))
+        assertEquals("अजून वाचलेले नाही", Album.photoQuoteLead(Tx.MR, line(QuoteStage.LineKind.EXEC, "Client approved"), null))
+    }
+
+    private fun stage(seq: Long, value: String, at: String) = Album.Entry(seq, "ALB-%012x".format(seq), Album.KIND_STAGE, null, value, at = at)
+
+    @Test fun `quoteTakenAt - the line's stage is quoteAt's with a mirror, and null where the phone cannot say (FW2 review)`() {
+        val since = "2026-10-20T06:00:00.000Z"
+        val before = "2026-10-18T05:00:00.000Z"
+        val after = "2026-10-25T05:00:00.000Z"
+        // NAMED without its stamp (QuoteStage.named, atUnknown): the current point cannot be placed, so no answer --
+        // the project line reads `<stage> · not read yet` for the same copy; quoteAt alone would print Survey
+        assertNull(Album.quoteTakenAt(null, after, "Client approved", "", true))
+        assertNull(Album.quoteTakenAt(emptyList(), after, "Client approved", "", true))
+        assertNull(Album.quoteTakenAt(listOf(stage(1, "Estimated", since)), after, "Client approved", "", true))
+        assertEquals("Survey", Album.quoteAt(emptyList(), after, "Client approved", ""), "what the line printed before the review")
+        // no mirror (before Revisions none is read): the current stage at its stamp is the whole history --
+        // a capture after the stamp is the current stage's, one before it is not known: null, not Survey
+        assertEquals("Vendor quoted", Album.quoteTakenAt(null, after, "Vendor quoted", since, false))
+        assertEquals("Vendor quoted", Album.quoteTakenAt(null, since, "Vendor quoted", since, false), "at the very moment")
+        assertNull(Album.quoteTakenAt(null, before, "Vendor quoted", since, false))
+        assertEquals("Survey", Album.quoteAt(emptyList(), before, "Vendor quoted", since), "the album's chapters keep the prototype's default")
+        // a project at Survey with no stamp never moved (S5's default at creation): every capture is Survey's
+        assertEquals("Survey", Album.quoteTakenAt(null, before, "Survey", "", false))
+        assertEquals("Survey", Album.quoteTakenAt(null, after, "Survey", null, false))
+        // a stage S5 lists without a time that is not Survey, or a name outside the six: not known
+        assertNull(Album.quoteTakenAt(null, after, "Vendor quoted", "", false))
+        assertNull(Album.quoteTakenAt(null, after, "On hold", since, false))
+        assertNull(Album.quoteTakenAt(null, after, "", since, false))
+        // with a mirror the answer is quoteAt's, the album's own rule over the whole log: Survey before the first
+        // logged move, the logged stage after it, the current point counted
+        val log = listOf(stage(1, "Client wish list", "2026-10-05T05:00:00.000Z"), stage(2, "Vendor quoted", since))
+        assertEquals("Survey", Album.quoteTakenAt(log, "2026-10-01T05:00:00.000Z", "Vendor quoted", since, false))
+        assertEquals("Client wish list", Album.quoteTakenAt(log, before, "Vendor quoted", since, false))
+        assertEquals("Vendor quoted", Album.quoteTakenAt(log, after, "Vendor quoted", since, false))
+        assertEquals("Estimated", Album.quoteTakenAt(log, "2026-10-28T05:00:00.000Z", "Estimated", "2026-10-27T05:00:00.000Z", false))
+        assertEquals("Survey", Album.quoteTakenAt(emptyList(), before, "Vendor quoted", since, false), "an empty log held is still the whole log")
+    }
+
     @Test fun `workSub - the stage, the state or not filed, then the lock before approval and tap to change after`() {
         val lock = " · locked until the client approves the estimate"
         // the capture sheet before approval (workRow61c): the Quote journey over the stage and the lock
@@ -238,7 +293,7 @@ class CaptureFilingTest {
             assertFalse(src.contains(gone), "`$gone` is gone with the stage pickers")
         assertTrue(src.contains("val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileCache?.states)"), "where the next capture files")
         assertTrue(src.contains("val capWorkFor = remember { mutableStateMapOf<String, Int>() }"), "the pick is held per project, in memory")
-        assertTrue(src.contains("if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }"), "approved with no work to file at: refused, never filed to 0")
+        assertTrue(src.contains("if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }"), "approved with no work to file at: refused, never filed to 0 (a deliberate departure from the prototype's ingest, index61c2.html:8016, which files at null; on the phone NULL is a pre-FW2 row's legacy filing)")
         assertEquals(2, Regex("""captureDate = today, stage = "",""").findAll(src).count(), "FaceWriter.begin and single get stage ''")
         assertTrue(src.contains("room = r, work = workNow, captureDate = today,"), "PendingSplit carries the work")
         assertTrue(src.contains("work = workNow))"), "the Photo insert carries the work")
@@ -247,7 +302,10 @@ class CaptureFilingTest {
         assertTrue(src.contains("onPickWork = if (capApproved) ({ refileWork = true }) else null,"), "the WORK line takes a tap after approval only")
         assertTrue(src.contains("store.setWork(cap.deviceId, work)"), "a re-file writes the store first")
         assertTrue(src.contains("if (WorkRefile.onWeb(context, cap.deviceId)) WorkRefile.enqueue(context, cap.deviceId)"), "then the job, for a capture S5 holds")
-        assertTrue(src.contains("Album.quoteAt(\n            capMirror?.stages ?: emptyList()"), "a Quote-journey capture's line reads quoteAt over the mirror")
+        assertTrue(src.contains("Album.quoteTakenAt(\n            capMirror?.stages, "), "a Quote-journey capture's line reads quoteTakenAt over the mirror, null when none is held")
+        assertTrue(src.contains("capCache.stage, capCache.at, capCache.atUnknown)"), "with the store's current point and whether its stamp is unknown")
+        assertTrue(src.contains("Album.photoQuoteLead(tx, capLine, quoteAt)"), "the photo's line takes its own lead: Survey for a project only on this phone")
+        assertTrue(src.contains("Album.quoteLead(tx, fileLine, fileLine.quote)"), "the capture sheet's row keeps quoteLead: not on S5 yet for such a project")
         assertTrue(src.contains("onDismiss = { pickWork = false; showCaptureSheet = true })"), "a dismissed Which work? reopens the capture sheet unchanged")
         assertTrue(src.contains("onDismiss = { refileWork = false })"), "a dismissed re-file changes nothing")
     }
@@ -267,6 +325,18 @@ class CaptureFilingTest {
         assertTrue(up.contains("told = AsIsUpload.Told(body[\"work\"] as Int?))"), "the record's own work is the done-mark")
         assertTrue(up.contains("val kept = told ?: runCatching { toldOf(JSONObject(f.readText())) }.getOrNull()"), "a state change keeps the mark")
         val job = app("WorkRefile.kt")
+        // FW2 review: a refusal is not agreement -- the mark is left alone (the sweep asks again next sync) and
+        // S5's words are kept beside it and drawn on survey prep's web line, not only in logcat
+        assertEquals(2, Regex("""AsIsUpload\.markTold\(ctx, id, work\)""").findAll(job).count(), "the mark is written on a 200 and on a 404 under every name, nowhere else")
+        val refused = job.substring(job.indexOf("else -> {"), job.indexOf("return Result.failure()", job.indexOf("else -> {")))
+        assertFalse(refused.contains("markTold"), "a refusal writes no done-mark")
+        assertTrue(refused.contains("AsIsUpload.markRefileRefused(ctx, id, why)"), "a refusal keeps S5's words")
+        assertTrue(up.contains("fun markRefileRefused(context: Context, id: String, why: String)"), "beside the mark")
+        assertTrue(up.contains("o.remove(\"refile\")"), "a re-file S5 takes clears them")
+        assertTrue(up.contains("fun refileRefused(context: Context, id: String): String?"), "read back for the screen")
+        val prep = app("SurveyPrepScreen.kt")
+        assertTrue(prep.contains("tx.app_not_refiled_web_x(why = why)"), "and shown, keyed, under the web line")
+        assertTrue(prep.contains("refileRefused = withContext(Dispatchers.IO) { AsIsUpload.refileRefused(context, id) }"), "read beside the state, off the main thread")
         assertTrue(job.contains("fun workName(captureId: String) = \"mcft-work-\$captureId\""), "one unique job per capture")
         assertTrue(job.contains("ExistingWorkPolicy.REPLACE"), "a later pick replaces it")
         assertTrue(job.contains("val names = listOfNotNull(c.deviceId, c.serverName?.takeIf { it.isNotBlank() && it != c.deviceId })"), "each name the capture has had: the device id, then ERP's")

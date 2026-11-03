@@ -790,6 +790,9 @@
  "app.not_on_web_x": {
   "mr": "वेबवर नाही: {why}"
  },
+ "app.not_refiled_web_x": {
+  "mr": "वेबवर पुन्हा फाइल झाले नाही: {why}"
+ },
  "app.not_signed_in": {
   "mr": "साइन इन केलेले नाही"
  },

@@ -95,7 +95,9 @@ object AsIsUpload {
      * or the work a re-file sent (WorkRefile). The sweep's done-mark, kept in the same file across every state
      * change (`told`, JSON null for not filed to a work), so a record that went up again or a job that waited
      * never loses it; absent for an upload from before FW2, whose record carried no `work` and which S5 filed
-     * at 0. Null [work] is a filing (unfiled); a missing mark is [told] answering null.
+     * at 0. Null [work] is a filing (unfiled); a missing mark is [told] answering null. A re-file S5 REFUSED
+     * moves no mark (FW2 review): the refusal is kept beside it as `refile`, S5's own words ([refileRefused]),
+     * shown on survey prep's web line and cleared by the next re-file S5 takes.
      */
     class Told(val work: Int?)
 
@@ -117,14 +119,35 @@ object AsIsUpload {
             val f = file(context, id)
             if (!f.exists()) return
             val o = JSONObject(f.readText()).put("told", work ?: JSONObject.NULL)
+            o.remove("refile")
             f.writeText(o.toString())
         }
     }
 
+    /**
+     * S5 REFUSED a re-file of this capture with [why] (WorkRefile, nothing a retry changes): the mark stays as
+     * it was, so the sweep asks again at the next sync, and the refusal is shown ([refileRefused]) instead of
+     * living only in logcat. Nothing is written for a capture that was never queued or has been forgotten.
+     */
+    fun markRefileRefused(context: Context, id: String, why: String) {
+        runCatching {
+            val f = file(context, id)
+            if (!f.exists()) return
+            f.writeText(JSONObject(f.readText()).put("refile", why).toString())
+        }
+    }
+
+    /** S5's words for the re-file it last refused of [id], or null: none refused, or one taken since. */
+    fun refileRefused(context: Context, id: String): String? = runCatching<String?> {
+        val f = file(context, id)
+        if (!f.exists()) null else JSONObject(f.readText()).optString("refile", "").ifBlank { null }
+    }.getOrNull()
+
     /** [signIn]: a "refused" that ended for want of a sign-in, so the sync re-queues it once one
      *  is held (requeueSignInRefused) -- unlike a refusal of the room itself, which waits for the
      *  person to save the survey prep again. [told]: the filing this state's record carried; null
-     *  keeps the mark the file has. */
+     *  keeps the mark the file has. A refused re-file (`refile`) is dropped with every state change:
+     *  the record going up again carries the work and writes the mark afresh. */
     internal fun setState(context: Context, id: String, state: String, error: String?, image: Boolean? = null,
                           signIn: Boolean = false, told: Told? = null) {
         runCatching {

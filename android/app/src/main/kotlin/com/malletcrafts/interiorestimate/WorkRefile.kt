@@ -44,10 +44,23 @@ import java.util.concurrent.TimeUnit
  * own "send the re-file again"), 408, 429, every 5xx and no signal are retried by WorkManager; a 401 on the
  * S5 session renews it once. Any other refusal -- 400, 403, S5's 409 for a legacy row whose stored record is
  * not a JSON object (a direct D1 fix, S5's CLAUDE.md), a 401 on the ERP key -- ends the job: nothing a retry
- * changes. The mark is written then too, naming what was SENT, so the sweep stops; the refusal is one Log.w,
- * and the next record PUT (survey prep saved again) carries the work and writes the mark afresh.
+ * changes. THE MARK IS NOT WRITTEN THEN (FW2 review): S5 did not take the work, so the phone's copy and S5's
+ * disagree, and a mark saying they agree would have stopped the sweep for good -- for a capture whose local copy
+ * was removed there is no record PUT to carry the work ever again (that is the capture S5-R exists for), and a
+ * 403 on a non-staff login or a 401 on a dead ERP key is cured by a sign-in, after which the sweep's next ask
+ * (one small PUT per sync, Album.needsRefile) lands. The refusal is one Log.w AND AsIsUpload.markRefileRefused:
+ * S5's words beside the mark, drawn on survey prep's web line (`Not re-filed on the web: …`) until a re-file S5
+ * takes clears them.
  *
- * Nothing here is shown: the WORK line draws the phone's own filing, and what S5 answered is a log line.
+ * ONE PUT PER CAPTURE AS1 UPLOADED (FW2 review, for the ship's d1-peek): the mark is written by the record PUT
+ * only since FW2, so every capture 0.3.283 (AS1) uploaded has none although its record already carried the
+ * work. The sweep sends each of those one S5-R PUT once; S5 answers 200 and sets the SAME `work` again, with
+ * `work_by` = this login and `work_at` = the sweep's time, while `updated_at`, `updated_by` and the room's
+ * current capture stay. So the stage check reads `work_by` / `work_at` on AS1 rows as this one idempotent PUT,
+ * not as a changed filing. Back-filling the mark at `done` for an upload that went up with AS1 or later would
+ * save it, and is more machinery than the one PUT it saves.
+ *
+ * The WORK line draws the phone's own filing; what S5 answered is the log line and, for a refusal, the web line.
  */
 object WorkRefile {
 
@@ -129,8 +142,10 @@ class WorkRefileWorker(context: Context, params: WorkerParameters) :
                     }
                     a.code == 503 || a.code == 408 || a.code == 429 || a.code >= 500 -> return Result.retry()
                     else -> {
-                        AsIsUpload.markTold(ctx, id, work)
-                        Log.w(tag, "$id: re-file refused by S5 as ${names[i]}: " + AsIsUpload.errorOf(a).message) // text:value log line
+                        // REFUSED: the mark stays, so the sweep asks again next sync; the words are shown
+                        val why = AsIsUpload.errorOf(a).message ?: a.code.toString()
+                        AsIsUpload.markRefileRefused(ctx, id, why)
+                        Log.w(tag, "$id: re-file refused by S5 as ${names[i]}: $why") // text:value log line
                         return Result.failure()
                     }
                 }

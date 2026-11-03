@@ -666,8 +666,18 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // one any more, so the ERP leg sends a blank work_stage and S1 files the row
         // under the frozen mallet_stage (accepted, SPEC61c §13.3), and Handover's
         // optional caption stage is blank. On an approved project with no work to file
-        // at the sheet's buttons are disabled; a route that still arrives here (a camera
-        // result in flight) is refused with the sheet's own words rather than filed to 0.
+        // at the sheet's buttons are disabled; a route that still arrives here is refused
+        // with the sheet's own words rather than filed to 0. Only the LAUNCHER routes can
+        // (picker, photoPicker, camera: rememberLauncherForActivityResult hands the result
+        // to the LATEST composition's ingest, whose newWork is re-read when a sync moves
+        // the stage to Client approved while the gallery or the camera app is open; the X3
+        // shoot calls the ingest of the composition that drew the enabled button). A
+        // DELIBERATE DEPARTURE from the prototype's ingest (index61c2.html:8016-8019),
+        // which files such a capture at null, "not filed to a work": on the phone NULL in
+        // the store means a pre-FW2 row filed by its legacy stage (schema 6), so a new
+        // unfiled row cannot be told from one, and the row would file at 0 through
+        // Album.workOfCapture and go to S5 as the Quote journey. Refusing keeps the one
+        // rule: a capture after approval is a work's, or it waits for the pick.
         val workNow = newWork
         if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }
         busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
@@ -1852,12 +1862,16 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // THE WORK LINE'S SECOND TEXT (v61c §4.4, P23, critic G2; port 61c slice FW2): the
         // project's stage as the one store holds it (under the key its stage is read under)
         // decides the lock, and for a Quote-journey capture the line names the quote stage
-        // the capture was TAKEN in -- Album.quoteAt over the album mirror's stage rows, with
-        // the store's current stage at its stamp as one more point (K1b's G2b), at the row's
-        // own shutter instant; `not read yet` until the stage has been read at all. The
-        // mirror is read off the main thread, as the quote view reads it, and again after
-        // any write to it (albumTick); the mirror exists only from Revisions on (AlbumSync),
-        // so before that the current stage at its stamp is the whole history the line has.
+        // the capture was TAKEN in -- Album.quoteTakenAt: Album.quoteAt over the album
+        // mirror's stage rows, with the store's current stage at its stamp as one more point
+        // (K1b's G2b), at the row's own shutter instant -- and `not read yet` wherever the
+        // phone cannot honestly say (FW2 review): the stage never read, NAMED without its
+        // stamp (atUnknown, as the project line says for the same copy), or, with no mirror
+        // held, a capture older than the current stamp. For a project only on this phone it
+        // reads Survey, the prototype's photo line (Album.photoQuoteLead). The mirror is read
+        // off the main thread, as the quote view reads it, and again after any write to it
+        // (albumTick); the mirror exists only from Revisions on (AlbumSync), so before that
+        // the current stage at its stamp is the whole history the line has.
         val capKey = remember(navProject?.serverId, navProject?.client, navProject?.title, dataTick, wishTick) {
             navProject?.let { WishSync.stageKey(context, it) }
         }
@@ -1869,10 +1883,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
             capMirror = capKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
         }
         val capRow = queue.firstOrNull { it.deviceId == cap.deviceId }
-        val quoteAt = if (capCache == null || capRow == null) null else Album.quoteAt(
-            capMirror?.stages ?: emptyList(), java.time.Instant.ofEpochMilli(capRow.createdAt).toString(),
-            capCache.stage, capCache.at)
-        val workSub = Album.workSub(tx, capApproved, cap.work, Album.quoteLead(tx, capLine, quoteAt),
+        val quoteAt = if (capCache == null || capRow == null) null else Album.quoteTakenAt(
+            capMirror?.stages, java.time.Instant.ofEpochMilli(capRow.createdAt).toString(),
+            capCache.stage, capCache.at, capCache.atUnknown)
+        val workSub = Album.workSub(tx, capApproved, cap.work, Album.photoQuoteLead(tx, capLine, quoteAt),
             cap.work?.let { w -> capCache?.states?.get(w)?.state })
 
         Scaffold(topBar = {

@@ -345,6 +345,8 @@ internal fun SurveyPrepDialog(
 
     // ---- the as-is upload to MCFT Interior Estimate's web half: queued on Save, its state read back here
     var webState by remember { mutableStateOf(AsIsUpload.status(context, id)) }
+    // S5's words for a re-file by work it refused (WorkRefile; FW2 review), read beside the state, or null
+    var refileRefused by remember { mutableStateOf(AsIsUpload.refileRefused(context, id)) }
     var readingsMsg by remember { mutableStateOf<Msg?>(null) }
     // A pull of the web's readings is asked for by bumping this: on open, on resume, and when an upload lands.
     var pullTick by remember { mutableIntStateOf(1) }
@@ -352,6 +354,7 @@ internal fun SurveyPrepDialog(
         var wasDone = webState?.second == true
         while (true) {
             webState = withContext(Dispatchers.IO) { AsIsUpload.status(context, id) }
+            refileRefused = withContext(Dispatchers.IO) { AsIsUpload.refileRefused(context, id) }
             val isDone = webState?.second == true
             if (isDone && !wasDone) pullTick++
             wasDone = isDone
@@ -1595,6 +1598,12 @@ internal fun SurveyPrepDialog(
         rev    // read: the clears' counts follow every change
         webState?.let { (msg, good) ->
             Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
+        }
+        // a re-file by work S5 refused (FW2 review): the phone files the capture one way and S5 another until
+        // the sweep's next ask lands -- said here, in S5's own words, not only in logcat
+        refileRefused?.let { why ->
+            Text(tx.app_not_refiled_web_x(why = why), color = SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
         readingsMsg?.let { m ->

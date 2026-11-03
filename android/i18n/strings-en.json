@@ -1968,6 +1968,19 @@
    "phone-text"
   ]
  },
+ "app.not_refiled_web_x": {
+  "en": "Not re-filed on the web: {why}",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt:1606 at 8c0077b+FW2 review · Survey prep · the web lines under ⋮: S5 refused the re-file of this capture by work (WorkRefile, S5-R), said in S5's own words until a re-file it takes clears it, instead of only in logcat; worded as app.not_on_web_x and app.msg.could_not_refile_x, Marathi by Claude (decision of 28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "why": "S5's own message, as it comes (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.not_signed_in": {
   "en": "Not signed in",
   "where": [
