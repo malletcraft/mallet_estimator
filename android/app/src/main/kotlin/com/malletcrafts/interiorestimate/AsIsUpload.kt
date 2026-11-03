@@ -90,17 +90,52 @@ object AsIsUpload {
     private fun file(context: Context, id: String) =
         File(File(context.filesDir, "asisupload").apply { mkdirs() }, "$id.json")
 
+    /**
+     * What S5 was last TOLD of this capture's filing (port 61c slice FW2): the `work` its record PUT carried,
+     * or the work a re-file sent (WorkRefile). The sweep's done-mark, kept in the same file across every state
+     * change (`told`, JSON null for not filed to a work), so a record that went up again or a job that waited
+     * never loses it; absent for an upload from before FW2, whose record carried no `work` and which S5 filed
+     * at 0. Null [work] is a filing (unfiled); a missing mark is [told] answering null.
+     */
+    class Told(val work: Int?)
+
+    private fun toldOf(o: JSONObject): Told? =
+        if (!o.has("told")) null else Told(if (o.isNull("told")) null else o.optInt("told"))
+
+    /** The done-mark of [id], or null when S5 was never told its filing (or the capture was never queued). */
+    fun told(context: Context, id: String): Told? = runCatching<Told?> {
+        val f = file(context, id)
+        if (!f.exists()) null else toldOf(JSONObject(f.readText()))
+    }.getOrNull()
+
+    /**
+     * S5 holds [work] for this capture now (a re-file's 200, or a refusal nothing a retry changes): the mark
+     * moves, the state stays. Nothing is written for a capture that was never queued or has been forgotten.
+     */
+    fun markTold(context: Context, id: String, work: Int?) {
+        runCatching {
+            val f = file(context, id)
+            if (!f.exists()) return
+            val o = JSONObject(f.readText()).put("told", work ?: JSONObject.NULL)
+            f.writeText(o.toString())
+        }
+    }
+
     /** [signIn]: a "refused" that ended for want of a sign-in, so the sync re-queues it once one
      *  is held (requeueSignInRefused) -- unlike a refusal of the room itself, which waits for the
-     *  person to save the survey prep again. */
+     *  person to save the survey prep again. [told]: the filing this state's record carried; null
+     *  keeps the mark the file has. */
     internal fun setState(context: Context, id: String, state: String, error: String?, image: Boolean? = null,
-                          signIn: Boolean = false) {
+                          signIn: Boolean = false, told: Told? = null) {
         runCatching {
+            val f = file(context, id)
+            val kept = told ?: runCatching { toldOf(JSONObject(f.readText())) }.getOrNull()
             val o = JSONObject().put("state", state).put("at", System.currentTimeMillis())
             if (error != null) o.put("error", error)
             if (image != null) o.put("image", image)
             if (signIn) o.put("signin", true)
-            file(context, id).writeText(o.toString())
+            if (kept != null) o.put("told", kept.work ?: JSONObject.NULL)
+            f.writeText(o.toString())
         }
     }
 
@@ -412,7 +447,11 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 if (e.code == 404) throw AsIsUpload.RecordMissing(e)
                 if (e.refused) "readings not sent: ${e.message}" else throw e
             }
-            AsIsUpload.setState(ctx, id, "done", readingsNote, image = landed.isNotEmpty())
+            // DONE, and S5 was told the filing the record carried (the sweep's done-mark, FW2): the body's own
+            // `work`, so the mark and the record cannot disagree. A pick moved on the phone while this job ran is
+            // the sweep's to send (Album.needsRefile), not this job's to guess.
+            AsIsUpload.setState(ctx, id, "done", readingsNote, image = landed.isNotEmpty(),
+                told = AsIsUpload.Told(body["work"] as Int?))
             Result.success()
         } catch (e: AsIsUpload.HttpError) {
             // An EXPIRED S5 SESSION is not a refusal of this room: sign in again with the

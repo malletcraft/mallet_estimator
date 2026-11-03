@@ -101,58 +101,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session renewed
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session to be renewed when the web answers
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in refused - sending with the ERP key
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	 · tap to correct (recorded)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${c.annotated}/6
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	${capture.deviceId}.jpg
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Annotated
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Close
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete this capture
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Delete this capture?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Details
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	FILED AT
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Import from ImageMeter
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone AND from ERPNext, for 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	It goes from this phone — the queue row, the 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Keep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No stage set
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	No work tagged on this face — tap to say what
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Not annotated
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Not tagged to a SKU
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Original
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Original 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	PHOTO
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove local copy
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove local copy ($size)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Remove the local copy?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	SKU
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	STG
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	SVY
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Survey prep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	Tap to open. To mark it up: add it to ImageMeter from your 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	The original 360 and its survey prep \u2014 lines, marks and 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	annotated
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	can no longer be opened for it here.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	everyone — the original, the faces, and the SKU 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	faces in the gallery and the copy on the bench stay. Survey prep 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	gallery, then Import from ImageMeter here.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	if this was the only photograph holding it up.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	marked
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	no phase
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	on phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	original, and the faces in the gallery. It never 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	reached the server, so there is nothing there to 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	readings \u2014 go from this phone to free space. The capture, its 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	remove.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	synced
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to bound, square and mark the room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to say what this wall needs
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	tap to say what work is expected here
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the original 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the photograph
-app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt	the work expected on this wall · tap to change
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	$d ${MONTHS[m - 1]}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	${Catalogue.day(start)} → ${Catalogue.day(end)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	(no site)
@@ -518,8 +466,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site URL
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site name
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage for new photos
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Stage of this photo
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep can't open this 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved on this phone; pictures not written: ${e.message}
@@ -604,21 +550,14 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phon
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 and everything in it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$heading · $jobType · ${shown.size} stages
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$hidden more a $jobType job does not normally reach
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$photos on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	${plan.unfittedFaces.joinToString("/")} face, past what the 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	/
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A SINGLE PHOTO
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A client is the office's customer record, so it is not 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	About to delete
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Anything already quoted on an estimate is kept.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Back
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Browse
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Camera
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Capture 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Client
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Delete 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Deleting removes it from ERP for everyone. 
@@ -626,29 +565,18 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP and every
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP id
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Elsewhere on this project
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Ends
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	FILED AT
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Gallery
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Height in MM, ${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Height, floor to ceiling (required)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	In ${RoomToken.of(room)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Job type
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Length front\u2192back (carpet max)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Move the project to
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	No stage set
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not signed in
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not synced — still only on this phone
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Photos
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Pick a 360 from the gallery
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Queue
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ROOM SIZE (MM)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename $what
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename or remove $what
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Save
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Saving…
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Search
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Settings
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Shoot 360 on the X3
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Showing all ${allStages.size} stages
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Site
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Starts
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Status
@@ -656,34 +584,15 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Tag this phot
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} has not synced yet, so this is a change on 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} is on the server, so the new name reaches 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This project has no SKUs yet. The office adds them from 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This room needs ${Math.round(plan.floorFovDeg)}\u00b0 on its 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Type the carpet length (front\u2192back) and width (left\u2192right) 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Type the height to shoot or pick a 360 \u2014 it sets the 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Width left\u2192right (carpet max)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Work
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Working…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	X3 connected
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	X3 not connected
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	a room photo, not tied to one article
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 every corner 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	in frame, and the photo is checked against the tape.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	it keep their place — only the label changes.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	join the camera's Wi-Fi first, then tap
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	mm scale on every elevation.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	not a $jobType stage
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ready to shoot
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	removed from a phone. Delete the sites under it here; 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	shoot it in two halves, or accept it.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	split can sample. Those corners will still crop \u2014 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to change — it can be corrected on the photo too
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to go back to the $jobType stages
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	tap to show every stage in the master
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the customer itself is a desk job.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the estimate, and they arrive on the next sync.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this ${what}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this phone. It will go up under the corrected name.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	too, wall to wall at the widest \u2014 the room is set from them.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	—
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	— none —
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	%.1f×  ·  double-tap to fit

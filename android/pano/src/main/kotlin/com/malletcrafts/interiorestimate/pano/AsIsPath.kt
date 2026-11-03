@@ -58,6 +58,22 @@ object AsIsPath {
     fun readings(project: String, room: String, capture: String): List<String> = listOf(project, room, "c", capture, "readings")
 
     /**
+     * S5-R, the re-file of ONE capture by work without re-uploading it (port 61c slice FW2; mcft-interior-estimate
+     * 9a51733, "A CAPTURE IS RE-FILED BY ITS OWN SMALL WRITE"): `PUT /api/asis/<project>/<room>/c/<capture>/work`
+     * with [workBody]. Staff only; 404 for a capture not on the web, 409 for a row whose stored record is not a JSON
+     * object (a pre-0006 legacy row, nothing a retry changes), 503 when a record landed meanwhile (sent again);
+     * no approval lock -- the sweep re-files pre-approval captures by their old stage too.
+     */
+    fun work(project: String, room: String, capture: String): List<String> = listOf(project, room, "c", capture, "work")
+
+    /**
+     * S5-R's body: `{"work": …}` -- 0 the quote journey, one of the sixteen, or JSON NULL for not filed to a work
+     * (S5's validWork takes all three; the key is never left out, as [body]'s `work` is never left out). A map, so
+     * :app serialises it whole (`JSONObject(map)` writes a null as JSON null; `put(k, null)` would DROP the key).
+     */
+    fun workBody(work: Int?): LinkedHashMap<String, Any?> = LinkedHashMap<String, Any?>().also { it["work"] = work }
+
+    /**
      * The URL path for [segments]: [PREFIX] and each segment through [enc] ONCE, joined by `/`. A project, a room
      * or a capture is one segment whatever it holds (a space, a slash, a `%`): the encoding is what keeps it one,
      * and encoding a segment twice would send `%2520` for a space, which S5 decodes to `%20` and never matches.

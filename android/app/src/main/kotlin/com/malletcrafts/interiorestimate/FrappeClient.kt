@@ -316,11 +316,11 @@ class FrappeClient(private val baseUrl: String, private val key: String,
      *  Null means "leave alone", "" means "clear". Both distinctions matter:
      *  moving a photo's stage must not silently drop its SKU, and untagging
      *  a photo is a real thing to want. */
-    fun setCaptureTags(name: String, workStage: String? = null,
-                       sku: String? = null): JSONObject {
-        val body = JSONObject().put("name", name)
-        if (workStage != null) body.put("work_stage", workStage)
-        if (sku != null) body.put("sku", sku)
+    /** Tag a capture on the bench to an Estimate SKU ("" untags it). The
+     *  `work_stage` half went with the phone's last stage picker (port 61c
+     *  slice FW2): the bench keeps the stage a capture was created with. */
+    fun setCaptureTags(name: String, sku: String): JSONObject {
+        val body = JSONObject().put("name", name).put("sku", sku)
         return post("mallet_estimator.sitephoto.set_capture_tags", body)
     }
 

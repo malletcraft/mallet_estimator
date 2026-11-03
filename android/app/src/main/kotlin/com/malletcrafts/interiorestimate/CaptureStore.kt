@@ -161,25 +161,22 @@ class CaptureStore(context: Context) :
         writableDatabase.delete("captures", "device_id = ?", arrayOf(deviceId))
     }
 
-    /** Re-file a capture: its stage, its SKU, or both.
-     *
-     *  Both are set at the shutter from what the project was at, and both
-     *  are routinely wrong by the time anyone looks. Passing null leaves a
-     *  field alone — a stage move must not silently drop the SKU. */
-    fun setTags(deviceId: String, stage: String? = null, sku: String? = null) {
-        val values = ContentValues().apply {
-            if (stage != null) put("stage", stage)
-            if (sku != null) put("sku", sku)
-        }
-        if (values.size() == 0) return
-        writableDatabase.update("captures", values, "device_id = ?", arrayOf(deviceId))
+    /** Tag a capture to an Estimate SKU ("" untags it). The stage half went
+     *  with the last stage picker (port 61c slice FW2): a capture is filed by
+     *  WORK now ([setWork]), and its `stage` column is history -- what the
+     *  shutter wrote, which nothing on the phone moves any more. */
+    fun setTags(deviceId: String, sku: String) {
+        writableDatabase.update("captures", ContentValues().apply {
+            put("sku", sku)
+        }, "device_id = ?", arrayOf(deviceId))
     }
 
     /** File a capture by work: 0 the quote journey, else one of the sixteen
      *  work ids (Album.WORKS). The stage it was taken at stays as history.
      *  Never null: NULL in this column means "filed by its stage", a row from
      *  before the phone filed by work, and a re-file must not make a capture
-     *  look older. */
+     *  look older. The photo's WORK line writes it (port 61c slice FW2), and
+     *  for a capture S5 holds a WorkRefile job tells S5 the same. */
     fun setWork(deviceId: String, work: Int) {
         writableDatabase.update("captures", ContentValues().apply {
             put("work", work)

@@ -59,6 +59,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -199,7 +200,6 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // Set beside deleteBlocker when the refusal came from THIS APP rather
     // than the bench — no docname to send, so no cascade to offer.
     var deleteFatal by remember { mutableStateOf(false) }
-    var showStagePicker by remember { mutableStateOf(false) }
     // Work | Browse | Queue. Browse is the landing tab: Amit asked for the
     // app to open on Clients, ImageMeter-style.
     var tab by remember { mutableStateOf("browse") }
@@ -250,12 +250,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // commit needs, so approving it writes the gallery and the queue without
     // re-deriving anything -- the bytes he approved are the bytes that land.
     var pending by remember { mutableStateOf<PendingSplit?>(null) }
-    // The two pickers that re-file ONE photo, as opposed to moving the whole
-    // project. Same stage list, quite different consequence.
-    var retagStage by remember { mutableStateOf(false) }
+    // The pickers that re-file ONE photo: its SKU, and -- after Client approved --
+    // its WORK through Which work? (port 61c slice FW2; the stage picker went).
     var retagSku by remember { mutableStateOf(false) }
+    var refileWork by remember { mutableStateOf(false) }
     var showCaptureSheet by remember { mutableStateOf(false) }
-    var stage by remember { mutableStateOf("") }
+    // WHICH WORK? from the capture sheet's WORK row (v61c §4.3), and the work picked for
+    // new captures PER PROJECT, held in memory for this visit only, as the prototype's
+    // S.capWorkFor is (keyed as the wish list keys a project: its ERP id, else the local
+    // key). Null for a project: the first work In progress files the next capture, else
+    // nothing does until a pick (Album.newCaptureWork). Never persisted: a stage or a
+    // state kept on the phone would be a second answer (Amit, 27 Oct 2026).
+    var pickWork by remember { mutableStateOf(false) }
+    val capWorkFor = remember { mutableStateMapOf<String, Int>() }
     // The room's measured floor dimensions, which is what sizes the faces.
     // Amit, 2026-09-04: he measures length and width anyway to find the
     // centre to stand at, so the app takes the numbers he already has rather
@@ -629,20 +636,40 @@ private fun AppScreenBody(onLang: () -> Unit) {
         navProject?.takeIf { !it.synced }?.let { it.client to it.title }
     val room: String? = navRoom
 
+    // WHERE THE NEXT CAPTURE FILES (v61c §4.3, port 61c slice FW2; the prototype's newWork):
+    // the opened project's quote stage as the one store holds it, read under the key its
+    // stage is read under (WishSync.stageKey); before Client approved every new capture is
+    // the Quote journey's (work 0); after it, this project's pick (capWorkFor), else the
+    // first work In progress by the store's states, else nothing -- and then the capture
+    // sheet says `Pick the work` and its buttons wait. Re-read on any write to the store
+    // (quoteTick), a reload (dataTick) or a re-key of the lists (wishTick); the line, which
+    // the sheet's WORK row reads the stage from before approval, also when the IST day
+    // turns and the language changes (tx), as the project screen's own line is.
+    val fileKey = remember(navProject?.serverId, navProject?.client, navProject?.title, dataTick, wishTick) {
+        navProject?.let { WishSync.stageKey(context, it) }
+    }
+    val fileCache = remember(fileKey, dataTick, quoteTick) { fileKey?.let { QuoteStageSync.cached(context, it) } }
+    val fileLine = remember(fileKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, fileKey, tx) }
+    val fileApproved = Album.approved(fileCache?.stage)
+    val pickKey = navProject?.let { WishList.keyOf(it.serverId, it.client, it.title) }
+    val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileCache?.states)
+
     // One ingest path for BOTH capture routes: gallery-pick and the direct
     // X3 connection hand the same equirect JPG to the same split + queue.
     fun ingest(uri: Uri, kind: String = "360") {
         val p = newSite?.let { ProjectRow("", it.second, it.first) } ?: project
         val r = room
         if (p == null || r == null) return
-        // Nothing chosen under FILED AT means no stage: the capture files to the
-        // Quote journey (Album.workOfCapture). The ERP site stage is no longer a
-        // default -- the phone neither shows nor moves it (port 61c slice PL).
-        // Until FW2 that holds on an APPROVED project too (slice PL review): such a
-        // capture stays in the Quote journey -- amber room dot, work 0 on S5 after
-        // AS1 -- and FW2's sweep, which re-files only a capture whose filing is not
-        // 0, leaves it there; only a re-file by hand on FW2's WORK line moves it.
-        val stageNow = stage
+        // A NEW CAPTURE CARRIES ITS WORK AND NO STAGE (port 61c slice FW2): the Quote
+        // journey (0) before Client approved, else the work picked for this project or
+        // the first In progress (newWork, above). No stage: nothing on the phone picks
+        // one any more, so the ERP leg sends a blank work_stage and S1 files the row
+        // under the frozen mallet_stage (accepted, SPEC61c §13.3), and Handover's
+        // optional caption stage is blank. On an approved project with no work to file
+        // at the sheet's buttons are disabled; a route that still arrives here (a camera
+        // result in flight) is refused with the sheet's own words rather than filed to 0.
+        val workNow = newWork
+        if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }
         busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
         lastResult = null
         scope.launch(Dispatchers.Default) {
@@ -677,7 +704,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     val prev = FaceWriter.begin(
                         context = context, source = uri, deviceId = id,
                         customerName = p.customer, projectTitle = p.title,
-                        room = r, captureDate = today, stage = stageNow, fov = fov,
+                        room = r, captureDate = today, stage = "", fov = fov,
                         fovByFace = perFace,
                         panoDir = File(context.filesDir, "panos"))
                     withContext(Dispatchers.Main) {
@@ -685,7 +712,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         pending = PendingSplit(
                             session = prev, projectName = p.name,
                             projectTitle = p.title, customerName = p.customer,
-                            room = r, stage = stageNow, captureDate = today,
+                            room = r, work = workNow, captureDate = today,
                             deviceId = id, fov = fov, plan = plan,
                             lengthMm = mmOrNull(roomLength), widthMm = mmOrNull(roomWidth))
                     }
@@ -694,16 +721,18 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     val (result, pano) = FaceWriter.single(
                         context = context, source = uri, deviceId = id,
                         customerName = p.customer, projectTitle = p.title,
-                        room = r, captureDate = today, stage = stageNow,
+                        room = r, captureDate = today, stage = "",
                         panoDir = File(context.filesDir, "panos"))
                     store.insert(CaptureStore.Capture(
                         deviceId = id, project = p.name, projectTitle = p.title,
-                        customerName = p.customer, room = r, stage = stageNow,
+                        customerName = p.customer, room = r, stage = "",
                         captureDate = today, panoPath = pano.path,
                         createdAt = System.currentTimeMillis(), state = "LOCAL",
                         serverName = null, error = null, kind = kind,
                         // A flat Photo is not projected: no angle, no room.
-                        fov = 0.0))
+                        fov = 0.0,
+                        // Filed by WORK from the shutter (FW2): 0 the Quote journey, else the pick.
+                        work = workNow))
                     result
                 }
             }
@@ -1820,6 +1849,32 @@ private fun AppScreenBody(onLang: () -> Unit) {
             return
         }
 
+        // THE WORK LINE'S SECOND TEXT (v61c §4.4, P23, critic G2; port 61c slice FW2): the
+        // project's stage as the one store holds it (under the key its stage is read under)
+        // decides the lock, and for a Quote-journey capture the line names the quote stage
+        // the capture was TAKEN in -- Album.quoteAt over the album mirror's stage rows, with
+        // the store's current stage at its stamp as one more point (K1b's G2b), at the row's
+        // own shutter instant; `not read yet` until the stage has been read at all. The
+        // mirror is read off the main thread, as the quote view reads it, and again after
+        // any write to it (albumTick); the mirror exists only from Revisions on (AlbumSync),
+        // so before that the current stage at its stamp is the whole history the line has.
+        val capKey = remember(navProject?.serverId, navProject?.client, navProject?.title, dataTick, wishTick) {
+            navProject?.let { WishSync.stageKey(context, it) }
+        }
+        val capCache = remember(capKey, dataTick, quoteTick) { capKey?.let { QuoteStageSync.cached(context, it) } }
+        val capLine = remember(capKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, capKey, tx) }
+        val capApproved = Album.approved(capCache?.stage)
+        var capMirror by remember(capKey) { mutableStateOf<Album.View?>(null) }
+        LaunchedEffect(capKey, albumTick) {
+            capMirror = capKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
+        }
+        val capRow = queue.firstOrNull { it.deviceId == cap.deviceId }
+        val quoteAt = if (capCache == null || capRow == null) null else Album.quoteAt(
+            capMirror?.stages ?: emptyList(), java.time.Instant.ofEpochMilli(capRow.createdAt).toString(),
+            capCache.stage, capCache.at)
+        val workSub = Album.workSub(tx, capApproved, cap.work, Album.quoteLead(tx, capLine, quoteAt),
+            cap.work?.let { w -> capCache?.states?.get(w)?.state })
+
         Scaffold(topBar = {
             TreeTopBar(
                 // `<date> · <where filed>` (v61c §4.4): the Quote journey, the
@@ -1872,10 +1927,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             facePrep = row
                         } else { navFace = i; faceMode = true }
                     },
-                    // Allowed, and written down. A hard block produces the
-                    // worse failure: a photo permanently mis-staged because
-                    // the only person who noticed cannot fix it.
-                    onPickStage = { retagStage = true },
+                    // The WORK line: read-only until Client approved, then a
+                    // tap opens Which work? and re-files this one capture.
+                    workSub = workSub,
+                    onPickWork = if (capApproved) ({ refileWork = true }) else null,
                     onPickSku = { retagSku = true },
                     serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                         ?.serverName.orEmpty(),
@@ -1952,56 +2007,52 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         else -> "Not done yet \u00b7 tap to bound, square and mark each surface"
                     },
                     onRemoveLocal = removeLocal,
-                    localSize = keptFile?.let { "%.1f MB".format(java.util.Locale.ROOT, it.length() / 1024.0 / 1024.0) } ?: "")
+                    // the number alone: the button's key carries the unit (app.remove_local_copy_x)
+                    localSize = keptFile?.let { "%.1f".format(java.util.Locale.ROOT, it.length() / 1024.0 / 1024.0) } ?: "")
             }
         }
 
-        // Re-filing ONE photo. Both write locally first and to the bench
-        // second: the correction has to survive a basement, and the row on
-        // screen has to change the instant it is made or nobody trusts it.
+        // Re-tagging ONE photo's SKU. Local first and the bench second: the
+        // correction has to survive a basement, and the row on screen has to
+        // change the instant it is made or nobody trusts it.
         val serverName = queue.firstOrNull { it.deviceId == cap.deviceId }?.serverName
-        fun retag(newStage: String?, newSku: String?) {
-            store.setTags(cap.deviceId, stage = newStage, sku = newSku)
+        fun retag(newSku: String) {
+            store.setTags(cap.deviceId, sku = newSku)
             refreshQueue()
             // The column holds the Estimate SKU DOCNAME; the card shows the
             // code. Resolving here keeps the two from drifting the moment a
             // tag is changed.
-            val shownSku = newSku?.let { n ->
-                if (n.isBlank()) "" else
-                    cat.skusOf(masters, navProject)
-                        .firstOrNull { it.name == n }?.code ?: n
-            }
-            // The filing follows the same rule the room screen applies: a
-            // stored work stands, and only a row the phone never filed by
-            // work (NULL) moves with its stage. refreshQueue() above has
-            // re-read the store, so this is the row as it is now.
-            val storedWork = queue.firstOrNull { it.deviceId == cap.deviceId }?.work
-            navCapture = cap.copy(
-                workStage = newStage ?: cap.workStage,
-                stage = newStage?.let { cat.phaseOfStage(masters, it).ifBlank { it } }
-                    ?: cap.stage,
-                work = Album.workOfCapture(storedWork, newStage ?: cap.workStage),
-                sku = shownSku ?: cap.sku)
+            val shownSku = if (newSku.isBlank()) "" else
+                cat.skusOf(masters, navProject).firstOrNull { it.name == newSku }?.code ?: newSku
+            navCapture = cap.copy(sku = shownSku)
             if (!serverName.isNullOrBlank()) scope.launch(Dispatchers.IO) {
                 val out = runCatching {
-                    FrappeClient.load(context)
-                        ?.setCaptureTags(serverName, workStage = newStage, sku = newSku)
+                    FrappeClient.load(context)?.setCaptureTags(serverName, sku = newSku)
                 }
                 withContext(Dispatchers.Main) {
                     out.onFailure { lastResult = { _ -> "Could not re-file on the bench: ${it.message}" } }
                 }
             }
         }
-        if (retagStage) {
-            val job = navProject?.jobType ?: Catalogue.JOB_NEW
-            StageSheet(
-                stages = cat.stages(masters, job),
-                allStages = cat.stages(masters),
-                current = cap.workStage,
-                jobType = job,
-                heading = "Stage of this photo",
-                onDismiss = { retagStage = false },
-                onPick = { st -> retagStage = false; retag(st.name, null) })
+        // RE-FILING ONE CAPTURE BY WORK (v61c §4.4; port 61c slice FW2), after Client
+        // approved only. The phone's own copy first (CaptureStore.setWork: the stored work
+        // stands over the legacy stage from now on, Album.workOfCapture) and the screen
+        // with it; then, for a capture S5 holds -- its upload reads On web -- the unique
+        // job mcft-work-<id> tells S5 through S5-R by each name the capture has had
+        // (WorkRefile). A capture not on S5 yet carries the work in its next record. The
+        // bench is not told: ERP files by the stage it was created with, which nothing moves.
+        fun refile(work: Int) {
+            store.setWork(cap.deviceId, work)
+            refreshQueue()
+            navCapture = cap.copy(work = work)
+            if (WorkRefile.onWeb(context, cap.deviceId)) WorkRefile.enqueue(context, cap.deviceId)
+        }
+        if (refileWork) {
+            WorkSheet(
+                current = cap.work,
+                states = capCache?.states,
+                onPick = { id -> refileWork = false; refile(id) },
+                onDismiss = { refileWork = false })
         }
         if (retagSku) {
             CaptureSkuSheet(
@@ -2009,7 +2060,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 room = navRoom.orEmpty(),
                 current = cap.sku,
                 onDismiss = { retagSku = false },
-                onPick = { code -> retagSku = false; retag(null, code) })
+                onPick = { code -> retagSku = false; retag(code) })
         }
         // The SAME picker, for ONE face. A 360 is a whole room and cannot be
         // one article; each of its faces is a single wall, and that is what a
@@ -2076,10 +2127,6 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // through the 39-stage table. The room screen groups, titles and
             // labels by this and by nothing else.
             work = Album.workOfCapture(c.work, c.stage),
-            // The legacy stage and its phase ride along for the STG row of
-            // the capture screen alone, until FW2 makes it the WORK line.
-            stage = cat.phaseOfStage(masters, c.stage).ifBlank { c.stage },
-            workStage = c.stage,
             panoPath = c.panoPath,
             state = c.state,
             kind = c.kind,
@@ -2118,16 +2165,18 @@ private fun AppScreenBody(onLang: () -> Unit) {
             onSibling = { navRoom = it }))
     }
 
-    if (showStagePicker && navProject != null) {
-        val p = navProject!!
-        StageSheet(
-            stages = cat.stages(masters, p.jobType),
-            allStages = cat.stages(masters),
-            current = stage,
-            jobType = p.jobType,
-            heading = "Stage for new photos",
-            onDismiss = { showStagePicker = false },
-            onPick = { st -> stage = st.name; showStagePicker = false })
+    // WHICH WORK? for the capture sheet's WORK row (v61c §4.3, critic P25/P28): a pick
+    // sets this project's work and reopens the capture sheet; a dismiss, or ◁, reopens it
+    // unchanged. It exists only after approval (the row takes a tap only then).
+    if (pickWork) {
+        WorkSheet(
+            current = newWork,
+            states = fileCache?.states,
+            onPick = { id ->
+                pickKey?.let { capWorkFor[it] = id }
+                pickWork = false; showCaptureSheet = true
+            },
+            onDismiss = { pickWork = false; showCaptureSheet = true })
     }
 
     if (addRoom) {
@@ -2266,11 +2315,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             deviceId = keep.deviceId, project = keep.projectName,
                             projectTitle = keep.projectTitle,
                             customerName = keep.customerName, room = keep.room,
-                            stage = keep.stage, captureDate = keep.captureDate,
+                            stage = "", captureDate = keep.captureDate,
                             panoPath = keep.session.panoFile.path,
                             createdAt = System.currentTimeMillis(), state = "LOCAL",
                             serverName = null, error = null, kind = "360",
                             fov = keep.fov,
+                            // Filed by WORK from the shutter (FW2), as the split carried it.
+                            work = keep.work,
                             // The laser sizes survey prep squared to, when it ran;
                             // else CaptureGeometry's, whose lengthIn is the
                             // left→right span (see mmPlan) -- stored, length is
@@ -2407,7 +2458,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
 
     if (showCaptureSheet) {
         CaptureSheet(
-            stage = stage,
+            // The WORK row (v61c §4.3): where the next capture files, and why it cannot be changed yet
+            workHead = Album.filingHead(tx, newWork),
+            workSub = Album.workSub(tx, fileApproved, newWork, Album.quoteLead(tx, fileLine, fileLine.quote),
+                newWork?.let { w -> fileCache?.states?.get(w)?.state }),
+            onWork = if (fileApproved) ({ showCaptureSheet = false; pickWork = true }) else null,
+            noWork = fileApproved && newWork == null,
             roomLength = roomLength,
             roomWidth = roomWidth,
             roomHeight = roomHeight,
@@ -2415,7 +2471,6 @@ private fun AppScreenBody(onLang: () -> Unit) {
             cameraConnected = camConnected,
             cameraNote = camNote,
             busy = busy != null,
-            onStage = { showCaptureSheet = false; showStagePicker = true },
             onRoomLength = { v ->
                 roomLength = v
                 capturePrefs.edit().putString("room_len_mm", v).apply()
@@ -3209,7 +3264,8 @@ data class PendingSplit(
     val projectTitle: String,
     val customerName: String,
     val room: String,
-    val stage: String,
+    /** Where it files (FW2): 0 the Quote journey, else the work picked when the shutter fired. */
+    val work: Int?,
     val captureDate: String,
     val deviceId: String,
     val fov: Double,

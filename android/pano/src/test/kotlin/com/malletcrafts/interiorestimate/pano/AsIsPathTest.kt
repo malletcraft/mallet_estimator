@@ -36,6 +36,18 @@ class AsIsPathTest {
             assertEquals(listOf("c", "C"), segs.subList(2, 4), "$segs")
     }
 
+    @Test fun `S5-R - the re-file address under the capture, and a body whose work is never left out (FW2)`() {
+        assertEquals(listOf("PROJ-DEMO", "Living Room", "c", CAP, "work"), AsIsPath.work("PROJ-DEMO", "Living Room", CAP))
+        assertEquals("/api/asis/PROJ-DEMO/Living%20Room/c/$CAP/work", AsIsPath.path(AsIsPath.work("PROJ-DEMO", "Living Room", CAP), enc))
+        assertEquals("/api/asis/P/R/c/MEST-PH-0007/work", AsIsPath.path(AsIsPath.work("P", "R", "MEST-PH-0007"), enc))
+        // the body: 0, a work, or an explicit null -- the key is always there (S5's validWork takes all three)
+        assertEquals<Map<String, Any?>>(mapOf("work" to 20), AsIsPath.workBody(20))
+        assertEquals<Map<String, Any?>>(mapOf("work" to 0), AsIsPath.workBody(0))
+        assertEquals(setOf("work"), AsIsPath.workBody(null).keys)
+        assertNull(AsIsPath.workBody(null)["work"])
+        assertTrue(AsIsPath.workBody(null).containsKey("work"), "a null filing is sent, never dropped")
+    }
+
     @Test fun `each segment is encoded exactly once, verbatim, and the fixed parts never`() {
         // once: a % in a name goes as %25, never %2520; a slash in a project id stays inside its one segment
         assertEquals("/api/asis/Demo%20flat%2F1/A%25B/c/x", AsIsPath.path(AsIsPath.record("Demo flat/1", "A%B", "x"), enc))

@@ -6,6 +6,7 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -15,6 +16,13 @@ import kotlin.test.assertTrue
  * pure code. The screen that applies it is :app, which only CI compiles, so its wiring is read as source
  * (AsIsPathTest's way): the one place the cards are built files them through the one rule, the grouping
  * and the chips take Album's order, and nothing passes the screen a phase list or a stage order any more.
+ *
+ * Port 61c slice FW2, "new photos and re-files are written by work; the last stage pickers go": a NEW capture's
+ * filing ([Album.newCaptureWork]), the WORK row's and line's two texts ([Album.filingHead], [Album.quoteLead],
+ * [Album.workSub]) and the sweep's rule ([Album.needsRefile]) are pure and pinned here, in English and in Marathi;
+ * the :app wiring -- the capture sheet's WORK row and Which work?, the photo's WORK line and its re-file through
+ * CaptureStore.setWork and the WorkRefile job, the sweep in SyncWorker after both legs, and the deleted stage
+ * pickers -- is read as source the same way.
  */
 class CaptureFilingTest {
 
@@ -92,7 +100,6 @@ class CaptureFilingTest {
     @Test fun `the cards are filed through the one rule, and the title and the viewer sub-line drop the stage (MainActivity kt)`() {
         val src = app("MainActivity.kt")
         assertTrue(src.contains("work = Album.workOfCapture(c.work, c.stage),"), "roomCaptures files each card through workOfCapture")
-        assertTrue(src.contains("work = Album.workOfCapture(storedWork, newStage ?: cap.workStage),"), "a re-filed stage moves only a row the phone never filed by work")
         assertTrue(src.contains("title = \"\${cap.date} · \${Album.workName(tx, cap.work)}\","), "the capture title is `date · where filed`")
         assertFalse(src.contains("\${cap.stage}"), "no reader shows the capture's stage")
         assertFalse(src.contains("\"no stage\""), "no stand-in stage word")
@@ -109,8 +116,163 @@ class CaptureFilingTest {
         val src = app("Catalogue.kt")
         for (gone in listOf("fun phases(", "fun stageOrder(", "fun canRestage(", "can_restage"))
             assertFalse(src.contains(gone), "`$gone` is gone")
-        // what the ERP leg and the capture sheet still read, until FW2
-        for (kept in listOf("fun stages(", "fun phaseOfStage(", "fun isWorkStage("))
+        // what the ERP leg still reads: the thirty-nine as the vocabulary of an older row's stage
+        for (kept in listOf("fun stages(masters: JSONObject?): List<Stage>", "fun phaseOfStage(", "fun isWorkStage("))
             assertTrue(src.contains(kept), "`$kept` stays")
+        // FW2: the job-type narrowing fed the two stage pickers and went with them
+        assertFalse(src.contains("jobType: String? = null"), "stages() no longer narrows to a job type: nothing picks a stage")
+    }
+
+    // ---- FW2: a new capture's filing, the WORK row and line, the sweep's rule ------------------------------
+
+    private val inProgress = mapOf(20 to Album.WorkState(Album.IN_PROGRESS, 3), 90 to Album.WorkState(Album.IN_PROGRESS, 5),
+        10 to Album.WorkState(Album.DONE, 2))
+
+    @Test fun `newCaptureWork - the Quote journey before approval, this project's pick after it, else the first In progress, else none`() {
+        // before Client approved every new capture is the Quote journey's, whatever is picked or In progress
+        assertEquals(0, Album.newCaptureWork(false, null, null))
+        assertEquals(0, Album.newCaptureWork(false, 90, inProgress))
+        // after it: the pick held for this project
+        assertEquals(90, Album.newCaptureWork(true, 90, inProgress))
+        assertEquals(140, Album.newCaptureWork(true, 140, emptyMap()))
+        // the default pick: the first work In progress in S5's order (20 before 90); Done is not open
+        assertEquals(20, Album.newCaptureWork(true, null, inProgress))
+        // no default when nothing is In progress: Pick the work, the buttons wait (the album camera's rule)
+        assertNull(Album.newCaptureWork(true, null, null))
+        assertNull(Album.newCaptureWork(true, null, emptyMap()))
+        assertNull(Album.newCaptureWork(true, null, mapOf(10 to Album.WorkState(Album.DONE), 20 to Album.WorkState(Album.ON_HOLD))))
+        // a pick that is not one of the sixteen (0, a stray id) is no pick
+        assertEquals(20, Album.newCaptureWork(true, 0, inProgress))
+        assertNull(Album.newCaptureWork(true, 45, emptyMap()))
+    }
+
+    private fun line(kind: QuoteStage.LineKind, quote: String?) =
+        QuoteStage.ProjectLine(kind, quote, "", emptyList(), "", 0, false, "")
+
+    @Test fun `filingHead and quoteLead - Pick the work when unfiled, the stage, not on S5 yet, not read yet`() {
+        assertEquals("Pick the work", Album.filingHead(Tx.EN, null))
+        assertEquals("Quote journey", Album.filingHead(Tx.EN, 0))
+        assertEquals("Civil & masonry", Album.filingHead(Tx.EN, 20))
+        assertEquals("काम निवडा", Album.filingHead(Tx.MR, null))
+        // the capture sheet passes the line's current stage; the photo's line quoteAt's answer
+        assertEquals("Client wish list", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.QUOTE, "Client wish list"), "Client wish list"))
+        assertEquals("Survey", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.QUOTE, "Vendor quoted"), "Survey"))
+        assertEquals("ग्राहकाची इच्छा-यादी", Album.quoteLead(Tx.MR, line(QuoteStage.LineKind.QUOTE, "Client wish list"), "Client wish list"))
+        // a project only on this phone has no stage of its own (v61c.2): the prototype's NOT_ON_S5_MSG, whatever is passed
+        assertEquals("not on S5 yet", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.LOCAL, null), "Survey"))
+        assertEquals("अजून S5 वर नाही", Album.quoteLead(Tx.MR, line(QuoteStage.LineKind.LOCAL, null), null))
+        // never read, or a name outside the six: not read yet
+        assertEquals("not read yet", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.UNREAD, null), null))
+        assertEquals("not read yet", Album.quoteLead(Tx.EN, line(QuoteStage.LineKind.QUOTE, "Survey"), "Approved?"))
+        assertEquals("अजून वाचलेले नाही", Album.quoteLead(Tx.MR, line(QuoteStage.LineKind.UNREAD, null), null))
+    }
+
+    @Test fun `workSub - the stage, the state or not filed, then the lock before approval and tap to change after`() {
+        val lock = " · locked until the client approves the estimate"
+        // the capture sheet before approval (workRow61c): the Quote journey over the stage and the lock
+        assertEquals("Vendor quoted$lock", Album.workSub(Tx.EN, false, 0, "Vendor quoted", null))
+        assertEquals("not read yet$lock", Album.workSub(Tx.EN, false, 0, "not read yet", null))
+        // the photo's line before approval: an old photo filed under a work by its stage reads the work's state
+        assertEquals("Not started$lock", Album.workSub(Tx.EN, false, 20, "Survey", null))
+        assertEquals("not filed to a work$lock", Album.workSub(Tx.EN, false, null, "Survey", null))
+        // after approval: the state and tap to change; an unfiled one says so; a quote-journey one keeps its stage
+        assertEquals("In progress · tap to change", Album.workSub(Tx.EN, true, 20, "Survey", Album.IN_PROGRESS))
+        assertEquals("Not started · tap to change", Album.workSub(Tx.EN, true, 90, "Survey", null))
+        assertEquals("not filed to a work · tap to change", Album.workSub(Tx.EN, true, null, "Survey", null))
+        assertEquals("Survey · tap to change", Album.workSub(Tx.EN, true, 0, "Survey", null))
+        // hand-typed Marathi pins (SurveyPrepMarathiTest's rule)
+        assertEquals("व्हेंडरचे कोटेशन · ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक", Album.workSub(Tx.MR, false, 0, "व्हेंडरचे कोटेशन", null))
+        assertEquals("चालू आहे · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, 20, "", Album.IN_PROGRESS))
+        assertEquals("कोणत्याही कामात ठेवलेला नाही · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, null, "", null))
+    }
+
+    @Test fun `needsRefile - on web, filed off the Quote journey, and not yet told to S5 as filed now`() {
+        // an upload from before FW2 told S5 nothing: S5 holds 0, the phone files by the old stage
+        assertTrue(Album.needsRefile(true, 20, null, false))
+        assertTrue(Album.needsRefile(true, null, null, false))
+        // the Quote journey needs no re-file: S5 filed it there already
+        assertFalse(Album.needsRefile(true, 0, null, false))
+        // not on the web: its next record carries the work
+        assertFalse(Album.needsRefile(false, 20, null, false))
+        // told as it is filed now: once per capture
+        assertFalse(Album.needsRefile(true, 20, 20, true))
+        assertFalse(Album.needsRefile(true, null, null, true))
+        // the pick moved since S5 was told: the next sync sends it
+        assertTrue(Album.needsRefile(true, 90, 20, true))
+        assertTrue(Album.needsRefile(true, null, 20, true))
+    }
+
+    @Test fun `the capture sheet's first row is WORK and Which work? lists the sixteen, and the stage picker is gone (TreeShell kt)`() {
+        val src = app("TreeShell.kt")
+        for (gone in listOf("fun StageSheet(", "onStage", "\"FILED AT\"", "\"No stage set\"", "Move the project to", "stage: String,"))
+            assertFalse(src.contains(gone), "`$gone` has left the capture sheet")
+        assertTrue(src.contains("overlineContent = { Text(tx.album_work_caps) }"), "the row's overline is WORK")
+        assertTrue(src.contains("modifier = if (onWork != null) Modifier.clickableRow(onWork) else Modifier)"), "the row takes a tap only after approval")
+        assertTrue(src.contains("enabled = !busy && cameraConnected && sizesOk && !noWork,"), "Shoot waits for a pick")
+        assertTrue(src.contains("enabled = !busy && sizesOk && !noWork,"), "Pick waits for a pick")
+        assertEquals(2, Regex("""enabled = !busy && !noWork,""").findAll(src).count(), "Camera and Gallery wait for a pick")
+        assertTrue(src.contains("fun WorkSheet("), "Which work? exists")
+        assertTrue(src.contains("SheetTitle(tx.album_which_work)"), "its title is keyed")
+        assertTrue(src.contains("Album.WORKS.forEach { w ->"), "it lists the sixteen works, never the Quote journey")
+        assertTrue(src.contains("supportingContent = { Text(Album.stateText(tx, states?.get(w.id)?.state)) },"), "each with its state")
+    }
+
+    @Test fun `the STG row is the WORK line, read-only before approval, and every text of the capture screen is keyed (CaptureScreens kt)`() {
+        val src = app("CaptureScreens.kt")
+        for (gone in listOf("\"STG\"", "onPickStage", "workStage", "val stage: String", "\"No stage set\"", "\"no phase\"", "tap to correct"))
+            assertFalse(src.contains(gone), "`$gone` has left the capture screen")
+        assertTrue(src.contains("lead = tx.album_work_caps,"), "the line's lead is WORK")
+        assertTrue(src.contains("title = Album.filingHead(tx, capture.work),"), "its title is the filing's name, or Pick the work")
+        assertTrue(src.contains("subtitle = workSub,"), "its second text is the caller's (Album.workSub)")
+        assertTrue(src.contains("onClick = onPickWork)"), "a tap re-files it, when the caller allows one")
+        assertTrue(src.contains("onClick: (() -> Unit)?,"), "DetailRow takes no tap before approval")
+        assertTrue(src.contains(".then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)"), "and draws no tap then")
+        assertTrue(src.contains("if (onClick != null) {"), "and no chevron")
+        assertEquals(2, Regex("""Text\(tx\.app_filed_at,""").findAll(src).count(), "the two FILED AT folder blocks are keyed, not deleted (critic C2)")
+    }
+
+    @Test fun `a new capture carries its work and no stage, the pick is per project, and the re-file writes the store then the job (MainActivity kt)`() {
+        val src = app("MainActivity.kt")
+        for (gone in listOf("StageSheet", "showStagePicker", "retagStage", "stageNow", "var stage by", "Stage for new photos", "Stage of this photo",
+            "setCaptureTags(serverName, workStage", "cat.stages(", "workStage = newStage"))
+            assertFalse(src.contains(gone), "`$gone` is gone with the stage pickers")
+        assertTrue(src.contains("val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileCache?.states)"), "where the next capture files")
+        assertTrue(src.contains("val capWorkFor = remember { mutableStateMapOf<String, Int>() }"), "the pick is held per project, in memory")
+        assertTrue(src.contains("if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }"), "approved with no work to file at: refused, never filed to 0")
+        assertEquals(2, Regex("""captureDate = today, stage = "",""").findAll(src).count(), "FaceWriter.begin and single get stage ''")
+        assertTrue(src.contains("room = r, work = workNow, captureDate = today,"), "PendingSplit carries the work")
+        assertTrue(src.contains("work = workNow))"), "the Photo insert carries the work")
+        assertTrue(src.contains("work = keep.work,"), "the kept 360's insert carries the work")
+        assertEquals(4, Regex("""stage = "",""").findAll(src).count(), "every new row's stage is blank: begin, single, the Photo insert, the kept insert")
+        assertTrue(src.contains("onPickWork = if (capApproved) ({ refileWork = true }) else null,"), "the WORK line takes a tap after approval only")
+        assertTrue(src.contains("store.setWork(cap.deviceId, work)"), "a re-file writes the store first")
+        assertTrue(src.contains("if (WorkRefile.onWeb(context, cap.deviceId)) WorkRefile.enqueue(context, cap.deviceId)"), "then the job, for a capture S5 holds")
+        assertTrue(src.contains("Album.quoteAt(\n            capMirror?.stages ?: emptyList()"), "a Quote-journey capture's line reads quoteAt over the mirror")
+        assertTrue(src.contains("onDismiss = { pickWork = false; showCaptureSheet = true })"), "a dismissed Which work? reopens the capture sheet unchanged")
+        assertTrue(src.contains("onDismiss = { refileWork = false })"), "a dismissed re-file changes nothing")
+    }
+
+    @Test fun `the stage halves of setTags and setCaptureTags are gone, and the sweep runs after both legs (CaptureStore, FrappeClient, SyncWorker, AsIsUpload, WorkRefile kt)`() {
+        assertTrue(app("CaptureStore.kt").contains("fun setTags(deviceId: String, sku: String) {"), "setTags tags a SKU alone")
+        assertTrue(app("FrappeClient.kt").contains("fun setCaptureTags(name: String, sku: String): JSONObject {"), "setCaptureTags sends a SKU alone")
+        val tags = app("FrappeClient.kt").let { it.substring(it.indexOf("fun setCaptureTags(")).let { f -> f.substring(0, f.indexOf("fun ", 4)) } }
+        assertFalse(tags.contains("work_stage"), "no work_stage goes to the bench from a re-tag (createCapture still sends the row's, for the ERP leg)")
+        val sync = app("SyncWorker.kt")
+        val sweep = sync.indexOf("WorkRefile.sweep(applicationContext, store)")
+        assertTrue(sweep > 0, "the sweep runs")
+        assertTrue(sync.indexOf("if (erp == null || erp.keyDead) { if (s5) s5Leg(store) }") < sweep, "after both legs")
+        assertTrue(sync.indexOf("AsIsUpload.requeueSignInRefused") < sweep && sweep < sync.indexOf("QuoteStageSync.refresh(applicationContext"), "beside the re-queue, before the quote stage read")
+        assertFalse(sync.substring(sync.indexOf("private fun s5Leg")).contains("WorkRefile"), "never inside the S5 leg, which a phone holding a pair never runs")
+        val up = app("AsIsUpload.kt")
+        assertTrue(up.contains("told = AsIsUpload.Told(body[\"work\"] as Int?))"), "the record's own work is the done-mark")
+        assertTrue(up.contains("val kept = told ?: runCatching { toldOf(JSONObject(f.readText())) }.getOrNull()"), "a state change keeps the mark")
+        val job = app("WorkRefile.kt")
+        assertTrue(job.contains("fun workName(captureId: String) = \"mcft-work-\$captureId\""), "one unique job per capture")
+        assertTrue(job.contains("ExistingWorkPolicy.REPLACE"), "a later pick replaces it")
+        assertTrue(job.contains("val names = listOfNotNull(c.deviceId, c.serverName?.takeIf { it.isNotBlank() && it != c.deviceId })"), "each name the capture has had: the device id, then ERP's")
+        assertTrue(job.contains("a.code == 404 -> i += 1"), "the next name on a 404")
+        assertTrue(job.contains("AsIsPath.path(AsIsPath.work(c.project, c.room, capture))"), "S5-R's address")
+        assertTrue(job.contains("JSONObject(AsIsPath.workBody(work) as Map<*, *>)"), "S5-R's body, serialised whole so a null work is JSON null")
+        assertTrue(job.contains("Album.needsRefile(onWeb(context, c.deviceId), Album.workOfCapture(c.work, c.stage), told?.work, told != null)"), "the sweep's rule is Album's")
     }
 }

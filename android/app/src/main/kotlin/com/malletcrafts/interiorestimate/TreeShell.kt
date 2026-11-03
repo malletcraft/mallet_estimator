@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import androidx.compose.runtime.*
@@ -166,85 +167,6 @@ fun Banner(text: String, warn: Boolean = true) {
     ) {
         Text(text, style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp))
-    }
-}
-
-/**
- * The stage picker: thirty-nine rows, grouped by phase, current one marked.
- *
- * A chip row was never an option — thirty-nine chips is a wall, not a filter.
- * So the PHASE is what the capture list filters by, and the stage is chosen
- * here: one scroll, phase headings, the current stage highlighted so you can
- * see where the job is without reading every line.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun StageSheet(
-    stages: List<Catalogue.Stage>,
-    /** Every stage in the master, whatever the job type. The picker offers
-     *  the job type's slice by default and this on request — "I cannot see
-     *  all the stages" has to have an answer ON the screen, not in a doc. */
-    allStages: List<Catalogue.Stage> = stages,
-    current: String,
-    jobType: String,
-    /** "Move the project to" or "Stage of this photo" — the same list, two
-     *  quite different consequences, and the heading is the only warning. */
-    heading: String = "Move the project to",
-    onPick: (Catalogue.Stage) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var showAll by remember { mutableStateOf(false) }
-    val shown = if (showAll) allStages else stages
-    val hidden = allStages.size - stages.size
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle("$heading · $jobType · ${shown.size} stages")
-        // Repair and Supply & install are a SLICE of the same sequence, not a
-        // different one, so a picker narrowed to the job type is right — and
-        // silently dropping fifteen rows is not. The count says what is
-        // missing and the row unhides it.
-        if (hidden > 0) {
-            ListItem(
-                headlineContent = {
-                    Text(if (showAll) "Showing all ${allStages.size} stages"
-                         else "$hidden more a $jobType job does not normally reach")
-                },
-                supportingContent = {
-                    Text(if (showAll) "tap to go back to the $jobType stages"
-                         else "tap to show every stage in the master")
-                },
-                colors = ListItemDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-                modifier = Modifier.clickableRow { showAll = !showAll })
-        }
-        // A plain scrolling Column, not a LazyColumn. Thirty-nine rows do not
-        // need laziness, and a lazy list composes out of order — which breaks
-        // any "print the heading when the phase changes" logic in a way that
-        // only shows up as a missing heading halfway down.
-        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-            shown.groupBy { it.phase }.forEach { (phase, rows) ->
-                Text(phase.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 24.dp, top = 14.dp, bottom = 2.dp))
-                rows.forEach { s ->
-                    val reachable = stages.any { it.name == s.name }
-                    ListItem(
-                        headlineContent = { Text(s.name) },
-                        supportingContent = if (reachable) null else ({
-                            Text("not a $jobType stage",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }),
-                        colors = if (s.name == current)
-                            ListItemDefaults.colors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                        else ListItemDefaults.colors(),
-                        modifier = Modifier.clickableRow { onPick(s) })
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
     }
 }
 
@@ -417,11 +339,29 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
  * you came to look at. The levelling advice is read once ever, and the room
  * dimensions once per room, so both belong in a sheet you open when you are
  * about to shoot and never see when you are not.
+ *
+ * ITS FIRST ROW IS WORK, NOT A STAGE (v61c §4.3, the prototype's workRow61c;
+ * port 61c slice FW2): where the next capture files. Before Client approved
+ * it reads `Quote journey` over the stage the project is at and the lock, and
+ * takes no tap; after approval it names the work picked for this project (or
+ * the first In progress, or `Pick the work`) with its state and `tap to
+ * change`, and the tap opens Which work? ([WorkSheet]). The thirty-nine-stage
+ * picker that was FILED AT is gone with it: nothing on the phone picks a stage
+ * any more. Every text is keyed; the camera's own note ([cameraNote]) is the
+ * camera module's, shown as it says it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CaptureSheet(
-    stage: String,
+    /** The WORK row's two texts (Album.filingHead, Album.workSub). */
+    workHead: String,
+    workSub: String,
+    /** Opens Which work?; null before approval, where the row is a plain line
+     *  (the prototype's li without onClick: no tap, no chevron). */
+    onWork: (() -> Unit)?,
+    /** Approved, and no work to file at yet (Album.newCaptureWork null): Shoot,
+     *  Pick, Camera and Gallery wait for a pick -- the album camera's rule. */
+    noWork: Boolean,
     /** What he measured, as typed — kept as text so a half-entered "1" is
      *  not silently a 1 ft room while his thumb is still moving. */
     roomLength: String,
@@ -432,7 +372,6 @@ fun CaptureSheet(
     cameraConnected: Boolean,
     cameraNote: String?,
     busy: Boolean,
-    onStage: () -> Unit,
     onRoomLength: (String) -> Unit,
     onRoomWidth: (String) -> Unit,
     onRoomHeight: (String) -> Unit,
@@ -445,16 +384,17 @@ fun CaptureSheet(
     onPickPhoto: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tx = LocalTx.current
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle("Capture 360")
+        SheetTitle(tx.common_capture_360)
         Column(Modifier.verticalScroll(rememberScrollState())) {
             ListItem(
-                headlineContent = { Text(stage.ifBlank { "No stage set" }) },
-                overlineContent = { Text("FILED AT") },
-                supportingContent = { Text("tap to change — it can be corrected on the photo too") },
-                modifier = Modifier.clickableRow(onStage))
+                headlineContent = { Text(workHead) },
+                overlineContent = { Text(tx.album_work_caps) },
+                supportingContent = { Text(workSub) },
+                modifier = if (onWork != null) Modifier.clickableRow(onWork) else Modifier)
 
-            Text("ROOM SIZE (MM)",
+            Text(tx.app_room_size_mm,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -488,7 +428,7 @@ fun CaptureSheet(
             val sizesOk = heightOk && mmOrNull(roomLength) != null && mmOrNull(roomWidth) != null
             OutlinedTextField(
                 value = roomHeight, onValueChange = onRoomHeight,
-                label = { Text("Height, floor to ceiling (required)") }, singleLine = true,
+                label = { Text(tx.app_height_floor_ceiling_required) }, singleLine = true,
                 isError = roomHeight.isNotBlank() && !heightOk,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp))
@@ -499,13 +439,13 @@ fun CaptureSheet(
             ) {
                 OutlinedTextField(
                     value = roomLength, onValueChange = onRoomLength,
-                    label = { Text("Length front\u2192back (carpet max)") }, singleLine = true,
+                    label = { Text(tx.app_length_front_back_carpet) }, singleLine = true,
                     isError = roomLength.isNotBlank() && mmOrNull(roomLength) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
                 OutlinedTextField(
                     value = roomWidth, onValueChange = onRoomWidth,
-                    label = { Text("Width left\u2192right (carpet max)") }, singleLine = true,
+                    label = { Text(tx.app_width_left_right_carpet) }, singleLine = true,
                     isError = roomWidth.isNotBlank() && mmOrNull(roomWidth) == null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
@@ -515,26 +455,21 @@ fun CaptureSheet(
             // the old FOV maths; with the eight corners measuring the room,
             // where the camera stood no longer matters as long as every
             // corner is in view.
+            // The height's range is the prototype's own words, `1829–6096`:
+            // mm(CaptureGeometry.MIN_CEILING_IN) and mm(MAX_CEILING_IN), 72 in
+            // and 240 in, which the key carries as written (the prototype's
+            // English wins, decision 5).
             Text(
                 when {
-                    !heightOk && roomHeight.isBlank() ->
-                        "Type the height to shoot or pick a 360 \u2014 it sets the " +
-                        "mm scale on every elevation."
-                    !heightOk ->
-                        "Height in MM, ${mm(CaptureGeometry.MIN_CEILING_IN)}\u2013" +
-                        "${mm(CaptureGeometry.MAX_CEILING_IN)}. A 9 ft ceiling is 2743."
-                    !sizesOk || plan == null ->
-                        "Type the carpet length (front\u2192back) and width (left\u2192right) " +
-                        "too, wall to wall at the widest \u2014 the room is set from them."
-                    plan.fitted ->
-                        "Walls ${Math.round(plan.wallFovDeg)}\u00b0, floor and " +
-                        "ceiling ${Math.round(plan.floorFovDeg)}\u00b0 \u2014 every corner " +
-                        "in frame, and the photo is checked against the tape."
-                    else ->
-                        "This room needs ${Math.round(plan.floorFovDeg)}\u00b0 on its " +
-                        "${plan.unfittedFaces.joinToString("/")} face, past what the " +
-                        "split can sample. Those corners will still crop \u2014 " +
-                        "shoot it in two halves, or accept it."
+                    !heightOk && roomHeight.isBlank() -> tx.app_type_height_shoot_pick
+                    !heightOk -> tx.app_height_mm_1829_6096
+                    !sizesOk || plan == null -> tx.app_type_carpet_length_front
+                    plan.fitted -> tx.app_walls_x_floor_ceiling(
+                        wall = Math.round(plan.wallFovDeg).toString(),
+                        floor = Math.round(plan.floorFovDeg).toString())
+                    else -> tx.app_room_needs_x_x(
+                        floor = Math.round(plan.floorFovDeg).toString(),
+                        v = plan.unfittedFaces.joinToString("/"))
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (!sizesOk || (plan != null && !plan.fitted))
@@ -545,44 +480,82 @@ fun CaptureSheet(
             if (hasCamera) {
                 ListItem(
                     headlineContent = {
-                        Text(if (cameraConnected) "X3 connected" else "X3 not connected")
+                        Text(if (cameraConnected) tx.app_x3_connected else tx.app_x3_not_connected)
                     },
                     supportingContent = {
-                        Text(cameraNote ?: if (cameraConnected) "ready to shoot"
-                             else "join the camera's Wi-Fi first, then tap")
+                        Text(cameraNote ?: if (cameraConnected) tx.app_ready_shoot
+                             else tx.app_join_camera_s_wi)
                     },
                     modifier = Modifier.clickableRow(onCamera))
                 Button(
                     onClick = onShoot,
-                    enabled = !busy && cameraConnected && sizesOk,
+                    enabled = !busy && cameraConnected && sizesOk && !noWork,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                ) { Text("Shoot 360 on the X3") }
+                ) { Text(tx.app_shoot_360_x3) }
                 Spacer(Modifier.height(8.dp))
             }
             OutlinedButton(
                 onClick = onPick,
-                enabled = !busy && sizesOk,
+                enabled = !busy && sizesOk && !noWork,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            ) { Text("Pick a 360 from the gallery") }
+            ) { Text(tx.app_pick_360_gallery) }
 
             // Not every capture is a 360. A repair is a close-up of one
             // hinge; a snag list is a dozen of them. These file a single
-            // photograph under the same client, site, room and stage — the
+            // photograph under the same client, site, room and work — the
             // filing is the point, not the projection.
-            Text("A SINGLE PHOTO",
+            Text(tx.app_single_photo,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 24.dp, top = 20.dp, bottom = 6.dp))
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onTakePhoto, enabled = !busy,
-                    modifier = Modifier.weight(1f)) { Text("Camera") }
-                OutlinedButton(onClick = onPickPhoto, enabled = !busy,
-                    modifier = Modifier.weight(1f)) { Text("Gallery") }
+                Button(onClick = onTakePhoto, enabled = !busy && !noWork,
+                    modifier = Modifier.weight(1f)) { Text(tx.common_camera) }
+                OutlinedButton(onClick = onPickPhoto, enabled = !busy && !noWork,
+                    modifier = Modifier.weight(1f)) { Text(tx.common_gallery) }
             }
             Spacer(Modifier.height(24.dp))
         }
+    }
+}
+
+/**
+ * WHICH WORK? (v61c §4.3, the prototype's workSheet61c; port 61c slice FW2):
+ * the sixteen works with their states, the current one marked. It never
+ * offers the Quote journey -- a photo taken or re-filed after approval
+ * belongs to a work, the album camera's rule. Two callers: the capture
+ * sheet's WORK row (a pick sets this project's work for new captures and
+ * reopens the capture sheet; a dismiss, or ◁, reopens it unchanged) and the
+ * photo's WORK line (a pick re-files that one capture). The states are the
+ * project-state store's (QuoteStage.Cache.states); a work with none reads
+ * Not started, and until K4 nobody can set one from the phone.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WorkSheet(
+    current: Int?,
+    states: Map<Int, Album.WorkState>?,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val tx = LocalTx.current
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        SheetTitle(tx.album_which_work)
+        Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            Album.WORKS.forEach { w ->
+                ListItem(
+                    headlineContent = { Text(Album.workName(tx, w.id)) },
+                    supportingContent = { Text(Album.stateText(tx, states?.get(w.id)?.state)) },
+                    colors = if (w.id == current)
+                        ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                    else ListItemDefaults.colors(),
+                    modifier = Modifier.clickableRow { onPick(w.id) })
+            }
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
 

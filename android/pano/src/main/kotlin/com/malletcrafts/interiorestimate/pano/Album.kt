@@ -482,6 +482,59 @@ object Album {
     fun workOfCapture(work: Int?, stage: String?): Int? =
         if (work == QUOTE_WORK || isWork(work)) work else workOfStage(stage)
 
+    // ---- filing a NEW capture, and the WORK row and line (port 61c slice FW2) ---------------------------
+
+    /**
+     * The work a NEW capture files at (the prototype's newWork, index61c2.html): the Quote journey before
+     * Client approved; after it, the work picked for THIS project ([pick], held by the caller per project
+     * as the prototype's S.capWorkFor), else the first work In progress by [states] (S5's order), else null
+     * -- Pick the work: the capture buttons wait for a pick, the album camera's rule. A pick that is not
+     * one of the sixteen is no pick.
+     */
+    fun newCaptureWork(approved: Boolean, pick: Int?, states: Map<Int, WorkState>?): Int? =
+        if (!approved) QUOTE_WORK else pick?.takeIf { isWork(it) } ?: openWorks(states ?: emptyMap()).firstOrNull()
+
+    /** The WORK row's and line's first text: `Pick the work` when unfiled, else the filing's name ([workName]). */
+    fun filingHead(tx: Tx, work: Int?): String = if (work == null) tx.album_pick_work else workName(tx, work)
+
+    /**
+     * The quote stage a Quote-journey capture reads under WORK: the never-sent words for a project only on this
+     * phone (v61c.2: such a project has no stage of its own, so the prototype's workRow61c draws NOT_ON_S5_MSG
+     * for it), [stage] through Masters when it is one of the six (the capture sheet passes the project line's
+     * current stage, the photo's line [quoteAt]'s answer), else `not read yet`.
+     */
+    fun quoteLead(tx: Tx, line: QuoteStage.ProjectLine, stage: String?): String = when {
+        line.kind == QuoteStage.LineKind.LOCAL -> tx.wish_not_on_s5_yet
+        stage != null && stage in QuoteStage.STAGES -> Masters.quote(tx, stage)
+        else -> tx.wish_not_read_yet
+    }
+
+    /**
+     * The WORK row's and line's second text (the prototype's workRow61c and captureScreen, v61c §4.3-§4.4,
+     * P23): for the Quote journey the stage ([quoteLead]), for an unfiled capture `not filed to a work`, for a
+     * work its [state] as shown -- then, before approval, the lock (` · locked until the client approves the
+     * estimate`, the row takes no tap); after it ` · tap to change`.
+     */
+    fun workSub(tx: Tx, approved: Boolean, work: Int?, quoteLead: String, state: String?): String {
+        val lead = when (work) {
+            QUOTE_WORK -> quoteLead
+            null -> tx.album_unfiled
+            else -> stateText(tx, state)
+        }
+        return if (!approved) lead + tx.app_stg_locked_quote else listOf(lead, tx.album_tap_to_change).joinToString(" · ")
+    }
+
+    /**
+     * THE SWEEP'S RULE (FW2): whether a capture's copy on S5 is re-filed by S5-R. Only one the web holds
+     * ([onWeb]: its upload reads On web), whose filing is not the Quote journey -- S5 filed every record from
+     * before AS1 at 0, so 0 needs no re-file -- and that this phone has not already told S5 ([told], the work
+     * the record PUT or a re-file last sent, [toldKnown] false for an upload from before FW2, which told
+     * nothing). The done-mark converging to the filing is what makes it once per capture: a later pick on the
+     * phone, or a record that went up while the pick moved, is caught by the next sync.
+     */
+    fun needsRefile(onWeb: Boolean, filing: Int?, told: Int?, toldKnown: Boolean): Boolean =
+        onWeb && filing != QUOTE_WORK && !(toldKnown && told == filing)
+
     /** S5's partyKey: trimmed and lower-cased, so a login or a Supplier is matched as ERP matches it. */
     fun partyKey(v: String?): String = v?.trim()?.lowercase() ?: ""
 

@@ -326,6 +326,38 @@ regenerated; the tables hold 1,792 keys as before. Their 7 `unkeyed.tsv` rows we
 hint, `No work tagged`, and the capture screen's rows. `literal-counts.tsv` gains the row `AsIsPath.kt 0` that
 slice AS1's new file never had: `i18nRatchet` rewrites the whole list, and the count is what the check expects.
 
+## Port 61c slice FW2 (3 Nov 2026): new photos and re-files are written by work; the last stage pickers go
+
+`CaptureScreens.kt` joined `ported.txt` and its 52 `unkeyed.tsv` rows went; the capture sheet (`TreeShell.kt`'s
+`CaptureSheet`, and the new `WorkSheet`, Which work?) is keyed too, and its 37 rows and the stage picker's went with
+it, with `MainActivity.kt`'s two picker headings (951 -> 860, the file's lines as the slices above count them; 919 -> 828 rows). **No new key**: every text the capture sheet,
+the capture screen (the WORK line, the SKU row, the folder block, Remove local copy, Delete) and the face viewer draw
+had one -- the prototype's own `album.*` row and line words (`album.work_caps`, `album.quote_journey`,
+`album.pick_work`, `album.unfiled`, `album.tap_to_change`, `album.which_work`, `app.stg_locked_quote`, the five states
+through `Masters.state`, a quote stage through `Masters.quote`, `wish.not_read_yet`, `wish.not_on_s5_yet`) and the
+card's capture texts -- so Tx is not regenerated and the tables hold 1,792 keys as before. The WORK row's and line's
+texts are built in `:pano` (`Album.filingHead`, `Album.quoteLead`, `Album.workSub`, each taking the `Tx`; pinned in
+English and in Marathi by CaptureFilingTest), as the project line is.
+
+- **The prototype's English wins (decision 5)**, so these change on the phone: the tile's corner chip is the noun
+  `noun.photo` upper-cased (`PHOTO`, the card: case only; a no-op on Devanagari); Remove local copy always carries its
+  size, `Remove local copy (12.3 MB)` (`app.remove_local_copy_x`, the unit in the key; the phone's blank-size branch
+  went -- the row exists only for a kept file, so the size is always known); the height hint's range is the key's
+  own `1829–6096` (`app.height_mm_1829_6096`), which is `mm(72 in)`–`mm(240 in)` as the phone computed it.
+- **Marked `// text:value`**: the lead tokens `SKU` and `SVY` (the prototype's own raw leads; `WORK` is keyed,
+  `album.work_caps`), the kept 360's file name `<id>.jpg`, the pen badge's `n/6` (no Latin), and in the new
+  `WorkRefile.kt` the request's content type and its log lines.
+- **Deleted with their readers**: the thirty-nine-stage picker (`StageSheet`, "Move the project to", "Stage for new
+  photos", "Stage of this photo", the job-type narrowing and its "n more … does not normally reach" rows) and the
+  capture screen's STG row ("No stage set", "no phase", " · tap to correct (recorded)"). Nothing on the phone shows
+  or picks a stage any more; `common.no_stage_set`, `app.no_phase`, `app.tap_correct_recorded` and
+  `app.tap_change_can_corrected` keep their prototype readers (the v53 lens) and lose their phone sites.
+- **Still English under मराठी on the capture screen**, each a later slice's: the survey-prep row's note (`surveyNote`
+  in `MainActivity.kt`: "Opening the 360…", "n of 6 surfaces bounded · …", "Not done yet · …", "The 360 is no longer on
+  this phone · tap for why"), the FAB's `Capture 360`, the face viewer's sub-line (an id and a date) and the bench
+  refusals ("Could not re-file on the bench: …"), all `MainActivity.kt`'s (M2); the camera's own note on the X3 row
+  (`cameraNote`, the camera module's, M6).
+
 ## What is here
 
 | File | What it is | Who writes it |

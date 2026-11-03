@@ -41,11 +41,6 @@ import com.malletcrafts.interiorestimate.pano.Album
 data class CaptureCard(
     val deviceId: String,
     val date: String,
-    /** The PHASE of the legacy stage — one of the ten, the word the capture
-     *  doctype stores. Read by the STG row alone until FW2 takes that row;
-     *  nothing groups or titles by it any more (v61c: photos are filed by
-     *  WORK, [work]). The stage that produced it is [workStage]. */
-    val stage: String,
     val panoPath: String,
     val state: String,
     /** How many of the six faces have come back annotated from ImageMeter. */
@@ -56,9 +51,6 @@ data class CaptureCard(
      *  identifies the work; the article says what it IS, and a designer
      *  reading a wall off a thumbnail needs the second one. */
     val article: String = "",
-    /** The work stage the photo was filed at — one of the thirty-nine. Blank
-     *  on a capture taken before the master existed, which still has a phase. */
-    val workStage: String = "",
     /** "360" or "Photo". A 360 is the record of a whole room and splits into
      *  six faces; a Photo is one wall, floor or ceiling and has none. */
     val kind: String = "360",
@@ -68,7 +60,9 @@ data class CaptureCard(
      *  work): 0 the Quote journey, one of the sixteen work ids, or null for
      *  not filed to a work. Always [Album.workOfCapture] over the stored row --
      *  the one filing rule, which files a row from before the phone filed by
-     *  work through its legacy stage -- never the raw column. NO DEFAULT: null
+     *  work through its legacy stage -- never the raw column. No stage rides
+     *  the card any more: the STG row became the WORK line (port 61c slice
+     *  FW2), and nothing on the phone shows or picks a stage. NO DEFAULT: null
      *  is itself a filing (not filed to a work -- its own heading, chip and
      *  bottom group), so a construction site that left it out would compile
      *  and quietly file every card there, the fallback that answers
@@ -91,6 +85,7 @@ private fun Scrim() {
 
 @Composable
 private fun PenBadge(modifier: Modifier = Modifier, label: String? = null) {
+    val tx = LocalTx.current
     Row(
         modifier
             .clip(RoundedCornerShape(11.dp))
@@ -98,7 +93,7 @@ private fun PenBadge(modifier: Modifier = Modifier, label: String? = null) {
             .padding(horizontal = 5.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(R.drawable.ic_mcft_pen), contentDescription = "annotated",
+        Icon(painterResource(R.drawable.ic_mcft_pen), contentDescription = tx.app_aria_annotated,
             tint = INK, modifier = Modifier.size(12.dp))
         if (label != null) {
             Spacer(Modifier.width(3.dp))
@@ -276,7 +271,8 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails
             // it says what kind of capture this is instead, which is the thing
             // you cannot tell from a thumbnail.
             if (c.kind == "Photo") {
-                Text("PHOTO", color = Color.White,
+                // The noun, upper-cased as the prototype's chip draws it (the card: case only); a no-op on Devanagari.
+                Text(tx.noun_photo(1).uppercase(), color = Color.White,
                     fontSize = 9.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .align(Alignment.TopStart).padding(6.dp)
@@ -288,7 +284,7 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails
                 // ONE TILE PER 360, and it opens survey prep (Amit, 2026-10-11:
                 // "our single screen takes care of all 6 faces"); the capture's
                 // own screen is one tap away here.
-                Text("Details", color = Color.White,
+                Text(tx.app_details, color = Color.White,
                     fontSize = 10.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .align(Alignment.TopStart).padding(6.dp)
@@ -310,15 +306,15 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails
                     fontWeight = FontWeight.Medium)
                 // The SKU has moved below. What stays on the image is the one
                 // thing that is about the FILE rather than about the work.
-                Text(if (c.state == "SYNCED") "synced" else "on phone",
+                Text(if (c.state == "SYNCED") tx.app_synced else tx.app_on_phone,
                     color = Color.White.copy(alpha = .85f), fontSize = 10.sp)
             }
         }
         if (c.kind == "360") {
             Column(Modifier.fillMaxWidth().padding(7.dp, 6.dp, 7.dp, 8.dp)) {
-                Text("Survey prep", style = MaterialTheme.typography.labelLarge,
+                Text(tx.common_survey_prep, style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(c.survey.ifBlank { "tap to bound, square and mark the room" },
+                Text(c.survey.ifBlank { tx.app_tap_bound_square_mark },
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -327,14 +323,14 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails
         }
         Column(Modifier.fillMaxWidth().padding(7.dp, 6.dp, 7.dp, 8.dp)) {
             Text(
-                c.sku.ifBlank { "No work tagged" },
+                c.sku.ifBlank { tx.app_no_work_tagged },
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 color = if (c.sku.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
                         else MaterialTheme.colorScheme.onSurface)
             val under = c.article.ifBlank {
-                if (c.sku.isBlank()) "tap to say what this wall needs" else ""
+                if (c.sku.isBlank()) tx.app_tap_say_what_wall else ""
             }
             // Rendered only when it says something. An empty second line would
             // hold its height and make every tagged tile look like it was missing
@@ -349,18 +345,21 @@ private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails
     }
 }
 
-/** One tappable fact about a capture: a square token, a title, a reason. */
+/** One fact about a capture: a square token, a title, a reason -- tappable
+ *  when [onClick] is given, else a plain line with no chevron (the
+ *  prototype's detailRow57ro, the WORK line before approval). */
 @Composable
 private fun DetailRow(
     lead: String,
     title: String,
     subtitle: String,
     dim: Boolean = false,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
 ) {
     Column {
         Row(
-            Modifier.fillMaxWidth().clickable(onClick = onClick)
+            Modifier.fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -383,8 +382,10 @@ private fun DetailRow(
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(painterResource(R.drawable.ic_mcft_chev), contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline)
+            if (onClick != null) {
+                Icon(painterResource(R.drawable.ic_mcft_chev), contentDescription = null,
+                    tint = MaterialTheme.colorScheme.outline)
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -403,7 +404,13 @@ fun CaptureScreen(
     annotatedFaces: Set<String>,
     folder: String,
     onOpenFace: (Int) -> Unit,
-    onPickStage: () -> Unit,
+    /** The WORK line's second text (Album.workSub: the work's state, `not
+     *  filed to a work`, or for a Quote-journey capture the quote stage it was
+     *  taken in -- then the lock, or `tap to change`). */
+    workSub: String,
+    /** Opens Which work? to re-file this capture; null before Client approved,
+     *  where the line is read-only (the prototype's detailRow57ro). */
+    onPickWork: (() -> Unit)?,
     onPickSku: () -> Unit,
     onDelete: (() -> Unit)? = null,
     /** ERP's name for this capture, blank while it is still only on the
@@ -419,12 +426,13 @@ fun CaptureScreen(
     /** How much the kept copy takes, for that button. */
     localSize: String = "",
 ) {
+    val tx = LocalTx.current
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         // The two rows that make a photo findable a month later, and the two
-        // that are most often wrong: the stage is inherited from whatever the
-        // project was at when the shutter fired, and the SKU is usually not
-        // set at all. Both are one tap from here, because a tag that can only
-        // be fixed at a desk is a tag nobody fixes.
+        // that are most often wrong: the work is whatever was picked when the
+        // shutter fired, and the SKU is usually not set at all. Both are one
+        // tap from here (the work after approval), because a tag that can
+        // only be fixed at a desk is a tag nobody fixes.
         // THE SKU COMES FIRST on a flat photo. Amit, 2026-08-22: "Sku is
         // function of a single foto. We must be able to clearly show on foto
         // screen what sku or service goes on that foto." A photograph of a
@@ -433,25 +441,25 @@ fun CaptureScreen(
         // scroll past.
         if (capture.kind == "Photo") {
             DetailRow(
-                lead = capture.sku.substringAfterLast('_').ifBlank { "SKU" },
-                title = capture.sku.ifBlank { "Not tagged to a SKU" },
-                subtitle = if (capture.sku.isNotBlank())
-                               "the work expected on this wall · tap to change"
-                           else "tap to say what work is expected here",
+                lead = capture.sku.substringAfterLast('_').ifBlank { "SKU" }, // text:value the prototype's own lead token, an SKU code's tail
+                title = capture.sku.ifBlank { tx.app_not_tagged_sku },
+                subtitle = if (capture.sku.isNotBlank()) tx.app_work_expected_wall_tap
+                           else tx.app_tap_say_what_work,
                 dim = capture.sku.isBlank(),
                 onClick = onPickSku)
         }
+        // THE WORK LINE (v61c §4.4, the prototype's captureScreen D4; port 61c
+        // slice FW2), where the STG row was: where the capture IS filed -- the
+        // Quote journey, a work, or `Pick the work` when not filed to one --
+        // over the stage it was taken in, the work's state, or `not filed to
+        // a work`. Read-only until Client approved (no tap, no chevron);
+        // after it a tap opens Which work? and re-files this one capture.
         DetailRow(
-            lead = "STG",
-            title = capture.workStage.ifBlank {
-                capture.stage.ifBlank { "No stage set" } },
-            // "recorded", not "tap to change": changing it is allowed, and
-            // saying that the change is kept is what makes somebody choose
-            // right at the shutter instead of fixing it later.
-            subtitle = capture.stage.ifBlank { "no phase" } +
-                " · tap to correct (recorded)",
-            dim = capture.workStage.isBlank() && capture.stage.isBlank(),
-            onClick = onPickStage)
+            lead = tx.album_work_caps,
+            title = Album.filingHead(tx, capture.work),
+            subtitle = workSub,
+            dim = capture.work == null,
+            onClick = onPickWork)
         // ONLY on a flat photo. A 360 is the record of a whole ROOM, and a
         // room is not one article — you cannot say "this 360 is the
         // wardrobe". What CAN carry a SKU is a single wall, floor or
@@ -465,17 +473,17 @@ fun CaptureScreen(
             Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)
                 .clickable { onOpenFace(0) }) {
                 Thumb(ThumbSource.LocalFile(capture.panoPath), Modifier.fillMaxSize(),
-                    target = 1200, contentDescription = "the photograph")
+                    target = 1200, contentDescription = tx.app_aria_photograph)
                 if (annotatedFaces.isNotEmpty()) {
-                    PenBadge(Modifier.align(Alignment.TopEnd).padding(8.dp), "marked")
+                    PenBadge(Modifier.align(Alignment.TopEnd).padding(8.dp), tx.app_marked)
                 }
             }
-            Text("Tap to open. To mark it up: add it to ImageMeter from your " +
-                 "gallery, then Import from ImageMeter here.",
+            Text(tx.app_tap_open_mark_up,
                 Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("FILED AT", style = MaterialTheme.typography.labelSmall,
+            // The FOLDER block (SPEC61c §4.4 keeps it): where the faces sit in the gallery.
+            Text(tx.app_filed_at, style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp))
@@ -492,12 +500,12 @@ fun CaptureScreen(
         // as a broken app, so it does not invite the tap.
         Box(Modifier.fillMaxWidth().height(140.dp)) {
             Thumb(ThumbSource.LocalFile(capture.panoPath), Modifier.fillMaxSize(),
-                target = 900, contentDescription = "the original 360")
+                target = 900, contentDescription = tx.app_aria_original_360)
             Scrim()
             Column(Modifier.align(Alignment.BottomStart).padding(10.dp)) {
-                Text("Original 360", color = Color.White,
+                Text(tx.app_original_360, color = Color.White,
                     style = MaterialTheme.typography.titleSmall)
-                Text("${capture.deviceId}.jpg", color = Color.White.copy(alpha = .85f),
+                Text("${capture.deviceId}.jpg", color = Color.White.copy(alpha = .85f), // text:value the kept 360's file name, as the prototype prints it
                     fontSize = 10.sp)
             }
         }
@@ -505,7 +513,7 @@ fun CaptureScreen(
         // the site readings are taken after the capture is kept, so the prep
         // opens again from here, on the 360 the phone keeps for it.
         onSurveyPrep?.let { open ->
-            DetailRow(lead = "SVY", title = "Survey prep", subtitle = surveyNote, onClick = open)
+            DetailRow(lead = "SVY", title = tx.common_survey_prep, subtitle = surveyNote, onClick = open) // text:value the prototype's own lead token
         }
 
         // NO SIX-FACE GRID (Amit, 2026-10-11: "currently i see all 6 fotos under
@@ -513,7 +521,8 @@ fun CaptureScreen(
         // of all 6 faces"). The faces are still written to the gallery for
         // ImageMeter and the upload; survey prep, above, is where they are worked.
 
-        Text("FILED AT", style = MaterialTheme.typography.labelSmall,
+        // The FOLDER block (SPEC61c §4.4 keeps it): where the faces sit in the gallery.
+        Text(tx.app_filed_at, style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 4.dp))
@@ -530,29 +539,27 @@ fun CaptureScreen(
  *  capture, its faces and the bench's copy all stay. */
 @Composable
 private fun RemoveLocalRow(onRemove: () -> Unit, size: String) {
+    val tx = LocalTx.current
     var confirm by remember { mutableStateOf(false) }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Remove the local copy?") },
-            text = {
-                Text("The original 360 and its survey prep \u2014 lines, marks and " +
-                    "readings \u2014 go from this phone to free space. The capture, its " +
-                    "faces in the gallery and the copy on the bench stay. Survey prep " +
-                    "can no longer be opened for it here.")
-            },
+            title = { Text(tx.app_remove_local_copy) },
+            text = { Text(tx.app_original_360_survey_prep) },
             confirmButton = {
-                TextButton(onClick = { confirm = false; onRemove() }) { Text("Remove") }
+                TextButton(onClick = { confirm = false; onRemove() }) { Text(tx.common_remove) }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = false }) { Text("Keep") }
+                TextButton(onClick = { confirm = false }) { Text(tx.common_keep) }
             })
     }
     Spacer(Modifier.height(20.dp))
+    // The size is always known here (the row exists only for a kept file), and the
+    // prototype always writes it: `Remove local copy (12.3 MB)`, the unit in the key.
     OutlinedButton(
         onClick = { confirm = true },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    ) { Text(if (size.isBlank()) "Remove local copy" else "Remove local copy ($size)") }
+    ) { Text(tx.app_remove_local_copy_x(v = size)) }
 }
 
 /** The only way to undo a shutter pressed by accident. Deliberately at the
@@ -560,11 +567,12 @@ private fun RemoveLocalRow(onRemove: () -> Unit, size: String) {
  *  that destroys something. */
 @Composable
 private fun DeleteRow(onDelete: () -> Unit, serverId: String = "") {
+    val tx = LocalTx.current
     var confirm by remember { mutableStateOf(false) }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Delete this capture?") },
+            title = { Text(tx.app_delete_capture_2) },
             text = {
                 Column {
                     // This used to promise that "a capture that has already
@@ -573,16 +581,8 @@ private fun DeleteRow(onDelete: () -> Unit, serverId: String = "") {
                     // reassurance that is no longer true is worse than none:
                     // it is the sentence a person reads just before losing
                     // the office's only copy.
-                    Text(
-                        if (serverId.isBlank())
-                            "It goes from this phone — the queue row, the " +
-                            "original, and the faces in the gallery. It never " +
-                            "reached the server, so there is nothing there to " +
-                            "remove."
-                        else
-                            "It goes from this phone AND from ERPNext, for " +
-                            "everyone — the original, the faces, and the SKU " +
-                            "if this was the only photograph holding it up.")
+                    Text(if (serverId.isBlank()) tx.app_goes_phone_queue_row
+                         else tx.app_goes_phone_erpnext_everyone)
                     if (serverId.isNotBlank()) {
                         Spacer(Modifier.height(10.dp))
                         Text(serverId,
@@ -594,18 +594,18 @@ private fun DeleteRow(onDelete: () -> Unit, serverId: String = "") {
             },
             confirmButton = {
                 TextButton(onClick = { confirm = false; onDelete() }) {
-                    Text("Delete")
+                    Text(tx.common_delete)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = false }) { Text("Keep") }
+                TextButton(onClick = { confirm = false }) { Text(tx.common_keep) }
             })
     }
     Spacer(Modifier.height(20.dp))
     OutlinedButton(
         onClick = { confirm = true },
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    ) { Text("Delete this capture") }
+    ) { Text(tx.app_delete_capture) }
 }
 
 /**
@@ -652,11 +652,12 @@ fun FaceViewer(
     onPickFace: (Int) -> Unit,
     onClose: () -> Unit,
 ) {
+    val tx = LocalTx.current
     val hasAnnotated = annotatedSource != null
     Column(Modifier.fillMaxSize().background(Color(0xFF0B0D0D))) {
         Row(Modifier.fillMaxWidth().padding(4.dp, 6.dp, 8.dp, 6.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onClose) { Text("Close", color = Color(0xFFEDEFEA)) }
+            TextButton(onClick = onClose) { Text(tx.common_close, color = Color(0xFFEDEFEA)) }
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color(0xFFEDEFEA),
                     style = MaterialTheme.typography.titleSmall,
@@ -679,7 +680,7 @@ fun FaceViewer(
                     modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(9.dp))
                 Text(
-                    faceSku.ifBlank { "No work tagged on this face — tap to say what" },
+                    faceSku.ifBlank { tx.app_no_work_tagged_face },
                     color = if (faceSku.isBlank()) Color(0xFF9AA29E) else Color(0xFFEDEFEA),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -700,9 +701,9 @@ fun FaceViewer(
         Column(Modifier.padding(12.dp, 10.dp, 12.dp, 14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))) {
-                SegButton("Original", selected = !showAnnotated || !hasAnnotated,
+                SegButton(tx.app_original, selected = !showAnnotated || !hasAnnotated,
                     enabled = true, modifier = Modifier.weight(1f)) { onToggle(false) }
-                SegButton(if (hasAnnotated) "Annotated" else "Not annotated",
+                SegButton(if (hasAnnotated) tx.app_annotated else tx.app_not_annotated,
                     selected = showAnnotated && hasAnnotated,
                     enabled = hasAnnotated, modifier = Modifier.weight(1f)) {
                     onToggle(true)
@@ -717,7 +718,7 @@ fun FaceViewer(
                     Icon(painterResource(R.drawable.ic_mcft_pen), contentDescription = null,
                         modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(7.dp))
-                    Text("Import from ImageMeter")
+                    Text(tx.app_import_imagemeter)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {

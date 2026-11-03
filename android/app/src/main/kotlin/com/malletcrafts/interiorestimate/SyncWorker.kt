@@ -60,6 +60,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // either leg, and only those: a job still in WorkManager is never replaced.
         AsIsUpload.requeueSignInRefused(applicationContext, store.all().map { it.deviceId })
 
+        // THE SWEEP (port 61c slice FW2): S5's copy of every uploaded capture filed the way the phone files it.
+        // Every capture On web whose filing (Album.workOfCapture) is not the Quote journey and that this phone
+        // has not told S5 of as it is filed now gets its WorkRefile job (S5-R, by each name the capture has
+        // had). After BOTH legs, not inside the S5 leg: s5Leg runs only when no live ERP pair is stored, while
+        // as-is uploads go up from survey prep in either leg, so on a phone holding a pair a sweep in s5Leg
+        // would never have run. Reads only, never counted in `failures`: the jobs do the sending.
+        WorkRefile.sweep(applicationContext, store)
+
         // S5's QUOTE stage for every ERP project this phone knows (v52 item 16): ONE read of
         // the caller's list, after the captures are up and the masters fresh, so a project
         // created in this run is asked about too. Read-only, and NEVER counted in `failures`:

@@ -711,20 +711,20 @@ class Catalogue(context: Context) {
 
     // ---- stages ----------------------------------------------------------
 
-    /** The work-stage master, in trade order, narrowed to one job type.
-     *  Thirty-nine stages is a picker (the capture sheet's FILED AT and the
-     *  photo's STG row, until FW2); the room screen no longer filters or
-     *  groups by any of them -- it groups by WORK (v61c), so the phase list
-     *  and the trade order that fed it are gone with their last callers. */
-    fun stages(masters: JSONObject?, jobType: String? = null): List<Stage> {
+    /** The work-stage master, in trade order. Nothing on the phone PICKS one
+     *  any more (v61c: a capture is filed by WORK, and the last stage pickers
+     *  -- the capture sheet's FILED AT and the photo's STG row -- went with
+     *  port 61c slice FW2, with the job-type narrowing that fed them); what
+     *  stays reads the thirty-nine as the ERP leg's vocabulary: [phaseOfStage]
+     *  and [isWorkStage], for the stage a capture from an older build still
+     *  carries. */
+    fun stages(masters: JSONObject?): List<Stage> {
         val arr = masters?.optJSONArray("stages") ?: return emptyList()
         val out = mutableListOf<Stage>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
-            val jobs = splitJobs(o.optString("job_types"))
-            if (jobType != null && jobType !in jobs) continue
             out.add(Stage(o.optString("stage"), o.optString("phase"),
-                o.optInt("sequence"), jobs))
+                o.optInt("sequence"), splitJobs(o.optString("job_types"))))
         }
         return out.sortedBy { it.sequence }
     }
