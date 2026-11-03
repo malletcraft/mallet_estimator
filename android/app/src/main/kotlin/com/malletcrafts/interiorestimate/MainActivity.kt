@@ -233,7 +233,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var scopeBusy by remember { mutableStateOf(false) }
     var scopeAnswers by remember { mutableStateOf(0) }
     var scopeReset by remember { mutableStateOf(0) }
-    // THE PHASE STRIP's move (port 61c slice QM1): one PUT …/stage out at a time; while it is, no segment takes a tap.
+    // THE PHASE STRIP's move (port 61c slice QM1): one PUT …/stage out at a time; while it is, no segment takes a tap
+    // -- and the sheet's Approve (scopeBusy, QM2) is a PUT …/stage too: the strip's busy is either (QM2 review).
     var phaseBusy by remember { mutableStateOf(false) }
     // The visit: another project, or none, folds the view and closes the sheet (the refusal stays with its
     // key). Keyed on the project alone, so a room opened and closed keeps the view as it was, as the
@@ -1333,7 +1334,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     queue.filter { it.room == r && it.projectTitle.equals(proj.title, true) }.map { QuoteStage.Shot(it.work, it.stage) }
                 })
             },
-            busy = phaseBusy,
+            // either PUT …/stage out -- a segment's move or the sheet's Approve (scopeBusy): no segment, no Move back and no
+            // Approve the estimate ▸ takes a tap until S5 answers, so a sheet closed with its Approve out cannot send a
+            // second stage PUT from the strip, and no answer clears another's refusal (QM2 review)
+            busy = phaseBusy || scopeBusy,
             role = mirror?.role,
             // Approve the estimate ▸ (QM2): opens the scope sheet's approve mode, pre-ticked from the mirror's scope; the
             // move is the sheet's Move to Client approved (its onSubmit below), never the button's
@@ -1440,13 +1444,16 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // Record the approved scope for a project approved before it had one; and from the Revisions panel's Approve
         // the estimate ▸, the approve mode, pre-ticked from the mirror's scope. Each submit is ONE online PUT -- a
         // Record is QuoteStageSync.recordScope; an Approve is QuoteStageSync.approve, the guarded move to Client
-        // approved carrying the ticks as the baseline and the mirror's scope_at as scope_base: done, the sheet closes
+        // approved carrying the ticks as the baseline and, as scope_base, the scope_at the sheet opened them from
+        // (QuoteView.Opened -- never the mirror's at submit time, which a read landing meanwhile moves while the ticks
+        // stay, and an amendment would then be a 200; QM2 review; a Record's base is the same stamp): done, the sheet closes
         // and the pending refusal goes (and after an Approve the store says Client approved, so the line turns to
         // Execution, the strip folds into the quote view and the album is read for its APPROVED SCOPE row); refused,
         // S5's words stand in the sheet's status line and on the strip, and the sheet stays open -- a 403 that names
         // who approves goes into the mirror, so the panel redraws who may (Phases.approve), and a scope 409 redraws
         // the ticks from the scope as stored. The sheet's own back handling closes it before the tree's (◁ closes
-        // the sheet first).
+        // the sheet first) -- except while its submit is out: then nothing closes it until S5 answers, and the strip
+        // under it is busy with it (QM2 review).
         val sheetMode = scopeSheet
         if (sheetMode != null && proj != null && stageKey != null) {
             val key = stageKey
@@ -1458,19 +1465,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 answers = scopeAnswers,
                 reset = scopeReset,
                 busy = scopeBusy,
-                onSubmit = { works ->
+                onSubmit = { works, scopeBase ->
                     scopeBusy = true
                     scope.launch {
                         val r = withContext(Dispatchers.IO) {
                             if (sheetMode == QuoteView.Mode.APPROVE) {
-                                val o = QuoteStageSync.approve(context, key, works)
+                                val o = QuoteStageSync.approve(context, key, works, scopeBase)
                                 // read the album where the screen draws from it (Phases.needsMirror), as a strip move
                                 // does: a 200 reveals Client approved (the quote view's row); a refusal leaves the project
                                 // at Revisions, where the role S5 now gives this person redraws who approves
                                 if (Phases.needsMirror(QuoteStageSync.cached(context, key)?.stage)) AlbumSync.refresh(context, key)
                                 SheetAnswer(QuoteStageSync.moved(o), QuoteStageSync.moveScopeStale(o)) { t -> QuoteStageSync.moveText(t, o) }
                             } else {
-                                val o = QuoteStageSync.recordScope(context, key, works)
+                                val o = QuoteStageSync.recordScope(context, key, works, scopeBase)
                                 SheetAnswer(QuoteStageSync.scopeRecorded(o), QuoteStageSync.scopeStale(o)) { t -> QuoteStageSync.scopeText(t, o) }
                             }
                         }

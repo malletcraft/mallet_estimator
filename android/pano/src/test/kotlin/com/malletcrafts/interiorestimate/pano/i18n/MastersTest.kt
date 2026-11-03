@@ -151,9 +151,10 @@ class MastersTest {
             // identity value); only the texts (all, segments, doesLine, ask, the rows, approve) take a Tx; QM2 adds
             // needsMirror (which stages read the album)
             Phases::class.java to listOf("stageOf", "phaseOf", "tap", "needsMirror"),
-            // port 61c slice QM2: the scope sheet's ticks -- what it opens with, a tap, and what its submit SENDS -- hold
-            // S5's work ids; only the texts (title, note, countLine, the labels, scopeRow) take a Tx
-            QuoteView::class.java to listOf("openTicks", "toggled", "submit", "rows"),
+            // port 61c slice QM2: the scope sheet's ticks -- what it opens with (and the stamp beside them, the base a submit
+            // SENDS: open, its review), a tap, and what its submit SENDS -- hold S5's work ids; only the texts (title, note,
+            // countLine, the labels, scopeRow) take a Tx
+            QuoteView::class.java to listOf("openTicks", "open", "toggled", "submit", "rows"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

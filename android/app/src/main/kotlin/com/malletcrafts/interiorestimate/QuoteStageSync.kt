@@ -232,8 +232,11 @@ object QuoteStageSync {
 
     /**
      * Record the approved scope of [project] (the S5 id the stage is read under): the ticked [works], sent ONCE
-     * as `PUT …/album/scope {works, base}` with the mirror's scope_at as the base (QuoteMove.scope), with the same
-     * credentials every S5 call sends (S5Auth.fresh). Blocking; call it off the main thread. Never throws.
+     * as `PUT …/album/scope {works, base}` with [scopeBase] as the base (QuoteMove.scope) -- the scope_at the sheet's
+     * ticks were opened from (QuoteView.Opened), the one rule both submits follow since the QM2 review, never the
+     * mirror's stamp at submit time; at Client approved S5 answers a scope recorded meanwhile with its final 409
+     * whatever the base, so the record's answers do not move -- with the same credentials every S5 call sends
+     * (S5Auth.fresh). Blocking; call it off the main thread. Never throws.
      * - Refused on the phone, nothing sent: a project S5 does not list, an empty list (QuoteMove.scope), or no
      *   credentials at all ([QuoteMove.Local.NOT_SIGNED_IN]); nothing to send while the copy is not at Client
      *   approved ([ScopeOutcome.None]).
@@ -251,10 +254,9 @@ object QuoteStageSync {
      *   it had; a request that never reached S5 (the host unknown, the connection refused) is Offline, and nothing
      *   is read or kept (QM1 review: every IOException read as offline, with no re-read).
      */
-    fun recordScope(context: Context, project: String, works: Collection<Int>): ScopeOutcome {
+    fun recordScope(context: Context, project: String, works: Collection<Int>, scopeBase: String): ScopeOutcome {
         val cache = cached(context, project)
-        val scopeAt = AlbumSync.mirror(context, project)?.scopeAt.orEmpty()
-        val send = when (val move = QuoteMove.scope(project, cache, works, scopeAt)) {
+        val send = when (val move = QuoteMove.scope(project, cache, works, scopeBase)) {
             is QuoteMove.Move.Refused -> return ScopeOutcome.Refused(move.why)
             QuoteMove.Move.None -> return ScopeOutcome.None
             is QuoteMove.Move.Send -> move
@@ -305,13 +307,15 @@ object QuoteStageSync {
 
     /**
      * APPROVE THE ESTIMATE (port 61c slice QM2; SPEC61c §4.2 "Move with ticks", §13.2, §13.5; index61c2.html approve): the
-     * scope sheet's Move to Client approved, which is [move] to Client approved carrying the ticked [works] -- ONE online
+     * scope sheet's Move to Client approved, which is [move] to Client approved carrying the ticked [works] and, as
+     * `scope_base`, [scopeBase] -- the scope_at the sheet opened those ticks from (QuoteView.Opened) -- ONE online
      * `PUT …/stage {stage, base, scope, scope_base, via}`, nothing queued. Only the project's named Project Manager
      * approves, and S5 decides it; the scope sent becomes the baseline (a 200 carries it, and [take] puts it into the
      * mirror); after it approval is final: no move leaves Client approved, on the phone ([QuoteMove.stage],
      * Phases.tap) or on S5. Blocking; call it off the main thread. Never throws.
      */
-    fun approve(context: Context, project: String, works: Collection<Int>): MoveOutcome = move(context, project, QuoteStage.APPROVED, works)
+    fun approve(context: Context, project: String, works: Collection<Int>, scopeBase: String): MoveOutcome =
+        move(context, project, QuoteStage.APPROVED, works, scopeBase)
 
     /**
      * Move the quote stage of [project] (the S5 id the stage is read under) to [to], one of the six, as a tap on the
@@ -319,8 +323,11 @@ object QuoteStageSync {
      * stored copy -- `base` its quote_stage_at VERBATIM, so a stage somebody else moved meanwhile comes back as S5's
      * stale 409 instead of being overwritten -- with the same credentials every S5 call sends (S5Auth.fresh).
      * To Client approved it is the scope sheet's Approve ([approve], QM2): [scope] is the ticked works, sent in WORKS
-     * order with `scope_base`, the album mirror's scope_at as stored ('' when none), so a scope amended on /projects
-     * meanwhile comes back as S5's scope 409 ([QuoteMove.Verdict.ScopeStale]) instead of being overwritten; S5's 403
+     * order with `scope_base` [scopeBase], the scope_at the sheet OPENED them from ('' when none was stored) and
+     * never the mirror's at send time, so a scope amended on /projects meanwhile comes back as S5's scope 409
+     * ([QuoteMove.Verdict.ScopeStale]) instead of being overwritten -- the mirror's stamp at send time is S5's
+     * current one once a read lands between open and submit (the project-open read, SyncWorker's hourly read at
+     * Revisions), and a base read then passed S5's guard with ticks drawn from the older scope (QM2 review); S5's 403
      * answers anyone but the Project Manager ([QuoteMove.Verdict.PmOnly], the role and the PM as stored).
      * Blocking; call it off the main thread. Never throws.
      * - Refused on the phone, nothing sent: a project S5 does not list (v61c.2), any move from Client approved
@@ -340,11 +347,10 @@ object QuoteStageSync {
      *   until the next sync, the next tap carrying the old base into a stale 409).
      * Nothing is queued: the move is an online act, as it is on /projects.
      */
-    fun move(context: Context, project: String, to: String, scope: Collection<Int>? = null): MoveOutcome {
+    fun move(context: Context, project: String, to: String, scope: Collection<Int>? = null, scopeBase: String = ""): MoveOutcome {
         val cache = cached(context, project)
-        // an Approve carries the mirror's scope_at as its scope_base ('' when no scope is stored); no other move reads the mirror
-        val scopeAt = if (to.trim() == QuoteStage.APPROVED) AlbumSync.mirror(context, project)?.scopeAt.orEmpty() else ""
-        val send = when (val m = QuoteMove.stage(project, cache, to, scope, scopeAt)) {
+        // an Approve's scope_base is the caller's (the sheet's opening stamp); a strip move carries none, and nothing here reads the mirror
+        val send = when (val m = QuoteMove.stage(project, cache, to, scope, scopeBase)) {
             is QuoteMove.Move.Refused -> return MoveOutcome.Refused(m.why)
             QuoteMove.Move.None -> return MoveOutcome.None
             is QuoteMove.Move.Send -> m

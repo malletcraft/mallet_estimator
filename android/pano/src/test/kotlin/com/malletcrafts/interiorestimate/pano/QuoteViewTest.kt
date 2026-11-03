@@ -163,6 +163,13 @@ class QuoteViewTest {
         assertEquals(emptySet(), QuoteView.openTicks(Mode.APPROVE, null)); assertEquals(emptySet(), QuoteView.openTicks(Mode.APPROVE, emptyList()))
         assertEquals("0 of 16 works ticked", QuoteView.countLine(Tx.EN, Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, null)))
         assertEquals("6 of 16 works ticked", QuoteView.countLine(Tx.EN, Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, stored)))
+        // the opening the sheet keeps is ONE value, the ticks with the stamp they came from (QuoteView.open, QM2 review): the
+        // Approve sends that stamp as scope_base, whatever the mirror holds by then
+        val v = view(S5Quote.ALBUM)
+        assertEquals(QuoteView.Opened(setOf(10, 20, 30, 50, 90, 140), v.scopeAt), QuoteView.open(Mode.APPROVE, v.scope, v.scopeAt))
+        assertEquals(QuoteView.Opened(emptySet(), v.scopeAt), QuoteView.open(Mode.RECORD, v.scope, v.scopeAt))
+        assertEquals(QuoteView.Opened(setOf(10, 20, 30, 50, 90, 140), v.scopeAt), QuoteView.open(Mode.RECORD, v.scope, v.scopeAt, redrawn = true))
+        assertTrue(v.scopeAt.isNotEmpty())
         // the sixteen only, each once: a stored list the mirror could never hold is still read safely
         assertEquals(setOf(10, 140), QuoteView.openTicks(Mode.APPROVE, listOf(140, 999, 10, 0, 10)))
         // the rows follow the pre-ticks, and a tap toggles from there

@@ -19,12 +19,16 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetProperties
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,15 +53,19 @@ import com.malletcrafts.interiorestimate.pano.QuoteView
  * columns in landscape), the status line (amber, `role=status`), and the foot, sticky under the rows' scroll: Cancel /
  * the filled button, or Close. Every rule is [QuoteView] in :pano, where QuoteViewTest pins it; this file draws.
  *
- * The sheet owns its ticks (QuoteView.openTicks: the [stored] scope in the view, and again whenever the mirror's
+ * The sheet owns its ticks (QuoteView.open: the [stored] scope in the view, and again whenever the mirror's
  * changes; the stored scope once, as the sheet opens, for an approve; none for a record -- until a stale 409, [reset]
  * bumped by the caller, redraws them from the scope as stored, as the prototype's `st.ticks=scopeOf(p)` does on
- * scopestale and on nothing else: a final 409 leaves the person's ticks) and
+ * scopestale and on nothing else: a final 409 leaves the person's ticks) WITH the scope_at they opened beside, one
+ * value (QuoteView.Opened) that the submit hands back as the base it sends from -- never the mirror's stamp at submit
+ * time, which a read landing meanwhile moves while the ticks stay (QM2 review) -- and
  * its own refusal (nothing ticked: S5's words, nothing called). A refusal S5 answered comes in as [status] and stays
  * until the next tap on a row clears it, as the prototype's `st.text=null` -- and the NEXT answer shows again even in
  * the same words ([answers] counts them: a status keyed on its text alone stayed cleared through a repeated
  * `Sign in first` or the same 403, QV review); the sheet stays open on every refusal. ◁ closes the sheet first: the
- * sheet's own back handling dismisses it before the tree's.
+ * sheet's own back handling dismisses it before the tree's -- except while a submit is out ([busy]): then nothing
+ * closes it, no swipe, scrim tap, ◁ or Cancel, until S5 answers, so the answer lands on the sheet that sent it, and
+ * the strip under it waits with it (MainActivity: its busy is either PUT's; QM2 review).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +73,7 @@ fun ScopeSheet(
     mode: QuoteView.Mode,
     /** The scope as the mirror stores it, none as empty: the view's ticks, and what a stale 409 redraws a record's to. */
     stored: List<Int>,
-    /** The mirror's scope_at, for the view's note; '' when S5 sent none. */
+    /** The mirror's scope_at beside [stored], for the view's note and as the stamp the ticks open with (QuoteView.open); '' when S5 sent none. */
     scopeAt: String,
     /** S5's refusal of the last submit, in the reader's language (QuoteStageSync.scopeText); null when none. */
     status: String?,
@@ -73,20 +81,28 @@ fun ScopeSheet(
     answers: Int,
     /** Bumped when an answer says the ticks are redrawn from [stored]: S5's stale 409. 0 when the sheet opens. */
     reset: Int,
-    /** A submit is out: the filled button waits for S5's answer. */
+    /** A submit is out: the filled button, Cancel and every dismiss wait for S5's answer. */
     busy: Boolean,
-    /** The ticked works, in WORKS order, never empty: a record's, or an approve's scope (QuoteStageSync.approve). */
-    onSubmit: (List<Int>) -> Unit,
+    /**
+     * The ticked works, in WORKS order, never empty -- a record's, or an approve's scope (QuoteStageSync.approve) --
+     * and the scope_at they were opened from (QuoteView.Opened.scopeAt): the base the submit sends, S5's scope_base
+     * for an Approve and the record's base.
+     */
+    onSubmit: (List<Int>, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tx = LocalTx.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // The view's ticks follow the stored scope; an approve's open pre-ticked from it and a record's empty
-    // (QuoteView.openTicks, the prototype's openScope), and from a stale 409 on both follow it too (the mirror takes
-    // S5's stored scope as the answer lands, which can be after this redraw). Until then an approve's ticks are the
-    // person's: a mirror a sync's read changes meanwhile does not redraw them, only S5's answer to them does.
+    // (QuoteView.open: the ticks WITH the scope_at they came from, one value -- the prototype's openScope), and from a
+    // stale 409 on both follow it too (the mirror takes S5's stored scope as the answer lands, which can be after this
+    // redraw). Until then an approve's ticks are the person's: a mirror a sync's read changes meanwhile does not redraw
+    // them, only S5's answer to them does -- and the stamp the submit sends as its base is the one these ticks were
+    // opened from, not the mirror's at submit time, so that read makes the Approve S5's scope 409 instead of a 200
+    // over the amendment it landed (QM2 review).
     val follows = mode == QuoteView.Mode.VIEW || reset > 0
-    var ticks by remember(if (follows) stored else null, reset) { mutableStateOf(if (follows) stored.toSet() else QuoteView.openTicks(mode, stored)) }
+    val opened = remember(if (follows) stored else null, reset) { QuoteView.open(mode, stored, scopeAt, redrawn = follows) }
+    var ticks by remember(opened, reset) { mutableStateOf(opened.ticks) }
     // the sheet's own refusal (nothing ticked), and whether S5's status line has been cleared by a tap since it came
     var local by remember { mutableStateOf<String?>(null) }
     var cleared by remember(answers) { mutableStateOf(false) }
@@ -98,7 +114,19 @@ fun ScopeSheet(
         local = null
         cleared = true
     }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // A submit out: nothing closes the sheet until S5 answers -- no swipe or scrim tap (the state refuses Hidden), no ◁
+    // (the dialog's back is off) and no Cancel -- so the answer lands on the sheet that sent it, and the strip under it
+    // waits too (MainActivity: its busy is either PUT's). Each guard sits where its gesture is decided, none on
+    // onDismissRequest: a sheet hidden and then refused its dismiss would sit off-screen with its window up (QM2 review).
+    // The confirm lambda is one remembered instance: rememberModalBottomSheetState keys its state on it.
+    val busyNow by rememberUpdatedState(busy)
+    val confirm = remember<(SheetValue) -> Boolean> { { v -> v != SheetValue.Hidden || !busyNow } }
+    val sheetState = rememberModalBottomSheetState(confirmValueChange = confirm)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        properties = ModalBottomSheetProperties(shouldDismissOnBackPress = !busy),
+    ) {
         Column(Modifier.fillMaxWidth()) {
             SheetTitle(QuoteView.title(tx, mode))
             val note = QuoteView.note(tx, mode, scopeAt)
@@ -133,12 +161,12 @@ fun ScopeSheet(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onDismiss) { Text(QuoteView.closeLabel(tx, mode)) }
+                TextButton(onClick = onDismiss, enabled = !busy) { Text(QuoteView.closeLabel(tx, mode)) }
                 QuoteView.submitLabel(tx, mode)?.let { label ->
                     Button(enabled = !busy, onClick = {
                         val works = QuoteView.submit(ticks)
                         if (works == null) local = QuoteView.emptyRefusal(tx)
-                        else { local = null; onSubmit(works) }
+                        else { local = null; onSubmit(works, opened.scopeAt) }
                     }) { Text(label) }
                 }
             }

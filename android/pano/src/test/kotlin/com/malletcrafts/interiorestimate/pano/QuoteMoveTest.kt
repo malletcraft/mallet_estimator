@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -413,12 +414,16 @@ class QuoteMoveTest {
         val revisions = at("Revisions", tRevisions)
         val mirror = Album.View(role = Album.PM, scope = listOf(10, 20, 30), scopeAt = tScope)
         assertEquals("Approve the estimate ▸", Phases.approve(Tx.EN, lineOf(revisions), mirror.role).button)
-        // the sheet opens pre-ticked from the mirror's scope; three more ticks, and the submit is the sixteen in WORKS order
+        // the sheet opens pre-ticked from the mirror's scope, with the stamp beside it (QuoteView.open, one value); three more
+        // ticks, and the submit is the sixteen in WORKS order
+        val opened = QuoteView.open(QuoteView.Mode.APPROVE, mirror.scope, mirror.scopeAt)
+        assertEquals(QuoteView.Opened(setOf(10, 20, 30), tScope), opened)
         val ticks = QuoteView.toggled(QuoteView.Mode.APPROVE, QuoteView.toggled(QuoteView.Mode.APPROVE, QuoteView.toggled(QuoteView.Mode.APPROVE,
-            QuoteView.openTicks(QuoteView.Mode.APPROVE, mirror.scope), 140), 50), 90)
+            opened.ticks, 140), 50), 90)
         val works = assertNotNull(QuoteView.submit(ticks))
-        // the move the sheet's Move to Client approved sends: the stored copy's stamp as the base, the mirror's scope_at as scope_base
-        val m = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, mirror.scopeAt))
+        // the move the sheet's Move to Client approved sends: the stored copy's stamp as the base, the scope_at the ticks were
+        // opened from as scope_base
+        val m = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, opened.scopeAt))
         assertEquals(S5Quote.SENT_APPROVED, json(m.request.fields), "byte for byte the body S5 answered 200 to")
         assertEquals(tRevisions, m.base); assertEquals(tScope, m.scopeBase)
         // 200: Client approved into the store -- the line turns to Execution and the strip folds (no segment, no panel) -- and the
@@ -465,6 +470,53 @@ class QuoteMoveTest {
         assertEquals("Changed by pm@x at 12:31 — not saved", QuoteMove.text(Tx.EN, finalStale))
         // the screen reads the album at Revisions (the role, the scope_base) and at Client approved (the quote view): one rule
         assertTrue(Phases.needsMirror(revisions.stage)); assertTrue(Phases.needsMirror(approved.stage)); assertFalse(Phases.needsMirror("Estimated"))
+    }
+
+    @Test fun `an Approve carries the scope_at its ticks were opened from - a read landing meanwhile moves the mirror, never the base, so a scope amended on the web is S5's scope 409 and not a 200 over it (QM2 review)`() {
+        val revisions = at("Revisions", tRevisions)
+        // the sheet opens from a mirror with no baseline: nothing ticked, scope_at '' -- the ONE value every submit sends from
+        val m1 = Album.View(role = Album.PM)
+        val opened = QuoteView.open(QuoteView.Mode.APPROVE, m1.scope, m1.scopeAt)
+        assertEquals(QuoteView.Opened(emptySet(), ""), opened)
+        // meanwhile the PM records [10,20,30] at Revisions on /projects, and a read landing while the sheet is open (the
+        // project-open read, SyncWorker's hourly one) lays S5's page onto the mirror: its scope and stamp (Album.paged, as
+        // AlbumSync.refresh keeps it). The ticks stay the person's; the opening does not move
+        val m2 = Album.paged(m1, Album.View(role = Album.PM, scope = listOf(10, 20, 30), scopeAt = tScope))
+        assertEquals(listOf(10, 20, 30), m2.scope); assertEquals(tScope, m2.scopeAt)
+        assertEquals(QuoteView.Opened(emptySet(), ""), opened)
+        // four works ticked and submitted with the OPENED stamp: the body S5 refused (SCOPE_STALE), byte for byte
+        var ticks = opened.ticks
+        for (id in listOf(10, 20, 30, 50)) ticks = QuoteView.toggled(QuoteView.Mode.APPROVE, ticks, id)
+        val works = assertNotNull(QuoteView.submit(ticks))
+        val sent = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, opened.scopeAt))
+        assertEquals(S5Quote.SENT_SCOPE_STALE, json(sent.request.fields))
+        assertEquals("", sent.scopeBase)
+        val stale = assertIs<Verdict.ScopeStale>(stage(409, S5Quote.SCOPE_STALE, sent))
+        // the mirror's stamp at SUBMIT time is S5's current one (the defect): a base read then is not the body S5 refused -- its
+        // scope_base equals the scope_at S5's guard compares with, so S5 would take the person's four over the recorded three
+        // with a 200, and the phone would read no scope 409 to redraw from
+        val sendTime = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, m2.scopeAt))
+        assertEquals(tScope, sendTime.scopeBase)
+        assertNotEquals(S5Quote.SENT_SCOPE_STALE, json(sendTime.request.fields))
+        assertEquals(stale.now.scopeAt, sendTime.scopeBase, "equal to S5's scope_at: the guard passes")
+        // the stale 409 redraws the sheet from S5's echo (the mirror takes it, Album.merged): the ticks AND the stamp move together,
+        // and the next Approve carries S5's stamp with the person's ticks on top -- the body S5 answered 200 to
+        val echoed = assertNotNull(Album.merged(m2, Album.Answer(scope = stale.now.scope, scopeAt = stale.now.scopeAt)))
+        val again = QuoteView.open(QuoteView.Mode.APPROVE, echoed.scope, echoed.scopeAt, redrawn = true)
+        assertEquals(QuoteView.Opened(setOf(10, 20, 30), tScope), again)
+        var more = again.ticks
+        for (id in listOf(50, 90, 140)) more = QuoteView.toggled(QuoteView.Mode.APPROVE, more, id)
+        val next = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, assertNotNull(QuoteView.submit(more)), again.scopeAt))
+        assertEquals(S5Quote.SENT_APPROVED, json(next.request.fields))
+        assertIs<Verdict.Moved>(stage(200, S5Quote.APPROVED, next))
+        // a redraw takes the scope as stored in every mode (the prototype's st.ticks=scopeOf(p) on scopestale): a record's too,
+        // whose first opening is empty with the same stamp; and the opening keeps the sixteen only, the stamp as given
+        assertEquals(QuoteView.Opened(setOf(10, 20, 30), tScope), QuoteView.open(QuoteView.Mode.RECORD, echoed.scope, echoed.scopeAt, redrawn = true))
+        assertEquals(QuoteView.Opened(emptySet(), tScope), QuoteView.open(QuoteView.Mode.RECORD, echoed.scope, echoed.scopeAt))
+        assertEquals(QuoteView.Opened(setOf(10, 140), "x"), QuoteView.open(QuoteView.Mode.VIEW, listOf(140, 999, 10, 0, 10), "x"))
+        assertEquals(QuoteView.Opened(emptySet(), ""), QuoteView.open(QuoteView.Mode.APPROVE, null, ""))
+        // the record's base is the same opened stamp (QuoteMove.scope): one rule for both submits
+        assertEquals("", send(QuoteMove.scope("PROJ-REC", at("Client approved", "2026-10-20T04:30:00.000Z"), listOf(10), QuoteView.open(QuoteView.Mode.RECORD, null, "").scopeAt)).base)
     }
 
     @Test fun `a request that threw is offline only when it never reached S5 - a timeout or a reset once it went out is no answer, so the phone re-reads (QM1 review)`() {

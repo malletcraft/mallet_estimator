@@ -82,6 +82,27 @@ object QuoteView {
     fun openTicks(mode: Mode, stored: List<Int>?): Set<Int> =
         if (mode == Mode.RECORD) emptySet() else QuoteMove.worksOf(stored.orEmpty()).toSet()
 
+    /**
+     * What a sheet opens with, held as ONE value until an answer redraws it (QM2 review): the [ticks] and the
+     * [scopeAt] they were read beside -- the mirror's scope_at as it was when the sheet opened, '' when none was
+     * stored. A submit sends THAT stamp as its base ([QuoteMove.stage]'s scope_base, [QuoteMove.scope]'s base), never
+     * the mirror's at submit time: a read landing between open and submit (the project-open read, SyncWorker's hourly
+     * read at Revisions) moves the mirror to S5's current stamp while the ticks stay the person's, drawn from the older
+     * scope, and a base read then passes S5's guard and writes those ticks over an amendment with a 200 -- the one
+     * thing scope_base exists to refuse (asis.js: "a page or phone holding an older scope must not write it over an
+     * amendment"). S5's own page sends the stamp it LOADED (projects.js `scope_base: p.scope_at`); so does the phone.
+     */
+    data class Opened(val ticks: Set<Int>, val scopeAt: String)
+
+    /**
+     * The sheet's opening ([Opened]): [openTicks] for [mode] from the [stored] scope, with the mirror's [scopeAt] as
+     * they stood together -- or, [redrawn] after S5's stale 409, the scope as stored in every mode (the prototype's
+     * `st.ticks=scopeOf(p)` on scopestale: a record's too), with the stamp the mirror took from S5's echo, so the next
+     * submit carries S5's.
+     */
+    fun open(mode: Mode, stored: List<Int>?, scopeAt: String, redrawn: Boolean = false): Opened =
+        Opened(if (redrawn) QuoteMove.worksOf(stored.orEmpty()).toSet() else openTicks(mode, stored), scopeAt)
+
     /** One of the sixteen rows, in WORKS order: the work, whether it is ticked, and whether the tick is disabled (view). */
     data class Row(val id: Int, val on: Boolean, val disabled: Boolean)
 
