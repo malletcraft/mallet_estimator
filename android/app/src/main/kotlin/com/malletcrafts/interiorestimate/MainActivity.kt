@@ -70,6 +70,7 @@ import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.QuoteStage
+import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.WishList
@@ -208,6 +209,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var navFace by remember { mutableStateOf<Int?>(null) }
     var faceMode by remember { mutableStateOf(true) }   // true = annotated
     var showDetail by remember { mutableStateOf(false) }
+    // THE QUOTE VIEW (port 61c slice QV): the Project.key whose line is opened, this visit only -- never
+    // persisted, so a reload starts folded, as the prototype's open56 does; the pending refusal line per
+    // project key (the prototype's msg: a Record S5 refused, from QM1 a move), cleared by a success; the
+    // scope sheet's mode while it is open, S5's status line for it, and whether a Record is out.
+    var quoteOpen by remember { mutableStateOf<String?>(null) }
+    var quoteMsg by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var scopeSheet by remember { mutableStateOf<QuoteView.Mode?>(null) }
+    var scopeStatus by remember { mutableStateOf<String?>(null) }
+    var scopeBusy by remember { mutableStateOf(false) }
+    // The visit: another project, or none, folds the view and closes the sheet (the refusal stays with its
+    // key). Keyed on the project alone, so a room opened and closed keeps the view as it was, as the
+    // prototype's open56 does.
+    LaunchedEffect(navProject?.key) { quoteOpen = null; scopeSheet = null; scopeStatus = null }
     // Adding a room is a BENCH act, not a local one: the room is half of
     // every SKU code, so one minted on this phone would fork the prefix the
     // moment a second phone spelled it differently. Null when closed.
@@ -506,12 +520,30 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // of the opened project does. A project only on this phone never asks S5. A failed read
     // changes nothing -- the cached copy stays and QuoteStageSync logs it once.
     var quoteTick by remember { mutableStateOf(0) }
+    var albumTick by remember { mutableStateOf(0) }
     LaunchedEffect(navProject?.serverId) {
         val id = navProject?.serverId
         if (id.isNullOrBlank()) return@LaunchedEffect
         val known = cs.projects.map { it.serverId } + id
         val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
         if (read) quoteTick += 1
+        // THE ALBUM MIRROR (port 61c slice QV), beside the read of the list, for a project the store holds at
+        // Client approved: the quote view's role, scope and stamp, and each work's state at its base, into the
+        // one store. A project S5 does not list keeps no mirror (404); a failed read keeps the one it had.
+        if (QuoteStageSync.cached(context, id)?.stage == QuoteStage.APPROVED) {
+            val got = withContext(Dispatchers.IO) { AlbumSync.refresh(context, id) }
+            if (got) albumTick += 1
+        }
+    }
+    // ANY write of a mirror's stamp redraws the quote view -- the hourly SyncWorker run's read, a
+    // Record's answer -- held like the quote listener below.
+    DisposableEffect(context) {
+        val ap = AlbumSync.prefs(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            albumTick += 1
+        }
+        ap.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { ap.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     // ANY write to the quote cache redraws the line -- the hourly SyncWorker run included,
     // which no work observer here watches. SharedPreferences holds listeners weakly, so the
@@ -1242,6 +1274,23 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val projectLine = remember(stageKey, dataTick, quoteTick, istDay, tx) {
             QuoteStageSync.lineFor(context, stageKey, tx)
         }
+        // THE ALBUM MIRROR of the opened project (port 61c slice QV), under the id its stage is read under:
+        // S5's role for this person, the PM, the approved scope and its stamp. Re-read after any write to it
+        // (albumTick: the read on project open, a sync's, a Record's answer) and after a reload (dataTick).
+        val mirror = remember(stageKey, albumTick, dataTick) {
+            stageKey?.let { AlbumSync.mirror(context, it) }
+        }
+        // THE QUOTE VIEW (SPEC61c §4.1 item 3): only at Client approved is the line a tap and the view drawn.
+        // Opened for this visit alone (quoteOpen is the project's key; leaving the project folds it); the pending
+        // refusal is this project's; the APPROVED SCOPE row reads the mirror (QuoteView.scopeRow).
+        val quoteArgs = if (proj == null || stageKey == null || projectLine.kind != QuoteStage.LineKind.EXEC) null
+            else QuoteViewArgs(
+                open = quoteOpen == proj.key,
+                onToggle = { quoteOpen = if (quoteOpen == proj.key) null else proj.key },
+                refusal = quoteMsg?.takeIf { it.first == proj.key }?.second,
+                row = QuoteView.scopeRow(tx, mirror?.scope, mirror?.scopeAt.orEmpty(), mirror?.role),
+                onViewScope = { scopeStatus = null; scopeSheet = QuoteView.Mode.VIEW },
+                onRecord = { scopeStatus = null; scopeSheet = QuoteView.Mode.RECORD })
         // The project list's rows lead with each project's line (index61c2.html row61c), read from
         // the same store -- S5's one list GET carries every project's work_states, so a row needs no
         // album GET of its own. Each under the id its stage is read under (WishSync.stageKey), so a
@@ -1313,6 +1362,36 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 project = proj,
                 photos = queue.count { it.projectTitle.equals(proj.title, true) },
                 onDismiss = { showDetail = false })
+        }
+        // THE SCOPE SHEET (port 61c slice QV; SPEC61c §4.2): read-only from the APPROVED SCOPE row's tap, or Record
+        // the approved scope for a project approved before it had one. A Record is ONE online PUT
+        // (QuoteStageSync.recordScope): recorded, the sheet closes and the pending refusal goes; refused, S5's
+        // words stand in the sheet's status line and on the strip, and the sheet stays open. The sheet's own
+        // back handling closes it before the tree's (◁ closes the sheet first).
+        val sheetMode = scopeSheet
+        if (sheetMode != null && proj != null && stageKey != null) {
+            val key = stageKey
+            ScopeSheet(
+                mode = sheetMode,
+                initial = if (sheetMode == QuoteView.Mode.VIEW) mirror?.scope.orEmpty() else emptyList(),
+                scopeAt = mirror?.scopeAt.orEmpty(),
+                status = scopeStatus,
+                busy = scopeBusy,
+                onSubmit = { works ->
+                    scopeBusy = true
+                    scope.launch {
+                        val out = withContext(Dispatchers.IO) { QuoteStageSync.recordScope(context, key, works) }
+                        scopeBusy = false
+                        albumTick += 1
+                        val text = QuoteStageSync.scopeText(tx, out)
+                        when {
+                            QuoteStageSync.scopeRecorded(out) -> { scopeSheet = null; scopeStatus = null; quoteMsg = null }
+                            text == null -> { scopeSheet = null; scopeStatus = null }
+                            else -> { scopeStatus = text; quoteMsg = proj.key to text }
+                        }
+                    }
+                },
+                onDismiss = { scopeSheet = null; scopeStatus = null })
         }
 
         ModalNavigationDrawer(
@@ -1393,6 +1472,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             },
                             onOpen = { navRoom = it },
                             line = projectLine,
+                            quote = quoteArgs,
                             // The client's wish list (slice 5b), kept per project on this
                             // phone; the count follows any write to the lists (wishTick).
                             // No chip at Survey, as the prototype hides it there (WishList.

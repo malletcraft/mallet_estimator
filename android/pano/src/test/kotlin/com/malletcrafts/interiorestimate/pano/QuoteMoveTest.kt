@@ -387,4 +387,12 @@ class QuoteMoveTest {
         assertEquals("Approved — the scope changes only through change requests; not saved",
             (MiniJson.parse(S5Quote.REC_FINAL) as Map<*, *>)["error"])
     }
+    @Test fun `a phone with nothing to send with refuses before any call, in its own sign-in words (QV)`() {
+        // S5Auth.fresh is null: no S5 session and no ERP key. Nothing is sent, and the words are the phone's sign-in
+        // line, not a 401 the phone could not read (QuoteMove.Verdict.SignIn carries S5's words, which never came)
+        assertEquals("Sign in first — menu → Server.", QuoteMove.localText(Tx.EN, Local.NOT_SIGNED_IN))
+        assertEquals("आधी साइन इन करा — मेनू → सर्व्हर.", QuoteMove.localText(Tx.MR, Local.NOT_SIGNED_IN))
+        // every local refusal has words in both languages
+        for (why in Local.entries) { assertTrue(QuoteMove.localText(Tx.EN, why).isNotBlank(), "$why"); assertTrue(QuoteMove.localText(Tx.MR, why).isNotBlank(), "$why") }
+    }
 }

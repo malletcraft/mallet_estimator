@@ -38,8 +38,12 @@ object QuoteMove {
     /** The quote stages at which S5 records a scope: from Estimated on (asis.js SCOPE_STAGES). */
     val SCOPE_STAGES: List<String> = QuoteStage.STAGES.drop(QuoteStage.STAGES.size - 3)
 
-    /** Why the phone sends nothing: S5 does not list the project; approval is final; no work is ticked. */
-    enum class Local { NOT_ON_S5, APPROVED_FINAL, SCOPE_MISSING }
+    /**
+     * Why the phone sends nothing: S5 does not list the project; approval is final; no work is ticked; and (port 61c
+     * slice QV) the phone holds nothing to send with -- no S5 session and no ERP key (S5Auth.fresh is null), so the
+     * act is refused before any call with the phone's sign-in words rather than met as a 401 it cannot read.
+     */
+    enum class Local { NOT_ON_S5, APPROVED_FINAL, SCOPE_MISSING, NOT_SIGNED_IN }
 
     /** What a tap builds: a request to send, a refusal the phone answers itself, or nothing to do. */
     sealed interface Move {
@@ -285,6 +289,7 @@ object QuoteMove {
         Local.NOT_ON_S5 -> tx.wish_not_s5_yet_project
         Local.APPROVED_FINAL -> tx.refuse_stage_approved_final
         Local.SCOPE_MISSING -> tx.refuse_stage_scope_missing
+        Local.NOT_SIGNED_IN -> tx.app_sign_first_menu_server
     }
 
     /**

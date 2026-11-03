@@ -14,7 +14,8 @@ import com.malletcrafts.interiorestimate.pano.Album.Work
  * op ([reply]), in the shapes S5 QUOTE sends on stage (mcft-interior-estimate 9a51733, functions/_lib/asis.js:
  * albumView, logView, stageView, photoView, the log POST, the photo record, its JPEG, the review and the S5-P
  * re-file). JSON is parsed elsewhere and read through [Read]'s three questions: org.json in :app, MiniJson in the
- * tests -- so this file holds the field names and S5's types once, and :app no parser of its own.
+ * tests -- so this file holds the field names and S5's types once, and :app no parser of its own. The mirror the
+ * phone keeps of the album GET is written in the same shape ([stored], port 61c slice QV), so [view] reads it back.
  *
  * Reading is tolerant, never inventive: an unknown field is ignored, a missing one takes the [Album] default, a row
  * without its key (`seq` and `id` for a log row, `id` for a work or a photo, `capture` for a capture) is left out.
@@ -203,4 +204,42 @@ object AlbumWire {
         }
         return AlbumQueue.Reply(written, locked, error, answer)
     }
+
+    // ---- THE MIRROR AS THE PHONE KEEPS IT (port 61c slice QV) ----------------------------------------------------
+
+    private fun entryRow(e: Entry): Map<String, Any?> = linkedMapOf(
+        "seq" to e.seq, "id" to e.id, "kind" to e.kind, "work" to e.work, "photo" to e.photo, "value" to e.value, "prev" to e.prev,
+        "note" to e.note, "role" to e.role, "by" to e.by, "by_name" to e.byName, "via" to e.via, "client_at" to e.clientAt, "at" to e.at,
+    )
+
+    private fun workRow(w: Work): Map<String, Any?> = linkedMapOf(
+        "id" to w.id, "state" to w.state, "by" to w.by, "by_name" to w.byName, "at" to w.at, "seq" to w.seq, "in_scope" to w.inScope,
+        "cr" to w.cr?.let { c -> linkedMapOf<String, Any?>("id" to c.id, "kind" to c.value, "by" to c.by, "by_name" to c.byName, "at" to c.at, "note" to c.note, "seq" to c.seq) },
+        "count" to w.count,
+    )
+
+    private fun photoRow(p: Photo): Map<String, Any?> = linkedMapOf(
+        "id" to p.id, "work" to p.work, "room" to p.room, "kind" to p.kind, "caption" to p.caption, "party" to p.party, "vendor" to p.vendor,
+        "role" to p.role, "by" to p.by, "by_name" to p.byName, "via" to p.via, "client_at" to p.clientAt, "at" to p.at, "bytes" to p.bytes,
+        "review" to p.review, "review_by" to p.reviewBy, "review_by_name" to p.reviewByName, "review_at" to p.reviewAt,
+    )
+
+    private fun captureRow(c: Photo): Map<String, Any?> = linkedMapOf(
+        "room" to c.room, "capture" to c.id, "captured_at" to c.at, "work" to c.work, "by" to c.by,
+    )
+
+    /**
+     * [v] as the phone STORES it (`filesDir/album/<project>.json`, written by :app as `JSONObject(stored(v))`): S5's
+     * own field names and shapes, so [view] reads the stored mirror back exactly as it reads S5's answer -- one reader,
+     * and a mirror written by this build is read by the next through the same tolerance. A null is JSON null (S5's
+     * `scope` null = no baseline; a photo's `room` none), never a dropped key. Every field a [View] holds is written;
+     * what S5 sends and [view] never reads (a capture's `stage`, a photo's `own`) is not kept, as it was never read.
+     */
+    fun stored(v: View): Map<String, Any?> = linkedMapOf(
+        "role" to v.role, "mine" to v.mine, "exec" to v.exec, "scope" to v.scope, "scope_at" to v.scopeAt, "pm" to v.pm,
+        "quote_stage" to v.quoteStage, "quote_stage_by" to v.quoteStageBy, "quote_stage_at" to v.quoteStageAt,
+        "works" to v.works.map { workRow(it) }, "log" to v.log.map { entryRow(it) }, "log_next" to v.logNext, "log_more" to v.logMore,
+        "stages" to v.stages.map { entryRow(it) }, "photos" to v.photos.map { photoRow(it) }, "captures" to v.captures.map { captureRow(it) },
+        "to_review" to v.toReview, "change_requests" to v.changeRequests, "closed" to v.closed, "closed_at" to v.closedAt, "more" to v.more,
+    )
 }

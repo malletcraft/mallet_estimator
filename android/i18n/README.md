@@ -182,6 +182,21 @@ the `NOT_*` texts and `since`), StageBar and the project sheet's At stage, Phase
   and `wish.not_on_s5_yet`. A stage named without its stamp reads `<stage> · not read yet` on the second line
   (`wish.not_read_yet`), never `not set on S5 yet`. No new key.
 
+## Port 61c slice QV (3 Nov 2026): the album mirror and the approved quote view, born keyed
+
+`pano/QuoteView.kt` (new), `ScopeSheet.kt` (new) and `AlbumSync.kt` (new) joined `ported.txt`. At Client approved the
+project line is the tap that opens the quote view (the five ticked steps, the Approved chip, the APPROVED SCOPE row)
+and the scope sheet in its view and record modes; every text they draw is a `tx.<key>` through `QuoteView` (`segments`,
+`approvedChip`, `scopeRow`, `title`, `note`, `countLine`, `closeLabel`, `submitLabel`, `emptyRefusal`), a work's name
+through `Masters.work` (`Album.workName`), the stamps through `Album.whenOf`. **No new key**: the view and the sheet are
+the prototype's own keys (`phase.scope_*`, `phase.tap_view`, `phase.approved_chip`, `phase.aria.approved_fold`,
+`phase.aria.phase_x_of_5_x`, `refuse.stage.pm_scope`, `common.close`, `common.cancel`), the five steps are the strip's
+(`quote.survey`, `common.wish_list`, `life.vrev`, `common.estimation`, `common.revisions`), and the row's `since` part is
+`app.since_x` -- LENS-ONLY since PL, with a phone reader again. The refusal a Record meets is `QuoteMove.text` /
+`localText` (QM0's keys); the one new local refusal, a phone with nothing to send with, reads the existing
+`app.sign_first_menu_server`. Tx is not regenerated: the tables are unchanged. `AlbumSync.kt` shows nothing; its log
+lines are marked `// text:value`.
+
 ## What is here
 
 | File | What it is | Who writes it |

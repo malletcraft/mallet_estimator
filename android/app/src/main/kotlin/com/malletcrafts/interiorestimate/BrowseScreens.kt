@@ -3,12 +3,15 @@ package com.malletcrafts.interiorestimate
 import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,16 +31,23 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.QuoteStage
+import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * The browser: client → SITE → project → room → the captures in it.
@@ -53,7 +63,9 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
  *  - The project line leads the room grid (v61c; Amit, 27 Oct 2026: "everything
  *    should be single truth"): ONE line derived from S5 -- the quote stage before
  *    approval, the album's works after it -- never set by hand. PROJECT IS AT, the
- *    ERP site stage's card, left the phone in port 61c slice PL.
+ *    ERP site stage's card, left the phone in port 61c slice PL. At Client approved
+ *    the line is the tap that opens THE QUOTE VIEW (port 61c slice QV): the five
+ *    ticked steps, Approved, and APPROVED SCOPE.
  *
  * Every text here is keyed (port 61c slice PL); the two badges are the prototype's
  * own unkeyed literals, marked `// text:value`. The masters' identity values -- a room,
@@ -295,6 +307,8 @@ fun RoomsScreen(
     onOpen: (String) -> Unit,
     /** THE PROJECT LINE (QuoteStageSync.lineFor): the one state, derived, never set by hand. */
     line: QuoteStage.ProjectLine,
+    /** THE QUOTE VIEW at Client approved (QV): the line's tap and what it opens; null when the line is not at Client approved. */
+    quote: QuoteViewArgs? = null,
     /** The client's wish list (v52 item 16, slice 5b): the chip after rooms shot reads
      *  [wishLabel] ("Wish list N/12") and opens the list. Null draws no chip. */
     onWish: (() -> Unit)?,
@@ -323,7 +337,8 @@ fun RoomsScreen(
     val rest = rooms.filter { captureCount(it) == 0 }
 
     Column(Modifier.fillMaxSize()) {
-        ProjectLineBox(line)
+        ProjectLineBox(line, quote)
+        if (quote != null) QuoteStrip(quote)
         // The facts about this job, each a tap to the thing behind it. The
         // dates chip is not decoration: "is this job even running this week"
         // is asked more often on site than anything else on the screen.
@@ -424,16 +439,19 @@ fun RoomsScreen(
  * - Through the quote journey (and unread, or not on S5): `Quote · <stage>` with the six 12 x 4 dp pips
  *   3 dp apart, over `since …`, `<stage> · not set on S5 yet` or why there is no stage.
  * - At Client approved (.qst.qx): an 18 dp teal ✓ 10 dp before `Execution · …`, over `Quote · Client
- *   approved`, at least 48 dp tall (36 dp in landscape) with the rule, as the prototype's tap target is. It is not a tap
- *   yet and has no `tap to view`: the quote view it opens arrives with QV, so no dead control ships.
+ *   approved`, at least 48 dp tall (36 dp in landscape) with the rule. Since port 61c slice QV THE WHOLE LINE IS
+ *   THE TAP (role button, its expanded state announced as the expand / collapse action, as the prototype's
+ *   aria-expanded): it opens the quote view under it for this visit, and while folded the second line ends in
+ *   `tap to view` (D7: the span goes while open). With no [quote] (a line not at Client approved) there is no tap.
  */
 @Composable
-private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
+private fun ProjectLineBox(line: QuoteStage.ProjectLine, quote: QuoteViewArgs?) {
     val teal = Color(0xFF0F766E)
     val ink = Color(0xFF0F5E57)
     val rule = MaterialTheme.colorScheme.outlineVariant
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val exec = line.kind == QuoteStage.LineKind.EXEC
+    val tap = if (exec) quote else null
     val titleStyle = MaterialTheme.typography.titleSmall.copy(
         fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.4.sp, fontWeight = FontWeight.Medium)
     val secondStyle = MaterialTheme.typography.bodySmall.copy(
@@ -449,6 +467,10 @@ private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
             val y = size.height - 0.5.dp.toPx()
             drawLine(rule, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
         }
+        // the tap (QV): the whole line, a button, folded or open as the expand / collapse action says
+        .then(if (tap == null) Modifier else Modifier
+            .clickable(role = Role.Button, onClick = tap.onToggle)
+            .semantics { if (tap.open) collapse { tap.onToggle(); true } else expand { tap.onToggle(); true } })
     if (landscape) {
         Row(
             // the bottom 5 dp, then the 1 dp rule drawBehind paints below it
@@ -463,8 +485,7 @@ private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
             ) {
                 LineHead(line, exec, titleStyle, ink, teal)
             }
-            Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
+            SecondLine(line.second, tap, secondStyle, secondColor, teal)
         }
     } else {
         Column(
@@ -480,8 +501,222 @@ private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
                 LineHead(line, exec, titleStyle, ink, teal)
             }
             // One line, so the block stays within 52 dp whatever it says.
-            Text(line.second, style = secondStyle, color = secondColor, maxLines = 1,
-                overflow = TextOverflow.Ellipsis)
+            SecondLine(line.second, tap, secondStyle, secondColor, teal)
+        }
+    }
+}
+
+/** The second line (.qsince): its text, and at Client approved while folded the teal `tap to view` 8 dp after it (.qv). */
+@Composable
+private fun SecondLine(second: String, tap: QuoteViewArgs?, style: androidx.compose.ui.text.TextStyle, color: Color, teal: Color) {
+    val tx = LocalTx.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(second, style = style, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false))
+        if (tap != null && !tap.open) {
+            Text(QuoteView.tapToView(tx), style = style, color = teal, maxLines = 1,
+                modifier = Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+/**
+ * THE QUOTE VIEW at Client approved (port 61c slice QV; SPEC61c §4.1 item 3, index61c2.html stripHTML `op56`): what
+ * the project line's tap opens, this visit only -- a reload starts folded. [open] draws the view under the line;
+ * [onToggle] is the line's and the Approved chip's tap; [refusal] the pending refusal line for this project (critic
+ * G5: a Record S5 refused, and from QM1 a move), amber under the steps when open and alone when folded, null for
+ * none; [row] the APPROVED SCOPE row (QuoteView.scopeRow: the baseline's figure with its tap, or `none recorded`
+ * with Record for the PM, the PM-only line for anyone else); [onViewScope] opens the scope sheet read-only;
+ * [onRecord] opens it to record.
+ */
+class QuoteViewArgs(
+    val open: Boolean,
+    val onToggle: () -> Unit,
+    val refusal: String?,
+    val row: QuoteView.ScopeRow,
+    val onViewScope: () -> Unit,
+    val onRecord: () -> Unit,
+)
+
+/**
+ * The strip under the line at Client approved (.p54 with `op56`): folded, nothing but a pending refusal line
+ * (.p54msg.solo); open, the five ✓ steps and the Approved chip (a tap folds), the refusal line if any, then the
+ * APPROVED SCOPE row. Sizes are the prototype's: the strip padded 2/4/4 over its 1 dp rule; a step 48 dp tall with a
+ * 24 dp circle (1.5 dp teal border, a teal ✓) and its name at 10/16 sp; a 1.5 dp connector at 16 dp from the first
+ * circle to the last; in landscape one 44 dp row of 40 dp pills (22 dp circles, the steps' names spoken only, as
+ * .scaf.land .p54:has(.p54x) hides them) with the row beside them.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuoteStrip(q: QuoteViewArgs) {
+    val tx = LocalTx.current
+    val teal = Color(0xFF0F766E)
+    val ink = Color(0xFF0F5E57)
+    val amber = Color(0xFFB0740E)
+    val rule = MaterialTheme.colorScheme.outlineVariant
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val small = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
+    if (!q.open) {
+        q.refusal?.let {
+            Text(it, style = small, color = amber,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite })
+        }
+        return
+    }
+    val segs = QuoteView.segments(tx)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .drawBehind {
+                val y = size.height - 0.5.dp.toPx()
+                drawLine(rule, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+            }
+            .padding(start = 4.dp, top = 2.dp, end = 4.dp, bottom = 5.dp),
+    ) {
+        if (landscape) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 40.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                for (s in segs) StepPill(s.label, teal)
+                ApprovedPill(tx, q.onToggle, teal, ink)
+                Spacer(Modifier.width(6.dp))
+                ScopeRowBlock(q, Modifier.weight(1f), tx, ink, small)
+            }
+        } else {
+            val n = segs.size + 1
+            Row(
+                Modifier.fillMaxWidth().drawBehind {
+                    // the connector between the circles' centres, 16 dp down (4 dp padding + half the 24 dp circle)
+                    val y = 16.dp.toPx()
+                    val half = size.width / (2 * n)
+                    drawLine(rule, Offset(half, y), Offset(size.width - half, y), strokeWidth = 1.5.dp.toPx())
+                },
+                verticalAlignment = Alignment.Top,
+            ) {
+                for (s in segs) Step(s.name, s.label, teal, Modifier.weight(1f))
+                ApprovedStep(tx, q.onToggle, teal, ink, Modifier.weight(1f))
+            }
+        }
+        q.refusal?.let {
+            Text(it, style = small, color = amber,
+                modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp, end = 4.dp)
+                    .semantics { liveRegion = LiveRegionMode.Polite })
+        }
+        if (!landscape) ScopeRowBlock(q, Modifier.fillMaxWidth(), tx, ink, small)
+    }
+}
+
+/** A ticked step in portrait: the 24 dp circle with its teal ✓ over the name, one TalkBack node saying `Phase n of 5: name`. */
+@Composable
+private fun Step(name: String, label: String, teal: Color, modifier: Modifier) {
+    Column(
+        modifier.heightIn(min = 48.dp).padding(top = 4.dp, bottom = 2.dp)
+            .semantics(mergeDescendants = true) { contentDescription = label },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Tick(24.dp, filled = false, teal)
+        Text(name, fontSize = 10.sp, lineHeight = 16.sp, letterSpacing = (-0.2).sp, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The Approved chip in portrait (.p54appr.on): a filled teal circle with ✓ over `Approved` in bold ink; a tap folds the view. */
+@Composable
+private fun ApprovedStep(tx: Tx, onFold: () -> Unit, teal: Color, ink: Color, modifier: Modifier) {
+    Column(
+        modifier.heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onFold)
+            .padding(top = 4.dp, bottom = 2.dp)
+            .semantics(mergeDescendants = true) { contentDescription = QuoteView.approvedChipLabel(tx) },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Tick(24.dp, filled = true, teal)
+        Text(QuoteView.approvedChip(tx), fontSize = 10.sp, lineHeight = 16.sp, letterSpacing = (-0.2).sp,
+            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = ink)
+    }
+}
+
+/** A ticked step in landscape: a 40 dp pill holding the 22 dp circle alone, its name spoken (`Phase n of 5: name`). */
+@Composable
+private fun StepPill(label: String, teal: Color) {
+    Box(
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).padding(horizontal = 9.dp)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { Tick(22.dp, filled = false, teal) }
+}
+
+/** The Approved chip in landscape (.scaf.land .p54appr): a tinted 40 dp pill, the filled circle and `Approved`; a tap folds. */
+@Composable
+private fun ApprovedPill(tx: Tx, onFold: () -> Unit, teal: Color, ink: Color) {
+    Row(
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFE3F1EF))
+            .clickable(role = Role.Button, onClick = onFold).padding(horizontal = 8.dp)
+            .semantics(mergeDescendants = true) { contentDescription = QuoteView.approvedChipLabel(tx) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Tick(22.dp, filled = true, teal)
+        Text(QuoteView.approvedChip(tx), fontSize = 10.sp, lineHeight = 16.sp, letterSpacing = (-0.2).sp,
+            fontWeight = FontWeight.SemiBold, maxLines = 1, color = ink)
+    }
+}
+
+/** The step's circle (.p54n): [size] across, a 1.5 dp teal border with a teal ✓, or filled teal with a white ✓. */
+@Composable
+private fun Tick(size: androidx.compose.ui.unit.Dp, filled: Boolean, teal: Color) {
+    Box(
+        Modifier.size(size).clip(CircleShape)
+            .background(if (filled) teal else MaterialTheme.colorScheme.surface)
+            .then(if (filled) Modifier else Modifier.border(BorderStroke(1.5.dp, teal), CircleShape)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("✓", color = if (filled) Color.White else teal, fontSize = 12.sp, lineHeight = 12.sp) // text:value the prototype's .p54n glyph, in both languages
+    }
+}
+
+/**
+ * The APPROVED SCOPE row (.p54x.p61sc, wrapping): its label, then the baseline's figure as the tap that opens the sheet
+ * read-only, or `none recorded` with the Record button (36 dp, filled teal, .p54pk.pri) for the PM, or the PM-only line.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScopeRowBlock(q: QuoteViewArgs, modifier: Modifier, tx: Tx, ink: Color, small: androidx.compose.ui.text.TextStyle) {
+    val row = q.row
+    FlowRow(
+        modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(QuoteView.scopeLabel(tx), style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.4.sp),
+            color = ink, modifier = Modifier.align(Alignment.CenterVertically))
+        if (row.tap) {
+            Text(row.text, style = small, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.CenterVertically).clip(RoundedCornerShape(6.dp))
+                    .clickable(role = Role.Button, onClick = q.onViewScope)
+                    .heightIn(min = 36.dp).padding(horizontal = 4.dp, vertical = 8.dp))
+        } else {
+            Text(row.text, style = small, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.align(Alignment.CenterVertically))
+            if (row.record) {
+                Button(
+                    onClick = q.onRecord,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                    modifier = Modifier.align(Alignment.CenterVertically).heightIn(min = 36.dp),
+                ) { Text(tx.phase_scope_record, fontSize = 13.sp, maxLines = 1) }
+            }
+            row.pmOnly?.let {
+                Text(it, style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterVertically))
+            }
         }
     }
 }

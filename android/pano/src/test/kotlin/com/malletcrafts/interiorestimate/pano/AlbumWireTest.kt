@@ -17,6 +17,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /** MiniJson's tree read through [AlbumWire.Read]'s three questions: what the tests parse with. */
 internal object MiniRead : AlbumWire.Read {
@@ -57,6 +58,27 @@ class AlbumWireTest {
 
     private fun tree(s: String): Any? = MiniJson.parse(s)
     private fun view(s: String): View = assertNotNull(AlbumWire.view(MiniRead, tree(s)))
+
+    /** [v] as org.json writes `JSONObject(stored)`: a null is JSON null, a number its digits, a string quoted. */
+    private fun json(v: Any?): String = when (v) {
+        null -> "null"
+        is String -> buildString {
+            append('"')
+            for (c in v) when {
+                c == '"' -> append("\\\""); c == '\\' -> append("\\\\"); c == '\n' -> append("\\n"); c == '\r' -> append("\\r"); c == '\t' -> append("\\t")
+                c < ' ' -> append("\\u%04x".format(c.code))
+                else -> append(c)
+            }
+            append('"')
+        }
+        is Number, is Boolean -> v.toString()
+        is Map<*, *> -> v.entries.joinToString(",", "{", "}") { json(it.key as String) + ":" + json(it.value) }
+        is List<*> -> v.joinToString(",", "[", "]") { json(it) }
+        else -> fail("not a JSON value: $v (${v::class})")
+    }
+
+    /** [v] written as the phone stores its mirror (AlbumWire.stored, serialised as org.json would) and read back through view. */
+    private fun roundTrip(v: View): View = view(json(AlbumWire.stored(v)))
 
     private val scope12 = listOf(10, 20, 30, 40, 50, 60, 70, 100, 110, 120, 130, 140)
     private val scope13 = listOf(10, 20, 30, 40, 50, 60, 70, 90, 100, 110, 120, 130, 140)
@@ -267,6 +289,42 @@ class AlbumWireTest {
         assertEquals("vendor", AlbumWire.reply(MiniRead, tree(S5Album.REFILE_VENDOR), rf).answer.photo!!.party)
         assertTrue(AlbumWire.reply(MiniRead, tree(S5Album.REFILE_LOCKED), rf).let { it.locked && it.answer.photo!!.work == 0 })
         assertNull(AlbumWire.reply(MiniRead, tree(S5Album.REFILE_STAFF), rf).answer.photo)
+    }
+
+    // ---- the mirror as stored (port 61c slice QV) ------------------------------------------------------------
+
+    @Test fun `stored - the mirror written in S5's own shape reads back whole, through the one reader`() {
+        // S5's four GETs, each read, stored, serialised and read again: byte-equal Views (the roles, a null scope, a
+        // scope stamp and PM blanked for a vendor, the works with their live request, the log, the stage moves with
+        // their kind supplied by the reader, the photos with a vendor's names blanked, the capture at the moment taken)
+        for (body in listOf(S5Album.GET_PM, S5Album.GET_VENDOR, S5Album.GET_CLIENT, S5Album.GET_LOCKED, S5Quote.ALBUM)) {
+            val v = view(body)
+            assertEquals(v, roundTrip(v), body.take(60))
+        }
+        // what is stored is S5's field names: scope null is JSON null, never a dropped key (a key dropped would read
+        // as null too, but the mirror is a copy of S5's answer and says so)
+        val locked = AlbumWire.stored(view(S5Album.GET_LOCKED))
+        assertTrue(locked.containsKey("scope")); assertNull(locked["scope"])
+        // S5 sends `pm` '' for none; the reader keeps it as null (View.pm), so the mirror stores null, which reads back the same
+        assertEquals("", locked["scope_at"]); assertNull(locked["pm"]); assertNull(view(S5Album.GET_LOCKED).pm)
+        val pm = AlbumWire.stored(view(S5Album.GET_PM))
+        assertEquals(listOf(10, 20, 30, 40, 50, 60, 70, 90, 100, 110, 120, 130, 140), pm["scope"])
+        assertEquals("pm", pm["role"]); assertEquals("2026-11-03T05:16:04.201Z", pm["scope_at"]); assertEquals("pm@x", pm["pm"])
+        assertEquals("Client approved", pm["quote_stage"]); assertEquals("2026-11-03T05:16:04.183Z", pm["quote_stage_at"])
+        @Suppress("UNCHECKED_CAST") val works = pm["works"] as List<Map<String, Any?>>
+        assertEquals(Album.WORK_IDS, works.map { it["id"] })
+        assertEquals(mapOf("id" to "ALB-000000000009", "kind" to "change", "by" to "pm@x", "by_name" to "P M", "at" to "2026-11-03T05:16:04.204Z", "note" to "second coat", "seq" to 10L),
+            works.first { it["id"] == 50 }["cr"])
+        assertNull(works.first { it["id"] == 10 }["cr"])
+        @Suppress("UNCHECKED_CAST") val caps = pm["captures"] as List<Map<String, Any?>>
+        assertEquals(listOf(mapOf("room" to "Kitchen", "capture" to "MCAP-DEMO-1", "captured_at" to "2026-10-11T08:30:00+05:30", "work" to 0, "by" to "pm@x")), caps)
+        // a paged mirror (two pages merged) stores its whole log and the newer page's cursor
+        val first = view(S5Album.GET_PM)
+        val page = first.copy(log = first.log.takeLast(2), logNext = 99, logMore = true)
+        val merged = Album.paged(first.copy(log = first.log.dropLast(2), logNext = 5, logMore = true), page)
+        assertEquals(first.log, merged.log)
+        assertEquals(merged, roundTrip(merged))
+        assertEquals(99L, roundTrip(merged).logNext); assertTrue(roundTrip(merged).logMore)
     }
 
     @Test fun `a body that is not S5's JSON reads as nothing - and an op of no known kind has no rows`() {

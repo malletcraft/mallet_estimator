@@ -2,9 +2,11 @@ package com.malletcrafts.interiorestimate
 
 import android.content.Context
 import android.util.Log
+import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONObject
+import java.io.IOException
 import java.time.Instant
 
 /**
@@ -36,6 +38,11 @@ import java.time.Instant
  * answer that does not parse is one Log.w and nothing else -- the cached copy stays, and the
  * sync that called this is not told, so S5 being unreachable can never make the capture
  * upload back off. No retry of its own: the next sync or the next project open reads again.
+ *
+ * ONE WRITE, ONLINE AND UNQUEUED (port 61c slice QV): [recordScope], Record the approved scope for a project
+ * approved before it had one (§13.6) -- `PUT …/album/scope` built by QuoteMove.scope, answered through
+ * QuoteMove.scopeAnswer, S5's word on the stage going into this store ([write]) and its word on the scope into
+ * the album mirror (AlbumSync.takeScope). Refused, offline or unanswered, nothing is kept to send later.
  */
 object QuoteStageSync {
 
@@ -187,5 +194,80 @@ object QuoteStageSync {
             Log.w(TAG, "quote stage not read from S5: " + (e.message?.take(160) ?: e.javaClass.simpleName))
             false
         }
+    }
+
+    // ---- Record the approved scope (port 61c slice QV; SPEC61c §4.2 "Record", §13.6) --------------------------
+
+    /** The outcome of [recordScope]: refused on the phone (nothing sent), nothing to send, or S5's verdict on the PUT. */
+    sealed interface ScopeOutcome {
+        /** Refused before any call (QuoteMove.localText says why): S5 does not list the project, nothing ticked, not signed in. */
+        data class Refused(val why: QuoteMove.Local) : ScopeOutcome
+
+        /** Nothing to send: the store's copy is not at Client approved (the sheet closes, as the prototype's does). */
+        data object None : ScopeOutcome
+
+        /** S5 answered, or could not be reached (QuoteMove.Verdict.Offline). */
+        data class Answered(val verdict: QuoteMove.Verdict) : ScopeOutcome
+    }
+
+    /** The status line for [o] in [tx]: null when the scope was recorded, or there was nothing to send. */
+    fun scopeText(tx: Tx, o: ScopeOutcome): String? = when (o) {
+        is ScopeOutcome.Refused -> QuoteMove.localText(tx, o.why)
+        ScopeOutcome.None -> null
+        is ScopeOutcome.Answered -> QuoteMove.text(tx, o.verdict)
+    }
+
+    /** Whether [o] is the scope recorded: the sheet closes and the pending refusal, if any, goes. */
+    fun scopeRecorded(o: ScopeOutcome): Boolean = o is ScopeOutcome.Answered && o.verdict is QuoteMove.Verdict.Recorded
+
+    /**
+     * Record the approved scope of [project] (the S5 id the stage is read under): the ticked [works], sent ONCE
+     * as `PUT …/album/scope {works, base}` with the mirror's scope_at as the base (QuoteMove.scope), with the same
+     * credentials every S5 call sends (S5Auth.fresh). Blocking; call it off the main thread. Never throws.
+     * - Refused on the phone, nothing sent: a project S5 does not list, an empty list (QuoteMove.scope), or no
+     *   credentials at all ([QuoteMove.Local.NOT_SIGNED_IN]); nothing to send while the copy is not at Client
+     *   approved ([ScopeOutcome.None]).
+     * - S5's 401 (a session it no longer holds) renews the sign-in once (S5Session.relogin) and sends once more;
+     *   a second refusal stands as S5's verdict ([QuoteMove.Verdict.SignIn]).
+     * - Every answer that names the stage goes into this store ([write]: the 409s echo S5's stage), and every one
+     *   that carries the scope as stored goes into the mirror (the 200's new baseline; a stale, final or not-yet
+     *   409's "it now shows what is stored"), so the sheet and the APPROVED SCOPE row redraw from S5's word.
+     * - No answer (an IOException, a body that is not S5's) is [QuoteMove.Verdict.Offline] / NoAnswer: the phone
+     *   re-reads on its next sync and never resends with the base it had.
+     */
+    fun recordScope(context: Context, project: String, works: Collection<Int>): ScopeOutcome {
+        val cache = cached(context, project)
+        val scopeAt = AlbumSync.mirror(context, project)?.scopeAt.orEmpty()
+        val send = when (val move = QuoteMove.scope(project, cache, works, scopeAt)) {
+            is QuoteMove.Move.Refused -> return ScopeOutcome.Refused(move.why)
+            QuoteMove.Move.None -> return ScopeOutcome.None
+            is QuoteMove.Move.Send -> move
+        }
+        var auth = S5Auth.fresh(context) ?: return ScopeOutcome.Refused(QuoteMove.Local.NOT_SIGNED_IN)
+        val url = BuildConfig.WEB_URL.trimEnd('/') + send.request.path { AsIsUpload.seg(it) }
+        // JSONObject(fields): S5's JSON types as QuoteMove built them (a list of numbers, a string base)
+        val body = JSONObject(send.request.fields as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
+        val type = send.request.contentType + "; charset=utf-8" // text:value a wire value, the body's content type
+        val verdict = try {
+            var a = AsIsUpload.exchange("PUT", url, auth, body, type)
+            if (a.code == 401 && S5Session.signedIn(context) && S5Session.relogin(context)) {
+                auth = S5Auth.current(context) ?: auth
+                a = AsIsUpload.exchange("PUT", url, auth, body, type)
+            }
+            QuoteMove.scopeAnswer(JsonRead, a.code, runCatching { JSONObject(a.body) }.getOrNull())
+        } catch (e: IOException) {
+            // no signal, DNS, TLS, a cut connection: not sent, or sent and never answered -- the phone re-reads
+            QuoteMove.Verdict.Offline
+        } catch (e: Exception) {
+            Log.w(TAG, "$project: scope record not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
+            QuoteMove.Verdict.NoAnswer(null)
+        }
+        // S5's word on the stage, into the one store (a 404 as not listed); its word on the scope, into the mirror
+        QuoteMove.copyOf(verdict, Instant.now().toString())?.let { write(context, mapOf(project to it)) }
+        when (verdict) {
+            is QuoteMove.Verdict.Recorded -> AlbumSync.takeScope(context, project, verdict.scope, verdict.scopeAt)
+            else -> QuoteMove.nowIn(verdict)?.let { now -> now.scopeAt?.let { AlbumSync.takeScope(context, project, now.scope, it) } }
+        }
+        return ScopeOutcome.Answered(verdict)
     }
 }

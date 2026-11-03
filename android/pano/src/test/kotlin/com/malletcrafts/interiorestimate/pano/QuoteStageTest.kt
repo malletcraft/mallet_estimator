@@ -338,6 +338,29 @@ class QuoteStageTest {
         assertEquals("Execution · 1 in progress · 1 done", line(album).text)
     }
 
+    @Test fun `fromAlbum - the album GET's copy carries the stage with its stamp and each work's state at its base, and merges by S5's order (QV)`() {
+        // S5's own album GET of PROJ-DEMO (S5Quote.ALBUM): approved at 07:01:08.769 UTC; work 10 In progress at base 10, work 20 Done at base 9
+        val v = assertNotNull(AlbumWire.view(MiniRead, tree(S5Quote.ALBUM)))
+        val album = QuoteStage.fromAlbum(v, "2026-11-03T08:00:00Z")
+        assertEquals(Cache(true, "Client approved", "pm@x", tApproved, "2026-11-03T08:00:00Z",
+            mapOf(10 to WorkState(Album.IN_PROGRESS, 10, "2026-11-03T07:01:08.813Z"), 20 to WorkState(Album.DONE, 9, "2026-11-03T07:01:08.823Z"))), album)
+        // the list's copy (S5-L: the state rows' own seqs, 7 and 9, no times) merged with it: work 10 takes the album's
+        // higher base, work 20 the same seq -- the row that carries the time (critic S1: the base is never below the state row's seq)
+        val listed = QuoteStage.fromList(rows(S5Quote.LIST), emptyList(), "2026-11-03T07:30:00Z")["PROJ-DEMO"]!!
+        val m = QuoteStage.merge(listed, album, 2L, 1L)
+        assertEquals(mapOf(10 to WorkState(Album.IN_PROGRESS, 10, "2026-11-03T07:01:08.813Z"), 20 to WorkState(Album.DONE, 9, "2026-11-03T07:01:08.823Z")), m.states)
+        assertEquals("Execution · 1 in progress · 1 done", line(m).text)
+        // the other way round: the album read first, the list landing later, the same copy but for when it was read
+        val back = QuoteStage.merge(album, listed, 2L, 1L)
+        assertEquals(m.states, back.states)
+        assertEquals("Client approved", back.stage)
+        // a work whose `at` is blank in works[] has no state row: not a state
+        assertEquals(emptyMap(), QuoteStage.fromAlbum(assertNotNull(AlbumWire.view(MiniRead, tree(S5Album.GET_LOCKED))), "r").states)
+        // a vendor's GET names the stage too, with no PM: the stage goes in the same way
+        val vendor = QuoteStage.fromAlbum(assertNotNull(AlbumWire.view(MiniRead, tree(S5Album.GET_VENDOR))), "r")
+        assertEquals("Client approved", vendor.stage); assertEquals("2026-11-03T05:16:04.183Z", vendor.at); assertTrue(vendor.listed)
+    }
+
     @Test fun `projectLine at Client approved - no work started, only abandoned, on hold in its place, never a bare Execution`() {
         assertEquals("Execution · no work started yet", line(approved(emptyMap())).text, "every work Not started")
         assertEquals("Execution · no work started yet", line(approved(mapOf(10 to WorkState(Album.NOT_STARTED, 3)))).text)

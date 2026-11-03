@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.malletcrafts.interiorestimate.pano.QuoteStage
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -67,6 +68,15 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // In BOTH legs (22 Oct 2026): it reads S5 with S5Auth.fresh, whichever is held.
         val projects = runCatching { cat.projects(store.masters()) }.getOrDefault(emptyList())
         QuoteStageSync.refresh(applicationContext, projects.map { it.serverId })
+
+        // THE ALBUM MIRROR (port 61c slice QV) of every project the store now holds at Client approved -- the
+        // quote view exists only there: GET …/album, paged, kept under filesDir/album, its stage and each work's
+        // state written into the one store (QuoteStage.fromAlbum). On the same terms as the read above: never
+        // counted in `failures`, every refusal, 5xx or IO error one Log.w inside AlbumSync. Both legs.
+        for (p in projects) {
+            if (p.synced && QuoteStageSync.cached(applicationContext, p.serverId)?.stage == QuoteStage.APPROVED)
+                AlbumSync.refresh(applicationContext, p.serverId)
+        }
 
         // THE CLIENT'S WISH LIST (v52 item 16, slice 5b), after the quote stage and on the same
         // terms: NEVER counted in `failures`. First a list made on a phone-only project moves

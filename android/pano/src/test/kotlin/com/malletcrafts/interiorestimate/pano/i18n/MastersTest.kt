@@ -136,7 +136,7 @@ class MastersTest {
             Album::class.java to listOf("provisional", "provisionalPhoto", "workOfCapture", "workOfStage", "mintId", "baseOf",
                 "stateOp", "crRaiseOp", "crAnswerOp", "reviewOp", "photoOp", "amendedScope", "crDone", "mergedLog", "paged",
                 "merged", "statesOfWorks", "statesOfLog", "withQueued", "afterPost", "afterReplay", "afterConflict",
-                "afterLocked", "afterRefused", "refileOp"),
+                "afterLocked", "afterRefused", "refileOp", "nextPage"),
             SurveyPrepFile::class.java to listOf("encode"),
             // port 61c slice QM0: the guarded quote move builds what is sent and reads S5's answers into what is stored
             // (only text and localText take a Tx, for the status line) ...

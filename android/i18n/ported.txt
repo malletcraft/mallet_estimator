@@ -22,3 +22,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/BrowseScreens.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/JsonRead.kt
+# Port 61c slice QV (3 Nov 2026) adds pano/QuoteView.kt (the approved quote view and the scope sheet's model: every text a tx accessor, a work's name through Masters), app/ScopeSheet.kt (draws it: every text through QuoteView) and app/AlbumSync.kt (the album mirror: no shown text, its log lines marked `// text:value`).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSync.kt

@@ -1171,6 +1171,22 @@ class AlbumTest {
         assertEquals(demoScope, Album.merged(mirror, Answer())!!.scope, "no scope in the answer at all: kept")
     }
 
+    @Test fun `nextPage - the since of the next page while log_more, none when the log is whole or S5 made no progress (QV)`() {
+        // ?since=0 answers log_next 200 with more: the next GET is ?since=200, then ?since=400, then none
+        val p1 = View(Album.PM, logNext = 200, logMore = true)
+        assertEquals(200L, Album.nextPage(p1, 0))
+        assertEquals(400L, Album.nextPage(View(Album.PM, logNext = 400, logMore = true), 200))
+        assertNull(Album.nextPage(View(Album.PM, logNext = 450, logMore = false), 400))
+        // the first GET answers no rows and no more (an empty log): done
+        assertNull(Album.nextPage(View(Album.PM, logNext = 0, logMore = false), 0))
+        // log_more with a log_next not past the since sent would ask the same rows for ever: stop
+        assertNull(Album.nextPage(View(Album.PM, logNext = 200, logMore = true), 200))
+        assertNull(Album.nextPage(View(Album.PM, logNext = 150, logMore = true), 200))
+        // a paged mirror carries the newer page's cursor (paged), so the loop reads it off the merged view
+        val m = Album.paged(p1, View(Album.PM, log = emptyList(), logNext = 400, logMore = true))
+        assertEquals(400L, Album.nextPage(m, 200))
+    }
+
     @Test fun `450 log rows paged 200, 200, 50 derive the same states and bases as S5's works`() {
         // a synthetic log: state moves, change requests and reviews over five works, as S5's seq numbers them
         val rows = (1L..450L).map { s ->

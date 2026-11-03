@@ -1060,6 +1060,14 @@ object Album {
     fun paged(mirror: View, page: View): View = page.copy(log = mergedLog(mirror.log, page.log))
 
     /**
+     * The `since` of the next `?since=` page after [v] landed for the GET sent with [since] (port 61c slice QV: the
+     * mirror is read `?since=0`, then paged on `log_next` while `log_more`), or null when the log is whole: S5 said
+     * `log_more` false, or its `log_next` is not past [since] -- a page that would ask the same rows again, which an
+     * S5 that stopped moving its cursor would otherwise be asked for ever.
+     */
+    fun nextPage(v: View, since: Long): Long? = if (!v.logMore || v.logNext <= since) null else v.logNext
+
+    /**
      * The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row
      * replaced, a whole photo row replaced or added, a review or a bytes patch applied to the photo
      * row of that id (a row the mirror does not hold is left to the next GET: a patch is not a row),
