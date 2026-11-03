@@ -38,9 +38,6 @@
  "album.aria.next_photo": {
   "mr": "पुढचा फोटो"
  },
- "album.aria.nudge": {
-  "mr": "नव्या फोटोंवरून सूचना"
- },
  "album.aria.payment_x": {
   "mr": "{work} चे पेमेंटचे टप्पे: {list}"
  },
@@ -80,14 +77,8 @@
  "album.closed_cleaning": {
   "mr": "अल्बम पूर्ण झाला · \"स्वच्छता व हस्तांतरण\" पूर्ण"
  },
- "album.closed_handover": {
-  "mr": "हस्तांतरणाला अल्बम पूर्ण झाला"
- },
  "album.closes_cleaning": {
   "mr": "\"स्वच्छता व हस्तांतरण\" पूर्ण झाल्यावर अल्बम पूर्ण होतो"
- },
- "album.closes_handover": {
-  "mr": "हस्तांतरणाला अल्बम पूर्ण होतो"
  },
  "album.cr_answer": {
   "mr": "ग्राहकाचे उत्तर नोंदवा"
@@ -155,20 +146,8 @@
  "album.last_photo_x": {
   "mr": "शेवटचा फोटो {day}"
  },
- "album.move_project": {
-  "mr": "प्रोजेक्ट हलवा"
- },
- "album.moved_by": {
-  "mr": "हलवणारे:"
- },
- "album.moved_x": {
-  "mr": "\"{stage}\" वर हलवला · टप्प्यांच्या नोंदीत लिहिले"
- },
  "album.no_caption": {
   "mr": "कॅप्शन नाही"
- },
- "album.no_moves_yet": {
-  "mr": "अजून टप्पा हलवल्याची नोंद नाही"
  },
  "album.no_open_work": {
   "mr": "अजून कोणतेही काम चालू नाही"
@@ -193,9 +172,6 @@
  },
  "album.now": {
   "mr": "आता"
- },
- "album.nudge_x": {
-  "mr": "नवे फोटो \"{stage}\" चे आहेत — प्रोजेक्ट तिथे हलवायचा?"
  },
  "album.open_x": {
   "mr": "चालू कामे: {works}"
@@ -245,9 +221,6 @@
  "album.see_before": {
   "mr": "आधीचा फोटो पाहा"
  },
- "album.site_is_at": {
-  "mr": "साइटचा टप्पा"
- },
  "album.st_abandoned": {
   "mr": "सोडून दिलेले"
  },
@@ -262,12 +235,6 @@
  },
  "album.staff": {
   "mr": "स्टाफ"
- },
- "album.stage_caps": {
-  "mr": "टप्पा"
- },
- "album.stage_log_x": {
-  "mr": "टप्प्यांची नोंद ({n})"
  },
  "album.state_of_x": {
   "mr": "{work} ची स्थिती"
@@ -299,12 +266,6 @@
  "album.vendor_note": {
   "mr": "प्रोजेक्ट मॅनेजरने स्वीकारल्यावरच तुमचे फोटो ग्राहकाला दिसतात"
  },
- "album.via_nudge": {
-  "mr": "अल्बममधील नव्या फोटोंवरून"
- },
- "album.via_sheet": {
-  "mr": "टप्प्यांच्या यादीतून निवडले"
- },
  "album.viewing_as_title": {
   "mr": "कोण म्हणून पाहायचे — प्रोटोटाइप चाचणी"
  },
@@ -322,9 +283,6 @@
  },
  "album.work_log_x": {
   "mr": "कामांची नोंद ({n})"
- },
- "album.work_stage_moves": {
-  "mr": "कोटेशन \"अंदाजपत्रक झाले\" वर गेल्यावर कामाचा टप्पा प्रोजेक्ट पुढे नेतो"
  },
  "app.360_no_longer_phone": {
   "mr": "360 आता या फोनवर नाही · कारणासाठी टॅप करा"
@@ -3289,6 +3247,18 @@
  "refuse.album.cr_none": {
   "mr": "या कामावर उत्तर नोंदवण्यासाठी चालू बदल विनंती नाही"
  },
+ "refuse.album.cr_not_approved": {
+  "mr": "ग्राहकाने अंदाजपत्रक मंजूर केल्यावरच बदल विनंत्या सुरू होतात",
+  "note": "K1b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.album.cr_off_scope_change": {
+  "mr": "हे काम मंजूर स्कोपमध्ये नाही: बदलण्यासारखे काही नाही — ते स्कोपमध्ये आणण्यासाठी समावेशाची विनंती करा",
+  "note": "K1b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.album.cr_off_scope_remove": {
+  "mr": "हे काम मंजूर स्कोपमध्ये नाही: वगळण्यासारखे काही नाही — ते स्कोपमध्ये आणण्यासाठी समावेशाची विनंती करा",
+  "note": "K1b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "refuse.album.cr_pm_only": {
   "mr": "बदल विनंती नोंदवणे किंवा ग्राहकाचे उत्तर नोंदवणे फक्त प्रोजेक्ट मॅनेजर करतो"
  },
@@ -3303,6 +3273,10 @@
  },
  "refuse.album.photo_no_client": {
   "mr": "ग्राहक फोटो जोडत नाही"
+ },
+ "refuse.album.review_no_image": {
+  "mr": "अजून फोटो पोहोचलेला नाही: फोटो पूर्ण अपलोड झाल्यावरच तो तपासता येतो",
+  "note": "K1b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "refuse.album.review_pm_only": {
   "mr": "व्हेंडरचा फोटो फक्त प्रोजेक्ट मॅनेजर तपासतो"

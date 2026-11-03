@@ -126,7 +126,13 @@ class MastersTest {
             // stored list: S5's words stay as S5 sent them
             WishList::class.java to listOf("forPut", "normalised", "edited", "afterPut", "afterFinal", "afterSurvey", "left",
                 "after409", "shown", "entered"),
-            Album::class.java to listOf("provisional", "provisionalPhoto"),
+            // port 61c slice K1b: the filing, the ids, the ops, the scope amendment, the log pages and every outbox
+            // transition build what is stored or sent; only Refusal.text, CrKind.word/sub, CrOutcome.text and the
+            // display functions (workName, payOf, dayOf, whenOf, decidedText, roleLabel...) take a Tx
+            Album::class.java to listOf("provisional", "provisionalPhoto", "workOfCapture", "workOfStage", "mintId", "baseOf",
+                "stateOp", "crRaiseOp", "crAnswerOp", "reviewOp", "photoOp", "amendedScope", "crDone", "mergedLog", "paged",
+                "merged", "statesOfWorks", "statesOfLog", "withQueued", "afterPost", "afterReplay", "afterConflict",
+                "afterLocked", "afterRefused"),
             SurveyPrepFile::class.java to listOf("encode"),
         )
         val off = ArrayList<String>()

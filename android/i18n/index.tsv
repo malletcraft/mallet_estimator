@@ -14,7 +14,6 @@ album.aria.chapter_x	album_aria_chapter_x	template	n: String · name: String
 album.aria.cr_kind_x	album_aria_cr_kind_x	template	kind: String · name: String
 album.aria.cr_x	album_aria_cr_x	template	name: String
 album.aria.next_photo	album_aria_next_photo	static	-
-album.aria.nudge	album_aria_nudge	static	-
 album.aria.payment_x	album_aria_payment_x	template	work: String · list: String
 album.aria.previous_photo	album_aria_previous_photo	static	-
 album.aria.state_x	album_aria_state_x	template	work: String · state: String
@@ -28,9 +27,7 @@ album.caption_optional	album_caption_optional	static	-
 album.change_request	album_change_request	static	-
 album.change_requests_x	album_change_requests_x	template	n: Int
 album.closed_cleaning	album_closed_cleaning	static	-
-album.closed_handover	album_closed_handover	static	-
 album.closes_cleaning	album_closes_cleaning	static	-
-album.closes_handover	album_closes_handover	static	-
 album.cr_answer	album_cr_answer	static	-
 album.cr_answer_note	album_cr_answer_note	static	-
 album.cr_clear	album_cr_clear	static	-
@@ -53,11 +50,7 @@ album.exec_lock_banner	album_exec_lock_banner	static	-
 album.filed_x	album_filed_x	template	stage: String
 album.kept_res	album_kept_res	static	-
 album.last_photo_x	album_last_photo_x	template	day: String
-album.move_project	album_move_project	static	-
-album.moved_by	album_moved_by	static	-
-album.moved_x	album_moved_x	template	stage: String
 album.no_caption	album_no_caption	static	-
-album.no_moves_yet	album_no_moves_yet	static	-
 album.no_open_work	album_no_open_work	static	-
 album.no_photos	album_no_photos	static	-
 album.no_photos_yet	album_no_photos_yet	static	-
@@ -66,7 +59,6 @@ album.not_for_client	album_not_for_client	static	-
 album.not_reached	album_not_reached	static	-
 album.not_your_work	album_not_your_work	static	-
 album.now	album_now	static	-
-album.nudge_x	album_nudge_x	template	stage: String
 album.open_x	album_open_x	template	works: String
 album.pay_before_x	album_pay_before_x	template	work: String
 album.pay_when_x	album_pay_when_x	template	work: String
@@ -83,14 +75,11 @@ album.role_vendor_line	album_role_vendor_line	static	-
 album.room_caps	album_room_caps	static	-
 album.see_after	album_see_after	static	-
 album.see_before	album_see_before	static	-
-album.site_is_at	album_site_is_at	static	-
 album.st_abandoned	album_st_abandoned	static	-
 album.st_in_progress	album_st_in_progress	static	-
 album.st_not_started	album_st_not_started	static	-
 album.st_on_hold	album_st_on_hold	static	-
 album.staff	album_staff	static	-
-album.stage_caps	album_stage_caps	static	-
-album.stage_log_x	album_stage_log_x	template	n: Int
 album.state_of_x	album_state_of_x	template	work: String
 album.state_pm_only	album_state_pm_only	static	-
 album.sub_x	album_sub_x	template	plN: Int
@@ -101,15 +90,12 @@ album.unfiled	album_unfiled	static	-
 album.upload_photo	album_upload_photo	static	-
 album.uploaded_to_x	album_uploaded_to_x	template	work: String
 album.vendor_note	album_vendor_note	static	-
-album.via_nudge	album_via_nudge	static	-
-album.via_sheet	album_via_sheet	static	-
 album.viewing_as_title	-	skipped	prototype-only
 album.viewing_as_x	album_viewing_as_x	template	role: String
 album.which_room	album_which_room	static	-
 album.which_work	album_which_work	static	-
 album.work_caps	album_work_caps	static	-
 album.work_log_x	album_work_log_x	template	n: Int
-album.work_stage_moves	album_work_stage_moves	static	-
 app.360_no_longer_phone	app_360_no_longer_phone	static	-
 app.360_not_phone_removed	app_360_not_phone_removed	static	-
 app.360_photo_capture_was	app_360_photo_capture_was	static	-
@@ -1024,11 +1010,15 @@ refuse.album.cr_in_scope	refuse_album_cr_in_scope	static	-
 refuse.album.cr_live	refuse_album_cr_live	static	-
 refuse.album.cr_no_baseline	refuse_album_cr_no_baseline	static	-
 refuse.album.cr_none	refuse_album_cr_none	static	-
+refuse.album.cr_not_approved	refuse_album_cr_not_approved	static	-
+refuse.album.cr_off_scope_change	refuse_album_cr_off_scope_change	static	-
+refuse.album.cr_off_scope_remove	refuse_album_cr_off_scope_remove	static	-
 refuse.album.cr_pm_only	refuse_album_cr_pm_only	static	-
 refuse.album.not_a_state	refuse_album_not_a_state	static	-
 refuse.album.not_a_work	refuse_album_not_a_work	static	-
 refuse.album.not_review_state	refuse_album_not_review_state	static	-
 refuse.album.photo_no_client	refuse_album_photo_no_client	static	-
+refuse.album.review_no_image	refuse_album_review_no_image	static	-
 refuse.album.review_pm_only	refuse_album_review_pm_only	static	-
 refuse.album.review_same	refuse_album_review_same	static	-
 refuse.album.review_vendor_only	refuse_album_review_vendor_only	static	-

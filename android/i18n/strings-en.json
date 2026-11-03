@@ -102,16 +102,6 @@
    "aria-label"
   ]
  },
- "album.aria.nudge": {
-  "en": "Suggestion from the latest photos",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static",
-  "flags": [
-   "aria-label"
-  ]
- },
  "album.aria.payment_x": {
   "en": "Payment milestones of {work}: {list}",
   "where": [
@@ -242,24 +232,10 @@
   ],
   "kind": "static"
  },
- "album.closed_handover": {
-  "en": "Album closed at Handover",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
  "album.closes_cleaning": {
   "en": "The album closes when Cleaning & handover is Done",
   "where": [
    "v60build/integrate60.py → P3 album60 (__mcftAlbum60)"
-  ],
-  "kind": "static"
- },
- "album.closes_handover": {
-  "en": "The album closes at Handover",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
   ],
   "kind": "static"
  },
@@ -427,39 +403,8 @@
    "day": "dayOf(last.at)"
   }
  },
- "album.move_project": {
-  "en": "Move the project",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
- "album.moved_by": {
-  "en": "moved by",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
- "album.moved_x": {
-  "en": "Moved to {stage} · in the stage log",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "stage": "m.res.stage"
-  }
- },
  "album.no_caption": {
   "en": "No caption",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
- "album.no_moves_yet": {
-  "en": "No stage moves recorded yet",
   "where": [
    "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
   ],
@@ -520,16 +465,6 @@
    "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
   ],
   "kind": "static"
- },
- "album.nudge_x": {
-  "en": "Latest photos are {stage} — move the project?",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "stage": "n.stage"
-  }
  },
  "album.open_x": {
   "en": "Open: {works}",
@@ -662,13 +597,6 @@
   ],
   "kind": "static"
  },
- "album.site_is_at": {
-  "en": "SITE IS AT",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
  "album.st_abandoned": {
   "en": "Abandoned",
   "where": [
@@ -706,23 +634,6 @@
   "flags": [
    "title"
   ]
- },
- "album.stage_caps": {
-  "en": "STAGE",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
- "album.stage_log_x": {
-  "en": "Stage log ({n})",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "template",
-  "placeholders": {
-   "n": "log.length"
-  }
  },
  "album.state_of_x": {
   "en": "State of {work}",
@@ -809,20 +720,6 @@
   ],
   "kind": "static"
  },
- "album.via_nudge": {
-  "en": "from the album's latest photos",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
- "album.via_sheet": {
-  "en": "picked from the stage list",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
- },
  "album.viewing_as_title": {
   "en": "Viewing as — prototype test",
   "where": [
@@ -873,13 +770,6 @@
   "placeholders": {
    "n": "log.length"
   }
- },
- "album.work_stage_moves": {
-  "en": "the work stage moves the project once the quote is Estimated",
-  "where": [
-   "v59build/integrate59.py → P3 album59 (__mcftAlbum59)"
-  ],
-  "kind": "static"
  },
  "app.360_no_longer_phone": {
   "en": "The 360 is no longer on this phone · tap for why",
@@ -8249,6 +8139,36 @@
    "phone-text"
   ]
  },
+ "refuse.album.cr_not_approved": {
+  "en": "Change requests start once the client approves the estimate",
+  "where": [
+   "S2 APK phone text · Album.kt Refusal.CR_NOT_APPROVED at 3759814+K1b · Album (pano Album.kt refusals; no phone screen yet), port 61c slice K1b (3 Nov 2026), Marathi by Claude (decision 6): SPEC61c §14.8 -- a change request is raised and answered only at Client approved (the prototype's approvedQ, index61c1.html 7258); before it the scope changes through Revisions and Approve. The prototype hides the controls and has no words, so the line is the phone's, worded as album.exec_lock_banner"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_off_scope_change": {
+  "en": "This work is not in the approved scope: nothing to change — bringing it in is an add request",
+  "where": [
+   "S2 APK phone text · Album.kt Refusal.CR_OFF_SCOPE_CHANGE at 3759814+K1b · Album (pano Album.kt refusals; no phone screen yet), port 61c slice K1b (3 Nov 2026), Marathi by Claude (decision 6): S5's own words (asis.js, the cr_raise 409 for a change on a work outside the scope, `nothing to ${v.value}` with value change), a whole key per kind"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.cr_off_scope_remove": {
+  "en": "This work is not in the approved scope: nothing to remove — bringing it in is an add request",
+  "where": [
+   "S2 APK phone text · Album.kt Refusal.CR_OFF_SCOPE_REMOVE at 3759814+K1b · Album (pano Album.kt refusals; no phone screen yet), port 61c slice K1b (3 Nov 2026), Marathi by Claude (decision 6): S5's own words (asis.js, the cr_raise 409 for a remove on a work outside the scope, `nothing to ${v.value}` with value remove), a whole key per kind so no English word fills a placeholder"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "refuse.album.cr_pm_only": {
   "en": "Only the Project Manager raises a change request or records the client's answer",
   "where": [
@@ -8293,6 +8213,16 @@
   "en": "A client adds no photos",
   "where": [
    "S2 APK phone text · Album.kt:282 at 6575b85 · Album (pano Album.kt refusals; no phone screen yet) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.album.review_no_image": {
+  "en": "No image yet: a photo is reviewed once its JPEG has landed",
+  "where": [
+   "S2 APK phone text · Album.kt Refusal.REVIEW_NO_IMAGE at 3759814+K1b · Album (pano Album.kt refusals; no phone screen yet), port 61c slice K1b (3 Nov 2026), Marathi by Claude (decision 6): S5's 409 (asis.js review: \"No image yet: a photo is reviewed once its JPEG has landed; not saved\") without \"; not saved\", since a gate tries nothing (as refuse.readonly.wishlist_approved drops it)"
   ],
   "kind": "static",
   "flags": [

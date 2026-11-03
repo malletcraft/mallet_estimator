@@ -1,7 +1,14 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import java.time.Instant
+import java.time.LocalDate
+import kotlin.random.Random
+
 /**
- * THE ALBUM BY WORKS, ON THE PHONE -- the pure rules (S2 APK v61b slice 2, Kotlin slice K1).
+ * THE ALBUM BY WORKS, ON THE PHONE -- the pure rules (S2 APK v61b slice 2, Kotlin slice K1;
+ * brought to S5 as shipped and keyed in port 61c slice K1b, 3 Nov 2026).
  *
  * Amit, 23 Oct 2026, 06:47 IST, after testing prototype v59: "Client/Vendor/Designer/Project
  * Manager (aka supervisor) these are typical roles ... The whole suite should revolve around
@@ -15,47 +22,59 @@ package com.malletcrafts.interiorestimate.pano
  * ACCEPTS them (the client sees them from then on) or keeps them Not for client; every work
  * carries its PAYMENT milestones, in S5's own words, as the evidence its photos are for.
  *
- * The spec is prototype v61b (window.ALB60, index61b.html 6870-7445), which Amit approved on
- * 26 Oct 2026; the store is S5 QUOTE (DESIGN-slice2.md: one append-only log, one photo table,
- * three project columns, one access column, `GET .../album`). Nothing here talks to a server
- * and nothing here is Android: this is the vocabulary, the derivations, the writer gates and
- * the transitions of what the phone keeps -- the mirror of S5's last GET and the FIFO outbox --
- * under the verdict table of "Offline and conflicts". AlbumTest pins all of it against the
- * prototype's checks (ct61b D1-D3, E7, E8).
+ * The spec is the approved prototype v61c.1 (window.ALB60, index61c1.html 7100-7530) over
+ * v61b's core; the store is S5 QUOTE as shipped on stage (functions/_lib/asis.js: one
+ * append-only log, one photo table, `GET .../album`). Since 27 Oct 2026 APPROVAL IS FINAL and a
+ * change after it is a CHANGE REQUEST with a KIND ([CrKind]: add a work off the approved scope,
+ * remove or change one in it), which the Project Manager raises and then ANSWERS with the
+ * client's yes or no ([CrOutcome], with the day the client answered); an approved add or remove
+ * amends the scope ([amendedScope]). Nothing here talks to a server and nothing here is Android:
+ * this is the vocabulary, the derivations, the writer gates and the transitions of what the phone
+ * keeps -- the mirror of S5's last GET and the FIFO outbox -- under the verdict table of "Offline
+ * and conflicts". AlbumTest pins all of it.
  *
- * Current state is always DERIVED from the log ([stateOf], [crOf], [closed]); there is no
- * cached state that can drift. Order is by `seq`, never by time. Identity is whoami's `user`
- * / `full_name`, never the prototype's ME.
+ * WHAT IS STORED STAYS ENGLISH, WHAT IS SHOWN COMES FROM Tx (port 61c slice K1b). The work
+ * names, the five states and the 39 worksite stages are S5's identity values, sent and stored
+ * byte for byte and SHOWN through [Masters]; every other text is a `tx.<key>` from android/i18n,
+ * read through a function here that takes a [Tx] ([workName], [payOf], [Refusal.text], [dayOf]).
+ * The gates return a typed [Refusal], never a sentence. Names, captions, remarks, notes and dates
+ * are data.
+ *
+ * Current state is DERIVED, never cached: a work's state comes from the caller's project-state
+ * store ([WorkState], S5-L's `work_states` and the album GET's `works[]`, with this phone's queued
+ * writes laid over it by [withQueued]); the log is the history ([stateOf], [crOf], [crDone]).
+ * Order is by `seq`, never by time. Identity is whoami's `user` / `full_name`, never the
+ * prototype's ME, and the role is S5's answer ([viewerOf]), never derived on the phone.
  */
 object Album {
 
     // ---- vocabulary ---------------------------------------------------------
 
-    /** One of the sixteen works: S5's id and its name (strings-en.json `work.*`). */
+    /** One of the sixteen works: S5's id and its name (an identity value, shown through [Masters.work]). */
     data class WorkDef(val id: Int, val name: String)
 
     /**
-     * S5 QUOTE's sixteen payment work groups, app1_data.js PHASES (@ ca74117), ids and names
-     * verbatim and in S5's order; the prototype's WORKS. Chapter n = index + 1. Change here
-     * only with S5's WORKS in asis.js.
+     * S5 QUOTE's sixteen payment work groups (asis.js WORKS = app1_data.js PHASES @ ca74117), ids
+     * and names verbatim and in S5's order; the prototype's WORKS. Chapter n = index + 1. Change
+     * here only with S5's WORKS.
      */
     val WORKS: List<WorkDef> = listOf(
-        WorkDef(10, "Demolition & site preparation"),
-        WorkDef(20, "Civil & masonry"),
-        WorkDef(30, "Plumbing, concealed"),
-        WorkDef(40, "Electrical, concealed wiring"),
-        WorkDef(50, "Waterproofing"),
-        WorkDef(60, "False ceiling"),
-        WorkDef(70, "Flooring & wall tiling"),
-        WorkDef(80, "Countertops"),
-        WorkDef(85, "Iron & metal fabrication"),
-        WorkDef(90, "Modular furniture, factory-made"),
-        WorkDef(95, "Onsite carpentry & panelling"),
-        WorkDef(100, "Painting & wall finishes"),
-        WorkDef(110, "Sanitaryware & CP fittings"),
-        WorkDef(120, "Lights, fans, fixtures & security"),
-        WorkDef(130, "Glass, mirrors & furnishing"),
-        WorkDef(140, "Cleaning & handover"),
+        WorkDef(10, "Demolition & site preparation"), // text:value S5's work name, shown through Masters.work
+        WorkDef(20, "Civil & masonry"), // text:value S5's work name, shown through Masters.work
+        WorkDef(30, "Plumbing, concealed"), // text:value S5's work name, shown through Masters.work
+        WorkDef(40, "Electrical, concealed wiring"), // text:value S5's work name, shown through Masters.work
+        WorkDef(50, "Waterproofing"), // text:value S5's work name, shown through Masters.work
+        WorkDef(60, "False ceiling"), // text:value S5's work name, shown through Masters.work
+        WorkDef(70, "Flooring & wall tiling"), // text:value S5's work name, shown through Masters.work
+        WorkDef(80, "Countertops"), // text:value S5's work name, shown through Masters.work
+        WorkDef(85, "Iron & metal fabrication"), // text:value S5's work name, shown through Masters.work
+        WorkDef(90, "Modular furniture, factory-made"), // text:value S5's work name, shown through Masters.work
+        WorkDef(95, "Onsite carpentry & panelling"), // text:value S5's work name, shown through Masters.work
+        WorkDef(100, "Painting & wall finishes"), // text:value S5's work name, shown through Masters.work
+        WorkDef(110, "Sanitaryware & CP fittings"), // text:value S5's work name, shown through Masters.work
+        WorkDef(120, "Lights, fans, fixtures & security"), // text:value S5's work name, shown through Masters.work
+        WorkDef(130, "Glass, mirrors & furnishing"), // text:value S5's work name, shown through Masters.work
+        WorkDef(140, "Cleaning & handover"), // text:value S5's work name, shown through Masters.work
     )
 
     val WORK_IDS: List<Int> = WORKS.map { it.id }
@@ -63,37 +82,23 @@ object Album {
     /** The quote journey, chapter 0: a photo's `work` of 0. */
     const val QUOTE_WORK = 0
 
-    /** The last work; the album closes for display when it is Done ([closed]). */
+    /** The last work; the album closes for display when it is Done ([Chapters.closed]). */
     const val LAST_WORK = 140
 
-    /** The five states, in the prototype's order (v61a: On hold and Abandoned joined the three). */
-    val STATES: List<String> = listOf("Not started", "In progress", "On hold", "Done", "Abandoned")
-    const val NOT_STARTED = "Not started"
-    const val IN_PROGRESS = "In progress"
-    const val ON_HOLD = "On hold"
-    const val DONE = "Done"
-    const val ABANDONED = "Abandoned"
+    /** The five states, in the prototype's order (v61a: On hold and Abandoned joined the three). Shown through [Masters.state]. */
+    const val NOT_STARTED = "Not started" // text:value S5's state, stored and sent as is
+    const val IN_PROGRESS = "In progress" // text:value S5's state, stored and sent as is
+    const val ON_HOLD = "On hold" // text:value S5's state, stored and sent as is
+    const val DONE = "Done" // text:value S5's state, stored and sent as is
+    const val ABANDONED = "Abandoned" // text:value S5's state, stored and sent as is
+    val STATES: List<String> = listOf(NOT_STARTED, IN_PROGRESS, ON_HOLD, DONE, ABANDONED)
 
-    /** The four roles as S5 stores them on every row (`role` column). */
+    /** The four roles as S5 answers them (`role` on the album GET) and stores them on every row. */
     const val PM = "pm"
     const val DESIGNER = "designer"
     const val VENDOR = "vendor"
     const val CLIENT = "client"
     val ROLE_IDS: List<String> = listOf(PM, DESIGNER, VENDOR, CLIENT)
-
-    /** One role: its id, its label and the line under it, as the prototype's ROLES (the demo names are not ported). */
-    data class RoleDef(val id: String, val label: String, val line: String)
-
-    /**
-     * The prototype's ROLES, verbatim: `role.project_manager` and `role.designer` are keyed in
-     * strings-en.json; "Vendor" and "Client" are the prototype's labels for the other two.
-     */
-    val ROLES: List<RoleDef> = listOf(
-        RoleDef(PM, "Project Manager", "sees everything · sets work states · accepts vendor photos"),
-        RoleDef(DESIGNER, "Designer", "sees everything · takes progress shots · changes no state"),
-        RoleDef(VENDOR, "Vendor", "sees only their own work · uploads photos for review"),
-        RoleDef(CLIENT, "Client", "sees accepted photos and work states only"),
-    )
 
     /** The log row kinds (`asis_album_log.kind`). */
     const val KIND_STATE = "state"
@@ -101,6 +106,9 @@ object Album {
     const val KIND_CR_CLEAR = "cr_clear"
     const val KIND_REVIEW = "review"
     const val KIND_STAGE = "stage"
+
+    /** The kinds a log POST writes, each with a seq base (validLogEntry's ALBUM_KINDS). */
+    private val LOG_KINDS = setOf(KIND_STATE, KIND_CR_RAISE, KIND_CR_CLEAR)
 
     /** The photo parties and reviews (`asis_album_photos.party` / `.review`). */
     const val PARTY_STAFF = "staff"
@@ -114,13 +122,58 @@ object Album {
     /** S5's cap on a remark or a CR note (`note` <= 500). */
     const val MAX_NOTE = 500
 
+    /**
+     * A change request's KIND (27 Oct 2026; S5 CR_KINDS), on the cr_raise row's `value`: [ADD] a
+     * work outside the approved scope comes in; [REMOVE] a work in it comes out; [CHANGE] a work in
+     * it changes. A raise v61b wrote has no value and reads [ADD], the only kind v61b had.
+     */
+    enum class CrKind(val wire: String) {
+        ADD("add"), REMOVE("remove"), CHANGE("change");
+
+        /** The kind as the chip and the decided list show it (crkind.*). */
+        fun word(tx: Tx): String = when (this) { ADD -> tx.crkind_add; REMOVE -> tx.crkind_remove; CHANGE -> tx.crkind_change }
+
+        /** The line under the kind on the raise sheet (album.cr_kind_*_sub). */
+        fun sub(tx: Tx): String = when (this) {
+            ADD -> tx.album_cr_kind_add_sub; REMOVE -> tx.album_cr_kind_remove_sub; CHANGE -> tx.album_cr_kind_change_sub
+        }
+
+        companion object {
+            /** The kind S5 wrote, or null when [v] is none of the three (a blank raise reads ADD through [Entry.crKind]). */
+            fun of(v: String?): CrKind? = entries.firstOrNull { it.wire == v }
+        }
+    }
+
+    /**
+     * The client's ANSWER to a change request (S5 CR_OUTCOMES), on the cr_clear row's `value`, which
+     * the Project Manager records with `client_at`, the day the client answered (required for
+     * [APPROVED] and [DECLINED]) and the note saying how. A clear v61b wrote has no value and reads
+     * [WITHDRAWN], all an answer could be before outcomes.
+     */
+    enum class CrOutcome(val wire: String) {
+        APPROVED("approved"), DECLINED("declined"), WITHDRAWN("withdrawn");
+
+        /** Only a withdrawal may leave out the day the client answered (S5's validLogEntry). */
+        val needsDay: Boolean get() = this != WITHDRAWN
+
+        /** The decided request's head (album.cr_out_*). */
+        fun text(tx: Tx): String = when (this) {
+            APPROVED -> tx.album_cr_out_approved; DECLINED -> tx.album_cr_out_declined; WITHDRAWN -> tx.album_cr_out_withdrawn
+        }
+
+        companion object {
+            fun of(v: String?): CrOutcome? = entries.firstOrNull { it.wire == v }
+        }
+    }
+
     /** One payment milestone of a work: before (`s`) or when done (`e`), and the work it keys off. */
     data class Pay(val kind: Char, val at: Int)
 
     /**
      * S5's PAY_TERMS (app1_data.js) as the prototype's PAY: each work's distinct (kind, at)
      * pairs, kind 's' = "Before <at> starts", 'e' = "When <at> is done" (paySchedule's labelling
-     * rule). No amounts, no percentages -- the evidence a work's photos are for, not its money.
+     * rule, worded by [payOf]). No amounts, no percentages -- the evidence a work's photos are
+     * for, not its money.
      */
     val PAY: Map<Int, List<Pay>> = mapOf(
         10 to listOf(Pay('s', 10), Pay('e', 10)),
@@ -143,151 +196,75 @@ object Album {
 
     /**
      * The 39 worksite stages (mallet_estimator worksite_data.py WORK_STAGES) -> the work that
-     * does them; 0 = the quote journey; null = not filed to a work (a delivery photo belongs to
-     * the work being delivered, and only a human can say which). S5 files an as-is capture
-     * through the same table on the server; the phone files its own captures here.
+     * does them; 0 = the quote journey; null = not filed to a work (a delivery photo belongs to the
+     * work being delivered, and only a human can say which). S5's STAGE_WORK, verbatim. Since v61c
+     * the ONLY reader is [workOfCapture]: a capture taken before the phone filed by work keeps its
+     * legacy stage, and this table files it.
      */
     val STAGE_WORK: Map<String, Int?> = mapOf(
-        "As-built site measure" to 0, "Existing condition — builder handover" to 0, "Defect recorded" to 0, "Opening measured" to 0,
-        "Demolition & debris removal" to 10, "Masonry & block work" to 20, "Plaster & waterproofing" to 20, "Door & window frames (chowkat)" to 20,
-        "Electrical first fix — conduit & wiring" to 40, "Plumbing first fix — concealed lines" to 30, "HVAC / AC piping & drain" to 40, "Data, network & CCTV conduit" to 40,
-        "False ceiling framing (GI grid)" to 60, "POP / gypsum board & finish" to 60, "Cove & profile-light recesses" to 60,
-        "Floor tiling" to 70, "Wall tiling / dado" to 70, "Wooden, vinyl or laminate flooring" to 70, "Stone & marble polish" to 70,
-        "Material delivered on site" to null, "Modular units delivered" to 90,
-        "Wall panelling" to 95, "Wall moulding & trims" to 95, "Modular carpentry install" to 90, "Loose furniture" to 130,
-        "Electrical second fix — switches & points" to 40, "Light installation" to 120, "Plumbing second fix — CP & sanitary" to 110,
-        "Window jali, mesh & grill" to 85, "Doors, shutters & hardware" to 95,
-        "Putty & primer" to 100, "Paint, wallpaper or texture" to 100, "Glass & mirrors" to 130, "Curtains & blinds" to 130, "Deep clean" to 140,
-        "Snagging" to 140, "Snag rectification" to 140, "Rectified & verified" to 140, "Handover" to 140,
+        "As-built site measure" to 0, "Existing condition — builder handover" to 0, "Defect recorded" to 0, "Opening measured" to 0, // text:value worksite stages, shown through Masters.stage
+        "Demolition & debris removal" to 10, "Masonry & block work" to 20, "Plaster & waterproofing" to 20, "Door & window frames (chowkat)" to 20, // text:value worksite stages
+        "Electrical first fix — conduit & wiring" to 40, "Plumbing first fix — concealed lines" to 30, "HVAC / AC piping & drain" to 40, "Data, network & CCTV conduit" to 40, // text:value worksite stages
+        "False ceiling framing (GI grid)" to 60, "POP / gypsum board & finish" to 60, "Cove & profile-light recesses" to 60, // text:value worksite stages
+        "Floor tiling" to 70, "Wall tiling / dado" to 70, "Wooden, vinyl or laminate flooring" to 70, "Stone & marble polish" to 70, // text:value worksite stages
+        "Material delivered on site" to null, "Modular units delivered" to 90, // text:value worksite stages
+        "Wall panelling" to 95, "Wall moulding & trims" to 95, "Modular carpentry install" to 90, "Loose furniture" to 130, // text:value worksite stages
+        "Electrical second fix — switches & points" to 40, "Light installation" to 120, "Plumbing second fix — CP & sanitary" to 110, // text:value worksite stages
+        "Window jali, mesh & grill" to 85, "Doors, shutters & hardware" to 95, // text:value worksite stages
+        "Putty & primer" to 100, "Paint, wallpaper or texture" to 100, "Glass & mirrors" to 130, "Curtains & blinds" to 130, "Deep clean" to 140, // text:value worksite stages
+        "Snagging" to 140, "Snag rectification" to 140, "Rectified & verified" to 140, "Handover" to 140, // text:value worksite stages
     )
 
-    // ---- the strings: every `album.*`, `work.*` and `role.*` key of strings-en.json, verbatim ----
-    // (the work names ride in WORKS, the two role names in ROLES). English at the call site;
-    // the Marathi values come under task #19. Names, captions, remarks, CR notes and dates are
-    // DATA, never strings. The camera's stale "locked until the quote is Estimated"
-    // (app.stg_locked_quote) is NOT ported: the lock fires at Client approved (v61b).
+    // ---- the refusals: typed, worded only at the screen through Tx ----------------
 
-    const val ACCEPT = "Accept"
-    const val ACCEPTED_BY = "Accepted by"
-    const val ACCEPTED_RES = "Accepted · the client sees it now"
-    const val AFTER = "After"
-    const val ALBUM = "Album"
-    const val AWAITING_REVIEW = "awaiting review"
-    const val BEFORE = "Before"
-    const val CAPTION_OPTIONAL = "Caption (optional)"
-    const val CHANGE_REQUEST = "Change request"
-    const val CLOSED_CLEANING = "Album closed · Cleaning & handover is Done"
-    const val CLOSES_CLEANING = "The album closes when Cleaning & handover is Done"
-    const val CR_CLEAR = "Clear change request"
-    const val CR_RAISE = "Raise change request"
-    const val DONE_REASON_LABEL = "Why change a Done work? (required)"
-    const val DONE_REASON_NEED = "A reason is needed to change a Done work"
-    const val EMPTY = "No photos yet — the survey's 360s come first"
-    /** The lock banner over chapter 1 while the work chapters are locked (ct61b D1): the lock fires at Client approved. */
-    const val EXEC_LOCK_BANNER = "Work starts once the client approves the estimate"
-    const val KEPT_RES = "Kept from the client"
-    const val NO_CAPTION = "No caption"
-    const val NO_OPEN_WORK = "No work open yet"
-    const val NO_PHOTOS = "no photos"
-    const val NO_PHOTOS_YET = "no photos yet"
-    const val NO_WORK_LOG = "No work state recorded yet"
-    const val NOT_FOR_CLIENT = "Not for client"
-    const val NOT_REACHED = "not reached yet"
-    const val NOT_YOUR_WORK = "not your work"
-    const val NOW = "now"
-    const val PICK_WORK = "Pick the work"
-    const val PROGRESS_SHOT = "Progress shot"
-    const val QUOTE_JOURNEY = "Quote journey"
-    const val QUOTE_JOURNEY_SUB = "the as-is survey, before any work"
-    const val ROLE_CLIENT_LINE = "sees accepted photos and work states only"
-    const val ROLE_DESIGNER_LINE = "sees everything · takes progress shots · changes no state"
-    const val ROLE_PM_LINE = "sees everything · sets work states · accepts vendor photos"
-    const val ROLE_VENDOR_LINE = "sees only their own work · uploads photos for review"
-    const val ROOM_CAPS = "ROOM"
-    const val SEE_AFTER = "See the after photo"
-    const val SEE_BEFORE = "See the before photo"
-    const val ST_ABANDONED = "Abandoned"
-    const val ST_IN_PROGRESS = "In progress"
-    const val ST_NOT_STARTED = "Not started"
-    const val ST_ON_HOLD = "On hold"
-    const val STAFF = "Staff"
-    const val STATE_PM_ONLY = "Only the Project Manager sets a work's state"
-    const val TAP_TO_CHANGE = "tap to change"
-    const val UNFILED = "not filed to a work"
-    const val UPLOAD_PHOTO = "Upload a photo"
-    const val VENDOR_NOTE = "Your photos show to the client once the Project Manager accepts them"
-    const val VIEWING_AS_TITLE = "Viewing as — prototype test"
-    const val WHICH_ROOM = "Which room?"
-    const val WHICH_WORK = "Which work?"
-    const val WORK_CAPS = "WORK"
-    const val ARIA_NEXT_PHOTO = "Next photo"
-    const val ARIA_PREVIOUS_PHOTO = "Previous photo"
-    const val ARIA_TAKE_PHOTO = "Take the photo"
-    const val ARIA_TAKE_PROGRESS = "Take a progress shot"
-    const val ARIA_NUDGE = "Suggestion from the latest photos"
+    /**
+     * Why a writer gate refused (nothing is written). The prototype has no words for most of these
+     * -- it hides the control instead (the state sheet marks the current state, Raise shows only at
+     * Client approved off a baseline with no live request, the vendor's Upload only in `mine`) -- so
+     * the phone's own lines are the v61c card's `refuse.album.*` keys (L2), worded the §13 way and,
+     * where S5 has words, in S5's (asis.js). On a queue row S5's own `error` replaces them.
+     */
+    enum class Refusal {
+        STATE_PM_ONLY, EXEC_LOCKED, NOT_A_WORK, NOT_A_STATE, SAME_STATE, DONE_REASON_NEED,
+        CR_PM_ONLY, CR_NOT_APPROVED, CR_NO_BASELINE, CR_LIVE, CR_IN_SCOPE, CR_OFF_SCOPE_REMOVE, CR_OFF_SCOPE_CHANGE,
+        CR_NONE, CLIENT_AT_DAY,
+        PHOTO_NO_CLIENT, NOT_YOUR_WORK,
+        REVIEW_PM_ONLY, NOT_A_REVIEW, REVIEW_VENDOR_ONLY, REVIEW_NO_IMAGE, REVIEW_SAME;
 
-    // Keyed under album.* from v59 (the 39-stage pointer, its stage log and the nudge), which the
-    // v60 album no longer draws (SPEC60 §0.3). Ported because they are keyed; nothing here reads them.
-    const val CLOSED_HANDOVER = "Album closed at Handover"
-    const val CLOSES_HANDOVER = "The album closes at Handover"
-    const val MOVE_PROJECT = "Move the project"
-    const val MOVED_BY = "moved by"
-    const val NO_MOVES_YET = "No stage moves recorded yet"
-    const val SITE_IS_AT = "SITE IS AT"
-    const val STAGE_CAPS = "STAGE"
-    const val VIA_NUDGE = "from the album's latest photos"
-    const val VIA_SHEET = "picked from the stage list"
-    const val WORK_STAGE_MOVES = "the work stage moves the project once the quote is Estimated"
-
-    // The template keys, each with its placeholders filled; the text is the key's `en` verbatim.
-    fun ariaChapterX(n: Int, name: String): String = "Chapter $n: $name"
-    fun ariaCrX(name: String): String = "Change request: $name"
-    fun ariaPaymentX(work: String, list: String): String = "Payment milestones of $work: $list"
-    fun ariaStateX(work: String, state: String): String = "State of $work: $state"
-    fun ariaTileX(title: String, pl: String): String = "Album of $title: $pl, survey to handover"
-    fun ariaUploadX(work: String): String = "Upload a photo to $work"
-    fun changeRequestsX(n: Int): String = "Change requests: $n"
-    fun crRaisedX(day: String): String = "Change request · raised $day by"
-    fun filedX(stage: String): String = "Progress shot filed at $stage"
-    fun lastPhotoX(day: String): String = "last photo $day"
-    fun movedX(stage: String): String = "Moved to $stage · in the stage log"
-    fun nudgeX(stage: String): String = "Latest photos are $stage — move the project?"
-    fun openX(works: String): String = "Open: $works"
-    fun payBeforeX(work: String): String = "Before $work starts"
-    fun payWhenX(work: String): String = "When $work is done"
-    fun paymentX(list: String): String = "Payment: $list"
-    fun photoXOfX(i: Int, n: Int): String = "Photo $i of $n"
-    fun stageLogX(n: Int): String = "Stage log ($n)"
-    fun stateOfX(work: String): String = "State of $work"
-    fun subX(pl: String): String = "$pl · survey to handover"
-    fun titleX(title: String): String = "Album · $title"
-    fun toReviewX(n: Int): String = "To review: $n"
-    fun uploadedToX(work: String): String = "Uploaded to $work"
-    fun viewingAsX(role: String): String = "Viewing as $role"
-    fun workLogX(n: Int): String = "Work log ($n)"
-
-    // The refusals the prototype has no words for -- it hides the control instead (the state
-    // sheet marks the current state, Raise shows only off a baseline with no live CR, the
-    // vendor's Upload only in `mine`), and its writers return null in silence. A gate here has
-    // to say WHY it refused, so these are the phone's own plain lines, kept short; on the queue
-    // row S5's own `error` replaces them. Not in strings-en.json, so not translated until added.
-    const val NOT_A_WORK = "Not one of the sixteen works"
-    const val NOT_A_STATE = "Not one of the five states"
-    const val SAME_STATE = "Already in that state"
-    const val CR_NO_BASELINE = "No approved scope recorded yet"
-    const val CR_IN_SCOPE = "In the approved scope — nothing to request"
-    const val CR_LIVE = "A change request is already raised"
-    const val CR_NONE = "No change request to clear"
-    const val CR_PM_ONLY = "Only the Project Manager raises or clears a change request"
-    const val PHOTO_NO_CLIENT = "A client adds no photos"
-    const val REVIEW_PM_ONLY = "Only the Project Manager reviews a vendor's photo"
-    const val REVIEW_VENDOR_ONLY = "Only a vendor's photo is reviewed"
-    const val REVIEW_SAME = "Already reviewed that way"
-    const val NOT_A_REVIEW = "Not a review state"
+        fun text(tx: Tx): String = when (this) {
+            STATE_PM_ONLY -> tx.album_state_pm_only
+            EXEC_LOCKED -> tx.album_exec_lock_banner
+            NOT_A_WORK -> tx.refuse_album_not_a_work
+            NOT_A_STATE -> tx.refuse_album_not_a_state
+            SAME_STATE -> tx.refuse_album_same_state
+            DONE_REASON_NEED -> tx.album_done_reason_need
+            CR_PM_ONLY -> tx.refuse_album_cr_pm_only
+            CR_NOT_APPROVED -> tx.refuse_album_cr_not_approved
+            CR_NO_BASELINE -> tx.refuse_album_cr_no_baseline
+            CR_LIVE -> tx.refuse_album_cr_live
+            CR_IN_SCOPE -> tx.refuse_album_cr_in_scope
+            CR_OFF_SCOPE_REMOVE -> tx.refuse_album_cr_off_scope_remove
+            CR_OFF_SCOPE_CHANGE -> tx.refuse_album_cr_off_scope_change
+            CR_NONE -> tx.refuse_album_cr_none
+            CLIENT_AT_DAY -> tx.refuse_album_client_at_day
+            PHOTO_NO_CLIENT -> tx.refuse_album_photo_no_client
+            NOT_YOUR_WORK -> tx.album_not_your_work
+            REVIEW_PM_ONLY -> tx.refuse_album_review_pm_only
+            NOT_A_REVIEW -> tx.refuse_album_not_review_state
+            REVIEW_VENDOR_ONLY -> tx.refuse_album_review_vendor_only
+            REVIEW_NO_IMAGE -> tx.refuse_album_review_no_image
+            REVIEW_SAME -> tx.refuse_album_review_same
+        }
+    }
 
     // ---- the model, shaped like S5's GET .../album answer --------------------
 
-    /** One row of the append-only log (`log[]` and `stages[]`). `work` null on stage rows; `photo` on review rows. */
+    /**
+     * One row of the append-only log (`log[]` and `stages[]`). `work` null on stage rows; `photo`
+     * on review rows. A change request's rows read the way S5's logView reads them ([crKind],
+     * [crOutcome]): a raise's `value` is its kind, a clear's `value` the client's answer and its
+     * `prev` the kind it answered.
+     */
     data class Entry(
         val seq: Long,
         val id: String,
@@ -303,9 +280,23 @@ object Album {
         val photo: String? = null,
         val via: String = "",
         val clientAt: String? = null,
-    )
+    ) {
+        /** A raise's kind, or the kind a clear answered; a blank one is [CrKind.ADD]; null on any other row. */
+        val crKind: CrKind? get() = when (kind) {
+            KIND_CR_RAISE -> CrKind.of(value.ifBlank { null }) ?: CrKind.ADD
+            KIND_CR_CLEAR -> CrKind.of(prev.ifBlank { null }) ?: CrKind.ADD
+            else -> null
+        }
 
-    /** One of `works[16]`: S5's derived row for a work. `cr` is the live cr_raise row, if any. */
+        /** A clear's answer; a blank one is [CrOutcome.WITHDRAWN]; null on any other row. */
+        val crOutcome: CrOutcome? get() = if (kind == KIND_CR_CLEAR) CrOutcome.of(value.ifBlank { null }) ?: CrOutcome.WITHDRAWN else null
+    }
+
+    /**
+     * One of `works[16]`: S5's derived row for a work. `seq` is the BASE (the work's newest seq of
+     * any kind); `at` / `by` are its newest STATE row's, blank when none was ever recorded. `cr` is
+     * the live cr_raise row, if any, its kind in `value`.
+     */
     data class Work(
         val id: Int,
         val state: String = NOT_STARTED,
@@ -316,11 +307,20 @@ object Album {
         val inScope: Boolean = true,
         val cr: Entry? = null,
         val count: Int = 0,
-    )
+    ) {
+        val crKind: CrKind? get() = cr?.crKind
+    }
+
+    /**
+     * One work's state as the project-state store holds it: the state, the seq S5 knows it at
+     * (S5-L's `work_states` gives the state row's own seq, the album GET's `works[]` the base) and
+     * the state row's time when known. A work absent from a states map has no recorded state.
+     */
+    data class WorkState(val state: String, val seq: Long = 0, val at: String = "")
 
     /**
      * One album item: a photo row of `photos[]`, or an as-is capture (`captures[]`, or the
-     * phone's own CaptureStore row filed through [workOfStage]) as the same shape with `kind`
+     * phone's own CaptureStore row filed through [workOfCapture]) as the same shape with `kind`
      * [PHOTO_360] and party [PARTY_STAFF]. `work` 0 = quote journey, null = unfiled; `vendor`
      * the ERP Supplier as spelt on the access list; `review` matters only on a vendor's row.
      */
@@ -347,11 +347,13 @@ object Album {
     )
 
     /**
-     * S5's `GET .../album` answer -- the phone's MIRROR of the project's album. `quoteStage`
-     * null when S5 sent none; `scope` null = no baseline; `pm` null = every staff member is PM.
-     * `toReview`, `changeRequests`, `closed` and `closedAt` are S5's figures AS SENT, for a
-     * list; the screen derives its own from `log` and `photos` through [chapters], so a merge
-     * after a POST never leaves a count behind.
+     * S5's `GET .../album` answer -- the phone's MIRROR of the project's album. `role` is S5's
+     * albumRole for this caller ([viewerOf]); `quoteStage` / `quoteStageAt` null / blank when S5
+     * sent none; `scope` null = no baseline; `pm` null = every staff member is PM. `toReview`,
+     * `changeRequests`, `closed` and `closedAt` are S5's figures AS SENT, for a list; the screen
+     * derives its own through [chapters], so a merge after a POST never leaves a count behind.
+     * `logNext` / `logMore` are S5's cursor: a `?since=` page is followed while `logMore`
+     * ([paged]).
      */
     data class View(
         val role: String,
@@ -361,8 +363,11 @@ object Album {
         val scopeAt: String = "",
         val pm: String? = null,
         val quoteStage: String? = null,
+        val quoteStageAt: String = "",
         val works: List<Work> = emptyList(),
         val log: List<Entry> = emptyList(),
+        val logNext: Long = 0,
+        val logMore: Boolean = false,
         val stages: List<Entry> = emptyList(),
         val photos: List<Photo> = emptyList(),
         val captures: List<Photo> = emptyList(),
@@ -389,19 +394,41 @@ object Album {
         else -> WORK_IDS.indexOf(work).let { if (it < 0) null else it + 1 }
     }
 
-    /** The name of a work; 0 reads "Quote journey"; null "not filed to a work"; an unknown id "". */
-    fun workName(id: Int?): String = when {
-        id == null -> UNFILED
-        id == QUOTE_WORK -> QUOTE_JOURNEY
-        else -> WORKS.firstOrNull { it.id == id }?.name ?: ""
+    /** The name of a work as shown: 0 the quote journey, null not filed to a work, a work its Masters name, an unknown id "". */
+    fun workName(tx: Tx, id: Int?): String = when {
+        id == null -> tx.album_unfiled
+        id == QUOTE_WORK -> tx.album_quote_journey
+        else -> WORKS.firstOrNull { it.id == id }?.let { Masters.work(tx, it.name) } ?: ""
     }
 
-    /** A state as the five name it; anything else reads "Not started". */
+    /** A state as the five name it; anything else is [NOT_STARTED]. The stored value: show it through [stateText]. */
     fun stateName(state: String?): String = if (state != null && state in STATES) state else NOT_STARTED
 
+    /** A state as shown. */
+    fun stateText(tx: Tx, state: String?): String = Masters.state(tx, stateName(state))
+
+    /** A role as the album's "Viewing as" names it; a role S5 might add later is shown as sent. */
+    fun roleLabel(tx: Tx, role: String): String = when (role) {
+        PM -> tx.role_project_manager
+        DESIGNER -> tx.role_designer
+        VENDOR -> tx.common_vendor
+        CLIENT -> tx.common_client
+        else -> role
+    }
+
+    /** The line under a role (the prototype's ROLES); "" for a role the four do not hold. */
+    fun roleLine(tx: Tx, role: String): String = when (role) {
+        PM -> tx.album_role_pm_line
+        DESIGNER -> tx.album_role_designer_line
+        VENDOR -> tx.album_role_vendor_line
+        CLIENT -> tx.album_role_client_line
+        else -> ""
+    }
+
     /** A work's payment milestones in words: "Before X starts" / "When X is done". */
-    fun payOf(id: Int): List<String> =
-        (PAY[id] ?: emptyList()).map { if (it.kind == 's') payBeforeX(workName(it.at)) else payWhenX(workName(it.at)) }
+    fun payOf(tx: Tx, id: Int): List<String> = (PAY[id] ?: emptyList()).map {
+        if (it.kind == 's') tx.album_pay_before_x(work = workName(tx, it.at)) else tx.album_pay_when_x(work = workName(tx, it.at))
+    }
 
     /**
      * The work a worksite stage files to: exact, then case-insensitive (as the prototype's
@@ -416,33 +443,74 @@ object Album {
         return STAGE_WORK[k]
     }
 
+    /**
+     * THE ONE FILING RULE (v61c, the prototype's workOfCapture; S5's workOfRecord): a capture's
+     * `work` stands when it is 0 (the quote journey) or one of the sixteen; anything else -- NULL,
+     * the store's "filed by its stage" for every capture taken before the phone filed by work, or a
+     * stray id -- files by its legacy `stage` through [workOfStage]. The ONLY place [STAGE_WORK]
+     * is read.
+     */
+    fun workOfCapture(work: Int?, stage: String?): Int? =
+        if (work == QUOTE_WORK || isWork(work)) work else workOfStage(stage)
+
     /** S5's partyKey: trimmed and lower-cased, so a login or a Supplier is matched as ERP matches it. */
     fun partyKey(v: String?): String = v?.trim()?.lowercase() ?: ""
 
-    // ---- who the person is in this album (D3: pm null means every staff member is PM) ----
-
     /**
-     * The role whoami's `kind` gives in this project, with the vendor's works. Staff is `pm`
-     * when the project's `pm` is null (no PM named yet, decision 3) or is this login (compared
-     * as [partyKey]), else `designer`; a vendor is `vendor` with `mine` the union of `works` over
-     * the Supplier rows of its suppliers ([worksBySupplier] keyed as spelt on the access list);
-     * a client is `client`. Any other kind (S5's `none`) is null: maySee refused it already.
+     * Who the person is in this album: S5's own answer (`role`, `mine`; asis.js albumView), never a
+     * rule of the phone's -- S5 decides per project (D3: while no PM is named every staff member is
+     * PM; a vendor only where one of its Suppliers is listed). [suppliers] are whoami's, matched as
+     * [partyKey], for the vendor's own uploads.
      */
-    fun albumRole(
-        kind: String?, pmLogin: String?, userLogin: String?, suppliers: Collection<String>,
-        worksBySupplier: Map<String, List<Int>>,
-    ): Viewer? = when (kind) {
-        "staff" -> Viewer(if (pmLogin.isNullOrBlank() || partyKey(pmLogin) == partyKey(userLogin)) PM else DESIGNER)
-        VENDOR -> {
-            val keys = suppliers.map { partyKey(it) }.filter { it.isNotEmpty() }.toSet()
-            val mine = worksBySupplier.filterKeys { partyKey(it) in keys }.values.flatten().filter { isWork(it) }.toSet()
-            Viewer(VENDOR, mine, keys)
-        }
-        CLIENT -> Viewer(CLIENT)
-        else -> null
+    fun viewerOf(v: View, suppliers: Collection<String> = emptyList()): Viewer =
+        Viewer(v.role, v.mine.filter { isWork(it) }.toSet(), suppliers.map { partyKey(it) }.filter { it.isNotEmpty() }.toSet())
+
+    // ---- time: S5's stamps are UTC, the album shows IST ---------------------
+
+    /** S5's isDay: YYYY-MM-DD that exists (2026-02-30 does not), a time after it allowed and ignored. */
+    fun isDay(t: String?): Boolean {
+        val m = DAY.find(t?.trim().orEmpty()) ?: return false
+        return try { LocalDate.of(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt()); true } catch (e: Exception) { false }
     }
 
-    // ---- the derivations: always from the log, by seq ---------------------------
+    private val DAY = Regex("""^(\d{4})-(\d{2})-(\d{2})(?:T|$)""")
+    private val BARE_DAY = Regex("""^\d{4}-\d{2}-\d{2}$""")
+
+    /** The IST calendar day [iso] names: a bare YYYY-MM-DD as it is (a day, not a moment), else the moment in IST. */
+    private fun istDay(iso: String?): LocalDate? {
+        val s = iso?.trim().orEmpty()
+        if (BARE_DAY.matches(s)) return try { LocalDate.parse(s) } catch (e: Exception) { null }
+        return QuoteStage.instantOf(s)?.atZone(QuoteStage.IST)?.toLocalDate()
+    }
+
+    /** The album's months, "Sep" for September (index61c1.html 7156), from the table (decision 3 of 21 Oct: Jan-Dec). */
+    private fun month(tx: Tx, m: Int): String = when (m) {
+        1 -> tx.date_month_1; 2 -> tx.date_month_2; 3 -> tx.date_month_3; 4 -> tx.date_month_4
+        5 -> tx.date_month_5; 6 -> tx.date_month_6; 7 -> tx.date_month_7; 8 -> tx.date_month_8
+        9 -> tx.date_month_9; 10 -> tx.date_month_10; 11 -> tx.date_month_11; else -> tx.date_month_12
+    }
+
+    /** "28 Oct" in IST; "" when [iso] is not a time or a day. */
+    fun dayOf(tx: Tx, iso: String?): String {
+        val d = istDay(iso) ?: return ""
+        return "${d.dayOfMonth} ${month(tx, d.monthValue)}"
+    }
+
+    /**
+     * The prototype's whenOf: "28 Oct, 01:30" in IST, or the day alone when [dateOnly] (a capture
+     * that carries only its date). A bare day has no time, so it is always the day alone.
+     */
+    fun whenOf(tx: Tx, iso: String?, dateOnly: Boolean = false): String {
+        val day = dayOf(tx, iso)
+        if (dateOnly || day.isEmpty()) return day
+        val z = QuoteStage.instantOf(iso?.trim().orEmpty())?.atZone(QuoteStage.IST) ?: return day
+        return "$day, ${z.hour.toString().padStart(2, '0')}:${z.minute.toString().padStart(2, '0')}"
+    }
+
+    /** Epoch ms of [iso], 0 when it is not a time (the prototype's t0). */
+    private fun t0(iso: String?): Long = QuoteStage.instantOf(iso?.trim().orEmpty())?.toEpochMilli() ?: 0L
+
+    // ---- the derivations: the log is history, by seq ---------------------------
 
     private fun bySeq(log: List<Entry>): List<Entry> = log.sortedBy { it.seq }
 
@@ -453,11 +521,11 @@ object Album {
     /** The newest `state` row of a work, or null when none was ever recorded. */
     fun entryOf(log: List<Entry>, work: Int): Entry? = newest(log, work, KIND_STATE)
 
-    /** A work's state: its newest `state` row's value, else "Not started" (a value outside the five reads as Not started). */
+    /** A work's state by its newest `state` row, else Not started (a value outside the five reads as Not started). */
     fun stateOf(log: List<Entry>, work: Int): String = stateName(entryOf(log, work)?.value)
 
-    /** The works In progress, in S5's order. */
-    fun openWorks(log: List<Entry>): List<Int> = WORK_IDS.filter { stateOf(log, it) == IN_PROGRESS }
+    /** The works In progress by [states], in S5's order: the header's "Open: …". */
+    fun openWorks(states: Map<Int, WorkState>): List<Int> = WORK_IDS.filter { stateName(states[it]?.state) == IN_PROGRESS }
 
     /** The live change request on a work: the newest cr-kind row, when it is a `cr_raise`; else null. */
     fun crOf(log: List<Entry>, work: Int): Entry? =
@@ -466,14 +534,54 @@ object Album {
     /** In the approved scope: a null baseline (not yet approved) puts everything in scope -- nothing to drift from. */
     fun inScope(scope: List<Int>?, work: Int): Boolean = scope == null || scope.contains(work)
 
-    /** One change request as the header counts it: an off-baseline work with a live CR. */
-    data class ChangeRequest(val id: Int, val name: String, val cr: Entry)
+    /** One LIVE change request as the header counts it. */
+    data class ChangeRequest(val id: Int, val cr: Entry) {
+        val kind: CrKind get() = cr.crKind ?: CrKind.ADD
+    }
 
-    /** "Change requests: N" -- every work that is off the baseline AND has a live CR, in S5's order (ct61b E1, E7). */
-    fun changeRequests(scope: List<Int>?, log: List<Entry>): List<ChangeRequest> =
-        WORKS.mapNotNull { w -> if (inScope(scope, w.id)) null else crOf(log, w.id)?.let { ChangeRequest(w.id, w.name, it) } }
+    /**
+     * "Change requests: N" -- every LIVE request (raised, not yet answered), WHATEVER ITS KIND, in
+     * S5's order (asis.js `change_requests: works.filter(w => w.cr).length`, 27 Oct 2026): a remove
+     * or a change is on a work IN the scope and an approved add brings its work into it, so "off
+     * the baseline" no longer says anything.
+     */
+    fun changeRequests(log: List<Entry>): List<ChangeRequest> =
+        WORKS.mapNotNull { w -> crOf(log, w.id)?.let { ChangeRequest(w.id, it) } }
 
-    /** True when any `state` row exists: the recorded-work exemption from the lock (ct61b D3). */
+    /**
+     * One decided request: the client's [outcome], the request's [kind], and [day] -- the day the
+     * client answered (`client_at`, when S5's isDay holds) or else the day the answer was recorded,
+     * in IST -- as YYYY-MM-DD. §13.5: "the album keeps the decided ones in the work's log"; §14.9:
+     * "a withdrawal with no client date shows the day it was recorded".
+     */
+    data class Decided(val outcome: CrOutcome, val kind: CrKind, val day: String, val entry: Entry)
+
+    /** A work's answered requests, newest first (index61c1.html 7441-7442). */
+    fun crDone(log: List<Entry>, work: Int): List<Decided> =
+        bySeq(log).filter { it.work == work && it.kind == KIND_CR_CLEAR }.asReversed().map { e ->
+            val day = e.clientAt?.trim()?.takeIf { isDay(it) }?.take(10) ?: istDay(e.at)?.toString().orEmpty()
+            Decided(e.crOutcome ?: CrOutcome.WITHDRAWN, e.crKind ?: CrKind.ADD, day, e)
+        }
+
+    /** A decided request as the work's list draws it: "Change approved by client · 27 Oct · add". */
+    fun decidedText(tx: Tx, d: Decided): String = listOf(d.outcome.text(tx), dayOf(tx, d.day), d.kind.word(tx)).joinToString(" · ")
+
+    /**
+     * The scope after the client's answer, as S5 amends it in the same batch as the cr_clear row:
+     * an approved add puts the work in, an approved remove takes it out (in S5's order), anything
+     * else leaves [scope] as it is.
+     */
+    fun amendedScope(scope: List<Int>?, kind: CrKind, outcome: CrOutcome, work: Int): List<Int>? {
+        if (outcome != CrOutcome.APPROVED) return scope
+        val was = scope ?: emptyList()
+        return when (kind) {
+            CrKind.ADD -> (was + work).distinct().sorted()
+            CrKind.REMOVE -> was.filter { it != work }
+            CrKind.CHANGE -> scope
+        }
+    }
+
+    /** True when any `state` row exists in [log]: the recorded-work exemption from the lock (ct61b D3). */
     fun hasStateEntry(log: List<Entry>): Boolean = log.any { it.kind == KIND_STATE }
 
     /**
@@ -492,23 +600,48 @@ object Album {
         return s == QuoteStage.APPROVED
     }
 
-    /** The album is closed for display when Cleaning & handover (140) is Done. */
-    fun closed(log: List<Entry>): Boolean = stateOf(log, LAST_WORK) == DONE
-
-    /** When it closed: the row that put 140 at Done, or null while open. */
-    fun closedAt(log: List<Entry>): String? = if (closed(log)) entryOf(log, LAST_WORK)?.at else null
+    /** The quote stage IS Client approved: the only stage at which a change request is raised or answered (§14.8). */
+    fun approved(quoteStage: String?): Boolean = quoteStage?.trim() == QuoteStage.APPROVED
 
     /** Only leaving Done needs a remark (v61a's Done guard). */
     fun remarkNeeded(from: String): Boolean = from == DONE
 
     /**
-     * The quote stage a quote-journey item was taken in: the newest `stage` row (by seq) at or
-     * before [at], else Survey. Both times are S5's toISOString, so they compare as text.
+     * The quote stage a quote-journey item was taken in, as the prototype's quoteAt: the logged
+     * moves (`stage` rows) AND the current stage at its quote_stage_at ([current], [currentAt])
+     * are one history, in time order; the newest point at or before [at] wins, else Survey. The
+     * current point matters for a project that stood at a later stage before migration 0008 (26
+     * Oct 2026) began logging moves: without it every capture read Survey (critic G2b).
      */
-    fun quoteAt(stages: List<Entry>, at: String): String {
+    fun quoteAt(stages: List<Entry>, at: String, current: String? = null, currentAt: String? = null): String {
+        val h = ArrayList<Pair<String, Long>>()
+        for (e in bySeq(stages)) if (e.kind == KIND_STAGE && e.value in QuoteStage.STAGES) h += e.value to t0(e.at)
+        if (current != null && current.trim() in QuoteStage.STAGES && !currentAt.isNullOrBlank()) h += current.trim() to t0(currentAt)
+        val t = t0(at)
         var q = QuoteStage.STAGES[0]
-        for (e in bySeq(stages)) if (e.kind == KIND_STAGE && e.value in QuoteStage.STAGES && e.at <= at) q = e.value
+        for ((s, ts) in h.withIndex().sortedWith(compareBy({ it.value.second }, { it.index })).map { it.value }) if (ts <= t) q = s
         return q
+    }
+
+    // ---- the project-state store's view of the works ---------------------------------
+
+    /** The works with a recorded state in the album GET's `works[]` (a blank `at` = no state row ever). */
+    fun statesOfWorks(works: List<Work>): Map<Int, WorkState> =
+        works.filter { isWork(it.id) && it.at.isNotBlank() }.associate { it.id to WorkState(stateName(it.state), it.seq, it.at) }
+
+    /** The works with a state row in [log], by their newest one: the history's own answer, for a fully paged log. */
+    fun statesOfLog(log: List<Entry>): Map<Int, WorkState> =
+        WORK_IDS.mapNotNull { w -> entryOf(log, w)?.let { w to WorkState(stateName(it.value), it.seq, it.at) } }.toMap()
+
+    /**
+     * [states] with this phone's queued state writes laid over them, in queue order, each at
+     * [PENDING_SEQ] + its place in [queue] (above any S5 seq), as [provisional] numbers them: a
+     * tap shows at once with no signal (the queue half of QM0's line).
+     */
+    fun withQueued(states: Map<Int, WorkState>, queue: List<Op>): Map<Int, WorkState> {
+        val out = LinkedHashMap(states)
+        queue.forEachIndexed { i, op -> if (op.kind == KIND_STATE && isWork(op.work)) out[op.work!!] = WorkState(stateName(op.value), PENDING_SEQ + i) }
+        return out
     }
 
     // ---- THE ONE VISIBILITY RULE: every count, chapter, viewer and tile goes through it ----
@@ -540,17 +673,16 @@ object Album {
 
     // ---- the chapters, for the person looking --------------------------------------
 
-    /** One quote-stage group of chapter 0. */
+    /** One quote-stage group of chapter 0. `stage` is S5's name, shown through [Masters.quote]. */
     data class QuoteGroup(val stage: String, val i: Int, val items: List<Photo>, val reached: Boolean, val now: Boolean)
 
     /** Chapter 0, the quote journey: a group per quote stage, the unfiled items (staff only, by [canSee]). */
     data class QuoteChapter(val groups: List<QuoteGroup>, val unfiled: List<Photo>, val count: Int, val locked: Boolean)
 
-    /** Chapters 1-16, one per work, each a grid in time order with its own state. */
+    /** Chapters 1-16, one per work, each a grid in time order with its own state, live request and decided ones. */
     data class Chapter(
         val n: Int,
         val id: Int,
-        val name: String,
         val state: String,
         val items: List<Photo>,
         val mine: Boolean,
@@ -558,12 +690,13 @@ object Album {
         val execLocked: Boolean,
         val inScope: Boolean,
         val cr: Entry?,
+        val decided: List<Decided>,
     ) {
         val count: Int get() = items.size
         val last: String? get() = items.lastOrNull()?.at
     }
 
-    /** The album as displayed. `order` is the display order the viewer's ‹ › walks. */
+    /** The album as displayed. `order` is the display order the viewer's ‹ › walks; `open` the works In progress. */
     data class Chapters(
         val quote: QuoteChapter,
         val works: List<Chapter>,
@@ -573,84 +706,104 @@ object Album {
         val order: List<Photo>,
         val execLocked: Boolean,
         val changeRequests: List<ChangeRequest>,
+        val open: List<Int>,
     )
 
     /**
      * The chapters for [viewer]: chapter 0 (six quote groups, plus the unfiled items), then the
      * sixteen works in S5's order. [items] are the album's items -- S5's photos and captures
      * with the phone's own, composed by the caller -- in time order; [log] and [stages] the
-     * mirror's rows with any provisional ones ([provisional]); [quoteStage] what the phone
-     * knows of the quote stage (null = not read). Work chapters lock under [exec]; a vendor's
-     * chapter 0 and the works outside `mine` lock too. An item on a work id that is not one
-     * of the sixteen is unfiled.
+     * mirror's rows with any provisional ones ([provisional]), the HISTORY (live and decided change
+     * requests); [states] each work's state from the caller's project-state store with the queue
+     * laid over it ([withQueued]) -- absent = no recorded state. [quoteStage] / [quoteStageAt] what
+     * the phone knows of the quote stage (null = not read). Work chapters lock under [exec]; a
+     * vendor's chapter 0 and the works outside `mine` lock too, and a vendor sees no change request
+     * outside `mine` (S5 sends none). An item on a work id that is not one of the sixteen is unfiled.
      */
     fun chapters(
-        items: List<Photo>, log: List<Entry>, stages: List<Entry>, scope: List<Int>?, quoteStage: String?, viewer: Viewer,
+        items: List<Photo>, log: List<Entry>, stages: List<Entry>, scope: List<Int>?,
+        quoteStage: String?, quoteStageAt: String?, states: Map<Int, WorkState>, viewer: Viewer,
     ): Chapters {
         val all = visible(viewer, items)
         val cur = QuoteStage.indexOf(quoteStage?.trim().orEmpty())
         val ven = viewer.role == VENDOR
-        val xlock = !exec(quoteStage, hasStateEntry(log))
+        val xlock = !exec(quoteStage, states.isNotEmpty())
         val groups = QuoteStage.STAGES.mapIndexed { i, q ->
-            QuoteGroup(q, i, all.filter { it.work == QUOTE_WORK && quoteAt(stages, it.at) == q },
+            QuoteGroup(q, i, all.filter { it.work == QUOTE_WORK && quoteAt(stages, it.at, quoteStage, quoteStageAt) == q },
                 reached = if (cur < 0) i == 0 else i <= cur, now = i == cur)
         }
         val unfiled = all.filter { it.work == null || (it.work != QUOTE_WORK && !isWork(it.work)) }
         val quote = QuoteChapter(groups, unfiled, groups.sumOf { it.items.size } + unfiled.size, locked = ven)
         val works = WORKS.mapIndexed { i, w ->
+            val seen = !ven || w.id in viewer.mine
             Chapter(
-                n = i + 1, id = w.id, name = w.name, state = stateOf(log, w.id),
+                n = i + 1, id = w.id, state = stateName(states[w.id]?.state),
                 items = all.filter { it.work == w.id },
                 mine = ven && w.id in viewer.mine,
                 locked = (ven && w.id !in viewer.mine) || xlock,
                 execLocked = xlock,
                 inScope = inScope(scope, w.id),
-                cr = crOf(log, w.id),
+                cr = if (seen) crOf(log, w.id) else null,
+                decided = if (seen) crDone(log, w.id) else emptyList(),
             )
         }
         val order = groups.flatMap { it.items } + unfiled + works.flatMap { it.items }
-        return Chapters(quote, works, all.size, closed(log), closedAt(log), order, xlock, changeRequests(scope, log))
+        val closed = stateName(states[LAST_WORK]?.state) == DONE
+        val closedAt = if (closed) states[LAST_WORK]?.at?.ifBlank { null } else null
+        val crs = changeRequests(log).filter { !ven || it.id in viewer.mine }
+        return Chapters(quote, works, all.size, closed, closedAt, order, xlock, crs, openWorks(states))
     }
 
-    // ---- the writer gates: null = allowed; a line = refused, and why (nothing is written) ----
+    // ---- the writer gates: null = allowed; a [Refusal] = refused, and why (nothing is written) ----
 
     /**
-     * Setting a work's state (PM only; ct61b D1-D3). [from] is the DERIVED state ([stateOf]),
-     * which the POST carries as `prev` -- S5 refuses a `prev` that is not what its log says.
-     * Refused: not PM, the chapters locked ([exec] false), not a work, not a state, the same
-     * state, or leaving Done with no remark.
+     * Setting a work's state (PM only; ct61b D1-D3). [from] is the DERIVED state, which the POST
+     * carries as `prev` -- S5 refuses a `prev` that is not what its log says. Refused: not PM,
+     * the chapters locked ([exec] false), not a work, not a state, the same state, or leaving Done
+     * with no remark.
      */
-    fun stateWrite(viewer: Viewer, exec: Boolean, work: Int, from: String, to: String, remark: String): String? = when {
-        viewer.role != PM -> STATE_PM_ONLY
-        !exec -> EXEC_LOCK_BANNER
-        !isWork(work) -> NOT_A_WORK
-        to !in STATES -> NOT_A_STATE
-        from == to -> SAME_STATE
-        remarkNeeded(from) && remark.isBlank() -> DONE_REASON_NEED
+    fun stateWrite(viewer: Viewer, exec: Boolean, work: Int, from: String, to: String, remark: String): Refusal? = when {
+        viewer.role != PM -> Refusal.STATE_PM_ONLY
+        !exec -> Refusal.EXEC_LOCKED
+        !isWork(work) -> Refusal.NOT_A_WORK
+        to !in STATES -> Refusal.NOT_A_STATE
+        from == to -> Refusal.SAME_STATE
+        remarkNeeded(from) && remark.isBlank() -> Refusal.DONE_REASON_NEED
         else -> null
     }
 
     /**
-     * Raising a change request (PM only, ct61b E8): a baseline must exist, the work must be
-     * off it, and no CR may be live on it (E7: in scope -> refused). The chapters must be open
-     * -- S5's log POST holds the exec rule for every kind.
+     * Raising a change request of [kind] on [work] (PM only, ct61b E8; v61c §13.5, §14.8): only
+     * once the client has approved -- before that the scope changes through Revisions and Approve
+     * (the prototype's approvedQ, index61c1.html 7258) -- with a baseline (S5: 409 "No approved
+     * scope yet"; critic G4) and no live request on the work; an [CrKind.ADD] only for a work off
+     * the approved scope, a [CrKind.REMOVE] or [CrKind.CHANGE] only for one in it (S5's SQL, in
+     * S5's words).
      */
-    fun crRaise(viewer: Viewer, exec: Boolean, scope: List<Int>?, work: Int, log: List<Entry>): String? = when {
-        viewer.role != PM -> CR_PM_ONLY
-        !exec -> EXEC_LOCK_BANNER
-        !isWork(work) -> NOT_A_WORK
-        scope == null -> CR_NO_BASELINE
-        inScope(scope, work) -> CR_IN_SCOPE
-        crOf(log, work) != null -> CR_LIVE
+    fun crRaise(viewer: Viewer, quoteStage: String?, scope: List<Int>?, work: Int, kind: CrKind, log: List<Entry>): Refusal? = when {
+        viewer.role != PM -> Refusal.CR_PM_ONLY
+        !approved(quoteStage) -> Refusal.CR_NOT_APPROVED
+        !isWork(work) -> Refusal.NOT_A_WORK
+        scope == null -> Refusal.CR_NO_BASELINE
+        crOf(log, work) != null -> Refusal.CR_LIVE
+        kind == CrKind.ADD && inScope(scope, work) -> Refusal.CR_IN_SCOPE
+        kind == CrKind.REMOVE && !inScope(scope, work) -> Refusal.CR_OFF_SCOPE_REMOVE
+        kind == CrKind.CHANGE && !inScope(scope, work) -> Refusal.CR_OFF_SCOPE_CHANGE
         else -> null
     }
 
-    /** Clearing a change request (PM only, E8): only a live one (E7: clearing drops the count). */
-    fun crClear(viewer: Viewer, exec: Boolean, work: Int, log: List<Entry>): String? = when {
-        viewer.role != PM -> CR_PM_ONLY
-        !exec -> EXEC_LOCK_BANNER
-        !isWork(work) -> NOT_A_WORK
-        crOf(log, work) == null -> CR_NONE
+    /**
+     * Recording the client's answer to the live request on [work] (PM only; the prototype's
+     * answerCR): only at Client approved, only on a live request, and for [CrOutcome.APPROVED] and
+     * [CrOutcome.DECLINED] with [clientAt] a real day (S5's isDay; its 400 is
+     * refuse.album.client_at_day) -- never a silent today. A withdrawal may leave the day out.
+     */
+    fun crAnswer(viewer: Viewer, quoteStage: String?, work: Int, outcome: CrOutcome, clientAt: String, log: List<Entry>): Refusal? = when {
+        viewer.role != PM -> Refusal.CR_PM_ONLY
+        !approved(quoteStage) -> Refusal.CR_NOT_APPROVED
+        !isWork(work) -> Refusal.NOT_A_WORK
+        crOf(log, work) == null -> Refusal.CR_NONE
+        outcome.needsDay && !isDay(clientAt) -> Refusal.CLIENT_AT_DAY
         else -> null
     }
 
@@ -661,22 +814,27 @@ object Album {
      * an unfiled photo -- unfiled is the server's filing of an as-is capture whose stage maps
      * to null -- so [work] is 0 or a work id.
      */
-    fun photoRecord(viewer: Viewer, exec: Boolean, work: Int): String? = when (viewer.role) {
+    fun photoRecord(viewer: Viewer, exec: Boolean, work: Int): Refusal? = when (viewer.role) {
         PM, DESIGNER -> when {
-            work != QUOTE_WORK && !isWork(work) -> NOT_A_WORK
-            work != QUOTE_WORK && !exec -> EXEC_LOCK_BANNER
+            work != QUOTE_WORK && !isWork(work) -> Refusal.NOT_A_WORK
+            work != QUOTE_WORK && !exec -> Refusal.EXEC_LOCKED
             else -> null
         }
-        VENDOR -> if (work in viewer.mine) null else NOT_YOUR_WORK
-        else -> PHOTO_NO_CLIENT
+        VENDOR -> if (work in viewer.mine) null else Refusal.NOT_YOUR_WORK
+        else -> Refusal.PHOTO_NO_CLIENT
     }
 
-    /** Accept / Not for client (PM only): a vendor's row only; the same state again is a no-op, so it is refused here. */
-    fun review(viewer: Viewer, photo: Photo, state: String): String? = when {
-        viewer.role != PM -> REVIEW_PM_ONLY
-        state != REVIEW_ACCEPTED && state != REVIEW_INTERNAL -> NOT_A_REVIEW
-        photo.party != PARTY_VENDOR -> REVIEW_VENDOR_ONLY
-        photo.review == state -> REVIEW_SAME
+    /**
+     * Accept / Not for client (PM only), in S5's order: a review state, a vendor's row, and its
+     * JPEG landed (`bytes` > 0: S5 answers 409 until it has -- a review is of the bytes the PM saw);
+     * the same state again is a no-op, so it is refused here.
+     */
+    fun review(viewer: Viewer, photo: Photo, state: String): Refusal? = when {
+        viewer.role != PM -> Refusal.REVIEW_PM_ONLY
+        state != REVIEW_ACCEPTED && state != REVIEW_INTERNAL -> Refusal.NOT_A_REVIEW
+        photo.party != PARTY_VENDOR -> Refusal.REVIEW_VENDOR_ONLY
+        photo.bytes <= 0L -> Refusal.REVIEW_NO_IMAGE
+        photo.review == state -> Refusal.REVIEW_SAME
         else -> null
     }
 
@@ -687,10 +845,11 @@ object Album {
     const val OP_REVIEW = "review"
 
     /**
-     * One queued write, with its writer-minted id (the replay key) and the `base` it saw: a log
-     * op's `base` is the work's newest `seq` of any kind (0 = none); a review's is the row's
-     * `review_at` ('' = never). `work` is what a 409 drops by (a review's is its photo's work).
-     * `error` is S5's own words once it refused or won; blank while pending.
+     * One queued write, with its writer-minted id (the replay key, [mintId]: kept by every retry)
+     * and the `base` it saw: a log op's `base` is the work's newest `seq` of any kind (0 = none),
+     * as text here and an integer on the wire (AQ); a review's is the row's `review_at` ('' =
+     * never). `work` is what a 409 drops by (a review's is its photo's work). `error` is S5's own
+     * words once it refused or won; blank while pending.
      */
     data class Op(
         val id: String,
@@ -708,6 +867,59 @@ object Album {
         val error: String = "",
     )
 
+    /** S5's ALBUM_ID_RE: ALB- and 12 lower-case hex digits. */
+    val ID_RE: Regex = Regex("""^ALB-[0-9a-f]{12}$""")
+
+    private const val HEX = "0123456789abcdef"
+
+    /**
+     * A writer-minted album id, `ALB-` and 12 hex digits from [random] (the prototype's mintId): one
+     * per op, so a retry of the op keeps its id (S5 replays it as `written: false`) and two ops --
+     * two reviews of one photo above all -- never share one (S5 answers 409 "That id already names
+     * another album entry").
+     */
+    fun mintId(random: Random = Random.Default): String {
+        val b = random.nextBytes(6)
+        val sb = StringBuilder("ALB-")
+        for (x in b) { val v = x.toInt() and 0xff; sb.append(HEX[v shr 4]).append(HEX[v and 15]) }
+        return sb.toString()
+    }
+
+    /** The base a new log op on [work] carries: S5's newest seq of any kind for it, from the mirror ([PENDING_SEQ] rows never count). */
+    fun baseOf(mirror: View?, work: Int): Long {
+        if (mirror == null) return 0
+        val w = mirror.works.firstOrNull { it.id == work }?.seq ?: 0
+        val l = mirror.log.filter { it.work == work && it.seq < PENDING_SEQ }.maxOfOrNull { it.seq } ?: 0
+        return maxOf(w, l)
+    }
+
+    /** A state write as its op: [from] is the derived state (sent as `prev`), [remark] the note. */
+    fun stateOp(mirror: View?, work: Int, from: String, to: String, remark: String, random: Random = Random.Default): Op =
+        Op(mintId(random), KIND_STATE, work, base = baseOf(mirror, work).toString(), value = to, prev = from, note = remark.take(MAX_NOTE))
+
+    /** A change request raised: its kind on `value`, the note the client reads. */
+    fun crRaiseOp(mirror: View?, work: Int, kind: CrKind, note: String, random: Random = Random.Default): Op =
+        Op(mintId(random), KIND_CR_RAISE, work, base = baseOf(mirror, work).toString(), value = kind.wire, note = note.take(MAX_NOTE))
+
+    /**
+     * The client's answer recorded: the outcome on `value`, the day the client answered on
+     * `client_at` (blank for a withdrawal that names none), how on the note; `prev` carries the
+     * kind it answers, as S5's SQL writes it, so the provisional row reads whole ([crDone]).
+     */
+    fun crAnswerOp(mirror: View?, log: List<Entry>, work: Int, outcome: CrOutcome, clientAt: String, how: String, random: Random = Random.Default): Op =
+        Op(mintId(random), KIND_CR_CLEAR, work, base = baseOf(mirror, work).toString(), value = outcome.wire,
+            prev = crOf(log, work)?.crKind?.wire ?: CrKind.ADD.wire, note = how.take(MAX_NOTE), clientAt = clientAt.trim())
+
+    /** A review of [photo]: a fresh id every time (the log row's), the base its `review_at` as seen. */
+    fun reviewOp(photo: Photo, state: String, random: Random = Random.Default): Op =
+        Op(mintId(random), OP_REVIEW, photo.work, base = photo.reviewAt ?: "", value = state, photo = photo.id)
+
+    /** A photo record (its JPEG follows): the record's id is the photo's. */
+    fun photoOp(work: Int, room: String?, caption: String, kind: String = PHOTO, random: Random = Random.Default): Op {
+        val id = mintId(random)
+        return Op(id, OP_PHOTO, work, base = "", photo = id, room = room, caption = caption, photoKind = kind)
+    }
+
     /**
      * The phone's copy of one project's album: the [mirror] (S5's last GET; null until the
      * first 200), the FIFO [queue] of ops still to send, and the ops S5 [dropped] -- each with
@@ -716,8 +928,19 @@ object Album {
      */
     data class Outbox(val mirror: View? = null, val queue: List<Op> = emptyList(), val dropped: List<Op> = emptyList())
 
-    /** What S5's answer to one op carried, typed: the row(s) the mirror takes. Absent pieces leave the mirror as it was. */
-    data class Answer(val entry: Entry? = null, val work: Work? = null, val photo: Photo? = null)
+    /**
+     * What S5's answer to one op carried, typed: the row(s) the mirror takes. Absent pieces leave
+     * the mirror as it was; [scopeAt] non-null means the answer carried the scope (every log POST
+     * answer does, asis.js: an approved add or remove has just moved it), [scope] null then being
+     * "no baseline".
+     */
+    data class Answer(
+        val entry: Entry? = null,
+        val work: Work? = null,
+        val photo: Photo? = null,
+        val scope: List<Int>? = null,
+        val scopeAt: String? = null,
+    )
 
     /** The verdict table of "Offline and conflicts". */
     enum class Verdict { POSTED, REPLAY, CONFLICT, LOCKED, REFUSED, RELOGIN, STOP }
@@ -760,14 +983,25 @@ object Album {
             kind = op.photoKind, caption = op.caption, vendor = vendor, role = role, by = by, byName = byName,
             clientAt = op.clientAt.ifBlank { null })
 
-    /** The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row replaced, a photo replaced or added. */
+    /** Two log pages as one: every row once by id (the later page's copy wins), in seq order. */
+    fun mergedLog(a: List<Entry>, b: List<Entry>): List<Entry> {
+        val byId = LinkedHashMap<String, Entry>()
+        for (e in a) byId[e.id] = e
+        for (e in b) byId[e.id] = e
+        return bySeq(byId.values.toList())
+    }
+
+    /**
+     * The mirror after one more `?since=<logNext>` page: everything else as the newer answer [page]
+     * says, the log the union of both ([mergedLog]). The caller asks again while `page.logMore`.
+     */
+    fun paged(mirror: View, page: View): View = page.copy(log = mergedLog(mirror.log, page.log))
+
+    /** The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row replaced, a photo replaced or added, the scope when sent. */
     fun merged(mirror: View?, a: Answer): View? {
         if (mirror == null) return null
         var m: View = mirror
-        a.entry?.let { e ->
-            if (m.log.none { it.id == e.id }) m = m.copy(log = bySeq(m.log + e))
-            else m = m.copy(log = bySeq(m.log.map { if (it.id == e.id) e else it }))
-        }
+        a.entry?.let { e -> m = m.copy(log = mergedLog(m.log, listOf(e))) }
         a.work?.let { w ->
             val rows = if (m.works.any { it.id == w.id }) m.works.map { if (it.id == w.id) w else it } else m.works + w
             m = m.copy(works = rows.sortedBy { WORK_IDS.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } })
@@ -776,20 +1010,52 @@ object Album {
             val rows = if (m.photos.any { it.id == p.id }) m.photos.map { if (it.id == p.id) p else it } else m.photos + p
             m = m.copy(photos = rows)
         }
+        a.scopeAt?.let { m = m.copy(scope = a.scope, scopeAt = it) }
         return m
     }
 
     private fun without(queue: List<Op>, id: String): List<Op> = queue.filter { it.id != id }
 
     /**
-     * 200 `written: true`: the op leaves the queue and the mirror takes what S5 sent back. A
-     * null mirror stays null -- a fragment cannot stand in for a GET, and K2 GETs after a drain.
+     * The queue after [done] leaves it, with the op that next rides on its base given the new one.
+     * A LOG op on the same work takes [seq] (the base is the work's newest seq of ANY kind, so a
+     * review's row moves it too) and, when [prev] is given and both are state ops, [prev]; a review
+     * of the same photo takes [reviewAt].
      */
-    fun afterPost(o: Outbox, op: Op, a: Answer): Outbox = o.copy(mirror = merged(o.mirror, a), queue = without(o.queue, op.id))
+    private fun rebased(queue: List<Op>, done: Op, seq: Long?, prev: String?, reviewAt: String?): List<Op> {
+        val i = queue.indexOfFirst { it.id == done.id }
+        if (i < 0) return queue
+        val rest = queue.filterIndexed { j, _ -> j != i }.toMutableList()
+        val after = queue.subList(i + 1, queue.size).map { it.id }.toSet()
+        if (seq != null) {
+            val k = rest.indexOfFirst { it.id in after && it.kind in LOG_KINDS && it.work == done.work }
+            if (k >= 0) rest[k] = rest[k].copy(base = seq.toString(), prev = if (prev != null && rest[k].kind == KIND_STATE) prev else rest[k].prev)
+        }
+        if (reviewAt != null && done.kind == OP_REVIEW) {
+            val k = rest.indexOfFirst { it.id in after && it.kind == OP_REVIEW && it.photo == done.photo }
+            if (k >= 0) rest[k] = rest[k].copy(base = reviewAt)
+        }
+        return rest
+    }
+
+    /**
+     * 200 `written: true`: the op leaves the queue and the mirror takes what S5 sent back; the
+     * next queued op on the same work rides on S5's new row -- its base becomes the answer
+     * entry's seq (a review's answer carries its log row too), and the next review of the same
+     * photo takes the photo's new `review_at` -- so an offline chain of writes on one work is not
+     * answered "Changed meanwhile" by its own first link. A null mirror stays null -- a fragment
+     * cannot stand in for a GET, and K2 GETs after a drain.
+     */
+    fun afterPost(o: Outbox, op: Op, a: Answer): Outbox {
+        val reviewAt = if (op.kind == OP_REVIEW && a.photo != null && a.photo.id == op.photo) a.photo.reviewAt.orEmpty() else null
+        val q = if (o.queue.any { it.id == op.id }) rebased(o.queue, op, a.entry?.seq, null, reviewAt) else without(o.queue, op.id)
+        return o.copy(mirror = merged(o.mirror, a), queue = q)
+    }
 
     /**
      * 200 `written: false`: a replay of an id S5 already holds (the first answer was lost) --
-     * harmless. The op leaves the queue; what S5 sends back is the same row, merged as a 200.
+     * harmless. The op leaves the queue; what S5 sends back is the same row, merged and rebased on
+     * as a 200.
      */
     fun afterReplay(o: Outbox, op: Op, a: Answer): Outbox = afterPost(o, op, a)
 
@@ -822,9 +1088,18 @@ object Album {
 
     /**
      * 400 / 403 / 413 / 415: refused for good -- dropped with one note (S5's [error]); nothing
-     * else moves. Ops after it, on the same work or not, still go: the refusal was this op's shape or right, not the work's state.
+     * else moves on S5, so ops after it, on the same work or not, still go -- and the next one
+     * that rode on it takes back what S5 still has: a log op on the same work inherits the
+     * refused log op's base, and, both being state writes, its `prev`; the next review of the same
+     * photo inherits the refused review's base. The mirror is untouched.
      */
-    fun afterRefused(o: Outbox, op: Op, error: String): Outbox =
-        if (o.queue.none { it.id == op.id }) o
-        else o.copy(queue = without(o.queue, op.id), dropped = o.dropped + op.copy(error = error))
+    fun afterRefused(o: Outbox, op: Op, error: String): Outbox {
+        if (o.queue.none { it.id == op.id }) return o
+        val q = when {
+            op.kind in LOG_KINDS -> rebased(o.queue, op, op.base.toLongOrNull() ?: 0, if (op.kind == KIND_STATE) op.prev else null, null)
+            op.kind == OP_REVIEW -> rebased(o.queue, op, null, null, op.base)
+            else -> without(o.queue, op.id)
+        }
+        return o.copy(queue = q, dropped = o.dropped + op.copy(error = error))
+    }
 }

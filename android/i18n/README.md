@@ -81,11 +81,29 @@ old templates stay in both tables, refused, until the prototype's own sites use 
   Latin Bluetooth, the gendered त्याची / त्याचे / त्याच्या that was wrong for a wall or the floor in five
   `sp.*` keys, and a plural गोष्टी that read "1 गोष्टी" in the two `sp.file.part_unreadable_*` keys.
 
+## Port 61c slice K1b (3 Nov 2026): the album is keyed
+
+`pano/Album.kt` joined `ported.txt` and its 165 `unkeyed.tsv` rows went. Every text it shows is a `tx.<key>` read
+through a function that takes a `Tx` (`Refusal.text`, `workName`, `payOf`, `dayOf`, `decidedText`, `roleLabel`…);
+its work names, five states and 39 worksite stages are S5's identity values, shown through `Masters` and marked
+`// text:value` on their lines.
+
+- **Deleted, 14 keys** (SPEC61c §6.4 ORPHAN: rendered nowhere since v60, deleted with their last Kotlin reader, the
+  v59 block of `Album.kt`): `album.site_is_at`, `album.stage_caps`, `album.moved_by`, `album.stage_log_x`,
+  `album.no_moves_yet`, `album.via_sheet`, `album.via_nudge`, `album.nudge_x`, `album.aria.nudge`,
+  `album.move_project`, `album.moved_x`, `album.work_stage_moves`, `album.closed_handover`, `album.closes_handover`.
+  `album.filed_x` stays (§6.4: still rendered).
+- **Added, 4 phone texts** (flag `phone-text`; Marathi by Claude, decision 6), the album gates' refusals the card
+  did not have: `refuse.album.cr_not_approved` (a change request is raised and answered only at Client approved,
+  §14.8), `refuse.album.cr_off_scope_remove` and `refuse.album.cr_off_scope_change` (S5's own 409 for a remove or a
+  change on a work outside the scope, one whole key per kind so no English word fills a placeholder) and
+  `refuse.album.review_no_image` (S5's 409 before the JPEG lands, without "; not saved").
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,801 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,791 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 4 phone texts (K1b, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |
