@@ -201,14 +201,14 @@ class AlbumWireTest {
     @Test fun `a log answer - the entry, the work row and the scope as it now stands, written or replay`() {
         val op = Op("ALB-000000000001", Album.KIND_STATE, 10, "0", "In progress", "Not started")
         val r = AlbumWire.reply(MiniRead, tree(S5Album.STATE_POSTED), op)
-        assertTrue(r.written)
+        assertEquals(true, r.written)
         assertFalse(r.locked)
         assertEquals("", r.error)
         assertEquals(Entry(6, "ALB-000000000001", "state", 10, "In progress", "Not started", "", "pm", "pm@x", "P M", "2026-11-03T05:16:04.187Z", null, "phone", null), r.answer.entry)
         assertEquals(Work(10, "In progress", "pm@x", "P M", "2026-11-03T05:16:04.187Z", 6), r.answer.work)
         assertEquals(scope12, r.answer.scope)
         assertEquals("2026-11-03T05:16:04.183Z", r.answer.scopeAt)
-        assertFalse(AlbumWire.reply(MiniRead, tree(S5Album.STATE_REPLAY), op).written)
+        assertEquals(false, AlbumWire.reply(MiniRead, tree(S5Album.STATE_REPLAY), op).written)
         // the approved add answers the AMENDED scope with its new stamp
         val a = AlbumWire.reply(MiniRead, tree(S5Album.ANSWER_APPROVED), op.copy(kind = Album.KIND_CR_CLEAR, work = 90))
         assertEquals(scope13 to "2026-11-03T05:16:04.201Z", a.answer.scope to a.answer.scopeAt)
@@ -247,7 +247,7 @@ class AlbumWireTest {
         // the JPEG's answer names no photo: the bytes land on the op's
         val img = ph.copy(recorded = true)
         assertEquals(BytesPatch("ALB-000000000014", 10), AlbumWire.reply(MiniRead, tree(S5Album.IMG), img).answer.bytes)
-        assertFalse(AlbumWire.reply(MiniRead, tree(S5Album.IMG_AGAIN), img).written)
+        assertEquals(false, AlbumWire.reply(MiniRead, tree(S5Album.IMG_AGAIN), img).written)
         assertNull(AlbumWire.reply(MiniRead, tree(S5Album.IMG_NO_RECORD), img).answer.bytes)
         // a review: `photo` is the id, the review fields flat beside it, and the review's own log row
         val rv = Op("ALB-000000000020", Album.OP_REVIEW, 50, "", Album.REVIEW_ACCEPTED, photo = "ALB-00000000001e")
@@ -271,6 +271,11 @@ class AlbumWireTest {
         val op = Op("ALB-000000000001", Album.KIND_STATE, 10)
         assertEquals(AlbumQueue.Reply(), AlbumWire.reply(MiniRead, null, op))
         assertEquals(AlbumQueue.Reply(), AlbumWire.reply(MiniRead, tree("[1,2]"), op))
+        // no `written` is no `written` (the AQ review): never read as true, which would take any 200 for a write
+        assertNull(AlbumWire.reply(MiniRead, null, op).written)
+        assertNull(AlbumWire.reply(MiniRead, tree("[1,2]"), op).written)
+        assertNull(AlbumWire.reply(MiniRead, tree("""{"ok":true}"""), op).written)
+        assertNull(AlbumWire.reply(MiniRead, tree("""{"ok":true,"written":"true"}"""), op).written, "a string is not S5's boolean")
         assertEquals(AlbumQueue.Reply(error = "Changed meanwhile — In progress by pm@x; not saved"),
             AlbumWire.reply(MiniRead, tree(S5Album.STATE_STALE), op.copy(kind = "bogus")))
     }

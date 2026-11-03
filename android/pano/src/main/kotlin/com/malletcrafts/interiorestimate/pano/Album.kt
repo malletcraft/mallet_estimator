@@ -869,8 +869,10 @@ object Album {
      * and the `base` it saw: a log op's `base` is the work's newest `seq` of any kind (0 = none),
      * as text here and an integer on the wire (AQ); a review's is the row's `review_at` ('' =
      * never); a re-file's is the photo's work as last seen, as text ('' = unfiled, null on the
-     * wire). `work` is what a 409 drops by (a review's is its photo's work, a re-file's the work
-     * it files into). `error` is S5's own words once it refused or won; blank while pending.
+     * wire). `work` is the work the op writes on (a review's is its photo's work, a re-file's the
+     * work it files into) and what a 409 drops by -- but for a re-file, which rides on its PHOTO,
+     * never on a work's log (dropWork). `error` is S5's own words once it refused or won; blank
+     * while pending.
      * [recorded] is a photo op whose record S5 has answered: its JPEG is the next step
      * (AlbumQueue), so a retry never sends the record again for nothing.
      */
@@ -957,7 +959,10 @@ object Album {
      * it -- S5 compares and sets on it in ONE UPDATE -- as text, '' for unfiled. The op's own id is the queue's key
      * only (S5's body is `{work, base}`). S5 refuses for good what no retry can change (403: not staff, not the
      * uploading login, a vendor's photo) and answers 409 for a race (re-filed meanwhile) or the lock (Work starts
-     * once the client approves the estimate), each with the photo as stored; the screen's gate is FW2's.
+     * once the client approves the estimate), each with the photo as stored, and 404 for a photo it has no row for
+     * (AlbumQueue refuses that for good when the mirror does not hold the photo); the screen's gate is FW2's.
+     * A re-file writes no log row and moves no works[].seq (S5-P), so its 409 drops it and the later re-files of
+     * the same photo, never a work's ops, and no work's 409 drops it ([dropWork]).
      */
     fun refileOp(photo: Photo, to: Int, random: Random = Random.Default): Op =
         Op(mintId(random), OP_REFILE, to, base = photo.work?.toString() ?: "", photo = photo.id)
@@ -1140,21 +1145,48 @@ object Album {
      */
     fun afterReplay(o: Outbox, op: Op, a: Answer): Outbox = afterPost(o, op, a)
 
+    /** [leaving] (queue copies) moved from the queue to `dropped`, each marked with [error]; the rest stay, in order. */
+    private fun gone(o: Outbox, leaving: List<Op>, error: String): Outbox {
+        val ids = leaving.map { it.id }.toSet()
+        return o.copy(queue = o.queue.filter { it.id !in ids }, dropped = o.dropped + o.queue.filter { it.id in ids }.map { it.copy(error = error) })
+    }
+
     /**
-     * The op and every LATER queued op on the same work, marked with [error], moved from the
-     * queue to `dropped`; ops on other works stay, in order.
+     * [leaving] and, for every photo op among them, the LATER queued re-files and reviews of its photo (port 61c AQ
+     * review). A photo op that leaves the queue unsent leaves S5 with no row for its photo -- or none with bytes, which
+     * no list ever shows -- and S5 answers a re-file or a review of a photo it has no row for 404 on every pass
+     * (asis.js, the row lookup), which would stop the drain at the head of the queue for good. So they go with it.
+     */
+    private fun withDependants(queue: List<Op>, leaving: List<Op>): List<Op> {
+        val ids = leaving.map { it.id }.toSet()
+        val photos = queue.withIndex().filter { (_, x) -> x.id in ids && x.kind == OP_PHOTO }
+        return queue.filterIndexed { j, x ->
+            x.id in ids || ((x.kind == OP_REFILE || x.kind == OP_REVIEW) && photos.any { (i, p) -> j > i && x.photo == p.photo })
+        }
+    }
+
+    /**
+     * The op and every LATER queued op that rode on it, marked with [error], moved from the queue to `dropped`; the
+     * rest stay, in order. What rode on it is what S5's 409 is about. For any op but a re-file, that is the later ops
+     * on the same work, re-files excepted: a re-file rides on no work's log (S5-P moves no works[].seq, so a work's
+     * 409 says nothing about it). For a re-file it is the later re-files of the same PHOTO, whose base is where this
+     * one would have put it -- never the target work's ops, which S5 still takes. A photo op dropped this way takes
+     * its photo's later re-files and reviews with it ([withDependants]).
      */
     private fun dropWork(o: Outbox, op: Op, error: String): Outbox {
         val i = o.queue.indexOfFirst { it.id == op.id }
         if (i < 0) return o
-        val gone = o.queue.filterIndexed { j, x -> j == i || (j > i && x.work == op.work) }
-        return o.copy(queue = o.queue.filter { x -> gone.none { it.id == x.id } },
-            dropped = o.dropped + gone.map { it.copy(error = error) })
+        val rode = o.queue.filterIndexed { j, x ->
+            j == i || (j > i && if (op.kind == OP_REFILE) x.kind == OP_REFILE && x.photo == op.photo else x.kind != OP_REFILE && x.work == op.work)
+        }
+        return gone(o, withDependants(o.queue, rode), error)
     }
 
     /**
      * 409: S5 WINS. The op and every later queued op on the same work are dropped (each row
-     * showing S5's [error]); the mirror takes the current state the 409 body echoes ([a]).
+     * showing S5's [error]) -- for a re-file, the later re-files of the same photo instead, and
+     * no work's 409 drops a re-file ([dropWork]); the mirror takes the current state the 409 body
+     * echoes ([a]).
      */
     fun afterConflict(o: Outbox, op: Op, error: String, a: Answer): Outbox = dropWork(o, op, error).let { it.copy(mirror = merged(it.mirror, a)) }
 
@@ -1162,7 +1194,9 @@ object Album {
      * 409 `locked: true`: S5, the authority, answered the lock banner -- the quote stage there
      * is not Client approved and no work is recorded, whatever the phone believed (an unread
      * stage). The op and every later queued op on the same work are dropped, each row saying
-     * so in S5's words. The mirror takes what the body echoes, as on [afterConflict]: the log
+     * so in S5's words -- a re-file by its photo, as on [afterConflict]; the lock is the
+     * project's, so every op left behind meets its own locked 409 and leaves the same way. The
+     * mirror takes what the body echoes, as on [afterConflict]: the log
      * POST's locked 409 carries the work row, its newest entry and the scope (asis.js `...cur`);
      * the photo record's carries nothing, so [a] is empty there and the mirror stays as it was.
      * The next GET (or the quote-stage refresh) tells the phone the stage.
@@ -1178,10 +1212,13 @@ object Album {
      * state op on the work, past any change request queued between them (S5 still holds the state
      * the refused op left); the next review of the same photo inherits the refused review's base,
      * and the next re-file of the same photo the refused re-file's (S5 still files it there).
-     * The mirror is untouched (AlbumQueue takes the photo a re-file's 403 echoes).
+     * A refused photo op takes its photo's later re-files and reviews with it, in the same words
+     * ([withDependants]: S5 has no row for them to act on). The mirror is untouched (AlbumQueue
+     * takes the photo a re-file's 403 echoes).
      */
     fun afterRefused(o: Outbox, op: Op, error: String): Outbox {
         if (o.queue.none { it.id == op.id }) return o
+        if (op.kind == OP_PHOTO) return gone(o, withDependants(o.queue, o.queue.filter { it.id == op.id }), error)
         val q = when {
             op.kind in LOG_KINDS -> rebased(o.queue, op, op.base.toLongOrNull() ?: 0, if (op.kind == KIND_STATE) op.prev else null, null)
             op.kind == OP_REVIEW || op.kind == OP_REFILE -> rebased(o.queue, op, null, null, op.base)

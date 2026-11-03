@@ -275,13 +275,48 @@ class AlbumQueueTest {
         assertFalse(r.goOn)
         assertEquals(o, r.outbox)
         val img = pStaff.copy(recorded = true)
-        for ((code, body) in listOf(404 to S5Album.IMG_NO_RECORD, 405 to """{"error":"Method not allowed"}""", 500 to null, 502 to "<html>", 503 to """{"error":"Photo storage not bound for this environment"}""", 0 to null, -1 to null)) {
+        for ((code, body) in listOf(405 to """{"error":"Method not allowed"}""", 500 to null, 502 to "<html>", 503 to """{"error":"Photo storage not bound for this environment"}""", 0 to null, -1 to null)) {
             val ob = Outbox(View(Album.PM), listOf(img, sState))
             val s = AlbumQueue.apply(ob, img, code, reply(body?.takeIf { it.startsWith("{") }, img))
             assertEquals(Verdict.STOP, s.verdict, "$code")
             assertFalse(s.goOn, "$code")
             assertEquals(ob, s.outbox, "$code")
         }
+        // a 404 stops too, the queue as it was -- but for a JPEG, whose 404 says S5 has no record: see the test below
+        for (op in listOf(sState, pStaff, rAccept, fRefile)) {
+            val ob = Outbox(View(Album.PM, photos = listOf(vendorPhoto, staffPhoto)), listOf(op, sRaise))
+            val s = AlbumQueue.apply(ob, op, 404, reply("""{"error":"Not found"}""", op))
+            assertEquals(Verdict.STOP, s.verdict, op.kind)
+            assertEquals(ob, s.outbox, op.kind)
+        }
+    }
+
+    @Test fun `a 200 that is not S5's handler moves nothing - every 200 S5 sends on these routes says written true or false`() {
+        // S5 9a51733: the log, record, img, review and re-file 200s all carry a boolean `written`. A 200 without one is a
+        // proxy's page, a redirect followed to HTML or a cut body: read as POSTED it lost the write -- and at a photo's
+        // record it marked the record answered with no row behind it, so the JPEG 404'd for ever (the AQ review)
+        val img = pStaff.copy(recorded = true)
+        for (op in listOf(sState, sRaise, pStaff, img, rAccept, fRefile)) for (body in listOf(null, "[1]", """{"hello":1}""", """{"ok":true}""")) {
+            val ob = Outbox(View(Album.PM, photos = listOf(vendorPhoto, staffPhoto)), listOf(op, sChange))
+            val s = AlbumQueue.apply(ob, op, 200, reply(body, op))
+            assertEquals(Verdict.STOP, s.verdict, "${op.kind} $body")
+            assertFalse(s.goOn)
+            assertEquals(ob, s.outbox, "${op.kind} $body: the op stays, unchanged, for the next pass")
+        }
+    }
+
+    @Test fun `a JPEG answered 404 sends its record again on the next pass - S5 replays it for its uploader, then the JPEG lands`() {
+        // the record was taken as answered but S5 has no row (an answer that was not S5's, on a build before this fix)
+        val o = drain(Outbox(View(Album.PM, exec = true), listOf(pStaff.copy(recorded = true), sChange)),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014/img", "{}", 404, S5Album.IMG_NO_RECORD))
+        assertEquals(listOf(pStaff, sChange), o.queue, "recorded cleared: the record goes first again")
+        assertEquals(emptyList(), o.dropped)
+        val o2 = drain(o,
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 200, S5Album.RECORD_REPLAY),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014/img", "{}", 200, S5Album.IMG),
+            Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(emptyList(), o2.queue)
+        assertEquals(10L, o2.mirror!!.photos.single().bytes)
     }
 
     // ---- the drain as K4's job will run it: next, requestOf, send, AlbumWire.reply, apply, until empty, STOP or RELOGIN ----
@@ -367,7 +402,7 @@ class AlbumQueueTest {
         assertEquals(emptyList(), o.queue)
     }
 
-    @Test fun `the S5-P re-file - a posted re-file rebases the next one of the same photo, a 403 refuses that op alone, a 409 drops its work's later ops`() {
+    @Test fun `the S5-P re-file - a posted re-file rebases the next one of the same photo, a 403 refuses that op alone, a 409 drops the photo's later re-files`() {
         val mirror = View(Album.PM, exec = true, photos = listOf(staffPhoto))
         val again = Album.refileOp(staffPhoto, 100, Random(8))           // built off the mirror: base 90, stale once the first lands
         val sOn100 = Album.stateOp(null, 100, "Not started", "In progress", "", Random(9))
@@ -393,19 +428,128 @@ class AlbumQueueTest {
         // a refused re-file hands its base to the next re-file of the same photo (S5 still files it there)
         val r2 = Album.refileOp(staffPhoto, 110, Random(11)).copy(base = "70")
         assertEquals(listOf(r2.copy(base = "90")), Album.afterRefused(Outbox(mirror, listOf(fRefile, r2)), fRefile, "x").queue)
-        // re-filed meanwhile: S5 wins, and the later ops on the work it was going to drop with it
+        // re-filed meanwhile: S5 wins over the re-file -- and over nothing else. A re-file moves no works[].seq (S5-P),
+        // so the state on 100 S5 still takes goes on (the AQ review: it was dropped in a re-file's words)
         val c = AlbumQueue.apply(Outbox(mirror, listOf(again, sOn100, sChange)), again, 409, reply(S5Album.REFILE_STALE, again))
         assertEquals(Verdict.CONFLICT, c.verdict)
-        assertEquals(listOf(sChange), c.outbox.queue)
-        assertEquals(listOf(again.id, sOn100.id), c.outbox.dropped.map { it.id })
+        assertEquals(listOf(sOn100, sChange), c.outbox.queue)
+        assertEquals(listOf(again.id), c.outbox.dropped.map { it.id })
         assertEquals(95, c.outbox.mirror!!.photos.single().work)
-        // the lock: the banner's words, the photo as stored
-        val lock = AlbumQueue.apply(Outbox(mirror, listOf(again)), again, 409, reply(S5Album.REFILE_LOCKED, again))
+        // the lock: the banner's words, the photo as stored -- by the photo too: the lock is the project's, so the
+        // state on 100 meets its own locked 409 rather than leave in a re-file's
+        val lock = AlbumQueue.apply(Outbox(mirror, listOf(again, sOn100)), again, 409, reply(S5Album.REFILE_LOCKED, again))
         assertEquals(Verdict.LOCKED, lock.verdict)
         assertEquals("Work starts once the client approves the estimate", lock.outbox.dropped.single().error)
+        assertEquals(listOf(sOn100), lock.outbox.queue)
         // a re-file writes no log row: it moves no base
         assertNull(AlbumWire.reply(MiniRead, tree(S5Album.REFILE), fRefile).answer.entry)
         assertEquals(0L, Album.baseOf(c.outbox.mirror, 95))
+    }
+
+    // ---- the AQ review: a re-file rides on its PHOTO, and a photo's dependants leave with it ----
+
+    private fun refileLine(id: String) = "PUT /api/asis/PROJ-DEMO/album/photos/$id/work"
+
+    @Test fun `a photo op dropped by its work's 409 takes its re-file with it - S5 has no row, so the re-file 404'd at the head for ever`() {
+        // queued offline: Done on 10, a staff photo into 10, and from that photo's provisional tile its re-file into 95
+        val pOn10 = Album.photoOp(10, "Kitchen", "debris", random = Random(30))
+        val tile = Album.provisionalPhoto(pOn10, Album.PM, "pm@x", "P M", "2026-11-03T05:20:00.000Z")
+        val fTile = Album.refileOp(tile, 95, Random(31))
+        assertEquals(95, fTile.work, "filed under the work it goes to, so the work-10 drop alone never reached it")
+        // 10 moved on S5 meanwhile: the state's 409 drops the photo on 10, and the photo's re-file with it, in S5's words
+        val o = drain(Outbox(View(Album.PM, exec = true), listOf(sDone, pOn10, fTile, sChange)),
+            Exchange(LOG, S5Album.SENT_STATE_DONE, 409, S5Album.STATE_STALE),
+            Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(emptyList(), o.queue)
+        assertEquals(listOf(sDone.id, pOn10.id, fTile.id), o.dropped.map { it.id })
+        assertTrue(o.dropped.all { it.error == "Changed meanwhile — In progress by pm@x; not saved" })
+        // the record's own locked 409: the same
+        val lk = AlbumQueue.apply(Outbox(View(Album.PM), listOf(pOn10, fTile, sChange)), pOn10, 409, reply(S5Album.RECORD_LOCKED, pOn10))
+        assertEquals(listOf(sChange), lk.outbox.queue)
+        assertEquals(listOf(pOn10.id, fTile.id), lk.outbox.dropped.map { it.id })
+        assertTrue(lk.outbox.dropped.all { it.error == "Work starts once the client approves the estimate" })
+    }
+
+    @Test fun `a photo op refused for good takes its photo's later re-files and reviews with it, and nothing else`() {
+        val pOn10 = Album.photoOp(10, "Kitchen", "x".repeat(20), random = Random(32))
+        val fTile = Album.refileOp(Album.provisionalPhoto(pOn10, Album.PM, "pm@x", "P M", "2026-11-03T05:20:00.000Z"), 95, Random(33))
+        // the pure layer lets a review be built off a queued vendor photo's tile: it goes with its photo too
+        val pV = Album.photoOp(50, null, "membrane", random = Random(34))
+        val rTile = Album.reviewOp(Album.provisionalPhoto(pV, Album.VENDOR, "v@x", "V N", "2026-11-03T05:21:00.000Z"), Album.REVIEW_ACCEPTED, Random(35))
+        val o = drain(Outbox(View(Album.PM, exec = true), listOf(pOn10, fTile, sRaise, pV, rTile, sChange)),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/${pOn10.id}", null, 400, S5Album.RECORD_CAPTION),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/${pV.id}", null, 400, S5Album.RECORD_CAPTION),
+            Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(emptyList(), o.queue)
+        assertEquals(listOf(pOn10.id, fTile.id, pV.id, rTile.id), o.dropped.map { it.id })
+        assertTrue(o.dropped.all { it.error == "caption must be text of at most 500 characters" })
+        // a photo op that LANDS takes nothing: its re-file goes next
+        val landed = Album.afterPost(Outbox(View(Album.PM), listOf(pOn10, fTile)), pOn10, Album.Answer())
+        assertEquals(listOf(fTile), landed.queue)
+    }
+
+    @Test fun `a re-file or review of a photo the mirror does not hold is refused on its 404, that op alone - one in the mirror waits`() {
+        // the tile of a photo op dropped BEFORE the re-file was queued (K5 keeps a dropped shot's tile, marked not sent)
+        val pOn90 = Album.photoOp(90, "Kitchen", "units in", random = Random(37))
+        val fTile = Album.refileOp(Album.provisionalPhoto(pOn90, Album.PM, "pm@x", "P M", "2026-11-03T05:20:00.000Z"), 95, Random(38))
+        val pV = Album.photoOp(50, null, "membrane", random = Random(39))
+        val rTile = Album.reviewOp(Album.provisionalPhoto(pV, Album.VENDOR, "v@x", "V N", "2026-11-03T05:21:00.000Z"), Album.REVIEW_ACCEPTED, Random(40))
+        val m = View(Album.PM, exec = true, photos = listOf(staffPhoto))
+        val o = drain(Outbox(m, listOf(fTile, rTile, sChange), dropped = listOf(pOn90.copy(error = "x"), pV.copy(error = "x"))),
+            Exchange(refileLine(pOn90.id), """{"work":95,"base":90}""", 404, S5Album.REFILE_NO_RECORD),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/${pV.id}/review", null, 404, S5Album.REVIEW_NO_RECORD),
+            Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(emptyList(), o.queue)
+        assertEquals(listOf(fTile.id, rTile.id), o.dropped.drop(2).map { it.id })
+        assertEquals(listOf("Not found", "Not found"), o.dropped.drop(2).map { it.error })
+        // and with its photo op queued BEHIND it (FIFO: that op is never sent while the re-file holds the head): refused too
+        val behind = AlbumQueue.apply(Outbox(m, listOf(fTile, pOn90)), fTile, 404, reply(S5Album.REFILE_NO_RECORD, fTile))
+        assertEquals(Verdict.REFUSED, behind.verdict)
+        assertEquals(listOf(pOn90), behind.outbox.queue)
+        // a photo the mirror holds: S5's 404 is not "no row" (an older S5 without the route, a project not visible yet) -- STOP
+        val held = Outbox(m, listOf(fRefile, sChange))
+        assertEquals(AlbumQueue.Applied(held, Verdict.STOP), AlbumQueue.apply(held, fRefile, 404, reply("""{"error":"No such endpoint"}""", fRefile)))
+        // a log op's 404 is STOP whatever the mirror holds
+        assertEquals(Verdict.STOP, AlbumQueue.apply(Outbox(m, listOf(sChange)), sChange, 404, reply(S5Album.REFILE_NO_RECORD, sChange)).verdict)
+    }
+
+    @Test fun `no work's 409 drops a re-file into it - a re-file moves no works seq (S5-P), so S5 takes it`() {
+        val sOn95 = Album.stateOp(null, 95, "Not started", "In progress", "", Random(41))
+        val q = listOf(sOn95, fRefile, sChange)
+        val c = AlbumQueue.apply(Outbox(View(Album.PM, exec = true, photos = listOf(staffPhoto)), q), sOn95, 409, reply(S5Album.STATE_STALE, sOn95))
+        assertEquals(listOf(fRefile, sChange), c.outbox.queue)
+        assertEquals(listOf(sOn95.id), c.outbox.dropped.map { it.id })
+        val lk = AlbumQueue.apply(Outbox(View(Album.PM, exec = true, photos = listOf(staffPhoto)), q), sOn95, 409, reply(S5Album.STATE_LOCKED, sOn95))
+        assertEquals(listOf(fRefile, sChange), lk.outbox.queue, "nor its lock: the re-file meets its own")
+    }
+
+    @Test fun `a state 409 no longer cascades through a photo's re-files - each re-file goes, on the base the one before it left (v2)`() {
+        // [Done on 95, P 90 to 95, P to 100, state on 100], the second re-file built off the mirror (base 90)
+        val sOn95 = Album.stateOp(null, 95, "Not started", "In progress", "", Random(42))
+        val to100 = Album.refileOp(staffPhoto, 100, Random(43))
+        val sOn100 = Album.stateOp(null, 100, "Not started", "In progress", "", Random(44))
+        val o = drain(Outbox(View(Album.PM, exec = true, photos = listOf(staffPhoto)), listOf(sOn95, fRefile, to100, sOn100)),
+            Exchange(LOG, null, 409, S5Album.STATE_STALE),
+            Exchange(refileLine(staffPhoto.id), S5Album.SENT_REFILE, 200, S5Album.REFILE),
+            // the second re-file rides on the first's answer, not on the 90 it was queued with -- then the signal goes
+            Exchange(refileLine(staffPhoto.id), """{"work":100,"base":95}""", 0, null))
+        assertEquals(listOf(to100.copy(base = "95"), sOn100), o.queue)
+        assertEquals(listOf(sOn95.id), o.dropped.map { it.id })
+        assertEquals(95, o.mirror!!.photos.single().work)
+    }
+
+    @Test fun `a re-file's 409 drops the later re-files of the same photo - their base is where it would have put it (v3) - and nothing on their works`() {
+        val mirror = View(Album.PM, exec = true, photos = listOf(staffPhoto))
+        val to100 = Album.refileOp(staffPhoto, 100, Random(45))
+        val to110 = Album.refileOp(staffPhoto.copy(work = 100), 110, Random(46))     // as the screen shows it with the queue applied
+        val other = Album.refileOp(staffPhoto.copy(id = "ALB-0000000000aa"), 110, Random(47))
+        val sOn110 = Album.stateOp(null, 110, "Not started", "In progress", "", Random(48))
+        val c = AlbumQueue.apply(Outbox(mirror, listOf(to100, to110, other, sOn110)), to100, 409, reply(S5Album.REFILE_STALE, to100))
+        assertEquals(listOf(other, sOn110), c.outbox.queue, "another photo's re-file and the state on 110 go on")
+        assertEquals(listOf(to100.id, to110.id), c.outbox.dropped.map { it.id })
+        assertTrue(c.outbox.dropped.all { it.error == "Re-filed meanwhile — it is in Onsite carpentry & panelling now; not saved" })
+        assertEquals(95, c.outbox.mirror!!.photos.first { it.id == staffPhoto.id }.work)
     }
 
     @Test fun `a review chain - the posted review gives the next review of its photo its review_at, the next state on its work its seq`() {

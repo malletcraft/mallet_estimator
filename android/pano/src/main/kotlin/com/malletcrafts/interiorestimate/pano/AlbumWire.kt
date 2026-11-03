@@ -172,11 +172,12 @@ object AlbumWire {
      * - IMG (`{ok, written, bytes}`): the bytes now on [op]'s photo;
      * - REVIEW (`{ok, written, id, photo: <id>, review, review_by, review_by_name, review_at, entry?}`, its 409s
      *   `{error, photo: <id>, review…}`): the review fields FLAT, as a patch of that photo, and the review's log row.
-     * A body that is not an object (none, or not JSON) reads as nothing: `written` true, no rows, no words.
+     * A body that is not an object (none, or not JSON) reads as nothing: no `written`, no rows, no words -- and a 200
+     * without a boolean `written` is not S5's answer, so the queue does not move on it ([AlbumQueue.apply]).
      */
     fun reply(r: Read, body: Any?, op: Op): AlbumQueue.Reply {
         val o = body.takeIf { r.isObject(it) }
-        val written = bool(r.field(o, "written")) ?: true
+        val written = bool(r.field(o, "written"))
         val locked = bool(r.field(o, "locked")) ?: false
         val error = str(r.field(o, "error")) ?: ""
         val answer = when (AlbumQueue.stepOf(op)) {

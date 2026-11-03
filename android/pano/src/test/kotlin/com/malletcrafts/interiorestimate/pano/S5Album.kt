@@ -86,6 +86,10 @@ internal object S5Album {
     const val REFILE_STAFF = """{"error":"Only MCFT staff re-file an album photo"}"""
     /** 400 · refile base missing */
     const val REFILE_NO_BASE = """{"error":"base must be the photo's work as last seen: 0, null or one of 10, 20, 30, 40, 50, 60, 70, 80, 85, 90, 95, 100, 110, 120, 130, 140"}"""
+    /** 404 · refile a photo with no record (the AQ review: its record never landed) */
+    const val REFILE_NO_RECORD = """{"error":"Not found"}"""
+    /** 404 · review a photo with no record */
+    const val REVIEW_NO_RECORD = """{"error":"Not found"}"""
     /** 409 · locked refile */
     const val REFILE_LOCKED = """{"error":"Work starts once the client approves the estimate","locked":true,"photo":{"id":"ALB-000000000028","work":0,"room":"Kitchen","kind":"photo","caption":"units in","party":"staff","vendor":"","role":"pm","by":"pm@x","by_name":"P M","via":"phone","client_at":null,"at":"2026-11-03T05:16:04.229Z","bytes":0,"review":"pending","review_by":"","review_by_name":"","review_at":"","own":false}}"""
 

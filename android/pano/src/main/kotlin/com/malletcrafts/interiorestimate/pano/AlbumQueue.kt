@@ -20,12 +20,16 @@ import com.malletcrafts.interiorestimate.pano.Album.Verdict
  * - a re-file (S5-P): `PUT …/album/photos/:photo/work` (validPhotoWork).
  *
  * The verdicts are "Offline and conflicts" (DESIGN-slice2), as [Album.verdict] tables them: 200 written or replay
- * leaves the queue (a photo's record answer moves it on to its JPEG); 409 is S5 winning a race, so the op and every
- * LATER queued op on its work are dropped, the mirror taking what the body echoes (`locked: true` the same, in the
- * lock banner's words); 400 / 403 / 413 / 415 is refused for good -- THAT op alone, the next op that rode on it
- * taking back what S5 still has (S5's S5-P note relies on it: a vendor's photo or another uploader's is 403, never a
- * 409 that would drop the work's later ops); 401 keeps the op for the drain to sign in again and resend; 404, 405,
- * 5xx and no network stop the drain with the queue as it was, for the next pass.
+ * leaves the queue (a photo's record answer moves it on to its JPEG), and a 200 with no boolean `written` -- which
+ * every 200 of these routes carries -- is no answer of S5's handler, so it stops the drain; 409 is S5 winning a race,
+ * so the op and every LATER queued op on its work are dropped -- a re-file's on its photo instead, and a work's never
+ * a re-file -- the mirror taking what the body echoes (`locked: true` the same, in the lock banner's words); 400 /
+ * 403 / 413 / 415 is refused for good -- THAT op alone, the next op that rode on it taking back what S5 still has (S5's
+ * S5-P note relies on it: a vendor's photo or another uploader's is 403, never a 409 that would drop the work's later
+ * ops) -- and a photo op that leaves unsent takes its photo's later re-files and reviews with it; 401 keeps the op for
+ * the drain to sign in again and resend; 404, 405, 5xx and no network stop the drain with the queue as it was, for
+ * the next pass -- except a re-file's or a review's 404 for a photo the mirror does not hold, refused for good, and a
+ * JPEG's 404, after which the next pass sends the record again.
  */
 object AlbumQueue {
 
@@ -143,11 +147,11 @@ object AlbumQueue {
     fun next(o: Outbox): Next? = o.queue.firstOrNull()?.let { Next(it, stepOf(it)) }
 
     /**
-     * S5's answer to one request, as [AlbumWire.reply] reads it: `written` (200; absent reads true), `locked`
-     * (a 409 in the lock banner's words), S5's own `error` words ('' when it sent none), and the rows the mirror
-     * takes ([Album.Answer]).
+     * S5's answer to one request, as [AlbumWire.reply] reads it: `written` (null when the body has no boolean one --
+     * a 200 like that is no answer of S5's: [apply]), `locked` (a 409 in the lock banner's words), S5's own `error`
+     * words ('' when it sent none), and the rows the mirror takes ([Album.Answer]).
      */
-    data class Reply(val written: Boolean = true, val locked: Boolean = false, val error: String = "", val answer: Answer = Answer())
+    data class Reply(val written: Boolean? = null, val locked: Boolean = false, val error: String = "", val answer: Answer = Answer())
 
     /** The queue after one answer, and S5's [verdict] on it. */
     data class Applied(val outbox: Outbox, val verdict: Verdict) {
@@ -162,10 +166,25 @@ object AlbumQueue {
      * an IMG answered `written: false` is the JPEG S5 already holds, so it counts as landed. CONFLICT and LOCKED go
      * through [Album.afterConflict] / [Album.afterLocked] with S5's words and the body's rows; REFUSED through
      * [Album.afterRefused], the mirror then taking any row the refusal echoes (a re-file's 403 carries the photo as
-     * stored, so the phone can put back the work it set locally). RELOGIN and STOP leave [o] as it was.
+     * stored, so the phone can put back the work it set locally). RELOGIN and STOP leave [o] as it was -- but a
+     * JPEG's 404 (S5 has no record for it: a record answer that was not S5's, or a record lost) clears `recorded`, so
+     * the next pass sends the record again, which S5 replays harmlessly for its uploader.
+     *
+     * Two answers are read here rather than by [Album.verdict] (the AQ review): a 200 with no boolean `written` is
+     * STOP -- every 200 S5 sends on these routes carries one (asis.js), so a 200 without it is a proxy's page, a
+     * redirect followed to HTML or a cut body, and taking it as POSTED would lose the write, or mark a record answered
+     * that S5 never stored; and a re-file's or a review's 404 for a photo the mirror does not hold ([noRow]: a photo
+     * op dropped before this was queued, its tile re-filed) is REFUSED, that op alone: S5's row lookup answers 404
+     * before anything else and no retry can change it, so as STOP it would hold the head of the queue for good. A 404
+     * for a photo the mirror does hold stays STOP (a route an older S5 lacks, a project not visible yet): the next
+     * pass may be answered.
      */
     fun apply(o: Outbox, op: Op, code: Int, reply: Reply): Applied {
-        val v = Album.verdict(code, reply.written, reply.locked)
+        val v = when {
+            code == 200 && reply.written == null -> Verdict.STOP
+            code == 404 && noRow(o, op) -> Verdict.REFUSED
+            else -> Album.verdict(code, reply.written != false, reply.locked)
+        }
         val a = reply.answer
         val out = when (v) {
             Verdict.POSTED, Verdict.REPLAY -> when {
@@ -176,10 +195,24 @@ object AlbumQueue {
             Verdict.CONFLICT -> Album.afterConflict(o, op, reply.error, a)
             Verdict.LOCKED -> Album.afterLocked(o, op, reply.error, a)
             Verdict.REFUSED -> Album.afterRefused(o, op, reply.error).let { it.copy(mirror = Album.merged(it.mirror, a)) }
-            Verdict.RELOGIN, Verdict.STOP -> o
+            Verdict.STOP -> if (code == 404 && stepOf(op) == Step.IMG) unrecorded(o, op) else o
+            Verdict.RELOGIN -> o
         }
         return Applied(out, v)
     }
+
+    /**
+     * A re-file or a review of a photo the mirror does not hold, so of no row S5 is known to have. Its own photo op
+     * cannot be what will record it: the queue is FIFO, so a photo op still queued is BEHIND it, and would never be
+     * sent while it held the head.
+     */
+    private fun noRow(o: Outbox, op: Op): Boolean {
+        val s = stepOf(op)
+        return (s == Step.REFILE || s == Step.REVIEW) && o.mirror?.photos.orEmpty().none { it.id == op.photo }
+    }
+
+    /** [op] with its record to send again: S5 answered its JPEG 404 (no record). */
+    private fun unrecorded(o: Outbox, op: Op): Outbox = o.copy(queue = o.queue.map { if (it.id == op.id) it.copy(recorded = false) else it })
 
     /**
      * A photo's record answered 200 (written, or a replay of the uploader's own): the mirror takes the row, and the
