@@ -3411,7 +3411,8 @@
   "mr": "{code} बाजूच्या बाहेर आहे: बदला किंवा हटवा"
  },
  "refuse.sp.x_reference_locked_unlock": {
-  "mr": "{s} संदर्भ लॉक आहे — आधी अनलॉक करा"
+  "mr": "{s}: संदर्भ लॉक आहे — आधी अनलॉक करा",
+  "note": "L2 finalised (3 Nov 2026, M3a review): '{s} संदर्भ लॉक आहे' put the nominative name straight before the noun, which Marathi reads as two nouns (the genitive भिंतीचा / जमिनीचा / छताचा changes the name itself); the name set off by ':' as sp.aria.lock_x_four_lines and the sp.file.x_* keys do"
  },
  "refuse.stage.approved_final": {
   "mr": "मंजूर झाले — पुढचे बदल \"बदल विनंती\" मधूनच होतात; सेव्ह झाले नाही"
@@ -4366,10 +4367,12 @@
   "mr": "{v} · प्रकार"
  },
  "sp.x_lines_locked": {
-  "mr": "{s} रेषा लॉक"
+  "mr": "{s}: रेषा लॉक",
+  "note": "L2 finalised (3 Nov 2026, M3a review): '{s} रेषा लॉक' put the nominative name straight before रेषा, which Marathi reads as two nouns (the genitive भिंतीच्या / जमिनीच्या / छताच्या changes the name itself); the name set off by ':' as sp.aria.lock_x_four_lines and the sp.file.x_* keys do"
  },
  "sp.x_lines_unlocked": {
-  "mr": "{s} रेषा अनलॉक"
+  "mr": "{s}: रेषा अनलॉक",
+  "note": "L2 finalised (3 Nov 2026, M3a review): '{s} रेषा अनलॉक' put the nominative name straight before रेषा, which Marathi reads as two nouns (the genitive भिंतीच्या / जमिनीच्या / छताच्या changes the name itself); the name set off by ':' as sp.aria.lock_x_four_lines and the sp.file.x_* keys do"
  },
  "sp.x_locked_x": {
   "mr": "{v}: {nl} लॉक",

@@ -5,10 +5,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * EVERY TEXT A PERSON SEES IS KEYED, LISTED OR MARKED (design-marathi §3.3, I18nLiteralTest a–h).
+ * EVERY TEXT A PERSON SEES IS KEYED, LISTED OR MARKED (design-marathi §3.3, I18nLiteralTest a–i).
  * Scans every module in [LiteralScan.ROOTS] -- `:app`, `:camera` and `:pano` main, the generated table
  * excepted. This is also the local stand-in for the compiler of `:app` and `:camera` (neither builds
- * here) on the commonest break, an unresolved name (f): two of those broke `main` on 21 Sep.
+ * here) on the commonest break, an unresolved name (f, and i for a :pano object's member): two of those broke `main` on 21 Sep.
  */
 class I18nLiteralTest {
 
@@ -157,6 +157,78 @@ class I18nLiteralTest {
         // :app and :camera: the modules this container cannot compile (:pano's own calls are compiled here)
         val off = unresolved(scans.filter { !it.rel.startsWith("pano/") })
         I18n.check("f · unresolved accessor", off, "the app calls an accessor the generated table does not have, or passes two or more without naming them: check the key in android/i18n/index.tsv")
+    }
+
+    // ---- (i) a member of a :pano object read from :app or :camera
+
+    private val PKG = Regex("""^package\s+([\w.]+)""", RegexOption.MULTILINE)
+    /** A public top-level `object` (an `internal` one is not reachable from another module). */
+    private val TOP_OBJECT = Regex("""^(?:public\s+)?object\s+([A-Z]\w*)""", RegexOption.MULTILINE)
+    /** Any top-level declaration, by its name: one in :app or :camera shadows the :pano object of that name. */
+    private val TOP_DECL = Regex("""^(?:(?:public|private|internal|data|sealed|enum|abstract|open|value|annotation|fun)\s+)*(?:class|object|interface|typealias)\s+([A-Z]\w*)""", RegexOption.MULTILINE)
+
+    /** :pano's public top-level objects by simple name: what :app and :camera reach as `Name.member`. */
+    private val panoObjects: Map<String, Class<*>> by lazy {
+        val out = LinkedHashMap<String, Class<*>>()
+        for (s in scans.filter { it.rel.startsWith("pano/") }) {
+            val pkg = PKG.find(s.masked)?.groupValues?.get(1) ?: continue
+            for (m in TOP_OBJECT.findAll(s.masked)) out[m.groupValues[1]] = Class.forName("$pkg.${m.groupValues[1]}")
+        }
+        out
+    }
+
+    /**
+     * [name] is reachable on the object [cls]: a nested class or object (`SurveyPrep.Measure`), a function (an
+     * `internal` one is mangled `name$module`), a property through its getter (`NAME` -> `getNAME`), or a `const val`
+     * / `@JvmField` (a static field). Arity is not checked: the member's existence is what a rename or a delete breaks.
+     */
+    private fun hasMember(cls: Class<*>, name: String): Boolean {
+        if (name[0].isUpperCase() && runCatching { Class.forName(cls.name + "$" + name) }.isSuccess) return true
+        val getter = "get" + name.replaceFirstChar { it.uppercase() }
+        if (cls.methods.any { it.name == name || it.name == getter || it.name.startsWith("$name$") }) return true
+        return cls.fields.any { it.name == name }
+    }
+
+    /** Check (i) over [scans]: a `Name.member` read of one of [objects] that the object does not have. */
+    private fun unresolvedObjectMembers(scans: List<LiteralScan.FileScan>, objects: Map<String, Class<*>>): List<String> {
+        val own = scans.flatMap { s -> TOP_DECL.findAll(s.masked).map { it.groupValues[1] } }.toSet()
+        val names = objects.keys - own
+        if (names.isEmpty()) return emptyList()
+        val rx = Regex("""(?<![\w.])(${names.joinToString("|")})\s*\.\s*([A-Za-z_]\w*)""")
+        val off = ArrayList<String>()
+        for (s in scans) for (m in rx.findAll(s.masked)) {
+            val (obj, member) = m.destructured
+            if (!hasMember(objects.getValue(obj), member)) off += "${s.name}:${s.lineOf(m.range.first)}: $obj.$member is not on the :pano object $obj"
+        }
+        return off
+    }
+
+    @Test fun `i every pano object member the app reads exists`() {
+        // the other half of the compiler stand-in (f): a function, property, constant or nested class of a :pano object
+        // read as `Name.member` from :app or :camera. M3a renamed SurveyPrepEdit.LINES_REFUSAL to linesRefusal(tx) and
+        // converted one of its two readers; (f) scans `tx.<name>` alone, so :pano:test stayed green and CI's kotlinc
+        // would have been the first to say `Unresolved reference: LINES_REFUSAL` (M3a review)
+        val off = unresolvedObjectMembers(scans.filter { !it.rel.startsWith("pano/") }, panoObjects)
+        I18n.check("i · unresolved object member", off, "the app reads a member a :pano object does not have: rename the read with the object (only CI compiles :app and :camera)")
+    }
+
+    @Test fun `i sees a deleted constant, and not a function, property, constant or nested class that exists`() {
+        val src = "fun f() {\n" +
+            "    say(SurveyPrepEdit.LINES_REFUSAL)\n" +            // the const val M3a deleted
+            "    say(SurveyPrepEdit.linesRefusal(tx))\n" +         // a function
+            "    val n = SurveyPrep.NAME.getValue(s)\n" +           // a property, through its getter
+            "    val k = SurveyPrepEdit.KIND_TAPE\n" +              // a constant, upper-case like a class
+            "    val m = SurveyPrep.Measure(\"w\", \"width\")\n" + // a nested class
+            "    val r = StepRoute.TAB_ROWS.flatten()\n" +          // a property with an upper-case name
+            "    // SurveyPrepEdit.NOT_A_MEMBER in a comment is not a read\n" +
+            "    val t = \"SurveyPrepEdit.NOT_A_MEMBER in a string is not a read\"\n" +
+            "    val own = SurveyPrepDraw.NOT_A_MEMBER\n" +         // not a :pano object
+            "}\n"
+        val off = unresolvedObjectMembers(listOf(LiteralScan.scanText("app/src/main/kotlin/X.kt", src)), panoObjects)
+        assertEquals(listOf("X.kt:2: SurveyPrepEdit.LINES_REFUSAL is not on the :pano object SurveyPrepEdit"), off)
+        // a declaration of the same name in :app shadows the :pano object, so its members are not checked
+        val shadow = "object SurveyPrepEdit { val MINE = 1 }\nfun g() = SurveyPrepEdit.MINE\n"
+        assertEquals(emptyList(), unresolvedObjectMembers(listOf(LiteralScan.scanText("app/src/main/kotlin/Y.kt", shadow)), panoObjects))
     }
 
     private val SYSTEM_LANGUAGE = Regex("""\bLocale\s*\.\s*getDefault\b|\bLocaleList\b|\.\s*locales\b|\bconfiguration\s*\.\s*locale\b""")
@@ -342,6 +414,25 @@ class I18nLiteralTest {
             "    lastResult = { \"Could not: ${'$'}{it.message}\" }\n    busy = {\n        \"c\" }\n}\n"
         val off = implicitMsgParams(listOf(LiteralScan.scanText("app/src/main/kotlin/M.kt", src)))
         assertEquals(listOf(5, 6), off.map { it.substringAfter("M.kt:").substringBefore(':').toInt() }, off.joinToString("\n"))
+    }
+
+    /** A lambda parameter typed `Tx`: `{ t: Tx ->`. */
+    private val TX_PARAM = Regex("""\{\s*([A-Za-z_]\w*)\s*:\s*Tx\s*->""")
+
+    private fun txParamsNotTx(scans: List<LiteralScan.FileScan>): List<String> = scans.flatMap { s ->
+        TX_PARAM.findAll(s.masked).filter { it.groupValues[1] != "tx" && it.groupValues[1] != "_" }
+            .map { "${s.name}:${s.lineOf(it.range.first)}: `{ ${it.groupValues[1]}: Tx -> … }` reads the table through a name (f) does not scan" }.toList()
+    }
+
+    @Test fun `a Tx lambda names its parameter tx, so f resolves its reads`() {
+        // M3a review: three `{ t: Tx -> t.sp_msg_saved … }` in SurveyPrepScreen.kt read five accessors (f) never resolved,
+        // since (f) scans `tx.<name>` alone (a `t.` is any value). `tx` shadows the composable's own: a warning, never an error
+        I18n.check("a Tx lambda's parameter", txParamsNotTx(scans.filter { !it.rel.startsWith("pano/") }),
+            "name a lambda's Tx parameter tx (`{ tx: Tx -> tx.app_sync }`), or _ when it is unused, so check (f) resolves what it reads")
+        val src = "fun f() {\n    savedMsg = if (ok) { t: Tx -> t.sp_msg_saved } else { tx: Tx -> tx.sp_msg_not_saved_did_not }\n" +
+            "    note = { _: Tx -> \"b\" }\n    other = {t :Tx-> t.app_sync }\n    busy = { tx -> tx.app_sync }\n}\n"
+        val off = txParamsNotTx(listOf(LiteralScan.scanText("app/src/main/kotlin/M.kt", src)))
+        assertEquals(listOf(2, 4), off.map { it.substringAfter("M.kt:").substringBefore(':').toInt() }, off.joinToString("\n"))
     }
 
     @Test fun `a Msg lambda assigned to lastResult, busy or note is a UI position`() {

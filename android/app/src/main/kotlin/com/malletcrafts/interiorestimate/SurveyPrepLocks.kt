@@ -92,8 +92,9 @@ internal fun SpSnack(text: String, undo: Boolean, modifier: Modifier, onUndo: ()
         if (undo) {
             Box(Modifier.height(36.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) { onUndo() }
                 .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                // sp.aria.undo, "Undo": the prototype's case wins over the phone's UNDO (decision 5, port 61c slice M3a)
-                Text(tx.sp_aria_undo, color = SN_UNDO, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
+                // sp.aria.undo upper-cased: the prototype's button is the raw literal UNDO (its [lang=mr] fallback मागे घ्या), so the
+                // phone keeps the UNDO it always drew; uppercase() is a no-op on Devanagari (M3a review)
+                Text(tx.sp_aria_undo.uppercase(), color = SN_UNDO, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp, maxLines = 1)
             }
         }

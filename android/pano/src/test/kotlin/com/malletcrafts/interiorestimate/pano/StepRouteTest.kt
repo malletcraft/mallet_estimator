@@ -123,8 +123,8 @@ class StepRouteTest {
         assertFalse(StepRoute.showStrip("plan"))
         for (m in listOf("lines", "mark", "list")) assertFalse(StepRoute.listView("plan", m), m)
         assertTrue(StepRoute.listView("front", "list"))
-        assertEquals(64, StepRoute.budgetDp(false, "plan", "list"))
-        assertEquals(56, StepRoute.budgetDp(true, "plan", "mark"))
+        assertEquals(64, StepRoute.budgetDp(false, "plan", "list", false))
+        assertEquals(56, StepRoute.budgetDp(true, "plan", "mark", false))
     }
 
     @Test
@@ -145,19 +145,37 @@ class StepRouteTest {
     @Test
     fun `tabs and strip take 92 dp portrait, 80 landscape, 68 landscape 3 · List`() {
         for (m in listOf("lines", "mark")) {
-            assertEquals(92, StepRoute.budgetDp(false, "front", m))
-            assertEquals(80, StepRoute.budgetDp(true, "front", m))
+            assertEquals(92, StepRoute.budgetDp(false, "front", m, false))
+            assertEquals(80, StepRoute.budgetDp(true, "front", m, false))
         }
-        assertEquals(68, StepRoute.budgetDp(true, "front", "list"))
-        assertEquals(92, StepRoute.budgetDp(false, "front", "list"))
+        assertEquals(68, StepRoute.budgetDp(true, "front", "list", false))
+        assertEquals(92, StepRoute.budgetDp(false, "front", "list", false))
         // the room's List tab: no strip, the tab rows only
-        assertEquals(64, StepRoute.budgetDp(false, "list", "mark"))
-        assertEquals(48, StepRoute.budgetDp(true, "list", "lines"))
-        // the strip is always smaller than a tab row
-        for (land in listOf(false, true)) for (list in listOf(false, true))
-            assertTrue(StepRoute.stripDp(land, list) < StepRoute.tabRowDp(land, list))
+        assertEquals(64, StepRoute.budgetDp(false, "list", "mark", false))
+        assertEquals(48, StepRoute.budgetDp(true, "list", "lines", false))
+        // the strip is always smaller than a tab row, in either language
+        for (land in listOf(false, true)) for (list in listOf(false, true)) for (mr in listOf(false, true))
+            assertTrue(StepRoute.stripDp(land, list) < StepRoute.tabRowDp(land, list, mr))
         // never above v51's 110 / 82 / 68
-        assertTrue(StepRoute.budgetDp(false, "front", "mark") <= 110)
-        assertTrue(StepRoute.budgetDp(true, "front", "mark") <= 82)
+        assertTrue(StepRoute.budgetDp(false, "front", "mark", false) <= 110)
+        assertTrue(StepRoute.budgetDp(true, "front", "mark", false) <= 82)
+    }
+
+    @Test
+    fun `under Marathi a landscape list's tab row is 27 dp, the 17 sp name over a 9 sp Ref line, and nothing else moves (M3a review)`() {
+        // SpTab draws a face's name on a 17 sp line under मराठी (design-marathi §4, measured for the prototype's 32 px tab)
+        // and, on a face squared from its reference, "Ref 905 × 2053" on a 9 sp line in landscape: 26 dp. The 24 dp
+        // landscape-list row gave the Ref line the 7 dp left and TextOverflow.Ellipsis clipped it. 27 holds both.
+        assertEquals(27, StepRoute.tabRowDp(true, true, true))
+        assertTrue(StepRoute.tabRowDp(true, true, true) >= 17 + 9)
+        assertEquals(24, StepRoute.tabRowDp(true, true, false))
+        // portrait (32) and a landscape face view (28) had the room already: 14 + 9 and 17 + 9 fit either
+        for (list in listOf(false, true)) assertEquals(32, StepRoute.tabRowDp(false, list, true))
+        assertEquals(28, StepRoute.tabRowDp(true, false, true))
+        assertEquals(74, StepRoute.budgetDp(true, "front", "list", true))   // 2 × 27 + the 20 dp strip
+        assertEquals(54, StepRoute.budgetDp(true, "list", "lines", true))   // the room's List tab: no strip
+        assertEquals(80, StepRoute.budgetDp(true, "front", "mark", true))
+        assertEquals(92, StepRoute.budgetDp(false, "front", "list", true))
+        assertTrue(StepRoute.budgetDp(true, "front", "list", true) <= 82)
     }
 }

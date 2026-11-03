@@ -323,7 +323,7 @@ internal fun SurveyPrepDialog(
         val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
         if (ok) unsaved[0] = false
         val at = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
-        savedMsg = if (ok) { t: Tx -> t.sp_msg_saved + at } else { t: Tx -> t.sp_msg_not_saved_did_not }
+        savedMsg = if (ok) { tx: Tx -> tx.sp_msg_saved + at } else { tx: Tx -> tx.sp_msg_not_saved_did_not }
     }
     // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
     // with it even if nothing is changed (a kept capture reopens on exactly these). So is a prep read
@@ -497,10 +497,10 @@ internal fun SurveyPrepDialog(
         val at = ReadingsSync.now()
         readingsMsg = when {
             fetched == null -> if (said.isEmpty()) readingsMsg else { _: Tx -> head.removeSuffix(" · ") }
-            e == null -> { t: Tx -> head + t.sp_readings_web + at }
+            e == null -> { tx: Tx -> head + tx.sp_readings_web + at }
             ReadingsSync.notAvailable(e!!) -> { _: Tx -> head + ReadingsSync.NOT_YET }
             // the fetch's own words as they come, or common.failed when it had none (the card, 28 Oct 2026)
-            else -> { t: Tx -> head + t.sp_readings_web_x((e?.message ?: t.common_failed).take(160)) }
+            else -> { tx: Tx -> head + tx.sp_readings_web_x((e?.message ?: tx.common_failed).take(160)) }
         }
     }
 
@@ -1077,7 +1077,7 @@ internal fun SurveyPrepDialog(
     // ---- THE PARENT: the faces as text tabs, two rows, the open one white and bold over a 3 dp gold bar
     val tabsUi: @Composable () -> Unit = {
         rev    // read: a drag only bumps rev, and the ✓ on a face that just closed must follow it live
-        val rowH = StepRoute.tabRowDp(land, listView).dp
+        val rowH = StepRoute.tabRowDp(land, listView, tx.mr).dp   // 27 in a landscape list under मराठी: SpTab's 17 sp name + a 9 sp Ref line
         Column(Modifier.fillMaxWidth()) {
             for (row in StepRoute.TAB_ROWS) {
                 Row(Modifier.fillMaxWidth().height(rowH).drawBehind {
@@ -1215,7 +1215,7 @@ internal fun SurveyPrepDialog(
                     onTool = { t -> kdraft = null; pickTool(t) },
                     onLongPress = { mid, at -> armedClear = null; ctx = SpCtx(mid, at.x, at.y) },
                     onRefuse = { code -> refuse(code) },
-                    onLinesLocked = { say(SurveyPrepEdit.LINES_REFUSAL) },
+                    onLinesLocked = { say(SurveyPrepEdit.linesRefusal(tx)) },
                     onRevert = { revertPress() },
                     drag = mdrag, area = if (areaS == tab) area else null,
                     onDragStart = { d -> mdrag = d; rev++ },
@@ -1255,7 +1255,8 @@ internal fun SurveyPrepDialog(
                 Text(if (room) faceName else tx.sp_x_its_list(faceName), color = SP_FG,
                     fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 // squared from its reference rectangle, its size is the reference's measure, not the laser's (v52 slice 12);
-                // "Ref" (common.ref) and "Laser" (app.laser) are the prototype's case for the phone's "ref" / "laser" (decision 5)
+                // "Ref" (common.ref) is the card's row for the phone's "ref" (decision 5); "Laser" (app.laser) is Claude's extension of
+                // it to the tag's other branch (decision 6) -- the card's only `· laser` row is the chain total's, keyed whole as sp.total_laser
                 if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) tx.common_ref else tx.app_laser}",
                     color = SP_MUTED, fontSize = 12.sp)
                 else SpD2(Modifier, "D2 → $act") { fire() } // text:value the laser (DISTO D2) and the reading key it is armed for
@@ -1553,8 +1554,9 @@ internal fun SurveyPrepDialog(
     // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
     // inherits the theme's 24 sp line (bodyLarge) and the menu outgrows a landscape screen.
     val menuSizes: @Composable () -> Unit = {
-        // sp.this_360, "This 360": the prototype's case wins over the phone's THIS 360 (decision 5, port 61c slice M3a)
-        Text(tx.sp_this_360, color = SP_MUTED, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+        // sp.this_360 upper-cased, as the prototype's CSS draws its header (.spv .spmenu .mh text-transform: uppercase): THIS 360 as
+        // the phone always drew it; uppercase() is a no-op on Devanagari, so हा 360 is untouched (M3a review)
+        Text(tx.sp_this_360.uppercase(), color = SP_MUTED, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
             modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
         // ---- the status
         Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {

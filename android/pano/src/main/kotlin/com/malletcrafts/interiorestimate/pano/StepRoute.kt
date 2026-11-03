@@ -113,16 +113,17 @@ object StepRoute {
     /** A list view: the room's List tab, or a FACE's 3 · List -- never the Plan tab, whatever step a face was left on. */
     fun listView(tab: String, mode: String): Boolean = tab == "list" || (isFace(tab) && mode == "list")
 
-    /** One row of tabs, dp: 32 in portrait, 28 in landscape, 24 in a landscape list (so CEILING ✓ is never cut). */
-    fun tabRowDp(land: Boolean, list: Boolean): Int = if (land && list) 24 else if (land) 28 else 32
+    /** One row of tabs, dp: 32 in portrait, 28 in landscape, 24 in a landscape list (so CEILING ✓ is never cut) -- 27 there under
+     *  मराठी ([mr], Tx.mr): the name's 17 sp line (SpTab, design-marathi §4) over a Ref line's 9 sp is 26, which 24 cut (M3a review). */
+    fun tabRowDp(land: Boolean, list: Boolean, mr: Boolean): Int = if (land && list) (if (mr) 27 else 24) else if (land) 28 else 32
 
     /** The strip, dp: 28 in portrait, 24 in landscape, 20 in a landscape list. */
     fun stripDp(land: Boolean, list: Boolean): Int = if (land && list) 20 else if (land) 24 else 28
 
-    /** The tabs and the strip together, dp: 92 portrait, 80 landscape, 68 landscape 3 · List (v51 took 110, 82, 68);
-     *  the List and Plan tabs, no strip: 64 portrait, 56 landscape (48 for List). */
-    fun budgetDp(land: Boolean, tab: String, mode: String): Int {
+    /** The tabs and the strip together, dp: 92 portrait, 80 landscape, 68 landscape 3 · List (v51 took 110, 82, 68; 74 under
+     *  मराठी); the List and Plan tabs, no strip: 64 portrait, 56 landscape (48 for List; 54 under मराठी). */
+    fun budgetDp(land: Boolean, tab: String, mode: String, mr: Boolean): Int {
         val list = listView(tab, mode)
-        return 2 * tabRowDp(land, list) + if (showStrip(tab)) stripDp(land, list) else 0
+        return 2 * tabRowDp(land, list, mr) + if (showStrip(tab)) stripDp(land, list) else 0
     }
 }

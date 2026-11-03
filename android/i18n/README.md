@@ -266,13 +266,18 @@ regenerated and the tables hold 1,792 keys as before.
   whole key). The tests keep their English literals with `Tx.EN` added: SurveyPrepTest, PaletteTest, LockTest, ClearTest,
   StartOverTest, StepRouteTest, MeasTest, ChainTest, Pano360Test, EndMoveTest, RefFrameTest, RoomSizeTest and OnFaceTest
   (GuideTest pins no text; `lockedEnd` is pinned in EndMoveTest and ChainTest).
-- **The prototype's English wins (decision 5)**, so these change on the phone: the snackbar's `UNDO` is `Undo` (`sp.aria.undo`);
-  the eye's state is read out as `on` / `off` (`sp.on`, `sp.off`); ⋮'s group header `THIS 360` is `This 360` (`sp.this_360`);
-  the List's size tag ends `· Ref` / `· Laser` (`common.ref`, `app.laser`) where the phone wrote `ref` / `laser`; the room
+- **The prototype's English wins (decision 5)**, so these change on the phone: the eye's state is read out as `on` / `off`
+  (`sp.on`, `sp.off`); the List's size tag ends `· Ref` (`common.ref`, the card's row for the phone's `ref`) and `· Laser`
+  (`app.laser`: Claude's extension of that row to the tag's other branch, decision 6 -- the card's only `· laser` row is the
+  chain total's, which is keyed whole as `sp.total_laser`) where the phone wrote `ref` / `laser`; the room
   List's two lines name the surface, `Front wall · set its four lines` (`sp.x_set_four_lines_2`) and `Front wall · set its four
   lines in 1 · Lines to see it squared` (`sp.x_set_four_lines`), where the phone said `Set its four lines first.` and `Set its four
   lines in 1 · Lines to see it squared.`; and a face's 3 · List status always writes `measurements` (`sp.x_x_mark_x`), where the
-  phone wrote `1 measurement`. Nothing else Amit sees changes in English.
+  phone wrote `1 measurement`. Nothing else Amit sees changes in English: the snackbar's `UNDO` and ⋮'s `THIS 360` stay as
+  they were, drawn through `sp.aria.undo` / `sp.this_360` upper-cased, as the prototype's CSS (`.spv .spmenu .mh`
+  `text-transform: uppercase`) and its raw `UNDO` button literal draw them; `uppercase()` is a no-op on Devanagari, so
+  हा 360 and मागे घ्या are untouched (the M3a review: the slice's first version drew `Undo` / `This 360`, which the card's two
+  'case only' rows had compared with the key text rather than with the prototype's screen).
 - **The four Marathi-only line heights** (design-marathi §4, each `if (tx.mr) … else <today's value>`, `Tx.mr` being the one
   layout flag): the face tabs 17 sp (SpTab), the reading rows 17 sp (the table's reading and chain rows) and the More ▸ tile
   names 14 sp (SpMoreSheet). The fourth, More ▸'s ROW LABELS, has no element on the phone: the prototype's v53 More sheet groups
@@ -284,6 +289,23 @@ regenerated and the tables hold 1,792 keys as before.
   `Readings`), the 360 caption and refusals (`Pano360`), the Size from row, the reference's own texts (`SurveyRef`), a Tape's,
   Line's and chain's labels, chips and rows (`SurveyMeas`, `SurveyChain`), the words drawn on the photo (`SurveyPrepDraw`), all
   M3b; the laser's states (`DistoClient`), M6; the upload status line (`AsIsUpload`), M2.
+- **Review fixes, 3 Nov 2026** (seven confirmed findings on M3a, fixed by Claude). (1) `SurveyPrepScreen.kt`'s SECOND reader
+  of the deleted `SurveyPrepEdit.LINES_REFUSAL` (the SpPhoto callback) now calls `linesRefusal(tx)`: `:app` would not have
+  compiled, and nothing here said so, since (f) scans `tx.<name>` alone. `I18nLiteralTest` gains check (i), the other half
+  of the compiler stand-in: every `Name.member` of a `:pano` object read from `:app` or `:camera` must resolve by reflection.
+  (2) `THIS 360` and `UNDO` kept, above. (3) `Laser` recorded as Claude's extension, above. (4) `StepRoute.tabRowDp(land,
+  list, mr)`: a landscape list's tab row is 27 dp under मराठी, since SpTab's 17 sp name over a Ref line's 9 sp is 26 and the
+  24 dp row gave the Ref line the 7 dp left and clipped it (`budgetDp` takes `mr` too: 74 for a face's 3 · List, 54 for the
+  room's List); pinned in StepRouteTest; the phone is the only proof of the drawing. (5) Three Marathi values L2-finalised,
+  `{s}: रेषा लॉक`, `{s}: रेषा अनलॉक` and `{s}: संदर्भ लॉक आहे — आधी अनलॉक करा`: the nominative name straight before रेषा /
+  संदर्भ read as two nouns (समोरील भिंत रेषा लॉक) where Marathi wants the genitive, which changes the name itself (भिंतीच्या,
+  जमिनीच्या, छताच्या) and no filled placeholder can give, so the name is set off by `:` as `sp.aria.lock_x_four_lines` and the
+  `sp.file.x_*` keys do; Tx regenerated (`TxMr.kt`); English untouched. (6) The three `{ t: Tx -> … }` Msg lambdas in
+  `SurveyPrepScreen.kt` name their parameter `tx` (shadowing the composable's: a warning), so (f) resolves their five reads,
+  and a check refuses a Tx parameter named otherwise. (7) `SurveyPrepMarathiTest`: a hand-typed Marathi pin per Masters-backed
+  M3a lookup (`typeName`, `short`, `groupName`, `tabName`, `stripFace`, `label`, `lockedSaid`, `linesSaid`, the checklist
+  labels), because every Masters map passes an unknown value through unchanged, so a lookup wired to the wrong map or fed the
+  wrong identity prints the same English in every `Tx.EN` pin and leaks Latin only under मराठी (the PL review's fault).
 
 ## What is here
 
@@ -415,6 +437,12 @@ Each check puts all of its offenders in one assertion message. On CI each check 
     compiler of those two modules, which this container lacks;
   - (g) any read of the system language, in any module;
   - (h) `Tx` in `PlanExport.kt`, `FaceWriter.kt` or the upload worker;
+  - (i) a `Name.member` of a `:pano` object (`SurveyPrepEdit.linesRefusal`, `StepRoute.TAB_ROWS`, `SurveyPrep.Measure`)
+    read from `:app` or `:camera` that the object does not have -- a function, a property's getter, a constant or a nested
+    class, by reflection: the other half of the compiler stand-in, added by the M3a review after a reader of a deleted
+    constant passed (f);
+  - a lambda whose parameter is typed `Tx` and named other than `tx` or `_` (`{ t: Tx -> … }`): (f) scans `tx.<name>`
+    alone, so its reads would go unresolved (M3a review);
   - a lambda assigned to `lastResult`, `busy` or `note` that does not name its parameter (`{ tx -> … }`,
     `{ _ -> … }`): its `it` would be the Tx, a break only `:app`'s compiler would find;
   - the language row turned on early;
