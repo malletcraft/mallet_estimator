@@ -361,9 +361,15 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
 
             // THEN THE SITE READINGS, per key, against what the web last said of THIS capture (ReadingsSync, by the
             // device id). Never blocks the room: a web without the readings endpoint yet answers quietly.
+            // READ AT PUSH TIME (the as-is audit's finding 9): squaring and sending six 2000 px surfaces takes a
+            // while, and a reading typed into survey prep meanwhile is saved to the prep file at once -- so the
+            // readings sent are the file's NOW, not the copy taken for the record. A prep that cannot be read any
+            // more (the capture removed from the phone meanwhile) sends the readings the record carried, which
+            // are this capture's own and already on the web in `prep.actual`.
             if (created) ReadingsSync.forget(ctx, id)
+            val actual: Map<String, Double> = SurveyPrepStore(ctx).load(id)?.actual?.toMap() ?: prep.actual.toMap()
             val readingsNote: String? = try {
-                ReadingsSync.push(ctx, id, auth, c.project, c.room, c.deviceId, prep.actual.toMap())
+                ReadingsSync.push(ctx, id, auth, c.project, c.room, c.deviceId, actual)
             } catch (e: AsIsUpload.HttpError) {
                 if (ReadingsSync.notAvailable(e)) ReadingsSync.NOT_YET
                 else if (e.refused) "readings not sent: ${e.message}"
