@@ -7,6 +7,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * THE DIMENSION CHAIN (v52 slice 11, the chain halves of items 7 and 14), against ct52 sections K, L, N, T ("palette:
@@ -96,7 +97,7 @@ class ChainTest {
     @Test fun `segment keys FK1_1 to FK1_n, then FK1_t, and the D2 flow skips a total the laser gives`() {
         val p = room(); val k = fk1(p)
         assertEquals(listOf("FK1.1", "FK1.2", "FK1.t"), p.keysOf(k))
-        assertEquals(listOf("segment 1", "segment 2", "total"), SurveyChain.measures(k).map { it.what })
+        assertEquals(listOf("segment 1", "segment 2", "total"), SurveyChain.measures(k).map { it.what(Tx.EN) })
         // ct52 K: "the chain is selected: ... the D2 strip on FK1.1"; "D2 fires into FK1.1 and moves on to FK1.2"
         assertEquals("FK1.1", p.nextOpen(k, null, A, B))
         p.actual["FK1.1"] = 905.0
@@ -112,7 +113,7 @@ class ChainTest {
         assertEquals("FK2.t", p.nextAfter("FK2.1") { SurveyPrep.size(it, L, A, B) })
         // the strip's line, and the owner of each key
         val (sf, m) = assertNotNull(p.readingOf("FK1.2") { SurveyPrep.size(it, L, A, B) })
-        assertEquals("front", sf); assertEquals("segment 2", m.what); assertEquals(2404.75, m.est!!, 1e-9)
+        assertEquals("front", sf); assertEquals("segment 2", m.what(Tx.EN)); assertEquals(2404.75, m.est!!, 1e-9)
         assertEquals("k1", p.ownerOf("FK1.t")!!.id); assertEquals("chain", p.ownerOf("FK1.1")!!.kind)
         assertNull(p.ownerOf("FK9.1"))
     }
@@ -177,7 +178,7 @@ class ChainTest {
         SurveyPrepEdit.setLocked(p, "k1", true)
         assertFalse(SurveyChain.nodeMove("front", k, 1, pt(2000.0, 1200.0), A, B, marks, tol))
         assertEquals(3309.0, k.nodes[1][0])
-        assertEquals("FK1 is locked — unlock to move it", SurveyChain.lockedNode(k.code))
+        assertEquals("FK1 is locked — unlock to move it", SurveyChain.lockedNode(Tx.EN, k.code))
     }
 
     @Test fun `deleteMark removes FK1 and FK1's readings only`() {
@@ -224,7 +225,7 @@ class ChainTest {
         assertEquals(2, r.n); assertEquals(1, r.kept); assertEquals(setOf("FD1", k2.code), r.codes.toSet())
         assertEquals(listOf("FK1"), p.surface("front").chains.map { it.code })
         assertEquals(setOf("FK1.1", "FK1.t"), p.actual.keys)
-        assertEquals("Cleared 2 items, 1 locked kept", SurveyPrepEdit.clearedSnack(r.n, r.kept))
+        assertEquals("Cleared 2 items, 1 locked kept", SurveyPrepEdit.clearedSnack(Tx.EN, r.n, r.kept))
         // FK2 is not handed out again after a clear either
         SurveyPrepEdit.setLocked(p, k1.id, false)
         assertEquals("FK3", tapChain(p, "front", "k3", pt(500.0, 600.0), pt(1500.0, 600.0))!!.code)
@@ -266,18 +267,18 @@ class ChainTest {
 
     @Test fun `Lock all chains, the menu, and every label (ct52 N, L, FX9)`() {
         val p = room(); val k1 = fk1(p); tapChain(p, "front", "k2", pt(500.0, 600.0), pt(1500.0, 600.0))
-        assertEquals("Delete|Duplicate|Lock|Lock all chains|Cancel", SurveyPrepEdit.menuItemsOf(p, k1.id).joinToString("|") { it.second })
-        assertEquals("FK1 chain", SurveyPrepEdit.menuHeaderOf(p, k1.id))
-        assertEquals("FK1 chain", SurveyPrepEdit.labelOf(p, k1.id))
-        assertEquals("Delete FK1 chain", SurveyPrepEdit.deleteLabel(p, k1.id))
-        assertEquals("FK1 deleted", SurveyPrepEdit.deleted(k1.code))
+        assertEquals("Delete|Duplicate|Lock|Lock all chains|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
+        assertEquals("FK1 chain", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, k1.id))
+        assertEquals("FK1 chain", SurveyPrepEdit.labelOf(Tx.EN, p, k1.id))
+        assertEquals("Delete FK1 chain", SurveyPrepEdit.deleteLabel(Tx.EN, p, k1.id))
+        assertEquals("FK1 deleted", SurveyPrepEdit.deleted(Tx.EN, k1.code))
         val (s, g) = assertNotNull(SurveyPrepEdit.lockGroupOf(p, k1.id))
         assertEquals("front", s); assertEquals("chains", g.name); assertEquals(SurveyPrepEdit.KIND_CHAIN, g.kind); assertNull(g.t)
         // "Lock all chains" locks the chains -- nothing else
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", g.t, true, g.kind))
         assertFalse(SurveyPrep.isLocked(p.surface("front").marks[0]))
-        assertEquals("🔒 FK1 chain", SurveyPrepEdit.menuHeaderOf(p, k1.id))
-        assertEquals("Delete|Duplicate|Unlock|Unlock all chains|Cancel", SurveyPrepEdit.menuItemsOf(p, k1.id).joinToString("|") { it.second })
+        assertEquals("🔒 FK1 chain", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, k1.id))
+        assertEquals("Delete|Duplicate|Unlock|Unlock all chains|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
         // Lock all marks (every item, kind null) takes the chains too; a mark type's or Lines' do not
         assertEquals(0, SurveyPrepEdit.lockAll(p, "front", null, true, SurveyPrepEdit.KIND_LINE))
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", null, false))

@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * LOCKS (v52 slice 8; Amit, 14 Oct 2026 02:39 IST: "Give locking lines for reference and outer box lines so it
@@ -82,8 +83,8 @@ class LockTest {
         assertFalse(SurveyPrep.isLocked(mark(p, "r1")), "nothing on another surface")
         assertEquals(0, SurveyPrepEdit.lockAll(p, "front", "S", true), "again: nothing changes")
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", "S", false))
-        assertEquals("Locked 1 item · front wall", SurveyPrepEdit.lockedSnack(true, 1, "front"))
-        assertEquals("Unlocked 2 items · front wall", SurveyPrepEdit.lockedSnack(false, 2, "front"))
+        assertEquals("Locked 1 item · front wall", SurveyPrepEdit.lockedSnack(Tx.EN, true, 1, "front"))
+        assertEquals("Unlocked 2 items · front wall", SurveyPrepEdit.lockedSnack(Tx.EN, false, 2, "front"))
     }
 
     @Test fun `Lock all per kind, and every item on a surface`() {
@@ -98,19 +99,19 @@ class LockTest {
     @Test fun `the long-press menu and its Lock all group name the type (ct52 X2-X3, sp js lockGroup)`() {
         val p = room()
         val s1 = mark(p, "s1")
-        assertEquals("FS1 Switch plate", SurveyPrepEdit.menuHeader("front", s1))
-        assertEquals(listOf("Delete", "Duplicate", "Lock", "Lock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(p, "front", s1).map { it.second })
-        assertEquals(listOf("del", "dup", "lock", "lockall", "cancel"), SurveyPrepEdit.menuItems(p, "front", s1).map { it.first })
+        assertEquals("FS1 Switch plate", SurveyPrepEdit.menuHeader(Tx.EN, "front", s1))
+        assertEquals(listOf("Delete", "Duplicate", "Lock", "Lock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
+        assertEquals(listOf("del", "dup", "lock", "lockall", "cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.first })
         val g = SurveyPrepEdit.lockGroup(p, "front", s1)
         assertEquals("Switch plate", g.name); assertEquals(2, g.n); assertFalse(g.all)
         SurveyPrepEdit.lockAll(p, "front", "S", true)
-        assertEquals("🔒 FS1 Switch plate", SurveyPrepEdit.menuHeader("front", s1))
-        assertEquals(listOf("Delete", "Duplicate", "Unlock", "Unlock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(p, "front", s1).map { it.second })
+        assertEquals("🔒 FS1 Switch plate", SurveyPrepEdit.menuHeader(Tx.EN, "front", s1))
+        assertEquals(listOf("Delete", "Duplicate", "Unlock", "Unlock all Switch plate", "Cancel"), SurveyPrepEdit.menuItems(Tx.EN, p, "front", s1).map { it.second })
         // the floor's S is a Step: its group is named so
         val st = p.addMarkAt("floor", "S", 1300.0, 1600.0, W, L, "g1")
-        assertEquals("Lock all Step", SurveyPrepEdit.menuItems(p, "floor", st)[3].second)
+        assertEquals("Lock all Step", SurveyPrepEdit.menuItems(Tx.EN, p, "floor", st)[3].second)
         // ct52 1033: "Delete|Duplicate|Lock|Lock all Door|Cancel"
-        assertEquals("Delete|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItems(p, "front", mark(p, "d1")).joinToString("|") { it.second })
+        assertEquals("Delete|Duplicate|Lock|Lock all Door|Cancel", SurveyPrepEdit.menuItems(Tx.EN, p, "front", mark(p, "d1")).joinToString("|") { it.second })
     }
 
     @Test fun `the lines' lock is the surface's own, and says so`() {
@@ -121,15 +122,15 @@ class LockTest {
         assertTrue(SurveyPrep.linesLocked(sf)); assertEquals(true, sf.extra[SurveyPrep.LINES_LOCK])
         assertFalse(SurveyPrep.linesLocked(p.surface("right")))
         assertFalse(SurveyPrepEdit.setLinesLocked(p, "front", false))
-        assertEquals("Front wall lines locked", SurveyPrepEdit.linesSaid("front", true))
-        assertEquals("Floor lines unlocked", SurveyPrepEdit.linesSaid("floor", false))
-        assertEquals("Lines are locked — unlock first", SurveyPrepEdit.LINES_REFUSAL)
-        assertEquals("Locked", SurveyPrepEdit.linesState(true)); assertEquals("Unlock lines", SurveyPrepEdit.linesAction(true))
-        assertEquals("Lock lines", SurveyPrepEdit.linesAction(false))
+        assertEquals("Front wall lines locked", SurveyPrepEdit.linesSaid(Tx.EN, "front", true))
+        assertEquals("Floor lines unlocked", SurveyPrepEdit.linesSaid(Tx.EN, "floor", false))
+        assertEquals("Lines are locked — unlock first", SurveyPrepEdit.linesRefusal(Tx.EN))
+        assertEquals("Locked", SurveyPrepEdit.linesState(Tx.EN, true)); assertEquals("Unlock lines", SurveyPrepEdit.linesAction(Tx.EN, true))
+        assertEquals("Lock lines", SurveyPrepEdit.linesAction(Tx.EN, false))
     }
 
     @Test fun `the refusal and the delete texts`() {
-        assertEquals("FD1 is locked — unlock first", SurveyPrepEdit.refusal("FD1"))
-        assertEquals("FD1 deleted", SurveyPrepEdit.deleted("FD1"))
+        assertEquals("FD1 is locked — unlock first", SurveyPrepEdit.refusal(Tx.EN, "FD1"))
+        assertEquals("FD1 deleted", SurveyPrepEdit.deleted(Tx.EN, "FD1"))
     }
 }

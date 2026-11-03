@@ -1,5 +1,8 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan
@@ -42,10 +45,12 @@ import kotlin.math.tan
 object SurveyPrep {
 
     val SURFACES = listOf("front", "right", "back", "left", "floor", "ceil")
-    val NAME = mapOf("front" to "Front wall", "right" to "Right wall", "back" to "Back wall",
-        "left" to "Left wall", "floor" to "Floor", "ceil" to "Ceiling")
-    val TAB = mapOf("front" to "Front", "right" to "Right", "back" to "Back",
-        "left" to "Left", "floor" to "Floor", "ceil" to "Ceiling")
+    /** A surface's name and its tab's short name: identity values (the export labels, the salvage notes, the keys of
+     *  every reading), shown through [Masters.surface] and [Masters.surface_tab] (port 61c slice M3a). */
+    val NAME = mapOf("front" to "Front wall", "right" to "Right wall", "back" to "Back wall", // text:value identity, shown through Masters.surface
+        "left" to "Left wall", "floor" to "Floor", "ceil" to "Ceiling") // text:value identity, shown through Masters.surface
+    val TAB = mapOf("front" to "Front", "right" to "Right", "back" to "Back", // text:value identity, shown through Masters.surface_tab
+        "left" to "Left", "floor" to "Floor", "ceil" to "Ceiling") // text:value identity, shown through Masters.surface_tab
     /** The first letter of every mark's code: G for the floor (ground). */
     val CODE = mapOf("front" to "F", "right" to "R", "back" to "B", "left" to "L", "floor" to "G", "ceil" to "C")
 
@@ -57,9 +62,20 @@ object SurveyPrep {
     /** The four boundary lines of every surface. */
     val SLOTS = listOf("bottom", "top", "left", "right")
 
-    fun lineNames(s: String): Map<String, String> =
-        if (isPlan(s)) mapOf("bottom" to "back edge", "top" to "front edge", "left" to "left edge", "right" to "right edge")
-        else mapOf("bottom" to "floor line", "top" to "ceiling line", "left" to "left corner", "right" to "right corner")
+    /** A boundary line's name in the language (edge.*): a plan's four edges, a wall's floor and ceiling lines and its
+     *  two corners (port 61c slice M3a). */
+    fun lineName(tx: Tx, s: String, slot: String): String = when (slot) {
+        "bottom" -> if (isPlan(s)) tx.edge_back_edge else tx.edge_floor_line
+        "top" -> if (isPlan(s)) tx.edge_front_edge else tx.edge_ceiling_line
+        "left" -> if (isPlan(s)) tx.edge_left_edge else tx.edge_left_corner
+        "right" -> if (isPlan(s)) tx.edge_right_edge else tx.edge_right_corner
+        else -> slot
+    }
+
+    /** The four names in ENGLISH, by slot, for the two readers that draw no language yet: the on-photo painter
+     *  (SurveyPrepDraw.drawLines) and the salvage notes (SurveyPrepFile), both port 61c slice M3b's. The words live
+     *  once, in the keys; this is their English rendering, not a second copy of it. */
+    fun lineNames(s: String): Map<String, String> = SLOTS.associateWith { lineName(Tx.EN, s, it) }
 
     /** The two lines each line crosses: its corners are there. */
     val CROSSES = mapOf("bottom" to listOf("left", "right"), "top" to listOf("left", "right"),
@@ -331,9 +347,8 @@ object SurveyPrep {
     /** A laser reading is believed between these, mm. */
     fun valid(v: Double?): Boolean = v != null && !v.isNaN() && v >= SIZE_MIN && v <= SIZE_MAX
 
-    /** What the size sheet says when a figure is refused. */
-    const val SIZE_HINT_BAD = "300 to 30000 mm"
-    const val SIZE_HINT = "L front→back · W left→right · H floor→ceiling"
+    /** The size sheet's caption: what L, W and H are -- or, with a figure refused ([bad]), the range it must be in. */
+    fun sizeHint(tx: Tx, bad: Boolean): String = if (bad) tx.refuse_lwh_range else tx.sp_lwh_axes
 
     /**
      * The size sheet's verdict on its three boxes (L, W, H as typed) against
@@ -370,16 +385,16 @@ object SurveyPrep {
     fun outOf(e: Mark, a: Double, b: Double): Boolean =
         e.x0 < -OUT_TOL || e.y0 < -OUT_TOL || e.x1 > a + OUT_TOL || e.y1 > b + OUT_TOL
 
-    fun outNote(code: String) = "$code is outside the face: edit or delete it"
+    fun outNote(tx: Tx, code: String) = tx.refuse_sp_x_outside_face_edit(code)
 
     /** The size a surface squares to: across (A) and up (B), mm. */
     fun size(s: String, l: Double, w: Double, h: Double): DoubleArray =
         if (isPlan(s)) doubleArrayOf(w, l)
         else doubleArrayOf(if (s == "front" || s == "back") w else l, h)
 
-    /** Which laser figure each of A and B is. */
+    /** Which laser figure each of A and B is: the axis letters L, W and H, the prototype's own in every language. */
     fun sizeTag(s: String): Pair<String, String> =
-        if (isPlan(s)) "W" to "L" else (if (s == "front" || s == "back") "W" else "L") to "H"
+        if (isPlan(s)) "W" to "L" else (if (s == "front" || s == "back") "W" else "L") to "H" // text:value the laser's axis letters
 
     // ---------------------------------------------- squaring a surface to size
 
@@ -648,15 +663,21 @@ object SurveyPrep {
      * (v40) on every surface.
      */
     val TYPES: Map<String, List<MarkType>> = mapOf(
-        "wall" to listOf(MarkType("W", "Window", 0x4dabf7), MarkType("D", "Door", 0xff8a3d), MarkType("C", "Column", 0xb197fc),
-            MarkType("B", "Beam", 0xe0b040), MarkType("O", "Opening", 0x69db7c), MarkType("N", "Niche", 0x20c997),
-            MarkType("L", "Loft", 0xff922b), MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8),
-            MarkType("S", "Switch plate", 0xf783ac), MarkType("F", "Fan", 0x74c0fc), MarkType("X", "Other", 0xadb5bd)),
-        "floor" to listOf(MarkType("C", "Column", 0xb197fc), MarkType("S", "Step", 0xff8a3d), MarkType("O", "Opening", 0x69db7c),
-            MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), MarkType("X", "Other", 0xadb5bd)),
-        "ceil" to listOf(MarkType("B", "Beam", 0xe0b040), MarkType("C", "Column", 0xb197fc), MarkType("E", "Electric point", 0xffd43b),
-            MarkType("P", "Bulb point", 0xffa8a8), MarkType("F", "Fan", 0x74c0fc), MarkType("O", "Opening", 0x69db7c),
-            MarkType("X", "Other", 0xadb5bd)))
+        // A TYPE'S NAME IS AN IDENTITY VALUE (port 61c slice M3a): the `when` key of its icon, the English every menu,
+        // refusal and list composes from, and what Pano360.placeRefusal compares. It is SHOWN through Masters.type, and
+        // its short form through SurveyPrepPalette.short -> Masters.type_short.
+        "wall" to listOf(MarkType("W", "Window", 0x4dabf7), MarkType("D", "Door", 0xff8a3d), MarkType("C", "Column", 0xb197fc), // text:value identity, shown through Masters.type
+            MarkType("B", "Beam", 0xe0b040), MarkType("O", "Opening", 0x69db7c), MarkType("N", "Niche", 0x20c997), // text:value identity, shown through Masters.type
+            MarkType("L", "Loft", 0xff922b), MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), // text:value identity, shown through Masters.type
+            MarkType("S", "Switch plate", 0xf783ac), MarkType("F", "Fan", 0x74c0fc), MarkType("X", "Other", 0xadb5bd)), // text:value identity, shown through Masters.type
+        "floor" to listOf(MarkType("C", "Column", 0xb197fc), MarkType("S", "Step", 0xff8a3d), MarkType("O", "Opening", 0x69db7c), // text:value identity, shown through Masters.type
+            MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), MarkType("X", "Other", 0xadb5bd)), // text:value identity, shown through Masters.type
+        "ceil" to listOf(MarkType("B", "Beam", 0xe0b040), MarkType("C", "Column", 0xb197fc), MarkType("E", "Electric point", 0xffd43b), // text:value identity, shown through Masters.type
+            MarkType("P", "Bulb point", 0xffa8a8), MarkType("F", "Fan", 0x74c0fc), MarkType("O", "Opening", 0x69db7c), // text:value identity, shown through Masters.type
+            MarkType("X", "Other", 0xadb5bd))) // text:value identity, shown through Masters.type
+
+    /** A type's name in the language: [Masters.type] over its identity (`"Switch plate"` -> स्विच प्लेट). */
+    fun typeName(tx: Tx, s: String, t: String): String = Masters.type(tx, typeOf(s, t).name)
 
     fun kind(s: String) = if (isPlan(s)) s else "wall"
     fun types(s: String): List<MarkType> = TYPES.getValue(kind(s))
@@ -798,10 +819,17 @@ object SurveyPrep {
     }
 
     /** What a tap off the face says (sp.js placeAt): "Tap inside the front wall to place it". */
-    fun placeMiss(s: String) = "Tap inside the ${NAME.getValue(s).lowercase()} to place it"
+    fun placeMiss(tx: Tx, s: String) = tx.sp_msg_tap_inside_x_place(v = Masters.surface(tx, NAME.getValue(s)).lowercase())
 
-    /** One line of a mark's checklist: its key, what it is, and the photo's estimate (null: site only). */
-    class Measure(val key: String, val what: String, val est: Double?)
+    /**
+     * One line of a mark's checklist: its key, what it is -- drawn in the language, so a [Msg] over the measure.* keys
+     * (port 61c slice M3a) -- and the photo's estimate (null: site only). The String constructor is for the two
+     * checklists not keyed yet, a Line's and a chain's (SurveyMeas.measures, SurveyChain.measures: port 61c slice
+     * M3b), whose English it draws whatever the language; it goes with M3b.
+     */
+    class Measure(val key: String, val what: Msg, val est: Double?) {
+        constructor(key: String, what: String, est: Double?) : this(key, { _: Tx -> what }, est)
+    }
 
     /**
      * Everything a mark asks the engineer to measure, before dropping what is
@@ -817,33 +845,38 @@ object SurveyPrep {
      */
     fun measures0(s: String, e: Mark, a: Double, b: Double): List<Measure> {
         val w = e.x1 - e.x0; val h = e.y1 - e.y0; val plan = isPlan(s); val cE = isPoint(e.t)
-        val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2; val to = if (cE) ", to centre" else ""
+        val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
+        // ", to centre" after a point's two offsets, joined as sp.js measures0 joins measure.to_centre (the card, 28 Oct 2026)
+        val to: Msg = if (cE) { tx -> tx.measure_to_centre } else { _ -> "" }
         val l = if (cE) cx else e.x0; val r = if (cE) a - cx else a - e.x1
         val bo = if (cE) cy else e.y0; val tp = if (cE) b - cy else b - e.y1
-        val hx = if (l <= r) Measure("l", (if (plan) "from left wall" else "from left corner") + to, l)
-                 else Measure("r", (if (plan) "from right wall" else "from right corner") + to, r)
-        val vy = if (plan) (if (tp <= bo) Measure("f", "from front wall$to", tp) else Measure("k", "from back wall$to", bo))
-                 else if (e.t == "W" || bo <= tp) Measure("s", (if (e.t == "W") "sill, from floor" else "from floor") + to, bo)
-                 else Measure("t", "from ceiling$to", tp)
+        val hx = if (l <= r) Measure("l", { tx -> (if (plan) tx.measure_left_wall else tx.measure_left_corner) + to(tx) }, l)
+                 else Measure("r", { tx -> (if (plan) tx.measure_right_wall else tx.measure_right_corner) + to(tx) }, r)
+        val vy = if (plan) (if (tp <= bo) Measure("f", { tx -> tx.measure_front_wall + to(tx) }, tp)
+                            else Measure("k", { tx -> tx.measure_back_wall + to(tx) }, bo))
+                 else if (e.t == "W" || bo <= tp) Measure("s", { tx -> (if (e.t == "W") tx.measure_sill_floor else tx.measure_from_floor) + to(tx) }, bo)
+                 else Measure("t", { tx -> tx.measure_from_ceiling + to(tx) }, tp)
         if (cE) return listOf(hx, vy).map { Measure(ckey(plan, e.t, it.key), it.what, it.est) }
+        val width = Measure("w", { tx -> tx.measure_width }, w)
+        val height = Measure("h", { tx -> tx.measure_height }, h)
         if (!plan) return when (e.t) {
-            "D" -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, Measure("p", "reveal depth", null))
-            "C" -> listOf(Measure("w", "width", w), hx, Measure("p", "projection from wall", null))
-            "B" -> listOf(Measure("d", "drop below ceiling", b - e.y0), hx, Measure("p", "projection from wall", null))
-            "N" -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, vy, Measure("p", "depth into wall", null))
+            "D" -> listOf(width, height, hx, Measure("p", { tx -> tx.measure_reveal_depth }, null))
+            "C" -> listOf(width, hx, Measure("p", { tx -> tx.measure_projection_wall }, null))
+            "B" -> listOf(Measure("d", { tx -> tx.measure_drop_below_ceiling }, b - e.y0), hx, Measure("p", { tx -> tx.measure_projection_wall }, null))
+            "N" -> listOf(width, height, hx, vy, Measure("p", { tx -> tx.measure_depth_into_wall }, null))
             // a loft hangs from the ceiling: what matters is how high its underside is
-            "L" -> listOf(Measure("w", "width", w), Measure("h", "loft height", h), hx,
-                Measure("s", "underside, from floor", e.y0), Measure("p", "loft depth", null))
+            "L" -> listOf(width, Measure("h", { tx -> tx.measure_loft_height }, h), hx,
+                Measure("s", { tx -> tx.measure_underside_floor }, e.y0), Measure("p", { tx -> tx.measure_loft_depth }, null))
             // a Switch plate (a WALL's S): from the floor, never from the ceiling, even in the upper half
-            "S" -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, Measure("s", "from floor", bo))
-            else -> listOf(Measure("w", "width", w), Measure("h", "height", h), hx, vy) +
-                (if (e.t == "W" || e.t == "O") listOf(Measure("p", "reveal depth", null)) else emptyList())
+            "S" -> listOf(width, height, hx, Measure("s", { tx -> tx.measure_from_floor }, bo))
+            else -> listOf(width, height, hx, vy) +
+                (if (e.t == "W" || e.t == "O") listOf(Measure("p", { tx -> tx.measure_reveal_depth }, null)) else emptyList())
         }
-        val base = listOf(Measure("w", "width, left–right", w), Measure("h", "depth, front–back", h), hx, vy)
+        val base = listOf(Measure("w", { tx -> tx.measure_width_left_right }, w), Measure("h", { tx -> tx.measure_depth_front_back }, h), hx, vy)
         return when (e.t) {
             // the FLOOR's S is a Step
-            "S" -> base + Measure("p", "height", null)
-            "B" -> base + Measure("p", "drop below ceiling", null)
+            "S" -> base + Measure("p", { tx -> tx.measure_height }, null)
+            "B" -> base + Measure("p", { tx -> tx.measure_drop_below_ceiling }, null)
             else -> base
         }
     }
@@ -964,9 +997,10 @@ object SurveyPrep {
         }
 
         /** The one line the screen shows for them: the first, and how many more. Null when none. */
-        fun outsideNote(l: Double, w: Double, h: Double): String? {
+        fun outsideNote(tx: Tx, l: Double, w: Double, h: Double): String? {
             val o = outside(l, w, h); if (o.isEmpty()) return null
-            return outNote(o[0].second.code) + if (o.size > 1) " (+${o.size - 1} more)" else ""
+            val code = o[0].second.code
+            return if (o.size > 1) tx.sp_x_outside_face_more(code = code, n = (o.size - 1).toString()) else outNote(tx, code)
         }
 
         /** The surface and mark a reading key belongs to. */

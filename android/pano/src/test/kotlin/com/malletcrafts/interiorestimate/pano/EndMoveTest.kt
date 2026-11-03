@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * END POINTS THAT MOVE (v52 slice 10, item 8; Amit, 14 Oct 2026 06:30 IST: "i can not move measure line once drawn. i
@@ -123,10 +124,10 @@ class EndMoveTest {
         val m = meas(SurveyMeas.LINE, "F-M1", pt(500.0, 600.0), pt(1500.0, 600.0), locked = true)
         assertNull(SurveyGuide.endMove("front", m, 1, pt(2200.0, 600.0), A, B, marks, 25.0))
         assertEquals(listOf(1500.0, 600.0), m.pts[1].toList())
-        assertEquals("F-M1 is locked — unlock to move it", SurveyGuide.lockedEnd(m.code))
+        assertEquals("F-M1 is locked — unlock to move it", SurveyGuide.lockedEnd(Tx.EN, m.code))
         val t = meas(SurveyMeas.TAPE, "F-T1", pt(800.0, 1200.0), pt(2000.0, 1200.0), locked = true)
         assertNull(SurveyGuide.endMove("front", t, 0, pt(400.0, 1200.0), A, B, marks, 25.0))
-        assertEquals("F-T1 is locked — unlock to move it", SurveyGuide.lockedEnd(t.code))
+        assertEquals("F-T1 is locked — unlock to move it", SurveyGuide.lockedEnd(Tx.EN, t.code))
     }
 
     @Test fun `an end is grabbed within 14 dp, the nearest`() {

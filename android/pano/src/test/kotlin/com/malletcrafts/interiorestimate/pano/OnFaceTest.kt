@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /** Is a tap on the face (sp.js onFace): within max(25 mm, 1 % of the longer side) past an edge it still is. */
 class OnFaceTest {
@@ -32,9 +33,9 @@ class OnFaceTest {
     }
 
     @Test fun `the refusal names the face`() {
-        assertEquals("Tap inside the front wall to place it", SurveyPrep.placeMiss("front"))
-        assertEquals("Tap inside the floor to place it", SurveyPrep.placeMiss("floor"))
-        assertEquals("Tap inside the ceiling to place it", SurveyPrep.placeMiss("ceil"))
-        assertEquals("Tap inside the left wall to place it", SurveyPrep.placeMiss("left"))
+        assertEquals("Tap inside the front wall to place it", SurveyPrep.placeMiss(Tx.EN, "front"))
+        assertEquals("Tap inside the floor to place it", SurveyPrep.placeMiss(Tx.EN, "floor"))
+        assertEquals("Tap inside the ceiling to place it", SurveyPrep.placeMiss(Tx.EN, "ceil"))
+        assertEquals("Tap inside the left wall to place it", SurveyPrep.placeMiss(Tx.EN, "left"))
     }
 }

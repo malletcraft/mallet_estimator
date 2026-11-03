@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -186,8 +187,8 @@ object SurveyGuide {
     const val SNAP_MM = 25.0
     const val SNAP_DP = 14.0
 
-    /** What a locked end says when it is dragged (sp.js endGrab): "F-M1 is locked — unlock to move it". */
-    fun lockedEnd(code: String) = "$code is locked — unlock to move it"
+    /** What a locked end says when it is dragged (sp.js endGrab): "F-M1 is locked — unlock to move it" (port 61c slice M3a). */
+    fun lockedEnd(tx: Tx, code: String) = tx.refuse_locked_unlock_move(code)
 
     /** The snapping distance, mm: 25 mm, or 14 dp at the current scale ([mmPerPx] face mm per canvas px, [dpPx] px per
      *  dp) when that is more. */

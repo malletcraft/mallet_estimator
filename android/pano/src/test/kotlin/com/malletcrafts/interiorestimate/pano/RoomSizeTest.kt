@@ -6,6 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * The room's L · W · H editable on survey prep (prototype v51; Amit, 14 Oct
@@ -33,7 +34,7 @@ class RoomSizeTest {
         assertEquals(listOf(0), SurveyPrep.sizeEdit(listOf(SurveyPrep.sizeText("12.5"), "3310", "2705"), now).bad)
         assertEquals(listOf(0), SurveyPrep.sizeEdit(listOf("12.5", "3310", "2705"), now).bad)
         assertEquals("30000", SurveyPrep.sizeText("300001"))
-        assertEquals("300 to 30000 mm", SurveyPrep.SIZE_HINT_BAD)
+        assertEquals("300 to 30000 mm", SurveyPrep.sizeHint(Tx.EN, bad = true))
     }
 
     @Test fun `apply takes whole figures, and a box left at its prefill keeps the size unrounded`() {
@@ -51,15 +52,15 @@ class RoomSizeTest {
         val p = SurveyPrep.fresh(5458.0, 3310.0, 2705.0)
         p.surface("front").marks.add(SurveyPrep.Mark("e", "E", "FE1", 2786.0, 2936.0, 300.0, 450.0))
         p.surface("front").marks.add(SurveyPrep.Mark("d", "D", "FD1", 300.0, 1200.0, 0.0, 2100.0))
-        assertNull(p.outsideNote(5458.0, 3310.0, 2705.0))
+        assertNull(p.outsideNote(Tx.EN, 5458.0, 3310.0, 2705.0))
         // L 4000 · W 2900 · H 2400: the front wall is 2900 across, FE1 ends at 2936
-        assertEquals("FE1 is outside the face: edit or delete it", p.outsideNote(4000.0, 2900.0, 2400.0))
+        assertEquals("FE1 is outside the face: edit or delete it", p.outsideNote(Tx.EN, 4000.0, 2900.0, 2400.0))
         assertEquals(listOf("FE1"), p.outside(4000.0, 2900.0, 2400.0).map { it.second.code })
         assertEquals(2936.0, p.surface("front").marks[0].x1)
         p.surface("ceil").marks.add(SurveyPrep.Mark("b", "B", "CB1", 0.0, 230.0, 0.0, 3990.0))
         // H 2000 also takes FD1 (2100 high) past the front wall's top; CB1 still fits the ceiling
         assertEquals(listOf("FE1", "FD1"), p.outside(4000.0, 2900.0, 2000.0).map { it.second.code })
-        assertEquals("FE1 is outside the face: edit or delete it (+1 more)", p.outsideNote(4000.0, 2900.0, 2000.0))
+        assertEquals("FE1 is outside the face: edit or delete it (+1 more)", p.outsideNote(Tx.EN, 4000.0, 2900.0, 2000.0))
         assertTrue(SurveyPrep.outOf(SurveyPrep.Mark("x", "X", "X", 0.0, 2900.4, 0.0, 10.0), 2900.0, 2400.0).not())
         assertTrue(SurveyPrep.outOf(SurveyPrep.Mark("x", "X", "X", 0.0, 2900.6, 0.0, 10.0), 2900.0, 2400.0))
     }

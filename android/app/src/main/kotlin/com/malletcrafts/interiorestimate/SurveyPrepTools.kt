@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 
 /**
  * SURVEY PREP'S 2 · MARK PALETTE (prototype v52, sp.js 1356-1399 and v42.css .tb.pt; v52 slice 7). ONE row at
@@ -63,6 +64,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
  */
 @Composable
 internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) -> Unit, onMore: () -> Unit) {
+    val tx = LocalTx.current
     val kind = SurveyPrep.kind(s)
     // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape)
     Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
@@ -77,16 +79,16 @@ internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) 
                 SurveyPrepPalette.SlotKind.TYPE -> slot.type?.let { Color(SurveyPrepDraw.argb(it.colour)) } ?: SP_MORE
             }
             val name = when (slot.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> "Select"
-                SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(kind, tool)
-                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(slot.key)
-                SurveyPrepPalette.SlotKind.TYPE -> SurveyPrepPalette.short(slot.type?.name ?: slot.key)
+                SurveyPrepPalette.SlotKind.SELECT -> tx.common_select
+                SurveyPrepPalette.SlotKind.MORE -> SurveyPrepPalette.moreLabel(tx, kind, tool)
+                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
+                SurveyPrepPalette.SlotKind.TYPE -> SurveyPrepPalette.short(tx, slot.type?.name ?: slot.key)
             }
             val aria = when (slot.kind) {
-                SurveyPrepPalette.SlotKind.SELECT -> "Select"
-                SurveyPrepPalette.SlotKind.MORE -> "More"
-                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(slot.key)
-                SurveyPrepPalette.SlotKind.TYPE -> slot.type?.name ?: slot.key
+                SurveyPrepPalette.SlotKind.SELECT -> tx.common_select
+                SurveyPrepPalette.SlotKind.MORE -> tx.common_more_2
+                SurveyPrepPalette.SlotKind.TOOL -> SurveyPrepPalette.toolName(tx, slot.key)
+                SurveyPrepPalette.SlotKind.TYPE -> Masters.type(tx, slot.type?.name ?: slot.key)
             }
             val shape = RoundedCornerShape(12.dp)
             Column(
@@ -128,16 +130,17 @@ internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) 
  */
 @Composable
 internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (String) -> Unit, onClose: () -> Unit) {
+    val tx = LocalTx.current
     val all = SurveyPrepPalette.forSurface(s).all
     Column(modifier.clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).background(SP_SHEET_MORE)
         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }   // a tap inside never falls through
         .padding(start = 10.dp, end = 10.dp, top = 6.dp, bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(SurveyPrepPalette.sheetTitle(s), color = Color(0xFFECEEE8), fontSize = 13.sp, lineHeight = 16.sp,
+            Text(SurveyPrepPalette.sheetTitle(tx, s), color = Color(0xFFECEEE8), fontSize = 13.sp, lineHeight = 16.sp,
                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).clickable { onClose() }
-                .semantics { contentDescription = "Close" }, contentAlignment = Alignment.Center) {
-                Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp)
+                .semantics { contentDescription = tx.common_close }, contentAlignment = Alignment.Center) {
+                Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp) // text:value glyph
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -151,13 +154,15 @@ internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (S
                             .background(if (on) lerpColour(SP_TILE, col, 0.30f) else SP_TILE)
                             .border(1.5.dp, col, shape)
                             .clickable { onPick(ty.letter) }
-                            .semantics { contentDescription = ty.name; selected = on }
+                            .semantics { contentDescription = Masters.type(tx, ty.name); selected = on }
                             .padding(horizontal = 2.dp, vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Canvas(Modifier.size(24.dp)) { drawMarkIcon(ty.name, col) }
                             Text(ty.letter, color = col, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Text(SurveyPrepPalette.short(ty.name), color = Color(0xFFECEEE8), fontSize = 10.sp, lineHeight = 12.sp,
-                                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                            // a More tile's name: one of the four boxes the prototype measured for Devanagari -- 14 sp under मराठी,
+                            // or the feet of its marks are cut (design-marathi §4; v61c.2 CSS .mrows53 .mt span)
+                            Text(SurveyPrepPalette.short(tx, ty.name), color = Color(0xFFECEEE8), fontSize = 10.sp,
+                                lineHeight = if (tx.mr) 14.sp else 12.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
@@ -179,6 +184,7 @@ internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (S
 @Composable
 internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: String? = null, onDone: (() -> Unit)? = null,
                         onClose: () -> Unit) {
+    val tx = LocalTx.current
     val col = Color(SurveyPrepDraw.argb(colour)); val shape = RoundedCornerShape(16.dp)
     Row(modifier.heightIn(min = 32.dp).clip(shape).background(Color(0xD0000000)).border(1.5.dp, col, shape).padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -188,11 +194,11 @@ internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: 
         }
         if (onDone != null) Box(Modifier.size(32.dp).clip(shape).clickable { onDone() }
             .semantics { contentDescription = SurveyChain.DONE_LABEL; role = Role.Button }, contentAlignment = Alignment.Center) {
-            Text("✓", color = SP_DONE, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold)
+            Text("✓", color = SP_DONE, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold) // text:value glyph
         }
-        Box(Modifier.size(32.dp).clip(shape).clickable { onClose() }.semantics { contentDescription = "Back to Select" },
+        Box(Modifier.size(32.dp).clip(shape).clickable { onClose() }.semantics { contentDescription = tx.sp_aria_back_select },
             contentAlignment = Alignment.Center) {
-            Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp)
+            Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp) // text:value glyph
         }
     }
 }

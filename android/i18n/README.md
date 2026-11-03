@@ -232,6 +232,59 @@ Move to Client approved is the guarded move carrying the ticks (`QuoteStageSync.
 offline lines). **No new key**, no text changed; Tx is not regenerated; `unkeyed.tsv`, `ported.txt` and
 `literal-counts.tsv` are unchanged.
 
+## Port 61c slice M3a (3 Nov 2026): survey prep's chrome is keyed
+
+`SurveyPrepScreen.kt`, `SurveyPrepTools.kt`, `SurveyPrepLocks.kt`, `pano/SurveyPrep.kt`, `pano/SurveyPrepPalette.kt`,
+`pano/SurveyPrepEdit.kt`, `pano/StepRoute.kt` and `pano/SurveyGuide.kt` joined `ported.txt` and their 245 `unkeyed.tsv` rows went
+(1,171 -> 926). Every word of the tabs, the step strip, the Show row, the captions, the status and bounded lines, 1 · Lines' panel,
+2 · Mark's selection rows and D2 strip, the palette, More ▸, the tool chip, the long-press menu, the clears, Start over, Discard,
+the room size sheet, the List's table and its chain rows, the snackbars and the notes is a `tx.<key>` or a `Masters` name. **No
+new key**: every text had one in the tables (the card's 37 survey-prep keys and its group-2 splits among them), so Tx is not
+regenerated and the tables hold 1,792 keys as before.
+
+- **Identity values, drawn through Masters.** `SurveyPrep.NAME` and `TAB` (a surface's name and its tab's short name:
+  `Masters.surface`, `Masters.surface_tab`), `SurveyPrep.TYPES` (a mark type's name: the `when` key of its icon, what
+  Pano360.placeRefusal compares, the English every menu composes from: `Masters.type`, through `SurveyPrep.typeName`) and
+  `SurveyPrepPalette.SHORT` (its short form: `Masters.type_short`, through `SurveyPrepPalette.short`) stay English constants,
+  marked `// text:value`. So do the laser's axis letters L, W and H (`sizeTag`, the size sheet, ⋮'s size line), the glyphs
+  (←, ↶, ⋮, ✎, ✓, ✕, Δ, the nudge arrows) and the unit `mm` in an empty reading box. A lock group's `name` ("tapes",
+  "Line marks", a type) is an identity drawn through `SurveyPrepEdit.groupName`.
+- **A mark's checklist labels are a `Msg` each.** `SurveyPrep.Measure.what` is `(Tx) -> String` over the `measure.*` keys
+  (", to centre" joined as sp.js joins `measure.to_centre`), so `measures0` / `measures` take no `Tx` and SurveyPlan's four
+  keys-only readers are untouched. The String constructor is for the two checklists not keyed yet, a Line's (`SurveyMeas.measures`)
+  and a chain's (`SurveyChain.measures`), port M3b's; it goes with M3b.
+- **The four boundary lines' names** are `SurveyPrep.lineName(tx, s, slot)` (`edge.*`). `lineNames(s)` now RENDERS those keys in
+  English for the two readers that draw no language yet -- the on-photo painter (`SurveyPrepDraw.drawLines`) and the salvage
+  notes (`SurveyPrepFile`), both M3b's -- so the words live once, in the keys.
+- **Functions that took no language now do** (`tx: Tx` first): `SurveyPrepEdit.refusal`, `linesRefusal` (was the constant
+  `LINES_REFUSAL`), `deleted`, `linesSaid`, `linesState`, `linesAction`, `lockedSnack`, `startOverLabel` / `startOverArmed` (were
+  the constants `START_OVER` / `START_OVER_ARMED`), `startedOver`, `clearedSnack`, `clearLabel`, `labelOf`, `deleteLabel`, `menuHeader`,
+  `menuHeaderOf`, `menuItems`, `menuItemsOf`; `SurveyPrepPalette.toolName`, `short`, `moreLabel`, `chipText`, `sheetTitle`;
+  `StepRoute.tabName`, `label`, `stepName` (new; `STEPS` is the four keys alone), `stripFace`; `SurveyPrep.sizeHint` (was
+  `SIZE_HINT` / `SIZE_HINT_BAD`), `outNote`, `Prep.outsideNote`, `placeMiss`; `SurveyGuide.lockedEnd`; and, because they call those,
+  `SurveyChain.lockedNode` and `SurveyRef.lockedSaid` (the latter now `refuse.sp.x_reference_locked_unlock`, the prototype's own
+  whole key). The tests keep their English literals with `Tx.EN` added: SurveyPrepTest, PaletteTest, LockTest, ClearTest,
+  StartOverTest, StepRouteTest, MeasTest, ChainTest, Pano360Test, EndMoveTest, RefFrameTest, RoomSizeTest and OnFaceTest
+  (GuideTest pins no text; `lockedEnd` is pinned in EndMoveTest and ChainTest).
+- **The prototype's English wins (decision 5)**, so these change on the phone: the snackbar's `UNDO` is `Undo` (`sp.aria.undo`);
+  the eye's state is read out as `on` / `off` (`sp.on`, `sp.off`); ⋮'s group header `THIS 360` is `This 360` (`sp.this_360`);
+  the List's size tag ends `· Ref` / `· Laser` (`common.ref`, `app.laser`) where the phone wrote `ref` / `laser`; the room
+  List's two lines name the surface, `Front wall · set its four lines` (`sp.x_set_four_lines_2`) and `Front wall · set its four
+  lines in 1 · Lines to see it squared` (`sp.x_set_four_lines`), where the phone said `Set its four lines first.` and `Set its four
+  lines in 1 · Lines to see it squared.`; and a face's 3 · List status always writes `measurements` (`sp.x_x_mark_x`), where the
+  phone wrote `1 measurement`. Nothing else Amit sees changes in English.
+- **The four Marathi-only line heights** (design-marathi §4, each `if (tx.mr) … else <today's value>`, `Tx.mr` being the one
+  layout flag): the face tabs 17 sp (SpTab), the reading rows 17 sp (the table's reading and chain rows) and the More ▸ tile
+  names 14 sp (SpMoreSheet). The fourth, More ▸'s ROW LABELS, has no element on the phone: the prototype's v53 More sheet groups
+  the types by trade with a label per row, and the phone's More ▸ is one grid with no rows, so there is nothing to size.
+- **Long-lived messages are a `Msg`**: `savedMsg` (the bar's `Saved ✓ 12:34`) and `readingsMsg` (⋮'s web line) are drawn in the
+  language on when they are drawn. `say()` and the snackbar keep a String (2.6 s and 5 s): a note raised before a language flip
+  is not redrawn. **Still English under मराठी on survey prep**, each a later slice's: the opened file's own words
+  (`SurveyPrepFile.savedText`, `openedNote`, `pointsNote`), the readings' conflict texts and not-yet line (`ReadingsSync`,
+  `Readings`), the 360 caption and refusals (`Pano360`), the Size from row, the reference's own texts (`SurveyRef`), a Tape's,
+  Line's and chain's labels, chips and rows (`SurveyMeas`, `SurveyChain`), the words drawn on the photo (`SurveyPrepDraw`), all
+  M3b; the laser's states (`DistoClient`), M6; the upload status line (`AsIsUpload`), M2.
+
 ## What is here
 
 | File | What it is | Who writes it |

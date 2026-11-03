@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * THE CLEARS (v52 slice 8, sp.js 839-850): ⋮ Clear this surface… (the open face; none on the List tab) and
@@ -50,7 +51,7 @@ class ClearTest {
         assertEquals(905.0, p.actual["FD1.w"]); assertEquals(2053.0, p.actual["FD1.h"])
         assertNull(p.actual["FW1.w"]); assertNull(p.actual["FE1.cl"])
         assertEquals(1210.0, p.actual["RW1.h"], "another surface's readings are not touched")
-        assertEquals("Cleared 2 items, 1 locked kept", SurveyPrepEdit.clearedSnack(r.n, r.kept))
+        assertEquals("Cleared 2 items, 1 locked kept", SurveyPrepEdit.clearedSnack(Tx.EN, r.n, r.kept))
     }
 
     @Test fun `Clear whole room walks all six surfaces`() {
@@ -59,7 +60,7 @@ class ClearTest {
         assertEquals(4, r.n); assertEquals(2, r.kept)
         assertEquals(listOf("FD1", "RD1"), codes(p))
         assertEquals(setOf("FD1.w", "FD1.h", "RD1.w"), p.actual.keys)
-        assertEquals("Cleared 4 items, 2 locked kept", SurveyPrepEdit.clearedSnack(r.n, r.kept))
+        assertEquals("Cleared 4 items, 2 locked kept", SurveyPrepEdit.clearedSnack(Tx.EN, r.n, r.kept))
         // a second clear has nothing to take, and changes nothing
         val again = SurveyPrepEdit.clearItems(p, "room", "list")
         assertEquals(0, again.n); assertEquals(2, again.kept); assertEquals(listOf("FD1", "RD1"), codes(p))
@@ -79,18 +80,18 @@ class ClearTest {
         val p = room(); SurveyPrepEdit.lockAll(p, "front", null, true)
         assertEquals(0, SurveyPrepEdit.clearItems(p, "surf", "front").n)
         assertEquals(3, p.surface("front").marks.size)
-        assertEquals("3 locked — nothing to clear", SurveyPrepEdit.clearLabel("surf", 0, 3, false))
-        assertEquals("Nothing on this surface to clear", SurveyPrepEdit.clearLabel("surf", 0, 0, false))
-        assertEquals("Nothing in the room to clear", SurveyPrepEdit.clearLabel("room", 0, 0, false))
+        assertEquals("3 locked — nothing to clear", SurveyPrepEdit.clearLabel(Tx.EN, "surf", 0, 3, false))
+        assertEquals("Nothing on this surface to clear", SurveyPrepEdit.clearLabel(Tx.EN, "surf", 0, 0, false))
+        assertEquals("Nothing in the room to clear", SurveyPrepEdit.clearLabel(Tx.EN, "room", 0, 0, false))
     }
 
     @Test fun `the clear buttons' words (sp js 1473-1475 and 847)`() {
-        assertEquals("Clear this surface… (3)", SurveyPrepEdit.clearLabel("surf", 3, 1, false))
-        assertEquals("Clear whole room… (12)", SurveyPrepEdit.clearLabel("room", 12, 0, false))
-        assertEquals("Tap again to clear 3 items", SurveyPrepEdit.clearLabel("surf", 3, 0, true))
-        assertEquals("Tap again to clear 1 item", SurveyPrepEdit.clearLabel("room", 1, 0, true))
-        assertEquals("5 items cleared", SurveyPrepEdit.clearedSnack(5, 0))
-        assertEquals("1 item cleared", SurveyPrepEdit.clearedSnack(1, 0))
+        assertEquals("Clear this surface… (3)", SurveyPrepEdit.clearLabel(Tx.EN, "surf", 3, 1, false))
+        assertEquals("Clear whole room… (12)", SurveyPrepEdit.clearLabel(Tx.EN, "room", 12, 0, false))
+        assertEquals("Tap again to clear 3 items", SurveyPrepEdit.clearLabel(Tx.EN, "surf", 3, 0, true))
+        assertEquals("Tap again to clear 1 item", SurveyPrepEdit.clearLabel(Tx.EN, "room", 1, 0, true))
+        assertEquals("5 items cleared", SurveyPrepEdit.clearedSnack(Tx.EN, 5, 0))
+        assertEquals("1 item cleared", SurveyPrepEdit.clearedSnack(Tx.EN, 1, 0))
         assertEquals(4000L, SurveyPrepEdit.ARM_MS); assertEquals(5000L, SurveyPrepEdit.SNACK_MS); assertEquals(2600L, SurveyPrepEdit.SAY_MS)
     }
 

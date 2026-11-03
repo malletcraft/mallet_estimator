@@ -203,6 +203,9 @@ internal fun Sp360(
 ) {
     val dens = LocalDensity.current
     val dpx = dens.density
+    // the language (port 61c slice M3a): the chip's words, and a locked end's refusal said from inside the gesture
+    val tx = LocalTx.current
+    val txS by rememberUpdatedState(tx)
     // the gesture below outlives recompositions; everything it reads that can change under it is read through these
     val actS by rememberUpdatedState(act)
     val prepS by rememberUpdatedState(prep); val selS by rememberUpdatedState(sel)
@@ -518,7 +521,7 @@ internal fun Sp360(
                                 // LOCKED: nothing moves, no undo entry; the refusal once the finger has really moved
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
-                                    if (g.endLock) actS.say(SurveyGuide.lockedEnd(g.locked)) else actS.refuse(g.locked)
+                                    if (g.endLock) actS.say(SurveyGuide.lockedEnd(txS, g.locked)) else actS.refuse(g.locked)
                                 }
                             } else if (g != null) {
                                 if (!gated || endGate.move(e.dx, e.dy)) {
@@ -639,9 +642,9 @@ internal fun Sp360(
                     SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
                         t.handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)
                 }?.let { ts ->
-                    val rad = 18f * dpx; val tx = ts.left.toFloat() + rad; val ty = ts.top.toFloat() + rad
-                    P3Draw.trash(nc, tx, ty, rad, ink)
-                    trashAt[0] = floatArrayOf(tx, ty, rad)
+                    val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
+                    P3Draw.trash(nc, tcx, tcy, rad, ink)
+                    trashAt[0] = floatArrayOf(tcx, tcy, rad)
                 }
             }
         }
@@ -650,7 +653,7 @@ internal fun Sp360(
         val chainN = chain?.nodes?.size ?: 0
         val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(chainN)
                        else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tool, drag, area?.size ?: 0)
-                       else SurveyPrepPalette.chipText(tab, tool, "360")
+                       else SurveyPrepPalette.chipText(tx, tab, tool, "360")
         if (chipText != null) {
             Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
                 SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool), Modifier,

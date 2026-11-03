@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -68,8 +70,12 @@ object StepRoute {
     /** The Plan tab: the six drawings (slice 13). */
     fun isPlan(t: String): Boolean = t == "plan"
 
-    /** A tab's text before it is upper-cased: the face's short name, List or Plan. */
-    fun tabName(t: String): String = when (t) { "list" -> "List"; "plan" -> "Plan"; else -> SurveyPrep.TAB[t] ?: t }
+    /** A tab's text before it is upper-cased: the face's short name (surface.*.short, through Masters), List or Plan. */
+    fun tabName(tx: Tx, t: String): String = when (t) {
+        "list" -> tx.common_list
+        "plan" -> tx.common_plan
+        else -> SurveyPrep.TAB[t]?.let { Masters.surface_tab(tx, it) } ?: t
+    }
 
     /** The ✓ goes on a face whose four lines are all set; List and Plan never carry one. */
     fun tabTick(t: String, bounded: Boolean): Boolean = isFace(t) && bounded
@@ -79,16 +85,27 @@ object StepRoute {
      * works (Amit, 15 Oct 2026: "Yes, last, after everything else"); until then it was hidden, never greyed -- no dead
      * step, by the no-fallbacks rule.
      */
-    val STEPS: List<Pair<String, String>> = listOf("lines" to "Lines", "mark" to "Mark", "list" to "List", "360" to "360")
+    val STEPS: List<String> = listOf("lines", "mark", "list", "360")
 
-    /** The step's name as it is read out and labelled: "2 · Mark". */
-    fun label(i: Int): String = "${i + 1} · ${STEPS[i].second}"
+    /** A step's name: Lines, Mark, List (common.*) and 360, which is a number in every language. */
+    fun stepName(tx: Tx, key: String): String = when (key) {
+        "lines" -> tx.common_lines
+        "mark" -> tx.common_mark
+        "list" -> tx.common_list
+        else -> key // "360"
+    }
+
+    /** The step's name as it is read out and labelled: "2 · Mark" -- its number, the separator, its name. */
+    fun label(tx: Tx, i: Int): String = "${i + 1}$SEP${stepName(tx, STEPS[i])}"
 
     /** Where [mode] sits in the strip (-1: not a step shown). */
-    fun stepIndex(mode: String): Int = STEPS.indexOfFirst { it.first == mode }
+    fun stepIndex(mode: String): Int = STEPS.indexOf(mode)
 
-    /** "Front wall ·": the face the strip belongs to. */
-    fun stripFace(tab: String): String = (SurveyPrep.NAME[tab] ?: "") + " ·"
+    /** The separator in a step's label and after the strip's face. */
+    private const val SEP = " · " // text:value the prototype's separator, the same in both languages
+
+    /** "Front wall ·": the face the strip belongs to (surface.*, through Masters). */
+    fun stripFace(tx: Tx, tab: String): String = (SurveyPrep.NAME[tab]?.let { Masters.surface(tx, it) } ?: "") + SEP.trimEnd()
 
     /** The strip is the open face's; the room's List tab and the Plan tab have no steps (slice 13). */
     fun showStrip(tab: String): Boolean = isFace(tab)

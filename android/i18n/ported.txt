@@ -29,3 +29,12 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSync.kt
 # Port 61c slice QM1 (3 Nov 2026) adds pano/Phases.kt (the phase strip's model: the five phases, the does-lines, the backward confirm, the rows -- every text a tx accessor, a quote stage through Masters; the row separator marked `// text:value`) and app/PhaseStrip.kt (draws it: every text through Phases; the circle's ✓ glyph marked `// text:value`).
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PhaseStrip.kt
+# Port 61c slice M3a (3 Nov 2026) adds survey prep's chrome: app/SurveyPrepScreen.kt (the bar, the tabs and the step strip, the Show row, the captions, the status and bounded lines, 1 · Lines' panel, 2 · Mark's selection rows and D2 strip, the room size sheet, the List's table and its chain rows, ⋮), app/SurveyPrepTools.kt (the palette, More ▸, the tool chip), app/SurveyPrepLocks.kt (the snackbar's Undo, the eye); pano/SurveyPrep.kt (NAME, TAB and TYPES are identity values shown through Masters, marked `// text:value`; a mark's checklist labels are a Msg each; the four line names through lineName), pano/SurveyPrepPalette.kt (SHORT an identity map through Masters.type_short), pano/SurveyPrepEdit.kt (every word a tx accessor; a lock group's name an identity drawn through groupName), pano/StepRoute.kt (the step and tab names; the separator marked `// text:value`), pano/SurveyGuide.kt (lockedEnd). The laser's axis letters L, W and H, the glyphs and the unit mm are marked `// text:value`.
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt

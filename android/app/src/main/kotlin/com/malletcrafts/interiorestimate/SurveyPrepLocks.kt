@@ -81,6 +81,7 @@ private val TT_DIM = Color(0xFF555A50)
  */
 @Composable
 internal fun SpSnack(text: String, undo: Boolean, modifier: Modifier, onUndo: () -> Unit) {
+    val tx = LocalTx.current
     val shape = RoundedCornerShape(8.dp)
     Row(modifier.shadow(6.dp, shape).clip(shape).background(if (undo) SN_BG else SN_LK_BG).heightIn(min = 48.dp)
         .padding(start = 16.dp, end = if (undo) 6.dp else 16.dp),
@@ -91,7 +92,8 @@ internal fun SpSnack(text: String, undo: Boolean, modifier: Modifier, onUndo: ()
         if (undo) {
             Box(Modifier.height(36.dp).clip(RoundedCornerShape(6.dp)).clickable(role = Role.Button) { onUndo() }
                 .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                Text("UNDO", color = SN_UNDO, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
+                // sp.aria.undo, "Undo": the prototype's case wins over the phone's UNDO (decision 5, port 61c slice M3a)
+                Text(tx.sp_aria_undo, color = SN_UNDO, fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp, maxLines = 1)
             }
         }
@@ -190,12 +192,14 @@ private fun DrawScope.drawEye(on: Boolean, c: Color) {
  */
 @Composable
 internal fun SpRefEye(on: Boolean, land: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val tx = LocalTx.current
     val shape = RoundedCornerShape(15.dp)
     Box(modifier.width(32.dp).height(if (land) 26.dp else 30.dp).clip(shape)
         .background(if (on) RF_CYAN else Color.Transparent)
         .let { if (on) it else it.border(1.5.dp, RF_RING, shape) }
         .clickable(role = Role.Button) { onClick() }
-        .semantics { contentDescription = "Show on faces"; stateDescription = if (on) "On" else "Off" },
+        // its state is read out as sp.on / sp.off, "on" / "off": the prototype's case wins (decision 5, port 61c slice M3a)
+        .semantics { contentDescription = tx.sp_aria_show_faces; stateDescription = if (on) tx.sp_on else tx.sp_off },
         contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(18.dp)) { drawEye(on, if (on) RF_INK else LK_OFF) }
     }

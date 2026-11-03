@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * START OVER KEEPS WHAT IS LOCKED (v52 slice 8, sp.js 1683-1690; v50): a locked surface's four lines, every
@@ -39,7 +40,7 @@ class StartOverTest {
         val r = SurveyPrepEdit.startOver(p, L, W, H)
         val q = r.prep
         assertEquals(3, r.kept, "the right wall's lines, FD1 and CF1")
-        assertEquals("Started over — 3 locked kept", SurveyPrepEdit.startedOver(r.kept))
+        assertEquals("Started over — 3 locked kept", SurveyPrepEdit.startedOver(Tx.EN, r.kept))
         // the right wall's locked lines: kept where they were, still set and still locked
         assertEquals(lines(p.surface("right")), lines(q.surface("right")))
         assertTrue(q.surface("right").done()); assertTrue(SurveyPrep.linesLocked(q.surface("right")))
@@ -62,10 +63,10 @@ class StartOverTest {
         val p = worked()
         SurveyPrepEdit.setLocked(p, "fd1", false); SurveyPrepEdit.setLocked(p, "cf1", false); SurveyPrepEdit.setLinesLocked(p, "right", false)
         val r = SurveyPrepEdit.startOver(p, L, W, H)
-        assertEquals(0, r.kept); assertNull(SurveyPrepEdit.startedOver(0))
+        assertEquals(0, r.kept); assertNull(SurveyPrepEdit.startedOver(Tx.EN, 0))
         assertTrue(SurveyPrep.SURFACES.all { r.prep.surface(it).marks.isEmpty() && !r.prep.surface(it).done() })
         assertTrue(r.prep.actual.isEmpty())
-        assertEquals("Tap again to clear every line, mark and reading", SurveyPrepEdit.START_OVER_ARMED)
+        assertEquals("Tap again to clear every line, mark and reading", SurveyPrepEdit.startOverArmed(Tx.EN))
     }
 
     @Test fun `Start over leaves the prep it was given alone, and does not hand out a code again`() {

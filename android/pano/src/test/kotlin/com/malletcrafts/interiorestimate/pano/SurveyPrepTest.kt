@@ -9,6 +9,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * Survey prep (mock-up v33) ported: each case below is a behaviour the
@@ -144,7 +145,7 @@ class SurveyPrepTest {
     @Test fun `a niche in the corner at floor level lists only width, height and depth`() {
         val m = SurveyPrep.Mark("n", "N", "FN1", 0.0, 900.0, 0.0, 1200.0)
         assertEquals(listOf("w", "h", "p"), SurveyPrep.measures("front", m, W, H).map { it.key })
-        assertEquals(listOf("width", "height", "depth into wall"), SurveyPrep.measures("front", m, W, H).map { it.what })
+        assertEquals(listOf("width", "height", "depth into wall"), SurveyPrep.measures("front", m, W, H).map { it.what(Tx.EN) })
         // the dropped ones are only the zero ones
         assertEquals(listOf("w", "h", "l", "s", "p"), SurveyPrep.measures0("front", m, W, H).map { it.key })
     }
@@ -159,10 +160,10 @@ class SurveyPrepTest {
         close(300.0, mf.getValue("l")!!, 1e-9, "left corner"); close(200.0, mf.getValue("s")!!, 1e-9, "floor")
         // on a plan: left/right wall and front/back wall
         val plan = SurveyPrep.Mark("c", "C", "GC1", 2000.0, 2300.0, 2900.0, 3100.0)
-        val mp = SurveyPrep.measures("floor", plan, W, L).associate { it.key to it.what }
+        val mp = SurveyPrep.measures("floor", plan, W, L).associate { it.key to it.what(Tx.EN) }
         assertEquals("from right wall", mp["r"]); assertEquals("from front wall", mp["f"])
         val plan2 = SurveyPrep.Mark("c", "C", "GC2", 100.0, 400.0, 150.0, 450.0)
-        val mp2 = SurveyPrep.measures("floor", plan2, W, L).associate { it.key to it.what }
+        val mp2 = SurveyPrep.measures("floor", plan2, W, L).associate { it.key to it.what(Tx.EN) }
         assertEquals("from left wall", mp2["l"]); assertEquals("from back wall", mp2["k"])
     }
 
@@ -170,7 +171,7 @@ class SurveyPrepTest {
         val high = SurveyPrep.Mark("w", "W", "FW1", 700.0, 1900.0, 1800.0, 2500.0)
         val ms = SurveyPrep.measures("front", high, W, H)
         assertEquals(listOf("w", "h", "l", "s", "p"), ms.map { it.key })
-        assertEquals("sill, from floor", ms.first { it.key == "s" }.what)
+        assertEquals("sill, from floor", ms.first { it.key == "s" }.what(Tx.EN))
         close(1800.0, ms.first { it.key == "s" }.est!!, 1e-9, "sill")
         assertNull(ms.first { it.key == "p" }.est, "reveal depth is site only")
     }
@@ -184,7 +185,7 @@ class SurveyPrepTest {
         assertEquals(listOf("d", "p"), mb.map { it.key }); close(400.0, mb[0].est!!, 1e-9, "drop")
         val step = SurveyPrep.Mark("s", "S", "GS1", 889.0, 1789.0, 150.0, 450.0)
         assertNull(SurveyPrep.measures("floor", step, W, L).last { it.key == "p" }.est)
-        assertEquals("height", SurveyPrep.measures("floor", step, W, L).last().what)
+        assertEquals("height", SurveyPrep.measures("floor", step, W, L).last().what(Tx.EN))
     }
 
     @Test fun `a loft gives width, its height, underside, nearer corner and depth`() {
@@ -192,7 +193,7 @@ class SurveyPrepTest {
         val loft = SurveyPrep.Mark("l", "L", "FL1", 0.0, 1200.0, d[2], d[3])
         val ms = SurveyPrep.measures("front", loft, W, H)
         assertEquals(listOf("w", "h", "s", "p"), ms.map { it.key })
-        assertEquals(listOf("width", "loft height", "underside, from floor", "loft depth"), ms.map { it.what })
+        assertEquals(listOf("width", "loft height", "underside, from floor", "loft depth"), ms.map { it.what(Tx.EN) })
         close(H - 600, ms[2].est!!, 1e-9, "underside")
     }
 
@@ -200,12 +201,12 @@ class SurveyPrepTest {
         val e = SurveyPrep.Mark("e", "E", "GE1", 0.0, 150.0, 0.0, 150.0)
         val ms = SurveyPrep.measures("floor", e, W, L)
         assertEquals(listOf("l", "k"), ms.map { it.key })
-        assertEquals("from left wall, to centre", ms[0].what); close(75.0, ms[0].est!!, 1e-9, "centre")
+        assertEquals("from left wall, to centre", ms[0].what(Tx.EN)); close(75.0, ms[0].est!!, 1e-9, "centre")
         // v52: a wall's electric point is a spot too -- to its centre, under its own keys, no width or height
         val we = SurveyPrep.Mark("e", "E", "FE1", 0.0, 150.0, 0.0, 150.0)
         val mw = SurveyPrep.measures("front", we, W, H)
         assertEquals(listOf("cl", "cs"), mw.map { it.key })
-        assertEquals(listOf("from left corner, to centre", "from floor, to centre"), mw.map { it.what })
+        assertEquals(listOf("from left corner, to centre", "from floor, to centre"), mw.map { it.what(Tx.EN) })
         close(75.0, mw[0].est!!, 1e-9, "wall centre")
     }
 
@@ -416,7 +417,7 @@ class SurveyPrepTest {
         val low = SurveyPrep.Mark("s", "S", "FS1", 150.0, 350.0, 1100.0, 1190.0)
         val m = SurveyPrep.measures("front", low, W, H)
         assertEquals(listOf("w", "h", "l", "s"), m.map { it.key })
-        assertEquals(listOf("width", "height", "from left corner", "from floor"), m.map { it.what })
+        assertEquals(listOf("width", "height", "from left corner", "from floor"), m.map { it.what(Tx.EN) })
         close(200.0, m[0].est!!, 1e-9, "w"); close(90.0, m[1].est!!, 1e-9, "h"); close(1100.0, m[3].est!!, 1e-9, "s")
         // high on the wall, near the right corner: still from the floor (the else branch would have asked for t)
         val high = SurveyPrep.Mark("s", "S", "FS2", W - 300, W - 100, H - 400, H - 310)
@@ -425,8 +426,8 @@ class SurveyPrepTest {
         assertTrue(mh.none { it.key == "t" }, "never from the ceiling")
         // the floor's S is still a Step
         val step = SurveyPrep.Mark("g", "S", "GS1", 889.0, 1789.0, 150.0, 450.0)
-        assertEquals(listOf("width, left–right", "depth, front–back"), SurveyPrep.measures("floor", step, W, L).take(2).map { it.what })
-        assertEquals("height", SurveyPrep.measures("floor", step, W, L).last().what)
+        assertEquals(listOf("width, left–right", "depth, front–back"), SurveyPrep.measures("floor", step, W, L).take(2).map { it.what(Tx.EN) })
+        assertEquals("height", SurveyPrep.measures("floor", step, W, L).last().what(Tx.EN))
     }
 
     @Test fun `a point measures to its centre on every surface and never asks for w or h`() {
@@ -434,7 +435,7 @@ class SurveyPrepTest {
             val e = SurveyPrep.Mark("x", t, "F${t}1", 2000.0, 2050.0, 2400.0, 2450.0)
             val m = SurveyPrep.measures("front", e, W, H)
             assertEquals(listOf("cr", "ct"), m.map { it.key }, "wall $t")
-            assertEquals(listOf("from right corner, to centre", "from ceiling, to centre"), m.map { it.what })
+            assertEquals(listOf("from right corner, to centre", "from ceiling, to centre"), m.map { it.what(Tx.EN) })
             close(W - 2025, m[0].est!!, 1e-9, "cr"); close(H - 2425, m[1].est!!, 1e-9, "ct")
             // touching a corner, a point keeps its offset: it runs to its centre
             val c = SurveyPrep.Mark("x", t, "F${t}2", 0.0, 50.0, 0.0, 50.0)
@@ -446,7 +447,7 @@ class SurveyPrepTest {
         assertEquals(listOf("l", "k"), SurveyPrep.measures("ceil", ce, W, L).map { it.key }, "plan E keeps l / r, f / k")
         assertEquals(listOf("cl", "ck"), SurveyPrep.measures("ceil", cp, W, L).map { it.key })
         assertEquals(listOf("cl", "ck"), SurveyPrep.measures("ceil", cf, W, L).map { it.key })
-        assertEquals("from back wall, to centre", SurveyPrep.measures("ceil", cf, W, L)[1].what)
+        assertEquals("from back wall, to centre", SurveyPrep.measures("ceil", cf, W, L)[1].what(Tx.EN))
     }
 
     private fun prepWith(vararg marks: Pair<String, SurveyPrep.Mark>, readings: Map<String, Double>): SurveyPrep.Prep {

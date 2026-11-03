@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * The step strip's touch area and the tabs' sizes (v52 slice 6, ct52 X1 and
@@ -109,7 +110,7 @@ class StepRouteTest {
     fun `the tabs, in order -- PLAN the 8th, after List (slice 13, ct52 X1)`() {
         assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list", "plan")), StepRoute.TAB_ROWS)
         assertEquals("front,right,back,left,floor,ceil,list,plan", StepRoute.TAB_ROWS.flatten().joinToString(","))
-        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "List", "Plan"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(it) })
+        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "List", "Plan"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(Tx.EN, it) })
         assertTrue(StepRoute.tabTick("ceil", true))
         assertFalse(StepRoute.tabTick("ceil", false))
         assertFalse(StepRoute.tabTick("list", true))
@@ -128,15 +129,15 @@ class StepRouteTest {
 
     @Test
     fun `the steps are 1 · Lines, 2 · Mark, 3 · List, 4 · 360 -- the 360 shown now it works (slice 17)`() {
-        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · List", "4 · 360"), StepRoute.STEPS.indices.map { StepRoute.label(it) })
+        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · List", "4 · 360"), StepRoute.STEPS.indices.map { StepRoute.label(Tx.EN, it) })
         assertEquals(1, StepRoute.stepIndex("mark"))
         assertEquals(2, StepRoute.stepIndex("list"))
         assertEquals(3, StepRoute.stepIndex("360"))
         assertEquals(-1, StepRoute.stepIndex("plan"))
         // 4 · 360 is a face's step, never a list view: it draws the 360, not a list
         assertFalse(StepRoute.listView("front", "360"))
-        assertEquals("Front wall ·", StepRoute.stripFace("front"))
-        assertEquals("Ceiling ·", StepRoute.stripFace("ceil"))
+        assertEquals("Front wall ·", StepRoute.stripFace(Tx.EN, "front"))
+        assertEquals("Ceiling ·", StepRoute.stripFace(Tx.EN, "ceil"))
         assertTrue(StepRoute.showStrip("front"))
         assertFalse(StepRoute.showStrip("list"))
     }

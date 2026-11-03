@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -69,8 +71,9 @@ object SurveyRef {
     /** What it is called: "Front wall reference" (the menu's head, a refusal). */
     fun name(s: String) = "${SurveyPrep.NAME.getValue(s)} reference"
 
-    /** A locked reference's corner dragged (sp.js hitLines): "Front wall reference is locked — unlock first". */
-    fun lockedSaid(s: String) = SurveyPrepEdit.refusal(name(s))
+    /** A locked reference's corner dragged (sp.js hitLines): "Front wall reference is locked — unlock first" -- the
+     *  prototype's own whole key, keyed with SurveyPrepEdit.refusal in port 61c slice M3a. */
+    fun lockedSaid(tx: Tx, s: String) = tx.refuse_sp_x_reference_locked_unlock(Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 
     /** The long-press menu's head: "Front wall reference", "🔒 Front wall reference". */
     fun menuHeader(s: String, locked: Boolean) = (if (locked) "🔒 " else "") + name(s)

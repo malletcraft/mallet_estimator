@@ -119,6 +119,9 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch
 import com.malletcrafts.interiorestimate.pano.SurveyRef
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -196,6 +199,9 @@ internal fun SurveyPrepDialog(
     onDiscard: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    // THE LANGUAGE (port 61c slice M3a): every word of the chrome is a tx accessor or a Masters name; the surface names,
+    // the mark types and the laser's axis letters stay the English identities they are everywhere else
+    val tx = LocalTx.current
     val store = remember { SurveyPrepStore(context) }
     val id = deviceId
 
@@ -234,7 +240,9 @@ internal fun SurveyPrepDialog(
     val hist = remember { mutableStateListOf<SurveyPrep.Prep>() }
     // "N points re-centred" (v52 slice 4): said once, on the open that made older points 50 mm spots
     var note by remember { mutableStateOf(SurveyPrepFile.pointsNote(opened)) }
-    var savedMsg by remember { mutableStateOf(SurveyPrepFile.savedText(opened)) }
+    // a Msg, drawn in whatever language is on when the bar is drawn (design-marathi §2.4); the opened file's own word
+    // (SurveyPrepFile.savedText) is still English, port 61c slice M3b's
+    var savedMsg by remember { mutableStateOf<Msg>(SurveyPrepFile.savedText(opened).let { s -> { _: Tx -> s } }) }
     var dirty by remember { mutableIntStateOf(0) }
     var armed by remember { mutableStateOf(false) }
     var armedDiscard by remember { mutableStateOf(false) }
@@ -291,7 +299,7 @@ internal fun SurveyPrepDialog(
     fun snack(text: String, undo: Boolean = true) { snackText = text; snackUndo = undo; snackSeq++; snackHist = hist.size }
     fun hideSnack() { snackText = null }
     /** A locked mark's move, resize or delete refused: the no-UNDO snackbar, and no undo entry (sp.js refuse). */
-    fun refuse(code: String) { ctx = null; snack(SurveyPrepEdit.refusal(code), undo = false) }
+    fun refuse(code: String) { ctx = null; snack(SurveyPrepEdit.refusal(tx, code), undo = false) }
 
     // ---- the size sheet (v51): L, W, H boxes, Cancel / Apply
     var lwhOpen by remember { mutableStateOf(false) }
@@ -310,11 +318,12 @@ internal fun SurveyPrepDialog(
     fun changed() { dirty++; rev++; unsaved[0] = true }
     LaunchedEffect(dirty) {
         if (dirty == 0) return@LaunchedEffect
-        savedMsg = "…"
+        savedMsg = { _: Tx -> "…" } // text:value glyph
         delay(800)
         val ok = store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])
         if (ok) unsaved[0] = false
-        savedMsg = if (ok) "Saved ✓ " + LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT)) else "Not saved: did not read back"
+        val at = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
+        savedMsg = if (ok) { t: Tx -> t.sp_msg_saved + at } else { t: Tx -> t.sp_msg_not_saved_did_not }
     }
     // A prep opened for the first time is written at once, so the laser sizes it squares to are kept
     // with it even if nothing is changed (a kept capture reopens on exactly these). So is a prep read
@@ -336,7 +345,7 @@ internal fun SurveyPrepDialog(
 
     // ---- the as-is upload to MCFT Interior Estimate's web half: queued on Save, its state read back here
     var webState by remember { mutableStateOf(AsIsUpload.status(context, id)) }
-    var readingsMsg by remember { mutableStateOf<String?>(null) }
+    var readingsMsg by remember { mutableStateOf<Msg?>(null) }
     // A pull of the web's readings is asked for by bumping this: on open, on resume, and when an upload lands.
     var pullTick by remember { mutableIntStateOf(1) }
     LaunchedEffect(Unit) {
@@ -408,7 +417,7 @@ internal fun SurveyPrepDialog(
         else arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
     }
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.all { it }) disto.start() else say("Bluetooth permission refused — the laser can't connect")
+        if (granted.values.all { it }) disto.start() else say(tx.sp_msg_bluetooth_refused)
     }
     fun reading(code: String, v: Double) {
         prep.actual[code] = v
@@ -420,13 +429,13 @@ internal fun SurveyPrepDialog(
         when (distoState) {
             DistoClient.State.OFF -> askBle.launch(blePerms)
             DistoClient.State.READY -> disto.measure()
-            else -> say("The laser is still connecting…")
+            else -> say(tx.sp_msg_laser_still_connecting)
         }
     }
     fun fire() {
         // a measurement's D2: the reading is that measurement's, not a reference box's armed earlier
         refShot = null
-        if (active == null) { say("Tap a measurement first"); return }
+        if (active == null) { say(tx.refuse_sp_tap_measurement_first); return }
         distoGo()
     }
     /** A REFERENCE'S W OR H SET (v52 slice 12, sp.js setRefDim) -- typed into its box or read by its own D2 -- on face
@@ -447,7 +456,7 @@ internal fun SurveyPrepDialog(
             is SurveyRef.Route.Ref -> setRefDimS(route.k, r.mm.toDouble(), route.s)
             is SurveyRef.Route.Drop -> say(route.note)
             SurveyRef.Route.Normal ->
-                if (a == null || prep.ownerOf(a) == null) say("D2 ${r.mm} mm — tap a measurement first, then read again")
+                if (a == null || prep.ownerOf(a) == null) say(tx.sp_msg_d2_x_tap_measurement(r.mm.toString()))
                 else reading(a, r.mm.toDouble())
         }
     }
@@ -483,11 +492,15 @@ internal fun SurveyPrepDialog(
             com.malletcrafts.interiorestimate.pano.Readings.orphanText(orphans))
         val head = if (said.isEmpty()) "" else said.joinToString("; ") + " · "
         val e = fetched?.exceptionOrNull()
+        // a Msg (port 61c slice M3a): the words are drawn in the language on when ⋮ opens; the time is the pull's, the
+        // conflict texts (ReadingsSync, Readings) and the not-yet line are still English, port 61c slice M3b's
+        val at = ReadingsSync.now()
         readingsMsg = when {
-            fetched == null -> if (said.isEmpty()) readingsMsg else head.removeSuffix(" · ")
-            e == null -> head + "Readings from web ✓ " + ReadingsSync.now()
-            ReadingsSync.notAvailable(e!!) -> head + ReadingsSync.NOT_YET
-            else -> head + "Readings from web: " + (e?.message ?: "failed").take(160)
+            fetched == null -> if (said.isEmpty()) readingsMsg else { _: Tx -> head.removeSuffix(" · ") }
+            e == null -> { t: Tx -> head + t.sp_readings_web + at }
+            ReadingsSync.notAvailable(e!!) -> { _: Tx -> head + ReadingsSync.NOT_YET }
+            // the fetch's own words as they come, or common.failed when it had none (the card, 28 Oct 2026)
+            else -> { t: Tx -> head + t.sp_readings_web_x((e?.message ?: t.common_failed).take(160)) }
         }
     }
 
@@ -581,7 +594,7 @@ internal fun SurveyPrepDialog(
     fun placeMark(t: String, mx: Double, my: Double): SurveyPrep.Mark? {
         val s = tab; val a = ab(s)
         if (mode != "mark" || SurveyPrep.types(s).none { it.letter == t }) return null
-        if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { say(SurveyPrep.placeMiss(s)); return null }
+        if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { say(SurveyPrep.placeMiss(tx, s)); return null }
         snapshot()
         val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
@@ -674,7 +687,7 @@ internal fun SurveyPrepDialog(
         snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
-        snack(SurveyPrepEdit.deleted(code))
+        snack(SurveyPrepEdit.deleted(tx, code))
         changed()
     }
     fun nudgeMark(dx: Double, dy: Double) {
@@ -694,7 +707,7 @@ internal fun SurveyPrepDialog(
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
     fun toggleLinesLock() {
         snapshot(); val v = SurveyPrepEdit.setLinesLocked(prep, tab, null)
-        say(SurveyPrepEdit.linesSaid(tab, v)); changed()
+        say(SurveyPrepEdit.linesSaid(tx, tab, v)); changed()
     }
     /**
      * 1 · LINES' SIZE FROM ROW (v52 slice 12, item 13; sp.js setRefMode): Reference ▭ ([on]) squares the open face from its
@@ -732,7 +745,7 @@ internal fun SurveyPrepDialog(
         ctx = null; snapshot()
         val n = SurveyPrepEdit.lockAll(prep, s, t, on, kind)
         if (n == 0) { hist.removeAt(hist.size - 1); return }
-        snack(SurveyPrepEdit.lockedSnack(on, n, s)); changed()
+        snack(SurveyPrepEdit.lockedSnack(tx, on, n, s)); changed()
     }
     /** Duplicate: the copy 100 mm away with the next code, picked, its first measurement active (sp.js duplicateItem). */
     fun duplicateMark(mid: String) {
@@ -844,16 +857,16 @@ internal fun SurveyPrepDialog(
         val r = SurveyPrepEdit.clearItems(prep, scope, tab)
         if (r.n == 0) { hist.removeAt(hist.size - 1); return }
         sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()
-        snack(SurveyPrepEdit.clearedSnack(r.n, r.kept))
+        snack(SurveyPrepEdit.clearedSnack(tx, r.n, r.kept))
         changed()
     }
     fun nudgeLine(slot: String, mm: Double, deg: Double) {
         val s = tab; val sf = prep.surface(s)
-        if (SurveyPrep.linesLocked(sf)) { say(SurveyPrepEdit.LINES_REFUSAL); return }
+        if (SurveyPrep.linesLocked(sf)) { say(SurveyPrepEdit.linesRefusal(tx)); return }
         sel = SpSel(s, line = slot)
         if (mm != 0.0) {
             val moved = SurveyPrep.nudgeLine(sf.lines.getValue(slot), slot, frameOf(s), mm)
-            if (moved == null) { say("These four lines do not make a closed shape yet — drag them first"); return }
+            if (moved == null) { say(tx.refuse_sp_these_four_lines_do); return }
             snapshot(); sf.lines[slot] = moved
         } else {
             snapshot(); sf.lines[slot] = SurveyPrep.turnLine(sf.lines.getValue(slot), deg)
@@ -868,7 +881,7 @@ internal fun SurveyPrepDialog(
         if (mode == "360" && StepRoute.isFace(t)) p3Look = Pano360.faceView(t, 1.0, 1.0)
         tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
-        if (m == "mark" && frameOf(tab) == null) { say("These four lines do not make a closed shape yet"); return }
+        if (m == "mark" && frameOf(tab) == null) { say(tx.refuse_sp_these_four_lines_do_2); return }
         flushChain(); refShot = SurveyRef.leave(refShot)
         // 4 · 360 opens facing the open face (sp.js setMode: P3.face)
         if (m == "360") p3Look = Pano360.faceView(tab, 1.0, 1.0)
@@ -888,8 +901,8 @@ internal fun SurveyPrepDialog(
         lwhOpen = false
         if (r.same) return
         roomSize = z
-        say(prep.outsideNote(z[0], z[1], z[2])
-            ?: "Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm")
+        say(prep.outsideNote(tx, z[0], z[1], z[2])
+            ?: tx.sp_room_size_l_x_2(z0 = z[0].roundToInt().toString(), z1 = z[1].roundToInt().toString(), z2 = z[2].roundToInt().toString()))
         changed()
     }
 
@@ -936,7 +949,7 @@ internal fun SurveyPrepDialog(
     fun stepAt(x: Float, y: Float): String? =
         if (!StepRoute.showStrip(tab)) null
         else StepRoute.stepFor(x.toDouble(), y.toDouble(),
-            StepRoute.STEPS.mapNotNull { (k, _) ->
+            StepRoute.STEPS.mapNotNull { k ->
                 stepBoxes[k]?.let { r -> StepRoute.Step(k, r.left.toDouble(), r.top.toDouble(), r.right.toDouble(), r.bottom.toDouble()) } },
             stripAt.y.toDouble(), dens.density.toDouble())
     // The long-lived pointer handlers below read these, so a handler started on an earlier frame acts on this one.
@@ -983,21 +996,24 @@ internal fun SurveyPrepDialog(
         tab == "list" || planTab -> {
             val marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size }
             val items = SurveyPrep.SURFACES.sumOf { s -> prep.surface(s).marks.sumOf { e -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).size } }
-            "The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. "
+            tx.sp_engineer_s_sheet_x(marks = marks, items = items, v = prep.actual.size.toString())
         }
         mode == "lines" -> {
-            val left = SurveyPrep.SLOTS.filter { prep.surface(tab).set[it] != true }.map { SurveyPrep.lineNames(tab).getValue(it) }
-            (if (left.isNotEmpty()) "Place: ${left.joinToString(", ")}. " else "All four lines placed — go to 2 · Mark. ")
+            val left = SurveyPrep.SLOTS.filter { prep.surface(tab).set[it] != true }.map { SurveyPrep.lineName(tx, tab, it) }
+            // the names are joined with ", " in both languages, as sp.js joins them
+            if (left.isNotEmpty()) tx.sp_place_x(left.joinToString(", ")) else tx.sp_all_four_lines_placed
         }
         mode == "list" -> {
             val els = prep.surface(tab).marks
             val n = els.sumOf { e -> SurveyPrep.measures(tab, e, ab(tab)[0], ab(tab)[1]).size }
-            "${SurveyPrep.NAME[tab]}: ${els.size} mark${if (els.size == 1) "" else "s"}, $n measurement${if (n == 1) "" else "s"}. "
+            // the prototype's wording wins (decision 5): it always writes "measurements"
+            tx.sp_x_x_mark_x(T = SurveyPrep.NAME[tab]?.let { Masters.surface(tx, it) } ?: tab, length = els.size, v = n.toString())
         }
-        else -> "Squared to the laser size. Add what is on this ${if (SurveyPrep.isPlan(tab)) "surface" else "wall"}; tap a mark to edit it. "
+        // "surface" (the floor, the ceiling) or "wall" is an English word chosen in code: one whole key each
+        else -> if (SurveyPrep.isPlan(tab)) tx.sp_squared_laser_add_surface else tx.sp_squared_laser_add_wall
     }
     val openShape = face && mode == "lines" && frameOf(tab) == null
-    val boundedText = "$done of 6 surfaces bounded. Save needs all six; marks and readings never block it."
+    val boundedText = tx.sp_x_6_surfaces_bounded(done.toString())
 
     fun back() { menuOpen = false; onCancel(prep.copy(), roomSize.copyOf()) }
     /** ✓ Save: only with all six surfaces bounded. */
@@ -1024,29 +1040,29 @@ internal fun SurveyPrepDialog(
     // ---- the bar: ← · title (and the save state under it) · ↶ · ⋮ · ✓ Save
     val bar: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().height(if (land) 32.dp else 40.dp), verticalAlignment = Alignment.CenterVertically) {
-            SpText("←", SP_FG, 20, Modifier.onGloballyPositioned { backBox = it.boundsInRoot() }
+            SpText("←", SP_FG, 20, Modifier.onGloballyPositioned { backBox = it.boundsInRoot() } // text:value glyph
                 .clip(CircleShape).clickable { back() }
                 .padding(horizontal = 8.dp, vertical = 2.dp))
             Column(Modifier.weight(1f)) {
-                Text("$title · survey prep", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 18.sp,
+                Text(tx.sp_x_survey_prep(title), color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 15.sp, lineHeight = 18.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(savedMsg, color = SP_OK, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(savedMsg(tx), color = SP_OK, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            SpText("↶", if (hist.isEmpty()) SP_DIM else SP_FG, 20,
+            SpText("↶", if (hist.isEmpty()) SP_DIM else SP_FG, 20, // text:value glyph
                 Modifier.clip(CircleShape).clickable(enabled = hist.isNotEmpty()) { undo() }.padding(horizontal = 6.dp, vertical = 2.dp))
-            Text("⋮", color = SP_FG, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+            Text("⋮", color = SP_FG, fontSize = 20.sp, fontWeight = FontWeight.Bold, // text:value glyph
                 modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (menuOpen) SP_LINE_BORDER else Color.Transparent)
                     .clickable { menuOpen = !menuOpen }
-                    .semantics { contentDescription = "More: status, Start over, Discard" }
+                    .semantics { contentDescription = tx.sp_aria_more_status_start_over }
                     .padding(horizontal = 8.dp, vertical = 2.dp))
             // ✓ SAVE: gold once all six surfaces are bounded, and only then does it do anything
             Box(Modifier.padding(start = 2.dp).onGloballyPositioned { saveBox = it.boundsInRoot() }
                 .height(if (land) 28.dp else 32.dp).clip(RoundedCornerShape(16.dp))
                 .background(if (done == 6) SP_GOLD else SP_LINE_BORDER)
                 .clickable(enabled = done == 6) { saveNow() }
-                .semantics { contentDescription = "Save survey prep" }
+                .semantics { contentDescription = tx.sp_save_aria }
                 .padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-                Text("✓ Save", color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold,
+                Text(tx.sp_save, color = if (done == 6) Color(0xFF1A1A12) else Color(0xFF7D8278), fontWeight = FontWeight.Bold,
                     fontSize = 13.sp, maxLines = 1)
             }
         }
@@ -1072,7 +1088,7 @@ internal fun SurveyPrepDialog(
                         // a face squared from its reference says so under its name, "Ref 905 × 2053" (v52 slice 12) --
                         // shown or hidden on the faces, since it squares the face either way
                         val refT = if (t in SurveyPrep.SURFACES) SurveyRef.tabText(prep.surface(t)) else null
-                        SpTab(StepRoute.tabName(t), tab == t, tick, Modifier.weight(1f).fillMaxHeight(), ref = refT, land = land) { showTab(t) }
+                        SpTab(StepRoute.tabName(tx, t), tab == t, tick, Modifier.weight(1f).fillMaxHeight(), ref = refT, land = land) { showTab(t) }
                     }
                 }
             }
@@ -1089,13 +1105,13 @@ internal fun SurveyPrepDialog(
             .pointerInput(Unit) { routeToStep({ stripAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
             .padding(start = 2.dp, end = 2.dp, top = if (tight) 0.dp else 2.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Text(StepRoute.stripFace(tab), color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
+            Text(StepRoute.stripFace(tx, tab), color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
                 modifier = Modifier.padding(end = 6.dp))
-            StepRoute.STEPS.forEachIndexed { i, (k, n) ->
+            StepRoute.STEPS.forEachIndexed { i, k ->
                 if (i > 0) Box(Modifier.weight(1f).height(1.5.dp).background(SP_JOIN))
                 val on = i == ci
                 val past = ci >= 0 && i < ci
-                val lab = StepRoute.label(i)
+                val lab = StepRoute.label(tx, i)
                 Row(Modifier.height(if (tight) 20.dp else if (land) 22.dp else 26.dp)
                     .onGloballyPositioned { stepBoxes[k] = it.boundsInRoot() }
                     .semantics(mergeDescendants = true) {
@@ -1112,7 +1128,7 @@ internal fun SurveyPrepDialog(
                         Text("${i + 1}", color = if (on) Color(0xFF14160F) else if (past) Color(0xFFD9CFA5) else SP_TAB,
                             fontSize = 11.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                     }
-                    if (on) Text(n, color = SP_GOLD, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold,
+                    if (on) Text(StepRoute.stepName(tx, k), color = SP_GOLD, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold,
                         maxLines = 1, softWrap = false)
                 }
             }
@@ -1126,8 +1142,8 @@ internal fun SurveyPrepDialog(
             .pointerInput(Unit) { routeToStep({ showAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
             .padding(top = 3.dp, bottom = if (land) 3.dp else 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Show", color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp)
-            for ((k, lab) in listOf("derived" to "≈ Photo", "actual" to "Measured", "both" to "Both")) {
+            Text(tx.common_show, color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp)
+            for ((k, lab) in listOf("derived" to tx.common_photo, "actual" to tx.common_measured, "both" to tx.common_both)) {
                 SpPill(lab, show == k, Modifier.weight(1f), outline = true, compact = land) { show = k; rev++ }
             }
         }
@@ -1139,12 +1155,14 @@ internal fun SurveyPrepDialog(
     val caption: @Composable () -> Unit = {
         rev    // read: the size follows the reference's W × H and corners
         val ab0 = ab(tab); val tags = SurveyPrep.sizeTag(tab)
+        val faceName = SurveyPrep.NAME[tab]?.let { Masters.surface(tx, it) } ?: tab
         Row(Modifier.fillMaxWidth().onGloballyPositioned { capAt = it.positionInRoot() }
             .pointerInput(Unit) { routeToStep({ capAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) },
             verticalAlignment = Alignment.CenterVertically) {
-            Text(if (mode == "lines") "${SurveyPrep.NAME[tab]} · set its four lines"
+            // 2 · Mark's caption is the face, the two axis letters and the size: no word of its own, in either language
+            Text(if (mode == "lines") tx.sp_x_set_four_lines_2(faceName)
                  else if (mode == "360") Pano360.caption(tab)
-                 else "${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
+                 else "$faceName · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}",
                 color = SP_FG, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f).padding(start = 6.dp, top = 3.dp, bottom = 3.dp))
         }
@@ -1231,19 +1249,22 @@ internal fun SurveyPrepDialog(
         val a = ab(s); val tg = SurveyPrep.sizeTag(s)
         val act = active
         val actHere = act != null && prep.ownerOf(act)?.s == s
+        val faceName = Masters.surface(tx, SurveyPrep.NAME.getValue(s))
         Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
             Row(Modifier.fillMaxWidth().padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (room) SurveyPrep.NAME.getValue(s) else "${SurveyPrep.NAME[s]} · its list", color = SP_FG,
+                Text(if (room) faceName else tx.sp_x_its_list(faceName), color = SP_FG,
                     fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                // squared from its reference rectangle, its size is the reference's measure, not the laser's (v52 slice 12)
-                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) "ref" else "laser"}",
+                // squared from its reference rectangle, its size is the reference's measure, not the laser's (v52 slice 12);
+                // "Ref" (common.ref) and "Laser" (app.laser) are the prototype's case for the phone's "ref" / "laser" (decision 5)
+                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) tx.common_ref else tx.app_laser}",
                     color = SP_MUTED, fontSize = 12.sp)
-                else SpD2(Modifier, "D2 → $act") { fire() }
+                else SpD2(Modifier, "D2 → $act") { fire() } // text:value the laser (DISTO D2) and the reading key it is armed for
             }
             val r = if (room) { if (prep.surface(s).done()) rectOf(s) else null } else rectOf(s)
             when {
-                room && !prep.surface(s).done() -> Text("Set its four lines first.", color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
-                !room && frameOf(s) == null -> Text("Set its four lines in 1 · Lines to see it squared.", color = SP_MUTED, fontSize = 12.sp,
+                // the prototype names the surface in both lines (decision 5: sp.x_set_four_lines_2, sp.x_set_four_lines)
+                room && !prep.surface(s).done() -> Text(tx.sp_x_set_four_lines_2(faceName), color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
+                !room && frameOf(s) == null -> Text(tx.sp_x_set_four_lines(faceName), color = SP_MUTED, fontSize = 12.sp,
                     modifier = Modifier.padding(4.dp))
                 r == null -> CircularProgressIndicator(Modifier.padding(12.dp))
                 else -> Canvas(Modifier.fillMaxWidth().aspectRatio(r.sq.width.toFloat() / r.sq.height).clip(RoundedCornerShape(8.dp))) {
@@ -1267,7 +1288,7 @@ internal fun SurveyPrepDialog(
                     onFocus = { active = it },
                     onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
                     onFire = { code -> active = code; fire() },
-                    emptyText = if (room) "Nothing marked on this surface." else "No marks yet — add one in 2 · Mark")
+                    emptyText = if (room) tx.sp_nothing_marked_surface else tx.sp_no_marks_yet_add)
             }
         }
     }
@@ -1299,11 +1320,17 @@ internal fun SurveyPrepDialog(
      * ([thenShare]): the sheet as it stands now, written to the private copy ONLY -- never an older file, so a mark moved
      * or a figure keyed since the last save is in what is sent, and sharing never piles copies into Downloads.
      */
+    /** A save or a share that failed: "Not shared: {why}" (sp.msg.not_shared_x), or the fragment "Not saved: " (sp.msg.not_saved)
+     *  and the system's own words -- the prototype's fragment carries the colon (the card, 28 Oct 2026). */
+    fun exportFailed(thenShare: Boolean, e: Throwable) {
+        val why = e.message ?: e.javaClass.simpleName
+        snack(if (thenShare) tx.sp_msg_not_shared_x(why) else tx.sp_msg_not_saved + why, undo = false)
+    }
     fun exportPlan(ext: String, thenShare: Boolean) {
         if (planBusy) return
         // the sheet is built here, on the main thread, from the prep as it stands; only the bytes and the files are not
         val sheet = runCatching { planSheet() }
-            .getOrElse { e -> snack("${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}", undo = false); return }
+            .getOrElse { e -> exportFailed(thenShare, e); return }
         planBusy = true
         scope.launch {
             val r = withContext(Dispatchers.IO) {
@@ -1316,12 +1343,12 @@ internal fun SurveyPrepDialog(
             planBusy = false
             r.onSuccess { sv ->
                 if (thenShare) runCatching { PlanExport.share(context, sv) }
-                    .onFailure { e -> snack("Could not share ${sv.shown}: ${e.message ?: e.javaClass.simpleName}", undo = false) }
-                else { planSaved = sv; snack("Saved ${sv.shown} to Downloads", undo = false) }
+                    .onFailure { e -> snack(tx.sp_msg_could_not_share_x_x(file = sv.shown, why = e.message ?: e.javaClass.simpleName), undo = false) }
+                else { planSaved = sv; snack(tx.sp_msg_saved_x_downloads(sv.shown), undo = false) }
             }.onFailure { e ->
                 // a failed save says nothing about what Share should send: forget the last one
                 if (!thenShare) planSaved = null
-                snack("${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}", undo = false)
+                exportFailed(thenShare, e)
             }
         }
     }
@@ -1363,7 +1390,6 @@ internal fun SurveyPrepDialog(
     // time settings"), then what is left to place
     val linesPanel: @Composable () -> Unit = {
         rev    // read: a line dragged into place updates 'Place: ...' and the bounded count while the finger is down
-        val names = SurveyPrep.lineNames(tab)
         val sfL = prep.surface(tab)
         val rf = SurveyRef.of(sfL)
         val refOnRow = rf?.on == true
@@ -1382,7 +1408,7 @@ internal fun SurveyPrepDialog(
                 val eye = refOnRow && rf?.q != null
                 if (sfL.done()) {
                     val lk = SurveyPrep.linesLocked(sfL)
-                    SpLinesLock(lk, SurveyPrepEdit.linesState(lk), SurveyPrepEdit.linesAction(lk), iconOnly = !land || eye,
+                    SpLinesLock(lk, SurveyPrepEdit.linesState(tx, lk), SurveyPrepEdit.linesAction(tx, lk), iconOnly = !land || eye,
                         tall = if (land) 24.dp else 30.dp) { toggleLinesLock() }
                 }
                 if (eye && rf != null) SpRefEye(rf.shown, land) { toggleRefShown() }
@@ -1416,19 +1442,19 @@ internal fun SurveyPrepDialog(
                     Row(Modifier.width(74.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(col))
                         Spacer(Modifier.width(4.dp))
-                        Text(names.getValue(k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 11.sp, maxLines = 2)
+                        Text(SurveyPrep.lineName(tx, tab, k), color = col, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 11.sp, maxLines = 2)
                     }
-                    val bs = if (h) listOf("▼5" to -5.0, "▼1" to -1.0, "▲1" to 1.0, "▲5" to 5.0)
-                             else listOf("◀5" to -5.0, "◀1" to -1.0, "1▶" to 1.0, "5▶" to 5.0)
+                    val bs = if (h) listOf("▼5" to -5.0, "▼1" to -1.0, "▲1" to 1.0, "▲5" to 5.0) // text:value glyphs and mm
+                             else listOf("◀5" to -5.0, "◀1" to -1.0, "1▶" to 1.0, "5▶" to 5.0) // text:value glyphs and mm
                     for ((lab, v) in bs) SpButton(lab, Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, v, 0.0) }
-                    SpButton("↺", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, -0.1) }
-                    SpButton("↻", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, 0.1) }
+                    SpButton("↺", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, -0.1) } // text:value glyph
+                    SpButton("↻", Modifier.weight(1f), SP_LINE_BORDER, compact = true) { nudgeLine(k, 0.0, 0.1) } // text:value glyph
                 }
             }
             // in landscape the status lives in ⋮, so the lines and the reference keep their room (tools52.css
             // .spv.land.lnmode #status, v52 slice 12): the right column holds the Size from rows without growing
             if (!land) Text(statusText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 13.sp, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
-            if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 11.sp, lineHeight = 13.sp,
+            if (openShape) Text(tx.refuse_sp_these_four_lines_do_3, color = SP_AMB, fontSize = 11.sp, lineHeight = 13.sp,
                 modifier = Modifier.padding(start = 4.dp))
             if (!land) Text(boundedText, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(start = 4.dp))
         }
@@ -1443,23 +1469,26 @@ internal fun SurveyPrepDialog(
             val edge = p != "body"
             val horiz = edge && (p.contains('t') || p.contains('b')) && !(p.contains('l') || p.contains('r'))
             val vert = edge && (p.contains('l') || p.contains('r')) && !(p.contains('t') || p.contains('b'))
-            val what = when { p == "body" -> "move"; p.length > 1 -> "corner"
-                else -> mapOf("l" to "left edge", "r" to "right edge", "t" to "top edge", "b" to "bottom edge")[p] ?: p }
+            val what = when (p) {
+                "body" -> tx.sp_move
+                "l" -> tx.edge_left_edge; "r" -> tx.edge_right_edge; "t" -> tx.edge_top_edge; "b" -> tx.edge_bottom_edge
+                else -> if (p.length > 1) tx.sp_corner else p
+            }
             // A LOCKED MARK (v52 slice 8, sp.js 1500-1502): "locked" under its code, the nudges disabled, its padlock
             // lit; Delete stays, dimmed, and answers "FD1 is locked — unlock first"
             val lk = SurveyPrep.isLocked(sm)
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${sm.code}\n${if (lk) "locked" else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+                Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
                 val bs: List<Triple<String, Double, Double>> = when {
-                    horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0))
-                    vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0))
-                    else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0))
+                    horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0)) // text:value glyphs and mm
+                    vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0)) // text:value glyphs and mm
+                    else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0)) // text:value glyphs
                 }
                 for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land, enabled = !lk) { nudgeMark(dx, dy) }
-                SpPadlock(lk, if (lk) "Unlock ${sm.code}" else "Lock ${sm.code}") { toggleLock(sm.id) }
-                SpButton("Delete", Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sm.id) ?: "Delete" },
+                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
+                SpButton(tx.common_delete, Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: tx.common_delete },
                     SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
             }
         }
@@ -1476,8 +1505,8 @@ internal fun SurveyPrepDialog(
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1)
                 Text(SurveyMeas.rowValue(sq, prep.actual), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                SpPadlock(lk, if (lk) "Unlock ${sq.code}" else "Lock ${sq.code}") { toggleLock(sq.id) }
-                SpButton("Delete", Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sq.id) ?: "Delete" },
+                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sq.code) else tx.sp_aria_lock_x(sq.code)) { toggleLock(sq.id) }
+                SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sq.id) ?: tx.common_delete },
                     SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
             }
         }
@@ -1494,8 +1523,8 @@ internal fun SurveyPrepDialog(
                     lineHeight = 16.sp, maxLines = 1)
                 Text(SurveyChain.rowValue(kv), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                SpPadlock(lk, if (lk) "Unlock ${sk.code}" else "Lock ${sk.code}") { toggleLock(sk.id) }
-                SpButton("Delete", Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, sk.id) ?: "Delete" },
+                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sk.code) else tx.sp_aria_lock_x(sk.code)) { toggleLock(sk.id) }
+                SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sk.id) ?: tx.common_delete },
                     SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
             }
         }
@@ -1507,9 +1536,9 @@ internal fun SurveyPrepDialog(
         if (am != null && mm != null && act != null) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("▶ ${act.substringBeforeLast('.')} ${mm.what}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
+                Text("▶ ${act.substringBeforeLast('.')} ${mm.what(tx)}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, modifier = Modifier.weight(1f))
-                Text(mm.est?.let { "≈" + it.roundToInt() } ?: "site only", color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace,
+                Text(mm.est?.let { "≈" + it.roundToInt() } ?: tx.sp_site_only, color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp, lineHeight = 15.sp)
                 SpMmField(act, prep.actual[act], true, Modifier.width(72.dp), onFocus = { active = act }) { v ->
                     if (v != null) reading(act, v) else { prep.actual.remove(act); changed() } }
@@ -1524,13 +1553,14 @@ internal fun SurveyPrepDialog(
     // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
     // inherits the theme's 24 sp line (bodyLarge) and the menu outgrows a landscape screen.
     val menuSizes: @Composable () -> Unit = {
-        Text("THIS 360", color = SP_MUTED, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
+        // sp.this_360, "This 360": the prototype's case wins over the phone's THIS 360 (decision 5, port 61c slice M3a)
+        Text(tx.sp_this_360, color = SP_MUTED, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp,
             modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
         // ---- the status
         Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
             Text(statusText, color = SP_MUTED, fontSize = 12.sp, lineHeight = 15.sp)
-            if (openShape) Text("These four lines do not make a closed shape.", color = SP_AMB, fontSize = 12.sp, lineHeight = 15.sp)
-            prep.outsideNote(roomSize[0], roomSize[1], roomSize[2])?.let {
+            if (openShape) Text(tx.refuse_sp_these_four_lines_do_3, color = SP_AMB, fontSize = 12.sp, lineHeight = 15.sp)
+            prep.outsideNote(tx, roomSize[0], roomSize[1], roomSize[2])?.let {
                 Text(it, color = SP_OUT, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 4.dp)) }
             Text(boundedText, color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(top = 2.dp))
@@ -1539,7 +1569,7 @@ internal fun SurveyPrepDialog(
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { openLwh() }
             .onGloballyPositioned { c -> val b = c.boundsInRoot(); lwhRowBottom = b.bottom; lwhRowLeft = b.left }
             .padding(4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            for ((k, v, cap) in listOf(Triple("L", roomSize[0], "front→back"), Triple("W", roomSize[1], "left→right"), Triple("H", roomSize[2], "floor→ceiling"))) {
+            for ((k, v, cap) in listOf(Triple("L", roomSize[0], tx.sp_front_back), Triple("W", roomSize[1], tx.sp_left_right), Triple("H", roomSize[2], tx.sp_floor_ceiling))) { // text:value the laser's axis letters
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.Bottom) {
                         Text(k, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 14.sp, lineHeight = 18.sp)
@@ -1550,9 +1580,9 @@ internal fun SurveyPrepDialog(
                     Text(cap, color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 1)
                 }
             }
-            Text("✎", color = SP_MUTED, fontSize = 14.sp, lineHeight = 18.sp)
+            Text("✎", color = SP_MUTED, fontSize = 14.sp, lineHeight = 18.sp) // text:value glyph
         }
-        Text("Laser D2 readings from the room capture, in mm. Tap the size line to change them.", color = SP_MUTED, fontSize = 11.sp,
+        Text(tx.sp_laser_d2_readings_room, color = SP_MUTED, fontSize = 11.sp,
             lineHeight = 14.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
     }
     // The actions half: the web lines (two lines at most each -- a list of web conflicts is cut, not grown), the
@@ -1563,13 +1593,14 @@ internal fun SurveyPrepDialog(
             Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
-        readingsMsg?.let { msg ->
+        readingsMsg?.let { m ->
+            val msg = m(tx)
             Text(msg, color = if (msg.contains("✓") && !msg.contains("changed on the web")) SP_OK
                               else if (msg == ReadingsSync.NOT_YET) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
         if (onDiscard != null) {
-            Text("New 360 — ← keeps it in the room, and its lines and marks save as you go.",
+            Text(tx.sp_new_360_keeps_room,
                 color = SP_GOLD, fontSize = 11.sp, lineHeight = 14.sp, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
         // ---- THE CLEARS (v52 slice 8, sp.js 1472-1477): this surface (not on the List tab) and the whole room, each two
@@ -1577,11 +1608,11 @@ internal fun SurveyPrepDialog(
         val nS = SurveyPrepEdit.clearCount(prep, SurveyPrepEdit.SURF, tab); val kS = SurveyPrepEdit.lockedCount(prep, SurveyPrepEdit.SURF, tab)
         val nR = SurveyPrepEdit.clearCount(prep, SurveyPrepEdit.ROOM, tab); val kR = SurveyPrepEdit.lockedCount(prep, SurveyPrepEdit.ROOM, tab)
         if (face) {
-            SpTwoTap(SurveyPrepEdit.clearLabel(SurveyPrepEdit.SURF, nS, kS, armedClear == SurveyPrepEdit.SURF),
+            SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.SURF, nS, kS, armedClear == SurveyPrepEdit.SURF),
                 armedClear == SurveyPrepEdit.SURF, nS > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.SURF) }
             Spacer(Modifier.height(6.dp))
         }
-        SpTwoTap(SurveyPrepEdit.clearLabel(SurveyPrepEdit.ROOM, nR, kR, armedClear == SurveyPrepEdit.ROOM),
+        SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.ROOM, nR, kR, armedClear == SurveyPrepEdit.ROOM),
             armedClear == SurveyPrepEdit.ROOM, nR > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.ROOM) }
         Spacer(Modifier.height(6.dp))
         // ---- start over, discard: each takes two taps. START OVER KEEPS WHAT IS LOCKED (v52 slice 8, sp.js 1683):
@@ -1594,10 +1625,10 @@ internal fun SurveyPrepDialog(
                     val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                     hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
                     ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
-                    prep = r.prep; SurveyPrepEdit.startedOver(r.kept)?.let { say(it) }; changed()
+                    prep = r.prep; SurveyPrepEdit.startedOver(tx, r.kept)?.let { say(it) }; changed()
                 }
             }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
-            Text(if (armed) SurveyPrepEdit.START_OVER_ARMED else SurveyPrepEdit.START_OVER,
+            Text(if (armed) SurveyPrepEdit.startOverArmed(tx) else SurveyPrepEdit.startOverLabel(tx),
                 color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center)
         }
@@ -1607,7 +1638,7 @@ internal fun SurveyPrepDialog(
                 .border(1.dp, if (armedDiscard) Color(0xFFFF9B7A) else SP_LINE_BORDER, RoundedCornerShape(12.dp))
                 .clickable { if (!armedDiscard) armedDiscard = true else { armedDiscard = false; onDiscard() } }
                 .padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
-                Text(if (armedDiscard) "Tap again to discard this 360 — nothing is kept" else "Discard this 360",
+                Text(if (armedDiscard) tx.sp_tap_again_discard_360 else tx.common_discard_360,
                     color = if (armedDiscard) Color(0xFFFF9B7A) else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp,
                     fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
             }
@@ -1720,7 +1751,7 @@ internal fun SurveyPrepDialog(
             if (menuOpen) {
                 Box(Modifier.fillMaxSize().onGloballyPositioned { overlayAt = it.positionInRoot() }
                     .pointerInput(Unit) { detectTapGestures { off -> outsideTapS(off) } }
-                    .semantics { onClick(label = "Close the menu") { menuOpen = false; true } })
+                    .semantics { onClick(label = tx.sp_aria_close_menu) { menuOpen = false; true } })
                 Box(Modifier.align(Alignment.TopEnd).padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = if (land) 40.dp else 48.dp)) {
                     menu()
                 }
@@ -1729,18 +1760,18 @@ internal fun SurveyPrepDialog(
             // top-left 24 dp left of and 12 dp above the press, kept 4 dp inside the screen in either orientation
             // (sp.js 1471). Under it, the whole screen takes a press as Cancel, so nothing beneath moves while it is open.
             // ... on a mark, a Tape or a Line (v52 slice 9: "Lock all tapes", "Lock all Line marks")
-            val cm = ctx?.let { c -> SurveyPrepEdit.menuHeaderOf(prep, c.id)?.let { c to it } }
+            val cm = ctx?.let { c -> SurveyPrepEdit.menuHeaderOf(tx, prep, c.id)?.let { c to it } }
             if (cm != null) {
                 val (c, head) = cm
                 Box(Modifier.fillMaxSize()
                     .pointerInput(Unit) { awaitEachGesture { awaitFirstDown().consume(); ctx = null } }
-                    .semantics { onClick(label = "Close the menu") { ctx = null; true } })
+                    .semantics { onClick(label = tx.sp_aria_close_menu) { ctx = null; true } })
                 val edge = with(dens) { 4.dp.toPx() }
                 val mw = if (ctxSize.width > 0) ctxSize.width.toFloat() else with(dens) { 180.dp.toPx() }
                 val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { 232.dp.toPx() }
                 val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
                 val top = (c.y - rootTop - with(dens) { 12.dp.toPx() }).coerceAtMost(rootH - mh - edge).coerceAtLeast(edge)
-                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(prep, c.id),
+                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id),
                     Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
@@ -1777,14 +1808,15 @@ private fun SpSizeSheet(
     texts: List<TextFieldValue>, bad: List<Int>, modifier: Modifier,
     onText: (Int, TextFieldValue) -> Unit, onCancel: () -> Unit, onApply: () -> Unit,
 ) {
+    val tx = LocalTx.current
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     Column(modifier.clip(RoundedCornerShape(12.dp)).background(SP_SHEET).border(1.5.dp, SP_GOLD, RoundedCornerShape(12.dp))
         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
         .padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Room size · mm", color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Text(tx.sp_lwh_title, color = SP_FG, fontWeight = FontWeight.Bold, fontSize = 13.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for ((i, k) in listOf("L", "W", "H").withIndex()) {
+            for ((i, k) in listOf("L", "W", "H").withIndex()) { // text:value the laser's axis letters
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Text(k, color = SP_GOLD, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(end = 4.dp))
                     BasicTextField(
@@ -1801,13 +1833,13 @@ private fun SpSizeSheet(
                 }
             }
         }
-        Text(if (bad.isNotEmpty()) SurveyPrep.SIZE_HINT_BAD else SurveyPrep.SIZE_HINT,
+        Text(SurveyPrep.sizeHint(tx, bad.isNotEmpty()),
             color = if (bad.isNotEmpty()) SP_OUT else SP_MUTED, fontSize = 11.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SpButton("Cancel", Modifier.weight(1f), Color(0xFF3A3E35)) { onCancel() }
+            SpButton(tx.common_cancel, Modifier.weight(1f), Color(0xFF3A3E35)) { onCancel() }
             Box(Modifier.weight(1f).clip(RoundedCornerShape(7.dp)).background(SP_GOLD).clickable { onApply() }.padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center) {
-                Text("Apply", color = Color(0xFF1A1A12), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(tx.common_apply, color = Color(0xFF1A1A12), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             }
         }
     }
@@ -1941,6 +1973,9 @@ private fun SpPhoto(
     onBusy: (Boolean) -> Unit,
 ) {
     val density = LocalDensity.current
+    // the language (port 61c slice M3a): the chip, the fit and grid buttons; and, through a State, what the gesture says
+    val tx = LocalTx.current
+    val txS by rememberUpdatedState(tx)
     val iw = img.width.toDouble(); val ih = img.height.toDouble()
     // WHAT ZOOM 1 FITS (sp.js V.FR): the wall and 12° beyond its corners in 1 · Lines, the whole squared face in 2 · Mark.
     // It follows the lines while they move, so it is read through a State by the gesture, which outlives recompositions.
@@ -2017,7 +2052,7 @@ private fun SpPhoto(
     val chipText = if (mode != "mark") null
                    else if (chainTool) SurveyChain.chipText(chainN)
                    else if (measTool) SurveyMeas.chipText(tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
-                   else SurveyPrepPalette.chipText(tab, tool)
+                   else SurveyPrepPalette.chipText(tx, tab, tool)
 
     // THE FIT RECT IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto for marking"; sp.js
     // V.k): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left). The
@@ -2055,7 +2090,7 @@ private fun SpPhoto(
                 SpGrab(p0[0], p0[1], SpSel(tab, id = rid), null,
                     focus = { SurveyRef.of(sf)?.q?.getOrNull(i) ?: p0 }) { ix, iy -> SurveyRef.moveCorner(sf, i, ix, iy) }
             }
-            is SurveyRef.LinesHit.RefLocked -> SpGrab(at[0], at[1], SpSel(tab, id = rid), null, SurveyRef.lockedSaid(tab), said = true) { _, _ -> }
+            is SurveyRef.LinesHit.RefLocked -> SpGrab(at[0], at[1], SpSel(tab, id = rid), null, SurveyRef.lockedSaid(txS, tab), said = true) { _, _ -> }
             is SurveyRef.LinesHit.End -> {
                 val slot = h.slot; val j = h.j; val p0 = sf.lines.getValue(slot)[j]
                 SpGrab(p0[0], p0[1], SpSel(tab, line = slot), slot) { ix, iy ->
@@ -2439,7 +2474,7 @@ private fun SpPhoto(
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
                                     // a locked END says so as a note (sp.js say), a locked mark with its snackbar
-                                    if (g.endLock) onSayS(SurveyGuide.lockedEnd(g.locked))
+                                    if (g.endLock) onSayS(SurveyGuide.lockedEnd(txS, g.locked))
                                     else if (g.said) onSayS(g.locked)
                                     else onRefuseS(g.locked)
                                 }
@@ -2646,20 +2681,20 @@ private fun SpPhoto(
                     val handles = pickedPts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }.orEmpty()
                     SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
                         handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)?.let { ts ->
-                        val rad = 18f * dpx; val tx = ts.left.toFloat() + rad; val ty = ts.top.toFloat() + rad
+                        val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
                         val pt = Paint(Paint.ANTI_ALIAS_FLAG)
-                        pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tx, ty, rad, pt)
+                        pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tcx, tcy, rad, pt)
                         pt.style = Paint.Style.STROKE; pt.strokeWidth = 2f * dpx; pt.color = android.graphics.Color.WHITE
-                        nc.drawCircle(tx, ty, rad - dpx, pt)
+                        nc.drawCircle(tcx, tcy, rad - dpx, pt)
                         // a bin: lid, handle, body with two ribs
                         pt.strokeWidth = 1.8f * dpx; pt.strokeCap = Paint.Cap.ROUND
                         val g = 5.5f * dpx
-                        nc.drawLine(tx - 1.3f * g, ty - g, tx + 1.3f * g, ty - g, pt)
-                        nc.drawLine(tx - .45f * g, ty - 1.4f * g, tx + .45f * g, ty - 1.4f * g, pt)
-                        nc.drawRect(tx - g, ty - .7f * g, tx + g, ty + 1.5f * g, pt)
-                        nc.drawLine(tx - .35f * g, ty - .3f * g, tx - .35f * g, ty + 1.1f * g, pt)
-                        nc.drawLine(tx + .35f * g, ty - .3f * g, tx + .35f * g, ty + 1.1f * g, pt)
-                        trashAt[0] = floatArrayOf(tx, ty, rad)
+                        nc.drawLine(tcx - 1.3f * g, tcy - g, tcx + 1.3f * g, tcy - g, pt)
+                        nc.drawLine(tcx - .45f * g, tcy - 1.4f * g, tcx + .45f * g, tcy - 1.4f * g, pt)
+                        nc.drawRect(tcx - g, tcy - .7f * g, tcx + g, tcy + 1.5f * g, pt)
+                        nc.drawLine(tcx - .35f * g, tcy - .3f * g, tcx - .35f * g, tcy + 1.1f * g, pt)
+                        nc.drawLine(tcx + .35f * g, tcy - .3f * g, tcx + .35f * g, tcy + 1.1f * g, pt)
+                        trashAt[0] = floatArrayOf(tcx, tcy, rad)
                     }
                 }
                 // ---- the magnifier(s): three times the photo as it is shown
@@ -2718,16 +2753,16 @@ private fun SpPhoto(
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
             Column(Modifier.onGloballyPositioned { fitAt = it.boundsInRoot() }, horizontalAlignment = Alignment.End) {
-                Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(tx.sp_fit, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         // sp.js V.fit: zoom 1 on the fit rect, and fitted again -- it follows the lines from here
                         view = view.fit(); tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // THE GRID BUTTON (v52 slice 10) joins the fit column, so it costs no height: the plane grid on the face
                 // with it on (#22d3ee), and still by itself while a Tape or a Line is drawn
-                Text("grid", color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(tx.sp_grid, color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
-                        .semantics { contentDescription = "Plane grid"; selected = grid }
+                        .semantics { contentDescription = tx.sp_aria_plane_grid; selected = grid }
                         .clickable(role = Role.Button) { onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
                 view.label()?.let { zl -> Text(zl, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
@@ -2757,22 +2792,23 @@ private fun SpTable(
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
     onFire: (String) -> Unit,
-    emptyText: String = "Nothing marked on this surface.",
+    emptyText: String,
 ) {
     rev
+    val tx = LocalTx.current
     val els = prep.surface(s).marks
     val meas = prep.surface(s).meas.filter { SurveyMeas.known(it.kind) }
     val chains = prep.surface(s).chains
     if (els.isEmpty() && meas.isEmpty() && chains.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
-    val where = if (room) " · " + SurveyPrep.NAME.getValue(s) else ""
+    val where = if (room) " · " + Masters.surface(tx, SurveyPrep.NAME.getValue(s)) else "" // text:value the separator before the face's name
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text("Mark", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
+        Text(tx.common_mark, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
         // the checklist's column, not a tool: it stays "Measure" (item 6)
-        Text("Measure", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text("≈ Photo", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
+        Text(tx.common_measure, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(tx.common_photo, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
             modifier = Modifier.width(54.dp), textAlign = TextAlign.End)
-        Text("Measured", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
-        Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
+        Text(tx.common_measured, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
+        Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End) // text:value glyph
     }
     /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. */
     @Composable
@@ -2780,9 +2816,9 @@ private fun SpTable(
         Column(Modifier.width(56.dp).padding(3.dp)) {
             Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
-            Text("Delete", color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+            Text(tx.common_delete, color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
-                    .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(prep, id) ?: "Delete $code" }
+                    .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, id) ?: tx.sp_aria_delete_x(code) }
                     .padding(horizontal = 6.dp, vertical = 3.dp))
         }
     }
@@ -2793,8 +2829,10 @@ private fun SpTable(
         val d = if (a != null && mm.est != null) a - mm.est!! else null
         Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
             .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text((if (act) "▶ " else "") + mm.what, color = SP_FG, fontSize = 11.sp, lineHeight = 12.sp, modifier = Modifier.weight(1f))
-            Text(if (show == "actual") "" else (mm.est?.let { "≈" + it.roundToInt() } ?: "site only"), color = Color(0xFFCFD3CB),
+            // a reading row: one of the four boxes the prototype measured for Devanagari -- 17 sp under मराठी, or the vowel
+            // signs below (उजव्या कोपऱ्यापासून) are cut (design-marathi §4; v61c.2 CSS .ms2 .wh)
+            Text((if (act) "▶ " else "") + mm.what(tx), color = SP_FG, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 12.sp, modifier = Modifier.weight(1f))
+            Text(if (show == "actual") "" else (mm.est?.let { "≈" + it.roundToInt() } ?: tx.sp_site_only), color = Color(0xFFCFD3CB),
                 fontSize = if (mm.est == null) 9.sp else 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
             Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 SpMmField(code, a, act, Modifier.weight(1f), onFocus = { onFocus(code) }) { v -> onValue(code, v) }
@@ -2810,13 +2848,13 @@ private fun SpTable(
         val ms = SurveyPrep.measures(s, e, ab[0], ab[1])
         val selM = sel?.id == e.id
         Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)) {
-            head(e.id, e.code, SP_GOLD, SurveyPrep.typeOf(s, e.t).name + where)
+            head(e.id, e.code, SP_GOLD, SurveyPrep.typeName(tx, s, e.t) + where)
             Column(Modifier.weight(1f)) {
                 for (mm in ms) { val code = e.code + "." + mm.key; line(code, mm) { onRow(e, code) } }
             }
         }
         if (SurveyPrep.outOf(e, ab[0], ab[1]))
-            Text(SurveyPrep.outNote(e.code), color = SP_OUT, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+            Text(SurveyPrep.outNote(tx, e.code), color = SP_OUT, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
     }
     // THE LINES AND AREAS, then THE TAPES (v52 slice 9)
@@ -2849,7 +2887,7 @@ private fun SpTable(
         val act = active == code
         Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
             .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text((if (act) "▶ " else "") + label, color = SP_FG, fontSize = 11.sp, lineHeight = 12.sp, modifier = Modifier.weight(1f))
+            Text((if (act) "▶ " else "") + label, color = SP_FG, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 12.sp, modifier = Modifier.weight(1f))
             Text(if (show == "actual") "" else "≈" + est.roundToInt(), color = Color(0xFFCFD3CB),
                 fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
             Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2875,15 +2913,22 @@ private fun SpTable(
                     val code = k.code + "." + mm.key
                     if (mm.key == SurveyChain.TOTAL) {
                         val ro = SurveyChain.totalReadOnly(kv)
-                        val tag = when (kv.src) { SurveyChain.LASER -> " · laser"; SurveyChain.DERIVED -> " · derived"; else -> "" }
-                        val sum = kv.sum?.takeIf { kv.src != SurveyChain.DERIVED }?.let { " · Σ " + it.roundToInt() } ?: ""
-                        chainLine(code, "total$tag$sum", kv.estT, kv.total, kv.src == SurveyChain.MEASURED,
+                        // "total", then " · laser" or " · derived", then " · Σ N" were joined in code: one whole key per form
+                        // (the card, 28 Oct 2026: sp.total_laser_x, sp.total_laser, sp.total_derived, sp.total_x; measure.total alone)
+                        val sum = kv.sum?.takeIf { kv.src != SurveyChain.DERIVED }?.roundToInt()?.toString()
+                        val total = when (kv.src) {
+                            SurveyChain.LASER -> if (sum != null) tx.sp_total_laser_x(sum) else tx.sp_total_laser
+                            SurveyChain.DERIVED -> tx.sp_total_derived
+                            else -> if (sum != null) tx.sp_total_x(sum) else tx.measure_total
+                        }
+                        chainLine(code, total, kv.estT, kv.total, kv.src == SurveyChain.MEASURED,
                             when (kv.src) { SurveyChain.LASER -> SP_CHAIN; SurveyChain.DERIVED -> SP_DER; else -> null }, ro, kv.check) {
                             if (!ro) onChainRow(k, code) else onChainRow(k, null) }
                     } else {
                         val der = kv.der == i
                         val shown: Double? = kv.meas.getOrNull(i) ?: (if (der) kv.value.getOrNull(i) else null)
-                        chainLine(code, code + (if (der) " · derived" else ""), mm.est ?: 0.0, shown, kv.meas.getOrNull(i) != null,
+                        // a derived segment's tag: the separator and sp.derived, as the prototype joins them
+                        chainLine(code, if (der) "$code · ${tx.sp_derived}" else code, mm.est ?: 0.0, shown, kv.meas.getOrNull(i) != null,
                             if (der) SP_DER else null, false,
                             shown?.let { it - (mm.est ?: 0.0) }) { onChainRow(k, code) }
                     }
@@ -2924,7 +2969,7 @@ private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: M
             }.padding(horizontal = 5.dp, vertical = 5.dp),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.CenterEnd) {
-                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp)
+                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp) // text:value unit
                 inner()
             }
         })
@@ -2966,7 +3011,7 @@ private fun SpRefField(key: String, value: Double?, armed: Boolean, modifier: Mo
             }.padding(horizontal = 5.dp),
         decorationBox = { inner ->
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
-                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp)
+                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp) // text:value unit
                 inner()
             }
         })
@@ -2974,7 +3019,7 @@ private fun SpRefField(key: String, value: Double?, armed: Boolean, modifier: Mo
 
 /** The laser button: a red dot and D2. */
 @Composable
-private fun SpD2(modifier: Modifier, label: String = "D2", small: Boolean = false, onClick: () -> Unit) {
+private fun SpD2(modifier: Modifier, label: String = "D2", small: Boolean = false, onClick: () -> Unit) { // text:value the laser, DISTO D2
     Row(modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xFF3A1512)).border(1.dp, Color(0xFFFF5A4A), RoundedCornerShape(8.dp))
         .clickable { onClick() }.padding(horizontal = if (small) 5.dp else 8.dp, vertical = if (small) 5.dp else 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
@@ -3025,13 +3070,16 @@ private fun SpText(text: String, color: Color, sizeSp: Int, modifier: Modifier) 
 @Composable
 private fun SpTab(name: String, on: Boolean, tick: Boolean, modifier: Modifier, ref: String? = null, land: Boolean = false,
                   onClick: () -> Unit) {
+    val tx = LocalTx.current
     Box(modifier.clickable(role = Role.Tab) { onClick() }.semantics { selected = on }, contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = if (ref != null && !land) 2.dp else 0.dp)) {
             Text(buildAnnotatedString {
                     append(name.uppercase())
-                    if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") }
+                    if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") } // text:value glyph
                 },
-                color = if (on) Color.White else SP_TAB, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.5.sp,
+                // a face tab: one of the four boxes the prototype measured for Devanagari -- 17 sp under मराठी, or the marks above
+                // the line (the ॅ of प्लॅन) are cut (design-marathi §4; v61c.2 CSS .ftab .fl)
+                color = if (on) Color.White else SP_TAB, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 14.sp, letterSpacing = 0.5.sp,
                 fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
                 modifier = Modifier.padding(horizontal = 2.dp))
             if (ref != null) Text(ref, color = SP_REF, fontSize = if (land) 8.5.sp else 9.sp, lineHeight = if (land) 9.sp else 10.sp,

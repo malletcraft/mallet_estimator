@@ -1,5 +1,8 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
+
 /**
  * THE 2 · MARK PALETTE (prototype v52, sp.js 1356-1399; v52 slice 7). One row at the bottom, within thumb
  * reach, exactly one tool on; the first is Select and it is the default. A type tool is STICKY: every tap on
@@ -34,7 +37,7 @@ object SurveyPrepPalette {
     fun isMeasTool(tool: String) = tool == TAPE || tool == LINE
 
     /** A drawing tool's name on its slot (sp.js 1381): never "Measure" -- the v46 Measure tool is the Line (item 6). */
-    fun toolName(key: String) = when (key) { TAPE -> "Tape"; LINE -> "Line"; CHAIN -> "Chain"; else -> key }
+    fun toolName(tx: Tx, key: String) = when (key) { TAPE -> tx.common_tape; LINE -> tx.common_line; CHAIN -> tx.common_chain; else -> key }
 
     /** A drawing tool's colour: tape yellow, Line blue, chain rose (sp.js TC, MC, KC). */
     fun toolColour(key: String) = when (key) {
@@ -46,12 +49,14 @@ object SurveyPrepPalette {
     /** The colour the tool chip is ringed in with [tool] on, on [s]. */
     fun chipColour(s: String, tool: String) = if (tool in TOOLS) toolColour(tool) else SurveyPrep.typeOf(s, tool).colour
 
-    /** A type's name as its slot and its More tile print it (sp.js SHORT). */
-    val SHORT = mapOf("Window" to "Window", "Door" to "Door", "Column" to "Column", "Beam" to "Beam",
-        "Opening" to "Opening", "Niche" to "Niche", "Loft" to "Loft", "Electric point" to "Electric",
-        "Bulb point" to "Bulb", "Other" to "Other", "Step" to "Step", "Switch plate" to "Switch", "Fan" to "Fan")
+    /** A type's short name, by its name (sp.js SHORT): the identity its slot and its More tile show through
+     *  [Masters.type_short] (port 61c slice M3a). */
+    val SHORT = mapOf("Window" to "Window", "Door" to "Door", "Column" to "Column", "Beam" to "Beam", // text:value identity, shown through Masters.type_short
+        "Opening" to "Opening", "Niche" to "Niche", "Loft" to "Loft", "Electric point" to "Electric", // text:value identity, shown through Masters.type_short
+        "Bulb point" to "Bulb", "Other" to "Other", "Step" to "Step", "Switch plate" to "Switch", "Fan" to "Fan") // text:value identity, shown through Masters.type_short
 
-    fun short(name: String) = SHORT[name] ?: name
+    /** A type's short name as its slot and its More tile print it, in the language. */
+    fun short(tx: Tx, name: String) = Masters.type_short(tx, SHORT[name] ?: name)
 
     /** The three types on the palette itself, per kind of surface (sp.js MAINT). */
     val MAIN = mapOf("wall" to listOf("W", "D", "E"), "floor" to listOf("C", "S", "E"), "ceil" to listOf("B", "E", "P"))
@@ -87,9 +92,9 @@ object SurveyPrepPalette {
     fun moreArmed(kind: String, tool: String): SurveyPrep.MarkType? =
         if (tool == SEL || tool in TOOLS) null else paletteFor(kind).more.firstOrNull { it.letter == tool }
 
-    /** The More slot's name: "More ▸", or the armed More type's short name and ▾ after a NARROW NO-BREAK SPACE
-     *  (U+202F), so "Opening ▾" fits its slot (sp.js 1453, ct52 FX8). */
-    fun moreLabel(kind: String, tool: String): String = moreArmed(kind, tool)?.let { short(it.name) + " ▾" } ?: "More ▸"
+    /** The More slot's name: "More ▸" (common.more), or the armed More type's short name and ▾ after a NARROW NO-BREAK
+     *  SPACE (U+202F), so "Opening ▾" fits its slot (sp.js 1453, ct52 FX8). */
+    fun moreLabel(tx: Tx, kind: String, tool: String): String = moreArmed(kind, tool)?.let { short(tx, it.name) + " ▾" } ?: tx.common_more
 
     /** Is [slot] lit with [tool] on? */
     fun isOn(slot: Slot, kind: String, tool: String): Boolean = when (slot.kind) {
@@ -100,9 +105,12 @@ object SurveyPrepPalette {
 
     /** What the tool chip over the photo says with a type on (sp.js 1454); null with Select, which shows no chip.
      *  [where]: "photo" on 2 · Mark, "360" on 4 · 360 (v52 slice 17, ct52 G: "Placing Window · tap the 360"). */
-    fun chipText(s: String, tool: String, where: String = "photo"): String? =
-        if (tool == SEL || tool in TOOLS) null else "Placing ${SurveyPrep.typeOf(s, tool).name} · tap the $where"
+    fun chipText(tx: Tx, s: String, tool: String, where: String = "photo"): String? =
+        if (tool == SEL || tool in TOOLS) null
+        // "photo" or "360" is an English word chosen in code, so each is its own whole key (the card's group 2)
+        else if (where == "360") tx.sp_placing_x_tap_360(tool = SurveyPrep.typeName(tx, s, tool))
+        else tx.sp_placing_x_tap_photo(tool = SurveyPrep.typeName(tx, s, tool))
 
-    /** The More sheet's heading. */
-    fun sheetTitle(s: String) = "Every mark type · ${SurveyPrep.NAME.getValue(s)}"
+    /** The More sheet's heading: "Every mark type · Front wall". */
+    fun sheetTitle(tx: Tx, s: String) = tx.sp_every_mark_type_x(T = Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 }

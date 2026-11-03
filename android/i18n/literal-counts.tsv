@@ -5,6 +5,7 @@
 # a code); each of the three lowers the count. A fall: run gradle :pano:i18nRatchet, which only ever
 # LOWERS these counts. Never raise one by hand.
 file	count
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSync.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationStore.kt	0
@@ -28,10 +29,12 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LocalFaces.kt	6
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	6
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PhaseStrip.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/QuoteStageSync.kt	1
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	1
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	4
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SitePhotosApp.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/StampScan.kt	2
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	0
@@ -65,8 +68,10 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MmBox.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomCorners.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomQuad.kt	2
@@ -82,7 +87,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	6
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	0
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	3
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepTouch.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Viewport.kt	0

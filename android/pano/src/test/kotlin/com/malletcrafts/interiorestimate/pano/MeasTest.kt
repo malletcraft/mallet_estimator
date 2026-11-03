@@ -10,6 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * LINE AND TAPE (v52 slice 9; items 5, 6 and item 7's snap, live chip text and off-surface refusal), against ct52
@@ -117,7 +118,7 @@ class MeasTest {
         // nothing calls a tool "Measure" (item 6): the tools are Tape and Line
         for (t in listOf(SurveyMeas.TAPE_CHIP, SurveyMeas.LINE_CHIP, SurveyMeas.areaChip(3), SurveyMeas.TAPE_NOTE, SurveyMeas.CAUTION))
             assertFalse(Regex("\\bMeasure\\b").containsMatchIn(t), t)
-        assertEquals("Tape", SurveyPrepPalette.toolName("T")); assertEquals("Line", SurveyPrepPalette.toolName("M"))
+        assertEquals("Tape", SurveyPrepPalette.toolName(Tx.EN, "T")); assertEquals("Line", SurveyPrepPalette.toolName(Tx.EN, "M"))
     }
 
     @Test fun `the tape's graduations -- every 100 mm, figures every 500 mm at least 150 mm from either end`() {
@@ -202,7 +203,7 @@ class MeasTest {
         assertEquals("F-M1.len", p.nextOpen(m1, null))
         val ab = { s: String -> SurveyPrep.size(s, L, W, H) }
         val (s, len) = assertNotNull(p.readingOf("F-M1.len", ab))
-        assertEquals("front", s); assertEquals("length", len.what); assertEquals(1000.0, len.est!!, 1e-9)
+        assertEquals("front", s); assertEquals("length", len.what(Tx.EN)); assertEquals(1000.0, len.est!!, 1e-9)
         assertEquals(4000.0, p.readingOf("F-M2.per", ab)!!.second.est!!, 1e-9)
         assertNull(p.readingOf("F-T1.len", ab))
         // a D2 reading on F-M1: nothing more to take on it
@@ -224,11 +225,11 @@ class MeasTest {
         SurveyPrepEdit.setLocked(p, "m2", true)
         assertFalse(p.deleteMark("m2")); assertEquals(3990.0, p.actual["F-M2.per"])
         // the labels every delete and the menu use (ct52 FX9)
-        assertEquals("Delete F-M2 marked area", SurveyPrepEdit.deleteLabel(p, "m2"))
-        assertEquals("Delete F-T1 tape", SurveyPrepEdit.deleteLabel(p, "t"))
-        assertEquals("Delete FD1 Door", SurveyPrepEdit.deleteLabel(p, "d"))
+        assertEquals("Delete F-M2 marked area", SurveyPrepEdit.deleteLabel(Tx.EN, p, "m2"))
+        assertEquals("Delete F-T1 tape", SurveyPrepEdit.deleteLabel(Tx.EN, p, "t"))
+        assertEquals("Delete FD1 Door", SurveyPrepEdit.deleteLabel(Tx.EN, p, "d"))
         val q = SurveyPrep.fresh(L, W, H).also { it.addMeas("front", SurveyMeas.LINE, listOf(pt(0.0, 0.0), pt(10.0, 0.0)), "x") }
-        assertEquals("Delete F-M1 marked length", SurveyPrepEdit.deleteLabel(q, "x"))
+        assertEquals("Delete F-M1 marked length", SurveyPrepEdit.deleteLabel(Tx.EN, q, "x"))
     }
 
     @Test fun `Duplicate takes the next number of its own prefix, 100 mm away, kept on the face`() {
@@ -262,10 +263,10 @@ class MeasTest {
         p.addMeas("front", SurveyMeas.AREA, listOf(pt(0.0, 0.0), pt(900.0, 0.0), pt(900.0, 900.0)), "m2")
         p.addMarkAt("front", "D", 2000.0, 1050.0, W, H, "d1")
         // ct52 T: holding F-T1, then F-M1
-        assertEquals("Delete|Duplicate|Lock|Lock all tapes|Cancel", SurveyPrepEdit.menuItemsOf(p, "t1").joinToString("|") { it.second })
-        assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(p, "m1").joinToString("|") { it.second })
-        assertEquals("F-T1 tape", SurveyPrepEdit.menuHeaderOf(p, "t1")); assertEquals("F-M2 marked area", SurveyPrepEdit.menuHeaderOf(p, "m2"))
-        assertEquals("FD1 Door", SurveyPrepEdit.menuHeaderOf(p, "d1"))
+        assertEquals("Delete|Duplicate|Lock|Lock all tapes|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "t1").joinToString("|") { it.second })
+        assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m1").joinToString("|") { it.second })
+        assertEquals("F-T1 tape", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "t1")); assertEquals("F-M2 marked area", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "m2"))
+        assertEquals("FD1 Door", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "d1"))
         val (s, g) = assertNotNull(SurveyPrepEdit.lockGroupOf(p, "m1"))
         assertEquals("front", s); assertEquals(SurveyPrepEdit.KIND_LINE, g.kind); assertEquals(2, g.n); assertNull(g.t)
         // "Lock all Line marks" locks F-M1 and F-M2, not the tapes, not the Door
@@ -274,8 +275,8 @@ class MeasTest {
         assertTrue(SurveyPrep.isLocked(by("F-M1"))); assertTrue(SurveyPrep.isLocked(by("F-M2")))
         assertFalse(SurveyPrep.isLocked(by("F-T1"))); assertFalse(SurveyPrep.isLocked(by("F-T2")))
         assertFalse(SurveyPrep.isLocked(p.markById("d1")!!.second))
-        assertEquals("Delete|Duplicate|Unlock|Unlock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(p, "m2").joinToString("|") { it.second })
-        assertEquals("🔒 F-M1 marked length", SurveyPrepEdit.menuHeaderOf(p, "m1"))
+        assertEquals("Delete|Duplicate|Unlock|Unlock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m2").joinToString("|") { it.second })
+        assertEquals("🔒 F-M1 marked length", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "m1"))
         // "Lock all tapes" locks the two tapes only
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", null, true, SurveyPrepEdit.KIND_TAPE))
         assertFalse(SurveyPrep.isLocked(p.markById("d1")!!.second))

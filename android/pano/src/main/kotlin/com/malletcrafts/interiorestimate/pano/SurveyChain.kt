@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -91,7 +92,7 @@ object SurveyChain {
     fun busy(s: String) = "Finish the chain on the ${SurveyPrep.NAME.getValue(s).lowercase()} first — ✓ or a double tap"
 
     /** What a locked chain's point says when it is dragged: "FK1 is locked — unlock to move it". */
-    fun lockedNode(code: String) = SurveyGuide.lockedEnd(code)
+    fun lockedNode(tx: Tx, code: String) = SurveyGuide.lockedEnd(tx, code)
 
     /** What every delete path and the menu call a chain (sp.js itemById): "FK1 chain"; the trash says "Delete FK1 chain". */
     fun label(c: SurveyPrep.Chain) = "${c.code} chain"

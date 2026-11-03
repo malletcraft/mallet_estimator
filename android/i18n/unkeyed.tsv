@@ -606,132 +606,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	—
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	−
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	≈
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	▶
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	Off
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	On
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	Show on faces
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	UNDO
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · derived
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · laser
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 · Σ 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	 ✓
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	$done of 6 surfaces bounded. Save needs all six; marks and readings never block it.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	$title · survey prep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[s]} · its list
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]} · ${tags.first} ${ab0[0].roundToInt()} × ${tags.second} ${ab0[1].roundToInt()}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]} · set its four lines
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${SurveyPrep.NAME[tab]}: ${els.size} mark${if (els.size == 1) "" else "s"}, $n measurement${if (n == 1) "" else "s"}. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${if (thenShare) "Not shared" else "Not saved"}: ${e.message ?: e.javaClass.simpleName}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${sm.code}\n${if (lk) "locked" else what}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) "ref" else "laser"}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	, 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	1▶
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	5▶
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	; 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	All four lines placed — go to 2 · Mark. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Apply
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Bluetooth permission refused — the laser can't connect
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Both
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Close the menu
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Could not share ${sv.shown}: ${e.message ?: e.javaClass.simpleName}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2 ${r.mm} mm — tap a measurement first, then read again
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	D2 → $act
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Delete
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Delete $code
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Discard this 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	H
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	L
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Laser D2 readings from the room capture, in mm. Tap the size line to change them.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sk.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sm.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Lock ${sq.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Mark
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Measure
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Measured
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	More: status, Start over, Discard
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	New 360 — ← keeps it in the room, and its lines and marks save as you go.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	No marks yet — add one in 2 · Mark
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not saved
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not saved: did not read back
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Not shared
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Nothing marked on this surface.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Place: ${left.joinToString(", ")}. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Plane grid
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Readings from web ✓ 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Readings from web: 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Room size L ${z[0].roundToInt()} · W ${z[1].roundToInt()} · H ${z[2].roundToInt()} mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Room size · mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Save survey prep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Saved ${sv.shown} to Downloads
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Saved ✓ 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Set its four lines first.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Set its four lines in 1 · Lines to see it squared.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Show
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Squared to the laser size. Add what is on this ${if (SurveyPrep.isPlan(tab)) "surface" else "wall"}; tap a mark to edit it. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	THIS 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Tap a measurement first
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Tap again to discard this 360 — nothing is kept
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	The engineer's sheet: $marks mark${if (marks == 1) "" else "s"}, $items measurement${if (items == 1) "" else "s"}, ${prep.actual.size} read. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	The laser is still connecting…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape yet
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape yet — drag them first
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	These four lines do not make a closed shape.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sk.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sm.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Unlock ${sq.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	W
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	bottom edge
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	corner
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	failed
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	fit
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	floor→ceiling
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	front→back
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	grid
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	laser
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	left edge
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	left→right
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	locked
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	move
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	ref
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	right edge
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	s
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	site only
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	surface
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	top edge
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	total$tag$sum
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	wall
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	Δ
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	←
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↶
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↺
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	↻
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	≈
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	≈ Photo
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	⋮
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲1
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▲5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶ 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▶ ${act.substringBeforeLast('.')} ${mm.what}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼1
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	▼5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀1
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	◀5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	✎
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	✓ Save
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Back to Select
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Close
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	More
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	Select
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	✓
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	✕
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - save its survey prep to send it to the web
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - the web takes a 360's survey prep, not a photo
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
@@ -940,13 +814,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	$it chan
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	HTTP $code
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	…
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	 ·
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	${i + 1} · ${STEPS[i].second}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	360
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Lines
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	List
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Mark
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	Plan
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 d
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 laser
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 · 
@@ -979,7 +846,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Scal
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	—
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	…
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	≈ = from the photo, not yet measured · MCFT S2
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt	$code is locked — unlock to move it
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked area
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked length
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 tape
@@ -1049,97 +915,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit · ${rnd(box[2] / vb[2] * 100)}%
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	≈
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	◂ 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	 (+${o.size - 1} more)
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	$code is outside the face: edit or delete it
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	, to centre
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	300 to 30000 mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Back
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Back wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Beam
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Bulb point
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Column
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Door
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Electric point
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Fan
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Front
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Front wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	H
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	L
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	L front→back · W left→right · H floor→ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Left
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Left wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Loft
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Niche
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Opening
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Other
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Right
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Right wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Step
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Switch plate
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Tap inside the ${NAME.getValue(s).lowercase()} to place it
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	W
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	Window
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	back edge
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	ceiling line
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	depth into wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	depth, front–back
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	drop below ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	floor line
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from back wall$to
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from ceiling$to
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from front wall$to
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from left corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from left wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from right corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	from right wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	front edge
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	height
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	left corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	left edge
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	loft depth
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	loft height
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	projection from wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	reveal depth
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	right corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	right edge
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	sill, from floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	underside, from floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	width
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	width, left–right
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$code deleted
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$code is locked — unlock first
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$locked locked — nothing to clear
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	$n item${if (n == 1) "" else "s"}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${SurveyPrep.NAME.getValue(s)} lines ${if (on) "locked" else "unlocked"}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${if (g.all) "Unlock" else "Lock"} all ${g.name}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${if (on) "Locked" else "Unlocked"} ${items(n)} · ${SurveyPrep.NAME.getValue(s).lowercase()}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	${items(n)} cleared
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Cancel
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Clear this surface… ($n)
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Clear whole room… ($n)
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Cleared ${items(n)}, $kept locked kept
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Delete
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Delete $it
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Duplicate
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Line marks
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lines are locked — unlock first
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lock
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Lock lines
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Locked
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Nothing in the room to clear
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Nothing on this surface to clear
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Start over
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Started over — $kept locked kept
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Tap again to clear ${items(n)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Tap again to clear every line, mark and reading
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlock
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlock lines
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	Unlocked
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	tapes
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	🔒 
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	 …
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	$n point${if (n == 1) "" else "s"} re-centred
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: ${if (wo.containsKey(s)) "unreadable" else "missing"}, started again
@@ -1161,26 +936,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Th
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The saved prep could not be read. It is kept as $it, and this room starts fresh.
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	reading $key was unreadable, left out
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	the readings were unreadable
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Beam
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Bulb
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Chain
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Column
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Door
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Electric
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Every mark type · ${SurveyPrep.NAME.getValue(s)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Fan
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Line
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Loft
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	More ▸
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Niche
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Opening
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Other
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Placing ${SurveyPrep.typeOf(s, tool).name} · tap the $where
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Step
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Switch
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Tape
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	Window
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	 ▾
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 · differs by ${sgn(dA)} / ${sgn(dB)} mm
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 ✓
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	${SurveyPrep.NAME.getValue(s)} reference

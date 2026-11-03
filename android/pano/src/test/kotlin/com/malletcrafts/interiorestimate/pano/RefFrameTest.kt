@@ -11,6 +11,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * THE REFERENCE RECTANGLE (v52 slice 12, item 13; Amit, 14 Oct 2026 06:45 IST: "Ref is currently treated as Mark Type
@@ -213,18 +214,18 @@ class RefFrameTest {
         setRef(p, "front", refQuad(p, "front", 300.0, 0.0, 905.0, 2053.0), 905.0, 2053.0)
         val id = SurveyRef.id("front")
         assertEquals("ref:front", id); assertTrue(SurveyRef.isId(id)); assertFalse(SurveyRef.isId("ref:list")); assertFalse(SurveyRef.isId("FD1"))
-        assertEquals("Front wall reference", SurveyPrepEdit.menuHeaderOf(p, id))
-        assertEquals(listOf("Lock", "Cancel"), SurveyPrepEdit.menuItemsOf(p, id).map { it.second })
+        assertEquals("Front wall reference", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, id))
+        assertEquals(listOf("Lock", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, id).map { it.second })
         assertEquals(true, SurveyPrepEdit.setLocked(p, id, null))
-        assertEquals("🔒 Front wall reference", SurveyPrepEdit.menuHeaderOf(p, id))
-        assertEquals(listOf("Unlock", "Cancel"), SurveyPrepEdit.menuItemsOf(p, id).map { it.second })
+        assertEquals("🔒 Front wall reference", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, id))
+        assertEquals(listOf("Unlock", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, id).map { it.second })
         assertFalse(SurveyRef.moveCorner(p.surface("front"), 0, 1.0, 1.0), "a locked reference does not move")
-        assertEquals("Front wall reference is locked — unlock first", SurveyRef.lockedSaid("front"))
+        assertEquals("Front wall reference is locked — unlock first", SurveyRef.lockedSaid(Tx.EN, "front"))
         assertEquals("The reference stays — hide it with the eye in 1 · Lines", SurveyRef.NO_DELETE)
         assertNull(SurveyPrepEdit.lockGroupOf(p, id))
         // turned off, it is no item to pick
         SurveyRef.setMode(p.surface("front"), "front", false, null)
-        assertNull(SurveyRef.byId(p, id)); assertNull(SurveyPrepEdit.menuHeaderOf(p, id))
+        assertNull(SurveyRef.byId(p, id)); assertNull(SurveyPrepEdit.menuHeaderOf(Tx.EN, p, id))
     }
 
     @Test fun `1 Lines hit order -- ref corner, locked ref, line end, line body, inside`() {

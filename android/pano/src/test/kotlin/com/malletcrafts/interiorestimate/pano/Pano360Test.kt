@@ -10,6 +10,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
  * 4 · 360 (v52 slice 17, sp.js 1088-1233): the projection both ways, a surface's mm to a direction and back, which
@@ -396,9 +397,9 @@ class Pano360Test {
     }
 
     @Test fun `the tool chip on the 360 says tap the 360`() {
-        assertEquals("Placing Window · tap the 360", SurveyPrepPalette.chipText("front", "W", "360"))
-        assertEquals("Placing Switch plate · tap the photo", SurveyPrepPalette.chipText("front", "S"))
-        assertNull(SurveyPrepPalette.chipText("front", SurveyPrepPalette.SEL, "360"))
+        assertEquals("Placing Window · tap the 360", SurveyPrepPalette.chipText(Tx.EN, "front", "W", "360"))
+        assertEquals("Placing Switch plate · tap the photo", SurveyPrepPalette.chipText(Tx.EN, "front", "S"))
+        assertNull(SurveyPrepPalette.chipText(Tx.EN, "front", SurveyPrepPalette.SEL, "360"))
     }
 
     // ------------------------------------------------------------------ ct52 T and X5 through the 360's maths

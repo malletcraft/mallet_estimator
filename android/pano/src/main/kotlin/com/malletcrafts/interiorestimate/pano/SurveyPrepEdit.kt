@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.max
 
 /**
@@ -19,45 +21,51 @@ import kotlin.math.max
  */
 object SurveyPrepEdit {
 
-    // ------------------------------------------------------------ the words (sp.js, exactly)
+    // ------------------------------------------------------------ the words (sp.js, exactly; keyed in port 61c slice M3a)
+
+    /** A surface's name in the language, for the texts that name one. */
+    private fun surface(tx: Tx, s: String) = Masters.surface(tx, SurveyPrep.NAME.getValue(s))
 
     /** Every refused move, resize or delete of a locked mark (sp.js refuse). */
-    fun refusal(code: String) = "$code is locked — unlock first"
+    fun refusal(tx: Tx, code: String) = tx.refuse_locked_unlock_first(code)
     /** A drag or a nudge on a surface whose lines are locked (sp.js 949, 1064). */
-    const val LINES_REFUSAL = "Lines are locked — unlock first"
+    fun linesRefusal(tx: Tx) = tx.refuse_lines_locked
     /** A delete, with UNDO. */
-    fun deleted(code: String) = "$code deleted"
-    /** The lines' padlock tapped (sp.js setLock 'lines:'). */
-    fun linesSaid(s: String, on: Boolean) = "${SurveyPrep.NAME.getValue(s)} lines ${if (on) "locked" else "unlocked"}"
+    fun deleted(tx: Tx, code: String) = tx.sp_msg_x_deleted(code)
+    /** The lines' padlock tapped (sp.js setLock 'lines:'): "locked" or "unlocked" is chosen in code, so one whole key each. */
+    fun linesSaid(tx: Tx, s: String, on: Boolean) = if (on) tx.sp_x_lines_locked(surface(tx, s)) else tx.sp_x_lines_unlocked(surface(tx, s))
     /** The lines' padlock's own label: its state (sp.js .lkl span). */
-    fun linesState(on: Boolean) = if (on) "Locked" else "Unlocked"
+    fun linesState(tx: Tx, on: Boolean) = if (on) tx.common_locked else tx.common_unlocked
     /** ... and what a tap on it does, for the screen reader. */
-    fun linesAction(on: Boolean) = if (on) "Unlock lines" else "Lock lines"
+    fun linesAction(tx: Tx, on: Boolean) = if (on) tx.sp_aria_unlock_lines else tx.sp_aria_lock_lines
 
-    private fun items(n: Int) = "$n item${if (n == 1) "" else "s"}"
+    /** Lock all / Unlock all, counting what it CHANGED (ct52: "Locked 1 item · front wall"): "Locked" or "Unlocked" is
+     *  chosen in code, so one whole key each (the card's group 2 split of sp.msg.x_x_item_x). */
+    fun lockedSnack(tx: Tx, on: Boolean, n: Int, s: String) =
+        if (on) tx.sp_msg_locked_x_item_x(n = n, surface = surface(tx, s).lowercase())
+        else tx.sp_msg_unlocked_x_item_x(n = n, surface = surface(tx, s).lowercase())
 
-    /** Lock all / Unlock all, counting what it CHANGED (ct52: "Locked 1 item · front wall"). */
-    fun lockedSnack(on: Boolean, n: Int, s: String) =
-        "${if (on) "Locked" else "Unlocked"} ${items(n)} · ${SurveyPrep.NAME.getValue(s).lowercase()}"
-
-    const val START_OVER = "Start over"
-    const val START_OVER_ARMED = "Tap again to clear every line, mark and reading"
+    /** The Start over button, and its text once armed (sp.js 1683). */
+    fun startOverLabel(tx: Tx) = tx.common_start_over
+    fun startOverArmed(tx: Tx) = tx.sp_tap_again_clear_every
     /** The note after Start over, when it kept anything; null when it kept nothing (sp.js 1690). */
-    fun startedOver(kept: Int): String? = if (kept > 0) "Started over — $kept locked kept" else null
+    fun startedOver(tx: Tx, kept: Int): String? = if (kept > 0) tx.sp_msg_started_over_x_locked(kept.toString()) else null
 
     /** The snackbar after a clear (sp.js 850). */
-    fun clearedSnack(n: Int, kept: Int) = if (kept > 0) "Cleared ${items(n)}, $kept locked kept" else "${items(n)} cleared"
+    fun clearedSnack(tx: Tx, n: Int, kept: Int) =
+        if (kept > 0) tx.sp_cleared_x_item_x(n = n, kept = kept.toString()) else tx.sp_x_item_x_cleared(n)
 
     /**
      * A clear button's text in ⋮ (sp.js 1473-1477): armed, "Tap again to clear N items"; with something to
      * clear, "Clear this surface… (N)" / "Clear whole room… (N)"; with nothing but locked items, "K locked —
      * nothing to clear"; with nothing at all, "Nothing on this surface to clear" / "Nothing in the room to clear".
+     * The room and the surface each have their own whole keys, as the prototype has them.
      */
-    fun clearLabel(scope: String, n: Int, locked: Int, armed: Boolean): String = when {
-        armed && n > 0 -> "Tap again to clear ${items(n)}"
-        n > 0 -> if (scope == ROOM) "Clear whole room… ($n)" else "Clear this surface… ($n)"
-        locked > 0 -> "$locked locked — nothing to clear"
-        else -> if (scope == ROOM) "Nothing in the room to clear" else "Nothing on this surface to clear"
+    fun clearLabel(tx: Tx, scope: String, n: Int, locked: Int, armed: Boolean): String = when {
+        armed && n > 0 -> if (scope == ROOM) tx.sp_tap_again_clear_x_2(n) else tx.sp_tap_again_clear_x(n)
+        n > 0 -> if (scope == ROOM) tx.sp_clear_whole_room_x(n.toString()) else tx.sp_clear_surface_x(n.toString())
+        locked > 0 -> tx.refuse_sp_x_locked_nothing_clear(locked.toString())
+        else -> if (scope == ROOM) tx.sp_nothing_room_clear else tx.sp_nothing_surface_clear
     }
 
     /** How long a clear (and Start over) stays armed for its second tap, ms. */
@@ -142,8 +150,19 @@ object SurveyPrepEdit {
 
     /** The group a long press can lock at once: every mark of [e]'s type on [s] (sp.js lockGroup) -- or, for a Tape,
      *  every tape there ([kind] [KIND_TAPE], "tapes"), for a Line every Line and area ([KIND_LINE], "Line marks").
-     *  [all]: every one of them is locked already, so the menu offers "Unlock all <name>". [t]: the mark type, or null. */
+     *  [all]: every one of them is locked already, so the menu offers "Unlock all <name>". [t]: the mark type, or null.
+     *  [name] is the group's ENGLISH identity -- the type's name, or the kind's word; [groupName] draws it. */
     class Group(val t: String?, val name: String, val all: Boolean, val n: Int, val kind: String? = null)
+
+    /** What "Lock all {name}" names, in the language: a type through Masters, a kind through its own key (sp.group.*,
+     *  sp.line_marks). */
+    fun groupName(tx: Tx, g: Group): String = when {
+        g.t != null -> Masters.type(tx, g.name)
+        g.kind == KIND_TAPE -> tx.sp_group_tapes
+        g.kind == KIND_LINE -> tx.sp_line_marks
+        g.kind == KIND_CHAIN -> tx.sp_group_chains
+        else -> g.name
+    }
 
     fun lockGroup(p: SurveyPrep.Prep, s: String, e: SurveyPrep.Mark): Group {
         val l = p.surface(s).marks.filter { it.t == e.t }
@@ -153,7 +172,7 @@ object SurveyPrepEdit {
     fun lockGroup(p: SurveyPrep.Prep, s: String, m: SurveyPrep.Meas): Group {
         val tape = m.kind == SurveyMeas.TAPE
         val l = p.surface(s).meas.filter { (it.kind == SurveyMeas.TAPE) == tape }
-        return Group(null, if (tape) "tapes" else "Line marks", l.isNotEmpty() && l.all { SurveyPrep.isLocked(it) }, l.size,
+        return Group(null, if (tape) "tapes" else "Line marks", l.isNotEmpty() && l.all { SurveyPrep.isLocked(it) }, l.size, // text:value the group's identity, drawn through groupName
             if (tape) KIND_TAPE else KIND_LINE)
     }
 
@@ -172,16 +191,17 @@ object SurveyPrepEdit {
     }
 
     /** What every delete path and the menu call an item (sp.js itemById's label): "FD1 Door", "F-M1 marked length",
-     *  "F-T1 tape", "F-M2 marked area". The trash's screen-reader label is "Delete " and this. */
-    fun labelOf(p: SurveyPrep.Prep, id: String): String? {
-        p.markById(id)?.let { (s, e) -> return e.code + " " + SurveyPrep.typeOf(s, e.t).name }
+     *  "F-T1 tape", "F-M2 marked area". The trash's screen-reader label is "Delete " and this. A mark's type is drawn
+     *  through Masters; a Tape's, a Line's and a chain's labels are SurveyMeas's and SurveyChain's (port 61c slice M3b). */
+    fun labelOf(tx: Tx, p: SurveyPrep.Prep, id: String): String? {
+        p.markById(id)?.let { (s, e) -> return e.code + " " + SurveyPrep.typeName(tx, s, e.t) }
         p.measById(id)?.let { (_, m) -> return SurveyMeas.label(m) }
         p.chainById(id)?.let { (_, c) -> return SurveyChain.label(c) }
         return null
     }
 
     /** The trash's label: "Delete F-M1 marked length", "Delete FK1 chain" (ct52 FX9). */
-    fun deleteLabel(p: SurveyPrep.Prep, id: String): String? = labelOf(p, id)?.let { "Delete $it" }
+    fun deleteLabel(tx: Tx, p: SurveyPrep.Prep, id: String): String? = labelOf(tx, p, id)?.let { tx.sp_delete_x(it) }
 
     // ------------------------------------------------------------ the long-press menu
 
@@ -192,8 +212,8 @@ object SurveyPrepEdit {
     const val CANCEL = "cancel"
 
     /** The menu's head: "FD1 Door", "🔒 FD1 Door" when locked (sp.js 1469). */
-    fun menuHeader(s: String, e: SurveyPrep.Mark): String =
-        (if (SurveyPrep.isLocked(e)) "🔒 " else "") + e.code + " " + SurveyPrep.typeOf(s, e.t).name
+    fun menuHeader(tx: Tx, s: String, e: SurveyPrep.Mark): String =
+        (if (SurveyPrep.isLocked(e)) "🔒 " else "") + e.code + " " + SurveyPrep.typeName(tx, s, e.t)
 
     /** ... on a Tape or a Line: "F-T1 tape", "🔒 F-M1 marked length". */
     fun menuHeader(m: SurveyPrep.Meas): String = (if (SurveyPrep.isLocked(m)) "🔒 " else "") + SurveyMeas.label(m)
@@ -201,32 +221,34 @@ object SurveyPrepEdit {
     /** ... on a chain: "FK1 chain", "🔒 FK1 chain" (v52 slice 11). */
     fun menuHeader(c: SurveyPrep.Chain): String = (if (SurveyPrep.isLocked(c)) "🔒 " else "") + SurveyChain.label(c)
 
-    /** The head for any item by its id; null when there is none. */
-    fun menuHeaderOf(p: SurveyPrep.Prep, id: String): String? =
-        SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
+    /** The head for any item by its id; null when there is none. The reference's, a Tape's, a Line's and a chain's
+     *  heads are SurveyRef's, SurveyMeas's and SurveyChain's (port 61c slice M3b). */
+    fun menuHeaderOf(tx: Tx, p: SurveyPrep.Prep, id: String): String? =
+        SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(tx, s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
             ?: p.chainById(id)?.let { (_, c) -> menuHeader(c) }
 
     /** The menu on a mark, in order, as (action, text): Delete · Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel
      *  (ct52: "Delete|Duplicate|Lock|Lock all Door|Cancel"). */
-    fun menuItems(p: SurveyPrep.Prep, s: String, e: SurveyPrep.Mark): List<Pair<String, String>> =
-        menu(lockGroup(p, s, e), SurveyPrep.isLocked(e))
+    fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, e: SurveyPrep.Mark): List<Pair<String, String>> =
+        menu(tx, lockGroup(p, s, e), SurveyPrep.isLocked(e))
 
     /** ... on a Tape ("Lock all tapes") or a Line ("Lock all Line marks"): ct52 T, "Delete|Duplicate|Lock|Lock all tapes|Cancel". */
-    fun menuItems(p: SurveyPrep.Prep, s: String, m: SurveyPrep.Meas): List<Pair<String, String>> =
-        menu(lockGroup(p, s, m), SurveyPrep.isLocked(m))
+    fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, m: SurveyPrep.Meas): List<Pair<String, String>> =
+        menu(tx, lockGroup(p, s, m), SurveyPrep.isLocked(m))
 
     /** ... on a chain: "Delete|Duplicate|Lock|Lock all chains|Cancel" (ct52 N, v52 slice 11). */
-    fun menuItems(p: SurveyPrep.Prep, s: String, c: SurveyPrep.Chain): List<Pair<String, String>> =
-        menu(lockGroup(p, s, c), SurveyPrep.isLocked(c))
+    fun menuItems(tx: Tx, p: SurveyPrep.Prep, s: String, c: SurveyPrep.Chain): List<Pair<String, String>> =
+        menu(tx, lockGroup(p, s, c), SurveyPrep.isLocked(c))
 
-    /** The menu for any item by its id; empty when there is none. */
-    fun menuItemsOf(p: SurveyPrep.Prep, id: String): List<Pair<String, String>> =
-        SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(p, s, m) }
-            ?: p.chainById(id)?.let { (s, c) -> menuItems(p, s, c) } ?: emptyList()
+    /** The menu for any item by its id; empty when there is none. The reference's is SurveyRef's (port 61c slice M3b). */
+    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String): List<Pair<String, String>> =
+        SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(tx, p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(tx, p, s, m) }
+            ?: p.chainById(id)?.let { (s, c) -> menuItems(tx, p, s, c) } ?: emptyList()
 
-    private fun menu(g: Group, locked: Boolean) =
-        listOf(DELETE to "Delete", DUPLICATE to "Duplicate", LOCK to if (locked) "Unlock" else "Lock",
-            LOCK_ALL to "${if (g.all) "Unlock" else "Lock"} all ${g.name}", CANCEL to "Cancel")
+    /** "Lock" / "Unlock" and "Lock all" / "Unlock all" are chosen in code, so each is its own whole key (the card's group 2). */
+    private fun menu(tx: Tx, g: Group, locked: Boolean) =
+        listOf(DELETE to tx.common_delete, DUPLICATE to tx.common_duplicate, LOCK to if (locked) tx.common_unlock else tx.common_lock,
+            LOCK_ALL to (if (g.all) tx.sp_unlock_all_x(groupName(tx, g)) else tx.sp_lock_all_x(groupName(tx, g))), CANCEL to tx.common_cancel)
 
     // ------------------------------------------------------------ Duplicate
 
