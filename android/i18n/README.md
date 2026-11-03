@@ -217,6 +217,21 @@ group's label (`phase.aria.phase_project`); a quote stage in the confirm goes th
 move meets is `QuoteMove.text` / `localText` (QM0's keys). **No new key**; Tx is not regenerated. The row separator in
 `Phases` and the circle's ✓ in `PhaseStrip` are marked `// text:value`.
 
+## Port 61c slice QM2 (3 Nov 2026): Approve the estimate, born keyed
+
+No file is added: `Phases.kt`, `PhaseStrip.kt`, `QuoteView.kt`, `ScopeSheet.kt`, `QuoteStageSync.kt`, `MainActivity.kt`
+and `SyncWorker.kt` change, every one already in `ported.txt`. At Revisions the panel's right end carries
+`Approve the estimate ▸` for the Project Manager (`phase.approve_estimate`, through `Phases.approve`), and for anyone
+else S5's own 403 words on a line of their own (`refuse.stage.pm_approves`, the same key QM0 gave the 403's status
+line, so the panel and the sheet never say two things); before the mirror has said the role, neither. The button
+opens the scope sheet's approve mode (QV's keys: `phase.scope_title`, `phase.scope_note`, `phase.scope_ticked_x`,
+`phase.scope_move_approved`, `common.cancel`), pre-ticked from the mirror's scope (`QuoteView.openTicks`), and its
+Move to Client approved is the guarded move carrying the ticks (`QuoteStageSync.approve`), whose every refusal is
+`QuoteMove.text` / `localText` (QM0's keys: `refuse.stage.pm_approves`, `refuse.stage.scope_changed`,
+`refuse.stage.scope_missing`, `refuse.stage.changed_x`, `refuse.stage.approved_final`, the sign-in, no-answer and
+offline lines). **No new key**, no text changed; Tx is not regenerated; `unkeyed.tsv`, `ported.txt` and
+`literal-counts.tsv` are unchanged.
+
 ## What is here
 
 | File | What it is | Who writes it |

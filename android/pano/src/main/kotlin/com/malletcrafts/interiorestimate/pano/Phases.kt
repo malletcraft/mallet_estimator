@@ -6,7 +6,7 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
- * THE PHASE STRIP, the pure half (port 61c slice QM1, 3 Nov 2026; SPEC61c §4.1 item 3; index61c2.html PHASES and
+ * THE PHASE STRIP, the pure half (port 61c slices QM1 and QM2, 3 Nov 2026; SPEC61c §4.1 item 3; index61c2.html PHASES and
  * stripHTML through the quote journey). Under the project line, five segments -- the five quote-journey phases, each
  * standing for one of S5's quote stages ([all]: Survey, Wish list, Vendor review, Estimation, Revisions; Client approved
  * is execution and has no segment) -- the past ones ticked, the current one marked, and a tap on another one THE
@@ -20,8 +20,11 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * A LISTED SUBSET of the prototype's strip (Amit's answer 1 of 28 Oct 2026, "Ship the mover and Approve now"): the
  * VENDOR PACKS row at Vendor review, the GOES TO ESTIMATION row at Estimation and the hand-off counts of IN REVISION
  * rest on the v53/v54 marks, trades and packs the phone does not have, and come with that port; the does-lines
- * describing those tools ship word for word as approved. `Approve the estimate ▸` and the PM-only line at Revisions
- * are slice QM2's. At Client approved the strip is the opened quote view ([QuoteView]), which this file does not draw.
+ * describing those tools ship word for word as approved. At Revisions the panel carries `Approve the estimate ▸` for the
+ * Project Manager and the PM-only line for anyone else ([approve], slice QM2): the button opens the scope sheet's approve
+ * mode ([QuoteView.Mode.APPROVE]), whose Move to Client approved is the guarded move carrying the scope
+ * ([QuoteMove.stage]); approval is final (§13.5), so no segment is a tap from Client approved and the strip there is the
+ * opened quote view ([QuoteView]), which this file does not draw.
  *
  * Nothing here talks to S5 or Android: :app's PhaseStrip draws from these, QuoteStageSync.move sends the request.
  * Every text is a `tx.<key>`; a quote stage is an identity value shown through [Masters.quote].
@@ -34,7 +37,7 @@ object Phases {
     /** The phase whose row is SURVEY COVERAGE. */
     const val SURVEY = 0
 
-    /** The phase whose row is IN REVISION (and, from QM2, Approve the estimate ▸). */
+    /** The phase whose row is IN REVISION, with Approve the estimate ▸ for the PM ([approve]). */
     const val REVISIONS = 4
 
     /** One of the five: its number, its name (the phase's, not the stage's), the quote stage it stands for, its does-line. */
@@ -162,9 +165,43 @@ object Phases {
 
     /**
      * IN REVISION, at Revisions: `open for the client and vendors`. The hand-off counts the prototype puts before it
-     * (`3 marks in Scope · …`) are the v53/v54 port's and are absent here (answer 1); Approve the estimate ▸ is QM2's.
+     * (`3 marks in Scope · …`) are the v53/v54 port's and are absent here (answer 1); the panel's button is [approve].
      */
     fun revisionRow(tx: Tx): Panel = Panel(tx.phase_in_revision, listOf(tx.phase_open_client_vendors))
+
+    /**
+     * What the Revisions panel offers beside IN REVISION (port 61c slice QM2; index61c2.html stripHTML at `ph===4`): the
+     * [button] `Approve the estimate ▸` at the panel's right end, or the [pmOnly] line `Only the Project Manager approves
+     * the estimate` on a line of its own under the panel (§14.5, the prototype's .p61pmr) -- never both, and neither
+     * before the role is read.
+     */
+    data class Approve(val button: String?, val pmOnly: String?)
+
+    /**
+     * The Revisions panel's Approve on [line] for S5's album [role] of this person (the mirror's `role`; null until a
+     * mirror has been read -- the role is S5's answer, never derived on the phone). Only the project's named Project
+     * Manager approves (§13.2; S5's D3: every staff member while none is named, which S5 answers in `album_role`): the PM
+     * gets the button, which opens the scope sheet's approve mode ([QuoteView.Mode.APPROVE]) and moves nothing itself --
+     * and only while the line is [movable], since [QuoteMove.stage] builds nothing on a copy named without its stamp
+     * (the QM1 review's rule: a control that cannot act is not offered; the does-line says why); anyone else -- a
+     * Designer, or a vendor or a client should S5 ever list a project for one -- reads S5's own 403 words (asis.js
+     * PM_APPROVES) on a line of its own; at any other phase, or before the role is read, neither.
+     */
+    fun approve(tx: Tx, line: ProjectLine, role: String?): Approve = when {
+        phaseOf(line) != REVISIONS || role == null -> Approve(null, null)
+        role == Album.PM -> Approve(if (movable(line)) tx.phase_approve_estimate else null, null)
+        else -> Approve(null, tx.refuse_stage_pm_approves)
+    }
+
+    /**
+     * Whether the project screen at [stage] (S5's identity value, the store's copy) reads the album mirror -- on project
+     * open, after a move's answer and in the sync (AlbumSync.refresh): at Revisions, where the panel's Approve needs S5's
+     * role for this person ([approve]) and the scope as stored (the sheet's pre-ticks, [QuoteView.openTicks], and the
+     * Approve's `scope_base`, [QuoteMove.stage]); and at Client approved, where the quote view reads the role, the scope
+     * and its stamp ([QuoteView.scopeRow]). No earlier stage draws anything from it, so none reads it; blank, unread or
+     * null: no.
+     */
+    fun needsMirror(stage: String?): Boolean = stage?.trim().let { it == QuoteStage.STAGES[REVISIONS] || it == QuoteStage.APPROVED }
 
     /** The strip's accessible label as a group: `Phase of this project`. */
     fun groupLabel(tx: Tx): String = tx.phase_aria_phase_project

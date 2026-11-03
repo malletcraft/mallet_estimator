@@ -219,4 +219,44 @@ class PhasesTest {
         assertEquals(0, Phases.SURVEY); assertEquals(4, Phases.REVISIONS)
         assertEquals("Phase of this project", Phases.groupLabel(Tx.EN)); assertEquals("या प्रोजेक्टची फेज", Phases.groupLabel(Tx.MR))
     }
+
+    @Test fun `the Revisions panel's Approve - the PM alone gets the button, anyone else the PM-only line, neither before the role is read (QM2)`() {
+        val rev = line(at("Revisions"))
+        // the PM: Approve the estimate ▸, no PM-only line -- the prototype's isPM() button (index61c2.html stripHTML ph===4)
+        assertEquals(Phases.Approve("Approve the estimate ▸", null), Phases.approve(Tx.EN, rev, Album.PM))
+        assertEquals(Phases.Approve("अंदाजपत्रक मंजूर करा ▸", null), Phases.approve(Tx.MR, line(at("Revisions"), tx = Tx.MR), Album.PM))
+        // anyone else: S5's PM_APPROVES words on a line of their own (§14.5), no button -- a Designer, and the roles S5 keeps for others
+        for (role in listOf(Album.DESIGNER, Album.VENDOR, Album.CLIENT)) {
+            assertEquals(Phases.Approve(null, "Only the Project Manager approves the estimate"), Phases.approve(Tx.EN, rev, role), role)
+            assertEquals(Phases.Approve(null, "अंदाजपत्रक फक्त प्रोजेक्ट मॅनेजर मंजूर करतो"), Phases.approve(Tx.MR, line(at("Revisions"), tx = Tx.MR), role), role)
+        }
+        // the line is S5's own 403 to an Approve by anyone but the PM, so the panel and the status line never say two things
+        assertEquals(QuoteMove.text(Tx.EN, QuoteMove.Verdict.PmOnly(Album.DESIGNER, "pm@x")), Phases.approve(Tx.EN, rev, Album.DESIGNER).pmOnly)
+        // before a mirror has said the role: neither -- the role is S5's answer, never derived on the phone
+        assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, rev, null))
+        // at any other phase there is no Revisions panel: neither, whatever the role
+        for (s in QuoteStage.STAGES.dropLast(2)) for (role in Album.ROLE_IDS) assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, line(at(s)), role), "$s $role")
+        // at Client approved the strip is the quote view's: no Approve (approval is final), and no PM-only line either
+        for (role in Album.ROLE_IDS) assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, line(at("Client approved")), role), role)
+        // unread, or not on S5: no panel -- the does-line says why (v61c.2: Approve reads not on S5 yet through the strip)
+        for (l in listOf(line(null), line(at("Revisions"), phoneOnly = true), line(Cache(listed = false, readAt = "r")))) assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, l, Album.PM), "${l.kind}")
+        // Revisions NAMED without its stamp (the wish list's final 409's sibling): the PM gets no button, since the mover builds
+        // nothing on that copy (the QM1 review's rule) -- the does-line says S5 decides; the PM-only line still reads for a Designer
+        val named = line(QuoteStage.named(at("Estimated"), "Revisions", "r")!!)
+        assertEquals(Phases.REVISIONS, Phases.phaseOf(named)); assertFalse(Phases.movable(named))
+        assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, named, Album.PM))
+        assertEquals(QuoteMove.Move.None, QuoteMove.stage("PROJ-DEMO", QuoteStage.named(at("Estimated"), "Revisions", "r")!!, QuoteStage.APPROVED, listOf(10), ""))
+        assertEquals(Phases.Approve(null, "Only the Project Manager approves the estimate"), Phases.approve(Tx.EN, named, Album.DESIGNER))
+        // a stage S5 never timed is movable, so the PM gets the button (base '' is sent)
+        assertEquals("Approve the estimate ▸", Phases.approve(Tx.EN, line(Cache(listed = true, stage = "Revisions", readAt = "r")), Album.PM).button)
+    }
+
+    @Test fun `needsMirror - the screen reads the album at Revisions and at Client approved, and at no earlier stage`() {
+        assertTrue(Phases.needsMirror("Revisions")); assertTrue(Phases.needsMirror("Client approved")); assertTrue(Phases.needsMirror(" Revisions "))
+        assertEquals(QuoteStage.STAGES[Phases.REVISIONS], "Revisions")
+        for (s in QuoteStage.STAGES.dropLast(2)) assertFalse(Phases.needsMirror(s), s)
+        assertFalse(Phases.needsMirror(null)); assertFalse(Phases.needsMirror("")); assertFalse(Phases.needsMirror("On hold"))
+        // the two stages whose strip draws from the mirror: the Approve's role and scope_base, the quote view's scope row
+        assertTrue(Phases.needsMirror(Phases.stageOf(Phases.REVISIONS))); assertTrue(Phases.needsMirror(QuoteStage.APPROVED))
+    }
 }

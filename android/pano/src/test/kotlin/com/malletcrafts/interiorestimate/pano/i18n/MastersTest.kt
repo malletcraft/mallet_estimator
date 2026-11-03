@@ -8,6 +8,7 @@ import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
+import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.SurveyExport
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
@@ -147,8 +148,12 @@ class MastersTest {
             QuoteStage::class.java to listOf("merge", "mergeStates", "fromAlbum", "listedOf", "fromList", "takes", "named",
                 "roomDot", "surveyShot", "coverage", "stored", "storedOf", "writes"),
             // port 61c slice QM1: the strip's segment-to-stage mapping and tap rule decide what is SENT (the stage an
-            // identity value); only the texts (all, segments, doesLine, ask, the rows) take a Tx
-            Phases::class.java to listOf("stageOf", "phaseOf", "tap"),
+            // identity value); only the texts (all, segments, doesLine, ask, the rows, approve) take a Tx; QM2 adds
+            // needsMirror (which stages read the album)
+            Phases::class.java to listOf("stageOf", "phaseOf", "tap", "needsMirror"),
+            // port 61c slice QM2: the scope sheet's ticks -- what it opens with, a tap, and what its submit SENDS -- hold
+            // S5's work ids; only the texts (title, note, countLine, the labels, scopeRow) take a Tx
+            QuoteView::class.java to listOf("openTicks", "toggled", "submit", "rows"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

@@ -9,8 +9,9 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * final (§13.5), so none is a tap -- then the Approved chip, which folds the view, then the APPROVED SCOPE row, which
  * reads the baseline ([scopeRow]) or, with none recorded, offers the Project Manager "Record the approved scope" and
  * tells anyone else that only the PM records it (§13.6). The scope sheet ([Mode], [title], [note], [countLine],
- * [rows], [submit]) is the one checklist of the sixteen works in three modes: approve (QM2's Approve the estimate ▸),
- * record (that row's button) and view (the row's tap, read-only).
+ * [rows], [openTicks], [submit]) is the one checklist of the sixteen works in three modes: approve (the strip's Approve
+ * the estimate ▸ at Revisions, [Phases.approve], port 61c slice QM2: its Move to Client approved is the guarded move
+ * carrying the scope, [QuoteMove.stage]), record (that row's button) and view (the row's tap, read-only).
  *
  * Nothing here talks to S5 or Android: the row and the sheet are drawn by :app from what the album mirror holds
  * (`scope`, `scope_at`, `role`; AlbumWire.view) and what the person ticks; the record itself is [QuoteMove.scope],
@@ -69,8 +70,17 @@ object QuoteView {
 
     // ---- the scope sheet (SPEC61c §4.2, with §14.6's notes; index61c2.html scopeSheet) ---------------------------
 
-    /** The sheet's three modes: Approve the estimate ▸ (QM2), Record the approved scope, and the read-only view. */
+    /** The sheet's three modes: Approve the estimate ▸ (the strip's, [Phases.approve]), Record the approved scope, and the read-only view. */
     enum class Mode { APPROVE, RECORD, VIEW }
+
+    /**
+     * The ticks a sheet opens with (the prototype's openScope: `ticks: mode==='record'?[]:scopeOf(p)`): for approve the
+     * [stored] scope (the mirror's; null = no baseline) -- pre-ticked, so an Approve carries on a scope recorded at
+     * Estimated or Revisions on /projects, and a stale 409 redraws from S5's echo of it ([QuoteMove.Verdict.ScopeStale])
+     * -- and for the view the same; none for a record (port 61c slice QM2). The sixteen only, each once.
+     */
+    fun openTicks(mode: Mode, stored: List<Int>?): Set<Int> =
+        if (mode == Mode.RECORD) emptySet() else QuoteMove.worksOf(stored.orEmpty()).toSet()
 
     /** One of the sixteen rows, in WORKS order: the work, whether it is ticked, and whether the tick is disabled (view). */
     data class Row(val id: Int, val on: Boolean, val disabled: Boolean)

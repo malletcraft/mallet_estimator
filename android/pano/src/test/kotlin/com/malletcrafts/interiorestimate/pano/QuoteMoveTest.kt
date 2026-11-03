@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -403,6 +404,67 @@ class QuoteMoveTest {
         // v61c.2: the strip offers no tap on a project S5 does not list, and the mover refuses it anyway, before any call
         assertTrue(Phases.segments(Tx.EN, QuoteStage.projectLine(null, true, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"))).none { it.tap })
         assertEquals(Move.Refused(Local.NOT_ON_S5), QuoteMove.stage("", null, Phases.stageOf(1)))
+    }
+
+    @Test fun `Approve from the Revisions panel - the sheet's ticks become the body S5 accepted, and each verdict goes where the strip, the store and the mirror read it (QM2)`() {
+        val now = java.time.Instant.parse("2026-11-03T08:00:00Z")
+        fun lineOf(c: Cache) = QuoteStage.projectLine(c, false, emptyList(), Tx.EN, now)
+        // the PM at Revisions, with the scope recorded at Revisions on /projects as the mirror holds it (the scope S5 echoed in SCOPE_STALE)
+        val revisions = at("Revisions", tRevisions)
+        val mirror = Album.View(role = Album.PM, scope = listOf(10, 20, 30), scopeAt = tScope)
+        assertEquals("Approve the estimate ▸", Phases.approve(Tx.EN, lineOf(revisions), mirror.role).button)
+        // the sheet opens pre-ticked from the mirror's scope; three more ticks, and the submit is the sixteen in WORKS order
+        val ticks = QuoteView.toggled(QuoteView.Mode.APPROVE, QuoteView.toggled(QuoteView.Mode.APPROVE, QuoteView.toggled(QuoteView.Mode.APPROVE,
+            QuoteView.openTicks(QuoteView.Mode.APPROVE, mirror.scope), 140), 50), 90)
+        val works = assertNotNull(QuoteView.submit(ticks))
+        // the move the sheet's Move to Client approved sends: the stored copy's stamp as the base, the mirror's scope_at as scope_base
+        val m = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, mirror.scopeAt))
+        assertEquals(S5Quote.SENT_APPROVED, json(m.request.fields), "byte for byte the body S5 answered 200 to")
+        assertEquals(tRevisions, m.base); assertEquals(tScope, m.scopeBase)
+        // 200: Client approved into the store -- the line turns to Execution and the strip folds (no segment, no panel) -- and the
+        // baseline into the mirror, where the APPROVED SCOPE row reads it
+        val moved = assertIs<Verdict.Moved>(stage(200, S5Quote.APPROVED, m))
+        val approved = QuoteStage.merge(revisions, QuoteMove.copyOf(moved, "2026-11-03T07:01:09Z")!!, 4L, 3L)
+        assertEquals(QuoteStage.APPROVED, approved.stage); assertEquals(tApproved, approved.at)
+        assertEquals("Execution · not read yet", lineOf(approved).text)
+        assertEquals(Phases.N, Phases.phaseOf(lineOf(approved)))
+        assertEquals(Phases.Approve(null, null), Phases.approve(Tx.EN, lineOf(approved), Album.PM))
+        val after = assertNotNull(Album.merged(mirror, Album.Answer(scope = moved.now.scope, scopeAt = moved.now.scopeAt)))
+        assertEquals(listOf(10, 20, 30, 50, 90, 140), after.scope); assertEquals(tApproved, after.scopeAt)
+        assertEquals("6 of 16 works · since 3 Nov, 12:31 · tap to view", QuoteView.scopeRow(Tx.EN, after.scope, after.scopeAt, after.role).text)
+        assertNull(QuoteMove.text(Tx.EN, moved), "nothing to say: the pending refusal goes")
+        // approval is final: from the store's copy no move is built to any stage, and no segment is a tap
+        for (to in QuoteStage.STAGES.dropLast(1)) assertEquals(Move.Refused(Local.APPROVED_FINAL), QuoteMove.stage(P, approved, to), to)
+        assertTrue(Phases.segments(Tx.EN, lineOf(approved)).none { it.tap })
+        // 403 PmOnly: a PM named on /projects meanwhile -- the role and the PM into the mirror, and the panel redraws who approves,
+        // in the same words as the sheet's status line; the store keeps its copy (nothing moved)
+        val pmOnly = assertIs<Verdict.PmOnly>(stage(403, S5Quote.PM_ONLY, m))
+        val designer = assertNotNull(Album.merged(mirror, Album.Answer(role = pmOnly.role, pm = pmOnly.pm)))
+        assertEquals(Album.DESIGNER, designer.role); assertEquals("pm@x", designer.pm)
+        assertEquals(Phases.Approve(null, "Only the Project Manager approves the estimate"), Phases.approve(Tx.EN, lineOf(revisions), designer.role))
+        assertEquals("Only the Project Manager approves the estimate", QuoteMove.text(Tx.EN, pmOnly))
+        assertNull(QuoteMove.copyOf(pmOnly, "r"))
+        // 409 ScopeStale: the scope was amended meanwhile -- S5's echo into the mirror, the sheet's ticks redrawn from it, and the
+        // next Approve carries the new scope_base; the stage stays Revisions
+        val staleSend = send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, listOf(10, 20, 30, 50), ""))
+        assertEquals(S5Quote.SENT_SCOPE_STALE, json(staleSend.request.fields))
+        val scopeStale = assertIs<Verdict.ScopeStale>(stage(409, S5Quote.SCOPE_STALE, staleSend))
+        val redrawn = assertNotNull(Album.merged(Album.View(role = Album.PM), Album.Answer(scope = scopeStale.now.scope, scopeAt = scopeStale.now.scopeAt)))
+        assertEquals(setOf(10, 20, 30), QuoteView.openTicks(QuoteView.Mode.APPROVE, redrawn.scope))
+        assertEquals(tScope, send(QuoteMove.stage(P, revisions, QuoteStage.APPROVED, works, redrawn.scopeAt)).scopeBase)
+        assertEquals("Revisions", QuoteMove.copyOf(scopeStale, "r")!!.stage)
+        assertEquals("The scope was changed meanwhile; not saved — it now shows what is stored", QuoteMove.text(Tx.EN, scopeStale))
+        // 409 scope_missing never reaches S5 from the sheet (nothing ticked is refused there, QuoteView.submit) nor from the mover
+        assertNull(QuoteView.submit(QuoteView.openTicks(QuoteView.Mode.APPROVE, null)))
+        assertEquals(Move.Refused(Local.SCOPE_MISSING), QuoteMove.stage(P, revisions, QuoteStage.APPROVED, emptyList(), ""))
+        // 409 stale: somebody moved the stage meanwhile -- S5's stage into the store; a project approved meanwhile folds the strip
+        // with the refusal line standing solo (critic G5)
+        val finalStale = assertIs<Verdict.Stale>(stage(409, S5Quote.FINAL_STALE, m))
+        val meanwhile = QuoteStage.merge(revisions, QuoteMove.copyOf(finalStale, "r")!!, 4L, 3L)
+        assertEquals(QuoteStage.LineKind.EXEC, lineOf(meanwhile).kind)
+        assertEquals("Changed by pm@x at 12:31 — not saved", QuoteMove.text(Tx.EN, finalStale))
+        // the screen reads the album at Revisions (the role, the scope_base) and at Client approved (the quote view): one rule
+        assertTrue(Phases.needsMirror(revisions.stage)); assertTrue(Phases.needsMirror(approved.stage)); assertFalse(Phases.needsMirror("Estimated"))
     }
 
     @Test fun `a request that threw is offline only when it never reached S5 - a timeout or a reset once it went out is no answer, so the phone re-reads (QM1 review)`() {

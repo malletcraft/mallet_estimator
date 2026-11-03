@@ -53,12 +53,20 @@ import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
- * THE PHASE STRIP through the quote journey (port 61c slice QM1; SPEC61c §4.1 item 3; index61c2.html stripHTML and
- * its .p54* CSS), drawn under the project line on the project screen: the five segments (the past ones ✓, the
+ * THE PHASE STRIP through the quote journey (port 61c slices QM1 and QM2; SPEC61c §4.1 item 3; index61c2.html stripHTML
+ * and its .p54* CSS), drawn under the project line on the project screen: the five segments (the past ones ✓, the
  * current one filled), the does-line, the refusal line, the backward confirm, SURVEY COVERAGE at Survey and IN
- * REVISION at Revisions -- the LISTED SUBSET of the prototype's strip Amit chose (answer 1 of 28 Oct 2026): no VENDOR
- * PACKS, no GOES TO ESTIMATION, no hand-off counts (the v53/v54 port's), and Approve the estimate ▸ is QM2's. Every
- * rule is [Phases] in :pano, where PhasesTest pins it; this file draws.
+ * REVISION at Revisions with its Approve -- the LISTED SUBSET of the prototype's strip Amit chose (answer 1 of 28 Oct
+ * 2026): no VENDOR PACKS, no GOES TO ESTIMATION, no hand-off counts (the v53/v54 port's). Every rule is [Phases] in
+ * :pano, where PhasesTest pins it; this file draws.
+ *
+ * APPROVE (slice QM2; §13.2, §14.5; index61c2.html stripHTML at `ph===4`). At Revisions the panel's right end carries
+ * `Approve the estimate ▸` for the Project Manager alone -- S5's role for this person, from the album mirror
+ * ([PhaseStripArgs.role]; Phases.approve) -- which opens the scope sheet's approve mode ([PhaseStripArgs.onApprove]:
+ * the sixteen works pre-ticked from the mirror's scope, Move to Client approved) and moves nothing itself; anyone else
+ * reads `Only the Project Manager approves the estimate` on a line of its own under the panel; before the mirror has
+ * said the role, neither shows. The move is the sheet's (QuoteStageSync.approve), and approval is final: this strip is
+ * not drawn at Client approved and no segment moves from it.
  *
  * THE MOVER (decision 2 of 27 Oct 2026: the quote stage moves from the phone as it does on /projects, one guarded value
  * on S5). A tap on a later segment moves at once; an earlier one asks first ([Phases.ask], the inline confirm with
@@ -93,10 +101,14 @@ class PhaseStripArgs(
     val refusal: String?,
     /** SURVEY COVERAGE (QuoteStage.coverage over the rooms in scope); drawn at Survey only, null when no room is in scope. */
     val coverage: QuoteStage.Coverage?,
-    /** A move is out: no segment takes a tap until S5 answers. */
+    /** A move is out: no segment takes a tap until S5 answers, and the Approve button waits with them. */
     val busy: Boolean,
     /** The tap's move: the quote stage to move to (Phases.stageOf), sent through QuoteStageSync.move. */
     val onMove: (String) -> Unit,
+    /** S5's album role for this person (the mirror's `role`; null until a mirror has been read): at Revisions it decides Approve the estimate ▸ or the PM-only line (Phases.approve). */
+    val role: String?,
+    /** The PM's Approve the estimate ▸ (QM2): opens the scope sheet's approve mode; the move itself is the sheet's Move to Client approved. */
+    val onApprove: () -> Unit,
 )
 
 @Composable
@@ -115,7 +127,8 @@ fun PhaseStrip(s: PhaseStripArgs) {
     val does = Phases.doesLine(tx, s.line)
     val wraps = Phases.wraps(s.line)
     val cover = if (ph == Phases.SURVEY) s.coverage?.let { Phases.coverageRow(tx, it) } else null
-    val rev = if (ph == Phases.REVISIONS) Phases.revisionRow(tx) else null
+    // IN REVISION with its Approve: the button for the PM, the PM-only line for anyone else, neither before the role is read (QM2)
+    val rev = if (ph == Phases.REVISIONS) Phases.revisionRow(tx) to Phases.approve(tx, s.line, s.role) else null
     // The backward confirm, this strip's alone and keyed on the stage: a stage that moves under it -- a sync's read,
     // a move's answer -- drops it, and leaving the screen drops it with the strip (the prototype's finding 7: a
     // confirm whose strip is no longer on screen neither eats a ◁ nor comes back on the next visit).
@@ -161,12 +174,14 @@ fun PhaseStrip(s: PhaseStripArgs) {
                         // with a phase row beside them, only the current pill keeps its name (.p54:has(.p54x) .p54seg:not(.on) .p54l)
                         for ((i, seg) in segs.withIndex()) SegmentPill(seg, rev == null || seg.on, s.busy, teal, ink) { tap(i) }
                     }
-                    if (rev != null) PanelBlock(rev, Modifier.weight(1f), true, ink, small)
+                    if (rev != null) PanelBlock(rev.first, rev.second, s.busy, s.onApprove, Modifier.weight(1f), true, ink, small)
                     else Text(does, style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = if (wraps) 2 else 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 }
             }
             s.refusal?.let { RefusalLine(it, small, amber) }
+            // the PM-only line: its own full-width line under the row (.scaf.land .p61pmr), shown with the confirm too, as the prototype keeps it
+            rev?.second?.pmOnly?.let { PmOnlyLine(it, true, small) }
             if (askText == null) cover?.let { c ->
                 // its own full-width line, left, one line (.scaf.land .p56cov)
                 Row(Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -202,7 +217,11 @@ fun PhaseStrip(s: PhaseStripArgs) {
                         textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            rev?.let { PanelBlock(it, Modifier.fillMaxWidth(), false, ink, small) }
+            rev?.let { (panel, approve) ->
+                PanelBlock(panel, approve, s.busy, s.onApprove, Modifier.fillMaxWidth(), false, ink, small)
+                // review 7: the PM-only line is not a flex column beside the panel's text; it is a line of its own under it
+                approve.pmOnly?.let { PmOnlyLine(it, false, small) }
+            }
         }
     }
 }
@@ -344,15 +363,46 @@ private fun RowScope.AskRow(a: Phases.Ask, busy: Boolean, keep: () -> Unit, move
 }
 
 /**
- * A phase's row (.p54x / .p54hot): the small-caps label over its text -- IN REVISION over `open for the client and
- * vendors`. Two lines at most in portrait (.p54hos, padded 2/4), one in landscape ([oneLine], .scaf.land .p54x: no
- * side padding).
+ * A phase's row (.p54x, padded 2/4 in portrait and 2/0 in [oneLine] landscape; .p54rev spreads its two ends apart): the
+ * small-caps label over its text (.p54hot / .p54hos -- IN REVISION over `open for the client and vendors`, two lines at
+ * most in portrait, one in landscape) and, at the right end, the PM's `Approve the estimate ▸` when [a] offers it
+ * (.p54pk.pri: a 36 dp filled teal button, 8 dp radius, 13 sp medium, never cut, side padding 12 dp in portrait and 10
+ * dp in landscape), which opens the scope sheet and waits while a move is out, as the segments do. The PM-only line is
+ * not drawn in the row: it is a line of its own under it ([PmOnlyLine]).
  */
 @Composable
-private fun PanelBlock(p: Phases.Panel, modifier: Modifier, oneLine: Boolean, ink: Color, small: androidx.compose.ui.text.TextStyle) {
-    Column(modifier.padding(horizontal = if (oneLine) 0.dp else 4.dp, vertical = 2.dp)) {
-        Text(p.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.4.sp), color = ink, maxLines = 1)
-        Text(p.parts.joinToString(Phases.SEP), style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = if (oneLine) 1 else 2, overflow = TextOverflow.Ellipsis)
+private fun PanelBlock(p: Phases.Panel, a: Phases.Approve, busy: Boolean, onApprove: () -> Unit, modifier: Modifier, oneLine: Boolean, ink: Color, small: androidx.compose.ui.text.TextStyle) {
+    Row(
+        modifier.padding(horizontal = if (oneLine) 0.dp else 4.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(p.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.4.sp), color = ink, maxLines = 1)
+            Text(p.parts.joinToString(Phases.SEP), style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = if (oneLine) 1 else 2, overflow = TextOverflow.Ellipsis)
+        }
+        a.button?.let { label ->
+            Button(
+                onClick = onApprove,
+                enabled = !busy,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White),
+                contentPadding = PaddingValues(horizontal = if (oneLine) 10.dp else 12.dp, vertical = 0.dp),
+                modifier = Modifier.heightIn(min = 36.dp),
+            ) { Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false) }
+        }
     }
+}
+
+/**
+ * The PM-only line under the Revisions panel (.p61pmr, review 7; .p61pmo's muted colour): `Only the Project Manager
+ * approves the estimate` on a line of its own, 12/16 sp, padded 0/4/2 in portrait and, in [landscape], its own
+ * full-width line under the row with 4 dp on the left alone (.scaf.land .p61pmr). It may wrap, as the prototype's
+ * block does.
+ */
+@Composable
+private fun PmOnlyLine(text: String, landscape: Boolean, small: androidx.compose.ui.text.TextStyle) {
+    Text(text, style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = if (landscape) 0.dp else 4.dp, bottom = 2.dp))
 }

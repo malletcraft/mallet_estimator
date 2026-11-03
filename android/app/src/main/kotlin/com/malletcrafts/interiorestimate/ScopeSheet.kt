@@ -41,16 +41,18 @@ import com.malletcrafts.interiorestimate.pano.QuoteView
 /**
  * THE SCOPE SHEET (port 61c slice QV; SPEC61c §4.2 with §14.6's notes, index61c2.html scopeSheet): the app's bottom
  * sheet in the words of S5 /projects' scopeHtml, the one checklist of the sixteen works in three modes --
- * [QuoteView.Mode.APPROVE] (Approve the estimate ▸, QM2), [QuoteView.Mode.RECORD] (the APPROVED SCOPE row's
- * Record the approved scope, for a project approved before it had a baseline) and [QuoteView.Mode.VIEW] (the row's
- * tap: ticked and disabled, read-only, Close alone). Top to bottom: the title, the note, the count line (not in the
- * view), the sixteen rows of 48 dp in WORKS order (two columns in landscape), the status line (amber, `role=status`),
- * and the foot, sticky under the rows' scroll: Cancel / the filled button, or Close. Every rule is [QuoteView] in
- * :pano, where QuoteViewTest pins it; this file draws.
+ * [QuoteView.Mode.APPROVE] (the Revisions panel's Approve the estimate ▸, port 61c slice QM2: pre-ticked from the
+ * mirror's scope, its Move to Client approved is QuoteStageSync.approve, the guarded move carrying the ticks as the
+ * baseline), [QuoteView.Mode.RECORD] (the APPROVED SCOPE row's Record the approved scope, for a project approved
+ * before it had a baseline) and [QuoteView.Mode.VIEW] (the row's tap: ticked and disabled, read-only, Close alone).
+ * Top to bottom: the title, the note, the count line (not in the view), the sixteen rows of 48 dp in WORKS order (two
+ * columns in landscape), the status line (amber, `role=status`), and the foot, sticky under the rows' scroll: Cancel /
+ * the filled button, or Close. Every rule is [QuoteView] in :pano, where QuoteViewTest pins it; this file draws.
  *
- * The sheet owns its ticks (the [stored] scope in the view, and again whenever the mirror's changes; none for a
- * record, until a stale 409 -- [reset] bumped by the caller -- redraws them from the scope as stored, as the
- * prototype's `st.ticks=scopeOf(p)` does on scopestale and on nothing else: a final 409 leaves the person's ticks) and
+ * The sheet owns its ticks (QuoteView.openTicks: the [stored] scope in the view, and again whenever the mirror's
+ * changes; the stored scope once, as the sheet opens, for an approve; none for a record -- until a stale 409, [reset]
+ * bumped by the caller, redraws them from the scope as stored, as the prototype's `st.ticks=scopeOf(p)` does on
+ * scopestale and on nothing else: a final 409 leaves the person's ticks) and
  * its own refusal (nothing ticked: S5's words, nothing called). A refusal S5 answered comes in as [status] and stays
  * until the next tap on a row clears it, as the prototype's `st.text=null` -- and the NEXT answer shows again even in
  * the same words ([answers] counts them: a status keyed on its text alone stayed cleared through a repeated
@@ -73,16 +75,18 @@ fun ScopeSheet(
     reset: Int,
     /** A submit is out: the filled button waits for S5's answer. */
     busy: Boolean,
-    /** The ticked works, in WORKS order, never empty. */
+    /** The ticked works, in WORKS order, never empty: a record's, or an approve's scope (QuoteStageSync.approve). */
     onSubmit: (List<Int>) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tx = LocalTx.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    // The view's ticks follow the stored scope; a record's start empty and, from a stale 409 on, follow it too (the
-    // mirror takes S5's stored scope as the answer lands, which can be after this redraw).
+    // The view's ticks follow the stored scope; an approve's open pre-ticked from it and a record's empty
+    // (QuoteView.openTicks, the prototype's openScope), and from a stale 409 on both follow it too (the mirror takes
+    // S5's stored scope as the answer lands, which can be after this redraw). Until then an approve's ticks are the
+    // person's: a mirror a sync's read changes meanwhile does not redraw them, only S5's answer to them does.
     val follows = mode == QuoteView.Mode.VIEW || reset > 0
-    var ticks by remember(if (follows) stored else null, reset) { mutableStateOf(if (follows) stored.toSet() else emptySet()) }
+    var ticks by remember(if (follows) stored else null, reset) { mutableStateOf(if (follows) stored.toSet() else QuoteView.openTicks(mode, stored)) }
     // the sheet's own refusal (nothing ticked), and whether S5's status line has been cleared by a tap since it came
     var local by remember { mutableStateOf<String?>(null) }
     var cleared by remember(answers) { mutableStateOf(false) }

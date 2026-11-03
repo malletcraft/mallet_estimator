@@ -10,7 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.malletcrafts.interiorestimate.pano.QuoteStage
+import com.malletcrafts.interiorestimate.pano.Phases
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -69,12 +69,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         val projects = runCatching { cat.projects(store.masters()) }.getOrDefault(emptyList())
         QuoteStageSync.refresh(applicationContext, projects.map { it.serverId })
 
-        // THE ALBUM MIRROR (port 61c slice QV) of every project the store now holds at Client approved -- the
-        // quote view exists only there: GET …/album, paged, kept under filesDir/album, its stage and each work's
-        // state written into the one store (QuoteStage.fromAlbum). On the same terms as the read above: never
-        // counted in `failures`, every refusal, 5xx or IO error one Log.w inside AlbumSync. Both legs.
+        // THE ALBUM MIRROR (port 61c slice QV) of every project the store now holds where the project screen
+        // draws from it (Phases.needsMirror): at Client approved, where the quote view reads it, and at Revisions
+        // (QM2), where the panel's Approve needs S5's role for this person -- a PM named on /projects meanwhile --
+        // and the scope as stored. GET …/album, paged, kept under filesDir/album, its stage and each work's state
+        // written into the one store (QuoteStage.fromAlbum). On the same terms as the read above: never counted in
+        // `failures`, every refusal, 5xx or IO error one Log.w inside AlbumSync. Both legs.
         for (p in projects) {
-            if (p.synced && QuoteStageSync.cached(applicationContext, p.serverId)?.stage == QuoteStage.APPROVED)
+            if (p.synced && Phases.needsMirror(QuoteStageSync.cached(applicationContext, p.serverId)?.stage))
                 AlbumSync.refresh(applicationContext, p.serverId)
         }
 

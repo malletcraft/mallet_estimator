@@ -152,4 +152,30 @@ class QuoteViewTest {
         assertEquals(QuoteView.emptyRefusal(Tx.EN), QuoteMove.localText(Tx.EN, QuoteMove.Local.SCOPE_MISSING))
         assertFalse(QuoteView.emptyRefusal(Tx.MR).isBlank())
     }
+
+    @Test fun `the sheet opens pre-ticked from the stored scope in approve and view, empty for a record - and a stale 409 redraws from S5's echo (QM2)`() {
+        // the prototype's openScope: ticks = mode==='record' ? [] : scopeOf(p) -- a scope recorded at Revisions on /projects is carried on
+        val stored = view(S5Quote.ALBUM).scope!!
+        assertEquals(setOf(10, 20, 30, 50, 90, 140), QuoteView.openTicks(Mode.APPROVE, stored))
+        assertEquals(setOf(10, 20, 30, 50, 90, 140), QuoteView.openTicks(Mode.VIEW, stored))
+        assertEquals(emptySet(), QuoteView.openTicks(Mode.RECORD, stored))
+        // no baseline: approve opens with nothing ticked, and the count line says so
+        assertEquals(emptySet(), QuoteView.openTicks(Mode.APPROVE, null)); assertEquals(emptySet(), QuoteView.openTicks(Mode.APPROVE, emptyList()))
+        assertEquals("0 of 16 works ticked", QuoteView.countLine(Tx.EN, Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, null)))
+        assertEquals("6 of 16 works ticked", QuoteView.countLine(Tx.EN, Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, stored)))
+        // the sixteen only, each once: a stored list the mirror could never hold is still read safely
+        assertEquals(setOf(10, 140), QuoteView.openTicks(Mode.APPROVE, listOf(140, 999, 10, 0, 10)))
+        // the rows follow the pre-ticks, and a tap toggles from there
+        assertEquals(listOf(10, 20, 30, 50, 90, 140), QuoteView.rows(Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, stored)).filter { it.on }.map { it.id })
+        assertEquals(setOf(10, 20, 30, 50, 90, 140, 40), QuoteView.toggled(Mode.APPROVE, QuoteView.openTicks(Mode.APPROVE, stored), 40))
+        // an Approve with nothing ticked is refused in the sheet before any call (the same words as the mover's)
+        assertNull(QuoteView.submit(QuoteView.openTicks(Mode.APPROVE, null)))
+        // the stale redraw: S5's 409 echoes the scope as stored, the mirror takes it (Album.merged), and the ticks are opened again from it
+        val m = Album.View(role = Album.PM, scope = null, scopeAt = "")
+        val stale = assertIs<QuoteMove.Verdict.ScopeStale>(QuoteMove.answer(MiniRead, 409, tree(S5Quote.SCOPE_STALE),
+            QuoteMove.Move.Send(AlbumQueue.Request("PUT", listOf("PROJ-DEMO", "stage"), emptyMap(), AlbumQueue.JSON), "2026-11-03T07:01:08.710Z", "")))
+        val after = assertNotNull(Album.merged(m, Album.Answer(scope = stale.now.scope, scopeAt = stale.now.scopeAt)))
+        assertEquals(listOf(10, 20, 30), after.scope); assertEquals("2026-11-03T07:01:08.745Z", after.scopeAt)
+        assertEquals(setOf(10, 20, 30), QuoteView.openTicks(Mode.APPROVE, after.scope), "the ticks redrawn from the scope as stored")
+    }
 }

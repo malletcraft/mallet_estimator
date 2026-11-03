@@ -43,10 +43,12 @@ import java.time.Instant
  * TWO WRITES, ONLINE AND UNQUEUED: [recordScope] (port 61c slice QV), Record the approved scope for a project
  * approved before it had one (§13.6) -- `PUT …/album/scope` built by QuoteMove.scope, answered through
  * QuoteMove.scopeAnswer -- and [move] (port 61c slice QM1), the phase strip's guarded quote move -- `PUT …/stage`
- * built by QuoteMove.stage with the stored copy's quote_stage_at as its base, answered through QuoteMove.answer.
- * Both send ONCE through [exchange] and put S5's word where it belongs through [take]: on the stage into this store
- * ([write]), and on the scope -- and on who records or approves, a 403's role and PM -- into the album mirror
- * (AlbumSync.take). Refused, offline or unanswered, nothing is kept to send later; after no answer the phone
+ * built by QuoteMove.stage with the stored copy's quote_stage_at as its base, answered through QuoteMove.answer --
+ * which with Client approved is the scope sheet's APPROVE ([approve], port 61c slice QM2): the same PUT carrying
+ * the ticked works as the baseline and the mirror's scope_at as `scope_base`, the PM's alone by S5's rule (§13.2),
+ * and final once S5 takes it (§13.5). Both send ONCE through [exchange] and put S5's word where it belongs
+ * through [take]: on the stage into this store ([write]), and on the scope -- and on who records or approves, a
+ * 403's role and PM -- into the album mirror (AlbumSync.take). Refused, offline or unanswered, nothing is kept to send later; after no answer the phone
  * re-reads the stage rather than resend with the base it had.
  */
 object QuoteStageSync {
@@ -298,15 +300,33 @@ object QuoteStageSync {
     /** Whether [o] is the stage moved: the pending refusal, if any, goes (the prototype's `msg=null`). */
     fun moved(o: MoveOutcome): Boolean = o is MoveOutcome.Answered && o.verdict is QuoteMove.Verdict.Moved
 
+    /** Whether [o] is S5's scope 409 to an Approve: the sheet redraws its ticks from the scope as stored (the prototype's `st.ticks=scopeOf(p)` on scopestale, and nothing else). */
+    fun moveScopeStale(o: MoveOutcome): Boolean = o is MoveOutcome.Answered && o.verdict is QuoteMove.Verdict.ScopeStale
+
+    /**
+     * APPROVE THE ESTIMATE (port 61c slice QM2; SPEC61c §4.2 "Move with ticks", §13.2, §13.5; index61c2.html approve): the
+     * scope sheet's Move to Client approved, which is [move] to Client approved carrying the ticked [works] -- ONE online
+     * `PUT …/stage {stage, base, scope, scope_base, via}`, nothing queued. Only the project's named Project Manager
+     * approves, and S5 decides it; the scope sent becomes the baseline (a 200 carries it, and [take] puts it into the
+     * mirror); after it approval is final: no move leaves Client approved, on the phone ([QuoteMove.stage],
+     * Phases.tap) or on S5. Blocking; call it off the main thread. Never throws.
+     */
+    fun approve(context: Context, project: String, works: Collection<Int>): MoveOutcome = move(context, project, QuoteStage.APPROVED, works)
+
     /**
      * Move the quote stage of [project] (the S5 id the stage is read under) to [to], one of the six, as a tap on the
      * phase strip asks (PhaseStrip): ONE online `PUT …/stage {stage, base, via}` built by QuoteMove.stage from the
      * stored copy -- `base` its quote_stage_at VERBATIM, so a stage somebody else moved meanwhile comes back as S5's
      * stale 409 instead of being overwritten -- with the same credentials every S5 call sends (S5Auth.fresh).
+     * To Client approved it is the scope sheet's Approve ([approve], QM2): [scope] is the ticked works, sent in WORKS
+     * order with `scope_base`, the album mirror's scope_at as stored ('' when none), so a scope amended on /projects
+     * meanwhile comes back as S5's scope 409 ([QuoteMove.Verdict.ScopeStale]) instead of being overwritten; S5's 403
+     * answers anyone but the Project Manager ([QuoteMove.Verdict.PmOnly], the role and the PM as stored).
      * Blocking; call it off the main thread. Never throws.
      * - Refused on the phone, nothing sent: a project S5 does not list (v61c.2), any move from Client approved
-     *   (approval is final), or no credentials at all ([QuoteMove.Local.NOT_SIGNED_IN]); nothing to send on an unread
-     *   stage, the stage it already is, or a copy named without its stamp ([MoveOutcome.None]).
+     *   (approval is final), an Approve with nothing ticked ([QuoteMove.Local.SCOPE_MISSING]), or no credentials at all
+     *   ([QuoteMove.Local.NOT_SIGNED_IN]); nothing to send on an unread stage, the stage it already is, or a copy named
+     *   without its stamp ([MoveOutcome.None]).
      * - S5's 401 renews the sign-in once and sends once more ([exchange]).
      * - Every answer that names the stage goes into this store ([take]: the 200, and every 409 echoes S5's stage as
      *   it is now, a 404 as not listed), so the line and the strip redraw from S5's word and the next tap carries
@@ -320,9 +340,11 @@ object QuoteStageSync {
      *   until the next sync, the next tap carrying the old base into a stale 409).
      * Nothing is queued: the move is an online act, as it is on /projects.
      */
-    fun move(context: Context, project: String, to: String): MoveOutcome {
+    fun move(context: Context, project: String, to: String, scope: Collection<Int>? = null): MoveOutcome {
         val cache = cached(context, project)
-        val send = when (val m = QuoteMove.stage(project, cache, to)) {
+        // an Approve carries the mirror's scope_at as its scope_base ('' when no scope is stored); no other move reads the mirror
+        val scopeAt = if (to.trim() == QuoteStage.APPROVED) AlbumSync.mirror(context, project)?.scopeAt.orEmpty() else ""
+        val send = when (val m = QuoteMove.stage(project, cache, to, scope, scopeAt)) {
             is QuoteMove.Move.Refused -> return MoveOutcome.Refused(m.why)
             QuoteMove.Move.None -> return MoveOutcome.None
             is QuoteMove.Move.Send -> m
