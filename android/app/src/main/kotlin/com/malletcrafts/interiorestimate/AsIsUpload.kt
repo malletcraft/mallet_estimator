@@ -36,16 +36,23 @@ import java.util.concurrent.TimeUnit
  *  1. the room record, PUT …/<project>/<room>/c/<deviceId> -- with the phone's
  *     own filing (`work`), and `captured_at` byte for byte as 0.3.212 sent it,
  *     so S5's C3 renames the capture it may hold under the ERP name
- *     (MEST-PH-…) onto this id, readings and photos with it;
+ *     (MEST-PH-…) onto this id, readings and photos with it. S5 answering
+ *     `created: true` (new on the web, or deleted there and back) forgets AT
+ *     ONCE what this phone last saw synced of its readings, so the push sends
+ *     every reading as a first write -- before anything that can fail, since a
+ *     failed job runs again from the record and the second PUT is never
+ *     `created` (the AS1 review, 3 Nov 2026);
  *  2. each of the six surfaces squared to size from the kept 360 -- NO margin,
  *     the picture is the surface rectangle, long side 2000 px
  *     (SurveyPrep.asisSquare) -- PUT …/c/<deviceId>/img/<surface>: S5 keeps
  *     no photo that no record owns, so a 404 here is the record not being on
- *     the web, and the job runs again from the record (RecordMissing);
- *  3. the site readings, PATCH …/c/<deviceId>/readings (ReadingsSync) --
- *     after forgetting what was last seen synced when S5 answered the record
- *     with `created: true`, so a capture new on the web (or deleted there and
- *     back) gets every reading as a first write.
+ *     the web, and the job runs again from the record (RecordMissing). A photo
+ *     S5 REFUSES ends the job, so the record goes once more first, naming only
+ *     the surfaces that landed: the web never keeps a record that claims a
+ *     photo R2 does not hold;
+ *  3. the site readings, PATCH …/c/<deviceId>/readings (ReadingsSync): a 404
+ *     here is the photo's 404 -- the capture gone from the web since the record
+ *     went -- and runs the job again the same way, never "On web ✓".
  * The 360 gone: the record alone, every image false. Saving again REPLACES
  * the queued job, so the web always ends on the latest.
  *
@@ -159,10 +166,10 @@ object AsIsUpload {
     }
 
     /**
-     * S5 answered 404 to a surface photo: the capture's record is not on the web, though this very job put
-     * it there moments ago (deleted there meanwhile -- S5 keeps no photo that no record owns). Not done,
-     * and not a refusal of the room: the next run sends the record again, which puts the capture back, and
-     * then its photos. The message is S5's own text, as [HttpError] carried it.
+     * S5 answered 404 to a surface photo or to the readings PATCH: the capture's record is not on the web, though
+     * this very job put it there moments ago (deleted there meanwhile -- S5 keeps no photo and no reading that no
+     * record owns). Not done, and not a refusal of the room: the next run sends the record again, which puts the
+     * capture back, and then its photos and readings. The message is S5's own text, as [HttpError] carried it.
      */
     class RecordMissing(e: HttpError) : Exception(e.message)
 
@@ -299,7 +306,9 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // placed it; and the frame of each surface that carries a photo (the kept 360 through a done surface).
             // `image` names the surfaces THIS job sends, before they go: the record goes first now, and a job that
             // dies between the record and a photo runs again from the record, so a record whose photos are not
-            // coming never stays on the web.
+            // coming never stays on the web -- and a photo S5 REFUSES, which ends the job, re-sends the record with
+            // only the surfaces that landed (the photo loop below), so the flag never stays claiming a photo R2 does
+            // not hold (the AS1 review, 3 Nov 2026).
             val frames = LinkedHashMap<String, SurveyPrep.Frame>()
             val surfaces = JSONObject()
             for (s in SurveyPrep.SURFACES) {
@@ -325,8 +334,8 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // AsIsPath's -- S5's keys and JSON types, the phone's own filing as `work`, `captured_at` byte for byte
             // as every build sent it (S5's C3 renames an older MEST-PH-… row onto this id by that text), ERP's name
             // beside it as information -- and JSONObject(map) writes a null `work` as JSON null (AlbumQueue's rule:
-            // `put(k, null)` would DROP the key, and an absent `work` tells S5 to file by a `stage` this record
-            // does not carry).
+            // `put(k, null)` would DROP the key, and with the key absent S5 files the capture at 0, the quote
+            // journey, which the client sees -- not as "not filed", which the client does not; asis.js workOfRecord).
             val body = AsIsPath.body(
                 project = c.project, projectTitle = c.projectTitle, customer = customer, room = c.room,
                 capture = c.deviceId, erpCapture = c.serverName,
@@ -334,18 +343,32 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 appVersion = appVersion, l = l, w = w, h = h, prep = prepJson, surfaces = surfaces,
                 work = c.work, stage = c.stage,
             )
-            val record = JSONObject(body as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
-            val answer = JSONObject(AsIsUpload.send("PUT", url(AsIsPath.record(c.project, c.room, c.deviceId)), auth,
-                record, "application/json; charset=utf-8"))
+            val recordUrl = url(AsIsPath.record(c.project, c.room, c.deviceId))
+            // PUT the record as `body` stands NOW: first of all, and once more after a refused photo, with the surfaces
+            // that did not land marked false (`surfaces` is the body's own object).
             // `created`: S5 had no row of this id before and it is no rename (C3) -- the capture is new on the web, or
             // was deleted there and is back. What this phone last saw synced of its readings is of a capture that is
-            // gone, so it is forgotten below, before the push, and every reading goes as a first write (port item 4).
-            val created = answer.optBoolean("created", false)
+            // gone, so it is forgotten HERE, before a photo can fail, and every reading goes as a first write (port
+            // item 4). Not after the photos (the AS1 review, 3 Nov 2026): a failure there -- no signal mid-JPEG, memory,
+            // the photo's own 404 -- runs the job again from the record, whose second PUT answers `created: false`, so
+            // a forget left until then would never happen, the push would send only the keys that changed, and the
+            // next pull would delete the rest on the phone as "gone from the web". Forgetting early costs nothing: every
+            // key then goes with no base, which S5 writes where it has no row and answers as a conflict where it has
+            // one (the web's value wins, as always). What stays open, and is not patched over here: a record PUT that
+            // lands but whose answer is lost (a timeout) is `created: false` on the retry too; telling that case apart
+            // needs a signal of its own (a GET by both names before the first PUT) -- a design choice for Amit.
+            fun putRecord() {
+                val record = JSONObject(body as Map<*, *>).toString().toByteArray(Charsets.UTF_8)
+                val answer = JSONObject(AsIsUpload.send("PUT", recordUrl, auth, record, "application/json; charset=utf-8"))
+                val created = answer.optBoolean("created", false)
+                if (created) ReadingsSync.forget(ctx, id)
+            }
+            putRecord()
 
             // THEN THE PHOTOS, each under the capture. S5 keeps no photo that no record owns, so a 404 here means the
             // record is not on the web (deleted there since the PUT above): not done, not refused -- the job runs
             // again from the record (RecordMissing, below).
-            var anyImage = false
+            val landed = LinkedHashSet<String>()
             if (frames.isNotEmpty()) {
                 val full = FaceWriter.fullPano(pano)
                 for ((s, f) in frames) {
@@ -353,29 +376,43 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                     try {
                         AsIsUpload.put(url(AsIsPath.image(c.project, c.room, c.deviceId, s)), auth, jpeg, "image/jpeg")
                     } catch (e: AsIsUpload.HttpError) {
-                        if (e.code == 404) throw AsIsUpload.RecordMissing(e) else throw e
+                        if (e.code == 404) throw AsIsUpload.RecordMissing(e)
+                        // REFUSED (413, 415, a 403: nothing retries it, the job ends): the record on the web says this
+                        // surface and the rest are coming, and they are not. The record goes once more, naming only
+                        // the surfaces that landed, before the refusal ends the job (the AS1 review, 3 Nov 2026). The
+                        // failure stays the photo's -- unless that PUT is itself refused, waiting or without signal,
+                        // which the handlers below judge as they judge any record PUT.
+                        if (e.refused) {
+                            for (t in frames.keys) if (t !in landed) surfaces.optJSONObject(t)?.put("image", false)
+                            putRecord()
+                        }
+                        throw e
                     }
-                    anyImage = true
+                    landed += s
                 }
             }
 
             // THEN THE SITE READINGS, per key, against what the web last said of THIS capture (ReadingsSync, by the
-            // device id). Never blocks the room: a web without the readings endpoint yet answers quietly.
+            // device id). A refusal of the readings alone never blocks the room: the job ends done, with the note.
             // READ AT PUSH TIME (the as-is audit's finding 9): squaring and sending six 2000 px surfaces takes a
             // while, and a reading typed into survey prep meanwhile is saved to the prep file at once -- so the
             // readings sent are the file's NOW, not the copy taken for the record. A prep that cannot be read any
             // more (the capture removed from the phone meanwhile) sends the readings the record carried, which
             // are this capture's own and already on the web in `prep.actual`.
-            if (created) ReadingsSync.forget(ctx, id)
             val actual: Map<String, Double> = SurveyPrepStore(ctx).load(id)?.actual?.toMap() ?: prep.actual.toMap()
             val readingsNote: String? = try {
                 ReadingsSync.push(ctx, id, auth, c.project, c.room, c.deviceId, actual)
             } catch (e: AsIsUpload.HttpError) {
-                if (ReadingsSync.notAvailable(e)) ReadingsSync.NOT_YET
-                else if (e.refused) "readings not sent: ${e.message}"
-                else throw e
+                // A 404 is the photo's 404 (S5: "This capture is not on the web: deleted, or never uploaded"): the
+                // capture this job put on the web is gone again, and the job runs again from the record -- never
+                // "On web ✓ · web readings not available yet" for a capture that is not on the web at all (the AS1
+                // review, 3 Nov 2026). Until AS1 a 404 or 405 here was a web without the readings endpoint yet; the
+                // explicit routes landed on S5 together, so a web that took the record above has this one, and that
+                // reading of a 404 is now the pull's alone (survey prep, through ReadingsSync's notAvailable).
+                if (e.code == 404) throw AsIsUpload.RecordMissing(e)
+                if (e.refused) "readings not sent: ${e.message}" else throw e
             }
-            AsIsUpload.setState(ctx, id, "done", readingsNote, image = anyImage)
+            AsIsUpload.setState(ctx, id, "done", readingsNote, image = landed.isNotEmpty())
             Result.success()
         } catch (e: AsIsUpload.HttpError) {
             // An EXPIRED S5 SESSION is not a refusal of this room: sign in again with the
@@ -398,8 +435,8 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             AsIsUpload.setState(ctx, id, if (e.refused) "refused" else "error", e.message ?: "refused")
             if (e.refused) Result.failure() else Result.retry()
         } catch (e: AsIsUpload.RecordMissing) {
-            // A photo's 404: the record this job sent is not on the web any more. "error" is a job WorkManager runs
-            // again (stateOf), and the next run starts with the record, which puts the capture back.
+            // A photo's or the readings PATCH's 404: the record this job sent is not on the web any more. "error" is a
+            // job WorkManager runs again (stateOf), and the next run starts with the record, which puts the capture back.
             AsIsUpload.setState(ctx, id, "error", e.message)
             Result.retry()
         } catch (e: OutOfMemoryError) {

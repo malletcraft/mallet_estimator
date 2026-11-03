@@ -16,7 +16,8 @@ import kotlin.test.assertTrue
  * id, `erp_capture` only when ERP named it, `work` always and JSON null when the table says so); `captured_at`
  * byte for byte as 0.3.212 sent it; and, read as source like CaptureStoreRevertTest reads CaptureStore.kt
  * (:app compiles only in CI), the job's order -- record, photos, readings, all under the device id -- the
- * forget on `created`, the photo 404 that is no end, and the pull by the capture's two names.
+ * forget on `created` BEFORE the first photo, the photo's and the readings PATCH's 404 that are no end, the
+ * record re-sent with the surfaces that landed when a photo is refused, and the pull by the capture's two names.
  */
 class AsIsPathTest {
 
@@ -80,7 +81,8 @@ class AsIsPathTest {
         assertEquals(true to 20, work(null, "Plaster & waterproofing"))
         assertEquals(true to 0, work(null, ""))
         assertEquals(true to 0, work(null, "Site survey"))
-        // "not filed to a work": the key is PRESENT with a null, so S5 stores null and never files by a stage the record does not carry
+        // "not filed to a work": the key is PRESENT with a null, so S5 stores null (not filed: hidden from the client); with
+        // the key absent S5 would file the capture at 0, the quote journey, which the client sees (asis.js workOfRecord)
         assertEquals(true to null, work(null, "Material delivered on site"))
         // a row the phone has filed stands as it is, whatever its stage says
         assertEquals(true to 0, work(0, "Plaster & waterproofing"))
@@ -117,6 +119,16 @@ class AsIsPathTest {
         return i
     }
 
+    /** Every offset of [needle] in [src], in order. */
+    private fun all(src: String, needle: String): List<Int> =
+        Regex(Regex.escape(needle)).findAll(src).map { it.range.first }.toList()
+
+    private fun pano(name: String): String {
+        val f = File("src/main/kotlin/com/malletcrafts/interiorestimate/pano/$name")
+        assertTrue(f.isFile, "the pano's $name (${f.absolutePath})")
+        return f.readText()
+    }
+
     @Test fun `the upload job sends the record first, then the photos, then the readings, all under the device id (AsIsUpload kt)`() {
         val src = app("AsIsUpload.kt")
         val record = once(src, "url(AsIsPath.record(c.project, c.room, c.deviceId))", "the record PUT")
@@ -129,15 +141,41 @@ class AsIsPathTest {
         once(src, "work = c.work, stage = c.stage,", "the filing")
         assertFalse(src.contains("c.serverName ?: c.deviceId"), "the record is named by the device id, never by the ERP name")
         assertFalse(src.contains("\"/api/asis/\""), "no address is built by hand: AsIsPath holds them")
-        // `created` is read from the record's answer and the seen state forgotten BEFORE the push (port item 4)
+        // `created` is read from the record's answer and the seen state forgotten AT ONCE -- before the first photo, not
+        // after them (port item 4; the AS1 review, 3 Nov 2026): a photo that fails runs the job again from the record,
+        // whose second PUT is never `created`, so a forget placed after the photos would then never happen and the next
+        // pull would delete the readings on the phone as "gone from the web"
         val created = once(src, "answer.optBoolean(\"created\", false)", "created")
         val forget = once(src, "if (created) ReadingsSync.forget(ctx, id)", "the forget")
-        assertTrue(record < created && created < forget && forget < push, "created read at $created, forget at $forget, push at $push")
-        // a photo's 404 is the record not being on the web: the job runs again, it is not refused and not done
-        val missing = once(src, "if (e.code == 404) throw AsIsUpload.RecordMissing(e) else throw e", "the photo 404")
-        assertTrue(image < missing && missing < push, "the 404 is judged at the photo PUT")
+        assertTrue(record < created && created < forget && forget < image, "created read at $created, forget at $forget, photo at $image: the forget comes before the first photo")
+        assertTrue(forget < push, "forget at $forget, push at $push")
+        // the record PUT is ONE function, sent first and again after a refused photo, and the forget is inside it
+        val fn = once(src, "fun putRecord() {", "the record PUT")
+        val firstCall = src.indexOf("putRecord()", fn + "fun putRecord() {".length)
+        assertTrue(fn < created && forget < firstCall, "the forget (at $forget) is inside putRecord (at $fn), before its first call (at $firstCall)")
+        // a 404 is the record not being on the web -- at a photo AND at the readings PATCH: the job runs again from the
+        // record, it is not refused and not "done" with "web readings not available yet"
+        val missing = all(src, "if (e.code == 404) throw AsIsUpload.RecordMissing(e)")
+        assertEquals(2, missing.size, "the 404 is judged at the photo PUT and at the readings PATCH: $missing")
+        assertTrue(image < missing[0] && missing[0] < push && push < missing[1], "photo at $image, push at $push, the 404s at $missing")
+        assertFalse(src.contains("ReadingsSync.notAvailable"), "the push never reads a 404 as NOT_YET: that reading is the pull's alone")
         once(src, "} catch (e: AsIsUpload.RecordMissing) {", "RecordMissing is caught by name")
         assertTrue(Regex("""catch \(e: AsIsUpload\.RecordMissing\) \{[^}]*"error"[^}]*Result\.retry\(\)""").containsMatchIn(src), "RecordMissing: state \"error\" and Result.retry()")
+        // a REFUSED photo (the job ends, nothing retries it) re-sends the record with only the surfaces that landed
+        // marked `image: true`, then stays the photo's refusal -- so no record on the web claims a photo R2 does not hold
+        val refused = Regex("""if \(e\.refused\) \{\s*for \(t in frames\.keys\) if \(t !in landed\) surfaces\.optJSONObject\(t\)\?\.put\("image", false\)\s*putRecord\(\)\s*}\s*throw e""")
+            .find(src)
+        assertTrue(refused != null && image < refused.range.first && refused.range.first < missing[1], "a refused photo re-sends the record with the surfaces that landed, then rethrows")
+        assertTrue(src.indexOf("landed += s") > refused!!.range.last, "a surface is landed only after its PUT returned")
+    }
+
+    @Test fun `the comments say what an absent work does on S5 - filed at 0, the quote journey, which the client sees`() {
+        // the first version said an absent `work` would make S5 "file by a stage the record does not carry", which cannot
+        // happen (workOfRecord with no stage answers 0): a reader could have tidied the null away believing nothing changes
+        for ((name, src) in listOf("AsIsPath.kt" to pano("AsIsPath.kt"), "AsIsUpload.kt" to app("AsIsUpload.kt"))) {
+            assertTrue(src.contains("0, the quote"), "$name names the outcome of an absent work: 0, the quote journey")
+            assertFalse(src.contains("file by a `stage`") || src.contains("file it from `stage`"), "$name: the stated hazard was wrong")
+        }
     }
 
     @Test fun `the sync names the capture, and survey prep pulls by its two names (ReadingsSync kt, SurveyPrepScreen kt)`() {

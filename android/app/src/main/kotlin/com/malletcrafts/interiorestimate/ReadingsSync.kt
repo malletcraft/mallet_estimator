@@ -37,8 +37,12 @@ import java.time.format.DateTimeFormatter
  * takes its keys out of `actual`, so the next push sends each as a delete.
  *
  * Without signal everything works on the phone as before; the next upload
- * or open reconciles. A web without the endpoint yet (404/405) is a quiet
- * "web readings not available yet", never a failed room upload.
+ * or open reconciles. The PULL's 404 on both names is the quiet "web readings
+ * not available yet" ([notAvailable]): a capture not on the web yet (queued,
+ * or never uploaded). The PUSH's 404 is something else -- the capture gone
+ * from the web since the job's own record went -- and the job runs again from
+ * the record (AsIsUpload.RecordMissing), never a quiet "done" (the AS1 review,
+ * 3 Nov 2026).
  */
 object ReadingsSync {
 
@@ -109,16 +113,23 @@ object ReadingsSync {
 
     fun delete(context: Context, id: String) { runCatching { file(context, id).delete() } }
 
+    /**
+     * The PULL's reading of a refusal (survey prep): a 404 on both of the capture's names, or a 405, is a capture
+     * whose readings the web does not have yet -- the quiet [NOT_YET]. Not the push's: after the job's own record
+     * PUT, S5 serves the readings route of that capture (the explicit routes landed together, 14 Oct 2026), so a 404
+     * there is the capture gone from the web, and AsIsUpload runs the job again from the record.
+     */
     fun notAvailable(e: Throwable): Boolean = e is AsIsUpload.HttpError && (e.code == 404 || e.code == 405)
 
     /**
      * Forget everything this phone last saw synced for [id]: the seen baseline AND any conflict waiting
-     * for survey prep. The upload job calls it when S5 answered the record with `created: true` -- the
+     * for survey prep. The upload job calls it the moment S5 answers the record with `created: true` -- the
      * capture is new on the web, or was deleted there and is back -- so what was seen is of rows that no
      * longer exist, and the push that follows sends every local reading as a first write (port item 4:
      * without this, only the keys that changed would go, and the next pull would delete the rest on the
-     * phone as "gone from the web"). A waiting conflict is the web's value from before the delete, and
-     * is not applied either.
+     * phone as "gone from the web"). At once, before the photos: a job that fails after the record runs
+     * again from it, and the second PUT is never `created` (the AS1 review). A waiting conflict is the
+     * web's value from before the delete, and is not applied either.
      */
     fun forget(context: Context, id: String) {
         update(context, id) { st -> st.seen.clear(); st.conflicts.clear() }
@@ -152,7 +163,8 @@ object ReadingsSync {
      * The upload job's half: PATCH the unsent edits with their bases, to THIS capture (by its device id: the
      * job has just put the record under it, so S5's C3 has renamed any older row and the PATCH needs no second
      * name). Written keys become seen; conflicts wait in the state for survey prep to apply (the server value
-     * wins). Returns a note for the screen, or null.
+     * wins). Returns a note for the screen, or null. A refusal is thrown as it came: the job reads a 404 as the
+     * capture gone from the web (RecordMissing) and any other 4xx as a note.
      */
     fun push(context: Context, id: String, auth: String, project: String, room: String, capture: String,
              local: Map<String, Double>): String? {

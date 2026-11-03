@@ -17,6 +17,22 @@ class ReadingsTest {
         assertTrue(p.isEmpty())
     }
 
+    @Test fun `a forgotten baseline sends every reading as a first write, and a stale one sends only the changed`() {
+        // AsIsUpload forgets the seen baseline the moment S5 answers the record `created` (port item 4; the AS1 review):
+        // with it empty, every local reading goes with no base -- S5 writes each where it has no row -- and a pull
+        // against an empty web removes nothing
+        val local = mapOf("FD1.w" to 900.0, "FD1.h" to 2100.0, "FE1.cl" to 450.0)
+        val all = Readings.push(local, emptyMap())
+        assertEquals(local.keys, all.set.keys); assertEquals(local.keys, all.base.keys)
+        for (k in local.keys) { assertEquals(local[k], all.set[k]); assertNull(all.base[k], "$k: a first write has no base") }
+        assertEquals(local, Readings.pull(local, emptyMap(), emptyMap()).actual)
+        // the stale baseline a late forget would leave (the capture deleted on the web, the job run again): only the
+        // changed key goes, and a pull against the recreated capture's empty map deletes the rest on the phone
+        val stale = mapOf("FD1.w" to Seen(900.0, "t1"), "FD1.h" to Seen(2000.0, "t2"), "FE1.cl" to Seen(450.0, "t3"))
+        assertEquals(setOf("FD1.h"), Readings.push(local, stale).set.keys)
+        assertEquals(mapOf("FD1.h" to 2100.0), Readings.pull(local, stale, emptyMap()).actual, "what the phone would be left with")
+    }
+
     @Test fun `a new, a changed and a deleted reading go up with their bases`() {
         val local = mapOf("FD1.w" to 905.0, "FW1.h" to 1200.0)
         val seen = mapOf("FD1.w" to Seen(900.0, "t1"), "FD1.h" to Seen(2100.0, "t2"))

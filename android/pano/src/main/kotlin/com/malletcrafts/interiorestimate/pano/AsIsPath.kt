@@ -30,8 +30,11 @@ import java.time.ZoneId
  * of the sixteen; null for a row from before schema 6) and its legacy `stage` -- the phone's own filing, through
  * the same 39-stage table S5 holds (STAGE_WORK, asis.js workOfRecord), so the two cannot disagree and a capture
  * re-filed on the phone (FW2) is never filed back by its stage. It is sent as JSON null when the table says
- * null ("not filed to a work"), never left out: S5 reads an absent `work` as "file it from `stage`", and the
- * record carries no `stage`.
+ * null ("not filed to a work"), never left out: with the key absent, S5 files the capture at 0, the quote
+ * journey (asis.js workOfRecord reads a `stage` the record does not carry, finds none, and answers 0) -- which
+ * the client SEES, where a null, "not filed", it does not (canSee). The explicit null is what keeps S5's filing
+ * equal to the phone's [Album.workOfCapture]; a reader who "tidies" it away makes every unfiled capture a
+ * client-visible one.
  *
  * Pure JVM, so [AsIsPathTest] pins the three addresses, the single encoding of each segment, the body's keys
  * and S5 types, and the exact `captured_at` text. The percent-encoding is the caller's ([path]'s `enc`: :app's
