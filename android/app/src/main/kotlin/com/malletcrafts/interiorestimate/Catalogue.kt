@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -70,22 +71,26 @@ class Catalogue(context: Context) {
         val key: String get() = if (synced) serverId else keyOf(client, site, title)
 
         /** "12 Aug → 30 Sep", or one end of it, or nothing. A range with one
-         *  date missing still says more than no range at all. */
-        val dateRange: String get() = when {
+         *  date missing still says more than no range at all. In [tx]: `from` and
+         *  `due` keyed (app.from_x, app.due_x: "5 Oct पासून"), the range as the
+         *  prototype draws it in both languages, months Latin (port 61c slice PL review). */
+        fun dateRange(tx: Tx): String = when {
             start.isNotBlank() && end.isNotBlank() -> "${Catalogue.day(start)} → ${Catalogue.day(end)}"
-            start.isNotBlank() -> "from ${Catalogue.day(start)}"
-            end.isNotBlank() -> "due ${Catalogue.day(end)}"
+            start.isNotBlank() -> tx.app_from_x(start = Catalogue.day(start))
+            end.isNotBlank() -> tx.app_due_x(end = Catalogue.day(end))
             else -> ""
         }
 
-        /** The word on the pill. A project that never reached ERP says so
-         *  first — that is the fact that changes what you do next. */
-        val statusLabel: String get() = when {
-            local -> "offline"
-            status.equals("Completed", true) -> "done"
-            status.equals("Cancelled", true) -> "cancelled"
+        /** The word on the pill, in [tx] (app.offline, app.done, app.cancelled,
+         *  app.active: "चालू" under मराठी, as the prototype's statusLabel is drawn).
+         *  A project that never reached ERP says so first — that is the fact that
+         *  changes what you do next. */
+        fun statusLabel(tx: Tx): String = when {
+            local -> tx.app_offline
+            status.equals("Completed", true) -> tx.app_done
+            status.equals("Cancelled", true) -> tx.app_cancelled
             status.isBlank() -> ""
-            else -> "active"
+            else -> tx.app_active
         }
 
         /** Amber, not grey: offline and cancelled are both things somebody

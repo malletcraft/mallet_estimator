@@ -214,6 +214,9 @@ object QuoteStage {
      * changes: the cache already says [stage], or [stage] is not one of the six. Otherwise the
      * project is listed at [stage], read at [readAt], its `by` and `at` blank and marked UNKNOWN
      * ([Cache.atUnknown], never "never set") until the next read of S5's list fills them in.
+     * Its copy is written as it is, never through [writes]: against a stored copy S5 stamped, [takes]
+     * refuses a listed copy with no stamp whatever the sequence, so the `final` 409 would lose to the
+     * older stamped stage (port 61c slice PL review; QuoteStageTest pins it).
      */
     fun named(cache: Cache?, stage: String, readAt: String): Cache? {
         val s = stage.trim()
@@ -295,12 +298,16 @@ object QuoteStage {
      * as an update must read what an older build wrote: a field absent or of another type reads as the [Cache] default --
      * a copy 0.3.270 or older wrote (no `states`, no `atUnknown` before the QM0 review) keeps its stage, who and when, its
      * states not read; a `states` entry without an integral seq, or for an id that is not one of the sixteen, is left out;
-     * a state outside the five reads Not started ([Album.stateName]).
+     * a state outside the five reads Not started ([Album.stateName]). A copy that reads as NOT LISTED holds nothing but
+     * when it was read, as [merge] keeps it (v61c.2): a stage, who and when or states stored beside it -- by hand or by
+     * a fault, no writer stores them -- are never read back, or the next read that lists the project would merge them
+     * in as S5's (port 61c slice PL review).
      */
     fun storedOf(r: AlbumWire.Read, o: Any?): Cache? {
         if (!r.isObject(o)) return null
         fun s(k: String): String = r.field(o, k) as? String ?: ""
         fun b(k: String): Boolean = r.field(o, k) as? Boolean ?: false
+        if (!b("listed")) return Cache(listed = false, readAt = s("readAt"))
         val st = r.field(o, "states")
         val states = if (!r.isObject(st)) null else Album.WORK_IDS.mapNotNull { w ->
             val e = r.field(st, w.toString())
@@ -350,7 +357,10 @@ object QuoteStage {
      * The project line, drawn by every reader (the project screen, the list row, the album header, the Wish
      * list bar): its [kind]; the S5 stage it shows ([quote], an identity value; null when none is shown); the
      * first line ([text]); at Client approved the counts it was built from ([parts]); the [second] line; how
-     * many of the six pips are lit ([lit]); and whether [second] carries the read time ([showRead]).
+     * many of the six pips are lit ([lit]); whether [second] carries the read time ([showRead]); and what a
+     * screen reader says for the pips ([pips]), as the prototype's aria-label (index61c2.html pips and lineHTML):
+     * `2 of 6` for a quote-journey stage, `not read yet` unread, `not on S5 yet` for a project S5 does not list
+     * (SPEC61c §18 item 2), blank at Client approved, where no pip is drawn (port 61c slice PL review).
      */
     data class ProjectLine(
         val kind: LineKind,
@@ -360,6 +370,7 @@ object QuoteStage {
         val second: String,
         val lit: Int,
         val showRead: Boolean,
+        val pips: String,
     )
 
     private const val SEP = " · " // text:value the line's separator, as the prototype joins it
@@ -372,7 +383,9 @@ object QuoteStage {
      *   (v61c.2): a stage, states or queued writes are never shown for it;
      * - never read, a blank stage or a name outside the six (critic G6): `Quote · not read yet`, no pip;
      * - Survey through Revisions: `Quote · <stage>`, its pips, `since d MMM, HH:mm IST on S5` or `<stage> ·
-     *   not set on S5 yet` when S5 has not timed it (once S5 lists a project, never the never-sent words);
+     *   not set on S5 yet` when S5 has not timed it (once S5 lists a project, never the never-sent words), and
+     *   `<stage> · not read yet` for a copy an answer NAMED without its stamp ([Cache.atUnknown]) until a read fills
+     *   the time in;
      * - Client approved: `Execution`, then the non-zero counts in this order: in progress · done · on hold;
      *   `no work started yet` only while every work is Not started; the abandoned ones only when nothing else
      *   counts (§13.4, review 4) -- the states with [queued] laid over them ([Album.withQueued]), so a tap
@@ -390,23 +403,32 @@ object QuoteStage {
         val i = indexOf(stage)
         if (cache == null || i < 0) {
             return ProjectLine(LineKind.UNREAD, null, tx.common_quote_x(quote = tx.wish_not_read_yet), emptyList(),
-                tx.wish_quote_stage_not_read + read, 0, old)
+                tx.wish_quote_stage_not_read + read, 0, old, tx.wish_not_read_yet)
         }
         if (stage != APPROVED) {
             val shown = Masters.quote(tx, stage)
             val t = instantOf(cache.at)
-            val second = if (t != null) tx.wish_since_x_x_ist(d = day(t), h = hm(t)) else tx.wish_x_not_set_s5_yet(stage = shown)
-            return ProjectLine(LineKind.QUOTE, stage, tx.common_quote_x(quote = shown), emptyList(), second + read, i + 1, old)
+            val second = when {
+                t != null -> tx.wish_since_x_x_ist(d = day(t), h = hm(t))
+                // NAMED by an answer without its stamp ([named]): when S5 set it is unknown, not never set, so the
+                // line says it is not read yet, as `Execution · not read yet` does for states (critic G7) -- never
+                // `not set on S5 yet`, which a stage staff moved back to Survey would contradict (slice PL review)
+                cache.atUnknown -> listOf(shown, tx.wish_not_read_yet).joinToString(SEP)
+                else -> tx.wish_x_not_set_s5_yet(stage = shown)
+            }
+            return ProjectLine(LineKind.QUOTE, stage, tx.common_quote_x(quote = shown), emptyList(), second + read, i + 1, old,
+                tx.export_x_x(v = (i + 1).toString(), n = STAGES.size.toString()))
         }
         val states = cache.states
         val parts = if (states == null) emptyList() else execParts(tx, Album.withQueued(states, queued))
         val head = if (states == null) listOf(tx.app_execution, tx.wish_not_read_yet) else listOf(tx.app_execution) + parts
         return ProjectLine(LineKind.EXEC, APPROVED, head.joinToString(SEP), parts,
-            tx.common_quote_x(quote = Masters.quote(tx, APPROVED)), STAGES.size, false)
+            tx.common_quote_x(quote = Masters.quote(tx, APPROVED)), STAGES.size, false, "")
     }
 
     private fun local(tx: Tx, read: String, old: Boolean): ProjectLine =
-        ProjectLine(LineKind.LOCAL, null, tx.common_quote_x(quote = tx.wish_not_on_s5_yet), emptyList(), tx.wish_not_s5_yet_project + read, 0, old)
+        ProjectLine(LineKind.LOCAL, null, tx.common_quote_x(quote = tx.wish_not_on_s5_yet), emptyList(), tx.wish_not_s5_yet_project + read, 0, old,
+            tx.wish_not_on_s5_yet)
 
     /** The counts of the approved line: in progress · done · on hold, the non-zero ones; else abandoned, else none started. */
     private fun execParts(tx: Tx, states: Map<Int, WorkState>): List<String> {

@@ -8,6 +8,7 @@
 # Port 61c slice M4 (3 Nov 2026) adds the wish list: WishListScreen.kt, WishSync.kt and pano/WishList.kt. Every text they show is a tx accessor; the twelve services and the rooms are identity values shown through Masters, the services marked `// text:value`; the notes stored in English (REPLACED, NOT_SENT, s5Answered) are marked `// text:value` and drawn through their keys.
 # Port 61c slice QM0 (3 Nov 2026) adds QuoteMove.kt, the guarded quote move: every text it shows is a tx accessor (refuse.stage.*, wish.not_s5_yet_project, and app.sign_again_menu_server_x for S5's 401 since its review); S5's 400, 401 and not-yet words are data.
 # Port 61c slice PL (3 Nov 2026) adds QuoteStage.kt and BrowseScreens.kt, now fully keyed: the one derived project line and its readers (the old QUOTE STAGE line, lineFor, phoneOnly, TITLE, the NOT_* texts and since, deleted); the six stages, the months, the zone id and the two badges are marked `// text:value`. And JsonRead.kt (new), org.json read through AlbumWire.Read: no shown text.
+# Its review (3 Nov 2026): BrowseScreens' identity values -- the room tile's name, the project row's job type, the site row's type -- drawn through Masters, and its dates and pill keyed (Catalogue's dateRange and statusLabel take the Tx); before it they were drawn raw, which no literal check sees.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt

@@ -168,6 +168,19 @@ the `NOT_*` texts and `since`), StageBar and the project sheet's At stage, Phase
   `app.project_is_at`, `app.no_stage_set_tap`, `app.x_not_shot_stage`, `app.every_photographed_room_current`,
   `app.since_x`, and the project sheet's `app.at_stage`, `app.phase`, `app.phases`, `app.stages`,
   `app.x_master_job_type` (the sheet's texts were never keyed on the phone).
+- **Fixed by the PL review: identity values drawn raw.** PL listed `BrowseScreens.kt` as fully keyed while it drew the
+  room tile's name (and the photo's description), the project row's job type and the site row's type as stored, and
+  the dates and the pill from `Catalogue`'s English: under मराठी the row read `… · Supply & install · from 5 Oct  ACTIVE`
+  where the prototype draws `… · पुरवठा व बसवणे · 5 Oct पासून  चालू`. A value with no literal is invisible to
+  `I18nLiteralTest`, so no check caught it. They are drawn through `Masters.room`, `Masters.job` and `Masters.site`
+  now (the badge and the room token stay from the English), and `Catalogue.Project.dateRange` and `statusLabel` take
+  the `Tx` (`app.from_x`, `app.due_x`, `app.offline`, `app.done`, `app.cancelled`, `app.active`; a whole range stays
+  `5 Oct → 30 Nov`, as the prototype draws it). MainActivity's top bar draws its job type through `Masters.job`.
+  Their 7 `unkeyed.tsv` rows went. No new key.
+- **The pips are labelled** (PL review): `QuoteStage.ProjectLine.pips`, the prototype's aria-label, read by TalkBack:
+  `export.x_x` (`2 of 6`, under मराठी `2 / 6`, the key the prototype's text layer renders it with), `wish.not_read_yet`
+  and `wish.not_on_s5_yet`. A stage named without its stamp reads `<stage> · not read yet` on the second line
+  (`wish.not_read_yet`), never `not set on S5 yet`. No new key.
 
 ## What is here
 

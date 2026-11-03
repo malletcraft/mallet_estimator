@@ -26,6 +26,9 @@
 # BrowseScreens' "SITE" badge stays too: the prototype draws it as an unkeyed literal, and noun.site is "site".
 # Port 61c slice PL (3 Nov 2026) ported BrowseScreens.kt and QuoteStage.kt and removed their 36 rows: "SITE" and "PRJ" are
 # marked `// text:value` (the prototype's own unkeyed badges); the old QUOTE STAGE line's texts left with the code.
+# Its review (same day) removed 7 more: Catalogue's dateRange and statusLabel words (from, due, offline, done, cancelled,
+# active), keyed through app.from_x, app.due_x and the pill's four keys, and MainActivity's top bar, whose job type is
+# drawn through Masters.job now, as BrowseScreens draws the room, job type and site type through Masters.
 file	text
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	 · ${q.note.take(18)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	${ann.lines.size} lines · 
@@ -209,12 +212,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 4
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 5
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Utility
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	active
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	cancelled
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	done
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	due ${Catalogue.day(end)}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	from ${Catalogue.day(start)}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	offline
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	 — $it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	, 
@@ -443,7 +440,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.sku}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} / ${p.site} · ${p.jobType}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} · site
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.site} / ${p.title}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${proj.jobType} · ${site.orEmpty()}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated already sent, nothing new.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated, but their captures 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${sku.article} · ${p.title}

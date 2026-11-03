@@ -608,10 +608,13 @@ class QuoteStageTest {
         assertEquals("Execution · not read yet", line(c).text)
         assertEquals(Cache(listed = false, readAt = "q"), QuoteStage.storedOf(MiniRead, tree("""{"listed":false,"stage":"","by":"","at":"","readAt":"q"}""")))
         assertEquals(Cache(true, "Survey", readAt = "q"), QuoteStage.storedOf(MiniRead, tree("""{"listed":true,"stage":"Survey","by":"","at":"","readAt":"q"}""")))
-        // tolerant: a field of another type is its default; an entry with no integral seq, or for an id that is not a work, is left out
-        val odd = tree("""{"listed":"yes","stage":3,"states":{"10":{"state":"Done"},"999":{"state":"Done","seq":1},"20":{"state":"Halfway","seq":5},"30":"Done","40":{"state":"Done","seq":6.0,"at":4}}}""")
-        assertEquals(Cache(listed = false, states = mapOf(20 to WorkState(Album.NOT_STARTED, 5), 40 to WorkState(Album.DONE, 6))),
-            QuoteStage.storedOf(MiniRead, odd))
+        // tolerant: a field of another type is its default -- so `"listed":"yes"` reads as not listed, which holds nothing
+        // but when it was read (slice PL review: it kept the states here, against the store's own rule) --; an entry with no
+        // integral seq, or for an id that is not a work, is left out
+        val oddStates = """{"10":{"state":"Done"},"999":{"state":"Done","seq":1},"20":{"state":"Halfway","seq":5},"30":"Done","40":{"state":"Done","seq":6.0,"at":4}}"""
+        assertEquals(Cache(listed = false), QuoteStage.storedOf(MiniRead, tree("""{"listed":"yes","stage":3,"states":$oddStates}""")))
+        assertEquals(Cache(listed = true, states = mapOf(20 to WorkState(Album.NOT_STARTED, 5), 40 to WorkState(Album.DONE, 6))),
+            QuoteStage.storedOf(MiniRead, tree("""{"listed":true,"stage":3,"states":$oddStates}""")))
         assertNull(QuoteStage.storedOf(MiniRead, tree("[]")))
         assertNull(QuoteStage.storedOf(MiniRead, null))
     }
@@ -631,5 +634,77 @@ class QuoteStageTest {
         val listed = listOf(Listed("P", "Revisions", "pm@x", "2026-10-01T00:00:00.000Z", mapOf(10 to WorkState(Album.DONE, 8))))
         assertEquals(QuoteStage.writes(QuoteStage.fromList(listed, listOf("P", "Q"), "r"), 5L, mapOf("P" to 9L), stored),
             QuoteStage.fromList(listed, listOf("P", "Q"), "r", 5L, mapOf("P" to 9L), stored))
+    }
+
+    // ---- the review of slice PL ----------------------------------------------------------------------------------
+
+    @Test fun `the pips' accessible label - n of 6 through the quote journey, not read yet, not on S5 yet, none at Client approved`() {
+        // index61c2.html pips(): aria-label "<idx+1> of 6", or "not read yet" with no stage read; lineHTML's local branch:
+        // "not on S5 yet" (SPEC61c §18 item 2); under मराठी "2 / 6", as the prototype's text layer renders it
+        assertEquals("2 of 6", line(Cache(true, "Client wish list", "staff@x", at, now.toString())).pips)
+        assertEquals("2 / 6", line(Cache(true, "Client wish list", "staff@x", at, now.toString()), Tx.MR).pips)
+        QuoteStage.STAGES.dropLast(1).forEachIndexed { i, s -> assertEquals("${i + 1} of 6", line(Cache(true, s, "", at, now.toString())).pips, s) }
+        assertEquals("1 of 6", line(Cache(true, "Survey", "", "", now.toString())).pips, "a stage S5 has not timed")
+        for (c in listOf(null, Cache(true, "", "", "", now.toString()), Cache(true, "On hold", "", at, now.toString()))) {
+            assertEquals("not read yet", line(c).pips, "$c")
+            assertEquals("अजून वाचलेले नाही", line(c, Tx.MR).pips, "$c")
+        }
+        for ((c, phoneOnly) in listOf(Cache(listed = false, readAt = now.toString()) to false, null to true)) {
+            assertEquals("not on S5 yet", line(c, phoneOnly = phoneOnly).pips, "$c $phoneOnly")
+            assertEquals("अजून S5 वर नाही", line(c, Tx.MR, phoneOnly).pips, "$c $phoneOnly")
+        }
+        // at Client approved no pip is drawn, so there is nothing to label
+        assertEquals("", line(approved(emptyMap())).pips)
+        assertEquals("", line(approved(null)).pips)
+    }
+
+    @Test fun `a stage named without its stamp reads not read yet for when, never not set on S5 yet, until a read fills it in`() {
+        // the wish list's Survey 409 names the stage and nothing more (QuoteStage.named); staff may have moved it back to
+        // Survey, which S5 stamps, so "not set on S5 yet" would say what the store records as unknown
+        val read = Cache(true, "Client wish list", "staff@x", at, now.toString())
+        val named = assertNotNull(QuoteStage.named(read, "Survey", now.toString()))
+        val l = line(named)
+        assertEquals(LineKind.QUOTE, l.kind)
+        assertEquals("Quote · Survey", l.text)
+        assertEquals("Survey · not read yet", l.second)
+        assertEquals(1, l.lit)
+        assertEquals("सर्व्हे · अजून वाचलेले नाही", line(named, Tx.MR).second)
+        // read before today, the read time ends it, as on every quote-journey line
+        assertEquals("Survey · not read yet · read 17:45", line(named.copy(readAt = "2026-10-13T12:15:00Z")).second)
+        // a stage S5 really never timed still reads not set on S5 yet
+        assertEquals("Survey · not set on S5 yet", line(Cache(true, "Survey", "", "", now.toString())).second)
+        // the follow-up read of the list fills the time in
+        val filled = QuoteStage.merge(named, Cache(true, "Survey", "pm@x", "2026-10-14T09:20:00.000Z", now.toString()), 5L, 4L)
+        assertFalse(filled.atUnknown)
+        assertEquals("since 14 Oct, 14:50 IST on S5", line(filled).second)
+    }
+
+    @Test fun `a stage named without its stamp cannot go in through writes, so named keeps its own path into the store`() {
+        // QuoteStageSync.named writes the store itself, not through write(): against a stored copy S5 stamped, takes() refuses
+        // a listed copy with no stamp whatever the sequence, so the wish list's `final` 409 would lose to the older Revisions
+        val stamped = Cache(true, "Revisions", "pm@x", at, "2026-10-28T01:00:00Z")
+        val named = assertNotNull(QuoteStage.named(stamped, "Client approved", "2026-10-28T03:00:00Z"))
+        assertEquals(emptyMap(), QuoteStage.writes(mapOf("P" to named), 10L, mapOf("P" to 1L), mapOf("P" to stamped)))
+        assertEquals(emptyMap(), QuoteStage.writes(mapOf("P" to named), 10L, emptyMap(), mapOf("P" to stamped)))
+        assertEquals("Revisions", QuoteStage.merge(stamped, named, 10L, 1L).stage)
+        // over a copy with no stamp it would be taken: only S5's stamp makes the separate path necessary
+        assertEquals(mapOf("P" to named), QuoteStage.writes(mapOf("P" to named), 10L, mapOf("P" to 1L), mapOf("P" to stamped.copy(at = ""))))
+    }
+
+    @Test fun `a stored copy that reads as not listed holds nothing but when it was read, so no later read takes its states or stamp`() {
+        // no writer stores one (merge strips it first); one written by hand or by a fault is read back as merge keeps it
+        val held = tree("""{"listed":false,"stage":"Revisions","by":"pm@x","at":"$tApproved","readAt":"r","atUnknown":true,"states":{"20":{"state":"Done","seq":5,"at":""}}}""")
+        val c = assertNotNull(QuoteStage.storedOf(MiniRead, held))
+        assertEquals(Cache(listed = false, readAt = "r"), c)
+        assertNull(c.states)
+        // S5 then lists it at Client approved with no work started: the line is S5's, never a count the held copy carried
+        val listed = Cache(true, "Client approved", "pm@x", "2026-11-03T07:00:00.000Z", "q", emptyMap())
+        val m = QuoteStage.merge(c, listed, 2L, 1L)
+        assertEquals(emptyMap<Int, WorkState>(), m.states)
+        assertEquals("Execution · no work started yet", line(m).text)
+        // and a later stamp held beside it does not keep the project "not on S5 yet" while S5 lists it
+        val later = QuoteStage.storedOf(MiniRead, tree("""{"listed":false,"at":"2026-12-01T00:00:00.000Z","readAt":"r"}"""))
+        assertEquals(Cache(listed = false, readAt = "r"), later)
+        assertEquals(LineKind.EXEC, line(QuoteStage.merge(later, listed, 2L, 1L)).kind)
     }
 }

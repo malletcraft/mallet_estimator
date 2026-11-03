@@ -74,6 +74,7 @@ import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
@@ -583,6 +584,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // Nothing chosen under FILED AT means no stage: the capture files to the
         // Quote journey (Album.workOfCapture). The ERP site stage is no longer a
         // default -- the phone neither shows nor moves it (port 61c slice PL).
+        // Until FW2 that holds on an APPROVED project too (slice PL review): such a
+        // capture stays in the Quote journey -- amber room dot, work 0 on S5 after
+        // AS1 -- and FW2's sweep, which re-files only a capture whose filing is not
+        // 0, leaves it there; only a re-file by hand on FW2's WORK line moves it.
         val stageNow = stage
         busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
         lastResult = null
@@ -1294,7 +1299,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val title: String
         val subtitle: String
         when {
-            proj != null -> { title = proj.title; subtitle = "${proj.jobType} · ${site.orEmpty()}" }
+            // the job type as the masters name it in the language (Supply & install -> पुरवठा व बसवणे), the site as typed
+            proj != null -> { title = proj.title; subtitle = "${Masters.job(tx, proj.jobType)} · ${site.orEmpty()}" }
             site != null -> { title = site; subtitle = client.orEmpty() }
             client != null -> { title = client
                 subtitle = tx.pl_site(cs.siteCount(client)) }

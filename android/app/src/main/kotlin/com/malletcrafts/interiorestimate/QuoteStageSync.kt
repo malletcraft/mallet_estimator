@@ -13,7 +13,12 @@ import java.time.Instant
  * PL each work's state at the seq S5 knows it (QuoteStage.Cache, kept in QuoteStage.stored's shape).
  * Every reader draws the ONE derived line from it ([lineFor], QuoteStage.projectLine): the project
  * screen, the project list row and the Wish list's top bar. Nothing on the phone sets it by hand;
- * S5's answers go in through [write], by S5's own order (QuoteStage.writes / merge).
+ * S5's answers go in through [write], by S5's own order (QuoteStage.writes / merge) -- all but ONE,
+ * by design: [named], an answer that names the stage WITHOUT its stamp (the wish list's 409s), writes
+ * its own copy. Through writes it would lose: against a stored copy S5 stamped, QuoteStage.takes
+ * refuses a listed copy with no stamp whatever the sequence, so the `final` 409's Client approved
+ * would give way to the older stamped Revisions and the Wish list would unlock under S5's "not
+ * saved" (the slice W review fix). Do not route it through [write] (QuoteStageTest pins why).
  *
  * ONE GET <WEB_URL>/api/asis per read, with the same credentials ReadingsSync sends
  * (S5Auth.fresh: the S5 session when signed in, renewed near its end, else the legacy ERP key -- 22 Oct 2026). The LIST, not GET /api/asis/:project: that call also settles the project and lists
@@ -120,7 +125,9 @@ object QuoteStageSync {
     fun ticket(): Long = synchronized(LOCK) { ++seq }
 
     /**
-     * THE ONE WRITER: S5's [copies] by project id -- a read of the list ([refresh]), and from QV on
+     * THE ONE WRITER of every S5 answer but one -- [named]'s, which names a stage with no stamp and so
+     * writes its own copy (the class note says why it cannot come through here): S5's [copies] by
+     * project id -- a read of the list ([refresh]), and from QV on
      * the album GET (QuoteStage.fromAlbum) and the answers to a move (QuoteMove.copyOf) -- go into
      * the store through QuoteStage.writes, each id merged by S5's own order onto the copy stored now.
      * [sent] is the [ticket] the request took as it went out; null for an answer that is S5's word as

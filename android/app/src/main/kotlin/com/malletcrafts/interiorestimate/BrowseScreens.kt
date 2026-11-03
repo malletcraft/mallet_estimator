@@ -29,12 +29,15 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.RoomToken
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 
 /**
  * The browser: client → SITE → project → room → the captures in it.
@@ -53,7 +56,10 @@ import com.malletcrafts.interiorestimate.pano.RoomToken
  *    ERP site stage's card, left the phone in port 61c slice PL.
  *
  * Every text here is keyed (port 61c slice PL); the two badges are the prototype's
- * own unkeyed literals, marked `// text:value`.
+ * own unkeyed literals, marked `// text:value`. The masters' identity values -- a room,
+ * a job type, a site type -- are drawn through Masters, as the prototype's text layer
+ * draws them (index61c2.html under मराठी: `हॉल`, `पुरवठा व बसवणे`, `फ्लॅट`); a typed one
+ * as typed. The badge and the room token stay from the English (slice PL review).
  */
 
 private val ROW_HEIGHT = 64.dp
@@ -224,7 +230,7 @@ fun SitesScreen(
             FolderRow(
                 badge = if (s.type.isNotBlank()) s.type.take(3).uppercase() else "SITE", // text:value the prototype's badge, an unkeyed literal there too
                 title = s.name,
-                subtitle = listOf(s.type, s.city).filter { it.isNotBlank() }
+                subtitle = listOf(Masters.site(tx, s.type), s.city).filter { it.isNotBlank() }
                     .joinToString(" · ").ifBlank { tx.pl_project(projectCount(s)) },
                 count = projectCount(s),
                 pill = if (s.local) tx.app_offline else null,
@@ -257,12 +263,12 @@ fun ProjectsScreen(
                 // where the job stands is the one state, so it leads; two lines, as the prototype's .ell2.
                 subtitle = listOfNotNull(
                     lineOf(p).ifBlank { null },
-                    p.jobType.ifBlank { null },
-                    p.dateRange.ifBlank { null },
+                    Masters.job(tx, p.jobType).ifBlank { null },
+                    p.dateRange(tx).ifBlank { null },
                 ).joinToString(" · "),
                 subtitleLines = 2,
                 count = captureCount(p),
-                pill = p.statusLabel.ifBlank { null },
+                pill = p.statusLabel(tx).ifBlank { null },
                 warn = p.statusWarn,
                 muted = true,
                 onClick = { onOpen(p) },
@@ -356,7 +362,7 @@ fun RoomsScreen(
                 })
             }
             AssistChip(onClick = onDetail,
-                label = { Text(project.dateRange.ifBlank { tx.app_no_dates }) })
+                label = { Text(project.dateRange(tx).ifBlank { tx.app_no_dates }) })
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -412,11 +418,13 @@ fun RoomsScreen(
  * set by hand -- it replaces both the PROJECT IS AT card and the QUOTE STAGE line under it. Outlined, not
  * filled: a surface with a teal bar on the left. Sizes are the prototype's (.qst): padding 7/16/8/13 after a
  * 3 dp bar, the line at 14/20 sp medium with .4 sp tracking in #0F5E57, the second line at 12/16 sp: 7 + 20 +
- * 16 + 8 = 51 dp in portrait. In landscape it is one row, 5 + 20 + 5 = 30 dp, the second line beside it.
+ * 16 + 8 + the 1 dp rule = 52 dp in portrait. In landscape it is one row, 5 + 20 + 5 + 1 = 31 dp, the second
+ * line beside it. The rule is drawn BELOW the bottom padding, as .qst's border-bottom is (slice PL review: it
+ * was painted over the padding's last dp, 51 and 30 dp).
  * - Through the quote journey (and unread, or not on S5): `Quote · <stage>` with the six 12 x 4 dp pips
  *   3 dp apart, over `since …`, `<stage> · not set on S5 yet` or why there is no stage.
  * - At Client approved (.qst.qx): an 18 dp teal ✓ 10 dp before `Execution · …`, over `Quote · Client
- *   approved`, at least 48 dp tall (36 dp in landscape), as the prototype's tap target is. It is not a tap
+ *   approved`, at least 48 dp tall (36 dp in landscape) with the rule, as the prototype's tap target is. It is not a tap
  *   yet and has no `tap to view`: the quote view it opens arrives with QV, so no dead control ships.
  */
 @Composable
@@ -443,7 +451,8 @@ private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
         }
     if (landscape) {
         Row(
-            frame.padding(start = 16.dp, top = 5.dp, end = 16.dp, bottom = 5.dp),
+            // the bottom 5 dp, then the 1 dp rule drawBehind paints below it
+            frame.padding(start = 16.dp, top = 5.dp, end = 16.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -459,7 +468,8 @@ private fun ProjectLineBox(line: QuoteStage.ProjectLine) {
         }
     } else {
         Column(
-            frame.padding(start = 16.dp, top = 7.dp, end = 16.dp, bottom = 8.dp),
+            // the bottom 8 dp, then the 1 dp rule drawBehind paints below it
+            frame.padding(start = 16.dp, top = 7.dp, end = 16.dp, bottom = 9.dp),
             verticalArrangement = Arrangement.Center,
         ) {
             Row(
@@ -488,7 +498,7 @@ private fun RowScope.LineHead(
     if (exec) ApprovedCheck(teal)
     Text(line.text, style = style, color = ink, maxLines = 1,
         overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-    if (!exec) QuotePips(line.lit, teal)
+    if (!exec) QuotePips(line.lit, line.pips, teal)
 }
 
 /** The prototype's .qck: an 18 dp teal disc with a white ✓ at 11/18 sp, hidden from TalkBack as it is aria-hidden there. */
@@ -502,11 +512,16 @@ private fun ApprovedCheck(teal: Color) {
     }
 }
 
-/** The six quote stages (v61b) as 12 x 4 dp steps, lit up to and including the current one. */
+/**
+ * The six quote stages (v61b) as 12 x 4 dp steps, lit up to and including the current one. TalkBack reads
+ * them as one node saying [label] (QuoteStage.ProjectLine.pips: `2 of 6`, `not read yet`, `not on S5 yet`),
+ * the prototype's aria-label on .qpips (slice PL review: the place in the six was lost).
+ */
 @Composable
-private fun QuotePips(lit: Int, on: Color) {
+private fun QuotePips(lit: Int, label: String, on: Color) {
     val off = MaterialTheme.colorScheme.outlineVariant
     Row(
+        Modifier.semantics(mergeDescendants = true) { contentDescription = label },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -537,6 +552,9 @@ private fun RoomTile(
     pano: String?,
     onClick: () -> Unit,
 ) {
+    val tx = LocalTx.current
+    // The room as the masters name it in the language (Living Room -> हॉल under मराठी); the token stays the English's
+    val shown = Masters.room(tx, room)
     val shot = count > 0
     val photo = shot && pano != null
     Box(
@@ -549,7 +567,7 @@ private fun RoomTile(
     ) {
         if (photo) {
             Thumb(ThumbSource.LocalFile(pano!!), Modifier.fillMaxSize(),
-                target = 260, contentDescription = room)
+                target = 260, contentDescription = shown)
             // Without the wash the white token vanishes into a bright wall.
             Box(Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
@@ -583,7 +601,7 @@ private fun RoomTile(
                         else MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.align(Alignment.BottomEnd).padding(7.dp))
         }
-        Text(room, style = MaterialTheme.typography.labelSmall,
+        Text(shown, style = MaterialTheme.typography.labelSmall,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
             color = when {
                 photo -> Color.White
