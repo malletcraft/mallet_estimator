@@ -1,6 +1,8 @@
 package com.malletcrafts.interiorestimate.pano.i18n
 
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.AlbumQueue
+import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.QuoteStage
@@ -120,7 +122,8 @@ class MastersTest {
      * take a Tx in its slice: no parameter or result of an i18n type, generics included.
      */
     @Test fun `the wire, storage and export builders have no Tx parameter`() {
-        val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java)
+        // port 61c slice AQ: the album outbox's requests and S5's answers -- every method builds or reads what is sent
+        val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java)
         val named = mapOf(
             // afterFinal, afterSurvey and left (port 61c slice W), and after409, shown and entered (its review), write the
             // stored list: S5's words stay as S5 sent them
@@ -128,11 +131,11 @@ class MastersTest {
                 "after409", "shown", "entered"),
             // port 61c slice K1b: the filing, the ids, the ops, the scope amendment, the log pages and every outbox
             // transition build what is stored or sent; only Refusal.text, CrKind.word/sub, CrOutcome.text and the
-            // display functions (workName, payOf, dayOf, whenOf, decidedText, roleLabel...) take a Tx
+            // display functions (workName, payOf, dayOf, whenOf, decidedText, roleLabel...) take a Tx; AQ adds refileOp (S5-P)
             Album::class.java to listOf("provisional", "provisionalPhoto", "workOfCapture", "workOfStage", "mintId", "baseOf",
                 "stateOp", "crRaiseOp", "crAnswerOp", "reviewOp", "photoOp", "amendedScope", "crDone", "mergedLog", "paged",
                 "merged", "statesOfWorks", "statesOfLog", "withQueued", "afterPost", "afterReplay", "afterConflict",
-                "afterLocked", "afterRefused"),
+                "afterLocked", "afterRefused", "refileOp"),
             SurveyPrepFile::class.java to listOf("encode"),
         )
         val off = ArrayList<String>()

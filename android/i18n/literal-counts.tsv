@@ -49,6 +49,8 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/WishSync.kt	12
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	0
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumQueue.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraPort.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2

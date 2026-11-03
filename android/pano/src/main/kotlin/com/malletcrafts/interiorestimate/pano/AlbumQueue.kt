@@ -1,0 +1,194 @@
+package com.malletcrafts.interiorestimate.pano
+
+import com.malletcrafts.interiorestimate.pano.Album.Answer
+import com.malletcrafts.interiorestimate.pano.Album.Op
+import com.malletcrafts.interiorestimate.pano.Album.Outbox
+import com.malletcrafts.interiorestimate.pano.Album.Verdict
+
+/**
+ * THE ALBUM OUTBOX ON THE WIRE -- each queued op becomes exactly its S5 call (port 61c slice AQ, 3 Nov 2026; the
+ * pure half of DESIGN-slice2's K2). Nothing here sends anything: [requestOf] says what one op's next step sends
+ * (method, path, body fields with S5's own JSON types, content type), [next] picks the step the drain sends next,
+ * and [apply] takes S5's answer -- read by [AlbumWire] -- through [Album.verdict] and K1b's transitions. The drain
+ * that sends (WorkManager, `AsIsUpload.exchange`, `S5Auth.fresh`) is K4's, in :app, with the queue's first writer.
+ *
+ * The routes are S5 QUOTE's as shipped on stage (mcft-interior-estimate 9a51733, functions/_lib/asis.js):
+ * - a state, a change request raised or answered: `POST /api/asis/:project/album/log` (validLogEntry);
+ * - a photo: `PUT …/album/photos/:id` (validPhoto), the record FIRST, then `PUT …/album/photos/:id/img`, the JPEG
+ *   (404 until the record exists, written ONCE: a second PUT answers `written: false`);
+ * - a review: `PUT …/album/photos/:photo/review` (validReview);
+ * - a re-file (S5-P): `PUT …/album/photos/:photo/work` (validPhotoWork).
+ *
+ * The verdicts are "Offline and conflicts" (DESIGN-slice2), as [Album.verdict] tables them: 200 written or replay
+ * leaves the queue (a photo's record answer moves it on to its JPEG); 409 is S5 winning a race, so the op and every
+ * LATER queued op on its work are dropped, the mirror taking what the body echoes (`locked: true` the same, in the
+ * lock banner's words); 400 / 403 / 413 / 415 is refused for good -- THAT op alone, the next op that rode on it
+ * taking back what S5 still has (S5's S5-P note relies on it: a vendor's photo or another uploader's is 403, never a
+ * 409 that would drop the work's later ops); 401 keeps the op for the drain to sign in again and resend; 404, 405,
+ * 5xx and no network stop the drain with the queue as it was, for the next pass.
+ */
+object AlbumQueue {
+
+    /** S5's cap on its short fields (asis.js ALBUM_MAX_SHORT): `via`, `client_at`, a review's base. */
+    const val MAX_SHORT = 40
+
+    /** `via` on every write that takes one (SPEC61c §9.2; decided in the port plan). */
+    const val VIA = "phone"
+
+    const val JSON = "application/json"
+    const val JPEG = "image/jpeg"
+
+    /** Where a photo op's JPEG waits on the phone, under filesDir, until it has landed (K5 writes it, X2 keeps it). */
+    const val SHOTS = "album/shots"
+
+    fun shotPath(id: String): String = "$SHOTS/$id.jpg"
+
+    /** What an op's next request is: the log POST, a photo's record then its JPEG, a review, a re-file. */
+    enum class Step { LOG, RECORD, IMG, REVIEW, REFILE }
+
+    /** The step [op] sends next; null for a kind this build cannot send (the drain refuses it for good: see [requestOf]). */
+    fun stepOf(op: Op): Step? = when (op.kind) {
+        Album.KIND_STATE, Album.KIND_CR_RAISE, Album.KIND_CR_CLEAR -> Step.LOG
+        Album.OP_PHOTO -> if (op.recorded) Step.IMG else Step.RECORD
+        Album.OP_REVIEW -> Step.REVIEW
+        Album.OP_REFILE -> Step.REFILE
+        else -> null
+    }
+
+    /**
+     * One request, with no JSON in it: :app serialises [fields] (`JSONObject(fields)`, which writes a null as JSON
+     * null -- `put(k, null)` would DROP the key, and a re-file without `base` is S5's 400) and sends [file] for the
+     * JPEG. [segments] follow `/api/asis/`, each to be percent-encoded by the caller ([path]; :app's
+     * `AsIsUpload.seg`). [fields] keep S5's order and S5's JSON types: a seq or a work is a number (an Int or a
+     * Long), never its text -- validLogEntry refuses `"base":"0"` with a 400, which would drop every state write
+     * for good (critic S2) -- a review's base is the `review_at` STRING, and null is JSON null.
+     */
+    data class Request(
+        val method: String,
+        val segments: List<String>,
+        val fields: Map<String, Any?>,
+        val contentType: String,
+        val file: String? = null,
+    ) {
+        fun path(enc: (String) -> String): String = "/api/asis/" + segments.joinToString("/") { enc(it) }
+    }
+
+    /**
+     * The request [op]'s next step sends for [project] (S5's id: the as-is project the album belongs to). Every
+     * text is held to S5's cap on the TRIMMED text, as the op builders hold it, so an op read back from a queue file
+     * an older build wrote is no 400 either. Null when [stepOf] is: the drain then applies a 400 to it, which drops
+     * that op alone, as an op no retry can send.
+     */
+    fun requestOf(op: Op, project: String): Request? {
+        val photo = listOf(project, "album", "photos", op.photo)
+        return when (stepOf(op) ?: return null) {
+            Step.LOG -> Request("POST", listOf(project, "album", "log"), linkedMapOf(
+                "v" to 1,
+                "id" to op.id,
+                "kind" to op.kind,
+                "work" to op.work,
+                "value" to op.value,
+                // a change request's prev is not the writer's to send: S5 stores the kind it answers there itself
+                "prev" to (if (op.kind == Album.KIND_STATE) op.prev else null),
+                "note" to cap(op.note, Album.MAX_NOTE),
+                "base" to seqOf(op.base),
+                "client_at" to shortOrNull(op.clientAt),
+                "via" to VIA,
+            ), JSON)
+            Step.RECORD -> Request("PUT", photo, linkedMapOf(
+                "v" to 1,
+                "work" to op.work,
+                "room" to op.room?.let { cap(it, Album.MAX_ROOM) }?.ifEmpty { null },
+                "caption" to cap(op.caption, Album.MAX_CAPTION),
+                "kind" to op.photoKind,
+                "client_at" to shortOrNull(op.clientAt),
+                "via" to VIA,
+            ), JSON)
+            Step.IMG -> Request("PUT", photo + "img", emptyMap(), JPEG, shotPath(op.photo))
+            Step.REVIEW -> Request("PUT", photo + "review", linkedMapOf(
+                "id" to op.id,
+                "state" to op.value,
+                "base" to op.base,
+                "via" to VIA,
+            ), JSON)
+            // S5's body is {work, base} and nothing else: the work the photo goes to, the work it was last seen in
+            Step.REFILE -> Request("PUT", photo + "work", linkedMapOf(
+                "work" to op.work,
+                "base" to op.base.trim().ifEmpty { null }?.toIntOrNull(),
+            ), JSON)
+        }
+    }
+
+    /** A log op's base as S5's integer: the seq it saw, 0 for none (an unreadable or negative one is 0, never a 400). */
+    private fun seqOf(base: String): Long = base.trim().toLongOrNull()?.takeIf { it >= 0 } ?: 0L
+
+    /** [s] trimmed FIRST, then cut to [max] -- S5 measures the trimmed text. */
+    private fun cap(s: String, max: Int): String = s.trim().take(max)
+
+    /** A short optional field (S5's shortText at [MAX_SHORT]): blank is null; over the cap a day keeps its day, anything else is null. */
+    private fun shortOrNull(s: String): String? {
+        val t = s.trim()
+        return when {
+            t.isEmpty() -> null
+            t.length <= MAX_SHORT -> t
+            Album.isDay(t) -> t.take(10)
+            else -> null
+        }
+    }
+
+    /** The op the drain sends next, and which of its steps. */
+    data class Next(val op: Op, val step: Step?)
+
+    /** The HEAD of the FIFO queue and its step (a photo op's record, then its JPEG); null when nothing is queued. */
+    fun next(o: Outbox): Next? = o.queue.firstOrNull()?.let { Next(it, stepOf(it)) }
+
+    /**
+     * S5's answer to one request, as [AlbumWire.reply] reads it: `written` (200; absent reads true), `locked`
+     * (a 409 in the lock banner's words), S5's own `error` words ('' when it sent none), and the rows the mirror
+     * takes ([Album.Answer]).
+     */
+    data class Reply(val written: Boolean = true, val locked: Boolean = false, val error: String = "", val answer: Answer = Answer())
+
+    /** The queue after one answer, and S5's [verdict] on it. */
+    data class Applied(val outbox: Outbox, val verdict: Verdict) {
+        /** Whether the drain sends the next head now: not after a STOP, and not after a 401 until it has signed in again. */
+        val goOn: Boolean get() = verdict != Verdict.STOP && verdict != Verdict.RELOGIN
+    }
+
+    /**
+     * [o] after S5 answered [code] with [reply] to [op]'s next step ([op] as [next] gave it). POSTED and REPLAY go
+     * through [Album.afterPost] / [Album.afterReplay] -- except a photo's RECORD, which keeps the op at the head with
+     * its JPEG next (or lets it go when the answer's row says the JPEG landed on an earlier pass: S5 writes it once);
+     * an IMG answered `written: false` is the JPEG S5 already holds, so it counts as landed. CONFLICT and LOCKED go
+     * through [Album.afterConflict] / [Album.afterLocked] with S5's words and the body's rows; REFUSED through
+     * [Album.afterRefused], the mirror then taking any row the refusal echoes (a re-file's 403 carries the photo as
+     * stored, so the phone can put back the work it set locally). RELOGIN and STOP leave [o] as it was.
+     */
+    fun apply(o: Outbox, op: Op, code: Int, reply: Reply): Applied {
+        val v = Album.verdict(code, reply.written, reply.locked)
+        val a = reply.answer
+        val out = when (v) {
+            Verdict.POSTED, Verdict.REPLAY -> when {
+                stepOf(op) == Step.RECORD -> recorded(o, op, a)
+                v == Verdict.POSTED -> Album.afterPost(o, op, a)
+                else -> Album.afterReplay(o, op, a)
+            }
+            Verdict.CONFLICT -> Album.afterConflict(o, op, reply.error, a)
+            Verdict.LOCKED -> Album.afterLocked(o, op, reply.error, a)
+            Verdict.REFUSED -> Album.afterRefused(o, op, reply.error).let { it.copy(mirror = Album.merged(it.mirror, a)) }
+            Verdict.RELOGIN, Verdict.STOP -> o
+        }
+        return Applied(out, v)
+    }
+
+    /**
+     * A photo's record answered 200 (written, or a replay of the uploader's own): the mirror takes the row, and the
+     * op stays at the head with its JPEG next -- or, when that row already has bytes (the JPEG landed on a pass whose
+     * answer was lost), it leaves the queue as landed.
+     */
+    private fun recorded(o: Outbox, op: Op, a: Answer): Outbox {
+        if (o.queue.none { it.id == op.id }) return o
+        if ((a.photo?.takeIf { it.id == op.photo }?.bytes ?: 0L) > 0L) return Album.afterPost(o, op, a)
+        return o.copy(mirror = Album.merged(o.mirror, a), queue = o.queue.map { if (it.id == op.id) it.copy(recorded = true) else it })
+    }
+}

@@ -851,16 +851,28 @@ object Album {
 
     // ---- the outbox: what the phone queued, and what S5's verdict does to it ----
 
-    /** The op kinds the queue holds: the three log kinds, a photo record (then its JPEG), a review. */
+    /** The op kinds the queue holds: the three log kinds, a photo record (then its JPEG), a review, a photo re-file. */
     const val OP_PHOTO = "photo"
     const val OP_REVIEW = "review"
+
+    /**
+     * A staff photo re-filed into one of the sixteen works (S5-P, `PUT .../album/photos/:id/work {work, base}`,
+     * live on stage since 2 Nov 2026; port 61c slice AQ). Amit's answer 3 of 28 Oct: a single photo from the
+     * Capture 360 sheet after approval goes to the album as a staff photo of its work, and re-filing it after it
+     * is sent needs S5's own guarded write -- the record is immutable. Its only caller is FW2's WORK line
+     * ([refileOp]).
+     */
+    const val OP_REFILE = "refile"
 
     /**
      * One queued write, with its writer-minted id (the replay key, [mintId]: kept by every retry)
      * and the `base` it saw: a log op's `base` is the work's newest `seq` of any kind (0 = none),
      * as text here and an integer on the wire (AQ); a review's is the row's `review_at` ('' =
-     * never). `work` is what a 409 drops by (a review's is its photo's work). `error` is S5's own
-     * words once it refused or won; blank while pending.
+     * never); a re-file's is the photo's work as last seen, as text ('' = unfiled, null on the
+     * wire). `work` is what a 409 drops by (a review's is its photo's work, a re-file's the work
+     * it files into). `error` is S5's own words once it refused or won; blank while pending.
+     * [recorded] is a photo op whose record S5 has answered: its JPEG is the next step
+     * (AlbumQueue), so a retry never sends the record again for nothing.
      */
     data class Op(
         val id: String,
@@ -876,6 +888,7 @@ object Album {
         val photoKind: String = PHOTO,
         val clientAt: String = "",
         val error: String = "",
+        val recorded: Boolean = false,
     )
 
     /** S5's ALBUM_ID_RE: ALB- and 12 lower-case hex digits. */
@@ -938,6 +951,16 @@ object Album {
         return Op(id, OP_PHOTO, work, base = "", photo = id, room = room?.let { clip(it, MAX_ROOM) }?.ifEmpty { null },
             caption = clip(caption, MAX_CAPTION), photoKind = kind)
     }
+
+    /**
+     * A staff photo re-filed [to] one of the sixteen works (S5-P): `base` is [photo]'s work as the caller last saw
+     * it -- S5 compares and sets on it in ONE UPDATE -- as text, '' for unfiled. The op's own id is the queue's key
+     * only (S5's body is `{work, base}`). S5 refuses for good what no retry can change (403: not staff, not the
+     * uploading login, a vendor's photo) and answers 409 for a race (re-filed meanwhile) or the lock (Work starts
+     * once the client approves the estimate), each with the photo as stored; the screen's gate is FW2's.
+     */
+    fun refileOp(photo: Photo, to: Int, random: Random = Random.Default): Op =
+        Op(mintId(random), OP_REFILE, to, base = photo.work?.toString() ?: "", photo = photo.id)
 
     /**
      * The phone's copy of one project's album: the [mirror] (S5's last GET; null until the
@@ -1065,10 +1088,11 @@ object Album {
      * The next LOG op on the same work, of any kind, takes [seq] (the base is the work's newest seq
      * of ANY kind, so a review's row moves it too); the next STATE op on the same work takes [prev]
      * when given -- looked up on its own, because a change request between two state writes carries
-     * a base but no state (its `prev` is the kind it answers); a review of the same photo takes
-     * [reviewAt].
+     * a base but no state (its `prev` is the kind it answers); the next op of [done]'s own kind on
+     * the same photo -- a review after a review, a re-file after a re-file -- takes [photoBase]
+     * (the `review_at`, or the photo's work as text).
      */
-    private fun rebased(queue: List<Op>, done: Op, seq: Long?, prev: String?, reviewAt: String?): List<Op> {
+    private fun rebased(queue: List<Op>, done: Op, seq: Long?, prev: String?, photoBase: String?): List<Op> {
         val i = queue.indexOfFirst { it.id == done.id }
         if (i < 0) return queue
         val rest = queue.filterIndexed { j, _ -> j != i }.toMutableList()
@@ -1081,9 +1105,9 @@ object Album {
             val k = rest.indexOfFirst { it.id in after && it.kind == KIND_STATE && it.work == done.work }
             if (k >= 0) rest[k] = rest[k].copy(prev = prev)
         }
-        if (reviewAt != null && done.kind == OP_REVIEW) {
-            val k = rest.indexOfFirst { it.id in after && it.kind == OP_REVIEW && it.photo == done.photo }
-            if (k >= 0) rest[k] = rest[k].copy(base = reviewAt)
+        if (photoBase != null && (done.kind == OP_REVIEW || done.kind == OP_REFILE)) {
+            val k = rest.indexOfFirst { it.id in after && it.kind == done.kind && it.photo == done.photo }
+            if (k >= 0) rest[k] = rest[k].copy(base = photoBase)
         }
         return rest
     }
@@ -1093,13 +1117,19 @@ object Album {
      * next queued op on the same work rides on S5's new row -- its base becomes the answer
      * entry's seq (a review's answer carries its log row too), and the next review of the same
      * photo takes the `review_at` of the answer's [ReviewPatch] for THAT photo -- so an offline
-     * chain of writes on one work is not answered "Changed meanwhile" by its own first link. The
-     * rebase reads the answer alone, so it holds with no mirror. A null mirror stays null -- a
-     * fragment cannot stand in for a GET, and K2 GETs after a drain.
+     * chain of writes on one work is not answered "Changed meanwhile" by its own first link. A
+     * re-file answers the whole photo row, so the next re-file of the same photo takes that row's
+     * work as its base (a re-file writes no log row and moves no seq). The rebase reads the answer
+     * alone, so it holds with no mirror. A null mirror stays null -- a fragment cannot stand in for
+     * a GET, and K2 GETs after a drain.
      */
     fun afterPost(o: Outbox, op: Op, a: Answer): Outbox {
-        val reviewAt = if (op.kind == OP_REVIEW && a.review != null && a.review.photo == op.photo) a.review.reviewAt else null
-        val q = if (o.queue.any { it.id == op.id }) rebased(o.queue, op, a.entry?.seq, null, reviewAt) else without(o.queue, op.id)
+        val photoBase = when (op.kind) {
+            OP_REVIEW -> if (a.review != null && a.review.photo == op.photo) a.review.reviewAt else null
+            OP_REFILE -> a.photo?.takeIf { it.id == op.photo }?.let { it.work?.toString() ?: "" }
+            else -> null
+        }
+        val q = if (o.queue.any { it.id == op.id }) rebased(o.queue, op, a.entry?.seq, null, photoBase) else without(o.queue, op.id)
         return o.copy(mirror = merged(o.mirror, a), queue = q)
     }
 
@@ -1146,14 +1176,15 @@ object Album {
      * that rode on it takes back what S5 still has: the next log op on the same work, of any
      * kind, inherits the refused log op's base, and a refused STATE write's `prev` goes to the next
      * state op on the work, past any change request queued between them (S5 still holds the state
-     * the refused op left); the next review of the same photo inherits the refused review's base.
-     * The mirror is untouched.
+     * the refused op left); the next review of the same photo inherits the refused review's base,
+     * and the next re-file of the same photo the refused re-file's (S5 still files it there).
+     * The mirror is untouched (AlbumQueue takes the photo a re-file's 403 echoes).
      */
     fun afterRefused(o: Outbox, op: Op, error: String): Outbox {
         if (o.queue.none { it.id == op.id }) return o
         val q = when {
             op.kind in LOG_KINDS -> rebased(o.queue, op, op.base.toLongOrNull() ?: 0, if (op.kind == KIND_STATE) op.prev else null, null)
-            op.kind == OP_REVIEW -> rebased(o.queue, op, null, null, op.base)
+            op.kind == OP_REVIEW || op.kind == OP_REFILE -> rebased(o.queue, op, null, null, op.base)
             else -> without(o.queue, op.id)
         }
         return o.copy(queue = q, dropped = o.dropped + op.copy(error = error))

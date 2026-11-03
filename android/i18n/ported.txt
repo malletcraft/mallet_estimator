@@ -4,7 +4,10 @@
 # Slice 1c (27 Oct 2026) adds Crumbs.kt: "Switch" (at two sites) and "Jump up to" keyed, its two glyphs marked `// text:value`.
 # Port 61c slice D1 (28 Oct 2026) adds CaptureSchema.kt, the capture store's upgrade statements: no shown text, its SQL marked `// text:value`.
 # Port 61c slice K1b (3 Nov 2026) adds Album.kt: every text it shows is a tx accessor or a Masters name; its work names, states and worksite stages are S5's identity values, marked `// text:value`.
+# Port 61c slice AQ (3 Nov 2026) adds AlbumQueue.kt and AlbumWire.kt, the album outbox's requests and the reader of S5's answers: neither shows a text.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumQueue.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt

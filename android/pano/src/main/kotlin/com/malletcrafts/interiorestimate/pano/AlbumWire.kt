@@ -1,0 +1,201 @@
+package com.malletcrafts.interiorestimate.pano
+
+import com.malletcrafts.interiorestimate.pano.Album.Answer
+import com.malletcrafts.interiorestimate.pano.Album.BytesPatch
+import com.malletcrafts.interiorestimate.pano.Album.Entry
+import com.malletcrafts.interiorestimate.pano.Album.Op
+import com.malletcrafts.interiorestimate.pano.Album.Photo
+import com.malletcrafts.interiorestimate.pano.Album.ReviewPatch
+import com.malletcrafts.interiorestimate.pano.Album.View
+import com.malletcrafts.interiorestimate.pano.Album.Work
+
+/**
+ * S5'S ALBUM ANSWERS, READ (port 61c slice AQ, 3 Nov 2026): the album GET ([view]) and the answer to every queued
+ * op ([reply]), in the shapes S5 QUOTE sends on stage (mcft-interior-estimate 9a51733, functions/_lib/asis.js:
+ * albumView, logView, stageView, photoView, the log POST, the photo record, its JPEG, the review and the S5-P
+ * re-file). JSON is parsed elsewhere and read through [Read]'s three questions: org.json in :app, MiniJson in the
+ * tests -- so this file holds the field names and S5's types once, and :app no parser of its own.
+ *
+ * Reading is tolerant, never inventive: an unknown field is ignored, a missing one takes the [Album] default, a row
+ * without its key (`seq` and `id` for a log row, `id` for a work or a photo, `capture` for a capture) is left out.
+ * A number is S5's when it is integral, whatever type the reader holds it as. Blank strings S5 sends for "none"
+ * (`vendor`, `review_by`, `review_at`, `pm`, `closed_at`) read as null where [Album] keeps null for none.
+ */
+object AlbumWire {
+
+    /**
+     * Three questions about an already-parsed JSON value, all a reader needs. A field or an item is a String, a
+     * Number, a Boolean, an object or an array as the reader holds them, and JSON null reads as null (org.json's
+     * `JSONObject.NULL` included).
+     */
+    interface Read {
+        /** [o]'s member [key]; null when [o] is not an object, the key is absent or its value is JSON null. */
+        fun field(o: Any?, key: String): Any?
+
+        /** [a]'s items in order when [a] is an array, else null. */
+        fun items(a: Any?): List<Any?>?
+
+        /** Whether [v] is a JSON object (so a review answer's `photo` id is told from a record's `photo` row). */
+        fun isObject(v: Any?): Boolean
+    }
+
+    private fun str(v: Any?): String? = v as? String
+    private fun bool(v: Any?): Boolean? = v as? Boolean
+
+    /** An integral number, whatever the reader made of it (org.json an Integer or a Long, MiniJson a Long, 4.0 a Double). */
+    private fun long(v: Any?): Long? = when (v) {
+        is Long -> v
+        is Number -> v.toDouble().let { d -> if (d.isFinite() && d == Math.floor(d) && Math.abs(d) < 9.0e15) d.toLong() else null }
+        else -> null
+    }
+
+    private fun int(v: Any?): Int? = long(v)?.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
+
+    private fun ints(r: Read, v: Any?): List<Int> = r.items(v)?.mapNotNull { int(it) } ?: emptyList()
+
+    /** S5's '' for none, as null. */
+    private fun none(v: Any?): String? = str(v)?.ifBlank { null }
+
+    /**
+     * One log row (logView: `{seq, id, kind, work, photo, value, prev, note, role, by, by_name, via, client_at, at}`),
+     * or a `stages[]` row (stageView, which sends no `kind`: [kind] is given for it). A null `value` or `prev` reads
+     * '' ([Entry]'s none); a change request's rows come as S5's logView reads them, so [Entry.crKind] and
+     * [Entry.crOutcome] read them whole.
+     */
+    fun entry(r: Read, o: Any?, kind: String = ""): Entry? {
+        if (!r.isObject(o)) return null
+        val seq = long(r.field(o, "seq")) ?: return null
+        val id = str(r.field(o, "id")) ?: return null
+        return Entry(
+            seq = seq, id = id, kind = str(r.field(o, "kind")) ?: kind, work = int(r.field(o, "work")),
+            value = str(r.field(o, "value")) ?: "", prev = str(r.field(o, "prev")) ?: "", note = str(r.field(o, "note")) ?: "",
+            role = str(r.field(o, "role")) ?: "", by = str(r.field(o, "by")) ?: "", byName = str(r.field(o, "by_name")) ?: "",
+            at = str(r.field(o, "at")) ?: "", photo = none(r.field(o, "photo")), via = str(r.field(o, "via")) ?: "",
+            clientAt = none(r.field(o, "client_at")),
+        )
+    }
+
+    /**
+     * One of `works[16]` (`{id, state, by, by_name, at, seq, in_scope, cr, count}`). `seq` is the BASE; `cr` the live
+     * request as S5 sums it (`{id, kind, by, by_name, at, note, seq}`), read as its cr_raise row with the kind in
+     * `value`.
+     */
+    fun work(r: Read, o: Any?): Work? {
+        if (!r.isObject(o)) return null
+        val id = int(r.field(o, "id")) ?: return null
+        val c = r.field(o, "cr")
+        val cr = if (!r.isObject(c)) null else long(r.field(c, "seq"))?.let { seq ->
+            Entry(seq = seq, id = str(r.field(c, "id")) ?: "", kind = Album.KIND_CR_RAISE, work = id, value = str(r.field(c, "kind")) ?: "",
+                note = str(r.field(c, "note")) ?: "", by = str(r.field(c, "by")) ?: "", byName = str(r.field(c, "by_name")) ?: "",
+                at = str(r.field(c, "at")) ?: "")
+        }
+        return Work(
+            id = id, state = str(r.field(o, "state")) ?: Album.NOT_STARTED, by = str(r.field(o, "by")) ?: "",
+            byName = str(r.field(o, "by_name")) ?: "", at = str(r.field(o, "at")) ?: "", seq = long(r.field(o, "seq")) ?: 0,
+            inScope = bool(r.field(o, "in_scope")) ?: true, cr = cr, count = int(r.field(o, "count")) ?: 0,
+        )
+    }
+
+    /**
+     * One photo row (photoView: `{id, work, room, kind, caption, party, vendor, role, by, by_name, via, client_at, at,
+     * bytes, review, review_by, review_by_name, review_at, own}`), the same shape on the GET, the record PUT's answer
+     * and the re-file's. A vendor's names S5 blanked for this viewer stay blank.
+     */
+    fun photo(r: Read, o: Any?): Photo? {
+        if (!r.isObject(o)) return null
+        val id = str(r.field(o, "id")) ?: return null
+        return Photo(
+            id = id, work = int(r.field(o, "work")), at = str(r.field(o, "at")) ?: "",
+            party = str(r.field(o, "party")) ?: Album.PARTY_STAFF, room = none(r.field(o, "room")),
+            kind = str(r.field(o, "kind")) ?: Album.PHOTO, caption = str(r.field(o, "caption")) ?: "",
+            vendor = none(r.field(o, "vendor")), role = str(r.field(o, "role")) ?: "", by = str(r.field(o, "by")) ?: "",
+            byName = str(r.field(o, "by_name")) ?: "", review = str(r.field(o, "review")) ?: Album.REVIEW_PENDING,
+            reviewBy = none(r.field(o, "review_by")), reviewByName = none(r.field(o, "review_by_name")),
+            reviewAt = none(r.field(o, "review_at")), bytes = long(r.field(o, "bytes")) ?: 0,
+            via = str(r.field(o, "via")) ?: "", clientAt = none(r.field(o, "client_at")),
+        )
+    }
+
+    /**
+     * One as-is capture (capturesOf: `{room, capture, captured_at, stage, work, by, at}`) as an album item: a staff
+     * 360 filed by S5 (`work` 0, null or one of the sixteen), at the moment it was TAKEN (`captured_at`; the upload's
+     * `at` when that is blank), which is what [Album.quoteAt] groups it by.
+     */
+    fun capture(r: Read, o: Any?): Photo? {
+        if (!r.isObject(o)) return null
+        val id = str(r.field(o, "capture"))?.ifBlank { null } ?: return null
+        return Photo(
+            id = id, work = int(r.field(o, "work")), at = none(r.field(o, "captured_at")) ?: str(r.field(o, "at")) ?: "",
+            party = Album.PARTY_STAFF, room = none(r.field(o, "room")), kind = Album.PHOTO_360, by = str(r.field(o, "by")) ?: "",
+        )
+    }
+
+    /**
+     * `GET /api/asis/:project/album[?since=]` as the phone's mirror; null when [body] is not S5's album (no object, or
+     * no `role`). `scope` JSON null is "no baseline"; S5 sends `scope_at` and `pm` as '' to anyone but staff.
+     */
+    fun view(r: Read, body: Any?): View? {
+        if (!r.isObject(body)) return null
+        val role = str(r.field(body, "role")) ?: return null
+        val sc = r.field(body, "scope")
+        return View(
+            role = role,
+            mine = ints(r, r.field(body, "mine")),
+            exec = bool(r.field(body, "exec")) ?: false,
+            scope = if (r.items(sc) == null) null else ints(r, sc),
+            scopeAt = str(r.field(body, "scope_at")) ?: "",
+            pm = none(r.field(body, "pm")),
+            quoteStage = none(r.field(body, "quote_stage")),
+            quoteStageAt = str(r.field(body, "quote_stage_at")) ?: "",
+            works = r.items(r.field(body, "works"))?.mapNotNull { work(r, it) } ?: emptyList(),
+            log = r.items(r.field(body, "log"))?.mapNotNull { entry(r, it) } ?: emptyList(),
+            logNext = long(r.field(body, "log_next")) ?: 0,
+            logMore = bool(r.field(body, "log_more")) ?: false,
+            stages = r.items(r.field(body, "stages"))?.mapNotNull { entry(r, it, Album.KIND_STAGE) } ?: emptyList(),
+            photos = r.items(r.field(body, "photos"))?.mapNotNull { photo(r, it) } ?: emptyList(),
+            captures = r.items(r.field(body, "captures"))?.mapNotNull { capture(r, it) } ?: emptyList(),
+            toReview = int(r.field(body, "to_review")) ?: 0,
+            changeRequests = int(r.field(body, "change_requests")) ?: 0,
+            closed = bool(r.field(body, "closed")) ?: false,
+            closedAt = none(r.field(body, "closed_at")),
+            more = bool(r.field(body, "more")) ?: false,
+        )
+    }
+
+    /**
+     * S5's answer to [op]'s next step ([AlbumQueue.stepOf]) -- a 200, a 409 or a refusal alike -- as the queue reads
+     * it. The rows by step:
+     * - LOG (`{ok, written, entry, work, scope, scope_at}`, a 409 `{error, locked?, work, entry, scope, scope_at}`): the
+     *   entry, the work row and the scope as it now stands (`scope_at` sent = the scope is in the answer, null scope
+     *   then being "no baseline");
+     * - RECORD and REFILE (`{ok, written, photo}`; a 409 or a re-file's 403 `{error, locked?, photo}`): the photo row;
+     * - IMG (`{ok, written, bytes}`): the bytes now on [op]'s photo;
+     * - REVIEW (`{ok, written, id, photo: <id>, review, review_by, review_by_name, review_at, entry?}`, its 409s
+     *   `{error, photo: <id>, review…}`): the review fields FLAT, as a patch of that photo, and the review's log row.
+     * A body that is not an object (none, or not JSON) reads as nothing: `written` true, no rows, no words.
+     */
+    fun reply(r: Read, body: Any?, op: Op): AlbumQueue.Reply {
+        val o = body.takeIf { r.isObject(it) }
+        val written = bool(r.field(o, "written")) ?: true
+        val locked = bool(r.field(o, "locked")) ?: false
+        val error = str(r.field(o, "error")) ?: ""
+        val answer = when (AlbumQueue.stepOf(op)) {
+            AlbumQueue.Step.LOG -> {
+                val scopeAt = str(r.field(o, "scope_at"))
+                Answer(entry = entry(r, r.field(o, "entry")), work = work(r, r.field(o, "work")),
+                    scope = if (scopeAt == null) null else r.field(o, "scope").let { if (r.items(it) == null) null else ints(r, it) },
+                    scopeAt = scopeAt)
+            }
+            AlbumQueue.Step.RECORD, AlbumQueue.Step.REFILE -> Answer(photo = photo(r, r.field(o, "photo")))
+            AlbumQueue.Step.IMG -> Answer(bytes = long(r.field(o, "bytes"))?.let { BytesPatch(op.photo, it) })
+            AlbumQueue.Step.REVIEW -> Answer(
+                entry = entry(r, r.field(o, "entry")),
+                review = str(r.field(o, "review"))?.let { rv ->
+                    ReviewPatch(photo = str(r.field(o, "photo")) ?: op.photo, review = rv, reviewBy = str(r.field(o, "review_by")) ?: "",
+                        reviewByName = str(r.field(o, "review_by_name")) ?: "", reviewAt = str(r.field(o, "review_at")) ?: "")
+                })
+            null -> Answer()
+        }
+        return AlbumQueue.Reply(written, locked, error, answer)
+    }
+}
