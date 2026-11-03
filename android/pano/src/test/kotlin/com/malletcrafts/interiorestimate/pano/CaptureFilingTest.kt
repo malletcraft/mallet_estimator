@@ -67,7 +67,14 @@ class CaptureFilingTest {
 
     @Test fun `the room screen groups by the filing, through Album, and takes no phases and no stage order (CaptureScreens kt)`() {
         val src = app("CaptureScreens.kt")
-        assertTrue(src.contains("val work: Int? = null"), "CaptureCard carries its filing")
+        // FW1 review: no default on the filing -- null is itself a filing (not filed to a work), so a
+        // site that omitted it would compile and file every card there; the compiler must refuse it
+        assertTrue(src.contains("val work: Int?,"), "CaptureCard carries its filing, and every site states it")
+        assertFalse(src.contains("val work: Int? = null"), "the filing has no default: an omitted work is a compile error, not a quiet mis-filing")
+        // FW1 review: the prototype's `cols:S.land?4:2` -- four tiles across in landscape, two in portrait
+        assertTrue(src.contains("val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE"), "the room grid reads the orientation")
+        assertTrue(src.contains("columns = GridCells.Fixed(if (landscape) 4 else 2),"), "four tiles across at 780 x 360, two at 360 x 780")
+        assertFalse(src.contains("GridCells.Fixed(2)"), "no fixed two-column grid is left")
         assertTrue(src.contains("val present = Album.filingOrder(captures.map { it.work })"), "the chips are the filings present, in Album's order")
         assertTrue(src.contains(".sortedByDescending { (work, _) -> Album.filingRank(work) }"), "the groups take Album's order")
         assertTrue(src.contains("Text(Album.workName(tx, work).uppercase(),"), "a heading is the filing's name, upper-cased as the prototype's CSS draws it")
@@ -91,6 +98,11 @@ class CaptureFilingTest {
         assertFalse(src.contains("\"no stage\""), "no stand-in stage word")
         val call = src.substring(src.indexOf("CapturesScreen("), src.indexOf("onDetails", src.indexOf("CapturesScreen(")))
         assertFalse(call.contains("phases") || call.contains("stageOrder"), "the CapturesScreen call passes no phases and no stage order")
+        // FW1 review: the chip pick is the room's (the prototype's `S.capWork=null` on the room crumb's
+        // onSibling, index61c2.html:8158) -- the screen is keyed on the room, so its remembered pick is
+        // rebuilt on a sibling switch instead of filtering the next room's grid to nothing
+        assertTrue(src.contains("import androidx.compose.runtime.key"), "key is imported")
+        assertTrue(Regex("""key\(roomName\) \{\s*CapturesScreen\(""").containsMatchIn(src), "the CapturesScreen call is keyed on the room")
     }
 
     @Test fun `phases, stageOrder and canRestage are gone with their last callers (Catalogue kt)`() {

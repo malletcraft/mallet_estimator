@@ -58,6 +58,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -2534,14 +2535,22 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
-                CapturesScreen(
-                    captures = roomCaptures,
-                    onDetails = { navCapture = it; navFace = null },
-                ) { c ->
-                    // A 360 opens straight into survey prep, the one screen for all six
-                    // surfaces (Amit, 2026-10-11); a flat photo opens as before.
-                    if (c.kind == "360") openSurveyFor(c.deviceId)
-                    else { navCapture = c; navFace = null }
+                // THE CHIP PICK IS THE ROOM'S -- the prototype's `S.capWork=null` on the room
+                // crumb's onSibling (index61c2.html:8158). Keyed on the room, the screen and the
+                // pick it remembers are rebuilt on a sibling switch. Unkeyed, a pick made in one
+                // room filtered the next room's grid to nothing under a bar still counting its
+                // captures, with no chip row to clear it when that room held one filing. Leaving
+                // the room screen already discards the pick (the composable leaves with it).
+                key(roomName) {
+                    CapturesScreen(
+                        captures = roomCaptures,
+                        onDetails = { navCapture = it; navFace = null },
+                    ) { c ->
+                        // A 360 opens straight into survey prep, the one screen for all six
+                        // surfaces (Amit, 2026-10-11); a flat photo opens as before.
+                        if (c.kind == "360") openSurveyFor(c.deviceId)
+                        else { navCapture = c; navFace = null }
+                    }
                 }
             }
         }

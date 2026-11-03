@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -19,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,8 +68,13 @@ data class CaptureCard(
      *  work): 0 the Quote journey, one of the sixteen work ids, or null for
      *  not filed to a work. Always [Album.workOfCapture] over the stored row --
      *  the one filing rule, which files a row from before the phone filed by
-     *  work through its legacy stage -- never the raw column. */
-    val work: Int? = null,
+     *  work through its legacy stage -- never the raw column. NO DEFAULT: null
+     *  is itself a filing (not filed to a work -- its own heading, chip and
+     *  bottom group), so a construction site that left it out would compile
+     *  and quietly file every card there, the fallback that answers
+     *  confidently. Every site states its filing, and the compiler (CI, for
+     *  :app) refuses one that does not. */
+    val work: Int?,
 )
 
 private val YELLOW = Color(0xFFE9FF3A)
@@ -131,6 +138,9 @@ fun CapturesScreen(
     onOpen: (CaptureCard) -> Unit,
 ) {
     val tx = LocalTx.current
+    // Four tiles across at 780 x 360 and two at 360 x 780 -- the prototype's
+    // `cols:S.land?4:2` on the room screen (index61c2.html:8183).
+    val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     if (captures.isEmpty()) {
         Text(tx.app_no_captures_room_yet,
             Modifier.padding(24.dp),
@@ -178,7 +188,7 @@ fun CapturesScreen(
             }
         }
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Fixed(if (landscape) 4 else 2),
             verticalArrangement = Arrangement.spacedBy(2.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             contentPadding = PaddingValues(2.dp),
