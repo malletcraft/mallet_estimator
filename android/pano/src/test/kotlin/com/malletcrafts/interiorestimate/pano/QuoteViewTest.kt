@@ -7,6 +7,7 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -71,6 +72,24 @@ class QuoteViewTest {
         val locked = view(S5Album.GET_LOCKED)
         assertNull(locked.scope)
         assertTrue(QuoteView.scopeRow(Tx.EN, locked.scope, locked.scopeAt, locked.role).record)
+    }
+
+    @Test fun `a 403 naming the PM redraws the row - the mirror takes its role and pm, and Record is offered no more (QV review)`() {
+        // the mirror as the last GET left it: no PM named, so every staff member is PM (D3), and no baseline: Record offered
+        val m = Album.View(role = Album.PM, scope = null, scopeAt = "", pm = null)
+        assertTrue(QuoteView.scopeRow(Tx.EN, m.scope, m.scopeAt, m.role).record)
+        // a PM named on /projects meanwhile: S5's 403 names the role and the PM as stored (S5Quote.REC_DESIGNER), and the
+        // mirror takes both through the answer (QuoteStageSync.recordScope → AlbumSync.take → Album.merged)
+        val v = assertIs<QuoteMove.Verdict.PmScope>(QuoteMove.scopeAnswer(MiniRead, 403, tree(S5Quote.REC_DESIGNER)))
+        val after = assertNotNull(Album.merged(m, Album.Answer(role = v.role, pm = v.pm)))
+        assertEquals(Album.DESIGNER, after.role); assertEquals("pm@x", after.pm)
+        assertEquals(ScopeRow("none recorded", tap = false, record = false, pmOnly = "Only the Project Manager records the approved scope"),
+            QuoteView.scopeRow(Tx.EN, after.scope, after.scopeAt, after.role))
+        // S5's '' for no PM named reads as none; an answer that names no role (a vendor's 403) leaves the mirror's
+        assertNull(assertNotNull(Album.merged(m, Album.Answer(role = Album.DESIGNER, pm = ""))).pm)
+        assertEquals(m, Album.merged(m, Album.Answer(pm = "x@y")))
+        val vendor = assertIs<QuoteMove.Verdict.PmScope>(QuoteMove.scopeAnswer(MiniRead, 403, tree(S5Quote.REC_VENDOR)))
+        assertNull(vendor.role)
     }
 
     @Test fun `the sheet's three modes - title, note, count line and buttons, in both languages`() {

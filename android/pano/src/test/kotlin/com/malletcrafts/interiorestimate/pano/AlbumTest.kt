@@ -1187,6 +1187,84 @@ class AlbumTest {
         assertEquals(400L, Album.nextPage(m, 200))
     }
 
+    @Test fun `sinceOf - a staff mirror's next read starts at its cursor, a first read and a vendor's or a client's at 0 (QV review)`() {
+        assertEquals(0L, Album.sinceOf(null))
+        assertEquals(10L, Album.sinceOf(View(Album.PM, logNext = 10)))
+        assertEquals(10L, Album.sinceOf(View(Album.DESIGNER, logNext = 10)))
+        // S5 hides a vendor's or a client's rows by what is visible now (logSeen), so their log is read whole every time
+        assertEquals(0L, Album.sinceOf(View(Album.VENDOR, logNext = 10)))
+        assertEquals(0L, Album.sinceOf(View(Album.CLIENT, logNext = 10)))
+        assertEquals(0L, Album.sinceOf(View(Album.PM, logNext = 0)))
+    }
+
+    @Test fun `a read from the stored cursor costs one GET and is the View a read from 0 gives (QV review)`() {
+        // S5's albumView (asis.js) over an append-only log: the role, works, scope and pm fresh on EVERY call; only the log
+        // is paged (`seq > since ORDER BY seq LIMIT 200`, log_next the last seq read, else since; log_more = the page was full)
+        class S5(var scope: List<Int>?, var scopeAt: String, var works: List<Work>, val log: MutableList<Entry>) {
+            var gets = 0
+            fun page(since: Long): View {
+                gets++
+                val rows = log.filter { it.seq > since }.sortedBy { it.seq }.take(200)
+                return View(Album.PM, scope = scope, scopeAt = scopeAt, pm = "pm@x", quoteStage = "Client approved", works = works,
+                    log = rows, logNext = rows.lastOrNull()?.seq ?: since, logMore = rows.size == 200)
+            }
+        }
+        // AlbumSync.refresh's loop: from the stored mirror at its cursor (sinceOf), each page through paged, on while nextPage
+        fun read(s5: S5, stored: View?): View {
+            var since = Album.sinceOf(stored)
+            var view: View? = stored?.takeIf { since > 0 }
+            while (true) {
+                val page = s5.page(since)
+                val merged = view?.let { Album.paged(it, page) } ?: page
+                view = merged
+                since = Album.nextPage(merged, since) ?: break
+            }
+            return view!!
+        }
+        val s5 = S5(listOf(10, 20), "2026-11-03T10:00:00.000Z", listOf(Work(10, seq = 1)),
+            (1L..450L).map { state(it, 10, "In progress", at = "2026-11-03T05:00:00.000Z") }.toMutableList())
+        val first = read(s5, null)
+        assertEquals(3, s5.gets, "450 rows from 0: 200, 200, 50")
+        assertEquals(450, first.log.size); assertEquals(450L, first.logNext)
+        // S5 moves on: 30 rows appended, the scope amended, a work's state moved
+        for (seq in 451L..480L) s5.log += state(seq, 10, "Done", at = "2026-11-03T06:00:00.000Z")
+        s5.scope = listOf(10, 20, 30); s5.scopeAt = "2026-11-03T11:00:00.000Z"; s5.works = listOf(Work(10, "Done", seq = 480))
+        s5.gets = 0
+        val fromZero = read(s5, null)
+        assertEquals(3, s5.gets, "from 0 again: the whole log, every hour")
+        s5.gets = 0
+        val fromCursor = read(s5, first)
+        assertEquals(1, s5.gets, "the 30 appended rows: one GET")
+        assertEquals(fromZero, fromCursor, "the same View: S5's current scope, works and role, the whole log")
+        assertEquals(listOf(10, 20, 30), fromCursor.scope); assertEquals("Done", fromCursor.works.single().state); assertEquals(480L, fromCursor.logNext)
+        // nothing appended: one empty page, still S5's current scope and works
+        s5.gets = 0
+        assertEquals(fromZero, read(s5, fromCursor)); assertEquals(1, s5.gets)
+        // a vendor's mirror is read whole from 0: S5 hides its rows by what is visible now
+        s5.gets = 0
+        read(s5, fromCursor.copy(role = Album.VENDOR)); assertEquals(3, s5.gets)
+    }
+
+    @Test fun `MirrorOrder - an answer lands after every read in flight, a 404 after the reads before it, a sign-out after everything (QV review)`() {
+        val o = Album.MirrorOrder()
+        // the GET on project open (ticket 1) kept; a Record's 200 lands and takes ticket 3; the hourly GET (ticket 2),
+        // served by S5 before the scope row existed, lands last: refused, so its scope null never covers the baseline
+        assertTrue(o.take("PROJ-1", 1))
+        assertTrue(o.take("PROJ-1", 3))
+        assertFalse(o.take("PROJ-1", 2))
+        assertTrue(o.take("PROJ-1", 4), "a GET sent after the answer is newer, and lands")
+        // a 404 (ticket 6) forgets the mirror; the older GET (ticket 5) still in flight cannot write it back
+        assertTrue(o.take("PROJ-1", 6))
+        assertFalse(o.take("PROJ-1", 5))
+        assertFalse(o.take("PROJ-1", 6), "the same place twice is not later")
+        // per project
+        assertTrue(o.take("PROJ-2", 2))
+        // a sign-out at ticket 7: nothing that went out at or before it writes a mirror for the next person
+        o.clear(7)
+        assertFalse(o.take("PROJ-1", 7)); assertFalse(o.take("PROJ-2", 5)); assertFalse(o.take("PROJ-3", 1))
+        assertTrue(o.take("PROJ-2", 8))
+    }
+
     @Test fun `450 log rows paged 200, 200, 50 derive the same states and bases as S5's works`() {
         // a synthetic log: state moves, change requests and reviews over five works, as S5's seq numbers them
         val rows = (1L..450L).map { s ->

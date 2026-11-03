@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate
 
 import android.content.Context
 import android.util.Log
+import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -41,8 +42,9 @@ import java.time.Instant
  *
  * ONE WRITE, ONLINE AND UNQUEUED (port 61c slice QV): [recordScope], Record the approved scope for a project
  * approved before it had one (§13.6) -- `PUT …/album/scope` built by QuoteMove.scope, answered through
- * QuoteMove.scopeAnswer, S5's word on the stage going into this store ([write]) and its word on the scope into
- * the album mirror (AlbumSync.takeScope). Refused, offline or unanswered, nothing is kept to send later.
+ * QuoteMove.scopeAnswer, S5's word on the stage going into this store ([write]), and its word on the scope -- and
+ * on who records it, the 403's role and PM -- into the album mirror (AlbumSync.take). Refused, offline or
+ * unanswered, nothing is kept to send later.
  */
 object QuoteStageSync {
 
@@ -220,6 +222,9 @@ object QuoteStageSync {
     /** Whether [o] is the scope recorded: the sheet closes and the pending refusal, if any, goes. */
     fun scopeRecorded(o: ScopeOutcome): Boolean = o is ScopeOutcome.Answered && o.verdict is QuoteMove.Verdict.Recorded
 
+    /** Whether [o] is S5's stale 409: the sheet redraws its ticks from the scope as stored (the prototype's `st.ticks=scopeOf(p)`). */
+    fun scopeStale(o: ScopeOutcome): Boolean = o is ScopeOutcome.Answered && o.verdict is QuoteMove.Verdict.ScopeStale
+
     /**
      * Record the approved scope of [project] (the S5 id the stage is read under): the ticked [works], sent ONCE
      * as `PUT …/album/scope {works, base}` with the mirror's scope_at as the base (QuoteMove.scope), with the same
@@ -231,7 +236,10 @@ object QuoteStageSync {
      *   a second refusal stands as S5's verdict ([QuoteMove.Verdict.SignIn]).
      * - Every answer that names the stage goes into this store ([write]: the 409s echo S5's stage), and every one
      *   that carries the scope as stored goes into the mirror (the 200's new baseline; a stale, final or not-yet
-     *   409's "it now shows what is stored"), so the sheet and the APPROVED SCOPE row redraw from S5's word.
+     *   409's "it now shows what is stored"), so the sheet and the APPROVED SCOPE row redraw from S5's word. So
+     *   does the 403 that names who records it (`album_role` and `pm`: a PM named on /projects meanwhile): the
+     *   mirror takes its role and PM, and the row offers Record no more (QV review: the first version read them
+     *   into the verdict and dropped them, so every tap was the same 403 until the next album GET).
      * - No answer (an IOException, a body that is not S5's) is [QuoteMove.Verdict.Offline] / NoAnswer: the phone
      *   re-reads on its next sync and never resends with the base it had.
      */
@@ -262,11 +270,13 @@ object QuoteStageSync {
             Log.w(TAG, "$project: scope record not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
             QuoteMove.Verdict.NoAnswer(null)
         }
-        // S5's word on the stage, into the one store (a 404 as not listed); its word on the scope, into the mirror
+        // S5's word on the stage, into the one store (a 404 as not listed); its word on the scope, and on who records
+        // it, into the mirror (AlbumSync.take, at its own place after every read in flight)
         QuoteMove.copyOf(verdict, Instant.now().toString())?.let { write(context, mapOf(project to it)) }
         when (verdict) {
-            is QuoteMove.Verdict.Recorded -> AlbumSync.takeScope(context, project, verdict.scope, verdict.scopeAt)
-            else -> QuoteMove.nowIn(verdict)?.let { now -> now.scopeAt?.let { AlbumSync.takeScope(context, project, now.scope, it) } }
+            is QuoteMove.Verdict.Recorded -> AlbumSync.take(context, project, Album.Answer(scope = verdict.scope, scopeAt = verdict.scopeAt))
+            is QuoteMove.Verdict.PmScope -> verdict.role?.let { AlbumSync.take(context, project, Album.Answer(role = it, pm = verdict.pm)) }
+            else -> QuoteMove.nowIn(verdict)?.let { now -> now.scopeAt?.let { AlbumSync.take(context, project, Album.Answer(scope = now.scope, scopeAt = it)) } }
         }
         return ScopeOutcome.Answered(verdict)
     }

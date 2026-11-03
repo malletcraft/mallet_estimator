@@ -175,7 +175,8 @@ object S5Session {
      * rule as FrappeClient.forget). S5 is told to end the session on a background thread,
      * best effort: this is called from the UI, and a session S5 is never told about simply
      * lapses after its 12 hours. The projects only S5 listed for this person go too
-     * (S5Masters.forget), so the next person does not see them.
+     * (S5Masters.forget), so the next person does not see them -- and every album mirror
+     * (AlbumSync.forgetAll), which is the album as THIS person's role saw it (QV review).
      */
     fun signOut(context: Context) {
         val cookie = synchronized(lock) {
@@ -185,6 +186,7 @@ object S5Session {
             c
         }
         S5Masters.forget(context)
+        AlbumSync.forgetAll(context)
         if (cookie != null) Thread {
             runCatching { AsIsUpload.exchange("POST", url("/api/auth/logout"), cookie, null, null) }
         }.start()

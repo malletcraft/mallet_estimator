@@ -48,23 +48,29 @@ import com.malletcrafts.interiorestimate.pano.QuoteView
  * and the foot, sticky under the rows' scroll: Cancel / the filled button, or Close. Every rule is [QuoteView] in
  * :pano, where QuoteViewTest pins it; this file draws.
  *
- * The sheet owns its ticks ([initial] when it opens: the stored scope in the view, none for a record; a change of
- * [initial] -- the mirror taking S5's stored scope after a stale 409 -- redraws them from it, as the prototype's
- * `st.ticks=scopeOf(p)` does) and its own refusal (nothing ticked: S5's words, nothing called). A refusal S5 answered
- * comes in as [status] and stays until the next tap on a row clears it, as the prototype's `st.text=null`; the sheet
- * stays open on every refusal. ◁ closes the sheet first: the sheet's own back handling dismisses it before the
- * tree's.
+ * The sheet owns its ticks (the [stored] scope in the view, and again whenever the mirror's changes; none for a
+ * record, until a stale 409 -- [reset] bumped by the caller -- redraws them from the scope as stored, as the
+ * prototype's `st.ticks=scopeOf(p)` does on scopestale and on nothing else: a final 409 leaves the person's ticks) and
+ * its own refusal (nothing ticked: S5's words, nothing called). A refusal S5 answered comes in as [status] and stays
+ * until the next tap on a row clears it, as the prototype's `st.text=null` -- and the NEXT answer shows again even in
+ * the same words ([answers] counts them: a status keyed on its text alone stayed cleared through a repeated
+ * `Sign in first` or the same 403, QV review); the sheet stays open on every refusal. ◁ closes the sheet first: the
+ * sheet's own back handling dismisses it before the tree's.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScopeSheet(
     mode: QuoteView.Mode,
-    /** The ticks the sheet opens with: the stored scope in the view, none for a record. */
-    initial: List<Int>,
+    /** The scope as the mirror stores it, none as empty: the view's ticks, and what a stale 409 redraws a record's to. */
+    stored: List<Int>,
     /** The mirror's scope_at, for the view's note; '' when S5 sent none. */
     scopeAt: String,
     /** S5's refusal of the last submit, in the reader's language (QuoteStageSync.scopeText); null when none. */
     status: String?,
+    /** How many answers to a submit have landed since the sheet opened: each one shows its [status] afresh. */
+    answers: Int,
+    /** Bumped when an answer says the ticks are redrawn from [stored]: S5's stale 409. 0 when the sheet opens. */
+    reset: Int,
     /** A submit is out: the filled button waits for S5's answer. */
     busy: Boolean,
     /** The ticked works, in WORKS order, never empty. */
@@ -73,10 +79,13 @@ fun ScopeSheet(
 ) {
     val tx = LocalTx.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    var ticks by remember(initial) { mutableStateOf(initial.toSet()) }
+    // The view's ticks follow the stored scope; a record's start empty and, from a stale 409 on, follow it too (the
+    // mirror takes S5's stored scope as the answer lands, which can be after this redraw).
+    val follows = mode == QuoteView.Mode.VIEW || reset > 0
+    var ticks by remember(if (follows) stored else null, reset) { mutableStateOf(if (follows) stored.toSet() else emptySet()) }
     // the sheet's own refusal (nothing ticked), and whether S5's status line has been cleared by a tap since it came
     var local by remember { mutableStateOf<String?>(null) }
-    var cleared by remember(status) { mutableStateOf(false) }
+    var cleared by remember(answers) { mutableStateOf(false) }
     val shown = local ?: status?.takeIf { !cleared }
     val amber = Color(0xFFB0740E)
     val rows = QuoteView.rows(mode, ticks)

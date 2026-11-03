@@ -992,7 +992,10 @@ object Album {
      * sends. [photo] is a WHOLE row (the photo record PUT's `photo`); [review] and [bytes] patch the
      * mirror's own row by id and never stand in for one. Absent pieces leave the mirror as it was;
      * [scopeAt] non-null means the answer carried the scope (every log POST answer does, asis.js:
-     * an approved add or remove has just moved it), [scope] null then being "no baseline".
+     * an approved add or remove has just moved it), [scope] null then being "no baseline". [role]
+     * non-null means the answer said who this person is to S5 -- the scope record's 403 names
+     * `album_role` and `pm` so the page redraws who records it (asis.js; QV review) -- [pm] then
+     * being the PM as stored, '' for none.
      */
     data class Answer(
         val entry: Entry? = null,
@@ -1002,6 +1005,8 @@ object Album {
         val scopeAt: String? = null,
         val review: ReviewPatch? = null,
         val bytes: BytesPatch? = null,
+        val role: String? = null,
+        val pm: String? = null,
     )
 
     /** The verdict table of "Offline and conflicts". */
@@ -1068,10 +1073,48 @@ object Album {
     fun nextPage(v: View, since: Long): Long? = if (!v.logMore || v.logNext <= since) null else v.logNext
 
     /**
+     * The `since` the next read of a project's album sends, given the mirror the phone [stored] of it (QV review): the
+     * stored cursor `log_next` for a staff mirror, so S5 answers its current role, works, scope and the rest -- which
+     * albumView computes on EVERY call whatever `since` (asis.js) -- with only the rows appended since, which [paged]
+     * lays onto the stored log; 0 with no mirror, and for a vendor's or a client's, because S5 hides a row from them
+     * by what is visible NOW (logSeen: a review of a photo not yet accepted) and a cursor past it would never ask for
+     * it again. The log is append-only (migration 0008: nothing updates or deletes a row), so a cursor misses nothing.
+     */
+    fun sinceOf(stored: View?): Long = if (stored == null || !Viewer(stored.role).staff) 0 else stored.logNext
+
+    /**
+     * THE ORDER OF THE MIRROR'S WRITERS, per project (QV review): every write of the mirror file -- a GET kept, a 404
+     * that forgets it, S5's answer to a record taken -- carries its place in the one sequence (QuoteStageSync.ticket:
+     * a GET's as it went OUT, an answer's or a forget's as it lands, which is after any read then in flight), and
+     * lands only when nothing at or after that place has written the project's mirror, as QuoteStage.takes orders
+     * the store by the sequence. So a GET served before a record's PUT and landing after its 200 never puts its
+     * `scope: null` over the recorded baseline, and a read older than a 404 never writes the forgotten mirror back.
+     * [clear] is a sign-out: every mirror went at [at], and nothing that went out at or before it writes one for the
+     * next person. In memory: a read in flight never outlives its process. The caller holds the lock.
+     */
+    class MirrorOrder {
+        private val written = HashMap<String, Long>()
+        private var floor = Long.MIN_VALUE
+
+        /** Whether a write of [project]'s mirror at [at] lands -- and from then on nothing earlier does. */
+        fun take(project: String, at: Long): Boolean {
+            if (at <= floor || (written[project] ?: Long.MIN_VALUE) >= at) return false
+            written[project] = at
+            return true
+        }
+
+        /** Every mirror went at [at]: a write from anything that went out at or before it is refused. */
+        fun clear(at: Long) {
+            floor = maxOf(floor, at)
+            written.clear()
+        }
+    }
+
+    /**
      * The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row
      * replaced, a whole photo row replaced or added, a review or a bytes patch applied to the photo
      * row of that id (a row the mirror does not hold is left to the next GET: a patch is not a row),
-     * the scope when sent.
+     * the scope when sent, the role (with the PM, '' as none) when sent.
      */
     fun merged(mirror: View?, a: Answer): View? {
         if (mirror == null) return null
@@ -1093,6 +1136,7 @@ object Album {
         }
         a.bytes?.let { b -> m = m.copy(photos = m.photos.map { if (it.id == b.photo) it.copy(bytes = b.bytes) else it }) }
         a.scopeAt?.let { m = m.copy(scope = a.scope, scopeAt = it) }
+        a.role?.let { m = m.copy(role = it, pm = a.pm?.ifBlank { null }) }
         return m
     }
 

@@ -234,6 +234,14 @@ object AlbumWire {
      * and a mirror written by this build is read by the next through the same tolerance. A null is JSON null (S5's
      * `scope` null = no baseline; a photo's `room` none), never a dropped key. Every field a [View] holds is written;
      * what S5 sends and [view] never reads (a capture's `stage`, a photo's `own`) is not kept, as it was never read.
+     *
+     * HISTORY, NOT THE PROJECT'S STATE (QV review): the stage (`quote_stage*`), each work's `state`, `by`, `by_name`
+     * and `at`, and `stages` are written as S5 sent them and read back only as history -- [Album.quoteAt]'s moves,
+     * the log's rows -- never as what the project IS. The file is ordered by its GET's ticket alone
+     * ([Album.MirrorOrder]) and the one project-state store by S5's stamp first (QuoteStage.takes), so after one
+     * pair of reads the two can hold different copies of the stage; every reader of the stage or of a work's state
+     * takes the store's (QuoteStageSync.cached, QuoteStage.fromAlbum feeds it), and K3 passes [Album.chapters] its
+     * `states`, `quoteStage` and `quoteStageAt` from there, never from this file.
      */
     fun stored(v: View): Map<String, Any?> = linkedMapOf(
         "role" to v.role, "mine" to v.mine, "exec" to v.exec, "scope" to v.scope, "scope_at" to v.scopeAt, "pm" to v.pm,

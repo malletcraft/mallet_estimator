@@ -64,6 +64,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
@@ -212,12 +213,16 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // THE QUOTE VIEW (port 61c slice QV): the Project.key whose line is opened, this visit only -- never
     // persisted, so a reload starts folded, as the prototype's open56 does; the pending refusal line per
     // project key (the prototype's msg: a Record S5 refused, from QM1 a move), cleared by a success; the
-    // scope sheet's mode while it is open, S5's status line for it, and whether a Record is out.
+    // scope sheet's mode while it is open, S5's status line for it, and whether a Record is out; how many answers
+    // the open sheet has had (each shows its status afresh, even in the same words) and how many were a stale 409
+    // (each redraws its ticks from the scope as stored) -- both 0 when a sheet opens (QV review).
     var quoteOpen by remember { mutableStateOf<String?>(null) }
     var quoteMsg by remember { mutableStateOf<Pair<String, String>?>(null) }
     var scopeSheet by remember { mutableStateOf<QuoteView.Mode?>(null) }
     var scopeStatus by remember { mutableStateOf<String?>(null) }
     var scopeBusy by remember { mutableStateOf(false) }
+    var scopeAnswers by remember { mutableStateOf(0) }
+    var scopeReset by remember { mutableStateOf(0) }
     // The visit: another project, or none, folds the view and closes the sheet (the refusal stays with its
     // key). Keyed on the project alone, so a room opened and closed keeps the view as it was, as the
     // prototype's open56 does.
@@ -1276,9 +1281,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
         // THE ALBUM MIRROR of the opened project (port 61c slice QV), under the id its stage is read under:
         // S5's role for this person, the PM, the approved scope and its stamp. Re-read after any write to it
-        // (albumTick: the read on project open, a sync's, a Record's answer) and after a reload (dataTick).
-        val mirror = remember(stageKey, albumTick, dataTick) {
-            stageKey?.let { AlbumSync.mirror(context, it) }
+        // (albumTick: the read on project open, a sync's, a Record's answer) and after a reload (dataTick) --
+        // OFF the main thread, as the refresh is: the file holds the whole paged log and up to a thousand photos,
+        // and a read in composition parsed all of it on every tick (QV review). None until the read lands, and
+        // none again for another project (keyed on stageKey), so no project's scope shows on another's row.
+        var mirror by remember(stageKey) { mutableStateOf<Album.View?>(null) }
+        LaunchedEffect(stageKey, albumTick, dataTick) {
+            mirror = stageKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
         }
         // THE QUOTE VIEW (SPEC61c §4.1 item 3): only at Client approved is the line a tap and the view drawn.
         // Opened for this visit alone (quoteOpen is the project's key; leaving the project folds it); the pending
@@ -1289,8 +1298,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 onToggle = { quoteOpen = if (quoteOpen == proj.key) null else proj.key },
                 refusal = quoteMsg?.takeIf { it.first == proj.key }?.second,
                 row = QuoteView.scopeRow(tx, mirror?.scope, mirror?.scopeAt.orEmpty(), mirror?.role),
-                onViewScope = { scopeStatus = null; scopeSheet = QuoteView.Mode.VIEW },
-                onRecord = { scopeStatus = null; scopeSheet = QuoteView.Mode.RECORD })
+                onViewScope = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.VIEW },
+                onRecord = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.RECORD })
         // The project list's rows lead with each project's line (index61c2.html row61c), read from
         // the same store -- S5's one list GET carries every project's work_states, so a row needs no
         // album GET of its own. Each under the id its stage is read under (WishSync.stageKey), so a
@@ -1373,9 +1382,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
             val key = stageKey
             ScopeSheet(
                 mode = sheetMode,
-                initial = if (sheetMode == QuoteView.Mode.VIEW) mirror?.scope.orEmpty() else emptyList(),
+                stored = mirror?.scope.orEmpty(),
                 scopeAt = mirror?.scopeAt.orEmpty(),
                 status = scopeStatus,
+                answers = scopeAnswers,
+                reset = scopeReset,
                 busy = scopeBusy,
                 onSubmit = { works ->
                     scopeBusy = true
@@ -1383,6 +1394,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val out = withContext(Dispatchers.IO) { QuoteStageSync.recordScope(context, key, works) }
                         scopeBusy = false
                         albumTick += 1
+                        scopeAnswers += 1
+                        if (QuoteStageSync.scopeStale(out)) scopeReset += 1
                         val text = QuoteStageSync.scopeText(tx, out)
                         when {
                             QuoteStageSync.scopeRecorded(out) -> { scopeSheet = null; scopeStatus = null; quoteMsg = null }
