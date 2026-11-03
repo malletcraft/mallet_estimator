@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -69,7 +71,10 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * v61c.2 (Amit, 28 Oct 2026, "Read-only until S5 has it"): a project S5 does not list is drawn as an unread one --
  * no segment current, past or a tap, no phase row, no confirm -- and its does-line reads `not on S5 yet — this
  * project has not been sent` whole, on two lines if it needs them, in portrait and in landscape. An unread stage
- * offers no move either (critic): its does-line is the unread text.
+ * offers no move either (critic): its does-line is the unread text; and so does a stage S5 named without its stamp
+ * (Phases.movable: the phase is shown, no segment is a tap, the does-line the unread text), since the mover builds
+ * nothing on it until a read fills the base in (QM1 review). ◁ with the confirm open closes the confirm and the
+ * screen stays (the prototype's P54.back, first in goBack).
  *
  * Sizes are the prototype's. Portrait (.p54): padded 2/4/4 over a 1 dp rule; a segment 48 dp tall, flex 1 of five,
  * with a 24 dp circle (1.5 dp border, #8F958B; past: teal border and ✓; current: filled teal, white number) over its
@@ -106,7 +111,7 @@ fun PhaseStrip(s: PhaseStripArgs) {
     val amber = Color(0xFFB0740E)
     val rule = MaterialTheme.colorScheme.outlineVariant
     val small = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
-    val segs = Phases.segments(tx, ph)
+    val segs = Phases.segments(tx, s.line)
     val does = Phases.doesLine(tx, s.line)
     val wraps = Phases.wraps(s.line)
     val cover = if (ph == Phases.SURVEY) s.coverage?.let { Phases.coverageRow(tx, it) } else null
@@ -116,8 +121,12 @@ fun PhaseStrip(s: PhaseStripArgs) {
     // confirm whose strip is no longer on screen neither eats a ◁ nor comes back on the next visit).
     var ask by remember(s.line.kind, s.line.quote) { mutableStateOf<Int?>(null) }
     val askText = ask?.let { to -> ph?.let { Phases.ask(tx, it, to) } }
+    // ◁ closes an open confirm first and the screen stays (the prototype's goBack asks P54.back before anything
+    // else; v54 finding 7): composed after the tree's handler in MainActivity, so it wins while the confirm is up,
+    // and it is not registered at all once the confirm is gone (QM1 review).
+    if (askText != null) BackHandler { ask = null }
     fun tap(i: Int) {
-        if (s.busy) return
+        if (s.busy || !segs[i].tap) return
         when (Phases.tap(ph, i)) {
             Phases.Tap.MOVE -> { ask = null; s.onMove(Phases.stageOf(i)) }
             Phases.Tap.ASK -> ask = i
@@ -221,10 +230,14 @@ private fun SegmentColumn(seg: Phases.Segment, busy: Boolean, teal: Color, ink: 
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         SegmentCircle(24.dp, seg, teal)
-        // .p54l: never cut -- the current one may run a few dp into its neighbours' free space
+        // .p54l: never cut -- the current one may run a few dp into its neighbours' free space, EQUALLY on both sides
+        // as a flex column centres an over-wide child (wrapContentWidth unbounded: the name is measured at its own
+        // width and placed centred on the circle; constrained to the cell it drew from the cell's left edge
+        // outward and sat off-centre -- QM1 review, seen only with the system font size up).
         Text(seg.name, fontSize = 10.sp, lineHeight = 16.sp, letterSpacing = (-0.2).sp, maxLines = 1, softWrap = false,
             overflow = TextOverflow.Visible, color = if (seg.on) ink else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (seg.on) FontWeight.SemiBold else FontWeight.Normal)
+            fontWeight = if (seg.on) FontWeight.SemiBold else FontWeight.Normal,
+            modifier = Modifier.wrapContentWidth(unbounded = true))
     }
 }
 
@@ -262,26 +275,32 @@ private fun SegmentCircle(size: Dp, seg: Phases.Segment, teal: Color) {
     }
 }
 
-/** The two buttons of the confirm (.p54btns): `Keep <phase>` outlined, `Move back` filled teal, each a 40 dp pill. */
+/**
+ * The two buttons of the confirm (.p54btns): `Keep <phase>` outlined, `Move back` filled teal, each a 40 dp pill,
+ * 8 dp apart; their side padding 14 dp in portrait (.p54b) and 12 dp in [landscape] (.scaf.land .p54b).
+ */
 @Composable
-private fun RowScope.AskButtons(a: Phases.Ask, busy: Boolean, keep: () -> Unit, moveBack: () -> Unit) {
+private fun AskButtons(a: Phases.Ask, busy: Boolean, keep: () -> Unit, moveBack: () -> Unit, landscape: Boolean) {
     val brown = Color(0xFF3D2E05)
-    OutlinedButton(
-        onClick = keep,
-        shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, Color(0xFF8F958B)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = brown),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-        modifier = Modifier.heightIn(min = 40.dp),
-    ) { Text(a.keep, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1) }
-    Button(
-        onClick = moveBack,
-        enabled = !busy,
-        shape = RoundedCornerShape(20.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White),
-        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-        modifier = Modifier.heightIn(min = 40.dp),
-    ) { Text(a.moveBack, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1) }
+    val pad = PaddingValues(horizontal = if (landscape) 12.dp else 14.dp, vertical = 0.dp)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedButton(
+            onClick = keep,
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color(0xFF8F958B)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = brown),
+            contentPadding = pad,
+            modifier = Modifier.heightIn(min = 40.dp),
+        ) { Text(a.keep, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1) }
+        Button(
+            onClick = moveBack,
+            enabled = !busy,
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E), contentColor = Color.White),
+            contentPadding = pad,
+            modifier = Modifier.heightIn(min = 40.dp),
+        ) { Text(a.moveBack, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1) }
+    }
 }
 
 /** The confirm's box: #FDF0D5 with a 3 dp amber bar on the left and an 8 dp radius (.p54ask), `role=alertdialog` labelled `Move the phase back`. */
@@ -301,13 +320,16 @@ private fun AskBox(a: Phases.Ask, busy: Boolean, keep: () -> Unit, moveBack: () 
         Text(a.whole, style = small, color = Color(0xFF3D2E05))
         Row(
             Modifier.fillMaxWidth().padding(top = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
-        ) { AskButtons(a, busy, keep, moveBack) }
+        ) { AskButtons(a, busy, keep, moveBack, landscape = false) }
     }
 }
 
-/** The backward confirm in landscape: one row, the question (13/17 sp, two lines at most, no aux sentence) beside the two buttons. */
+/**
+ * The backward confirm in landscape: one row, the question (13/17 sp, two lines at most, no aux sentence) 10 dp
+ * from the two buttons (.scaf.land .p54ask gap), which keep their own 8 dp (.p54btns gap) and 12 dp side padding.
+ */
 @Composable
 private fun RowScope.AskRow(a: Phases.Ask, busy: Boolean, keep: () -> Unit, moveBack: () -> Unit, small: androidx.compose.ui.text.TextStyle, amber: Color) {
     Row(
@@ -317,17 +339,18 @@ private fun RowScope.AskRow(a: Phases.Ask, busy: Boolean, keep: () -> Unit, move
     ) {
         Text(a.question, style = small.copy(fontSize = 13.sp, lineHeight = 17.sp), color = Color(0xFF3D2E05),
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        AskButtons(a, busy, keep, moveBack)
+        AskButtons(a, busy, keep, moveBack, landscape = true)
     }
 }
 
 /**
  * A phase's row (.p54x / .p54hot): the small-caps label over its text -- IN REVISION over `open for the client and
- * vendors`. Two lines at most in portrait (.p54hos), one in landscape ([oneLine]).
+ * vendors`. Two lines at most in portrait (.p54hos, padded 2/4), one in landscape ([oneLine], .scaf.land .p54x: no
+ * side padding).
  */
 @Composable
 private fun PanelBlock(p: Phases.Panel, modifier: Modifier, oneLine: Boolean, ink: Color, small: androidx.compose.ui.text.TextStyle) {
-    Column(modifier.padding(horizontal = 4.dp, vertical = 2.dp)) {
+    Column(modifier.padding(horizontal = if (oneLine) 0.dp else 4.dp, vertical = 2.dp)) {
         Text(p.label, style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.4.sp), color = ink, maxLines = 1)
         Text(p.parts.joinToString(Phases.SEP), style = small, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = if (oneLine) 1 else 2, overflow = TextOverflow.Ellipsis)

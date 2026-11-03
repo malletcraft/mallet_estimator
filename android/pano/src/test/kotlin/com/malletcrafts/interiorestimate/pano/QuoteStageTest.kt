@@ -691,6 +691,8 @@ class QuoteStageTest {
         assertEquals("Quote · Survey", l.text)
         assertEquals("Survey · not read yet", l.second)
         assertEquals(1, l.lit)
+        assertTrue(l.atUnknown, "the line carries the mark, so the strip offers no tap on it (Phases.movable; QM1 review)")
+        assertFalse(line(read).atUnknown)
         assertEquals("सर्व्हे · अजून वाचलेले नाही", line(named, Tx.MR).second)
         // read before today, the read time ends it, as on every quote-journey line
         assertEquals("Survey · not read yet · read 17:45", line(named.copy(readAt = "2026-10-13T12:15:00Z")).second)
@@ -700,6 +702,7 @@ class QuoteStageTest {
         val filled = QuoteStage.merge(named, Cache(true, "Survey", "pm@x", "2026-10-14T09:20:00.000Z", now.toString()), 5L, 4L)
         assertFalse(filled.atUnknown)
         assertEquals("since 14 Oct, 14:50 IST on S5", line(filled).second)
+        assertFalse(line(filled).atUnknown)
     }
 
     @Test fun `a stage named without its stamp cannot go in through writes, so named keeps its own path into the store`() {

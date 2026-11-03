@@ -3,6 +3,11 @@ package com.malletcrafts.interiorestimate.pano
 import com.malletcrafts.interiorestimate.pano.QuoteStage.APPROVED
 import com.malletcrafts.interiorestimate.pano.QuoteStage.Cache
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLHandshakeException
 
 /**
  * THE GUARDED QUOTE MOVE (port 61c slice QM0, 3 Nov 2026): the phone's only writer of the project's one state
@@ -171,13 +176,14 @@ object QuoteMove {
         data class SignIn(val error: String) : Verdict
 
         /**
-         * No answer of S5's handler: none came back ([code] null), or a body that is not S5's (a proxy's page, a
-         * cut body, a 200 without S5's fields, a 401 without S5's `error`), a 405 or 5xx. The phone re-reads the
-         * stage, never resends with the old base.
+         * No answer of S5's handler: none came back ([code] null -- the request went out, or may have, and nothing
+         * came back: a timeout, a reset, [verdictOf]), or a body that is not S5's (a proxy's page, a cut body, a 200
+         * without S5's fields, a 401 without S5's `error`), a 405 or 5xx. The phone re-reads the stage, never
+         * resends with the old base.
          */
         data class NoAnswer(val code: Int?) : Verdict
 
-        /** Not sent: no connection. */
+        /** Not sent: no route to S5 -- the host unknown, the connection refused ([verdictOf]); nothing need be read. */
         data object Offline : Verdict
     }
 
@@ -281,6 +287,18 @@ object QuoteMove {
     fun copyOf(v: Verdict, readAt: String): Cache? =
         if (v == Verdict.NotOnS5) Cache(listed = false, readAt = readAt)
         else nowIn(v)?.let { Cache(listed = true, stage = it.stage, by = it.by, at = it.at, readAt = readAt) }
+
+    /**
+     * The verdict on a request that THREW ([IOException]) instead of answering: [Verdict.Offline] only when the
+     * request NEVER REACHED S5 -- the host unknown, the connection refused or unroutable, the TLS handshake refused
+     * -- and [Verdict.NoAnswer] for everything else (a read timeout, a reset, a cut stream, a connect that timed
+     * out): once the request may have gone out S5 may have moved the stage, so the phone re-reads rather than say
+     * "offline" over a stage that moved (QM1 review: every IOException read as offline, and a move S5 took stood
+     * on the phone as not sent until the next sync, the next tap carrying the old base into a stale 409).
+     */
+    fun verdictOf(e: IOException): Verdict =
+        if (e is UnknownHostException || e is ConnectException || e is NoRouteToHostException || e is SSLHandshakeException) Verdict.Offline
+        else Verdict.NoAnswer(null)
 
     // ---- the status line: S5's words in the reader's language ----------------------------------------------
 

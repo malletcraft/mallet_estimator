@@ -1326,8 +1326,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 val key = stageKey.orEmpty()
                 phaseBusy = true
                 scope.launch {
-                    val out = withContext(Dispatchers.IO) { QuoteStageSync.move(context, key, to) }
+                    val out = withContext(Dispatchers.IO) {
+                        val o = QuoteStageSync.move(context, key, to)
+                        // An answer that reveals Client approved -- a stale or final 409 for a project approved
+                        // meanwhile (critic G5), and QM2's Approve -- unfolds the quote view, whose APPROVED SCOPE
+                        // row reads the album: read it now, as the project-open read does, so the row draws S5's
+                        // scope and role rather than `none recorded` from no mirror (QM1 review).
+                        if (QuoteStageSync.cached(context, key)?.stage == QuoteStage.APPROVED) AlbumSync.refresh(context, key)
+                        o
+                    }
                     phaseBusy = false
+                    // the mirror is re-read after every answer, as after a Record's: a 403 that names who approves
+                    // (QM2) writes the role and PM into the mirror file and no stamp, so no listener fires (QM1 review)
+                    albumTick += 1
                     val text = QuoteStageSync.moveText(tx, out)
                     when {
                         QuoteStageSync.moved(out) -> quoteMsg = null

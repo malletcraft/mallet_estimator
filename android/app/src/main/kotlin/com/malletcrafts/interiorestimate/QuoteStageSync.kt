@@ -243,8 +243,11 @@ object QuoteStageSync {
      *   does the 403 that names who records it (`album_role` and `pm`: a PM named on /projects meanwhile): the
      *   mirror takes its role and PM, and the row offers Record no more (QV review: the first version read them
      *   into the verdict and dropped them, so every tap was the same 403 until the next album GET).
-     * - No answer (an IOException, a body that is not S5's) is [QuoteMove.Verdict.Offline] / NoAnswer: the phone
-     *   re-reads on its next sync and never resends with the base it had.
+     * - No answer of S5's handler (a 5xx, a body that is not S5's, or a timeout or reset once the request may have
+     *   gone out -- QuoteMove.verdictOf) is NoAnswer: S5 may have recorded the scope, so the album is RE-READ at
+     *   once (AlbumSync.refresh: the status line's "showing the stage as it is now") and never resent with the base
+     *   it had; a request that never reached S5 (the host unknown, the connection refused) is Offline, and nothing
+     *   is read or kept (QM1 review: every IOException read as offline, with no re-read).
      */
     fun recordScope(context: Context, project: String, works: Collection<Int>): ScopeOutcome {
         val cache = cached(context, project)
@@ -259,13 +262,15 @@ object QuoteStageSync {
             val a = exchange(context, auth, send)
             QuoteMove.scopeAnswer(JsonRead, a.code, bodyOf(a))
         } catch (e: IOException) {
-            // no signal, DNS, TLS, a cut connection: not sent, or sent and never answered -- the phone re-reads
-            QuoteMove.Verdict.Offline
+            // never reached S5 (no host, refused): offline, nothing to read; a timeout or a reset once the request
+            // may have gone out: no answer, and S5 may have recorded it
+            QuoteMove.verdictOf(e)
         } catch (e: Exception) {
             Log.w(TAG, "$project: scope record not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
             QuoteMove.Verdict.NoAnswer(null)
         }
         take(context, project, verdict)
+        if (verdict is QuoteMove.Verdict.NoAnswer) AlbumSync.refresh(context, project)
         return ScopeOutcome.Answered(verdict)
     }
 
@@ -307,9 +312,12 @@ object QuoteStageSync {
      *   it is now, a 404 as not listed), so the line and the strip redraw from S5's word and the next tap carries
      *   S5's base; an answer that carries the scope as stored, or names who approves (QM2's Approve), goes into the
      *   mirror.
-     * - No answer of S5's handler (a 5xx, a body that is not S5's): the phone RE-READS the list at once
+     * - No answer of S5's handler (a 5xx, a body that is not S5's, or a timeout or reset once the request may have
+     *   gone out -- QuoteMove.verdictOf): S5 may have moved the stage, so the phone RE-READS the list at once
      *   ([refresh], the status line's "showing the stage as it is now") and never resends with the base it had;
-     *   offline, nothing is read or kept.
+     *   offline -- the request never reached S5: the host unknown, the connection refused -- nothing is read or
+     *   kept (QM1 review: every IOException read as offline, and a stage S5 moved stood on the phone as not sent
+     *   until the next sync, the next tap carrying the old base into a stale 409).
      * Nothing is queued: the move is an online act, as it is on /projects.
      */
     fun move(context: Context, project: String, to: String): MoveOutcome {
@@ -324,7 +332,9 @@ object QuoteStageSync {
             val a = exchange(context, auth, send)
             QuoteMove.answer(JsonRead, a.code, bodyOf(a), send)
         } catch (e: IOException) {
-            QuoteMove.Verdict.Offline
+            // never reached S5 (no host, refused): offline, nothing to read; a timeout or a reset once the request
+            // may have gone out: no answer, and the list is re-read below
+            QuoteMove.verdictOf(e)
         } catch (e: Exception) {
             Log.w(TAG, "$project: quote move not answered: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
             QuoteMove.Verdict.NoAnswer(null)
@@ -362,8 +372,10 @@ object QuoteStageSync {
      * (AlbumSync.take, at its own place after every read in flight: a record's 200, the baseline an Approve's 200
      * carries, and every 409 that echoes the scope as stored); and on who records or approves -- the 403's
      * `album_role` and `pm`, a PM named on /projects meanwhile -- into the mirror too, so the row and the strip redraw
-     * who may (QV review: the first version read them into the verdict and dropped them). An answer that names none
-     * of these (a 400, a 401, no answer, offline) changes nothing.
+     * who may (QV review: the first version read them into the verdict and dropped them) -- the screen re-reads the
+     * mirror after every answer (albumTick), because a 403 writes the role and PM into the mirror file and no stamp,
+     * so no preferences listener fires for it (QM1 review). An answer that names none of these (a 400, a 401, no
+     * answer, offline) changes nothing.
      */
     private fun take(context: Context, project: String, verdict: QuoteMove.Verdict) {
         QuoteMove.copyOf(verdict, Instant.now().toString())?.let { write(context, mapOf(project to it)) }

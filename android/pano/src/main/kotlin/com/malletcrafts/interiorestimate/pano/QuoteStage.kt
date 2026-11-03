@@ -371,6 +371,12 @@ object QuoteStage {
         val lit: Int,
         val showRead: Boolean,
         val pips: String,
+        /**
+         * True when the stage was NAMED by an answer without its stamp ([Cache.atUnknown], [named]): the stage is shown,
+         * but no move can carry a base until a read fills the stamp in, so the strip offers no tap on it
+         * ([Phases.movable]; port 61c slice QM1 review). False on every other line.
+         */
+        val atUnknown: Boolean = false,
     )
 
     private const val SEP = " · " // text:value the line's separator, as the prototype joins it
@@ -385,7 +391,7 @@ object QuoteStage {
      * - Survey through Revisions: `Quote · <stage>`, its pips, `since d MMM, HH:mm IST on S5` or `<stage> ·
      *   not set on S5 yet` when S5 has not timed it (once S5 lists a project, never the never-sent words), and
      *   `<stage> · not read yet` for a copy an answer NAMED without its stamp ([Cache.atUnknown]) until a read fills
-     *   the time in;
+     *   the time in -- the line carries the mark ([ProjectLine.atUnknown]), so the strip offers no move on it;
      * - Client approved: `Execution`, then the non-zero counts in this order: in progress · done · on hold;
      *   `no work started yet` only while every work is Not started; the abandoned ones only when nothing else
      *   counts (§13.4, review 4) -- the states with [queued] laid over them ([Album.withQueued]), so a tap
@@ -417,13 +423,13 @@ object QuoteStage {
                 else -> tx.wish_x_not_set_s5_yet(stage = shown)
             }
             return ProjectLine(LineKind.QUOTE, stage, tx.common_quote_x(quote = shown), emptyList(), second + read, i + 1, old,
-                tx.export_x_x(v = (i + 1).toString(), n = STAGES.size.toString()))
+                tx.export_x_x(v = (i + 1).toString(), n = STAGES.size.toString()), atUnknown = cache.atUnknown)
         }
         val states = cache.states
         val parts = if (states == null) emptyList() else execParts(tx, Album.withQueued(states, queued))
         val head = if (states == null) listOf(tx.app_execution, tx.wish_not_read_yet) else listOf(tx.app_execution) + parts
         return ProjectLine(LineKind.EXEC, APPROVED, head.joinToString(SEP), parts,
-            tx.common_quote_x(quote = Masters.quote(tx, APPROVED)), STAGES.size, false, "")
+            tx.common_quote_x(quote = Masters.quote(tx, APPROVED)), STAGES.size, false, "", atUnknown = cache.atUnknown)
     }
 
     private fun local(tx: Tx, read: String, old: Boolean): ProjectLine =

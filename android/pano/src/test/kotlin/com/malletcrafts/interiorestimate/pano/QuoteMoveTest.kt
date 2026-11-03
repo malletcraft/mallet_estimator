@@ -401,8 +401,27 @@ class QuoteMoveTest {
             assertEquals(s, Phases.stageOf(i))
         }
         // v61c.2: the strip offers no tap on a project S5 does not list, and the mover refuses it anyway, before any call
-        assertTrue(Phases.segments(Tx.EN, Phases.phaseOf(QuoteStage.projectLine(null, true, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z")))).none { it.tap })
+        assertTrue(Phases.segments(Tx.EN, QuoteStage.projectLine(null, true, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"))).none { it.tap })
         assertEquals(Move.Refused(Local.NOT_ON_S5), QuoteMove.stage("", null, Phases.stageOf(1)))
+    }
+
+    @Test fun `a request that threw is offline only when it never reached S5 - a timeout or a reset once it went out is no answer, so the phone re-reads (QM1 review)`() {
+        // never reached S5: no route to it -- nothing was sent, so nothing need be read
+        for (e in listOf(java.net.UnknownHostException("stage"), java.net.ConnectException("Connection refused"),
+                java.net.NoRouteToHostException("No route to host"), javax.net.ssl.SSLHandshakeException("handshake")))
+            assertEquals(Verdict.Offline, QuoteMove.verdictOf(e), e.javaClass.simpleName)
+        // once the request may have gone out S5 may have moved the stage: no answer, and the phone re-reads rather than say offline
+        // (a read timeout and a reset after the body was written are IOExceptions too, as a connect timeout is: told apart from
+        // "never sent" by their type, not by one catch arm)
+        for (e in listOf(java.net.SocketTimeoutException("timeout"), java.net.SocketException("Connection reset"), java.io.EOFException(),
+                java.io.InterruptedIOException("timeout"), java.io.IOException("unexpected end of stream"), javax.net.ssl.SSLException("closed")))
+            assertEquals(Verdict.NoAnswer(null), QuoteMove.verdictOf(e), e.javaClass.simpleName)
+        // the words follow: offline says so; no answer says the stage is shown as it is now, which the re-read makes true
+        assertEquals("Offline — the quote stage moves only when S5 answers", QuoteMove.text(Tx.EN, QuoteMove.verdictOf(java.net.UnknownHostException("x"))))
+        assertEquals("No answer to the save — showing the stage as it is now", QuoteMove.text(Tx.EN, QuoteMove.verdictOf(java.net.SocketTimeoutException("x"))))
+        // neither names a stage: the store keeps its copy, and with it no base the phone could resend
+        assertNull(QuoteMove.copyOf(QuoteMove.verdictOf(java.net.SocketTimeoutException("x")), "r"))
+        assertNull(QuoteMove.copyOf(QuoteMove.verdictOf(java.net.UnknownHostException("x")), "r"))
     }
 
     @Test fun `a phone with nothing to send with refuses before any call, in its own sign-in words (QV)`() {

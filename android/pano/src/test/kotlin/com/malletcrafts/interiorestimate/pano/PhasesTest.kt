@@ -67,7 +67,7 @@ class PhasesTest {
     }
 
     @Test fun `segments at Vendor review - the past ticked, the current marked, every other a tap, labels with now`() {
-        val segs = Phases.segments(Tx.EN, 2)
+        val segs = Phases.segments(Tx.EN, line(at("Vendor quoted")))
         assertEquals(listOf(true, true, false, false, false), segs.map { it.past })
         assertEquals(listOf(false, false, true, false, false), segs.map { it.on })
         assertEquals(listOf(true, true, false, true, true), segs.map { it.tap }, "forward and back are taps; the current one is not")
@@ -75,24 +75,28 @@ class PhasesTest {
         assertEquals("Phase 1 of 5: Survey", segs[0].label)
         assertEquals("Phase 5 of 5: Revisions", segs[4].label)
         assertEquals(listOf(1, 2, 3, 4, 5), segs.map { it.n })
-        val mr = Phases.segments(Tx.MR, 2)
+        val mr = Phases.segments(Tx.MR, line(at("Vendor quoted"), tx = Tx.MR))
         assertEquals("फेज 3/5: व्हेंडर तपासणी (सध्या)", mr[2].label)
         assertEquals("फेज 1/5: सर्व्हे", mr[0].label)
         // at Survey nothing is past and four are taps forward; at Revisions four are past and four are taps back
-        assertEquals(listOf(false, true, true, true, true), Phases.segments(Tx.EN, 0).map { it.tap })
-        assertTrue(Phases.segments(Tx.EN, 0).none { it.past })
-        assertEquals(listOf(true, true, true, true, false), Phases.segments(Tx.EN, 4).map { it.past })
-        assertEquals(listOf(true, true, true, true, false), Phases.segments(Tx.EN, 4).map { it.tap })
+        assertEquals(listOf(false, true, true, true, true), Phases.segments(Tx.EN, line(at("Survey"))).map { it.tap })
+        assertTrue(Phases.segments(Tx.EN, line(at("Survey"))).none { it.past })
+        assertEquals(listOf(true, true, true, true, false), Phases.segments(Tx.EN, line(at("Revisions"))).map { it.past })
+        assertEquals(listOf(true, true, true, true, false), Phases.segments(Tx.EN, line(at("Revisions"))).map { it.tap })
+        // movable: a read stage before Client approved, with its stamp
+        for (s in QuoteStage.STAGES.dropLast(1)) assertTrue(Phases.movable(line(at(s))), s)
     }
 
     @Test fun `unread or not on S5 - no segment is current, past or a tap, and the does-line says why, whole - and at Client approved none is a tap`() {
-        for (ph in listOf(null, Phases.N)) {
-            val segs = Phases.segments(Tx.EN, ph)
-            assertTrue(segs.none { it.on }, "$ph"); assertTrue(segs.none { it.tap }, "$ph")
-            assertTrue(segs.none { it.label.contains("(now)") }, "$ph")
+        for (l in listOf(line(null), line(at("Revisions"), phoneOnly = true), line(Cache(listed = false, readAt = "r")), line(at("Client approved")))) {
+            val segs = Phases.segments(Tx.EN, l)
+            assertTrue(segs.none { it.on }, "${l.kind}"); assertTrue(segs.none { it.tap }, "${l.kind}")
+            assertTrue(segs.none { it.label.contains("(now)") }, "${l.kind}")
+            assertFalse(Phases.movable(l), "${l.kind}")
         }
-        assertTrue(Phases.segments(Tx.EN, null).none { it.past })
-        assertTrue(Phases.segments(Tx.EN, Phases.N).all { it.past }, "at Client approved every segment is past: the strip folds into the quote view")
+        assertTrue(Phases.segments(Tx.EN, line(null)).none { it.past })
+        assertTrue(Phases.segments(Tx.EN, line(at("Revisions"), phoneOnly = true)).none { it.past })
+        assertTrue(Phases.segments(Tx.EN, line(at("Client approved"))).all { it.past }, "at Client approved every segment is past: the strip folds into the quote view")
         // the does-line: the never-sent words for a project S5 does not list, read whole (data-s5none wraps)
         val local = line(at("Revisions"), phoneOnly = true)
         assertEquals(LineKind.LOCAL, local.kind)
@@ -115,6 +119,50 @@ class PhasesTest {
         assertFalse(Phases.wraps(line(at("Survey"))))
         // at Client approved the strip is the quote view's: no does-line
         assertEquals("", Phases.doesLine(Tx.EN, line(at("Client approved"))))
+    }
+
+    @Test fun `a stage named without its stamp - the phase is shown, no segment is a tap, and the does-line says S5 decides (QM1 review)`() {
+        // the wish list's Survey 409 names the stage and nothing more (QuoteStageSync.named): the store's copy has no base to
+        // send, so QuoteMove.stage builds nothing on it -- and the first version still offered every other segment as a tap,
+        // which then did nothing and said nothing
+        val named = QuoteStage.named(at("Client wish list"), "Survey", "2026-11-03T07:01:10Z")!!
+        assertTrue(named.atUnknown)
+        val l = line(named)
+        assertEquals(LineKind.QUOTE, l.kind)
+        assertTrue(l.atUnknown, "the line carries the mark")
+        assertEquals(0, Phases.phaseOf(l), "the phase is known: Survey")
+        assertFalse(Phases.movable(l))
+        val segs = Phases.segments(Tx.EN, l)
+        assertEquals(listOf(false, false, false, false, false), segs.map { it.tap }, "no segment is a tap")
+        assertEquals(listOf(true, false, false, false, false), segs.map { it.on }, "the current one is still marked")
+        assertTrue(segs.none { it.past })
+        assertEquals("Phase 1 of 5: Survey (now)", segs[0].label)
+        // the does-line says why, in both languages: S5's read decides when the next tap may go
+        assertEquals("Phase not read yet — S5 decides when online", Phases.doesLine(Tx.EN, l))
+        assertEquals("फेज अजून वाचलेली नाही — ऑनलाइन आल्यावर S5 ठरवते", Phases.doesLine(Tx.MR, line(named, tx = Tx.MR)))
+        assertFalse(Phases.wraps(l))
+        // the same at a later stage, named by the wish list's final 409's sibling: Revisions, the past ones ticked, no tap
+        val later = line(QuoteStage.named(at("Estimated"), "Revisions", "r")!!)
+        assertEquals(4, Phases.phaseOf(later))
+        assertEquals(listOf(true, true, true, true, false), Phases.segments(Tx.EN, later).map { it.past })
+        assertTrue(Phases.segments(Tx.EN, later).none { it.tap })
+        assertEquals("Phase not read yet — S5 decides when online", Phases.doesLine(Tx.EN, later))
+        // the mover agrees: nothing is built on the named copy, so the strip and the mover never disagree
+        assertEquals(QuoteMove.Move.None, QuoteMove.stage("PROJ-DEMO", named, Phases.stageOf(1)))
+        // the read that fills the stamp in makes every other segment a tap again, with the phase's own does-line
+        val filled = QuoteStage.merge(named, Cache(true, "Survey", "pm@x", "2026-11-03T07:01:09.500Z", "2026-11-03T07:01:11Z"), 3L, 2L)
+        assertFalse(filled.atUnknown)
+        val f = line(filled)
+        assertFalse(f.atUnknown); assertTrue(Phases.movable(f))
+        assertEquals(listOf(false, true, true, true, true), Phases.segments(Tx.EN, f).map { it.tap })
+        assertEquals("Capture · bound the walls · mark what is there", Phases.doesLine(Tx.EN, f))
+        assertEquals(QuoteMove.Move.Send::class, QuoteMove.stage("PROJ-DEMO", filled, Phases.stageOf(1))::class)
+        // no other line carries the mark: a stamped copy, one S5 never timed, unread, not on S5
+        assertFalse(line(at("Revisions")).atUnknown)
+        assertFalse(line(Cache(listed = true, stage = "Survey", readAt = "r")).atUnknown, "a stage S5 never set is not unknown: base '' is sent")
+        assertTrue(Phases.movable(line(Cache(listed = true, stage = "Survey", readAt = "r"))))
+        assertFalse(line(null).atUnknown); assertFalse(line(at("Revisions"), phoneOnly = true).atUnknown)
+        assertFalse(line(Cache(listed = false, readAt = "r")).atUnknown)
     }
 
     @Test fun `tap - forward moves at once, back asks first - the current segment, an unread stage and Client approved do nothing`() {

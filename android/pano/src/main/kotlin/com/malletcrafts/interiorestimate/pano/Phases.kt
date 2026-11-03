@@ -73,29 +73,45 @@ object Phases {
     /**
      * One segment as drawn: its number and name; its accessible label (`Phase n of 5: name`, with ` (now)` on the
      * current one); whether it is [past] (a ✓ in its circle), the current one ([on], filled), and a [tap] -- any
-     * segment but the current while the stage is read and not Client approved (approval is final: no back-move).
+     * segment but the current while the line is [movable]: the stage read with its stamp and not Client approved
+     * (approval is final: no back-move).
      */
     data class Segment(val n: Int, val name: String, val label: String, val past: Boolean, val on: Boolean, val tap: Boolean)
 
-    /** The five segments for the strip at [ph] ([phaseOf]). */
-    fun segments(tx: Tx, ph: Int?): List<Segment> = all(tx).mapIndexed { i, p ->
-        val on = ph == i
-        val n = p.n.toString()
-        Segment(p.n, p.name,
-            if (on) tx.phase_aria_phase_x_of_5_x_now(n = n, name = p.name) else tx.phase_aria_phase_x_of_5_x(n = n, name = p.name),
-            past = ph != null && i < ph, on = on, tap = ph != null && !on && ph != N)
+    /**
+     * Whether the strip offers a move on [line] at all: its stage read and before Client approved ([phaseOf] 0..4),
+     * and WITH its stamp -- a copy an answer named without it ([ProjectLine.atUnknown], [QuoteStage.named]) shows its
+     * phase but no segment is a tap, since [QuoteMove.stage] builds nothing on it until a read fills the base in,
+     * and a tap that did nothing and said nothing is what the first version offered there (QM1 review). The
+     * does-line says why ([doesLine]).
+     */
+    fun movable(line: ProjectLine): Boolean = phaseOf(line).let { it != null && it != N } && !line.atUnknown
+
+    /** The five segments for the strip on [line]: at its phase ([phaseOf]), every other one a tap only while the line is [movable]. */
+    fun segments(tx: Tx, line: ProjectLine): List<Segment> {
+        val ph = phaseOf(line)
+        val tap = movable(line)
+        return all(tx).mapIndexed { i, p ->
+            val on = ph == i
+            val n = p.n.toString()
+            Segment(p.n, p.name,
+                if (on) tx.phase_aria_phase_x_of_5_x_now(n = n, name = p.name) else tx.phase_aria_phase_x_of_5_x(n = n, name = p.name),
+                past = ph != null && i < ph, on = on, tap = tap && !on)
+        }
     }
 
     /**
      * The does-line under the segments: the current phase's (`Capture · bound the walls · mark what is there`, …);
-     * unread, `Phase not read yet — S5 decides when online`; for a project S5 does not list, the whole never-sent
-     * words (v61c.2: why the stage cannot move is read whole, on two lines if it needs them -- [wraps]); blank at
-     * Client approved, where the strip is the quote view's and has no does-line.
+     * unread, `Phase not read yet — S5 decides when online` -- and the same words for a stage named without its
+     * stamp ([movable] false: the phase is shown, no segment is a tap, and S5's read decides when the next tap may
+     * go); for a project S5 does not list, the whole never-sent words (v61c.2: why the stage cannot move is read
+     * whole, on two lines if it needs them -- [wraps]); blank at Client approved, where the strip is the quote
+     * view's and has no does-line.
      */
     fun doesLine(tx: Tx, line: ProjectLine): String = when (line.kind) {
         LineKind.LOCAL -> tx.wish_not_s5_yet_project
         LineKind.UNREAD -> tx.phase_phase_not_read_yet
-        LineKind.QUOTE -> phaseOf(line)?.let { all(tx)[it].does } ?: tx.phase_phase_not_read_yet
+        LineKind.QUOTE -> if (line.atUnknown) tx.phase_phase_not_read_yet else phaseOf(line)?.let { all(tx)[it].does } ?: tx.phase_phase_not_read_yet
         LineKind.EXEC -> ""
     }
 
