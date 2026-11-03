@@ -5,9 +5,13 @@
 # Port 61c slice D1 (28 Oct 2026) adds CaptureSchema.kt, the capture store's upgrade statements: no shown text, its SQL marked `// text:value`.
 # Port 61c slice K1b (3 Nov 2026) adds Album.kt: every text it shows is a tx accessor or a Masters name; its work names, states and worksite stages are S5's identity values, marked `// text:value`.
 # Port 61c slice AQ (3 Nov 2026) adds AlbumQueue.kt and AlbumWire.kt, the album outbox's requests and the reader of S5's answers: neither shows a text.
+# Port 61c slice M4 (3 Nov 2026) adds the wish list: WishListScreen.kt, WishSync.kt and pano/WishList.kt. Every text they show is a tx accessor; the twelve services and the rooms are identity values shown through Masters, the services marked `// text:value`; the notes stored in English (REPLACED, NOT_SENT, s5Answered) are marked `// text:value` and drawn through their keys.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Crumbs.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumQueue.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/WishSync.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt

@@ -834,11 +834,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this phone. I
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	too, wall to wall at the widest \u2014 the room is set from them.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	—
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	— none —
-app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Note
-app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Vendor
-app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	Wish list · ${project.title}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	filled in when a vendor is chosen
-app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	one line — what exactly
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	%.1f×  ·  double-tap to fit
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	Pinch to zoom  ·  double-tap to magnify
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	$problem — join the X3's Wi-Fi in Settings, then try again
@@ -1252,32 +1247,3 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	The ref
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Unlock
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	±
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	🔒 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	 · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	 — 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	$n of ${SERVICES.size} wanted
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	APPLIES TO
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Balcony grill
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	CCTV
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Carpentry / furniture
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Changing the wish list after a vendor quoted — tell the vendor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Curtains — roller blinds
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Doors & windows
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Electrical works
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	False ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Finish the survey first — the stage moves to Client wish list on S5
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Guest bathroom — complete renovation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Intercom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Master bathroom — complete renovation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Not sent to S5
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Painting
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Plumbing & sanitary
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	S5 had a newer list; yours was replaced, re-apply what is missing
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Whole flat
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	Wish list $n/${SERVICES.size}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	not asked for
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	nothing saved yet
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	on S5 since ${QuoteStage.dayTime(it)} IST
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	safety door, aluminium main door, UPVC
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	saved on this phone
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	vendor $it
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WishList.kt	water and drain points, taps, geyser, sanitary ware outside the bathroom renovations

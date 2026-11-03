@@ -35,11 +35,13 @@ class WishListTest {
 
     @Test fun `count, chip and total (ct52 W(b), N of 12)`() {
         assertEquals(0, WishList.count(emptyMap()))
-        assertEquals("Wish list 0/12", WishList.chip(0))
+        assertEquals("Wish list 0/12", WishList.chip(Tx.EN, 0))
+        assertEquals("इच्छा-यादी 0/12", WishList.chip(Tx.MR, 0))
         var rows = WishList.toggle(emptyMap(), "electrical")
         rows = WishList.toggle(rows, "painting")
         assertEquals(2, WishList.count(rows))
-        assertEquals("2 of 12 wanted", WishList.total(2))
+        assertEquals("2 of 12 wanted", WishList.total(Tx.EN, 2))
+        assertEquals("12 पैकी 2 हवे", WishList.total(Tx.MR, 2))
         // unticked keeps its rooms and note but is not counted; an id S5 does not list is not counted
         rows = WishList.toggle(rows, "painting") + ("gone" to Row(on = true))
         assertEquals(1, WishList.count(rows))
@@ -55,11 +57,10 @@ class WishListTest {
         assertEquals(listOf(false, true, true, false, true, false), idx.map { WishList.editable(it) })
         // the after-quote notice: never at Client approved, where nothing can be edited (§16.5)
         assertEquals(listOf(false, false, true, true, true, false), idx.map { WishList.warnAfterQuote(it) })
-        assertEquals(listOf(WishList.FINISH_SURVEY), WishList.banners(Tx.EN, 0, warned = true))
+        assertEquals(listOf("Finish the survey first — the stage moves to Client wish list on S5"), WishList.banners(Tx.EN, 0, warned = true))
         assertEquals(emptyList(), WishList.banners(Tx.EN, 1, warned = true))
         assertEquals(emptyList(), WishList.banners(Tx.EN, 2, warned = false))
         assertEquals(listOf("Changing the wish list after a vendor quoted — tell the vendor"), WishList.banners(Tx.EN, 2, warned = true))
-        assertEquals("Finish the survey first — the stage moves to Client wish list on S5", WishList.FINISH_SURVEY)
         // v61b: the prototype's refuse.readonly.wishlist line at Estimated and, when an edit was made after a vendor
         // quoted this visit, the vendor reminder beside it (the prototype keeps after = idx >= 2)
         assertEquals(listOf("Estimation — the wish list is read-only; move the phase back on the project screen to change it"), WishList.banners(Tx.EN, 3, warned = false))
@@ -76,6 +77,10 @@ class WishListTest {
         assertEquals("Estimation — the wish list is read-only; move the phase back on the project screen to change it", WishList.lockedLine(Tx.EN, 3))
         assertEquals("अंदाजपत्रक — इच्छा-यादी फक्त वाचण्यासाठी आहे; बदलण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या", WishList.lockedLine(Tx.MR, 3))
         for (i in listOf(null, 0, 1, 2, 4)) assertEquals(null, WishList.lockedLine(Tx.EN, i), "lockedLine($i)")
+        // port M4: every banner in Marathi too, from its key (the prototype's v61c.1 table, word for word)
+        assertEquals(listOf("आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो"), WishList.banners(Tx.MR, 0, warned = true))
+        assertEquals(listOf("व्हेंडरच्या कोटेशननंतर इच्छा-यादी बदलताय — व्हेंडरला कळवा"), WishList.banners(Tx.MR, 2, warned = true))
+        assertEquals(listOf("कोटेशनचा टप्पा अजून वाचलेला नाही — ऑनलाइन आल्यावर S5 ठरवते"), WishList.banners(Tx.MR, null, warned = false))
     }
 
     @Test fun `the Vendor field shows only at Vendor quoted and Revisions, and with the stage unread (TOOLS vendorUI)`() {
@@ -127,10 +132,10 @@ class WishListTest {
 
     @Test fun `applies-to line and the row's second line (ct52 W(b))`() {
         val svc = WishList.SERVICES[0]
-        assertEquals("Whole flat", WishList.subLine(Row(on = true)))
-        assertEquals("Whole flat", WishList.rowLine(svc, Row(on = true), vendorUi = true))
-        assertEquals("not asked for", WishList.rowLine(svc, Row(), vendorUi = true))
-        assertEquals("safety door, aluminium main door, UPVC", WishList.rowLine(WishList.SERVICES[4], Row(), vendorUi = false))
+        assertEquals("Whole flat", WishList.subLine(Tx.EN, Row(on = true)))
+        assertEquals("Whole flat", WishList.rowLine(Tx.EN, svc, Row(on = true), vendorUi = true))
+        assertEquals("not asked for", WishList.rowLine(Tx.EN, svc, Row(), vendorUi = true))
+        assertEquals("safety door, aluminium main door, UPVC", WishList.rowLine(Tx.EN, WishList.SERVICES[4], Row(), vendorUi = false))
         val grid = listOf("Living Room", "Kitchen", "Master Bedroom")
         var rows = WishList.toggle(emptyMap(), "electrical")
         rows = WishList.toggleRoom(rows, "electrical", "Kitchen", grid)
@@ -138,18 +143,92 @@ class WishListTest {
         // kept in the grid's order whatever order they were pressed in
         assertEquals(listOf("Living Room", "Kitchen"), WishList.row(rows, "electrical").rooms)
         rows = WishList.setNote(rows, "electrical", "more\n  points")
-        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = true))
+        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(Tx.EN, svc, WishList.row(rows, "electrical"), vendorUi = true))
         rows = WishList.setVendor(rows, "electrical", "V1")
-        assertEquals("Living Room · Kitchen · more points · vendor V1", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = true))
+        assertEquals("Living Room · Kitchen · more points · vendor V1", WishList.rowLine(Tx.EN, svc, WishList.row(rows, "electrical"), vendorUi = true))
         // v54 finding 4: where the Vendor field is hidden (Client wish list, Estimated, Client approved) the row
         // names no vendor, though the vendor is kept: the rooms and the note still read what was asked for
-        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = false))
+        assertEquals("Living Room · Kitchen · more points", WishList.rowLine(Tx.EN, svc, WishList.row(rows, "electrical"), vendorUi = false))
         assertEquals("V1", WishList.row(rows, "electrical").vendor)
         rows = WishList.toggleRoom(rows, "electrical", "Living Room", grid)
         assertEquals(listOf("Kitchen"), WishList.row(rows, "electrical").rooms)
         rows = WishList.wholeFlat(rows, "electrical")
-        assertEquals("Whole flat", WishList.subLine(WishList.row(rows, "electrical")))
-        assertEquals("Whole flat · more points", WishList.rowLine(svc, WishList.row(rows, "electrical"), vendorUi = false))
+        assertEquals("Whole flat", WishList.subLine(Tx.EN, WishList.row(rows, "electrical")))
+        assertEquals("Whole flat · more points", WishList.rowLine(Tx.EN, svc, WishList.row(rows, "electrical"), vendorUi = false))
+    }
+
+    @Test fun `port M4 - the screen in Marathi, the services and rooms through Masters, what goes to S5 in English`() {
+        // the twelve names: S5's English under English, the prototype's Marathi under मराठी; CCTV as written in both
+        assertEquals(WishList.SERVICES.map { it.name }, WishList.SERVICES.map { WishList.name(Tx.EN, it) })
+        assertEquals(listOf("इलेक्ट्रिकल कामे", "CCTV", "इंटरकॉम", "फॉल्स सीलिंग", "दरवाजे व खिडक्या", "बाल्कनी ग्रिल",
+            "सुतारकाम / फर्निचर", "मास्टर बाथरूम — संपूर्ण नूतनीकरण", "गेस्ट बाथरूम — संपूर्ण नूतनीकरण", "रंगकाम",
+            "पडदे — रोलर ब्लाइंड्स", "प्लंबिंग व सॅनिटरी"), WishList.SERVICES.map { WishList.name(Tx.MR, it) })
+        // the two descriptions, the plumbing one through its own key since M4; a service with none has none
+        assertEquals("सेफ्टी डोअर, ॲल्युमिनियम मुख्य दरवाजा, UPVC", WishList.detail(Tx.MR, WishList.SERVICES[4]))
+        assertEquals("पाणी व ड्रेनचे पॉइंट, नळ, गीझर, बाथरूम नूतनीकरणाबाहेरील सॅनिटरीवेअर", WishList.detail(Tx.MR, WishList.SERVICES[11]))
+        assertEquals("water and drain points, taps, geyser, sanitary ware outside the bathroom renovations",
+            WishList.detail(Tx.EN, WishList.SERVICES[11]))
+        assertEquals("", WishList.detail(Tx.MR, WishList.SERVICES[0]))
+        // the row's second line: Whole flat, the rooms through Masters (a typed room as typed), the note as typed, the vendor
+        val svc = WishList.SERVICES[0]
+        assertEquals("संपूर्ण फ्लॅट", WishList.subLine(Tx.MR, Row(on = true)))
+        val row = Row(on = true, rooms = listOf("Living Room", "Kitchen", "Den"), note = "two more points", vendor = "V1")
+        assertEquals("हॉल · किचन · Den", WishList.subLine(Tx.MR, row))
+        assertEquals("Living Room · Kitchen · Den", WishList.subLine(Tx.EN, row))
+        assertEquals("हॉल · किचन · Den · two more points · व्हेंडर V1", WishList.rowLine(Tx.MR, svc, row, vendorUi = true))
+        assertEquals("हॉल · किचन · Den · two more points", WishList.rowLine(Tx.MR, svc, row, vendorUi = false))
+        assertEquals("मागितलेले नाही", WishList.rowLine(Tx.MR, svc, Row(), vendorUi = true))
+        assertEquals("पाणी व ड्रेनचे पॉइंट, नळ, गीझर, बाथरूम नूतनीकरणाबाहेरील सॅनिटरीवेअर",
+            WishList.rowLine(Tx.MR, WishList.SERVICES[11], Row(), vendorUi = false))
+        assertEquals("किचन", WishList.roomName(Tx.MR, "Kitchen"))
+        assertEquals("Kitchen", WishList.roomName(Tx.EN, "Kitchen"))
+        // the head's three states, the time in IST with its month in English (decision 3 of 21 Oct)
+        assertEquals("अजून काहीही सेव्ह नाही", WishList.savedText(Tx.MR, null))
+        assertEquals("या फोनवर सेव्ह", WishList.savedText(Tx.MR, Local("C", "T", dirty = true)))
+        assertEquals("14 Oct, 08:08 IST पासून S5 वर", WishList.savedText(Tx.MR, Local("C", "T", at = "2026-10-14T02:38:00.000Z")))
+        // WHAT GOES TO S5 IS UNCHANGED: a room picked on the Marathi screen is kept and sent by its English name
+        var rows = WishList.toggle(emptyMap(), "electrical")
+        rows = WishList.toggleRoom(rows, "electrical", "Kitchen", listOf("Living Room", "Kitchen"))
+        assertEquals(mapOf("electrical" to Row(on = true, rooms = listOf("Kitchen"))), rows)
+        assertEquals(Row(on = true, rooms = listOf("Kitchen")), WishList.forPut(rows).getValue("electrical"))
+        assertEquals(listOf("electrical", "cctv", "intercom", "false-ceiling", "doors-windows", "balcony-grill",
+            "carpentry", "master-bath", "guest-bath", "painting", "curtains", "plumbing"), WishList.forPut(rows).keys.toList())
+    }
+
+    @Test fun `port M4 - the stored notes stay English, byte for byte, and are drawn through their keys`() {
+        // the bytes every earlier build stored: a list kept by 0.3.270 or before is drawn in the language with no migration
+        assertEquals("S5 had a newer list; yours was replaced, re-apply what is missing", WishList.REPLACED)
+        assertEquals("Not sent to S5", WishList.NOT_SENT)
+        assertEquals("S5 answered 403", WishList.s5Answered(403))
+        val mine = WishList.edited(Local("C", "T", at = "a"), mapOf("cctv" to Row(on = true)), "t")
+        // a stale-base 409 that replaced the list: stored English, drawn in either language
+        val replaced = WishList.afterConflict(mine, mapOf("painting" to Row(on = true)), "b")
+        assertEquals("S5 had a newer list; yours was replaced, re-apply what is missing", replaced.note)
+        assertEquals("S5 had a newer list; yours was replaced, re-apply what is missing", WishList.noteLine(Tx.EN, replaced, 2))
+        assertEquals("S5 कडे नवी यादी होती; तुमची यादी बदलली गेली, जे राहिले ते पुन्हा भरा", WishList.noteLine(Tx.MR, replaced, 2))
+        // refused for good with S5's own reason: the reason is S5's words, drawn as sent
+        val refused = WishList.afterRefused(mine, mine.rows, "Only MCFT staff can change the wish list")
+        assertEquals("Not sent to S5 — Only MCFT staff can change the wish list", refused.note)
+        assertEquals("S5 ला पाठवले नाही — Only MCFT staff can change the wish list", WishList.noteLine(Tx.MR, refused, 1))
+        // refused with no reason from S5: the phone's stand-in, stored English, drawn through wish.s5_answered_x
+        val bare = WishList.afterRefused(mine, mine.rows, WishList.s5Answered(413))
+        assertEquals("Not sent to S5 — S5 answered 413", bare.note)
+        assertEquals("Not sent to S5 — S5 answered 413", WishList.noteLine(Tx.EN, bare, null))
+        assertEquals("S5 ला पाठवले नाही — S5 चे उत्तर 413", WishList.noteLine(Tx.MR, bare, null))
+        // NOT_SENT alone (a blank reason) and a note no key holds
+        val alone = WishList.afterRefused(mine, mine.rows, "  ")
+        assertEquals("Not sent to S5", alone.note)
+        assertEquals("S5 ला पाठवले नाही", WishList.noteLine(Tx.MR, alone, 4))
+        assertEquals("typed by an older build", WishList.noteLine(Tx.MR, mine.copy(note = "typed by an older build"), 4))
+        // never under the lock, in either language
+        assertEquals(null, WishList.noteLine(Tx.MR, replaced, WishList.APPROVED))
+        // the stand-in as a status line (a 409 with no words): English stored, Marathi drawn; S5's own words as sent
+        val status = WishList.afterSurvey(mine, WishList.s5Answered(409))
+        assertEquals("S5 answered 409", status.status)
+        assertEquals("S5 answered 409", WishList.statusLine(Tx.EN, status, emptyList(), 1))
+        assertEquals("S5 चे उत्तर 409", WishList.statusLine(Tx.MR, status, emptyList(), 1))
+        // only the whole stand-in is looked up: S5 words that merely start the same way are S5's
+        assertEquals("S5 answered 4090 times", WishList.statusLine(Tx.MR, WishList.afterSurvey(mine, "S5 answered 4090 times"), emptyList(), 1))
     }
 
     @Test fun `a room written on S5 that the grid does not show is kept`() {
@@ -400,11 +479,11 @@ class WishListTest {
         // the phone's own save no longer stands (slice W review): the head reads S5's stamp, and "nothing saved yet"
         // when S5 never stored a list (wishlist_at ''), never "saved on this phone" over the rows just taken from S5
         assertEquals("", after.savedAt)
-        assertEquals("on S5 since 28 Oct, 07:30 IST", WishList.savedText(after))
+        assertEquals("on S5 since 28 Oct, 07:30 IST", WishList.savedText(Tx.EN, after))
         val neverOnS5 = WishList.afterFinal(mine, WishList.forPut(emptyMap()), "", s5Final)
         assertEquals("", neverOnS5.savedAt)
         assertEquals(0, WishList.count(neverOnS5.rows))
-        assertEquals("nothing saved yet", WishList.savedText(neverOnS5))
+        assertEquals("nothing saved yet", WishList.savedText(Tx.EN, neverOnS5))
         // the screen draws it under the banner at Client approved: S5's 409, beside the lock line, in the table's words
         val banners = WishList.banners(Tx.EN, 5, warned = false)
         assertEquals(s5Final, WishList.statusLine(Tx.EN, after, banners, 5))
@@ -422,7 +501,7 @@ class WishListTest {
         assertEquals(s5Survey, after.status)
         // the cache read Survey too: the banner already says it word for word, so it is not drawn twice
         assertEquals(null, WishList.statusLine(Tx.EN, after, WishList.banners(Tx.EN, 0, warned = false), 0))
-        // in Marathi too, under the banner still drawn in English until M4 keys it (no line said twice in two languages)
+        // in Marathi too: the banner and the line are one key in one language, so it is not drawn twice (port M4)
         assertEquals(null, WishList.statusLine(Tx.MR, after, WishList.banners(Tx.MR, 0, warned = false), 0))
         // the cache past Survey: the words are no longer true, so nothing is drawn (slice W fix review; it was drawn here)
         assertEquals(null, WishList.statusLine(Tx.EN, after, WishList.banners(Tx.EN, 1, warned = false), 1))
@@ -568,20 +647,20 @@ class WishListTest {
         val visited = WishList.afterGet(WishList.left(WishList.entered(old)), old.rows, old.at)
         assertEquals(WishList.REPLACED, visited.note)   // kept as stored: not the screen's to rewrite
         assertFalse(WishList.editable(WishList.APPROVED))
-        assertEquals(null, WishList.noteLine(visited, WishList.APPROVED))
-        assertEquals(null, WishList.noteLine(old, WishList.APPROVED))
+        assertEquals(null, WishList.noteLine(Tx.EN, visited, WishList.APPROVED))
+        assertEquals(null, WishList.noteLine(Tx.EN, old, WishList.APPROVED))
         // NOT_SENT: S5 checks a 400's shape before the final check
         val notSent = WishList.afterRefused(WishList.edited(Local("C", "T"), mapOf("cctv" to Row(on = true)), "t"),
             mapOf("cctv" to Row(on = true)), "Send JSON")
         assertEquals("Not sent to S5 — Send JSON", notSent.note)
-        assertEquals(null, WishList.noteLine(notSent, WishList.APPROVED))
+        assertEquals(null, WishList.noteLine(Tx.EN, notSent, WishList.APPROVED))
         // everywhere else the note shows as before, the stage unread included
         for (i in listOf(null, 0, 1, 2, 3, 4)) {
-            assertEquals(WishList.REPLACED, WishList.noteLine(old, i), "noteLine($i)")
-            assertEquals("Not sent to S5 — Send JSON", WishList.noteLine(notSent, i), "noteLine($i)")
+            assertEquals(WishList.REPLACED, WishList.noteLine(Tx.EN, old, i), "noteLine($i)")
+            assertEquals("Not sent to S5 — Send JSON", WishList.noteLine(Tx.EN, notSent, i), "noteLine($i)")
         }
-        assertEquals(null, WishList.noteLine(Local("C", "T"), 2))
-        assertEquals(null, WishList.noteLine(null, 2))
+        assertEquals(null, WishList.noteLine(Tx.EN, Local("C", "T"), 2))
+        assertEquals(null, WishList.noteLine(Tx.EN, null, 2))
     }
 
     @Test fun `a stage refusal is drawn only while that stage holds - no Survey words at Client wish list, no Approved ones off Client approved`() {
@@ -662,10 +741,10 @@ class WishListTest {
     }
 
     @Test fun `the head - nothing saved, saved on this phone, on S5 since in IST`() {
-        assertEquals("nothing saved yet", WishList.savedText(null))
-        assertEquals("nothing saved yet", WishList.savedText(Local("C", "T")))
-        assertEquals("saved on this phone", WishList.savedText(Local("C", "T", dirty = true, at = "2026-10-14T02:38:00.000Z")))
-        assertEquals("on S5 since 14 Oct, 08:08 IST", WishList.savedText(Local("C", "T", at = "2026-10-14T02:38:00.000Z")))
-        assertEquals("saved on this phone", WishList.savedText(Local("C", "T", savedAt = "2026-10-14T02:38:00Z")))
+        assertEquals("nothing saved yet", WishList.savedText(Tx.EN, null))
+        assertEquals("nothing saved yet", WishList.savedText(Tx.EN, Local("C", "T")))
+        assertEquals("saved on this phone", WishList.savedText(Tx.EN, Local("C", "T", dirty = true, at = "2026-10-14T02:38:00.000Z")))
+        assertEquals("on S5 since 14 Oct, 08:08 IST", WishList.savedText(Tx.EN, Local("C", "T", at = "2026-10-14T02:38:00.000Z")))
+        assertEquals("saved on this phone", WishList.savedText(Tx.EN, Local("C", "T", savedAt = "2026-10-14T02:38:00Z")))
     }
 }

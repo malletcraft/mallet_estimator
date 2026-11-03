@@ -1745,6 +1745,7 @@ wish.one_line_what_exactly	wish_one_line_what_exactly	static	-
 wish.quote_stage_not_read	wish_quote_stage_not_read	static	-
 wish.quote_stage_x	wish_quote_stage_x	template	v: String
 wish.read_x	wish_read_x	template	hm: String
+wish.s5_answered_x	wish_s5_answered_x	template	code: String
 wish.s5_newer_list_replaced	wish_s5_newer_list_replaced	static	-
 wish.safety_door_aluminium_main	wish_safety_door_aluminium_main	static	-
 wish.saved_phone	wish_saved_phone	static	-

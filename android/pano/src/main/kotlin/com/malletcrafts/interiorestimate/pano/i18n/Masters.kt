@@ -231,9 +231,10 @@ object Masters {
         else -> value
     }
 
-    /** 1 values. */
+    /** 2 values. */
     fun service_note(tx: Tx, value: String): String = when (value) {
         "safety door, aluminium main door, UPVC" -> tx.wish_safety_door_aluminium_main
+        "water and drain points, taps, geyser, sanitary ware outside the bathroom renovations" -> tx.wish_water_drain_points_taps
         else -> value
     }
 

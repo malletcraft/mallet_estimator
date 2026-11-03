@@ -13918,6 +13918,19 @@
    "fragment"
   ]
  },
+ "wish.s5_answered_x": {
+  "en": "S5 answered {code}",
+  "where": [
+   "S2 APK phone text · WishList.kt s5Answered at 27a0e69+M4 · Wish list (port 61c slice M4, 3 Nov 2026), Marathi by Claude (decision 6): S5's reason when its refusal of a PUT …/wishlist carried no `error` (a 403, 400 or 413 page that is not S5's JSON). A stored note: it stays English in the wish_list preferences, after \"Not sent to S5 — \" or as the status line, and is shown through WishList.noteLine and statusLine; the prototype has no such answer, so the line is the phone's, worded as app.note.web_answered_x"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "code": "the HTTP status"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "wish.s5_newer_list_replaced": {
   "en": "S5 had a newer list; yours was replaced, re-apply what is missing",
   "where": [

@@ -1415,8 +1415,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 wishKey = k
                                 wishFor = proj.key
                             }),
-                            wishLabel = remember(proj.key, proj.serverId, wishTick, dataTick) {
-                                WishList.chip(WishSync.count(context,
+                            wishLabel = remember(proj.key, proj.serverId, wishTick, dataTick, tx) {
+                                WishList.chip(tx, WishSync.count(context,
                                     WishList.keyOf(proj.serverId, proj.client, proj.title)))
                             },
                             onDetail = { showDetail = true })

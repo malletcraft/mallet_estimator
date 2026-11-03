@@ -99,11 +99,32 @@ its work names, five states and 39 worksite stages are S5's identity values, sho
   change on a work outside the scope, one whole key per kind so no English word fills a placeholder) and
   `refuse.album.review_no_image` (S5's 409 before the JPEG lands, without "; not saved").
 
+## Port 61c slice M4 (3 Nov 2026): the wish list is keyed
+
+`WishListScreen.kt`, `WishSync.kt` and `pano/WishList.kt` joined `ported.txt` and their 34 `unkeyed.tsv` rows went.
+Every text the Wish list draws is a `tx.<key>`, through functions that take a `Tx` (`chip`, `total`, `subLine`,
+`rowLine`, `savedText`, `banners`, `noteLine`, `statusLine`); the twelve services and their two descriptions are S5's
+identity values, marked `// text:value` and shown through `Masters.service` / `Masters.service_note` (`WishList.name`,
+`WishList.detail`), and a room through `Masters.room` (`WishList.roomName`), a typed one as typed. Every key the screen
+draws but one (below) was already in the tables; their Marathi is the prototype v61c.1 table's, word for word, and the
+four phone texts from L2's card that it draws (`wish.not_sent_s5`, `wish.s5_newer_list_replaced`, `wish.on_s5_since_x`,
+`wish.water_drain_points_taps`) are unchanged.
+
+- **Stored in English, drawn through a key.** The two notes the phone writes into its copy of a list, `REPLACED` and
+  `NOT_SENT` before S5's reason, stay byte for byte what every earlier build stored, so a list kept before M4 is drawn
+  in the language too and nothing is migrated: `noteLine` draws them as `wish.s5_newer_list_replaced` and
+  `wish.not_sent_s5`, S5's own reason as sent.
+- **Added, 1 phone text** (flag `phone-text`; Marathi by Claude, decision 6): `wish.s5_answered_x`, "S5 answered
+  {code}", WishSync's stand-in when S5 refused a save with no `error` of its own (`WishList.s5Answered`, stored in
+  English like the rest of the note), worded as `app.note.web_answered_x`.
+- **masters.tsv** gains the row `service_note` → `wish.water_drain_points_taps`, the 12th service's description, and MastersTest's
+  pass-through list loses it.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,791 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 4 phone texts (K1b, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,792 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys and plus 5 phone texts (4 in K1b, 1 in M4, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

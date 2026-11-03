@@ -5601,6 +5601,10 @@
  "wish.read_x": {
   "mr": " · {hm} ला वाचले"
  },
+ "wish.s5_answered_x": {
+  "mr": "S5 चे उत्तर {code}",
+  "note": "M4: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. Worded as app.note.web_answered_x (वेबचे उत्तर {code})"
+ },
  "wish.s5_newer_list_replaced": {
   "mr": "S5 कडे नवी यादी होती; तुमची यादी बदलली गेली, जे राहिले ते पुन्हा भरा"
  },

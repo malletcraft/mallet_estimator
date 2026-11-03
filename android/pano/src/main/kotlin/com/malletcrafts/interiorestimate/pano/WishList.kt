@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
 /**
@@ -42,33 +43,60 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * that is re-keyed to the ERP id once the project has one, so a list made offline is not
  * orphaned. This is the pure half: the services, the texts, the stage rules and every
  * transition of what the phone keeps. WishListTest pins all of it.
+ *
+ * EVERY TEXT IT SHOWS IS KEYED (port 61c slice M4): each display function takes a `tx: Tx`, and
+ * the twelve services and the rooms are identity values shown through [Masters]. WHAT IS STORED OR
+ * SENT STAYS ENGLISH, byte for byte: the service ids and names, the rows that go to S5, and the two
+ * notes this file writes into the phone's copy ([REPLACED], [NOT_SENT] before a reason, and the
+ * reason [s5Answered] stands in for), which [noteLine] and [statusLine] map to their keys only to
+ * draw them -- so a note an older build stored is drawn in the language too, and nothing is migrated.
  */
 object WishList {
 
+    /**
+     * One service: S5's id, and its [name] and [detail] in English, as S5 and the prototype hold them --
+     * identity values, shown through [name] and [detail] below, never translated in storage.
+     */
     data class Service(val id: String, val name: String, val detail: String)
 
     /**
      * S5's WISH_SERVICES (functions/_lib/asis.js), in S5's order: the eleven of the approved
      * prototype (v52 wish.js) and the twelfth, Plumbing & sanitary, appended on 16 Oct 2026
      * (Amit). A new service is APPENDED there, never inserted; change this only with S5.
+     * Shown through Masters.service and Masters.service_note ([name], [detail]); CCTV is an
+     * abbreviation and is shown as written in both languages.
      */
     val SERVICES: List<Service> = listOf(
-        Service("electrical", "Electrical works", ""),
-        Service("cctv", "CCTV", ""),
-        Service("intercom", "Intercom", ""),
-        Service("false-ceiling", "False ceiling", ""),
-        Service("doors-windows", "Doors & windows", "safety door, aluminium main door, UPVC"),
-        Service("balcony-grill", "Balcony grill", ""),
-        Service("carpentry", "Carpentry / furniture", ""),
-        Service("master-bath", "Master bathroom — complete renovation", ""),
-        Service("guest-bath", "Guest bathroom — complete renovation", ""),
-        Service("painting", "Painting", ""),
-        Service("curtains", "Curtains — roller blinds", ""),
-        Service("plumbing", "Plumbing & sanitary",
-            "water and drain points, taps, geyser, sanitary ware outside the bathroom renovations"),
+        Service("electrical", "Electrical works", ""), // text:value S5's service, shown through Masters.service
+        Service("cctv", "CCTV", ""), // text:value S5's service, an abbreviation shown as written
+        Service("intercom", "Intercom", ""), // text:value S5's service, shown through Masters.service
+        Service("false-ceiling", "False ceiling", ""), // text:value S5's service, shown through Masters.service
+        Service("doors-windows", "Doors & windows", // text:value S5's service, shown through Masters.service
+            "safety door, aluminium main door, UPVC"), // text:value its description, shown through Masters.service_note
+        Service("balcony-grill", "Balcony grill", ""), // text:value S5's service, shown through Masters.service
+        Service("carpentry", "Carpentry / furniture", ""), // text:value S5's service, shown through Masters.service
+        Service("master-bath", "Master bathroom — complete renovation", ""), // text:value S5's service, shown through Masters.service
+        Service("guest-bath", "Guest bathroom — complete renovation", ""), // text:value S5's service, shown through Masters.service
+        Service("painting", "Painting", ""), // text:value S5's service, shown through Masters.service
+        Service("curtains", "Curtains — roller blinds", ""), // text:value S5's service, shown through Masters.service
+        Service("plumbing", "Plumbing & sanitary", // text:value S5's service, shown through Masters.service
+            "water and drain points, taps, geyser, sanitary ware outside the bathroom renovations"), // text:value its description, shown through Masters.service_note
     )
 
     val IDS: Set<String> = SERVICES.map { it.id }.toSet()
+
+    /** A service's name as the screen shows it: S5's English under English, its key's Marathi under मराठी. */
+    fun name(tx: Tx, service: Service): String = Masters.service(tx, service.name)
+
+    /** A service's description as the screen shows it ("" when it has none). */
+    fun detail(tx: Tx, service: Service): String = Masters.service_note(tx, service.detail)
+
+    /**
+     * A room as the APPLIES TO chips and the row's line show it: a room the catalogue knows through
+     * Masters.room (Kitchen is किचन under मराठी), a typed one as typed. The row keeps -- and S5 is
+     * sent -- the English name, so the prototype's text layer and this agree on every known room.
+     */
+    fun roomName(tx: Tx, room: String): String = Masters.room(tx, room)
 
     // S5's caps (validWishlist): what the phone lets through is what S5 accepts.
     const val MAX_ROOMS = 40
@@ -76,20 +104,27 @@ object WishList {
     const val MAX_NOTE = 500
     const val MAX_VENDOR = 140
 
-    // The prototype's texts (wish.js), character for character. The head and the two lock lines
-    // are keyed ([head], [lockedLine]); the rest of the file is keyed in port slice M4.
-    const val FINISH_SURVEY = "Finish the survey first — the stage moves to Client wish list on S5"
-    const val UNREAD = QuoteStage.UNREAD
-    const val AFTER_QUOTE = "Changing the wish list after a vendor quoted — tell the vendor"
-    const val WHOLE_FLAT = "Whole flat"
-    const val NOT_ASKED = "not asked for"
-    const val APPLIES_TO = "APPLIES TO"
-    const val SAVED_HERE = "saved on this phone"
-    const val NOTHING_SAVED = "nothing saved yet"
+    // The two notes this file STORES (Local.note), in English, byte for byte what every earlier build
+    // stored -- storage never sees Marathi. They are drawn through their keys (noteLine): REPLACED is
+    // wish.s5_newer_list_replaced, NOT_SENT wish.not_sent_s5, the card's two phone texts (L2).
     /** Decision 2: shown after a 409 replaced the phone's list with S5's. */
-    const val REPLACED = "S5 had a newer list; yours was replaced, re-apply what is missing"
+    const val REPLACED = "S5 had a newer list; yours was replaced, re-apply what is missing" // text:value a stored note, shown through tx.wish_s5_newer_list_replaced
     /** Before S5's own reason when S5 refused the list for good (a non-staff key, a bad shape). */
-    const val NOT_SENT = "Not sent to S5"
+    const val NOT_SENT = "Not sent to S5" // text:value a stored note, shown through tx.wish_not_sent_s5
+    /** Between [NOT_SENT] and S5's reason in the stored note. */
+    private const val REASON_SEP = " — "
+
+    /**
+     * S5's reason when its refusal carried no `error` (a 403, 400 or 413 page that is not S5's JSON):
+     * WishSync's stand-in, stored in English like the rest of the note and drawn through
+     * wish.s5_answered_x ([reasonLine]). One place builds it and one reads it back.
+     */
+    fun s5Answered(code: Int): String = "S5 answered $code" // text:value a stored reason, shown through tx.wish_s5_answered_x
+    private val S5_ANSWERED = Regex("""S5 answered (\d{3})""") // text:value reads s5Answered's stored English back
+
+    /** A stored reason as the screen draws it: the phone's own stand-in through its key, S5's words as sent. */
+    private fun reasonLine(tx: Tx, reason: String): String =
+        S5_ANSWERED.matchEntire(reason)?.let { tx.wish_s5_answered_x(code = it.groupValues[1]) } ?: reason
 
     /** One service's row: wanted or not, the rooms it applies to (none = the whole flat), a note, a vendor. */
     data class Row(
@@ -252,8 +287,8 @@ object WishList {
     /** How many services are wanted. Ids S5 no longer lists are not counted. */
     fun count(rows: Map<String, Row>): Int = SERVICES.count { rows[it.id]?.on == true }
 
-    /** The project screen's chip. */
-    fun chip(n: Int): String = "Wish list $n/${SERVICES.size}"
+    /** The project screen's chip, "Wish list 2/12" (wish.wish_list_x_x, the prototype's entryChip). */
+    fun chip(tx: Tx, n: Int): String = tx.wish_wish_list_x_x(v = "$n", length = SERVICES.size)
 
     /**
      * Whether the project screen shows the Wish list chip: everywhere but Survey, the prototype's
@@ -265,28 +300,32 @@ object WishList {
      */
     fun chipShown(stageIdx: Int?): Boolean = stageIdx != 0
 
-    /** The head's count. */
-    fun total(n: Int): String = "$n of ${SERVICES.size} wanted"
+    /** The head's count, "2 of 12 wanted" (wish.x_x_wanted). */
+    fun total(tx: Tx, n: Int): String = tx.wish_x_x_wanted(n = "$n", length = SERVICES.size)
 
-    /** What the APPLIES TO choice reads as: the whole flat when no room is picked, else the rooms. */
-    fun subLine(row: Row): String = if (row.rooms.isEmpty()) WHOLE_FLAT else row.rooms.joinToString(" · ")
+    /**
+     * What the APPLIES TO choice reads as: the whole flat when no room is picked, else the rooms, each
+     * as [roomName] shows it. The note is the person's own text and is never looked up.
+     */
+    fun subLine(tx: Tx, row: Row): String =
+        if (row.rooms.isEmpty()) tx.common_whole_flat else row.rooms.joinToString(" · ") { roomName(tx, it) }
 
     /**
      * The row's second line: where, the note, and the vendor when wanted and the Vendor field is
      * shown ([vendorUi]: v54 finding 4, the Wish list phase shows no vendor text); the service's
-     * detail when not wanted.
+     * detail when not wanted, else "not asked for". The vendor is typed and shown as typed.
      */
-    fun rowLine(service: Service, row: Row, vendorUi: Boolean): String =
-        if (row.on) listOfNotNull(subLine(row), row.note.ifBlank { null },
-            row.vendor.takeIf { vendorUi }?.ifBlank { null }?.let { "vendor $it" }).joinToString(" · ")
-        else service.detail.ifBlank { NOT_ASKED }
+    fun rowLine(tx: Tx, service: Service, row: Row, vendorUi: Boolean): String =
+        if (row.on) listOfNotNull(subLine(tx, row), row.note.ifBlank { null },
+            row.vendor.takeIf { vendorUi }?.ifBlank { null }?.let { tx.wish_vendor_x(vendor = it) }).joinToString(" · ")
+        else detail(tx, service).ifBlank { tx.wish_not_asked }
 
-    /** The head's state: unsent here, on S5 since a time, or nothing yet. */
-    fun savedText(l: Local?): String {
-        if (l == null) return NOTHING_SAVED
-        if (l.dirty) return SAVED_HERE
-        QuoteStage.instantOf(l.at)?.let { return "on S5 since ${QuoteStage.dayTime(it)} IST" }
-        return if (l.savedAt.isNotBlank()) SAVED_HERE else NOTHING_SAVED
+    /** The head's state: unsent here, on S5 since a time (IST; months stay English), or nothing yet. */
+    fun savedText(tx: Tx, l: Local?): String {
+        if (l == null) return tx.wish_nothing_saved_yet
+        if (l.dirty) return tx.wish_saved_phone
+        QuoteStage.instantOf(l.at)?.let { return tx.wish_on_s5_since_x(dt = QuoteStage.dayTime(it)) }
+        return if (l.savedAt.isNotBlank()) tx.wish_saved_phone else tx.wish_nothing_saved_yet
     }
 
     // ---- the stage rules ----------------------------------------------------
@@ -363,14 +402,15 @@ object WishList {
     fun notOnS5(synced: Boolean, cache: QuoteStage.Cache?): Boolean = !synced || (cache != null && !cache.listed)
 
     /**
-     * The banners over the list, in the prototype's order. [warned]: changed after a vendor
-     * quoted, this visit. [notOnS5]: no unread banner, since going online changes nothing.
+     * The banners over the list, in the prototype's order (its screen(): the read-only banner, the
+     * unread one, the after-quote one), each from its key. [warned]: changed after a vendor quoted,
+     * this visit. [notOnS5]: no unread banner, since going online changes nothing.
      */
     fun banners(tx: Tx, stageIdx: Int?, warned: Boolean, notOnS5: Boolean = false): List<String> = buildList {
-        if (stageIdx == 0) add(FINISH_SURVEY)
+        if (stageIdx == 0) add(tx.refuse_wish_finish_survey_first_stage)
         lockedLine(tx, stageIdx)?.let { add(it) }
-        if (stageIdx == null && !notOnS5) add(UNREAD)
-        if (warned && warnAfterQuote(stageIdx)) add(AFTER_QUOTE)
+        if (stageIdx == null && !notOnS5) add(tx.wish_quote_stage_not_read)
+        if (warned && warnAfterQuote(stageIdx)) add(tx.wish_changing_wish_list_after)
     }
 
     /**
@@ -381,9 +421,22 @@ object WishList {
      * REPLACED written by APK 0.3.262, which read S5's `final` 409 as a stale base. The note is kept
      * as stored: it is not the screen's to rewrite, and a stage read that is not Client approved
      * shows it again. The prototype draws no note under its lock either (§16.3).
+     *
+     * DRAWN THROUGH ITS KEYS, STORED IN ENGLISH (port 61c slice M4): REPLACED is
+     * wish.s5_newer_list_replaced; NOT_SENT is wish.not_sent_s5, then " — " and S5's reason as S5
+     * sent it (its own words are data) or the phone's stand-in through wish.s5_answered_x
+     * ([s5Answered]). Any other stored note is drawn as stored.
      */
-    fun noteLine(l: Local?, stageIdx: Int?): String? =
-        l?.note?.takeIf { it.isNotBlank() && stageIdx != APPROVED }
+    fun noteLine(tx: Tx, l: Local?, stageIdx: Int?): String? {
+        val note = l?.note?.takeIf { it.isNotBlank() && stageIdx != APPROVED } ?: return null
+        return when {
+            note == REPLACED -> tx.wish_s5_newer_list_replaced
+            note == NOT_SENT -> tx.wish_not_sent_s5
+            note.startsWith(NOT_SENT + REASON_SEP) ->
+                tx.wish_not_sent_s5 + REASON_SEP + reasonLine(tx, note.removePrefix(NOT_SENT + REASON_SEP))
+            else -> note
+        }
+    }
 
     // ---- edits --------------------------------------------------------------
 
@@ -423,11 +476,12 @@ object WishList {
     /**
      * S5's stage refusal ([Local.status]) as the status line under [shown], the banners already
      * drawn; null when there is none, or when a banner already says exactly that (the Survey 409
-     * repeats FINISH_SURVEY word for word -- in English, which is how the banner draws it until M4
-     * keys it, so the Marathi line is not drawn under it either). Words S5 sends that are a key's
+     * repeats the Survey banner word for word, and both are drawn from refuse.wish.finish_survey_first_stage
+     * in the same language). Words S5 sends that are a key's
      * English are drawn from that key, as the prototype's text match draws its refused line (L57):
      * the `final` 409 is refuse.stage.approved_final, the Survey one refuse.wish.finish_survey_first_stage.
-     * Any other words are S5's, shown as sent.
+     * The phone's own stand-in for a refusal with no words ([s5Answered]) is drawn through
+     * wish.s5_answered_x. Any other words are S5's, shown as sent.
      *
      * A REFUSAL FOR THE STAGE IS DRAWN ONLY WHILE THAT STAGE HOLDS ([stageIdx], the phone's one copy
      * of the stage): the `final` words at Client approved, the Survey words at Survey, and either
@@ -446,7 +500,7 @@ object WishList {
                 tx.refuse_stage_approved_final.takeIf { stageIdx == null || stageIdx == APPROVED }
             Tx.EN.refuse_wish_finish_survey_first_stage ->
                 tx.refuse_wish_finish_survey_first_stage.takeIf { stageIdx == null || stageIdx == 0 }
-            else -> words
+            else -> reasonLine(tx, words)
         } ?: return null
         return text.takeIf { it !in shown && words !in shown }
     }
@@ -574,12 +628,13 @@ object WishList {
      * PUT again every sync (PLAN slice 16: "one note and no endless retry") and the next GET
      * on project open takes S5's copy again; the note carries S5's own reason. The rows stay
      * as typed until then, and the next edit clears the note and tries once more -- as does
-     * an edit made while the refused PUT was out, which is left dirty here.
+     * an edit made while the refused PUT was out, which is left dirty here. The note is stored in
+     * English ([NOT_SENT], " — ", the reason as S5 gave it) and drawn through its keys ([noteLine]).
      */
     fun afterRefused(current: Local, sent: Map<String, Row>, message: String): Local =
         if (forPut(current.rows) != forPut(sent)) current
         else current.copy(dirty = false, status = "", statusSeen = false,
-            note = listOf(NOT_SENT, message.trim()).filter { it.isNotEmpty() }.joinToString(" — "))
+            note = listOf(NOT_SENT, message.trim()).filter { it.isNotEmpty() }.joinToString(REASON_SEP))
 
     /**
      * A GET on project open: a clean list takes S5's copy (staff edits on /projects); an

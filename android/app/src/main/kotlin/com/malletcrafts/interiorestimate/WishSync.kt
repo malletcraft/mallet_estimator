@@ -353,10 +353,14 @@ object WishSync {
         }
     }
 
-    /** S5's own reason for a refusal (its `error`), one line; its status when it gave none. */
+    /**
+     * S5's own reason for a refusal (its `error`), one line, as S5 sent it; when it gave none, the
+     * phone's stand-in naming the status (WishList.s5Answered). Both are STORED in English -- the note
+     * after NOT_SENT, or the status line -- and the screen draws them (WishList.noteLine, statusLine).
+     */
     private fun s5Error(a: AsIsUpload.Answer): String {
         val text = runCatching { JSONObject(a.body).optString("error") }.getOrNull().orEmpty()
-        return text.replace(Regex("\\s+"), " ").trim().take(160).ifBlank { "S5 answered ${a.code}" }
+        return text.replace(Regex("\\s+"), " ").trim().take(160).ifBlank { WishList.s5Answered(a.code) }
     }
 
     /**

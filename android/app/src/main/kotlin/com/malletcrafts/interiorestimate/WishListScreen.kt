@@ -72,6 +72,12 @@ import com.malletcrafts.interiorestimate.pano.WishList
  * visit clears them if it never was (WishList.shown, WishList.entered). At Client approved no
  * REPLACED or NOT_SENT note shows (WishList.noteLine). Every edit goes straight to WishSync on
  * this phone.
+ *
+ * Every text it draws is keyed (port 61c slice M4): the title, the head, the banners, the notes,
+ * the twelve services, APPLIES TO and its chips, the Note and Vendor fields. The services and the
+ * rooms are identity values drawn through Masters (WishList.name, WishList.roomName); what is typed
+ * -- a note, a vendor, a room S5 holds that the catalogue does not -- is drawn as typed, and every
+ * row goes to S5 in English. The top bar's sub-line is the quote line (QuoteStage), keyed with it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -124,7 +130,7 @@ fun WishListScreen(
     Scaffold(
         topBar = {
             TreeTopBar(
-                title = "Wish list · ${project.title}",
+                title = tx.wish_wish_list_x(title = project.title),
                 subtitle = quote.title,
                 onSearch = onSearch,
                 onBack = onBack)
@@ -144,16 +150,16 @@ fun WishListScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text(WishList.total(WishList.count(rows)),
+                    Text(WishList.total(tx, WishList.count(rows)),
                         style = MaterialTheme.typography.titleSmall, color = ink)
-                    Text(WishList.savedText(list), style = MaterialTheme.typography.bodySmall,
+                    Text(WishList.savedText(tx, list), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             // The REPLACED or NOT_SENT note, never under the lock at Client approved (WishList.noteLine).
-            WishList.noteLine(list, stageIdx)?.let { Banner(it) }
+            WishList.noteLine(tx, list, stageIdx)?.let { Banner(it) }
             val banners = WishList.banners(tx, stageIdx, warned, notOnS5)
             banners.forEach { Banner(it) }
             // S5's answer to a refused save, in its words (v61c.1's [data-wish409] status line),
@@ -212,6 +218,7 @@ private fun WishRow(
     onNote: (String) -> Unit,
     onVendor: (String) -> Unit,
 ) {
+    val tx = LocalTx.current
     val bg = if (row.on) Color(0xFFEEF7F5) else MaterialTheme.colorScheme.surfaceContainerLow
     Column(Modifier.fillMaxWidth().background(bg)) {
         Row(
@@ -228,16 +235,16 @@ private fun WishRow(
             // The row is the target (as the prototype's whole head is), so the box itself takes no tap.
             Checkbox(checked = row.on, onCheckedChange = null, enabled = editable)
             Column(Modifier.weight(1f)) {
-                Text(service.name, style = MaterialTheme.typography.bodyLarge,
+                Text(WishList.name(tx, service), style = MaterialTheme.typography.bodyLarge,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(WishList.rowLine(service, row, vendorUi), style = MaterialTheme.typography.bodySmall,
+                Text(WishList.rowLine(tx, service, row, vendorUi), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (row.on && editable) {
             Column(Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, bottom = 10.dp)) {
-                Text(WishList.APPLIES_TO, style = MaterialTheme.typography.labelSmall,
+                Text(tx.wish_applies_to, style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
                 FlowRow(
@@ -245,10 +252,11 @@ private fun WishRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     FilterChip(selected = row.rooms.isEmpty(), onClick = onWholeFlat,
-                        label = { Text(WishList.WHOLE_FLAT) })
+                        label = { Text(tx.common_whole_flat) })
                     rooms.forEach { r ->
                         FilterChip(selected = r in row.rooms, onClick = { onRoom(r) },
-                            label = { Text(r, maxLines = 1, overflow = TextOverflow.Ellipsis) })
+                            // Shown in the language, kept and sent in English (WishList.roomName).
+                            label = { Text(WishList.roomName(tx, r), maxLines = 1, overflow = TextOverflow.Ellipsis) })
                     }
                 }
                 if (landscape) {
@@ -272,20 +280,22 @@ private fun WishRow(
 
 @Composable
 private fun NoteField(value: String, onChange: (String) -> Unit, modifier: Modifier) {
+    val tx = LocalTx.current
     OutlinedTextField(
         value = value, onValueChange = onChange,
-        label = { Text("Note") },
-        placeholder = { Text("one line — what exactly") },
+        label = { Text(tx.type_note) },
+        placeholder = { Text(tx.wish_one_line_what_exactly) },
         singleLine = true,
         modifier = modifier.padding(top = 12.dp))
 }
 
 @Composable
 private fun VendorField(value: String, onChange: (String) -> Unit, modifier: Modifier) {
+    val tx = LocalTx.current
     OutlinedTextField(
         value = value, onValueChange = onChange,
-        label = { Text("Vendor") },
-        placeholder = { Text("filled in when a vendor is chosen") },
+        label = { Text(tx.common_vendor) },
+        placeholder = { Text(tx.wish_filled_when_vendor_chosen) },
         singleLine = true,
         modifier = modifier.padding(top = 12.dp))
 }

@@ -52,7 +52,6 @@ class MastersTest {
         "Nos" to "a unit (latin-ok.txt)",
         "Top" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
         "Bottom" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
-        WishList.SERVICES.first { it.id == "plumbing" }.detail to "the plumbing service's description: its key landed in L2 (wish.water_drain_points_taps); its masters.tsv row, and this entry's removal, are Marathi slice 4 (port M4)",
     )
 
     private val devanagari = Regex("[\\u0900-\\u097F]")
@@ -126,9 +125,10 @@ class MastersTest {
         val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java)
         val named = mapOf(
             // afterFinal, afterSurvey and left (port 61c slice W), and after409, shown and entered (its review), write the
-            // stored list: S5's words stay as S5 sent them
+            // stored list: S5's words stay as S5 sent them. Port M4 adds the two that write the stored notes (REPLACED,
+            // NOT_SENT) and s5Answered, the stored reason: English in storage, drawn through their keys by noteLine
             WishList::class.java to listOf("forPut", "normalised", "edited", "afterPut", "afterFinal", "afterSurvey", "left",
-                "after409", "shown", "entered"),
+                "after409", "shown", "entered", "afterConflict", "afterRefused", "s5Answered"),
             // port 61c slice K1b: the filing, the ids, the ops, the scope amendment, the log pages and every outbox
             // transition build what is stored or sent; only Refusal.text, CrKind.word/sub, CrOutcome.text and the
             // display functions (workName, payOf, dayOf, whenOf, decidedText, roleLabel...) take a Tx; AQ adds refileOp (S5-P)
