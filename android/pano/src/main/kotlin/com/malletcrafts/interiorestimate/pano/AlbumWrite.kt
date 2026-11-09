@@ -22,8 +22,9 @@ import kotlin.random.Random
  * pending [Shot] -- gated on the Model, its id minted -- and [shotOp] turns that into the op when the phone's camera app
  * hands the picture back, from the pending shot ALONE: the activity may have been recreated meanwhile (a camera app held
  * in landscape), and there is no Model then (the K5 critic, finding 2). S5 decides the lock again on the record (its
- * locked 409). [single] is the Capture 360 sheet's photo after approval (Amit's answer 3 of 28 Oct 2026), and
- * [refileSingle] its re-file through S5-P.
+ * locked 409). [single] is the Capture 360 sheet's photo after approval (Amit's answer 3 of 28 Oct 2026), queued as
+ * [singleAtAdd] files it from the row as stored at the add, and [refileSingle] its re-file through S5-P, in the queue
+ * [refileSingleAt] names (the K5 review, findings 1 and 5).
  */
 object AlbumWrite {
 
@@ -171,6 +172,20 @@ object AlbumWrite {
     }
 
     /**
+     * [op] (a [single] photo op, built at ingest) AS THE OUTBOX QUEUES IT, from its capture row as stored when it is added
+     * (the K5 review, finding 1), which :app's AlbumOutbox.addSingle reads under the lock its re-file and its delete take.
+     * The shot is encoded between the two -- a second or two in which the row can be re-filed on its WORK line or
+     * deleted -- and a re-file in that window finds nothing to base on ([refileSingle]: no op queued, no mirror row, the
+     * row not synced), so the phone's filing moved alone; S5's record is immutable, so the record must carry it.
+     * [rowWork] is the row's filing now (Album.workOfCapture of its stored work and stage), null when the row is gone:
+     * nothing is queued then, nor for a filing off the sixteen (as [single]); else the op files there, nothing else moved.
+     */
+    fun singleAtAdd(op: Op, rowWork: Int?): Op? {
+        if (op.kind != Album.OP_PHOTO || rowWork == null || !Album.isWork(rowWork)) return null
+        return if (rowWork == op.work) op else op.copy(work = rowWork)
+    }
+
+    /**
      * A SINGLE PHOTO RE-FILED on its WORK line to [to] (S5-P, `PUT …/album/photos/<id>/work {work, base}`), or null.
      * The base is where the photo IS as the phone last told S5 -- the OVERLAID filing (the K5 critic, finding 1): the
      * target of this login's last queued re-file of it, else its queued photo op's work, else the mirror's row, else,
@@ -180,7 +195,8 @@ object AlbumWrite {
      * goes behind that one, and one made with no mirror still reaches S5: a 409 or a 403 then brings S5's filing back
      * (AlbumQueue.refiledBack), and a 404 for a photo S5 never had is refused alone, the phone's filing standing.
      * Null when [to] is not one of the sixteen, when [to] is that filing already, and when none of the four holds it
-     * (a photo taken before approval, or one another login's queue holds: the phone's filing moves alone).
+     * (a photo taken before approval: the phone's filing moves alone). [queue] is the queue the re-file joins: the one
+     * holding the photo op, whoever is signed in ([refileSingleAt]; the K5 review, finding 5).
      */
     fun refileSingle(
         mirror: Album.View?, queue: List<Op>, deviceId: String, from: Int?, to: Int, landed: Boolean, now: Instant,
@@ -200,6 +216,26 @@ object AlbumWrite {
         }
         if (base == to) return null
         return Album.refileOp(Album.Photo(id, base, ""), to, random).copy(at = now.toString())
+    }
+
+    /**
+     * WHICH LOGIN'S QUEUE a single photo's re-file joins, and the op ([refileSingle]), or null when nothing is queued (the
+     * K5 review, finding 5): behind its photo op in WHICHEVER login's queue of [project] holds it
+     * ([AlbumQueue.Outboxes.holderOf]) -- sent only under that login, its uploader, the one S5-P takes a re-file from, so
+     * no sign-in now is needed for it -- else in [me]'s (the login signed in now; null or blank, none), on the mirror or
+     * the landed row. The first version read the signed-in login's queue alone, so a photo op queued under a login signed
+     * out, or another one signed in, was not found: the phone's filing moved alone, and that login's record later went
+     * with the work frozen at ingest, which S5 keeps as immutable -- not "as a capture's does", whose next record carries
+     * the phone's work.
+     */
+    fun refileSingleAt(
+        all: AlbumQueue.Outboxes, me: String?, project: String, mirror: Album.View?, deviceId: String, from: Int?, to: Int,
+        landed: Boolean, now: Instant, random: Random = Random.Default,
+    ): Pair<String, Op>? {
+        val id = Album.photoIdOf(deviceId) ?: return null
+        val login = all.holderOf(id, project) ?: me?.takeIf { it.isNotBlank() } ?: return null
+        val op = refileSingle(mirror, all.of(login, project).queue, deviceId, from, to, landed, now, random) ?: return null
+        return login to op
     }
 
     /** The IST day of [now], YYYY-MM-DD (the prototype's C.today, 7332) -- through atZone, never LocalDate.ofInstant, which is Android API 34. */

@@ -20,12 +20,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -126,8 +124,11 @@ private fun CameraControls(
         )
         // `.alb59cb2`: 84 dp, Cancel, the shutter and a 56 dp spacer spaced between
         Row(Modifier.fillMaxWidth().height(84.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = onCancel, modifier = Modifier.widthIn(min = 56.dp), colors = ButtonDefaults.textButtonColors(contentColor = Color.White)) {
-                Text(model.cancel)
+            // `.alb59x`: a BARE button (the prototype's `:where(.m3) button` -- no padding, the camera's 16/24 face,
+            // text-align inherited), white, at least 56 dp; never an M3 TextButton, whose 12 dp padding, 58 dp minimum
+            // and labelLarge put the text 12 dp in and the shutter off the bar's centre (the K5 review, finding 2)
+            Box(Modifier.widthIn(min = 56.dp).clickable(role = Role.Button, onClick = onCancel), contentAlignment = Alignment.CenterStart) {
+                Text(model.cancel, style = MaterialTheme.typography.bodyLarge, color = Color.White)
             }
             Shutter(model.shutter, model.shutterAria, onShutter)
             Spacer(Modifier.width(56.dp))
@@ -147,10 +148,12 @@ private fun CameraRow(row: AlbumPage.CamRow, onTap: () -> Unit) {
     val m = Modifier
         .fillMaxWidth()
         .heightIn(min = 44.dp)
+        // the WHOLE row at .85, its #1B1F1E with its texts, over the camera's black, as CSS opacity composites it: an
+        // alpha after the background dimmed the texts alone (the K5 review, finding 3)
+        .then(if (row.dim) Modifier.alpha(.85f) else Modifier)
         .clip(shape)
         .background(CAM_ROW)
         .then(if (row.tap) Modifier.clickable(role = Role.Button, onClick = onTap) else Modifier)
-        .then(if (row.dim) Modifier.alpha(.85f) else Modifier)
         .padding(horizontal = 12.dp, vertical = if (row.dim) 6.dp else 0.dp)
     if (row.dim) {
         Column(m, verticalArrangement = Arrangement.Center) {

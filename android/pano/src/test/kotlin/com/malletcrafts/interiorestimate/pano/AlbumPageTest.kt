@@ -1126,7 +1126,7 @@ class AlbumPageTest {
         assertTrue(shots.contains("b.compress(Bitmap.CompressFormat.JPEG, q, out)"))
         assertTrue(shots.contains("if (!tmp.renameTo(dest))"), "a temp file renamed into place")
         // ingest queues the single photo's album op only after approval, for a project S5 lists, signed in
-        assertTrue(main.contains("if (fileApproved && albumKey != null && login.isNotEmpty() && S5Session.signedIn(context)) {\n                        AlbumWrite.single(id, workNow, r, shotAt)"))
+        assertTrue(main.contains("if (fileApproved && albumKey != null && login.isNotEmpty() && S5Session.signedIn(context)) {\n                        val op = AlbumWrite.single(id, workNow, r, shotAt)"))
         // the re-file of a single photo goes through the outbox's lock in tap order; the delete unqueues it
         assertTrue(main.contains("AlbumOutbox.refileSingle(context, key, login, cap.deviceId, from, work, landed)"))
         assertTrue(main.contains("scope.launch(Dispatchers.IO) { AlbumOutbox.unqueuePhoto(context, photoId) }"))
@@ -1159,9 +1159,84 @@ class AlbumPageTest {
         // SyncWorker's (c2) passes over a single photo whose album op is held
         val sync = app("SyncWorker.kt")
         val c2 = sync.substring(sync.indexOf("val notPhoto = "))
-        assertTrue(c2.indexOf("if (c.kind != \"360\" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) continue") in 0 until c2.indexOf("val why = "))
+        assertTrue(c2.indexOf("if (c.kind != \"360\" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) {") in 0 until c2.indexOf("val why = "))
         // K4's hold is gone everywhere in :pano too
         val pano = java.io.File("src/main/kotlin/com/malletcrafts/interiorestimate/pano")
         assertTrue(pano.walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.none { code(it.readText()).contains("K4_STEPS") })
+    }
+
+    @Test fun `the K5 review's app fixes, read as source - the single photo filed from its row at the add, its sync after it, the re-file in the holder's queue, the bare Cancel, the row dimmed whole, the adopted shot drawn now`() {
+        fun code(src: String) = src.replace(Regex("""/\*[\s\S]*?\*/"""), "").lines().joinToString("\n") { it.substringBefore("//") }
+        // finding 1: the op is added from the capture row as stored, under the outbox's lock; a row gone queues nothing and
+        // the shot goes; the capture's delete takes the row out BEFORE it unqueues the photo
+        val shots = code(app("AlbumShots.kt"))
+        val single = shots.substring(shots.indexOf("fun single("), shots.indexOf("fun delete("))
+        assertFalse(single.contains("AlbumOutbox.add("), "never the op as ingest built it")
+        val w = single.indexOf("if (write(app, source, op.photo)) {")
+        val add = single.indexOf("if (AlbumOutbox.addSingle(app, project, login, op)) AlbumOutbox.enqueue(app, project, replace = true)")
+        val gone = single.indexOf("else delete(app, op.photo)")
+        val sync = single.indexOf("SyncWorker.syncNow(app)")
+        assertTrue(w in 0 until add && add < gone && gone < sync, "the shot written, the op added from the row, else the shot deleted, THEN the sync (finding 4)")
+        val outbox = code(app("AlbumOutbox.kt"))
+        assertTrue(outbox.indexOf("fun addSingle(") in 0 until outbox.indexOf("fun holdsPhoto("), "AlbumOutbox.addSingle, before holdsPhoto")
+        val addSingle = outbox.substring(outbox.indexOf("fun addSingle("), outbox.indexOf("fun holdsPhoto("))
+        val lock = addSingle.indexOf("synchronized(LOCK) {")
+        val row = addSingle.indexOf("val row = rowsOf(context).all().firstOrNull { it.deviceId == id }")
+        val at = addSingle.indexOf("AlbumWrite.singleAtAdd(op, row?.let { Album.workOfCapture(it.work, it.stage) }) ?: return false")
+        assertTrue(lock in 0 until row && row < at && at < addSingle.indexOf("write(context, all.with(me, project, s.copy(queue = s.queue + next)))"),
+            "the row read again under the lock the re-file and the delete take")
+        val main = code(app("MainActivity.kt"))
+        val del = main.substring(main.indexOf("onDelete = {\n"), main.indexOf("FacePrepStore(context).delete(cap.deviceId)"))
+        assertTrue(del.indexOf("store.delete(cap.deviceId)") in 0 until del.indexOf("AlbumOutbox.unqueuePhoto(context, photoId)"), "the row's delete before the unqueue")
+        // finding 4: ingest leaves a photo handed to the album to AlbumShots.single's sync; (c2) takes its own stamp off a held photo
+        val ingest = main.substring(main.indexOf("fun ingest("), main.indexOf("val picker = rememberLauncherForActivityResult("))
+        assertTrue(ingest.indexOf("AlbumShots.single(context, albumKey, login, op, pano)") in 0 until ingest.indexOf("toAlbum = true"))
+        assertTrue(ingest.contains("if (!toAlbum) SyncWorker.syncNow(context)"))
+        assertFalse(Regex("""\n\s*SyncWorker\.syncNow\(context\)\n""").containsMatchIn(ingest), "no unconditional sync in ingest")
+        val c2 = code(app("SyncWorker.kt"))
+        assertTrue(c2.indexOf("AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) {") >= 0, "(c2)'s held branch is a block, not a bare continue")
+        val held = c2.substring(c2.indexOf("AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) {"))
+        assertTrue(held.indexOf("if (c.state == \"ERROR\" && c.error == notPhoto) store.setState(c.deviceId, \"LOCAL\")") in 0 until held.indexOf("continue"))
+        // finding 5: the re-file is placed by AlbumWrite.refileSingleAt (the holder's queue, signed in or not); the WORK line
+        // asks for it with no sign-in test of its own
+        val refile = outbox.substring(outbox.indexOf("fun refileSingle("), outbox.indexOf("private fun trimShots("))
+        assertTrue(refile.contains("AlbumWrite.refileSingleAt(all, me, project, AlbumSync.mirror(app, project), deviceId, from, to, landed, now)"))
+        assertTrue(refile.contains("write(app, all.with(who, project, s.copy(queue = s.queue + op)))"), "queued in the login AlbumWrite names")
+        assertFalse(refile.contains("AlbumWrite.refileSingle("), "never the signed-in login's queue alone")
+        assertTrue(main.contains("if (cap.kind == \"Photo\" && key != null) {"))
+        assertFalse(main.contains("if (cap.kind == \"Photo\" && key != null && login.isNotEmpty() && S5Session.signedIn(context)) {"))
+        // finding 2: Cancel is the prototype's bare button (.alb59x: no padding, the camera's 16/24, start-aligned, 56 dp min)
+        val cam = code(app("AlbumCamera.kt"))
+        assertFalse(cam.contains("TextButton("), "never an M3 TextButton (12 dp padding, 58 dp minimum, labelLarge)")
+        assertTrue(cam.contains("Box(Modifier.widthIn(min = 56.dp).clickable(role = Role.Button, onClick = onCancel), contentAlignment = Alignment.CenterStart) {"))
+        assertTrue(cam.contains("Text(model.cancel, style = MaterialTheme.typography.bodyLarge, color = Color.White)"))
+        // finding 3: the read-only row dimmed WHOLE -- the alpha before its background, as CSS opacity composites the row
+        val camRow = cam.substring(cam.indexOf("private fun CameraRow("), cam.indexOf("private fun Shutter("))
+        val alpha = camRow.indexOf(".then(if (row.dim) Modifier.alpha(.85f) else Modifier)")
+        assertTrue(alpha in 0 until camRow.indexOf(".background(CAM_ROW)"), "the alpha before the background")
+        assertTrue(alpha < camRow.indexOf(".clip(shape)"))
+        // finding 6: the adopted shot is marked drawn NOW before the trim, as hit() marks a fetched file
+        val images = code(app("AlbumImages.kt"))
+        val adopt = images.substring(images.indexOf("fun adopt("), images.indexOf("private fun trim("))
+        assertTrue(adopt.indexOf("runCatching { f.setLastModified(System.currentTimeMillis()) }") in 0 until adopt.indexOf("trim(d)"))
+    }
+
+    @Test fun `a shot adopted at its encode-time mtime is the first a full cache trims, adopted as drawn now it stays (the K5 review, finding 6)`() {
+        val mb = 1024L * 1024
+        val now = 1_800_000_000_000L
+        val day = 86_400_000L
+        // 54 MB not drawn since before the shutter, 200 MB drawn since, and the 3 MB shot just landed: 257 MB, over the cap
+        val old = (1..6).map { AlbumPage.CacheFile("old$it.jpg", 9 * mb, now - 2 * day - it) }
+        val drawn = (1..20).map { AlbumPage.CacheFile("d$it.jpg", 10 * mb, now - 3_600_000L + it * 60_000L) }
+        val asRenamed = AlbumPage.CacheFile("ALB-0a1b2c3d4e5f.jpg", 3 * mb, now - day)
+        assertTrue((old + drawn + asRenamed).sumOf { it.bytes } > AlbumPage.CACHE_CAP_BYTES)
+        // a rename keeps the mtime the shot was ENCODED at (a shot taken offline, landed a day later): trimmed right after
+        // the old files, in the very trim adopt runs -- and the card then downloads from S5 the bytes the phone just sent
+        assertTrue(asRenamed.name in AlbumPage.trimmed(old + drawn + asRenamed, now))
+        // marked drawn at the adopt: the newest file, kept; the trim takes the least recently drawn instead
+        val touched = asRenamed.copy(mtime = now)
+        val gone = AlbumPage.trimmed(old + drawn + touched, now)
+        assertFalse(touched.name in gone)
+        assertTrue(old.all { it.name in gone })
     }
 }

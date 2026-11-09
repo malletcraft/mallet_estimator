@@ -189,6 +189,10 @@ object AlbumImages {
                 val tmp = File(d, f.name + AlbumPage.PART)
                 try { shot.copyTo(tmp, overwrite = true); if (tmp.renameTo(f)) shot.delete() else tmp.delete() } catch (e: Exception) { tmp.delete(); throw e }
             }
+            // drawn NOW, as hit() marks a fetched file (the K5 review, finding 6): a rename keeps the mtime the shot was
+            // ENCODED at -- hours or days before it landed, for a shot taken offline -- and the trim reads mtime as the last
+            // draw, so on a full cache the picture just adopted went first and the card downloaded the bytes just sent
+            runCatching { f.setLastModified(System.currentTimeMillis()) }
             trim(d)
         } catch (e: Exception) {
             Log.w(TAG, "$id: shot not moved into the cache: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line

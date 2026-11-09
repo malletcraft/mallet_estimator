@@ -163,6 +163,35 @@ object AlbumOutbox {
     }
 
     /**
+     * THE SINGLE PHOTO'S OP queued for [project] under [login] (port 61c slice K5), from its capture row AS STORED NOW
+     * (the K5 review, finding 1): built at ingest, it is added only once its shot is encoded, a second or two in which
+     * the row can be re-filed on its WORK line or deleted. So under [LOCK] -- the lock [refileSingle] and [unqueuePhoto]
+     * take -- the row is read again: gone, nothing is queued (false: the caller deletes the shot); else the op files at
+     * the row's filing now (AlbumWrite.singleAtAdd). A re-file whose lock came first found nothing to base on and moved
+     * the phone alone: this op carries it. One whose lock comes after is based on this op. Refused, as [add] is, when the
+     * S5 sign-in is not [login]'s any more. Blocking: call it off the main thread, then [enqueue]. Never throws.
+     */
+    fun addSingle(context: Context, project: String, login: String, op: Album.Op): Boolean {
+        if (project.isBlank()) return false
+        return try {
+            synchronized(LOCK) {
+                val me = S5Session.loginKey(context)
+                if (me.isEmpty() || me != Album.partyKey(login) || !S5Session.signedIn(context)) return false
+                val id = Album.deviceIdOf(op.photo) ?: return false
+                val row = rowsOf(context).all().firstOrNull { it.deviceId == id }
+                val next = AlbumWrite.singleAtAdd(op, row?.let { Album.workOfCapture(it.work, it.stage) }) ?: return false
+                val all = all(context)
+                val s = all.of(me, project)
+                write(context, all.with(me, project, s.copy(queue = s.queue + next)))
+            }
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "$project: single photo not queued: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
+            false
+        }
+    }
+
+    /**
      * Whether any login's queue still holds the album photo op of the single photo [photoId] (port 61c slice K5):
      * SyncWorker's (c2) passes over such a photo, which would otherwise read "on this phone only".
      */
@@ -193,12 +222,13 @@ object AlbumOutbox {
     private val serial = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     /**
-     * THE SINGLE PHOTO'S RE-FILE on its WORK line (port 61c slice K5, S5-P): built by AlbumWrite.refileSingle on the
-     * queue AS STORED and the mirror FILE, under [LOCK], in tap order ([serial]) -- so its base is the overlaid filing
-     * whatever is queued before it (the K5 critic, finding 1) -- and queued for [project] under [login], then the drain
-     * asked to run. Nothing is queued when the sign-in is no longer [login]'s or nothing holds the photo (the phone's
-     * filing moves alone). [from] is the row's filing before this re-file, [landed] whether the row reads synced. Never
-     * throws.
+     * THE SINGLE PHOTO'S RE-FILE on its WORK line (port 61c slice K5, S5-P): built by AlbumWrite.refileSingleAt on the
+     * outboxes AS STORED and the mirror FILE, under [LOCK], in tap order ([serial]) -- so its base is the overlaid filing
+     * whatever is queued before it (the K5 critic, finding 1) -- and queued behind the photo op in WHICHEVER login's queue
+     * holds it, signed in or not (the K5 review, finding 5: that queue is sent only under its own login, the photo's
+     * uploader); else under [login] while the S5 sign-in is still [login]'s; then the drain asked to run. Nothing is
+     * queued when nothing holds the photo (the phone's filing moves alone). [from] is the row's filing before this
+     * re-file, [landed] whether the row reads synced; [login] may be blank (nobody signed in). Never throws.
      */
     fun refileSingle(context: Context, project: String, login: String, deviceId: String, from: Int?, to: Int, landed: Boolean) {
         if (project.isBlank()) return
@@ -207,13 +237,13 @@ object AlbumOutbox {
         serial.execute {
             val queued = try {
                 synchronized(LOCK) {
-                    val me = S5Session.loginKey(app)
-                    if (me.isEmpty() || me != Album.partyKey(login) || !S5Session.signedIn(app)) return@synchronized false
+                    val key = S5Session.loginKey(app)
+                    val me = key.takeIf { it.isNotEmpty() && it == Album.partyKey(login) && S5Session.signedIn(app) }
                     val all = all(app)
-                    val s = all.of(me, project)
-                    val op = AlbumWrite.refileSingle(AlbumSync.mirror(app, project), s.queue, deviceId, from, to, landed, now)
+                    val (who, op) = AlbumWrite.refileSingleAt(all, me, project, AlbumSync.mirror(app, project), deviceId, from, to, landed, now)
                         ?: return@synchronized false
-                    write(app, all.with(me, project, s.copy(queue = s.queue + op)))
+                    val s = all.of(who, project)
+                    write(app, all.with(who, project, s.copy(queue = s.queue + op)))
                     true
                 }
             } catch (e: Exception) {

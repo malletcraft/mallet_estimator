@@ -372,6 +372,16 @@ object AlbumQueue {
             photo.isNotBlank() && logins.values.any { m -> m.values.any { s -> s.queue.any { it.kind == Album.OP_PHOTO && it.photo == photo } } }
 
         /**
+         * The login (as stored, [Album.partyKey]) whose QUEUE of [project] holds the photo op of [photo], or null (the K5
+         * review, finding 5): a single photo's re-file goes behind its photo op in THAT queue, which is sent only under
+         * that login -- the photo's uploader, the one S5-P takes a re-file from -- whoever is signed in now.
+         */
+        fun holderOf(photo: String, project: String): String? {
+            if (photo.isBlank() || project.isBlank()) return null
+            return logins.entries.firstOrNull { (_, m) -> m[project]?.queue?.any { it.kind == Album.OP_PHOTO && it.photo == photo } == true }?.key
+        }
+
+        /**
          * These outboxes with every op of [photo] -- its photo op, its re-files and reviews -- taken out of every login's
          * queue and `dropped` (port 61c slice K5): its capture was deleted on the phone, as the prototype's delete takes
          * the item out of the album. An op already on S5 stays there (S5 has no delete for an album photo: Q4).

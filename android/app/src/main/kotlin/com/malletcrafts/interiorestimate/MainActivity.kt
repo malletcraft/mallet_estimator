@@ -760,6 +760,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
         busy = { tx -> if (kind == "Photo") tx.app_filing_photo else tx.app_splitting_360_into_six }
         lastResult = null
         scope.launch(Dispatchers.Default) {
+            // a single photo handed to the album (AlbumShots.single) is synced by it once its op is queued (the K5
+            // review, finding 4); every other capture here as before
+            var toAlbum = false
             val outcome = runCatching {
                 val id = Handover.mintDeviceId(
                     ByteArray(6).also { SecureRandom().nextBytes(it) })
@@ -829,8 +832,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     // approval" (S5's record would take it at 0 -- the reason is the answer, not S5).
                     val albumKey = fileKey
                     val login = S5Session.loginKey(context)
+                    // The op is filed from the row as stored when it is added, after the encode (AlbumOutbox.addSingle;
+                    // the K5 review, finding 1), and this photo's sync runs after that add (finding 4).
                     if (fileApproved && albumKey != null && login.isNotEmpty() && S5Session.signedIn(context)) {
-                        AlbumWrite.single(id, workNow, r, shotAt)?.let { op -> AlbumShots.single(context, albumKey, login, op, pano) }
+                        val op = AlbumWrite.single(id, workNow, r, shotAt)
+                        if (op != null) {
+                            AlbumShots.single(context, albumKey, login, op, pano)
+                            toAlbum = true
+                        }
                     }
                     result
                 }
@@ -843,7 +852,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 lastResult = null
                 outcome.onSuccess { filed ->
                     if (filed != null) {
-                        SyncWorker.syncNow(context)
+                        // a photo handed to the album: AlbumShots.single runs its sync after the add (finding 4)
+                        if (!toAlbum) SyncWorker.syncNow(context)
                         val path = filed.relativePath
                         lastResult = { tx -> tx.app_msg_photo_filed_x(path) }
                     }
@@ -2264,13 +2274,16 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         // the delete were interrupted; the row first leaves an
                         // orphan file, which costs disk and nothing else.
                         val q = queue.firstOrNull { it.deviceId == cap.deviceId }
+                        store.delete(cap.deviceId)
                         // a single photo's album op, not sent yet, goes with it from whichever login's outbox holds it,
-                        // with its shot (port 61c slice K5); one already on S5 stays there (no delete on S5: Q4)
+                        // with its shot (port 61c slice K5); one already on S5 stays there (no delete on S5: Q4). AFTER
+                        // the row's delete (the K5 review, finding 1): an op still being encoded is added only if its
+                        // row is there under the outbox's lock (AlbumOutbox.addSingle), so it is either never queued or
+                        // queued before this unqueue takes it out
                         if (q?.kind == "Photo") { // text:value the store's kind, a wire value
                             val photoId = Album.photoIdOf(cap.deviceId)
                             scope.launch(Dispatchers.IO) { AlbumOutbox.unqueuePhoto(context, photoId) }
                         }
-                        store.delete(cap.deviceId)
                         FacePrepStore(context).delete(cap.deviceId)
                         SurveyPrepStore(context).delete(cap.deviceId)
                         runCatching { File(q?.panoPath ?: "").delete() }
@@ -2377,13 +2390,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
             refreshQueue()
             navCapture = cap.copy(work = work)
             if (WorkRefile.onWeb(context, cap.deviceId)) WorkRefile.enqueue(context, cap.deviceId)
-            // A SINGLE PHOTO re-files on S5's album too (port 61c slice K5: S5-P, by its uploader), when this login's
-            // outbox holds its album photo, the mirror does, or its row reads synced -- the base the OVERLAID filing, built
-            // under the outbox's lock in tap order (AlbumOutbox.refileSingle; the K5 critic, finding 1); else the phone's
-            // filing moves alone, as a capture's does that is not on S5.
+            // A SINGLE PHOTO re-files on S5's album too (port 61c slice K5: S5-P, by its uploader), behind its photo op
+            // in WHICHEVER login's outbox holds it, signed in or not (the K5 review, finding 5: that queue is sent only
+            // under its own login, the uploader), else in this login's when the mirror holds the photo or its row reads
+            // synced -- the base the OVERLAID filing, built under the outbox's lock in tap order (AlbumOutbox.refileSingle;
+            // the K5 critic, finding 1); else the phone's filing moves alone (a photo taken before approval).
             val key = capKey
             val login = S5Session.loginKey(context)
-            if (cap.kind == "Photo" && key != null && login.isNotEmpty() && S5Session.signedIn(context)) { // text:value the store's kind
+            if (cap.kind == "Photo" && key != null) { // text:value the store's kind
                 val landed = queue.firstOrNull { it.deviceId == cap.deviceId }?.state == "SYNCED" // text:value the store's state
                 AlbumOutbox.refileSingle(context, key, login, cap.deviceId, from, work, landed)
             }

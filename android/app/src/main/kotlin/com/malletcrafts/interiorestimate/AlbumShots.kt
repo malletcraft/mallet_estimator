@@ -131,11 +131,21 @@ object AlbumShots {
      * row's kept file [source] (`panos/<id>.jpg`, FaceWriter.single's copy of the original -- never the captioned
      * gallery copy) and the op queued for [project] under [login], on the process's scope as [file] is. Its kept file
      * stays: the row is the phone's item, and its picture.
+     *
+     * THE OP IS FILED FROM THE ROW AS STORED WHEN IT IS ADDED (AlbumOutbox.addSingle; the K5 review, finding 1), not as
+     * ingest built it: a re-file on its WORK line during the encode is carried, and a capture deleted meanwhile queues
+     * nothing and its shot goes. THEN the sync runs (the K5 review, finding 4), which ingest leaves to here for this
+     * photo: run before the op was queued, (c2) marked the row "on this phone only", and the ERP leg could delete the
+     * kept file under the encode.
      */
     fun single(context: Context, project: String, login: String, op: Album.Op, source: File) {
         val app = context.applicationContext
         scope.launch {
-            if (write(app, source, op.photo) && AlbumOutbox.add(app, project, login, op, emptyList())) AlbumOutbox.enqueue(app, project, replace = true)
+            if (write(app, source, op.photo)) {
+                if (AlbumOutbox.addSingle(app, project, login, op)) AlbumOutbox.enqueue(app, project, replace = true)
+                else delete(app, op.photo)
+            }
+            SyncWorker.syncNow(app)
         }
     }
 

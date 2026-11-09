@@ -170,10 +170,17 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // the day a pair is stored (ERROR is pending to it). A KNOWN UNTRUTH, recorded (§20, the K5 critic,
         // finding 13): an approved project's photo that was not queued (its S5 sign-in had lapsed at the
         // shutter) still reads "the web takes a 360's survey prep, not a photo", which S5's album now does.
+        // A HELD PHOTO SHEDS THE STAMP A PASS BEFORE ITS OP WROTE (the K5 review, finding 4): the op is queued a second
+        // or two after the row is inserted (the shot is encoded first), and a pass reaching here in between -- the
+        // hourly one, say; ingest leaves this photo's own sync to AlbumShots.single, after the add -- marks the row
+        // "on this phone only", which nothing else takes off until its JPEG lands.
         val noPrep = "on this phone only - save its survey prep to send it to the web"
         val notPhoto = "on this phone only - the web takes a 360's survey prep, not a photo"
         for (c in store.pending()) {
-            if (c.kind != "360" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) continue
+            if (c.kind != "360" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) {
+                if (c.state == "ERROR" && c.error == notPhoto) store.setState(c.deviceId, "LOCAL")
+                continue
+            }
             if (preps.loadText(c.deviceId) != null) {
                 // Its survey prep has been saved since: the upload job carries it now.
                 if (c.state == "ERROR" && c.error == noPrep) store.setState(c.deviceId, "LOCAL")
