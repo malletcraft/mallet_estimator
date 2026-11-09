@@ -123,8 +123,12 @@ class AlbumWireTest {
             Photo("ALB-000000000014", 95, "2026-11-03T05:16:04.209Z", "staff", "Kitchen", "photo", "units in", null, "pm", "pm@x", "P M", "pending", null, null, null, 10, null, "phone", null),
             Photo("ALB-00000000001e", 50, "2026-11-03T05:16:04.215Z", "vendor", null, "photo", "membrane, second coat", "Demo Waterproofing Co.", "vendor", "v@x", "V N",
                 "accepted", "pm@x", "P M", "2026-11-03T05:16:04.218Z", 10, null, "phone", null)), v.photos)
-        // captures[]: a staff 360, filed by S5 (0 = the quote journey), at the moment it was TAKEN
-        assertEquals(listOf(Photo("MCAP-DEMO-1", 0, "2026-10-11T08:30:00+05:30", Album.PARTY_STAFF, "Kitchen", Album.PHOTO_360, by = "pm@x")), v.captures)
+        // captures[]: a staff 360, filed by S5 (0 = the quote journey), at the moment it was TAKEN; read as a CAPTURE item
+        // with S5's upload `at` beside it, which names the phone's cached copy of its face (port 61c slice K3)
+        assertEquals(listOf(Photo("MCAP-DEMO-1", 0, "2026-10-11T08:30:00+05:30", Album.PARTY_STAFF, "Kitchen", Album.PHOTO_360, by = "pm@x",
+            source = Album.Source.CAPTURE, uploadedAt = "2026-11-03T05:16:04.175Z")), v.captures)
+        // and the photos read as ALBUM items, the default
+        assertTrue(v.photos.all { it.source == Album.Source.ALBUM && it.capture == null && it.uploadedAt == "" })
         assertEquals(0, v.toReview)
         assertEquals(1, v.changeRequests)
         assertFalse(v.closed)
@@ -317,7 +321,11 @@ class AlbumWireTest {
             works.first { it["id"] == 50 }["cr"])
         assertNull(works.first { it["id"] == 10 }["cr"])
         @Suppress("UNCHECKED_CAST") val caps = pm["captures"] as List<Map<String, Any?>>
-        assertEquals(listOf(mapOf("room" to "Kitchen", "capture" to "MCAP-DEMO-1", "captured_at" to "2026-10-11T08:30:00+05:30", "work" to 0, "by" to "pm@x")), caps)
+        assertEquals(listOf(mapOf("room" to "Kitchen", "capture" to "MCAP-DEMO-1", "captured_at" to "2026-10-11T08:30:00+05:30", "work" to 0, "by" to "pm@x",
+            "at" to "2026-11-03T05:16:04.175Z")), caps)
+        // a capture stored and read back is still a CAPTURE item with its upload `at` (K3): the face's file name survives a restart
+        assertEquals(Album.Source.CAPTURE, roundTrip(view(S5Album.GET_PM)).captures.single().source)
+        assertEquals("2026-11-03T05:16:04.175Z", roundTrip(view(S5Album.GET_PM)).captures.single().uploadedAt)
         // a paged mirror (two pages merged) stores its whole log and the newer page's cursor
         val first = view(S5Album.GET_PM)
         val page = first.copy(log = first.log.takeLast(2), logNext = 99, logMore = true)

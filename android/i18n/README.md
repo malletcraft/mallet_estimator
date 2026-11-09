@@ -367,11 +367,42 @@ WORK line for a project only on this phone now reads `Survey` (`Masters.quote`, 
 index61c2.html:7249) where FW2 drew `wish.not_on_s5_yet`, and `wish.not_read_yet` is read on the same line wherever
 the phone cannot place the capture's stage (`Album.quoteTakenAt`) — both keys the tables had.
 
+## Port 61c slice K3 (9 Nov 2026): the album, read-only, born keyed
+
+`pano/AlbumPage.kt` (new: the page's model), `app/AlbumScreen.kt` (new: draws it) and `app/AlbumImages.kt` (new: the JPEG
+cache, no shown text) joined `ported.txt`. The Album tile closes the project's rooms grid, and the album opens in place of
+the rooms: the header (`album.viewing_as_x` with the role through `Album.roleLabel`, `album.open_x`, `album.no_open_work`,
+`album.to_review_x`, `album.change_requests_x`, the project line's own text, `album.work_log_x` and `album.no_work_log`),
+chapter 0 (`album.quote_journey`, `album.quote_journey_sub`, `noun.photo`, `album.no_photos_yet`, `album.not_your_work`,
+the six stages through `Masters.quote`, `album.now`, `app.since_x`, `album.not_reached`, `album.no_photos`,
+`album.unfiled`), the banner (`album.exec_lock_banner`), the sixteen works (`Masters.work`, `album.last_photo_x`, the
+state through `Masters.state` or `wish.not_read_yet`, `crkind.*`, `album.payment_x` over `album.pay_before_x` /
+`album.pay_when_x`, `album.cr_raised_x`, the decided requests through `Album.decidedText`), the end line
+(`album.closes_cleaning`, `album.closed_cleaning`), the cards (`album.staff`, `common.vendor`, `album.awaiting_review`,
+`album.not_for_client`, a room through `Masters.room` else `common.whole_project`) and the viewer (`common.close`,
+`album.photo_x_of_x`, `album.change_request`, `album.no_caption`, `album.accepted_by`, `album.aria.previous_photo` /
+`next_photo`), with the TalkBack labels `album.aria.tile_x`, `album.aria.chapter_x`, `album.aria.state_x`,
+`album.aria.payment_x` and `album.aria.cr_kind_x` -- every one a key the tables had, Marathi the prototype's.
+
+**Three phone texts, born keyed** (flag `phone-text`; Marathi by Claude, decision 6), 1,793 -> 1,796 keys, Tx regenerated:
+- `album.locked_until_approved` — `locked until the estimate is approved` / `अंदाजपत्रक मंजूर होईपर्यंत लॉक`: the prototype's
+  own English under a locked work (index61c2.html 7453), drawn there with no key and so English under मराठी; worded as
+  `app.stg_locked_quote`.
+- `album.work_log_unread` — `Work log · not read yet` / `कामांची नोंद · अजून वाचलेले नाही`: the log of a listed project whose
+  album the phone has not read; `Work log (0)` would say there is none. A WHOLE template, never `album.work_log_x`'s words
+  glued to `wish.not_read_yet`.
+- `album.newest_x` — `Showing the newest {pl}` / `सर्वात नवीन {pl} दाखवत आहे`, `{pl}` = `plural(n,'photo')` as in
+  `album.sub_x` (the accessor takes `plN: Int`): S5 lists the newest 1000 photos a caller may see and says `more`.
+
+Marked `// text:value`: `AlbumPage.SEP` (` · `), the Work log's ` → `, S5's surface name `front`, the ▾ / ▴ caret and the
+‹ › glyphs, `AlbumImages`' log lines and cache-file name parts. `unkeyed.tsv` is unchanged (860 lines, 828 rows):
+every new literal is keyed or a value. `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,792 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 7 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,796 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 11 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 3 in K3, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

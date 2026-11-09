@@ -23,6 +23,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * AS-IS CAPTURE, END TO END (contract of 2026-10-11, slice 1): a saved survey
@@ -256,11 +259,7 @@ object AsIsUpload {
      * be store for apk"). Blank sends neither: the sign-in itself has nothing to send yet.
      */
     internal fun exchange(method: String, url: String, auth: String, body: ByteArray?, contentType: String?): Answer {
-        val b = Request.Builder().url(url)
-        when {
-            auth.startsWith("token ") -> b.header("Authorization", auth)
-            auth.isNotBlank() -> b.header("Cookie", auth)
-        }
+        val b = authorized(Request.Builder().url(url), auth)
         val rb = body?.toRequestBody((contentType ?: "application/octet-stream").toMediaType())
         when (method) {
             "POST" -> b.post(rb ?: ByteArray(0).toRequestBody(null))
@@ -273,6 +272,62 @@ object AsIsUpload {
             Answer(resp.code, resp.body?.string() ?: "",
                 if (cookies.isEmpty()) null else cookies.joinToString("\n"))
         }
+    }
+
+    /** [b] with [auth] as the web reads it: an ERP key as Authorization, an S5 session as Cookie, blank as neither. */
+    private fun authorized(b: Request.Builder, auth: String): Request.Builder {
+        when {
+            auth.startsWith("token ") -> b.header("Authorization", auth)
+            auth.isNotBlank() -> b.header("Cookie", auth)
+        }
+        return b
+    }
+
+    /** An image's answer ([fetchBytes]): the status, and the body's bytes only for a 200 within the cap. */
+    internal class Bytes(val code: Int, val bytes: ByteArray?)
+
+    /**
+     * One GET of an image from the web, its body as BYTES -- [exchange] reads a body as a String, which a JPEG cannot be
+     * (port 61c slice K3, the album's JPEG cache, AlbumImages). [auth] as for [exchange]. A body over [max] bytes is not
+     * read on: its answer carries no bytes. CANCELLABLE (the K3 critic, finding 9): the call is enqueued on the same client
+     * and cancelled when the coroutine that waits for it is -- a card scrolled away, the album left -- so a slot is never
+     * held by a picture nobody is looking at. A network failure throws (IOException), as [exchange]'s does.
+     */
+    internal suspend fun fetchBytes(url: String, auth: String, max: Int): Bytes = suspendCancellableCoroutine { cont ->
+        val call = http.newCall(authorized(Request.Builder().url(url), auth).get().build())
+        cont.invokeOnCancellation { call.cancel() }
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
+
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                val out = try {
+                    response.use { r ->
+                        val src = r.body?.byteStream()
+                        if (r.code != 200 || src == null) Bytes(r.code, null)
+                        else {
+                            val buf = java.io.ByteArrayOutputStream()
+                            val chunk = ByteArray(64 * 1024)
+                            var total = 0
+                            var over = false
+                            while (true) {
+                                val n = src.read(chunk)
+                                if (n < 0) break
+                                total += n
+                                if (total > max) { over = true; break }
+                                buf.write(chunk, 0, n)
+                            }
+                            if (over) Bytes(r.code, null) else Bytes(r.code, buf.toByteArray())
+                        }
+                    }
+                } catch (e: java.io.IOException) {
+                    if (cont.isActive) cont.resumeWithException(e)
+                    return
+                }
+                if (cont.isActive) cont.resume(out)
+            }
+        })
     }
 
     /** The [HttpError] for a refused [a]: its status and S5's own error text, never more than 160 characters. */

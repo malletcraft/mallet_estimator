@@ -403,6 +403,29 @@
    "day": "dayOf(last.at)"
   }
  },
+ "album.locked_until_approved": {
+  "en": "locked until the estimate is approved",
+  "where": [
+   "S2 APK phone text · AlbumPage.kt:338 at 7104139+K3 · Album, a locked work chapter's line under its name (port 61c slice K3, 9 Nov 2026): the prototype's own English (index61c2.html 7453, chapterW's `act`), which it draws with no key, so it read English under मराठी there; worded as app.stg_locked_quote, Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "album.newest_x": {
+  "en": "Showing the newest {pl}",
+  "where": [
+   "S2 APK phone text · AlbumPage.kt:370 at 7104139+K3 · Album, a line above the chapters when S5 answered `more` (port 61c slice K3, 9 Nov 2026): S5 lists the newest 1000 photos a caller may see (asis.js ALBUM_PHOTO_CAP), so every count below is of what the phone holds and a silent cap would make each one confidently short; the prototype has no cap and no words, Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "pl": "plural(n,'photo')"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "album.no_caption": {
   "en": "No caption",
   "where": [
@@ -760,6 +783,16 @@
    "v60build/integrate60.py → P3 album60 (__mcftAlbum60)"
   ],
   "kind": "static"
+ },
+ "album.work_log_unread": {
+  "en": "Work log · not read yet",
+  "where": [
+   "S2 APK phone text · AlbumPage.kt:289 at 7104139+K3 · Album header, the Work log row of a project S5 lists whose album this phone has not read yet (port 61c slice K3, 9 Nov 2026): the log is unknown, and `Work log (0)` would say there is none; a WHOLE template, never album.work_log_x's words glued to wish.not_read_yet (the app.x_shot rule), Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "album.work_log_x": {
   "en": "Work log ({n})",

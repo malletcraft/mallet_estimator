@@ -67,6 +67,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.AlbumPage
+import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
@@ -183,6 +185,20 @@ private fun AppScreenBody(onLang: () -> Unit) {
         wishKey = null
         wishFor = null
         wishWarned = false
+    }
+    // THE PROJECT ALBUM (port 61c slice K3): the Project.key whose album is open, in place of that project's
+    // rooms, as the wish list is; and this visit's taps -- the chapters opened or folded by hand (n -> open),
+    // the Work log, and the item open in the viewer. The visit's alone (the prototype's memOf, 7351-7352): the
+    // leave forgets them. The search overlay is not a leave: Search then Back returns to the album as it was.
+    var albumFor by remember { mutableStateOf<String?>(null) }
+    val albumOpen = remember { mutableStateMapOf<Int, Boolean>() }
+    var albumLog by remember { mutableStateOf(false) }
+    var albumView by remember { mutableStateOf<String?>(null) }
+    fun leaveAlbum() {
+        albumFor = null
+        albumOpen.clear()
+        albumLog = false
+        albumView = null
     }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
@@ -335,6 +351,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
         if (wishFor != null && (navProject?.key != wishFor || navRoom != null || tab != "browse" ||
                 surveyKept != null || facePrep != null)) {
             leaveWish()
+        }
+    }
+    // The album is let go the same way (the prototype's view(): another project, a room, another tab, survey
+    // prep, Face Prep) -- here, above every early return, so it runs whichever screen the leave opened.
+    LaunchedEffect(albumFor, navProject?.key, navRoom, tab, surveyKept, facePrep) {
+        if (albumFor != null && (navProject?.key != albumFor || navRoom != null || tab != "browse" ||
+                surveyKept != null || facePrep != null)) {
+            leaveAlbum()
         }
     }
 
@@ -553,13 +577,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val known = cs.projects.map { it.serverId } + id
         val read = withContext(Dispatchers.IO) { QuoteStageSync.refresh(context, known) }
         if (read) quoteTick += 1
-        // THE ALBUM MIRROR (port 61c slice QV), beside the read of the list, for a project the store holds where
-        // the screen draws from it (Phases.needsMirror): at Client approved the quote view's role, scope and stamp,
-        // and each work's state at its base, into the one store; at Revisions (QM2) S5's role for this person,
-        // which decides the panel's Approve the estimate ▸, and the scope as stored -- the sheet's pre-ticks and
-        // the Approve's scope_base. A project S5 does not list keeps no mirror (404); a failed read keeps the one
-        // it had.
-        if (Phases.needsMirror(QuoteStageSync.cached(context, id)?.stage)) {
+        // THE ALBUM MIRROR (port 61c slice QV), beside the read of the list: at Client approved the quote view's
+        // role, scope and stamp, and each work's state at its base, into the one store; at Revisions (QM2) S5's
+        // role for this person, which decides the panel's Approve the estimate ▸, and the scope as stored -- the
+        // sheet's pre-ticks and the Approve's scope_base. SINCE K3 FOR EVERY PROJECT THE STORE HOLDS AS LISTED, at
+        // every stage: the album draws from the mirror from the survey on (chapter 0's captures and stage moves are
+        // S5's from the first upload) and its tile counts S5's photos, so the project open is the one read it needs
+        // -- one album GET per open; the hourly SyncWorker read stays at Phases.needsMirror. A project S5 does not
+        // list keeps no mirror (404); a failed read keeps the one it had.
+        if (QuoteStageSync.cached(context, id)?.listed == true) {
             val got = withContext(Dispatchers.IO) { AlbumSync.refresh(context, id) }
             if (got) albumTick += 1
         }
@@ -1345,6 +1371,47 @@ private fun AppScreenBody(onLang: () -> Unit) {
         LaunchedEffect(stageKey, albumTick, dataTick) {
             mirror = stageKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
         }
+        // THE PROJECT ALBUM (port 61c slice K3): its items -- S5's photos and captures from the mirror, and the
+        // phone's own captures of this project (the rows the room screen reads: the project's title, ignoring
+        // case) -- through the ONE filing (AlbumPage.compose: a capture S5 also holds is one item, filed by the
+        // phone). Who is signed in names the phone's captures and this login's on S5 (S5Session.who: whoami's
+        // `user` and `full_name`), re-read when the sign-in may have changed. Each capture's `captured_at` as
+        // the record sends it (AsIsPath.capturedAt, the phone's own zone) is C3's key for a legacy-… row.
+        val albumMe = remember(configured, prefsTick, showSettings, masters) {
+            val w = S5Session.who(context)
+            AlbumPage.Me(w?.optString("user").orEmpty(), w?.optString("full_name").orEmpty())
+        }
+        val albumRows = remember(queue, proj?.title) {
+            val t = proj?.title.orEmpty()
+            queue.filter { it.projectTitle.equals(t, true) }
+        }
+        val albumLocal = remember(albumRows) {
+            albumRows.map { c ->
+                AlbumPage.Local(c.deviceId, c.serverName, c.work, c.stage, c.createdAt,
+                    AsIsPath.capturedAt(c.createdAt, java.time.ZoneId.systemDefault()), c.room, c.kind)
+            }
+        }
+        val albumItems = remember(mirror, albumLocal, albumMe) { AlbumPage.compose(mirror, albumLocal, albumMe) }
+        // The kept file of each of the phone's captures that is still there (a removed local copy is not), by
+        // device id -- read off the main thread, a disk check per row.
+        var albumFiles by remember(proj?.key) { mutableStateOf<Map<String, String>>(emptyMap()) }
+        LaunchedEffect(proj?.key, albumRows) {
+            val rows = albumRows
+            albumFiles = withContext(Dispatchers.IO) {
+                rows.filter { it.panoPath.isNotBlank() && File(it.panoPath).isFile }.associate { it.deviceId to it.panoPath }
+            }
+        }
+        // The tile, last in the rooms grid: the count of what this person may see (AlbumPage.tile). Opening it starts
+        // a visit: nothing opened or folded by hand, the log folded, no photo open, the missing pictures asked again.
+        val albumTile = proj?.let { p ->
+            AlbumTileArgs(AlbumPage.tile(tx, p.title, mirror, projectLine, albumItems)) {
+                AlbumImages.newVisit()
+                albumOpen.clear()
+                albumLog = false
+                albumView = null
+                albumFor = p.key
+            }
+        }
         // THE QUOTE VIEW (SPEC61c §4.1 item 3): only at Client approved is the line a tap and the view drawn.
         // Opened for this visit alone (quoteOpen is the project's key; leaving the project folds it); the pending
         // refusal is this project's; the APPROVED SCOPE row reads the mirror (QuoteView.scopeRow).
@@ -1417,6 +1484,31 @@ private fun AppScreenBody(onLang: () -> Unit) {
             else cs.projectsOf(client, site).associate { p ->
                 p.key to QuoteStageSync.lineFor(context, WishSync.stageKey(context, p), tx).text
             }
+        }
+
+        // THE PROJECT ALBUM in place of the rooms (port 61c slice K3), BEFORE the wish list's branch as the
+        // prototype's main() puts the album first (index61c2.html 8271): a sub-screen with no bottom bar and no
+        // crumbs. Its Back goes to the project; the viewer's own BackHandler, composed later inside AlbumScreen and
+        // enabled only while a photo is open, closes the viewer first. The page is built once from the same mirror,
+        // store copy and project line the project screen holds -- the stage and the states from the store, never
+        // from the mirror file -- with this visit's taps. Nothing here writes.
+        if (proj != null && albumFor != null && proj.key == albumFor) {
+            val toggled = albumOpen.toMap()
+            val albumPage = remember(tx, proj.title, albumItems, mirror, wishCache, projectLine, toggled, albumLog) {
+                AlbumPage.page(tx, proj.title, albumItems, mirror, wishCache, projectLine, toggled, albumLog)
+            }
+            BackHandler { leaveAlbum() }
+            AlbumScreen(
+                project = stageKey.orEmpty(),
+                page = albumPage,
+                localPath = { id -> albumFiles[id] },
+                view = albumView,
+                onView = { albumView = it },
+                onToggle = { n, open -> albumOpen[n] = open },
+                onLog = { albumLog = !albumLog },
+                onBack = { leaveAlbum() },
+                onSearch = { showSearch = true; searchQuery = "" })
+            return
         }
 
         // THE WISH LIST in place of the rooms (slice 5b): its own Back (composed after the
@@ -1633,7 +1725,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 WishList.chip(tx, WishSync.count(context,
                                     WishList.keyOf(proj.serverId, proj.client, proj.title)))
                             },
-                            onDetail = { showDetail = true })
+                            onDetail = { showDetail = true },
+                            album = albumTile)
                         site != null && client != null -> ProjectsScreen(
                             onRename = { p -> renaming = RenameTarget(
                                 "project", p.title, p.client, p.site, p.title,
@@ -1870,8 +1963,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // held, a capture older than the current stamp. For a project only on this phone it
         // reads Survey, the prototype's photo line (Album.photoQuoteLead). The mirror is read
         // off the main thread, as the quote view reads it, and again after any write to it
-        // (albumTick); the mirror exists only from Revisions on (AlbumSync), so before that
-        // the current stage at its stamp is the whole history the line has.
+        // (albumTick). Since K3 the project open reads the album of every project S5 lists, at every
+        // stage (AlbumSync), so the mirror is there once the project has been opened online; before that
+        // read lands the current stage at its stamp is the whole history the line has.
         val capKey = remember(navProject?.serverId, navProject?.client, navProject?.title, dataTick, wishTick) {
             navProject?.let { WishSync.stageKey(context, it) }
         }

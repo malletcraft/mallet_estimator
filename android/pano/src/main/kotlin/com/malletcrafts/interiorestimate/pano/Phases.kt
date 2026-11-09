@@ -199,7 +199,9 @@ object Phases {
      * role for this person ([approve]) and the scope as stored (the sheet's pre-ticks, [QuoteView.openTicks], and the
      * Approve's `scope_base`, [QuoteMove.stage]); and at Client approved, where the quote view reads the role, the scope
      * and its stamp ([QuoteView.scopeRow]). No earlier stage draws anything from it, so none reads it; blank, unread or
-     * null: no.
+     * null: no. Since port 61c slice K3 this is the SYNC's predicate and a move's (SyncWorker, the strip's and the
+     * sheet's answers): the project OPEN reads the album of every project the store holds as listed, at every stage,
+     * because the album draws from the mirror from the survey on.
      */
     fun needsMirror(stage: String?): Boolean = stage?.trim().let { it == QuoteStage.STAGES[REVISIONS] || it == QuoteStage.APPROVED }
 

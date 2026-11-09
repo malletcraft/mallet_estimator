@@ -146,6 +146,14 @@
  "album.last_photo_x": {
   "mr": "शेवटचा फोटो {day}"
  },
+ "album.locked_until_approved": {
+  "mr": "अंदाजपत्रक मंजूर होईपर्यंत लॉक",
+  "note": "K3: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "album.newest_x": {
+  "mr": "सर्वात नवीन {pl} दाखवत आहे",
+  "note": "K3: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "album.no_caption": {
   "mr": "कॅप्शन नाही"
  },
@@ -280,6 +288,10 @@
  },
  "album.work_caps": {
   "mr": "काम"
+ },
+ "album.work_log_unread": {
+  "mr": "कामांची नोंद · अजून वाचलेले नाही",
+  "note": "K3: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "album.work_log_x": {
   "mr": "कामांची नोंद ({n})"

@@ -16,7 +16,8 @@ import java.time.Instant
  * scope and its stamp, the sixteen works with their states, and the whole log, paged -- kept as a file,
  * `filesDir/album/<project>.json`, in S5's own shape (AlbumWire.stored), so AlbumWire.view reads it back
  * exactly as it reads S5's answer. The quote view draws the APPROVED SCOPE row from it (QuoteView.scopeRow:
- * `scope`, `scope_at`, `role`); the album screen (K3) and the outbox (K4) are its later readers. It is a
+ * `scope`, `scope_at`, `role`), and since port 61c slice K3 the album screen draws from it (AlbumPage: the role,
+ * the log, the stage moves, the photos and the captures); the outbox (K4) is its next reader. It is a
  * READ: nothing here sends anything, and no outbox exists yet -- that lands with its first writer, K4.
  *
  * READING. From the stored mirror's cursor, `?since=<log_next>` (Album.sinceOf), when this phone holds a
@@ -30,8 +31,11 @@ import java.time.Instant
  * cursor misses nothing. (QV review: the first version re-paged the whole log on every read, hourly per
  * approved project, on the ground that only a read from 0 is fresh -- which asis.js contradicts.)
  *
- * WHEN. On project open, beside QuoteStageSync.refresh, and in SyncWorker after it, for every project the
- * store holds at Client approved (the quote view exists only there). A 404 means S5 does not list the
+ * WHEN. On project open, beside QuoteStageSync.refresh, for every project the store holds as LISTED, at every
+ * stage (port 61c slice K3: the album draws chapter 0's captures and stage moves from the first upload on, and
+ * its tile counts S5's photos); and in SyncWorker after it, for every project the store holds where the project
+ * screen draws from the mirror (Phases.needsMirror: Revisions, Client approved) -- an hourly GET per project at
+ * every stage would buy the album nothing the next project open does not. A 404 means S5 does not list the
  * project (never uploaded, or not visible to this person): the mirror, if any, goes -- "not on S5 yet"
  * keeps no mirror -- at the GET's own ticket, so an older read still in flight cannot write it back. A 401
  * renews the S5 sign-in once (S5Session.relogin) and asks again. A sign-out forgets EVERY mirror
@@ -180,7 +184,9 @@ object AlbumSync {
      * Every mirror goes (S5Session.signOut, QV review): a mirror is the album as THAT person's role saw it -- the role,
      * the PM, the stamp, the names S5 blanks for others -- and the next person signing in on this phone must not draw
      * from it (a Designer offered Record from a PM's mirror) while offline, or until a read of their own lands. Taken
-     * at a fresh ticket, so a read of the old person's still in flight cannot write a mirror back. Never throws.
+     * at a fresh ticket, so a read of the old person's still in flight cannot write a mirror back. The album's cached
+     * pictures go with the mirrors (AlbumImages.forgetAll, K3): they are the album as that person's role saw it. Never
+     * throws.
      */
     fun forgetAll(context: Context) {
         val at = QuoteStageSync.ticket()
@@ -189,6 +195,7 @@ object AlbumSync {
             runCatching { dir(context).listFiles()?.forEach { it.delete() } }
             runCatching { prefs(context).edit().clear().apply() }
         }
+        AlbumImages.forgetAll(context)
     }
 
     private fun scopeKey(project: String) = "$project/scope"

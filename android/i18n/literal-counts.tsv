@@ -5,6 +5,8 @@
 # a code); each of the three lowers the count. A fall: run gradle :pano:i18nRatchet, which only ever
 # LOWERS these counts. Never raise one by hand.
 file	count
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumImages.kt	0
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSync.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	0
@@ -54,6 +56,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/WorkRefile.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	0
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Album.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumPage.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumQueue.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	0

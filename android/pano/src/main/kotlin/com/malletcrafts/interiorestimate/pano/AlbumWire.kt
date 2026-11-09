@@ -123,7 +123,10 @@ object AlbumWire {
     /**
      * One as-is capture (capturesOf: `{room, capture, captured_at, stage, work, by, at}`) as an album item: a staff
      * 360 filed by S5 (`work` 0, null or one of the sixteen), at the moment it was TAKEN (`captured_at`; the upload's
-     * `at` when that is blank), which is what [Album.quoteAt] groups it by.
+     * `at` when that is blank), which is what [Album.quoteAt] groups it by. Its [Photo.source] is
+     * [Album.Source.CAPTURE] (port 61c slice K3), and S5's `at` -- the record's `updated_at`, moved by every record PUT
+     * and not by S5-R's re-file -- is kept as [Photo.uploadedAt], which names the phone's cached copy of its front face
+     * (the K3 critic, finding 2: a re-saved survey prep re-squares the faces under the same capture name).
      */
     fun capture(r: Read, o: Any?): Photo? {
         if (!r.isObject(o)) return null
@@ -131,6 +134,7 @@ object AlbumWire {
         return Photo(
             id = id, work = int(r.field(o, "work")), at = none(r.field(o, "captured_at")) ?: str(r.field(o, "at")) ?: "",
             party = Album.PARTY_STAFF, room = none(r.field(o, "room")), kind = Album.PHOTO_360, by = str(r.field(o, "by")) ?: "",
+            source = Album.Source.CAPTURE, uploadedAt = str(r.field(o, "at")) ?: "",
         )
     }
 
@@ -225,7 +229,7 @@ object AlbumWire {
     )
 
     private fun captureRow(c: Photo): Map<String, Any?> = linkedMapOf(
-        "room" to c.room, "capture" to c.id, "captured_at" to c.at, "work" to c.work, "by" to c.by,
+        "room" to c.room, "capture" to c.id, "captured_at" to c.at, "work" to c.work, "by" to c.by, "at" to c.uploadedAt,
     )
 
     /**

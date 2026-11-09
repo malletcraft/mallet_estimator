@@ -50,6 +50,8 @@ album.exec_lock_banner	album_exec_lock_banner	static	-
 album.filed_x	album_filed_x	template	stage: String
 album.kept_res	album_kept_res	static	-
 album.last_photo_x	album_last_photo_x	template	day: String
+album.locked_until_approved	album_locked_until_approved	static	-
+album.newest_x	album_newest_x	template	plN: Int
 album.no_caption	album_no_caption	static	-
 album.no_open_work	album_no_open_work	static	-
 album.no_photos	album_no_photos	static	-
@@ -95,6 +97,7 @@ album.viewing_as_x	album_viewing_as_x	template	role: String
 album.which_room	album_which_room	static	-
 album.which_work	album_which_work	static	-
 album.work_caps	album_work_caps	static	-
+album.work_log_unread	album_work_log_unread	static	-
 album.work_log_x	album_work_log_x	template	n: Int
 app.360_no_longer_phone	app_360_no_longer_phone	static	-
 app.360_not_phone_removed	app_360_not_phone_removed	static	-

@@ -305,7 +305,10 @@ prototype draws it for a person it offers no sheet to), in the place K4 and K5 w
   N` [P 7409], plus the `Viewing as` line. The role is S5's word, never the phone's [Ph Album.kt:562 viewerOf]: with no
   mirror held, AlbumPage.viewer answers DESIGNER for VISIBILITY ONLY — both staff roles see everything, and DESIGNER
   draws no PM-only line [C: the role is S5's answer and is not read yet; a PM's line drawn from a guess would be the
-  confident answer the project forbids]. Were S5 ever to answer `vendor` or `client`, Album.chapters already applies
+  confident answer the project forbids] — except for a project S5 does not list, which never has a mirror (AlbumSync
+  forgets on 404) and for which S5's own rule answers: albumRole gives staff `pm` when there is no project row (`!p ||
+  …`, asis.js:598, D3), and the phone signs in staff only, so AlbumPage.viewer is the PM there and `Viewing as Project
+  Manager` is drawn, as the prototype draws it [the K3 critic, finding 11]. Were S5 ever to answer `vendor` or `client`, Album.chapters already applies
   canSee, a vendor's locks and its mine-only change requests (AlbumTest pins them); nothing in K3 branches on them
   beyond that, and vendor and client sign-in stay K6 [S5 CLAUDE.md: "vendor and client sign-in on the phone (K6)"].
 - **The mirror** (AlbumSync.mirror, filesDir/album/<project>.json, S5's own shape [Ph AlbumSync.kt:89, AlbumWire.kt:246])
@@ -346,20 +349,33 @@ prototype draws it for a person it offers no sheet to), in the place K4 and K5 w
   - an as-is capture S5 holds: its FRONT face, `GET /api/asis/<project>/<room>/c/<capture>/img/front` [S5
     asis.js:1607-1615, the explicit capture route of 0006] — S5 holds six squared faces, not the 360 the prototype
     draws [P 7368 thumbBg(pano)], and front is the face the phone already names a capture by (the folder line,
-    Handover.filename(id, "front") [Ph MainActivity.kt:1932]) [C];
+    Handover.filename(id, "front") [Ph MainActivity.kt:1932]) [C]. Its cached file is named by S5's `at` of the capture
+    as well (capturesOf's `at: r.updated_at`, which every record PUT moves and S5-R's re-file does not; kept as
+    Album.Photo.uploadedAt and written into the stored mirror's `captures[]`), because a re-saved survey prep re-squares
+    the six faces under the same capture name (SurveyPrepScreen.kt:1024-1035 → AsIsUpload, asis.js:1596-1598 overwrites
+    the R2 key) [the K3 critic, finding 2];
   - a capture the phone holds: the phone's own file (`panoPath`, the 360 or the single photo [Ph CaptureStore.kt:99]),
     no network, exactly as the room grid draws it [Ph BrowseScreens.kt:795-808]. Its bytes are wherever the capture
     is: when the kept file has gone (Remove local copy [Ph MainActivity.kt:1915-1921]) and S5 holds the capture, its
     front face from S5; with neither, the plain block. That is one rule about where a capture's bytes are, not a
     second answer to anything: it is the same capture [C].
-  The cache is `cacheDir/album-img/<project>/…` — NOT filesDir/album, where the mirrors live and where K5's queued
-  shots will (AlbumQueue.SHOTS = "album/shots") [C], so Android may evict it and a fetch simply runs again. A 404 leaves
-  the block and is not retried until the card is composed again; a 401 renews the S5 sign-in once, as AlbumSync does
-  [Ph AlbumSync.kt:125-131]. Sign-out forgets it with the mirrors (AlbumSync.forgetAll [Ph AlbumSync.kt:185]).
+  The cache is `cacheDir/album-img/` — NOT filesDir/album, where the mirrors live and where K5's queued shots will
+  (AlbumQueue.SHOTS = "album/shots") [C], so Android may evict it and a fetch simply runs again. Each file is named by a
+  SHA-256 of what it is (the project and the photo's id, or the project, room, capture and S5's `at`), so a long
+  Devanagari room is still one short name (S5's own backup hit ENAMETOOLONG on exactly that); the folder is held to
+  256 MB, the least recently drawn files (by mtime, which a hit moves) going first down to 192 MB; each fetch is
+  CANCELLED with the card that asked (AsIsUpload.fetchBytes enqueues the call and cancels it on the coroutine's
+  cancellation), so the two slots never serve cards scrolled past; a 404 is remembered for the VISIT
+  (AlbumImages.newVisit when the tile opens it), not re-asked every time a card scrolls back [the K3 critic, finding
+  9]. A 401 renews the S5 sign-in once, as AlbumSync does [Ph AlbumSync.kt:125-131]. Sign-out forgets it with the
+  mirrors (AlbumSync.forgetAll [Ph AlbumSync.kt:185]).
 - **Offline** the album opens and draws from what the phone holds: the stored mirror, the store's stage and states,
   the phone's captures and the cached JPEGs; a JPEG not cached yet stays the plain block (no spinner, Thumb's own rule
-  [Ph Thumbs.kt:105-109]). Nothing is queued, because nothing writes. The staleness is the project line's: its second
-  line names the read time for a copy from before today [Ph QuoteStage.kt:403-406], and the header shows that line.
+  [Ph Thumbs.kt:105-109]). Nothing is queued, because nothing writes. The album shows NO read time: its header draws
+  the project line's FIRST line only, as the prototype's does [P 7412], and QuoteStage.projectLine puts the read time
+  only into the second line — and at Client approved into neither (showRead false) [Ph QuoteStage.kt:403-432]. A mark
+  of its own would be a UI the prototype does not have, so it goes through the prototype first (Amit, 11 Oct 2026);
+  recorded, not built [the K3 critic, finding 5].
 
 **THE ONE FILING: the album is not a second filing of the same captures**
 
@@ -369,8 +385,12 @@ review]:
   MainActivity.kt:2142], whatever S5's copy says: the phone is its copy's authority — its record carries the work (AS1)
   and a re-file goes to S5 through S5-R and the FW2 sweep, so S5 converges on the phone's filing. It is matched to S5's
   capture by each name the capture has had: its `deviceId` (every upload since AS1), else its `serverName`
-  (MEST-PH-…, which S5 keeps until C3 renames it at the first re-save) [Ph AsIsPath.kt:20-26; S5 CLAUDE.md C3]. Matched,
-  S5's copy is NOT listed beside it; the item remembers S5's name for the capture so its front face can be fetched.
+  (MEST-PH-…, which S5 keeps until C3 renames it at the first re-save) [Ph AsIsPath.kt:20-26; S5 CLAUDE.md C3], else
+  C3's OWN key — the same room and S5's `captured_at` equal to AsIsPath.capturedAt(createdAt, the phone's zone), byte for
+  byte what the record sends — for a `legacy-…` row of 0006 or one not renamed yet, which carries neither name
+  (asis.js:1425-1426: C3 renames the NEWEST twin of the room, so that one is the face) [the K3 critic, finding 8].
+  Matched, S5's copy is NOT listed beside it; the item remembers S5's name for the capture and S5's `at` so its front
+  face can be fetched.
 - **A capture only S5 holds** (taken on another phone, or one whose row this phone deleted) is S5's, filed as S5 files
   it (`captures[].work`).
 - **A capture only the phone holds** (not sent yet, a single photo, a project S5 does not list) is the phone's alone.
@@ -382,7 +402,7 @@ the captures filed to it and the album photos of it — and the room screen, gro
 
 | The prototype's control (who sees it) | K3 | Who adds it |
 |---|---|---|
-| `Viewing as <role> ▾` and its role sheet [P 7406, 7540] — a prototype TEST switch ("the Kotlin port reads it from whoami" [P 7086-7087]) | the row stays, `Viewing as <role>` (`album.viewing_as_x`, the role through Album.roleLabel), read-only: no ▾, no tap, S5's role from the mirror; absent with no mirror | nobody: the phone never switches role |
+| `Viewing as <role> ▾` and its role sheet [P 7406, 7540] — a prototype TEST switch ("the Kotlin port reads it from whoami" [P 7086-7087]) | the row stays, `Viewing as <role>` (`album.viewing_as_x`, the role through Album.roleLabel), read-only: no ▾, no tap, S5's role from the mirror; for a project S5 does not list `Viewing as Project Manager` (S5's albumRole with no project row, finding 11); absent only for a listed project whose mirror has not been read | nobody: the phone never switches role |
 | the state chip as `<state> ▾`, opening the state sheet and its Done reason (the PM, chapter unlocked) [P 7459, 7543-7548] | the chip as the prototype draws it for everyone else: the state in its colours, no ▾, no tap [P 7460] | K4 |
 | `Accept` / `Not for client` under a pending vendor card and in the viewer (the PM) [P 7434-7437, 7563-7564] | absent; the card keeps its `awaiting review` badge and amber ring, the viewer its review line | K4 |
 | `Raise change request` and its sheet; `Record the client's answer` and its sheet (the PM, at Client approved) [P 7465-7469, 7520-7539] | absent; the live request's chip and note, and the decided list, are drawn | K4 |
@@ -401,24 +421,33 @@ line, the screen's FAB) that K3 leaves empty.
 **pano/…/AlbumPage.kt (NEW) — the album page's model, pure**, as QuoteView.kt is the quote view's and Phases.kt the
 strip's. Every text it returns is a `tx.<key>`, a work, state, quote stage or room through Masters, a date through
 Album.dayOf / whenOf; names, captions, notes and remarks are data.
-- `Local(deviceId, serverName, work, stage, createdAt, room, kind)` — one CaptureStore row as the album reads it, so
-  :pano needs no Android type; `Me(user, name)` — whoami's `user` and `full_name` (S5Session.who).
+- `Local(deviceId, serverName, work, stage, createdAt, capturedAt, room, kind)` — one CaptureStore row as the album
+  reads it, so :pano needs no Android type (`capturedAt` is AsIsPath.capturedAt on the phone's zone, C3's key); `Me(user,
+  name)` — whoami's `user` and `full_name` (S5Session.who).
 - `compose(mirror: Album.View?, local: List<Local>, me: Me): List<Album.Photo>` — THE ONE FILING above: the phone's
   rows (id = deviceId, work = Album.workOfCapture(work, stage), `at` = the shutter instant `Instant.ofEpochMilli
-  (createdAt)` — the instant FW2's WORK line reads [Ph MainActivity.kt:1887] — kind `360` or `photo`, by = `me.user`,
-  byName = `me.name` [P 7229: a queue capture's who is `BY[id] || ME`, the person on the phone], `source` PHONE,
-  `capture` = S5's name for it when matched), S5's captures not matched (source CAPTURE; byName = `me.name` when S5's
-  `by` is this login by Album.partyKey, else blank, so the chip shows S5's login), S5's photos (source ALBUM); in time
-  order by instant, then by key [P 7234].
+  (createdAt)` — the instant FW2's WORK line reads [Ph MainActivity.kt:1887] — kind `360` or `photo`, `source` PHONE,
+  `capture` = S5's name for it when matched, `uploadedAt` S5's `at`; WHO: CaptureStore keeps no "taken by"
+  [Ph CaptureStore.kt:91-126], so a capture S5 holds is S5's uploader (`by` = the record's updated_by, named `me.name`
+  when it is this login by Album.partyKey) and only a capture not on S5 yet is the person signed in now (`me.user`,
+  `me.name`) [P 7229: `BY[id] || ME`; the K3 critic, finding 7]), S5's captures not matched (source CAPTURE; byName =
+  `me.name` when S5's `by` is this login, else blank, so the chip shows S5's login), S5's photos (source ALBUM); in time
+  order by instant, then by key [P 7234]. An author nobody knows (no S5 session: a legacy ERP key, or signed out) is
+  blank, which the card shows as `Staff` (`album.staff`), never an empty pill.
 - `key(p)` = source, room and id — so two `legacy-…` captures of two rooms uploaded in one second (S5's 0006 ids
   collide across rooms [S5 CLAUDE.md, S5-R]) are two items, two cache files and two places in the walk.
-- `viewer(mirror)` — Album.viewerOf(mirror) when held, else DESIGNER for visibility (above).
+- `viewer(mirror, notOnS5)` — Album.viewerOf(mirror) when held; the PM for a project S5 does not list (D3 with no
+  project row, finding 11); else DESIGNER for visibility (above). `roleKnown(mirror, notOnS5)` says whether `Viewing as`
+  is drawn.
 - `statesFor(line, cache)` — the empty map for a project S5 does not list, else `cache?.states` (null = not read).
-- `page(tx, items, mirror, cache, line, viewer): Page` — everything the screen draws, built once: the header lines, the
-  chapters from Album.chapters, the walk order, the title and sub-line. Its parts:
+- `page(tx, title, items, mirror, cache, line, toggled, logOpen): Page` — everything the screen draws, built once: the
+  header lines, the chapters from Album.chapters, the walk order (by key), each item's card and quote group, the title
+  and sub-line; the viewer is derived inside (`viewer(mirror, notOnS5(line))`), and this visit's taps come in as
+  `toggled` (n -> open) and `logOpen`, held by MainActivity so the search overlay does not lose them. Its parts:
   - **header** [P 7405-7423]: `viewingAs` (above); `open` — `Open: <works In progress, joined by · >`
-    (`album.open_x`), `No work open yet` (`album.no_open_work`), or `Open: not read yet` (`album.open_x` with
-    `wish.not_read_yet`) when the states are not read; `toReview` — `To review: N` (`album.to_review_x`) for the PM
+    (`album.open_x`), `No work open yet` (`album.no_open_work`), or `Open: not read yet` (`album.open_x(works =
+    tx.wish_not_read_yet)`, the one text: the test name `Open · not read yet` was wrong, finding 10) when the states are not
+    read; `toReview` — `To review: N` (`album.to_review_x`) for the PM
     when N > 0, N = Album.pending over the items, the screen deriving its own count as Album.View's doc says rather
     than S5's `to_review` [Ph Album.kt:361-363]; `changeRequests` — `Change requests: N` (`album.change_requests_x`)
     when N > 0, Chapters.changeRequests [P 7410-7411]; `line` — the project line's text; `log` — the toggle `Work log
@@ -435,7 +464,10 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
     pl_photo), `no photos yet` (`album.no_photos_yet`) or — locked, a vendor only — `not your work`
     (`album.not_your_work`); open: `the as-is survey, before any work` (`album.quote_journey_sub`), then the six quote
     groups, each `<stage>` (Masters.quote), a `now` pill on the current one (`album.now`), `since <d MMM>` (`app.since_x`
-    with Album.dayOf of the store's `at`) beside the current one's name, and `n photos`; an empty group `<stage>` and
+    with Album.dayOf of the store's `at`) beside the current one's name — ONLY when that `at` reads a day and the copy is
+    not `atUnknown`, as the prototype draws it only with `quoteSince` [P 7440]: never a bare `since ` for a stage S5
+    never timed (Survey since creation) or one an answer NAMED without its stamp [the K3 critic, finding 6] — and `n
+    photos`; an empty group `<stage>` and
     `not reached yet` (`album.not_reached`) when it is after the current stage, else `no photos` (`album.no_photos`);
     then, for staff, `not filed to a work` (`album.unfiled`) and its count and grid [P 7447-7449];
   - **the lock banner** `Work starts once the client approves the estimate` (`album.exec_lock_banner`) before chapter 1
@@ -455,40 +487,50 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
     unlocked chapter's header toggles it for the visit; a locked one takes no tap;
   - **the walk** — Chapters.order: the quote groups in order, the unfiled, then the works [P 7265]; the viewer's ‹ ›
     walks it and `Photo i of N` counts it.
-- `card(tx, viewer, p): Card` [P 7428-7433]: who (the vendor's `vendor` for a vendor photo, else by_name, else by; a
+- `card(tx, viewer, p): CardLine` [P 7428-7433] (named so nothing clashes with material3's Card, which MainActivity
+  imports, finding 12): who (the vendor's `vendor` for a vendor photo, else by_name, else by; a
   staff or a vendor glyph, TalkBack `Staff` / `Vendor` — `album.staff`, `common.vendor`); the badge, never to a client
   — `awaiting review` (`album.awaiting_review`) or `Not for client` (`album.not_for_client`); the amber ring on a pending
   one; when — Album.whenOf, the day alone for a capture (PHONE or CAPTURE) as the prototype's `dateOnly` [P 7229], day
   and time for an album photo; the work (Album.workName: `Quote journey`, `not filed to a work`, a work); the room
   through Masters.room, else `Whole project` (`common.whole_project`); the `360` corner tag for a 360. No Before /
   After tag: S5's photo row has no `pairOf` [S5 asis.js:752 photoView], so the prototype's pair is its seed's alone.
-- `shown(tx, page, key, mirror, cache): Shown` — the viewer [P 7550-7572]: the title (the work's name), `Photo i of N`
+- `shown(tx, page, key): Shown?` — the viewer [P 7550-7572] (null when the walk no longer holds the key: it closes, as
+  viewHTML does; the page holds each item's quote group, so no mirror or cache is passed): the title (the work's name), `Photo i of N`
   (`album.photo_x_of_x`), who, when, the room, the chapter line — `Quote journey · <stage>` (Masters.quote of the same
   Album.quoteAt that grouped it, so the viewer names the group the photo sits in) or the work's name; a live change
   request on its work `Change request · <kind>` (`album.change_request`); `Payment: …` for a work; the caption, else
   `No caption` (`album.no_caption`); not to a client, the review line — `awaiting review`, `Accepted by <name> · <when>`
   (`album.accepted_by`), or `Not for client · <name> · <when>`; the keys before and after it in the walk.
-- `image(p, localFile: Boolean): Image` — `Phone(deviceId)` when the phone's file is there; else `Face(room, capture)` for
-  a capture S5 holds; `Photo(id)` for an album photo; `None`. And the addresses: `photoImage(project, id)` =
+- `pic(p, localFile: Boolean): Pic` — `Pic.OnPhone(deviceId)` when the phone's file is there; else `Pic.Face(room,
+  capture, version)` for a capture S5 holds (version = S5's `at`, finding 2); `Pic.AlbumJpeg(id)` for an album photo;
+  `Pic.None` (named so nothing clashes with Compose's Image or with Album.Photo in a `when`, finding 12). And the addresses: `photoImage(project, id)` =
   `[project, "album", "photos", id, "img"]` (AlbumQueue.requestOf's own segments [Ph AlbumQueue.kt:87]); the face is
   AsIsPath.image(project, room, capture, `FACE` = "front") [Ph AsIsPath.kt:54]; each segment encoded once by the caller.
-- `tile(tx, title, viewer, items)` — the count and the TalkBack label.
+- `tile(tx, title, mirror, line, items)` — the count over canSee for `viewer(mirror, notOnS5(line))`, `Album`, and the
+  TalkBack label.
 
 **pano/…/Album.kt (CHANGED)**
 - `Photo` gains `source: Source = Source.ALBUM` (`enum class Source { ALBUM, CAPTURE, PHONE }`) and `capture: String? =
   null` (S5's name for a PHONE item it also holds). Neither is S5's field and neither is written to the mirror
   (AlbumWire.stored writes `captures[]` and `photos[]`, which read back as CAPTURE and ALBUM).
 - `chapters(…)` takes `states: Map<Int, WorkState>?` (null = not read: every Chapter.state null, `open` empty, `closed`
-  false, the lock decided by the stage alone) and `notOnS5: Boolean = false`. `QuoteGroup.reached` becomes `Boolean?`:
+  false, the lock decided by the stage alone) and `notOnS5: Boolean = false`. A project S5 does not list LOCKS its works
+  as at Survey — `xlock` true, so the banner before chapter 1, every work `locked until the estimate is approved` and no
+  tap: the prototype creates such a project at `quote: 'Survey'` (index61c2.html 7958; the demo row 7674), so its
+  execMode (4013) is false and chapters()' `xlock = !(exec(p) || stateLog(p).length > 0)` (7254) is true [the K3 critic,
+  finding 1]; its quote-journey items all sit at Survey (the prototype's quoteAt, 7249). `QuoteGroup.reached` becomes `Boolean?`:
   null — and no group `now` — for a project S5 does not list [P 7255-7256, v61c.2: "no quote group is now or not
   reached yet"] AND for a stage the phone has not read (blank or outside the six) [C: the prototype's `cur < 0 ? i === 0`
   marks every later group `not reached yet`, which the phone cannot know for a stage it has not read — PL's rule again].
   `Chapter.state` becomes `String?`.
 
-**pano/…/AlbumWire.kt (CHANGED)** — `capture()` sets `source = Album.Source.CAPTURE`. One argument.
+**pano/…/AlbumWire.kt (CHANGED)** — `capture()` sets `source = Album.Source.CAPTURE` and keeps S5's `at` as
+`uploadedAt`; `captureRow` writes it back as `at`, so the stored mirror reads back the same (finding 2).
 
 **app/…/AlbumScreen.kt (NEW)** — draws AlbumPage's Page; no rule of its own.
-- `AlbumScreen(project, page, localFile, onBack, onSearch)` and its private parts: the header (fixed above the list in
+- `AlbumScreen(project, page, localPath, view, onView, onToggle, onLog, onBack, onSearch)` (the visit's taps are
+  MainActivity's) and its private parts: the header (fixed above the list in
   portrait, as `.alb59h` is `flex: none` [P 1454]), the chapter list (one LazyColumn: more / empty, chapter 0, the
   banner, chapters 1–16, the end, 84 dp end padding), the photo grid (2 columns, 3 in landscape [P 1486-1487], drawn as
   rows of cards inside that LazyColumn, since a lazy grid cannot nest in it), the card, the viewer, and
@@ -503,7 +545,10 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
     labelLarge, a 16 dp ▾ / ▴; its list 16 dp sides, at most 168 dp tall and scrolling (no cap in landscape), each row
     6 dp above and below under a 1 dp outlineVariant rule;
   - chapter [P 1472-1485, 1549-1561]: a 1 dp outlineVariant rule above; the header row min 48 dp (chapter 0) and 56 dp
-    (a work), 12 dp sides, 10 dp gaps; the number a 24 dp circle, 12 sp medium, surfaceVariant (primary when now);
+    (a work), 12 dp sides, 10 dp gaps; the number a 24 dp circle, 12 sp medium, surfaceVariant (primary when now); the
+    ▾ / ▴ caret (`.alb59car`, 16 dp wide, onSurfaceVariant; ▴ when open, ▾ otherwise, a locked chapter included) as the
+    tap target's last child — after the count in chapter 0, after the name and its line in a work, before the CR and state
+    chips, which sit outside the tap target [P 7446, 7457, 1465; the K3 critic, finding 4];
     the CR chip and the state chip 28 dp tall, 14 dp round, 10 dp sides, 12 sp medium — the CR #5C3A00 on #FDF0D5 with
     6 dp after it; the state: Not started a 1 dp outline ring, In progress tertiaryContainer, Done primary, On hold
     #5C3A00 on #FFE3B0, Abandoned surfaceVariant struck through at .75; the name #B07A00 for On hold, at .6 for
@@ -524,22 +569,28 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
   - viewer [P 1504-1522, 1573]: over the album, #0B0D0D, text #EDEFEA; the top row 6/8/6/4 dp: `Close` (`common.close`)
     then the title (titleSmall) over `Photo i of N` (#9AA29E); the photo filling the rest, at least 120 dp, FIT; the
     facts 8/14 dp, 3 dp gaps, #9AA29E but the caption #EDEFEA bodyMedium; ‹ and › at 22 sp, at least 56 dp, 4/8/10 dp,
-    #5E6663 when there is none; in landscape the photo on the left under the top row and a 300 dp column on the right
-    with the facts over ‹ ›.
+    #5E6663 when there is none; in landscape the top row across, the photo on the left with ‹ › UNDER it, and the facts a
+    300 dp column on the right spanning both rows — the prototype's later rules (1580-1583: `grid-template-columns:
+    minmax(0,1fr) 300px`, the photo `grid-row:2`, the facts `grid-row:2/4`, ‹ › `grid-column:1; grid-row:3`) override
+    1518-1522's 260 px with the facts over ‹ › (the K3 critic's finding 3 read 1518 alone, so it is declined; the first
+    version of this line put ‹ › under the facts, which was wrong too).
 - TalkBack: a chapter header `Chapter n: <name>` (`album.aria.chapter_x`) with its expanded state as BrowseScreens'
   ProjectLineBox announces it; the state chip `State of <work>: <state>` (`album.aria.state_x`); Payment
   `album.aria.payment_x`; the CR chip `album.aria.cr_kind_x`; ‹ › `album.aria.previous_photo` / `next_photo`.
 - The viewer's photo is drawn FIT and does not pinch: the prototype's viewer does not [P 1509-1510], and ZoomableImage
   carries an unkeyed English hint [Ph ZoomableImage.kt:146-147] that would come with it [C].
 
-**app/…/AlbumImages.kt (NEW)** — the JPEG cache: `photoFile` / `faceFile` under cacheDir/album-img/<project>/; one
-fetch per file at a time (a per-file lock, at most two in flight); written to a temp file and renamed only when S5
-answered 200 with JPEG bytes (FF D8 FF) of at most 8 MB (S5's MAX_IMG); `forgetAll`. And `AlbumImage(…)`: the file
+**app/…/AlbumImages.kt (NEW)** — the JPEG cache: `fileOf(project, pic)` in cacheDir/album-img/, named by a SHA-256 of the
+key (finding 9); one fetch per file at a time (a per-file Mutex, at most two in flight, a Semaphore), each cancelled with
+its card; written to a temp file and renamed only when S5 answered 200 with JPEG bytes (FF D8 FF) of at most 8 MB (S5's
+MAX_IMG); the folder trimmed to 256 MB by mtime; a 404 remembered for the visit (`newVisit`); `forgetAll`. And `AlbumImage(…)`: the file
 through Thumbs.file at 512 px (the card, CROP) or VIEWER_TARGET (the viewer, FIT) [Ph Thumbs.kt:78, ZoomableImage.kt:44],
 the plain block until it is there.
 
-**app/…/AsIsUpload.kt (CHANGED)** — `internal fun fetchBytes(url, auth, max)` beside `exchange` on the same client
-[Ph AsIsUpload.kt:234, 258]: exchange reads the body as a String, which a JPEG cannot be.
+**app/…/AsIsUpload.kt (CHANGED)** — `internal suspend fun fetchBytes(url, auth, max)` beside `exchange` on the same client
+[Ph AsIsUpload.kt:234, 258]: exchange reads the body as a String, which a JPEG cannot be; the call is ENQUEUED and
+cancelled with the coroutine (`invokeOnCancellation { call.cancel() }`, finding 9), and the two share one header rule
+(`authorized`) so no auth literal is written twice.
 
 **app/…/AlbumSync.kt (CHANGED)** — the WHEN of its KDoc says the project open reads every listed project (K3);
 `forgetAll` also calls AlbumImages.forgetAll.
@@ -551,12 +602,15 @@ grid's last item.
 - `var albumFor by remember { mutableStateOf<String?>(null) }` beside `wishFor` (:173), and its leave effect beside the
   wish list's (:334-339).
 - The project-open read (:549-565): `needsMirror` becomes `listed == true` (above); the comment says why.
-- Beside the mirror (:1340-1347): `me` from S5Session.who (re-read on `configured`, `prefsTick`), the project's Local
-  rows from `queue`, `albumItems = remember(mirror, queue, proj?.title, me) { AlbumPage.compose(…) }`, its viewer, and
+- Beside the mirror (:1340-1347): `me` from S5Session.who (re-read on `configured`, `prefsTick`, the sign-in sheet and the
+  masters), the project's Local rows from `queue`, `albumItems = remember(mirror, local, me) { AlbumPage.compose(…) }`,
+  the kept files by device id (read off the main thread), the tile's args, and
   — when the album is open — `AlbumPage.page(tx, …)` from the same `mirror`, `wishCache` and `projectLine` the project
   screen already holds.
-- The album branch before the wish list's (:1424): `BackHandler { albumFor = null }`, then AlbumScreen (whose own
-  BackHandler, composed later, closes the viewer first), then `return`.
+- The album branch before the wish list's (:1424): `BackHandler { leaveAlbum() }`, then AlbumScreen, whose own
+  `BackHandler(enabled = view != null)`, composed later, closes the viewer first — enabled only while a photo is open, or
+  it would swallow Back once the viewer is closed and the album's never fire (finding 12) — then `return`. The visit's
+  taps (`albumOpen`, `albumLog`, `albumView`) are held beside `albumFor` and go with `leaveAlbum()`.
 - RoomsScreen's call (:1569-1630) passes the tile's args; `localFile` maps a device id to its `panoPath` when the file
   is there.
 - The FW2 comment at :1873-1876 ("the mirror exists only from Revisions on") is corrected: it exists for every listed
@@ -591,14 +645,17 @@ All on stage since 26 Oct – 2 Nov, nothing new: `GET …/album[?since=]` (albu
 
 - **AlbumPageTest (NEW, :pano)**, from S5Album's verbatim bodies (GET_PM, GET_LOCKED, the vendor's and the client's)
   and invented captures (PROJ-T1, MCAP-T1…, logins `pm@x`):
-  - `compose files a capture the phone holds by the phone, once, matched by device id and by serverName`;
+  - `compose files a capture the phone holds by the phone, once, matched by device id, by serverName and by C3's captured_at`
+    (finding 8: the same room and the byte-identical stamp; another room, or a stamp a byte off, is another capture;
+    the newest of two twins is the face);
   - `compose keeps a capture only S5 holds as S5 files it, and an unsent one as the phone's`;
   - `compose orders by instant then key, and two legacy ids in two rooms stay two items`;
-  - `who is the vendor for a vendor photo, by_name for a photo, the person signed in for the phone's captures, S5's login for another's`;
-  - `the header: Viewing as from the mirror, none without; Open, No work open yet, Open · not read yet`;
+  - `who is the vendor for a vendor photo, by_name for a photo, S5's uploader for a capture it holds, the person signed in for one not on S5 yet`
+    (finding 7; and `Staff` with nobody signed in, never an empty pill);
+  - `the header: Viewing as from the mirror, none without it, the PM for a project S5 does not list; Open, No work open yet, Open: not read yet`;
   - `To review is the PM's alone and only above zero; Change requests above zero`;
   - `Work log counts state rows only, newest first by seq; Work log · not read yet with no mirror; (0) for a project S5 does not list`;
-  - `a project S5 does not list: no group now, none not reached, chapter 0 opens, every capture at Survey`;
+  - `a project S5 does not list: no group now, none not reached, chapter 0 opens, every capture at Survey, and its works LOCK under the banner` (finding 1);
   - `an unread stage claims no group not reached`;
   - `the lock: the banner before chapter 1 and locked until the estimate is approved, the chapters taking no tap`;
   - `a chapter's line: n photos · last photo, no photos yet, not your work for a vendor`;
@@ -607,11 +664,17 @@ All on stage since 26 Oct – 2 Nov, nothing new: `GET …/album[?since=]` (albu
   - `the end line, closed with its day`;
   - `the viewer walks the order, names the group a quote-journey photo sits in, and draws no review line to a client`;
   - `the image rule: the phone's file, else S5's front face, else none; an album photo's own address; each segment encoded once`;
-  - `the more line appears only when S5 says more`;
+  - `the more line appears only when S5 says more, the empty line only when nothing is visible`;
+  - (finding 10) `since is drawn beside the current group only when the store holds its stamp, never for a stage named without it`;
+    `statesFor - the empty map for a project S5 does not list, the store's copy otherwise, null when it holds none`;
+    `a card - the 360 tag, the store's kinds, the day alone for a capture and the day and time for an album photo`;
+    `the tile counts what this person may see, with its TalkBack label`;
+    `a chapter's line, state, change request, payment and decided requests at Client approved`;
   - `every line in Marathi (Tx.MR) for the three new keys and for each header line`.
 - **AlbumTest** — the chapters cases follow the new parameters (`reached` nullable: `== true` where it was a Boolean;
   null states; notOnS5; an unread stage).
-- **AlbumWireTest** — a capture reads as Source.CAPTURE, and the stored mirror reads back the same.
+- **AlbumWireTest** — a capture reads as Source.CAPTURE with S5's `at` as `uploadedAt`, and the stored mirror (now with
+  the capture's `at`) reads back the same.
 - **I18nTableTest, TxRenderTest, I18nLiteralTest** — the new keys and the three new ported files.
 - **The CI gate** (android-app.yml: the projection tests, then :app compiled — :app is compiled ONLY there).
 - **Claude's stage check with d1-peek after Amit's walk**: `asis_album_log` and `asis_album_photos` hold exactly the rows
@@ -621,9 +684,10 @@ All on stage since 26 Oct – 2 Nov, nothing new: `GET …/album[?since=]` (albu
 
 - A new **Album** tile, last in every project's room grid, with the count of its photos.
 - Tapping it opens **Album · <project>**: Viewing as Project Manager, Open: …, the project line, Work log (n); chapter
-  0, the quote journey, open, with the survey's 360s in their quote stage; until the estimate is approved, the orange
-  banner and sixteen locked works; at Client approved each work with its state chip, its payment milestones, its live
-  change request and its photos.
+  0, the quote journey, open, with the survey's 360s in their quote stage; until the estimate is approved — and on a
+  project never sent to S5, which has no stage of its own and reads as at Survey — the orange banner and sixteen works
+  each `locked until the estimate is approved`; at Client approved each work with its state chip, its payment
+  milestones, its live change request and its photos.
 - A photo opens the dark viewer with ‹ ›. Nothing on the album writes anything.
 
 Amit's walk, one step at a time: the album of a quote-journey project; then the approved project's album, a work
@@ -646,8 +710,11 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
 
 - **Data.** A card fetches a full JPEG (up to 8 MB) the first time it is composed. On demand only, and once per photo; a
   thumbnail route would be an S5 slice.
-- **A capture image can change under the cache.** A capture's face is cached by room and name. A re-upload of the same
-  capture sends the same faces, so this is accepted; a new capture is a new name.
+- **A capture image can change under the cache** — and does: every survey-prep ✓ Save re-uploads the six faces squared
+  from the edited bounds under the same capture name (finding 2). So the face's file is named by S5's `at` of the
+  capture as well, and a re-squared face is a new file, fetched once more. What stays open: a read of the album that
+  lands between that record PUT (which moves `at`) and the six faces that follow it in the same job (seconds) caches the
+  old face under the new name, until the capture's next record PUT; S5 has no stamp of the faces themselves.
 - **The widened read** is one more album GET per project open below Revisions. A Survey project's album is small: its
   captures and a few log rows, no photos.
 - **The tile's count** counts only the phone's own captures until that project's first read lands.
@@ -664,7 +731,8 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
 2. *"Matching by device id misses old uploads."* — Each name the capture has had is asked: `deviceId`, then
    `serverName` (MEST-PH-…), as S5's delete rule names one capture and as FW2's re-file job does.
 3. *"With no mirror the role is a guess."* — The guess is used only for visibility, where both staff roles see
-   everything. No PM-only line is drawn from it, and `Viewing as` is absent until S5 has said.
+   everything. No PM-only line is drawn from it, and `Viewing as` is absent until S5 has said — but for a project S5 does
+   not list, where S5's own albumRole answers `pm` (finding 11).
 4. *"`Not started` with no states read is a confident answer."* — So `not read yet` stands in the chip and in `Open:`.
    The empty map is used only for a project S5 does not list, where nothing can have been recorded.
 5. *"`To review` should be S5's `to_review`, which counts past the cap."* — K1b's View doc has the screen derive its own
@@ -678,9 +746,11 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
 7. *"A stale mirror's `stages` misses a move."* — `Album.quoteAt` adds the store's current stage at its stamp as one
    more point (K1b's G2b). A capture taken after the newest move is placed rightly; only captures between two unread
    moves wait for the next read.
-8. *"A never-sent project's works draw unlocked."* — The phone holds no stage for it, and `Album.exec` treats an unread
-   stage as execution, as the prototype's execMode does. Nothing in K3 writes, its works hold no photo, and K4's writes
-   meet S5's own lock.
+8. *"A never-sent project's works draw unlocked."* — CORRECTED by the K3 critic (finding 1): the first answer here read
+   the prototype wrongly. Its execMode treats an UNREAD stage as execution, but a never-sent project is not unread: the
+   prototype creates it at `quote: 'Survey'` (7958), so its album draws the banner and sixteen locked works. The phone
+   follows: `Album.chapters(…, notOnS5 = true)` locks the works as at Survey; an unread stage of a listed project stays
+   unlocked, as execMode leaves it.
 9. *"Images of the last person stay after sign-out."* — `AlbumSync.forgetAll` forgets them with the mirrors.
 10. *"The image cache in filesDir/album would be deleted, or would delete K5's shots."* — The cache is in cacheDir.
     filesDir/album keeps the mirrors and, from K5, its queued shots. forgetAll deletes only that folder's own files.
@@ -694,6 +764,28 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
     `chapters` are linear passes over at most a thousand rows and six groups, remembered on their inputs.
 15. *"K4 will have to move things."* — Each writing control has an empty slot where the prototype draws it. The state
     chip is already where its ▾ goes, and the body's end padding is already the FAB's.
+
+**The K3 critic (9 Nov 2026)** — twelve findings, each checked against the source before building; eleven taken, one declined:
+
+1. Never-sent / not-listed works drawn unlocked (major) — **taken**: the prototype makes such a project at `quote: 'Survey'` (7958, 7674), so execMode (4013) is false and xlock (7254) true; `chapters(…, notOnS5 = true)` locks them.
+2. The face cache is never refreshed — **taken**: a survey-prep save re-squares the faces (SurveyPrepScreen.kt:1024-1035, asis.js:1596-1598), so S5's capture `at` is kept and names the file; the risk note says what stays open.
+3. The viewer's landscape column is 260 dp — **declined**: 1580 overrides 1518 with 300 px (same specificity, later); but 1581-1583 put ‹ › under the photo, which the plan had wrong, so that is corrected.
+4. The chapter caret is missing — **taken**: ▾ / ▴, 16 dp, onSurfaceVariant, last in the tap target, locked chapters included (7446, 7457, 1465).
+5. The offline staleness claim is false — **taken** (first option): the header draws the line's first line only (7412) and the read time is never there, so the album says no read time; a mark of its own would need the prototype first.
+6. A bare `since ` — **taken**: drawn only when the store's `at` reads a day and the copy is not atUnknown (7440).
+7. The who chip — **taken**: S5's uploader for a capture S5 holds, the person signed in only for one not on S5 yet, `Staff` when nobody is known.
+8. Name-only matching duplicates a legacy row — **taken**: C3's own key (the room and the byte-identical `captured_at`) matches third, the newest twin being the face.
+9. The image cache — **taken**, all four: hashed names, a 256 MB cap by mtime, the call cancelled with its card, a 404 remembered for the visit.
+10. Missing :pano tests, and the Open text — **taken**: every case is in AlbumPageTest (23 tests with the :app wiring read as source); the text is `Open: not read yet`.
+11. Viewing as on a never-sent project — **taken**: S5's albumRole answers `pm` to staff with no project row (asis.js:598), so `Viewing as Project Manager`.
+12. Name clashes and the viewer's BackHandler — **taken**: `AlbumPage.Pic` and `AlbumPage.CardLine`, referenced qualified; `BackHandler(enabled = view != null)`.
+
+Found wrong in the plan while building, and corrected above: the viewer's landscape layout (‹ › under the photo, not the
+facts); `Local` needs `capturedAt` for C3; `viewer` needs `notOnS5`; `shown` takes the page alone (the page keeps each
+item's quote group); `page` takes this visit's taps, which MainActivity holds so Search and Back return to the album as
+it was; the S5 face's file needs S5's `at`, which the mirror had been throwing away; `fetchBytes` is a suspend call, not a
+blocking one; and the duplicated auth header literals in AsIsUpload would have raised its literal ratchet (5 → 8), so
+`exchange` and `fetchBytes` share one `authorized` rule.
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)

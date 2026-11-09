@@ -548,7 +548,7 @@ class AlbumTest {
         staff("U2", 45, "2026-10-23T05:00:00.000Z"))
 
     private fun ch(items: List<Photo> = demoItems, log: List<Entry> = demoLog, stages: List<Entry> = demoStages, scope: List<Int>? = demoScope,
-                   q: String? = "Survey", qAt: String? = "", states: Map<Int, WorkState> = demoStates, viewer: Viewer = pm) =
+                   q: String? = "Survey", qAt: String? = "", states: Map<Int, WorkState>? = demoStates, viewer: Viewer = pm) =
         Album.chapters(items, log, stages, scope, q, qAt, states, viewer)
 
     @Test fun `chapters for the PM - 17 chapters, the quote groups, the states, the scope, the CR, the order (D3, E2-E4)`() {
@@ -649,9 +649,36 @@ class AlbumTest {
         assertFalse(open.execLocked)
         assertTrue(open.works.none { it.locked })
         assertEquals(listOf(false, false, false, false, false, true), open.quote.groups.map { it.now })
-        assertTrue(open.quote.groups.all { it.reached })
+        assertTrue(open.quote.groups.all { it.reached == true })
         // the 360 was taken on 5 Oct, before the approval on 26 Oct: it stays in the Survey group
         assertEquals(listOf("MCAP-1"), open.quote.groups[0].items.map { it.id })
+    }
+
+    @Test fun `chapters with no states read, for a project S5 does not list, and at an unread stage (port 61c slice K3)`() {
+        val items = listOf(Photo("MCAP-1", 0, "2026-10-05T05:00:00.000Z", kind = Album.PHOTO_360),
+            Photo("MCAP-2", 0, "2026-10-28T05:00:00.000Z", kind = Album.PHOTO_360))
+        // states not read in the store's shape: no chip has a state, nothing is open, nothing closed; the lock is the stage's
+        val unread = ch(items, demoLog, emptyList(), null, "Client approved", "2026-10-26T15:09:00.000Z", null)
+        assertTrue(unread.works.all { it.state == null })
+        assertEquals(emptyList(), unread.open)
+        assertFalse(unread.closed)
+        assertFalse(unread.execLocked)
+        assertTrue(ch(items, demoLog, emptyList(), null, "Revisions", "2026-10-26T15:09:00.000Z", null).execLocked, "no recorded work is known")
+        // a project S5 does not list: no group now or not reached, every quote-journey item at Survey, and the works LOCKED
+        // as at Survey (the prototype makes it at quote 'Survey'; the K3 critic, finding 1) -- whatever stage a stray copy says
+        for (q in listOf(null, "Client approved", "Revisions")) {
+            val local = Album.chapters(items, emptyList(), demoStages, null, q, "2026-10-20T05:00:00.000Z", emptyMap(), pm, notOnS5 = true)
+            assertTrue(local.quote.groups.all { it.reached == null && !it.now }, "$q")
+            assertEquals(listOf("MCAP-1", "MCAP-2"), local.quote.groups[0].items.map { it.id }, "$q")
+            assertTrue(local.execLocked, "$q")
+            assertTrue(local.works.all { it.locked && it.execLocked }, "$q")
+        }
+        // an unread stage: no group now and none `not reached`, the works open as the prototype's execMode leaves them
+        for (q in listOf(null, "", "On hold")) {
+            val c = ch(items, emptyList(), emptyList(), null, q, "", emptyMap())
+            assertTrue(c.quote.groups.all { it.reached == null && !it.now }, "$q")
+            assertFalse(c.execLocked, "$q")
+        }
     }
 
     @Test fun `chapters group a quote-journey item by the current stage when no move was logged (critic G2b)`() {

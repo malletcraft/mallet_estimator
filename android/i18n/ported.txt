@@ -42,3 +42,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AsIsPath.kt
 # Port 61c slice FW2 (3 Nov 2026) adds CaptureScreens.kt: the room grid's tiles, the capture screen (the WORK line, the SKU row, the folder block, Remove local copy, Delete) and the face viewer, every text a tx accessor; the lead tokens SKU and SVY (the prototype's own raw leads) and the kept 360's file name are marked `// text:value`. The capture sheet (TreeShell.kt's CaptureSheet and the new WorkSheet) is keyed too; TreeShell.kt itself stays out until its other sheets are.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt
+# Port 61c slice K3 (9 Nov 2026) adds the album, read-only: pano/AlbumPage.kt (the page's model -- every text a tx accessor, a work, state, quote stage or room through Masters; the separator, the log's arrow and S5's surface name marked `// text:value`), app/AlbumScreen.kt (draws it: every text through AlbumPage; the ▾ / ▴ caret and the ‹ › glyphs marked `// text:value`) and app/AlbumImages.kt (the JPEG cache: no shown text, its log lines and file-name parts marked `// text:value`).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumPage.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumImages.kt

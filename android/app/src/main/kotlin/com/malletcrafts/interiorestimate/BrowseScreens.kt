@@ -332,6 +332,9 @@ fun RoomsScreen(
     /** How many of the master's rooms this site is currently hiding. Shown so
      *  a narrowed list never looks like a list that lost something. */
     hiddenRooms: Int = 0,
+    /** THE PROJECT ALBUM's tile (port 61c slice K3): the grid's LAST child, after the shot rooms, the `+N` / Hide
+     *  tile and, with the full list open, the other rooms and + Room (index61c2.html 8137). Null draws none. */
+    album: AlbumTileArgs? = null,
 ) {
     val tx = LocalTx.current
     var showAll by remember { mutableStateOf(false) }
@@ -427,6 +430,9 @@ fun RoomsScreen(
                     }
                 }
             }
+            // The Album, last: on EVERY project, one only on this phone included (v61c.2 draws a never-sent
+            // project's album; only the v53 lens hid it).
+            album?.let { a -> item { AlbumTile(a) } }
         }
     }
 }
