@@ -4195,8 +4195,9 @@ Help, the title and the share (9):
   (M3b's pairing, now live), a Line composes `tx.common_line + " ${i + 1}"` ("रेषा 1")
 
 `ann.*` — the face viewer's live texts (5):
-- `ann.pinch_zoom_drag` · `Pinch to zoom · drag to move around` · `दोन बोटांनी झूम करा · सरकवण्यासाठी ड्रॅग
-  करा` (the `app.pinch_zoom_double_tap` register)
+- `ann.pinch_zoom_drag` · `Pinch to zoom · drag to move around` · `दोन बोटांनी झूम करा ·
+  सरकवण्यासाठी ओढा` (the `app.pinch_zoom_double_tap` register for the first half; ओढा for drag-to-pan
+  since the M8 review — the first build coined ड्रॅग करा here, the table's only use of the loanword)
 - `ann.face_image_gone_phone` · `This face's image is no longer on the phone.` · `या बाजूचा फोटो आता या
   फोनवर नाही.`
 - `ann.tap_face_look` · `Tap a face to look at it.` · `बाजूवर टॅप करून ती पाहा.`
@@ -4507,6 +4508,21 @@ source before the build; ALL SIX CONFIRMED and applied, in the text above and in
    note: the Dim is an edge piece among वरची कडा siblings, and Amit's phone decides.
 None refuted; finding 1 changed what was built, 2 and 6 changed the table's documentation and one
 composition, 3–5 corrected the plan's own claims.
+
+**The M8 review (9 Nov 2026)** — one finding on 727fb54, independently confirmed, minor; fixed:
+
+1. *`ann.pinch_zoom_drag` coined ड्रॅग where the shipped register's word for drag-to-pan is ओढा.* The
+   slice's MR read `दोन बोटांनी झूम करा · सरकवण्यासाठी ड्रॅग करा` — the only ड्रॅग in the whole Marathi
+   table, while drag renders ओढा everywhere else, the identical frame `सरकवण्यासाठी ___` included
+   (`plan.aria.floor_plan_x_drag` "कागद सरकवण्यासाठी ओढा", `plan.x_drag_move_pinch`, `tour.360.2.title`,
+   `sp.360_drag_look_x`, and this slice's own `fp.hint.*` rows). The first half already matched the
+   register (`app.pinch_zoom_double_tap`). Fixed as the one-row card edit the finding asked for:
+   the MR is now `दोन बोटांनी झूम करा · सरकवण्यासाठी ओढा`, English unchanged, Tx regenerated
+   (`i18nGen`, then `i18nRatchet`: 0 counts lowered), the key table row above corrected, and the
+   register is now a PROPERTY the suite holds: I18nTableTest's new check 11 scans every Marathi value
+   and fails on any ड्रॅग — red on the old row (proven before the fix was restored), so the loanword
+   cannot be coined again anywhere in the table. No key, accessor or caller moved; AnnotateScreen.kt
+   is untouched (the words live in the card, which is the point of the card).
 
 ## Progress notes recovered
 

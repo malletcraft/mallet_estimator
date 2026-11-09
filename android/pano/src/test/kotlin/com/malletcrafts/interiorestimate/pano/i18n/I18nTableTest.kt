@@ -120,6 +120,18 @@ class I18nTableTest {
         assertTrue(phoneKeys >= 171, "the table holds $phoneKeys phone texts; the v61c card landed 171 (L2) and keys are never deleted")
     }
 
+    /**
+     * THE REGISTER'S DRAG IS ओढा (the M8 review). Everywhere the shipped table says drag — a picture
+     * panned, a paper moved, a 360 looked around — the word is ओढा (plan.aria.floor_plan_x_drag,
+     * plan.x_drag_move_pinch, tour.360.2.title, sp.360_drag_look_x, the fp.hint.* rows), and M8 coined
+     * the loanword ड्रॅग once (ann.pinch_zoom_drag). A property of the table: no Marathi value may
+     * carry it. No text is compared.
+     */
+    @Test fun `11 drag is the register's word, never the loanword`() {
+        val off = m.entries.filter { "ड्रॅग" in it.mr }.map { "${it.key}: ड्रॅग in the Marathi" }
+        I18n.check("11 · drag word", off, "the shipped register renders drag as ओढा; reword the value rather than coin ड्रॅग")
+    }
+
     // ---------------------------------------------------------------- a whole sentence, never a glued fragment
 
     /** A prototype site, `v53build/app.js:460` of `v53build/app.js:460 · z`. */

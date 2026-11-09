@@ -297,8 +297,8 @@
   "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "ann.pinch_zoom_drag": {
-  "mr": "दोन बोटांनी झूम करा · सरकवण्यासाठी ड्रॅग करा",
-  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+  "mr": "दोन बोटांनी झूम करा · सरकवण्यासाठी ओढा",
+  "note": "M8 review: register — ड्रॅग करा → ओढा (drag-to-pan is ओढा: plan.aria.floor_plan_x_drag, tour.360.2.title, sp.360_drag_look_x, fp.hint.*)"
  },
  "ann.tap_face_look": {
   "mr": "बाजूवर टॅप करून ती पाहा.",
