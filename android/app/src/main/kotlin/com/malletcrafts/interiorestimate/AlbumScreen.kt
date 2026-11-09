@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,10 +31,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -67,9 +71,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumPage
+import com.malletcrafts.interiorestimate.pano.AlbumWrite
 
 /**
- * THE PROJECT ALBUM, READ-ONLY (port 61c slice K3, 9 Nov 2026; DESIGN-port61c.md §18): the prototype v61c.2's album
+ * THE PROJECT ALBUM (port 61c slice K3, 9 Nov 2026, DESIGN-port61c.md §18; its writes K4, §19): the prototype v61c.2's album
  * (index61c2.html window.__mcftAlbum60, its CSS 1446-1583) drawn from [AlbumPage.Page], which holds every text and rule
  * -- this file has none of its own. A sub-screen in place of the project's rooms, as the Wish list is: the top bar
  * `Album · <title>` over `N photos · survey to handover` with Back and Search, no bottom bar, no crumbs.
@@ -81,9 +86,15 @@ import com.malletcrafts.interiorestimate.pano.AlbumPage
  * K5's Progress shot FAB lands with nothing reflowing (`.alb59body`). A grid is rows of cards inside it (2 across, 3 in
  * landscape), since a lazy grid cannot nest in a lazy list.
  *
- * NOTHING HERE WRITES (the plan's table "THE CONTROLS THAT WRITE"): the state chip is the prototype's chip for someone it
- * offers no sheet to (no ▾, no tap); Accept / Not for client, the change-request buttons, the result line and the FAB
- * are absent in the slots K4 and K5 fill -- never drawn disabled, which would read as broken.
+ * THE PROJECT MANAGER'S CONTROLS (port 61c slice K4, DESIGN-port61c.md §19), each in the slot K3 left, each drawn only
+ * where [AlbumPage] says so and never disabled (the prototype has no disabled form of any of them): the state chip as
+ * `<state> ▾`, a tap that opens the state sheet; Accept / Not for client under a card awaiting review (its cell a column
+ * of the card and the two 40 dp buttons, `.alb60cw` / `.alb60rb`) and after the viewer's review line (`.alb60rb2`);
+ * Raise change request and Record the client's answer in an open work's body, between the request's note and the
+ * decided list; the result line in the header; the sheets ([sheet], app/AlbumSheets.kt). A grid row is as tall as its
+ * tallest cell and every card fills its cell (`.alb59grid` stretches, as the prototype's 311.75 px neighbour beside a
+ * pending card is measured, the K4 critic, finding 7); a pending cell keeps its card at content height above the
+ * buttons. K5's Progress shot FAB lands in the body's 84 dp end padding.
  *
  * The photo viewer is drawn over the whole screen ([view] is the item's key): dark, `Close`, the title over `Photo i
  * of N`, the photo FIT (no pinch: the prototype's viewer has none, and ZoomableImage carries an unkeyed hint), the
@@ -111,6 +122,18 @@ fun AlbumScreen(
     onLog: () -> Unit,
     onBack: () -> Unit,
     onSearch: () -> Unit,
+    /** The open sheet's model (AlbumPage.sheet), or null; MainActivity holds which sheet is open and closes one whose model went. */
+    sheet: AlbumPage.Sheet? = null,
+    /** Opens a sheet ([AlbumPage.SheetFor]), or closes the open one (null). */
+    onSheet: (AlbumPage.SheetFor?) -> Unit = {},
+    /** A state picked on the state sheet: the work, the state, the reason typed (AlbumWrite.state's outcome). */
+    onState: (Int, String, String) -> AlbumWrite.Out = { _, _, _ -> AlbumWrite.Out.None },
+    /** The raise sheet's button: the work, the kind, the note. */
+    onRaise: (Int, Album.CrKind, String) -> Unit = { _, _, _ -> },
+    /** The answer sheet's button: the work, the outcome, the day the client answered, how (AlbumWrite.answer's outcome). */
+    onAnswer: (Int, Album.CrOutcome, String, String) -> AlbumWrite.Out = { _, _, _, _ -> AlbumWrite.Out.None },
+    /** Accept / Not for client: the item's key and the review state. */
+    onReview: (String, String) -> Unit = { _, _ -> },
 ) {
     val tx = LocalTx.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -129,16 +152,25 @@ fun AlbumScreen(
                         AlbumHeader(page.header, onLog, capLog = false)
                     }
                     Box(Modifier.width(1.dp).fillMaxHeight().background(cs.outlineVariant))
-                    AlbumBody(project, page, localPath, listState, cols = 3, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
+                    AlbumBody(project, page, localPath, listState, cols = 3, onView = onView, onToggle = onToggle, onSheet = onSheet,
+                        onReview = onReview, modifier = Modifier.weight(1f))
                 }
             } else {
                 Column(Modifier.padding(pad).fillMaxSize()) {
                     Column(Modifier.fillMaxWidth().background(cs.background)) { AlbumHeader(page.header, onLog, capLog = true) }
-                    AlbumBody(project, page, localPath, listState, cols = 2, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
+                    AlbumBody(project, page, localPath, listState, cols = 2, onView = onView, onToggle = onToggle, onSheet = onSheet,
+                        onReview = onReview, modifier = Modifier.weight(1f))
                 }
             }
         }
-        if (shown != null) AlbumViewer(project, page, shown, localPath, landscape, onView)
+        if (shown != null) AlbumViewer(project, page, shown, localPath, landscape, onView, onReview)
+    }
+    // the open sheet, over the album (no sheet opens from the viewer, so the two never stack)
+    when (sheet) {
+        is AlbumPage.StateSheet -> AlbumStateSheet(sheet, onPick = { to, remark -> onState(sheet.work, to, remark) }, onDismiss = { onSheet(null) })
+        is AlbumPage.RaiseSheet -> AlbumRaiseSheet(sheet, onRaise = { kind, note -> onRaise(sheet.work, kind, note) }, onDismiss = { onSheet(null) })
+        is AlbumPage.AnswerSheet -> AlbumAnswerSheet(sheet, onAnswer = { o, at, how -> onAnswer(sheet.work, o, at, how) }, onDismiss = { onSheet(null) })
+        null -> {}
     }
 }
 
@@ -217,6 +249,11 @@ private fun AlbumHeader(h: AlbumPage.Header, onLog: () -> Unit, capLog: Boolean)
     }
     Text(h.line, style = ty.bodySmall, color = cs.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth().background(cs.surfaceContainer).padding(horizontal = 16.dp, vertical = 6.dp))
+    // the result line a review tap leaves (`.alb59res`, 7413-7416): 6/16 dp, bodySmall, on secondaryContainer
+    h.result?.let {
+        Text(it, style = ty.bodySmall, color = cs.onSecondaryContainer,
+            modifier = Modifier.fillMaxWidth().background(cs.secondaryContainer).padding(horizontal = 16.dp, vertical = 6.dp))
+    }
     val log = h.log
     Row(
         Modifier
@@ -273,11 +310,12 @@ private val AMBER_RING = Color(0xFFC98A1C)
 @Composable
 private fun AlbumBody(
     project: String, page: AlbumPage.Page, localPath: (String) -> String?, listState: LazyListState, cols: Int,
-    onView: (String?) -> Unit, onToggle: (Int, Boolean) -> Unit, modifier: Modifier,
+    onView: (String?) -> Unit, onToggle: (Int, Boolean) -> Unit, onSheet: (AlbumPage.SheetFor?) -> Unit,
+    onReview: (String, String) -> Unit, modifier: Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
     val ty = MaterialTheme.typography
-    val card: @Composable (String) -> Unit = { k -> AlbumCard(project, page, k, localPath, onView) }
+    val card: @Composable (String) -> Unit = { k -> AlbumCard(project, page, k, localPath, onView, onReview) }
     LazyColumn(modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = 84.dp)) {
         page.empty?.let { e ->
             item(key = "empty") { Text(e, style = ty.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
@@ -314,11 +352,11 @@ private fun AlbumBody(
             item(key = "w" + w.n) {
                 Column(Modifier.fillMaxWidth()) {
                     HorizontalDivider(thickness = 1.dp, color = cs.outlineVariant)
-                    WorkHeader(w, onToggle)
+                    WorkHeader(w, onToggle, onSheet)
                 }
             }
             if (w.open) {
-                item(key = "wb" + w.n) { WorkBody(w) }
+                item(key = "wb" + w.n) { WorkBody(w, onSheet) }
                 val none = w.empty
                 if (none != null) {
                     item(key = "wn" + w.n) {
@@ -336,15 +374,19 @@ private fun AlbumBody(
     }
 }
 
-/** A grid as rows of [cols] cards (`.alb59grid`: 6 dp gaps, 8 dp sides), each row one item of the list. */
+/**
+ * A grid as rows of [cols] cards (`.alb59grid`: 6 dp gaps, 8 dp sides), each row one item of the list -- as tall as its
+ * tallest cell, every cell filling it (the grid's stretch: beside a pending card and its buttons the neighbour card is
+ * the row's height, the K4 critic, finding 7).
+ */
 private fun LazyListScope.gridRows(keys: List<String>, cols: Int, prefix: String, card: @Composable (String) -> Unit) {
     keys.chunked(cols).forEachIndexed { i, row ->
         item(key = prefix + "#" + i) {
             Row(
-                Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = if (i == 0) 0.dp else 6.dp),
+                Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 8.dp, end = 8.dp, top = if (i == 0) 0.dp else 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                for (k in row) Box(Modifier.weight(1f)) { card(k) }
+                for (k in row) Box(Modifier.weight(1f).fillMaxHeight()) { card(k) }
                 repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -458,7 +500,7 @@ private fun LockBanner(text: String) {
  * onSurfaceVariant while locked, #B07A00 On hold, at .6 Abandoned.
  */
 @Composable
-private fun WorkHeader(w: AlbumPage.WorkCh, onToggle: (Int, Boolean) -> Unit) {
+private fun WorkHeader(w: AlbumPage.WorkCh, onToggle: (Int, Boolean) -> Unit, onSheet: (AlbumPage.SheetFor?) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val ty = MaterialTheme.typography
     val nameColor = when {
@@ -493,17 +535,19 @@ private fun WorkHeader(w: AlbumPage.WorkCh, onToggle: (Int, Boolean) -> Unit) {
                 Text(chip, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = AMBER_INK, maxLines = 1)
             }
         }
-        StateChip(w)
+        StateChip(w) { onSheet(AlbumPage.SheetFor.State(w.id)) }
     }
 }
 
 /**
- * The state chip (`.alb60st`), as the prototype draws it for a person it offers no sheet to (K3 offers it to nobody):
- * 28 dp, 14 dp round, 10 dp sides, 12 sp medium -- Not started a 1 dp outline ring, In progress
- * tertiaryContainer, Done primary, On hold #5C3A00 on #FFE3B0, Abandoned surfaceVariant struck through at .75.
+ * The state chip (`.alb60st`): 28 dp, 14 dp round, 10 dp sides, 12 sp medium -- Not started a 1 dp outline ring, In
+ * progress tertiaryContainer, Done primary, On hold #5C3A00 on #FFE3B0, Abandoned surfaceVariant struck through at .75.
+ * For the Project Manager on an unlocked chapter ([AlbumPage.WorkCh.stateTap], port 61c slice K4) it is the prototype's
+ * button: the state then ` ▾` (aria-hidden), a tap that opens the state sheet, TalkBack's `State of <work>: <state>`
+ * as a button; for everyone else the plain span, no ▾, no tap.
  */
 @Composable
-private fun StateChip(w: AlbumPage.WorkCh) {
+private fun StateChip(w: AlbumPage.WorkCh, onTap: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     val bg: Color
     val fg: Color
@@ -523,22 +567,30 @@ private fun StateChip(w: AlbumPage.WorkCh) {
             .clip(RoundedCornerShape(14.dp))
             .background(bg)
             .then(if (ring) Modifier.border(1.dp, cs.outline, RoundedCornerShape(14.dp)) else Modifier)
-            .clearAndSetSemantics { contentDescription = w.stateAria }
+            .then(if (w.stateTap) Modifier.clickable(role = Role.Button, onClick = onTap) else Modifier)
+            .clearAndSetSemantics {
+                contentDescription = w.stateAria
+                if (w.stateTap) { role = Role.Button; onClick { onTap(); true } }
+            }
             .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(w.stateText, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = fg, maxLines = 1,
-            textDecoration = if (ab) TextDecoration.LineThrough else null)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(w.stateText, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = fg, maxLines = 1,
+                textDecoration = if (ab) TextDecoration.LineThrough else null)
+            if (w.stateTap) Text(" ▾", fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, color = fg, maxLines = 1) // text:value the prototype's caret on the PM's chip, aria-hidden
+        }
     }
 }
 
 /**
  * An open work's lines before its grid (`.alb59chb`): Payment (28 dp, 8 dp round, surfaceContainer, 46 dp in, 12 dp
- * right, 6 dp below), the live change request's raise line (4/16 dp, #5C3A00), the decided requests (2/16 dp,
- * onSurfaceVariant). The buttons that record or raise a change request are K4's.
+ * right, 6 dp below), the live change request's raise line (4/16 dp, #5C3A00), then the Project Manager's button (port
+ * 61c slice K4) -- `Record the client's answer` filled under a live request (`.alb60crans`, 6/16 dp), else `Raise change
+ * request` a text button (`.alb60crraise`, 6/16 dp) -- and the decided requests (2/16 dp, onSurfaceVariant).
  */
 @Composable
-private fun WorkBody(w: AlbumPage.WorkCh) {
+private fun WorkBody(w: AlbumPage.WorkCh, onSheet: (AlbumPage.SheetFor?) -> Unit) {
     val cs = MaterialTheme.colorScheme
     val ty = MaterialTheme.typography
     Column(Modifier.fillMaxWidth()) {
@@ -550,6 +602,12 @@ private fun WorkBody(w: AlbumPage.WorkCh) {
             Text(w.payment, style = ty.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         w.crNote?.let { Text(it, style = ty.bodySmall, color = AMBER_INK, modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp)) }
+        w.answer?.let { label ->
+            Button(onClick = { onSheet(AlbumPage.SheetFor.Answer(w.id)) }, modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 16.dp)) { Text(label) }
+        }
+        w.raise?.let { label ->
+            TextButton(onClick = { onSheet(AlbumPage.SheetFor.Raise(w.id)) }, modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 16.dp)) { Text(label) }
+        }
         if (w.decided.isNotEmpty()) {
             Column(Modifier.padding(top = 6.dp)) {
                 for (d in w.decided) Text(d, style = ty.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 2.dp, end = 16.dp))
@@ -583,10 +641,39 @@ private fun EndLine(e: AlbumPage.End) {
 /**
  * One card (`.alb59c`, 1486-1499, 1567-1571): 8 dp round on surfaceContainerLow with a 1 dp outlineVariant ring (2 dp
  * #C98A1C while a vendor's photo awaits review); the photo 4:3 on surfaceContainerHigh, CROP, the `360` tag 6 dp in; the
- * body 6/7/8 dp with 2 dp gaps: who, the badge, when, the filing, the room. A tap opens the viewer on it.
+ * body 6/7/8 dp with 2 dp gaps: who, the badge, when, the filing, the room. A tap opens the viewer on it. The card fills
+ * its grid cell -- unless it carries the Project Manager's review ([AlbumPage.CardLine.review], port 61c slice K4):
+ * then the cell is a column (`.alb60cw`) of the card at its own height and, 4 dp under it with 4 dp between, `Accept`
+ * filled and `Not for client` a text button, each the cell's width and 40 dp tall (`.btn` / `.tbtn`; `.alb60rb`'s
+ * min-height 36 does not shorten them), the pair one group TalkBack names `Vendor review`.
  */
 @Composable
-private fun AlbumCard(project: String, page: AlbumPage.Page, key: String, localPath: (String) -> String?, onView: (String?) -> Unit) {
+private fun AlbumCard(
+    project: String, page: AlbumPage.Page, key: String, localPath: (String) -> String?, onView: (String?) -> Unit,
+    onReview: (String, String) -> Unit,
+) {
+    val line = page.cards[key] ?: return
+    if (!line.review) {
+        CardBody(project, page, key, localPath, onView, Modifier.fillMaxHeight())
+        return
+    }
+    Column(Modifier.fillMaxWidth().fillMaxHeight()) {
+        CardBody(project, page, key, localPath, onView, Modifier)
+        Column(
+            Modifier.fillMaxWidth().padding(top = 4.dp).semantics { line.reviewGroup?.let { contentDescription = it } },
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            line.accept?.let { Button(onClick = { onReview(key, Album.REVIEW_ACCEPTED) }, modifier = Modifier.fillMaxWidth().height(40.dp)) { Text(it, maxLines = 1) } }
+            line.keep?.let { TextButton(onClick = { onReview(key, Album.REVIEW_INTERNAL) }, modifier = Modifier.fillMaxWidth().height(40.dp)) { Text(it, maxLines = 1) } }
+        }
+    }
+}
+
+/** The card itself (`.alb59c`), at [modifier]'s height: the cell's, or its own above the review buttons. */
+@Composable
+private fun CardBody(
+    project: String, page: AlbumPage.Page, key: String, localPath: (String) -> String?, onView: (String?) -> Unit, modifier: Modifier,
+) {
     val line = page.cards[key] ?: return
     val p = page.items[key] ?: return
     val cs = MaterialTheme.colorScheme
@@ -596,7 +683,7 @@ private fun AlbumCard(project: String, page: AlbumPage.Page, key: String, localP
     val shape = RoundedCornerShape(8.dp)
     val ring = if (line.pending) BorderStroke(2.dp, AMBER_RING) else BorderStroke(1.dp, cs.outlineVariant)
     Column(
-        Modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).border(ring, shape).clickable { onView(key) },
+        modifier.fillMaxWidth().clip(shape).background(cs.surfaceContainerLow).border(ring, shape).clickable { onView(key) },
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(4f / 3f)) {
             AlbumImage(project, pic, local, fit = false, background = cs.surfaceContainerHigh, modifier = Modifier.fillMaxSize())
@@ -682,6 +769,7 @@ private val V_OFF = Color(0xFF5E6663)
 @Composable
 private fun AlbumViewer(
     project: String, page: AlbumPage.Page, s: AlbumPage.Shown, localPath: (String) -> String?, landscape: Boolean, onView: (String?) -> Unit,
+    onReview: (String, String) -> Unit,
 ) {
     val tx = LocalTx.current
     val p = page.items[s.key] ?: return
@@ -710,19 +798,24 @@ private fun AlbumViewer(
                     AlbumImage(project, pic, local, fit = true, background = V_BG, modifier = Modifier.weight(1f).fillMaxWidth())
                     ViewerNav(s, onView)
                 }
-                Column(Modifier.width(300.dp).fillMaxHeight().verticalScroll(rememberScrollState())) { ViewerFacts(s) }
+                Column(Modifier.width(300.dp).fillMaxHeight().verticalScroll(rememberScrollState())) { ViewerFacts(s, onReview) }
             }
         } else {
             AlbumImage(project, pic, local, fit = true, background = V_BG, modifier = Modifier.weight(1f).heightIn(min = 120.dp).fillMaxWidth())
-            ViewerFacts(s)
+            ViewerFacts(s, onReview)
             ViewerNav(s, onView)
         }
     }
 }
 
-/** The viewer's facts (`.alb59vm`): who, when, the room, the chapter line, a live change request, Payment, the caption, the review. */
+/**
+ * The viewer's facts (`.alb59vm`): who, when, the room, the chapter line, a live change request, Payment, the caption, the
+ * review -- and after it the Project Manager's other review state (port 61c slice K4, `.alb60rb2`: a row, 8 dp between,
+ * text buttons in #EDEFEA, 0/12 dp, 32 dp tall): `Accept` unless accepted, `Not for client` unless kept. The viewer stays
+ * on the photo and redraws its review line.
+ */
 @Composable
-private fun ViewerFacts(s: AlbumPage.Shown) {
+private fun ViewerFacts(s: AlbumPage.Shown, onReview: (String, String) -> Unit) {
     val ty = MaterialTheme.typography
     Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         WhoChip(s.card)
@@ -733,6 +826,14 @@ private fun ViewerFacts(s: AlbumPage.Shown) {
         s.payment?.let { Text(it, style = ty.bodySmall, color = V_MUTE) }
         if (s.captionIsData) Text(s.caption, style = ty.bodyMedium, color = V_INK) else Text(s.caption, style = ty.bodySmall, color = V_MUTE)
         s.review?.let { Text(it, style = ty.bodySmall, color = V_MUTE) }
+        if (s.accept != null || s.keep != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val colors = ButtonDefaults.textButtonColors(contentColor = V_INK)
+                val pad = PaddingValues(horizontal = 12.dp)
+                s.accept?.let { TextButton(onClick = { onReview(s.key, Album.REVIEW_ACCEPTED) }, modifier = Modifier.height(32.dp), colors = colors, contentPadding = pad) { Text(it) } }
+                s.keep?.let { TextButton(onClick = { onReview(s.key, Album.REVIEW_INTERNAL) }, modifier = Modifier.height(32.dp), colors = colors, contentPadding = pad) { Text(it) } }
+            }
+        }
     }
 }
 

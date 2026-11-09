@@ -353,4 +353,63 @@ class AlbumWireTest {
         assertEquals(AlbumQueue.Reply(error = "Changed meanwhile — In progress by pm@x; not saved"),
             AlbumWire.reply(MiniRead, tree(S5Album.STATE_STALE), op.copy(kind = "bogus")))
     }
+
+    // ---- K4: every login's outbox as the phone stores it (AlbumWire.storedOutbox / outboxOf) ----------------------
+
+    private val o1 = Op("ALB-000000000001", Album.KIND_STATE, 10, base = "6", value = "Done", prev = "In progress", note = "debris out", at = "2026-11-09T06:30:00Z")
+    private val o2 = Op("ALB-000000000008", Album.KIND_CR_CLEAR, 90, base = "8", value = "approved", prev = "add", note = "a call", clientAt = "2026-11-09",
+        error = "Only the Project Manager sets a work's state", at = "2026-11-09T06:31:00Z")
+    private val o3 = Op("ALB-000000000020", Album.OP_REVIEW, 50, base = "2026-11-03T05:16:04.218Z", value = "internal", photo = "ALB-00000000001e")
+    private val o4 = Op("ALB-000000000014", Album.OP_PHOTO, 90, base = "", photo = "ALB-000000000014", room = null, caption = "units in", recorded = true)
+
+    private fun outboxes() = AlbumQueue.Outboxes()
+        .with("pm@x", "PROJ-T1", AlbumQueue.Stored(queue = listOf(o1, o3, o4), dropped = listOf(o2)))
+        .with("pm@x", "PROJ-T2", AlbumQueue.Stored(queue = listOf(o2.copy(error = ""))))
+        .with("d@x", "PROJ-T1", AlbumQueue.Stored(queue = listOf(o1.copy(id = "ALB-0000000000d1"))))
+
+    @Test fun `the outbox round-trips exactly through the stored shape - every login, every project, every field`() {
+        val o = outboxes()
+        val stored = AlbumWire.storedOutbox(o)
+        assertEquals(1, stored["v"])
+        assertEquals(o, AlbumWire.outboxOf(MiniRead, tree(json(stored))))
+        assertEquals(o, AlbumWire.outboxOf(OrgRead, org(tree(json(stored)))), "the same through an org-json-shaped tree")
+        // the shape: lists of entries keyed inside, a base TEXT, a work a number or null, a null a JSON null never a dropped key
+        val text = json(stored)
+        assertTrue(text.startsWith("""{"v":1,"logins":[{"login":"pm@x","projects":[{"project":"PROJ-T1","queue":[{"id":"ALB-000000000001","kind":"state","work":10,"base":"6","""), text.take(160))
+        assertTrue(text.contains(""""room":null,"caption":"units in","photo_kind":"photo","client_at":"","error":"","recorded":true,"at":"""""))
+        assertTrue(text.contains(""""base":"2026-11-03T05:16:04.218Z""""))
+        // one login's ops are read for that login alone
+        val back = AlbumWire.outboxOf(MiniRead, tree(text))
+        assertEquals(listOf(o1, o3, o4), back.of("pm@x", "PROJ-T1").queue)
+        assertEquals(listOf("ALB-0000000000d1"), back.of("d@x", "PROJ-T1").queue.map { it.id })
+        assertEquals(emptyList(), back.of("v@x", "PROJ-T1").queue)
+    }
+
+    @Test fun `an op without an id is left out, one of an unknown kind kept for the drain's 400, a base stays text, a null stays a null`() {
+        val text = """{"v":1,"logins":[
+            {"login":" PM@X ","projects":[{"project":"PROJ-T1","queue":[
+                {"kind":"state","work":10,"base":"0","value":"Done"},
+                {"id":"","kind":"state","work":10},
+                {"id":"ALB-0000000000a1","kind":"teleport","work":10,"base":"0"},
+                {"id":"ALB-0000000000a2","kind":"state","work":null,"base":7,"value":"Done"},
+                {"id":"ALB-0000000000a3","kind":"review","work":50,"base":"","photo":"ALB-00000000001e","value":"accepted","room":null}
+            ],"dropped":[]}]},
+            {"login":"","projects":[{"project":"PROJ-T1","queue":[{"id":"ALB-0000000000a4","kind":"state","work":10}]}]},
+            {"login":"pm@x","projects":[{"project":"","queue":[{"id":"ALB-0000000000a5","kind":"state","work":10}]},
+                {"project":"PROJ-T1","queue":[{"id":"ALB-0000000000a6","kind":"state","work":20}]}]},
+            "not an entry"
+        ]}"""
+        val o = AlbumWire.outboxOf(MiniRead, tree(text))
+        assertEquals(setOf("pm@x"), o.logins.keys, "a blank login is no login; the key as S5 matches a party")
+        val q = o.of("pm@x", "PROJ-T1").queue
+        assertEquals(listOf("ALB-0000000000a1", "ALB-0000000000a2", "ALB-0000000000a3", "ALB-0000000000a6"), q.map { it.id },
+            "no id: left out (it could never be replayed); an unknown kind: KEPT; a second entry for the login appended")
+        assertEquals("teleport", q[0].kind)
+        assertNull(AlbumQueue.stepOf(q[0]), "the drain answers it with AQ's 400, that op alone")
+        assertEquals(listOf<Any?>(null, "7"), listOf(q[1].work, q[1].base), "a work null stays null; a number an older writer stored reads as its digits")
+        assertEquals(listOf("", "accepted", null), listOf(q[2].base, q[2].value, q[2].room))
+        assertEquals("", q[2].at, "an op an older build queued has no tap time")
+        // anything not in the shape reads as none, never a throw
+        for (bad in listOf("null", "[]", "{}", """{"logins":{}}""", """{"logins":[1,2]}""")) assertEquals(AlbumQueue.Outboxes(), AlbumWire.outboxOf(MiniRead, tree(bad)), bad)
+    }
 }

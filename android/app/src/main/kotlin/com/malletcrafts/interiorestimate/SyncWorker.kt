@@ -68,6 +68,12 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // would never have run. Reads only, never counted in `failures`: the jobs do the sending.
         WorkRefile.sweep(applicationContext, store)
 
+        // THE ALBUM OUTBOX'S CATCH-UP (port 61c slice K4): every project of the signed-in login's outbox with an op still
+        // to send gets its drain -- REPLACE unless a pass is running now, so one waiting out a long backoff runs now and
+        // one that ended (S5 not listing the project, a sign-in that changed) starts again. Beside FW2's sweep and on the
+        // same terms: after BOTH legs, never counted in `failures`; the drain jobs do the sending (AlbumOutbox).
+        AlbumOutbox.enqueueAll(applicationContext)
+
         // S5's QUOTE stage for every ERP project this phone knows (v52 item 16): ONE read of
         // the caller's list, after the captures are up and the masters fresh, so a project
         // created in this run is asked about too. Read-only, and NEVER counted in `failures`:

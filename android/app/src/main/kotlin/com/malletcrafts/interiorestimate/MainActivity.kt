@@ -69,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumPage
+import com.malletcrafts.interiorestimate.pano.AlbumWrite
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
@@ -204,12 +205,21 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // is compared where they are read.
     var heldMirror by remember { mutableStateOf<Pair<String, Album.View?>?>(null) }
     var heldFiles by remember { mutableStateOf<Pair<String, Map<String, String>>?>(null) }
+    // THE PROJECT MANAGER'S WRITES (port 61c slice K4): the signed-in login's queued album ops for the opened project,
+    // read WITH the mirror as one snapshot -- the queue first, then the mirror file (the K4 critic, finding 1) -- and
+    // held above the search overlay with its key, as the mirror is; and this visit's open sheet and last review tap
+    // (the prototype's memOf `sheet` and `res`), gone with the leave.
+    var heldQueue by remember { mutableStateOf<Pair<String, List<Album.Op>>?>(null) }
+    var albumSheet by remember { mutableStateOf<AlbumPage.SheetFor?>(null) }
+    var albumRes by remember { mutableStateOf<AlbumPage.Res?>(null) }
     fun leaveAlbum() {
         albumFor = null
         albumOpen.clear()
         albumLog = false
         albumView = null
         albumList = LazyListState()
+        albumSheet = null
+        albumRes = null
     }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
@@ -600,6 +610,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
             val got = withContext(Dispatchers.IO) { AlbumSync.refresh(context, id) }
             if (got) albumTick += 1
         }
+        // THE ALBUM OUTBOX (port 61c slice K4): a queue this login left for the project is drained now (REPLACE: a job
+        // waiting out a backoff runs at once), so opening the project is the cure for writes that waited for signal.
+        if (AlbumOutbox.queued(context, id).isNotEmpty()) AlbumOutbox.enqueue(context, id, replace = true)
     }
     // ANY write of a mirror's stamp redraws the quote view -- the hourly SyncWorker run's read, a
     // Record's answer -- held like the quote listener below.
@@ -610,6 +623,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
         ap.registerOnSharedPreferenceChangeListener(listener)
         onDispose { ap.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+    // ANY write to the album outbox -- a tap queued, a drain's answer taken -- redraws the line, the states and the
+    // album (port 61c slice K4): quoteTick for every reader of the line and the states (QuoteStageSync.lineFor and
+    // .states lay the queue over the store), outboxTick for the album's snapshot of the queue and the mirror.
+    var outboxTick by remember { mutableStateOf(0) }
+    DisposableEffect(context) {
+        val op = AlbumOutbox.prefs(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            outboxTick += 1
+            quoteTick += 1
+        }
+        op.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { op.unregisterOnSharedPreferenceChangeListener(listener) }
     }
     // ANY write to the quote cache redraws the line -- the hourly SyncWorker run included,
     // which no work observer here watches. SharedPreferences holds listeners weakly, so the
@@ -688,8 +714,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
     val fileCache = remember(fileKey, dataTick, quoteTick) { fileKey?.let { QuoteStageSync.cached(context, it) } }
     val fileLine = remember(fileKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, fileKey, tx) }
     val fileApproved = Album.approved(fileCache?.stage)
+    // the works' states with this login's queued writes laid over them (port 61c slice K4): a state tapped on the
+    // album is the default pick and the Which work? line at once
+    val fileStates = remember(fileKey, dataTick, quoteTick) { QuoteStageSync.states(context, fileKey) }
     val pickKey = navProject?.let { WishList.keyOf(it.serverId, it.client, it.title) }
-    val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileCache?.states)
+    val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileStates)
 
     // One ingest path for BOTH capture routes: gallery-pick and the direct
     // X3 connection hand the same equirect JPG to the same split + queue.
@@ -1380,20 +1409,41 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // none again for another project (held under its stageKey), so no project's scope shows on another's row.
         // Held above the search overlay (heldMirror, the K3 review, finding 5), so Search then Back keeps it.
         val mirror = heldMirror?.takeIf { it.first == stageKey }?.second
-        LaunchedEffect(stageKey, albumTick, dataTick) {
+        // Who is signed in names the phone's captures and this login's on S5 (S5Session.who: whoami's `user` and
+        // `full_name`), re-read when the sign-in may have changed; and since K4 whether a write can be sent under it
+        // (S5Session.signedIn: a refused renewal keeps `who`, the K4 critic, finding 8).
+        val s5In = S5Session.signedIn(context)
+        val albumMe = remember(configured, prefsTick, showSettings, masters, s5In) {
+            val w = S5Session.who(context)
+            AlbumPage.Me(w?.optString("user").orEmpty(), w?.optString("full_name").orEmpty(), s5In)
+        }
+        // This login's queued album ops for the project (AlbumOutbox, port 61c slice K4), held with the mirror.
+        val albumQueue = heldQueue?.takeIf { it.first == stageKey }?.second.orEmpty()
+        // ONE SNAPSHOT, THE QUEUE FIRST AND THEN THE MIRROR (the K4 critic, finding 1): the drain puts S5's row into the
+        // mirror file BEFORE it takes the op out of the queue, so a queue read without the op is always paired with a
+        // mirror read after S5's row landed -- never a frame in which the overlay has gone and S5's word has not come.
+        // Re-read on any write to either (albumTick, outboxTick) and after a reload (dataTick); both assigned together,
+        // with no suspension between, so no frame draws one without the other.
+        LaunchedEffect(stageKey, albumTick, dataTick, outboxTick, albumMe.user) {
             val k = stageKey
-            heldMirror = if (k == null) null else k to withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) }
+            if (k == null) {
+                heldQueue = null
+                heldMirror = null
+                return@LaunchedEffect
+            }
+            val read = withContext(Dispatchers.IO) {
+                val q = AlbumOutbox.queued(context, k)
+                val m = AlbumSync.mirror(context, k)
+                q to m
+            }
+            heldQueue = k to read.first
+            heldMirror = k to read.second
         }
         // THE PROJECT ALBUM (port 61c slice K3): its items -- S5's photos and captures from the mirror, and the
         // phone's own captures of this project (the rows the room screen reads: the project's title, ignoring
         // case) -- through the ONE filing (AlbumPage.compose: a capture S5 also holds is one item, filed by the
-        // phone). Who is signed in names the phone's captures and this login's on S5 (S5Session.who: whoami's
-        // `user` and `full_name`), re-read when the sign-in may have changed. Each capture's `captured_at` as
+        // phone), who is signed in naming them (albumMe, above). Each capture's `captured_at` as
         // the record sends it (AsIsPath.capturedAt, the phone's own zone) is C3's key for a legacy-… row.
-        val albumMe = remember(configured, prefsTick, showSettings, masters) {
-            val w = S5Session.who(context)
-            AlbumPage.Me(w?.optString("user").orEmpty(), w?.optString("full_name").orEmpty())
-        }
         val albumRows = remember(queue, proj?.title) {
             val t = proj?.title.orEmpty()
             queue.filter { it.projectTitle.equals(t, true) }
@@ -1425,6 +1475,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 albumLog = false
                 albumView = null
                 albumList = LazyListState()
+                albumSheet = null
+                albumRes = null
                 albumFor = p.key
             }
         }
@@ -1436,7 +1488,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 open = quoteOpen == proj.key,
                 onToggle = { quoteOpen = if (quoteOpen == proj.key) null else proj.key },
                 refusal = quoteMsg?.takeIf { it.first == proj.key }?.let { it.second(tx) },
-                row = QuoteView.scopeRow(tx, mirror?.scope, mirror?.scopeAt.orEmpty(), mirror?.role),
+                // the APPROVED SCOPE with this login's queued approved adds and removes amended in (port 61c slice K4:
+                // Album.scopeWithQueued, its since the tap's), as the prototype's quote view reads the amended scope
+                row = (mirror?.let { Album.scopeWithQueued(it.scope, it.scopeAt, albumQueue) }).let { sc ->
+                    QuoteView.scopeRow(tx, sc?.first, sc?.second.orEmpty(), mirror?.role)
+                },
                 onViewScope = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.VIEW },
                 onRecord = { scopeStatus = null; scopeAnswers = 0; scopeReset = 0; scopeSheet = QuoteView.Mode.RECORD })
         // THE PHASE STRIP through the quote journey (port 61c slice QM1; decision 2 of 27 Oct: the quote stage moves
@@ -1507,16 +1563,34 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // crumbs. Its Back goes to the project; the viewer's own BackHandler, composed later inside AlbumScreen and
         // enabled only while a photo is open, closes the viewer first. The page is built once from the same mirror,
         // store copy and project line the project screen holds -- the stage and the states from the store, never
-        // from the mirror file -- with this visit's taps. Nothing here writes.
+        // from the mirror file -- with this visit's taps, and this login's queue laid over it (port 61c slice K4).
         if (proj != null && albumFor != null && proj.key == albumFor) {
             // The page's data is built where the data changes, and a chapter or Work log tap only sets each chapter's
             // open and the log's rows on it (AlbumPage.Model; the K3 review, finding 4): a tap re-ran the whole page
-            // -- the chapters, a card per item, the walk -- on the main thread.
-            val albumModel = remember(tx, proj.title, albumItems, mirror, wishCache, projectLine) {
-                AlbumPage.model(tx, proj.title, albumItems, mirror, wishCache, projectLine)
+            // -- the chapters, a card per item, the walk -- on the main thread. The queue and who is signed in are
+            // data (K4): a tap queued redraws the page from the overlay.
+            val albumModel = remember(tx, proj.title, albumItems, mirror, wishCache, projectLine, albumQueue, albumMe) {
+                AlbumPage.model(tx, proj.title, albumItems, mirror, wishCache, projectLine, albumQueue, albumMe)
             }
             val toggled = albumOpen.toMap()
-            val albumPage = remember(albumModel, toggled, albumLog) { AlbumPage.page(albumModel, toggled, albumLog) }
+            val albumResult = AlbumPage.resultText(tx, albumModel, albumRes)
+            val albumPage = remember(albumModel, toggled, albumLog, albumResult) { AlbumPage.page(albumModel, toggled, albumLog, albumResult) }
+            // The open sheet's model; one whose subject has gone (the person no longer writes, the stage moved, the request
+            // was answered) closes, as the prototype's ov() and its sheets close themselves (the K4 critic, finding 6).
+            val sheetFor = albumSheet
+            val sheetModel = sheetFor?.let { AlbumPage.sheet(tx, albumModel, it, java.time.Instant.now()) }
+            LaunchedEffect(sheetFor, sheetModel == null) { if (sheetFor != null && sheetModel == null) albumSheet = null }
+            // A tap's op goes to the outbox off the main thread -- after the ops stored now, with a predecessor's base the
+            // screen had not caught up with (AlbumOutbox.add) -- and its drain runs now (REPLACE); the listener redraws.
+            fun queueAlbum(op: Album.Op) {
+                val k = stageKey ?: return
+                val seen = albumQueue
+                val login = albumMe.user
+                scope.launch {
+                    val ok = withContext(Dispatchers.IO) { AlbumOutbox.add(context, k, login, op, seen) }
+                    if (ok) AlbumOutbox.enqueue(context, k, replace = true)
+                }
+            }
             BackHandler { leaveAlbum() }
             AlbumScreen(
                 project = stageKey.orEmpty(),
@@ -1528,7 +1602,33 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 onToggle = { n, open -> albumOpen[n] = open },
                 onLog = { albumLog = !albumLog },
                 onBack = { leaveAlbum() },
-                onSearch = { showSearch = true; searchQuery = "" })
+                onSearch = { showSearch = true; searchQuery = "" },
+                sheet = sheetModel,
+                onSheet = { albumSheet = it },
+                onState = { work, to, remark ->
+                    val out = AlbumWrite.state(albumModel, work, to, remark, java.time.Instant.now())
+                    if (out is AlbumWrite.Out.Queue) queueAlbum(out.op)
+                    if (out !is AlbumWrite.Out.Refused) albumSheet = null
+                    out
+                },
+                onRaise = { work, kind, note ->
+                    val out = AlbumWrite.raise(albumModel, work, kind, note, java.time.Instant.now())
+                    if (out is AlbumWrite.Out.Queue) queueAlbum(out.op)
+                    albumSheet = null
+                },
+                onAnswer = { work, outcome, clientAt, how ->
+                    val out = AlbumWrite.answer(albumModel, work, outcome, clientAt, how, java.time.Instant.now())
+                    if (out is AlbumWrite.Out.Queue) queueAlbum(out.op)
+                    if (out !is AlbumWrite.Out.Refused) albumSheet = null
+                    out
+                },
+                onReview = { key, state ->
+                    val out = AlbumWrite.review(albumModel, key, state, java.time.Instant.now())
+                    if (out is AlbumWrite.Out.Queue) {
+                        queueAlbum(out.op)
+                        albumRes = AlbumPage.Res(state, out.op.photo)
+                    }
+                })
             return
         }
 
@@ -1610,10 +1710,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val sheetMode = scopeSheet
         if (sheetMode != null && proj != null && stageKey != null) {
             val key = stageKey
+            // the view shows the scope with this login's queued amendments (port 61c slice K4), as the row does; a record
+            // and an approve open from S5's own scope and stamp, the base their PUT sends
+            val viewed = if (sheetMode == QuoteView.Mode.VIEW) mirror?.let { Album.scopeWithQueued(it.scope, it.scopeAt, albumQueue) } else null
             ScopeSheet(
                 mode = sheetMode,
-                stored = mirror?.scope.orEmpty(),
-                scopeAt = mirror?.scopeAt.orEmpty(),
+                stored = (viewed?.first ?: mirror?.scope).orEmpty(),
+                scopeAt = viewed?.second ?: mirror?.scopeAt.orEmpty(),
                 status = scopeStatus,
                 answers = scopeAnswers,
                 reset = scopeReset,
@@ -1993,6 +2096,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val capCache = remember(capKey, dataTick, quoteTick) { capKey?.let { QuoteStageSync.cached(context, it) } }
         val capLine = remember(capKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, capKey, tx) }
         val capApproved = Album.approved(capCache?.stage)
+        // the works' states with this login's queued writes laid over them (port 61c slice K4)
+        val capStates = remember(capKey, dataTick, quoteTick) { QuoteStageSync.states(context, capKey) }
         var capMirror by remember(capKey) { mutableStateOf<Album.View?>(null) }
         LaunchedEffect(capKey, albumTick) {
             capMirror = capKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
@@ -2002,7 +2107,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             capMirror?.stages, java.time.Instant.ofEpochMilli(capRow.createdAt).toString(),
             capCache.stage, capCache.at, capCache.atUnknown)
         val workSub = Album.workSub(tx, capApproved, cap.work, Album.photoQuoteLead(tx, capLine, quoteAt),
-            cap.work?.let { w -> capCache?.states?.get(w)?.state })
+            cap.work?.let { w -> capStates?.get(w)?.state })
 
         Scaffold(topBar = {
             TreeTopBar(
@@ -2179,7 +2284,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         if (refileWork) {
             WorkSheet(
                 current = cap.work,
-                states = capCache?.states,
+                states = capStates,
                 onPick = { id -> refileWork = false; refile(id) },
                 onDismiss = { refileWork = false })
         }
@@ -2300,7 +2405,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
     if (pickWork) {
         WorkSheet(
             current = newWork,
-            states = fileCache?.states,
+            states = fileStates,
             onPick = { id ->
                 pickKey?.let { capWorkFor[it] = id }
                 pickWork = false; showCaptureSheet = true
@@ -2590,7 +2695,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // The WORK row (v61c §4.3): where the next capture files, and why it cannot be changed yet
             workHead = Album.filingHead(tx, newWork),
             workSub = Album.workSub(tx, fileApproved, newWork, Album.quoteLead(tx, fileLine, fileLine.quote),
-                newWork?.let { w -> fileCache?.states?.get(w)?.state }),
+                newWork?.let { w -> fileStates?.get(w)?.state }),
             onWork = if (fileApproved) ({ showCaptureSheet = false; pickWork = true }) else null,
             noWork = fileApproved && newWork == null,
             roomLength = roomLength,

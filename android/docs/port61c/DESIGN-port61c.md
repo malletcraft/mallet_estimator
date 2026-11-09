@@ -4,7 +4,7 @@ The full port plan lived only in the session scratchpad and was lost when the cl
 on 3 Nov 2026 (the scratchpad is ephemeral; nothing had committed the plan). What follows is every part of it the session
 transcript still held verbatim: the slice table, §14 AS1, §15 FW1, §16 FW2, §25 M3a and the progress notes; and §18 K3,
 re-derived on 9 Nov 2026 from the prototype, S5 and the shipped code (it names the source of each decision), and §19 K4,
-derived the same day in the same way. The other
+derived the same day in the same way and built after its critic (its "The K4 critic" paragraph). The other
 sections (§1–§13, §17, §20–§24, §26–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
@@ -920,13 +920,20 @@ not draw does not reach the phone):
 |---|---|---|---|---|
 | the state chip as `<state> ▾` (P) [P 7459-7460] | the work header's state chip, in place [Ph AlbumScreen.kt:496, :506 StateChip] | P and the chapter not locked (`!c.locked`: Album.exec, as K3's lock) | the state through Masters.state, then ` ▾` (aria-hidden, `// text:value`); TalkBack `album.aria.state_x` (as K3), role Button | opens the state sheet |
 | the state sheet (P) [P 7543-7548] | a bottom sheet (the kit's sheet, 7829), over the album | from the chip | title `album.state_of_x`; the five states (Masters.state), the current one selected; leaving Done only: the field `album.done_reason_label` (`.alb60reason`, 4/12 dp), and after a pick with it blank `album.done_reason_need` (`.alb60need`, 2/16 dp, #C0392B); the foot `album.state_pm_only` (bodySmall, muted, 8/16 dp, 7547) | the current state closes the sheet and writes nothing (7544); leaving Done with a blank reason draws the need line and stays open; any other pick QUEUES the state and closes the sheet |
-| `Accept` / `Not for client` under a card (P) [P 7434-7437] | under the card, in its grid cell (`.alb60cw` wraps card and buttons; `.alb60rb`: a column, 4 dp gaps, 4 dp above, each full width, at least 36 dp) | P and the item a vendor's photo whose review is `pending` (overlay included) | `album.accept` (filled, primary), `album.not_for_client` (text button, primary); the group's TalkBack label `life.vrev` ("Vendor review", the prototype's `aria-label`, 7436) | queues the review; sets the result line |
+| `Accept` / `Not for client` under a card (P) [P 7434-7437] | under the card, in its grid cell (`.alb60cw` wraps card and buttons; `.alb60rb`: a column, 4 dp gaps, 4 dp above, each full width and 40 dp tall — `.btn` / `.tbtn` are 40, which `.alb60rb`'s min-height 36 does not shorten; the K4 critic, finding 7) | P and the item a vendor's photo whose review is `pending` (overlay included) | `album.accept` (filled, primary), `album.not_for_client` (text button, primary); the group's TalkBack label `life.vrev` ("Vendor review", the prototype's `aria-label`, 7436) | queues the review; sets the result line |
 | `Accept` / `Not for client` in the viewer (P) [P 7563-7564] | after the review line, in the facts (`.alb60rb2`: a row, 8 dp gaps, wrapping; text buttons in #EDEFEA, 0/12 dp, 32 dp tall) [Ph AlbumScreen.kt:735] | P and a vendor's photo: `Accept` unless it is accepted, `Not for client` unless it is kept — so an accepted photo can be kept and a kept one accepted | the same two keys | queues the review; the viewer stays open on the photo and redraws its review line; sets the result line |
 | `Raise change request` (P) [P 7469] | in the open work's body, after the change-request note's place and before the decided list (`.alb60crraise`: text button, 6/16 dp) [Ph AlbumScreen.kt:552-553] | P, the stage Client approved (Album.approved, the prototype's approvedQ 7286), a baseline held (the scope not null, scopeOf 7469), and no live request on the work (overlay included) | `album.cr_raise` | opens the raise sheet |
 | the raise sheet (P) [P 7520-7528] | a bottom sheet | from Raise | title `album.change_request` + ` · ` + the work (Masters.work); the kinds the work allows — in the approved scope `remove` and `change`, outside it `add` (7521) — each `crkind.*` over its line `album.cr_kind_*_sub` (Album.CrKind.word / sub), the first selected; the field `album.cr_note_client`; the button `album.cr_raise` (filled, 4/16 dp) | the button QUEUES the raise with the selected kind and the note (blank allowed, as 7526) and closes the sheet |
 | `Record the client's answer` (P) [P 7468] | after the live request's note (`.alb60crans`: filled, 6/16 dp) | P, Client approved, a live request on the work (overlay included) | `album.cr_answer` | opens the answer sheet |
 | the answer sheet (P) [P 7529-7539] | a bottom sheet | from Record | title `album.cr_answer`; the head line (`.alb60crhd`, 0/24/8 dp) the work · `album.change_request` · the kind (`crkind.*`) · the note; the three outcomes (`album.cr_out_approved`, `…_declined`, `…_withdrawn`, Album.CrOutcome.text), approved selected; the field `album.cr_client_at`, today in IST as `YYYY-MM-DD` (C.today, 7332); its status line (role status, #B0740E) `refuse.album.client_at_day` when refused; the field `album.cr_how` over `album.cr_how_eg`; the note `album.cr_answer_note`; the button `album.cr_answer` | the button: approved or declined with a date that is not a day draws the refusal, marks the date field, stays open, and a keystroke in the date clears it (7534); else QUEUES the answer and closes the sheet |
 | the result line (P) [P 7413-7416] | the header, after the project line and before the Work log toggle (`.alb59res`: 6/16 dp, bodySmall, `--scn` = secondaryContainer, `--onscn` = onSecondaryContainer) [Ph AlbumScreen.kt:218] | after this visit's last review tap, while that review is queued or taken (gone when S5 refused it: below) | `album.accepted_res` / `album.kept_res` | — |
+
+**A sheet closes itself when its subject goes** (the K4 critic, finding 6; the prototype's ov() 7578 `!pm()`, crSheet
+7520 `!approvedQ`, crAnswerSheet 7529 `!cr || !approvedQ`): `AlbumPage.sheet(tx, m, sheetFor, now)` is null — and
+MainActivity then closes the open sheet — for every sheet once the person cannot write, for the raise and the answer
+sheets once the stage is not Client approved, and for the answer sheet once the overlaid log holds no live request on
+the work (a pass's 409 dropping a queued raise, the end-of-pass GET bringing role designer, another phone answering).
+A state sheet stays while its chapter is open, as the prototype's does.
 
 The sheets are drawn as FW2's WorkSheet draws Which work? [Ph TreeShell.kt:536-560]: ModalBottomSheet, SheetTitle
 [Ph Crumbs.kt:152], one ListItem per row with the selected one on secondaryContainer, the rows scrolling (the kit's
@@ -955,6 +962,9 @@ tapped, so the sheet closes at once.
   user — S5 stores `by` and `by_name` from the session it is sent with, and the overlay names the person from `Me` —
   and the outbox is the LOGIN's (below), so a write with no login has nobody to belong to. That is the prototype's
   drawing for a person it offers no control to, so no new UI state. Amit's phone has signed in to S5 since 22 Oct 2026.
+  **And a phone S5 signed out by a refused renewal has none either** (the K4 critic, finding 8): S5Session.relogin drops
+  the password and the session but keeps `who`, so `Me.user` alone is no sign-in; `AlbumPage.Me.signedIn`
+  (S5Session.signedIn) is part of `canWrite`.
 
 **THE OVERLAY: a tap shows at once** [P 7211 persist(), 7220-7221 setState: the write and the render are one step;
 Ph Album.kt:796 withQueued, :1202 provisional, the K1b design]
@@ -989,10 +999,14 @@ half, never a second copy]:
 **THE OUTBOX: where it lives, whose it is** [Ph AlbumQueue.kt:8-14 "The drain that sends … is K4's, in :app, with the
 queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferences]
 
-- **SharedPreferences `album_outbox`**, one entry per login — the key `Album.partyKey(whoami user)` — whose value is
-  `AlbumWire.storedOutbox`: `{v: 1, projects: {"<S5 id>": {queue: [op…], dropped: [op…]}}}`, each op
-  `{id, kind, work, base, value, prev, note, photo, room, caption, photo_kind, client_at, error, recorded, at}` with
-  AlbumQueue's types (`base` text, `work` a number or null, null as JSON null) [C]. Preferences, not a file beside the
+- **SharedPreferences `album_outbox`**, ONE entry (`outbox`) holding every login's outboxes — `AlbumQueue.Outboxes`,
+  keyed by `Album.partyKey(whoami user)` and then by S5 id — as `AlbumWire.storedOutbox`: `{v: 1, logins: [{login,
+  projects: [{project, queue: [op…], dropped: [op…]}]}]}`, each op `{id, kind, work, base, value, prev, note, photo,
+  room, caption, photo_kind, client_at, error, recorded, at}` with AlbumQueue's types (`base` text, `work` a number or
+  null, null as JSON null) [C; the K4 critic, finding 8: the per-login map lives in this :pano shape, so AlbumQueueTest
+  and AlbumWireTest pin that one login's ops are never read, listed or written for another. Lists of entries, not
+  objects keyed by login: `AlbumWire.Read` has no way to list an object's members, and a reader that could not would
+  read every queued op as none]. Written with `commit()` under the store lock, parsed once per write. Preferences, not a file beside the
   mirrors: the project list reads the line in composition for every row (MainActivity.kt:1497-1502), and preferences are
   an in-memory read, as the quote store is [Ph QuoteStageSync.kt:93]; their listener is what redraws the screens as the
   queue moves, as the mirror's and the wish lists' are [Ph MainActivity.kt:605-612, 628-636]. The project key is the
@@ -1004,12 +1018,23 @@ queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferen
   sees it laid over the album nor sends it under their own name. The same login's next sign-in resumes it.
 - **Sent only with the S5 session of that login, never the legacy ERP key** [C]: S5Auth.current falls back to the key
   [Ph S5Session.kt:208-209], and S5 would store the key's owner as `by`. With no live session the drain renews it once
-  (S5Session.relogin [Ph S5Session.kt:134-151]); refused, the phone is signed out of S5 and the ops wait.
+  (S5Session.relogin [Ph S5Session.kt:134-151]); refused, the phone is signed out of S5 and the ops wait. **Each pass is
+  pinned to the login and the sign-out epoch it started under** (the K4 critic, finding 8): `S5Session.cookieFor(login,
+  epoch)` gives the live cookie only while the sign-in is still that login's since that epoch, `S5Session.relogin(asLogin,
+  atEpoch)` renews only then (relogin reads the stored email and password, so a 401 inside A's pass after B signed in
+  would otherwise renew as B and resend A's op as B), and the pass stops, the queue as it was, the moment either changes
+  — checked before every send and every renewal.
 - **`dropped` keeps the newest 20** [C], each with S5's `error` and its `at`: nothing draws them (Q2), they are what a
   future line would read, and they cap the entry.
-- **The ids are minted once** (Album.mintId, at the tap) and stored with the op, so every retry — the drain's next pass,
-  a resend after a lost answer, a process restart — sends the same `ALB-…` and S5 answers `written: false` with the row
-  it already holds [S5 asis.js:75-77, 864; Ph Album.kt:1069 mintId; AQ's "each op is exactly the body S5 accepted"].
+- **The ids are minted once** (Album.mintId, at the tap) and stored with the op, so a retry — the drain's next pass,
+  a resend after a lost answer, a process restart — sends the same `ALB-…`, and S5 answers `written: false` with the row
+  it already holds [S5 asis.js:75-77, 864; Ph Album.kt:1069 mintId; AQ's "each op is exactly the body S5 accepted"] —
+  **unless S5 refuses before it looks the id up** (the K4 critic, finding 4): the log POST answers 404 (visible) and 403
+  (not PM) before albumAppend / albumEntry (asis.js 834, 836 before 858-864), the review PUT 403 before its albumEntry
+  (1001 before 1017). A write S5 holds, resent after a PM was named meanwhile, is answered 403 and dropped; so after the
+  end-of-pass GET `AlbumQueue.settle` takes out of `dropped` every op whose id the album's log holds as that op (the
+  same kind and work, a review the same photo), and the result line is judged by what the photo shows, never by
+  `dropped` (below).
 
 **THE DRAIN (K2's): when, where, in what order** [Ph AlbumQueue.kt next / requestOf / apply; S5 asis.js:831-880]
 
@@ -1017,10 +1042,23 @@ queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferen
   queue read when it RUNS — WorkRefile's shape [Ph WorkRefile.kt:71-82]. A tap or a project open with a queue ENQUEUES it
   with `ExistingWorkPolicy.REPLACE`, so the newest tap's job runs at once and never waits behind a backoff (REPLACE is
   what AsIsUpload and WorkRefile use [Ph AsIsUpload.kt:88, WorkRefile.kt:81]); SyncWorker, after BOTH legs and beside
-  FW2's sweep [Ph SyncWorker.kt:63-69], enqueues every project of the signed-in login's outbox with
-  `ExistingWorkPolicy.KEEP`, so the hourly catch-up (after a reboot, a sign-in, a long backoff) never cancels a drain in
-  flight [C]. Never counted in `failures`. Not Wi-Fi-only: a log POST or a review is a few hundred bytes; the Wi-Fi-only
-  toggle is for 20 MB panos [Ph SyncWorker.kt:435-440] (K5's JPEGs decide their own).
+  FW2's sweep [Ph SyncWorker.kt:63-69], enqueues every project of the signed-in login's outbox with REPLACE **unless its
+  unique work is RUNNING** (`getWorkInfosForUniqueWorkFlow(…).first()`) [C; the K4 critic, finding 3: KEEP does nothing
+  to a job ENQUEUED in backoff, so a drain backed off to WorkManager's 5 h cap after an S5 outage would not have been
+  brought forward; a reboot needs no catch-up, WorkManager persists enqueued work]. So the catch-up brings a backed-off
+  job forward, starts one for a queue whose job ended, and never cancels a pass in flight. **How a pass ends**: the
+  queue empty, or a head this build does not send (K5's photo op, `Pass.held`), or a 404 STOP (S5 does not list the
+  project, or lacks the route) — SUCCESS, the next project open and the hourly catch-up ask again, which makes the
+  404 case exactly once an hour; any other STOP — RETRY, WorkManager's backoff; no usable session — FAILURE when the
+  phone is not signed in to S5 (the next sign-in's project open, or the hourly sync, enqueues it again, as
+  WorkRefileWorker returns failure()), RETRY when it is signed in and the renewal could not reach the web; the sign-in
+  changed during the pass — SUCCESS, the queue waiting for its own login. Never counted in `failures`. Not Wi-Fi-only: a
+  log POST or a review is a few hundred bytes; the Wi-Fi-only toggle is for 20 MB panos [Ph SyncWorker.kt:435-440].
+  **K4's drain sends the LOG, REVIEW and REFILE steps alone** (`AlbumQueue.K4_STEPS`; the K4 critic, finding 9): a
+  photo's RECORD and its JPEG are K5's, together with how a JPEG step meets the Wi-Fi-only toggle without holding the
+  log ops queued behind it (skipped for the pass on a metered network, say, rather than STOPped) — nothing in K4 queues a
+  photo op, so a JPEG send built here would ship unexercised. A photo op at the head (a K5 build's queue after a
+  downgrade) ends the pass untouched.
 - **ONE PASS PER PROJECT AT A TIME** [C]: a pass holds the project's pass lock in AlbumOutbox (in process: a REPLACE-cancelled
   pass still finishing its blocking call and the new one never interleave), and checks `isStopped` between requests.
 - **The pass** (`AlbumQueue.drain`, pure, with :app's three callbacks): read the login's outbox as stored NOW; take its
@@ -1030,29 +1068,43 @@ queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferen
   - **The commit, in this order**: (1) the answer into the mirror (`AlbumSync.take`, at its own ticket after every read
     in flight [Ph AlbumSync.kt:212-229]) and its `work` row into the one store (`QuoteStageSync.write` of
     `QuoteStage.workCopy(stored, work)`: the store's copy with that work's state at S5's seq, merged by S5's order —
-    mergeStates, the higher seq winning [Ph QuoteStage.kt:246-276]); (2) then, under the outbox's store lock alone,
+    mergeStates, the higher seq winning [Ph QuoteStage.kt:246-276]) — for every verdict but STOP and RELOGIN, decided
+    first by `AlbumQueue.verdictOf`; (2) then, under the outbox's store lock alone,
     `AlbumQueue.apply` on the outbox AS STORED NOW — ops are found by id, so ops appended meanwhile ride behind it and are
     rebased as AQ does; its `mirror` (AQ's noRow test, a review's photo) is the pass's copy of AlbumSync's, read once per
-    pass and kept by the same `Album.merged` — and the queue and `dropped` written back. Answer before removal: the
-    overlay never goes while S5's word is not yet on the phone, so the screen never flickers back to the old state [C].
+    pass and kept by the same `Album.merged` — and the queue and `dropped` (capped) written back. Answer before removal —
+    and THE SCREEN READS THEM AS ONE SNAPSHOT, the queue first and then the mirror file, in one IO read keyed on both
+    ticks and assigned together (the K4 critic, finding 1): a queue read without the op is then always paired with a
+    mirror read after S5's row landed, so no frame draws the overlay gone and S5's word not yet come. The mirror file is
+    written whole (a temp file renamed over it), so that read never parses a half-written file into no mirror [C]. And a
+    tap built in the gap — the screen's queue still holding a predecessor the stored queue no longer does — has its base
+    fixed where it is stored: `AlbumOutbox.add` calls `AlbumWrite.atAdd` under the store lock, which gives it the seq of
+    the newest row S5 took for THOSE predecessors on its work (a review: the `at`, S5's `review_at`, of the newest review
+    S5 took of its photo), read from the mirror FILE, which (1) updated before (2) removed them — from those rows alone,
+    never the file's newest, so a row another writer put there is still S5's 409 to decide [C].
     The pass lock is the outermost and only a pass takes it, and the store lock is never held across (1), so no two locks are ever taken in opposite orders. A crash
     between (1) and (2) re-sends the op: S5's replay, harmless.
   - **401** (RELOGIN): the session renewed once, the same op sent again; a second 401, or a refused renewal, ends the pass
     with the queue as it was [Ph AlbumSync.kt:129-136, the same rule].
-  - **STOP** (404 on a log op, 405, 5xx, no network, a 200 that is not S5's handler [Ph AlbumQueue.kt:183-187]): the pass
-    ends, the queue as it was, and the job returns `Result.retry()` (WorkManager's backoff). A timeout once the request
-    may have gone out is STOP too: unlike QuoteMove's no-answer re-read [Ph QuoteStageSync.kt:251-255], resending the
-    same id is safe here, because S5 replays it [S5 asis.js:75-77].
+  - **STOP** (404 on a log op, 405, 5xx, no network, a 200 that is not S5's handler [Ph AlbumQueue.kt:183-187], and S5's
+    scope race on a recorded answer, below): the pass ends, the queue as it was, and the job ends as "How a pass ends"
+    says. A timeout once the request may have gone out is STOP too: unlike QuoteMove's no-answer re-read
+    [Ph QuoteStageSync.kt:251-255], resending the same id is safe here, because S5 replays it [S5 asis.js:75-77].
   - **After a pass that took any answer**, `AlbumSync.refresh(project)`: one album GET, which writes the mirror and the
     store in S5's own order — "K2 GETs after a drain" [Ph Album.kt:1334-1344, afterPost's note] — and brings S5's current role
     (a PM named meanwhile turns this phone's controls off).
 - **The order writes keep** [S5 asis.js:1793-1809 albumAppend: `base` = the work's MAX(seq) of ANY kind, `prev` = its
   state now]: FIFO per project, as tapped; ops on one work chain — each one's `base` is the mirror's (baseOf, PENDING
   rows never counted) at the tap, its `prev` the OVERLAID state, and the answer to the one before rebases it (AQ's
-  rebased: the entry's seq; a review's `review_at`); a 409 on a work drops that op and the work's later ops — S5 wins —
-  while every other work's still go; a refusal for good drops that op alone and the next on its work takes back S5's
-  base and state [Ph Album.kt:1390-1443]. A review's log row moves its photo's work's base, so a state tapped after a
-  review on the same work is rebased on the review's entry (AQ pins it).
+  rebased: the entry's seq; a review's `review_at`); a 409 on a work drops that op and the work's later LOG and photo
+  ops — S5 wins — while every other work's still go, **and never a review** (the K4 critic, finding 2: S5's review is
+  guarded on its photo's `review_at` alone, albumReview's `party = 'vendor' AND bytes > 0 AND COALESCE(review_at,'') =
+  base AND review <> state`, and never reads the work's seq); a review's 409 drops that review and the LATER REVIEWS OF
+  THE SAME PHOTO alone — never another photo's, and never the work's log ops, each of which S5 answers on its own base
+  (after `Reviewed meanwhile` they meet their own 409; after `No image yet` or a reused id nothing moved and they go); a
+  refusal for good drops that op alone and the next on its work takes back S5's base and state
+  [Ph Album.kt:1390-1443]. A review's log row moves its photo's work's base, so a state tapped after a review on the same
+  work is rebased on the review's entry (AQ pins it).
 
 **S5's answers, and what the phone then shows** [S5 asis.js, at 9a51733; AQ's verdict table]
 
@@ -1061,7 +1113,8 @@ queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferen
 | state, raise, answer: `POST …/album/log {v:1, id, kind, work, value, prev?, note, base, client_at?, via:"phone"}` | 200 `{ok, written: true, entry, work, scope, scope_at}` (864) | POSTED | entry into the log, the work row into the mirror and the store, the scope (an approved add or remove has just moved it: asis.js:846-855, one batch with the cr_clear row, guarded on the old `scope_at`); the op leaves, the next on its work rebased | S5's row: the same as the overlay |
 | | 200 `written: false`, the row as stored (864) | REPLAY | as POSTED | the same |
 | | 409 `{error: EXEC_LOCK_BANNER, locked: true, work, entry, scope, scope_at}` (867) | LOCKED | the rows taken; the op and its work's later ops dropped with S5's words | S5's state; the chapters lock once the GET brings the stage (the banner) |
-| | 409 `Changed meanwhile — <state> by <login>; not saved` (868), `The work is <state>, not <prev>; not saved` (869), a raise's four whys (871-875), `No change request to clear on this work` (877), `The scope was changed meanwhile; not saved — it now shows what is stored` (878: the amend's guard), `Changed meanwhile; not saved` (879) — each with `work`, `entry`, `scope`, `scope_at` | CONFLICT | as LOCKED | S5's state, S5's live request, S5's scope — no words (Q2) |
+| | 409 `Changed meanwhile — <state> by <login>; not saved` (868), `The work is <state>, not <prev>; not saved` (869), a raise's four whys (871-875), `No change request to clear on this work` (877) — each with `work`, `entry`, `scope`, `scope_at` | CONFLICT | as LOCKED | S5's state, S5's live request, S5's scope — no words (Q2) |
+| | 409 on a recorded answer whose `work.seq` is still the op's base and whose work still has its live request: `The scope was changed meanwhile; not saved — it now shows what is stored` (878) or `Changed meanwhile; not saved` (879) — S5's own read-then-write race with another work's amendment (it computes the amended scope from the `scope_at` it reads in the same handler, 842-856, and guards the batch on it) | STOP (the K4 critic, finding 5) | as it was: the same id is sent again, computed afresh | queued |
 | | 403 `{error: "Only the Project Manager sets a work's state"}` (836) — for a raise or an answer too, and with NO `album_role` or `pm` (unlike the scope and stage PUTs' 403s, asis.js:896, 1224) | REFUSED | that op alone dropped; the next on its work rebased; the end-of-pass GET brings S5's role | the controls go when the role is no longer PM; no words (Q2) |
 | | 400 (validLogEntry's words, 657-685), 413 `Request too large` (809) | REFUSED | as 403 | — (a correctly built phone meets neither: AQ caps every text) |
 | | 404 `Not found` (834: not visible) | STOP | as it was | queued |
@@ -1085,8 +1138,9 @@ offline is exactly the chain S5 will take:
   closes, as the prototype's raiseCR returning null closes it (7526: `m.sheet=null` whatever it returned) — reachable
   only through a race (a read landing between open and submit); else `Album.crRaiseOp`.
 - `answer(m, work, outcome, clientAt, how, now)`: `Album.crAnswer`; CLIENT_AT_DAY is `Out.Refused` (the sheet's line,
-  S5's 400 verbatim, keyed); else `Album.crAnswerOp(mirror, overlaidLog, …)` — `prev`, the kind it answers, read from
-  the OVERLAID log, so an answer to a raise still queued carries its kind.
+  S5's 400 verbatim, keyed); **every other refusal — CR_NONE, CR_NOT_APPROVED, CR_PM_ONLY — is `Out.None`** and the
+  sheet closes (the K4 critic, finding 6); else `Album.crAnswerOp(mirror, overlaidLog, …)` — `prev`, the kind it
+  answers, read from the OVERLAID log, so an answer to a raise still queued carries its kind.
 - `review(m, key, state, now)`: `Album.review(viewer, overlaidPhoto, state)` (so a second Accept is REVIEW_SAME, nothing
   queued), the op built from the MIRROR's photo — `base` is S5's `review_at`, never the overlay's tap time, which S5
   would answer as stale (asis.js:1012 guards on the old `review_at`); a second review of the same photo queued behind
@@ -1094,6 +1148,7 @@ offline is exactly the chain S5 will take:
 - `today(now)`: the IST day, `now.atZone(QuoteStage.IST).toLocalDate().toString()` — never `LocalDate.ofInstant`, which
   is Android API 34 and :pano runs on the phone (minSdk 29).
 - `Out`: `Queue(op)`, `Refused(why: Album.Refusal)`, `None` — not `Nothing`, which is Kotlin's.
+- `atAdd(op, seen, stored, mirror)`: the op as the outbox stores it (the commit's paragraph above; finding 1).
 
 **Files and changes**
 
@@ -1104,64 +1159,85 @@ offline is exactly the chain S5 will take:
   above, built once per change of its inputs as K3's model is; the K3 parameters keep their order.
 - `canWrite(mirror, notOnS5, me)` (above); `Model` keeps, internal, what AlbumWrite needs — the viewer, the mirror, the
   overlaid states, log, scope and items, the stage — null when the person cannot write.
-- `Header.result: String?`, set by `page(m, toggled, logOpen, result: String? = null)`; `resultText(tx, res, dropped)`:
-  `album.accepted_res` / `album.kept_res` for `Res(kind, op)`, null when that op is among the outbox's `dropped`.
+- `Header.result: String?`, set by `page(m, toggled, logOpen, result: String? = null)`; `resultText(tx, m, res)`:
+  `album.accepted_res` / `album.kept_res` for `Res(state, photo)` while the overlaid photo shows that review (queued, or
+  S5's row), null once it shows another — never judged by `dropped`, which a refusal of an op S5 already held would put it
+  in (finding 4). `Me` gains `signedIn` (finding 8).
 - `WorkCh` gains `stateTap: Boolean`, `raise: String?`, `answer: String?`; `CardLine` gains `review: Boolean`
   (`card(tx, viewer, p, canWrite = false)`); `Shown` gains `accept: String?`, `keep: String?`.
-- The three sheets' models, every text a `tx.<key>`: `StateSheet(title, rows, reason, footer)`,
-  `RaiseSheet(title, kinds, noteLabel, button)`, `AnswerSheet(title, head, outcomes, dateLabel, howLabel, help, note,
-  button)`, from `stateSheet(tx, m, work)`, `raiseSheet(tx, m, work)`, `answerSheet(tx, m, work)`; the need line and the
-  date's refusal are `Album.Refusal.text(tx)` (`album.done_reason_need`, `refuse.album.client_at_day`).
+- The three sheets' models (`Sheet`), every text a `tx.<key>`: `StateSheet(work, title, rows, reasonLabel, need,
+  footer)`, `RaiseSheet(work, title, kinds, noteLabel, button)`, `AnswerSheet(work, title, head, outcomes, dateLabel,
+  today, howLabel, help, note, button)`, from `stateSheet(tx, m, work)`, `raiseSheet(tx, m, work)`,
+  `answerSheet(tx, m, work, now)` and `sheet(tx, m, sheetFor, now)`, each null when its subject has gone (finding 6);
+  the need line and the date's refusal are `Album.Refusal.text(tx)` (`album.done_reason_need`,
+  `refuse.album.client_at_day`).
 - `SheetFor` (`State(work)`, `Raise(work)`, `Answer(work)`) and `Res` — the visit's, held by MainActivity.
 
 **pano/…/Album.kt (CHANGED)** — `Op.at: String = ""` (last, defaulted: every caller and AQ's request unchanged; never
-sent); `withQueued` carries `op.at` into the WorkState; `scopeWithQueued(scope, scopeAt, queue): Pair<List<Int>?, String>`.
+sent); `withQueued` carries `op.at` into the WorkState; `scopeWithQueued(scope, scopeAt, queue): Pair<List<Int>?, String>`;
+`dropWork` leaves the reviews on a work and drops a review's photo's later reviews alone (finding 2).
 
-**pano/…/AlbumQueue.kt (CHANGED)** — `Sent(code, body)` (code ≤ 0: no network) and `drain(load, send, commit, relogin,
-stopped): Pass(answered: Int, stopped: Boolean)`, the pass above with no Android in it; `KEEP_DROPPED = 20` and the cap.
+**pano/…/AlbumQueue.kt (CHANGED)** — `Sent(code, body)` (code ≤ 0: no network) and `drain(project, read, load, send,
+commit, relogin, stopped, sends = K4_STEPS): Pass(answered, stopped, code, held)`, the pass above with no Android in it;
+`verdictOf(mirror, op, code, reply)` (apply's verdict, given alone for the commit's step (1), with the answer race of
+finding 5); `Stored` (with `capped()`, `KEEP_DROPPED = 20`), `Outboxes` (per login, finding 8), `settle` (finding 4).
 
-**pano/…/AlbumWire.kt (CHANGED)** — `storedOutbox(projects)` and `outboxOf(r, o)`: the shape above, read tolerantly as
+**pano/…/AlbumWire.kt (CHANGED)** — `storedOutbox(outboxes)` and `outboxOf(r, o)`: the shape above, read tolerantly as
 the mirror is — a field missing takes the Op default, an op without an `id` is left out (it could never be replayed),
-an op of an unknown kind is KEPT (the drain refuses it with AQ's 400, that op alone), `base` stays text.
+an op of an unknown kind is KEPT (the drain refuses it with AQ's 400, that op alone), `base` stays text, a blank login
+or project is left out.
 
-**pano/…/QuoteStage.kt (CHANGED)** — `workCopy(stored, work): Cache?` (null when not listed, or the row has no state:
-`at` blank, as statesOfWorks drops it); `statesWith(cache, queue)` (null stays null, else withQueued).
+**pano/…/QuoteStage.kt (CHANGED)** — `workCopy(stored, work): Cache?` (null when not listed, when the copy holds no
+states in the read shape — one work's row would read as the whole project's — or the row has no state: `at` blank, as
+statesOfWorks drops it); `statesWith(cache, queue)` (null stays null, else withQueued).
 
-**app/…/AlbumOutbox.kt (NEW)** — the store (`prefs`, `queued(context, project)`, `dropped(context, project)`,
-`add(context, project, op)` under the store lock, the current login from S5Session.who), `enqueue(context, project, replace)`,
-`enqueueAll(context)`, the pass's three callbacks (`AsIsUpload.exchange` with the session cookie; the JSON body as
-`JSONObject(request.fields)`, which keeps a null as JSON null [Ph AlbumQueue.kt:62-69]; a request's `file`, K5's JPEG,
-read from `filesDir` and sent as `image/jpeg` — none queued before K5), and `AlbumDrainWorker` (CoroutineWorker, its
-input the project, `withContext(Dispatchers.IO)`; a session near its end renewed first, as WorkRefileWorker does). Log
-lines `// text:value`, never a header, S5's words at most.
+**app/…/AlbumOutbox.kt (NEW)** — the store (`prefs`, `all`, `queued(context, project)`, `dropped(context, project)`,
+`add(context, project, login, op, seen)` under the store lock — refused when the sign-in is no longer `login`'s, the op
+through `AlbumWrite.atAdd` — the current login from `S5Session.loginKey`), `enqueue(context, project, replace)`,
+`enqueueAll(context)` (suspend: REPLACE unless RUNNING), `run` (the pass: `AlbumQueue.drain` with the store, the
+pinned send — `AsIsUpload.exchange` with `S5Session.cookieFor`, the JSON body as `JSONObject(request.fields)`, which keeps
+a null as JSON null [Ph AlbumQueue.kt:62-69] — the commit, the pinned renewal; then the GET and `settle`), and
+`AlbumDrainWorker` (CoroutineWorker, its input the project, `withContext(Dispatchers.IO)`; a session near its end
+renewed first, as WorkRefileWorker does). No JPEG is sent: RECORD and IMG are K5's (finding 9). Log lines
+`// text:value`, never a header, S5's words at most.
+
+**app/…/S5Session.kt (CHANGED)** — `epoch(context)`, `loginKey(context)` (whoami's user as `Album.partyKey`), `cookieFor(
+context, login, epoch)` and `relogin(context, asLogin, atEpoch)`, the defaults keeping every caller as it was (finding 8).
+
+**app/…/AlbumSync.kt (CHANGED)** — the mirror file written whole, a temp file renamed over it (`writeFile`, finding 1);
+its KDoc says the outbox exists and its answers come in through `take`.
 
 **app/…/AlbumSheets.kt (NEW)** — `AlbumStateSheet`, `AlbumRaiseSheet`, `AlbumAnswerSheet`: draw the models; the typed
 reason, note, date and how are `remember(work)` inside each, lost on dismiss as the prototype's are.
 
 **app/…/AlbumScreen.kt (CHANGED)** — each control in its slot (the table above): StateChip clickable with ` ▾` when
 `w.stateTap`; WorkBody's buttons between the note and the decided list; AlbumCard's cell a Column of the card and,
-when `line.review`, the two buttons (`.alb60cw`) — a pending card's cell is then taller, and its grid row with it, as
-the prototype's grid row is; ViewerFacts' two buttons after the review line; AlbumHeader's result line; the sheet drawn
-when `sheet != null`. New parameters, after K3's: `sheet: AlbumPage.SheetFor?`, `onSheet`, `onState(work, to, remark):
+when `line.review`, the two buttons (`.alb60cw`), each the cell's width and **40 dp tall** (`.btn` / `.tbtn` height 40;
+`.alb60rb`'s min-height 36 does not shorten them) — a pending card's cell is then taller, and its grid row with it, as
+the prototype's grid row is, and **the row stretches every cell to its height** (`height(IntrinsicSize.Min)` on the row,
+each cell `fillMaxHeight()`, a plain card filling its cell; measured on the prototype at 360 × 780 with its own CSS: the
+pending wrapper 311.75 px, its card 223.75 px, the plain neighbour stretched to 311.75 px — the K4 critic, finding 7);
+ViewerFacts' two buttons after the review line; AlbumHeader's result line; the sheet drawn when `sheet != null`. New parameters, after K3's: `sheet: AlbumPage.SheetFor?`, `onSheet`, `onState(work, to, remark):
 AlbumWrite.Out`, `onRaise(work, kind, note)`, `onAnswer(work, outcome, clientAt, how): AlbumWrite.Out`,
 `onReview(key, state)`.
 
 **app/…/QuoteStageSync.kt (CHANGED)** — `lineFor` lays the login's queue (its KDoc's K4 sentence becomes true);
 `states(context, key)`; the class note names the outbox's answers as one more caller of `write`.
 
-**app/…/AlbumSync.kt (CHANGED, KDoc only)** — the outbox exists; its answers come in through `take`.
-
 **app/…/SyncWorker.kt (CHANGED)** — `AlbumOutbox.enqueueAll(applicationContext)` after `WorkRefile.sweep` (:69).
 
 **app/…/MainActivity.kt (CHANGED)**
 - The outbox's preferences listener bumps `quoteTick` and `albumTick` (every reader of the line, the states and the
   mirror is keyed on those already) [Ph MainActivity.kt:605-624].
-- `albumQueue = remember(stageKey, albumMe.user, quoteTick) { AlbumOutbox.queued(context, stageKey) }`; the model's
-  remember gains it and `albumMe` [Ph :1515]; `albumSheet` and `albumRes` beside `albumView`, held above the search
-  overlay and cleared by `leaveAlbum` and the tile's open [Ph :190-213, :1421-1430].
-- The callbacks: `AlbumWrite.*` on the model; a `Queue` goes to `AlbumOutbox.add` off the main thread in `scope`
-  [Ph :149], then `enqueue(replace = true)`; a review sets `albumRes`, and the page's result line is
-  `AlbumPage.resultText(tx, albumRes, AlbumOutbox.dropped(context, stageKey))`.
+- `albumQueue` from `heldQueue`, read WITH the mirror in one effect keyed on `stageKey, albumTick, dataTick, outboxTick,
+  albumMe.user` — the queue first, then the mirror, both assigned together (finding 1; the first version read the queue
+  in composition, which paired the drain's removal with a mirror read frames later); the model's remember gains it and
+  `albumMe` (now with `signedIn`) [Ph :1515]; `heldQueue`, `albumSheet` and `albumRes` beside `heldMirror` and
+  `albumView`, held above the search overlay and cleared by `leaveAlbum` and the tile's open [Ph :190-213, :1421-1430].
+- The callbacks: `AlbumWrite.*` on the model; a `Queue` goes to `AlbumOutbox.add(context, key, albumMe.user, op,
+  albumQueue)` off the main thread in `scope` [Ph :149], then `enqueue(replace = true)`; a review sets `albumRes`, and the
+  page's result line is `AlbumPage.resultText(tx, model, albumRes)` — judged by what the photo shows (finding 4); the
+  open sheet's model is `AlbumPage.sheet(…)`, and a LaunchedEffect closes a sheet whose model is null (finding 6).
 - The project-open effect enqueues the drain when the login's queue for the project is not empty [Ph :585-603].
 - The five states readers read `QuoteStageSync.states` [Ph :692, 2005, 2182, 2303, 2593]; the quote view's row and the
   scope sheet's view take `Album.scopeWithQueued` [Ph :1437-1439].
@@ -1243,9 +1319,17 @@ All on stage since 26–27 Oct, nothing new: `POST …/album/log` with the CR ki
   queue order and nothing else`.
 - **QuoteStageTest (CHANGED)** — `workCopy takes one work row at S5's seq and never a not-listed copy`; `statesWith
   keeps null as null`.
-- **A source-reading test** (in AlbumPageTest, as K3's): AlbumOutbox.kt sends with the S5 session and never names
-  S5Auth; the tap enqueues REPLACE and the sync KEEP; the commit takes the answer before `apply`; no
-  `LocalDate.ofInstant` in :pano; AlbumWrite's `Out.None`.
+- **A source-reading test** (in AlbumPageTest, as K3's): AlbumOutbox.kt sends with the S5 session of the pass's login
+  (`cookieFor`) and never names S5Auth; the renewal and every send pinned; the taps REPLACE and the catch-up spares a
+  RUNNING pass; the commit takes the answer before `apply`; the screen reads the queue before the mirror; the mirror
+  file renamed into place; no state reader takes the store's copy bare; no `LocalDate.ofInstant` in :pano (AlbumWriteTest);
+  AlbumWrite's `Out.None`.
+- **The K4 critic's cases** (each pinned where it lives): AlbumWriteTest, an op built after its predecessor's answer was
+  committed carries that answer's seq and `review_at` (finding 1), every answer refusal but the day is None (6);
+  AlbumQueueTest, a work's 409 leaves its reviews and a review's 409 drops its photo's later reviews alone (2), the
+  scope race is STOP (5), `settle` (4), a photo op held (9), every login's outbox kept apart (8); AlbumPageTest, the
+  result line judged by the photo (4), a sheet whose subject has gone has no model (6); AlbumWireTest, the per-login
+  stored shape (8).
 - **I18nTableTest, TxRenderTest, I18nLiteralTest** — the three new ported files; check (f) resolves every `tx.` the
   :app files call.
 - **The CI gate** (android-app.yml: the projection tests, then :app compiled — :app is compiled ONLY there).
@@ -1282,9 +1366,11 @@ prototype's rendering for each, as K3's review ruled for its five (§18), until 
 
 **Deliberately NOT in K4**
 
-- K5: the progress shot, its camera, Which work? and Which room?, its photo record and JPEG (the drain already sends
-  AQ's RECORD and IMG steps, so K5 adds only its writer and the shot file), its result line `Progress shot filed at …`,
-  and the photo re-file (S5-P) of a Capture 360 photo that went up by K5's route.
+- K5: the progress shot, its camera, Which work? and Which room?, its photo record and JPEG — K4's drain holds a photo
+  op at the head untouched (`AlbumQueue.K4_STEPS` has no RECORD or IMG), so K5 adds the two steps to the set, the JPEG
+  send (a file read from `filesDir`, `image/jpeg`) and its rule against the Wi-Fi-only toggle, and does not reshape the
+  pass (the K4 critic, finding 9) — its result line `Progress shot filed at …`, and the photo re-file (S5-P) of a
+  Capture 360 photo that went up by K5's route.
 - K6: vendor and client sign-in on the phone, a vendor's `Upload a photo` and its note, `Uploaded to …`.
 - A queue screen for album writes, a mark on a queued write, the words of a refusal (the questions above).
 - Recording the approved scope and the quote move: QV's and QM1/QM2's, online and unqueued as they are.
@@ -1295,8 +1381,10 @@ prototype's rendering for each, as K3's review ruled for its five (§18), until 
 
 - **A refusal is silent** until Q2 is answered: a PM whose write lost a race sees the chip return to S5's state. A race
   needs a second writer (/projects, or another staff phone while no PM is named), and S5 wins it by design.
-- **A queue for a project S5 stops listing** waits (its 404 is STOP) and is sent if S5 lists it again; the hourly
-  catch-up asks once an hour meanwhile.
+- **A queue for a project S5 stops listing** waits (its 404 is STOP, and the pass then ends SUCCESS, so no backoff
+  keeps asking) and is sent if S5 lists it again; the hourly catch-up and every project open ask once meanwhile. Any
+  other STOP backs off (30 s, doubling, to WorkManager's 5 h cap), and the catch-up REPLACEs a job in backoff that is not
+  running, so an S5 outage costs at most the hour to the next sync once S5 answers again (the K4 critic, finding 3).
 - **Ops queued under a login that never signs in again** are never sent and never drawn.
 - **The date** defaults to the phone's IST day: a phone with a wrong clock offers a wrong day, which the field shows.
 - **The 28 dp state chip** is the prototype's whole tap target, under the 48 dp guidance; the 56 dp header row gives
@@ -1322,7 +1410,9 @@ prototype's rendering for each, as K3's review ruled for its five (§18), until 
    stored now, ops found by id.
 8. *"A crash after S5's 200 sends it twice."* — The same id: S5 replays it.
 9. *"The overlay flickers back between the answer and the GET."* — The answer goes into the mirror and the store before
-   the op leaves the queue, and the listener re-reads both.
+   the op leaves the queue, and the screen reads the queue and the mirror as ONE snapshot, the queue first (the K4
+   critic, finding 1, corrected this answer: its first version read the queue in composition and the mirror off the main
+   thread frames later, which paired a queue without the op with a mirror without S5's row).
 10. *"The log POST's 403 names the role, as the scope's does."* — It does not (asis.js:836, 1001): the end-of-pass GET
     brings the role.
 11. *"A second review's base would be the overlay's time."* — It is the mirror's `review_at`, rebased by AQ.
@@ -1330,7 +1420,9 @@ prototype's rendering for each, as K3's review ruled for its five (§18), until 
     from its amended scope; S5 decides on send.
 13. *"K4 will have to move K3's controls."* — Each control is in the slot §18 named; a pending card's cell grows, as the
     prototype's grid row does.
-14. *"The drain will need rework for K5's photos."* — It sends every step AQ defines, a file included; K5 adds a writer.
+14. *"The drain will need rework for K5's photos."* — It sends the steps of a set K5 widens (`K4_STEPS`), and holds a
+    photo op untouched until then; K5 adds its writer, the JPEG send and its Wi-Fi rule (the K4 critic, finding 9,
+    corrected this answer: the first version built the JPEG send into K4, unexercised, with no room for the Wi-Fi rule).
 15. *"`Nothing` and `LocalDate.ofInstant` compile here and fail on the phone or in a `when`."* — `Out.None`, and the
     IST day through `atZone`.
 16. *"A PM named on /projects while this phone holds queued writes."* — They still show until the next pass sends them:
@@ -1340,8 +1432,77 @@ prototype's rendering for each, as K3's review ruled for its five (§18), until 
     is found by id alone; only the review route checks the kind, 1019). The ids are 48 random bits minted per op, so a
     collision within one project's log is not a practical case; recorded, not guarded.
 18. *"A queue for a project S5 no longer lists asks S5 every hour for ever."* — Its log ops' 404 is STOP (AQ: a route an
-    older S5 lacks, a project not visible yet); the hourly catch-up is one small POST per project, and the queue goes the
-    day S5 lists the project again. A review's 404 for a photo the mirror no longer holds is refused at once (noRow).
+    older S5 lacks, a project not visible yet), and the pass then ends SUCCESS rather than backing off, so it is asked
+    once an hour by the catch-up and once per project open — one small POST each — and the queue goes the day S5 lists
+    the project again. A review's 404 for a photo the mirror no longer holds is refused at once (noRow). (Corrected by
+    the K4 critic, finding 3: with KEEP and a retry, the first version's answer was not what WorkManager does.)
+
+**The K4 critic (9 Nov 2026)** — nine findings, each checked against the source before building; all nine taken, three
+of them with a part declined or refined:
+
+1. The overlay leaves before S5's row reaches the screen, and a tap in the gap is built on a stale base (major) —
+   **taken**: confirmed (the queue was a composition read, the mirror an IO read frames later; AlbumSync.take writes no
+   preference for a review's answer). The screen reads the queue and then the mirror as ONE snapshot, assigned together;
+   the mirror file is written whole (temp + rename); AlbumOutbox.add fixes a new op's base under the store lock through
+   AlbumWrite.atAdd, pinned in AlbumWriteTest. **One part declined**: the base is taken from the rows S5 took for the
+   predecessors the screen saw queued and the store no longer holds, not from the mirror file's newest base — which would
+   also take another writer's row and let the op overwrite a change the PM never saw, the race S5's guard exists to
+   refuse.
+2. A work's 409 drops a queued Accept S5 would take (minor) — **taken, one part declined**: confirmed (dropWork's
+   cascade; albumReview's guard reads no seq). A log or photo op's 409 never drops a review; a review's 409 drops the
+   later reviews of the same photo alone. Declined: dropping the work's later log ops on a review's 409 — `No image yet`
+   and a reused id move no seq, so S5 would take them, and after `Reviewed meanwhile` they meet their own 409. Pinned in
+   AlbumQueueTest.
+3. KEEP cannot rescue a backed-off drain; the "once an hour" claims were wrong (minor) — **taken** (the first option,
+   with the sentences corrected too): the catch-up REPLACEs every job that is not RUNNING; a 404 STOP ends SUCCESS, so a
+   project S5 stops listing is asked once an hour, not on a 5 h backoff; a pass with no usable session ends FAILURE (not
+   signed in) or RETRY (signed in, the renewal unreachable). Pinned by AlbumPageTest's source reading.
+4. A resend is not always `written: false`, because S5 checks role and visibility first (minor) — **taken**: confirmed
+   (asis.js 834 and 836 before 858-864; 1001 before 1017). `AlbumQueue.settle` takes an op S5 holds out of `dropped`
+   after the end-of-pass GET; the result line is judged by the photo's review, never by `dropped`; the "every retry"
+   sentence corrected. Pinned in AlbumQueueTest and AlbumPageTest.
+5. The scope race on a recorded answer drops a write a resend would land (minor) — **taken, refined**: confirmed (the
+   phone sends no scope base; 878 is reached only past `w.seq !== v.base`). A cr_clear's 409 whose `work.seq` is its
+   base AND whose work still has its live request is STOP — 878 and 879 alike. Refined: `No change request to clear`
+   (877) also matches on the base but has no live request, and resending it could only loop, so it stays CONFLICT.
+   Pinned in AlbumQueueTest, on a body shaped by hand from asis.js (S5Album's harness did not race two amendments).
+6. Sheets the prototype closes on its own stay open; the answer's other refusals unspecified (minor) — **taken**:
+   AlbumPage.sheet is null in the prototype's three cases (7578, 7520, 7529) and MainActivity closes such a sheet; every
+   answer refusal but CLIENT_AT_DAY is Out.None. Pinned in AlbumPageTest and AlbumWriteTest.
+7. Beside a pending card the neighbour does not stretch (minor) — **taken**: the row `height(IntrinsicSize.Min)`, each
+   cell `fillMaxHeight()`, a plain card filling it, a pending card at content height above its two 40 dp buttons. The
+   critic's Playwright figures were not re-measured here; they agree with the CSS (`.alb59grid` is a grid, which
+   stretches; `.alb60cw` a column; `.btn`/`.tbtn` height 40, 257 and 259; 223.75 + 4 + 40 + 4 + 40 = 311.75). Pinned by
+   source reading.
+8. The per-login guarantees rest on unpinned :app reads, and `who` survives a refused renewal (minor) — **taken**:
+   confirmed (relogin removes `pwd`, `cookie` and `cookie_at` and keeps `who`). `Me.signedIn` is part of canWrite; the
+   per-login map lives in :pano (`AlbumQueue.Outboxes`, `AlbumWire.storedOutbox`), pinned there; each pass is pinned to
+   its login and sign-out epoch (`S5Session.cookieFor`, `relogin(asLogin, atEpoch)`, `stopped`). **One departure from
+   the finding's shape**: lists of entries, `{v, logins: [{login, projects: [{project, …}]}]}`, not objects keyed by
+   login, because AlbumWire.Read cannot list an object's members.
+9. K5's JPEG was built into K4's drain, leaving no room for a Wi-Fi-only rule (minor) — **taken** (the first option):
+   K4's drain sends LOG, REVIEW and REFILE (`AlbumQueue.K4_STEPS`) and holds a photo op at the head untouched; K5 widens
+   the set and decides the Wi-Fi rule. Pinned in AlbumQueueTest.
+
+**Found wrong in the plan while building, and corrected above:** the outbox is one preferences entry holding every
+login, not one entry per login (finding 8); `add` needs the login the tap was drawn for and the queue the screen drew
+(finding 1); AlbumSync wrote the mirror in place, so a read beside it could parse a half-written file into no mirror;
+S5Session had no way to pin a pass (its epoch private, relogin renewing whoever is stored), so it gains `epoch`,
+`loginKey`, `cookieFor` and a pinned `relogin` — a file the plan did not list; `drain` needs the project and the reader,
+and the commit needs the verdict BEFORE apply (`verdictOf`) so that only an answer that carries rows is put on the
+phone first; `workCopy` must be null for a copy holding no states, or one work's row would read as the project's whole
+states; the scope's overlay needs a mirror, or a queued answer with no baseline under it would invent a one-work scope;
+`resultText` reads the model, not `dropped` (finding 4); `SheetFor` needs its `work`, and the sheets a sealed `Sheet`
+and one `sheet(…)` that answers null; MainActivity's `albumMe` had to move above the effect it now keys; and K3's and
+FW2's source-reading tests pinned the very literals K4 changes on purpose (the model's remember, `fileCache?.states`),
+so they now pin K4's. Recorded, not built: a second tap on a sheet row in the frame before the snapshot re-reads can
+queue the same write twice (S5 answers the second with its replay or a 409, nothing written twice); the answer race's
+STOP has no bound (no persistent cause is known in asis.js).
+
+:pano tests after K4, from the XML under pano/build/test-results/test: 867 tests, 0 failures, 0 errors, 0 skipped (824
+before: AlbumPageTest 26 → 39, AlbumWriteTest 11 new, AlbumQueueTest 24 → 37, AlbumWireTest 12 → 14, AlbumTest 67 → 69,
+QuoteStageTest 40 → 42). 1,794 keys, unchanged; `unkeyed.tsv` 860 lines before and after. :app is compiled only by CI;
+nothing has been seen on a phone.
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)

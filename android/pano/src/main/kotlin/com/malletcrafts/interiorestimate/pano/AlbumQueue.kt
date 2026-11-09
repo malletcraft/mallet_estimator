@@ -30,6 +30,11 @@ import com.malletcrafts.interiorestimate.pano.Album.Verdict
  * the drain to sign in again and resend; 404, 405, 5xx and no network stop the drain with the queue as it was, for
  * the next pass -- except a re-file's or a review's 404 for a photo the mirror does not hold, refused for good, and a
  * JPEG's 404, after which the next pass sends the record again.
+ *
+ * THE DRAIN (port 61c slice K4, "K2's drain"): [drain] is the pass :app's AlbumDrainWorker runs -- the head, its
+ * request, S5's answer, the commit, the next head -- with nothing Android in it, so AlbumQueueTest drives it against a
+ * fake S5; every login's queue as the phone stores it is [Outboxes] ([AlbumWire.storedOutbox]), read, overlaid and
+ * drained only for the login it was queued under.
  */
 object AlbumQueue {
 
@@ -180,11 +185,7 @@ object AlbumQueue {
      * pass may be answered.
      */
     fun apply(o: Outbox, op: Op, code: Int, reply: Reply): Applied {
-        val v = when {
-            code == 200 && reply.written == null -> Verdict.STOP
-            code == 404 && noRow(o, op) -> Verdict.REFUSED
-            else -> Album.verdict(code, reply.written != false, reply.locked)
-        }
+        val v = verdictOf(o.mirror, op, code, reply)
         val a = reply.answer
         val out = when (v) {
             Verdict.POSTED, Verdict.REPLAY -> when {
@@ -202,13 +203,40 @@ object AlbumQueue {
     }
 
     /**
+     * S5's [Verdict] on [op] answered [code] with [reply], as [apply] reads it -- given alone so the drain's commit can
+     * put S5's rows on the phone (the mirror, the store) BEFORE it applies the answer to the outbox (port 61c slice K4):
+     * [mirror] is the pass's copy, which decides [noRow]. Three answers are read here rather than by [Album.verdict]: a
+     * 200 with no boolean `written` (STOP, above); a re-file's or a review's 404 for a photo [mirror] does not hold
+     * (REFUSED, above); and an answer recorded on a work whose base S5 still has (STOP, the K4 critic, finding 5): S5
+     * computes an approved add's or remove's amended scope from the `scope_at` it reads inside the same handler and
+     * guards the batch on it (asis.js, the log POST), so a 409 `The scope was changed meanwhile` -- or its `Changed
+     * meanwhile; not saved` -- whose `work.seq` is still this op's base and whose work still has its live request is
+     * S5's own read-then-write race with another work's amendment, not a write S5 won: resending the same id is
+     * computed afresh and written (a replay if it landed after all). With no live request left (`No change request to
+     * clear`) or another base, it stays a CONFLICT.
+     */
+    fun verdictOf(mirror: Album.View?, op: Op, code: Int, reply: Reply): Verdict = when {
+        code == 200 && reply.written == null -> Verdict.STOP
+        code == 404 && noRow(mirror, op) -> Verdict.REFUSED
+        code == 409 && !reply.locked && answerRace(op, reply) -> Verdict.STOP
+        else -> Album.verdict(code, reply.written != false, reply.locked)
+    }
+
+    /** A recorded answer's 409 that names its own base and a live request: S5's scope race (finding 5), sent again. */
+    private fun answerRace(op: Op, reply: Reply): Boolean {
+        if (op.kind != Album.KIND_CR_CLEAR) return false
+        val w = reply.answer.work ?: return false
+        return w.id == op.work && w.cr != null && w.seq == (op.base.trim().toLongOrNull() ?: 0L)
+    }
+
+    /**
      * A re-file or a review of a photo the mirror does not hold, so of no row S5 is known to have. Its own photo op
      * cannot be what will record it: the queue is FIFO, so a photo op still queued is BEHIND it, and would never be
      * sent while it held the head.
      */
-    private fun noRow(o: Outbox, op: Op): Boolean {
+    private fun noRow(mirror: Album.View?, op: Op): Boolean {
         val s = stepOf(op)
-        return (s == Step.REFILE || s == Step.REVIEW) && o.mirror?.photos.orEmpty().none { it.id == op.photo }
+        return (s == Step.REFILE || s == Step.REVIEW) && mirror?.photos.orEmpty().none { it.id == op.photo }
     }
 
     /** [op] with its record to send again: S5 answered its JPEG 404 (no record). */
@@ -223,5 +251,144 @@ object AlbumQueue {
         if (o.queue.none { it.id == op.id }) return o
         if ((a.photo?.takeIf { it.id == op.photo }?.bytes ?: 0L) > 0L) return Album.afterPost(o, op, a)
         return o.copy(mirror = Album.merged(o.mirror, a), queue = o.queue.map { if (it.id == op.id) it.copy(recorded = true) else it })
+    }
+
+    // ---- THE OUTBOX AS THE PHONE STORES IT, AND THE DRAIN (port 61c slice K4) ----------------------------------
+
+    /** `dropped` keeps the newest this many, each with S5's words: nothing draws them yet (Q2), and they cap the entry. */
+    const val KEEP_DROPPED = 20
+
+    /** One project's outbox as stored: the FIFO [queue] still to send, and the ops S5 [dropped] (S5's `error` on each). */
+    data class Stored(val queue: List<Op> = emptyList(), val dropped: List<Op> = emptyList()) {
+        /** The entry with `dropped` held to its newest [KEEP_DROPPED]. */
+        fun capped(): Stored = if (dropped.size <= KEEP_DROPPED) this else copy(dropped = dropped.takeLast(KEEP_DROPPED))
+
+        val isEmpty: Boolean get() = queue.isEmpty() && dropped.isEmpty()
+    }
+
+    /**
+     * EVERY LOGIN'S OUTBOX, by login -- [Album.partyKey] of whoami's `user` -- then by S5 project id (the id the stage
+     * and the mirror are read under). A queued op is somebody's unsent work: it survives a sign-out, and it is only ever
+     * READ, laid over the album and SENT under the login it was queued under, so the next person signed in on the phone
+     * neither sees it nor sends it under their own name (the K4 critic, finding 8: the keying is pinned here, in
+     * :pano, not in :app alone). A blank login reads nothing and stores nothing.
+     */
+    data class Outboxes(val logins: Map<String, Map<String, Stored>> = emptyMap()) {
+        /** [login]'s outbox of [project]; empty for a blank login or none stored. */
+        fun of(login: String, project: String): Stored {
+            val k = Album.partyKey(login)
+            if (k.isEmpty() || project.isBlank()) return Stored()
+            return logins[k]?.get(project) ?: Stored()
+        }
+
+        /** These outboxes with [login]'s entry for [project] set to [s] (dropped from the map when empty); a blank login changes nothing. */
+        fun with(login: String, project: String, s: Stored): Outboxes {
+            val k = Album.partyKey(login)
+            if (k.isEmpty() || project.isBlank()) return this
+            val mine = LinkedHashMap(logins[k].orEmpty())
+            if (s.isEmpty) mine.remove(project) else mine[project] = s
+            val all = LinkedHashMap(logins)
+            if (mine.isEmpty()) all.remove(k) else all[k] = mine
+            return Outboxes(all)
+        }
+
+        /** [login]'s projects with an op still to send, in stored order: what the hourly catch-up enqueues. */
+        fun projects(login: String): List<String> {
+            val k = Album.partyKey(login)
+            if (k.isEmpty()) return emptyList()
+            return logins[k].orEmpty().filter { it.value.queue.isNotEmpty() }.keys.toList()
+        }
+    }
+
+    /**
+     * [s] with every op in `dropped` that S5 HOLDS taken out (the K4 critic, finding 4): S5 answers a 404 or a 403 --
+     * the project not visible, a PM named meanwhile -- BEFORE it looks an id up (asis.js, the log POST and the review
+     * PUT), so an op S5 wrote whose answer was lost and that was resent after that change is refused although S5 has
+     * it. [mirror] is the album the end-of-pass GET brought: an op whose id its log holds as that op (the same kind and
+     * work, or for a review the same photo) was written, not refused. The queue is never touched.
+     */
+    fun settle(s: Stored, mirror: Album.View?): Stored {
+        if (mirror == null || s.dropped.isEmpty()) return s
+        val byId = mirror.log.associateBy { it.id }
+        val left = s.dropped.filter { op ->
+            val e = byId[op.id] ?: return@filter true
+            val held = when (op.kind) {
+                Album.OP_REVIEW -> e.kind == Album.KIND_REVIEW && e.photo == op.photo
+                Album.KIND_STATE, Album.KIND_CR_RAISE, Album.KIND_CR_CLEAR -> e.kind == op.kind && e.work == op.work
+                else -> false
+            }
+            !held
+        }
+        return if (left.size == s.dropped.size) s else s.copy(dropped = left)
+    }
+
+    /** One request's answer as :app read it: the status ([code] <= 0: no network, no answer) and the body as a JSON tree (null when it is not JSON). */
+    data class Sent(val code: Int, val body: Any?)
+
+    /**
+     * What one pass did: how many of S5's answers it took ([answered] -- written, replayed, won or refused; never a STOP
+     * or a 401), whether it [stopped] before the queue was empty, the [code] of the answer that stopped it (0 for none:
+     * no network, a cancel), and whether it stopped at a head whose step this build does not send ([held]: K5's photo
+     * op after a downgrade -- nothing a retry changes, so the worker ends and the hourly catch-up asks again).
+     */
+    data class Pass(val answered: Int, val stopped: Boolean, val code: Int = 0, val held: Boolean = false)
+
+    /**
+     * The steps K4's drain sends: the log POST, the review and the S5-P re-file, every one a small JSON body. A photo's
+     * RECORD and its JPEG are K5's to send (the K4 critic, finding 9): nothing in K4 queues a photo op, and how a JPEG
+     * step meets the Wi-Fi-only toggle without holding the queue behind it is K5's decision. A head this build does not
+     * send ends the pass with the queue as it was ([drain]).
+     */
+    val K4_STEPS: Set<Step> = setOf(Step.LOG, Step.REVIEW, Step.REFILE)
+
+    /**
+     * ONE PASS of the drain for [project] (K2's, built in port 61c slice K4), pure: :app gives it the outbox as stored
+     * NOW ([load], its mirror the pass's copy), one HTTP request ([send]), the commit ([commit]: S5's rows onto the phone
+     * FIRST -- the mirror and the one store -- then [apply] on the outbox as stored then, under the store's lock, its
+     * [Applied] handed back), the sign-in's renewal ([relogin]) and whether to stop ([stopped]: the worker cancelled, or
+     * the S5 sign-in no longer the one the pass started under). Each step: [stopped], the head ([next], re-read every
+     * step, so an op tapped during the pass goes in it), its request ([requestOf]; a kind this build cannot send is
+     * committed as a 400 without a call, AQ's rule), [stopped] again just before the send, the send, S5's answer read
+     * ([AlbumWire.reply]), the commit. A 401 renews the sign-in once per pass and sends the same op again; a second 401,
+     * or a refused renewal, ends the pass with the queue as it was. STOP (no network, a timeout, a 5xx, a 404 on a log
+     * op, a 200 that is not S5's, the answer race of [verdictOf]) ends it too. A head whose step is not in [sends] ends
+     * it untouched. [maxSteps] is a guard against a commit that does not move the head.
+     */
+    fun drain(
+        project: String,
+        read: AlbumWire.Read,
+        load: () -> Outbox,
+        send: (Request) -> Sent,
+        commit: (Op, Int, Reply) -> Applied,
+        relogin: () -> Boolean,
+        stopped: () -> Boolean,
+        sends: Set<Step> = K4_STEPS,
+        maxSteps: Int = 500,
+    ): Pass {
+        var answered = 0
+        var renewed = false
+        repeat(maxSteps) {
+            if (stopped()) return Pass(answered, true)
+            val n = next(load()) ?: return Pass(answered, false)
+            val step = n.step
+            if (step != null && step !in sends) return Pass(answered, true, held = true)
+            val rq = requestOf(n.op, project)
+            if (rq == null) {
+                // a kind this build cannot send: AQ's 400, that op alone, with no call
+                if (!commit(n.op, 400, Reply()).goOn) return Pass(answered, true, 400)
+                return@repeat
+            }
+            if (stopped()) return Pass(answered, true)
+            val s = send(rq)
+            if (s.code == 401) {
+                if (renewed || !relogin()) return Pass(answered, true, 401)
+                renewed = true
+                return@repeat
+            }
+            val a = commit(n.op, s.code, AlbumWire.reply(read, s.body, n.op))
+            if (a.verdict != Verdict.STOP && a.verdict != Verdict.RELOGIN) answered += 1
+            if (!a.goOn) return Pass(answered, true, s.code)
+        }
+        return Pass(answered, true)
     }
 }

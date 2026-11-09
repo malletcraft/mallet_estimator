@@ -1343,4 +1343,37 @@ class AlbumTest {
         // the first page alone is behind S5 on every work: its newest rows are missing
         for (w in listOf(10, 20, 50, 90, 140)) assertTrue((p1.log.filter { it.work == w }.maxOfOrNull { it.seq } ?: 0L) < works.first { it.id == w }.seq, "page 1 of $w")
     }
+
+    // ---- K4: the overlay's two new readers --------------------------------------------------------------------
+
+    @Test fun `withQueued carries the tap's at - a queued Done on 140 closes the album with its day`() {
+        val done = Op("ALB-0000000000c1", Album.KIND_STATE, 140, value = Album.DONE, prev = Album.NOT_STARTED, at = "2026-11-09T07:00:00Z")
+        val states = Album.withQueued(mapOf(10 to WorkState(Album.DONE, 7, "2026-11-03T05:16:04.196Z")), listOf(done))
+        assertEquals(WorkState(Album.DONE, Album.PENDING_SEQ, "2026-11-09T07:00:00Z"), states[140])
+        assertEquals(WorkState(Album.DONE, 7, "2026-11-03T05:16:04.196Z"), states[10], "the store's own rows untouched")
+        val ch = Album.chapters(emptyList(), emptyList(), emptyList(), null, QuoteStage.APPROVED, "", states, Viewer(Album.PM))
+        assertTrue(ch.closed)
+        assertEquals("2026-11-09T07:00:00Z", ch.closedAt)
+        // an op an older build queued carries no time: the album closes, with no day
+        assertEquals("", Album.withQueued(emptyMap(), listOf(done.copy(at = "")))[140]?.at)
+    }
+
+    @Test fun `scopeWithQueued amends approved adds and removes in queue order, and nothing else`() {
+        val scope = listOf(10, 20, 90)
+        fun clear(id: String, work: Int, value: String, kind: String, at: String) =
+            Op(id, Album.KIND_CR_CLEAR, work, value = value, prev = kind, clientAt = "2026-11-09", at = at)
+        val add80 = clear("ALB-0000000000e1", 80, "approved", "add", "2026-11-09T06:30:00Z")
+        val drop20 = clear("ALB-0000000000e2", 20, "approved", "remove", "2026-11-09T06:31:00Z")
+        val change10 = clear("ALB-0000000000e3", 10, "approved", "change", "2026-11-09T06:32:00Z")
+        val declined = clear("ALB-0000000000e4", 30, "declined", "add", "2026-11-09T06:33:00Z")
+        val withdrawn = clear("ALB-0000000000e5", 90, "withdrawn", "remove", "2026-11-09T06:34:00Z")
+        val state = Op("ALB-0000000000e6", Album.KIND_STATE, 40, value = Album.IN_PROGRESS, prev = Album.NOT_STARTED, at = "2026-11-09T06:35:00Z")
+        val raise = Op("ALB-0000000000e7", Album.KIND_CR_RAISE, 50, value = "add", at = "2026-11-09T06:36:00Z")
+        assertEquals(listOf(10, 20, 80, 90) to "2026-11-09T06:30:00Z", Album.scopeWithQueued(scope, "2026-11-03T05:16:04.201Z", listOf(add80)))
+        assertEquals(listOf(10, 80, 90) to "2026-11-09T06:31:00Z", Album.scopeWithQueued(scope, "x", listOf(add80, drop20)), "in queue order, the stamp the last amendment's")
+        assertEquals(scope to "x", Album.scopeWithQueued(scope, "x", listOf(change10, declined, withdrawn, state, raise)), "a change, a no and a withdrawal amend nothing")
+        // a clear whose prev is blank answers an add (a raise v61b wrote), as S5 reads it
+        assertEquals(listOf(10, 20, 70, 90) to "t", Album.scopeWithQueued(scope, "", listOf(clear("ALB-0000000000e8", 70, "approved", "", "t"))))
+        assertEquals(scope to "x", Album.scopeWithQueued(scope, "x", emptyList()))
+    }
 }

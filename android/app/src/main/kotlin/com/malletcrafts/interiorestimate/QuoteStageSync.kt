@@ -122,14 +122,26 @@ object QuoteStageSync {
     /**
      * THE ONE DERIVED LINE (QuoteStage.projectLine) for the S5 id [stageKey] the stage is read under
      * (WishSync.stageKey: the project's own, or the id its moved list now has), in [tx]: the project
-     * screen's line, the project list row and the Wish list's top bar all draw this. Null or blank:
-     * the project is only on this phone, so S5 is not consulted and it reads "not on S5 yet". This
-     * phone's queued state writes lay over the states here once the album outbox exists (K4); until
-     * then there are none.
+     * screen's line, the project list row, the album header and the Wish list's top bar all draw this.
+     * Null or blank: the project is only on this phone, so S5 is not consulted and it reads "not on S5
+     * yet". The signed-in login's queued state writes (AlbumOutbox, port 61c slice K4) lay over the
+     * states here, so a state tapped on the album shows on the line at once, with signal or without.
      */
     fun lineFor(context: Context, stageKey: String?, tx: Tx): QuoteStage.ProjectLine {
         val local = stageKey.isNullOrBlank()
-        return QuoteStage.projectLine(if (local) null else cached(context, stageKey!!), local, emptyList(), tx, Instant.now())
+        return QuoteStage.projectLine(if (local) null else cached(context, stageKey!!), local,
+            if (local) emptyList() else AlbumOutbox.queued(context, stageKey), tx, Instant.now())
+    }
+
+    /**
+     * The works' states every other reader draws (port 61c slice K4): the store's copy for [stageKey] with the signed-in
+     * login's queued state writes laid over it (QuoteStage.statesWith) -- Which work?'s state lines, the capture
+     * sheet's default pick (Album.newCaptureWork: the first work In progress) and the WORK line. Null when the project
+     * is only on this phone, never read, or read with no states (not read yet; a queued write never makes it read).
+     */
+    fun states(context: Context, stageKey: String?): Map<Int, Album.WorkState>? {
+        if (stageKey.isNullOrBlank()) return null
+        return QuoteStage.statesWith(cached(context, stageKey), AlbumOutbox.queued(context, stageKey))
     }
 
     /**
@@ -142,7 +154,8 @@ object QuoteStageSync {
      * THE ONE WRITER of every S5 answer but one -- [named]'s, which names a stage with no stamp and so
      * writes its own copy (the class note says why it cannot come through here): S5's [copies] by
      * project id -- a read of the list ([refresh]), and from QV on
-     * the album GET (QuoteStage.fromAlbum) and the answers to a move (QuoteMove.copyOf) -- go into
+     * the album GET (QuoteStage.fromAlbum) and the answers to a move (QuoteMove.copyOf), and from K4 the
+     * album outbox's answers (AlbumOutbox's commit: QuoteStage.workCopy of the work row S5 sends) -- go into
      * the store through QuoteStage.writes, each id merged by S5's own order onto the copy stored now.
      * [sent] is the [ticket] the request took as it went out; null for an answer that is S5's word as
      * it lands (a move's), which takes its place in the sequence now, as [named] does. Returns what

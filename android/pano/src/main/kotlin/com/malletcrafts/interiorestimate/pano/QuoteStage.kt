@@ -330,6 +330,31 @@ object QuoteStage {
     )
 
     /**
+     * The store's copy [stored] with ONE work's state from S5's answer to a queued write (port 61c slice K4): the log
+     * POST's `work` row ([Album.Work]: the state, its time, and `seq` the work's BASE, as the album GET's `works[]`),
+     * merged by S5's own order ([mergeStates]: the higher seq wins), to go in through QuoteStageSync.write like every
+     * other S5 answer. Null -- nothing to write -- when [stored] is none or not listed (a project S5 does not list holds
+     * no states, v61c.2), when it holds no states in the read shape (null: a work's one row would read as the whole
+     * project's, so the next read of the list or the album fills it instead), or when [work] has no state row (`at`
+     * blank, as [Album.statesOfWorks] drops it: a change request on a work never started moves its base, not a state).
+     */
+    fun workCopy(stored: Cache?, work: Album.Work): Cache? {
+        if (stored == null || !stored.listed || stored.states == null) return null
+        if (!Album.isWork(work.id) || work.at.isBlank()) return null
+        val ws = WorkState(Album.stateName(work.state), work.seq, work.at)
+        return stored.copy(states = mergeStates(stored.states, mapOf(work.id to ws)))
+    }
+
+    /**
+     * The works' states every reader of the store draws (port 61c slice K4): the copy's [Cache.states] with this login's
+     * queued state writes laid over them ([Album.withQueued]), so a tap shows at once on the project line, the album,
+     * Which work? and the capture sheet's default pick alike. NULL STAYS NULL -- a copy never read, or holding no states
+     * in the read shape, is "not read yet" (PL's rule), and a queued write never makes it read.
+     */
+    fun statesWith(cache: Cache?, queue: List<Album.Op>): Map<Int, WorkState>? =
+        cache?.states?.let { Album.withQueued(it, queue) }
+
+    /**
      * One project row of S5's `GET /api/asis` (`{project, quote_stage, quote_stage_by, quote_stage_at,
      * work_states: {"<id>": {state, seq}}, …}`; asis.js at 9a51733), read through [AlbumWire.Read]'s three
      * questions; null without a project id. `work_states` absent (an S5 before S5-L) is null, not "no work

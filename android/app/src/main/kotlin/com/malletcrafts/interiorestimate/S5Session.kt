@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate
 
 import android.content.Context
 import android.util.Log
+import com.malletcrafts.interiorestimate.pano.Album
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -59,6 +60,22 @@ object S5Session {
 
     /** Bumped by every sign-out; a sign-in started before it writes nothing. */
     private fun epochOf(context: Context) = prefs(context).getLong("epoch", 0L)
+
+    /** The sign-out epoch now: an album drain pins its pass to it (AlbumOutbox, port 61c slice K4). */
+    fun epoch(context: Context): Long = synchronized(lock) { epochOf(context) }
+
+    /** whoami's user as S5 matches a party (Album.partyKey), '' when nobody is named: the login an album outbox is keyed by. */
+    fun loginKey(context: Context): String = Album.partyKey(who(context)?.optString("user"))
+
+    /**
+     * The live session cookie ONLY while the S5 sign-in is still [login]'s, since the sign-out [epoch] it was read at
+     * (port 61c slice K4, the K4 critic, finding 8): an album op is sent under the login it was queued under, never the
+     * next person's and never the legacy ERP key. Null otherwise, or when no live session is held. Never log it.
+     */
+    fun cookieFor(context: Context, login: String, epoch: Long): String? = synchronized(lock) {
+        if (epochOf(context) != epoch || !signedIn(context) || login.isBlank() || loginKey(context) != login) null
+        else liveCookie(context)
+    }
 
     /** One sign-in's outcome: [error] null when signed in. [refused] = ERP or S5 said no to THESE
      *  credentials (wrong password, account not linked, not staff) -- trying them again cannot
@@ -131,9 +148,13 @@ object S5Session {
      * and the app asks the person to sign in, saying why ([refusal]). A network failure keeps
      * everything: it says nothing about the password.
      */
-    fun relogin(context: Context): Boolean {
+    fun relogin(context: Context, asLogin: String? = null, atEpoch: Long? = null): Boolean {
+        // An album drain's renewal names the login and epoch its pass started under (port 61c slice K4): another
+        // person signed in meanwhile is never renewed for it, nor their password posted for the first person's op.
         val (u, w, e) = synchronized(lock) {
             val p = prefs(context)
+            if (atEpoch != null && epochOf(context) != atEpoch) return false
+            if (asLogin != null && loginKey(context) != asLogin) return false
             Triple(p.getString("usr", null), p.getString("pwd", null), epochOf(context))
         }
         if (u.isNullOrBlank() || w.isNullOrBlank()) return false

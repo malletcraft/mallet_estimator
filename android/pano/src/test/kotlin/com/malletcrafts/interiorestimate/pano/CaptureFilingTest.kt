@@ -291,7 +291,9 @@ class CaptureFilingTest {
         for (gone in listOf("StageSheet", "showStagePicker", "retagStage", "stageNow", "var stage by", "Stage for new photos", "Stage of this photo",
             "setCaptureTags(serverName, workStage", "cat.stages(", "workStage = newStage"))
             assertFalse(src.contains(gone), "`$gone` is gone with the stage pickers")
-        assertTrue(src.contains("val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileCache?.states)"), "where the next capture files")
+        // since K4 the states are the store's with this login's queued writes laid over them (QuoteStageSync.states)
+        assertTrue(src.contains("val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileStates)"), "where the next capture files")
+        assertTrue(src.contains("val fileStates = remember(fileKey, dataTick, quoteTick) { QuoteStageSync.states(context, fileKey) }"))
         assertTrue(src.contains("val capWorkFor = remember { mutableStateMapOf<String, Int>() }"), "the pick is held per project, in memory")
         assertTrue(src.contains("if (fileApproved && workNow == null) { lastResult = { tx -> tx.album_pick_work }; return }"), "approved with no work to file at: refused, never filed to 0 (a deliberate departure from the prototype's ingest, index61c2.html:8016, which files at null; on the phone NULL is a pre-FW2 row's legacy filing)")
         assertEquals(2, Regex("""captureDate = today, stage = "",""").findAll(src).count(), "FaceWriter.begin and single get stage ''")

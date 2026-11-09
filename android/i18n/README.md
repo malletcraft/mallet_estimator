@@ -408,6 +408,23 @@ stage's groups). A key comes back with the approval, born keyed again. `wish.not
 readers; `album.staff` is still the who pill's TalkBack label). `album.locked_until_approved` stays: it is the
 prototype's own English (7453). `unkeyed.tsv` and `ported.txt` are unchanged.
 
+## Port 61c slice K4 (9 Nov 2026): the Project Manager's writes, no new key
+
+`pano/AlbumWrite.kt` (new: each tap as its op, no shown text), `app/AlbumOutbox.kt` (new: the outbox and its drain, no
+shown text) and `app/AlbumSheets.kt` (new: the three sheets) joined `ported.txt`. Every text K4 draws is a key the
+tables already held -- L1 landed the prototype's album and change-request keys, K1b the refusals: the state sheet
+(`album.state_of_x`, the five states through `Masters.state`, `album.done_reason_label`, `album.done_reason_need`,
+`album.state_pm_only`), Accept / Not for client under a card and in the viewer (`album.accept`, `album.not_for_client`,
+the group's TalkBack label `life.vrev` -- the prototype's own `aria-label`, `Vendor review` / `व्हेंडर तपासणी`), the result
+line (`album.accepted_res`, `album.kept_res`), the raise sheet (`album.change_request` with the work, `crkind.*`,
+`album.cr_kind_*_sub`, `album.cr_note_client`, `album.cr_raise`) and the client's-answer sheet (`album.cr_answer`, the
+head line through `album.change_request` and `crkind.*`, `album.cr_out_*`, `album.cr_client_at`, its refusal
+`refuse.album.client_at_day` -- S5's 400 verbatim -- `album.cr_how`, `album.cr_how_eg`, `album.cr_answer_note`), all in
+the prototype's English and Marathi. The ` ▾` after the PM's state chip is marked `// text:value` (aria-hidden, the
+prototype's caret), as are AlbumOutbox's log lines, its WorkManager name, the body's content type and AlbumSync's temp
+file suffix. 1,794 keys, unchanged; Tx is not regenerated. `unkeyed.tsv` is unchanged (860 lines): every new literal is
+keyed or a value. `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
+
 ## What is here
 
 | File | What it is | Who writes it |

@@ -46,3 +46,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/CaptureScreens.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumPage.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumImages.kt
+# Port 61c slice K4 (9 Nov 2026) adds the Project Manager's writes: pano/AlbumWrite.kt (each tap as its op: no shown text, every text the sheets draw comes from AlbumPage), app/AlbumOutbox.kt (the outbox and its drain: no shown text, its log lines, its WorkManager name and the body's content type marked `// text:value`) and app/AlbumSheets.kt (the three sheets: every text through AlbumPage's models, a refusal through Album.Refusal.text).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWrite.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumOutbox.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSheets.kt

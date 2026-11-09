@@ -733,4 +733,34 @@ class QuoteStageTest {
         assertEquals(Cache(listed = false, readAt = "r"), later)
         assertEquals(LineKind.EXEC, line(QuoteStage.merge(later, listed, 2L, 1L)).kind)
     }
+
+    // ---- K4: the outbox's answers into the one store, and the states every reader draws -------------------------
+
+    @Test fun `workCopy takes one work row at S5's seq and never a not-listed copy`() {
+        val stored = approved(mapOf(10 to WorkState("Done", 7, "2026-11-03T05:16:04.196Z")))
+        // the log POST's work row: 20 In progress, its base 12
+        val row = Album.Work(20, "In progress", "pm@x", "P M", "2026-11-09T06:30:01.000Z", 12)
+        val c = assertNotNull(QuoteStage.workCopy(stored, row))
+        assertEquals(mapOf(10 to WorkState("Done", 7, "2026-11-03T05:16:04.196Z"), 20 to WorkState("In progress", 12, "2026-11-09T06:30:01.000Z")), c.states)
+        assertEquals(listOf(stored.stage, stored.by, stored.at, stored.readAt), listOf(c.stage, c.by, c.at, c.readAt), "the stage is not the answer's to move")
+        // through the one writer's rule it merges by S5's order: an older row never beats the stored one
+        val older = Album.Work(10, "In progress", "pm@x", "P M", "2026-11-03T05:16:04.187Z", 6)
+        val merged = QuoteStage.merge(stored, assertNotNull(QuoteStage.workCopy(stored, older)), seq = 5, wrote = 4)
+        assertEquals(WorkState("Done", 7, "2026-11-03T05:16:04.196Z"), merged.states?.get(10))
+        // nothing to write: a copy not listed, none, one holding no states, a row with no state row, not one of the sixteen
+        assertNull(QuoteStage.workCopy(Cache(listed = false, readAt = now.toString()), row))
+        assertNull(QuoteStage.workCopy(null, row))
+        assertNull(QuoteStage.workCopy(approved(null), row), "a work's one row would read as the whole project's")
+        assertNull(QuoteStage.workCopy(stored, row.copy(at = "")), "a change request on a work never started moves its base, not a state")
+        assertNull(QuoteStage.workCopy(stored, row.copy(id = 15)))
+    }
+
+    @Test fun `statesWith keeps null as null and lays the queue over what was read`() {
+        val ip = Album.Op("ALB-0000000000f1", Album.KIND_STATE, 20, value = "In progress", prev = "Not started", at = "2026-11-09T06:30:00Z")
+        assertNull(QuoteStage.statesWith(null, listOf(ip)))
+        assertNull(QuoteStage.statesWith(approved(null), listOf(ip)), "not read yet stays not read yet, whatever is queued")
+        val s = assertNotNull(QuoteStage.statesWith(approved(emptyMap()), listOf(ip)))
+        assertEquals(WorkState("In progress", Album.PENDING_SEQ, "2026-11-09T06:30:00Z"), s[20])
+        assertEquals(emptyMap(), QuoteStage.statesWith(approved(emptyMap()), emptyList()))
+    }
 }

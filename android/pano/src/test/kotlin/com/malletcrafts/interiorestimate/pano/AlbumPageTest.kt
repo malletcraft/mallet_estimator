@@ -47,8 +47,9 @@ class AlbumPageTest {
         Local(id, serverName, work, stage, createdAt, capturedAt, room, kind)
 
     private fun page(items: List<Photo>, mirror: View?, cache: QuoteStage.Cache?, phoneOnly: Boolean = false, tx: Tx = Tx.EN,
-                     toggled: Map<Int, Boolean> = emptyMap(), logOpen: Boolean = false) =
-        AlbumPage.page(tx, "Demo flat", items, mirror, cache, line(cache, phoneOnly), toggled, logOpen)
+                     toggled: Map<Int, Boolean> = emptyMap(), logOpen: Boolean = false,
+                     queue: List<Album.Op> = emptyList(), who: Me = Me("", "")) =
+        AlbumPage.page(tx, "Demo flat", items, mirror, cache, line(cache, phoneOnly), toggled, logOpen, queue, who)
 
     // ---- THE ONE FILING ------------------------------------------------------------------------------------
 
@@ -530,9 +531,10 @@ class AlbumPageTest {
         assertTrue(screen.contains("item(key = \"up\") { Spacer(Modifier.height(8.dp)) }"))
         // finding 2: no line of its own for S5's more, and the Work log always the prototype's toggle
         assertFalse(screen.contains("page.more") || screen.contains("toggleable"))
-        // finding 4: the model is remembered on the data alone, and a tap applies to it
-        assertTrue(main.contains("remember(tx, proj.title, albumItems, mirror, wishCache, projectLine) {\n                AlbumPage.model("))
-        assertTrue(main.contains("remember(albumModel, toggled, albumLog) { AlbumPage.page(albumModel, toggled, albumLog) }"))
+        // finding 4: the model is remembered on the data alone, and a tap applies to it (K4: the queue and who is signed in
+        // are data too, and the result line rides on the page as the taps do)
+        assertTrue(main.contains("remember(tx, proj.title, albumItems, mirror, wishCache, projectLine, albumQueue, albumMe) {\n                AlbumPage.model("))
+        assertTrue(main.contains("remember(albumModel, toggled, albumLog, albumResult) { AlbumPage.page(albumModel, toggled, albumLog, albumResult) }"))
         // finding 5: the mirror, the kept files and the list's scroll are held above the search overlay's early return
         val search = main.indexOf("    if (showSearch) {")
         assertTrue(search > 0)
@@ -569,5 +571,303 @@ class AlbumPageTest {
         assertEquals("तपासायचे: 1", page(AlbumPage.compose(pendingPhoto, emptyList(), me), pendingPhoto, approvedCache, tx = Tx.MR).header.toReview)
         assertEquals("अल्बम · Demo flat", mr.title)
         assertEquals("3 फोटो · सर्व्हेपासून हस्तांतरणापर्यंत", mr.sub)
+    }
+
+    // ---- K4: the Project Manager's writes (DESIGN-port61c.md §19) ----------------------------------------------
+
+    private val at = Instant.parse("2026-11-09T06:30:00Z")
+    private val vendorKey = "ALBUM||ALB-00000000001e"
+
+    private fun model(mirror: View? = approved, cache: QuoteStage.Cache? = approvedCache, queue: List<Album.Op> = emptyList(), who: Me = me,
+                      tx: Tx = Tx.EN, phoneOnly: Boolean = false) =
+        AlbumPage.model(tx, "Demo flat", AlbumPage.compose(mirror, emptyList(), who), mirror, cache, line(cache, phoneOnly), queue, who)
+
+    private fun op(o: AlbumWrite.Out): Album.Op = (o as AlbumWrite.Out.Queue).op
+
+    /** S5's vendor photo on 50 awaiting review (S5's scenario reviewed it; the review undone for the PM's buttons). */
+    private val pendingView = approved.copy(photos = approved.photos.map {
+        if (it.party == Album.PARTY_VENDOR) it.copy(review = Album.REVIEW_PENDING, reviewBy = null, reviewByName = null, reviewAt = null) else it
+    })
+
+    @Test fun `a queued state shows at once - the chip, Open, the Work log row by this person at the tap's time, the end line closed with its day`() {
+        val ip = op(AlbumWrite.state(model(), 20, Album.IN_PROGRESS, "", at))
+        val done = op(AlbumWrite.state(model(queue = listOf(ip)), 140, Album.DONE, "", Instant.parse("2026-11-09T07:00:00Z")))
+        val items = AlbumPage.compose(approved, emptyList(), me)
+        val p = page(items, approved, approvedCache, queue = listOf(ip, done), who = me, logOpen = true)
+        assertEquals("In progress", p.works.single { it.id == 20 }.stateText)
+        assertEquals("In progress ▾".removeSuffix(" ▾"), p.works.single { it.id == 20 }.stateText, "the caret is the screen's, never the model's text")
+        assertEquals("Open: Civil & masonry", p.header.open)
+        assertEquals("Work log (4)", p.header.log.toggle)
+        assertEquals(listOf("Cleaning & handover → Done", "Civil & masonry → In progress", "Demolition & site preparation → Done"),
+            p.header.log.rows.take(3).map { it.head })
+        assertEquals("9 Nov, 12:30 · P M", p.header.log.rows[0].sub, "this person, at the tap's own time")
+        assertEquals(AlbumPage.End("Album closed · Cleaning & handover is Done", true, "9 Nov"), p.end)
+        // the project line every other reader draws lays the same queue over the same store
+        assertEquals("Execution · 1 in progress · 2 done", QuoteStage.projectLine(approvedCache, false, listOf(ip, done), Tx.EN, now).text)
+        assertEquals(Album.IN_PROGRESS, QuoteStage.statesWith(approvedCache, listOf(ip))?.get(20)?.state)
+    }
+
+    @Test fun `a queued raise draws the chip, the note and Record at once - a queued answer moves it to the decided list`() {
+        val raise = op(AlbumWrite.raise(model(), 80, Album.CrKind.ADD, "countertop added", at))
+        val items = AlbumPage.compose(approved, emptyList(), me)
+        val p = page(items, approved, approvedCache, queue = listOf(raise), who = me)
+        val w = p.works.single { it.id == 80 }
+        assertEquals("add", w.crChip)
+        assertEquals("Change request · raised 9 Nov by P M · countertop added", w.crNote)
+        assertEquals("Record the client's answer", w.answer)
+        assertNull(w.raise)
+        assertEquals("Change requests: 2", p.header.changeRequests)
+        val yes = op(AlbumWrite.answer(model(queue = listOf(raise)), 80, Album.CrOutcome.APPROVED, "2026-11-09", "a call", at))
+        val p2 = page(items, approved, approvedCache, queue = listOf(raise, yes), who = me)
+        val w2 = p2.works.single { it.id == 80 }
+        assertNull(w2.crChip)
+        assertNull(w2.answer)
+        assertEquals(listOf("Change approved by client · 9 Nov · add"), w2.decided)
+        assertEquals("Raise change request", w2.raise, "no live request, and the work is in the amended scope")
+        assertEquals("Change requests: 1", p2.header.changeRequests)
+    }
+
+    @Test fun `a queued review clears the badge, the ring, To review and the card's buttons, and the viewer says Accepted by this person`() {
+        val items = AlbumPage.compose(pendingView, emptyList(), me)
+        val p0 = page(items, pendingView, approvedCache, who = me)
+        val c0 = p0.cards.getValue(vendorKey)
+        assertEquals(listOf("awaiting review", "true", "true", "Accept", "Not for client", "Vendor review"),
+            listOf(c0.badge, c0.pending.toString(), c0.review.toString(), c0.accept, c0.keep, c0.reviewGroup))
+        assertEquals("To review: 1", p0.header.toReview)
+        val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
+        val p1 = page(items, pendingView, approvedCache, queue = listOf(acc), who = me)
+        val c1 = p1.cards.getValue(vendorKey)
+        assertEquals(listOf(null, "false", "false", null, null), listOf(c1.badge, c1.pending.toString(), c1.review.toString(), c1.accept, c1.keep))
+        assertNull(p1.header.toReview)
+        val v = assertNotNull(AlbumPage.shown(Tx.EN, p1, vendorKey))
+        assertEquals("Accepted by P M · 9 Nov, 12:00", v.review)
+        assertEquals(listOf(null, "Not for client"), listOf(v.accept, v.keep))
+    }
+
+    @Test fun `S5's row wins over the provisional one for the same id`() {
+        val ip = op(AlbumWrite.state(model(), 20, Album.IN_PROGRESS, "", at))
+        val s5 = Album.Entry(12, ip.id, Album.KIND_STATE, 20, Album.IN_PROGRESS, Album.NOT_STARTED, role = Album.PM, by = "pm@x", byName = "P M",
+            at = "2026-11-09T07:15:00.000Z", via = "phone")
+        val took = approved.copy(log = approved.log + s5)
+        val p = page(AlbumPage.compose(took, emptyList(), me), took, approvedCache, queue = listOf(ip), who = me, logOpen = true)
+        assertEquals("Work log (3)", p.header.log.toggle, "one row for the id, not two")
+        assertEquals(12L, p.header.log.rows[0].seq)
+        assertEquals("9 Nov, 12:45 · P M", p.header.log.rows[0].sub, "S5's time, not the tap's")
+    }
+
+    @Test fun `the controls per role - the PM's are where the prototype draws them, everyone else gets K3's page, with no queue the same objects`() {
+        val items = AlbumPage.compose(pendingView, emptyList(), me)
+        val pm = page(items, pendingView, approvedCache, who = me)
+        assertTrue(pm.canWrite)
+        assertTrue(pm.works.all { it.stateTap }, "every work is open at Client approved")
+        assertEquals("Record the client's answer", pm.works.single { it.id == 50 }.answer)
+        assertNull(pm.works.single { it.id == 50 }.raise)
+        assertEquals("Raise change request", pm.works.single { it.id == 20 }.raise)
+        assertTrue(pm.cards.getValue(vendorKey).review)
+        assertEquals("Accept", assertNotNull(AlbumPage.shown(Tx.EN, pm, vendorKey)).accept)
+        val designer = pendingView.copy(role = Album.DESIGNER, pm = "other@x")
+        for ((why, mirror, who, phoneOnly) in listOf(
+            Quad("a Designer", designer, me, false), Quad("no mirror", null, me, false), Quad("not on S5", pendingView, me, true),
+            Quad("nobody signed in", pendingView, Me("", ""), false), Quad("signed out by a refusal", pendingView, Me("pm@x", "P M", false), false),
+        )) {
+            val its = AlbumPage.compose(mirror, emptyList(), who)
+            val k4 = page(its, mirror, approvedCache, phoneOnly = phoneOnly, who = who)
+            assertFalse(k4.canWrite, why)
+            assertTrue(k4.works.none { it.stateTap || it.raise != null || it.answer != null }, why)
+            assertTrue(k4.cards.values.none { it.review || it.accept != null }, why)
+            assertNull(k4.header.result, why)
+            // with no queue the page is K3's, field for field
+            assertEquals(AlbumPage.page(Tx.EN, "Demo flat", its, mirror, approvedCache, line(approvedCache, phoneOnly)), k4, why)
+        }
+    }
+
+    private data class Quad(val a: String, val b: View?, val c: Me, val d: Boolean)
+
+    @Test fun `Raise only at Client approved with a baseline and no live request - Record only on a live one - neither while locked`() {
+        val items = AlbumPage.compose(approved, emptyList(), me)
+        val noBaseline = page(items, approved.copy(scope = null), approvedCache, who = me)
+        assertTrue(noBaseline.works.none { it.raise != null }, "no baseline, no raise (scopeOf, 7469)")
+        assertEquals("Record the client's answer", noBaseline.works.single { it.id == 50 }.answer)
+        val revisions = page(items, approved, approvedCache.copy(stage = "Revisions"), who = me)
+        assertTrue(revisions.works.none { it.raise != null || it.answer != null }, "a change request exists only after approval")
+        assertTrue(revisions.works.all { it.stateTap }, "the recorded-work exemption keeps the works open")
+        val lock = page(emptyList(), locked, lockedCache, who = me)
+        assertTrue(lock.works.all { it.locked && !it.stateTap && it.raise == null && it.answer == null })
+    }
+
+    @Test fun `the viewer offers the other review state, never the one the photo has`() {
+        fun shown(mirror: View, who: Me = me) =
+            assertNotNull(AlbumPage.shown(Tx.EN, page(AlbumPage.compose(mirror, emptyList(), who), mirror, approvedCache, who = who), vendorKey))
+        val accepted = shown(approved)
+        assertEquals(listOf(null, "Not for client"), listOf(accepted.accept, accepted.keep))
+        val kept = approved.copy(photos = approved.photos.map { if (it.party == Album.PARTY_VENDOR) it.copy(review = Album.REVIEW_INTERNAL) else it })
+        assertEquals(listOf("Accept", null), shown(kept).let { listOf(it.accept, it.keep) })
+        assertEquals(listOf("Accept", "Not for client"), shown(pendingView).let { listOf(it.accept, it.keep) })
+        val staff = assertNotNull(AlbumPage.shown(Tx.EN, page(AlbumPage.compose(approved, emptyList(), me), approved, approvedCache, who = me),
+            "ALBUM|Kitchen|ALB-000000000014"))
+        assertEquals(listOf(null, null), listOf(staff.accept, staff.keep), "a staff photo is never reviewed")
+        val designer = approved.copy(role = Album.DESIGNER, pm = "other@x")
+        assertEquals(listOf(null, null), shown(designer).let { listOf(it.accept, it.keep) })
+    }
+
+    @Test fun `the result line after a review, gone when the photo shows another review (the K4 critic, finding 4)`() {
+        val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
+        val res = AlbumPage.Res(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
+        val queued = model(pendingView, queue = listOf(acc))
+        assertEquals("Accepted · the client sees it now", AlbumPage.resultText(Tx.EN, queued, res))
+        assertEquals("Accepted · the client sees it now", AlbumPage.page(queued, result = AlbumPage.resultText(Tx.EN, queued, res)).header.result)
+        // taken: S5's row says accepted, the op gone
+        assertEquals("Accepted · the client sees it now", AlbumPage.resultText(Tx.EN, model(approved), res))
+        // S5 won with Not for client by another PM: the photo shows another review, so the line goes
+        val kept = approved.copy(photos = approved.photos.map { if (it.party == Album.PARTY_VENDOR) it.copy(review = Album.REVIEW_INTERNAL) else it })
+        assertNull(AlbumPage.resultText(Tx.EN, model(kept), res))
+        val keep = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_INTERNAL, at))
+        assertEquals("Kept from the client", AlbumPage.resultText(Tx.EN, model(pendingView, queue = listOf(keep)), AlbumPage.Res(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
+        assertNull(AlbumPage.resultText(Tx.EN, queued, null))
+        assertNull(AlbumPage.page(queued).header.result)
+    }
+
+    @Test fun `the three sheets - titles, rows, the selected one, the Done reason only when leaving Done, the kinds and their lines, the answer's head, outcomes, today, the help and the note`() {
+        val m = model()
+        val st = assertNotNull(AlbumPage.stateSheet(Tx.EN, m, 10))
+        assertEquals("State of Demolition & site preparation", st.title)
+        assertEquals(listOf("Not started", "In progress", "On hold", "Done", "Abandoned"), st.rows.map { it.text })
+        assertEquals(listOf(Album.DONE), st.rows.filter { it.selected }.map { it.state })
+        assertEquals("Why change a Done work? (required)", st.reasonLabel)
+        assertEquals("A reason is needed to change a Done work", st.need)
+        assertEquals("Only the Project Manager sets a work's state", st.footer)
+        assertNull(assertNotNull(AlbumPage.stateSheet(Tx.EN, m, 20)).reasonLabel, "only leaving Done asks why")
+        val add = assertNotNull(AlbumPage.raiseSheet(Tx.EN, m, 80))
+        assertEquals("Change request · Countertops", add.title)
+        assertEquals(listOf("add · a work outside the approved scope comes in"), add.kinds.map { it.head + " · " + it.sub })
+        assertEquals(listOf("A note the client reads", "Raise change request"), listOf(add.noteLabel, add.button))
+        assertEquals(listOf("remove · a work in the approved scope comes out", "change · a work in the approved scope changes"),
+            assertNotNull(AlbumPage.raiseSheet(Tx.EN, m, 20)).kinds.map { it.head + " · " + it.sub })
+        val ans = assertNotNull(AlbumPage.answerSheet(Tx.EN, m, 50, at))
+        assertEquals("Record the client's answer", ans.title)
+        assertEquals("Waterproofing · Change request · change · second coat", ans.head)
+        assertEquals(listOf("Change approved by client", "Change declined by client", "Change request withdrawn"), ans.outcomes.map { it.text })
+        assertEquals(listOf("Date the client answered", "2026-11-09", "How the client answered", "a call, WhatsApp, in person"),
+            listOf(ans.dateLabel, ans.today, ans.howLabel, ans.help))
+        assertEquals("If approved, an add puts the work into the approved scope, a remove takes it out and a change leaves the scope as it is; declined or withdrawn changes nothing", ans.note)
+        assertEquals("Record the client's answer", ans.button)
+        assertEquals("client_at must be the date the client answered, as YYYY-MM-DD", Album.Refusal.CLIENT_AT_DAY.text(Tx.EN))
+    }
+
+    @Test fun `a sheet whose subject has gone has no model - the screen closes it (the K4 critic, finding 6)`() {
+        val designer = model(approved.copy(role = Album.DESIGNER, pm = "other@x"))
+        for (s in listOf(AlbumPage.SheetFor.State(10), AlbumPage.SheetFor.Raise(80), AlbumPage.SheetFor.Answer(50))) {
+            assertNull(AlbumPage.sheet(Tx.EN, designer, s, at), "$s: not the PM (7578)")
+            assertNotNull(AlbumPage.sheet(Tx.EN, model(), s, at), "$s: the PM's")
+        }
+        val revisions = model(cache = approvedCache.copy(stage = "Revisions"))
+        assertNotNull(AlbumPage.sheet(Tx.EN, revisions, AlbumPage.SheetFor.State(10), at))
+        assertNull(AlbumPage.sheet(Tx.EN, revisions, AlbumPage.SheetFor.Raise(80), at), "not approved (7520)")
+        assertNull(AlbumPage.sheet(Tx.EN, revisions, AlbumPage.SheetFor.Answer(50), at), "not approved (7529)")
+        // the request answered (a withdrawal queued, or S5's row from another phone): no live one, the answer sheet goes
+        val gone = op(AlbumWrite.answer(model(), 50, Album.CrOutcome.WITHDRAWN, "", "", at))
+        assertNull(AlbumPage.sheet(Tx.EN, model(queue = listOf(gone)), AlbumPage.SheetFor.Answer(50), at), "no live request (7529)")
+        // a raise still queued is a live request: its answer sheet opens
+        val raise = op(AlbumWrite.raise(model(), 80, Album.CrKind.ADD, "", at))
+        assertEquals("Countertops · Change request · add", assertNotNull(AlbumPage.answerSheet(Tx.EN, model(queue = listOf(raise)), 80, at)).head)
+    }
+
+    @Test fun `every sheet text, the card's buttons and the result line in Marathi (Tx MR)`() {
+        val m = model(pendingView, tx = Tx.MR)
+        val st = assertNotNull(AlbumPage.stateSheet(Tx.MR, m, 10))
+        assertEquals("तोडकाम व साइट तयारी ची स्थिती", st.title)
+        assertEquals(listOf("सुरू झाले नाही", "चालू आहे", "थांबवलेले", "पूर्ण", "सोडून दिलेले"), st.rows.map { it.text })
+        assertEquals("पूर्ण झालेले काम का बदलायचे? (आवश्यक)", st.reasonLabel)
+        assertEquals("पूर्ण झालेले काम बदलण्यासाठी कारण आवश्यक आहे", st.need)
+        assertEquals("कामाची स्थिती फक्त प्रोजेक्ट मॅनेजर ठरवतो", st.footer)
+        val add = assertNotNull(AlbumPage.raiseSheet(Tx.MR, m, 80))
+        assertEquals("बदल विनंती · काउंटरटॉप", add.title)
+        assertEquals(listOf("समावेश", "मंजूर स्कोपबाहेरचे काम स्कोपमध्ये येते"), listOf(add.kinds.single().head, add.kinds.single().sub))
+        assertEquals(listOf("ग्राहक वाचेल अशी नोंद", "बदल विनंती नोंदवा"), listOf(add.noteLabel, add.button))
+        assertEquals(listOf("वगळणे · मंजूर स्कोपमधील काम स्कोपमधून वगळले जाते", "बदल · मंजूर स्कोपमधील कामात बदल होतो"),
+            assertNotNull(AlbumPage.raiseSheet(Tx.MR, m, 20)).kinds.map { it.head + " · " + it.sub })
+        val ans = assertNotNull(AlbumPage.answerSheet(Tx.MR, m, 50, at))
+        assertEquals("ग्राहकाचे उत्तर नोंदवा", ans.title)
+        assertEquals("वॉटरप्रूफिंग · बदल विनंती · बदल · second coat", ans.head, "the note as typed")
+        assertEquals(listOf("ग्राहकाने बदल मंजूर केला", "ग्राहकाने बदल नाकारला", "बदल विनंती मागे घेतली"), ans.outcomes.map { it.text })
+        assertEquals(listOf("ग्राहकाने उत्तर दिल्याची तारीख", "ग्राहकाने उत्तर कसे दिले", "फोन, व्हॉट्सॲप, प्रत्यक्ष भेट"), listOf(ans.dateLabel, ans.howLabel, ans.help))
+        assertEquals("मंजूर झाल्यास: समावेशात काम मंजूर स्कोपमध्ये येते, वगळण्यात ते स्कोपमधून जाते आणि बदलात स्कोप तसाच राहतो; नाकारल्यास किंवा मागे घेतल्यास काहीच बदलत नाही", ans.note)
+        assertEquals("ग्राहकाने उत्तर दिल्याची तारीख वर्ष-महिना-दिवस या क्रमाने हवी", Album.Refusal.CLIENT_AT_DAY.text(Tx.MR))
+        val c = m.base.cards.getValue(vendorKey)
+        assertEquals(listOf("स्वीकारा", "ग्राहकासाठी नाही", "व्हेंडर तपासणी"), listOf(c.accept, c.keep, c.reviewGroup))
+        val w = m.base.works.single { it.id == 50 }
+        assertEquals("ग्राहकाचे उत्तर नोंदवा", w.answer)
+        assertEquals("बदल विनंती नोंदवा", m.base.works.single { it.id == 20 }.raise)
+        val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
+        val res = AlbumPage.Res(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
+        assertEquals("स्वीकारला · आता ग्राहकाला दिसतो", AlbumPage.resultText(Tx.MR, model(pendingView, queue = listOf(acc), tx = Tx.MR), res))
+        val keep = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_INTERNAL, at))
+        assertEquals("ग्राहकापासून राखून ठेवला",
+            AlbumPage.resultText(Tx.MR, model(pendingView, queue = listOf(keep), tx = Tx.MR), AlbumPage.Res(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
+    }
+
+    @Test fun `K4's controls sit in K3's slots, read as source - nothing K3 drew moved`() {
+        val screen = app("AlbumScreen.kt")
+        // the chip: the prototype's button for the PM, its caret aria-hidden, the plain span for everyone else
+        assertTrue(screen.contains("StateChip(w) { onSheet(AlbumPage.SheetFor.State(w.id)) }"))
+        assertTrue(screen.contains("if (w.stateTap) Modifier.clickable(role = Role.Button, onClick = onTap) else Modifier"))
+        assertTrue(screen.contains("if (w.stateTap) Text(\" ▾\""))
+        // an open work's body: Payment, the request's note, Record or Raise, then the decided list
+        val body = screen.substring(screen.indexOf("private fun WorkBody("))
+        val order = listOf("w.payment", "w.crNote?.let", "w.answer?.let", "w.raise?.let", "if (w.decided.isNotEmpty())").map { body.indexOf(it) }
+        assertTrue(order.all { it > 0 } && order == order.sorted(), order.toString())
+        // the header: the result line after the project line and before the Work log
+        val head = screen.substring(screen.indexOf("private fun AlbumHeader("))
+        assertTrue(head.indexOf("Text(h.line") in 0 until head.indexOf("h.result?.let") && head.indexOf("h.result?.let") < head.indexOf("val log = h.log"))
+        // the grid stretches its row and the card fills its cell; a pending cell keeps its card above the 40 dp buttons
+        assertTrue(screen.contains("Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 8.dp, end = 8.dp"))
+        assertTrue(screen.contains("for (k in row) Box(Modifier.weight(1f).fillMaxHeight()) { card(k) }"))
+        assertTrue(screen.contains("CardBody(project, page, key, localPath, onView, Modifier.fillMaxHeight())"))
+        assertEquals(2, Regex("""fillMaxWidth\(\)\.height\(40\.dp\)""").findAll(screen).count())
+        // the viewer: the other review state after the review line, 32 dp text buttons
+        val facts = screen.substring(screen.indexOf("private fun ViewerFacts("))
+        assertTrue(facts.indexOf("s.review?.let") in 0 until facts.indexOf("s.accept?.let"))
+        assertTrue(facts.contains("Modifier.height(32.dp)"))
+        // K3's slots stay: the body's 84 dp for K5's FAB, nothing under a work's grid
+        assertTrue(screen.contains("contentPadding = PaddingValues(bottom = 84.dp)"))
+        assertFalse(screen.contains("\"wp\""))
+        val sheets = app("AlbumSheets.kt")
+        for (f in listOf("fun AlbumStateSheet(", "fun AlbumRaiseSheet(", "fun AlbumAnswerSheet(")) assertTrue(sheets.contains(f), f)
+        assertTrue(sheets.contains("is AlbumWrite.Out.Refused) need = true"))
+        assertTrue(sheets.contains("if (out is AlbumWrite.Out.Refused) err = out.why.text(tx)"))
+    }
+
+    @Test fun `the outbox and its drain, read as source - the login's session only, the taps REPLACE, the catch-up spares a running pass, the answer before the removal`() {
+        val outbox = app("AlbumOutbox.kt")
+        fun code(src: String) = src.replace(Regex("""/\*[\s\S]*?\*/"""), "").lines().joinToString("\n") { it.substringBefore("//") }
+        val c = code(outbox)
+        assertFalse(c.contains("S5Auth"), "never the legacy ERP key: S5 would store its owner as `by`")
+        assertTrue(c.contains("S5Session.cookieFor(context, login, epoch)"))
+        assertTrue(c.contains("S5Session.relogin(context, asLogin = login, atEpoch = epoch)"))
+        assertTrue(c.contains("stopped = { cancelled() || !pinned() }"))
+        assertTrue(c.contains("if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP"))
+        assertTrue(c.contains("it.state == WorkInfo.State.RUNNING"))
+        assertTrue(c.contains("if (!running) enqueue(context, p, replace = true)"))
+        val commit = c.substring(c.indexOf("private fun commit("))
+        assertTrue(commit.indexOf("AlbumSync.take(") in 0 until commit.indexOf("AlbumQueue.apply("), "the answer onto the phone before the op leaves")
+        assertTrue(commit.indexOf("QuoteStage.workCopy(") in 0 until commit.indexOf("AlbumQueue.apply("))
+        assertTrue(c.contains("AlbumWrite.atAdd(op, seen, s.queue, AlbumSync.mirror(context, project))"))
+        assertTrue(c.contains("prefs(context).edit().putString(KEY, raw).commit()"))
+        assertTrue(app("SyncWorker.kt").let { it.indexOf("WorkRefile.sweep(applicationContext, store)") in 0 until it.indexOf("AlbumOutbox.enqueueAll(applicationContext)") })
+        assertTrue(app("QuoteStageSync.kt").contains("if (local) emptyList() else AlbumOutbox.queued(context, stageKey), tx, Instant.now())"))
+        // the screen: the queue read first, then the mirror, both held above Search with their key
+        val main = app("MainActivity.kt")
+        val effect = main.substring(main.indexOf("LaunchedEffect(stageKey, albumTick, dataTick, outboxTick, albumMe.user) {"))
+        assertTrue(effect.indexOf("AlbumOutbox.queued(context, k)") in 0 until effect.indexOf("AlbumSync.mirror(context, k)"))
+        val search = main.indexOf("    if (showSearch) {")
+        for (held in listOf("var heldQueue by remember", "var albumSheet by remember", "var albumRes by remember")) {
+            assertTrue(main.indexOf(held) in 0 until search, "$held above Search")
+        }
+        assertTrue(main.contains("if (out !is AlbumWrite.Out.Refused) albumSheet = null"))
+        assertTrue(main.contains("LaunchedEffect(sheetFor, sheetModel == null) { if (sheetFor != null && sheetModel == null) albumSheet = null }"))
+        // the mirror file is written whole: a temp file renamed over it
+        assertTrue(app("AlbumSync.kt").contains("if (!tmp.renameTo(f)) {"))
+        // the five readers of the states take the queue (QuoteStageSync.states), none the store's copy bare
+        assertFalse(main.contains("fileCache?.states") || main.contains("capCache?.states"))
     }
 }

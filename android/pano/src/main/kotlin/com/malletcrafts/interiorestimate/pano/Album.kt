@@ -791,12 +791,35 @@ object Album {
     /**
      * [states] with this phone's queued state writes laid over them, in queue order, each at
      * [PENDING_SEQ] + its place in [queue] (above any S5 seq), as [provisional] numbers them: a
-     * tap shows at once with no signal (the queue half of QM0's line).
+     * tap shows at once with no signal (the queue half of QM0's line). Each carries its tap's
+     * [Op.at] (port 61c slice K4), so a queued Done on Cleaning & handover closes the album with
+     * its day ([Chapters.closedAt]).
      */
     fun withQueued(states: Map<Int, WorkState>, queue: List<Op>): Map<Int, WorkState> {
         val out = LinkedHashMap(states)
-        queue.forEachIndexed { i, op -> if (op.kind == KIND_STATE && isWork(op.work)) out[op.work!!] = WorkState(stateName(op.value), PENDING_SEQ + i) }
+        queue.forEachIndexed { i, op -> if (op.kind == KIND_STATE && isWork(op.work)) out[op.work!!] = WorkState(stateName(op.value), PENDING_SEQ + i, op.at) }
         return out
+    }
+
+    /**
+     * The approved scope with this phone's queued answers laid over it, in queue order (port 61c slice K4; the
+     * prototype's answerCR records the amended scope at once, index61c2.html 7301-7303): each queued APPROVED answer to
+     * an add or a remove amends it through [amendedScope] with the kind the answer carries in `prev` ([crAnswerOp]), and
+     * the stamp becomes the tap's [Op.at], as the prototype's `rec.scope.at = at`. Anything else leaves both as they are.
+     * The pending half of S5's one scope, never a second copy: S5 amends it in the same batch as the cr_clear row, and
+     * the overlay goes when S5's answer does.
+     */
+    fun scopeWithQueued(scope: List<Int>?, scopeAt: String, queue: List<Op>): Pair<List<Int>?, String> {
+        var sc = scope
+        var at = scopeAt
+        for (op in queue) {
+            if (op.kind != KIND_CR_CLEAR || CrOutcome.of(op.value) != CrOutcome.APPROVED || !isWork(op.work)) continue
+            val kind = CrKind.of(op.prev.ifBlank { null }) ?: CrKind.ADD
+            if (kind == CrKind.CHANGE) continue
+            sc = amendedScope(sc, kind, CrOutcome.APPROVED, op.work!!)
+            at = op.at
+        }
+        return sc to at
     }
 
     // ---- THE ONE VISIBILITY RULE: every count, chapter, viewer and tile goes through it ----
@@ -1037,6 +1060,9 @@ object Album {
      * while pending.
      * [recorded] is a photo op whose record S5 has answered: its JPEG is the next step
      * (AlbumQueue), so a retry never sends the record again for nothing.
+     * [at] (port 61c slice K4) is the instant of the tap, UTC ISO: what every provisional row, state and review the
+     * overlay draws shows as its time, so a row's time does not move between two draws. NEVER SENT -- S5 stamps its own
+     * (AlbumQueue.requestOf has no `at`); '' for an op an older build queued.
      */
     data class Op(
         val id: String,
@@ -1053,6 +1079,7 @@ object Album {
         val clientAt: String = "",
         val error: String = "",
         val recorded: Boolean = false,
+        val at: String = "",
     )
 
     /** S5's ALBUM_ID_RE: ALB- and 12 lower-case hex digits. */
@@ -1381,26 +1408,34 @@ object Album {
 
     /**
      * The op and every LATER queued op that rode on it, marked with [error], moved from the queue to `dropped`; the
-     * rest stay, in order. What rode on it is what S5's 409 is about. For any op but a re-file, that is the later ops
-     * on the same work, re-files excepted: a re-file rides on no work's log (S5-P moves no works[].seq, so a work's
-     * 409 says nothing about it). For a re-file it is the later re-files of the same PHOTO, whose base is where this
-     * one would have put it -- never the target work's ops, which S5 still takes. A photo op dropped this way takes
-     * its photo's later re-files and reviews with it ([withDependants]).
+     * rest stay, in order. What rode on it is what S5's 409 is about. For a log op or a photo op, that is the later ops
+     * on the same work, re-files and reviews excepted: a re-file rides on no work's log (S5-P moves no works[].seq, so a
+     * work's 409 says nothing about it), and neither does a review -- S5's review is guarded on its photo's
+     * `review_at` alone (asis.js albumReview) and never reads the work's seq, so a state's, a raise's or an answer's
+     * 409 on the work leaves an Accept S5 would take (the K4 critic, finding 2). For a re-file it is the later re-files
+     * of the same PHOTO, whose base is where this one would have put it -- never the target work's ops, which S5 still
+     * takes; for a review, likewise the later reviews of the same photo, never another photo's and never the work's log
+     * ops, each of which S5 answers on its own base (a review refused as `Reviewed meanwhile` came with another review's
+     * row, so those meet their own 409; one refused for want of its JPEG or for a reused id moved no seq, and they go).
+     * A photo op dropped this way takes its photo's later re-files and reviews with it ([withDependants]).
      */
     private fun dropWork(o: Outbox, op: Op, error: String): Outbox {
         val i = o.queue.indexOfFirst { it.id == op.id }
         if (i < 0) return o
         val rode = o.queue.filterIndexed { j, x ->
-            j == i || (j > i && if (op.kind == OP_REFILE) x.kind == OP_REFILE && x.photo == op.photo else x.kind != OP_REFILE && x.work == op.work)
+            j == i || (j > i && when (op.kind) {
+                OP_REFILE, OP_REVIEW -> x.kind == op.kind && x.photo == op.photo
+                else -> x.kind != OP_REFILE && x.kind != OP_REVIEW && x.work == op.work
+            })
         }
         return gone(o, withDependants(o.queue, rode), error)
     }
 
     /**
      * 409: S5 WINS. The op and every later queued op on the same work are dropped (each row
-     * showing S5's [error]) -- for a re-file, the later re-files of the same photo instead, and
-     * no work's 409 drops a re-file ([dropWork]); the mirror takes the current state the 409 body
-     * echoes ([a]).
+     * showing S5's [error]) -- for a re-file or a review, the later ones of the same kind on the
+     * same photo instead, and no work's 409 drops a re-file or a review ([dropWork]; the K4
+     * critic, finding 2); the mirror takes the current state the 409 body echoes ([a]).
      */
     fun afterConflict(o: Outbox, op: Op, error: String, a: Answer): Outbox = dropWork(o, op, error).let { it.copy(mirror = merged(it.mirror, a)) }
 
@@ -1408,7 +1443,8 @@ object Album {
      * 409 `locked: true`: S5, the authority, answered the lock banner -- the quote stage there
      * is not Client approved and no work is recorded, whatever the phone believed (an unread
      * stage). The op and every later queued op on the same work are dropped, each row saying
-     * so in S5's words -- a re-file by its photo, as on [afterConflict]; the lock is the
+     * so in S5's words -- a re-file or a review by its photo, as on [afterConflict] (S5's review
+     * route has no lock, so a work's locked 409 leaves its reviews to go); the lock is the
      * project's, so every op left behind meets its own locked 409 and leaves the same way. The
      * mirror takes what the body echoes, as on [afterConflict]: the log
      * POST's locked 409 carries the work row, its newest entry and the scope (asis.js `...cur`);

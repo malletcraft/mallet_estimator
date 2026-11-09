@@ -580,4 +580,228 @@ class AlbumQueueTest {
         assertEquals(listOf(sState), a.outbox.queue)
         assertEquals(listOf(bogus), a.outbox.dropped)
     }
+
+    // ---- K4: the drain (K2's), the pass AlbumOutbox runs, against a fake S5 answering S5Album's bodies ----------
+
+    /** A fake S5 for [AlbumQueue.drain]: answers [script] in order, keeps the outbox as stored, and records what it saw. */
+    private inner class Fake(var stored: Outbox, vararg script: Exchange, val renew: List<Boolean> = emptyList()) {
+        val left = ArrayDeque(script.toList())
+        val sent = ArrayList<String>()
+        var renewals = 0
+        /** For each commit, whether the op was still queued as S5's answer reached the phone (the answer before the removal). */
+        val queuedAtCommit = ArrayList<Boolean>()
+        var onSend: ((Int) -> Unit)? = null
+
+        fun run(sends: Set<Step> = AlbumQueue.K4_STEPS): AlbumQueue.Pass = AlbumQueue.drain(P, MiniRead,
+            load = { stored },
+            send = { rq ->
+                val ex = left.removeFirstOrNull() ?: fail("S5 was not expecting ${rq.method} ${rq.path { it }}")
+                assertEquals(ex.line, "${rq.method} ${rq.path { it }}")
+                if (ex.body != null) assertEquals(ex.body, json(rq.fields))
+                sent += json(rq.fields)
+                onSend?.invoke(sent.size)
+                AlbumQueue.Sent(ex.code, ex.answer?.let { tree(it) })
+            },
+            commit = { op, code, reply ->
+                queuedAtCommit += stored.queue.any { it.id == op.id }
+                val a = AlbumQueue.apply(stored, op, code, reply)
+                stored = a.outbox
+                a
+            },
+            relogin = { renewals += 1; renew.getOrElse(renewals - 1) { false } },
+            stopped = { false },
+            sends = sends)
+    }
+
+    @Test fun `the drain sends FIFO and each op rides on the answer before it`() {
+        val f = Fake(Outbox(View(Album.PM, exec = true), listOf(sState, sDone.copy(base = "0"), sRaise, sAnswer.copy(base = "0"))),
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_POSTED),
+            Exchange(LOG, S5Album.SENT_STATE_DONE, 200, S5Album.STATE_DONE),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD),
+            Exchange(LOG, S5Album.SENT_ANSWER, 200, S5Album.ANSWER_APPROVED))
+        assertEquals(AlbumQueue.Pass(4, false), f.run())
+        assertEquals(emptyList(), f.stored.queue)
+        assertEquals(emptyList(), f.stored.dropped)
+        assertTrue(f.left.isEmpty())
+    }
+
+    @Test fun `the answer is taken before the op leaves the queue`() {
+        val f = Fake(Outbox(View(Album.PM, exec = true), listOf(sState, sRaise)),
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_POSTED),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 409, S5Album.STATE_STALE))
+        f.run()
+        assertEquals(listOf(true, true), f.queuedAtCommit, "every commit sees its op still queued: :app puts S5's row on the phone first")
+        assertEquals(emptyList(), f.stored.queue)
+    }
+
+    @Test fun `two works interleaved - a 409 on one drops its later ops, the other's still go, in order`() {
+        val f = Fake(Outbox(View(Album.PM, exec = true), listOf(sState, sRaise, sDone.copy(base = "0"), sAnswer.copy(base = "0"))),
+            Exchange(LOG, S5Album.SENT_STATE, 409, S5Album.STATE_STALE),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD),
+            // 90's answer rides on its raise's answer (8); 10's Done left with the state S5 won over
+            Exchange(LOG, S5Album.SENT_ANSWER, 200, S5Album.ANSWER_APPROVED))
+        assertEquals(AlbumQueue.Pass(3, false), f.run())
+        assertEquals(listOf(sState.id, sDone.id), f.stored.dropped.map { it.id })
+        assertEquals(emptyList(), f.stored.queue)
+    }
+
+    @Test fun `an op tapped during a pass goes in the same pass`() {
+        val f = Fake(Outbox(View(Album.PM, exec = true), listOf(sState)),
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_POSTED),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD))
+        // the tap lands while the first request is out (AlbumOutbox.add appends under the store's lock)
+        f.onSend = { n -> if (n == 1) f.stored = f.stored.copy(queue = f.stored.queue + sRaise) }
+        assertEquals(AlbumQueue.Pass(2, false), f.run())
+        assertEquals(emptyList(), f.stored.queue)
+    }
+
+    @Test fun `a 401 renews once and resends the same op - a second stops the pass with the queue as it was`() {
+        val start = Outbox(View(Album.PM, exec = true), listOf(sState, sRaise))
+        val ok = Fake(start,
+            Exchange(LOG, S5Album.SENT_STATE, 401, """{"error":"Sign in"}"""),
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_POSTED),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD), renew = listOf(true))
+        assertEquals(AlbumQueue.Pass(2, false), ok.run())
+        assertEquals(1, ok.renewals)
+        assertEquals(ok.sent[0], ok.sent[1], "the same op, the same id, sent again")
+        val twice = Fake(start,
+            Exchange(LOG, S5Album.SENT_STATE, 401, null),
+            Exchange(LOG, S5Album.SENT_STATE, 401, null), renew = listOf(true, true))
+        assertEquals(AlbumQueue.Pass(0, true, 401), twice.run())
+        assertEquals(1, twice.renewals, "renewed once per pass")
+        assertEquals(start, twice.stored)
+        val refused = Fake(start, Exchange(LOG, S5Album.SENT_STATE, 401, null), renew = listOf(false))
+        assertEquals(AlbumQueue.Pass(0, true, 401), refused.run())
+        assertEquals(start, refused.stored)
+    }
+
+    @Test fun `no network, a timeout and a 5xx stop the pass - the next pass replays the same ids and S5's written false lets them go`() {
+        val start = Outbox(View(Album.PM, exec = true), listOf(sState, sRaise))
+        for (code in listOf(0, -1, 500, 503)) {
+            val f = Fake(start, Exchange(LOG, S5Album.SENT_STATE, code, null))
+            assertEquals(AlbumQueue.Pass(0, true, code), f.run(), "$code")
+            assertEquals(start, f.stored, "$code: the queue as it was")
+        }
+        // the first write landed and its answer was lost: the next pass sends the same id and S5 replays it
+        val next = Fake(start,
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_REPLAY),
+            Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD))
+        assertEquals(AlbumQueue.Pass(2, false), next.run())
+        assertEquals(emptyList(), next.stored.queue)
+        assertEquals(emptyList(), next.stored.dropped)
+    }
+
+    @Test fun `the GET is asked after a pass that took an answer, never after one that only stopped`() {
+        // :app asks the album GET when Pass.answered > 0 (AlbumPageTest reads it there): a refusal is an answer, a STOP is not
+        val refused = Fake(Outbox(View(Album.PM, exec = true), listOf(sState)), Exchange(LOG, S5Album.SENT_STATE, 403, S5Album.STATE_DESIGNER))
+        assertEquals(AlbumQueue.Pass(1, false), refused.run())
+        val stopped = Fake(Outbox(View(Album.PM, exec = true), listOf(sState)), Exchange(LOG, S5Album.SENT_STATE, 502, null))
+        assertEquals(0, stopped.run().answered)
+        val empty = Fake(Outbox(View(Album.PM, exec = true)))
+        assertEquals(AlbumQueue.Pass(0, false), empty.run())
+    }
+
+    @Test fun `dropped keeps the newest twenty, each with S5's words`() {
+        val ops = (1..25).map { i -> Album.stateOp(null, 10, "Not started", "In progress", "", Random(100 + i)) }
+        val f = Fake(Outbox(View(Album.PM, exec = true), ops), *ops.map { Exchange(LOG, null, 403, S5Album.STATE_DESIGNER) }.toTypedArray())
+        assertEquals(AlbumQueue.Pass(25, false), f.run())
+        val kept = AlbumQueue.Stored(f.stored.queue, f.stored.dropped).capped()
+        assertEquals(AlbumQueue.KEEP_DROPPED, kept.dropped.size)
+        assertEquals(ops.takeLast(20).map { it.id }, kept.dropped.map { it.id }, "the newest twenty")
+        assertTrue(kept.dropped.all { it.error == "Only the Project Manager sets a work's state" })
+        assertEquals(AlbumQueue.Stored(dropped = ops.take(3)), AlbumQueue.Stored(dropped = ops.take(3)).capped())
+    }
+
+    @Test fun `a work's 409 leaves the reviews on it, and a review's 409 drops the photo's later reviews alone (the K4 critic, finding 2)`() {
+        val other = vendorPhoto.copy(id = "ALB-00000000002e")
+        val m = View(Album.PM, exec = true, photos = listOf(vendorPhoto, other))
+        val s50 = Album.stateOp(null, 50, "Not started", "In progress", "", Random(50))
+        val s50b = Album.stateOp(null, 50, "In progress", "On hold", "", Random(51))
+        val rOther = Album.reviewOp(other, Album.REVIEW_INTERNAL, Random(52))
+        // the state's 409 drops the work's later LOG ops; S5's review never reads the work's seq, so the reviews go
+        val c = AlbumQueue.apply(Outbox(m, listOf(s50, rAccept, rOther, s50b)), s50, 409, reply(S5Album.STATE_STALE, s50))
+        assertEquals(Verdict.CONFLICT, c.verdict)
+        assertEquals(listOf(rAccept, rOther), c.outbox.queue)
+        assertEquals(listOf(s50.id, s50b.id), c.outbox.dropped.map { it.id })
+        // nor does a work's lock: the review route has none
+        assertEquals(listOf(rAccept), AlbumQueue.apply(Outbox(m, listOf(s50, rAccept)), s50, 409, reply(S5Album.STATE_LOCKED, s50)).outbox.queue)
+        // a review's 409: the later reviews of THAT photo go with it, never another photo's, never the work's log ops
+        val rAgain = Album.reviewOp(vendorPhoto, Album.REVIEW_INTERNAL, Random(53))
+        val r = AlbumQueue.apply(Outbox(m, listOf(rAccept, rAgain, rOther, s50)), rAccept, 409, reply(S5Album.REVIEW_STALE, rAccept))
+        assertEquals(listOf(rOther, s50), r.outbox.queue)
+        assertEquals(listOf(rAccept.id, rAgain.id), r.outbox.dropped.map { it.id })
+        assertTrue(r.outbox.dropped.all { it.error == "Reviewed meanwhile — accepted by pm@x; not saved" })
+    }
+
+    // S5's 409 from asis.js's log POST when the scope moved between its own read and its batch (876-878: `w.seq ===
+    // v.base`, the live request still there): shaped by hand from that code, since the harness that produced S5Album's
+    // bodies did not race two amendments. The scope and stamp are those another work's approved add left.
+    private val scopeRace = """{"error":"The scope was changed meanwhile; not saved — it now shows what is stored","work":{"id":90,"state":"Not started","by":"","by_name":"","at":"","seq":8,"in_scope":false,"cr":{"id":"ALB-000000000007","kind":"add","by":"pm@x","by_name":"P M","at":"2026-11-03T05:16:04.199Z","note":"factory-made units added","seq":8},"count":0},"entry":{"seq":8,"id":"ALB-000000000007","kind":"cr_raise","work":90,"photo":null,"value":"add","prev":null,"note":"factory-made units added","role":"pm","by":"pm@x","by_name":"P M","via":"phone","client_at":null,"at":"2026-11-03T05:16:04.199Z"},"scope":[10,20,30,40,50,60,70,80,100,110,120,130,140],"scope_at":"2026-11-03T05:16:04.300Z"}"""
+
+    @Test fun `a recorded answer's 409 with its own base and a live request is S5's scope race - sent again, never dropped (the K4 critic, finding 5)`() {
+        val start = Outbox(View(Album.PM, exec = true), listOf(sAnswer, sChange))
+        val race = AlbumQueue.apply(start, sAnswer, 409, reply(scopeRace, sAnswer))
+        assertEquals(AlbumQueue.Applied(start, Verdict.STOP), race)
+        val generic = scopeRace.replace("The scope was changed meanwhile; not saved — it now shows what is stored", "Changed meanwhile; not saved")
+        assertEquals(Verdict.STOP, AlbumQueue.apply(start, sAnswer, 409, reply(generic, sAnswer)).verdict)
+        // no live request left on its own base: S5 has nothing to clear, so it is S5 winning (a resend could only loop)
+        val noCr = scopeRace.replace(Regex(""""cr":\{[^}]*\}"""), "\"cr\":null").replace("The scope was changed meanwhile; not saved — it now shows what is stored", "No change request to clear on this work")
+        assertEquals(Verdict.CONFLICT, AlbumQueue.apply(start, sAnswer, 409, reply(noCr, sAnswer)).verdict)
+        // another base: somebody moved the work, S5 wins
+        assertEquals(Verdict.CONFLICT, AlbumQueue.apply(start, sAnswer.copy(base = "7"), 409, reply(scopeRace, sAnswer)).verdict)
+        // a state's 409 on its own base is the state S5 has, never a race
+        assertEquals(Verdict.CONFLICT, AlbumQueue.apply(Outbox(View(Album.PM), listOf(sDone)), sDone, 409, reply(S5Album.STATE_WRONG_PREV, sDone)).verdict)
+        // the pass stops on the race and the next pass sends the same id, which S5 now writes
+        val f = Fake(start, Exchange(LOG, S5Album.SENT_ANSWER, 409, scopeRace))
+        assertEquals(AlbumQueue.Pass(0, true, 409), f.run())
+        val g = Fake(f.stored, Exchange(LOG, S5Album.SENT_ANSWER, 200, S5Album.ANSWER_APPROVED), Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(AlbumQueue.Pass(2, false), g.run())
+    }
+
+    @Test fun `settle - an op S5 holds leaves dropped, whatever its answer said (the K4 critic, finding 4)`() {
+        // three ops refused 403 after a PM was named: S5 held the first two (their answers had been lost)
+        val s = AlbumQueue.Stored(queue = listOf(sChange), dropped = listOf(sState, rAccept, sRaise).map { it.copy(error = "Only the Project Manager sets a work's state") })
+        val mirror = View(Album.DESIGNER, log = listOf(
+            Album.Entry(6, sState.id, Album.KIND_STATE, 10, "In progress", "Not started"),
+            Album.Entry(11, rAccept.id, Album.KIND_REVIEW, 50, "accepted", "pending", photo = vendorPhoto.id),
+            // the same id as the raise, but another entry (a collision): not the raise S5 holds
+            Album.Entry(12, sRaise.id, Album.KIND_STATE, 10, "Done", "In progress")))
+        val t = AlbumQueue.settle(s, mirror)
+        assertEquals(listOf(sRaise.id), t.dropped.map { it.id })
+        assertEquals(s.queue, t.queue, "the queue is never touched")
+        assertEquals(s, AlbumQueue.settle(s, null))
+        assertEquals(s, AlbumQueue.settle(s, View(Album.PM)))
+    }
+
+    @Test fun `a photo op at the head is held - K5's step, nothing sent, the pass ends untouched (the K4 critic, finding 9)`() {
+        val start = Outbox(View(Album.PM, exec = true), listOf(pStaff, sState))
+        val f = Fake(start)
+        assertEquals(AlbumQueue.Pass(0, true, held = true), f.run())
+        assertEquals(start, f.stored)
+        assertEquals(setOf(Step.LOG, Step.REVIEW, Step.REFILE), AlbumQueue.K4_STEPS)
+        // with every step allowed (K5), the same queue sends its record first
+        val k5 = Fake(start, Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 503, null))
+        assertEquals(AlbumQueue.Pass(0, true, 503), k5.run(Step.entries.toSet()))
+    }
+
+    @Test fun `every login's outbox - one login's ops are never read, listed or written for another (the K4 critic, finding 8)`() {
+        var all = AlbumQueue.Outboxes()
+        all = all.with(" PM@x ", P, AlbumQueue.Stored(queue = listOf(sState)))
+        all = all.with("d@x", P, AlbumQueue.Stored(queue = listOf(sRaise)))
+        assertEquals(listOf(sState), all.of("pm@x", P).queue, "the login as S5 matches a party: trimmed, lower-cased")
+        assertEquals(listOf(sRaise), all.of("D@X", P).queue)
+        assertEquals(emptyList(), all.of("v@x", P).queue)
+        assertEquals(emptyList(), all.of("", P).queue, "nobody signed in reads nothing")
+        assertEquals(all, all.with("", P, AlbumQueue.Stored(queue = listOf(sChange))), "and stores nothing")
+        assertEquals(listOf(P), all.projects("pm@x"))
+        assertEquals(emptyList(), all.projects("v@x"))
+        // an entry emptied leaves the map; the other login's stays
+        val after = all.with("pm@x", P, AlbumQueue.Stored())
+        assertEquals(setOf("d@x"), after.logins.keys)
+        assertEquals(emptyList(), after.projects("pm@x"))
+        // dropped alone keeps the entry, and lists no project to drain
+        val dropped = all.with("pm@x", P, AlbumQueue.Stored(dropped = listOf(sState)))
+        assertEquals(emptyList(), dropped.projects("pm@x"))
+        assertEquals(listOf(sState), dropped.of("pm@x", P).dropped)
+    }
 }

@@ -17,8 +17,9 @@ import java.time.Instant
  * `filesDir/album/<project>.json`, in S5's own shape (AlbumWire.stored), so AlbumWire.view reads it back
  * exactly as it reads S5's answer. The quote view draws the APPROVED SCOPE row from it (QuoteView.scopeRow:
  * `scope`, `scope_at`, `role`), and since port 61c slice K3 the album screen draws from it (AlbumPage: the role,
- * the log, the stage moves, the photos and the captures); the outbox (K4) is its next reader. It is a
- * READ: nothing here sends anything, and no outbox exists yet -- that lands with its first writer, K4.
+ * the log, the stage moves, the photos and the captures); the album outbox (AlbumOutbox, port 61c slice K4) reads it
+ * for its bases and its answers come in through [take]. It is a READ: nothing here sends anything -- the Project
+ * Manager's writes are AlbumOutbox's, and their answers land here at [take], before the op leaves the queue.
  *
  * READING. From the stored mirror's cursor, `?since=<log_next>` (Album.sinceOf), when this phone holds a
  * staff mirror of the project; `?since=0` with none, and for a vendor's or a client's (S5 hides their rows
@@ -158,10 +159,26 @@ object AlbumSync {
         }
     }
 
+    /**
+     * [v] written as [project]'s mirror file WHOLE: into a temp file beside it, then renamed over it (port 61c slice K4),
+     * so a screen reading the mirror off the main thread never parses a half-written file into no mirror at all -- since
+     * K4 the album outbox's every answer writes it ([take]), and the screen pairs the file with the queue it read just
+     * before (the K4 critic, finding 1). The caller holds [LOCK].
+     */
+    private fun writeFile(context: Context, project: String, v: Album.View) {
+        val f = file(context, project)
+        val tmp = File(f.parentFile, f.name + ".part") // text:value a temp file's suffix, never shown
+        tmp.writeText(JSONObject(AlbumWire.stored(v) as Map<*, *>).toString(), Charsets.UTF_8)
+        if (!tmp.renameTo(f)) {
+            tmp.delete()
+            throw java.io.IOException("album mirror not renamed into place") // text:value log line
+        }
+    }
+
     /** The mirror [v] of [project], read at [readAt] by the GET that took the ticket [at], kept unless a later write already landed (Album.MirrorOrder). */
     private fun keep(context: Context, project: String, v: Album.View, readAt: String, at: Long): Boolean = synchronized(LOCK) {
         if (!order.take(project, at)) return false
-        file(context, project).writeText(JSONObject(AlbumWire.stored(v) as Map<*, *>).toString(), Charsets.UTF_8)
+        writeFile(context, project, v)
         prefs(context).edit().putString(project, readAt).apply()
         true
     }
@@ -201,8 +218,9 @@ object AlbumSync {
     private fun scopeKey(project: String) = "$project/scope"
 
     /**
-     * S5's word in an answer to a record (QuoteStageSync.recordScope) goes into the mirror through Album.merged, as a
-     * log answer's would: the scope at its stamp (the 200's baseline, and every 409 that echoes the scope as stored),
+     * S5's word in an answer to a record (QuoteStageSync.recordScope) -- and since K4 in every answer to a queued album
+     * write (AlbumOutbox's commit: the entry, the work row, the scope, a review) -- goes into the mirror through
+     * Album.merged: the scope at its stamp (the 200's baseline, and every 409 that echoes the scope as stored),
      * and the role and the PM a 403 names (so the row redraws who records it, as S5 /projects does). The answer lands
      * at a fresh ticket (Album.MirrorOrder), after every read in flight: a GET served before the PUT and landing after
      * it is refused by [keep], as the store refuses an older read (QV review: the first version took no ticket, on the
@@ -218,7 +236,7 @@ object AlbumSync {
                 val m = mirror(context, project) ?: return false
                 val next = Album.merged(m, a) ?: return false
                 if (next == m) return false
-                file(context, project).writeText(JSONObject(AlbumWire.stored(next) as Map<*, *>).toString(), Charsets.UTF_8)
+                writeFile(context, project, next)
                 a.scopeAt?.let { prefs(context).edit().putString(scopeKey(project), it).apply() }
             }
             true

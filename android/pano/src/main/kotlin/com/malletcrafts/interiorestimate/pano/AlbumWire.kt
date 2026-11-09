@@ -257,4 +257,72 @@ object AlbumWire {
         "stages" to v.stages.map { entryRow(it) }, "photos" to v.photos.map { photoRow(it) }, "captures" to v.captures.map { captureRow(it) },
         "to_review" to v.toReview, "change_requests" to v.changeRequests, "closed" to v.closed, "closed_at" to v.closedAt, "more" to v.more,
     )
+
+    // ---- THE OUTBOX AS THE PHONE KEEPS IT (port 61c slice K4) -----------------------------------------------------
+
+    private fun opRow(o: Op): Map<String, Any?> = linkedMapOf(
+        "id" to o.id, "kind" to o.kind, "work" to o.work, "base" to o.base, "value" to o.value, "prev" to o.prev, "note" to o.note,
+        "photo" to o.photo, "room" to o.room, "caption" to o.caption, "photo_kind" to o.photoKind, "client_at" to o.clientAt,
+        "error" to o.error, "recorded" to o.recorded, "at" to o.at,
+    )
+
+    /**
+     * Every login's outbox as the phone STORES it (one entry of the `album_outbox` preferences, written by :app as
+     * `JSONObject(storedOutbox(o))`): `{v: 1, logins: [{login, projects: [{project, queue: [op…], dropped: [op…]}]}]}`,
+     * each op `{id, kind, work, base, value, prev, note, photo, room, caption, photo_kind, client_at, error, recorded,
+     * at}` with AlbumQueue's types -- `base` TEXT (a log op's seq as digits, a review's `review_at`, a re-file's work),
+     * `work` a number or null, a null as JSON null. The per-login map lives in this shape (the K4 critic, finding 8), so
+     * :pano pins that one login's ops are never read for another; its keys are [Album.partyKey]'s. Lists of entries
+     * rather than objects keyed by login and project, because [Read] has no way to list an object's members -- and a
+     * reader that could not would read every queued op as none, the silent loss this shape exists to rule out. Read
+     * back by [outboxOf].
+     */
+    fun storedOutbox(o: AlbumQueue.Outboxes): Map<String, Any?> = linkedMapOf(
+        "v" to 1,
+        "logins" to o.logins.map { (login, projects) ->
+            linkedMapOf<String, Any?>("login" to login, "projects" to projects.map { (p, s) ->
+                linkedMapOf<String, Any?>("project" to p, "queue" to s.queue.map { opRow(it) }, "dropped" to s.dropped.map { opRow(it) })
+            })
+        },
+    )
+
+    /** One stored op, or null without an `id` (it could never be replayed: S5 keys a replay on it). An unknown kind is KEPT. */
+    private fun op(r: Read, o: Any?): Op? {
+        if (!r.isObject(o)) return null
+        val id = str(r.field(o, "id"))?.ifBlank { null } ?: return null
+        val d = Op(id = id, kind = "", work = null)
+        return Op(
+            id = id, kind = str(r.field(o, "kind")) ?: d.kind, work = int(r.field(o, "work")),
+            base = str(r.field(o, "base")) ?: long(r.field(o, "base"))?.toString() ?: d.base,
+            value = str(r.field(o, "value")) ?: d.value, prev = str(r.field(o, "prev")) ?: d.prev, note = str(r.field(o, "note")) ?: d.note,
+            photo = str(r.field(o, "photo")) ?: d.photo, room = str(r.field(o, "room")), caption = str(r.field(o, "caption")) ?: d.caption,
+            photoKind = str(r.field(o, "photo_kind")) ?: d.photoKind, clientAt = str(r.field(o, "client_at")) ?: d.clientAt,
+            error = str(r.field(o, "error")) ?: d.error, recorded = bool(r.field(o, "recorded")) ?: d.recorded, at = str(r.field(o, "at")) ?: d.at,
+        )
+    }
+
+    /**
+     * The stored outboxes read back through [Read], tolerant as the mirror is: anything not in the shape reads as none;
+     * a field missing takes the [Op] default; an op without an `id` is left out; an op of a kind this build cannot send
+     * is KEPT (the drain refuses it with AQ's 400, that op alone); a `base` stays text (a number an older writer stored
+     * is read as its digits); a blank login or project is left out, and so is an empty entry; two entries for one login
+     * (or one project) are one, the later one's ops after the earlier one's.
+     */
+    fun outboxOf(r: Read, o: Any?): AlbumQueue.Outboxes {
+        var out = AlbumQueue.Outboxes()
+        for (l in r.items(r.field(o, "logins")).orEmpty()) {
+            val login = Album.partyKey(str(r.field(l, "login")))
+            if (login.isEmpty()) continue
+            for (e in r.items(r.field(l, "projects")).orEmpty()) {
+                val p = str(r.field(e, "project"))?.takeIf { it.isNotBlank() } ?: continue
+                val was = out.of(login, p)
+                val s = AlbumQueue.Stored(
+                    queue = was.queue + (r.items(r.field(e, "queue"))?.mapNotNull { op(r, it) } ?: emptyList()),
+                    dropped = was.dropped + (r.items(r.field(e, "dropped"))?.mapNotNull { op(r, it) } ?: emptyList()),
+                )
+                out = out.with(login, p, s)
+            }
+        }
+        return out
+    }
 }
