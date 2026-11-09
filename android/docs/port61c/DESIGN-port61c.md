@@ -13,8 +13,13 @@ derived on 9 Nov 2026 the same way (the served copy's PLAN tab and Export overla
 orientations — its vis() answers, the plan SVG's own text and the export preview captured — with §25, §26 and the
 code on batch-next); and §24 M2, derived on 9 Nov 2026 the same way (the served copy's tree, drawer and queue driven
 under मराठी in both orientations, its embedded table diffed against android/i18n, 116 vis() probes over the tree's,
-the queue's and the upload status' compositions — with §25–§27 and the code on batch-next). The other sections
-(§1–§13, §17, §21–§23, §28–§31) are NOT here. For those slices the sources are the approved prototype
+the queue's and the upload status' compositions — with §25–§27 and the code on batch-next); and §29 M6, derived
+on 9 Nov 2026 the same way (the served copy's drawer and its Laser test replica driven under मराठी in both
+orientations, 95 vis() probes over the laser, X3, ImageMeter, dialog and sign-in compositions, the RAW table
+diffed against android/i18n again — with §24–§27 and the code on batch-next). §28 M4 shipped on 3 Nov 2026
+(0.3.272, batch C part 1) BEFORE this plan was re-derived, so it has no section; its record is
+android/i18n/README.md "Port 61c slice M4" and the progress note below. The other sections
+(§1–§13, §17, §21–§23, §30–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -3542,6 +3547,403 @@ a no-op on the table, Masters.kt regenerated with `view_title`) · **new** pano/
 (six masters.tsv rows) · **literal-counts** re-ratcheted (SurveyPlan.kt 5 → 4; every other touched file's count
 stood, its leaving rows marked). Built as one commit on batch-next; :pano 935 tests, 0 failures, 0 skipped; :app
 compiles only in CI.
+
+### 29. M6 · Marathi: the rest of the shell and the S5 sign-in sheet (design slice 6)
+
+**Size:** M · **Depends on:** M2
+
+**Goal**
+
+Key everything §24's out-list left to M6: the S5 SIGN-IN SHEET (S5SignInDialog and S5Session's refusals — the
+17 rows the page's own left-out table files as "decision6 · the S5 sign-in sheet … no prototype screen yet"),
+the legacy ERP key dialog (SettingsDialog), the drawer's leftover sites ("Server" / "not set" / "Sign out" at
+their DIALOG sites — the drawer rows themselves have been keyed since slice 1b — plus "ERP key refused — tap to
+sign in to S5" and "Update failed: {why}" with FrappeClient's download refusal inside it), the ImageMeter import
+and annotation results, the shoot-and-keep flow, the X3's connect and capture notes (X3Bridge), and the LASER's
+shown states and refusals (DistoClient, Disto) — the last English on survey prep. After M6, survey prep is
+CLOSED (§26/§27's "only English left" sentence ends: M2 took the upload status line, M6 takes the laser
+states), MainActivity reaches 0 and joins ported.txt, and the English left under मराठी is M8's screens whole
+(FacePrepScreen 122, AnnotateScreen 46, LaserTestScreen 24, FacePrep's 17, Annotation's 17, and the Tx.EN
+flips) plus decision 4's exports and the wire, for good.
+
+**Derived from, in this order**
+
+1. **The approved prototype v61c.2**, served as a COPY from the session scratchpad (m6verify: index61c2.html at
+   the current header refresh — Version 82, "phone APK 0.3.303" — plus the real capture's assets, the
+   M2/M3b/M3c recipe) and driven in Playwright at the Mi A3 frame (360 × 780 and 780 × 360), switched to मराठी
+   by its own language row. Six products decide this slice:
+   - **The page's table diffed against android/i18n** (raw-table.json, 1,750 rows): ZERO English diffs; the
+     same 3 Marathi diffs M2 found (M3a's colon-genitive finalisations — the FOLDER wins, decision 3); the same
+     16 page-only orphans. The card is still the page's words.
+   - **The drawer and the page's Laser test replica under मराठी, screenshotted in both orientations**: the
+     drawer's लेझर group ("लेझर चाचणी", value "DISTO D2" LATIN), सर्व्हर with its URL as data, साइन आउट, "भाषा
+     · Language" in both scripts; the replica reading मागे / लेझर चाचणी · DISTO D2 / शेअर करा / — mm / कनेक्ट
+     नाही / कनेक्ट करा / फायर / लेझर चालू with the checks note in Marathi. The replica is M8's SCREEN (its
+     chrome rows stay LaserTestScreen's 24); M6 takes only the words SURVEY PREP shows today.
+   - **95 `window.L57.vis()` probes** over the laser, X3, ImageMeter, dialog and sign-in compositions, each
+     agreeing with the folder's MR byte for byte wherever a whole key exists: "Turn Bluetooth on" → "ब्लूटूथ
+     सुरू करा"; "Scan refused: application registration failed" → "स्कॅन नाकारले: application registration
+     failed" (the system's {why} as given); "X3 capture failed: stitch export cancelled" → "X3 कॅप्चर झाले
+     नाही: स्टिच एक्सपोर्ट रद्द झाले" (a note translating INSIDE the keyed head); "Update failed: download:
+     HTTP 404" → "अपडेट झाले नाही: डाउनलोड: HTTP 404"; "Sent 2 annotated faces from the gallery." → "गॅलरीतून
+     खुणा केलेल्या 2 बाजू पाठवल्या."; "(no client)" → "(ग्राहक नाही)" — and the identities UNCHANGED:
+     "DISTO D2", "no ConnectivityManager", "MCFT Interior Estimate", "mm · ft-in".
+   - **THE LASER LOG STAYS ENGLISH ON THE APPROVED PAGE**: its one demo log line has its own key
+     (app.found_disto_d2_4512) whose MR EQUALS its EN, and the replica draws it unchanged under मराठी — the
+     page's own ruling that the laser LOG does not translate. It is also what "Share laser log" sends OFF the
+     phone, so decision 4's register applies twice over (a diagnostic other parties read, and an export).
+   - **THE SIGN-IN SHEET HAS NO PAGE ROWS**: "Sign in", "ERP email", "Password", "Signing in…", "ERP key
+     (legacy)" and every S5Session refusal come back from vis() UNCHANGED — or improvised ("Signed in as Amit"
+     → "as Amit मध्ये Signed", the generic matcher mis-composing, M3b critic 2) — and the page's left-out table
+     names the 17 rows decision 6. So the sheet's Marathi is Claude's, composed from the page's OWN sign-in
+     vocabulary (साइन इन करा and ERP ईमेल / पासवर्ड from app.sign_erp_email_password's MR, सर्व्हर, साइन आउट),
+     so the sheet reads as the page's banners already read. One sheet error needed NO new key: "web answered
+     {code}" is already app.note.web_answered_x ("वेबचे उत्तर {code}", proven by vis()).
+   - **The overflow probe**: zero entries in this scope.
+2. **The shipped slices**: M2 (§24 — UploadNote as the stored notes' ONE home and mapper, statusLine, the
+   TreeQueueMarathiTest reason); M4's rule (stored in English, drawn through a key, anything else drawn as
+   stored); M3b (the words-home lesson — a mapper in :app cannot be pinned where the suite runs; the
+   salvage-log fault — a TYPE change consumed through Any compiles and prints a lambda; Tx.EN on the callers of
+   a screen not yet keyed, FacePrepDraw's idiom); M3c (the PlanSave.Refused idiom — a typed refusal whose
+   exception message is the PINNED English render; (h) as decision 4's enforcement, UNCHANGED here); the PL
+   review (an identity drawn raw is invisible to every literal check).
+3. **The code on batch-next (80d3526)**: all 108 unkeyed rows of the seven files read in their files; every
+   caller of every changing signature listed — `DistoClient.onState` / `onRefused` (SurveyPrepScreen:456–457,
+   the say() path; and the three M8 screens that render `Tx.EN` until M8: LaserTestScreen:52,55,
+   AnnotateScreen:253–254, FacePrepScreen:173–174); `Disto.Outcome.refused` (DistoClient.handle:332, DistoTest);
+   `CameraPort.connect`'s note (X3Bridge.connect, MainActivity:2850–2852 → `camNote`:2465 → CaptureSheet's
+   `cameraNote`, TreeShell:382 and its render at :495); `shootAndExport`'s failures (MainActivity:2864–2869);
+   `S5Session.login` (MainActivity:3079) and `refusal()` (MainActivity:1865 — the banner's {why} — and :3021;
+   AsIsUpload:374 and :548, the SIGN_AGAIN tails UploadNote.line already re-renders); `FrappeClient.
+   downloadPrivate` (MainActivity:1229, the update flow); `AnnotationPush.push` (MainActivity:944, :2085) — and
+   every Tx accessor checked to exist in the generated Tx with its exact signature (`sp_laser_scan_failed_x
+   (code)`, `sp_laser_scan_refused_x(why)`, `sp_laser_bluetooth_refused_x(why)`, `sp_laser_disconnected_x
+   (status)`, `sp_laser_reconnecting_x(status)`, `sp_laser_not_metric_x(unit)`, `sp_laser_not_a_length_x(x)`,
+   the seven laser statics with `app_meter_disconnected`, `app_x3_x_join_wifi(problem)`,
+   `app_x3_cannot_watch_wifi_x(why)`, `app_x3_connect_error_x(code)`, `app_x3_capture_error_x(code)`,
+   `app_x3_stitch_failed_x(code, why)`, the three X3 statics, `app_msg_update_failed_x(why)`,
+   `app_download_http_x(code)`, `app_msg_x3_capture_failed_x(why)`, `app_msg_could_not_save_x` /
+   `_split_x` / `app_msg_no_camera_app_x` / `app_msg_could_not_send_annotation_x(why)`,
+   `app_msg_sent_x_annotated_gallery(n: Int)` and `app_msg_sent_x_annotated_to_x(n: Int, server)` (both fold
+   face{pl}), `app_msg_x_annotated_already_sent(n)` / `_not_reached(n)`, the five ImageMeter statics,
+   `app_generate_both_your_user` (ONE key whose EN is the dialog's two concatenated fragments byte for byte),
+   `app_server`, `app_site_url`, `app_api_key`, `app_api_secret`, `common_save/cancel/close/not_set`,
+   `app_sign_out`, `app_erp_key_refused_sign_s5`, `common_survey_prep`, `app_discard_360`,
+   `app_note_web_answered_x`, `app_sign_again_menu_server_x`).
+
+**The keys: SIXTEEN new (1,798 → 1,814); everything else consumed, not coined.** card61c group 1 (approved with
+v61c, 28 Oct 2026) where-notes the laser and X3 keys to these exact files — the 11 `sp.laser.*` states beside
+`app.meter_disconnected`, Disto's `sp.laser.not_metric_x` / `not_a_length_x`, the 8 `app.x3.*` — and beside
+them the card's earlier phone-text keys (where-noted to these exact sites at 6575b85) hold the drawer leftovers
+(`app.erp_key_refused_sign_s5`, `app.msg.update_failed_x`, `app.download_http_x`), most ImageMeter results and
+the capture-flow refusals, while the v53 PAGE keys hold the legacy dialog, the dialogs' atoms
+(`common.save/cancel/close/not_set`, `app.sign_out`), the shoot-and-keep labels (`common.survey_prep`,
+`app.discard_360`) and the two ImageMeter demo sentences (importing, looked-14) — all listed in "Derived from"
+3. The sixteen are decision 6 (flag `phone-text`, where-list naming the site at
+this commit; MR in the shipped register, the sheet's words from the page's own sign-in vocabulary):
+
+- `app.sign_in` · EN `Sign in` · MR `साइन इन करा` — the sheet's title and its button (MainActivity:3024, :3088)
+- `app.signing_in` · EN `Signing in…` · MR `साइन इन होत आहे…` (:3088)
+- `app.signed_in_as_x` · EN `Signed in as {name}` · MR `{name} म्हणून साइन इन केले` (:3032; the ` ({kind})`
+  tail stays a value join — S5's own kind word, data, and after the staff gate it is always "staff")
+- `app.captures_go_x` · EN `Captures go to MCFT Interior Estimate ({url}).` · MR
+  `कॅप्चर MCFT Interior Estimate ({url}) कडे जातात.` (:3035; the product name Latin, the URL data)
+- `app.erp_email` · EN `ERP email` · MR `ERP ईमेल` (:3040)
+- `app.password` · EN `Password` · MR `पासवर्ड` (:3045)
+- `app.same_email_password_erpnext` · EN `The same email and password you use for ERPNext.` · MR
+  `ERPNext साठी वापरता तोच ईमेल आणि पासवर्ड.` (:3051)
+- `app.erp_key_legacy` · EN `ERP key (legacy)` · MR `ERP की (जुनी पद्धत)` (:3061)
+- `app.note.email_password_needed` · EN `Email and password are needed` · MR `ईमेल आणि पासवर्ड दोन्ही हवेत`
+- `app.note.web_unreachable` · EN `web unreachable` · MR `वेबशी संपर्क होत नाही`
+- `app.note.erp_not_accept_email_password` · EN `ERP did not accept that email and password` · MR
+  `ERP ने तो ईमेल आणि पासवर्ड स्वीकारला नाही`
+- `app.note.web_no_session` · EN `the web did not start a session` · MR `वेबने सेशन सुरू केले नाही`
+- `app.note.signed_out_meanwhile` · EN `signed out meanwhile` · MR `दरम्यान साइन आउट झाले`
+- `app.note.only_staff_not_staff` · EN
+  `Only MCFT staff can send captures from this app; this ERP account is not staff` · MR
+  `या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते स्टाफचे नाही` (refuse.stage.staff_only's register)
+- `app.note.only_staff_x_account` · EN
+  `Only MCFT staff can send captures from this app; this ERP account is a {kind} account` · MR
+  `या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते {kind} प्रकारचे आहे` ({kind} is S5's own word,
+  Latin — the M4 reasonLine rule)
+- `app.msg.looked_x_gallery_photos` · EN `Looked at {n} gallery photos, none carrying this app's stamp. Only
+  faces captured with 0.3.93 or later are stamped — re-shoot and annotate that one.` · MR = the card's
+  app.msg.looked_14_gallery_photos MR with {n} for its baked-in demo count — that v53 static is the PAGE's own
+  demo row and stays; a static cannot carry `scan.looked`.
+
+Tx IS regenerated (`nice -n 15 gradle :pano:i18nGen --offline`, then `nice -n 15 gradle :pano:i18nRatchet
+--offline`) — and the regen is NOT a no-op on Masters.kt (the M3c critic's finding 3): **masters.tsv gains ONE
+row, `client_name<TAB>app.no_client`, the row its own comment has promised to M6 since L2** ("app.no_client …
+in Marathi slice 6 (port M6, which keys S5Session.kt)"), so the NEW map `Masters.client_name` carries
+"(no client)" → "(ग्राहक नाही)" and passes every typed client name through.
+
+**The stored sign-in refusals move HOME to UploadNote (the M2/M4 rule, both its reasons again).** S5Session's
+error strings are STORED — `relogin` writes the refusal into prefs (`refused`), `AsIsUpload` folds it into a
+capture's note as `SIGN_AGAIN_PREFIX + it` (:374, :548) — and old phones already hold these bytes, so the
+constants cannot translate and cannot move a byte. They become UploadNote constants (values byte-identical to
+what 0.3.303 stores): `EMAIL_PASSWORD_NEEDED`, `WEB_UNREACHABLE`, `ERP_NOT_ACCEPT`, `WEB_NO_SESSION`,
+`SIGNED_OUT_MEANWHILE`, and the pair `ONLY_STAFF_IS` ("Only MCFT staff can send captures from this app; this
+ERP account is ") with `onlyStaff(kind)` — the ONE composer S5Session now calls, beside the ONE parser —
+`line()` grows the five exact matches and the only-staff parse (the webAnswered idiom: the tail "not staff" →
+its key, `a {kind} account` → its template with the kind as given, anything else AS STORED). S5Session's
+"web answered ${a.code}" becomes `UploadNote.WEB_ANSWERED_PREFIX + a.code` — byte-identical, one home, and
+line() already renders it. CONSEQUENCE FOR FREE: the queue rows' and web line's sign-in tails ("sign in again
+(menu → Server) - ERP did not accept that email and password") now translate WHOLE through the existing nested
+`line` path, with no new wiring — M2 built the pipe, M6 fills the last constants. S5's own error sentence (the
+`text` its /api/auth/login body carries) still draws as stored: data, never guessed at.
+
+**Two new :pano word-homes, no shown literal, both join ported.txt** (the conflictText/PlanSave lesson: a
+words-home in :app or :camera cannot be pinned where the suite runs):
+
+- **LaserNote.kt (NEW).** The laser's words, rendered live: the 12 state Msgs DistoClient hands its readers
+  (`turnBluetoothOn`, `noBleScanner`, `scanRefused(why)`, `noDistoFound`, `scanFailed(code)`,
+  `bluetoothRefused(why)`, `connectPermissionRefused`, `reconnecting(status)`, `meterDisconnected`,
+  `disconnected(status)`, `notADisto`, `noDistanceCharacteristic` — whole keys, the {why}/{status}/{code}
+  fills data) and `refusal(r: Disto.Refusal): Msg` over `sp.laser.not_metric_x` / `not_a_length_x`.
+- **CameraNote.kt (NEW).** The X3's words: the connect-note Msg builders (`joinWifi(problem: Msg)` over
+  `app.x3.x_join_wifi`; `notOnCameraWifi`, `cannotWatchWifi(why)`; `NO_CM` = "no ConnectivityManager" marked
+  `// text:value` — the page draws it Latin, a system identifier; `connectError(code)`), and the shoot path's
+  typed refusal, the PlanSave idiom byte for byte: `enum Kind { NO_FILE, CAPTURE_ERROR, STITCH_FAILED,
+  STITCH_CANCELLED }`, `text(tx, kind, code, why)` over the four `app.x3.*` keys, `class Refused(kind, code,
+  why) : Exception(text(Tx.EN, …))` — a logcat line reads exactly as today — and `line(tx, e: Throwable)`
+  rendering a Refused through `text(tx, …)` and any other Throwable as `e.message ?: simpleName` (M3c's
+  exportFailed idiom).
+
+**Files and changes** (unkeyed.tsv rows before → after; 347 → 239, 108 rows off)
+
+**pano/:**
+- **LaserNote.kt / CameraNote.kt (NEW).** Above.
+- **Disto.kt (2 → 0, joins ported.txt, STAYS Tx-FREE — the ServerMessage/AsIsPath idiom: the wire's parser
+  carries no language).** `Outcome.refused` stops being a String and becomes `Refusal(kind, arg)` — kind
+  NOT_METRIC or NOT_A_LENGTH, arg the pre-formatted figure ("4", "0.0000"; the `%.4f` ROOT formatting stays
+  here, pure) — and the two sentence literals LEAVE the file; LaserNote renders them. DistoTest's
+  `refused.contains("unit code 4")` pins become renders through `LaserNote.refusal` under both Tx.
+- **CameraPort.kt (no rows).** `connect`'s callback becomes `(connected: Boolean, error: Msg?) -> Unit` — the
+  KDoc's "error text" becomes "error note, rendered at draw time". Same module as Msg; still SDK-free.
+- **UploadNote.kt (already in ported.txt).** Grows the five constants, `ONLY_STAFF_IS` + `onlyStaff(kind)`,
+  and line()'s matches, all above the conflictNoteLine fallthrough.
+
+**app/:**
+- **DistoClient.kt (31 → 0, joins ported.txt).** `onState` becomes `(State, Msg?)`, `onRefused` becomes
+  `(Msg)`; every `moveTo` note is a LaserNote builder — except CONNECTING's, which is the DEVICE NAME
+  (`{ _ -> name ?: "DISTO" }`, data; "DISTO" marked `// text:value`, the page's own value list names it). THE
+  TWO SILENT TEMPLATE SITES ARE REWRITTEN BY HAND, because a Msg in a string template compiles and prints the
+  lambda's identity — the M3b salvage-log fault's exact shape: `moveTo`'s event line renders
+  `note?.let { " — " + it(Tx.EN) }` and the refused line renders `"refused: " + why(Tx.EN)` — the LOG keeps
+  today's bytes through the pinned table, as SurveyPrepStore's salvage log does. Every OTHER reader of the
+  changed types is a compile error CI refuses (say(n) wants a String; the three M8 screens' `note = n` state
+  is `String?`), walked in "Derived from" 3. The ~19 event/log rows are marked `// text:value` (the GATT
+  transcript: "accepted", "refused by Android", "advertises the DISTO service", "matched by name only",
+  "characteristics: ", "found '…' rssi … — ", "sent '$cmd' (…)", "subscribed … (status $s)", "distance […] =
+  %.4f m", "unit […] = code $u", "no command characteristic — cannot send '$cmd'", "state …", "refused: ",
+  the glyph joins — a diagnostic other parties read AND the Share-laser-log export, decision 4's register,
+  the page's own English demo log line the ruling).
+- **S5Session.kt (10 → 0, joins ported.txt).** The error literals become the UploadNote constants above
+  (bytes unchanged — stored prefs on phones must keep matching); "web answered" through
+  `WEB_ANSWERED_PREFIX`; `NO_CLIENT` "(no client)" marked `// text:value` (a stored bucket value, S5Masters
+  files projects under it) and SHOWN through the new `Masters.client_name` — threaded at the client-name draw
+  sites, the PL review's lesson: BrowseScreens.ClientsScreen:221 (`title = c`; the badge stays `initials(c)`
+  on the stored value, a code), the client crumbs (MainActivity:1748 with its :1749 sibling labels, :2502),
+  searchTree's client hit (:3553) and the client fills of its site/project hits (:3560, :3564), the project
+  sheet's Client value (TreeShell:279), HomeScreens' two lines (:132, :166), queueRow's subtitle fill. AND A
+  CATCH-UP THE DERIVATION FOUND: the room-crumbs' SITE label (MainActivity:2506) draws `st` raw where the
+  tree crumb (:1753) goes through `Masters.site_name` — an M2 leftover of the same class, threaded here with
+  the client crumbs and pinned beside them.
+- **FrappeClient.kt (1 → 0, joins ported.txt, stays Tx-free — it is the wire's client).**
+  `class Download(val code: Int) : ApiException(code, "download: HTTP $code")` thrown by downloadPrivate; the
+  message literal marked `// text:value a diagnostic — the shown line renders app.download_http_x from
+  [code]`. startUpdate's onFailure becomes `lastResult = { tx -> tx.app_msg_update_failed_x(why = if (it is
+  FrappeClient.Download) tx.app_download_http_x(it.code.toString()) else it.message ?: …) }` — "अपडेट झाले
+  नाही: डाउनलोड: HTTP 404", the served page's own composition.
+- **AnnotationPush.kt (2 → 0, joins ported.txt, ZERO Tx tokens).** Both rows marked `// text:value`:
+  "Annotated in ImageMeter; matched by the app's stamp" is the comment uploadAnnotation SENDS — stored on the
+  bench, read in ERP, a document other parties consume (decision 4) — and "could not read the annotated
+  image" is an error() swallowed by push's runCatching (onSuccess-only): a diagnostic no screen shows.
+- **MainActivity.kt (51 → 0, JOINS ported.txt — the last of the shell).** By cluster: THE SIGN-IN SHEET —
+  `app.sign_in` (title and button), `app.signing_in`, `app_signed_in_as_x(name)` + the ` ({kind})` value
+  tail, `app_captures_go_x(BuildConfig.WEB_URL)`, `app.erp_email`, `app.password`,
+  `app.same_email_password_erpnext`, `app.erp_key_legacy`, `app.sign_out`, `common.close` / `common.cancel`,
+  and `problem` rendered `UploadNote.line(tx, it)` — S5's own sentence as stored, the constants through their
+  new keys; the refusal banner's fill becomes `app_sign_again_menu_server_x(UploadNote.line(tx, s5Refused))`
+  (:1870). THE LEGACY KEY DIALOG — `app.server` (title), `app.site_url`, `app.api_key`, `app.api_secret`,
+  `app.generate_both_your_user` (replaces the two fragments), `common.save`, `common.cancel`. THE DRAWER
+  LEFTOVERS — `app.erp_key_refused_sign_s5` (:1276); the Add-site type fallback (:2752) renders
+  `tx.common_not_set` when no type is picked instead of passing "not set" through Masters.site (an unknown
+  value passed through — English under both languages today). THE IMAGEMETER IMPORT — `localLine` becomes a
+  Msg rendered at draw (lastResult already takes the live tx): `app_msg_android_hiding_photos`,
+  `app_msg_sent_x_annotated_gallery(sent)`, `app_msg_x_annotated_not_reached("${scan.stamped}")`,
+  `app_msg_x_annotated_already_sent`, `app_msg_no_photos_gallery`, `app_msg_looked_x_gallery_photos` (the new
+  template), `app_msg_could_not_read_gallery`; the permission answer (:891) `app_msg_gallery_access_granted`
+  / `app_msg_without_gallery_access` (one key, three fragments). THE ANNOTATION RESULTS —
+  `app_msg_sent_x_annotated_to_x(n, server)` (:2088, the face{pl} fold removes "face"/"faces"),
+  `app_msg_could_not_send_annotation_x` (:2091). THE SHOOT-AND-KEEP FLOW — `app_msg_could_not_split_x`
+  (:859), `app_msg_could_not_save_x` (:2699), `app_msg_no_camera_app_x` (:2882),
+  `app_msg_x3_capture_failed_x(CameraNote.line(tx, it))` (:2869), and the dims dialog's labels
+  `tx.common_survey_prep` / `tx.app_discard_360` (:3667 — whose stale comment "Discard 360 has no key yet"
+  comes OUT: the card has held app.discard_360, the page's own shoot-and-keep label, since L1; §24's out-list
+  repeated the stale claim and this section corrects it — a note describing a state has to move when the
+  state does). THE X3 WIRING — `camNote` becomes `Msg?` (:2465, :2852).
+- **Call sites only** (all already in ported.txt): TreeShell.kt — CaptureSheet's `cameraNote: Msg?`, rendered
+  `cameraNote?.invoke(tx)` at :495 (a LONG-LIVED note drawn in the language on when it is drawn — the M3b
+  readingsMsg rule; its stale KDoc "shown as it says it" reworded), and the project sheet's Client value
+  through `Masters.client_name` (:279); BrowseScreens.kt (ClientsScreen title); HomeScreens.kt (the client
+  fills); SurveyPrepScreen.kt — `say(n(tx))` / `say(why(tx))` at :456–457, the laser's words now rendered
+  live on the ONE keyed screen that shows them; LaserTestScreen.kt / AnnotateScreen.kt / FacePrepScreen.kt —
+  their `note` state keeps String and takes `n?.invoke(Tx.EN)` / `why(Tx.EN)` until M8 (the FacePrepDraw
+  caller idiom: no mixed screen the prototype never drew; M8's flip is one argument per screen).
+
+**camera/:**
+- **X3Bridge.kt (11 → 0, joins ported.txt, ZERO words left).** The connect notes become CameraNote Msgs
+  (`joinWifi(notOnCameraWifi)`, `joinWifi(cannotWatchWifi(why))`, `joinWifi({ _ -> CameraNote.NO_CM })`,
+  `connectError(code)` — the three-fragment connect-error sentence is ONE key, `app.x3.connect_error_x`,
+  whose EN is the concatenation byte for byte); the shoot path throws `CameraNote.Refused(NO_FILE)` /
+  `(CAPTURE_ERROR, code)` / `(STITCH_FAILED, code, message)` / `(STITCH_CANCELLED)` in place of its bare
+  exceptions — `Result<String>` keeps its shape, the messages keep today's bytes (the pinned Tx.EN render).
+
+**What translates and what stays Latin** (each proven by the served page's screenshots and `vis()`):
+
+| shown | under मराठी | mechanism |
+|---|---|---|
+| the laser states said on survey prep | ब्लूटूथ सुरू करा, मीटर डिस्कनेक्ट झाला, … | LaserNote Msg, rendered at say() with the live tx |
+| a laser note's system tail ("Scan refused: …") | स्कॅन नाकारले: application registration failed | the {why} as given — data |
+| the laser LOG, and its lines on the Laser test screen | UNCHANGED (English) | values + Tx.EN renders — the page's own demo log line ruling; Share laser log is an export |
+| "DISTO", "DISTO D2", "no ConnectivityManager" | UNCHANGED | device and system identifiers — values |
+| the X3 notes on the capture sheet and banner | स्टिच एक्सपोर्ट रद्द झाले, कॅमेरा कनेक्ट त्रुटी 1 — … | CameraNote; the SDK's {why} as given |
+| the sign-in sheet | साइन इन करा, ERP ईमेल, पासवर्ड, … | the 8 new keys (decision 6) |
+| the stored sign-in refusals, wherever they surface | their app.note.* Marathi | stored English, UploadNote.line — sheet, banner, queue tails alike |
+| S5's own error sentence from /api/auth/login | UNCHANGED (as given) | data — the M4 reasonLine rule |
+| "(no client)" | (ग्राहक नाही) | `Masters.client_name` + the masters.tsv row |
+| client / site / project names, URLs, versions, " (staff)" | UNCHANGED | data; the map passes unknowns through |
+| the ImageMeter results | the card's app.msg.* Marathi | lastResult as Msg, rendered at draw |
+| the legacy key dialog | सर्व्हर, साइट URL, API की, API सिक्रेट, … | the page's own v53 keys |
+| "Update failed: download: HTTP 404" | अपडेट झाले नाही: डाउनलोड: HTTP 404 | app.msg.update_failed_x over app.download_http_x |
+
+**S5 must already serve**
+
+Nothing.
+
+**Tests and checks**
+
+- **LaserNoteTest (new, :pano)**: every builder under `Tx.EN` BYTE-EQUAL to the string DistoClient or Disto
+  composes at 80d3526 (all 14); under `Tx.MR` hand-typed pins against the card's values (the vis() answers in
+  this derivation); the fills as given ("स्कॅन नाकारले: application registration failed" — tail Latin).
+- **CameraNoteTest (new, :pano)**: `text(Tx.EN, …)` byte-equal to X3Bridge's previous literals for every Kind,
+  the composed connect-error sentence included; `Refused.message` IS the Tx.EN render (the PlanSave pin);
+  `joinWifi` over all three problems; `line` on an alien Throwable keeps its message; `Tx.MR` the card's.
+- **DistoTest**: the refusal branches pinned through `LaserNote.refusal` under both Tx (its
+  `contains("unit code 4")` becomes a render); Pairing's held-distance logic unchanged.
+- **UploadNoteTest grows an M6 block**: `line` on each new constant under both Tx; the only-staff ROUND TRIP
+  (`line(tx, onlyStaff(k)) == `the key render, for blank and named kinds, under both Tx — owner and parser one
+  file, the conflictNoteLine idiom); the nested SIGN_AGAIN tail now translating whole ("sign in again (menu →
+  Server) - ERP did not accept that email and password" → both halves Marathi); an unknown refusal (S5's own
+  sentence) unchanged; the constants' bytes pinned against the values 0.3.303 stores in prefs.
+- **MastersTest**: `client_name` joins the MAPS walk; the row's EN is S5Session.NO_CLIENT byte for byte.
+- **TreeQueueMarathiTest grows an M6 block** (the M3a fix-7 reason — a Masters map passes unknowns through):
+  `client_name` both ways ("(ग्राहक नाही)"; a typed name through unchanged), and the threaded crumb/hit/sheet
+  fills where :pano functions compose them.
+- **The i18n suite**: I18nTableTest (1,814 keys; the sixteen flagged `phone-text` with their where-lists),
+  TxRenderTest (the four new templates render), the deny-pattern check (no name, phone number or rate in the
+  new keys — "0.3.93" is a version already on the card), I18nLiteralTest (a)–(d) over the 108 removed rows and
+  the 9 files joining ported.txt, (f)/(i) over every moved constant and renamed member — and the TYPE changes
+  walked BY HAND because (f)/(i) cannot see them (the M3b salvage-log lesson): the two DistoClient template
+  sites are rewritten in this slice, and every other reader of `Msg` where a String stood is a compile error
+  CI refuses (`say(n)`, the M8 screens' `String?` state, `Text(cameraNote ?: …)`). **(h) UNCHANGED**: no
+  region is added or widened — PlanExport, FaceWriter, SurveyExport and AsIsUpload's `fun doWork` stay as M3c
+  left them; the laser log and the X3 exception messages render the pinned table (`Tx.EN`) exactly as the
+  salvage log does, outside every region.
+- The CI gate; `:app` AND `:camera` compile only in CI (push batch-next, wait for android-app.yml) — nothing
+  here has been seen on a phone. The changed signatures' readers are walked against the files AS THEY ARE on
+  batch-next before the commit (the list in "Derived from" 3).
+
+**What Amit sees**
+
+Under English, nothing: every key's EN renders the current literal byte for byte — the sixteen new keys' EN
+ARE today's literals — the stored prefs and state files keep reading (no stored byte moves), the exported
+ImageMeter caption and the laser log keep their bytes, and the X3/laser logcat lines read exactly as today.
+Under मराठी the shell FINISHES turning in one build: the sign-in sheet, the legacy key dialog, the ImageMeter
+import's every verdict, the shoot-and-keep refusals, the X3's connect and capture notes, the update failure,
+and the laser's states on survey prep — which closes survey prep entirely. The Laser test, Face Prep and
+Annotate screens stay wholly English in both languages (their notes render Tx.EN until M8) — no mixed screen.
+
+**Risks**
+
+The clipped-Devanagari class (the phone is the only proof; this scope is AlertDialogs, ListItems and banners
+with room, the page's overflow probe found nothing, and no Marathi-only line height is pre-emptively added —
+the M3a `if (tx.mr)` remedy is one line per element if Amit's phone shows a cut). A refusal stored by an older
+build whose bytes match no constant draws as stored — English — the rule working. A say() raised before a
+language flip keeps its language for 2.6 s (M3a's accepted rule); the capture sheet's camera note and
+lastResult re-render at next draw (Msg, the readingsMsg rule).
+
+**Deliberately NOT in M6**
+
+- **M8** — FacePrepScreen's 122, AnnotateScreen's 46, LaserTestScreen's 24 (the replica's look is captured in
+  this derivation's screenshots for it), FacePrep's remaining 17, Annotation's 17; and the three one-argument
+  flips to the live tx (the M8 screens' laser-note renders here, FacePrepScreen's canvas call from M3b).
+- **The exports and the wire** (decision 4, for good): FaceWriter's 13 rows; the ImageMeter caption and the
+  swallowed error (AnnotationPush's two values); the laser LOG and "Share laser log"'s payload; AsIsUpload's
+  doWork region; the capture states, folder names, S5 fields, ERP endpoints, BLE GATT names and UUIDs —
+  `// text:value` where LiteralScan sees them.
+- **No new UI**: the sign-in sheet keeps its exact fields and buttons; M6 translates, it does not redesign
+  (a UI state the approved prototype does not draw does not reach the phone — and the sheet not being ON the
+  prototype does not license inventing one there either).
+
+**The M6 critic** — raised by a careful reader, answered:
+
+1. *Why do the ~19 laser log fragments stay English when the 12 states translate?* The approved page itself
+   rules it: its one demo log line has a key whose MR EQUALS its EN, drawn unchanged under मराठी — and the log
+   is what "Share laser log" sends off the phone, a diagnostic built to settle the D2 protocol (the file's own
+   KDoc), so decision 4's register applies as it did to ServerMessage and the salvage log. Translating the
+   transcript would also bury the GATT vocabulary ("indicate", "CCCD") the log exists to compare against the
+   published clients.
+2. *Why Msg callbacks for the laser instead of UploadNote-style stored English?* Because nothing STORES a
+   laser note: it is a transient callback shown at say() or held in screen state — the storage rule (M4)
+   protects stored bytes, and there are none. Msg renders in the language on when it is drawn (the readingsMsg
+   rule), and the words still get a :pano home (LaserNote) so both languages are pinned where the suite runs.
+3. *A Msg in a string template compiles and prints a lambda — the M3b salvage-log fault. Where are those
+   sites?* Walked, not assumed: DistoClient's moveTo event line and its "refused: $why" line are the only two
+   templates the changed values reach, and both are rewritten in this slice to render Tx.EN explicitly. Every
+   other reader is a TYPE error CI refuses (say wants a String; the M8 screens' note state is String?;
+   TreeShell's Text). The bare-Msg scan from the M3b review stays scoped to `.problems` loops — widening it to
+   every Msg variable would need type resolution a text scan does not have; the walk is the guard here, and
+   the two sites are named so the builder cannot miss them.
+4. *The sixteen new keys widen the folder-vs-page diff.* As the three fp.* keys did in M3b: phone-text keys
+   with where-lists are the recorded, expected divergence — the page's left-out table itself names these rows
+   decision 6. The RAW diff stays the check that no SHARED row drifts.
+5. *The banner "Sign in again (menu → Server): {why}" will now translate its tail where the approved page
+   shows the tail English.* The page's tail is English only because the sheet's rows do not exist there (its
+   vis() answer in this derivation shows exactly that), not because a ruling keeps them English — decision 6
+   gives the sheet's words to Claude, and a translated head with an English tail that HAS a Marathi row would
+   be the mixed line the M4 rule exists to avoid. S5's own sentences still stay as given.
+6. *Why a typed Disto.Refusal instead of a Msg from Disto.kt?* The wire parser stays Tx-free (the
+   ServerMessage/AsIsPath idiom): Disto.kt keeps bytes, codes and formats; LaserNote keeps words. A Msg built
+   in Disto.kt would put the language table into the one file whose job is the BLE protocol.
+7. *`app.discard_360` — §24 and the :3667 comment said it has no key.* WRONG, both: the card has carried it
+   (v53build/app.js:363, the page's own shoot-and-keep label) since the tables landed; index.tsv generates
+   `app_discard_360`. The stale claim is corrected here and the comment leaves with the build — a note
+   describing a state has to move when the state does (this file's most-repeated lesson).
+8. *Why does `app.msg.looked_x_gallery_photos` get coined when `app.msg.looked_14_gallery_photos` exists?*
+   The static's "14" is the page demo's baked count; a static cannot carry `scan.looked`. The new template's
+   EN and MR are the card's own sentence with {n} — nothing is reworded — and the static stays the page's.
+9. *The " ({kind})" tail and "Signed in as {name}" — why is kind not keyed?* After the staff gate the only
+   kind a signed-in phone can show is "staff" — S5's own stored word, data (the M4 rule); a keyed render would
+   translate a value S5 compares. The page has no ruling here (no sheet), so the value mark is the
+   conservative reading.
+10. *S5Session's constants move to UploadNote — does the sheet's immediate `problem` really go through the
+    stored-note mapper?* Yes, deliberately: `problem` is EITHER a fresh login error OR the STORED refusal
+    (`S5Session.refusal`, prefs) — one string, two sources, so one mapper (line) or the two drift; and the
+    same refusal surfaces in the banner and in the queue's SIGN_AGAIN tails, which already go through line.
+    Rendering keys directly in the dialog would be a second answer.
+11. *The derivation lives in the scratchpad — the lost-plan fault again?* No (M3b critic 10's answer holds):
+    the rulings, the vis() answers, the screenshots' findings and the per-file mapping are IN THIS SECTION,
+    committed with it; the run is re-creatable in minutes from the published artifact and this recipe. No
+    client name, phone number or rate enters the repo: the probe fills are demo rows, status codes and
+    system-exception phrases, and the deny-pattern check runs over the tables as always.
+
+**unkeyed.tsv** 347 → 239 (108 rows off; what remains is M8's five files plus FaceWriter's 13, decision 4's) ·
+**ported.txt** + LaserNote.kt, CameraNote.kt, Disto.kt (pano), DistoClient.kt, S5Session.kt, FrappeClient.kt,
+AnnotationPush.kt, MainActivity.kt (app), X3Bridge.kt (camera) · **keys** 1,798 → 1,814 (the sixteen above; Tx
+regenerated, Masters.kt regenerated — the NEW `client_name` map, one masters.tsv row) · **literal-counts**
+re-ratcheted over every touched file.
 
 ## Progress notes recovered
 
