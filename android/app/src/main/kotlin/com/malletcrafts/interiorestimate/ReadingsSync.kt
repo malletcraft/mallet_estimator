@@ -30,7 +30,8 @@ import java.time.format.DateTimeFormatter
  * (AsIsPath), so a room with two 360s never has one capture's figures merged
  * into the other's survey prep -- S5's "ONE SERVER ROOM PER CAPTURE". The pull
  * also asks the ERP name (MEST-PH-…) while S5 still holds the capture under it
- * ([fetch]); a 404 on both stays the quiet NOT_YET.
+ * ([fetch]); a 404 on both stays the quiet not-yet line (sp.web_readings_not_yet, by its
+ * Readings.NoteKind since port 61c slice M3b).
  *
  * Every key is sent alike, whatever owns it: a mark's FD1.w, a Line's F-M1.len,
  * a chain's segments FK1.1 … FK1.n and its total FK1.t (v52 slice 11; S5's
@@ -146,9 +147,10 @@ object ReadingsSync {
      * GET one capture's readings from the web, by its device id -- and, when that is a 404 and ERP has named the
      * capture ([erpCapture], the row's serverName, MEST-PH-…), by that name (port 61c slice AS1, critic S3): until
      * the capture's first record PUT from this build lands, S5 still holds it under the name 0.3.212's record gave
-     * it, and a pull that asked only the device id would read 404 as NOT_YET and quietly stop taking the web's
-     * edits. The two names are ONE capture (S5's C3 renames it onto the device id at that first PUT, after which
-     * the device id answers and the second name is never asked). Any other refusal, and a 404 on both, throws.
+     * it, and a pull that asked only the device id would read 404 as the quiet not-yet line (Readings.NoteKind.NOT_YET)
+     * and quietly stop taking the web's edits. The two names are ONE capture (S5's C3 renames it onto the device id at
+     * that first PUT, after which the device id answers and the second name is never asked). Any other refusal, and a
+     * 404 on both, throws.
      */
     fun fetch(auth: String, project: String, room: String, capture: String, erpCapture: String? = null): Map<String, Readings.Remote> {
         val older = erpCapture?.takeIf { it != capture }

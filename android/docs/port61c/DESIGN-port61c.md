@@ -2776,6 +2776,37 @@ under pano/build/test-results — with SurveyDrawMarathiTest new, SurveyPrepMara
 kind and words pins, and I18nLiteralTest's (h) exemption + companion. :app is compiled only by CI; nothing has been
 seen on a phone.)*
 
+**The M3b review (9 Nov 2026)** — two findings on 29d93db, both independently confirmed (the major one twice, and
+proven by a scratch Gradle project on the repo's own Kotlin 2.0.21: the bare template compiles and prints the
+lambda's identity, `…$$Lambda/0x…@…`, never the note); both fixed:
+
+1. *SurveyPrepStore.open's salvage log prints the lambda's toString, not the note.* `Decoded.problems` became
+   `List<Msg>` and SurveyPrepStore.kt's `Log.w(TAG, "$id: $p")` was the one reader the build's caller walk missed —
+   a TYPE change consumed through Any, not a rename, so it compiles in CI and no check could see it: (i) resolves
+   member NAMES by reflection and `problems` kept its name, (f) scans `tx.<name>`, (h) never scans
+   SurveyPrepStore.kt. That Log.w is the ONLY full record of what a salvage dropped (openedNote shows
+   problems.first() plus a count), so the record died silently — the disabled-path version-stamp fault by a new
+   route. Fixed: the loop renders each problem with the pinned English table, `${p(Tx.EN)}`, with the import and a
+   comment naming why (a logcat line is a diagnostic other parties read — decision 4's register, ReadingsSync's
+   stored-note precedent); no (h) exemption is needed and none was added, since (h)'s regions stay PlanExport,
+   FaceWriter and AsIsUpload's doWork. The sibling pointLog loops stay `List<String>` and are untouched. And the
+   CLASS is checked now, not just the instance: I18nLiteralTest gains `a Msg from problems is rendered, never
+   interpolated bare` — a scan over every module for a `.problems` loop whose variable a string template takes bare
+   (`$p` / `${p}`; template code survives in `masked`, so the scan sees inside the string) — plus a fixture test
+   whose bad case is M3b's line byte for byte. Proven both ways on this tree: with the fix reverted the suite goes
+   red on exactly that line; with it, green.
+
+2. *Stale KDoc to members M3b deleted or renamed — the stale-note fault in miniature.* FOUR mentions, not the
+   finding's three (its own verdict found the fourth): SurveyRef.kt:23 `[NO_DELETE]` → `[noDelete]`;
+   SurveyMeas.kt:213 `([CAUTION])` → `([caution])`; ReadingsSync.kt:33 and the fetch KDoc both still said NOT_YET
+   though `ReadingsSync.NOT_YET` was deleted — reworded to "the quiet not-yet line (sp.web_readings_not_yet)",
+   naming `Readings.NoteKind` so the one LIVE referent a grep hits is the one meant. Doc-only; kotlinc ignores
+   KDoc links, nothing compiles differently.
+
+*(Review fixed 9 Nov 2026 on batch-next: :pano:test 926 tests, 0 failures, 0 errors, 0 skipped — the XML under
+pano/build/test-results — the two new tests being the bare-Msg scan and its fixture pin. :app is compiled only by
+CI; nothing has been seen on a phone.)*
+
 ## Progress notes recovered
 
 ## Progress, 3 Nov 2026 ~15:25 IST

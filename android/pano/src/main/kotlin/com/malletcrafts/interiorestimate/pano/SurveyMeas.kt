@@ -210,7 +210,7 @@ object SurveyMeas {
 
     /**
      * THE TOOL CHIP with Tape ("T") or Line ("M") on: the live [drag] when there is one, else the tool's own words, or
-     * the area being built ([corners] tapped so far); null for any other tool. The caution line ([CAUTION]) goes under it.
+     * the area being built ([corners] tapped so far); null for any other tool. The caution line ([caution]) goes under it.
      */
     fun chipText(tx: Tx, tool: String, drag: Draft?, corners: Int): String? = when {
         tool != "T" && tool != "M" -> null

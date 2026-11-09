@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -79,7 +80,11 @@ class SurveyPrepStore(context: Context) {
         synchronized(held) { if (r.hold) held.add(id) else held.remove(id) }
         when (val o = r.opened) {
             is SurveyPrepFile.Opened.Salvaged -> {
-                for (p in o.decoded.problems) Log.w(TAG, "$id: $p")
+                // the ONLY full record of what a salvage dropped (the screen's note shows problems.first()
+                // plus a count), rendered with the pinned English table -- a logcat line is a diagnostic
+                // other parties read (decision 4's register, as ReadingsSync's stored note composes Tx.EN).
+                // A bare "$p" compiles on a Msg and prints the lambda's toString (the M3b review).
+                for (p in o.decoded.problems) Log.w(TAG, "$id: ${p(Tx.EN)}")
                 for (p in o.decoded.pointLog) Log.i(TAG, "$id: $p")
             }
             is SurveyPrepFile.Opened.Unreadable ->

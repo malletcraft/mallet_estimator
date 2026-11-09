@@ -482,6 +482,68 @@ class I18nLiteralTest {
         assertEquals(listOf(2, 4), off.map { it.substringAfter("M.kt:").substringBefore(':').toInt() }, off.joinToString("\n"))
     }
 
+    /** A loop over `SurveyPrepFile.Decoded.problems`, a `List<Msg>`: `for (<v> in <…>.problems)`. */
+    private val PROBLEMS_LOOP = Regex("""\bfor\s*\(\s*([A-Za-z_]\w*)\s+in\s+(?:[\w.]+\.)?problems\s*\)""")
+
+    /** The loop statement after [after] in [masked]: a balanced `{ … }` block, or the rest of the line. */
+    private fun loopBody(masked: String, after: Int): IntRange {
+        var i = after
+        while (i < masked.length && masked[i].isWhitespace()) i++
+        if (masked.getOrNull(i) == '{') {
+            var d = 0; var j = i
+            while (j < masked.length) { if (masked[j] == '{') d++ else if (masked[j] == '}') { d--; if (d == 0) break }; j++ }
+            return i..minOf(j, masked.length - 1)
+        }
+        val end = masked.indexOf('\n', i).let { if (it < 0) masked.length else it }
+        return i until end
+    }
+
+    /**
+     * Check over [scans]: a Msg iterated from `.problems` that a string template takes BARE. `"$id: $p"`
+     * compiles on a lambda -- a template takes Any -- and prints the lambda's toString, not the note, so
+     * the loop variable must be CALLED (`${p(Tx.EN)}`), never interpolated as `$p` or `${p}`.
+     * String bodies are blanked in [LiteralScan.FileScan.masked] but template code is kept, so the scan sees it.
+     */
+    private fun bareMsgInterpolations(scans: List<LiteralScan.FileScan>): List<String> {
+        val off = ArrayList<String>()
+        for (s in scans) for (m in PROBLEMS_LOOP.findAll(s.masked)) {
+            val v = Regex.escape(m.groupValues[1])
+            val body = loopBody(s.masked, m.range.last + 1)
+            for (b in Regex("""\$(?:$v\b|\{\s*$v\s*\})""").findAll(s.masked.substring(body.first, body.last + 1)))
+                off += "${s.name}:${s.lineOf(body.first + b.range.first)}: a Msg from .problems interpolated bare (${b.value})"
+        }
+        return off
+    }
+
+    @Test fun `a Msg from problems is rendered, never interpolated bare`() {
+        // The M3b review (its one confirmed major): Decoded.problems became List<Msg> and SurveyPrepStore.open's
+        // Log.w still said "$id: $p" -- a template takes Any, so CI compiled it and the logcat line printed the
+        // lambda's toString instead of "Front wall: its floor line was unreadable, placed again". That Log.w is
+        // the ONLY full record of what a salvage dropped (the screen's note shows problems.first() plus a count),
+        // so the record died silently -- the disabled-path version-stamp fault by a new route: a TYPE change
+        // consumed through Any, which (i) cannot see (`problems` kept its name) and only CI's kotlinc compiles,
+        // and kotlinc compiles WITHOUT complaint. The idiom: render with the pinned English table, `p(Tx.EN)`
+        // -- a logcat line is a diagnostic other parties read (decision 4's register, ReadingsSync's stored note).
+        I18n.check("a bare Msg in a template", bareMsgInterpolations(scans),
+            "a template on a Msg prints the lambda's toString: render the problem -- `\${p(Tx.EN)}` in a log -- never `\$p` or `\${p}`")
+    }
+
+    @Test fun `the bare-Msg check sees the review's line and passes the fix`() {
+        // the bad fixture's line 2 is SurveyPrepStore.kt:82 as M3b shipped it, byte for byte
+        val bad = "fun f() {\n" +
+            "    for (p in o.decoded.problems) Log.w(TAG, \"\$id: \$p\")\n" +
+            "    for (q in d.problems) {\n        Log.w(TAG, \"\$id: \${q}\")\n    }\n" +
+            "}\n"
+        val off = bareMsgInterpolations(listOf(LiteralScan.scanText("app/src/main/kotlin/X.kt", bad)))
+        assertEquals(listOf(2, 4), off.map { it.substringAfter("X.kt:").substringBefore(':').toInt() }, off.joinToString("\n"))
+        // rendered problems pass; a List<String> loop (pointLog) is out of scope, its $p is fine
+        val good = "fun f() {\n" +
+            "    for (p in o.decoded.problems) Log.w(TAG, \"\$id: \${p(Tx.EN)}\")\n" +
+            "    for (p in o.decoded.pointLog) Log.i(TAG, \"\$id: \$p\")\n" +
+            "}\n"
+        assertEquals(emptyList(), bareMsgInterpolations(listOf(LiteralScan.scanText("app/src/main/kotlin/Y.kt", good))))
+    }
+
     @Test fun `a Msg lambda assigned to lastResult, busy or note is a UI position`() {
         // slice 1c: the transient messages hold a Msg, so the text a person sees is the lambda's value
         val src = """

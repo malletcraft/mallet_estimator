@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
  * EDGES · LASER squares it from its four lines and the laser's room size (right when all four corners are in the
  * photo); REFERENCE ▭ squares it from a rectangle on that plane whose size is known -- a door 905 × 2053 -- (right when
  * a corner is hidden by furniture or cut off). The reference is NOT A MARK: it is never in 3 · List, the List tab or
- * the chips, it is picked only in 1 · Lines, and nothing deletes it -- every delete path answers [NO_DELETE]. Its eye,
+ * the chips, it is picked only in 1 · Lines, and nothing deletes it -- every delete path answers [noDelete]. Its eye,
  * "Show on faces", hides its outline on the faces; hidden, it still squares the face.
  *
  * STORED where the prototype keeps it, the surface's `ref` -- {on, q: [[x, y] × 4] view px (bottom-left, bottom-right,
