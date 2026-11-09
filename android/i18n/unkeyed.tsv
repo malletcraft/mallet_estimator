@@ -496,11 +496,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this app �
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	uses these rooms. A room holding photos is always shown, ticked or not.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	with 0.3.93 or later are stamped — re-shoot and 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	work
-app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	Downloads refused $display
-app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	Share ${saved.file.name}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not keep $display
-app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not make a folder for $display
-app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not write $display to Downloads
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	(no client)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	ERP did not accept that email and password
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Email and password are needed
@@ -511,14 +506,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	signed out me
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	the web did not start a session
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web answered ${a.code}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web unreachable
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	A4 sheet, ${SurveyPlan.DTITLE.getValue(sheet.view)} at 1:${sheet.scale}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Close
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Export
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Export · $name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	PDF
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	SVG
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Share
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	✕
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - save its survey prep to send it to the web
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - the web takes a 360's survey prep, not a photo
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
@@ -654,62 +641,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toile
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 3
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Utility
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	 · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Back
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Bottom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Front
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Left
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Right
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Top
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	HTTP $code
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	…
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	${SurveyPlan.DTITLE.getValue(view)} from survey prep · laser sizes
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	1:$sc on A4 · drawn ${meta.drawn}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Captured
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Client
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Drawing
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Project
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Room
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Scale
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	—
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	…
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	≈ = from the photo, not yet measured · MCFT S2
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam over
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 loft
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 loft over
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 ▸
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	$ta ${rnd(a)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${SurveyPrep.NAME.getValue(view).removeSuffix(" wall")} · ${rnd(d[0])} × ${rnd(d[1])} · $n mark${if (n == 1) "" else "s"}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${e.code} ${fw.t}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${e.code} ${k.fig(e.code + ".w", get("w")?.est).t}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${fo.t} from $sideName corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	${room?.takeIf { it.isNotBlank() } ?: "Room"} · ${rnd(w)} × ${rnd(l)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	1 m
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Back wall elevation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	FRONT
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Floor plan
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Front wall elevation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	H ${rnd(b)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	L ${rnd(l)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Left wall elevation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	REFLECTED CEILING PLAN
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Reflected ceiling plan
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	Right wall elevation
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	W ${rnd(w)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	at the $sideName corner
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit · ${rnd(box[2] / vb[2] * 100)}%
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	≈
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	◂ 

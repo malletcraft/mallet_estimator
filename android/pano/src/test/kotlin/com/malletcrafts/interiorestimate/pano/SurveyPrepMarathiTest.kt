@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -144,5 +145,78 @@ class SurveyPrepMarathiTest {
             noLatin(SurveyRef.name(Tx.MR, s), "reference name $s")
             noLatin(SurveyChain.busyText(Tx.MR, s), "chain busy $s")
         }
+    }
+
+    // ---------------------------------------------------------------- the M3c block (port 61c slice M3c)
+    // The plan tab's and the Export sheet's lookups, each against the exact strings the served prototype's vis()
+    // answered in §27's derivation -- a wrong map (surface where surface_tab is meant, surface_tab where view_title
+    // is) prints the same English under every Tx.EN pin and leaks Latin only under मराठी.
+
+    @Test fun `M3c -- the six drawing titles through view_title and the six chip words through surface_tab`() {
+        assertEquals("फ्लोअर प्लॅन", Masters.view_title(Tx.MR, "Floor plan"))
+        assertEquals("रिफ्लेक्टेड सीलिंग प्लॅन", Masters.view_title(Tx.MR, "Reflected ceiling plan"))
+        assertEquals("समोरील भिंतीचे एलिव्हेशन", Masters.view_title(Tx.MR, "Front wall elevation"))
+        assertEquals("उजव्या भिंतीचे एलिव्हेशन", Masters.view_title(Tx.MR, "Right wall elevation"))
+        assertEquals("मागील भिंतीचे एलिव्हेशन", Masters.view_title(Tx.MR, "Back wall elevation"))
+        assertEquals("डाव्या भिंतीचे एलिव्हेशन", Masters.view_title(Tx.MR, "Left wall elevation"))
+        // the chips: the page's own text जमीन / छत / समोर …, their aria the full titles (the M3c critic's answer 4)
+        assertEquals(listOf("जमीन", "छत", "समोर", "उजवी", "मागे", "डावी"),
+            SurveyPlan.VIEWS.map { Masters.surface_tab(Tx.MR, it.second) })
+        // under English every title is DTITLE byte for byte, so the EN pins of SurveyPlanTest survive
+        for ((_, t) in SurveyPlan.DTITLE) assertEquals(t, Masters.view_title(Tx.EN, t))
+        for (t in SurveyPlan.DTITLE.values) noLatin(Masters.view_title(Tx.MR, t), "view title '$t'")
+    }
+
+    @Test fun `M3c -- the two infoOf shapes -- a master room name through Masters room, खोली for none, a typed name as typed`() {
+        val p = SurveyPrep.fresh(L, W, H)
+        // the M3c critic's finding 2: the prototype shows the floor line's room through the room master (हॉल),
+        // and the plan as first written left it Latin under मराठी
+        assertEquals("हॉल · 2678 × 3319", SurveyPlan.infoOf(Tx.MR, "floor", p, L, W, H, "Living Room"))
+        assertEquals("खोली · 2678 × 3319", SurveyPlan.infoOf(Tx.MR, "floor", p, L, W, H, null))
+        assertEquals("typed name · 2678 × 3319", SurveyPlan.infoOf(Tx.MR, "floor", p, L, W, H, "typed name"))
+        // threading the same tx keeps the export English: Masters.room(Tx.EN, x) = x, and a typed name passes through
+        assertEquals("Living Room · 2678 × 3319", SurveyPlan.infoOf(Tx.EN, "floor", p, L, W, H, "Living Room"))
+        val q = room()
+        assertEquals("समोर · 2678 × 2677 · 2 मार्क", SurveyPlan.infoOf(Tx.MR, "front", q, L, W, H))
+        assertEquals("छत · 2678 × 3319 · 0 मार्क", SurveyPlan.infoOf(Tx.MR, "ceil", q, L, W, H))
+        assertEquals("Front · 2678 × 2677 · 2 marks", SurveyPlan.infoOf(Tx.EN, "front", q, L, W, H))
+    }
+
+    @Test fun `M3c -- fit, the export bar, Close, Share and the A4 aria`() {
+        val box = doubleArrayOf(0.0, 0.0, 3000.0, 4000.0)
+        assertEquals("बसवा", SurveyPlan.fitLabel(Tx.MR, box, box))
+        assertEquals("fit", SurveyPlan.fitLabel(Tx.EN, box, box))
+        val z = doubleArrayOf(0.0, 0.0, 2000.0, 4000.0 * 2 / 3)
+        assertEquals("बसवा · 150%", SurveyPlan.fitLabel(Tx.MR, z, box))
+        assertEquals("fit · 150%", SurveyPlan.fitLabel(Tx.EN, z, box))
+        assertEquals("एक्सपोर्ट · AP_LR_htu_plan", Tx.MR.plan_export_x("AP_LR_htu_plan"))
+        assertEquals("Export · AP_LR_htu_plan", Tx.EN.plan_export_x("AP_LR_htu_plan"))
+        assertEquals("एक्सपोर्ट", Tx.MR.common_export)
+        assertEquals("बंद करा", Tx.MR.common_close)
+        assertEquals("शेअर करा", Tx.MR.common_share)
+        assertEquals("AP_LR_htu_plan.pdf शेअर करा", Tx.MR.export_share_x("AP_LR_htu_plan.pdf"))
+        assertEquals("A4 शीट, फ्लोअर प्लॅन 1:50 मापात",
+            Tx.MR.plan_aria_a4_sheet_x_x(view = Masters.view_title(Tx.MR, "Floor plan"), scale = "50"))
+        assertEquals("A4 sheet, Floor plan at 1:50",
+            Tx.EN.plan_aria_a4_sheet_x_x(view = Masters.view_title(Tx.EN, "Floor plan"), scale = "50"))
+    }
+
+    @Test fun `M3c -- PlanSave renders the four refusals in both languages, and Refused carries the pinned English message`() {
+        val f = "AP_LR_htu_plan.pdf"
+        // Tx.EN byte for byte what PlanExport's error() calls and requireNotNull said before M3c
+        assertEquals("could not make a folder for $f", PlanSave.text(Tx.EN, PlanSave.Kind.FOLDER, f))
+        assertEquals("could not keep $f", PlanSave.text(Tx.EN, PlanSave.Kind.KEEP, f))
+        assertEquals("Downloads refused $f", PlanSave.text(Tx.EN, PlanSave.Kind.INSERT, f))
+        assertEquals("could not write $f to Downloads", PlanSave.text(Tx.EN, PlanSave.Kind.WRITE, f))
+        // Tx.MR the card's own Marathi (vis(), §27's derivation)
+        assertEquals("$f साठी फोल्डर बनवता आला नाही", PlanSave.text(Tx.MR, PlanSave.Kind.FOLDER, f))
+        assertEquals("$f ठेवता आले नाही", PlanSave.text(Tx.MR, PlanSave.Kind.KEEP, f))
+        assertEquals("Downloads ने $f नाकारले", PlanSave.text(Tx.MR, PlanSave.Kind.INSERT, f))
+        assertEquals("$f Downloads मध्ये लिहिता आले नाही", PlanSave.text(Tx.MR, PlanSave.Kind.WRITE, f))
+        // the exception carries the kind and the file as data; a logcat line reads exactly as today (decision 4's register)
+        val e = PlanSave.Refused(PlanSave.Kind.KEEP, f)
+        assertEquals("could not keep $f", e.message)
+        assertEquals(PlanSave.Kind.KEEP, e.kind)
+        assertEquals(f, e.file)
     }
 }

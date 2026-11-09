@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.SurveyExport
 import com.malletcrafts.interiorestimate.pano.SurveyPlan
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import kotlin.math.roundToInt
 
 /**
@@ -82,7 +83,10 @@ internal fun SpPlanPane(
     overlay: @Composable BoxScope.() -> Unit = {},
 ) {
     val l = roomSize[0]; val w = roomSize[1]; val h = roomSize[2]
-    val d = remember(view, rev, prep, l, w, h, room) { SurveyPlan.drawing(view, prep, l, w, h, room) }
+    val tx = LocalTx.current
+    // tx is a key: without it a language flip keeps the old canvas words until the next edit bumps rev (M3c);
+    // vb keeps its own keys (view, fitKey), so the zoom survives the flip
+    val d = remember(view, rev, prep, l, w, h, room, tx) { SurveyPlan.drawing(tx, view, prep, l, w, h, room) }
     // what part of the drawing is on screen, mm; null = fitted. A new drawing, or the tab opened again, fits it.
     var vb by remember(view, fitKey) { mutableStateOf<DoubleArray?>(null) }
     var cs by remember { mutableStateOf(IntSize.Zero) }
@@ -103,9 +107,11 @@ internal fun SpPlanPane(
                     Box(Modifier.weight(1f).height(if (land) 24.dp else 28.dp).clip(RoundedCornerShape(14.dp))
                         .background(if (on) PLAN_GOLD else PLAN_CHIP)
                         .clickable(role = Role.Tab) { vb = null; onView(v) }
-                        .semantics { selected = on; contentDescription = SurveyPlan.DTITLE.getValue(v) },
+                        .semantics { selected = on; contentDescription = Masters.view_title(tx, SurveyPlan.DTITLE.getValue(v)) },
                         contentAlignment = Alignment.Center) {
-                        Text(lab, color = if (on) PLAN_ON_INK else PLAN_CHIP_INK, fontSize = 12.sp, lineHeight = 14.sp,
+                        // 17 sp under मराठी (M3a's remedy for the same element class: a Devanagari matra clips at 14)
+                        Text(Masters.surface_tab(tx, lab), color = if (on) PLAN_ON_INK else PLAN_CHIP_INK, fontSize = 12.sp,
+                            lineHeight = if (tx.mr) 17.sp else 14.sp,
                             fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
                     }
                 }
@@ -118,8 +124,10 @@ internal fun SpPlanPane(
                 drawIntoCanvas { c -> paintPlan(c.nativeCanvas, d, shown, size.width, size.height) }
             }
         }
-        // fit: at the top right, under the chips (drawings.css .planv .fitcol top 38 / 32 dp); the zoom shows on it
-        Text(SurveyPlan.fitLabel(shown, d.box), color = Color.White, fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold,
+        // fit: at the top right, under the chips (drawings.css .planv .fitcol top 38 / 32 dp); the zoom shows on it.
+        // 17 sp under मराठी like the chips (the M3c critic's finding 4: बसवा is the pane's one Devanagari control)
+        Text(SurveyPlan.fitLabel(tx, shown, d.box), color = Color.White, fontSize = 12.sp,
+            lineHeight = if (tx.mr) 17.sp else 14.sp, fontWeight = FontWeight.SemiBold,
             maxLines = 1, softWrap = false,
             modifier = Modifier.align(Alignment.TopEnd).padding(top = if (land) 32.dp else 38.dp, end = 6.dp)
                 .clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable { vb = null }
@@ -134,12 +142,14 @@ internal fun SpPlanPane(
  */
 @Composable
 internal fun SpPlanFoot(info: String, onExport: () -> Unit) {
-    // v42.css .planfoot: the line, then the gold Export pill (36 dp, radius 18, 16 dp each side, 14 sp bold), 8 dp apart
+    val tx = LocalTx.current
+    // v42.css .planfoot: the line, then the gold Export pill (36 dp, radius 18, 16 dp each side, 14 sp bold), 8 dp apart;
+    // the info line takes 17 sp under मराठी (M3a's remedy: a Devanagari matra clips at 14)
     Row(Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 6.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(info, color = PLAN_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f))
-        PlanPill("Export", true, onExport)
+        Text(info, color = PLAN_MUTED, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 14.sp, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        PlanPill(tx.common_export, true, onExport)
     }
 }
 
@@ -169,22 +179,25 @@ private fun PlanPill(text: String, on: Boolean, onClick: () -> Unit) {
 @Composable
 internal fun SpPlanExport(name: String, sheet: SurveyExport.Sheet?, busy: Boolean, modifier: Modifier, onSvg: () -> Unit,
                           onPdf: () -> Unit, onShare: () -> Unit, onClose: () -> Unit) {
+    val tx = LocalTx.current
     Column(modifier.clip(RoundedCornerShape(12.dp)).background(PLAN_X_BG).padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         // v42.css .planx .pxbar: 13 sp on 18, #ECEEE8, the name bold and cut with an ellipsis rather than wrapped
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Export · $name", color = PLAN_X_FG, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold,
+            Text(tx.plan_export_x(name), color = PLAN_X_FG, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold,
                 maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
-                    .semantics { contentDescription = "Export · $name" })
+                    .semantics { contentDescription = tx.plan_export_x(name) })
             Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).clickable(role = Role.Button) { onClose() }
-                .semantics { contentDescription = "Close" }, contentAlignment = Alignment.Center) {
-                Text("✕", color = PLAN_X_FG, fontSize = 16.sp, lineHeight = 18.sp)
+                .semantics { contentDescription = tx.common_close }, contentAlignment = Alignment.Center) {
+                Text("✕", color = PLAN_X_FG, fontSize = 16.sp, lineHeight = 18.sp) // text:value the close glyph; its words are the contentDescription
             }
         }
-        // v42.css .planx .pxsheet: the A4 sheet, landscape, as large as the pane leaves, centred (xMidYMid meet)
+        // v42.css .planx .pxsheet: the A4 sheet, landscape, as large as the pane leaves, centred (xMidYMid meet);
+        // the PREVIEW stays wholly English -- it IS the file (decision 4) -- only its screen-reader label translates
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (sheet != null) {
-                val what = "A4 sheet, ${SurveyPlan.DTITLE.getValue(sheet.view)} at 1:${sheet.scale}"
+                val what = tx.plan_aria_a4_sheet_x_x(view = Masters.view_title(tx, SurveyPlan.DTITLE.getValue(sheet.view)),
+                    scale = sheet.scale.toString())
                 Canvas(Modifier.fillMaxSize().semantics { contentDescription = what }) {
                     val cw = size.width.toDouble(); val ch = size.height.toDouble()
                     val k = minOf(cw / SurveyExport.SHEET_W, ch / SurveyExport.SHEET_H)
@@ -195,11 +208,11 @@ internal fun SpPlanExport(name: String, sheet: SurveyExport.Sheet?, busy: Boolea
                 }
             }
         }
-        // v42.css .planx .pxbtns: centred, 10 dp apart
+        // v42.css .planx .pxbtns: centred, 10 dp apart; SVG and PDF are format names the page draws Latin under मराठी
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)) {
-            PlanPill("SVG", !busy, onSvg)
-            PlanPill("PDF", !busy, onPdf)
-            PlanPill("Share", !busy, onShare)
+            PlanPill("SVG", !busy, onSvg) // text:value a format name, Latin in every language (the page's own pill)
+            PlanPill("PDF", !busy, onPdf) // text:value a format name, Latin in every language (the page's own pill)
+            PlanPill(tx.common_share, !busy, onShare)
         }
     }
 }

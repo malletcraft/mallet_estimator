@@ -244,21 +244,38 @@ class I18nLiteralTest {
 
     private val TX_MENTION = Regex("""(?<![\w.])tx\b|\bTx\b|\bLocalTx\b|\bMasters\b|\bMsg\b""")
 
-    /** The one mention check (h) permits in FaceWriter.kt: the LITERAL `Tx.EN`, never read further (`Tx.EN.x` would
-     *  compose text here) -- the painters take a tx since M3b, and the sheet render pins English by passing it
-     *  (decision 4's enforcement stays (h)'s: the export sees no LIVE language, only the pinned English table). */
+    /** The one mention check (h) permits in FaceWriter.kt and SurveyExport.kt: the LITERAL `Tx.EN`, never read
+     *  further (`Tx.EN.x` would compose text here) -- the painters take a tx since M3b and the drawing takes one
+     *  since M3c, and the sheet renders pin English by passing it (decision 4's enforcement stays (h)'s: the
+     *  export sees no LIVE language, only the pinned English table). */
     private fun isPinnedEnglish(masked: String, m: MatchResult): Boolean {
         if (m.value != "Tx") return false
         val tail = masked.substring(m.range.last + 1)
         return Regex("""^\s*\.\s*EN\b(?!\s*\.)""").containsMatchIn(tail)
     }
 
-    @Test fun `h the export and upload builders never see Tx`() {
+    /** The files (h) scans whole, by their full rel: the gate is the rel itself, so a pano region scans too --
+     *  keyed on s.name and gated on app/, the SurveyExport region would have been built and then silently never
+     *  scanned, a check green while scanning nothing (the M3c critic's finding 1). */
+    private val H_WHOLE = listOf(
+        "app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt",
+        "app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt",
+        // M3c: the Sheet IS the file (its preview paints through the PDF's own painter), so the whole of
+        // SurveyExport.kt -- SvgWriter included -- is scanned, with FaceWriter's exemption: the literal Tx.EN
+        // plus the import that names it
+        "pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt",
+    )
+    private val H_UPLOAD = "app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt"
+    /** The files whose sheet renders may pass the painter or the drawing the literal `Tx.EN`. */
+    private val H_PINNED = setOf("FaceWriter.kt", "SurveyExport.kt")
+
+    /** Check (h) over [scans]: every Tx mention in an export or upload builder, minus the pinned-English exemption. */
+    private fun exportBuilderMentions(scans: List<LiteralScan.FileScan>): List<String> {
         val off = ArrayList<String>()
         for (s in scans) {
-            val region: IntRange? = when (s.name) {
-                "PlanExport.kt", "FaceWriter.kt" -> 0 until s.masked.length
-                "AsIsUpload.kt" -> {
+            val region: IntRange? = when (s.rel) {
+                in H_WHOLE -> 0 until s.masked.length
+                H_UPLOAD -> {
                     // the worker that builds and sends the record: no screen, so never a language
                     val at = Regex("""\bfun\s+doWork\b""").find(s.masked)?.range?.first
                     if (at == null) { off += "AsIsUpload.kt: no fun doWork (update this check with the body builder's new name)"; null }
@@ -270,21 +287,44 @@ class I18nLiteralTest {
                 }
                 else -> null
             }
-            if (region != null && s.rel.startsWith("app/")) {
+            if (region != null) {
                 TX_MENTION.findAll(s.masked.substring(region.first, region.last + 1)).forEach {
-                    // M3b: FaceWriter's survey sheets pass the painter the literal `Tx.EN` (never `tx`, never
-                    // LocalTx, never Tx.MR, never a read like Tx.EN.x) -- the one exemption, pinned below;
-                    // the import that names it is the same exemption
+                    // M3b/M3c: FaceWriter's survey sheets and SurveyExport's sheet() pass the literal `Tx.EN`
+                    // (never `tx`, never LocalTx, never Tx.MR, never a read like Tx.EN.x) -- the one exemption,
+                    // pinned below; the import that names it is the same exemption
                     val line = s.lineText(s.lineOf(region.first + it.range.first)).trim()
-                    val pinned = s.name == "FaceWriter.kt" &&
+                    val pinned = s.name in H_PINNED &&
                         (isPinnedEnglish(s.masked.substring(region.first, region.last + 1), it) ||
                          line == "import com.malletcrafts.interiorestimate.pano.i18n.Tx")
                     if (!pinned) off += "${s.name}:${s.lineOf(region.first + it.range.first)}: ${it.value}"
                 }
             }
         }
-        listOf("PlanExport.kt", "FaceWriter.kt", "AsIsUpload.kt").filter { n -> scans.none { it.name == n } }.forEach { off += "$it: not found (update this check)" }
-        I18n.check("h · Tx in an export or upload builder", off, "the PDF, the images and the upload body stay English (decision 4 of 21 Oct): they take no Tx -- FaceWriter may pass the painter only the literal Tx.EN (M3b)")
+        return off
+    }
+
+    @Test fun `h the export and upload builders never see Tx`() {
+        val off = ArrayList<String>()
+        off += exportBuilderMentions(scans)
+        (H_WHOLE + H_UPLOAD).filter { rel -> scans.none { it.rel == rel } }
+            .forEach { off += "${it.substringAfterLast('/')}: not found (update this check)" }
+        I18n.check("h · Tx in an export or upload builder", off, "the PDF, the images, the saved sheets and the upload body stay English (decision 4 of 21 Oct): they take no Tx -- FaceWriter and SurveyExport may pass only the literal Tx.EN (M3b, M3c)")
+    }
+
+    @Test fun `h fires on a Tx mention at SurveyExport's pano path, and passes the pinned Tx EN with its import`() {
+        // the M3c critic's finding 1: a region built but never scanned is this project's recorded worst failure
+        // shape, so the pano region's firing is proven on a planted mention, not assumed
+        val rel = "pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt"
+        val bad = "import com.malletcrafts.interiorestimate.pano.i18n.Tx\n" +
+            "fun sheet(tx: Tx) = SurveyPlan.drawing(tx, \"floor\")\n"
+        assertEquals(listOf("SurveyExport.kt:2: tx", "SurveyExport.kt:2: Tx", "SurveyExport.kt:2: tx"),
+            exportBuilderMentions(listOf(LiteralScan.scanText(rel, bad))))
+        val good = "import com.malletcrafts.interiorestimate.pano.i18n.Tx\n" +
+            "fun sheet() = SurveyPlan.drawing(Tx.EN, \"floor\")\n"
+        assertEquals(emptyList(), exportBuilderMentions(listOf(LiteralScan.scanText(rel, good))))
+        // a read THROUGH the pinned table (Tx.EN.x) composes text in the export and is refused
+        val read = "fun sheet() = title(Tx.EN.common_export)\n"
+        assertEquals(listOf("SurveyExport.kt:1: Tx"), exportBuilderMentions(listOf(LiteralScan.scanText(rel, read))))
     }
 
     @Test fun `h the sheet render and the face-prep export are pinned English`() {
@@ -298,6 +338,11 @@ class I18nLiteralTest {
         if (fw == null) off += "FaceWriter.kt: not found (update this check)"
         else if (!Regex("""SurveyPrepDraw\s*\.\s*drawMarks\(\s*Canvas\(flat\),\s*Tx\.EN,""").containsMatchIn(fw.masked))
             off += "FaceWriter.kt: the survey sheet render no longer passes Tx.EN as drawMarks' language"
+        // M3c: the A4 sheet's drawing is pinned English the same way -- sheet() passes the literal Tx.EN
+        val se = scans.firstOrNull { it.name == "SurveyExport.kt" }
+        if (se == null) off += "SurveyExport.kt: not found (update this check)"
+        else if (!Regex("""SurveyPlan\s*\.\s*drawing\(\s*Tx\.EN,""").containsMatchIn(se.masked))
+            off += "SurveyExport.kt: sheet() no longer passes Tx.EN as the drawing's language"
         val fps = scans.firstOrNull { it.name == "FacePrepScreen.kt" }
         if (fps == null) off += "FacePrepScreen.kt: not found (update this check)"
         else {

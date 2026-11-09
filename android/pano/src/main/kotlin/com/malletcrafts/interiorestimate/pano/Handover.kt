@@ -12,13 +12,18 @@ package com.malletcrafts.interiorestimate.pano
  */
 object Handover {
 
-    const val SEP = " · "
+    const val SEP = " · " // text:value the wire: the caption burned into the ImageMeter photo (decision 4)
 
     /** Same vocabulary as the server and as the 42 hand-made files already on
-     *  Amit's Drive: the vertical faces are called top/bottom, not up/down. */
+     *  Amit's Drive: the vertical faces are called top/bottom, not up/down.
+     *  THE WIRE (decision 4; M3b critic 6): the filename vocabulary
+     *  mallet_estimator/handover.py matches (MCAP-…_top.jpg) and the caption
+     *  burned into the ImageMeter photo, a document other parties consume —
+     *  English for good. A screen that shows a label translates it through a
+     *  map (M8 keys AnnotateScreen), never these values. */
     val FACE_LABELS = mapOf(
-        "front" to "Front", "right" to "Right", "back" to "Back",
-        "left" to "Left", "up" to "Top", "down" to "Bottom",
+        "front" to "Front", "right" to "Right", "back" to "Back", // text:value the wire (decision 4)
+        "left" to "Left", "up" to "Top", "down" to "Bottom", // text:value the wire (decision 4)
     )
 
     /**

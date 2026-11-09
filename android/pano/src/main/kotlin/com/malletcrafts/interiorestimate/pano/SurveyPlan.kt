@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -64,18 +66,19 @@ object SurveyPlan {
     /** The scale bar: 1 m. */
     const val BAR = 1000.0
 
-    /** The six drawings, as the chips name them (plan.js DRAWV). */
-    val VIEWS: List<Pair<String, String>> = listOf("floor" to "Floor", "ceil" to "Ceiling", "front" to "Front",
-        "right" to "Right", "back" to "Back", "left" to "Left")
+    /** The six drawings, as the chips name them (plan.js DRAWV), shown through [Masters.surface_tab]. */
+    val VIEWS: List<Pair<String, String>> = listOf("floor" to "Floor", "ceil" to "Ceiling", "front" to "Front", // text:value identity, shown through Masters.surface_tab
+        "right" to "Right", "back" to "Back", "left" to "Left") // text:value identity, shown through Masters.surface_tab
 
-    /** What each drawing is called in full (plan.js DTITLE): the chips' read-out label, and the export's title block. */
-    val DTITLE: Map<String, String> = mapOf("floor" to "Floor plan", "ceil" to "Reflected ceiling plan",
-        "front" to "Front wall elevation", "right" to "Right wall elevation", "back" to "Back wall elevation",
-        "left" to "Left wall elevation")
+    /** What each drawing is called in full (plan.js DTITLE): the chips' read-out label, and the export's title block
+     *  (which keeps the English, decision 4). Shown through [Masters.view_title]. */
+    val DTITLE: Map<String, String> = mapOf("floor" to "Floor plan", "ceil" to "Reflected ceiling plan", // text:value identity, shown through Masters.view_title
+        "front" to "Front wall elevation", "right" to "Right wall elevation", "back" to "Back wall elevation", // text:value identity, shown through Masters.view_title
+        "left" to "Left wall elevation") // text:value identity, shown through Masters.view_title
 
-    /** Facing a wall, which wall meets it at its left corner and at its right (plan.js NEIGH). */
-    val NEIGH: Map<String, Pair<String, String>> = mapOf("front" to ("Left wall" to "Right wall"),
-        "right" to ("Front wall" to "Back wall"), "back" to ("Right wall" to "Left wall"), "left" to ("Back wall" to "Front wall"))
+    /** Facing a wall, which wall meets it at its left corner and at its right (plan.js NEIGH), shown through [Masters.surface]. */
+    val NEIGH: Map<String, Pair<String, String>> = mapOf("front" to ("Left wall" to "Right wall"), // text:value identity, shown through Masters.surface
+        "right" to ("Front wall" to "Back wall"), "back" to ("Right wall" to "Left wall"), "left" to ("Back wall" to "Front wall")) // text:value identity, shown through Masters.surface
 
     val WALLS = listOf("front", "right", "back", "left")
 
@@ -170,7 +173,7 @@ object SurveyPlan {
     fun figure(actual: Map<String, Double>, code: String, est: Double?): Fig {
         actual[code]?.let { return Fig(rnd(it).toString(), true) }
         if (est == null) return Fig("?", false)
-        return Fig("≈" + rnd(est), false)
+        return Fig("≈" + rnd(est), false) // text:value the photo-estimate glyph, a figure in every language
     }
 
     /** A reading used as a depth the way plan.js uses it (`actual[k] || d`): a missing, zero or NaN reading is [d]. */
@@ -218,7 +221,7 @@ object SurveyPlan {
             val tk = fs * 0.4
             ln(x, y, x + BAR, y, role = "scalebar"); ln(x, y - tk, x, y + tk, role = "scalebar")
             ln(x + BAR / 2, y - tk * 0.6, x + BAR / 2, y + tk * 0.6, role = "scalebar"); ln(x + BAR, y - tk, x + BAR, y + tk, role = "scalebar")
-            txt(x + BAR + fs * 0.4, y, "1 m", a = Anchor.START, sz = 0.75, role = "scalebar")
+            txt(x + BAR + fs * 0.4, y, "1 m", a = Anchor.START, sz = 0.75, role = "scalebar") // text:value a unit, Latin in every language (the page's own bar)
         }
 
         fun fig(code: String, est: Double?) = figure(actual, code, est)
@@ -263,29 +266,35 @@ object SurveyPlan {
     // ------------------------------------------------------------------ the drawings
 
     /**
-     * Drawing [view] (one of [VIEWS]) of [prep] at the room size [l] × [w] × [h], mm. [room]: the room's name for the
-     * floor plan's line ("Living Room · 3310 × 5458"). [fs]: the text unit, by default [fsOf] its size.
+     * Drawing [view] (one of [VIEWS]) of [prep] at the room size [l] × [w] × [h], mm, its worded labels in [tx]'s
+     * language (port 61c slice M3c). The two callers deliberately differ -- the screen passes the live tx, the export
+     * the literal `Tx.EN` (decision 4) -- so [tx] is FIRST with no default: every call site states its language.
+     * [room]: the room's name for the floor plan's line ("Living Room · 3310 × 5458"). [fs]: the text unit, by
+     * default [fsOf] its size.
      */
-    fun drawing(view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String? = null, fs: Double? = null): Drawing =
+    fun drawing(tx: Tx, view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String? = null, fs: Double? = null): Drawing =
         when (view) {
-            "floor" -> floorPlan(prep, l, w, h, room, fs)
-            "ceil" -> ceilingPlan(prep, l, w, h, fs)
-            in WALLS -> elevation(view, prep, l, w, h, fs)
+            "floor" -> floorPlan(tx, prep, l, w, h, room, fs)
+            "ceil" -> ceilingPlan(tx, prep, l, w, h, fs)
+            in WALLS -> elevation(tx, view, prep, l, w, h, fs)
             else -> throw IllegalArgumentException("not a drawing: $view")
         }
 
-    /** The line under a drawing (plan.js infoOf, v52 fix: short, never cut at 360 dp). */
-    fun infoOf(view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String? = null): String {
-        if (view == "floor") return "${room?.takeIf { it.isNotBlank() } ?: "Room"} · ${rnd(w)} × ${rnd(l)}"
+    /** The line under a drawing (plan.js infoOf, v52 fix: short, never cut at 360 dp). A master room name shows
+     *  through [Masters.room] (a typed one as typed); under `Tx.EN` every composition is today's bytes. */
+    fun infoOf(tx: Tx, view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String? = null): String {
+        if (view == "floor")
+            return "${room?.takeIf { it.isNotBlank() }?.let { Masters.room(tx, it) } ?: tx.common_room} · ${rnd(w)} × ${rnd(l)}"
         val d = dims(view, prep, l, w, h); val n = prep.surfaces[view]?.marks?.size ?: 0
-        return "${SurveyPrep.NAME.getValue(view).removeSuffix(" wall")} · ${rnd(d[0])} × ${rnd(d[1])} · $n mark${if (n == 1) "" else "s"}"
+        return tx.sp_x_x_x_x(v = Masters.surface_tab(tx, SurveyPrep.NAME.getValue(view).removeSuffix(" wall")),
+            A = rnd(d[0]).toString(), B = rnd(d[1]).toString(), n = n)
     }
 
     /** The room's name in the screen's title ("LR · Living Room", RoomToken.label): what follows the token. */
     fun roomName(title: String): String = title.substringAfter(" · ", title).trim()
 
     // ---- the floor plan (plan.js floorSVG)
-    private fun floorPlan(prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String?, fsIn: Double?): Drawing {
+    private fun floorPlan(tx: Tx, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, room: String?, fsIn: Double?): Drawing {
         val fs = fsIn ?: fsOf(w, l); val k = Kit(fs, prep.actual); val actual = prep.actual
         // the walls: a band T thick outside the room's inner rectangle
         k.items.add(Poly(listOf(rect(-T, -T, w + 2 * T, l + 2 * T), rect(0.0, 0.0, w, l)), WALL, 1.0, null, 0.0, null, "walls"))
@@ -321,10 +330,13 @@ object SurveyPlan {
                     val fo = hx?.let { m -> if (m.est != null && m.est < SurveyPrep.ZERO && actual[e.code + "." + m.key] == null) Fig("0", false)
                                             else k.fig(e.code + "." + m.key, m.est) }
                     val lab = moved(mid, n, -(T + fs * 1.1)); val lab2 = moved(mid, n, -(T + fs * 2.3))
-                    k.txt(lab[0], lab[1], "${e.code} ${fw.t}", if (fw.read) INK else GREY, sz = 0.85, b = true, rot = rot, role = "opl", key = e.code)
+                    k.txt(lab[0], lab[1], "${e.code} ${fw.t}", if (fw.read) INK else GREY, sz = 0.85, b = true, rot = rot, role = "opl", key = e.code) // text:value a code and its figure
                     if (fo != null && hx != null) {
-                        val sideName = if (hx.key == "l") "left" else "right"
-                        k.txt(lab2[0], lab2[1], if (fo.t == "0") "at the $sideName corner" else "${fo.t} from $sideName corner",
+                        // left or right picked by hx.key, as the card's own where-notes split sp.at_*_corner / sp.x_from_*_corner
+                        val left = hx.key == "l"
+                        k.txt(lab2[0], lab2[1],
+                            if (fo.t == "0") (if (left) tx.sp_at_left_corner else tx.sp_at_right_corner)
+                            else (if (left) tx.sp_x_from_left_corner(fo.t) else tx.sp_x_from_right_corner(fo.t)),
                             if (fo.read) INK else GREY, sz = 0.7, rot = rot, role = "opo", key = e.code)
                     }
                     continue
@@ -333,7 +345,7 @@ object SurveyPlan {
                     val dp = min(T * 0.8, max(40.0, orJs(actual[e.code + ".p"], 100.0)))
                     k.items.add(Poly(listOf(listOf(a0, a1, moved(a1, n, -dp), moved(a0, n, -dp))), NICHE, 1.0, INK, fs * 0.07, null, "op", e.code, s))
                     val lab = moved(mid, n, -(T + fs * 1.1))
-                    k.txt(lab[0], lab[1], "${e.code} ${k.fig(e.code + ".w", get("w")?.est).t}", GREY, sz = 0.8, rot = rot, role = "opl", key = e.code)
+                    k.txt(lab[0], lab[1], "${e.code} ${k.fig(e.code + ".w", get("w")?.est).t}", GREY, sz = 0.8, rot = rot, role = "opl", key = e.code) // text:value a code and its figure
                     continue
                 }
                 if (t == "C" || t == "B" || t == "L") {
@@ -342,7 +354,7 @@ object SurveyPlan {
                     k.items.add(if (t == "C") Poly(poly, INK, 1.0, null, 0.0, null, "mk", e.code, s)
                                 else Poly(poly, null, 1.0, INK, fs * 0.07, doubleArrayOf(fs * 0.45, fs * 0.3), "mk", e.code, s))
                     val lab = moved(mid, n, dp + fs * 0.9)
-                    k.txt(lab[0], lab[1], e.code + (if (t == "B") " beam over" else if (t == "L") " loft over" else ""), sz = 0.75, b = true, role = "mkl", key = e.code)
+                    k.txt(lab[0], lab[1], e.code + (if (t == "B") tx.sp_beam_over else if (t == "L") tx.sp_loft_over else ""), sz = 0.75, b = true, role = "mkl", key = e.code)
                     continue
                 }
                 if (SurveyPrep.isPoint(t)) {
@@ -365,26 +377,26 @@ object SurveyPlan {
             k.items.add(Poly(listOf(rect(x0, y0, x1 - x0, y1 - y0)), if (t == "C") INK else null, 1.0, INK, fs * 0.07,
                 if (over && t != "C") doubleArrayOf(fs * 0.45, fs * 0.3) else null, "mk", e.code, s))
             if (t == "S") k.ln(x0, cy, x1, cy, w = 0.05, role = "step", key = e.code)
-            k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (over && t == "B") " beam over" else ""), sz = 0.7, b = true, role = "mkl", key = e.code)
+            k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (over && t == "B") tx.sp_beam_over else ""), sz = 0.7, b = true, role = "mkl", key = e.code)
         }
-        roomDims(k, w, l)
+        roomDims(tx, k, w, l)
         k.scaleBar(0.0, l + T + fs * 6)
         val box = doubleArrayOf(-T - fs * 3.2, -T - fs * 4.6, w + 2 * T + fs * 9.2, l + 2 * T + fs * 11.6)
-        return Drawing("floor", k.items, box, fs, infoOf("floor", prep, l, w, h, room), DTITLE.getValue("floor"), k.dims)
+        return Drawing("floor", k.items, box, fs, infoOf(tx, "floor", prep, l, w, h, room), Masters.view_title(tx, DTITLE.getValue("floor")), k.dims)
     }
 
     /** The room's W along the bottom and L up the right, plain lines with end ticks, and FRONT over the front wall. */
-    private fun roomDims(k: Kit, w: Double, l: Double) {
+    private fun roomDims(tx: Tx, k: Kit, w: Double, l: Double) {
         val fs = k.fs; val yW = l + T + fs * 3.6; val xL = w + T + fs * 4.4; val tk = fs * 0.4
         k.ln(0.0, yW, w, yW, role = "dimWline"); k.ln(0.0, yW - tk, 0.0, yW + tk, role = "dimWline"); k.ln(w, yW - tk, w, yW + tk, role = "dimWline")
-        k.txt(w / 2, yW + fs * 0.85, "W ${rnd(w)}", b = true, sz = 0.9, role = "dimW")
+        k.txt(w / 2, yW + fs * 0.85, "W ${rnd(w)}", b = true, sz = 0.9, role = "dimW") // text:value the laser's axis letter and a figure (M3a identity)
         k.ln(xL, 0.0, xL, l, role = "dimLline"); k.ln(xL - tk, 0.0, xL + tk, 0.0, role = "dimLline"); k.ln(xL - tk, l, xL + tk, l, role = "dimLline")
-        k.txt(xL + fs * 0.9, l / 2, "L ${rnd(l)}", b = true, sz = 0.9, rot = -90.0, role = "dimL")
-        k.txt(w / 2, -T - fs * 3.6, "FRONT", LABEL, b = true, sz = 0.8, role = "frontlab")
+        k.txt(xL + fs * 0.9, l / 2, "L ${rnd(l)}", b = true, sz = 0.9, rot = -90.0, role = "dimL") // text:value the laser's axis letter and a figure (M3a identity)
+        k.txt(w / 2, -T - fs * 3.6, tx.sp_front, LABEL, b = true, sz = 0.8, role = "frontlab")
     }
 
     // ---- a wall, face on (plan.js elevSVG)
-    private fun elevation(s: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, fsIn: Double?): Drawing {
+    private fun elevation(tx: Tx, s: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, fsIn: Double?): Drawing {
         val ab = SurveyPrep.sizeOf(s, prep, l, w, h); val a = ab[0]; val b = ab[1]
         val fs = fsIn ?: fsOf(a, b); val k = Kit(fs, prep.actual); val actual = prep.actual; val hd = fs * 0.8
         fun yy(y: Double) = elevY(y, b)
@@ -485,21 +497,22 @@ object SurveyPlan {
         // the wall's own size outside the rectangle: its W (or L) along the top, its H up the right side
         val ta = SurveyPrep.sizeTag(s).first; val yA = -fs * 1.6; val xH = a + fs * 1.8; val tk = fs * 0.4
         k.ln(0.0, yA - tk, 0.0, yA + tk, role = "dimA.tick"); k.ln(a, yA - tk, a, yA + tk, role = "dimA.tick")
-        k.dim(0.0, yA, a, yA, Fig("$ta ${rnd(a)}", true), "A", "dimA")
+        k.dim(0.0, yA, a, yA, Fig("$ta ${rnd(a)}", true), "A", "dimA") // text:value the laser's axis letter and a figure (M3a identity)
         k.ln(xH - tk, 0.0, xH + tk, 0.0, role = "dimH.tick"); k.ln(xH - tk, b, xH + tk, b, role = "dimH.tick")
-        k.dim(xH, 0.0, xH, b, Fig("H ${rnd(b)}", true), "H", "dimH", side = -1.0)
+        k.dim(xH, 0.0, xH, b, Fig("H ${rnd(b)}", true), "H", "dimH", side = -1.0) // text:value the laser's axis letter and a figure (M3a identity)
         // which wall meets each corner, so the drawing says which way round it is
         val ng = NEIGH.getValue(s)
-        k.txt(0.0, -fs * 3.4, "◂ " + ng.first, GREY, Anchor.START, 0.75, role = "neigh")
-        k.txt(a, -fs * 3.4, ng.second + " ▸", GREY, Anchor.END, 0.75, role = "neigh")
-        k.txt(a / 2, yb + fs * 1.4, SurveyPrep.NAME.getValue(s).uppercase(), LABEL, b = true, sz = 0.8, role = "walllab")
+        k.txt(0.0, -fs * 3.4, "◂ " + Masters.surface(tx, ng.first), GREY, Anchor.START, 0.75, role = "neigh") // text:value the glyph
+        k.txt(a, -fs * 3.4, Masters.surface(tx, ng.second) + " ▸", GREY, Anchor.END, 0.75, role = "neigh") // text:value the glyph
+        // EN "Front wall".uppercase() = "FRONT WALL" byte for byte; uppercase() is a no-op on Devanagari (समोरील भिंत)
+        k.txt(a / 2, yb + fs * 1.4, Masters.surface(tx, SurveyPrep.NAME.getValue(s)).uppercase(), LABEL, b = true, sz = 0.8, role = "walllab")
         k.scaleBar(0.0, yb + fs * 3)
         val box = doubleArrayOf(-fs * 2, -fs * 4.4, a + fs * 5.8, yb + fs * 4.2 + fs * 4.4)
-        return Drawing(s, k.items, box, fs, infoOf(s, prep, l, w, h), DTITLE.getValue(s), k.dims)
+        return Drawing(s, k.items, box, fs, infoOf(tx, s, prep, l, w, h), Masters.view_title(tx, DTITLE.getValue(s)), k.dims)
     }
 
     // ---- the reflected ceiling plan (plan.js ceilSVG)
-    private fun ceilingPlan(prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, fsIn: Double?): Drawing {
+    private fun ceilingPlan(tx: Tx, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, fsIn: Double?): Drawing {
         val fs = fsIn ?: fsOf(w, l); val k = Kit(fs, prep.actual); val actual = prep.actual
         k.items.add(Poly(listOf(rect(-T, -T, w + 2 * T, l + 2 * T), rect(0.0, 0.0, w, l)), WALL, 1.0, null, 0.0, null, "walls"))
         k.items.add(Poly(listOf(rect(0.0, 0.0, w, l)), WHITE, 1.0, INK, fs * 0.12, null, "room"))
@@ -514,7 +527,7 @@ object SurveyPlan {
                 k.items.add(Poly(listOf(listOf(a0, a1, moved(a1, n, dp), moved(a0, n, dp))), if (t == "C") INK else col,
                     if (t == "C") 1.0 else 0.22, INK, fs * 0.07, null, "el", e.code, s))
                 val lab = moved(mid, n, dp + fs * 0.9)
-                k.txt(lab[0], lab[1], e.code + (if (t == "B") " beam" else if (t == "L") " loft" else ""), sz = 0.7, b = true, role = "elc", key = e.code)
+                k.txt(lab[0], lab[1], e.code + (if (t == "B") tx.sp_beam else if (t == "L") tx.plan_loft_suffix else ""), sz = 0.7, b = true, role = "elc", key = e.code)
             }
         }
         // the ceiling's own marks at their plan mm, each with its code and its distances from the nearer walls
@@ -531,7 +544,7 @@ object SurveyPlan {
                     if (t == "X") doubleArrayOf(fs * 0.3, fs * 0.3) else null, "el", e.code, "ceil"))
                 // an opening in the ceiling: crossed through
                 if (t == "O") { k.ln(x0, y0, x1, y1, col, 0.05, role = "cross", key = e.code); k.ln(x0, y1, x1, y0, col, 0.05, role = "cross", key = e.code) }
-                k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (t == "B") " beam" else ""), sz = 0.8, b = true,
+                k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (t == "B") tx.sp_beam else ""), sz = 0.8, b = true,
                     rot = if (t == "B" && (y1 - y0) > (x1 - x0) * 2) -90.0 else 0.0, role = "elc", key = e.code)
             }
             val ms = SurveyPrep.measures0("ceil", e, abC[0], abC[1])
@@ -548,11 +561,11 @@ object SurveyPlan {
             }
         }
         // the room's W and L, FRONT over the front wall, the drawing's name under the back wall, the 1 m bar
-        roomDims(k, w, l)
-        k.txt(w / 2, l + T + fs * 5.6, "REFLECTED CEILING PLAN", LABEL, b = true, sz = 0.7, role = "rcplab")
+        roomDims(tx, k, w, l)
+        k.txt(w / 2, l + T + fs * 5.6, tx.view_reflected_ceiling_plan_caps, LABEL, b = true, sz = 0.7, role = "rcplab")
         k.scaleBar(0.0, l + T + fs * 7.2)
         val box = doubleArrayOf(-T - fs * 3.2, -T - fs * 4.6, w + 2 * T + fs * 9.2, l + 2 * T + fs * 12.6)
-        return Drawing("ceil", k.items, box, fs, infoOf("ceil", prep, l, w, h), DTITLE.getValue("ceil"), k.dims)
+        return Drawing("ceil", k.items, box, fs, infoOf(tx, "ceil", prep, l, w, h), Masters.view_title(tx, DTITLE.getValue("ceil")), k.dims)
     }
 
     // ------------------------------------------------------------------ fit, pinch and pan (plan.js renderPlan)
@@ -618,7 +631,7 @@ object SurveyPlan {
         return if (fitted(v, box)) null else v
     }
 
-    /** The fit button: "fit" when fitted, else the zoom on it, "fit · 150%" (v52 fix). */
-    fun fitLabel(vb: DoubleArray, box: DoubleArray): String =
-        if (fitted(vb, box)) "fit" else "fit · ${rnd(box[2] / vb[2] * 100)}%"
+    /** The fit button: "fit" when fitted, else the zoom on it, "fit · 150%" (v52 fix); बसवा under मराठी (M3c). */
+    fun fitLabel(tx: Tx, vb: DoubleArray, box: DoubleArray): String =
+        if (fitted(vb, box)) tx.sp_fit else tx.sp_fit_x(rnd(box[2] / vb[2] * 100).toString())
 }

@@ -161,4 +161,102 @@ class SurveyDrawMarathiTest {
         assertEquals("दरवाजा 1 पासून", FacePrep.fromWord(Tx.MR, "दरवाजा 1"))
         assertEquals("from Door 1", FacePrep.fromWord(Tx.EN, "Door 1"))
     }
+
+    // ------------------------------------------------------------ the plan block (port 61c slice M3c)
+    // (a) a byte-exact pin per word DRAWN on the plan canvas under Tx.MR -- the translated rows of §27's drawn-words
+    // table, each against the string the served page's own plan SVG drew or vis() answered in the M3c derivation --
+    // and (b) the figure-items pin: the Devanagari drawing IS the English drawing, item for item, but for the
+    // worded Text items. SurveyPlan measures no text (every label is anchored), so (b) is exact, not a budget.
+
+    private val pL = 3319.0; private val pW = 2678.0; private val pH = 2677.0
+    private var pn = 0
+    private fun mark(p: SurveyPrep.Prep, s: String, t: String, code: String, x0: Double, x1: Double, y0: Double, y1: Double) {
+        p.surface(s).marks.add(SurveyPrep.Mark("pm${pn++}", t, code, x0, x1, y0, y1))
+    }
+
+    /** Every worded drawn label on one prep: doors at and off both corners, a beam and a loft on a wall, a ceiling beam. */
+    private fun planRoom(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(pL, pW, pH)
+        mark(p, "front", "D", "FD1", 0.0, 905.0, 0.0, 2053.0)          // at the left corner
+        mark(p, "front", "D", "FD2", pW - 905.0 - 450.0, pW - 905.0, 0.0, 2000.0)  // 905 off the right corner
+        mark(p, "back", "D", "BD1", 905.0, 1355.0, 0.0, 1900.0)        // 905 off its left corner (mid < a/2)
+        mark(p, "front", "B", "FB1", 600.0, 830.0, 2277.0, 2677.0)
+        mark(p, "front", "L", "FL1", 1200.0, 2100.0, 2077.0, 2677.0)
+        mark(p, "ceil", "B", "CB1", 600.0, 830.0, 0.0, 3319.0)
+        return p
+    }
+
+    private fun texts(d: SurveyPlan.Drawing, role: String, key: String? = null): List<String> =
+        d.items.filterIsInstance<SurveyPlan.Text>().filter { it.role == role && (key == null || it.key == key) }.map { it.text }
+
+    @Test fun `the floor plan draws समोर, the corner fills and the beam and loft tails in Marathi`() {
+        val p = planRoom()
+        p.actual["BD1.l"] = 905.0   // a read offset: the figure in ink, no ≈
+        val d = SurveyPlan.drawing(Tx.MR, "floor", p, pL, pW, pH)
+        assertEquals(listOf("समोर"), texts(d, "frontlab"))
+        assertEquals(listOf("डाव्या कोपऱ्यात"), texts(d, "opo", "FD1"))
+        assertEquals(listOf("उजव्या कोपऱ्यापासून ≈905"), texts(d, "opo", "FD2"))
+        assertEquals(listOf("डाव्या कोपऱ्यापासून 905"), texts(d, "opo", "BD1"))
+        assertEquals(listOf("FB1 वर बीम"), texts(d, "mkl", "FB1"))
+        assertEquals(listOf("FL1 वर लॉफ्ट"), texts(d, "mkl", "FL1"))
+        // identities stay Latin on the same drawing: the room's W and L, the 1 m bar, a code-and-figure label
+        assertEquals(listOf("W 2678"), texts(d, "dimW")); assertEquals(listOf("L 3319"), texts(d, "dimL"))
+        assertEquals(listOf("1 m"), texts(d, "scalebar"))
+        assertEquals(listOf("FD1 ≈905"), texts(d, "opl", "FD1"))
+    }
+
+    @Test fun `the ceiling plan draws its title, समोर and the beam and loft words in Marathi`() {
+        val d = SurveyPlan.drawing(Tx.MR, "ceil", planRoom(), pL, pW, pH)
+        assertEquals(listOf("रिफ्लेक्टेड सीलिंग प्लॅन"), texts(d, "rcplab"))
+        assertEquals(listOf("समोर"), texts(d, "frontlab"))
+        assertEquals(listOf("FB1 बीम"), texts(d, "elc", "FB1"))
+        assertEquals(listOf("FL1 लॉफ्ट"), texts(d, "elc", "FL1"))
+        assertEquals(listOf("CB1 बीम"), texts(d, "elc", "CB1"))
+        assertEquals("रिफ्लेक्टेड सीलिंग प्लॅन", d.title)
+    }
+
+    @Test fun `an elevation draws its wall's name and its neighbours in Marathi, upper-case a no-op on Devanagari`() {
+        val p = planRoom()
+        val f = SurveyPlan.drawing(Tx.MR, "front", p, pL, pW, pH)
+        assertEquals(listOf("समोरील भिंत"), texts(f, "walllab"))
+        assertEquals(listOf("◂ डावी भिंत", "उजवी भिंत ▸"), texts(f, "neigh"))
+        assertEquals(listOf("◂ समोरील भिंत", "मागील भिंत ▸"), texts(SurveyPlan.drawing(Tx.MR, "right", p, pL, pW, pH), "neigh"))
+        assertEquals(listOf("मागील भिंत"), texts(SurveyPlan.drawing(Tx.MR, "back", p, pL, pW, pH), "walllab"))
+        // the wall's own size tags stay the Latin identities beside the Marathi name
+        assertEquals(listOf("W 2678"), texts(f, "dimA")); assertEquals(listOf("H 2677"), texts(f, "dimH"))
+        for (t in texts(f, "walllab") + texts(f, "neigh")) assertFalse(latin.containsMatchIn(t), "still Latin: '$t'")
+    }
+
+    @Test fun `the Devanagari drawing is the English drawing -- every item byte-equal but the worded texts`() {
+        val p = planRoom()
+        p.actual["FD1.w"] = 900.0
+        for ((v, _) in SurveyPlan.VIEWS) {
+            val en = SurveyPlan.drawing(Tx.EN, v, p, pL, pW, pH, room = "Living Room")
+            val mr = SurveyPlan.drawing(Tx.MR, v, p, pL, pW, pH, room = "Living Room")
+            assertEquals(en.items.size, mr.items.size, v)
+            assertEquals(en.box.toList(), mr.box.toList(), v); assertEquals(en.fs, mr.fs, v)
+            // the dimensions (keys, figures, read flags) are figures only: byte-equal in both languages
+            assertEquals(en.dims.map { Triple(it.key, it.text, it.read) }, mr.dims.map { Triple(it.key, it.text, it.read) }, v)
+            var worded = 0
+            for ((a, b) in en.items.zip(mr.items)) {
+                assertEquals(itemSig(a, withText = false), itemSig(b, withText = false), v)
+                if (a is SurveyPlan.Text && b is SurveyPlan.Text && a.text != b.text) {
+                    worded++
+                    assertTrue(deva.containsMatchIn(b.text), "$v: '${a.text}' -> '${b.text}' grew no Devanagari")
+                }
+            }
+            assertTrue(worded > 0, "$v: no worded text translated")
+        }
+    }
+
+    /** Every field of [i] but (optionally) a Text's text: positions, inks, sizes, dashes, role and key. */
+    private fun itemSig(i: SurveyPlan.Item, withText: Boolean): String = when (i) {
+        is SurveyPlan.Line -> "L ${i.x1} ${i.y1} ${i.x2} ${i.y2} ${i.colour} ${i.width} ${i.dash?.toList()}"
+        is SurveyPlan.Poly -> "P ${i.rings.map { r -> r.map { q -> q.toList() } }} ${i.fill} ${i.fillAlpha} ${i.stroke} ${i.width} ${i.dash?.toList()} ${i.s}"
+        is SurveyPlan.Circle -> "C ${i.cx} ${i.cy} ${i.r} ${i.fill} ${i.stroke} ${i.width} ${i.dash?.toList()}"
+        is SurveyPlan.Ellipse -> "E ${i.cx} ${i.cy} ${i.rx} ${i.ry} ${i.rot} ${i.fill}"
+        is SurveyPlan.Arc -> "A ${i.cx} ${i.cy} ${i.r} ${i.start} ${i.sweep} ${i.colour} ${i.width} ${i.dash?.toList()}"
+        is SurveyPlan.Text -> "T ${i.x} ${i.y} ${i.colour} ${i.size} ${i.anchor} ${i.bold} ${i.rot}" + (if (withText) " ${i.text}" else "")
+        else -> throw IllegalStateException("unknown item ${i.javaClass}")
+    } + " · ${i.role} · ${i.key}"
 }

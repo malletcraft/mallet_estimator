@@ -296,6 +296,17 @@ object Masters {
         else -> value
     }
 
+    /** 6 values. */
+    fun view_title(tx: Tx, value: String): String = when (value) {
+        "Floor plan" -> tx.view_floor_plan
+        "Reflected ceiling plan" -> tx.view_reflected_ceiling_plan
+        "Front wall elevation" -> tx.view_front_wall_elevation
+        "Right wall elevation" -> tx.view_right_wall_elevation
+        "Back wall elevation" -> tx.view_back_wall_elevation
+        "Left wall elevation" -> tx.view_left_wall_elevation
+        else -> value
+    }
+
     /** The map names, in order: for the tests that walk every identity list. */
-    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "service", "service_note", "type", "type_short", "surface", "surface_tab")
+    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "service", "service_note", "type", "type_short", "surface", "surface_tab", "view_title")
 }

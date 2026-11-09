@@ -11,6 +11,7 @@ import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.SurveyExport
+import com.malletcrafts.interiorestimate.pano.SurveyPlan
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
@@ -71,6 +72,8 @@ class MastersTest {
             Triple("SurveyPrep.TYPES", Masters::type, SurveyPrep.TYPES.values.flatten().map { it.name }.distinct()),
             Triple("SurveyPrep.NAME", Masters::surface, SurveyPrep.NAME.values),
             Triple("SurveyPrep.TAB", Masters::surface_tab, SurveyPrep.TAB.values),
+            Triple("SurveyPlan.VIEWS", Masters::surface_tab, SurveyPlan.VIEWS.map { it.second }),
+            Triple("SurveyPlan.DTITLE", Masters::view_title, SurveyPlan.DTITLE.values),
             Triple("Handover.FACE_LABELS", Masters::surface_tab, Handover.FACE_LABELS.values),
             Triple("SurveyPrepPalette.SHORT", Masters::type_short, SurveyPrepPalette.SHORT.values.distinct()),
             Triple("WishList.SERVICES", Masters::service, WishList.SERVICES.map { it.name }),
@@ -126,10 +129,16 @@ class MastersTest {
      */
     @Test fun `the wire, storage and export builders have no Tx parameter`() {
         // port 61c slice AQ: the album outbox's requests and S5's answers -- every method builds or reads what is sent;
-        // port 61c slice AS1: the as-is upload's capture addresses and its record body, every method a wire value
-        val whole = listOf(Handover::class.java, SurveyExport::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java,
+        // port 61c slice AS1: the as-is upload's capture addresses and its record body, every method a wire value.
+        // M3c moves SurveyExport from whole to named: sheet() now PINS the drawing's language by passing the literal
+        // Tx.EN (decision 4), so its bytes name the i18n package by design -- check (h) scans the file whole and its
+        // companion pins the argument; what stays here is that no SIGNATURE takes an i18n type, so no caller can ever
+        // hand the sheet a live language
+        val whole = listOf(Handover::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java,
             AsIsPath::class.java)
         val named = mapOf(
+            SurveyExport::class.java to listOf("footSource", "sheetScale", "safePart", "exportName", "shareExt",
+                "keepDir", "roomToken", "drawn", "sheet"),
             // afterFinal, afterSurvey and left (port 61c slice W), and after409, shown and entered (its review), write the
             // stored list: S5's words stay as S5 sent them. Port M4 adds the two that write the stored notes (REPLACED,
             // NOT_SENT) and s5Answered, the stored reason: English in storage, drawn through their keys by noteLine

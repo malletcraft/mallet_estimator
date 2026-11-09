@@ -76,3 +76,18 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt
+# Port 61c slice M3c (9 Nov 2026) adds the plan and the Export sheet: pano/SurveyPlan.kt (the drawn words through tx
+# and Masters -- FRONT, the RCP title, the wall and neighbour names, the corner fills, beam/loft tails -- the info
+# lines through sp.x_x_x_x / Masters.room, fit through sp.fit; VIEWS, DTITLE and NEIGH identity values shown through
+# Masters, the axis letters, 1 m, codes-and-figures and glyphs marked `// text:value`), pano/SurveyExport.kt (NO tx:
+# the Sheet IS the file, its drawing pinned `SurveyPlan.drawing(Tx.EN, ...)`, the title block and footnotes English
+# for good, marked -- decision 4, enforced by check (h) scanning the file whole), pano/Handover.kt (SEP and
+# FACE_LABELS are the wire -- the ImageMeter caption and filename vocabulary -- marked), app/SurveyPlanScreen.kt (the
+# chips and their aria through surface_tab / view_title, fit, the Export bar, Close, Share and the A4 aria keyed; ✕,
+# SVG and PDF marked) and app/PlanExport.kt (no words left: the four refusals travel as PlanSave.Refused kinds, the
+# chooser title is a parameter; stays an (h) region with ZERO Tx tokens).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt

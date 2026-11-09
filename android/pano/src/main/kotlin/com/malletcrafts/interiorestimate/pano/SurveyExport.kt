@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -47,10 +48,10 @@ object SurveyExport {
     const val MUTED = 0x6b6f66
 
     /** The second footnote, word for word (plan.js, ct52 DR). */
-    const val FOOT_ESTIMATE = "≈ = from the photo, not yet measured · MCFT S2"
+    const val FOOT_ESTIMATE = "≈ = from the photo, not yet measured · MCFT S2" // text:value the sheet IS the file: English for good (decision 4)
 
     /** The first footnote: "<DTITLE> from survey prep · laser sizes". */
-    fun footSource(view: String): String = "${SurveyPlan.DTITLE.getValue(view)} from survey prep · laser sizes"
+    fun footSource(view: String): String = "${SurveyPlan.DTITLE.getValue(view)} from survey prep · laser sizes" // text:value the sheet IS the file: English for good (decision 4)
 
     /** What each drawing's file name ends in (plan.js: floor → _plan, else '_' + DLAB with its space a '-'). */
     val SUFFIX: Map<String, String> = mapOf("floor" to "_plan", "ceil" to "_ceiling-plan", "front" to "_front-elevation",
@@ -126,11 +127,13 @@ object SurveyExport {
     class Label(val x: Double, val y: Double, val text: String, val colour: Int, val size: Double, val bold: Boolean, val role: String)
 
     /**
-     * One drawing on its A4 sheet. The drawing's own mm land on the sheet at `sheet = (tx, ty) + mm / scale`: its box
-     * centred in the drawing area. [labels]: the title block and the two footnotes.
+     * One drawing on its A4 sheet. The drawing's own mm land on the sheet at `sheet = (dx, dy) + mm / scale`: its box
+     * centred in the drawing area. [labels]: the title block and the two footnotes. (The offsets were `tx`/`ty` until
+     * M3c: check (h) scans this file whole for Tx mentions, and an offset named like the language table would read as
+     * one, so the translate offsets are `dx`/`dy` now.)
      */
     class Sheet(val drawing: SurveyPlan.Drawing, val view: String, val name: String, val scale: Int,
-                val tx: Double, val ty: Double, val labels: List<Label>) {
+                val dx: Double, val dy: Double, val labels: List<Label>) {
         /** Sheet mm per drawing mm. */
         val k: Double get() = 1.0 / scale
         /** The title block as (label, value) rows, top to bottom. */
@@ -142,7 +145,7 @@ object SurveyExport {
     }
 
     /** A title-block value, kept inside its box (102 mm at 3.6 mm bold). */
-    private fun fitValue(v: String): String = if (v.length <= 44) v else v.take(43).trimEnd() + "…"
+    private fun fitValue(v: String): String = if (v.length <= 44) v else v.take(43).trimEnd() + "…" // text:value the ellipsis glyph, file content
 
     /**
      * Drawing [view] of [prep] at the room size [l] × [w] × [h] mm on its A4 sheet, named for [meta] (initials, project
@@ -151,20 +154,22 @@ object SurveyExport {
      */
     fun sheet(view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, meta: Meta, roomName: String? = null): Sheet {
         val dd = SurveyPlan.dims(view, prep, l, w, h)
-        val d = SurveyPlan.drawing(view, prep, l, w, h, roomName, max(dd[0], dd[1]) / FS_DIV)
+        // the Sheet IS the file (its preview paints through the same painter as the PDF), so the drawing's words are
+        // pinned English by passing the literal Tx.EN -- decision 4, enforced by check (h) over this whole file
+        val d = SurveyPlan.drawing(Tx.EN, view, prep, l, w, h, roomName, max(dd[0], dd[1]) / FS_DIV)
         val b = d.box; val sc = sheetScale(b[2], b[3])
         val ox = MARGIN + (AREA_W - b[2] / sc) / 2; val oy = MARGIN + (AREA_H - b[3] / sc) / 2
         val ls = mutableListOf<Label>()
         fun row(k: String, v: String, y: Double) {
             ls.add(Label(170.0, y, k, MUTED, 3.2, false, "tb.k"))
-            ls.add(Label(190.0, y, fitValue(v.ifBlank { "—" }), SurveyPlan.INK, 3.6, true, "tb.v"))
+            ls.add(Label(190.0, y, fitValue(v.ifBlank { "—" }), SurveyPlan.INK, 3.6, true, "tb.v")) // text:value the em dash, file content
         }
-        row("Drawing", SurveyPlan.DTITLE.getValue(view), 171.5)
-        row("Client", meta.initials, 177.0)
-        row("Project", meta.project, 182.5)
-        row("Room", meta.room, 188.0)
-        row("Captured", meta.captured, 193.5)
-        row("Scale", "1:$sc on A4 · drawn ${meta.drawn}", 199.0)
+        row("Drawing", SurveyPlan.DTITLE.getValue(view), 171.5) // text:value the title block IS the file: English for good (decision 4)
+        row("Client", meta.initials, 177.0) // text:value the title block IS the file: English for good (decision 4)
+        row("Project", meta.project, 182.5) // text:value the title block IS the file: English for good (decision 4)
+        row("Room", meta.room, 188.0) // text:value the title block IS the file: English for good (decision 4)
+        row("Captured", meta.captured, 193.5) // text:value the title block IS the file: English for good (decision 4)
+        row("Scale", "1:$sc on A4 · drawn ${meta.drawn}", 199.0) // text:value the title block IS the file: English for good (decision 4)
         ls.add(Label(10.0, 196.0, footSource(view), MUTED, 3.0, false, "foot"))
         ls.add(Label(10.0, 201.0, FOOT_ESTIMATE, MUTED, 3.0, false, "foot"))
         return Sheet(d, view, exportName(meta.initials, roomToken(meta.room), meta.project, view), sc,
@@ -188,7 +193,7 @@ object SvgWriter {
         o.append("<title>").append(esc(s.name)).append("</title>\n")
         o.append("<rect x=\"0\" y=\"0\" width=\"297\" height=\"210\" fill=\"#ffffff\"/>\n")
         rect(o, SurveyExport.FRAME, "none", 0.5)
-        o.append("<g transform=\"translate(").append(f(s.tx)).append(' ').append(f(s.ty)).append(") scale(")
+        o.append("<g transform=\"translate(").append(f(s.dx)).append(' ').append(f(s.dy)).append(") scale(")
             .append(fine(s.k)).append(")\" data-plan=\"1\" data-view=\"").append(esc(s.view)).append("\">\n")
         for (it in s.drawing.items) { item(o, it); o.append('\n') }
         o.append("</g>\n")

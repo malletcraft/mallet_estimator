@@ -80,6 +80,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MmBox.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PlanSave.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt	0
@@ -94,7 +95,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	50
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyGuide.kt	10
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	0
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	5
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrep.kt	6
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepEdit.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	0

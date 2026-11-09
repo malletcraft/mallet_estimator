@@ -107,6 +107,7 @@ import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.MmBox
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.PlanSave
 import com.malletcrafts.interiorestimate.pano.StepRoute
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyExport
@@ -1337,9 +1338,10 @@ internal fun SurveyPrepDialog(
      * or a figure keyed since the last save is in what is sent, and sharing never piles copies into Downloads.
      */
     /** A save or a share that failed: "Not shared: {why}" (sp.msg.not_shared_x), or the fragment "Not saved: " (sp.msg.not_saved)
-     *  and the system's own words -- the prototype's fragment carries the colon (the card, 28 Oct 2026). */
+     *  and the why -- a PlanSave.Refused rendered with the live tx (M3c), any other Throwable the system's own words,
+     *  which stay the system's -- the prototype's fragment carries the colon (the card, 28 Oct 2026). */
     fun exportFailed(thenShare: Boolean, e: Throwable) {
-        val why = e.message ?: e.javaClass.simpleName
+        val why = if (e is PlanSave.Refused) PlanSave.text(tx, e.kind, e.file) else e.message ?: e.javaClass.simpleName
         snack(if (thenShare) tx.sp_msg_not_shared_x(why) else tx.sp_msg_not_saved + why, undo = false)
     }
     fun exportPlan(ext: String, thenShare: Boolean) {
@@ -1358,7 +1360,7 @@ internal fun SurveyPrepDialog(
             }
             planBusy = false
             r.onSuccess { sv ->
-                if (thenShare) runCatching { PlanExport.share(context, sv) }
+                if (thenShare) runCatching { PlanExport.share(context, sv, tx.export_share_x(sv.file.name)) }
                     .onFailure { e -> snack(tx.sp_msg_could_not_share_x_x(file = sv.shown, why = e.message ?: e.javaClass.simpleName), undo = false) }
                 else { planSaved = sv; snack(tx.sp_msg_saved_x_downloads(sv.shown), undo = false) }
             }.onFailure { e ->
@@ -1397,7 +1399,7 @@ internal fun SurveyPrepDialog(
     }
     val planFoot: @Composable () -> Unit = {
         rev    // read: the mark count follows every change
-        SpPlanFoot(SurveyPlan.infoOf(planV, prep, roomSize[0], roomSize[1], roomSize[2], SurveyPlan.roomName(title)),
+        SpPlanFoot(SurveyPlan.infoOf(tx, planV, prep, roomSize[0], roomSize[1], roomSize[2], SurveyPlan.roomName(title)),
             onExport = { planExp = true })
     }
 

@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -97,11 +98,11 @@ class SurveyPlanTest {
         assertEquals(H - 900.0, SurveyPlan.elevY(900.0, H))
         // the same rectangle of the floor and of the ceiling lands in the same place on both plans
         val p = room(); put(p, "floor", "C", "GC1", 100.0, 400.0, 100.0, 400.0); put(p, "ceil", "C", "CC1", 100.0, 400.0, 100.0, 400.0)
-        val fl = SurveyPlan.drawing("floor", p, L, W, H)
+        val fl = SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H)
         val a = poly(fl, "mk", "GC1").rings[0]; val b = poly(fl, "mk", "CC1").rings[0]
         assertEquals(a.map { it.toList() }, b.map { it.toList() })
         assertEquals(listOf(100.0, L - 400.0), a[0].toList())
-        val cl = SurveyPlan.drawing("ceil", p, L, W, H)
+        val cl = SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H)
         assertEquals(a.map { it.toList() }, poly(cl, "el", "CC1").rings[0].map { it.toList() })
     }
 
@@ -111,7 +112,7 @@ class SurveyPlanTest {
         val p = room()
         for (s in SurveyPlan.WALLS) put(p, s, "D", SurveyPrep.CODE.getValue(s) + "D9", 200.0, 1000.0, 0.0, 2000.0)
         put(p, "ceil", "B", "CB9", 100.0, 400.0, 100.0, 400.0)   // near the left and BACK walls
-        val d = SurveyPlan.drawing("floor", p, L, W, H)
+        val d = SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H)
         val c = SurveyPlan.WALLS.associateWith { s -> centre(poly(d, "op", SurveyPrep.CODE.getValue(s) + "D9").rings[0]) }
         // FRONT over the front wall, at the top
         val fr = text(d, "frontlab"); assertEquals("FRONT", fr.text); assertTrue(fr.y < 0, "FRONT above the room"); near(W / 2, fr.x, 1e-9, "FRONT x")
@@ -124,13 +125,13 @@ class SurveyPlanTest {
         assertTrue(c.getValue("front")[0] < W / 2); assertTrue(c.getValue("right")[1] < L / 2)
         assertTrue(c.getValue("back")[0] > W / 2); assertTrue(c.getValue("left")[1] > L / 2)
         // the reflected ceiling plan the same way round: a beam by the left and back walls is bottom-left, FRONT at the top
-        val cl = SurveyPlan.drawing("ceil", p, L, W, H)
+        val cl = SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H)
         val b = centre(poly(cl, "el", "CB9").rings[0]); assertTrue(b[0] < W / 2 && b[1] > L / 2, "beam bottom-left: ${b.toList()}")
         val cf = text(cl, "frontlab"); assertEquals("FRONT", cf.text); assertTrue(cf.y < 0, "FRONT at the top of the ceiling plan too")
     }
 
     @Test fun `H -- every opening sits where its mm put it, its face on the wall line, the band T thick`() {
-        val p = gb(); val d = SurveyPlan.drawing("floor", p, L, W, H)
+        val p = gb(); val d = SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H)
         for (s in SurveyPlan.WALLS) for (e in p.surface(s).marks.filter { it.t in setOf("D", "W", "O", "N") }) {
             val r = poly(d, "op", e.code); assertEquals(s, r.s)
             val q = r.rings[0]
@@ -153,7 +154,7 @@ class SurveyPlanTest {
     // ------------------------------------------------------------------ the door swing
 
     @Test fun `htu -- FD1 hinged at the front wall's left corner (top-left of the plan), its leaf into the room, its swing to the far jamb`() {
-        val p = htu(); val d = SurveyPlan.drawing("floor", p, hL, hW, hH, room = "Living Room")
+        val p = htu(); val d = SurveyPlan.drawing(Tx.EN, "floor", p, hL, hW, hH, room = "Living Room")
         val leaf = d.items.filterIsInstance<SurveyPlan.Line>().single { it.role == "leaf" && it.key == "FD1" }
         near(0.0, leaf.x1, 1e-9, "hinge x"); near(0.0, leaf.y1, 1e-9, "hinge y")
         near(0.0, leaf.x2, 1e-9, "leaf x"); near(905.0, leaf.y2, 1e-9, "the leaf runs 905 into the room")
@@ -169,15 +170,15 @@ class SurveyPlanTest {
         assertEquals("Living Room · 3310 × 5458", d.info)
         // a laser reading turns its figure from grey ≈ to ink
         p.actual["FD1.w"] = 900.0
-        val t = SurveyPlan.drawing("floor", p, hL, hW, hH).texts("opl").single { it.key == "FD1" }
+        val t = SurveyPlan.drawing(Tx.EN, "floor", p, hL, hW, hH).texts("opl").single { it.key == "FD1" }
         assertEquals("FD1 900", t.text); assertEquals(SurveyPlan.INK, t.colour); assertEquals(0x1d1f1a, t.colour)
         p.actual.remove("FD1.w")
-        assertEquals(0x8a8f86, SurveyPlan.drawing("floor", p, hL, hW, hH).texts("opl").single { it.key == "FD1" }.colour)
+        assertEquals(0x8a8f86, SurveyPlan.drawing(Tx.EN, "floor", p, hL, hW, hH).texts("opl").single { it.key == "FD1" }.colour)
     }
 
     @Test fun `a door in a wall's right half is hinged at its right jamb`() {
         val p = room(); put(p, "front", "D", "FD9", 2000.0, 2600.0, 0.0, 2000.0)
-        val d = SurveyPlan.drawing("floor", p, L, W, H)
+        val d = SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H)
         val leaf = d.items.filterIsInstance<SurveyPlan.Line>().single { it.role == "leaf" }
         near(2600.0, leaf.x1, 1e-9, "hinge at x1"); near(600.0, leaf.y2, 1e-9, "leaf 600 in")
         val sw = d.items.filterIsInstance<SurveyPlan.Arc>().single()
@@ -187,7 +188,7 @@ class SurveyPlanTest {
     // ------------------------------------------------------------------ the elevations
 
     @Test fun `htu front elevation -- "Front · 3310 × 2705 · 2 marks", FD1 width ≈905 and height ≈2053, no offset line, FE1 a symbol`() {
-        val d = SurveyPlan.drawing("front", htu(), hL, hW, hH)
+        val d = SurveyPlan.drawing(Tx.EN, "front", htu(), hL, hW, hH)
         assertEquals("Front · 3310 × 2705 · 2 marks", d.info)
         assertEquals("≈905", d.dim("FD1.w")?.text); assertEquals("≈2053", d.dim("FD1.h")?.text)
         assertNull(d.dims.firstOrNull { it.key.startsWith("FD1.l") }, "at the corner: no offset")
@@ -199,7 +200,7 @@ class SurveyPlanTest {
     @Test fun `DR -- each elevation is the wall face on at its size, W or L along the top, H up the side, its neighbours and its name`() {
         val p = gb()
         for (s in SurveyPlan.WALLS) {
-            val d = SurveyPlan.drawing(s, p, L, W, H); val ab = SurveyPrep.sizeOf(s, p, L, W, H)
+            val d = SurveyPlan.drawing(Tx.EN, s, p, L, W, H); val ab = SurveyPrep.sizeOf(s, p, L, W, H)
             val r = poly(d, "wall", s).rings[0]
             assertEquals(listOf(0.0, 0.0), r[0].toList()); assertEquals(listOf(ab[0], ab[1]), r[2].toList())
             val tag = if (s == "front" || s == "back") "W" else "L"
@@ -222,41 +223,41 @@ class SurveyPlanTest {
                 assertTrue(d.texts("elc").any { it.text.split(" ")[0] == e.code })
             }
         }
-        val f = SurveyPlan.drawing("front", p, L, W, H)
+        val f = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H)
         assertEquals(listOf("◂ Left wall", "Right wall ▸"), f.texts("neigh").map { it.text })
-        assertEquals(listOf("◂ Front wall", "Back wall ▸"), SurveyPlan.drawing("right", p, L, W, H).texts("neigh").map { it.text })
-        assertEquals(listOf("◂ Right wall", "Left wall ▸"), SurveyPlan.drawing("back", p, L, W, H).texts("neigh").map { it.text })
-        assertEquals(listOf("◂ Back wall", "Front wall ▸"), SurveyPlan.drawing("left", p, L, W, H).texts("neigh").map { it.text })
+        assertEquals(listOf("◂ Front wall", "Back wall ▸"), SurveyPlan.drawing(Tx.EN, "right", p, L, W, H).texts("neigh").map { it.text })
+        assertEquals(listOf("◂ Right wall", "Left wall ▸"), SurveyPlan.drawing(Tx.EN, "back", p, L, W, H).texts("neigh").map { it.text })
+        assertEquals(listOf("◂ Back wall", "Front wall ▸"), SurveyPlan.drawing(Tx.EN, "left", p, L, W, H).texts("neigh").map { it.text })
     }
 
     @Test fun `DR -- the window carries its sill and head from the floor, its width and its offset -- readings turn them to ink`() {
         val p = gb()
-        var d = SurveyPlan.drawing("front", p, L, W, H)
+        var d = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H)
         assertEquals("≈919", d.dim("FW1.s")?.text); assertEquals("≈2100", d.dim("FW1.head")?.text)
         assertEquals("≈1171", d.dim("FW1.w")?.text); assertEquals("≈725", d.dim("FW1.r")?.text)
         p.actual["FW1.s"] = 920.0; p.actual["FW1.h"] = 1180.0
-        d = SurveyPlan.drawing("front", p, L, W, H)
+        d = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H)
         val s = assertNotNull(d.dim("FW1.s")); assertEquals("920", s.text); assertTrue(s.read)
         val hd = assertNotNull(d.dim("FW1.head")); assertEquals("2100", hd.text); assertTrue(hd.read, "920 + 1180")
         val w = assertNotNull(d.dim("FW1.w")); assertTrue(w.text.startsWith("≈")); assertFalse(w.read)
         assertEquals(SurveyPlan.INK, d.items.filterIsInstance<SurveyPlan.Text>().single { it.role == "dim" && it.key == "FW1.s" }.colour)
         assertEquals(SurveyPlan.GREY, d.items.filterIsInstance<SurveyPlan.Text>().single { it.role == "dim" && it.key == "FW1.w" }.colour)
         // the right wall: the loft's underside from the floor, the beam's drop; the back door's height
-        val r = SurveyPlan.drawing("right", p, L, W, H)
+        val r = SurveyPlan.drawing(Tx.EN, "right", p, L, W, H)
         assertEquals("≈2077", r.dim("RL1.s")?.text); assertEquals("≈400", r.dim("RB1.d")?.text); assertEquals("≈1800", r.dim("RL1.w")?.text)
-        assertEquals("≈1900", SurveyPlan.drawing("back", p, L, W, H).dim("BD1.h")?.text)
+        assertEquals("≈1900", SurveyPlan.drawing(Tx.EN, "back", p, L, W, H).dim("BD1.h")?.text)
     }
 
     @Test fun `FX4 -- a switch plate has its height from the floor, a point its corner offset and height to its centre`() {
         val p = room()
         val sd = SurveyPrep.defaults("front", "S", W, H); put(p, "front", "S", "FS1", sd[0], sd[1], sd[2], sd[3])
         val ed = SurveyPrep.defaults("front", "E", W, H); put(p, "front", "E", "FE1", ed[0], ed[1], ed[2], ed[3])
-        val fd = SurveyPlan.drawing("front", p, L, W, H).dims.map { it.key }
+        val fd = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H).dims.map { it.key }
         assertTrue("FS1.s" in fd, fd.toString())
         assertTrue(fd.any { it == "FE1.cl" || it == "FE1.cr" } && fd.any { it == "FE1.cs" || it == "FE1.ct" }, fd.toString())
         // a switch plate high on the wall is still measured from the floor, never from the ceiling
         put(p, "front", "S", "FS2", 1500.0, 1700.0, 2400.0, 2490.0)
-        val f2 = SurveyPlan.drawing("front", p, L, W, H).dims.map { it.key }
+        val f2 = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H).dims.map { it.key }
         assertTrue("FS2.s" in f2 && "FS2.t" !in f2, f2.toString())
     }
 
@@ -267,50 +268,50 @@ class SurveyPlanTest {
         put(p, "front", "W", "FW1", 300.0, 800.0, 900.0, 1500.0)    // offset 300 from left: 0..300, then 300..800
         put(p, "front", "W", "FW2", 1900.0, 2300.0, 900.0, 1500.0)  // nearer the right: 1900..2300, then 2300..2678
         put(p, "front", "N", "FN1", 600.0, 1100.0, 100.0, 600.0)    // overlaps FW1: a row down
-        val d = SurveyPlan.drawing("front", p, L, W, H); val fs = d.fs
+        val d = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H); val fs = d.fs
         val y0 = dimLine(d, "FW1.w").y1
         near(H + fs * 0.8 + fs * 1.7, y0, 1e-9, "row 0 under the floor")
         assertEquals(y0, dimLine(d, "FW1.l").y1); assertEquals(y0, dimLine(d, "FW2.w").y1); assertEquals(y0, dimLine(d, "FW2.r").y1)
         near(y0 + fs * 1.9, dimLine(d, "FN1.w").y1, 1e-9, "FN1 a row down")
         // a window 0.5 mm off the left corner: nothing from the corner ...
         val q = room(); put(q, "front", "W", "FW3", 0.5, 800.0, 900.0, 1500.0)
-        assertNull(SurveyPlan.drawing("front", q, L, W, H).dim("FW3.l"))
-        assertNotNull(SurveyPlan.drawing("front", q, L, W, H).dim("FW3.w"), "its width still is")
+        assertNull(SurveyPlan.drawing(Tx.EN, "front", q, L, W, H).dim("FW3.l"))
+        assertNotNull(SurveyPlan.drawing(Tx.EN, "front", q, L, W, H).dim("FW3.w"), "its width still is")
         // ... and once it is READ the offset joins its row (plan.js 127: `hx[2]>=ZERO || st.actual[...] != null`), so the row
         // starts at the corner: FW3 (0.5 mm off) now packs ahead of FW5 (0.3 mm off) and takes row 0. Its own line is
         // still not drawn -- the drawing places it by the mark's 0.5 mm, and plan.js's dim draws nothing under 1 mm.
         put(q, "front", "W", "FW5", 0.3, 1500.0, 900.0, 1500.0)
-        val unread = SurveyPlan.drawing("front", q, L, W, H)
+        val unread = SurveyPlan.drawing(Tx.EN, "front", q, L, W, H)
         val row0 = dimLine(unread, "FW5.w").y1
         near(row0 + unread.fs * 1.9, dimLine(unread, "FW3.w").y1, 1e-9, "unread: FW3 a row down, behind FW5")
         q.actual["FW3.l"] = 3.0
-        val read = SurveyPlan.drawing("front", q, L, W, H)
+        val read = SurveyPlan.drawing(Tx.EN, "front", q, L, W, H)
         near(row0, dimLine(read, "FW3.w").y1, 1e-9, "read: FW3's row starts at the corner, so it takes row 0")
         near(row0 + read.fs * 1.9, dimLine(read, "FW5.w").y1, 1e-9, "and FW5 goes a row down")
         assertNull(read.dim("FW3.l"), "a line under 1 mm is never drawn, read or not")
         // ... and from 1 mm it is
         val q1 = room(); put(q1, "front", "W", "FW4", 1.0, 800.0, 900.0, 1500.0)
-        assertEquals("≈1", SurveyPlan.drawing("front", q1, L, W, H).dim("FW4.l")?.text)
+        assertEquals("≈1", SurveyPlan.drawing(Tx.EN, "front", q1, L, W, H).dim("FW4.l")?.text)
     }
 
     // ------------------------------------------------------------------ fs and T
 
     @Test fun `fs is the longer side over 34, T 150 -- the plans by W × L, an elevation by its own wall`() {
         val p = gb()
-        near(max(W, L) / 34, SurveyPlan.drawing("floor", p, L, W, H).fs, 1e-12, "floor fs")
-        near(max(W, L) / 34, SurveyPlan.drawing("ceil", p, L, W, H).fs, 1e-12, "ceiling fs")
-        near(max(W, H) / 34, SurveyPlan.drawing("front", p, L, W, H).fs, 1e-12, "front fs")
-        near(max(L, H) / 34, SurveyPlan.drawing("right", p, L, W, H).fs, 1e-12, "right fs")
+        near(max(W, L) / 34, SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H).fs, 1e-12, "floor fs")
+        near(max(W, L) / 34, SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H).fs, 1e-12, "ceiling fs")
+        near(max(W, H) / 34, SurveyPlan.drawing(Tx.EN, "front", p, L, W, H).fs, 1e-12, "front fs")
+        near(max(L, H) / 34, SurveyPlan.drawing(Tx.EN, "right", p, L, W, H).fs, 1e-12, "right fs")
         val fs = max(W, L) / 34; val T = SurveyPlan.T
-        val b = SurveyPlan.drawing("floor", p, L, W, H).box
+        val b = SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H).box
         assertEquals(listOf(-T - fs * 3.2, -T - fs * 4.6, W + 2 * T + fs * 9.2, L + 2 * T + fs * 11.6), b.toList())
-        assertEquals(L + 2 * T + fs * 12.6, SurveyPlan.drawing("ceil", p, L, W, H).box[3])
+        assertEquals(L + 2 * T + fs * 12.6, SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H).box[3])
     }
 
     // ------------------------------------------------------------------ the ceiling and the fan
 
     @Test fun `DR ceiling -- REFLECTED CEILING PLAN, W and L, its own marks only, each dimensioned from its nearer walls`() {
-        val p = gb(); val d = SurveyPlan.drawing("ceil", p, L, W, H)
+        val p = gb(); val d = SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H)
         assertEquals("REFLECTED CEILING PLAN", text(d, "rcplab").text); assertEquals("FRONT", text(d, "frontlab").text)
         assertEquals("W 2678", text(d, "dimW").text); assertEquals("L 3319", text(d, "dimL").text)
         assertEquals("Ceiling · 2678 × 3319 · 4 marks", d.info); assertEquals("Reflected ceiling plan", d.title)
@@ -328,7 +329,7 @@ class SurveyPlanTest {
         val co = poly(d, "el", "CO1").rings[0]
         assertEquals(listOf(1700.0, L - 2900.0), co[0].toList()); assertEquals(listOf(2300.0, L - 2400.0), co[2].toList())
         assertEquals(2, d.items.count { it.role == "cross" && it.key == "CO1" }, "an opening is crossed through")
-        assertEquals("Guest Bedroom · 2678 × 3319", SurveyPlan.drawing("floor", p, L, W, H, room = "Guest Bedroom").info)
+        assertEquals("Guest Bedroom · 2678 × 3319", SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H, room = "Guest Bedroom").info)
     }
 
     @Test fun `the fan -- a ceiling fan is three blades in a dashed 1200 mm sweep circle, a wall fan has no sweep -- dimensioned to its centre`() {
@@ -336,16 +337,16 @@ class SurveyPlanTest {
         val cd = SurveyPrep.defaults("ceil", "F", W, L); put(p, "ceil", "F", "CF1", cd[0], cd[1], cd[2], cd[3])
         val wd = SurveyPrep.defaults("front", "F", W, H); put(p, "front", "F", "FF1", wd[0], wd[1], wd[2], wd[3])
         for (v in listOf("ceil", "floor")) {
-            val d = SurveyPlan.drawing(v, p, L, W, H)
+            val d = SurveyPlan.drawing(Tx.EN, v, p, L, W, H)
             val sw = d.items.filterIsInstance<SurveyPlan.Circle>().filter { it.role == "sweep" }
             assertEquals(listOf("CF1"), sw.map { it.key }, "$v: only the ceiling fan sweeps")
             assertEquals(600.0, sw[0].r, "r 600 mm: a 1200 mm circle"); assertNotNull(sw[0].dash, "dashed")
             near((cd[0] + cd[1]) / 2, sw[0].cx, 1e-9, "$v sweep x"); near(L - (cd[2] + cd[3]) / 2, sw[0].cy, 1e-9, "$v sweep y")
             assertEquals(3, d.items.count { it is SurveyPlan.Ellipse && it.key == "CF1" }, "three blades")
         }
-        val fr = SurveyPlan.drawing("front", p, L, W, H)
+        val fr = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H)
         assertFalse(fr.items.any { it.role == "sweep" }); assertEquals(3, fr.items.count { it is SurveyPlan.Ellipse && it.key == "FF1" })
-        val cdims = SurveyPlan.drawing("ceil", p, L, W, H).dims.map { it.key }
+        val cdims = SurveyPlan.drawing(Tx.EN, "ceil", p, L, W, H).dims.map { it.key }
         assertTrue(cdims.any { it == "CF1.cl" || it == "CF1.cr" } && cdims.any { it == "CF1.cf" || it == "CF1.ck" }, cdims.toString())
     }
 
@@ -361,14 +362,14 @@ class SurveyPlanTest {
             linkedMapOf<String, Any?>("on" to true, "q" to q.map { listOf(it[0], it[1]) }, "w" to 900.0, "h" to 1080.0))
         val ab = SurveyPrep.sizeOf("front", p, L, W, H)
         near(W * 0.9, ab[0], 1.0, "A"); near(H * 0.9, ab[1], 1.0, "B")
-        val d = SurveyPlan.drawing("front", p, L, W, H)
+        val d = SurveyPlan.drawing(Tx.EN, "front", p, L, W, H)
         val r = poly(d, "wall", "front").rings[0]
         assertEquals(ab[0], r[2][0]); assertEquals(ab[1], r[2][1])
         assertEquals("W ${Math.round(ab[0])}", text(d, "dimA").text); assertEquals("H ${Math.round(ab[1])}", text(d, "dimH").text)
         assertEquals("Front · ${Math.round(ab[0])} × ${Math.round(ab[1])} · 0 marks", d.info)
         near(max(ab[0], ab[1]) / 34, d.fs, 1e-9, "fs from the reference size")
         // the plans keep the room's laser W × L
-        assertEquals("W 2678", text(SurveyPlan.drawing("floor", p, L, W, H), "dimW").text)
+        assertEquals("W 2678", text(SurveyPlan.drawing(Tx.EN, "floor", p, L, W, H), "dimW").text)
     }
 
     // ------------------------------------------------------------------ the chips, the line under it, fit
@@ -378,25 +379,25 @@ class SurveyPlanTest {
         assertEquals(listOf("floor", "ceil", "front", "right", "back", "left"), SurveyPlan.VIEWS.map { it.first })
         assertEquals("Front wall elevation", SurveyPlan.DTITLE["front"]); assertEquals("Floor plan", SurveyPlan.DTITLE["floor"])
         assertEquals("Living Room", SurveyPlan.roomName("LR · Living Room")); assertEquals("Living Room", SurveyPlan.roomName("Living Room"))
-        assertEquals("Room · 2678 × 3319", SurveyPlan.infoOf("floor", room(), L, W, H, null))
-        assertEquals("Back · 2678 × 2677 · 1 mark", SurveyPlan.infoOf("back", gb(), L, W, H))
-        for ((v, _) in SurveyPlan.VIEWS) { val d = SurveyPlan.drawing(v, gb(), L, W, H); assertEquals(v, d.view); assertEquals(SurveyPlan.DTITLE[v], d.title) }
+        assertEquals("Room · 2678 × 3319", SurveyPlan.infoOf(Tx.EN, "floor", room(), L, W, H, null))
+        assertEquals("Back · 2678 × 2677 · 1 mark", SurveyPlan.infoOf(Tx.EN, "back", gb(), L, W, H))
+        for ((v, _) in SurveyPlan.VIEWS) { val d = SurveyPlan.drawing(Tx.EN, v, gb(), L, W, H); assertEquals(v, d.view); assertEquals(SurveyPlan.DTITLE[v], d.title) }
     }
 
     @Test fun `fit, pinch and pan -- the point under the fingers stays, never wider than the drawing, fit · 150 percent on the button`() {
         val box = doubleArrayOf(-100.0, -200.0, 3000.0, 4000.0); val cw = 340.0; val ch = 500.0
-        assertEquals("fit", SurveyPlan.fitLabel(box, box))
+        assertEquals("fit", SurveyPlan.fitLabel(Tx.EN, box, box))
         val sx = 200.0; val sy = 260.0
         val u = SurveyPlan.fromScreen(box, cw, ch, sx, sy)
         val z = SurveyPlan.zoom(box, box, 1.5, sx, sy, cw, ch)
         val u2 = SurveyPlan.fromScreen(z, cw, ch, sx, sy); near(u[0], u2[0], 1e-6, "x under the finger"); near(u[1], u2[1], 1e-6, "y")
-        assertEquals("fit · 150%", SurveyPlan.fitLabel(z, box)); assertFalse(SurveyPlan.fitted(z, box))
+        assertEquals("fit · 150%", SurveyPlan.fitLabel(Tx.EN, z, box)); assertFalse(SurveyPlan.fitted(z, box))
         // a drag moves it with the finger
         val pz = SurveyPlan.pan(z, box, 30.0, -20.0, cw, ch); val k = SurveyPlan.scale(z, cw, ch)
         near(z[0] - 30 / k, pz[0], 1e-9, "pan x"); near(z[1] + 20 / k, pz[1], 1e-9, "pan y")
         // a fitted drawing does not pan; zooming out past the drawing fits it again
         assertEquals(box.toList(), SurveyPlan.pan(box, box, 30.0, 30.0, cw, ch).toList())
-        val back = SurveyPlan.zoom(z, box, 1 / 3.0, sx, sy, cw, ch); assertEquals(box.toList(), back.toList()); assertEquals("fit", SurveyPlan.fitLabel(back, box))
+        val back = SurveyPlan.zoom(z, box, 1 / 3.0, sx, sy, cw, ch); assertEquals(box.toList(), back.toList()); assertEquals("fit", SurveyPlan.fitLabel(Tx.EN, back, box))
         // never narrower than an eighth
         var v = box; repeat(30) { v = SurveyPlan.zoom(v, box, 2.0, sx, sy, cw, ch) }; near(box[2] / 8, v[2], 1e-9, "max zoom")
         // toScreen centres a fitted drawing (xMidYMid meet)

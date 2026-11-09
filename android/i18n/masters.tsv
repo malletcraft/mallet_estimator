@@ -104,3 +104,12 @@ surface_tab	surface.back.short
 surface_tab	surface.left.short
 surface_tab	surface.floor
 surface_tab	surface.ceil
+
+# SurveyPlan.DTITLE: a drawing's full name (the chips' aria, the export aria, Drawing.title). view.ceiling_plan
+# ("Ceiling plan") is deliberately NOT here: no DTITLE value says that -- the ceiling drawing is the REFLECTED plan.
+view_title	view.floor_plan
+view_title	view.reflected_ceiling_plan
+view_title	view.front_wall_elevation
+view_title	view.right_wall_elevation
+view_title	view.back_wall_elevation
+view_title	view.left_wall_elevation

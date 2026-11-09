@@ -81,7 +81,7 @@ class SvgExportTest {
             assertEquals(50, s.scale, v)
             assertEquals(0.02, s.k, 1e-12)
             val b = s.drawing.box
-            val x0 = s.tx + b[0] * s.k; val y0 = s.ty + b[1] * s.k
+            val x0 = s.dx + b[0] * s.k; val y0 = s.dy + b[1] * s.k
             assertEquals(10 + (277 - b[2] * s.k) / 2, x0, 1e-9, "$v centred across")
             assertEquals(10 + (162 - b[3] * s.k) / 2, y0, 1e-9, "$v centred down")
             assertTrue(x0 >= 10 - 1e-9 && x0 + b[2] * s.k <= 287 + 1e-9 && y0 >= 10 - 1e-9 && y0 + b[3] * s.k <= 172 + 1e-9, "$v inside the area")

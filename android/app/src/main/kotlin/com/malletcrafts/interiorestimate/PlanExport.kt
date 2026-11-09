@@ -10,6 +10,7 @@ import android.graphics.pdf.PdfDocument
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
+import com.malletcrafts.interiorestimate.pano.PlanSave
 import com.malletcrafts.interiorestimate.pano.SurveyExport
 import com.malletcrafts.interiorestimate.pano.SurveyPlan
 import com.malletcrafts.interiorestimate.pano.SvgWriter
@@ -88,7 +89,7 @@ internal object PlanExport {
         stroke.strokeWidth = len(0.5)
         c.drawRect(x(fr[0]), y(fr[1]), x(fr[0] + fr[2]), y(fr[1] + fr[3]), stroke)
         // the drawing: its mm at (tx, ty) + mm / scale on the sheet
-        paintItems(c, s.drawing.items, s.k * k, ox + s.tx * k, oy + s.ty * k)
+        paintItems(c, s.drawing.items, s.k * k, ox + s.dx * k, oy + s.dy * k)
         // the title block over it, white, as the SVG has it
         val tb = SurveyExport.TITLE_BOX
         c.drawRect(x(tb[0]), y(tb[1]), x(tb[0] + tb[2]), y(tb[1] + tb[3]), fill)
@@ -124,11 +125,14 @@ internal object PlanExport {
      *  the earlier copy (or none) and never a truncated one. */
     private fun keep(context: Context, deviceId: String, display: String, bytes: ByteArray): File {
         val dir = File(File(context.filesDir, "drawings"), SurveyExport.keepDir(deviceId))
-        if (!dir.isDirectory && !dir.mkdirs()) error("could not make a folder for $display")
+        // a refusal travels as DATA (PlanSave.Refused, port 61c slice M3c): this file builds what other parties
+        // read, so it holds no words -- the screen renders the kind with the live tx, the exception's own message
+        // stays the pinned English render
+        if (!dir.isDirectory && !dir.mkdirs()) throw PlanSave.Refused(PlanSave.Kind.FOLDER, display)
         val file = File(dir, display); val part = File(dir, "$display.part")
         try {
             part.writeBytes(bytes)
-            if (!part.renameTo(file)) error("could not keep $display")
+            if (!part.renameTo(file)) throw PlanSave.Refused(PlanSave.Kind.KEEP, display)
         } catch (e: Exception) {
             part.delete()
             throw e
@@ -148,10 +152,10 @@ internal object PlanExport {
             put(MediaStore.MediaColumns.RELATIVE_PATH, rel)
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
-        val uri = resolver.insert(collection, values) ?: error("Downloads refused $display")
+        val uri = resolver.insert(collection, values) ?: throw PlanSave.Refused(PlanSave.Kind.INSERT, display)
         try {
             resolver.openOutputStream(uri).use { out ->
-                requireNotNull(out) { "could not write $display to Downloads" }
+                if (out == null) throw PlanSave.Refused(PlanSave.Kind.WRITE, display)
                 out.write(bytes)
             }
             values.clear()
@@ -168,8 +172,10 @@ internal object PlanExport {
         }.getOrNull() ?: display
     }
 
-    /** The share sheet for a saved file: ACTION_SEND with its FileProvider content URI and a read grant. */
-    fun share(context: Context, saved: Saved) {
+    /** The share sheet for a saved file: ACTION_SEND with its FileProvider content URI and a read grant.
+     *  [title] is the chooser's heading -- Android's own transient UI, not file content, so the caller renders it
+     *  with the live tx (export.share_x); the PAYLOAD (EXTRA_STREAM bytes, SUBJECT = the file's name) is untouched. */
+    fun share(context: Context, saved: Saved, title: String) {
         val uri = FileProvider.getUriForFile(context, AUTHORITY, saved.file)
         val send = Intent(Intent.ACTION_SEND).setType(saved.mime)
             .putExtra(Intent.EXTRA_STREAM, uri)
@@ -177,7 +183,7 @@ internal object PlanExport {
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         // the grant rides the ClipData through the chooser to whichever app is picked
         send.clipData = ClipData.newRawUri(saved.file.name, uri)
-        context.startActivity(Intent.createChooser(send, "Share ${saved.file.name}")
+        context.startActivity(Intent.createChooser(send, title)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
     }
 }
