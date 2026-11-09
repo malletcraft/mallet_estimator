@@ -4,8 +4,9 @@ The full port plan lived only in the session scratchpad and was lost when the cl
 on 3 Nov 2026 (the scratchpad is ephemeral; nothing had committed the plan). What follows is every part of it the session
 transcript still held verbatim: the slice table, §14 AS1, §15 FW1, §16 FW2, §25 M3a and the progress notes; and §18 K3,
 re-derived on 9 Nov 2026 from the prototype, S5 and the shipped code (it names the source of each decision), and §19 K4,
-derived the same day in the same way and built after its critic (its "The K4 critic" paragraph). The other
-sections (§1–§13, §17, §20–§24, §26–§31) are NOT here. For those slices the sources are the approved prototype
+derived the same day in the same way and built after its critic (its "The K4 critic" paragraph), and §20 K5, derived
+the same day in the same way, its critic notes answered, not built yet. The other sections (§1–§13, §17, §21–§24,
+§26–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -1543,6 +1544,553 @@ asis.js's review route against pano.jar), both minor, both fixed:
 :pano tests after the K4 review, from the XML under pano/build/test-results/test: 868 tests, 0 failures, 0 errors, 0
 skipped (867 before: AlbumQueueTest 37 → 38; AlbumPageTest 39, one test gaining the sheet pins). No new key;
 `unkeyed.tsv` unchanged. :app is compiled only by CI; nothing has been seen on a phone.
+
+### 20. K5 · The progress shot
+
+**Size:** M · **Depends on:** K4 *(on batch-next at 45ba927 above main 0bcfc54; its CI was running when this was written)*
+
+*Derived on 9 Nov 2026, as §18 and §19 were: the §20 the lost plan held is gone. Every decision below names its source:
+**[P n]** the approved prototype v61c.2 (index61c2.html, line n: the album core window.ALB60 — its items 7226–7234,
+quoteAt 7249–7251, chapters 7254–7267, addShot 7272–7275; the page window.__mcftAlbum60 — back() 7392–7398, the result
+line 7413–7416, the button 7483–7485, the camera 7490–7515, ov() 7575–7586; its CSS 348, 1462, 1470, 1502–1542; the
+Capture 360 sheet 7997–8015, its ingest 8016–8023, the stand-in for the phone's camera 8307–8308, the room tile 8186–8193
+and the photo's WORK line 8205–8208 with its re-file 8276–8277); **[S5]** S5 QUOTE as shipped on stage
+(mcft-interior-estimate 9a51733: functions/_lib/asis.js — the photo record 919–949, its JPEG 952–988, S5-P's re-file
+1024–1080, albumPutPhoto 1839–1846, albumSetBytes 1848–1851, the photo list's `bytes > 0` 1823, MAX_IMG 291, validPhoto
+688–698; migration 0008's `client_at TEXT -- device clock, display only`; its CLAUDE.md rows "THE ALBUM STORAGE AND
+ROUTES ARE REAL" and the S5-P paragraph); **[Ph]** the phone as shipped on batch-next 45ba927 (file:line); **[A3]** Amit's
+answer 3 of 28 Oct 2026, as S5's CLAUDE.md (the S5-P paragraph) and Album.kt:1044-1049 record it: a single photo from the
+phone's Capture 360 sheet after approval goes to S5's album "as a staff photo of its work through the progress shot's
+route (record first, then the JPEG; K5)", and its later re-file is S5-P's, by its uploader; **[C]** decided by Claude
+here, with the reason given. §18's table "THE CONTROLS THAT WRITE" names the slots K5 fills (the button in the body's
+84 dp end padding, the result line's `Progress shot filed at …`), and §19's "Deliberately NOT in K4" what K4 left for
+it: the two photo steps, the JPEG send, its rule against the Wi-Fi-only toggle (the K4 critic, finding 9), and the S5-P
+re-file of a Capture 360 photo that went up by K5's route.*
+
+**Goal**
+
+Staff take a progress shot from the album, exactly as the prototype draws it: `Progress shot` in the album's corner
+opens the camera with WORK (picked before the shot; the Quote journey while the estimate is not approved), ROOM and an
+optional caption; the shutter files the shot at once — its card in its chapter, that chapter opened, `Progress shot
+filed at <work>` in the header — and the phone sends it to S5's album as a staff photo, the record first and then the
+JPEG, through K4's outbox whenever there is signal. A single photo taken from the Capture 360 sheet after Client approved
+goes the same route [A3], stays ONE item on the phone (its capture row), and its later re-file on the WORK line reaches
+S5 through S5-P. Nobody else shoots: a vendor's own upload (`Upload a photo`, `Uploaded to …`) is K6.
+
+**Where a progress shot is taken from**
+
+- **The album's `Progress shot` button** [P 7483], for staff: the one place in the album a shot starts. The prototype's
+  work chapters have no camera of their own for staff; the only per-chapter camera is the vendor's `Upload a photo` in
+  its own works [P 7462–7463, 7493], which is K6.
+- **The Capture 360 sheet's A SINGLE PHOTO (Camera, Gallery), after Client approved** [A3; P 8014]. In the prototype
+  that photo is a capture row like any other (ingest 8020: `S.queue.unshift({… kind:'Photo', work})`), drawn on the room
+  screen and in the album through items() (7227–7229). The phone keeps it so (the row, its gallery copy, the room screen,
+  the WORK line) and ALSO sends it to S5's album by the progress shot's route [A3]. Before Client approved it stays the
+  phone's alone, as now: S5 takes no single photo then (SyncWorker.kt:162-176, "the web takes a 360's survey prep, not a
+  photo"), and answer 3 says "after approval".
+- Nothing else: no gallery pick in the album camera (the prototype's has none, 7499–7510), and no re-file of a progress
+  shot (the prototype's album has none, 7463–7542; S5's CLAUDE.md: "K5's progress shot picks its work before the shot
+  and is never re-filed").
+
+**What the prototype draws, and what it does not**
+
+The prototype's addShot (7272–7275) writes its store and the page redraws in the same tap, so — as for K4's writes — it
+draws no queued, sending, refused or offline state for a shot. By Amit's rule (11 Oct 2026) the phone draws a shot not
+yet on S5 as written (the overlay, below), one S5 took as S5's row, and one S5 refused as gone, with no words (§19's Q2).
+Three things the phone must do that the prototype does not draw are each answered with the prototype's rendering and
+recorded as a question below: the camera's viewfinder, where the prototype paints a simulated scene under its
+`phone camera · simulated` tag (7508–7509; Q1); the phone's camera app between the shutter and the result (Q1); and a
+project S5 does not list, where the prototype draws the button (Q3).
+
+**THE CONTROLS** (S = staff, as "Who shoots" says)
+
+| Control (who) | Where, exactly | Drawn / enabled when | Texts (key) | Tap |
+|---|---|---|---|---|
+| `Progress shot` (S) [P 7483–7485; CSS 1502–1503] | over the chapters' column, bottom end, 16 dp in (12 dp in landscape), in the 84 dp end padding K3 left (`.alb59body`, 1470) [Ph AlbumScreen.kt:86, :97]; an ExtendedFloatingActionButton, as the room screen's `Capture 360` is drawn [Ph MainActivity.kt:2799-2803]: 56 dp tall, 16 dp round, primaryContainer on onPrimaryContainer, the camera glyph `ic_mcft_cam` then the label (labelLarge), 16/20 dp, 12 dp gap | `canShoot` — never disabled | `album.progress_shot`; TalkBack `album.aria.take_progress` (the prototype's `aria-label`, which replaces the visible text) | opens the camera |
+| the camera (S) [P 7508–7510; CSS 1504–1505, 1509, 1523, 1540–1542] | over the whole album, as the viewer is (a Box over the Scaffold) [Ph AlbumScreen.kt:166]: #000, white; the viewfinder (the height the controls leave, at least 120 dp) over the controls column (6/12/10 dp, 6 dp gaps); in landscape the viewfinder left and the controls a 300 dp column on the right, its content at the bottom | from the button; closed the moment `canShoot` goes (ov(), 7576) | TalkBack pane title `album.progress_shot` (the dialog's `aria-label`, 7508) | — |
+| WORK, while locked [P 7502; CSS 1524–1531] | the controls' first row: at least 44 dp, 12 dp sides, 10 dp round, #1B1F1E, #EDEFEA; `WORK` labelSmall in 52 dp, #9AA29E; 8 dp gap; the value bodyMedium; read-only (`aria-disabled`: at .85, 6 dp above and below), its second text on a line of its own under the value | the album's lock banner is up (below) | `album.work_caps` · `album.quote_journey` · `app.stg_locked_quote` (on its own line its leading space collapses, as HTML draws it: `· locked until …`) | none |
+| WORK, unlocked [P 7503–7504] | the same row, a button (role Button) | the banner is not up | `album.work_caps` · the work (Masters.work) or `album.pick_work` · `album.tap_to_change` (bodySmall, #9AA29E, after the value, no ` · `) | opens Which work? |
+| ROOM [P 7505] | the second row, a button, the same look | always | `album.room_caps` · the room (Masters.room) or `common.whole_project` | opens Which room? |
+| the caption [P 7506; CSS 1532–1536] | the third row: an OutlinedTextField, one line, on #1B1F1E, its outline 1 dp #5E6663 (2 dp #B9F227 focused), its text #EDEFEA, its label #9AA29E (#B9F227 focused) | always | `album.caption_optional` | — |
+| `Cancel` [P 7510; CSS 1537–1538] | the bottom bar (84 dp, its three spaced between): first, a white text button at least 56 dp wide | always | `common.cancel` | closes the camera; nothing is written |
+| the shutter [P 7507; CSS 1539] | the bottom bar's middle: a 68 dp white circle inside a 4 dp black ring and a 2 dp white one (80 dp across); a 56 dp spacer after it | a tap only when WORK is the Quote journey or a work; with `Pick the work` the same circle takes no tap (the prototype's `disabled` has no style of its own for `.alb59shut`) | TalkBack `album.aria.take_photo` | opens the phone's camera app; its ✓ files the shot |
+| Which work? [P 7512] | a bottom sheet: FW2's WorkSheet [Ph TreeShell.kt:537-560] — `album.which_work`, the sixteen works over their OVERLAID states (K4's), the picked one on secondaryContainer, 12 dp after the last — opening whole (below) | from WORK, unlocked | `album.which_work`; the works (Masters.work), the states (Album.stateText) | sets the camera's work and closes; a dismiss or ◁ leaves it as it was |
+| Which room? [P 7513–7515] | a bottom sheet drawn as Which work? is (ModalBottomSheet opening whole, SheetTitle, one ListItem per row, the picked one on secondaryContainer, the rows scrolling, 12 dp after the last) | from ROOM | `album.which_room`; the project's rooms (Masters.room) in the rooms grid's order, then `common.whole_project` | sets the room (Whole project: none) and closes |
+| the result line [P 7413–7414] | K4's slot in the header, after the project line [Ph AlbumScreen.kt:253; §19's table] | after this visit's last shot, while the album holds it (queued, or S5's row) | `album.filed_x(stage = <the work's name; Quote journey for 0>)` | — |
+
+**Who shoots: staff, signed in to S5, on a project S5 lists** [P 7483 staff(), 7272; S5 asis.js:922-924; Ph S5Session.kt:119-127]
+
+`AlbumPage.canShoot(mirror, notOnS5, me)` is the one test; the button, the camera and the op read it.
+- **Staff, as S5 says it**: the mirror is held and its `role` is `pm` or `designer` (the prototype's `staff()`; S5's
+  record PUT takes a PM's and a Designer's photo alike and refuses only a client, 924; the phone signs in staff only,
+  S5Session.login ending any other session). The mirror is needed although S5 compares no base for a photo [C; K4's
+  writes need it too, for the role]: the record's answer and the JPEG's land in it (AlbumSync.take), and Album.merged keeps a
+  null mirror null, so a shot that landed before the album's first read would vanish from the album between its op
+  leaving the queue and the end-of-pass GET. Before that first read the album draws no button, as it draws K4's
+  controls; the project open reads every listed project's album (§18), so that is a first open offline.
+- **Signed in to S5 as a login whoami named** (`Me.user`, `Me.signedIn`): the record's `by` is that login, S5 takes the
+  JPEG from the record's uploader alone (959), and the outbox is the login's (§19). A phone with only a legacy ERP key,
+  or signed out by a refused renewal, draws no button [C, K4's rule].
+- **A project S5 lists**: the outbox is keyed by the S5 id (WishSync.stageKey, null for a project only on this phone
+  [Ph WishSync.kt:128-138]), and S5 answers 404 before its handler for a project it does not list (922). The prototype
+  draws the button there (its addShot has no S5 in it): Q3.
+
+A vendor and a client are K6.
+
+**THE CAMERA: the phone's own camera app** [Ph MainActivity.kt:965-968, 2756-2765; P 8307-8308; C]
+
+The phone has one camera route and K5 uses it: ActivityResultContracts.TakePicture into a FileProvider file under
+`files/shots/` (res/xml/file_paths.xml's `shots/`), the route the Capture 360 sheet's Camera takes — and the prototype
+draws that route as a simulated "phone camera" too (cameraHtml, 8307, under the same `phone camera · simulated` tag the
+album camera carries, 7508). So the dialog is the prototype's — WORK, ROOM, the caption, Cancel and the shutter, in its
+places and sizes — and the shutter opens the phone's camera app; its ✓ files the shot as the prototype's shutter does
+(shoot, 7497–7498), and its back leaves the dialog as it was. The viewfinder area is the dialog's black with nothing in
+it [C: the phone has no preview there; the shot is taken in the camera app]: Q1. An in-app camera with a live preview
+(CameraX) is NOT in K5: it is a new library and the CAMERA permission, and an app that declares CAMERA without holding it
+has Android refuse the TakePicture intent the Capture 360 sheet already uses — its own slice, through the prototype.
+- **The visit's camera** (`AlbumPage.Cam(work, room, caption)`, the prototype's `m.cam`, 7492) opens with the work the
+  prototype gives it: while the album's lock banner is up the Quote journey (0); else the first work In progress by the
+  OVERLAID states, else none (`Pick the work`, the shutter takes no tap) [P 7492: `K.x56(p)?(ow.length?ow[0]:null):0`];
+  the room none (Whole project); the caption blank. The lock is the album's own (Chapters.execLocked: Client approved,
+  or a state row, with an unread stage as execution, Album.exec [Ph Album.kt:706]) — S5's albumPutPhoto lock (1842) —
+  rather than the prototype's x56, from which it differs only for a project with recorded work that is not approved,
+  which approval being final leaves unreachable (§19) [C: one test for the banner, the chapters and the camera].
+  Opening the camera closes the viewer [P 7491].
+- **The shutter**: an id is minted (Album.mintId) and the camera app is asked to write `files/shots/album-<id>.jpg`.
+  The pending shot — the S5 id, the id, the work, the room, the caption, the file — is held in `rememberSaveable` (a
+  listSaver of strings) [C], so a camera app that makes Android recreate the activity (it can, on a 4 GB Mi A3) still
+  files the shot when its result reaches the new composition; the album itself is a plain `remember` and reopens closed,
+  the app-wide rotation loss QM2's review recorded.
+- **The camera app's ✓** (TakePicture's `true`): the camera dialog closes, the visit's result becomes `Res.Filed(work,
+  id)` and the shot's chapter opens (`albumOpen[Album.chapterOf(work)] = true`, the prototype's
+  `m.open[nOfWork(p,x.work)]=true`, 7498). Off the main thread the shot's file is written (below), then the op is queued
+  (AlbumWrite.shot → AlbumOutbox.add) and the drain asked to run (REPLACE). The card and the line appear when the op is
+  on disk, about a second after the camera app closes (the encode) [C: the file first and the op after, so no op is ever
+  queued without its JPEG].
+- **Its back** (`false`): the dialog stays as it was; the camera app's empty file is deleted.
+- **A camera app that cannot be opened, or a file that does not decode**: nothing is queued and nothing is drawn (the
+  prototype has no such state), one Log.w (Q1).
+- **Back** [P 7392–7398]: a sheet of the camera first (ModalBottomSheet's own), then the camera
+  (`BackHandler(enabled = camera open)`, composed after the viewer's), then the viewer, then the album.
+
+**THE SHOT'S FILE** (`app/AlbumShots.kt`, NEW; its rules pure in `pano/AlbumShot.kt`, NEW) [S5 asis.js:952-980; Ph
+AlbumQueue.kt:50-53; C]
+
+S5 takes a JPEG (FF D8 FF, else 415) of at most 8 MB (413), written ONCE. The phone's camera app writes what it writes —
+on most phones EXIF orientation rather than turned pixels, 12 MP or more on the Mi A3 — and the gallery can hand over a
+HEIC or a PNG. So the queued file is never the camera's: AlbumShots writes it once, at the shutter —
+- decoded with `inSampleSize` the largest power of two that keeps the long side at least `AlbumShot.LONG_SIDE` = 3072
+  px (VIEWER_TARGET, the largest the phone ever draws a photo [Ph ZoomableImage.kt:44]), then scaled to it, never up;
+- turned and mirrored by its EXIF orientation (android.media.ExifInterface, the platform's: no new library), the turn
+  baked into the pixels — `AlbumShot.turnOf(orientation)`, the EXIF 1–8 table, pure. Every reader then draws it the
+  right way up, and the EXIF goes with the re-encode: no location or camera serial reaches S5 or the client [C];
+- encoded JPEG at quality 90, else 75, else 60 until it is at most S5's 8 MB (`AlbumShot.QUALITIES`, `MAX_BYTES`): at
+  3072 px the first always fits (about 1.5–3 MB); the ladder is the guarantee;
+- written to a temp file and renamed onto `filesDir/album/shots/<id>.jpg` (AlbumQueue.shotPath) — and only then is the
+  op queued. The camera app's file is deleted.
+
+It is KEPT until it lands, and then it MOVES, never copied: when S5 has the bytes (the JPEG PUT's 200, or a record
+replay whose row already has them) the commit renames it into AlbumImages' cache under the album photo's own name
+(`AlbumImages.adopt`), so the card never asks S5 for the bytes it was just sent; a cache that already holds the file
+keeps its own and the shot is deleted (the same bytes). AlbumImages.fetch looks at the shot FIRST for an album photo,
+then the cache, then S5 — one rule about where an album photo's bytes are, as §18 has one for a capture's — so one of
+the two files is there at every instant of the move. A shot whose op S5 dropped is kept while the op is in `dropped`
+(the newest 20, §19) and goes with it: `AlbumShot.orphans(files, held, now)` names every shot whose id is in no login's
+queue or `dropped` and that is older than ten minutes (a shot is written before its op is queued), deleted at the end of
+every pass and by the hourly catch-up. **A sign-out leaves them**: the outbox survives sign-out (§19), so do its shots.
+AlbumSync.forgetAll deletes the mirror files in `filesDir/album` and nothing under `album/shots/` — today a non-empty
+folder survives its `delete()` by accident and an empty one does not [Ph AlbumSync.kt:208-216; C].
+
+**THE SINGLE PHOTO FROM THE CAPTURE 360 SHEET** [A3; S5-P; Ph MainActivity.kt:725-830, 2171-2190, 2278-2283]
+
+- **It is queued in ingest**, after its row is inserted (MainActivity.kt:802-812), when it is a `Photo`, the project is
+  at Client approved (`fileApproved`), its work is one of the sixteen (always so after approval: ingest refuses a photo
+  with no work, the FW2 review's finding 3), the project has an S5 id (`fileKey`), and the phone is signed in to S5 as a
+  login whoami named. AlbumShots writes the shot from the row's kept file (`panos/<id>.jpg`, FaceWriter.single's copy of
+  the original [Ph FaceWriter.kt:532-552] — the clean photo, never the captioned gallery copy) and AlbumWrite.single
+  builds the op: the album id `Album.photoIdOf(deviceId)`, the row's work, the row's room as the as-is record sends it,
+  no caption (the prototype's queue item has none, 7229), `client_at` the row's createdAt. The room screen's own line,
+  `Photo filed in …`, is unchanged [P 8021].
+- **ONE ID FOR ONE CAPTURE** [Ph Handover.kt:62-65; C]: `Album.photoIdOf("MCAP-<12 hex>") = "ALB-<the same 12 hex>"`,
+  S5's ALBUM_ID_RE, and `deviceIdOf` back. No store column and no mapping to keep: the capture names its album photo, a
+  retry or a restart sends the same id (S5's replay), and the album composes the two as one.
+- **ONE ITEM** (AlbumPage.compose, §18's one filing): the phone's row claims S5's album photo of its album id, as it
+  claims S5's capture by its device id. The item is the phone's — filed by the phone, its kept file its picture — and
+  remembers `album` = that id when S5 holds it or the outbox does, so its picture falls back to that album photo when the
+  kept file has gone (the ERP leg deletes a single photo's file after its bench upload, SyncWorker.kt:294).
+- **Its row reads `synced` once S5 has the JPEG** [P 8190]: the commit sets it SYNCED (CaptureStore.setState, no
+  serverName) when its album photo lands; and the S5 leg's (c2) (SyncWorker.kt:162-176) passes over a Photo whose album
+  op is still queued under any login (`AlbumOutbox.holdsPhoto`), which it would otherwise mark `on this phone only - the
+  web takes a 360's survey prep, not a photo` on the queue screen [Ph MainActivity.kt:3403-3409]. SYNCED with no
+  serverName is (d)'s own meaning, "on S5, not on the bench", which the ERP leg picks up (SyncWorker.kt:178-189).
+- **Its WORK line re-files it on S5 by S5-P** — what FW2 left for K5. FW2's refile() sets the phone's copy and asks S5-R
+  only for a capture whose as-is upload reads On web (WorkRefile.onWeb, MainActivity.kt:2278-2283), never true for a
+  Photo; AQ built the op (Album.refileOp, Album.kt:1156) and K4's drain sends it, and nothing has queued one. K5's
+  refile(), for a Photo, after setWork: when this login's outbox holds its photo op or the mirror holds its album photo,
+  AlbumWrite.refileSingle queues `Album.refileOp(photo, to)` — its base the work S5 holds (the mirror's row) or will hold
+  (the queued op's), AQ rebasing a chain of re-files — and the drain sends `PUT …/album/photos/<id>/work` behind the
+  record in FIFO order, so a re-file made before the shot has gone simply follows it (S5-P has no bytes term, 1067 and
+  1874–1880). Neither held — a photo taken before approval, or under another login whose op this login cannot send —
+  and the phone's filing moves alone, as a capture's does that is not on S5 [C].
+- **S5 wins a re-file**: its 403 `Only the login that uploaded the photo re-files it` (1066) and its 409s (the lock,
+  `Re-filed meanwhile — …`, 1078–1080) come with the photo as stored, "so the phone can put back the work it set locally"
+  (S5's CLAUDE.md, S5-P): the commit puts S5's work back on the capture row (CaptureStore.setWork) when it differs, and the
+  WORK line shows S5's filing again, with no words (§19's Q2).
+- **A capture deleted before its photo reached S5** takes the queued op (and its photo's later re-files) out of whichever
+  login's outbox holds it, with its shot, under the store lock (`AlbumOutbox.unqueuePhoto`) [C: the prototype's delete
+  takes the item out of the album]. One already on S5 stays there — S5 has no delete for an album photo — and the album
+  then draws S5's copy (Q4).
+
+**THE OVERLAY: a shot shows at once** [P 7272-7275, 7226-7234; Ph Album.kt:1235 provisionalPhoto; §19]
+
+compose takes this login's queue (`compose(mirror, local, me, queue)`), so the tile, the model and every count read one
+set of items:
+- each queued photo op that no item already stands for is `Album.provisionalPhoto(op, role, me.user, me.name, at)` with
+  `queued = true` — by this person, at its shutter instant, in its work and room, with its caption — and its picture is
+  its shot (`Pic.AlbumJpeg(id)`, which AlbumImages finds on disk first);
+- S5's row stands for it once its JPEG has landed (`bytes > 0`). The row the record's answer merges into the mirror at
+  bytes 0 (AQ's recorded(), AlbumQueue.kt:250-255) never doubles it: the provisional stands until the bytes do, and S5's
+  GET lists no row with none (1823);
+- a single photo's capture row stands for its own (above);
+- **a shot's time is its shutter's** [C]: the record carries `client_at` = the shutter instant (Instant.toString, under
+  S5's 40 characters; migration 0008: "device clock, display only"), and compose shows an album photo at its `client_at`
+  when that reads as an instant no later than S5's `at`, else at S5's `at` (`Album.takenAt`). A shot taken offline at
+  10:00 and received at 18:00 keeps its day, its place in the walk and its quote group — quoteAt of the shutter, as the
+  prototype's addShot stamps the shot at the tap (7274) — and no card's time moves between the overlay and S5's row
+  (K4's Op.at rule). S5 keeps its own `at` beside it.
+- The result line is `AlbumPage.resultText` for `Res.Filed(work, photo)`: drawn while the album's items hold the photo,
+  gone once S5 dropped it (K4's rule: judged by what the album shows, never by `dropped`). `Res` becomes
+  `sealed interface Res { Review(state, photo); Filed(work, photo) }`, K4's review result being `Res.Review`
+  [Ph AlbumPage.kt:752-772].
+
+**THE OUTBOX AND THE DRAIN: two more steps, the same pass** [Ph AlbumQueue.kt:59-65, 107-116, 250-255, 334-394;
+AlbumOutbox.kt; §19]
+
+- **The photo op joins the login's FIFO** at its tap, after every op stored, as a log op does (AlbumOutbox.add;
+  AlbumWrite.atAdd gives a photo op back as it came). Its order against the work's log ops is the tap order; nothing on
+  S5 orders them (albumPutPhoto reads no seq, 1839–1846).
+- **The drain sends every step.** `AlbumQueue.K4_STEPS`, `drain`'s `sends` and `Pass.held` go: K4's hold existed only
+  for this slice (the K4 critic, finding 9), and a parameter with no case left is the fallback the project's rule forbids
+  [C]. A photo op is its RECORD then its IMG in the same pass (AQ: the record's 200 keeps the op at the head `recorded`,
+  its JPEG next; a replay whose row already has bytes lands it).
+- **The JPEG send** (AlbumOutbox.send, IMG): the file `filesDir/<rq.file>` read whole (at most 8 MB; the app is
+  largeHeap) and sent as `image/jpeg` exactly — never with the `; charset=utf-8` K4's JSON sends carry [Ph
+  AlbumOutbox.kt:240-256] — on the client and timeouts the as-is images use (AsIsUpload.exchange, its 300 s write
+  timeout [Ph AsIsUpload.kt:238-241, 261]). A file that is not there (cleared storage) no retry can send: send answers
+  `AlbumQueue.Sent(NO_FILE)` and `verdictOf` makes it REFUSED — that op and its photo's dependants alone
+  (Album.afterRefused), one Log.w. The record S5 holds stays at bytes 0, which S5 never lists.
+- **A work's 409 no longer drops a shot** [S5 1839-1846: albumPutPhoto's WHERE is a vendor's photo, the quote journey,
+  unfiled, Client approved or a state row — no seq; C]. Album.dropWork (Album.kt:1431) drops "the later ops on the same
+  work" for a 409 on a log or a photo op, so a state write lost to another writer took a queued shot into the same work
+  with it — and its JPEG with the op. As K4 took reviews out of that cascade (its finding 2), K5 takes photo ops out: a
+  log op's 409 drops the later LOG ops on its work; a photo op's 409 (only ever `locked: true`, 945) drops that op and
+  its photo's later re-files and reviews (withDependants). Every other op meets its own answer — the lock is the
+  project's, so a shot behind a locked one meets its own 409. A dropped shot's JPEG stays while it is in `dropped`.
+- **The commit gains three steps**, each read off the pure verdict (`AlbumQueue.landed(op, verdict, reply)`,
+  `AlbumQueue.refiledBack(op, verdict, reply)`), all after (1) S5's rows into the mirror and before (2) the outbox apply,
+  so the screen's one snapshot (the queue, then the mirror) never pairs a gone op with a missing picture: the shot
+  adopted into the cache; a single photo's capture row SYNCED; a refused or won re-file's work put back on its capture
+  row. A crash between them sends the op again: S5's replay (`written: false`) lands it again, harmlessly.
+- **THE WI-FI-ONLY TOGGLE IS NOT THE SHOT'S** — the decision the K4 critic's finding 9 left to K5 [Ph
+  SyncWorker.kt:440-457, AsIsUpload.kt:83, MainActivity.kt:3215-3220; C]. The drain stays CONNECTED and sends the JPEG
+  on any network. The toggle is the hourly sync's WorkManager constraint ("A 20 MB pano on a site's mobile data is
+  somebody's bill"), and since AS1 the as-is upload sends each 360's six squared faces — six JPEGs, more bytes than one
+  3072 px shot — on CONNECTED too. Holding the shot alone to Wi-Fi would make the toggle mean less, not more, and doing
+  it without holding the log ops behind it needs a skip in the pass (the shape K4 kept room for): the pass reshaped for
+  one step. Whether "Upload on Wi-Fi only" should hold every S5 upload — the shots and the 360s alike — is Amit's (Q5);
+  until then the toggle does what it does today.
+- **Not new**: one unique job per project (REPLACE on a tap, the hourly catch-up), one pass at a time pinned to its login
+  and epoch, S5's answer before the op leaves the queue, the GET after a pass that took an answer (§19).
+
+**S5's answers, and what the phone then shows** [S5 asis.js at 9a51733; AQ's verdicts]
+
+| Step | S5's answer | Verdict | The mirror, the queue, the files | What the album shows |
+|---|---|---|---|---|
+| RECORD `PUT …/album/photos/<id> {v:1, work, room, caption, kind: "photo", client_at, via: "phone"}` | 200 `{ok, written: true, photo}` (949), the row at bytes 0 | POSTED | the row into the mirror; the op stays at the head `recorded`, its JPEG next in the same pass | the provisional (the row has no bytes) |
+| | 200 `written: false`, the row as stored (949: its uploader's replay) | REPLAY | as POSTED; a row that already has bytes (its JPEG landed on a pass whose answer was lost) lands the op — adopted, SYNCED | the provisional, or S5's row |
+| | 409 `{error: "Work starts once the client approves the estimate", locked: true}` (945) | LOCKED | that op and its photo's re-files dropped with S5's words; the shot kept while in `dropped` | the shot goes; the chapters lock once the GET brings the stage — no words (Q2) |
+| | 403 `This photo id belongs to another uploader` (948), `A client cannot add photos to the album` (924); 400 (validPhoto's words, 688-698); 413 `Request too large` | REFUSED | that op and its photo's dependants alone | the shot goes — no words |
+| | 404 `Not found` (922: not listed), 405, 5xx, no network | STOP | as it was | queued |
+| IMG `PUT …/album/photos/<id>/img`, `image/jpeg`, the shot | 200 `{ok, written: true, bytes}` (980) | POSTED | the bytes onto the mirror's row; the op leaves; the shot adopted; a single photo's row SYNCED | S5's row: the same card and picture |
+| | 200 `{ok, written: false, bytes}` (964-965, 976: written ONCE — a second PUT stores nothing) | REPLAY | as POSTED | the same |
+| | 404 `Upload the photo record first` (958) | STOP, `recorded` cleared (AQ) | the next pass sends the record again: its uploader's replay | queued |
+| | 403 `Only the uploader of this photo sends its image` (959); 415 `Send the photo as image/jpeg` (967), `That is not a JPEG` (973); 413 `Image larger than 8 MB` (969, 971) | REFUSED | that op and its photo's dependants; the shot kept while in `dropped` | the shot goes — no words (none reachable as built: the file is a JPEG under 8 MB, sent by the login that recorded it) |
+| | 503 `Photo storage not bound for this environment` (953), 5xx, no network | STOP | as it was | queued |
+| | (no file on the phone) | REFUSED (`NO_FILE`, the phone's) | that op and its photo's dependants | the shot goes |
+| REFILE `PUT …/album/photos/<id>/work {work, base}` (a single photo) | 200 `written: true` (1069) or `false` (1075), the photo | POSTED / REPLAY | the row into the mirror; a later re-file of it rebased (AQ) | the phone's filing, which S5 now holds |
+| | 403 `Only the login that uploaded the photo re-files it` (1066); 409 locked (1078), `Re-filed meanwhile — …` (1079), `Changed meanwhile` (1080) — each with the photo | REFUSED / LOCKED / CONFLICT | the row into the mirror; S5's work back on the capture row | S5's filing — no words |
+| | 404 for a photo the mirror does not hold (AQ's noRow) | REFUSED | that op alone | the phone's filing (S5 has no such photo) |
+| any | 401 | RELOGIN | renewed once, resent | queued |
+
+**THE SHOT AS AN OP** (`pano/AlbumWrite.kt`, CHANGED) — each on K1b's gate and op builder, as K4's taps are:
+- `shot(m, cam, id, now): Out` — `m.shoot` (the Model's, kept when canShoot: the viewer, the album's lock, the OVERLAID
+  states) and `Album.photoRecord(viewer, exec, work)` [Ph Album.kt:1013]: the Quote journey always, a work only
+  unlocked; a null work is `Out.None` (the shutter takes no tap then); else `Out.Queue(Album.photoOp(work, room, caption,
+  PHOTO, id = id).copy(at = now, clientAt = now))`.
+- `single(deviceId, work, room, createdAt): Album.Op?` — the Capture 360 sheet's photo: `Album.photoIdOf(deviceId)`;
+  null when the id is not a device id or the work is not one of the sixteen.
+- `refileSingle(mirror, queue, deviceId, to): Album.Op?` — S5-P for a single photo (above): the mirror's album photo,
+  else this login's queued photo op as `Album.provisionalPhoto`; null when neither, or when `to` is where it already is.
+- `openCam(m): AlbumPage.Cam?` — the camera's opening values (above); null when the person cannot shoot.
+
+**Files and changes**
+
+**pano/…/AlbumShot.kt (NEW, pure)** — `LONG_SIDE = 3072`, `MAX_BYTES = 8 * 1024 * 1024` (S5's MAX_IMG), `QUALITIES =
+listOf(90, 75, 60)`, `sampleFor(w, h)`, `sizeFor(w, h)` (never up, the aspect kept), `Turn(degrees, mirror)` and
+`turnOf(orientation)` (EXIF 1–8; anything else, no turn), `isJpeg(head)`, `SHOT_GRACE_MS = 600_000`, `ShotFile(id,
+mtime)` and `orphans(files, held, now)`.
+
+**pano/…/Album.kt (CHANGED)** — `photoIdOf(deviceId)` / `deviceIdOf(photoId)`; `photoOp(…, id: String = mintId(random))`
+(before `random`; every caller unchanged); `Photo.queued: Boolean = false` and `Photo.album: String? = null` (neither is
+S5's field and neither is written to the mirror, as `source` and `capture` are not); `takenAt(p)`; `dropWork` as above,
+and its KDoc and afterLocked's say so.
+
+**pano/…/AlbumQueue.kt (CHANGED)** — `K4_STEPS`, `drain`'s `sends` and `Pass.held` removed; `NO_FILE` and its REFUSED in
+`verdictOf`; `landed(op, verdict, reply)`; `refiledBack(op, verdict, reply): Int?` (S5's filing of a photo whose re-file
+it refused or won, from the photo its answer carries); `heldPhotos(outboxes): Set<String>` (every photo id in any login's
+queue or `dropped`); the class note's drain paragraph says every step is sent.
+
+**pano/…/AlbumPage.kt (CHANGED)** — `compose(mirror, local, me, queue = emptyList())` (the queued shots, the single
+photo's claim, the taken time); `pic`: an ALBUM item with bytes, or `queued`, is `AlbumJpeg`, and a PHONE item with no
+kept file and an `album` is `AlbumJpeg(album)`; `canShoot`; `Model.shoot` (internal) and `Page.shot: Fab?` (`Fab(label,
+aria)`); `Cam`, and `Camera` (`work: CamRow(label, value, sub, tap, dim)`, `room: CamRow`, the caption's label, `shutter:
+Boolean`, the shutter's and the pane's TalkBack, `cancel`) from `camera(tx, m, cam)`, null when the person cannot shoot;
+`RoomSheet(title, rows: List<RoomRow(room: String?, text, selected)>)` from `roomSheet(tx, cam, rooms)`; `Res` sealed
+(Review, Filed) and `resultText`'s Filed branch.
+
+**pano/…/AlbumWrite.kt (CHANGED)** — the four above.
+
+**app/…/AlbumShots.kt (NEW)** — `write(context, source: File, id): Boolean` (decode, turn, scale, the quality ladder,
+temp + rename; never throws: false and one Log.w on any failure), `fileOf(context, id)`, `delete(context, id)`,
+`trim(context)` (AlbumShot.orphans against AlbumOutbox's held ids).
+
+**app/…/AlbumCamera.kt (NEW)** — `AlbumCamera(model, caption, onCaption, onWork, onRoom, onCancel, onShutter, landscape)`:
+the dialog above, drawing the model and nothing of its own; the shutter's rings in drawBehind.
+
+**app/…/AlbumSheets.kt (CHANGED)** — `AlbumRoomSheet(sheet, onPick, onDismiss)`, opening whole as K4's three do
+[Ph AlbumSheets.kt:76, 108].
+
+**app/…/TreeShell.kt (CHANGED)** — `WorkSheet(…, skipPartiallyExpanded: Boolean = false)`: the camera passes true, so its
+Which work? opens whole as the prototype draws every sheet (the K4 review, finding 1); the Capture 360 sheet's and the
+WORK line's calls keep the default — the app-wide half-open item §19 recorded is not K5's.
+
+**app/…/AlbumScreen.kt (CHANGED)** — the button in a Box over AlbumBody, portrait and landscape; the camera over the album
+with its BackHandler; the two sheets. New parameters after K4's: `shot: AlbumPage.Fab?`, `camera: AlbumPage.Camera?`,
+`caption`, `roomSheet: AlbumPage.RoomSheet?`, `workSheet: Boolean`, `camStates`, `onShot`, `onCamWork`, `onCamRoom`,
+`onCaption`, `onCamCancel`, `onShutter`, `onPickWork`, `onPickRoom`, each defaulted so K4's call compiles.
+
+**app/…/AlbumImages.kt (CHANGED)** — `fetch` for an `AlbumJpeg` looks at `AlbumShots.fileOf(id)` first; `adopt(context,
+project, id)`.
+
+**app/…/AlbumOutbox.kt (CHANGED)** — the IMG send and NO_FILE; the commit's three steps; `holdsPhoto(context, photoId)`
+(any login's queue); `unqueuePhoto(context, photoId)`; `AlbumShots.trim` after a pass and in `enqueueAll`; the class
+note's "Not Wi-Fi-only" sentence names the JPEG and why (above).
+
+**app/…/AlbumSync.kt (CHANGED)** — forgetAll deletes the mirror files only, never under `album/shots/`; its KDoc says why.
+
+**app/…/SyncWorker.kt (CHANGED)** — (c2) passes over a Photo whose album op is held (`AlbumOutbox.holdsPhoto(context,
+Album.photoIdOf(c.deviceId))`), and its comment says a single photo after approval goes to the album (K5).
+
+**app/…/MainActivity.kt (CHANGED)**
+- `albumCamera = rememberLauncherForActivityResult(TakePicture())` beside `camera` (:965-968), filing the pending shot
+  held in rememberSaveable; the camera's state (`albumCam`, its open sheet) beside `albumSheet` and `albumRes`
+  (:212-222), cleared by leaveAlbum and by the tile's open (:1471-1482);
+- `albumItems = remember(mirror, albumLocal, albumMe, albumQueue) { AlbumPage.compose(mirror, albumLocal, albumMe,
+  albumQueue) }` (:1457), so the tile counts a queued shot;
+- the album branch (:1567-1633): the button, the camera and its two sheets; `onReview`'s result becomes
+  `AlbumPage.Res.Review`;
+- ingest (:725-830): the single photo's album op (above); refile (:2278-2283): S5-P for a single photo (above); onDelete
+  (:2171-2190): `AlbumOutbox.unqueuePhoto` for a Photo.
+
+**android/i18n** — **NO NEW KEY**: every text K5 draws is one the tables already hold (L1 landed the prototype's album
+camera keys, v59 and v60), so Tx is not regenerated. `ported.txt` gains `pano/…/AlbumShot.kt`, `app/…/AlbumShots.kt` and
+`app/…/AlbumCamera.kt`; `unkeyed.tsv` gains nothing (its lines only leave); `literal-counts.tsv` is rewritten by
+`:pano:i18nRatchet`; README gains "Port 61c slice K5". The shutter's rings are drawn, not text; log lines and the
+`album-<id>` file names are `// text:value`. The texts, EN and MR as the tables (and the prototype's RAW table) hold them:
+
+| key | EN | MR |
+|---|---|---|
+| `album.progress_shot` | Progress shot | कामाचा फोटो |
+| `album.aria.take_progress` | Take a progress shot | कामाचा फोटो काढा |
+| `album.work_caps` | WORK | काम |
+| `album.quote_journey` | Quote journey | कोटेशनचा प्रवास |
+| `app.stg_locked_quote` | ` · locked until the client approves the estimate` | ` · ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक` |
+| `album.pick_work` | Pick the work | काम निवडा |
+| `album.tap_to_change` | tap to change | बदलण्यासाठी टॅप करा |
+| `album.room_caps` | ROOM | खोली |
+| `common.whole_project` | Whole project | संपूर्ण प्रोजेक्ट |
+| `album.caption_optional` | Caption (optional) | कॅप्शन (हवे असल्यास) |
+| `common.cancel` | Cancel | रद्द करा |
+| `album.aria.take_photo` | Take the photo | फोटो काढा |
+| `album.which_work` | Which work? | कोणते काम? |
+| `album.which_room` | Which room? | कोणती खोली? |
+| `album.filed_x` | Progress shot filed at {stage} | कामाचा फोटो "{stage}" मध्ये ठेवला |
+
+`album.filed_x`'s placeholder is named `stage` (v59's; `tx.album_filed_x(stage = …)`) and carries the work's name
+(Album.workName: `Quote journey` for 0). The works, states and rooms are Masters'.
+
+**S5 must already serve**
+
+All on stage since 26 Oct – 2 Nov, nothing new: `PUT …/album/photos/:id` and `…/img` (26 Oct), `PUT
+…/album/photos/:id/work` (S5-P, 2 Nov), and `GET …/album` for the end-of-pass read.
+
+**Tests and checks**
+
+- **AlbumShotTest (NEW, :pano)**: `the sample keeps the long side at least 3072 and the size never grows` (4000×3000,
+  3000×4000, 3072×2304, 1600×1200, 12000×9000); `every EXIF orientation turns and mirrors as the EXIF table says,
+  anything else not at all`; `a JPEG is FF D8 FF`; `the qualities step down and 8 MB is S5's cap`; `orphans - a shot no
+  queue or dropped holds goes after ten minutes, a younger one and a held one stay`.
+- **AlbumWriteTest (CHANGED)**: `a shot is the record S5 takes - work, room, caption, kind photo, client_at the shutter,
+  via phone - under the id minted at the shutter` (requestOf's body against a body shaped by hand from validPhoto,
+  asis.js 688-698: S5Album's harness was lost with the scratchpad, so no new S5 answer is pasted as verbatim); `while
+  locked the shot is the Quote journey's, unlocked a work's, and with no work nothing`; `a Designer shoots; a vendor, a
+  client, no sign-in, no mirror read yet and a project S5 does not list do not`; `the camera opens on the first work In
+  progress of the OVERLAID states, else on Pick the work, and on the Quote journey while locked`; `a single photo's op
+  is its capture's album id, its row's room, no caption, client_at its createdAt - and none before approval or off the
+  sixteen`; `the single photo's re-file is S5-P from the mirror's row or the queued op, and none when neither or already
+  there`; `the caption and the room are held to S5's caps`.
+- **AlbumPageTest (CHANGED)**: `a queued shot shows at once - its card by this person at its shutter, in its work, room
+  and caption, its chapter counting it, the tile counting it`; `S5's row with bytes stands for it, and the record
+  answer's row at bytes 0 never doubles it`; `a single photo is one item - claimed by its capture whether S5 or the
+  outbox holds it - and its picture is the album photo once the kept file has gone`; `an album photo is shown at its
+  client_at, never after S5's at, and a quote-journey shot sits in its shutter's group`; `the button per person - staff
+  signed in on a project S5 lists, a Designer included; none with no sign-in, after a refused renewal, before the
+  album's first read, on a project S5 does not list, for a vendor or a client`; `the camera - WORK read-only with the
+  lock while locked, else the work or Pick the work and tap to change; ROOM the room or Whole project; the shutter a tap
+  only with a filing`; `Which room? - the rooms in order, Whole project last, the picked one selected`; `the result line
+  Progress shot filed at the work, the Quote journey for 0, gone when S5 dropped the shot; a review's line still K4's`;
+  `every camera text in Marathi (Tx.MR)`; and read as source: the button in the body's end padding, the camera over the
+  album with its BackHandler after the viewer's, the two sheets opening whole, the camera's file through the
+  FileProvider's `shots/`, the pending shot in rememberSaveable, the shot written before it is queued.
+- **AlbumQueueTest (CHANGED)**: `a shot drains as S5 takes it - its record, then its JPEG, in one pass; a replay with
+  bytes lands it`; `a state's 409 on the work leaves a shot behind it to go; a shot's locked 409 drops it and its photo's
+  re-files, and nothing else`; `a JPEG the phone does not have is refused for good, that op and its photo's dependants`; `landed - the JPEG's
+  200 and its replay, and a record replay with bytes; never a record without`; `refiledBack - S5's work from a refused or
+  won re-file's photo, none from one it took`; `heldPhotos covers every login's queue and dropped`; K4's held test
+  becomes `every step is sent`.
+- **AlbumTest (CHANGED)**: `photoIdOf and deviceIdOf map the twelve hex digits both ways and nothing else`; `dropWork - a
+  log op's 409 keeps the photo ops behind it, a photo op's takes its own dependants alone`; `takenAt - client_at when it
+  is an instant no later than at, else at`.
+- **AlbumWireTest (CHANGED)**: `a photo op round-trips through the stored outbox with its client_at, recorded and
+  caption`.
+- **A source-reading test** (in AlbumPageTest, as K3's and K4's are): AlbumOutbox.kt's IMG send is `image/jpeg` with no
+  charset, and NO_FILE for a missing file; the commit adopts, marks SYNCED and puts back before `apply`;
+  AlbumImages.fetch looks at the shot first; AlbumSync.forgetAll leaves `album/shots`; SyncWorker's (c2) asks
+  holdsPhoto; ingest queues the album op only for a Photo at Client approved with a work; no `K4_STEPS` anywhere.
+- **I18nTableTest, TxRenderTest, I18nLiteralTest** — the three new ported files; check (f) resolves every `tx.` the
+  :app files call.
+- **The CI gate** (android-app.yml — :app is compiled ONLY there).
+- **Claude's stage check with d1-peek after Amit's walk**: `asis_album_photos` holds one row per shot of the walk —
+  staff, `by` the login, `via` phone, `client_at` the shutter, `bytes` > 0 — the single photo's at `ALB-` + its capture's
+  twelve hex digits, the re-filed one with `work_by` and `work_at` set; nothing for a project the walk did not touch; and
+  `asis_album_log` unchanged by the shots (a photo writes no log row).
+
+**What Amit sees**
+
+- On a project's album, as staff: `Progress shot`, bottom right. A tap opens the black camera: WORK (before approval
+  `Quote journey · locked until the client approves the estimate`; after it the first work In progress, or `Pick the
+  work` with a shutter that does not take the tap), ROOM, Caption (optional), Cancel and the shutter. The shutter opens
+  the phone's camera; its ✓ brings him back to the album with the shot in its chapter, that chapter open, and `Progress
+  shot filed at <work>` under the project line — with signal or without.
+- On an approved project a single photo from the Capture 360 sheet also reaches S5's album (the d1-peek above), its
+  WORK line moves it there too, and its room tile reads `synced` once it has landed.
+- Under मराठी, all of it in Marathi.
+
+Amit's walk, one step at a time, on the test project the K4 walk approved and on one still in the quote journey
+(invented, never a client's: every album photo it writes is permanent, S5 having no delete for one): a shot before
+approval; a shot after approval, online; one in airplane mode, then online; a single photo from the Capture 360 sheet,
+then re-filed on its WORK line; the same under मराठी.
+
+**Questions for the prototype** — the phone draws the prototype's rendering for each until Amit approves otherwise on the
+prototype:
+1. **The viewfinder.** The phone's shutter hands the shot to the phone's camera app, so the dialog's viewfinder area is
+   black with nothing in it, and the camera app appears between the shutter and the album. Approve that, or ask for an
+   in-app camera with a live preview (CameraX and the camera permission, its own slice). A camera app that fails to
+   open, or a file that does not decode, draws nothing.
+2. **A shot still on the phone, and one S5 refused**: §19's Q1 and Q2 (drawn as written; gone, with no words).
+3. **A project S5 does not list.** The prototype draws `Progress shot` there; the phone has no S5 id to queue the shot
+   under and draws no button.
+4. **Deleting a single photo that reached S5's album.** The capture goes from the phone; S5's album keeps the photo (it
+   has no delete), and the delete's confirm still says "It never reached the server, so there is nothing there to
+   remove" — already untrue for a 360 on S5 since AS1, whose item 5 (the delete and its confirm) waits for the prototype.
+   The same wording question, for photos too.
+5. **"Upload on Wi-Fi only"** (Amit's, not a drawing): should it hold every S5 upload — the album's shots and the 360s'
+   six faces — or stay the hourly sync's, as today?
+
+**Deliberately NOT in K5**
+
+- K6: vendor and client sign-in on the phone, a vendor's `Upload a photo` into its own works with its note `Your photos
+  show to the client once the Project Manager accepts them`, and `Uploaded to … · awaiting review`.
+- An in-app camera (Q1), and a gallery pick in the album camera (the prototype has none).
+- A re-file of a progress shot (the prototype's album has none), and deleting an album photo on S5 (no route).
+- A single photo before approval to S5 (answer 3 is after approval); a single photo taken before K5, or before approval
+  and re-filed after it, is not sent afterwards.
+- The other sheets' half-open default (§19's app-wide item); the Capture 360 sheet's camera Uri under a plain `remember`
+  (MainActivity.kt:965: the activity-recreation exposure K5 closes for its own shot); and its `files/shots/shot-*.jpg`,
+  never deleted after ingest — recorded here, not changed.
+- Whether FaceWriter.single's captioned gallery copy honours the EXIF orientation (it decodes with BitmapFactory, which
+  ignores it, FaceWriter.kt:554-563): K5's shot does; the gallery copy is not K5's.
+- Before / After pairs (S5 has no `pairOf`).
+
+**Risks**
+
+- **The encode** holds a 12 MP bitmap (about 48 MB) for a moment, off the main thread, in the composition's scope as
+  ingest's split does: a process killed during it loses the shot (the camera app's file stays under `files/shots/`).
+- **A shot S5 drops is lost** once it leaves `dropped` (the newest 20): the prototype has no gallery copy of a progress
+  shot and K5 adds none. As built every drop above is unreachable but the lock race and a cleared disk.
+- **Two copies of a single photo** on the phone until it lands: the kept original and the 3072 px shot, which then moves
+  into the cache Android may evict.
+- **Data**: 1.5–3 MB per shot on mobile data whatever the toggle (Q5).
+- **A downgrade to a K4 build** holds the first queued photo op at the head (K4's `held`), and the rest of that project's
+  queue behind it, until K5 is back.
+- **The clock**: `client_at` is the phone's; a clock ahead is capped at S5's `at`, one behind shows the shot earlier than
+  it was taken.
+- **Data on stage**: every row the walk writes is permanent.
+
+**Critic notes, answered**
+
+1. *"A shot S5 has not taken yet is a second answer."* — It is the pending half of S5's one photo (§19's note 1): its
+   card goes the moment S5's row with bytes stands for it, and nothing about it is set by hand that S5 does not then take
+   or refuse.
+2. *"The single photo is filed twice — a capture on the phone and an album photo on S5."* — One item, by one rule: the
+   capture names its album photo (`photoIdOf`), compose lets the phone's row stand for both, and the phone's filing
+   reaches S5 by S5-P as a capture's reaches it by S5-R.
+3. *"Why not rewrite a queued shot's work in place, rather than queue an S5-P re-file behind it?"* — A pass may be sending
+   its record at that instant: S5 would take the old work, the stored op keep the new, and nothing would ever reconcile
+   them. A re-file queued behind it is right whatever the timing, for one small PUT.
+4. *"A state write that loses a race takes the PM's photo with it."* — It did (dropWork); K5 changes it, because S5's
+   photo record reads no seq.
+5. *"The JPEG ignores Wi-Fi-only."* — As the as-is upload's six faces already do; decided above, with Q5 for Amit.
+6. *"The camera app kills the activity and the shot is lost."* — The pending shot is in rememberSaveable; the result
+   still files it. The album reopens closed, the app-wide loss.
+7. *"S5 is told the shutter's time by the phone's clock."* — In `client_at`, which S5's own column calls "device clock,
+   display only", never shown later than S5's `at`; S5 keeps its own `at`.
+8. *"Re-encoding loses the EXIF."* — On purpose: the turn is baked in, the time travels as `client_at`, and no location
+   or device serial reaches S5 or the client.
+9. *"A sign-out deletes the queued shots."* — It does not, and now explicitly: forgetAll deletes the mirrors only.
+10. *"The card downloads the 3 MB the phone just sent."* — The shot moves into the cache when it lands, and AlbumImages
+    looks at the shot first, so the card never asks S5 for it.
+11. *"`Pick the work` beside a shutter that looks as usual reads as a broken button."* — The prototype draws its disabled
+    shutter with no style of its own (7507; no `:disabled` rule for `.alb59shut`), and the WORK row says what to do;
+    TalkBack says the shutter is disabled.
+12. *"The camera's lock is not the prototype's x56."* — It is the album's own banner test, equal to x56 in every case
+    approval-is-final leaves reachable: one test for the banner, the chapters and the camera.
+13. *"K4 gave a Designer nothing to write."* — The prototype's camera is staff's (`staff()`, 7483; addShot `pm` or
+    `designer`, 7272), and S5's record PUT takes a Designer's (922-924).
+14. *"The album id is the device id's hex — a collision?"* — Both are 48 random bits minted once; `ALB-<hex>` names one
+    row of one project (asis_album_photos is keyed by project and id), and the log's ids live in another table.
+15. *"A queued shot of another login shows, or is sent under this one."* — Neither: the outbox is the login's (§19), and
+    so is its overlay.
+16. *"A project's queue waits behind a big JPEG."* — FIFO by design (§19): the head goes first, and a log op tapped behind
+    a shot waits seconds on a site's 4G.
+17. *"Which work? in the camera opens half-way, as FW2's does."* — WorkSheet gains `skipPartiallyExpanded`, which the
+    camera passes; FW2's two calls are the app-wide item.
+18. *"The capture's delete confirm becomes untrue for a single photo on S5."* — It already was for a 360 on S5 since AS1;
+    Q4, with AS1's item 5.
+19. *"The button waits for the album's first read, which the prototype's does not."* — A shot landing with no mirror
+    would leave the album until the end-of-pass GET (Album.merged keeps a null mirror null), a frame the prototype never
+    draws; and the project open reads every listed project's album (§18), so only a first open offline is without it —
+    when K4's controls are absent too.
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)
