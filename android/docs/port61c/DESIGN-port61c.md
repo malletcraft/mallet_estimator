@@ -5,8 +5,11 @@ on 3 Nov 2026 (the scratchpad is ephemeral; nothing had committed the plan). Wha
 transcript still held verbatim: the slice table, §14 AS1, §15 FW1, §16 FW2, §25 M3a and the progress notes; and §18 K3,
 re-derived on 9 Nov 2026 from the prototype, S5 and the shipped code (it names the source of each decision), and §19 K4,
 derived the same day in the same way and built after its critic (its "The K4 critic" paragraph), and §20 K5, derived
-the same day in the same way and built after its critic (its "The K5 critic" paragraph). The other sections (§1–§13, §17, §21–§24,
-§26–§31) are NOT here. For those slices the sources are the approved prototype
+the same day in the same way and built after its critic (its "The K5 critic" paragraph); and §26 M3b, derived on
+9 Nov 2026 from a SERVED copy of the approved prototype v61c.2 (its raw Marathi table extracted and diffed against
+android/i18n, its own text layer probed string by string, its survey prep screenshotted under मराठी in both
+orientations), from the shipped M3a (android/i18n/README.md and §25) and from the code on batch-next. The other
+sections (§1–§13, §17, §21–§24, §27–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -2397,6 +2400,314 @@ Only the decision-5 English changes.
 A clipped Devanagari line, which shows only after VIS.
 
 *(Built as 8af7b32 + the review fix 8fde7e2: 245 rows off unkeyed.tsv, 1,171 → 926; the builder found GuideTest pins no text, three M3b files touched by signature changes, the fourth line height has no phone element, Measure.what became a Msg; the review fixed THIS 360 / UNDO case, the Laser attribution note, a 27 dp tab row under मराठी in landscape, three genitives, a deleted LINES_REFUSAL's second reader. See android/i18n/README.md "Port 61c slice M3a".)*
+
+### 26. M3b · Marathi: measures, readings and the words drawn on the photo (design slice 3b)
+
+**Size:** M · **Depends on:** M3a
+
+**Goal**
+
+Key the MEASURES AND READINGS half of survey prep — everything M3a's chrome boundary left English: a Tape's, a
+Line's and a chain's chips, labels, list rows and refusals (SurveyMeas, SurveyChain), the reference's words and the
+Size from row (SurveyRef), the opened file's own words and the salvage notes (SurveyPrepFile), the readings'
+conflict texts and not-yet line (Readings, ReadingsSync), the 360 caption and its placement refusals (Pano360), the
+360 view's fit / grid buttons (SurveyPrep360) — AND the words DRAWN ON THE PHOTO by both canvas painters
+(SurveyPrepDraw, SurveyPrep360's own copy, FacePrepDraw): the four boundary-line names, the reference's "Ref 905 ×
+2053" tag, the chain total's " laser" word, Face Prep's step / detail names and guide labels. After M3b the only
+English left on survey prep under मराठी is the laser's connection states (DistoClient, M6) and the upload status
+line (AsIsUpload, M2).
+
+**Derived from, in this order**
+
+1. **The approved prototype v61c.2**, served as a COPY from the session scratchpad and driven in Playwright at the
+   Mi A3 frame (360 × 780 and 780 × 360), switched to मराठी by its own language row (drawer → भाषा · Language,
+   `data-l57="lang"`). Three products of that run decide this slice:
+   - **The raw Marathi table in the page** (`const RAW=` inside its L57 layer, 1,750 key rows) extracted and diffed
+     against android/i18n: ZERO English diffs; 3 Marathi diffs, exactly M3a's review fix 5 (the `{s}:` colon
+     genitives of `refuse.sp.x_reference_locked_unlock`, `sp.x_lines_locked`, `sp.x_lines_unlocked`); 16 keys the
+     page still has that the folder deleted (K1b's 14 ORPHAN v59 album keys, PL's 2 phase.aria keys). So the page
+     embeds the folder's pair at its build commit, and where they differ the FOLDER wins (decision 3: android/i18n
+     is the one home; the diffs are its recorded finalisations). The page's visible card tables differ from the
+     folder on 9 rows more — the L2 plural fix (गोष्टी → ठिकाणी), the L2 मीटर and ब्लूटूथ fixes, the M3a genitive
+     drops in five `sp.file.x_*` keys and `sp.x_its_list` — all recorded finalisations; same ruling.
+   - **The page's own text layer probed string by string** (`window.L57.vis(…)` over 113 composed strings — the
+     layer every DOM text AND every canvas word goes through): what translates, what stays Latin, and where the
+     layer's generic matcher mis-composes (below, "The drawn words" and critic note 2).
+   - **Screenshots under मराठी**: the tape pulled on the real capture's front wall (chip "टेप · बाजूवरून ओढा ·
+     लांबी फोटोवरून मिळते", caution "फक्त या पृष्ठभागावरच्या गोष्टीच बरोबर मोजल्या जातात.", selection row "F-T1
+     टेप · 1430 mm", the drawn tag "F-T1 1430 mm" unchanged); a chain drawn (chip "साखळी · पृष्ठभागावर पॉइंट टॅप
+     करा, संपवण्यासाठी डबल टॅप किंवा ✓", row "FK1 ≈821 · ≈715 · Σ ≈1536", reading row "▶ FK1 भाग 1"); 3 · List in
+     both orientations (chips FD1 / FE1 / F-T1 1430 / FK1, rows रुंदी / उंची, स्थिती: सर्व ▾, एक्सपोर्ट).
+2. **The shipped M3a** (android/i18n/README.md "Port 61c slice M3a", §25): the chrome boundary, Measure.what as a
+   Msg with its String constructor left "for the two checklists not keyed yet … it goes with M3b", lineNames
+   rendering the edge.* keys in English "for the two readers that draw no language yet — the on-photo painter and
+   the salvage notes — both M3b's", the say()-snapshot rule, Tx.EN in tests, the Masters-pin lesson (fix 7).
+3. **The code on batch-next** (885c25a): every remaining unkeyed.tsv row of the files below was read in its file,
+   every word function's call sites were listed (SurveyPrepScreen, SurveyPrepTools, SurveyPrepDraw, SurveyPrep360,
+   SurveyPrepEdit, SurveyPrep, FaceWriter), and every Tx accessor this slice calls was checked to exist in the
+   generated Tx with its exact signature (e.g. `sp_chain_x_x_part(dir, n, v: String?)` carries the room tail as
+   `{v}`, `sp_chain_x_tap_points(pl: String)` takes the points tail, `sp_x_points_tail(n: Int)` builds it — the
+   card's own where-notes say so).
+
+**The keys: the card already holds all but three.** Every measures-and-readings text below has its key in
+android/i18n (the card's survey-prep group and its near-match pairs, `sp.*`, `refuse.sp.*`, `refuse.v360.*`,
+`refuse.lines_first`, `sp.file.*`, `edge.*`, `measure.*`, `common.*`, `life.length`, `view.*_plan.lc`, `type.*`,
+`trade.electrical`), so the card is consumed, not extended — the three exceptions are Face Prep's two plate-guide
+labels and its plan-guide label, screens the prototype never had (decision 6: Marathi by Claude, flag `phone-text`):
+
+- `fp.x_wall_corrected_x` · EN `{name} · {wall} · corrected for {d} mm depth` · MR
+  `{name} · {wall} · {d} mm खोली धरून दुरुस्त`
+- `fp.x_wall_depth_unknown` · EN `{name} · {wall} · depth unknown — draw it here to correct` · MR
+  `{name} · {wall} · खोली माहीत नाही — दुरुस्तीसाठी इथे काढा`
+- `fp.x_plan_x_deep` · EN `{name} · {plate} · {d} mm deep` · MR `{name} · {plate} · {d} mm खोल`
+
+`{name}` is a stepName rendered through tx (below), `{wall}` the wall's shown name lowercased
+(`Masters.surface(tx, NAME).lowercase()` — "front wall" in English byte for byte, a no-op on Devanagari: the
+cannotGo pattern M3a reviewed), `{plate}` is `view.floor_plan.lc` / `view.ceiling_plan.lc` ("floor plan" /
+"फ्लोअर प्लॅन"), `{d}` an Int. 1,794 → 1,797 keys; Tx IS regenerated, with the repo's generator task under nice
+(`nice -n 15 gradle :pano:i18nGen --offline`), never hand-edited; `nice -n 15 gradle :pano:i18nRatchet --offline`
+afterwards (it only lowers counts).
+
+**Files and changes** (unkeyed.tsv rows before → after; 829 → 684, 145 rows off)
+
+**pano/:**
+- **SurveyMeas.kt (31 → 0, joins ported.txt).** The constants become functions taking `tx: Tx` first: OFF_REFUSAL
+  and CAUTION (one English, one key: `refuse.sp.only_things_surface_measure`), OFF_CHIP
+  (`refuse.sp.off_surface_nothing_will`), TAPE_TAP (`sp.msg.tape_drag_along_face`), TAPE_NOTE
+  (`sp.no_reading_box_tape`), TAPE_CHIP (`sp.tape_drag_along_face`), LINE_CHIP (`sp.line_drag_marked_length`);
+  `areaChip` → `sp_line_area_x_corner(n)`; `chipText(tx, tool, drag, corners)`; `dirText(tx, …)` over
+  `sp.along_face_x_mm`, `sp.up_face_x_mm`, `sp.diagonal_face_x_mm`, `sp.left_right_x_x`, `sp.front_back_x_x` with
+  `{w}` from `sp.on_the_floor` / `sp.on_the_ceiling`; `typeName(tx, m)` over `common.tape`,
+  `common.marked_length`, `common.marked_area`; `label(tx, m)` over the suffix keys `sp.tape_suffix`,
+  `sp.marked_length`, `sp.marked_area`; `listName(tx, s, m, room)` over `sp.tape_x_mm_photo` (the key carries
+  " mm", the card's near-match ruling), `common.marked_length`, `sp.marked_area_x`, the room tail joined in code
+  as `" · " + Masters.surface(tx, …)`; `rowValue(tx, …)` over `sp.tape_x_mm` (a Line's bare reading "1234 mm" and
+  "≈1234 mm" stay composed figures — the prototype draws them unchanged); `measures(m)` labels become Msg
+  (`life.length` for "length", `measure.perimeter` for "perimeter" — `vis()` proves both are what the prototype
+  shows). `mmTxt`, `m2txt`, `tapeTag`, `lineTag`, `tapeTicks`, `tapeTagAt` are untouched: all-ASCII figures
+  (critic note 4).
+- **SurveyChain.kt (21 → 0, joins ported.txt).** `chipText(tx, points)` = `sp_chain_x_tap_points(pl)` with `pl` =
+  `sp_x_points_tail(points)` from the first point, else "" (the card's where-note on `sp.x_points_tail` names
+  exactly this composition); `busy(s)` returns data and the refusal is rendered at say() time as
+  `refuse_sp_finish_chain_x_first(Masters.surface(tx, …).lowercase())`; NEED_TWO / NEED_DIFFERENT →
+  `refuse.sp.chain_needs_two_points` / `refuse.sp.chain_needs_two_different` (as Msg on Finish.Refused, rendered by
+  the caller's tx); DONE_LABEL → `sp.aria.end_chain` (reader: SurveyPrepTools); GROUP stays the identity "chains"
+  (`// text:value`), drawn through SurveyPrepEdit.groupName → `sp.group.chains` as M3a wired it; `direction(tx, c)`
+  → `sp.horizontal` / `sp.vertical`; `label(tx, c)` → `sp_x_chain(code)`; `listName(tx, s, c, room)` →
+  `sp_chain_x_x_part(dir, n, if (room) Masters.surface(tx, …) else null)` — the key carries the room tail as
+  `{v}`; `measures(c)` labels become Msg (`sp.segment` + the number joined as the prototype joins its fragment key;
+  `measure.total`), and SurveyPrep.Measure's String constructor is DELETED (M3a: "it goes with M3b") — check (i)
+  walks its readers; `totalText(tx, v)` keeps " laser" through `sp.laser_suffix` and keeps **" d" LATIN** (critic
+  note 4); `totalTag(tx, code, v)`, `rowValue(tx, v)`. `segFigure` is untouched (reading / "{n} d" / "≈{n}" — no
+  word). A chain's stored `snaps` ("left corner", "FD1 right") are FILE DATA, read by nothing on screen: untouched,
+  no migration.
+- **SurveyRef.kt (20 → 0, joins ported.txt).** NO_DELETE → `sp.msg.reference_stays_hide_eye`; EYE_LABEL →
+  `sp.aria.show_faces`; EDGES → `sp.edges_laser`; REFERENCE → `sp.reference`; SIZE_FROM → `sp.size_from`;
+  PLACE_HINT → `sp.drag_four_cyan_corners`; `shownSaid(tx, s, shown)` → `sp.reference_shown_2_mark` /
+  `sp_reference_hidden_faces_still(Masters.surface(tx, …).lowercase())`; `name(tx, s)` → `sp_x_reference`;
+  `menuHeader(tx, …)` (🔒 a glyph value); `menuItems(tx, locked)` → `common.lock` / `common.unlock` /
+  `common.cancel`; `lockLabel(tx, s, locked)` → `sp_aria_lock_x` / `sp_aria_unlock_x` over
+  `sp_the_x_reference(Masters.surface(tx, …)).lowercase()` — the card's where-note on `sp.the_x_reference` names
+  this exact pairing, and the EN render stays "Lock the front wall reference" byte for byte; `label(tx, r)` →
+  `sp_ref_x_x(fig(w), fig(h))` ("संदर्भ 905 × 2053" — DRAWN, see below; "?" stays a glyph); `tabText(tx, sf)`
+  through it; `refText(tx, …)` → `sp_measured_x_x_x` (+ `sp_differs_x_x_mm` or the " ✓" value; the axis letters
+  stay the L / W / H identities, M3a); `leftSaid` → `sp.msg.d2_x_ref_left`.
+- **SurveyPrepFile.kt (21 → 0, joins ported.txt).** `Decoded.problems` becomes `List<Msg>` and every salvage note
+  is its `sp.file.*` key, `{surface}` through `Masters.surface`, `{line}` through `SurveyPrep.lineName(tx, s,
+  slot)` — the folder's finalised Marathi has no genitive before the name (the page diff above), so the nominative
+  fill reads exactly as `vis()` renders it: "समोरील भिंत: जमिनीची रेषा वाचता आले नाही, पुन्हा ठेवले".
+  `savedText(o)`, `openedNote(o)`, `pointsNote(o)` become Msg over `common.nothing_saved_yet`, `common.restored`,
+  `sp.file.restored_in_part`, `sp.file.started_fresh`, `sp_file_part_unreadable_kept_x(n, first, more, file)` and
+  its three siblings, `sp_file_x_points_recentred(n)`; `{first}` renders problems[0] with the same tx, `{more}`
+  the " …" glyph value. The aside file NAMES (`<id>.bad-….json`) and everything stored stay byte-identical.
+- **Pano360.kt (4 → 0, joins ported.txt).** `caption(tx, s)` → `sp_360_drag_look_x(Masters.surface(tx, …))`;
+  `cannotGo(tx, t, to)` → `refuse_v360_x_cannot_go_x(SurveyPrep.typeName(tx, …), Masters.surface(tx,
+  …).lowercase())` (the Marathi restructures to "{surfName}: इथे {n} लावता येत नाही" — the key's own shape, proven
+  by `vis()`); NO_LINES → `refuse.lines_first`; `placeRefusal` threads the tx; `zoomText` ("{n}°") untouched.
+- **Readings.kt (2 → 0, joins ported.txt).** `orphanText(tx, keys)` → `sp_x_changed_web_mark_deleted(code)` joined
+  with "; " (a value) + `sp.deleted_web_too`.
+- **FacePrep.kt (37 → 17, stays OUT of ported.txt).** Only the words FacePrepDraw DRAWS are keyed; the Measure
+  sheet's Dim labels, the capitalised side names and the piece labels stay M8's rows. `stepName(tx, f, i)`: the
+  short form through `type.c` ("Column" → "कॉलम"), `type.b` ("Beam" → "बीम"), `type.x` ("Other" → "इतर" — the
+  split(" ")[0] of "Other step", which already has its key); `detName(tx, f, i)`: `type.d` / `type.w` / `type.o` /
+  `type.l` and `trade.electrical` ("Electrical" → "इलेक्ट्रिकल", the split of "Electrical point");
+  STEP_KINDS / DETAIL_TYPES / EDGE_NAMES stay English identity maps, marked `// text:value` (their stored kinds
+  and the Dim keys never show); the locator's from-word resolves through the six `measure.*` keys
+  (`measure.left_wall` "from left wall" → "डाव्या भिंतीपासून", `measure.from_floor`, `measure.from_ceiling`, …)
+  and, for a named mark, `app_from_x(detName/stepName)` — "दरवाजा 1 पासून" — the CARD'S OWN PAIRING for
+  FacePrepDraw.kt:238 ("decision 6 … the matcher's pairing: app.from_x"); the two plate-guide labels and the
+  plan-guide label become the three fp.* keys above.
+- **SurveyPrep.kt.** `lineNames(s)` (the Tx.EN render M3a left for the two M3b readers) is DELETED — both readers
+  now take a tx — and `Measure`'s String constructor with it; no fallback stays (the NO FALLBACKS rule: a second
+  way to render a line name is a second answer).
+
+**app/:**
+- **SurveyPrepDraw.kt (9 → 0, joins ported.txt).** The 9 rows are glyphs and separators (" ", " | ", "+", "?",
+  "±", "—", "−", "≈", "▶"): each marked `// text:value` with its why. `drawLines` takes the tx and draws
+  `SurveyPrep.lineName(tx, s, k)` — the four boundary-line names are the first Devanagari this painter draws;
+  `drawRef`/`drawRefSq` draw `SurveyRef.label(tx, r)`; `chain()` draws `SurveyChain.totalTag(tx, …)`. `Marks`
+  gains no field: the tx is a parameter of `drawMarks` / `drawLines` / `drawRef`, so every caller states its
+  language (critic note 5).
+- **SurveyPrep360.kt (4 → 0, joins ported.txt).** "fit" → `sp.fit`, "grid" → `sp.grid`, "Plane grid" →
+  `sp.aria.plane_grid`; "≈" a value. Its own label() draws the same pano words (lineTag at 984, tape figures at
+  1017/1030, segFigure at 1083, totalTag at 1089, SurveyRef.label at 1103), so the 360 view changes through the
+  one :pano source, plus its chip (`SurveyMeas.chipText`, CAUTION, `SurveyChain.chipText`) through the tx.
+- **ReadingsSync.kt (4 → 0, joins ported.txt).** NOT_YET → `sp.web_readings_not_yet` behind a KIND the Msg
+  carries (critic note 3); `conflictText(tx, conflicts)` → `sp_x_changed_web(code)` /
+  `sp_x_changed_web_by_x(code, by)` joined with "; " (a value). The PULL path (survey prep) renders with the
+  screen's tx; the PUSH path's note (AsIsUpload's status line, M2's screen) composes with `Tx.EN` until M2 — a
+  stored-note twin of M4's REPLACED / NOT_SENT rule, named in the code.
+- **SurveyPrepScreen.kt (already in ported.txt).** Call-site changes only: the readingsMsg branches drop the
+  English constants (and the `msg == ReadingsSync.NOT_YET` COLOUR comparison at 1612 becomes the kind flag —
+  critic note 3); savedMsg takes SurveyPrepFile's Msg; every refusal from a pano Finish/Press/End is rendered at
+  say() time with the live tx (say() keeps a String: M3a's rule, a note raised before a language flip is not
+  redrawn).
+- **SurveyPrepTools.kt** (DONE_LABEL's reader), **SurveyPrepEdit.kt** (menuItems/menuHeader for the reference):
+  signatures follow.
+- **FacePrepDraw.kt (9 → 0, joins ported.txt).** The composed figure strings ("$a | ${len - a} mm", "$tot mm",
+  "E$n ${pc.len}", "L${i + 1}", …) are marked `// text:value` (codes, digits, mm); the words go through the
+  FacePrep tx functions above — **and both of its callers (FacePrepScreen, FaceWriter.rewriteSurvey) pass
+  `Tx.EN`** until M8 flips the screen's argument, so Face Prep stays wholly English under मराठी today (critic
+  note 1) and the ImageMeter photo stays English for good (critic note 6).
+- **FaceWriter.kt.** The survey sheet pictures (`drawMarks(mode = "sheet")`) pass `Tx.EN` explicitly: the
+  prototype's decision 4 verbatim — "EXPORTS STAY ENGLISH … the PDF and image writers build their text from the
+  English strings, never from the screen" (critic note 6).
+
+**The words drawn on the photo — what translates and what stays Latin** (each proven by the page's own layer,
+`vis()`, and the मराठी screenshots):
+
+| drawn | under मराठी | mechanism |
+|---|---|---|
+| the four line names ("floor line") | जमिनीची रेषा, छताची रेषा, डावा/उजवा कोपरा; plan: पुढची/मागची/डावी/उजवी कडा | `lineName(tx, s, k)` over `edge.*` |
+| "Ref 905 × 2053" | संदर्भ 905 × 2053 | `sp.ref_x_x` |
+| chain total "FK1 Σ 3310 laser" | FK1 Σ 3310 लेझर | `sp.laser_suffix` via totalText(tx) |
+| derived "3310 d", segment "≈905", reading "3310" | UNCHANGED — the page draws " d" Latin | identity, `// text:value` (critic note 4) |
+| tape/Line tags "F-T1 1430 mm", "F-M2 1.86 m²", tick figures | UNCHANGED | codes, digits, mm, m² — identities |
+| Face Prep "Column 1", "Door 1", "230 from floor", guide labels | कॉलम 1, दरवाजा 1, 230 जमिनीपासून, the fp.* labels — **but held at Tx.EN until M8** | FacePrep word functions |
+
+Fonts and metrics: the prototype draws Marathi canvas words at the SAME px sizes as English (its label() keeps
+`bold ${sz}px` and only inserts 'Noto Sans Devanagari' after Roboto — "what Compose draws on the Mi A3"), so the
+phone keeps 12 dp for the line names, Ref and tape/Line tags, 11 dp for the chain total, 9 dp for tick figures.
+SurveyPrepDraw.label and SurveyPrep360's label already use the DEFAULT typeface (not MONOSPACE), which carries
+Devanagari on Android; the two paints that are MONOSPACE (vtag's MONO_BOLD, FacePrepDraw's tag) draw only ASCII in
+this slice (vtag always; FacePrepDraw under Tx.EN until M8 — M8 owns its pill metrics). Both tag placers measure
+the REAL string (`measureText` feeds `tapeTagAt` and the total's clamp), so a longer Marathi word moves its tag
+inside the canvas instead of clipping — pinned on the pure function (below).
+
+**S5 must already serve**
+
+Nothing.
+
+**Tests and checks**
+
+- Existing :pano tests keep their English literals with `Tx.EN` added at the new first parameter: MeasTest,
+  ChainTest, EndMoveTest, RefFrameTest, RoomSizeTest, OnFaceTest, SurveyPrepFileTest (problems rendered with
+  Tx.EN), ReadingsTest, Pano360Test, SurveyPrepTest, DuplicateTest, FacePrepTest (stepName / detName / guide
+  labels), SurveyPrepTouchTest where signatures reach it.
+- **SurveyPrepMarathiTest grows an M3b block** (M3a review fix 7's reason: every Masters map passes an unknown
+  value through, so a wrong map or a wrong identity leaks Latin only under मराठी): a hand-typed Marathi pin per
+  Masters-backed lookup this slice adds — the sp.file salvage fills, cannotGo, the chain busy refusal, listName's
+  room tail, shownSaid, the caption — each against the exact strings `vis()` answered.
+- **SurveyDrawMarathiTest (new, :pano) — the canvas-metrics check**: (a) a byte-exact pin per DRAWN word under
+  `Tx.MR` (the eight line names, `SurveyRef.label`'s संदर्भ prefix, `totalText` / `totalTag` at src laser /
+  derived / measured / none — the " d" pinned LATIN, the " लेझर" pinned Devanagari); (b) a fits-where-English-did
+  pin: every drawn tag that holds only a code and figures (`tapeTag`, `lineTag`, `segFigure`, `zoomText`) must be
+  BYTE-EQUAL under Tx.EN and Tx.MR — the strongest possible "the Devanagari figure fits" guarantee, because there
+  is none; (c) for the words that do change, a width proxy (MR code points ≤ EN code points + 6, characters only
+  Devanagari ∪ ASCII ∪ the drawn glyph set — a mojibake guard) and the placement rule: `SurveyMeas.tapeTagAt`
+  returns a point inside the canvas for a text 1.6 × the English width (it is pure, so this is a real test, not a
+  budget). The RENDERING itself has one proof, the phone (M3a review fix 4's sentence), and the prototype
+  screenshots in this derivation are its preview.
+- The readingsMsg KIND: a test that the not-yet line colours by the kind, never by string equality (the :app half
+  is CI's; the pano half pins conflictText / orphanText under both Tx).
+- The i18n suite: I18nTableTest (1,797 keys, the three fp.* rows flagged `phone-text` with their where lists),
+  TxRenderTest (the three new templates render), I18nLiteralTest (a)–(d) over the 145 removed rows and 10 added
+  ported.txt files, (f)/(i) over every renamed member — the M3a lesson: a deleted constant's SECOND reader is
+  what (i) exists to catch — and the Tx-lambda parameter rule.
+- The CI gate; `:app` compiles only in CI (push batch-next, wait for android-app.yml) — nothing here has been seen
+  on a phone.
+
+**What Amit sees**
+
+Under English, nothing: every key's EN renders the current literal byte for byte (the lowercase() compositions
+included), and no decision-5 pair is left in this scope — M3a consumed them. Under मराठी, the measures and
+readings half turns Marathi in one build — chips, rows, refusals, file notes, readings lines, AND the photo's line
+names, संदर्भ tag and chain-total लेझर — exactly the screens the derivation screenshots show. Face Prep shows no
+change in either language (critic note 1).
+
+**Risks**
+
+A clipped Devanagari line in the rows M3a did not size (the tape's no-reading note wraps in the 3 · List column;
+the prototype's ink check, `L57.overflow` / ct57-3, found this class at 1–2 px) — the phone is the only proof, and
+the M3a Marathi-only line heights (reading rows 17 sp) already cover the rows these texts land in. A say() raised
+in one language survives a flip for its 2.6 s (the M3a rule, accepted). The canvas words have no clipping box, so
+their failure mode is overlap, not loss.
+
+**Deliberately NOT in M3b**
+
+- **M3c** — the plan and the Export sheet (SurveyPlan's 38 rows, SurveyPlanScreen's 8, SurveyExport's 11,
+  PlanExport's 5, Handover's 7): the export's language rule there follows decision 4, as FaceWriter's does here.
+- **M2** — the tree, its dialogs, the queue and the upload status line (AsIsUpload's 23 rows): until it lands the
+  PUSH path's conflict note composes Tx.EN (above).
+- **M6** — the laser's connection states: DistoClient.kt's 31 rows (13 shown states — their keys sit ready,
+  `sp.laser.turn_bluetooth_on` … `sp.laser.disconnected_x`, beside `app.meter_disconnected` — and ~18 laser-log
+  fragments that only the Laser test screen's log shows) and Disto.kt's 2 (`sp.laser.not_metric_x`,
+  `sp.laser.not_a_length_x`): the shipped M3a boundary says "the laser's states (DistoClient), M6", and Disto.kt's
+  two refusals reach the screen only through DistoClient's onRefused, so they ride with it.
+- **M8** — Face Prep's CHROME (FacePrepScreen's 122 rows, FacePrep.kt's remaining 17: the Measure sheet's Dim
+  labels, the capitalised side names, the piece labels), Annotate, the Laser test screen, the S5 sign-in sheet —
+  and the one-line flip of FacePrepScreen's painter argument from Tx.EN to the live tx.
+
+**The M3b critic** — raised by a careful reader, answered:
+
+1. *FacePrepDraw rides M3b while FacePrepScreen is M8 — a half-Marathi Face Prep?* No: the pano word functions are
+   keyed HERE (one draw mechanism, threaded once, its rows off the worklist), but both callers pass `Tx.EN` until
+   M8, so Face Prep stays wholly English under मराठी — no mixed screen the prototype never drew ("A UI state the
+   approved prototype does not draw does NOT reach the phone"), and M8's flip is one argument, not a re-key.
+2. *The served page is the authority — why not copy what `vis()` shows?* Because the layer is a generic matcher
+   over composed strings and mis-composes where a WHOLE key exists: it rendered "Tape · 1234 mm · from the photo"
+   as "टेप · 1234 mm · पासून फोटो" (the parts of the ' · ' list translated separately) where the key says
+   "… · फोटोवरून"; "Lock the front wall reference" as "the front wall लॉक करा संदर्भ" where the keys compose
+   "समोरील भिंत संदर्भ लॉक करा"; and the chain chip half-English. The RAW TABLE in the page is the authority for
+   the words; the phone keys whole strings, so it draws what the card wrote, not what the page's matcher
+   improvised. (The task's "use its rows as the authority" means the table's rows — and they match the folder.)
+3. *`msg == ReadingsSync.NOT_YET` would silently stop colouring the not-yet line grey once the text is keyed* —
+   fixed in the slice, not after: the Msg carries a kind (OK / NOT_YET / FAILED), the colour reads the kind, and a
+   test pins it. A string compare against a now-bilingual text is the two-answers fault in miniature.
+4. *Why does " d" stay English when " laser" translates?* The prototype's screen is the spec: its fragment
+   dictionary only admits fragments with a 3+-letter word, so " laser" translates and " d" never did —
+   `vis("3310 d") == "3310 d"` — and the approved screen shows "3310 d". A Marathi single-letter marker would be a
+   state the prototype does not draw. The ROW's word stays `sp.derived` ("हिशोबाने"), keyed since M3a.
+5. *Why a tx parameter on the painters instead of a field on Marks?* Because the two callers deliberately differ
+   (the screen live, FaceWriter Tx.EN): a field would make the export's language whatever the last screen set — a
+   second answer. A parameter forces every call site to state it, and check (i) sees every site.
+6. *Should the saved pictures and the ImageMeter photo follow the phone's language?* No — the prototype decided
+   it: decision 4 ("PDFs and exported packs stay English", restated in L57's header "EXPORTS STAY ENGLISH … never
+   from the screen"). A vendor pack and an ImageMeter annotation photo are documents other parties consume; the
+   screen is Amit's staff's. FaceWriter passes Tx.EN, named in a comment that cites decision 4.
+7. *The locator's "230 जमिनीपासून" puts the figure first — is that the prototype's order?* The prototype has no
+   Face Prep, so there is no order to match (decision 6: Claude's authority); the figure-first form keeps the EN
+   byte-identical ("230 from floor") under one composition and reads as a dimension tag. If Amit's phone test
+   prefers "जमिनीपासून 230", the swap is one template key (`{from} {v}`), listed for M8's review alongside the
+   screen flip.
+8. *Three new keys in a new `fp.` family — why not `sp.`?* They are Face Prep's words, not survey prep's; M8 will
+   add that screen's remaining keys to the same family, and the generator orders by family, so the home is chosen
+   once. The card is not extended: phone-text flags, where-lists naming FacePrep.kt at this commit, Marathi by
+   Claude (decision 6).
+9. *Does deleting `lineNames(s)` and the Measure String-constructor break a reader this file cannot see?* That is
+   M3a's recorded fault (the deleted LINES_REFUSAL's second reader), and its remedy is already in the suite:
+   check (i) resolves every `Name.member` read from :app and :camera by reflection, and the build reads every
+   caller against the files as they are on batch-next before the commit.
+10. *The prototype copy, probes and screenshots live in the scratchpad — the lost-plan fault again?* No: what the
+    later work depends on is IN THIS SECTION (the diffs, the vis() rulings, the screenshot findings, the key
+    list), committed with it; the scratchpad run is re-creatable in minutes from the published artifact
+    (claude.ai/artifact/64peToYoeaRz9UNwB926m5) and this section's recipe. Nothing from the real capture's client
+    data enters the repo (deny-patterns hold: the probe strings use room-geometry figures only).
+
+**unkeyed.tsv** 829 → 684 · **ported.txt** + SurveyMeas.kt, SurveyChain.kt, SurveyRef.kt, SurveyPrepFile.kt,
+Pano360.kt, Readings.kt (pano), ReadingsSync.kt, SurveyPrepDraw.kt, SurveyPrep360.kt, FacePrepDraw.kt ·
+**keys** 1,794 → 1,797 (the three fp.* phone texts; Tx regenerated) · **literal-counts** re-ratcheted ·
+**Disto.kt and FacePrep.kt stay out** (M6; M8).
 
 ## Progress notes recovered
 
