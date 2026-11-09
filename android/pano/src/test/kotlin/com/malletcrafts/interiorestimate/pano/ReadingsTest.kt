@@ -145,6 +145,22 @@ class ReadingsTest {
         assertEquals("इथे मार्क हटवल्यानंतर FW1.w वेबवर बदलले — वेबवरूनही हटवले", Readings.orphanText(Tx.MR, listOf("FW1.w")))
     }
 
+    @Test fun `conflictNoteLine re-renders the stored push note through conflictText's own keys, under both Tx`() {
+        // port 61c slice M2: the push path's note is STORED conflictText(Tx.EN, …) for good, and its owner
+        // re-renders it at draw time. The round trip is the pin: parser and composer are ONE file.
+        val withBy = mapOf("F-M1.len" to r(612.0, "t9", "staff@x"))
+        val withoutBy = mapOf("FK1.t" to r(3310.0, "t9", by = ""))
+        val mixed = withBy + withoutBy
+        for (tx in listOf(Tx.EN, Tx.MR)) {
+            for (c in listOf(withBy, withoutBy, mixed)) {
+                assertEquals(Readings.conflictText(tx, c),
+                    Readings.conflictNoteLine(tx, Readings.conflictText(Tx.EN, c)))
+            }
+        }
+        // an alien note comes back unchanged, in any language — drawn as stored, never guessed at
+        assertEquals("the bench said no; try later", Readings.conflictNoteLine(Tx.MR, "the bench said no; try later"))
+    }
+
     @Test fun `the readings line colours by its KIND, and a successful pull that had to say something is never green`() {
         // critic note 3: a string compare against a now-bilingual text would silently stop colouring; and the M3b
         // critic's finding 4: OK is "the pull succeeded AND nothing was said" -- a conflict or an orphan on a

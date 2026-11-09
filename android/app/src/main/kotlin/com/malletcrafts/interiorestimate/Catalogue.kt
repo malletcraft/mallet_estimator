@@ -75,9 +75,9 @@ class Catalogue(context: Context) {
          *  `due` keyed (app.from_x, app.due_x: "5 Oct पासून"), the range as the
          *  prototype draws it in both languages, months Latin (port 61c slice PL review). */
         fun dateRange(tx: Tx): String = when {
-            start.isNotBlank() && end.isNotBlank() -> "${Catalogue.day(start)} → ${Catalogue.day(end)}"
-            start.isNotBlank() -> tx.app_from_x(start = Catalogue.day(start))
-            end.isNotBlank() -> tx.app_due_x(end = Catalogue.day(end))
+            start.isNotBlank() && end.isNotBlank() -> "${Catalogue.day(tx, start)} → ${Catalogue.day(tx, end)}"
+            start.isNotBlank() -> tx.app_from_x(start = Catalogue.day(tx, start))
+            end.isNotBlank() -> tx.app_due_x(end = Catalogue.day(tx, end))
             else -> ""
         }
 
@@ -154,7 +154,7 @@ class Catalogue(context: Context) {
             else Local(c,
                 o.optString("site").trim().ifEmpty { DEFAULT_SITE },
                 p,
-                o.optString("site_type").ifEmpty { "Flat" },
+                o.optString("site_type").ifEmpty { "Flat" }, // text:value a stored site type, shown through Masters.site
                 o.optString("job_type").ifEmpty { JOB_NEW },
                 o.optString("address"))
         }
@@ -174,7 +174,7 @@ class Catalogue(context: Context) {
     /** Remember a site typed on site. Idempotent, and case-insensitive so a
      *  second visit does not create a second folder. */
     fun addLocal(client: String, site: String, project: String,
-                 siteType: String = "Flat", jobType: String = JOB_NEW,
+                 siteType: String = "Flat", jobType: String = JOB_NEW, // text:value a stored site type
                  address: String = "") {
         val c = client.trim()
         val s = site.trim().ifEmpty { DEFAULT_SITE }
@@ -362,7 +362,7 @@ class Catalogue(context: Context) {
     /** The rooms a site starts with: its type's preset at 2 BHK. */
     fun defaultScope(siteType: String): Set<String> {
         val type = com.malletcrafts.interiorestimate.pano.FlatPresets.TYPES
-            .firstOrNull { it.equals(siteType.trim(), true) } ?: "Flat"
+            .firstOrNull { it.equals(siteType.trim(), true) } ?: "Flat" // text:value a stored site type
         return com.malletcrafts.interiorestimate.pano.FlatPresets.rooms(type, 2).toSet()
     }
 
@@ -843,33 +843,43 @@ class Catalogue(context: Context) {
         raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
     companion object {
-        const val DEFAULT_SITE = "Main site"
+        // Stored values, the wire (port 61c slice M2): shown through Masters.site_name, which
+        // carries common.main_site and app.no_site — "Main site" reads मुख्य साइट, "(no site)" (साइट नाही).
+        const val DEFAULT_SITE = "Main site" // text:value a stored site name, shown through Masters.site_name
 
         /** Only a fallback for a phone that has never synced. The live list
          *  comes from the server (masters.site_types) so the doctype stays the
-         *  one place a type is added or retired. */
+         *  one place a type is added or retired. Shown through Masters.site. */
         val DEFAULT_SITE_TYPES = listOf(
-            "Flat", "Bungalow", "Row House", "Office", "Shop", "Other")
-        const val NO_SITE = "(no site)"
-        const val JOB_NEW = "New work"
-        const val JOB_REPAIR = "Repair"
-        const val JOB_INSTALL = "Supply & install"
-        const val BASIS_NOS = "Nos"
+            "Flat", "Bungalow", "Row House", "Office", "Shop", "Other") // text:value stored site types, shown through Masters.site
+        const val NO_SITE = "(no site)" // text:value a stored site name, shown through Masters.site_name
+        const val JOB_NEW = "New work" // text:value a stored job type, shown through Masters.job
+        const val JOB_REPAIR = "Repair" // text:value a stored job type, shown through Masters.job
+        const val JOB_INSTALL = "Supply & install" // text:value a stored job type, shown through Masters.job
+        const val BASIS_NOS = "Nos" // text:value the SKU basis, the wire ("Nos" stays Latin on the served page)
 
-        private val MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        /** The month names through the card's own keys, date.month.1–12 (port 61c slice M2, the M2
+         *  critic's second round): the card keys them with MR deliberately Latin, so "4 Jan" reads
+         *  the same under मराठी TODAY — but the words live once, in the keys, not in a second list
+         *  here that an MR edit to date.month.* would silently leave behind. */
+        private fun month(tx: Tx, m: Int): String = when (m) {
+            1 -> tx.date_month_1; 2 -> tx.date_month_2; 3 -> tx.date_month_3
+            4 -> tx.date_month_4; 5 -> tx.date_month_5; 6 -> tx.date_month_6
+            7 -> tx.date_month_7; 8 -> tx.date_month_8; 9 -> tx.date_month_9
+            10 -> tx.date_month_10; 11 -> tx.date_month_11; else -> tx.date_month_12
+        }
 
         /** "2026-08-12" → "12 Aug". ISO dates are for machines; a date on a
          *  phone row is read at a glance and the year is almost always this
          *  one. Anything that is not an ISO date is passed through untouched
          *  rather than mangled. */
-        fun day(iso: String): String {
+        fun day(tx: Tx, iso: String): String {
             val p = iso.split("-")
             if (p.size != 3) return iso
             val m = p[1].toIntOrNull() ?: return iso
             val d = p[2].toIntOrNull() ?: return iso
             if (m !in 1..12) return iso
-            return "$d ${MONTHS[m - 1]}"
+            return "$d " + month(tx, m)
         }
 
         fun keyOf(client: String, site: String, project: String) =
@@ -890,12 +900,12 @@ class Catalogue(context: Context) {
          *
          *  Kept in the master's order so a diff between the two reads. */
         val FALLBACK_ROOMS = listOf(
-            "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Bedroom 4",
-            "Bedroom 5", "Bathroom", "Toilet 1", "Toilet 2", "Toilet 3",
-            "Toilet 4", "Toilet 5", "Living Room", "Dining Room", "Family Lounge",
-            "Home Theatre", "Kitchen", "Study", "Utility", "Store", "Servant Room",
-            "Foyer", "Passage", "Staircase", "Balcony", "Dry Balcony", "Terrace", "Car Porch",
-            "Garden", "Pooja Room", "Other",
+            "Master Bedroom", "Kids Bedroom", "Guest Bedroom", "Bedroom 4", // text:value the bench's room master, shown through Masters.room
+            "Bedroom 5", "Bathroom", "Toilet 1", "Toilet 2", "Toilet 3", // text:value the bench's room master, shown through Masters.room
+            "Toilet 4", "Toilet 5", "Living Room", "Dining Room", "Family Lounge", // text:value the bench's room master, shown through Masters.room
+            "Home Theatre", "Kitchen", "Study", "Utility", "Store", "Servant Room", // text:value the bench's room master, shown through Masters.room
+            "Foyer", "Passage", "Staircase", "Balcony", "Dry Balcony", "Terrace", "Car Porch", // text:value the bench's room master, shown through Masters.room
+            "Garden", "Pooja Room", "Other", // text:value the bench's room master, shown through Masters.room
         )
     }
 }

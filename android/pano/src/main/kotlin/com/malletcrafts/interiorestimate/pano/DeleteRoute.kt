@@ -28,6 +28,9 @@ package com.malletcrafts.interiorestimate.pano
  * honest response is to refuse and say so, because deleting locally would
  * once again destroy the phone's copy while leaving the real record standing.
  */
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
+
 sealed class DeleteRoute {
 
     /** Call the bench. `docname` is what delete_node is given. */
@@ -43,20 +46,21 @@ sealed class DeleteRoute {
 object Deletes {
 
     /**
+     * @param tx          the live language (port 61c slice M2): the refusals render WHOLE KEYS PER
+     *                    KIND, as the card where-notes them — a gendered हा/ही cannot share one template
      * @param kind        "client", "site" or "project"
      * @param serverId    the ERP docname, blank if the app does not hold one
      * @param serverKnown whether this row came from the bench's bootstrap
      */
     @JvmStatic
-    fun route(kind: String, serverId: String, serverKnown: Boolean): DeleteRoute {
+    fun route(tx: Tx, kind: String, serverId: String, serverKnown: Boolean): DeleteRoute {
         // A client is an ERPNext Customer. It belongs to the office ledger,
         // it is referenced by quotations and invoices this app never sees,
         // and no phone removes one. The UI already offers no delete on a
         // client row; this is the same rule stated where it cannot be
-        // forgotten by a future screen.
-        if (kind == "client") return DeleteRoute.Blocked(
-            "A client is the office's customer record. Delete the sites " +
-            "under it here; the customer itself is a desk job.")
+        // forgotten by a future screen. The key is the rename dialog's note
+        // (app.client_office_s_customer), so the two sentences cannot drift.
+        if (kind == "client") return DeleteRoute.Blocked(tx.app_client_office_s_customer)
 
         val id = serverId.trim()
         if (id.isNotEmpty()) return DeleteRoute.Server(id)
@@ -69,9 +73,9 @@ object Deletes {
         // one — but the consequence clause STAYS, because six words is what
         // separates this from the sentence that cost three days, and a
         // refusal nobody understands gets tapped past.
+        // A client never reaches this branch: the first `if` returns.
         if (serverKnown) return DeleteRoute.Blocked(
-            "Can't identify this $kind on the office system. Pull to " +
-            "refresh — deleting now clears this phone only.")
+            if (kind == "project") tx.app_cant_identify_project else tx.app_cant_identify_site)
 
         return DeleteRoute.LocalOnly
     }
@@ -83,6 +87,7 @@ object Deletes {
      * is what made a silent local delete cost three days.
      */
     @JvmStatic
-    fun localOnlyMessage(what: String): String =
-        "Removed from this phone — $what had never reached the office system."
+    fun localOnlyMessage(tx: Tx, what: String): String =
+        // the fill through the site-name master: "Main site" reads मुख्य साइट, a typed name passes through
+        tx.app_msg_removed_phone_x_never(name = Masters.site_name(tx, what))
 }

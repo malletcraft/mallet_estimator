@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.Phases
+import com.malletcrafts.interiorestimate.pano.UploadNote
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -174,8 +175,10 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // or two after the row is inserted (the shot is encoded first), and a pass reaching here in between -- the
         // hourly one, say; ingest leaves this photo's own sync to AlbumShots.single, after the add -- marks the row
         // "on this phone only", which nothing else takes off until its JPEG lands.
-        val noPrep = "on this phone only - save its survey prep to send it to the web"
-        val notPhoto = "on this phone only - the web takes a 360's survey prep, not a photo"
+        // UploadNote's constants (port 61c slice M2): the equality compares below keep working because the BYTES
+        // are the constants' — stored in CaptureStore rows by every build, drawn through UploadNote.line
+        val noPrep = UploadNote.PHONE_ONLY_SAVE_PREP
+        val notPhoto = UploadNote.PHONE_ONLY_NOT_PHOTO
         for (c in store.pending()) {
             if (c.kind != "360" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) {
                 if (c.state == "ERROR" && c.error == notPhoto) store.setState(c.deviceId, "LOCAL")
@@ -199,7 +202,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // "on S5, not on the bench", and the ERP leg picks those up (erpLeg).
         for (c in store.all()) {
             if (c.state == "SYNCED") continue
-            if (AsIsUpload.status(ctx, c.deviceId)?.second == true)
+            if (AsIsUpload.status(ctx, c.deviceId)?.ok == true)
                 store.setState(c.deviceId, "SYNCED")
         }
     }
@@ -294,7 +297,7 @@ class SyncWorker(context: Context, params: WorkerParameters) :
                     // capture record still exists server-side; a person can
                     // re-shoot. Never pretend this synced.
                     store.setState(c.deviceId, "ERROR",
-                        serverName = name, error = "pano file missing on device")
+                        serverName = name, error = UploadNote.PANO_MISSING)
                     continue
                 }
                 val fileUrl = client.uploadPano(name, pano)

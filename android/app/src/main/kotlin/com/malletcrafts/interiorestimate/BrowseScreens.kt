@@ -241,7 +241,7 @@ fun SitesScreen(
         items(sites) { s ->
             FolderRow(
                 badge = if (s.type.isNotBlank()) s.type.take(3).uppercase() else "SITE", // text:value the prototype's badge, an unkeyed literal there too
-                title = s.name,
+                title = Masters.site_name(tx, s.name), // "Main site" through its master; a typed name as typed (port 61c slice M2)
                 subtitle = listOf(Masters.site(tx, s.type), s.city).filter { it.isNotBlank() }
                     .joinToString(" · ").ifBlank { tx.pl_project(projectCount(s)) },
                 count = projectCount(s),

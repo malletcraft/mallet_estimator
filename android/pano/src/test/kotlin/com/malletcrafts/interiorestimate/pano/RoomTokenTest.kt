@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -39,8 +40,10 @@ class RoomTokenTest {
 
     @Test
     fun `the tree label keeps the full name behind the token`() {
-        assertEquals("MB · Master Bedroom", RoomToken.label("Master Bedroom"))
+        assertEquals("MB · Master Bedroom", RoomToken.label(Tx.EN, "Master Bedroom"))
         // A room whose token is itself must not read "KIT · KIT".
-        assertEquals("KIT", RoomToken.label("KIT"))
+        assertEquals("KIT", RoomToken.label(Tx.EN, "KIT"))
+        // the room through its master under मराठी, the token Latin (port 61c slice M2)
+        assertEquals("LR · हॉल", RoomToken.label(Tx.MR, "Living Room"))
     }
 }

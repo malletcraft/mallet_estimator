@@ -78,84 +78,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	voice no
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	▶ 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	Annotated in ImageMeter; matched by the app's stamp
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	could not read the annotated image
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	 · $it
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	 · no photos, the 360 is not on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	: $clean
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	Not on web: 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	On web ✓ $hm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	Waiting to upload
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	no survey prep saved for this capture
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	not enough memory to square the 360 — will try again
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	not signed in - open the menu and sign in
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	readings not sent: ${e.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	refused
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	sign in again (menu → Server) - 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	sign in again (menu → Server) - $it
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	the web refused the saved password
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	this capture is no longer on the phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	upload failed
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	waiting for the capture to be filed
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	waiting for the project to reach ERP
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web answered ${a.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session expired - renewing when the web answers
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session renewed
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web session to be renewed when the web answers
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt	web sign-in refused - sending with the ERP key
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	$d ${MONTHS[m - 1]}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	${Catalogue.day(start)} → ${Catalogue.day(end)}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	(no site)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Apr
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Aug
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Balcony
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bathroom
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bedroom 4
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bedroom 5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Bungalow
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Car Porch
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dec
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dining Room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Dry Balcony
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Family Lounge
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Feb
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Flat
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Foyer
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Garden
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Guest Bedroom
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Home Theatre
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jan
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jul
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Jun
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Kids Bedroom
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Kitchen
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Living Room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Main site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Mar
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Master Bedroom
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	May
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	New work
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Nos
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Nov
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Oct
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Office
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Other
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Passage
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Pooja Room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Repair
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Row House
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Sep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Servant Room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Shop
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Staircase
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Store
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Study
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Supply & install
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Terrace
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 1
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 2
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 3
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 4
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Toilet 5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt	Utility
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	 — $it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	, 
@@ -323,9 +245,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	gallery refu
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a 360 photo (${bounds.outWidth}\u00d7${bounds.outHeight} is not 2:1) \u2014 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a decodable image
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt	download: HTTP ${resp.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${RoomToken.of(resume.room)} · ${resume.room}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${r.client} · ${r.site}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	${resume.client} / ${resume.site} / ${resume.projectTitle}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	$it mm
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	${clock.format(Date())}  $line
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	4) leave it idle and note when it disconnects. Then Share the log.
@@ -350,152 +269,57 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	\n$it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	connect pressed
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	permission refused
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	— mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 ${k.basis}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 ($kind)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 / 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 from the gallery.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 to $server
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$it — ${c.error}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$n BHK
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$r \u00b7 has photos
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$title · laser sizes
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	$unsent waiting
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${(ticked + withPhotos).size} of ${rooms.size} rooms
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPrep.SURFACES.count { p.surface(it).done() }} of 6 bounded \u00b7 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${bytes / 1024} KB
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${c.room} · ${c.captureDate}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.deviceId} · ${cap.date}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${cap.sku} · 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} / ${p.site} · ${p.jobType}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.client} · site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${p.site} / ${p.title}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated already sent, nothing new.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated, but their captures 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${sku.article} · ${p.title}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${surveySaved.actual.size} read \u00b7 tap to add site readings
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	%.1f MB
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	(Settings → API Access). The secret is shown once.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	(before 0.3.204), so survey prep can't open it here. The capture, its room 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	360 not on this phone (removed after upload)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	?
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API key
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API secret
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Add
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Adding\u2026
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Address
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Android is hiding other apps' photos from 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Capture deleted, and the SKU nobody else was using
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Captures go to MCFT Interior Estimate (${BuildConfig.WEB_URL}).
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Client
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Close
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not open the 360: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not re-file on the bench: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not read the gallery.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not rename: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not save: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not send the annotation: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not split: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Deleted here. The bench copy 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discard 360
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP email
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key (legacy)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key refused — tap to sign in to S5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERROR
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Estimate → Permissions → Photos.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Fewer details
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Flat
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Flat / building, street, area, city
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Gallery access granted — looking for annotations now.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Generate both on your User page in ERPNext 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Height floor→ceiling
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Home Theatre
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter wrote. Settings → Apps → MCFT Interior 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Its SKU code prefix appears here.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Job type
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	KIT
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Kothrud
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Length front→back
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Looked at ${scan.looked} gallery photos, none 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	MB
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	MCFT Interior Estimate
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	More details \u2014 type, address, job
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	New room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	New site
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No camera app answered: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No photos in the gallery to look at.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Not done yet \u00b7 tap to bound, square and mark each surface
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	OK
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Opening the 360\u2026
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	PRJ
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Password
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Project
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Room name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Rooms at $ss
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SITE
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SKU
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	SKU codes will read \u2026_${tok}_\u2026
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Save
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $n annotated 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $sent annotated 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Server
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Show all
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in again (menu → Server): $s5Refused
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in first \u2014 menu \u2192 Server.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in with your ERP email and password (menu → Server) to begin.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign out
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signed in as $name
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signing in…
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site URL
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep can't open this 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep saved on this phone; pictures not written: ${e.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep squares every surface to these, in mm. Take them with the D2.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sync queue
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 is no longer on this phone \u00b7 tap for why
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The 360 photo for this capture was removed from the phone after upload 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The same email and password you use for ERPNext.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The server refused, without saying why
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use these rooms
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Use this site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Waiting for the first master list — go online once.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Width left→right
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Without gallery access the app cannot see what 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Work
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Works offline. When the phone syncs, these become the 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	X3 capture failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	and its project are unchanged and saved.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	annotate that one.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	carrying this app's stamp. Only faces captured 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	could not add that room
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	did not go: ${it.message}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	face
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	faces
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	have not reached the server yet — sync first.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	no server configured
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not set
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not started \u00b7 tap to start
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ones that already exist, however the names were spelled.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	real client, site and project in ERPNext \u2014 or match 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	s
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	surfaces bounded \u00b7 ${surveySaved.surfaces.values.sumOf { it.marks.size }} marks \u00b7 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	then untick anything it doesn't have. Every project at this site 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this again.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this app — grant Photos access and press 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	uses these rooms. A room holding photos is always shown, ticked or not.
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	with 0.3.93 or later are stamped — re-shoot and 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	work
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	(no client)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	ERP did not accept that email and password
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Email and password are needed
@@ -506,58 +330,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	signed out me
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	the web did not start a session
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web answered ${a.code}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web unreachable
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - save its survey prep to send it to the web
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - the web takes a 360's survey prep, not a photo
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 and everything in it
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	 name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	$photos on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	/
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	A client is the office's customer record, so it is not 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	About to delete
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Anything already quoted on an estimate is kept.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Back
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Browse
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Client
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Delete 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Deleting removes it from ERP for everyone. 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP and every other device. Photos already filed under 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	ERP id
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Elsewhere on this project
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Ends
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	In ${RoomToken.of(room)}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Job type
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not signed in
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Not synced — still only on this phone
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Photos
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Queue
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename $what
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Rename or remove $what
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Save
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Saving…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Search
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Settings
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Site
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Starts
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Status
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Tag this photo to a SKU
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} has not synced yet, so this is a change on 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This ${what} is on the server, so the new name reaches 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	This project has no SKUs yet. The office adds them from 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Work
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	Working…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	a room photo, not tied to one article
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	it keep their place — only the label changes.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	removed from a phone. Delete the sites under it here; 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the customer itself is a desk job.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	the estimate, and they arrive on the next sync.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this ${what}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	this phone. It will go up under the corrected name.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	—
-app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	— none —
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	%.1f×  ·  double-tap to fit
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt	Pinch to zoom  ·  double-tap to magnify
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	$problem — join the X3's Wi-Fi in Settings, then try again
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	(Insta360 app) is holding the camera
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	Wi-Fi is joined in Android Settings, and no other app 
@@ -586,11 +358,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	ft
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	in
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	m
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	A client is the office's customer record. Delete the sites 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	Can't identify this $kind on the office system. Pull to 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	Removed from this phone — $what had never reached the office system.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	refresh — deleting now clears this phone only.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	under it here; the customer itself is a desk job.
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Meter is not showing metres/mm (unit code $unit) — set it to m or mm
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Not a length (%.4f)
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn from ${loc.to}
@@ -610,37 +377,3 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Line ${i
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right wall
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Top
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Balcony
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bathroom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bedroom 4
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bedroom 5
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bungalow
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Car Porch
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Dining Room
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Dry Balcony
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Flat
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Foyer
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Garden
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Guest Bedroom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Kids Bedroom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Kitchen
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Living Room
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Master Bedroom
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Office
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Other
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Passage
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Pooja Room
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Row House
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Shop
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Staircase
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Store
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Study
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Terrace
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 1
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 2
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 3
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Toilet 4
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Utility
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	HTTP $code
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	…

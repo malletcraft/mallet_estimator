@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.UploadNote
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -165,21 +166,20 @@ object AsIsUpload {
         }
     }
 
-    /** What survey prep shows, and whether it is good news; null when this capture was never queued. */
-    fun status(context: Context, id: String): Pair<String, Boolean>? = runCatching<Pair<String, Boolean>?> {
+    /**
+     * The capture's upload state for the screens; null when this capture was never queued. The LINE
+     * is rendered at DRAW time with the live tx (UploadNote.statusLine — port 61c slice M2);
+     * [UploadNote.Status.ok] is the one flag the colours and the sync read, never a string.
+     */
+    fun status(context: Context, id: String): UploadNote.Status? = runCatching<UploadNote.Status?> {
         val f = file(context, id)
         if (!f.exists()) return@runCatching null
         val o = JSONObject(f.readText())
-        when (o.optString("state")) {
-            "done" -> {
-                val hm = Instant.ofEpochMilli(o.optLong("at")).atZone(ZoneId.systemDefault())
-                    .toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
-                val extra = o.optString("error", "").let { if (it.isBlank()) "" else " · $it" }
-                ("On web ✓ $hm" + (if (o.optBoolean("image", true)) "" else " · no photos, the 360 is not on this phone") + extra) to true
-            }
-            "error", "refused" -> ("Not on web: " + o.optString("error", "upload failed")) to false
-            else -> ("Waiting to upload" + o.optString("error", "").let { if (it.isBlank()) "" else " · $it" }) to false
-        }
+        val state = o.optString("state")
+        val hm = Instant.ofEpochMilli(o.optLong("at")).atZone(ZoneId.systemDefault())
+            .toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm", java.util.Locale.ROOT))
+        UploadNote.Status(state, hm, o.optString("error", "").ifBlank { null },
+            image = o.optBoolean("image", true), ok = state == "done")
     }.getOrNull()
 
     /**
@@ -335,7 +335,7 @@ object AsIsUpload {
         val text = runCatching { JSONObject(a.body).optString("error").ifBlank { null } }.getOrNull()
             ?: a.body
         val clean = text.replace(Regex("\\s+"), " ").take(160)
-        return HttpError(a.code, "web answered ${a.code}" + if (clean.isNotBlank()) ": $clean" else "")
+        return HttpError(a.code, UploadNote.WEB_ANSWERED_PREFIX + a.code + if (clean.isNotBlank()) ": $clean" else "")
     }
 
     /** One request to the web; the answer's body. [method] is GET, POST, PUT or PATCH. A refusal throws [HttpError]. */
@@ -367,19 +367,19 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
         if (S5Session.signedIn(ctx)) S5Session.ensureFresh(ctx)
         val auth = S5Auth.current(ctx) ?: run {
             // Still signed in, the renewal just could not reach the web: a wait, not a refusal.
-            if (S5Session.signedIn(ctx)) return waitWith("web session to be renewed when the web answers")
+            if (S5Session.signedIn(ctx)) return waitWith(UploadNote.SESSION_TO_RENEW)
             // Nothing to send with: the job ENDS (no endless retry) and the sync re-queues it once
             // the person signs in (requeueSignInRefused).
             AsIsUpload.setState(ctx, id, "refused",
-                S5Session.refusal(ctx)?.let { "sign in again (menu → Server) - $it" }
-                    ?: "not signed in - open the menu and sign in", signIn = true)
+                S5Session.refusal(ctx)?.let { UploadNote.SIGN_AGAIN_PREFIX + it }
+                    ?: UploadNote.NOT_SIGNED_IN, signIn = true)
             return Result.failure()
         }
         val c0 = CaptureStore(ctx).all().firstOrNull { it.deviceId == id }
         if (c0 == null) {
             // A NEW capture's row is written just after its survey prep; give it a moment.
-            if (runAttemptCount < 5) return waitWith("waiting for the capture to be filed")
-            AsIsUpload.setState(ctx, id, "refused", "this capture is no longer on the phone")
+            if (runAttemptCount < 5) return waitWith(UploadNote.WAITING_FILED)
+            AsIsUpload.setState(ctx, id, "refused", UploadNote.CAPTURE_GONE)
             return Result.failure()
         }
         var c: CaptureStore.Capture = c0
@@ -394,14 +394,14 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 val key = S5Auth.keyFor(ctx, c.customerName, c.projectTitle)
                 CaptureStore(ctx).setProject(c.deviceId, key)
                 c = c.copy(project = key)
-            } else return waitWith("waiting for the project to reach ERP")
+            } else return waitWith(UploadNote.WAITING_PROJECT)
         }
 
         val text = SurveyPrepStore(ctx).loadText(id)
         val prepJson = text?.let { runCatching { JSONObject(it) }.getOrNull() }
         val prep = prepJson?.let { SurveyPrepStore.decode(it) }
         if (prepJson == null || prep == null) {
-            AsIsUpload.setState(ctx, id, "refused", "no survey prep saved for this capture")
+            AsIsUpload.setState(ctx, id, "refused", UploadNote.NO_PREP)
             return Result.failure()
         }
         val l = prepJson.optDouble("L"); val w = prepJson.optDouble("W"); val h = prepJson.optDouble("H")
@@ -523,7 +523,7 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
                 // explicit routes landed on S5 together, so a web that took the record above has this one, and that
                 // reading of a 404 is now the pull's alone (survey prep, through ReadingsSync's notAvailable).
                 if (e.code == 404) throw AsIsUpload.RecordMissing(e)
-                if (e.refused) "readings not sent: ${e.message}" else throw e
+                if (e.refused) UploadNote.READINGS_NOT_SENT_PREFIX + e.message else throw e
             }
             // DONE, and S5 was told the filing the record carried (the sweep's done-mark, FW2): the body's own
             // `work`, so the mark and the record cannot disagree. A pick moved on the phone while this job ran is
@@ -536,20 +536,20 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // stored email and password and let WorkManager run the job again. Only a 401
             // while signed in to S5 -- a 401 on the legacy ERP key stays a refusal, as before.
             if (e.code == 401 && S5Session.signedIn(ctx)) {
-                if (S5Session.relogin(ctx)) return waitWith("web session renewed")
+                if (S5Session.relogin(ctx)) return waitWith(UploadNote.SESSION_RENEWED)
                 // Not renewed but still signed in: the web could not be reached -- try later.
-                if (S5Session.signedIn(ctx)) return waitWith("web session expired - renewing when the web answers")
+                if (S5Session.signedIn(ctx)) return waitWith(UploadNote.SESSION_EXPIRED)
                 // REFUSED: relogin signed the phone out of S5 rather than post that password to
                 // ERP again. A legacy pair still held is used from the next run (S5Auth.current);
                 // with none, the job ends and asks for a sign-in, and is re-queued after one.
                 if (FrappeClient.authorization(ctx) != null)
-                    return waitWith("web sign-in refused - sending with the ERP key")
-                AsIsUpload.setState(ctx, id, "refused", "sign in again (menu → Server) - " +
-                    (S5Session.refusal(ctx) ?: "the web refused the saved password"), signIn = true)
+                    return waitWith(UploadNote.SIGNIN_REFUSED_KEY)
+                AsIsUpload.setState(ctx, id, "refused", UploadNote.SIGN_AGAIN_PREFIX +
+                    (S5Session.refusal(ctx) ?: UploadNote.WEB_REFUSED_PASSWORD), signIn = true)
                 return Result.failure()
             }
             // "refused" ENDS the job; "error" is a job WorkManager will run again (stateOf).
-            AsIsUpload.setState(ctx, id, if (e.refused) "refused" else "error", e.message ?: "refused")
+            AsIsUpload.setState(ctx, id, if (e.refused) "refused" else "error", e.message ?: "refused") // text:value a stored note; HttpError always carries a message, so unreachable in practice — if ever stored it draws as stored
             if (e.refused) Result.failure() else Result.retry()
         } catch (e: AsIsUpload.RecordMissing) {
             // A photo's or the readings PATCH's 404: the record this job sent is not on the web any more. "error" is a
@@ -557,7 +557,7 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             AsIsUpload.setState(ctx, id, "error", e.message)
             Result.retry()
         } catch (e: OutOfMemoryError) {
-            AsIsUpload.setState(ctx, id, "error", "not enough memory to square the 360 — will try again")
+            AsIsUpload.setState(ctx, id, "error", UploadNote.NO_MEMORY)
             Result.retry()
         } catch (e: Exception) {
             AsIsUpload.setState(ctx, id, "error", (e.message ?: e.javaClass.simpleName).take(200))

@@ -2411,7 +2411,10 @@ good.
    its readers by hand).
 3. **The code on batch-next** (b715006): every remaining unkeyed.tsv row of the twelve files below read in its
    file; the callers of every changing signature listed — `AsIsUpload.status` (SurveyPrepScreen:342,349,359,485,
-   496,1044 and its render; SyncWorker:202 and WorkRefile:88, both `?.second == true` today), `RoomToken.label`
+   496,1044; its `.second` reads at SurveyPrepScreen:357 and :361 in the LaunchedEffect, which become
+   `?.ok == true`; and its render, the destructuring at SurveyPrepScreen:1611 `webState?.let { (msg, good) -> … }`,
+   which statusLine replaces — its `msg.startsWith("Waiting")` colour read dies with it; SyncWorker:202 and
+   WorkRefile:88, both `?.second == true` today), `RoomToken.label`
    (MainActivity:472,528,2217,2904,3659,3673), `Deletes.route` / `localOnlyMessage` (MainActivity:1137,1148),
    `queueRow` / `skuQueueRow` (MainActivity:1382–1384), the Banner sites (MainActivity:1870–1874), the RenameDialog
    caller (MainActivity:1059, `what` = the wire kinds "client" / "site" / "project") — and every Tx accessor
@@ -2432,10 +2435,11 @@ prototype's own tree/queue/dialog keys (`app.tag_photo_sku`, `app.elsewhere_proj
 `app.client_office_s_customer`, `app.about_delete`, `app.deleting_removes_erp_everyone`, `app.delete_x`,
 `app.delete_x_everything`, `app.delete_this_project/site`, `common.working/saving/save/cancel`, `app.msg.renamed_x`,
 `app.msg.x_was_only_phone`, `app.sync_queue`, `app.x_waiting_queue`, `app.nothing_waiting`, `app.waiting_2`,
-`app.sent_2`, `app.x_waiting`, `app.wi_fi_only`, `pl_item`, `common.new_site`, `app.new_room/site_name/room_name/site_type/
+`app.sent_2`, `app.x_waiting`, `app.wi_fi_only`, `noun.item` (whose `pl_item` composes the queue banner's
+"1 आयटम"), `common.new_site`, `app.new_room/site_name/room_name/site_type/
 address/adding/use_these_rooms/use_site/rooms_x/x_x_rooms/x_has_photos/fewer_details/more_details_type_address/
 flat_building_street_area/works_offline_when_phone/site_type_x_pick/sku_codes_will_read/sku_code_prefix_appears/ok`,
-`common.add`, `common.show_all`, `room.home_theatre` as the Add-room placeholder, `demo.kothrud`, `app.aria.search`,
+`common.add`, `common.show_all`, `room.home_theatre` as the Add-room placeholder, `app.aria.search`,
 `app.aria.settings`) and the card's phone-text keys for everything the prototype never drew (the `app.note.*`
 stored-note family, `app.on_web_x`, `app.not_on_web_x`, `app.no_photos_360_not_phone`, the capture-row and dialog
 texts named under files below, `app.pinch_zoom_double_tap`, `app.x_double_tap_fit`, `app.no_site`). The ONE new key,
@@ -2467,7 +2471,9 @@ WishList.kt:111 idiom byte for byte — plus the TWO mappers:
   ServerMessage's output, the `"refused"` fallback — never guessed at (M4: "Any other stored note is drawn as
   stored").
 - `statusLine(tx, s)`: the web line itself — `app.on_web_x(hm)` + the `app.no_photos_360_not_phone` fragment + a
-  note tail through `line`; `app.not_on_web_x(line(tx, note))`; `common.waiting_upload` + the tail. For this,
+  note tail through `line`; `app.not_on_web_x(line(tx, note))` — and a BLANK or absent note on an error or refused
+  state renders `app.note.upload_failed`, the render default "upload failed" of AsIsUpload:180 (a state whose file
+  carries no note, not a stored note; the M2 critic's second round); `common.waiting_upload` + the tail. For this,
   `AsIsUpload.status(context, id)` stops returning `Pair<String, Boolean>` and returns a small
   `Status(state, hm, note, image, ok)` — the LINE is rendered at DRAW time with the live tx (M3b's readingsMsg
   rule: a long-lived message is drawn in the language on when it is drawn), and the colour reads `ok`, never a
@@ -2519,7 +2525,9 @@ and `status`/`statusLine` sit outside the region, which is `fun doWork` alone.
   Devanagari no-op — `app.elsewhere_project`, `app.none`, `app.room_photo_not_tied`; a SKU line's article and room
   through `Masters.article` / `Masters.room`); the project sheet (the eight labels through their keys, the values:
   `app.not_synced_still_only`, `app_x_phone("$photos")`, dates and ids as data, the site through
-  `Masters.site_name`, the job type through `Masters.job`, ERP's own `status` word drawn AS STORED — critic note 6 —
+  `Masters.site_name`, the job type through `Masters.job`, the Status value rendered AS THE PAGE RENDERS IT
+  (index61c2.html:7915): "Open" through `app.status_open` — the card's own key for this one value, चालू — and any
+  OTHER stored status drawn as stored, ERP's own word (critic note 6, corrected in the second round) —
   and "—" a value); the bottom bar (`common.work/browse/queue`; the badge count a figure); the rename-and-delete
   dialog — the {kind} word is `noun.client` / `noun.site` / `noun.project` (EN byte-identical lowercase), the title
   `app_rename_remove_x` / `app_rename_x`, the field label the CAPITALISED kind (`common.*`) + `app.name` (EN
@@ -2537,8 +2545,11 @@ and `status`/`statusLine` sit outside the region, which is `fun doWork` alone.
   constants — the equality compares keep working because the BYTES are the constants' — and nothing else changes:
   the erpLeg's `e.message` stamps stay the system's own words, drawn as stored by `line`.
 - **Catalogue.kt (55 → 0, joins ported.txt).** `dateRange(tx)` and `statusLabel(tx)` are already keyed (the PL
-  review); the 55 rows are DATA: MONTHS and the two date compositions marked `// text:value` (the served page draws
-  "4 Jan → 12 Feb" UNCHANGED under मराठी — proven, not assumed), the DEFAULT room list, site types and job types
+  review); the 55 rows are DATA — except the MONTHS, which the card KEYS (`date.month.1`–`12`, MR deliberately
+  Latin): `day(tx, iso)` renders them through those accessors (the second round — marking them as values would
+  leave two homes for one text, and an MR edit to `date.month.*` would move the prototype and not the phone), so
+  "4 Jan → 12 Feb" still draws UNCHANGED under मराठी because the KEYS say so, not because a second list here does.
+  The rest: the DEFAULT room list, site types and job types
   marked (stored values; shown through `Masters.room` / `Masters.site` / `Masters.job` where they surface),
   `DEFAULT_SITE` "Main site" and `NO_SITE` "(no site)" marked and SHOWN through `Masters.site_name` (the new
   masters.tsv row), "Nos" marked (the SKU basis, the wire). The site-NAME sites the tree draws raw today —
@@ -2556,7 +2567,9 @@ and `status`/`statusLine` sit outside the region, which is `fun doWork` alone.
   `UploadNote.line` (the " — " and " / " joins values), `skuQueueRow`'s code · qty · basis marked (codes, figures,
   the wire's "Nos"); THE BANNERS — `app.sign_erp_email_password`, `app_sign_again_menu_server_x(why)`,
   `app.waiting_first_master_list`; RENAME AND DELETE — `app_msg_could_not_rename_x`, `app_msg_renamed_x`,
-  `app_msg_x_was_only_phone(Masters.site_name(tx, name))`, `app.no_server_configured`,
+  the local-only toast through `Deletes.localOnlyMessage(tx, …)` (`app_msg_removed_phone_x_never`, the fill through
+  `Masters.site_name` — NOT `app_msg_x_was_only_phone`, which has no phone site at all; the second round's
+  correction of this list), `app.no_server_configured`,
   `app.server_refused_no_reason`; ADD SITE / ADD ROOM / NEW CLIENT — `common.new_site`, `app.site_name`,
   `app.site_type`, `app_site_type_x_pick(Masters.site(tx, v))`, the type chips through `Masters.site`, "$n BHK"
   marked (`// text:value` — digits and a Latin abbreviation, the page's own "2 BHK"), `app.address`,
@@ -2576,8 +2589,10 @@ and `status`/`statusLine` sit outside the region, which is `fun doWork` alone.
   The bench copy " + "did not go: "), `app_msg_could_not_open_360_x`, `app_msg_could_not_refile_x`,
   `app_msg_survey_prep_saved_not_written_x`, the FAB's `common.capture_360`, the face viewer's id · date sub-line
   marked (data); THE SEARCH OVERLAY — the hit type words (`common.client`, `noun.site` after the glyph, the job
-  type through `Masters.job`, rooms through `Masters.room`), the SITE / PRJ / SKU badges and the MB / KIT recents
-  marked (the prototype's own raw badges, the PL ruling), `demo.kothrud`; AND THE VALUE MARKS — "work" (the tab
+  type through `Masters.job`, rooms and the SKU article through `Masters.room` / `Masters.article`, the site through
+  `Masters.site_name`), the SITE / PRJ / SKU badges and the MB / KIT / Kothrud recents marked `// text:value` (the
+  badges are the prototype's own raw literals, the PL ruling; the recents are demo data — the card's `demo.kothrud`
+  row is `skipped` and generates NO accessor, so "Kothrud" cannot render through a key); AND THE VALUE MARKS — "work" (the tab
   id, wire), "ERROR" (a stored CaptureStore state, compared, never shown — the pill renders `app.retrying`),
   "MCFT Interior Estimate" (the product name, both sites), "KB" / "MB" / "%.1f MB" (units beside `app.empty`),
   " ", " / ", " · ", ".", "?", "Flat" (the stored default). THE 51 ROWS THAT STAY are M6's screens: the Server
@@ -2602,7 +2617,8 @@ and `status`/`statusLine` sit outside the region, which is `fun doWork` alone.
 | "On web ✓ 14:05 · no photos, …" | वेबवर ✓ 14:05 · फोटो नाहीत, … | `statusLine` over `app.on_web_x` + fragment |
 | the stored notes ("waiting for the project to reach ERP", …) | their `app.note.*` Marathi | stored English, `UploadNote.line` |
 | S5's and the bench's own words after a keyed head | UNCHANGED (as given) | data — the M4 reasonLine rule |
-| "2 BHK", "4 Jan → 12 Feb", "Nos", "HTTP 503" | UNCHANGED | the page's own ruling — values |
+| "2 BHK", "Nos", "HTTP 503" | UNCHANGED | the page's own ruling — values |
+| "4 Jan → 12 Feb" | UNCHANGED | `date.month.*`, whose MR is deliberately Latin — the keys, not a second list |
 | "Rename or remove site", "Client name" | साइट चे नाव बदला किंवा काढा, ग्राहक नाव | `{kind}` = `noun.*`, `app.name` |
 
 **S5 must already serve**
@@ -2612,8 +2628,9 @@ Nothing.
 **Tests and checks**
 
 - **UploadNoteTest (new, :pano)**: `statusLine(Tx.EN, …)` BYTE-EQUAL to today's `status()` strings for every state
-  (done; done with the no-photos fragment; done with a readings note; error; refused; waiting with and without a
-  note); under `Tx.MR` the card's values; `line` on every constant, on the two nested prefixes, on `web answered
+  (done; done with the no-photos fragment; done with a readings note; error; refused; ERROR WITH NO STORED NOTE —
+  the `app.note.upload_failed` default, the second round's addition; waiting with and without a note); under
+  `Tx.MR` the card's values; `line` on every constant, on the two nested prefixes, on `web answered
   401: Not staff` keeping S5's tail, and on an unknown note UNCHANGED; the constants' bytes pinned against the
   values 0.3.299 stored (a moved constant that changed a byte orphans every state file on the phone).
 - **ReadingsTest grows the round trip**: `conflictNoteLine(tx, conflictText(Tx.EN, c)) == conflictText(tx, c)` for
@@ -2622,7 +2639,8 @@ Nothing.
   Latin only under मराठी)**: hand-typed Marathi pins against the strings the served page answered —
   `RoomToken.label` ("LR · हॉल"), `Deletes` per branch (ओळखता येत नाही…, ग्राहक हा ऑफिसचा…, या फोनवरून काढले —
   मुख्य साइट…), the site-name master both ways (मुख्य साइट; a typed name through unchanged), a site type and a job
-  type, and the {kind} compositions (साइट चे नाव बदला किंवा काढा; प्रोजेक्ट नाव).
+  type, the {kind} compositions (साइट चे नाव बदला किंवा काढा; प्रोजेक्ट नाव), and the project sheet's "Open" → चालू
+  (`app.status_open`, the second round's finding 1).
 - Existing :pano tests take `Tx.EN` at new first parameters where signatures reach them: DeleteRouteTest,
   RoomTokenTest, FlatPresetsTest (no signature moves — data only), ServerMessageTest (unchanged, Tx-free).
 - **The i18n suite**: I18nTableTest (1,798 keys; `app.aria.back` flagged `phone-text` with its where-list),
@@ -2686,12 +2704,18 @@ raised before the flip keeps its language for 2.6 s (M3a's accepted rule).
    Album.WORKS set the idiom (K1b): identity values marked, drawn through Masters.
 5. *`app.x_server_so_new`'s MR opens "हा {kind}…", which misgenders साइट ("हा साइट…").* The card's MR is what the
    approved page itself composes with the same key and the same `noun.site` fill, so the phone MATCHES the approved
-   screen — decision 3 and the prototype's authority outrank the grammar. If Amit's phone test reads it as wrong,
-   the fix is whole keys per kind (the DeleteRoute idiom), one card edit, listed for his test — not an unapproved
-   rewording here.
-6. *The project sheet's Status value ("Open") stays English?* It is ERP's own stored word, data like a name;
-   Catalogue's keyed `statusLabel` words are the PILL's four states, not this field's vocabulary, and inventing a
-   map for ERP's status values would translate a wire value. Drawn as stored; recorded, not hidden.
+   screen — decision 3 and the prototype's authority outrank the grammar. The same substitution class ships in
+   `app.rename_x` / `app.rename_remove_x` ("ग्राहक चे नाव बदला" wants the oblique ग्राहकाचे joined, "साइट चे" reads
+   split the same way) and in the `common.* + app.name` field label — all listed for Amit's phone test together
+   (the second round). If he reads any as wrong, the fix is whole keys per kind (the DeleteRoute idiom), one card
+   edit each — not an unapproved rewording here.
+6. *The project sheet's Status value ("Open") stays English?* WRONG as first written, caught by the second-round
+   critic: the page itself renders the one value "Open" through `app.status_open` (index61c2.html:7915, inside
+   projectSheet) — the card made that key for exactly this site (EN "Open", MR "चालू") and it had ZERO readers in
+   the code. So the phone renders it the same way: `project.status == "Open" -> tx.app_status_open`, blank "—",
+   local `app.not_synced_still_only` — and only a status OTHER than Open is drawn as stored (that part of the first
+   answer stands: inventing a map for Completed/Cancelled here would translate values the page does not).
+   TreeQueueMarathiTest pins "Open" → चालू.
 7. *status() changes type — the M3b salvage-log fault?* Walked, not assumed: every `.first` / `.second` reader is
    listed in "Derived from" 3 and changed in this slice; and the failure mode differs — the compiler REFUSES
    `.second` on `Status`, where the Log.w case compiled through `Any` — so a missed reader is a red CI build.
@@ -2706,6 +2730,43 @@ raised before the flip keeps its language for 2.6 s (M3a's accepted rule).
 10. *"ERROR" and "work" marked as values — but they are shown?* Neither is: "work" is the tab id the `when`
     compares, and "ERROR" is CaptureStore's stored state, compared in `queueRow` — the pill the person sees renders
     `app.retrying`. A mark says WHY a literal is exempt; these are the wire's.
+
+**The M2 critic, second round (9 Nov 2026)** — seven findings on §24 itself, each checked against the source before
+building; ALL SEVEN CONFIRMED and applied, and the section above is edited where each one named it:
+
+1. *(major)* Critic 6 contradicted the approved prototype: `projectSheet` (index61c2.html:7915) renders the Status
+   value "Open" through `app.status_open` — the key exists on the card (EN "Open", MR "चालू", made for exactly this
+   site) with a generated accessor and ZERO readers, so both of critic 6's factual claims (no vocabulary key; a map
+   would have to be invented) were false. Confirmed by reading the page's live JS and the card. Applied: the
+   TreeShell bullet renders Open through the key (blank "—", local `app.not_synced_still_only`, any other status as
+   stored — that part of critic 6 stands), critic 6 is rewritten, and TreeQueueMarathiTest pins "Open" → चालू.
+2. `demo.kothrud` was listed among usable keys while index.tsv marks it `skipped` (no accessor): following the list
+   as written was an unresolved-reference compile break in CI. Confirmed (index.tsv:614; no `demo_` member on Tx).
+   Applied: "Kothrud" is marked `// text:value` with MB / KIT, and demo.kothrud left the keys list.
+3. The status() reader walk missed SurveyPrepScreen:357 and :361 (`.second` in the LaunchedEffect) and blurred the
+   render reader (:1611's destructuring). Confirmed by reading the file. Applied: both named in "Derived from" 3 —
+   and :1611's `msg.startsWith("Waiting")` colour read, which would have broken silently under मराठी, dies with the
+   destructuring (the colour reads `st.ok` and the stored `state` now).
+4. The plan marked Catalogue's MONTHS as values while the card KEYS them (`date.month.1`–`12`, MR deliberately
+   Latin) — two homes for one text. Confirmed. Applied the first remedy: `day(tx, iso)` renders through the
+   accessors, the private MONTHS list is deleted. NOTE: `QuoteStage`'s own MONTHS stay the PL ruling (marked
+   value), and rightly — its list is the prototype's en-GB `toLocaleDateString` vocabulary, which says "Sept"
+   where `date.month.9` says "Sep", so it CANNOT read these keys without changing approved screens.
+5. `pl_item` written as a key when it is `noun.item`'s plural accessor. Confirmed (index.tsv:899). Applied in the
+   keys list.
+6. Critic 5's whole-keys-per-kind remedy was scoped to `app.x_server_so_new` alone while `app.rename_x` /
+   `app.rename_remove_x` ship the same {kind}-substitution class ("ग्राहक चे…"). Confirmed (both MR values open
+   "{kind} चे"). Applied: critic 5 now lists all of them for Amit's phone test.
+7. The UploadNote constants list omitted the "upload failed" render default (AsIsUpload:180, unkeyed row 96) —
+   a no-note error/refused state would have slipped through unpinned. Confirmed. Applied: statusLine renders a
+   blank/absent note on error/refused as `app.note.upload_failed`, and UploadNoteTest pins that case byte-equal.
+
+And one error the build itself found, recorded the same way: the RENAME AND DELETE cluster named
+`app_msg_x_was_only_phone(Masters.site_name(tx, name))`, but that accessor has NO caller and its key no phone
+site — the local-only toast is `Deletes.localOnlyMessage`, which renders `app_msg_removed_phone_x_never`; the
+cluster line is corrected above. Also recorded, a hair beyond the letter of the files list: HomeScreens' recent
+row draws its ROOM name through `Masters.room` (the bullet named only the resume card and the site), because a
+room name is an identity value everywhere else on the tree and the queue row beside it already translates its room.
 
 **unkeyed.tsv** 614 → 347 (267 rows off) · **ported.txt** + UploadNote.kt, FlatPresets.kt, DeleteRoute.kt,
 RoomToken.kt, ServerMessage.kt (pano), TreeShell.kt, AsIsUpload.kt, SyncWorker.kt, Catalogue.kt, HomeScreens.kt,

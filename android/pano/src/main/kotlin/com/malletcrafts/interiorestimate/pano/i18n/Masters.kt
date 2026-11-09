@@ -209,9 +209,10 @@ object Masters {
         else -> value
     }
 
-    /** 1 values. */
+    /** 2 values. */
     fun site_name(tx: Tx, value: String): String = when (value) {
         "Main site" -> tx.common_main_site
+        "(no site)" -> tx.app_no_site
         else -> value
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.RoomToken
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 
 /**
  * Work and Queue — the two tabs beside Browse.
@@ -124,11 +125,11 @@ fun WorkScreen(
                             .45f to Color.Transparent,
                             1f to Color.Black.copy(alpha = .62f))))
                     Column(Modifier.align(Alignment.BottomStart).padding(14.dp)) {
-                        Text("${RoomToken.of(resume.room)} · ${resume.room}",
+                        Text(RoomToken.label(tx, resume.room),
                             color = Color.White, fontSize = 21.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${resume.client} / ${resume.site} / ${resume.projectTitle}",
+                        Text("${resume.client} / ${resume.site} / ${resume.projectTitle}", // text:value names and glyphs only
                             color = Color.White.copy(alpha = .92f), fontSize = 11.sp,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -160,9 +161,9 @@ fun WorkScreen(
                         }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(r.room, style = MaterialTheme.typography.bodyLarge,
+                            Text(Masters.room(tx, r.room), style = MaterialTheme.typography.bodyLarge,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${r.client} · ${r.site}",
+                            Text("${r.client} · ${Masters.site_name(tx, r.site)}", // text:value the name and the glyph; the site through its master
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -70,6 +70,7 @@ fun ZoomableImage(
      *  at the exact moment a person is flicking between the two to compare. */
     resetKey: Any? = null,
 ) {
+    val tx = LocalTx.current
     val context = LocalContext.current
     val key = when (source) {
         is ThumbSource.LocalFile -> "f:${source.path}:$VIEWER_TARGET"
@@ -143,8 +144,8 @@ fun ZoomableImage(
         // affordance is invisible and has to be stated; once zoomed the only
         // questions left are how far in you are and how to get back.
         Text(
-            if (view.zoomed) "%.1f×  ·  double-tap to fit".format(java.util.Locale.ROOT, view.scale)
-            else "Pinch to zoom  ·  double-tap to magnify",
+            if (view.zoomed) tx.app_x_double_tap_fit(zoom = "%.1f".format(java.util.Locale.ROOT, view.scale)) // text:value the figure's format
+            else tx.app_pinch_zoom_double_tap,
             color = Color(0xFFEDEFEA), fontSize = 11.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)

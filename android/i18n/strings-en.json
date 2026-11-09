@@ -866,6 +866,17 @@
    "aria-label"
   ]
  },
+ "app.aria.back": {
+  "en": "Back",
+  "where": [
+   "S2 APK phone text · TreeShell.kt:140 at b715006 · the top bar: the back arrow's screen-reader label on a view screen (one capture, one face) · surface.back.short has the same EN but is the back WALL's tab name — a navigation control must not share a surface word's key (port 61c slice M2, decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "app.aria.close_search": {
   "en": "Close search",
   "where": "v53build/app.js:415 · h",

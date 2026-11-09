@@ -1,5 +1,8 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
+
 /**
  * The short room token — MB, KB, KIT — used in folder names and in the tree.
  *
@@ -84,9 +87,13 @@ object RoomToken {
     }
 
     /** What the tree shows: the token a person says, with the full name
-     *  behind it so nobody has to memorise the mapping. */
-    fun label(room: String): String {
+     *  behind it so nobody has to memorise the mapping. The name goes through
+     *  the room master ("LR · हॉल", the served page's own row — port 61c
+     *  slice M2); the TOKEN stays Latin, an identity. A typed room passes
+     *  through unchanged. */
+    fun label(tx: Tx, room: String): String {
         val t = of(room)
-        return if (t.isBlank() || t.equals(room, true)) room else "$t · $room"
+        val shown = Masters.room(tx, room)
+        return if (t.isBlank() || t.equals(room, true)) shown else "$t · $shown"
     }
 }

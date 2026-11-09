@@ -136,6 +136,32 @@ object Readings {
         conflicts.entries.sortedBy { it.key }.joinToString("; ") { (k, r) -> // text:value the list separator
             if (r.by.isNotBlank()) tx.sp_x_changed_web_by_x(code = k, by = r.by) else tx.sp_x_changed_web(k) }
 
+    /** conflictText's own two EN shapes, matched back by [conflictNoteLine]. Storage never sees Marathi. */
+    private const val CHANGED_BY_EN = " changed on the web by " // text:value conflictText's EN shape, parsed back, never shown raw
+    private const val CHANGED_EN = " changed on the web" // text:value conflictText's EN shape, parsed back, never shown raw
+
+    /**
+     * THE PUSH PATH'S STORED CONFLICT NOTE, RE-RENDERED AT DRAW TIME (port 61c slice M2). The note
+     * ReadingsSync.push stores is `conflictText(Tx.EN, …)` — storage never sees Marathi, and old
+     * state files already hold those bytes — and this draws it in the live language: split on
+     * "; ", each segment matched against conflictText's own two EN shapes (`{code} changed on the
+     * web`, `… by {by}`) and rendered through the same keys, `{by}` as given; a segment that
+     * matches neither is drawn as stored. Owner and parser are ONE file, pinned by a round trip:
+     * `conflictNoteLine(tx, conflictText(Tx.EN, c)) == conflictText(tx, c)` for every shape,
+     * under both Tx (ReadingsTest).
+     */
+    fun conflictNoteLine(tx: Tx, note: String): String =
+        note.split("; ").joinToString("; ") { seg -> // text:value the list separator
+            val by = seg.indexOf(CHANGED_BY_EN)
+            when {
+                by > 0 -> tx.sp_x_changed_web_by_x(
+                    code = seg.substring(0, by), by = seg.substring(by + CHANGED_BY_EN.length))
+                seg.endsWith(CHANGED_EN) && seg.length > CHANGED_EN.length ->
+                    tx.sp_x_changed_web(seg.removeSuffix(CHANGED_EN))
+                else -> seg
+            }
+        }
+
     /**
      * THE READINGS LINE'S COLOUR CLASS, decided by KIND, never by string equality (port 61c slice M3b, critic note 3:
      * a string compare against a now-bilingual text is the two-answers fault in miniature). OK (green) only when the

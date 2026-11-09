@@ -120,6 +120,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch
 import com.malletcrafts.interiorestimate.pano.SurveyRef
+import com.malletcrafts.interiorestimate.pano.UploadNote
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -354,11 +355,11 @@ internal fun SurveyPrepDialog(
     // A pull of the web's readings is asked for by bumping this: on open, on resume, and when an upload lands.
     var pullTick by remember { mutableIntStateOf(1) }
     LaunchedEffect(Unit) {
-        var wasDone = webState?.second == true
+        var wasDone = webState?.ok == true
         while (true) {
             webState = withContext(Dispatchers.IO) { AsIsUpload.status(context, id) }
             refileRefused = withContext(Dispatchers.IO) { AsIsUpload.refileRefused(context, id) }
-            val isDone = webState?.second == true
+            val isDone = webState?.ok == true
             if (isDone && !wasDone) pullTick++
             wasDone = isDone
             delay(3000)
@@ -1608,8 +1609,11 @@ internal fun SurveyPrepDialog(
     // new-360 note, then Start over and Discard this 360, each still two taps.
     val menuActions: @Composable () -> Unit = {
         rev    // read: the clears' counts follow every change
-        webState?.let { (msg, good) ->
-            Text(msg, color = if (good) SP_OK else if (msg.startsWith("Waiting")) SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
+        webState?.let { st ->
+            // the line renders in the live language at draw time (UploadNote.statusLine, port 61c slice M2);
+            // the colour reads the state and the ok flag, never the rendered string ("waiting" is the stored value)
+            Text(UploadNote.statusLine(tx, st),
+                color = if (st.ok) SP_OK else if (st.state == "waiting") SP_MUTED else SP_AMB, fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp, bottom = 8.dp))
         }
         // a re-file by work S5 refused (FW2 review): the phone files the capture one way and S5 another until

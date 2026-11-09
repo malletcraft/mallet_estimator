@@ -190,10 +190,10 @@ object ReadingsSync {
             }
             st.conflicts.putAll(conflicts)
         }
-        // THE PUSH PATH'S NOTE COMPOSES WITH Tx.EN until M2 (port 61c slice M3b): it is a STORED note -- kept in the
-        // job's state (AsIsUpload.setState) and shown by the tree's status line, which is M2's screen -- so it stays
-        // English like M4's REPLACED / NOT_SENT notes. The PULL path (survey prep) renders Readings.conflictText with
-        // the screen's live tx.
+        // THE PUSH PATH'S NOTE IS STORED ENGLISH FOR GOOD, re-rendered by Readings.conflictNoteLine (port 61c
+        // slice M2): it is kept in the job's state (AsIsUpload.setState), old files already hold these bytes,
+        // and the status line draws it in the live language through UploadNote.line -> conflictNoteLine. The
+        // PULL path (survey prep) renders Readings.conflictText with the screen's live tx, as before.
         return if (conflicts.isEmpty()) null else Readings.conflictText(Tx.EN, conflicts)
     }
 

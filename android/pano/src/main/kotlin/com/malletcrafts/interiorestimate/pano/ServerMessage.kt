@@ -39,7 +39,7 @@ object ServerMessage {
         val fromServer = serverMessages(body).firstOrNull { it.isNotBlank() }
         val text = fromServer ?: exceptionSentence(body)
         val clean = clip(collapse(stripHtml(text)))
-        return clean.ifBlank { "HTTP $code" }
+        return clean.ifBlank { "HTTP $code" } // text:value the status as its own words: the served page draws "HTTP 503" UNCHANGED under मराठी
     }
 
     /**
@@ -102,7 +102,7 @@ object ServerMessage {
     fun clip(s: String): String {
         if (s.length <= MAX) return s
         val cut = s.lastIndexOf(' ', MAX - 1)
-        return s.substring(0, if (cut > MAX / 2) cut else MAX - 1).trimEnd() + "…"
+        return s.substring(0, if (cut > MAX / 2) cut else MAX - 1).trimEnd() + "…" // text:value an ellipsis
     }
 
     // --- the smallest JSON reader that does this job ----------------------

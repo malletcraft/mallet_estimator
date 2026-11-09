@@ -12,6 +12,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.RoomToken
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -56,8 +57,7 @@ fun SettingsDrawerContent(
         Column(Modifier.verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(20.dp))
             Column(Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
-                // "Not signed in" has no prototype key yet: keyed once the v61c card carries it.
-                Text(user.ifBlank { "Not signed in" },
+                Text(user.ifBlank { tx.app_not_signed_in },
                     style = MaterialTheme.typography.titleMedium)
                 Text(server.ifBlank { tx.app_no_server_set },
                     style = MaterialTheme.typography.bodySmall,
@@ -121,6 +121,7 @@ fun TreeTopBar(
      *  everywhere, which is the only way it means one thing. */
     onBack: (() -> Unit)? = null,
 ) {
+    val tx = LocalTx.current
     TopAppBar(
         title = {
             Column {
@@ -137,19 +138,19 @@ fun TreeTopBar(
             if (onBack != null) {
                 IconButton(onClick = onBack) {
                     Icon(painterResource(R.drawable.ic_mcft_back),
-                        contentDescription = "Back")
+                        contentDescription = tx.app_aria_back)
                 }
             } else {
                 IconButton(onClick = onMenu) {
                     Icon(painterResource(R.drawable.ic_mcft_menu),
-                        contentDescription = "Settings")
+                        contentDescription = tx.app_aria_settings)
                 }
             }
         },
         actions = {
             IconButton(onClick = onSearch) {
                 Icon(painterResource(R.drawable.ic_mcft_search),
-                    contentDescription = "Search")
+                    contentDescription = tx.app_aria_search)
             }
         })
 }
@@ -188,29 +189,30 @@ fun CaptureSkuSheet(
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tx = LocalTx.current
     val mine = skus.filter { it.room.equals(room, true) }
     val others = skus.filter { !it.room.equals(room, true) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        SheetTitle("Tag this photo to a SKU")
+        SheetTitle(tx.app_tag_photo_sku)
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
             if (skus.isEmpty()) {
-                Text("This project has no SKUs yet. The office adds them from " +
-                     "the estimate, and they arrive on the next sync.",
+                Text(tx.app_project_has_no_skus,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             }
             if (mine.isNotEmpty()) {
-                SheetGroup("In ${RoomToken.of(room)}")
+                // the token stays Latin inside the fill; SheetGroup's .uppercase() is a Devanagari no-op
+                SheetGroup(tx.app_in_x(RoomToken.of(room)))
                 mine.forEach { SkuLine(it, current, onPick) }
             }
             if (others.isNotEmpty()) {
-                SheetGroup("Elsewhere on this project")
+                SheetGroup(tx.app_elsewhere_project)
                 others.forEach { SkuLine(it, current, onPick) }
             }
             ListItem(
-                headlineContent = { Text("— none —") },
-                supportingContent = { Text("a room photo, not tied to one article") },
+                headlineContent = { Text(tx.app_none) }, // text:value the dashes ride the key
+                supportingContent = { Text(tx.app_room_photo_not_tied) },
                 colors = if (current.isBlank())
                     ListItemDefaults.colors(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -223,10 +225,12 @@ fun CaptureSkuSheet(
 
 @Composable
 private fun SkuLine(s: Catalogue.Sku, current: String, onPick: (String) -> Unit) {
+    val tx = LocalTx.current
     ListItem(
         headlineContent = { Text(s.code) },
-        supportingContent = { Text(s.article.ifBlank { s.room }) },
-        trailingContent = { if (s.room.isNotBlank()) Pill(s.room, warn = false) },
+        // the article and the room as the masters name them in the language; the code is data
+        supportingContent = { Text(if (s.article.isBlank()) Masters.room(tx, s.room) else Masters.article(tx, s.article)) },
+        trailingContent = { if (s.room.isNotBlank()) Pill(Masters.room(tx, s.room), warn = false) },
         colors = if (s.code == current || s.name == current)
             ListItemDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -257,21 +261,25 @@ fun ProjectSheet(
     photos: Int,
     onDismiss: () -> Unit,
 ) {
+    val tx = LocalTx.current
     // v61c: no site stage outside the v53 lens (index61c2.html projectSheet drops At stage, Phase, Phases
     // and Stages), so the ERP site stage is neither shown nor moved on the phone (port 61c slice PL)
     val rows = buildList {
-        add("Job type" to project.jobType)
-        add("Status" to when {
-            project.local -> "Not synced — still only on this phone"
-            project.status.isBlank() -> "—"
+        add(tx.app_job_type to Masters.job(tx, project.jobType))
+        add(tx.app_status to when {
+            project.local -> tx.app_not_synced_still_only
+            project.status.isBlank() -> "—" // text:value a dash for a blank field
+            // the Status VALUE "Open" goes through the page's own key (index61c2.html:7915,
+            // app.status_open -> चालू); any OTHER stored status is ERP's own word, drawn as stored
+            project.status == "Open" -> tx.app_status_open // text:value the stored status, compared
             else -> project.status
         })
-        add("ERP id" to project.serverId.ifBlank { "—" })
-        add("Site" to project.site)
-        add("Client" to project.client)
-        add("Starts" to project.start.ifBlank { "—" })
-        add("Ends" to project.end.ifBlank { "—" })
-        add("Photos" to "$photos on this phone")
+        add(tx.app_erp_id to project.serverId.ifBlank { "—" }) // text:value a dash for a blank field
+        add(tx.common_site to Masters.site_name(tx, project.site))
+        add(tx.common_client to project.client)
+        add(tx.app_starts to project.start.ifBlank { "—" }) // text:value a dash for a blank field
+        add(tx.app_ends to project.end.ifBlank { "—" }) // text:value a dash for a blank field
+        add(tx.app_photos to tx.app_x_phone("$photos"))
     }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         SheetTitle(project.title)
@@ -300,19 +308,20 @@ fun ProjectSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
+    val tx = LocalTx.current
     NavigationBar {
         NavigationBarItem(
             selected = current == "work",
             onClick = { onTab("work") },
             icon = { Icon(painterResource(R.drawable.ic_mcft_home),
                           contentDescription = null) },
-            label = { Text("Work") })
+            label = { Text(tx.common_work) }) // text:value "work" is the tab id, wire
         NavigationBarItem(
             selected = current == "browse",
             onClick = { onTab("browse") },
             icon = { Icon(painterResource(R.drawable.ic_mcft_folder),
                           contentDescription = null) },
-            label = { Text("Browse") })
+            label = { Text(tx.common_browse) }) // text:value "browse" is the tab id, wire
         NavigationBarItem(
             selected = current == "queue",
             onClick = { onTab("queue") },
@@ -327,7 +336,7 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
                     BadgedBox(badge = { Badge { Text("$queued") } }) { cloud() }
                 } else cloud()
             },
-            label = { Text("Queue") })
+            label = { Text(tx.common_queue) }) // text:value "queue" is the tab id, wire
     }
 }
 
@@ -469,7 +478,7 @@ fun CaptureSheet(
                         floor = Math.round(plan.floorFovDeg).toString())
                     else -> tx.app_room_needs_x_x(
                         floor = Math.round(plan.floorFovDeg).toString(),
-                        v = plan.unfittedFaces.joinToString("/"))
+                        v = plan.unfittedFaces.joinToString("/")) // text:value the "/" join
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (!sizesOk || (plan != null && !plan.fitted))
@@ -616,6 +625,19 @@ fun RenameDialog(
      *  sites on this bench are all called "Main site". */
     serverId: String = "",
 ) {
+    val tx = LocalTx.current
+    // the {kind} word: the wire kinds "client" / "site" / "project" through their nouns (EN byte-identical
+    // lowercase); the CAPITALISED kind for the field label is the common.* family
+    val kindWord = when (what) {
+        "client" -> tx.noun_client(1)
+        "site" -> tx.noun_site(1)
+        else -> tx.noun_project(1)
+    }
+    val kindCap = when (what) {
+        "client" -> tx.common_client
+        "site" -> tx.common_site
+        else -> tx.common_project
+    }
     var text by remember(current) { mutableStateOf(current) }
     val changed = text.trim().isNotEmpty() && text.trim() != current
     AlertDialog(
@@ -630,7 +652,7 @@ fun RenameDialog(
         // probe customer. A heading that names a control the dialog does not
         // have reads as a broken button, not as a boundary — so it now says
         // what this particular dialog can actually do.
-        title = { Text(if (onDelete != null) "Rename or remove $what" else "Rename $what") },
+        title = { Text(if (onDelete != null) tx.app_rename_remove_x(kindWord) else tx.app_rename_x(kindWord)) },
         text = {
             Column {
                 OutlinedTextField(
@@ -638,18 +660,13 @@ fun RenameDialog(
                     onValueChange = { text = it },
                     singleLine = true,
                     enabled = !busy,
-                    label = { Text(what.replaceFirstChar { it.uppercase() } + " name") },
+                    label = { Text(kindCap + tx.app_name) }, // "Client" + " name", byte for byte; MR "ग्राहक नाव", the page's own vis answer
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    if (onServer)
-                        "This ${what} is on the server, so the new name reaches " +
-                        "ERP and every other device. Photos already filed under " +
-                        "it keep their place — only the label changes."
-                    else
-                        "This ${what} has not synced yet, so this is a change on " +
-                        "this phone. It will go up under the corrected name.",
+                    if (onServer) tx.app_x_server_so_new(kindWord)
+                    else tx.app_x_has_not_synced(kindWord),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -660,9 +677,7 @@ fun RenameDialog(
                 if (onDelete == null) {
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        "A client is the office's customer record, so it is not " +
-                        "removed from a phone. Delete the sites under it here; " +
-                        "the customer itself is a desk job.",
+                        tx.app_client_office_s_customer,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -681,7 +696,7 @@ fun RenameDialog(
                     // button that sends it, and it is the LAST thing read
                     // before the tap.
                     if (serverId.isNotBlank()) {
-                        Text("About to delete", style = MaterialTheme.typography.labelSmall,
+                        Text(tx.app_about_delete, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(current, style = MaterialTheme.typography.titleSmall)
                         Text(serverId, style = MaterialTheme.typography.bodySmall,
@@ -694,8 +709,7 @@ fun RenameDialog(
                     // person can act on, where "could not delete" is not.
                     Text(
                         blocker
-                            ?: "Deleting removes it from ERP for everyone. " +
-                               "Anything already quoted on an estimate is kept.",
+                            ?: tx.app_deleting_removes_erp_everyone,
                         style = MaterialTheme.typography.bodySmall,
                         color = if (blocker != null) MaterialTheme.colorScheme.error
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -711,18 +725,18 @@ fun RenameDialog(
                             contentColor = MaterialTheme.colorScheme.error),
                     ) {
                         Text(when {
-                            busy -> "Working…"
+                            busy -> tx.common_working
                             // Only after being told what is in the way. A
                             // cascade offered before the refusal would be a
                             // one-tap way to lose a job's whole history.
                             // Both carry the docname. A destructive button
                             // whose text would read the same for any row is a
                             // button nobody can check before pressing.
-                            blocker != null ->
-                                "Delete " + serverId.ifBlank { current } +
-                                " and everything in it"
-                            else ->
-                                "Delete " + serverId.ifBlank { "this ${what}" }
+                            blocker != null -> tx.app_delete_x_everything(serverId.ifBlank { current })
+                            // whole keys per kind, the card's own where-note (a client offers no delete)
+                            serverId.isNotBlank() -> tx.app_delete_x(serverId)
+                            what == "site" -> tx.app_delete_this_site // text:value the wire kind, compared
+                            else -> tx.app_delete_this_project
                         })
                     }
                 }
@@ -731,11 +745,11 @@ fun RenameDialog(
         confirmButton = {
             TextButton(enabled = changed && !busy,
                 onClick = { onSave(text.trim()) }) {
-                Text(if (busy) "Saving…" else "Save")
+                Text(if (busy) tx.common_saving else tx.common_save)
             }
         },
         dismissButton = {
-            TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") }
+            TextButton(enabled = !busy, onClick = onDismiss) { Text(tx.common_cancel) }
         },
     )
 }

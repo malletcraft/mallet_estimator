@@ -85,7 +85,7 @@ object WorkRefile {
 
     /** Whether S5 holds this capture: its as-is upload reads On web. */
     fun onWeb(context: Context, captureId: String): Boolean =
-        AsIsUpload.status(context, captureId)?.second == true
+        AsIsUpload.status(context, captureId)?.ok == true
 
     /**
      * THE SWEEP: every capture Album.needsRefile says so of gets the job -- On web, filed off the Quote

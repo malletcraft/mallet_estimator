@@ -91,3 +91,28 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt
+# Port 61c slice M2 (9 Nov 2026) adds the tree, its dialogs, the queue and the upload status: pano/UploadNote.kt
+# (new: the as-is upload's stored notes — English for good, marked `// text:value`, drawn through app.note.* by
+# line/statusLine), pano/FlatPresets.kt (site types and room lists are the wire, marked; shown through Masters.site
+# / Masters.room at the dialogs), pano/DeleteRoute.kt (whole keys per kind through the tx), pano/RoomToken.kt
+# (label takes the tx: the room through Masters.room, the token Latin), pano/ServerMessage.kt (humanise's output is
+# stored and Frappe's own sentence, marked — the served page draws "HTTP 503" unchanged); app/TreeShell.kt (the
+# drawer header, the arias — app.aria.back is the slice's one new key — the SKU and project sheets, the bottom
+# bar, rename-and-delete; FW2's "until its other sheets are" note closed), app/AsIsUpload.kt (the notes moved to
+# UploadNote byte for byte; status returns UploadNote.Status), app/SyncWorker.kt (the stamps are UploadNote's
+# constants), app/Catalogue.kt (day renders months through date.month.*; DEFAULT_SITE, NO_SITE, job types, site
+# types, Nos and the fallback rooms marked, shown through Masters), app/HomeScreens.kt (the resume card through
+# RoomToken.label, the site through Masters.site_name) and app/ZoomableImage.kt (the viewer's two hints keyed).
+# MainActivity.kt stays OUT (146 -> 51 rows: M6's Server sheet, legacy key dialog, drawer rows, ImageMeter and
+# annotation results, and the shoot-and-keep flow remain).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/UploadNote.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AsIsUpload.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/Catalogue.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ZoomableImage.kt

@@ -110,6 +110,7 @@ app.annotated	app_annotated	static	-
 app.api_key	app_api_key	static	-
 app.api_secret	app_api_secret	static	-
 app.aria.annotated	app_aria_annotated	static	-
+app.aria.back	app_aria_back	static	-
 app.aria.close_search	app_aria_close_search	static	-
 app.aria.original_360	app_aria_original_360	static	-
 app.aria.photograph	app_aria_photograph	static	-

@@ -81,6 +81,7 @@ import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.UploadNote
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
@@ -469,13 +470,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
     fun loadSurvey(row: CaptureStore.Capture, size: DoubleArray) {
         if (surveyLoading) return
         surveyLoading = true
-        val title = RoomToken.label(row.room)
+        val title = RoomToken.label(tx, row.room)
         scope.launch(Dispatchers.Default) {
             val r = runCatching { FaceWriter.previewPano(File(row.panoPath)) }
             withContext(Dispatchers.Main) {
                 surveyLoading = false
                 r.onSuccess { surveyKept = KeptSurvey(row, title, it, size) }
-                    .onFailure { lastResult = { _ -> "Could not open the 360: ${it.message}" } }
+                    .onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_open_360_x(why = e.message.orEmpty()) } }
             }
         }
     }
@@ -517,7 +518,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     }
                     withContext(Dispatchers.Main) {
                         n.onSuccess { c -> lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) } }
-                            .onFailure { e -> lastResult = { _ -> "Survey prep saved on this phone; pictures not written: ${e.message}" } }
+                            .onFailure { e -> lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = e.message.orEmpty()) } }
                     }
                 }
             },
@@ -525,22 +526,20 @@ private fun AppScreenBody(onLang: () -> Unit) {
     }
     surveyAskDims?.let { row ->
         SurveyDimsDialog(
-            title = RoomToken.label(row.room),
+            title = RoomToken.label(tx, row.room),
             start = listOf(row.roomLengthIn, row.roomWidthIn, row.roomHeightIn).map { it * MM_PER_IN },
-            okLabel = "Survey prep", dismissLabel = "Cancel",
+            okLabel = tx.common_survey_prep, dismissLabel = tx.common_cancel,
             onOk = { size -> surveyAskDims = null; loadSurvey(row, size) },
             onDismiss = { surveyAskDims = null })
     }
     surveyMissing?.let {
         AlertDialog(
             onDismissRequest = { surveyMissing = null },
-            title = { Text("Survey prep can't open this 360") },
+            title = { Text(tx.app_survey_prep_can_t) },
             text = {
-                Text("The 360 photo for this capture was removed from the phone after upload " +
-                    "(before 0.3.204), so survey prep can't open it here. The capture, its room " +
-                    "and its project are unchanged and saved.")
+                Text(tx.app_360_photo_capture_was)
             },
-            confirmButton = { TextButton(onClick = { surveyMissing = null }) { Text("OK") } })
+            confirmButton = { TextButton(onClick = { surveyMissing = null }) { Text(tx.app_ok) } })
     }
 
 
@@ -1091,7 +1090,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val res = runCatching {
                             FrappeClient.load(context)
                                 ?.renameNode(t.kind, t.serverId, newName)
-                                ?: error("no server configured")
+                                ?: error(tx.app_no_server_configured)
                             // Pull the masters back immediately rather than
                             // waiting for the next sync: the rule is that a
                             // change is visible at once, and a rename that
@@ -1111,8 +1110,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 }
                                 lastResult = { tx -> tx.app_msg_renamed_x(newName) }
                                 renaming = null
-                            }.onFailure {
-                                lastResult = { _ -> "Could not rename: ${it.message}" }
+                            }.onFailure { e ->
+                                lastResult = { tx -> tx.app_msg_could_not_rename_x(why = e.message.orEmpty()) }
                             }
                         }
                     }
@@ -1134,7 +1133,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // sent a row the bench knew about down the local branch and
                 // reported success — the 2026-08-24 site that was still there
                 // three days later. Deletes.route refuses that case instead.
-                val route = Deletes.route(t.kind, t.serverId, t.serverKnown)
+                val route = Deletes.route(tx, t.kind, t.serverId, t.serverKnown)
                 if (route is DeleteRoute.Blocked) {
                     deleteBlocker = route.reason
                     deleteFatal = true
@@ -1145,7 +1144,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         "site" -> { navSite = null; navProject = null }
                         else -> navProject = null
                     }
-                    lastResult = { _ -> Deletes.localOnlyMessage(t.current) }
+                    lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }
                     deleteBlocker = null
                     deleteFatal = false
                     renaming = null
@@ -1155,7 +1154,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val res = runCatching {
                             FrappeClient.load(context)
                                 ?.deleteNode(t.kind, t.serverId, cascade)
-                                ?: error("no server configured")
+                                ?: error(tx.app_no_server_configured)
                         }
                         // The tree is rebuilt from the bench either way: a
                         // partial cascade that removed three of five projects
@@ -1185,7 +1184,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 // snackbar: the refusal is the question, and
                                 // the button that answers it is right here.
                                 deleteBlocker = e.message
-                                    ?: "The server refused, without saying why"
+                                    ?: tx.app_server_refused_no_reason
                                 // The BENCH refused, which is retryable — the
                                 // cascade button is exactly the answer to it.
                                 deleteFatal = false
@@ -1253,7 +1252,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val s5Name = S5Session.who(context)?.optString("full_name")?.ifBlank { null }
             ?.takeIf { S5Session.signedIn(context) }
         SettingsDrawerContent(
-            user = s5Name ?: FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" },
+            user = s5Name ?: FrappeClient.savedUrl(context).ifBlank { "MCFT Interior Estimate" }, // text:value the product name
             server = FrappeClient.savedUrl(context),
             groups = drawerGroups(
                 tx = tx,
@@ -1312,13 +1311,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // ---- search: the escape hatch from four levels ----------------------
     if (showSearch) {
         BackHandler { showSearch = false }
-        val hits = remember(searchQuery, masters, dataTick) {
-            searchTree(cat, masters, searchQuery)
+        val hits = remember(searchQuery, masters, dataTick, tx) {
+            searchTree(tx, cat, masters, searchQuery)
         }
         SearchOverlay(
             query = searchQuery,
             hits = hits,
-            recents = listOf("MB", "KIT", "Kothrud"),
+            recents = listOf("MB", "KIT", "Kothrud"), // text:value demo data (the card's demo.* rows are skipped and generate no accessor)
             onQuery = { searchQuery = it },
             onPick = { h ->
                 tab = "browse"
@@ -1347,13 +1346,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
             Scaffold(
                 topBar = {
                     TreeTopBar(
-                        title = if (tab == "work") "Work" else "Sync queue",
-                        // "3 waitings": the prototype draws this same subtitle as plural(unsent(),'waiting')
-                        // (v53 app.js:565, unchanged in v61b), byte for byte the phone's. No whole key exists
-                        // at this site (app.x_waiting is the drawer's Sync-now value, app.js:215), so it stays
-                        // English and listed until the v61c card gives it one -- not a decision-5 case.
-                        subtitle = if (tab == "work") "MCFT Interior Estimate"
-                                   else "$unsent waiting" + (if (unsent == 1) "" else "s"),
+                        title = if (tab == "work") tx.common_work else tx.app_sync_queue, // text:value "work" is the tab id, wire
+                        // "3 waitings": app.x_waiting_queue, the card's key for this site since L2 —
+                        // its {pl} folds the "s" exactly as the prototype's plural(unsent(),'waiting')
+                        // (v53 app.js:565) and the phone's own fold did.
+                        subtitle = if (tab == "work") "MCFT Interior Estimate" // text:value "work" the tab id; the product name
+                                   else tx.app_x_waiting_queue(n = unsent),
                         onMenu = { scopeTab.launch { drawerState.open() } },
                         onSearch = { showSearch = true; searchQuery = "" })
                 },
@@ -1379,9 +1377,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             })
                     } else {
                         QueueScreen(
-                            waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(it) } +
+                            waiting = queue.filter { it.state != "SYNCED" }.map { queueRow(tx, it) } +
                                 cat.localSkus().map { skuQueueRow(it) },
-                            sent = queue.filter { it.state == "SYNCED" }.take(12).map { queueRow(it) },
+                            sent = queue.filter { it.state == "SYNCED" }.take(12).map { queueRow(tx, it) },
                             wifiOnly = AppPrefs.read(capturePrefs).wifiOnly)
                     }
                 }
@@ -1752,8 +1750,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 onUp = { navSite = null; navProject = null },
                 onSibling = { openClient(it) }))
             if (client != null && site != null) add(Crumb(
-                label = site,
-                siblings = cs.sitesOf(client).map { it.name to it.name },
+                label = Masters.site_name(tx, site),
+                siblings = cs.sitesOf(client).map { it.name to Masters.site_name(tx, it.name) },
                 onUp = { navProject = null },
                 onSibling = { navSite = it; navProject = null }))
             if (proj != null) add(Crumb(
@@ -1867,11 +1865,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     val s5Refused = S5Session.refusal(context)
                         ?.takeIf { !S5Session.signedIn(context) && !FrappeClient.configured(context) }
                     if (!configured) {
-                        Banner("Sign in with your ERP email and password (menu → Server) to begin.")
+                        Banner(tx.app_sign_erp_email_password)
                     } else if (s5Refused != null) {
-                        Banner("Sign in again (menu → Server): $s5Refused")
+                        Banner(tx.app_sign_again_menu_server_x(why = s5Refused))
                     } else if (masters == null) {
-                        Banner("Waiting for the first master list — go online once.")
+                        Banner(tx.app_waiting_first_master_list)
                     }
                     when {
                         proj != null -> RoomsScreen(
@@ -2152,8 +2150,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 title = f.name.replaceFirstChar { it.uppercase() },
                 // The prototype's viewer sub-line (v61c §4.4): the SKU, the id
                 // and the date; the stage is gone from it.
-                subtitle = (if (cap.sku.isNotBlank()) "${cap.sku} · " else "") +
-                    "${cap.deviceId} · ${cap.date}",
+                subtitle = (if (cap.sku.isNotBlank()) "${cap.sku} · " else "") + // text:value the SKU code and the glyph, data
+                    "${cap.deviceId} · ${cap.date}", // text:value an id and a date, data
                 source = ThumbSource.Content(f.uri),
                 // The local copy wins. It is the same annotation, it is
                 // already here, and it is newer than anything the round trip
@@ -2214,7 +2212,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // `<date> · <where filed>` (v61c §4.4): the Quote journey, the
                 // work, or not filed to a work. No stage name, for any capture.
                 title = "${cap.date} · ${Album.workName(tx, cap.work)}",
-                subtitle = RoomToken.label(navRoom ?: "") + " · " + cap.deviceId,
+                subtitle = RoomToken.label(tx, navRoom ?: "") + " · " + cap.deviceId,
                 // The magnifier used to open the API-KEY dialog from here.
                 // That is the worst thing a button can do: a search icon that
                 // shows somebody your server credentials. It searches, and
@@ -2330,11 +2328,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                         val tookSku = (0 until (gone?.length() ?: 0))
                                             .any { gone!!.optString(it).startsWith("sku:") }
                                         lastResult = { tx -> if (tookSku)
-                                            "Capture deleted, and the SKU nobody else was using"
+                                            tx.app_msg_capture_deleted_sku
                                         else tx.app_msg_capture_deleted_here_bench }
-                                    }.onFailure {
-                                        lastResult = { _ -> "Deleted here. The bench copy " +
-                                            "did not go: ${it.message}" }
+                                    }.onFailure { e ->
+                                        lastResult = { tx -> tx.app_msg_deleted_here_bench_not_x(why = e.message.orEmpty()) }
                                     }
                                 }
                             }
@@ -2342,12 +2339,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     },
                     onSurveyPrep = openSurvey,
                     surveyNote = when {
-                        keptFile == null -> "The 360 is no longer on this phone \u00b7 tap for why"
-                        surveyLoading -> "Opening the 360\u2026"
-                        surveySaved != null -> "${SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }} of 6 " +
-                            "surfaces bounded \u00b7 ${surveySaved.surfaces.values.sumOf { it.marks.size }} marks \u00b7 " +
-                            "${surveySaved.actual.size} read \u00b7 tap to add site readings"
-                        else -> "Not done yet \u00b7 tap to bound, square and mark each surface"
+                        keptFile == null -> tx.app_360_no_longer_phone
+                        surveyLoading -> tx.app_opening_360
+                        surveySaved != null -> tx.app_x_6_surfaces_bounded(
+                            done = SurveyPrep.SURFACES.count { surveySaved.surface(it).done() }.toString(),
+                            marks = surveySaved.surfaces.values.sumOf { it.marks.size }.toString(),
+                            read = surveySaved.actual.size.toString())
+                        else -> tx.app_not_done_yet_tap
                     },
                     onRemoveLocal = removeLocal,
                     // the number alone: the button's key carries the unit (app.remove_local_copy_x)
@@ -2373,7 +2371,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     FrappeClient.load(context)?.setCaptureTags(serverName, sku = newSku)
                 }
                 withContext(Dispatchers.Main) {
-                    out.onFailure { lastResult = { _ -> "Could not re-file on the bench: ${it.message}" } }
+                    out.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_refile_x(why = e.message.orEmpty()) } }
                 }
             }
         }
@@ -2467,8 +2465,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var camNote by remember { mutableStateOf<String?>(null) }
     val projSkus = cat.skusOf(masters, navProject)
     // Each 360's survey prep in one line, for its tile.
-    val surveyLines = remember(queue, surveyTick, roomName) {
-        queue.filter { it.room == roomName && it.kind == "360" }.associate { it.deviceId to surveyLine(context, it) }
+    val surveyLines = remember(queue, surveyTick, roomName, tx) {
+        queue.filter { it.room == roomName && it.kind == "360" }.associate { it.deviceId to surveyLine(context, tx, it) }
     }
     val roomCaptures = queue.filter {
         it.room == roomName &&
@@ -2540,12 +2538,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
         var working by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { if (!working) addRoom = false },
-            title = { Text("New room") },
+            title = { Text(tx.app_new_room) },
             text = {
                 Column {
                     OutlinedTextField(typed, { typed = it; problem = null },
-                        label = { Text("Room name") },
-                        placeholder = { Text("Home Theatre") },
+                        label = { Text(tx.app_room_name) },
+                        placeholder = { Text(tx.room_home_theatre) },
                         singleLine = true, enabled = !working)
                     Spacer(Modifier.height(8.dp))
                     // The code prefix, shown BEFORE it is committed. The room
@@ -2556,8 +2554,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     // "Pooja Room" comprehensible rather than arbitrary.
                     val tok = RoomToken.of(typed)
                     Text(
-                        if (tok.isBlank()) "Its SKU code prefix appears here."
-                        else "SKU codes will read \u2026_${tok}_\u2026",
+                        if (tok.isBlank()) tx.app_sku_code_prefix_appears
+                        else tx.app_sku_codes_will_read(t = tok),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     problem?.let {
@@ -2614,7 +2612,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 // a sentence rather than a crash.
                                 val client = FrappeClient.load(context)
                                     ?: throw IllegalStateException(
-                                        "Sign in first \u2014 menu \u2192 Server.")
+                                        tx.app_sign_first_menu_server)
                                 client.ensureRoom(typed.trim())
                             }
                             withContext(Dispatchers.Main) {
@@ -2638,15 +2636,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     // here; a second copy of that rule on
                                     // the phone would eventually disagree
                                     // with the one enforcing it.
-                                    problem = e.message ?: "could not add that room"
+                                    problem = e.message ?: tx.app_could_not_add_room
                                 }
                             }
                         }
-                    }) { Text(if (working) "Adding\u2026" else "Add") }
+                    }) { Text(if (working) tx.app_adding else tx.common_add) }
             },
             dismissButton = {
                 TextButton(enabled = !working,
-                    onClick = { addRoom = false }) { Text("Cancel") }
+                    onClick = { addRoom = false }) { Text(tx.common_cancel) }
             })
     }
 
@@ -2739,7 +2737,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 queue.any { it.room == r && it.projectTitle.lowercase() in titles } }.toSet()
             val siteType = cs.sitesOf(sc).firstOrNull { it.name.equals(ss, true) }?.type.orEmpty()
             val presetType = com.malletcrafts.interiorestimate.pano.FlatPresets.TYPES
-                .firstOrNull { it.equals(siteType, true) } ?: "Flat"
+                .firstOrNull { it.equals(siteType, true) } ?: "Flat" // text:value a stored site type
             var pType by remember(sc, ss) { mutableStateOf(presetType) }
             var pBhk by remember(sc, ss) { mutableStateOf(2) }
             fun presetTicks() = com.malletcrafts.interiorestimate.pano.FlatPresets.rooms(pType, pBhk).filter { it in rooms }.toSet() + withPhotos
@@ -2747,12 +2745,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
             var ticked by remember(sc, ss) { mutableStateOf(start) }
             AlertDialog(
                 onDismissRequest = { chooseRooms = false },
-                title = { Text("Rooms at $ss") },
+                title = { Text(tx.app_rooms_x(ss = ss)) }, // the typed site name, as typed
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        Text("Site type: ${siteType.ifBlank { "not set" }}. Pick the type of site, " +
-                             "then untick anything it doesn't have. Every project at this site " +
-                             "uses these rooms. A room holding photos is always shown, ticked or not.",
+                        // "not set" stays an unkeyed drawer row until M6; the type itself through its master
+                        Text(tx.app_site_type_x_pick(v = Masters.site(tx, siteType.ifBlank { "not set" })),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
@@ -2761,7 +2758,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             for (t in com.malletcrafts.interiorestimate.pano.FlatPresets.TYPES)
                                 FilterChip(selected = pType == t,
                                     onClick = { pType = t; ticked = presetTicks() },
-                                    label = { Text(t) })
+                                    label = { Text(Masters.site(tx, t)) })
                         }
                         if (com.malletcrafts.interiorestimate.pano.FlatPresets.hasBedrooms(pType))
                             Row(Modifier.horizontalScroll(rememberScrollState()),
@@ -2769,9 +2766,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 for (n in 1..5)
                                     FilterChip(selected = pBhk == n,
                                         onClick = { pBhk = n; ticked = presetTicks() },
-                                        label = { Text("$n BHK") })
+                                        label = { Text("$n BHK") }) // text:value digits and a Latin abbreviation, the page's own "2 BHK"
                             }
-                        Text("${(ticked + withPhotos).size} of ${rooms.size} rooms",
+                        Text(tx.app_x_x_rooms(size = (ticked + withPhotos).size, length = rooms.size),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(4.dp))
@@ -2786,7 +2783,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     onCheckedChange = {
                                         ticked = if (r in ticked) ticked - r else ticked + r
                                     })
-                                Text(if (has) "$r \u00b7 has photos" else r,
+                                Text(if (has) tx.app_x_has_photos(r = Masters.room(tx, r)) else Masters.room(tx, r),
                                     style = MaterialTheme.typography.bodyMedium)
                             }
                         }
@@ -2797,7 +2794,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         cat.setRoomScope(sc, ss, ticked)
                         chooseRooms = false
                         reload()
-                    }) { Text("Use these rooms") }
+                    }) { Text(tx.app_use_these_rooms) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
@@ -2806,7 +2803,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         cat.setRoomScope(sc, ss, rooms.toSet())
                         chooseRooms = false
                         reload()
-                    }) { Text("Show all") }
+                    }) { Text(tx.common_show_all) }
                 })
         }
     }
@@ -2901,7 +2898,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             topBar = {
                 Column {
                     TreeTopBar(
-                        title = RoomToken.label(roomName),
+                        title = RoomToken.label(tx, roomName),
                         subtitle = listOfNotNull(
                             navProject?.title,
                             tx.pl_capture(roomCaptures.size),
@@ -2921,7 +2918,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     onClick = { showCaptureSheet = true },
                     icon = { Icon(painterResource(R.drawable.ic_mcft_cam),
                                   contentDescription = null) },
-                    text = { Text("Capture 360") })
+                    text = { Text(tx.common_capture_360) })
             },
         ) { pad ->
             Column(Modifier.padding(pad).fillMaxSize()) {
@@ -3140,7 +3137,7 @@ private fun NewSiteDialog(
     // Amit, 2026-08-22: "site should be selectable like flat, bunglow, shop
     // etc, address should be one more separate field where address of taht
     // site will be keyed in."
-    var siteType by remember { mutableStateOf(siteTypes.firstOrNull() ?: "Flat") }
+    var siteType by remember { mutableStateOf(siteTypes.firstOrNull() ?: "Flat") } // text:value a stored site type
     var address by remember { mutableStateOf("") }
     // Amit, 2026-09-25, from a client's flat: "too much information while
     // creating a client. it can be keyed in later. make this client input
@@ -3156,32 +3153,33 @@ private fun NewSiteDialog(
     // mean "without starting again".
     var showMore by remember { mutableStateOf(false) }
 
+    val tx = LocalTx.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New site") },
+        title = { Text(tx.common_new_site) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(clientName, { clientName = it },
-                    label = { Text("Client") }, singleLine = true,
+                    label = { Text(tx.common_client) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(siteName, { siteName = it },
-                    label = { Text("Site name") },
-                    placeholder = { Text(Catalogue.DEFAULT_SITE) }, singleLine = true,
+                    label = { Text(tx.app_site_name) },
+                    placeholder = { Text(Masters.site_name(tx, Catalogue.DEFAULT_SITE)) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(projectName, { projectName = it },
-                    label = { Text("Project") }, singleLine = true,
+                    label = { Text(tx.common_project) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
 
                 Spacer(Modifier.height(6.dp))
                 TextButton(onClick = { showMore = !showMore }) {
-                    Text(if (showMore) "Fewer details"
-                         else "More details \u2014 type, address, job")
+                    Text(if (showMore) tx.app_fewer_details
+                         else tx.app_more_details_type_address)
                 }
 
                 if (showMore) {
-                    Text("Site type", style = MaterialTheme.typography.labelMedium)
+                    Text(tx.app_site_type, style = MaterialTheme.typography.labelMedium)
                     // Chunked into rows of three rather than a FlowRow: six
                     // types do not fit one line on a phone, a chip pushed off
                     // the edge is a type nobody can choose, and chunking needs
@@ -3192,31 +3190,29 @@ private fun NewSiteDialog(
                             row.forEach { t ->
                                 FilterChip(selected = t == siteType,
                                     onClick = { siteType = t },
-                                    label = { Text(t, style = MaterialTheme.typography.labelSmall) })
+                                    label = { Text(Masters.site(tx, t), style = MaterialTheme.typography.labelSmall) })
                             }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(address, { address = it },
-                        label = { Text("Address") },
-                        placeholder = { Text("Flat / building, street, area, city") },
+                        label = { Text(tx.app_address) },
+                        placeholder = { Text(tx.app_flat_building_street_area) },
                         // maxLines only. minLines is Compose 1.4+ and is used
                         // nowhere else in this app; the field grows as it is
                         // typed into, which is enough for an address.
                         maxLines = 4, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.height(10.dp))
-                    Text("Job type", style = MaterialTheme.typography.labelMedium)
+                    Text(tx.app_job_type, style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.padding(top = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         jobTypes.forEach { j ->
                             FilterChip(selected = j == jobType, onClick = { jobType = j },
-                                label = { Text(j, style = MaterialTheme.typography.labelSmall) })
+                                label = { Text(Masters.job(tx, j), style = MaterialTheme.typography.labelSmall) })
                         }
                     }
                     Spacer(Modifier.height(10.dp))
-                    Text("Works offline. When the phone syncs, these become the " +
-                        "real client, site and project in ERPNext \u2014 or match " +
-                        "ones that already exist, however the names were spelled.",
+                    Text(tx.app_works_offline_when_phone,
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -3229,9 +3225,9 @@ private fun NewSiteDialog(
                         projectName.trim(), jobType, siteType, address.trim())
                 },
                 enabled = clientName.isNotBlank() && projectName.isNotBlank(),
-            ) { Text("Use this site") }
+            ) { Text(tx.app_use_site) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tx.common_cancel) } },
     )
 }
 
@@ -3512,21 +3508,26 @@ private fun recentRooms(
  *  thing missing from it is a thing nobody knows is missing. */
 private fun skuQueueRow(k: Catalogue.LocalSku) = QueueRow(
     token = RoomToken.of(k.room),
-    title = previewCode(k.client, k.room, k.articleCode) +
+    title = previewCode(k.client, k.room, k.articleCode) + // text:value the SKU code, data
         (k.qty?.let { q ->
-            " · " + (if (q % 1.0 == 0.0) q.toInt().toString() else q.toString()) +
-            " ${k.basis}"
+            " · " + (if (q % 1.0 == 0.0) q.toInt().toString() else q.toString()) + // text:value the glyph and a figure
+            " ${k.basis}" // text:value the wire's basis ("Nos")
         } ?: ""),
     subtitle = listOf(k.articleName, k.projectTitle).filter { it.isNotBlank() }
-        .joinToString(" / "),
+        .joinToString(" / "), // text:value names and a glyph
     state = "LOCAL")
 
-private fun queueRow(c: CaptureStore.Capture) = QueueRow(
+private fun queueRow(tx: Tx, c: CaptureStore.Capture) = QueueRow(
     token = RoomToken.of(c.room),
-    title = "${c.room} · ${c.captureDate}",
+    // the room as the masters name it beside the date ("हॉल · 2026-10-10", the served page's own row)
+    title = "${Masters.room(tx, c.room)} · ${c.captureDate}", // text:value the glyph and a date
     subtitle = listOf(c.customerName, c.projectTitle).filter { it.isNotBlank() }
-        .joinToString(" / ")
-        .let { if (c.state == "ERROR" && !c.error.isNullOrBlank()) "$it — ${c.error}" else it },
+        .joinToString(" / ") // text:value names and a glyph
+        .let { base ->
+            val err = c.error
+            // the error tail through the stored notes' one mapper (UploadNote.line)
+            if (c.state == "ERROR" && !err.isNullOrBlank()) "$base — ${UploadNote.line(tx, err)}" else base // text:value "ERROR" is CaptureStore's stored state, compared, never shown — the pill renders app.retrying
+        },
     state = c.state)
 
 /**
@@ -3537,6 +3538,7 @@ private fun queueRow(c: CaptureStore.Capture) = QueueRow(
  * name happens to contain those letters.
  */
 private fun searchTree(
+    tx: Tx,
     cat: Catalogue,
     masters: JSONObject?,
     query: String,
@@ -3548,30 +3550,31 @@ private fun searchTree(
 
     cat.clients(masters).forEach { c ->
         if (c.lowercase().contains(q)) {
-            out.add(SearchHit(initials(c), c, "Client", c, "", "", ""))
+            out.add(SearchHit(initials(c), c, tx.common_client, c, "", "", ""))
         }
     }
     projects.forEach { p ->
         if (p.site.lowercase().contains(q) &&
-            out.none { it.label == p.site && it.client == p.client }) {
-            out.add(SearchHit("SITE", p.site, "${p.client} · site",
+            out.none { it.label == Masters.site_name(tx, p.site) && it.client == p.client }) {
+            // the hit type word after the glyph is the noun; the badge is the prototype's own raw literal (the PL ruling)
+            out.add(SearchHit("SITE", Masters.site_name(tx, p.site), "${p.client} · ${tx.noun_site(1)}", // text:value the badge
                 p.client, p.site, "", ""))
         }
         if (p.title.lowercase().contains(q)) {
-            out.add(SearchHit("PRJ", p.title, "${p.client} / ${p.site} · ${p.jobType}",
+            out.add(SearchHit("PRJ", p.title, "${p.client} / ${Masters.site_name(tx, p.site)} · ${Masters.job(tx, p.jobType)}", // text:value the badge and the glyphs
                 p.client, p.site, p.key, ""))
         }
         cat.skusOf(masters, p).forEach { sku ->
             if (sku.code.lowercase().contains(q) || sku.article.lowercase().contains(q)) {
-                out.add(SearchHit(sku.article.take(3).uppercase().ifBlank { "SKU" },
-                    sku.code, "${sku.article} · ${p.title}",
+                out.add(SearchHit(sku.article.take(3).uppercase().ifBlank { "SKU" }, // text:value the badge, the prototype's own
+                    sku.code, "${Masters.article(tx, sku.article)} · ${p.title}", // text:value the glyph and a name
                     p.client, p.site, p.key, sku.room))
             }
         }
         cat.rooms(masters).forEach { r ->
             val tok = RoomToken.of(r).lowercase()
             if (tok.startsWith(q) || r.lowercase().contains(q)) {
-                out.add(SearchHit(RoomToken.of(r), r, "${p.site} / ${p.title}",
+                out.add(SearchHit(RoomToken.of(r), Masters.room(tx, r), "${Masters.site_name(tx, p.site)} / ${p.title}", // text:value the glyph and a name
                     p.client, p.site, p.key, r))
             }
         }
@@ -3587,20 +3590,23 @@ private fun cacheSize(context: android.content.Context, tx: Tx): String {
     }.getOrDefault(0L)
     return when {
         bytes <= 0 -> tx.app_empty
-        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-        else -> String.format(java.util.Locale.ROOT, "%.1f MB", bytes / 1024.0 / 1024.0)
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB" // text:value a figure and its unit
+        else -> String.format(java.util.Locale.ROOT, "%.1f MB", bytes / 1024.0 / 1024.0) // text:value a figure and its unit
     }
 }
 
 /** A 360's survey prep in one line for its room tile. Never throws: an old
  *  capture with no 360 left on the phone says so instead. */
-private fun surveyLine(context: android.content.Context, c: CaptureStore.Capture): String {
+private fun surveyLine(context: android.content.Context, tx: Tx, c: CaptureStore.Capture): String {
     if (c.kind != "360") return ""
-    if (!File(c.panoPath).exists()) return "360 not on this phone (removed after upload)"
-    val p = SurveyPrepStore(context).load(c.deviceId) ?: return "not started \u00b7 tap to start"
+    if (!File(c.panoPath).exists()) return tx.app_360_not_phone_removed
+    val p = SurveyPrepStore(context).load(c.deviceId) ?: return tx.app_not_started_tap_start
     val marks = p.surfaces.values.sumOf { it.marks.size }
-    return "${SurveyPrep.SURFACES.count { p.surface(it).done() }} of 6 bounded \u00b7 " +
-        "$marks mark${if (marks == 1) "" else "s"} \u00b7 ${p.actual.size} read"
+    // ONE key replaces the two composed fragments: its {pl} folds "mark"/"marks"
+    return tx.app_x_6_bounded_x(
+        done = SurveyPrep.SURFACES.count { p.surface(it).done() }.toString(),
+        marks = marks,
+        read = p.actual.size.toString())
 }
 
 /** A kept capture's survey prep, opened: its queue row, room title, 360 at preview size, laser L W H in mm. */
@@ -3648,6 +3654,7 @@ private fun NewCaptureSurvey(
     onDiscard: () -> Unit,
     onKeep: () -> Unit,
 ) {
+    val tx = LocalTx.current
     val session = pending.session
     val start = listOf(pending.lengthMm, pending.widthMm, session.heightMm)
     var dims by remember {
@@ -3656,8 +3663,8 @@ private fun NewCaptureSurvey(
     val d = dims
     if (d == null) {
         SurveyDimsDialog(
-            title = RoomToken.label(pending.room), start = start,
-            okLabel = "Survey prep", dismissLabel = "Discard 360",
+            title = RoomToken.label(tx, pending.room), start = start,
+            okLabel = "Survey prep", dismissLabel = "Discard 360", // the shoot-and-keep flow's labels stay English until M6 (Discard 360 has no key yet)
             onOk = { dims = it }, onDismiss = onDiscard)
         return
     }
@@ -3670,7 +3677,7 @@ private fun NewCaptureSurvey(
     SurveyPrepDialog(
         deviceId = session.deviceId,
         previewPano = session.previewPano,
-        title = RoomToken.label(pending.room),
+        title = RoomToken.label(tx, pending.room),
         lengthMm = d[0], widthMm = d[1], heightMm = d[2],
         // the Plan tab's export names its files and fills its title block from these: initials, never the name
         clientInitials = RoomToken.initials(pending.customerName), projectCode = pending.projectName,
@@ -3694,6 +3701,7 @@ private fun SurveyDimsDialog(
     onOk: (DoubleArray) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val tx = LocalTx.current
     var texts by remember {
         mutableStateOf(start.map { v -> v?.takeIf { SurveyPrep.valid(it) }?.let { Math.round(it).toString() } ?: "" })
     }
@@ -3701,13 +3709,13 @@ private fun SurveyDimsDialog(
     val ok = values.all { SurveyPrep.valid(it) }
     AlertDialog(
         onDismissRequest = { },
-        title = { Text("$title · laser sizes") },
+        title = { Text(tx.app_x_laser_sizes(title = title)) },
         text = {
             Column {
-                Text("Survey prep squares every surface to these, in mm. Take them with the D2.",
+                Text(tx.app_survey_prep_squares_every,
                     style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(8.dp))
-                val labels = listOf("Length front→back", "Width left→right", "Height floor→ceiling")
+                val labels = listOf(tx.app_length_front_back, tx.app_width_left_right, tx.app_height_floor_ceiling)
                 for (i in 0 until 3) {
                     OutlinedTextField(texts[i], { t ->
                         texts = texts.toMutableList().also { it[i] = t.filter { c -> c.isDigit() }.take(5) } },
