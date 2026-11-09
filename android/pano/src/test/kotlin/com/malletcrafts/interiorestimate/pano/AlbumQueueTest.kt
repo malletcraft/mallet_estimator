@@ -571,6 +571,33 @@ class AlbumQueueTest {
         assertEquals(Verdict.REFUSED, AlbumQueue.apply(Outbox(m, listOf(rAccept)), rAccept, 400, reply(S5Album.REVIEW_STAFF, rAccept)).verdict)
     }
 
+    @Test fun `a replayed review gives the next review of its photo the replayed row's own at, never the photo's review_at now (the K4 review, finding 2)`() {
+        // asis.js, the review PUT's replay: the flat fields are `reviewOf(now_)` -- the photo as it stands NOW -- and
+        // `entry` the op's own row. Shaped by hand from asis.js (S5Album's harness has no second PM): rAccept landed at
+        // t1 and its answer was lost; another login S5 gives role pm (D3) then kept the photo and accepted it again at t3;
+        // the resent rAccept is answered written: false with t3's review beside rAccept's own row at t1.
+        val t1 = "2026-11-03T05:16:04.218Z"
+        val t3 = "2026-11-03T05:31:00.000Z"
+        val now = """{"ok":true,"written":false,"id":"ALB-000000000020","photo":"ALB-00000000001e","review":"accepted","review_by":"other@x","review_by_name":"O T","review_at":"$t3""""
+        val row = """"entry":{"seq":11,"id":"ALB-000000000020","kind":"review","work":50,"photo":"ALB-00000000001e","value":"accepted","prev":"pending","note":"","role":"pm","by":"pm@x","by_name":"P M","via":"phone","client_at":null,"at":"$t1"}"""
+        val rNext = Album.reviewOp(vendorPhoto, Album.REVIEW_INTERNAL, Random(60))
+        val m = View(Album.PM, photos = listOf(vendorPhoto))
+        val a = AlbumQueue.apply(Outbox(m, listOf(rAccept, rNext)), rAccept, 200, reply("$now,$row}", rAccept))
+        assertEquals(Verdict.REPLAY, a.verdict)
+        assertEquals(listOf(rNext.copy(base = t1)), a.outbox.queue,
+            "based on the replayed row, so S5's guard on the old review_at answers this keep 409 Reviewed meanwhile instead of taking it over a review the PM never saw")
+        // the mirror still takes the photo as S5 holds it now
+        assertEquals(t3, a.outbox.mirror!!.photos.single().reviewAt)
+        assertEquals("other@x", a.outbox.mirror!!.photos.single().reviewBy)
+        // a replay with no row of its own (S5 found the state already there, `now_.review === v.state`, and no entry for
+        // the id), or a row that is not this op's, leaves the flat review_at as the base
+        assertEquals(listOf(rNext.copy(base = t3)), AlbumQueue.apply(Outbox(m, listOf(rAccept, rNext)), rAccept, 200, reply("$now}", rAccept)).outbox.queue)
+        val notOurs = row.replace("\"id\":\"ALB-000000000020\"", "\"id\":\"ALB-000000000021\"")
+        assertEquals(listOf(rNext.copy(base = t3)), AlbumQueue.apply(Outbox(m, listOf(rAccept, rNext)), rAccept, 200, reply("$now,$notOurs}", rAccept)).outbox.queue)
+        // a fresh write: the row's at and the photo's review_at are one instant (asis.js albumReview binds ?6 to both)
+        assertEquals(listOf(rNext.copy(base = t1)), AlbumQueue.apply(Outbox(m, listOf(rAccept, rNext)), rAccept, 200, reply(S5Album.REVIEW, rAccept)).outbox.queue)
+    }
+
     @Test fun `an op of a kind this build cannot send has no request - a 400 drops it alone`() {
         val bogus = Op("ALB-000000000099", "bogus", 10)
         assertNull(AlbumQueue.stepOf(bogus))

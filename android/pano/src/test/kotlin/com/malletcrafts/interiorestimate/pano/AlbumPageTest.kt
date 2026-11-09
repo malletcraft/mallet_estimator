@@ -835,6 +835,10 @@ class AlbumPageTest {
         for (f in listOf("fun AlbumStateSheet(", "fun AlbumRaiseSheet(", "fun AlbumAnswerSheet(")) assertTrue(sheets.contains(f), f)
         assertTrue(sheets.contains("is AlbumWrite.Out.Refused) need = true"))
         assertTrue(sheets.contains("if (out is AlbumWrite.Out.Refused) err = out.why.text(tx)"))
+        // each sheet opens whole, as `.sheet3` is drawn, never material3's half-open default (the K4 review, finding 1)
+        assertEquals(3, Regex("""ModalBottomSheet\(""").findAll(sheets).count())
+        assertEquals(3, Regex("""ModalBottomSheet\(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState\(skipPartiallyExpanded = true\)\)""")
+            .findAll(sheets).count())
     }
 
     @Test fun `the outbox and its drain, read as source - the login's session only, the taps REPLACE, the catch-up spares a running pass, the answer before the removal`() {

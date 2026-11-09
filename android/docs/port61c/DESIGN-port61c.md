@@ -937,7 +937,9 @@ A state sheet stays while its chapter is open, as the prototype's does.
 
 The sheets are drawn as FW2's WorkSheet draws Which work? [Ph TreeShell.kt:536-560]: ModalBottomSheet, SheetTitle
 [Ph Crumbs.kt:152], one ListItem per row with the selected one on secondaryContainer, the rows scrolling (the kit's
-sheet is one scrolling column, `PG` 7788: its `per` is unused), 12 dp under the last element; the fields are
+sheet is one scrolling column, `PG` 7788: its `per` is unused), 12 dp under the last element, each opening WHOLE
+(`rememberModalBottomSheetState(skipPartiallyExpanded = true)`: `.sheet3` is drawn at its content's height and never
+half-open, 278 and 381; the K4 review, finding 1); the fields are
 OutlinedTextField with the label floating (`field()` 7824: an outlined field, `err` its error state). There is no Cancel:
 a scrim tap, a swipe or ◁ dismisses (`K.sheet`'s onDismiss, 7829) and loses what was typed, as `m.sheet=null` does.
 Back closes a sheet before anything else [P 7392-7398 back(): the sheet first], which ModalBottomSheet's own back
@@ -1503,6 +1505,44 @@ STOP has no bound (no persistent cause is known in asis.js).
 before: AlbumPageTest 26 → 39, AlbumWriteTest 11 new, AlbumQueueTest 24 → 37, AlbumWireTest 12 → 14, AlbumTest 67 → 69,
 QuoteStageTest 40 → 42). 1,794 keys, unchanged; `unkeyed.tsv` 860 lines before and after. :app is compiled only by CI;
 nothing has been seen on a phone.
+
+**The K4 review (9 Nov 2026)** — two findings on 2d33aa8, both confirmed independently (the second by a scratch model of
+asis.js's review route against pano.jar), both minor, both fixed:
+
+1. **The three new album sheets opened half-way** — `ModalBottomSheet(onDismissRequest = onDismiss)` with no sheetState
+   takes material3 1.3.x's `rememberModalBottomSheetState()`, whose `skipPartiallyExpanded = false` opens a sheet taller
+   than half the window at half height: at 360 × 780 the answer sheet's `Record the client's answer` and the state
+   sheet's foot `Only the Project Manager sets a work's state` started below the fold (the verification found the
+   state sheet's Abandoned row most likely still shown, the reviewer's one overstated detail), and at 780 × 360 every
+   sheet opened on its handle, its title and a row or two. The prototype never draws a sheet half-open (`.sheet3` at
+   its content's height up to the frame less 24 px, 278 and 381; its handle has no drag code). **Fixed**: each of
+   `AlbumStateSheet`, `AlbumRaiseSheet` and `AlbumAnswerSheet` passes `sheetState =
+   rememberModalBottomSheetState(skipPartiallyExpanded = true)`; their column already scrolls, so a sheet taller than
+   the screen scrolls inside. Pinned in AlbumPageTest's source reading of AlbumSheets.kt (three ModalBottomSheet calls,
+   all three opening whole). **App-wide, recorded and not changed here** (K4 adds and never moves): every other sheet
+   on the phone keeps the half-open default — ScopeSheet (its `rememberModalBottomSheetState(confirmValueChange =
+   confirm)` sets no skip), TreeShell's CaptureSkuSheet, ProjectSheet, CaptureSheet and WorkSheet, and Crumbs' two
+   (a crumb's switcher and the jump-up list); whichever of them grows past half the window opens half-way, which the
+   prototype draws for none. A slice of its own, through the prototype like any S2 UI change.
+2. **A replayed review rebased the next review of its photo onto S5's CURRENT `review_at`** — `Album.afterPost` took a
+   review's photo base from the answer's flat review fields, and `afterReplay` is `afterPost`; on a replay S5 fills
+   those from the photo as it stands NOW (asis.js, the review PUT: `reviewOf(now_)`), while the op's own row comes
+   separately as `entry`. So after a lost answer and two or more reviews by another login S5 gives role pm (D3), the
+   next queued review of the photo was based on the newest of them and S5 took it over a review the PM never saw,
+   where its guard on the old `review_at` would have answered 409 `Reviewed meanwhile` (with ONE such review the
+   next one is the same state again and S5 answers `written: false`: no harm, the verification's correction). The
+   K4 drain is the first live caller of this AQ/K1b code, and `AlbumWrite.atAdd` already did it rightly. **Fixed**:
+   for a review, `afterPost` takes the base from the answer's `entry` when it is this op's row (its id, kind review,
+   its photo, an `at`) — on a fresh write the same instant as the flat `review_at`, since S5 binds one `at` to both —
+   and falls back to the flat `review_at` only when no such row came back (a replay S5 answers with no entry, when the
+   photo already had the op's state). Pinned in AlbumQueueTest by a replay shaped by hand from asis.js (S5Album's
+   harness has no second PM): the next review takes the replayed row's `at`, the mirror still takes the photo as S5
+   holds it now, a replay without a row of its own (or with another op's) keeps the flat `review_at`, and a fresh
+   write is as before. The test fails without the fix (the base came out as the other login's `review_at`).
+
+:pano tests after the K4 review, from the XML under pano/build/test-results/test: 868 tests, 0 failures, 0 errors, 0
+skipped (867 before: AlbumQueueTest 37 → 38; AlbumPageTest 39, one test gaining the sheet pins). No new key;
+`unkeyed.tsv` unchanged. :app is compiled only by CI; nothing has been seen on a phone.
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)

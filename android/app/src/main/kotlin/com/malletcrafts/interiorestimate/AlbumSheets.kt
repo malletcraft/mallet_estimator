@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +44,10 @@ import com.malletcrafts.interiorestimate.pano.AlbumWrite
  * a scrim tap, a swipe or ◁ dismisses and loses what was typed, as `m.sheet=null` does; ◁ closes a sheet before
  * anything else (ModalBottomSheet's own back). A queued write is on the phone the moment it is tapped, so a sheet
  * closes at once and needs no busy state, unlike ScopeSheet. What is typed is the sheet's alone (`remember(work)`).
+ * Each sheet opens WHOLE (`skipPartiallyExpanded = true`), as `.sheet3` is drawn: at its content's height up to the
+ * frame less 24 px (index61c2.html 278, 381), never half-open (its handle has no drag code). material3's default opens
+ * a sheet taller than half the window at half height, which hid the state sheet's foot, the answer sheet's button and,
+ * at 780 x 360, every sheet below its first rows (the K4 review, finding 1). Taller than the screen, the column scrolls.
  */
 
 /** `.alb60need`: the state sheet's need line. */
@@ -68,7 +73,7 @@ fun AlbumStateSheet(s: AlbumPage.StateSheet, onPick: (String, String) -> AlbumWr
     val ty = MaterialTheme.typography
     var reason by remember(s.work) { mutableStateOf("") }
     var need by remember(s.work) { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
             SheetTitle(s.title)
             for (r in s.rows) {
@@ -100,7 +105,7 @@ fun AlbumRaiseSheet(s: AlbumPage.RaiseSheet, onRaise: (Album.CrKind, String) -> 
     var note by remember(s.work) { mutableStateOf("") }
     // a kind the work no longer allows (the overlaid scope moved under the sheet) falls back to the first, as 7522 does
     val sel = if (s.kinds.any { it.kind == kind }) kind else s.kinds.first().kind
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
             SheetTitle(s.title)
             for (k in s.kinds) {
@@ -136,7 +141,7 @@ fun AlbumAnswerSheet(s: AlbumPage.AnswerSheet, onAnswer: (Album.CrOutcome, Strin
     var clientAt by remember(s.work) { mutableStateOf(s.today) }
     var how by remember(s.work) { mutableStateOf("") }
     var err by remember(s.work) { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
             SheetTitle(s.title)
             // `.alb60crhd` (0/24/8 dp): the work · Change request · the kind · the note as typed

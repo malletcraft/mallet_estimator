@@ -1362,8 +1362,15 @@ object Album {
      * 200 `written: true`: the op leaves the queue and the mirror takes what S5 sent back; the
      * next queued op on the same work rides on S5's new row -- its base becomes the answer
      * entry's seq (a review's answer carries its log row too), and the next review of the same
-     * photo takes the `review_at` of the answer's [ReviewPatch] for THAT photo -- so an offline
-     * chain of writes on one work is not answered "Changed meanwhile" by its own first link. A
+     * photo takes the `at` of THIS op's own review row (the answer's entry when it is this op's,
+     * which S5 writes with the same instant as the photo's `review_at`), and only when no such
+     * row came back the `review_at` of the answer's [ReviewPatch] for THAT photo -- so an offline
+     * chain of writes on one work is not answered "Changed meanwhile" by its own first link. The
+     * entry first, because a REPLAY's flat review fields are the photo as it stands NOW (asis.js,
+     * the review PUT: `reviewOf(now_)`), which after a lost answer may be another person's later
+     * review: based on that, the next review would overwrite a change the PM never saw, where
+     * S5's guard on the old `review_at` exists to answer 409 -- the rule [AlbumWrite.atAdd]
+     * keeps, from this op's rows alone (the K4 review, finding 2). A
      * re-file answers the whole photo row, so the next re-file of the same photo takes that row's
      * work as its base (a re-file writes no log row and moves no seq). The rebase reads the answer
      * alone, so it holds with no mirror. A null mirror stays null -- a fragment cannot stand in for
@@ -1371,7 +1378,8 @@ object Album {
      */
     fun afterPost(o: Outbox, op: Op, a: Answer): Outbox {
         val photoBase = when (op.kind) {
-            OP_REVIEW -> if (a.review != null && a.review.photo == op.photo) a.review.reviewAt else null
+            OP_REVIEW -> a.entry?.takeIf { it.id == op.id && it.kind == KIND_REVIEW && it.photo == op.photo && it.at.isNotBlank() }?.at
+                ?: if (a.review != null && a.review.photo == op.photo) a.review.reviewAt else null
             OP_REFILE -> a.photo?.takeIf { it.id == op.photo }?.let { it.work?.toString() ?: "" }
             else -> null
         }
@@ -1382,7 +1390,8 @@ object Album {
     /**
      * 200 `written: false`: a replay of an id S5 already holds (the first answer was lost) --
      * harmless. The op leaves the queue; what S5 sends back is the same row, merged and rebased on
-     * as a 200.
+     * as a 200 -- a review's on its own log row, never on the flat review fields, which a replay
+     * fills from the photo as it stands now ([afterPost]; the K4 review, finding 2).
      */
     fun afterReplay(o: Outbox, op: Op, a: Answer): Outbox = afterPost(o, op, a)
 
