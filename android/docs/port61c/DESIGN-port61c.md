@@ -3,8 +3,9 @@
 The full port plan lived only in the session scratchpad and was lost when the cloud container was re-created at ~22:50 IST
 on 3 Nov 2026 (the scratchpad is ephemeral; nothing had committed the plan). What follows is every part of it the session
 transcript still held verbatim: the slice table, §14 AS1, §15 FW1, §16 FW2, §25 M3a and the progress notes; and §18 K3,
-re-derived on 9 Nov 2026 from the prototype, S5 and the shipped code (it names the source of each decision). The other
-sections (§1–§13, §17, §19–§24, §26–§31) are NOT here. For those slices the sources are the approved prototype
+re-derived on 9 Nov 2026 from the prototype, S5 and the shipped code (it names the source of each decision), and §19 K4,
+derived the same day in the same way. The other
+sections (§1–§13, §17, §20–§24, §26–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -869,6 +870,478 @@ blocking one; and the duplicated auth header literals in AsIsUpload would have r
 
 :pano tests after the review, from the XML under pano/build/test-results/test: 824 tests, 0 failures, 0 errors, 0 skipped
 (820 before: AlbumPageTest 23 → 26, AlbumTest 66 → 67). :app is compiled only by CI; nothing has been seen on a phone.
+
+### 19. K4 · The Project Manager's writes, through the outbox
+
+**Size:** L · **Depends on:** K3, AQ *(both on main at 0bcfc54)*
+
+*Derived on 9 Nov 2026, as §18 was: the §19 the lost plan held is gone. Every decision below names its source:
+**[P n]** the approved prototype v61c.2 (index61c2.html, line n: the core window.ALB60 7070–7338, its writers
+7220–7311, the page window.__mcftAlbum60 7342–7586, its sheets 7520–7548, its viewer 7550–7572, its CSS 1404–1418 and
+1446–1583, the sheet kit 7815–7829); **[S5]** S5 QUOTE as shipped on stage (mcft-interior-estimate 9a51733:
+functions/_lib/asis.js, and its CLAUDE.md row "THE ALBUM STORAGE AND ROUTES ARE REAL", with "APPROVAL IS FINAL, AND A
+CHANGE AFTER IT IS A CHANGE REQUEST"); **[Ph]** the phone as shipped on batch-next 0bcfc54 (file:line); **[C]** decided
+by Claude here, with the reason given. §18's table "THE CONTROLS THAT WRITE" names the empty slot each K4 control goes
+into; K4 fills those slots and moves nothing (its critic note 15).*
+
+**Goal**
+
+The Project Manager writes the album from the phone, exactly where and how the prototype draws it: a work's state
+through the state sheet, with its Done reason; Accept / Not for client on a vendor's photo awaiting review, under its
+card and in the viewer; a change request raised with its kind and the note the client reads; the client's answer
+recorded with the day and how (Amit, 27 Oct 2026, ~10:20 IST: "PM raises it, PM records the client's yes/no, a yes
+amends the scope"); and the result line a review leaves in the header. Each tap is QUEUED as exactly its S5
+call (AQ's AlbumQueue / AlbumWire, unchanged on the wire), shown at once by laying the queued op over what the phone
+holds, and sent by the drain (K2's, built here) whenever there is signal: S5's answer replaces the overlay, and S5 wins
+every race. Nobody else writes: a Designer, a vendor, a client, a person not signed in to S5 and a project S5 does not
+list see the K3 album.
+
+**What the prototype draws, and what it does not**
+
+THE PROTOTYPE HAS NO OUTBOX [P 7081-7082 "Nothing here talks to a server", 7211 persist()]: every ALB60 writer writes
+the phone's own store at once (localStorage, through the one persist()) and the page redraws from it, so it draws NO
+queued, sending, replayed, refused or offline state for an album write — a tap is written and shown, or refused at
+once by returning null with nothing drawn (setState 7220, review 7279, raiseCR 7289), the one exception being the
+answer sheet's `client_at` words (answerCR 7297-7299, drawn in the sheet 7535). The quote mover is the contrast: its S5
+stand-in draws offline, forbidden and no-answer refusals on the strip (move, 4038; its words 4071-4076), and the
+phone's QM0-QM2 draw them; the album has none of that. So, by Amit's rule (11 Oct 2026: a UI state the prototype does
+not draw does not reach the phone):
+- **Queued** is drawn as the prototype draws WRITTEN: the overlay (below) shows the tap at once, with no mark of its own
+  [P 7220-7221: the state row is pushed, persisted and drawn in the same render].
+- **Sent and answered** (written, or the `written: false` replay) is drawn from S5's row, which by then says the same.
+- **Refused or won by S5** (a 409, or 400/403/413/415) is drawn as what S5 holds now — the overlay simply goes — with no
+  words: the prototype has no line for it. S5's words are kept on the phone (the outbox's `dropped`, and one Log.w),
+  and the line is a question for the prototype (Q2 below).
+- **Offline, or S5 not answering**, is drawn as queued: the prototype's tap shows at once with no signal.
+
+**THE CONTROLS, each in the slot §18 left** (P = the Project Manager as S5 says it, below)
+
+| Control (who) | Where, exactly | Enabled / drawn when | Texts (key) | Tap |
+|---|---|---|---|---|
+| the state chip as `<state> ▾` (P) [P 7459-7460] | the work header's state chip, in place [Ph AlbumScreen.kt:496, :506 StateChip] | P and the chapter not locked (`!c.locked`: Album.exec, as K3's lock) | the state through Masters.state, then ` ▾` (aria-hidden, `// text:value`); TalkBack `album.aria.state_x` (as K3), role Button | opens the state sheet |
+| the state sheet (P) [P 7543-7548] | a bottom sheet (the kit's sheet, 7829), over the album | from the chip | title `album.state_of_x`; the five states (Masters.state), the current one selected; leaving Done only: the field `album.done_reason_label` (`.alb60reason`, 4/12 dp), and after a pick with it blank `album.done_reason_need` (`.alb60need`, 2/16 dp, #C0392B); the foot `album.state_pm_only` (bodySmall, muted, 8/16 dp, 7547) | the current state closes the sheet and writes nothing (7544); leaving Done with a blank reason draws the need line and stays open; any other pick QUEUES the state and closes the sheet |
+| `Accept` / `Not for client` under a card (P) [P 7434-7437] | under the card, in its grid cell (`.alb60cw` wraps card and buttons; `.alb60rb`: a column, 4 dp gaps, 4 dp above, each full width, at least 36 dp) | P and the item a vendor's photo whose review is `pending` (overlay included) | `album.accept` (filled, primary), `album.not_for_client` (text button, primary); the group's TalkBack label `life.vrev` ("Vendor review", the prototype's `aria-label`, 7436) | queues the review; sets the result line |
+| `Accept` / `Not for client` in the viewer (P) [P 7563-7564] | after the review line, in the facts (`.alb60rb2`: a row, 8 dp gaps, wrapping; text buttons in #EDEFEA, 0/12 dp, 32 dp tall) [Ph AlbumScreen.kt:735] | P and a vendor's photo: `Accept` unless it is accepted, `Not for client` unless it is kept — so an accepted photo can be kept and a kept one accepted | the same two keys | queues the review; the viewer stays open on the photo and redraws its review line; sets the result line |
+| `Raise change request` (P) [P 7469] | in the open work's body, after the change-request note's place and before the decided list (`.alb60crraise`: text button, 6/16 dp) [Ph AlbumScreen.kt:552-553] | P, the stage Client approved (Album.approved, the prototype's approvedQ 7286), a baseline held (the scope not null, scopeOf 7469), and no live request on the work (overlay included) | `album.cr_raise` | opens the raise sheet |
+| the raise sheet (P) [P 7520-7528] | a bottom sheet | from Raise | title `album.change_request` + ` · ` + the work (Masters.work); the kinds the work allows — in the approved scope `remove` and `change`, outside it `add` (7521) — each `crkind.*` over its line `album.cr_kind_*_sub` (Album.CrKind.word / sub), the first selected; the field `album.cr_note_client`; the button `album.cr_raise` (filled, 4/16 dp) | the button QUEUES the raise with the selected kind and the note (blank allowed, as 7526) and closes the sheet |
+| `Record the client's answer` (P) [P 7468] | after the live request's note (`.alb60crans`: filled, 6/16 dp) | P, Client approved, a live request on the work (overlay included) | `album.cr_answer` | opens the answer sheet |
+| the answer sheet (P) [P 7529-7539] | a bottom sheet | from Record | title `album.cr_answer`; the head line (`.alb60crhd`, 0/24/8 dp) the work · `album.change_request` · the kind (`crkind.*`) · the note; the three outcomes (`album.cr_out_approved`, `…_declined`, `…_withdrawn`, Album.CrOutcome.text), approved selected; the field `album.cr_client_at`, today in IST as `YYYY-MM-DD` (C.today, 7332); its status line (role status, #B0740E) `refuse.album.client_at_day` when refused; the field `album.cr_how` over `album.cr_how_eg`; the note `album.cr_answer_note`; the button `album.cr_answer` | the button: approved or declined with a date that is not a day draws the refusal, marks the date field, stays open, and a keystroke in the date clears it (7534); else QUEUES the answer and closes the sheet |
+| the result line (P) [P 7413-7416] | the header, after the project line and before the Work log toggle (`.alb59res`: 6/16 dp, bodySmall, `--scn` = secondaryContainer, `--onscn` = onSecondaryContainer) [Ph AlbumScreen.kt:218] | after this visit's last review tap, while that review is queued or taken (gone when S5 refused it: below) | `album.accepted_res` / `album.kept_res` | — |
+
+The sheets are drawn as FW2's WorkSheet draws Which work? [Ph TreeShell.kt:536-560]: ModalBottomSheet, SheetTitle
+[Ph Crumbs.kt:152], one ListItem per row with the selected one on secondaryContainer, the rows scrolling (the kit's
+sheet is one scrolling column, `PG` 7788: its `per` is unused), 12 dp under the last element; the fields are
+OutlinedTextField with the label floating (`field()` 7824: an outlined field, `err` its error state). There is no Cancel:
+a scrim tap, a swipe or ◁ dismisses (`K.sheet`'s onDismiss, 7829) and loses what was typed, as `m.sheet=null` does.
+Back closes a sheet before anything else [P 7392-7398 back(): the sheet first], which ModalBottomSheet's own back
+handling already does [Ph ScopeSheet.kt's note]; no sheet opens from the viewer, so a sheet and the viewer never stack
+(ov() draws at most one, 7575-7586). The `▾` on the chip and every other glyph are `// text:value`. A sheet's write
+needs no busy state, unlike ScopeSheet's [Ph ScopeSheet.kt:121-129]: a queued write is on the phone the moment it is
+tapped, so the sheet closes at once.
+
+**Who writes: the Project Manager, as S5 says it** [S5 asis.js:597 albumRole; Ph Album.kt:576 viewerOf]
+
+- The write controls are drawn when ALL of: the mirror is held and its `role` is `pm` — S5's own word, which is D3
+  (every staff member is PM while the project names none) and "only the named PM" once one is named (Amit, 27 Oct
+  2026, ~10:15 IST) — the project is one S5 lists, and the phone holds an S5 sign-in whose whoami `user` is known
+  (`AlbumPage.Me.user`, S5Session.who [Ph MainActivity.kt:1393-1396]). `AlbumPage.canWrite(mirror, notOnS5, me)` is the
+  one test, and every control above reads it.
+- A Designer (`role` designer: the project names another PM), and the phone before its first mirror read (K3 draws the
+  Designer for visibility then, §18), see the K3 album: the chip as drawn for everyone else, no button, no result line
+  [P 7460: the plain `.alb60st` span for anyone but the PM]. A vendor and a client are K6.
+- A project S5 does not list has no controls [S5: every album route answers 404 before its handler, asis.js:834
+  visible()]; its works are locked anyway (§18, the K3 critic finding 1).
+- A phone with only a legacy ERP key and no S5 sign-in has no controls [C]: every album write is attributed to whoami's
+  user — S5 stores `by` and `by_name` from the session it is sent with, and the overlay names the person from `Me` —
+  and the outbox is the LOGIN's (below), so a write with no login has nobody to belong to. That is the prototype's
+  drawing for a person it offers no control to, so no new UI state. Amit's phone has signed in to S5 since 22 Oct 2026.
+
+**THE OVERLAY: a tap shows at once** [P 7211 persist(), 7220-7221 setState: the write and the render are one step;
+Ph Album.kt:796 withQueued, :1202 provisional, the K1b design]
+
+The page is built from what the phone holds with this login's queue for the project laid over it, every reader from
+the same overlay [C, from Amit's rule of 27 Oct: one state, in one place — the queued state is that state's pending
+half, never a second copy]:
+- **The works' states**: `Album.withQueued(states, queue)` over the store's copy, in queue order. It feeds the state
+  chips, `Open:`, the end line (a queued Done on Cleaning & handover closes the album at once, with its day), the lock
+  (a state row exists) — and, through `QuoteStageSync.states` and `lineFor`, the project line on the project screen,
+  the project list row, the album header and the Wish list bar [Ph QuoteStageSync.kt:122-133: "This phone's queued
+  state writes lay over the states here once the album outbox exists (K4)"], FW2's Which work? state lines, and
+  `Album.newCaptureWork`'s default pick (the first work In progress) [Ph MainActivity.kt:692, 2005, 2182, 2303, 2593].
+  A copy that holds no states stays null for the line (`Execution · not read yet`, PL's rule) [Ph QuoteStage.kt:429].
+- **The log**: `Album.mergedLog(provisional, mirror.log)` — each queued log op as `Album.provisional(op, i, role,
+  me.user, me.name, op.at)` at PENDING_SEQ + its place, and S5's own row winning over it for the same id (mergedLog's
+  later list wins). It feeds the live change request (a queued raise draws the chip, the note and `Record the client's
+  answer` at once; a queued answer moves it to the decided list), `Change requests: N`, and the Work log (a queued state
+  is its newest row, by this person, at the tap's time).
+- **The scope**: `Album.scopeWithQueued(scope, scopeAt, queue)` — each queued APPROVED add or remove answer amended in,
+  in queue order, through `Album.amendedScope` with the kind the answer carries in `prev` (crAnswerOp) [P 7301-7303:
+  answerCR records the amended scope at once]. It feeds the chapters' in-scope test, the raise sheet's kinds, and the
+  quote view's APPROVED SCOPE row and its scope sheet's view [P 4170: the quote view reads ALB60.scopeOf and scopeAt;
+  Ph MainActivity.kt:1437-1439], its `since` the tap's time as the prototype's `rec.scope.at = at`.
+- **The reviews**: each item with a queued review takes the newest one's state, by `me`, at the tap's time — the card's
+  badge and amber ring, the viewer's `Accepted by <name> · <when>`, the PM's `To review: N` (Album.pending over the
+  overlaid items, as §18 has the screen derive it), and which review buttons are drawn.
+- `Op.at` (NEW, the instant of the tap, UTC ISO; never sent: S5 stamps its own) is what every provisional row shows as
+  its time, so a row's time does not move between two draws; `withQueued` carries it into the WorkState (`at` was blank,
+  so a queued Done on 140 closed the album without its day).
+
+**THE OUTBOX: where it lives, whose it is** [Ph AlbumQueue.kt:8-14 "The drain that sends … is K4's, in :app, with the
+queue's first writer"; Ph WishSync.kt:56-61 the phone's offline list in preferences]
+
+- **SharedPreferences `album_outbox`**, one entry per login — the key `Album.partyKey(whoami user)` — whose value is
+  `AlbumWire.storedOutbox`: `{v: 1, projects: {"<S5 id>": {queue: [op…], dropped: [op…]}}}`, each op
+  `{id, kind, work, base, value, prev, note, photo, room, caption, photo_kind, client_at, error, recorded, at}` with
+  AlbumQueue's types (`base` text, `work` a number or null, null as JSON null) [C]. Preferences, not a file beside the
+  mirrors: the project list reads the line in composition for every row (MainActivity.kt:1497-1502), and preferences are
+  an in-memory read, as the quote store is [Ph QuoteStageSync.kt:93]; their listener is what redraws the screens as the
+  queue moves, as the mirror's and the wish lists' are [Ph MainActivity.kt:605-612, 628-636]. The project key is the
+  S5 id the stage and the mirror are read under (WishSync.stageKey) [Ph AlbumSync.kt KEYS].
+- **The login's, and it survives sign-out** [C]. A queued op is somebody's unsent work — SyncWorker's own rule: "Kept,
+  not dropped: the queue is the record of what the site said" [Ph SyncWorker.kt:399-401] — so S5Session.signOut does not
+  touch it (AlbumSync.forgetAll clears `album_mirror` and the `album/` files only [Ph AlbumSync.kt:191-199]); and it is
+  only ever read, drawn and SENT under the login it was queued under, so the next person signed in on the phone neither
+  sees it laid over the album nor sends it under their own name. The same login's next sign-in resumes it.
+- **Sent only with the S5 session of that login, never the legacy ERP key** [C]: S5Auth.current falls back to the key
+  [Ph S5Session.kt:208-209], and S5 would store the key's owner as `by`. With no live session the drain renews it once
+  (S5Session.relogin [Ph S5Session.kt:134-151]); refused, the phone is signed out of S5 and the ops wait.
+- **`dropped` keeps the newest 20** [C], each with S5's `error` and its `at`: nothing draws them (Q2), they are what a
+  future line would read, and they cap the entry.
+- **The ids are minted once** (Album.mintId, at the tap) and stored with the op, so every retry — the drain's next pass,
+  a resend after a lost answer, a process restart — sends the same `ALB-…` and S5 answers `written: false` with the row
+  it already holds [S5 asis.js:75-77, 864; Ph Album.kt:1069 mintId; AQ's "each op is exactly the body S5 accepted"].
+
+**THE DRAIN (K2's): when, where, in what order** [Ph AlbumQueue.kt next / requestOf / apply; S5 asis.js:831-880]
+
+- **One unique WorkManager job per project**, `mcft-album-<S5 id>`, CONNECTED, EXPONENTIAL backoff from 30 s, the login's
+  queue read when it RUNS — WorkRefile's shape [Ph WorkRefile.kt:71-82]. A tap or a project open with a queue ENQUEUES it
+  with `ExistingWorkPolicy.REPLACE`, so the newest tap's job runs at once and never waits behind a backoff (REPLACE is
+  what AsIsUpload and WorkRefile use [Ph AsIsUpload.kt:88, WorkRefile.kt:81]); SyncWorker, after BOTH legs and beside
+  FW2's sweep [Ph SyncWorker.kt:63-69], enqueues every project of the signed-in login's outbox with
+  `ExistingWorkPolicy.KEEP`, so the hourly catch-up (after a reboot, a sign-in, a long backoff) never cancels a drain in
+  flight [C]. Never counted in `failures`. Not Wi-Fi-only: a log POST or a review is a few hundred bytes; the Wi-Fi-only
+  toggle is for 20 MB panos [Ph SyncWorker.kt:435-440] (K5's JPEGs decide their own).
+- **ONE PASS PER PROJECT AT A TIME** [C]: a pass holds the project's pass lock in AlbumOutbox (in process: a REPLACE-cancelled
+  pass still finishing its blocking call and the new one never interleave), and checks `isStopped` between requests.
+- **The pass** (`AlbumQueue.drain`, pure, with :app's three callbacks): read the login's outbox as stored NOW; take its
+  head (`AlbumQueue.next`); its request (`requestOf`; null — a kind this build cannot send — is applied as a 400, AQ's
+  rule); send it; read S5's answer (`AlbumWire.reply`); COMMIT; then the next head, until the queue is empty or a verdict
+  stops the pass (`Applied.goOn`). The head is re-read every step, so an op tapped while a pass runs goes in the same pass.
+  - **The commit, in this order**: (1) the answer into the mirror (`AlbumSync.take`, at its own ticket after every read
+    in flight [Ph AlbumSync.kt:212-229]) and its `work` row into the one store (`QuoteStageSync.write` of
+    `QuoteStage.workCopy(stored, work)`: the store's copy with that work's state at S5's seq, merged by S5's order —
+    mergeStates, the higher seq winning [Ph QuoteStage.kt:246-276]); (2) then, under the outbox's store lock alone,
+    `AlbumQueue.apply` on the outbox AS STORED NOW — ops are found by id, so ops appended meanwhile ride behind it and are
+    rebased as AQ does; its `mirror` (AQ's noRow test, a review's photo) is the pass's copy of AlbumSync's, read once per
+    pass and kept by the same `Album.merged` — and the queue and `dropped` written back. Answer before removal: the
+    overlay never goes while S5's word is not yet on the phone, so the screen never flickers back to the old state [C].
+    The pass lock is the outermost and only a pass takes it, and the store lock is never held across (1), so no two locks are ever taken in opposite orders. A crash
+    between (1) and (2) re-sends the op: S5's replay, harmless.
+  - **401** (RELOGIN): the session renewed once, the same op sent again; a second 401, or a refused renewal, ends the pass
+    with the queue as it was [Ph AlbumSync.kt:129-136, the same rule].
+  - **STOP** (404 on a log op, 405, 5xx, no network, a 200 that is not S5's handler [Ph AlbumQueue.kt:183-187]): the pass
+    ends, the queue as it was, and the job returns `Result.retry()` (WorkManager's backoff). A timeout once the request
+    may have gone out is STOP too: unlike QuoteMove's no-answer re-read [Ph QuoteStageSync.kt:251-255], resending the
+    same id is safe here, because S5 replays it [S5 asis.js:75-77].
+  - **After a pass that took any answer**, `AlbumSync.refresh(project)`: one album GET, which writes the mirror and the
+    store in S5's own order — "K2 GETs after a drain" [Ph Album.kt:1334-1344, afterPost's note] — and brings S5's current role
+    (a PM named meanwhile turns this phone's controls off).
+- **The order writes keep** [S5 asis.js:1793-1809 albumAppend: `base` = the work's MAX(seq) of ANY kind, `prev` = its
+  state now]: FIFO per project, as tapped; ops on one work chain — each one's `base` is the mirror's (baseOf, PENDING
+  rows never counted) at the tap, its `prev` the OVERLAID state, and the answer to the one before rebases it (AQ's
+  rebased: the entry's seq; a review's `review_at`); a 409 on a work drops that op and the work's later ops — S5 wins —
+  while every other work's still go; a refusal for good drops that op alone and the next on its work takes back S5's
+  base and state [Ph Album.kt:1390-1443]. A review's log row moves its photo's work's base, so a state tapped after a
+  review on the same work is rebased on the review's entry (AQ pins it).
+
+**S5's answers, and what the phone then shows** [S5 asis.js, at 9a51733; AQ's verdict table]
+
+| Write | S5's answer | Verdict | The mirror, the store and the queue | What the album shows |
+|---|---|---|---|---|
+| state, raise, answer: `POST …/album/log {v:1, id, kind, work, value, prev?, note, base, client_at?, via:"phone"}` | 200 `{ok, written: true, entry, work, scope, scope_at}` (864) | POSTED | entry into the log, the work row into the mirror and the store, the scope (an approved add or remove has just moved it: asis.js:846-855, one batch with the cr_clear row, guarded on the old `scope_at`); the op leaves, the next on its work rebased | S5's row: the same as the overlay |
+| | 200 `written: false`, the row as stored (864) | REPLAY | as POSTED | the same |
+| | 409 `{error: EXEC_LOCK_BANNER, locked: true, work, entry, scope, scope_at}` (867) | LOCKED | the rows taken; the op and its work's later ops dropped with S5's words | S5's state; the chapters lock once the GET brings the stage (the banner) |
+| | 409 `Changed meanwhile — <state> by <login>; not saved` (868), `The work is <state>, not <prev>; not saved` (869), a raise's four whys (871-875), `No change request to clear on this work` (877), `The scope was changed meanwhile; not saved — it now shows what is stored` (878: the amend's guard), `Changed meanwhile; not saved` (879) — each with `work`, `entry`, `scope`, `scope_at` | CONFLICT | as LOCKED | S5's state, S5's live request, S5's scope — no words (Q2) |
+| | 403 `{error: "Only the Project Manager sets a work's state"}` (836) — for a raise or an answer too, and with NO `album_role` or `pm` (unlike the scope and stage PUTs' 403s, asis.js:896, 1224) | REFUSED | that op alone dropped; the next on its work rebased; the end-of-pass GET brings S5's role | the controls go when the role is no longer PM; no words (Q2) |
+| | 400 (validLogEntry's words, 657-685), 413 `Request too large` (809) | REFUSED | as 403 | — (a correctly built phone meets neither: AQ caps every text) |
+| | 404 `Not found` (834: not visible) | STOP | as it was | queued |
+| review: `PUT …/album/photos/<id>/review {id, state, base: review_at or "", via:"phone"}` | 200 `{ok, written: true, id, photo, review, review_by, review_by_name, review_at, entry}` (1018) | POSTED | the review patched onto the photo, its entry into the log (it moves the work's base) | S5's review |
+| | 200 `written: false` (1020: the same state again, or this id's own row) | REPLAY | as POSTED | the same |
+| | 409 `Reviewed meanwhile — <review> by <login>; not saved` (1021), `No image yet…` (1010), `That id already names another album entry…` (1019), each with the review as stored | CONFLICT | the review taken; the op and its work's later ops dropped | S5's review; the result line goes |
+| | 403 `Only the Project Manager accepts a vendor photo` (1001, no role); 400 `Only a vendor's photo is reviewed…` (1007) | REFUSED | that op alone | S5's review; the result line goes |
+| | 404 `Not found` for a photo the mirror does not hold | REFUSED (AQ's noRow) | that op alone | — |
+| any | 401 | RELOGIN | renewed once, resent | queued |
+| any | no network, a timeout, 5xx | STOP | as it was | queued |
+
+**THE PM'S TAPS AS OPS** (`pano/AlbumWrite.kt`, NEW, pure) — each tap checked by K1b's gate on the OVERLAID state and
+built by K1b's op builder on the MIRROR's bases [Ph Album.kt:938-1015 gates, :1077-1110 builders], so a chain of taps
+offline is exactly the chain S5 will take:
+- `state(m, work, to, remark, now)`: `from` = the overlaid state (sent as `prev`; S5's SQL compares it with its own,
+  asis.js:1802); `Album.stateWrite(viewer, exec, work, from, to, remark)`: SAME_STATE is `Out.None` (the prototype's
+  pick of the current state, 7544), DONE_REASON_NEED is the sheet's need line, anything else refused is `Out.None` (the
+  chip is not drawn tappable then); else `Album.stateOp(mirror, …)` with `at` = now.
+- `kinds(m, work)`: `remove`, `change` in the overlaid scope, else `add` (7521).
+- `raise(m, work, kind, note, now)`: `Album.crRaise` on the overlaid log and scope; refused is `Out.None` and the sheet
+  closes, as the prototype's raiseCR returning null closes it (7526: `m.sheet=null` whatever it returned) — reachable
+  only through a race (a read landing between open and submit); else `Album.crRaiseOp`.
+- `answer(m, work, outcome, clientAt, how, now)`: `Album.crAnswer`; CLIENT_AT_DAY is `Out.Refused` (the sheet's line,
+  S5's 400 verbatim, keyed); else `Album.crAnswerOp(mirror, overlaidLog, …)` — `prev`, the kind it answers, read from
+  the OVERLAID log, so an answer to a raise still queued carries its kind.
+- `review(m, key, state, now)`: `Album.review(viewer, overlaidPhoto, state)` (so a second Accept is REVIEW_SAME, nothing
+  queued), the op built from the MIRROR's photo — `base` is S5's `review_at`, never the overlay's tap time, which S5
+  would answer as stale (asis.js:1012 guards on the old `review_at`); a second review of the same photo queued behind
+  the first takes the first's answer's `review_at` through AQ's rebase.
+- `today(now)`: the IST day, `now.atZone(QuoteStage.IST).toLocalDate().toString()` — never `LocalDate.ofInstant`, which
+  is Android API 34 and :pano runs on the phone (minSdk 29).
+- `Out`: `Queue(op)`, `Refused(why: Album.Refusal)`, `None` — not `Nothing`, which is Kotlin's.
+
+**Files and changes**
+
+**pano/…/AlbumWrite.kt (NEW)** — above.
+
+**pano/…/AlbumPage.kt (CHANGED)**
+- `model(tx, title, items, mirror, cache, line, queue: List<Album.Op> = emptyList(), me: Me = Me("", ""))`: the overlay
+  above, built once per change of its inputs as K3's model is; the K3 parameters keep their order.
+- `canWrite(mirror, notOnS5, me)` (above); `Model` keeps, internal, what AlbumWrite needs — the viewer, the mirror, the
+  overlaid states, log, scope and items, the stage — null when the person cannot write.
+- `Header.result: String?`, set by `page(m, toggled, logOpen, result: String? = null)`; `resultText(tx, res, dropped)`:
+  `album.accepted_res` / `album.kept_res` for `Res(kind, op)`, null when that op is among the outbox's `dropped`.
+- `WorkCh` gains `stateTap: Boolean`, `raise: String?`, `answer: String?`; `CardLine` gains `review: Boolean`
+  (`card(tx, viewer, p, canWrite = false)`); `Shown` gains `accept: String?`, `keep: String?`.
+- The three sheets' models, every text a `tx.<key>`: `StateSheet(title, rows, reason, footer)`,
+  `RaiseSheet(title, kinds, noteLabel, button)`, `AnswerSheet(title, head, outcomes, dateLabel, howLabel, help, note,
+  button)`, from `stateSheet(tx, m, work)`, `raiseSheet(tx, m, work)`, `answerSheet(tx, m, work)`; the need line and the
+  date's refusal are `Album.Refusal.text(tx)` (`album.done_reason_need`, `refuse.album.client_at_day`).
+- `SheetFor` (`State(work)`, `Raise(work)`, `Answer(work)`) and `Res` — the visit's, held by MainActivity.
+
+**pano/…/Album.kt (CHANGED)** — `Op.at: String = ""` (last, defaulted: every caller and AQ's request unchanged; never
+sent); `withQueued` carries `op.at` into the WorkState; `scopeWithQueued(scope, scopeAt, queue): Pair<List<Int>?, String>`.
+
+**pano/…/AlbumQueue.kt (CHANGED)** — `Sent(code, body)` (code ≤ 0: no network) and `drain(load, send, commit, relogin,
+stopped): Pass(answered: Int, stopped: Boolean)`, the pass above with no Android in it; `KEEP_DROPPED = 20` and the cap.
+
+**pano/…/AlbumWire.kt (CHANGED)** — `storedOutbox(projects)` and `outboxOf(r, o)`: the shape above, read tolerantly as
+the mirror is — a field missing takes the Op default, an op without an `id` is left out (it could never be replayed),
+an op of an unknown kind is KEPT (the drain refuses it with AQ's 400, that op alone), `base` stays text.
+
+**pano/…/QuoteStage.kt (CHANGED)** — `workCopy(stored, work): Cache?` (null when not listed, or the row has no state:
+`at` blank, as statesOfWorks drops it); `statesWith(cache, queue)` (null stays null, else withQueued).
+
+**app/…/AlbumOutbox.kt (NEW)** — the store (`prefs`, `queued(context, project)`, `dropped(context, project)`,
+`add(context, project, op)` under the store lock, the current login from S5Session.who), `enqueue(context, project, replace)`,
+`enqueueAll(context)`, the pass's three callbacks (`AsIsUpload.exchange` with the session cookie; the JSON body as
+`JSONObject(request.fields)`, which keeps a null as JSON null [Ph AlbumQueue.kt:62-69]; a request's `file`, K5's JPEG,
+read from `filesDir` and sent as `image/jpeg` — none queued before K5), and `AlbumDrainWorker` (CoroutineWorker, its
+input the project, `withContext(Dispatchers.IO)`; a session near its end renewed first, as WorkRefileWorker does). Log
+lines `// text:value`, never a header, S5's words at most.
+
+**app/…/AlbumSheets.kt (NEW)** — `AlbumStateSheet`, `AlbumRaiseSheet`, `AlbumAnswerSheet`: draw the models; the typed
+reason, note, date and how are `remember(work)` inside each, lost on dismiss as the prototype's are.
+
+**app/…/AlbumScreen.kt (CHANGED)** — each control in its slot (the table above): StateChip clickable with ` ▾` when
+`w.stateTap`; WorkBody's buttons between the note and the decided list; AlbumCard's cell a Column of the card and,
+when `line.review`, the two buttons (`.alb60cw`) — a pending card's cell is then taller, and its grid row with it, as
+the prototype's grid row is; ViewerFacts' two buttons after the review line; AlbumHeader's result line; the sheet drawn
+when `sheet != null`. New parameters, after K3's: `sheet: AlbumPage.SheetFor?`, `onSheet`, `onState(work, to, remark):
+AlbumWrite.Out`, `onRaise(work, kind, note)`, `onAnswer(work, outcome, clientAt, how): AlbumWrite.Out`,
+`onReview(key, state)`.
+
+**app/…/QuoteStageSync.kt (CHANGED)** — `lineFor` lays the login's queue (its KDoc's K4 sentence becomes true);
+`states(context, key)`; the class note names the outbox's answers as one more caller of `write`.
+
+**app/…/AlbumSync.kt (CHANGED, KDoc only)** — the outbox exists; its answers come in through `take`.
+
+**app/…/SyncWorker.kt (CHANGED)** — `AlbumOutbox.enqueueAll(applicationContext)` after `WorkRefile.sweep` (:69).
+
+**app/…/MainActivity.kt (CHANGED)**
+- The outbox's preferences listener bumps `quoteTick` and `albumTick` (every reader of the line, the states and the
+  mirror is keyed on those already) [Ph MainActivity.kt:605-624].
+- `albumQueue = remember(stageKey, albumMe.user, quoteTick) { AlbumOutbox.queued(context, stageKey) }`; the model's
+  remember gains it and `albumMe` [Ph :1515]; `albumSheet` and `albumRes` beside `albumView`, held above the search
+  overlay and cleared by `leaveAlbum` and the tile's open [Ph :190-213, :1421-1430].
+- The callbacks: `AlbumWrite.*` on the model; a `Queue` goes to `AlbumOutbox.add` off the main thread in `scope`
+  [Ph :149], then `enqueue(replace = true)`; a review sets `albumRes`, and the page's result line is
+  `AlbumPage.resultText(tx, albumRes, AlbumOutbox.dropped(context, stageKey))`.
+- The project-open effect enqueues the drain when the login's queue for the project is not empty [Ph :585-603].
+- The five states readers read `QuoteStageSync.states` [Ph :692, 2005, 2182, 2303, 2593]; the quote view's row and the
+  scope sheet's view take `Album.scopeWithQueued` [Ph :1437-1439].
+
+**android/i18n** — **NO NEW KEY**: every text above is one the tables hold (L1 landed the prototype's album and change
+request keys; K1b's refusals), the group label is `life.vrev`, the prototype's own English for that `aria-label`, whose
+RAW Marathi is व्हेंडर तपासणी. Tx is not regenerated. `ported.txt` gains `pano/…/AlbumWrite.kt`, `app/…/AlbumOutbox.kt`
+and `app/…/AlbumSheets.kt`; `unkeyed.tsv` gains nothing; `literal-counts.tsv` is rewritten by `:pano:i18nRatchet`;
+README gains "Port 61c slice K4". The texts, EN and MR as the tables hold them:
+
+| key | EN | MR |
+|---|---|---|
+| `album.state_of_x` | State of {work} | {work} ची स्थिती |
+| `album.done_reason_label` | Why change a Done work? (required) | पूर्ण झालेले काम का बदलायचे? (आवश्यक) |
+| `album.done_reason_need` | A reason is needed to change a Done work | पूर्ण झालेले काम बदलण्यासाठी कारण आवश्यक आहे |
+| `album.state_pm_only` | Only the Project Manager sets a work's state | कामाची स्थिती फक्त प्रोजेक्ट मॅनेजर ठरवतो |
+| `album.accept` | Accept | स्वीकारा |
+| `album.not_for_client` | Not for client | ग्राहकासाठी नाही |
+| `life.vrev` | Vendor review | व्हेंडर तपासणी |
+| `album.accepted_res` | Accepted · the client sees it now | स्वीकारला · आता ग्राहकाला दिसतो |
+| `album.kept_res` | Kept from the client | ग्राहकापासून राखून ठेवला |
+| `album.cr_raise` | Raise change request | बदल विनंती नोंदवा |
+| `album.change_request` | Change request | बदल विनंती |
+| `crkind.add` / `.remove` / `.change` | add / remove / change | समावेश / वगळणे / बदल |
+| `album.cr_kind_add_sub` | a work outside the approved scope comes in | मंजूर स्कोपबाहेरचे काम स्कोपमध्ये येते |
+| `album.cr_kind_remove_sub` | a work in the approved scope comes out | मंजूर स्कोपमधील काम स्कोपमधून वगळले जाते |
+| `album.cr_kind_change_sub` | a work in the approved scope changes | मंजूर स्कोपमधील कामात बदल होतो |
+| `album.cr_note_client` | A note the client reads | ग्राहक वाचेल अशी नोंद |
+| `album.cr_answer` | Record the client's answer | ग्राहकाचे उत्तर नोंदवा |
+| `album.cr_out_approved` / `_declined` / `_withdrawn` | Change approved by client / Change declined by client / Change request withdrawn | ग्राहकाने बदल मंजूर केला / ग्राहकाने बदल नाकारला / बदल विनंती मागे घेतली |
+| `album.cr_client_at` | Date the client answered | ग्राहकाने उत्तर दिल्याची तारीख |
+| `refuse.album.client_at_day` | client_at must be the date the client answered, as YYYY-MM-DD | ग्राहकाने उत्तर दिल्याची तारीख वर्ष-महिना-दिवस या क्रमाने हवी |
+| `album.cr_how` | How the client answered | ग्राहकाने उत्तर कसे दिले |
+| `album.cr_how_eg` | a call, WhatsApp, in person | फोन, व्हॉट्सॲप, प्रत्यक्ष भेट |
+| `album.cr_answer_note` | If approved, an add puts the work into the approved scope, a remove takes it out and a change leaves the scope as it is; declined or withdrawn changes nothing | मंजूर झाल्यास: समावेशात काम मंजूर स्कोपमध्ये येते, वगळण्यात ते स्कोपमधून जाते आणि बदलात स्कोप तसाच राहतो; नाकारल्यास किंवा मागे घेतल्यास काहीच बदलत नाही |
+
+The five states are Masters.state (`album.st_*`), the works Masters.work, `album.aria.state_x` K3's.
+
+**S5 must already serve**
+
+All on stage since 26–27 Oct, nothing new: `POST …/album/log` with the CR kinds and answers and the scope amend
+(27 Oct), `PUT …/album/photos/:id/review`, and `GET …/album` for the end-of-pass read.
+
+**Tests and checks**
+
+- **AlbumWriteTest (NEW, :pano)**, from S5Album's verbatim bodies and invented ids (PROJ-T1, `pm@x`):
+  - `a state tap is the op S5 takes - prev the overlaid state, base the mirror's, the tap's at, an ALB id`;
+  - `the current state writes nothing, leaving Done needs a reason, a locked chapter offers no write`;
+  - `a chain of three taps offline is the chain S5 takes - each prev the one before, every base the mirror's`;
+  - `the raise kinds follow the overlaid scope - add off it, remove and change in it - and a queued approved add moves the work into it`;
+  - `an answer carries the kind it answers, from a raise still queued, and a date that is not a day is refused with S5's words`;
+  - `withdrawn needs no day; today is the IST day`;
+  - `a review is built on the mirror's review_at, never the overlay's, and a second Accept queues nothing`;
+  - `nobody but the PM writes - a Designer, no mirror, a project S5 does not list, no sign-in: every tap None`.
+- **AlbumPageTest (CHANGED)**:
+  - `a queued state shows at once - the chip, Open, the Work log row by this person at the tap's time, the end line closed with its day`;
+  - `a queued raise draws the chip, the note and Record at once; a queued answer moves it to the decided list`;
+  - `a queued review clears the badge, the ring, To review and the card's buttons, and the viewer says Accepted by this person`;
+  - `S5's row wins over the provisional one for the same id`;
+  - `the controls per role - the PM's chip is a tap with its caret, its card and viewer buttons, Raise and Record where the prototype draws them; the Designer, no mirror, not on S5 and no sign-in get K3's page, with no queue the same objects`;
+  - `Raise only at Client approved with a baseline and no live request; Record only on a live one; neither while locked`;
+  - `the viewer offers the other review state, never the one the photo has`;
+  - `the result line after a review, gone when S5 dropped its op`;
+  - `the three sheets - titles, rows, the selected one, the Done reason only when leaving Done, the need line, the kinds and their lines, the answer's head, outcomes, today, the refusal, the help and the note`;
+  - `every sheet text in Marathi (Tx.MR)`;
+  - read as source (as K3's tests read AlbumScreen.kt): each control sits in its K3 slot, nothing K3 drew moved.
+- **AlbumQueueTest (CHANGED)** — the pass, with an in-memory store and a fake S5 answering S5Album's bodies:
+  - `the drain sends FIFO and each op rides on the answer before it`;
+  - `two works interleaved - a 409 on one drops its later ops, the other's still go, in order`;
+  - `an op tapped during a pass goes in the same pass`;
+  - `a 401 renews once and resends the same op; a second stops the pass with the queue as it was`;
+  - `no network, a timeout and a 5xx stop the pass; the next pass replays the same ids and S5's written false lets them go`;
+  - `the answer is taken before the op leaves the queue`;
+  - `the GET is asked after a pass that took an answer, never after one that only stopped`;
+  - `dropped keeps the newest twenty, each with S5's words`.
+- **AlbumWireTest (CHANGED)** — `the outbox round-trips exactly through the stored shape`; `an op without an id is left
+  out, one of an unknown kind kept for the drain's 400, a base stays text, a null stays a null`.
+- **AlbumTest (CHANGED)** — `withQueued carries the tap's at`; `scopeWithQueued amends approved adds and removes in
+  queue order and nothing else`.
+- **QuoteStageTest (CHANGED)** — `workCopy takes one work row at S5's seq and never a not-listed copy`; `statesWith
+  keeps null as null`.
+- **A source-reading test** (in AlbumPageTest, as K3's): AlbumOutbox.kt sends with the S5 session and never names
+  S5Auth; the tap enqueues REPLACE and the sync KEEP; the commit takes the answer before `apply`; no
+  `LocalDate.ofInstant` in :pano; AlbumWrite's `Out.None`.
+- **I18nTableTest, TxRenderTest, I18nLiteralTest** — the three new ported files; check (f) resolves every `tx.` the
+  :app files call.
+- **The CI gate** (android-app.yml: the projection tests, then :app compiled — :app is compiled ONLY there).
+- **Claude's stage check with d1-peek after Amit's walk**: the walk's rows in `asis_album_log`, one per `ALB-` id —
+  none twice although a retry or an offline tap re-sent it — with `via` phone, `role` pm and the login as `by`; the
+  scope's `scope_at` moved by an approved add; nothing written for a project or a work the walk did not touch.
+
+**What Amit sees**
+
+- On the approved project's album, as the Project Manager: every unlocked work's state chip ends in ▾; a tap opens
+  `State of <work>` with the five states; a pick shows at once in the chip, in `Open:`, in the Work log, and on the
+  project screen's line — with signal or without.
+- An open work's body: `Raise change request` under Payment; its sheet offers the kinds the work allows and a note; the
+  chip and the note appear at once, then `Record the client's answer`, whose sheet takes the outcome, the date
+  (today) and how; an approved add puts the work into the APPROVED SCOPE at once.
+- A vendor's photo awaiting review carries Accept and Not for client under its card and in the viewer; a tap moves it
+  at once and says `Accepted · the client sees it now` or `Kept from the client` under the project line.
+- Under मराठी, all of it in Marathi.
+- A Designer's phone, or this phone before its first read of a project's album, shows K3's album.
+
+Amit's walk, one step at a time, on a test project on stage approved for the walk (invented, never a client's: the
+log is append-only and approval is final, so every row the walk writes stays): a state set online; a state set in
+airplane mode, the phone then online; a change request raised, then answered approved; the same under मराठी. The review
+half needs a vendor's photo on stage, which only K6 (or a vendor's own API call) can put there, so it is proven in
+:pano and walked with K6.
+
+**Questions for the prototype** — UI states K4 needs and the approved prototype does not draw. The phone draws the
+prototype's rendering for each, as K3's review ruled for its five (§18), until Amit approves one on the prototype:
+1. **A write still on the phone.** Drawn as written, with no mark. A mark (`queued`, `app.queued`, on the Work log row
+   and the chip?) would tell a PM in a basement that S5 has not taken it yet.
+2. **A write S5 refused or won over.** Drawn as S5's state, with no words: the chip goes back. S5's words are on the
+   phone (the outbox's `dropped`); the result line's slot in amber is the natural place.
+3. **A queued write by another login.** Not drawn, not sent until that login signs in again. Should the album say so?
+
+**Deliberately NOT in K4**
+
+- K5: the progress shot, its camera, Which work? and Which room?, its photo record and JPEG (the drain already sends
+  AQ's RECORD and IMG steps, so K5 adds only its writer and the shot file), its result line `Progress shot filed at …`,
+  and the photo re-file (S5-P) of a Capture 360 photo that went up by K5's route.
+- K6: vendor and client sign-in on the phone, a vendor's `Upload a photo` and its note, `Uploaded to …`.
+- A queue screen for album writes, a mark on a queued write, the words of a refusal (the questions above).
+- Recording the approved scope and the quote move: QV's and QM1/QM2's, online and unqueued as they are.
+- A price on a change request (note now, price when the estimate is linked to the project: Amit, 27 Oct 2026).
+- Undoing a state: a later state is the undo, as on S5 (the log is append-only).
+
+**Risks**
+
+- **A refusal is silent** until Q2 is answered: a PM whose write lost a race sees the chip return to S5's state. A race
+  needs a second writer (/projects, or another staff phone while no PM is named), and S5 wins it by design.
+- **A queue for a project S5 stops listing** waits (its 404 is STOP) and is sent if S5 lists it again; the hourly
+  catch-up asks once an hour meanwhile.
+- **Ops queued under a login that never signs in again** are never sent and never drawn.
+- **The date** defaults to the phone's IST day: a phone with a wrong clock offers a wrong day, which the field shows.
+- **The 28 dp state chip** is the prototype's whole tap target, under the 48 dp guidance; the 56 dp header row gives
+  it room, and nothing else is tappable beside it.
+- **Data on stage**: every row the walk writes is permanent (append-only), hence a test project.
+
+**Critic notes, answered**
+
+1. *"The outbox is a second answer, which Amit's rule forbids."* — It is the pending half of S5's one answer: nothing on
+   it is set by hand that S5 does not then take or refuse, its overlay goes the moment S5 answers, and it is never
+   written into the store or the mirror.
+2. *"Silence and success look identical — this project's most-recorded fault."* — Yes, for a refusal, by the prototype's
+   own drawing, which has none; recorded as Q2 with where its line would go, the words kept on the phone, rather than a
+   UI state invented on the phone.
+3. *"Why queue, when the scope record and the quote move are online and unqueued?"* — S5 built these routes for replay
+   (writer-minted ids, `written: false`, asis.js:75-77); the prototype's tap shows at once with no signal; and states and
+   reviews are many small acts on site, where the quote move is one guarded commercial act whose lost answer the phone
+   re-reads instead [Ph QuoteStageSync.kt:43-52].
+4. *"A sign-out sends A's work as B's."* — The outbox is the login's, read and sent only under it.
+5. *"The legacy ERP key could send it."* — The drain sends only with the session of the op's login.
+6. *"Two drains race."* — One unique job per project and one pass per project at a time; SyncWorker only enqueues, KEEP.
+7. *"The screen appends while the drain applies."* — Both under the outbox's lock; the drain applies to the outbox as
+   stored now, ops found by id.
+8. *"A crash after S5's 200 sends it twice."* — The same id: S5 replays it.
+9. *"The overlay flickers back between the answer and the GET."* — The answer goes into the mirror and the store before
+   the op leaves the queue, and the listener re-reads both.
+10. *"The log POST's 403 names the role, as the scope's does."* — It does not (asis.js:836, 1001): the end-of-pass GET
+    brings the role.
+11. *"A second review's base would be the overlay's time."* — It is the mirror's `review_at`, rebased by AQ.
+12. *"A raise on a work a queued answer is about to amend."* — The kinds come from the overlaid scope, as the prototype's
+    from its amended scope; S5 decides on send.
+13. *"K4 will have to move K3's controls."* — Each control is in the slot §18 named; a pending card's cell grows, as the
+    prototype's grid row does.
+14. *"The drain will need rework for K5's photos."* — It sends every step AQ defines, a file included; K5 adds a writer.
+15. *"`Nothing` and `LocalDate.ofInstant` compile here and fail on the phone or in a `when`."* — `Out.None`, and the
+    IST day through `atZone`.
+16. *"A PM named on /projects while this phone holds queued writes."* — They still show until the next pass sends them:
+    S5's 403 drops each (that op alone, AQ), and the pass's GET then brings `role` designer, which turns the controls
+    off. Nothing is sent under a role S5 no longer gives.
+17. *"S5's log POST answers ANY entry with the id as a replay, whatever its kind."* — True (asis.js:859-864: the entry
+    is found by id alone; only the review route checks the kind, 1019). The ids are 48 random bits minted per op, so a
+    collision within one project's log is not a practical case; recorded, not guarded.
+18. *"A queue for a project S5 no longer lists asks S5 every hour for ever."* — Its log ops' 404 is STOP (AQ: a route an
+    older S5 lacks, a project not visible yet); the hourly catch-up is one small POST per project, and the queue goes the
+    day S5 lists the project again. A review's 404 for a photo the mirror no longer holds is refused at once (noRow).
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)
