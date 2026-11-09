@@ -22,8 +22,10 @@ import java.time.Instant
  * controls are drawn in the slots K3 left -- the state chip's ▾ and its sheet, Accept / Not for client under a card
  * and in the viewer, Raise change request and Record the client's answer with their sheets, the result line -- each a
  * tap that [AlbumWrite] turns into exactly the op S5 takes, laid over what the phone holds at once ([model]'s
- * overlay: this login's queue on the store's states, the mirror's log, its scope and its photos). K5's shot and K6's
- * vendor upload stay absent.
+ * overlay: this login's queue on the store's states, the mirror's log, its scope and its photos). Since port 61c slice
+ * K5 (§20) staff take a PROGRESS SHOT -- the `Progress shot` button in the body's end padding, the camera with WORK,
+ * ROOM and the caption ([camera]), Which room? ([roomSheet]), the result line `Progress shot filed at …` -- and a queued
+ * shot shows at once ([compose]'s overlay). K6's vendor upload stays absent.
  *
  * Every text is a `tx.<key>`; a work, a state, a quote stage and a room are identity values shown through Masters; a
  * date goes through [Album.dayOf] / [Album.whenOf]. Names, captions, notes and remarks are data, drawn as they come.
@@ -90,13 +92,42 @@ object AlbumPage {
      * 3); only a capture not on S5 yet is credited to the person signed in now (the prototype's `BY[id] || ME`).
      * Unknown is blank, and the card's pill is then empty, as the prototype's `esc(it.who||'')` draws it (finding 2).
      * In time order by instant, then by [key] (the prototype's sort, 7234).
+     *
+     * THE PROGRESS SHOT AND THE SINGLE PHOTO (port 61c slice K5): [queue] is this login's queue for the project.
+     * - A single photo the phone holds is ONE item with its album photo ([Album.photoIdOf]: the capture's own twelve hex
+     *   digits): S5's album photo of that id is not listed beside it, nor its queued op; the item remembers the album
+     *   photo ([Photo.album]) when S5 or the outbox holds it, so its picture is that photo once the kept file has gone.
+     * - Each queued photo op no item stands for is drawn at once ([Album.provisionalPhoto], [Photo.queued]): by this
+     *   person, at its shutter, in its work and room, with its caption -- until S5's row with its JPEG landed stands for
+     *   it. A row S5 holds with no bytes yet (a record's answer) is never listed: S5 lists none (its photo query's
+     *   `bytes > 0`), and the queued op stands for it until the bytes do.
+     * - An album photo is shown at its [Album.takenAt]: its `client_at` when no later than S5's `at`.
      */
-    fun compose(mirror: Album.View?, local: List<Local>, me: Me): List<Photo> {
+    fun compose(mirror: Album.View?, local: List<Local>, me: Me, queue: List<Album.Op> = emptyList()): List<Photo> {
         val s5 = mirror?.captures.orEmpty()
         val claimed = HashSet<Int>()
+        val photos = mirror?.photos.orEmpty()
+        val shots = queue.filter { it.kind == Album.OP_PHOTO && it.photo.isNotBlank() }
+        // the album photos a phone row stands for: its capture's own (ONE ID FOR ONE CAPTURE)
+        val claimedPhotos = HashSet<String>()
         val out = ArrayList<Photo>()
         for (l in local) {
             if (l.deviceId.isBlank()) continue
+            if (l.kind != Album.PHOTO_360) {
+                val pid = Album.photoIdOf(l.deviceId)
+                if (pid != null) {
+                    claimedPhotos += pid
+                    val row = photos.firstOrNull { it.id == pid }
+                    val held = row != null || shots.any { it.photo == pid }
+                    out += Photo(
+                        id = l.deviceId, work = Album.workOfCapture(l.work, l.stage), at = Instant.ofEpochMilli(l.createdAt).toString(),
+                        party = Album.PARTY_STAFF, room = l.room.ifBlank { null }, kind = Album.PHOTO,
+                        by = row?.by ?: me.user, byName = if (row == null || isMe(row.by, me)) me.name else row.byName,
+                        source = Source.PHONE, album = if (held) pid else null,
+                    )
+                    continue
+                }
+            }
             val byId = s5.indices.filter { s5[it].id == l.deviceId }
             val byName = if (l.serverName.isNullOrBlank()) emptyList() else s5.indices.filter { s5[it].id == l.serverName }
             // C3's key: S5 renames the NEWEST twin of a room with this captured_at onto the record's id, so that one is
@@ -116,7 +147,12 @@ object AlbumPage {
         s5.forEachIndexed { i, c ->
             if (i !in claimed) out += c.copy(source = Source.CAPTURE, byName = if (isMe(c.by, me)) me.name else c.byName)
         }
-        mirror?.photos?.forEach { out += it }
+        for (p in photos) if (p.bytes > 0 && p.id !in claimedPhotos) out += p.copy(at = Album.takenAt(p))
+        val role = mirror?.role.orEmpty()
+        for (op in shots) {
+            if (op.photo in claimedPhotos || photos.any { it.id == op.photo && it.bytes > 0 }) continue
+            out += Album.provisionalPhoto(op, role, me.user, me.name, op.clientAt.ifBlank { op.at }).copy(id = op.photo, queued = true)
+        }
         return out.sortedWith(compareBy<Photo>({ millis(it.at) }, { key(it) }))
     }
 
@@ -157,6 +193,17 @@ object AlbumPage {
      */
     fun canWrite(mirror: Album.View?, notOnS5: Boolean, me: Me): Boolean =
         mirror != null && mirror.role == Album.PM && !notOnS5 && me.user.isNotBlank() && me.signedIn
+
+    /**
+     * WHO SHOOTS (port 61c slice K5): staff as S5 says it -- the mirror is held and its `role` is `pm` or `designer` (the
+     * prototype's `staff()`, index61c2.html 7483; S5's record PUT takes a PM's photo and a Designer's alike) -- on a
+     * project S5 lists, signed in to S5 as a login whoami named: the record's `by` is that login, S5 takes the JPEG from
+     * the record's uploader alone, and the outbox is the login's. The button, the camera and the op read this one test.
+     * Before the album's first read the album draws no button, as it draws no K4 control (the K5 critic, finding 8:
+     * the prototype draws the button for every staff member, so this is a question for the prototype, Q6).
+     */
+    fun canShoot(mirror: Album.View?, notOnS5: Boolean, me: Me): Boolean =
+        mirror != null && Viewer(mirror.role).staff && !notOnS5 && me.user.isNotBlank() && me.signedIn
 
     /**
      * The works' states as the album draws them: the empty map for a project S5 does not list (nothing can be recorded
@@ -298,7 +345,11 @@ object AlbumPage {
         val cards: Map<String, CardLine>,
         val groupOf: Map<String, String>,
         val canWrite: Boolean = false,
+        val shot: Fab? = null,
     )
+
+    /** The `Progress shot` button (index61c2.html 7483-7485): its label, and its TalkBack label, which replaces it (the prototype's aria-label). */
+    data class Fab(val label: String, val aria: String)
 
     /**
      * The page's DATA, built once per read and kept while the visit taps (the K3 review, finding 4): [base] is the page
@@ -306,7 +357,21 @@ object AlbumPage {
      * is opened. A chapter or Work log tap is [page] (model, taps), which only sets each chapter's `open` and the log's
      * rows on [base]: the chapters, the cards, the walk and the groups are never rebuilt for a tap.
      */
-    class Model internal constructor(val base: Page, internal val logRows: List<LogRow>, internal val noLog: String, internal val write: Write? = null)
+    class Model internal constructor(
+        val base: Page, internal val logRows: List<LogRow>, internal val noLog: String, internal val write: Write? = null,
+        internal val shoot: Shoot? = null,
+    )
+
+    /**
+     * What [AlbumWrite.openCam] and [AlbumWrite.shot] read (port 61c slice K5), kept on the [Model] only when the person
+     * can shoot ([canShoot]): the [viewer], whether the chapters' lock is released ([exec]: the album's own banner test,
+     * S5's albumPutPhoto lock) and the OVERLAID [states].
+     */
+    class Shoot internal constructor(
+        internal val viewer: Viewer,
+        internal val exec: Boolean,
+        internal val states: Map<Int, Album.WorkState>,
+    )
 
     /**
      * What [AlbumWrite] reads to turn a tap into an op (port 61c slice K4), kept on the [Model] only when the person can
@@ -372,6 +437,7 @@ object AlbumPage {
         val v = viewer(mirror, local)
         val queued = if (local) emptyList() else queue
         val write = canWrite(mirror, local, me)
+        val shoots = canShoot(mirror, local, me)
         val states = Album.withQueued(statesFor(line, cache), queued)
         val stage = if (local) null else cache?.stage
         val stageAt = if (local) null else cache?.at
@@ -481,8 +547,10 @@ object AlbumPage {
             cards = ch.order.associate { key(it) to card(tx, v, it, write) },
             groupOf = groupOf,
             canWrite = write,
+            shot = if (shoots) Fab(tx.album_progress_shot, tx.album_aria_take_progress) else null,
         ), logRows, tx.album_no_work_log,
-            if (!write) null else Write(v, mirror!!, !ch.execLocked, stage, states, history, scope, byKey))
+            if (!write) null else Write(v, mirror!!, !ch.execLocked, stage, states, history, scope, byKey),
+            if (!shoots) null else Shoot(v, !ch.execLocked, states))
     }
 
     /** [queue]'s log ops as the rows they will become ([Album.provisional]: PENDING_SEQ + each one's place in the queue, by [me], at its tap's time). */
@@ -748,26 +816,122 @@ object AlbumPage {
         )
     }
 
-    /** This visit's last review tap (the prototype's `m.res`): the state it set and the photo's id. */
-    data class Res(val state: String, val photo: String)
+    /**
+     * This visit's last result (the prototype's `m.res`): [Review], a review tap -- the state it set and the photo's id;
+     * [Filed], a progress shot (port 61c slice K5) -- the work it was filed at and the photo's id.
+     */
+    sealed interface Res {
+        data class Review(val state: String, val photo: String) : Res
+        data class Filed(val work: Int, val photo: String) : Res
+    }
 
     /**
      * THE RESULT LINE (index61c2.html 7413-7416): `Accepted · the client sees it now` or `Kept from the client` after this
-     * visit's last review tap [res], while the photo shows that review -- queued (the overlay) or taken (S5's row) -- and
+     * visit's last review tap, while the photo shows that review -- queued (the overlay) or taken (S5's row) -- and
      * none once it does not: S5 refused it or won over it (the K4 critic, finding 4: judged by what the photo shows, never
-     * by the outbox's `dropped`, which a refusal of an op S5 already held would put it in). Null with no tap, or a photo
-     * the album no longer holds.
+     * by the outbox's `dropped`, which a refusal of an op S5 already held would put it in); `Progress shot filed at <work>`
+     * after this visit's last shot (port 61c slice K5), the Quote journey for 0, while the album holds the shot -- queued
+     * or S5's row -- and none once S5 dropped it, judged the same way. Null with no result, or a photo the album no
+     * longer holds.
      */
     fun resultText(tx: Tx, m: Model, res: Res?): String? {
         if (res == null) return null
-        val p = m.base.items.values.firstOrNull { it.source == Source.ALBUM && it.id == res.photo } ?: return null
-        if (p.review != res.state) return null
-        return when (res.state) {
-            Album.REVIEW_ACCEPTED -> tx.album_accepted_res
-            Album.REVIEW_INTERNAL -> tx.album_kept_res
-            else -> null
+        return when (res) {
+            is Res.Review -> {
+                val p = m.base.items.values.firstOrNull { it.source == Source.ALBUM && it.id == res.photo } ?: return null
+                if (p.review != res.state) return null
+                when (res.state) {
+                    Album.REVIEW_ACCEPTED -> tx.album_accepted_res
+                    Album.REVIEW_INTERNAL -> tx.album_kept_res
+                    else -> null
+                }
+            }
+            is Res.Filed -> {
+                if (m.base.items.values.none { it.source == Source.ALBUM && it.id == res.photo }) return null
+                tx.album_filed_x(stage = Album.workName(tx, res.work))
+            }
         }
     }
+
+    // ---- the progress shot's camera (port 61c slice K5) ------------------------------------------------------------
+
+    /** Which of the camera's two sheets is open (the prototype's `cam.sheet`): Which work? or Which room?. */
+    enum class CamSheet { WORK, ROOM }
+
+    /**
+     * THE VISIT'S CAMERA (the prototype's `m.cam`, index61c2.html 7492): its [work] (0 the Quote journey, a work, or null
+     * `Pick the work`), its [room] (null the whole project), the [caption] typed, and the [sheet] open on it.
+     */
+    data class Cam(val work: Int?, val room: String?, val caption: String = "", val sheet: CamSheet? = null)
+
+    /**
+     * One of the camera's rows (`.alb59row`, 1524-1531): the [label] (`WORK`, `ROOM`), the [value], its second text
+     * [sub] (`tap to change`, or the lock's words on a line of their own), whether it is a [tap], and [dim] for the
+     * read-only row (`aria-disabled`: at .85, its second text under the value).
+     */
+    data class CamRow(val label: String, val value: String, val sub: String?, val tap: Boolean, val dim: Boolean)
+
+    /**
+     * The camera (index61c2.html camHTML, 7499-7510), every text a `tx.<key>`: the dialog's TalkBack [pane] title, the
+     * [work] row, the [room] row, the caption field's [captionLabel] and what is typed in it ([caption]), whether the
+     * [shutter] takes a tap (a filing to shoot into: the Quote journey while locked, else a work) and its TalkBack label
+     * [shutterAria], [cancel], the [sheet] open (the camera is not drawn while one is: the prototype's ov() draws one
+     * overlay at a time, the K5 critic, finding 7) and the work Which work? marks as picked ([pick]).
+     */
+    data class Camera(
+        val pane: String,
+        val work: CamRow,
+        val room: CamRow,
+        val captionLabel: String,
+        val caption: String,
+        val shutter: Boolean,
+        val shutterAria: String,
+        val cancel: String,
+        val sheet: CamSheet?,
+        val pick: Int?,
+    )
+
+    /**
+     * The camera's model for [cam], or NULL when the person cannot shoot -- and the screen then closes it, as the
+     * prototype's ov() closes a camera whose role has gone (7576). WORK while the album's lock is up is read-only: the
+     * Quote journey, and on its own line `· locked until the client approves the estimate` (the key's leading space
+     * collapses at the start of a line, as HTML draws it); unlocked it is a tap: the work, or `Pick the work`, then `tap
+     * to change`. ROOM is always a tap: the room (Masters), or `Whole project`.
+     */
+    fun camera(tx: Tx, m: Model, cam: Cam): Camera? {
+        val s = m.shoot ?: return null
+        val locked = !s.exec
+        val picked = cam.work?.takeIf { Album.isWork(it) }
+        val work = if (locked) CamRow(tx.album_work_caps, tx.album_quote_journey, tx.app_stg_locked_quote.trimStart(), tap = false, dim = true)
+            else CamRow(tx.album_work_caps, picked?.let { Album.workName(tx, it) } ?: tx.album_pick_work, tx.album_tap_to_change, tap = true, dim = false)
+        val room = CamRow(tx.album_room_caps, cam.room?.let { Masters.room(tx, it) } ?: tx.common_whole_project, null, tap = true, dim = false)
+        return Camera(
+            pane = tx.album_progress_shot,
+            work = work,
+            room = room,
+            captionLabel = tx.album_caption_optional,
+            caption = cam.caption,
+            shutter = locked || picked != null,
+            shutterAria = tx.album_aria_take_photo,
+            cancel = tx.common_cancel,
+            sheet = cam.sheet,
+            pick = picked,
+        )
+    }
+
+    /** The works' states Which work? draws under each work in the camera: the OVERLAID states; null when the person cannot shoot. */
+    fun shootStates(m: Model): Map<Int, Album.WorkState>? = m.shoot?.states
+
+    /** One row of Which room?: the room (null the whole project), as shown, and whether it is the camera's. */
+    data class RoomRow(val room: String?, val text: String, val selected: Boolean)
+
+    /** WHICH ROOM? (index61c2.html camSheet, 7513-7515): its [title] and its [rows]. */
+    data class RoomSheet(val title: String, val rows: List<RoomRow>)
+
+    /** Which room? for [cam]: the project's [rooms] in the rooms grid's order (Masters), then `Whole project` last; the camera's own selected. */
+    fun roomSheet(tx: Tx, cam: Cam, rooms: List<String>): RoomSheet =
+        RoomSheet(tx.album_which_room, rooms.map { RoomRow(it, Masters.room(tx, it), it == cam.room) } +
+            RoomRow(null, tx.common_whole_project, cam.room == null))
 
     // ---- the tile --------------------------------------------------------------------------------------------
 
@@ -797,12 +961,18 @@ object AlbumPage {
 
     /**
      * ONE rule about where a capture's bytes are, not a second answer to anything: the phone's file when it is there
-     * ([localFile]); else, for a capture S5 holds, its front face from S5; an album photo's own JPEG; else none.
+     * ([localFile]); else, for a capture S5 holds, its front face from S5, and for a single photo whose album photo S5
+     * or the outbox holds ([Photo.album], port 61c slice K5), that album photo's JPEG; an album photo's own JPEG once it
+     * has bytes or while it is a queued shot (AlbumImages finds a shot on the phone first); else none.
      */
     fun pic(p: Photo, localFile: Boolean): Pic = when (p.source) {
-        Source.PHONE -> if (localFile) Pic.OnPhone(p.id) else faceOf(p.room, p.capture, p.uploadedAt)
+        Source.PHONE -> when {
+            localFile -> Pic.OnPhone(p.id)
+            p.album != null -> Pic.AlbumJpeg(p.album)
+            else -> faceOf(p.room, p.capture, p.uploadedAt)
+        }
         Source.CAPTURE -> faceOf(p.room, p.id, p.uploadedAt)
-        Source.ALBUM -> if (p.bytes > 0) Pic.AlbumJpeg(p.id) else Pic.None
+        Source.ALBUM -> if (p.bytes > 0 || p.queued) Pic.AlbumJpeg(p.id) else Pic.None
     }
 
     private fun faceOf(room: String?, capture: String?, version: String): Pic =

@@ -33,7 +33,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -54,6 +56,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.collapse
@@ -94,7 +97,16 @@ import com.malletcrafts.interiorestimate.pano.AlbumWrite
  * decided list; the result line in the header; the sheets ([sheet], app/AlbumSheets.kt). A grid row is as tall as its
  * tallest cell and every card fills its cell (`.alb59grid` stretches, as the prototype's 311.75 px neighbour beside a
  * pending card is measured, the K4 critic, finding 7); a pending cell keeps its card at content height above the
- * buttons. K5's Progress shot FAB lands in the body's 84 dp end padding.
+ * buttons.
+ *
+ * THE PROGRESS SHOT (port 61c slice K5, DESIGN-port61c.md §20), staff's ([AlbumPage.canShoot]): the `Progress shot`
+ * button over the chapters' column, bottom end, 16 dp in (12 in landscape), in the body's 84 dp end padding K3 left
+ * (`.alb59fab`, 1502-1503) -- an ExtendedFloatingActionButton as the room screen's `Capture 360` is, TalkBack reading the
+ * prototype's aria-label in place of its text; the camera over the whole album as the viewer is (app/AlbumCamera.kt),
+ * Back closing it ([BackHandler], composed after the viewer's); and its two sheets, Which work? (FW2's WorkSheet, opening
+ * whole) and Which room? (AlbumRoomSheet), each drawn over the ALBUM while the camera is not drawn -- the prototype's
+ * ov() draws one overlay at a time (7582-7583; the K5 critic, finding 7) -- the camera coming back with its values on a
+ * pick, a dismiss or ◁.
  *
  * The photo viewer is drawn over the whole screen ([view] is the item's key): dark, `Close`, the title over `Photo i
  * of N`, the photo FIT (no pinch: the prototype's viewer has none, and ZoomableImage carries an unkeyed hint), the
@@ -134,6 +146,30 @@ fun AlbumScreen(
     onAnswer: (Int, Album.CrOutcome, String, String) -> AlbumWrite.Out = { _, _, _, _ -> AlbumWrite.Out.None },
     /** Accept / Not for client: the item's key and the review state. */
     onReview: (String, String) -> Unit = { _, _ -> },
+    /** The `Progress shot` button (AlbumPage.Page.shot is its model): null draws none. */
+    shot: AlbumPage.Fab? = page.shot,
+    /** The open camera's model (AlbumPage.camera), or null; MainActivity holds the visit's camera and closes one whose model went. */
+    camera: AlbumPage.Camera? = null,
+    /** Which room?'s model while the camera's room sheet is open (AlbumPage.roomSheet). */
+    roomSheet: AlbumPage.RoomSheet? = null,
+    /** The states Which work? draws under each work (AlbumPage.shootStates: the overlaid states). */
+    camStates: Map<Int, Album.WorkState>? = null,
+    onShot: () -> Unit = {},
+    /** The camera's WORK row tapped: open Which work?. */
+    onCamWork: () -> Unit = {},
+    /** The camera's ROOM row tapped: open Which room?. */
+    onCamRoom: () -> Unit = {},
+    onCaption: (String) -> Unit = {},
+    /** Cancel, or ◁: the camera closes and nothing is written. */
+    onCamCancel: () -> Unit = {},
+    /** The camera's shutter: the phone's camera app opens. */
+    onShutter: () -> Unit = {},
+    /** A work picked on Which work?: the camera's work, and the sheet closes. */
+    onPickWork: (Int) -> Unit = {},
+    /** A room picked on Which room? (null the whole project); [onCamSheetGone] when it is dismissed. */
+    onPickRoom: (String?) -> Unit = {},
+    /** The camera's sheet dismissed (a scrim tap, a swipe, ◁): the camera comes back as it was. */
+    onCamSheetGone: () -> Unit = {},
 ) {
     val tx = LocalTx.current
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -141,6 +177,9 @@ fun AlbumScreen(
     // An item gone from the walk (a read moved it out of sight) closes the viewer, as the prototype's viewHTML does.
     LaunchedEffect(view, shown == null) { if (view != null && shown == null) onView(null) }
     BackHandler(enabled = view != null) { onView(null) }
+    // the camera's Back, composed after the viewer's: a sheet of the camera first (ModalBottomSheet's own), then the
+    // camera (index61c2.html back(), 7392-7398)
+    BackHandler(enabled = camera != null && camera.sheet == null) { onCamCancel() }
     val cs = MaterialTheme.colorScheme
     Box(Modifier.fillMaxSize()) {
         Scaffold(
@@ -152,18 +191,36 @@ fun AlbumScreen(
                         AlbumHeader(page.header, onLog, capLog = false)
                     }
                     Box(Modifier.width(1.dp).fillMaxHeight().background(cs.outlineVariant))
-                    AlbumBody(project, page, localPath, listState, cols = 3, onView = onView, onToggle = onToggle, onSheet = onSheet,
-                        onReview = onReview, modifier = Modifier.weight(1f))
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        AlbumBody(project, page, localPath, listState, cols = 3, onView = onView, onToggle = onToggle, onSheet = onSheet,
+                            onReview = onReview, modifier = Modifier.fillMaxSize())
+                        shot?.let { ShotFab(it, onShot, Modifier.align(Alignment.BottomEnd).padding(12.dp)) }
+                    }
                 }
             } else {
                 Column(Modifier.padding(pad).fillMaxSize()) {
                     Column(Modifier.fillMaxWidth().background(cs.background)) { AlbumHeader(page.header, onLog, capLog = true) }
-                    AlbumBody(project, page, localPath, listState, cols = 2, onView = onView, onToggle = onToggle, onSheet = onSheet,
-                        onReview = onReview, modifier = Modifier.weight(1f))
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        AlbumBody(project, page, localPath, listState, cols = 2, onView = onView, onToggle = onToggle, onSheet = onSheet,
+                            onReview = onReview, modifier = Modifier.fillMaxSize())
+                        shot?.let { ShotFab(it, onShot, Modifier.align(Alignment.BottomEnd).padding(16.dp)) }
+                    }
                 }
             }
         }
         if (shown != null) AlbumViewer(project, page, shown, localPath, landscape, onView, onReview)
+        // the camera over the album, as the viewer is -- not while one of its sheets is open (finding 7, below)
+        if (camera != null && camera.sheet == null) {
+            AlbumCamera(camera, landscape, onWork = onCamWork, onRoom = onCamRoom, onCaption = onCaption, onCancel = onCamCancel, onShutter = onShutter)
+        }
+    }
+    // the camera's two sheets, over the ALBUM (the prototype's ov(): the camera's sheet INSTEAD of the camera, 7582-7583)
+    val cam = camera
+    if (cam != null) when (cam.sheet) {
+        AlbumPage.CamSheet.WORK -> WorkSheet(current = cam.pick, states = camStates, onPick = onPickWork,
+            onDismiss = onCamSheetGone, skipPartiallyExpanded = true)
+        AlbumPage.CamSheet.ROOM -> roomSheet?.let { AlbumRoomSheet(it, onPick = onPickRoom, onDismiss = onCamSheetGone) }
+        null -> {}
     }
     // the open sheet, over the album (no sheet opens from the viewer, so the two never stack)
     when (sheet) {
@@ -172,6 +229,22 @@ fun AlbumScreen(
         is AlbumPage.AnswerSheet -> AlbumAnswerSheet(sheet, onAnswer = { o, at, how -> onAnswer(sheet.work, o, at, how) }, onDismiss = { onSheet(null) })
         null -> {}
     }
+}
+
+/**
+ * The `Progress shot` button (`.alb59fab`): an ExtendedFloatingActionButton as the room screen's `Capture 360` is drawn --
+ * 56 dp tall, 16 dp round, primaryContainer on onPrimaryContainer, the camera glyph then the label (labelLarge), 16/20 dp,
+ * 12 dp between: material3's own defaults -- TalkBack reading `Take a progress shot` in place of the label, as the
+ * prototype's aria-label replaces it.
+ */
+@Composable
+private fun ShotFab(f: AlbumPage.Fab, onShot: () -> Unit, modifier: Modifier) {
+    ExtendedFloatingActionButton(
+        onClick = onShot,
+        icon = { Icon(painterResource(R.drawable.ic_mcft_cam), contentDescription = null) },
+        text = { Text(f.label) },
+        modifier = modifier.clearAndSetSemantics { contentDescription = f.aria; role = Role.Button; onClick { onShot(); true } },
+    )
 }
 
 /** The Album tile's arguments for the rooms grid: what it says ([AlbumPage.tile]) and what a tap opens. */

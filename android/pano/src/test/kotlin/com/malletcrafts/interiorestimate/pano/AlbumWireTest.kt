@@ -412,4 +412,22 @@ class AlbumWireTest {
         // anything not in the shape reads as none, never a throw
         for (bad in listOf("null", "[]", "{}", """{"logins":{}}""", """{"logins":[1,2]}""")) assertEquals(AlbumQueue.Outboxes(), AlbumWire.outboxOf(MiniRead, tree(bad)), bad)
     }
+
+    @Test fun `a photo op round-trips through the stored outbox with its client_at, recorded and caption (K5)`() {
+        val shot = AlbumWrite.shotOp(AlbumWrite.Shot("ALB-00000000c001", 90, "Kitchen", "units in, \"left\" wall"), java.time.Instant.parse("2026-11-09T06:31:07.250Z"))
+        val single = AlbumWrite.single("MCAP-0a1b2c3d4e5f", 95, "Living Room", java.time.Instant.parse("2026-11-09T06:40:00Z").toEpochMilli())!!
+        val o = AlbumQueue.Outboxes().with("pm@x", "PROJ-T1", AlbumQueue.Stored(queue = listOf(shot.copy(recorded = true), single),
+            dropped = listOf(shot.copy(id = "ALB-00000000c002", photo = "ALB-00000000c002", error = AlbumQueue.NO_FILE_WORDS))))
+        val text = json(AlbumWire.storedOutbox(o))
+        val back = AlbumWire.outboxOf(MiniRead, tree(text))
+        assertEquals(o, back)
+        assertEquals(o, AlbumWire.outboxOf(OrgRead, org(tree(text))), "the same through an org-json-shaped tree")
+        val q = back.of("pm@x", "PROJ-T1").queue
+        assertEquals("2026-11-09T06:31:07.250Z", q[0].clientAt)
+        assertTrue(q[0].recorded, "its JPEG is next on the next pass")
+        assertEquals("units in, \"left\" wall", q[0].caption)
+        assertEquals("ALB-0a1b2c3d4e5f", q[1].photo)
+        assertEquals("", q[1].caption)
+        assertTrue(text.contains(""""photo_kind":"photo","client_at":"2026-11-09T06:31:07.250Z","error":"","recorded":true,"at":"2026-11-09T06:31:07.250Z""""))
+    }
 }

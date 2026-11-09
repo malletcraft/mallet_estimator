@@ -362,7 +362,12 @@ class AlbumQueueTest {
         assertEquals(10L, m.photos.single().bytes)
     }
 
-    @Test fun `a 409 mid-queue - S5 wins - drops the work's later ops and keeps every other work's, which still go`() {
+    /** S5's record answer (S5Album.RECORD) for the photo [op], at its work: shaped from S5's own body, its id and work replaced. */
+    private fun recordFor(op: Op) = S5Album.RECORD.replace("ALB-000000000014", op.photo).replace("\"work\":90", "\"work\":${op.work}")
+
+    private fun photoLine(op: Op) = "PUT /api/asis/PROJ-DEMO/album/photos/${op.photo}"
+
+    @Test fun `a 409 mid-queue - S5 wins - drops the work's later LOG ops and keeps every other work's, which still go - a photo on it meets its own answer`() {
         val pOn10 = Album.photoOp(10, "Kitchen", "debris", random = Random(3))
         val sHold = Album.stateOp(null, 10, "Done", "On hold", "", Random(4))
         val q = listOf(sState, sDone.copy(base = "0"), sRaise, pOn10, sHold, sChange)
@@ -371,18 +376,24 @@ class AlbumQueueTest {
             // somebody moved 10 meanwhile: S5's own 409, its words and its rows
             Exchange(LOG, S5Album.SENT_STATE_DONE, 409, S5Album.STATE_STALE),
             Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD),
+            // port 61c slice K5: S5's photo record reads no seq (albumPutPhoto), so the shot on 10 goes -- record, then JPEG
+            Exchange(photoLine(pOn10), null, 200, recordFor(pOn10)),
+            Exchange(photoLine(pOn10) + "/img", "{}", 200, S5Album.IMG),
             Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
         assertEquals(emptyList(), o.queue)
-        assertEquals(listOf(sDone.id, pOn10.id, sHold.id), o.dropped.map { it.id }, "the photo on 10 and the later state on 10 rode on the lost write")
+        assertEquals(listOf(sDone.id, sHold.id), o.dropped.map { it.id }, "the later state on 10 rode on the lost write; the photo on 10 did not")
         assertTrue(o.dropped.all { it.error == "Changed meanwhile — In progress by pm@x; not saved" })
         assertEquals("In progress", Album.stateOf(o.mirror!!.log, 10), "the mirror took S5's state")
     }
 
-    @Test fun `a 409 locked drops the work's later ops in the banner's words, and a photo record's locked 409 the same`() {
-        val o = drain(Outbox(View(Album.PM), listOf(sState, Album.photoOp(10, null, "x", random = Random(5)), sRaise)),
+    @Test fun `a 409 locked drops the work's later LOG ops in the banner's words - a photo behind it meets its own locked 409 (K5), the same words`() {
+        val ph5 = Album.photoOp(10, null, "x", random = Random(5))
+        val o = drain(Outbox(View(Album.PM), listOf(sState, ph5, sRaise)),
             Exchange(LOG, S5Album.SENT_STATE, 409, S5Album.STATE_LOCKED),
+            // the lock is the project's: the shot is not dropped by the state's 409, it is sent and meets its own
+            Exchange(photoLine(ph5), null, 409, S5Album.RECORD_LOCKED),
             Exchange(LOG, S5Album.SENT_RAISE_ADD, 200, S5Album.RAISE_ADD))
-        assertEquals(2, o.dropped.size)
+        assertEquals(listOf(sState.id, ph5.id), o.dropped.map { it.id })
         assertTrue(o.dropped.all { it.error == "Work starts once the client approves the estimate" && it.work == 10 })
         val ph = Album.photoOp(10, "Kitchen", "units in", random = Random(6))
         val a = AlbumQueue.apply(Outbox(View(Album.PM), listOf(ph, sChange)), ph, 409, reply(S5Album.RECORD_LOCKED, ph))
@@ -450,20 +461,25 @@ class AlbumQueueTest {
 
     private fun refileLine(id: String) = "PUT /api/asis/PROJ-DEMO/album/photos/$id/work"
 
-    @Test fun `a photo op dropped by its work's 409 takes its re-file with it - S5 has no row, so the re-file 404'd at the head for ever`() {
+    @Test fun `a work's 409 leaves a shot on it to go, its re-file behind it - a shot's own locked 409 takes its re-file with it and nothing else (K5)`() {
         // queued offline: Done on 10, a staff photo into 10, and from that photo's provisional tile its re-file into 95
         val pOn10 = Album.photoOp(10, "Kitchen", "debris", random = Random(30))
         val tile = Album.provisionalPhoto(pOn10, Album.PM, "pm@x", "P M", "2026-11-03T05:20:00.000Z")
         val fTile = Album.refileOp(tile, 95, Random(31))
         assertEquals(95, fTile.work, "filed under the work it goes to, so the work-10 drop alone never reached it")
-        // 10 moved on S5 meanwhile: the state's 409 drops the photo on 10, and the photo's re-file with it, in S5's words
+        // 10 moved on S5 meanwhile: the state's 409 drops the state alone -- S5's photo record reads no seq (port 61c slice
+        // K5), so the shot on 10 goes, its JPEG next, and then its re-file, on the record S5 now holds
         val o = drain(Outbox(View(Album.PM, exec = true), listOf(sDone, pOn10, fTile, sChange)),
             Exchange(LOG, S5Album.SENT_STATE_DONE, 409, S5Album.STATE_STALE),
+            Exchange(photoLine(pOn10), null, 200, recordFor(pOn10)),
+            Exchange(photoLine(pOn10) + "/img", "{}", 200, S5Album.IMG),
+            Exchange(photoLine(pOn10) + "/work", """{"work":95,"base":10}""", 200,
+                S5Album.REFILE.replace("ALB-000000000014", pOn10.photo)),
             Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
         assertEquals(emptyList(), o.queue)
-        assertEquals(listOf(sDone.id, pOn10.id, fTile.id), o.dropped.map { it.id })
-        assertTrue(o.dropped.all { it.error == "Changed meanwhile — In progress by pm@x; not saved" })
-        // the record's own locked 409: the same
+        assertEquals(listOf(sDone.id), o.dropped.map { it.id })
+        assertEquals(95, o.mirror!!.photos.single { it.id == pOn10.photo }.work)
+        // the record's own locked 409: the photo and its re-file go, in the banner's words
         val lk = AlbumQueue.apply(Outbox(View(Album.PM), listOf(pOn10, fTile, sChange)), pOn10, 409, reply(S5Album.RECORD_LOCKED, pOn10))
         assertEquals(listOf(sChange), lk.outbox.queue)
         assertEquals(listOf(pOn10.id, fTile.id), lk.outbox.dropped.map { it.id })
@@ -619,7 +635,7 @@ class AlbumQueueTest {
         val queuedAtCommit = ArrayList<Boolean>()
         var onSend: ((Int) -> Unit)? = null
 
-        fun run(sends: Set<Step> = AlbumQueue.K4_STEPS): AlbumQueue.Pass = AlbumQueue.drain(P, MiniRead,
+        fun run(): AlbumQueue.Pass = AlbumQueue.drain(P, MiniRead,
             load = { stored },
             send = { rq ->
                 val ex = left.removeFirstOrNull() ?: fail("S5 was not expecting ${rq.method} ${rq.path { it }}")
@@ -636,8 +652,7 @@ class AlbumQueueTest {
                 a
             },
             relogin = { renewals += 1; renew.getOrElse(renewals - 1) { false } },
-            stopped = { false },
-            sends = sends)
+            stopped = { false })
     }
 
     @Test fun `the drain sends FIFO and each op rides on the answer before it`() {
@@ -800,15 +815,20 @@ class AlbumQueueTest {
         assertEquals(s, AlbumQueue.settle(s, View(Album.PM)))
     }
 
-    @Test fun `a photo op at the head is held - K5's step, nothing sent, the pass ends untouched (the K4 critic, finding 9)`() {
+    @Test fun `every step is sent - a photo op at the head goes, its record then its JPEG, in one pass (K5, the K4 critic, finding 9)`() {
         val start = Outbox(View(Album.PM, exec = true), listOf(pStaff, sState))
-        val f = Fake(start)
-        assertEquals(AlbumQueue.Pass(0, true, held = true), f.run())
-        assertEquals(start, f.stored)
-        assertEquals(setOf(Step.LOG, Step.REVIEW, Step.REFILE), AlbumQueue.K4_STEPS)
-        // with every step allowed (K5), the same queue sends its record first
+        val f = Fake(start,
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 200, S5Album.RECORD),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014/img", "{}", 200, S5Album.IMG),
+            Exchange(LOG, S5Album.SENT_STATE, 200, S5Album.STATE_POSTED))
+        assertEquals(AlbumQueue.Pass(3, false), f.run())
+        assertEquals(emptyList(), f.stored.queue)
+        assertEquals(emptyList(), f.stored.dropped)
+        assertEquals(10L, f.stored.mirror!!.photos.single().bytes)
+        // a 5xx at the record stops the pass, the queue as it was
         val k5 = Fake(start, Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 503, null))
-        assertEquals(AlbumQueue.Pass(0, true, 503), k5.run(Step.entries.toSet()))
+        assertEquals(AlbumQueue.Pass(0, true, 503), k5.run())
+        assertEquals(start, k5.stored)
     }
 
     @Test fun `every login's outbox - one login's ops are never read, listed or written for another (the K4 critic, finding 8)`() {
@@ -830,5 +850,132 @@ class AlbumQueueTest {
         val dropped = all.with("pm@x", P, AlbumQueue.Stored(dropped = listOf(sState)))
         assertEquals(emptyList(), dropped.projects("pm@x"))
         assertEquals(listOf(sState), dropped.of("pm@x", P).dropped)
+    }
+
+    // ---- K5: the progress shot through the drain (DESIGN-port61c.md §20) ---------------------------------------
+
+    @Test fun `a shot drains as S5 takes it - its record, then its JPEG, in one pass - a replay with bytes lands it`() {
+        val f = Fake(Outbox(View(Album.PM, exec = true), listOf(pStaff, sChange)),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 200, S5Album.RECORD),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014/img", "{}", 200, S5Album.IMG),
+            Exchange(LOG, S5Album.SENT_RAISE_CHANGE, 200, S5Album.RAISE_CHANGE))
+        assertEquals(AlbumQueue.Pass(3, false), f.run())
+        assertEquals(emptyList(), f.stored.queue)
+        assertEquals(emptyList(), f.stored.dropped)
+        assertEquals(10L, f.stored.mirror!!.photos.single().bytes)
+        // the record's answer was lost on a pass whose JPEG then landed: the next pass's record replay says bytes 10 -- landed
+        val g = Fake(Outbox(View(Album.PM, exec = true), listOf(pStaff)),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014", S5Album.SENT_RECORD, 200, S5Album.RECORD_LANDED))
+        assertEquals(AlbumQueue.Pass(1, false), g.run())
+        assertEquals(emptyList(), g.stored.queue)
+        assertEquals(10L, g.stored.mirror!!.photos.single().bytes)
+    }
+
+    @Test fun `a JPEG the phone does not have is refused for good, that op and its photo's dependants`() {
+        val img = pStaff.copy(recorded = true)
+        val f2 = Album.refileOp(staffPhoto, 100, Random(60))
+        val o = Outbox(View(Album.PM, exec = true), listOf(img, fRefile, f2, sChange))
+        val a = AlbumQueue.apply(o, img, AlbumQueue.NO_FILE, reply(null, img))
+        assertEquals(Verdict.REFUSED, a.verdict)
+        assertTrue(a.goOn, "the next op goes")
+        assertEquals(listOf(sChange), a.outbox.queue)
+        assertEquals(listOf(img.id, fRefile.id, f2.id), a.outbox.dropped.map { it.id })
+        assertTrue(a.outbox.dropped.all { it.error == AlbumQueue.NO_FILE_WORDS })
+        assertEquals(Verdict.REFUSED, AlbumQueue.verdictOf(null, img, AlbumQueue.NO_FILE, AlbumQueue.Reply()))
+        assertTrue(AlbumQueue.NO_FILE < 0, "no HTTP status a proxy could send")
+        // through the drain: :app's send answers NO_FILE for a shot it cannot read, and the pass goes on
+        var stored = o.copy(queue = listOf(img, sChange))
+        val pass = AlbumQueue.drain(P, MiniRead, load = { stored },
+            send = { rq -> if (rq.file != null) AlbumQueue.Sent(AlbumQueue.NO_FILE, null) else AlbumQueue.Sent(200, tree(S5Album.RAISE_CHANGE)) },
+            commit = { op, code, r -> AlbumQueue.apply(stored, op, code, r).also { stored = it.outbox } },
+            relogin = { false }, stopped = { false })
+        assertEquals(AlbumQueue.Pass(2, false), pass)
+        assertEquals(listOf(img.id), stored.dropped.map { it.id })
+        assertEquals(emptyList(), stored.queue)
+    }
+
+    @Test fun `landed - the JPEG's 200 and its replay, and a record replay with bytes - never a record without`() {
+        val img = pStaff.copy(recorded = true)
+        assertTrue(AlbumQueue.landed(img, Verdict.POSTED, reply(S5Album.IMG, img)))
+        assertTrue(AlbumQueue.landed(img, Verdict.REPLAY, reply(S5Album.IMG_AGAIN, img)))
+        assertTrue(AlbumQueue.landed(pStaff, Verdict.REPLAY, reply(S5Album.RECORD_LANDED, pStaff)))
+        assertFalse(AlbumQueue.landed(pStaff, Verdict.POSTED, reply(S5Album.RECORD, pStaff)), "a record at bytes 0: its JPEG is next")
+        assertFalse(AlbumQueue.landed(pStaff, Verdict.REPLAY, reply(S5Album.RECORD_REPLAY, pStaff)))
+        for (v in listOf(Verdict.STOP, Verdict.REFUSED, Verdict.LOCKED, Verdict.CONFLICT, Verdict.RELOGIN)) assertFalse(AlbumQueue.landed(img, v, reply(S5Album.IMG, img)), "$v")
+        assertFalse(AlbumQueue.landed(sState, Verdict.POSTED, reply(S5Album.STATE_POSTED, sState)), "not a photo")
+        assertFalse(AlbumQueue.landed(fRefile, Verdict.POSTED, reply(S5Album.REFILE, fRefile)))
+    }
+
+    @Test fun `refiledBack - S5's work from a refused or won re-file's photo, none from one it took`() {
+        assertEquals(95, AlbumQueue.refiledBack(fRefile, Verdict.REFUSED, reply(S5Album.REFILE_WHO, fRefile)), "403 Only the login that uploaded the photo")
+        assertEquals(95, AlbumQueue.refiledBack(fRefile, Verdict.CONFLICT, reply(S5Album.REFILE_STALE, fRefile)), "409 Re-filed meanwhile")
+        val lk = Album.refileOp(Album.Photo("ALB-000000000028", 0, ""), 90)
+        assertEquals(0, AlbumQueue.refiledBack(lk, Verdict.LOCKED, reply(S5Album.REFILE_LOCKED, lk)), "409 the lock: the Quote journey S5 holds it at")
+        assertNull(AlbumQueue.refiledBack(fRefile, Verdict.POSTED, reply(S5Album.REFILE, fRefile)), "S5 took it")
+        assertNull(AlbumQueue.refiledBack(fRefile, Verdict.REPLAY, reply(S5Album.REFILE_REPLAY, fRefile)))
+        assertNull(AlbumQueue.refiledBack(fRefile, Verdict.REFUSED, reply(S5Album.REFILE_NO_RECORD, fRefile)), "a 404 carries no photo: the phone's filing stands")
+        assertNull(AlbumQueue.refiledBack(fRefile, Verdict.REFUSED, reply(S5Album.REFILE_STAFF, fRefile)))
+        // another photo's row in the answer is not this one's
+        assertNull(AlbumQueue.refiledBack(fRefile.copy(photo = "ALB-000000000099"), Verdict.CONFLICT, reply(S5Album.REFILE_STALE, fRefile.copy(photo = "ALB-000000000099"))))
+        assertNull(AlbumQueue.refiledBack(sState, Verdict.CONFLICT, reply(S5Album.STATE_STALE, sState)), "not a re-file")
+    }
+
+    @Test fun `heldPhotos covers every login's queue and dropped - holds and withoutPhoto the queues alone and every op of the photo`() {
+        val other = pVendor
+        val all = AlbumQueue.Outboxes()
+            .with("pm@x", P, AlbumQueue.Stored(queue = listOf(pStaff, fRefile, sState), dropped = listOf(other.copy(error = "x"))))
+            .with("d@x", "PROJ-T2", AlbumQueue.Stored(queue = listOf(Album.photoOp(90, null, "", random = Random(61)).copy(id = "ALB-0000000000d1", photo = "ALB-0000000000d1"))))
+        assertEquals(setOf("ALB-000000000014", "ALB-00000000001e", "ALB-0000000000d1"), AlbumQueue.heldPhotos(all), "photo ops only: a re-file holds no shot")
+        assertEquals(emptySet(), AlbumQueue.heldPhotos(AlbumQueue.Outboxes()))
+        assertTrue(all.holds("ALB-000000000014"))
+        assertTrue(all.holds("ALB-0000000000d1"), "under any login")
+        assertFalse(all.holds("ALB-00000000001e"), "dropped is not held: it is not waiting to be sent")
+        assertFalse(all.holds(""))
+        val gone = all.withoutPhoto("ALB-000000000014")
+        assertEquals(listOf(sState), gone.of("pm@x", P).queue, "the photo op and its re-file go; the state stays")
+        assertEquals(all.of("d@x", "PROJ-T2"), gone.of("d@x", "PROJ-T2"))
+        assertEquals(emptyList(), all.withoutPhoto("ALB-00000000001e").of("pm@x", P).dropped, "and from dropped")
+        assertEquals(all, all.withoutPhoto(""))
+        assertEquals(setOf("d@x"), AlbumQueue.Outboxes().with("pm@x", P, AlbumQueue.Stored(queue = listOf(pStaff))).with("d@x", P, AlbumQueue.Stored(queue = listOf(sState)))
+            .withoutPhoto(pStaff.photo).logins.keys, "a login emptied leaves the map")
+    }
+
+    @Test fun `a read between the record and the JPEG takes the bytes-0 row out - the landed JPEG seeds a whole row back (the K5 critic, finding 4)`() {
+        val shot = AlbumWrite.shotOp(AlbumWrite.Shot("ALB-00000000b001", 90, "Kitchen", "units in"), java.time.Instant.parse("2026-11-09T06:31:00Z"))
+        val recorded = shot.copy(recorded = true)
+        // the record's 200 put a bytes-0 row in the mirror; then a GET (S5 lists no row without bytes) replaced the mirror
+        val afterGet = View(Album.PM, exec = true, photos = listOf(staffPhoto))
+        val r = reply(S5Album.IMG, recorded)
+        val v = AlbumQueue.verdictOf(afterGet, recorded, 200, r)
+        assertEquals(Verdict.POSTED, v)
+        // without the seed the bytes patch nothing: the landed shot would have no row until the next read
+        assertTrue(AlbumQueue.apply(Outbox(afterGet, listOf(recorded)), recorded, 200, r).outbox.mirror!!.photos.none { it.id == shot.photo })
+        val seeded = AlbumQueue.seeded(recorded, v, r, Album.PM, "pm@x", "P M")
+        val a = AlbumQueue.apply(Outbox(afterGet, listOf(recorded)), recorded, 200, seeded)
+        assertEquals(emptyList(), a.outbox.queue)
+        val row = a.outbox.mirror!!.photos.single { it.id == shot.photo }
+        assertEquals(Photo("ALB-00000000b001", 90, "2026-11-09T06:31:00Z", Album.PARTY_STAFF, room = "Kitchen", caption = "units in",
+            role = Album.PM, by = "pm@x", byName = "P M", bytes = 10, via = "phone", clientAt = "2026-11-09T06:31:00Z"), row)
+        // a mirror that still holds S5's row keeps it: the seed never replaces a row, the bytes patch it
+        val s5row = Photo("ALB-00000000b001", 90, "2026-11-09T06:31:02.500Z", by = "pm@x", byName = "P M", role = Album.PM, caption = "units in", room = "Kitchen")
+        val kept = AlbumQueue.apply(Outbox(afterGet.copy(photos = listOf(s5row)), listOf(recorded)), recorded, 200, seeded).outbox.mirror!!.photos.single()
+        assertEquals(s5row.copy(bytes = 10), kept)
+        // only a landed JPEG is seeded
+        assertEquals(reply(S5Album.RECORD, shot), AlbumQueue.seeded(shot, Verdict.POSTED, reply(S5Album.RECORD, shot), Album.PM, "pm@x", "P M"))
+        assertEquals(r, AlbumQueue.seeded(recorded, Verdict.STOP, r, Album.PM, "pm@x", "P M"))
+        // a null mirror stays null (no fragment stands in for a GET)
+        assertNull(AlbumQueue.apply(Outbox(null, listOf(recorded)), recorded, 200, seeded).outbox.mirror)
+    }
+
+    @Test fun `a pass that died after the JPEG landed sends the JPEG again - S5's written false lands it, its re-file goes after (the K5 critic, finding 3)`() {
+        // the op is still queued at its JPEG step, `recorded`: the shot was NOT moved into the cache before the apply, so the
+        // next pass reads it, S5 answers the JPEG it already holds, and the re-file behind it is sent rather than dropped
+        val img = pStaff.copy(recorded = true)
+        val f = Fake(Outbox(View(Album.PM, exec = true, photos = listOf(staffPhoto.copy(work = 90, bytes = 0))), listOf(img, fRefile)),
+            Exchange("PUT /api/asis/PROJ-DEMO/album/photos/ALB-000000000014/img", "{}", 200, S5Album.IMG_AGAIN),
+            Exchange(refileLine(staffPhoto.id), S5Album.SENT_REFILE, 200, S5Album.REFILE))
+        assertEquals(AlbumQueue.Pass(2, false), f.run())
+        assertEquals(emptyList(), f.stored.queue)
+        assertEquals(emptyList(), f.stored.dropped, "no NO_FILE, nothing dropped")
     }
 }

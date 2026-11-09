@@ -16,6 +16,14 @@ import kotlin.random.Random
  * 7220, 7279, 7289): such a tap is [Out.None]. Only two refusals have words on the prototype's sheets: leaving Done with
  * no reason (the state sheet's need line, 7546) and a client's answer whose date is not a day (S5's 400, verbatim,
  * 7535) -- [Out.Refused]. Nobody but the Project Manager ([AlbumPage.canWrite]) gets anything but [Out.None].
+ *
+ * THE PROGRESS SHOT (port 61c slice K5, DESIGN-port61c.md §20) is staff's ([AlbumPage.canShoot]: a Designer shoots too,
+ * the prototype's `staff()`): [openCam] gives the camera its opening values, [shot] turns the camera's shutter into the
+ * pending [Shot] -- gated on the Model, its id minted -- and [shotOp] turns that into the op when the phone's camera app
+ * hands the picture back, from the pending shot ALONE: the activity may have been recreated meanwhile (a camera app held
+ * in landscape), and there is no Model then (the K5 critic, finding 2). S5 decides the lock again on the record (its
+ * locked 409). [single] is the Capture 360 sheet's photo after approval (Amit's answer 3 of 28 Oct 2026), and
+ * [refileSingle] its re-file through S5-P.
  */
 object AlbumWrite {
 
@@ -89,6 +97,109 @@ object AlbumWrite {
         val held = w.mirror.photos.firstOrNull { it.id == p.id } ?: return Out.None
         if (Album.review(w.viewer, p, state) != null) return Out.None
         return Out.Queue(Album.reviewOp(held, state, random).copy(at = now.toString()))
+    }
+
+    // ---- the progress shot and the single photo (port 61c slice K5) ------------------------------------------------
+
+    /** The camera's opening values (index61c2.html openCam, 7492): the Quote journey while locked, else the first work In progress of the OVERLAID states, else none (`Pick the work`); no room, no caption. Null when the person cannot shoot. */
+    fun openCam(m: AlbumPage.Model): AlbumPage.Cam? {
+        val s = m.shoot ?: return null
+        return AlbumPage.Cam(work = if (!s.exec) Album.QUOTE_WORK else Album.openWorks(s.states).firstOrNull(), room = null)
+    }
+
+    /**
+     * A shot pending in the phone's camera app: the album photo's id, minted at the camera's shutter, and what the camera
+     * filed it under. Held by :app across the camera app ([Pending], rememberSaveable), so its result files the shot
+     * even when the activity was recreated meanwhile.
+     */
+    data class Shot(val id: String, val work: Int, val room: String?, val caption: String)
+
+    /**
+     * The camera's shutter (index61c2.html shoot, 7497-7498, and addShot, 7272-7275): the Quote journey while the album's
+     * lock is up, else the camera's work -- one of the sixteen, or the shutter takes no tap (null) -- through K1b's gate
+     * ([Album.photoRecord]: a work only once the chapters are open); null when the person cannot shoot. The room blank
+     * is none.
+     */
+    fun shot(m: AlbumPage.Model, cam: AlbumPage.Cam, random: Random = Random.Default): Shot? {
+        val s = m.shoot ?: return null
+        val work = if (!s.exec) Album.QUOTE_WORK else cam.work?.takeIf { Album.isWork(it) } ?: return null
+        if (Album.photoRecord(s.viewer, s.exec, work) != null) return null
+        return Shot(Album.mintId(random), work, cam.room?.trim()?.ifEmpty { null }, cam.caption)
+    }
+
+    /**
+     * The op of a [Shot] whose picture the camera app handed back at [now], built from the pending shot ALONE (the K5
+     * critic, finding 2): its record -- work, room, caption, kind photo, `client_at` the shutter -- under the id minted at
+     * the camera's shutter, `at` the same instant (the overlay's time). S5 decides the lock on the record (409 locked).
+     */
+    fun shotOp(s: Shot, now: Instant): Op =
+        Album.photoOp(s.work, s.room, s.caption, Album.PHOTO, id = s.id).copy(at = now.toString(), clientAt = now.toString())
+
+    /**
+     * [shot] pending for [project] (the S5 id) under [login] (the screen's Me.user): what :app keeps across the camera app
+     * (as [saved]'s strings, rememberSaveable), so the result files it under the login and the project the tap was drawn
+     * for, with no Model (the K5 critic, finding 2).
+     */
+    data class Pending(val project: String, val login: String, val shot: Shot) {
+        /** As strings, for a saved-state bundle: the project, the login, the id, the work, the room ('' none), the caption. */
+        fun saved(): ArrayList<String> = arrayListOf(project, login, shot.id, shot.work.toString(), shot.room.orEmpty(), shot.caption)
+
+        companion object {
+            /** [saved] read back; null for anything else (no pending shot, or a list another build wrote). */
+            fun of(l: List<String>?): Pending? {
+                if (l == null || l.size != 6) return null
+                val work = l[3].toIntOrNull() ?: return null
+                if (l[0].isBlank() || l[1].isBlank() || !Album.ID_RE.matches(l[2])) return null
+                if (work != Album.QUOTE_WORK && !Album.isWork(work)) return null
+                return Pending(l[0], l[1], Shot(l[2], work, l[4].ifEmpty { null }, l[5]))
+            }
+        }
+    }
+
+    /**
+     * THE CAPTURE 360 SHEET'S SINGLE PHOTO after Client approved (Amit's answer 3 of 28 Oct 2026: "as a staff photo of
+     * its work through the progress shot's route (record first, then the JPEG)"): its album photo is its capture's own
+     * ([Album.photoIdOf]), filed at the row's work, in the row's room as the as-is record sends it, with no caption (the
+     * prototype's queue item has none, index61c2.html 7229), `client_at` and `at` the row's shutter. Null when the id is
+     * not a device id or the work is not one of the sixteen (ingest files a photo after approval at a work, always).
+     */
+    fun single(deviceId: String, work: Int?, room: String?, createdAt: Long): Op? {
+        val id = Album.photoIdOf(deviceId) ?: return null
+        if (work == null || !Album.isWork(work)) return null
+        val at = Instant.ofEpochMilli(createdAt).toString()
+        return Album.photoOp(work, room, "", Album.PHOTO, id = id).copy(at = at, clientAt = at)
+    }
+
+    /**
+     * A SINGLE PHOTO RE-FILED on its WORK line to [to] (S5-P, `PUT …/album/photos/<id>/work {work, base}`), or null.
+     * The base is where the photo IS as the phone last told S5 -- the OVERLAID filing (the K5 critic, finding 1): the
+     * target of this login's last queued re-file of it, else its queued photo op's work, else the mirror's row, else,
+     * for a capture row that reads [landed] (synced: its album photo landed, or the bench has it) and that no mirror
+     * holds yet (a sign-out forgot every mirror; a re-file before the album's first read), [from], the row's own filing
+     * before this re-file -- the work the phone last sent. So a re-file back to where S5 has it while another is queued
+     * goes behind that one, and one made with no mirror still reaches S5: a 409 or a 403 then brings S5's filing back
+     * (AlbumQueue.refiledBack), and a 404 for a photo S5 never had is refused alone, the phone's filing standing.
+     * Null when [to] is not one of the sixteen, when [to] is that filing already, and when none of the four holds it
+     * (a photo taken before approval, or one another login's queue holds: the phone's filing moves alone).
+     */
+    fun refileSingle(
+        mirror: Album.View?, queue: List<Op>, deviceId: String, from: Int?, to: Int, landed: Boolean, now: Instant,
+        random: Random = Random.Default,
+    ): Op? {
+        if (!Album.isWork(to)) return null
+        val id = Album.photoIdOf(deviceId) ?: return null
+        val refile = queue.lastOrNull { it.kind == Album.OP_REFILE && it.photo == id }
+        val photo = queue.firstOrNull { it.kind == Album.OP_PHOTO && it.photo == id }
+        val row = mirror?.photos?.firstOrNull { it.id == id }
+        val base: Int? = when {
+            refile != null -> refile.work
+            photo != null -> photo.work
+            row != null -> row.work
+            landed -> from
+            else -> return null
+        }
+        if (base == to) return null
+        return Album.refileOp(Album.Photo(id, base, ""), to, random).copy(at = now.toString())
     }
 
     /** The IST day of [now], YYYY-MM-DD (the prototype's C.today, 7332) -- through atZone, never LocalDate.ofInstant, which is Android API 34. */

@@ -227,4 +227,164 @@ class AlbumWriteTest {
         assertTrue(write.contains("data object None : Out"))
         assertTrue(write.contains("now.atZone(QuoteStage.IST).toLocalDate()"))
     }
+
+    // ---- THE PROGRESS SHOT AND THE SINGLE PHOTO (port 61c slice K5; DESIGN-port61c.md §20) ------------------------
+
+    private val locked = view(S5Album.GET_LOCKED)
+    private val lockedCache = QuoteStage.fromAlbum(locked, read)
+
+    @Test fun `a shot is the record S5 takes - work, room, caption, kind photo, client_at the shutter, via phone - under the id minted at the shutter`() {
+        val m = model()
+        val cam = AlbumPage.Cam(work = 90, room = "Kitchen", caption = "units in")
+        val shot = assertNotNull(AlbumWrite.shot(m, cam, Random(21)))
+        assertTrue(Album.ID_RE.matches(shot.id), "an ALB id, minted at the camera's shutter")
+        val taken = Instant.parse("2026-11-09T06:31:07.250Z")
+        val op = AlbumWrite.shotOp(shot, taken)
+        assertEquals(Album.OP_PHOTO, op.kind)
+        assertEquals(shot.id, op.id)
+        assertEquals(shot.id, op.photo, "the record's id is the photo's")
+        assertEquals("2026-11-09T06:31:07.250Z", op.clientAt)
+        assertEquals("2026-11-09T06:31:07.250Z", op.at)
+        val rq = assertNotNull(AlbumQueue.requestOf(op, "PROJ-DEMO"))
+        assertEquals("PUT", rq.method)
+        assertEquals("/api/asis/PROJ-DEMO/album/photos/${shot.id}", rq.path { it })
+        // validPhoto's body (asis.js 688-698), shaped by hand: {v: 1, work, room, caption, kind, client_at, via}
+        assertEquals(linkedMapOf<String, Any?>("v" to 1, "work" to 90, "room" to "Kitchen", "caption" to "units in", "kind" to "photo",
+            "client_at" to "2026-11-09T06:31:07.250Z", "via" to "phone"), rq.fields)
+        assertTrue("2026-11-09T06:31:07.250Z".length <= AlbumQueue.MAX_SHORT, "client_at under S5's 40 characters")
+        // then its JPEG, from the shot on the phone
+        val img = assertNotNull(AlbumQueue.requestOf(op.copy(recorded = true), "PROJ-DEMO"))
+        assertEquals("/api/asis/PROJ-DEMO/album/photos/${shot.id}/img", img.path { it })
+        assertEquals("image/jpeg", img.contentType)
+        assertEquals("album/shots/${shot.id}.jpg", img.file)
+    }
+
+    @Test fun `while locked the shot is the Quote journey's, unlocked a work's, and with no work nothing`() {
+        val lm = model(locked, lockedCache)
+        for (w in listOf<Int?>(null, 0, 90)) assertEquals(Album.QUOTE_WORK, assertNotNull(AlbumWrite.shot(lm, AlbumPage.Cam(w, null))).work, "locked, $w")
+        val m = model()
+        assertEquals(90, assertNotNull(AlbumWrite.shot(m, AlbumPage.Cam(90, null))).work)
+        assertNull(AlbumWrite.shot(m, AlbumPage.Cam(null, null)), "Pick the work: the shutter takes no tap")
+        assertNull(AlbumWrite.shot(m, AlbumPage.Cam(0, null)), "unlocked, the Quote journey is no work to pick (the prototype's okShot)")
+        assertNull(AlbumWrite.shot(m, AlbumPage.Cam(91, null)), "not one of the sixteen")
+        assertNull(assertNotNull(AlbumWrite.shot(m, AlbumPage.Cam(90, "  "))).room, "a blank room is the whole project")
+    }
+
+    @Test fun `a Designer shoots - a vendor, a client, no sign-in, no mirror read yet and a project S5 does not list do not`() {
+        val designer = approved.copy(role = Album.DESIGNER, pm = "other@x")
+        val cam = AlbumPage.Cam(90, null)
+        assertNotNull(AlbumWrite.openCam(model(designer)))
+        assertNotNull(AlbumWrite.shot(model(designer), cam), "the prototype's staff(): a PM or a Designer (addShot, 7272)")
+        for ((why, m) in listOf(
+            "a vendor" to model(view(S5Album.GET_VENDOR)),
+            "a client" to model(view(S5Album.GET_CLIENT)),
+            "no sign-in" to model(who = Me("", "")),
+            "signed out by a refused renewal" to model(who = Me("pm@x", "P M", false)),
+            "no mirror read yet" to model(mirror = null),
+            "a project S5 does not list" to model(phoneOnly = true),
+        )) {
+            assertNull(AlbumWrite.openCam(m), why)
+            assertNull(AlbumWrite.shot(m, cam), why)
+        }
+    }
+
+    @Test fun `the camera opens on the first work In progress of the OVERLAID states, else on Pick the work, and on the Quote journey while locked`() {
+        assertEquals(AlbumPage.Cam(null, null), AlbumWrite.openCam(model()), "no work In progress at S5's scenario: Pick the work")
+        val s30 = queued(AlbumWrite.state(model(), 30, Album.IN_PROGRESS, "", now, Random(22)))
+        val s20 = queued(AlbumWrite.state(model(queue = listOf(s30)), 20, Album.IN_PROGRESS, "", now, Random(23)))
+        assertEquals(20, assertNotNull(AlbumWrite.openCam(model(queue = listOf(s30, s20)))).work, "the first In progress in S5's order, queued ones included")
+        assertEquals(AlbumPage.Cam(Album.QUOTE_WORK, null), AlbumWrite.openCam(model(locked, lockedCache)))
+    }
+
+    @Test fun `a single photo's op is its capture's album id, its row's room, no caption, client_at its createdAt - and none off the sixteen or for an id that is not a device id`() {
+        val t = Instant.parse("2026-11-09T06:40:00Z").toEpochMilli()
+        val op = assertNotNull(AlbumWrite.single("MCAP-0a1b2c3d4e5f", 90, "Living Room", t))
+        assertEquals("ALB-0a1b2c3d4e5f", op.id)
+        assertEquals("ALB-0a1b2c3d4e5f", op.photo)
+        assertEquals(Album.OP_PHOTO, op.kind)
+        assertEquals(90, op.work)
+        assertEquals("Living Room", op.room, "as the as-is record sends the room")
+        assertEquals("", op.caption, "the prototype's queue item has none (7229)")
+        assertEquals("2026-11-09T06:40:00Z", op.clientAt)
+        assertEquals("2026-11-09T06:40:00Z", op.at)
+        assertEquals(linkedMapOf<String, Any?>("v" to 1, "work" to 90, "room" to "Living Room", "caption" to "", "kind" to "photo",
+            "client_at" to "2026-11-09T06:40:00Z", "via" to "phone"), AlbumQueue.requestOf(op, "PROJ-DEMO")!!.fields)
+        // the same capture, the same id, whenever it is built: a retry or a restart is S5's replay
+        assertEquals(op, AlbumWrite.single("MCAP-0a1b2c3d4e5f", 90, "Living Room", t))
+        assertNull(AlbumWrite.single("MCAP-0a1b2c3d4e5f", 0, "Living Room", t), "the Quote journey: a photo before approval stays the phone's")
+        assertNull(AlbumWrite.single("MCAP-0a1b2c3d4e5f", null, "Living Room", t))
+        assertNull(AlbumWrite.single("MCAP-0a1b2c3d4e5f", 91, "Living Room", t))
+        assertNull(AlbumWrite.single("MCAP-T5", 90, "Living Room", t), "not a device id")
+    }
+
+    @Test fun `the single photo's re-file is S5-P from the mirror's row or the queued op, and none when neither or already there`() {
+        val dev = "MCAP-0a1b2c3d4e5f"
+        val pid = "ALB-0a1b2c3d4e5f"
+        val row = Album.Photo(pid, 90, "2026-11-09T06:40:00Z", by = "pm@x", bytes = 10)
+        val held = approved.copy(photos = approved.photos + row)
+        val f = assertNotNull(AlbumWrite.refileSingle(held, emptyList(), dev, 90, 95, landed = false, now = now, random = Random(24)))
+        assertEquals(Album.OP_REFILE, f.kind)
+        assertEquals(pid, f.photo)
+        assertEquals(95, f.work)
+        assertEquals("90", f.base, "the work S5 holds it at")
+        assertEquals(linkedMapOf<String, Any?>("work" to 95, "base" to 90), AlbumQueue.requestOf(f, "PROJ-DEMO")!!.fields)
+        assertEquals("/api/asis/PROJ-DEMO/album/photos/$pid/work", AlbumQueue.requestOf(f, "PROJ-DEMO")!!.path { it })
+        // the photo op still queued: its work is where S5 will hold it
+        val p = assertNotNull(AlbumWrite.single(dev, 90, "Kitchen", 0L))
+        assertEquals("90", assertNotNull(AlbumWrite.refileSingle(approved, listOf(p), dev, 90, 100, false, now)).base)
+        // neither held, nor the row synced: the phone's filing moves alone
+        assertNull(AlbumWrite.refileSingle(approved, emptyList(), dev, 90, 95, false, now))
+        assertNull(AlbumWrite.refileSingle(null, emptyList(), dev, 90, 95, false, now))
+        // already there; not one of the sixteen; not a device id
+        assertNull(AlbumWrite.refileSingle(held, emptyList(), dev, 95, 90, false, now))
+        assertNull(AlbumWrite.refileSingle(held, emptyList(), dev, 90, 0, false, now))
+        assertNull(AlbumWrite.refileSingle(held, emptyList(), "MCAP-T5", 90, 95, false, now))
+    }
+
+    @Test fun `a re-file back while another is queued goes behind it, and a synced row with no mirror still reaches S5 (the K5 critic, finding 1)`() {
+        val dev = "MCAP-0a1b2c3d4e5f"
+        val row = Album.Photo("ALB-0a1b2c3d4e5f", 90, "2026-11-09T06:40:00Z", by = "pm@x", bytes = 10)
+        val held = approved.copy(photos = approved.photos + row)
+        // A -> X queued, then X -> A before it is sent: measured against the OVERLAID filing (X), not the mirror's (A)
+        val toX = assertNotNull(AlbumWrite.refileSingle(held, emptyList(), dev, 90, 95, false, now, Random(25)))
+        val back = assertNotNull(AlbumWrite.refileSingle(held, listOf(toX), dev, 95, 90, false, now, Random(26)),
+            "the critic's case: a null here left S5 at 95 and the phone at 90 for good")
+        assertEquals("95", back.base)
+        assertEquals(90, back.work)
+        // and a third, the last queued re-file's target the base
+        assertEquals("90", assertNotNull(AlbumWrite.refileSingle(held, listOf(toX, back), dev, 90, 100, false, now)).base)
+        assertNull(AlbumWrite.refileSingle(held, listOf(toX, back), dev, 90, 90, false, now), "already where the queue leaves it")
+        // a photo on S5 with no mirror held (a sign-out forgot every mirror) and its row synced: based on the row's own
+        // filing, the work the phone last sent -- S5's 409 or 403 brings S5's filing back, a 404 is refused alone
+        val blind = assertNotNull(AlbumWrite.refileSingle(null, emptyList(), dev, 90, 95, landed = true, now = now))
+        assertEquals("90", blind.base)
+        assertNull(AlbumWrite.refileSingle(null, emptyList(), dev, 95, 95, landed = true, now = now))
+    }
+
+    @Test fun `the caption and the room are held to S5's caps`() {
+        val shot = assertNotNull(AlbumWrite.shot(model(), AlbumPage.Cam(90, "r".repeat(200), "  " + "c".repeat(600) + " ")))
+        val op = AlbumWrite.shotOp(shot, now)
+        assertEquals(Album.MAX_CAPTION, op.caption.length)
+        assertEquals(Album.MAX_ROOM, op.room!!.length)
+        assertEquals("c".repeat(Album.MAX_CAPTION), op.caption, "trimmed first, then cut")
+    }
+
+    @Test fun `the op is built from the pending shot alone - no Model - and the pending shot round-trips as strings (the K5 critic, finding 2)`() {
+        val shot = AlbumWrite.Shot("ALB-0000000000aa", 90, "Kitchen", "units in")
+        val p = AlbumWrite.Pending("PROJ-DEMO", "pm@x", shot)
+        val saved = p.saved()
+        assertEquals(arrayListOf("PROJ-DEMO", "pm@x", "ALB-0000000000aa", "90", "Kitchen", "units in"), saved)
+        assertEquals(p, AlbumWrite.Pending.of(saved), "what a recreated activity reads back")
+        assertEquals(p.copy(shot = shot.copy(room = null)), AlbumWrite.Pending.of(p.copy(shot = shot.copy(room = null)).saved()))
+        assertEquals(p.copy(shot = shot.copy(work = 0)), AlbumWrite.Pending.of(p.copy(shot = shot.copy(work = 0)).saved()))
+        for (bad in listOf(null, emptyList(), saved.take(5), saved.toMutableList().also { it[3] = "x" }, saved.toMutableList().also { it[3] = "91" },
+            saved.toMutableList().also { it[2] = "nope" }, saved.toMutableList().also { it[0] = "" }, saved.toMutableList().also { it[1] = " " })) {
+            assertNull(AlbumWrite.Pending.of(bad), "$bad")
+        }
+        // the op from the pending shot ALONE: no Model, no mirror, no screen -- the lock is S5's 409 to decide
+        val t = Instant.parse("2026-11-09T07:00:00Z")
+        val op = AlbumWrite.shotOp(assertNotNull(AlbumWrite.Pending.of(saved)).shot, t)
+        assertEquals(Album.Op("ALB-0000000000aa", Album.OP_PHOTO, 90, base = "", photo = "ALB-0000000000aa", room = "Kitchen",
+            caption = "units in", photoKind = Album.PHOTO, clientAt = "2026-11-09T07:00:00Z", at = "2026-11-09T07:00:00Z"), op)
+    }
 }

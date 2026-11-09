@@ -202,14 +202,16 @@ object AlbumSync {
      * the PM, the stamp, the names S5 blanks for others -- and the next person signing in on this phone must not draw
      * from it (a Designer offered Record from a PM's mirror) while offline, or until a read of their own lands. Taken
      * at a fresh ticket, so a read of the old person's still in flight cannot write a mirror back. The album's cached
-     * pictures go with the mirrors (AlbumImages.forgetAll, K3): they are the album as that person's role saw it. Never
-     * throws.
+     * pictures go with the mirrors (AlbumImages.forgetAll, K3): they are the album as that person's role saw it. The
+     * MIRROR FILES only, never `album/shots/` (port 61c slice K5): the outbox survives a sign-out -- its ops are somebody's
+     * unsent work, sent only under their own login -- and so do its queued shots; before K5 a non-empty shots folder
+     * survived this loop's delete() by accident and an empty one did not. Never throws.
      */
     fun forgetAll(context: Context) {
         val at = QuoteStageSync.ticket()
         synchronized(LOCK) {
             order.clear(at)
-            runCatching { dir(context).listFiles()?.forEach { it.delete() } }
+            runCatching { dir(context).listFiles()?.filter { it.isFile }?.forEach { it.delete() } }
             runCatching { prefs(context).edit().clear().apply() }
         }
         AlbumImages.forgetAll(context)

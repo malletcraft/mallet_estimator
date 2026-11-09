@@ -10,6 +10,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.Phases
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -159,13 +160,20 @@ class SyncWorker(context: Context, params: WorkerParameters) :
             if (AsIsUpload.stateOf(ctx, c.deviceId) == null) AsIsUpload.enqueue(ctx, c.deviceId)
         }
 
-        // (c2) S5 TAKES SURVEY PREPS ONLY. A flat photo, or a 360 whose survey prep is not saved,
-        // has no way to the web: it stays counted as unsent -- it IS only on this phone -- but
-        // says why instead of looking like it is waiting. The ERP leg still sends it the day a
-        // pair is stored (ERROR is pending to it).
+        // (c2) S5 TAKES SURVEY PREPS ONLY -- and, since port 61c slice K5, a single photo taken from the
+        // Capture 360 sheet after Client approved, which goes to S5's ALBUM as a staff photo of its work
+        // (Amit's answer 3 of 28 Oct 2026) through the album outbox, whose commit marks the row SYNCED when
+        // its JPEG lands. Such a photo is passed over while its album op is queued under any login
+        // (AlbumOutbox.holdsPhoto): it is waiting, not only on this phone. Any other flat photo, or a 360
+        // whose survey prep is not saved, has no way to the web: it stays counted as unsent -- it IS only
+        // on this phone -- but says why instead of looking like it is waiting. The ERP leg still sends it
+        // the day a pair is stored (ERROR is pending to it). A KNOWN UNTRUTH, recorded (§20, the K5 critic,
+        // finding 13): an approved project's photo that was not queued (its S5 sign-in had lapsed at the
+        // shutter) still reads "the web takes a 360's survey prep, not a photo", which S5's album now does.
         val noPrep = "on this phone only - save its survey prep to send it to the web"
         val notPhoto = "on this phone only - the web takes a 360's survey prep, not a photo"
         for (c in store.pending()) {
+            if (c.kind != "360" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) continue
             if (preps.loadText(c.deviceId) != null) {
                 // Its survey prep has been saved since: the upload job carries it now.
                 if (c.state == "ERROR" && c.error == noPrep) store.setState(c.deviceId, "LOCAL")

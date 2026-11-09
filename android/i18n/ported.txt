@@ -50,3 +50,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumImages.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWrite.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumOutbox.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSheets.kt
+# Port 61c slice K5 (9 Nov 2026) adds the progress shot: pano/AlbumShot.kt (the shot's file rules: no shown text, its file-name prefix marked `// text:value`), app/AlbumShots.kt (writes, keeps and trims the shot files: no shown text, its log lines and file names marked `// text:value`) and app/AlbumCamera.kt (the camera: every text through AlbumPage.Camera).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumShot.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumShots.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumCamera.kt

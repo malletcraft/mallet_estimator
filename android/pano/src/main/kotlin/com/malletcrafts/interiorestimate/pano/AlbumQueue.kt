@@ -34,7 +34,10 @@ import com.malletcrafts.interiorestimate.pano.Album.Verdict
  * THE DRAIN (port 61c slice K4, "K2's drain"): [drain] is the pass :app's AlbumDrainWorker runs -- the head, its
  * request, S5's answer, the commit, the next head -- with nothing Android in it, so AlbumQueueTest drives it against a
  * fake S5; every login's queue as the phone stores it is [Outboxes] ([AlbumWire.storedOutbox]), read, overlaid and
- * drained only for the login it was queued under.
+ * drained only for the login it was queued under. Since port 61c slice K5 it sends EVERY step, a photo's record and
+ * its JPEG included: K4 held a photo op at the head untouched for this slice (the K4 critic, finding 9), and a hold
+ * with no case left would be the fallback the project's rule forbids. A JPEG the phone no longer has is [NO_FILE],
+ * refused for good; [landed] and [refiledBack] are what :app's commit reads off the verdict.
  */
 object AlbumQueue {
 
@@ -49,6 +52,16 @@ object AlbumQueue {
 
     /** Where a photo op's JPEG waits on the phone, under filesDir, until it has landed (K5 writes it, X2 keeps it). */
     const val SHOTS = "album/shots"
+
+    /**
+     * The phone's own answer to a JPEG step whose file is not on the phone (cleared storage): no retry can send it, so
+     * [verdictOf] makes it REFUSED -- that op and its photo's dependants alone (Album.afterRefused). Negative, so it is
+     * no HTTP status a proxy could send, and read before every other rule.
+     */
+    const val NO_FILE = -404
+
+    /** A dropped op's note for [NO_FILE], in place of S5's words (nothing draws it: §19's Q2). */
+    const val NO_FILE_WORDS = "The photo's file is not on this phone" // text:value a dropped op's note, never shown
 
     fun shotPath(id: String): String = "$SHOTS/$id.jpg"
 
@@ -195,7 +208,8 @@ object AlbumQueue {
             }
             Verdict.CONFLICT -> Album.afterConflict(o, op, reply.error, a)
             Verdict.LOCKED -> Album.afterLocked(o, op, reply.error, a)
-            Verdict.REFUSED -> Album.afterRefused(o, op, reply.error).let { it.copy(mirror = Album.merged(it.mirror, a)) }
+            Verdict.REFUSED -> Album.afterRefused(o, op, reply.error.ifEmpty { if (code == NO_FILE) NO_FILE_WORDS else "" })
+                .let { it.copy(mirror = Album.merged(it.mirror, a)) }
             Verdict.STOP -> if (code == 404 && stepOf(op) == Step.IMG) unrecorded(o, op) else o
             Verdict.RELOGIN -> o
         }
@@ -216,6 +230,7 @@ object AlbumQueue {
      * clear`) or another base, it stays a CONFLICT.
      */
     fun verdictOf(mirror: Album.View?, op: Op, code: Int, reply: Reply): Verdict = when {
+        code == NO_FILE -> Verdict.REFUSED
         code == 200 && reply.written == null -> Verdict.STOP
         code == 404 && noRow(mirror, op) -> Verdict.REFUSED
         code == 409 && !reply.locked && answerRace(op, reply) -> Verdict.STOP
@@ -237,6 +252,56 @@ object AlbumQueue {
     private fun noRow(mirror: Album.View?, op: Op): Boolean {
         val s = stepOf(op)
         return (s == Step.REFILE || s == Step.REVIEW) && mirror?.photos.orEmpty().none { it.id == op.photo }
+    }
+
+    /**
+     * Whether S5 now has [op]'s JPEG (port 61c slice K5): its JPEG step answered 200 -- written, or `written: false`, the
+     * bytes S5 already holds (written once) -- or its record answered 200 with a row whose bytes have landed (the JPEG
+     * went on a pass whose answer was lost). Never a record without bytes, and never another op. :app's commit then
+     * moves the shot into the image cache and marks a single photo's capture row synced.
+     */
+    fun landed(op: Op, verdict: Verdict, reply: Reply): Boolean {
+        if (op.kind != Album.OP_PHOTO || (verdict != Verdict.POSTED && verdict != Verdict.REPLAY)) return false
+        return when (stepOf(op)) {
+            Step.IMG -> true
+            Step.RECORD -> (reply.answer.photo?.takeIf { it.id == op.photo }?.bytes ?: 0L) > 0L
+            else -> false
+        }
+    }
+
+    /**
+     * S5's filing of a photo whose re-file [op] it refused or won (port 61c slice K5): the work of the photo its answer
+     * carries -- S5-P's 403 `Only the login that uploaded the photo re-files it` and its 409s (the lock, `Re-filed
+     * meanwhile`) each come with the photo as stored, "so the phone can put back the work it set locally" (S5's
+     * CLAUDE.md, S5-P) -- which :app's commit puts back on the single photo's capture row. Null for a re-file S5 took,
+     * for one refused with no photo (a 404 for a photo S5 has no row for: the phone's filing stands), and for a photo
+     * filed at neither the quote journey nor a work.
+     */
+    fun refiledBack(op: Op, verdict: Verdict, reply: Reply): Int? {
+        if (op.kind != Album.OP_REFILE) return null
+        if (verdict != Verdict.REFUSED && verdict != Verdict.LOCKED && verdict != Verdict.CONFLICT) return null
+        val p = reply.answer.photo?.takeIf { it.id == op.photo } ?: return null
+        val w = p.work
+        return if (w == Album.QUOTE_WORK || Album.isWork(w)) w else null
+    }
+
+    /**
+     * [reply] with a WHOLE row for [op]'s photo seeded into its answer when its JPEG has landed ([landed] at the JPEG
+     * step; the K5 critic, finding 4): S5's JPEG answer is `{ok, written, bytes}` and no row, and a GET between the
+     * record's answer and the JPEG's removes the bytes-0 row the record put in the mirror (S5 lists no photo without
+     * bytes), so the bytes would patch nothing and the landed shot have no row standing for it until the next read. The
+     * row is the op's -- its work, room, caption and kind, `client_at` and `at` the shutter's, by [by] as [byName] in
+     * [role], `via` phone -- with the bytes S5 answered; [Album.merged] adds it only where the mirror holds none of that
+     * id, so S5's own row is never replaced, and the next GET brings S5's. Any other answer is [reply] as it came.
+     */
+    fun seeded(op: Op, verdict: Verdict, reply: Reply, role: String, by: String, byName: String): Reply {
+        if (stepOf(op) != Step.IMG || !landed(op, verdict, reply)) return reply
+        val bytes = reply.answer.bytes?.takeIf { it.photo == op.photo }?.bytes ?: return reply
+        val at = op.clientAt.ifBlank { op.at }
+        val row = Album.Photo(id = op.photo, work = op.work, at = at, party = Album.PARTY_STAFF,
+            room = op.room?.trim()?.take(Album.MAX_ROOM)?.ifEmpty { null }, kind = op.photoKind, caption = op.caption.trim().take(Album.MAX_CAPTION),
+            role = role, by = by, byName = byName, bytes = bytes, via = VIA, clientAt = op.clientAt.ifBlank { null })
+        return reply.copy(answer = reply.answer.copy(seed = row))
     }
 
     /** [op] with its record to send again: S5 answered its JPEG 404 (no record). */
@@ -298,6 +363,42 @@ object AlbumQueue {
             if (k.isEmpty()) return emptyList()
             return logins[k].orEmpty().filter { it.value.queue.isNotEmpty() }.keys.toList()
         }
+
+        /**
+         * Whether any login's QUEUE still holds the photo op of [photo] (port 61c slice K5): SyncWorker's (c2) passes over a
+         * single photo whose album op is waiting, which it would otherwise mark "on this phone only".
+         */
+        fun holds(photo: String): Boolean =
+            photo.isNotBlank() && logins.values.any { m -> m.values.any { s -> s.queue.any { it.kind == Album.OP_PHOTO && it.photo == photo } } }
+
+        /**
+         * These outboxes with every op of [photo] -- its photo op, its re-files and reviews -- taken out of every login's
+         * queue and `dropped` (port 61c slice K5): its capture was deleted on the phone, as the prototype's delete takes
+         * the item out of the album. An op already on S5 stays there (S5 has no delete for an album photo: Q4).
+         */
+        fun withoutPhoto(photo: String): Outboxes {
+            if (photo.isBlank()) return this
+            val out = LinkedHashMap<String, Map<String, Stored>>()
+            for ((login, m) in logins) {
+                val mine = LinkedHashMap<String, Stored>()
+                for ((project, s) in m) {
+                    val t = Stored(s.queue.filter { it.photo != photo }, s.dropped.filter { it.photo != photo })
+                    if (!t.isEmpty) mine[project] = t
+                }
+                if (mine.isNotEmpty()) out[login] = mine
+            }
+            return Outboxes(out)
+        }
+    }
+
+    /**
+     * Every photo id whose photo op any login's queue or `dropped` holds (port 61c slice K5): the shots kept on the phone.
+     * A shot S5 dropped is kept while its op is in `dropped` (the newest [KEEP_DROPPED]) and goes with it (AlbumShot.orphans).
+     */
+    fun heldPhotos(o: Outboxes): Set<String> {
+        val out = HashSet<String>()
+        for (m in o.logins.values) for (s in m.values) for (op in s.queue + s.dropped) if (op.kind == Album.OP_PHOTO && op.photo.isNotBlank()) out += op.photo
+        return out
     }
 
     /**
@@ -327,19 +428,10 @@ object AlbumQueue {
 
     /**
      * What one pass did: how many of S5's answers it took ([answered] -- written, replayed, won or refused; never a STOP
-     * or a 401), whether it [stopped] before the queue was empty, the [code] of the answer that stopped it (0 for none:
-     * no network, a cancel), and whether it stopped at a head whose step this build does not send ([held]: K5's photo
-     * op after a downgrade -- nothing a retry changes, so the worker ends and the hourly catch-up asks again).
+     * or a 401), whether it [stopped] before the queue was empty, and the [code] of the answer that stopped it (0 for
+     * none: no network, a cancel).
      */
-    data class Pass(val answered: Int, val stopped: Boolean, val code: Int = 0, val held: Boolean = false)
-
-    /**
-     * The steps K4's drain sends: the log POST, the review and the S5-P re-file, every one a small JSON body. A photo's
-     * RECORD and its JPEG are K5's to send (the K4 critic, finding 9): nothing in K4 queues a photo op, and how a JPEG
-     * step meets the Wi-Fi-only toggle without holding the queue behind it is K5's decision. A head this build does not
-     * send ends the pass with the queue as it was ([drain]).
-     */
-    val K4_STEPS: Set<Step> = setOf(Step.LOG, Step.REVIEW, Step.REFILE)
+    data class Pass(val answered: Int, val stopped: Boolean, val code: Int = 0)
 
     /**
      * ONE PASS of the drain for [project] (K2's, built in port 61c slice K4), pure: :app gives it the outbox as stored
@@ -351,8 +443,9 @@ object AlbumQueue {
      * committed as a 400 without a call, AQ's rule), [stopped] again just before the send, the send, S5's answer read
      * ([AlbumWire.reply]), the commit. A 401 renews the sign-in once per pass and sends the same op again; a second 401,
      * or a refused renewal, ends the pass with the queue as it was. STOP (no network, a timeout, a 5xx, a 404 on a log
-     * op, a 200 that is not S5's, the answer race of [verdictOf]) ends it too. A head whose step is not in [sends] ends
-     * it untouched. [maxSteps] is a guard against a commit that does not move the head.
+     * op, a 200 that is not S5's, the answer race of [verdictOf]) ends it too. Every step is sent, a photo's record and
+     * its JPEG included (port 61c slice K5): the record's 200 keeps the op at the head `recorded`, so its JPEG goes next
+     * in the same pass. [maxSteps] is a guard against a commit that does not move the head.
      */
     fun drain(
         project: String,
@@ -362,7 +455,6 @@ object AlbumQueue {
         commit: (Op, Int, Reply) -> Applied,
         relogin: () -> Boolean,
         stopped: () -> Boolean,
-        sends: Set<Step> = K4_STEPS,
         maxSteps: Int = 500,
     ): Pass {
         var answered = 0
@@ -370,8 +462,6 @@ object AlbumQueue {
         repeat(maxSteps) {
             if (stopped()) return Pass(answered, true)
             val n = next(load()) ?: return Pass(answered, false)
-            val step = n.step
-            if (step != null && step !in sends) return Pass(answered, true, held = true)
             val rq = requestOf(n.op, project)
             if (rq == null) {
                 // a kind this build cannot send: AQ's 400, that op alone, with no call

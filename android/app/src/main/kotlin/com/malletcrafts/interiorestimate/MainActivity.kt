@@ -212,6 +212,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var heldQueue by remember { mutableStateOf<Pair<String, List<Album.Op>>?>(null) }
     var albumSheet by remember { mutableStateOf<AlbumPage.SheetFor?>(null) }
     var albumRes by remember { mutableStateOf<AlbumPage.Res?>(null) }
+    // THE PROGRESS SHOT (port 61c slice K5): the visit's camera (AlbumPage.Cam: its work, room, caption and open sheet),
+    // gone with the leave; and the shot pending in the phone's camera app (AlbumWrite.Pending, as strings) in SAVED
+    // state, so a camera app that makes Android recreate the activity still files the shot when its result reaches the
+    // new composition (the K5 critic, finding 2) -- the album itself reopens closed, the app-wide rotation loss.
+    var albumCam by remember { mutableStateOf<AlbumPage.Cam?>(null) }
+    var albumPending by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }
     fun leaveAlbum() {
         albumFor = null
         albumOpen.clear()
@@ -220,6 +226,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
         albumList = LazyListState()
         albumSheet = null
         albumRes = null
+        albumCam = null
     }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
@@ -630,9 +637,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
     var outboxTick by remember { mutableStateOf(0) }
     DisposableEffect(context) {
         val op = AlbumOutbox.prefs(context)
-        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             outboxTick += 1
             quoteTick += 1
+            // the drain moved a capture row (port 61c slice K5: a single photo's album photo landed and its row reads
+            // synced, or S5's filing went back on it after a refused re-file): the screens re-read the store, as on resume
+            // (the K5 critic, finding 6)
+            if (key == AlbumOutbox.KEY_ROWS) reload()
         }
         op.registerOnSharedPreferenceChangeListener(listener)
         onDispose { op.unregisterOnSharedPreferenceChangeListener(listener) }
@@ -799,16 +810,28 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         customerName = p.customer, projectTitle = p.title,
                         room = r, captureDate = today, stage = "",
                         panoDir = File(context.filesDir, "panos"))
+                    val shotAt = System.currentTimeMillis()
                     store.insert(CaptureStore.Capture(
                         deviceId = id, project = p.name, projectTitle = p.title,
                         customerName = p.customer, room = r, stage = "",
                         captureDate = today, panoPath = pano.path,
-                        createdAt = System.currentTimeMillis(), state = "LOCAL",
+                        createdAt = shotAt, state = "LOCAL",
                         serverName = null, error = null, kind = kind,
                         // A flat Photo is not projected: no angle, no room.
                         fov = 0.0,
                         // Filed by WORK from the shutter (FW2): 0 the Quote journey, else the pick.
                         work = workNow))
+                    // A SINGLE PHOTO AFTER CLIENT APPROVED GOES TO S5'S ALBUM TOO (port 61c slice K5; Amit's answer 3 of
+                    // 28 Oct 2026: "as a staff photo of its work through the progress shot's route (record first, then the
+                    // JPEG)"), under its capture's own album id (Album.photoIdOf), for a project S5 lists, signed in to S5:
+                    // its shot written from the kept file and its op queued on the process's scope (AlbumShots.single).
+                    // The row stays the phone's item. Before approval it stays the phone's alone: answer 3 is "after
+                    // approval" (S5's record would take it at 0 -- the reason is the answer, not S5).
+                    val albumKey = fileKey
+                    val login = S5Session.loginKey(context)
+                    if (fileApproved && albumKey != null && login.isNotEmpty() && S5Session.signedIn(context)) {
+                        AlbumWrite.single(id, workNow, r, shotAt)?.let { op -> AlbumShots.single(context, albumKey, login, op, pano) }
+                    }
                     result
                 }
             }
@@ -966,6 +989,29 @@ private fun AppScreenBody(onLang: () -> Unit) {
     val camera = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { ok: Boolean -> if (ok) shotUri?.let { ingest(it, kind = "Photo") } }
+
+    // THE PROGRESS SHOT'S CAMERA APP (port 61c slice K5): TakePicture into files/shots/album-<id>.jpg through the
+    // FileProvider's shots/, the route the Capture 360 sheet's Camera above takes. Its ✓ files the PENDING shot -- held in
+    // saved state with the project and the login it was drawn for -- from that entry alone, on the process's scope
+    // (AlbumShots.file; the K5 critic, finding 2); the camera closes at once, and its chapter opens and the result line is
+    // set only once the op is queued, so no frame draws an open chapter with no card. Its back leaves the camera as it
+    // was and deletes the camera app's empty file.
+    val albumCamera = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { ok: Boolean ->
+        val pend = AlbumWrite.Pending.of(albumPending)
+        albumPending = null
+        if (pend != null && !ok) runCatching { AlbumShots.rawFile(context, pend.shot.id).delete() }
+        if (pend != null && ok) {
+            albumCam = null
+            AlbumShots.file(context, pend, java.time.Instant.now()) { queued ->
+                if (queued) {
+                    Album.chapterOf(pend.shot.work)?.let { albumOpen[it] = true }
+                    albumRes = AlbumPage.Res.Filed(pend.shot.work, pend.shot.id)
+                }
+            }
+        }
+    }
 
     if (showSettings) {
         S5SignInDialog(
@@ -1454,7 +1500,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     AsIsPath.capturedAt(c.createdAt, java.time.ZoneId.systemDefault()), c.room, c.kind)
             }
         }
-        val albumItems = remember(mirror, albumLocal, albumMe) { AlbumPage.compose(mirror, albumLocal, albumMe) }
+        // this login's queue too (port 61c slice K5): a queued progress shot is an item at once, the tile counting it
+        val albumItems = remember(mirror, albumLocal, albumMe, albumQueue) { AlbumPage.compose(mirror, albumLocal, albumMe, albumQueue) }
         // The kept file of each of the phone's captures that is still there (a removed local copy is not), by
         // device id -- read off the main thread, a disk check per row; held above the search overlay with its key (heldFiles).
         val albumFiles = heldFiles?.takeIf { it.first == proj?.key }?.second.orEmpty()
@@ -1477,6 +1524,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 albumList = LazyListState()
                 albumSheet = null
                 albumRes = null
+                albumCam = null
                 albumFor = p.key
             }
         }
@@ -1580,6 +1628,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
             val sheetFor = albumSheet
             val sheetModel = sheetFor?.let { AlbumPage.sheet(tx, albumModel, it, java.time.Instant.now()) }
             LaunchedEffect(sheetFor, sheetModel == null) { if (sheetFor != null && sheetModel == null) albumSheet = null }
+            // THE PROGRESS SHOT (port 61c slice K5): the camera's model -- null once the person cannot shoot, and the camera
+            // then closes, as the prototype's ov() closes one whose role has gone (index61c2.html 7576) -- and Which room?'s
+            // rows, the project's rooms in the grid's order.
+            val camFor = albumCam
+            val camModel = camFor?.let { AlbumPage.camera(tx, albumModel, it) }
+            LaunchedEffect(camFor != null, camModel == null) { if (camFor != null && camModel == null) albumCam = null }
+            val roomModel = camFor?.takeIf { it.sheet == AlbumPage.CamSheet.ROOM }?.let { AlbumPage.roomSheet(tx, it, gridRooms(proj)) }
             // A tap's op goes to the outbox off the main thread -- after the ops stored now, with a predecessor's base the
             // screen had not caught up with (AlbumOutbox.add) -- and its drain runs now (REPLACE); the listener redraws.
             fun queueAlbum(op: Album.Op) {
@@ -1626,9 +1681,36 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     val out = AlbumWrite.review(albumModel, key, state, java.time.Instant.now())
                     if (out is AlbumWrite.Out.Queue) {
                         queueAlbum(out.op)
-                        albumRes = AlbumPage.Res(state, out.op.photo)
+                        albumRes = AlbumPage.Res.Review(state, out.op.photo)
                     }
-                })
+                },
+                camera = camModel,
+                roomSheet = roomModel,
+                camStates = AlbumPage.shootStates(albumModel),
+                // the button opens the camera with the prototype's values (AlbumWrite.openCam) and closes the viewer (7491)
+                onShot = { AlbumWrite.openCam(albumModel)?.let { albumView = null; albumCam = it } },
+                onCamWork = { albumCam = albumCam?.copy(sheet = AlbumPage.CamSheet.WORK) },
+                onCamRoom = { albumCam = albumCam?.copy(sheet = AlbumPage.CamSheet.ROOM) },
+                onCaption = { t -> albumCam = albumCam?.copy(caption = t) },
+                onCamCancel = { albumCam = null },
+                // the camera's shutter: the pending shot minted and held (saved state), then the phone's camera app
+                onShutter = {
+                    val k = stageKey
+                    val shot = albumCam?.let { AlbumWrite.shot(albumModel, it) }
+                    if (k != null && shot != null) {
+                        val u = androidx.core.content.FileProvider.getUriForFile(
+                            context, "com.malletcrafts.interiorestimate.fileprovider", AlbumShots.rawFile(context, shot.id))
+                        albumPending = AlbumWrite.Pending(k, albumMe.user, shot).saved()
+                        runCatching { albumCamera.launch(u) }.onFailure {
+                            // no camera app answered: nothing queued, nothing drawn (the prototype has no such state: Q1)
+                            albumPending = null
+                            android.util.Log.w("AlbumShots", "no camera app answered: " + (it.message?.take(160) ?: it.javaClass.simpleName)) // text:value log line
+                        }
+                    }
+                },
+                onPickWork = { w -> albumCam = albumCam?.copy(work = w, sheet = null) },
+                onPickRoom = { r -> albumCam = albumCam?.copy(room = r, sheet = null) },
+                onCamSheetGone = { albumCam = albumCam?.copy(sheet = null) })
             return
         }
 
@@ -1916,6 +1998,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
         BackHandler {
             if (navFace != null) navFace = null else navCapture = null
         }
+        // THE ROW AS STORED (port 61c slice K5; the K5 critic, finding 6): the album drain can move this capture's row --
+        // a single photo's album photo landed (synced), or S5's filing put back after a refused re-file -- and the screen's
+        // copy (navCapture) is re-read from the store's rows whenever they are read again.
+        LaunchedEffect(queue, cap.deviceId) {
+            val row = queue.firstOrNull { it.deviceId == cap.deviceId } ?: return@LaunchedEffect
+            val w = Album.workOfCapture(row.work, row.stage)
+            if (w != cap.work || row.state != cap.state) navCapture = cap.copy(work = w, state = row.state)
+        }
         // A 360 has six faces; a flat photo has ONE entry, itself. The
         // viewer, the Original/Annotated toggle and the "Annotate in
         // ImageMeter" button are all driven by this list, so returning an
@@ -2174,6 +2264,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         // the delete were interrupted; the row first leaves an
                         // orphan file, which costs disk and nothing else.
                         val q = queue.firstOrNull { it.deviceId == cap.deviceId }
+                        // a single photo's album op, not sent yet, goes with it from whichever login's outbox holds it,
+                        // with its shot (port 61c slice K5); one already on S5 stays there (no delete on S5: Q4)
+                        if (q?.kind == "Photo") { // text:value the store's kind, a wire value
+                            val photoId = Album.photoIdOf(cap.deviceId)
+                            scope.launch(Dispatchers.IO) { AlbumOutbox.unqueuePhoto(context, photoId) }
+                        }
                         store.delete(cap.deviceId)
                         FacePrepStore(context).delete(cap.deviceId)
                         SurveyPrepStore(context).delete(cap.deviceId)
@@ -2276,10 +2372,21 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // (WorkRefile). A capture not on S5 yet carries the work in its next record. The
         // bench is not told: ERP files by the stage it was created with, which nothing moves.
         fun refile(work: Int) {
+            val from = cap.work
             store.setWork(cap.deviceId, work)
             refreshQueue()
             navCapture = cap.copy(work = work)
             if (WorkRefile.onWeb(context, cap.deviceId)) WorkRefile.enqueue(context, cap.deviceId)
+            // A SINGLE PHOTO re-files on S5's album too (port 61c slice K5: S5-P, by its uploader), when this login's
+            // outbox holds its album photo, the mirror does, or its row reads synced -- the base the OVERLAID filing, built
+            // under the outbox's lock in tap order (AlbumOutbox.refileSingle; the K5 critic, finding 1); else the phone's
+            // filing moves alone, as a capture's does that is not on S5.
+            val key = capKey
+            val login = S5Session.loginKey(context)
+            if (cap.kind == "Photo" && key != null && login.isNotEmpty() && S5Session.signedIn(context)) { // text:value the store's kind
+                val landed = queue.firstOrNull { it.deviceId == cap.deviceId }?.state == "SYNCED" // text:value the store's state
+                AlbumOutbox.refileSingle(context, key, login, cap.deviceId, from, work, landed)
+            }
         }
         if (refileWork) {
             WorkSheet(

@@ -342,6 +342,9 @@ object Album {
      * also holds (its front face is fetched under it); [uploadedAt] is S5's `at` of an as-is capture --
      * the record's `updated_at`, which every record PUT moves and S5-R's re-file does not -- so a face
      * re-squared by a later upload is a new file in the phone's image cache (the K3 critic, finding 2).
+     * [queued] (port 61c slice K5) is a progress shot still in this login's outbox, drawn at once ([provisionalPhoto]);
+     * [album] is the album photo a [Source.PHONE] single photo is on S5 as ([photoIdOf]), once S5 or the outbox holds it.
+     * Neither is S5's field, and neither is written to the mirror (AlbumWire), as [source] and [capture] are not.
      */
     data class Photo(
         val id: String,
@@ -366,6 +369,8 @@ object Album {
         val source: Source = Source.ALBUM,
         val capture: String? = null,
         val uploadedAt: String = "",
+        val queued: Boolean = false,
+        val album: String? = null,
     )
 
     /**
@@ -429,6 +434,35 @@ object Album {
      * [workOfCapture]'s answers, not the stored `work` column.
      */
     fun filingOrder(works: Iterable<Int?>): List<Int?> = works.distinct().sortedByDescending { filingRank(it) }
+
+    /**
+     * ONE ID FOR ONE CAPTURE (port 61c slice K5): the album photo a single photo from the Capture 360 sheet goes to S5 as
+     * (Amit's answer 3 of 28 Oct 2026: after approval, a staff photo of its work through the progress shot's route) is
+     * `ALB-` and its capture's own twelve hex digits -- S5's ALBUM_ID_RE -- so the capture names its album photo with no
+     * column or mapping to keep, a retry or a restart sends the same id (S5's replay), and the album composes the two as
+     * one item. Null for anything that is not a device id (Handover.isDeviceId: `MCAP-` and 12 lower-case hex digits).
+     * Both ids are 48 random bits minted once, and `ALB-<hex>` names one row of one project's asis_album_photos.
+     */
+    fun photoIdOf(deviceId: String?): String? =
+        if (deviceId != null && Handover.isDeviceId(deviceId)) "ALB-" + deviceId.substring(5) else null
+
+    /** The capture an album photo id names ([photoIdOf] back): `MCAP-` and its twelve hex digits; null for anything else. */
+    fun deviceIdOf(photoId: String?): String? =
+        if (photoId != null && ID_RE.matches(photoId)) "MCAP-" + photoId.substring(4) else null // text:value Handover's device id prefix
+
+    /**
+     * When an album photo was TAKEN, as the album draws it (port 61c slice K5): its `client_at` when that reads as an
+     * instant no later than S5's `at`, else S5's `at`. The record carries the shutter's instant as `client_at` (S5's
+     * column: "device clock, display only"), so a shot taken offline at 10:00 and received at 18:00 keeps its day, its
+     * place in the walk and its quote group, and no card's time moves between the queued shot and S5's row. A clock
+     * ahead of S5 is capped at S5's `at`; S5 keeps its own `at` beside it.
+     */
+    fun takenAt(p: Photo): String {
+        val taken = p.clientAt?.trim()?.ifEmpty { null } ?: return p.at
+        val c = QuoteStage.instantOf(taken) ?: return p.at
+        val a = QuoteStage.instantOf(p.at.trim()) ?: return taken
+        return if (c.isAfter(a)) p.at else taken
+    }
 
     /** The chapter an item sits in: 0 the quote journey, index + 1 for a work, null when unfiled or not a work. */
     fun chapterOf(work: Int?): Int? = when {
@@ -1133,15 +1167,15 @@ object Album {
         Op(mintId(random), OP_REVIEW, photo.work, base = photo.reviewAt ?: "", value = state, photo = photo.id)
 
     /**
-     * A photo record (its JPEG follows): the record's id is the photo's. The caption and the room are
+     * A photo record (its JPEG follows): the record's id is the photo's -- minted here, or [id] when the caller minted
+     * it already (port 61c slice K5: a progress shot's at the shutter, a single photo's from its capture, [photoIdOf]);
+     * last, so every caller before K5 reads as it did. The caption and the room are
      * held to S5's caps ([MAX_CAPTION], [MAX_ROOM]) as the notes are: S5's 400 over a cap would drop
      * the record for good, and its JPEG with it. A blank room is none, as S5 stores it.
      */
-    fun photoOp(work: Int, room: String?, caption: String, kind: String = PHOTO, random: Random = Random.Default): Op {
-        val id = mintId(random)
-        return Op(id, OP_PHOTO, work, base = "", photo = id, room = room?.let { clip(it, MAX_ROOM) }?.ifEmpty { null },
+    fun photoOp(work: Int, room: String?, caption: String, kind: String = PHOTO, random: Random = Random.Default, id: String = mintId(random)): Op =
+        Op(id, OP_PHOTO, work, base = "", photo = id, room = room?.let { clip(it, MAX_ROOM) }?.ifEmpty { null },
             caption = clip(caption, MAX_CAPTION), photoKind = kind)
-    }
 
     /**
      * A staff photo re-filed [to] one of the sixteen works (S5-P): `base` is [photo]'s work as the caller last saw
@@ -1182,7 +1216,11 @@ object Album {
      * an approved add or remove has just moved it), [scope] null then being "no baseline". [role]
      * non-null means the answer said who this person is to S5 -- the scope record's 403 names
      * `album_role` and `pm` so the page redraws who records it (asis.js; QV review) -- [pm] then
-     * being the PM as stored, '' for none.
+     * being the PM as stored, '' for none. [seed] (port 61c slice K5; the K5 critic, finding 4) is a WHOLE photo row
+     * added only when the mirror holds none of its id -- the JPEG's answer carries no row, and a read between a
+     * record's answer and its JPEG's takes the bytes-0 row out of the mirror (S5 lists none), so a landed shot would
+     * have no row standing for it until the next read (AlbumQueue.seeded builds it from the op); a row the mirror holds
+     * is never replaced by it.
      */
     data class Answer(
         val entry: Entry? = null,
@@ -1194,6 +1232,7 @@ object Album {
         val bytes: BytesPatch? = null,
         val role: String? = null,
         val pm: String? = null,
+        val seed: Photo? = null,
     )
 
     /** The verdict table of "Offline and conflicts". */
@@ -1299,9 +1338,9 @@ object Album {
 
     /**
      * The mirror with S5's row(s) taken: an entry appended once by id (log order by seq), a work row
-     * replaced, a whole photo row replaced or added, a review or a bytes patch applied to the photo
-     * row of that id (a row the mirror does not hold is left to the next GET: a patch is not a row),
-     * the scope when sent, the role (with the PM, '' as none) when sent.
+     * replaced, a whole photo row replaced or added, a [Answer.seed] row added when none of its id is held, a review or
+     * a bytes patch applied to the photo row of that id (a row the mirror does not hold is left to the next GET: a patch
+     * is not a row), the scope when sent, the role (with the PM, '' as none) when sent.
      */
     fun merged(mirror: View?, a: Answer): View? {
         if (mirror == null) return null
@@ -1315,6 +1354,7 @@ object Album {
             val rows = if (m.photos.any { it.id == p.id }) m.photos.map { if (it.id == p.id) p else it } else m.photos + p
             m = m.copy(photos = rows)
         }
+        a.seed?.let { p -> if (m.photos.none { it.id == p.id }) m = m.copy(photos = m.photos + p) }
         a.review?.let { r ->
             m = m.copy(photos = m.photos.map {
                 if (it.id != r.photo) it
@@ -1417,11 +1457,16 @@ object Album {
 
     /**
      * The op and every LATER queued op that rode on it, marked with [error], moved from the queue to `dropped`; the
-     * rest stay, in order. What rode on it is what S5's 409 is about. For a log op or a photo op, that is the later ops
-     * on the same work, re-files and reviews excepted: a re-file rides on no work's log (S5-P moves no works[].seq, so a
-     * work's 409 says nothing about it), and neither does a review -- S5's review is guarded on its photo's
-     * `review_at` alone (asis.js albumReview) and never reads the work's seq, so a state's, a raise's or an answer's
-     * 409 on the work leaves an Accept S5 would take (the K4 critic, finding 2). For a re-file it is the later re-files
+     * rest stay, in order. What rode on it is what S5's 409 is about. For a log op, that is the later LOG ops on the
+     * same work: a re-file rides on no work's log (S5-P moves no works[].seq, so a work's 409 says nothing about it),
+     * neither does a review -- S5's review is guarded on its photo's `review_at` alone (asis.js albumReview) and never
+     * reads the work's seq, so a state's, a raise's or an answer's 409 on the work leaves an Accept S5 would take (the
+     * K4 critic, finding 2) -- and since port 61c slice K5 neither does a photo: S5's photo record reads no seq
+     * (albumPutPhoto's WHERE is a vendor's photo, the quote journey, unfiled, Client approved or a recorded state), so
+     * a state write lost to another writer no longer takes a shot queued into the same work, and its JPEG, with it.
+     * For a photo op -- whose only 409 is the lock, `locked: true` -- it is that op alone, and its photo's later re-files
+     * and reviews go with it ([withDependants]); every other op meets its own answer (the lock is the project's, so a
+     * shot behind a locked one meets its own 409). For a re-file it is the later re-files
      * of the same PHOTO, whose base is where this one would have put it -- never the target work's ops, which S5 still
      * takes; for a review, likewise the later reviews of the same photo, never another photo's and never the work's log
      * ops, each of which S5 answers on its own base (a review refused as `Reviewed meanwhile` came with another review's
@@ -1434,26 +1479,28 @@ object Album {
         val rode = o.queue.filterIndexed { j, x ->
             j == i || (j > i && when (op.kind) {
                 OP_REFILE, OP_REVIEW -> x.kind == op.kind && x.photo == op.photo
-                else -> x.kind != OP_REFILE && x.kind != OP_REVIEW && x.work == op.work
+                OP_PHOTO -> false
+                else -> x.kind in LOG_KINDS && x.work == op.work
             })
         }
         return gone(o, withDependants(o.queue, rode), error)
     }
 
     /**
-     * 409: S5 WINS. The op and every later queued op on the same work are dropped (each row
+     * 409: S5 WINS. The op and every later queued LOG op on the same work are dropped (each row
      * showing S5's [error]) -- for a re-file or a review, the later ones of the same kind on the
-     * same photo instead, and no work's 409 drops a re-file or a review ([dropWork]; the K4
-     * critic, finding 2); the mirror takes the current state the 409 body echoes ([a]).
+     * same photo instead, and no work's 409 drops a re-file, a review or a photo ([dropWork]; the K4
+     * critic, finding 2; port 61c slice K5); the mirror takes the current state the 409 body echoes ([a]).
      */
     fun afterConflict(o: Outbox, op: Op, error: String, a: Answer): Outbox = dropWork(o, op, error).let { it.copy(mirror = merged(it.mirror, a)) }
 
     /**
      * 409 `locked: true`: S5, the authority, answered the lock banner -- the quote stage there
      * is not Client approved and no work is recorded, whatever the phone believed (an unread
-     * stage). The op and every later queued op on the same work are dropped, each row saying
+     * stage). The op and every later queued LOG op on the same work are dropped, each row saying
      * so in S5's words -- a re-file or a review by its photo, as on [afterConflict] (S5's review
-     * route has no lock, so a work's locked 409 leaves its reviews to go); the lock is the
+     * route has no lock, so a work's locked 409 leaves its reviews to go), and a photo op alone with
+     * its photo's re-files and reviews (port 61c slice K5); the lock is the
      * project's, so every op left behind meets its own locked 409 and leaves the same way. The
      * mirror takes what the body echoes, as on [afterConflict]: the log
      * POST's locked 409 carries the work row, its newest entry and the scope (asis.js `...cur`);

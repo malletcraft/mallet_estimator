@@ -1040,20 +1040,21 @@ class AlbumTest {
         assertEquals(listOf("ALB-b", "ALB-c", "ALB-d", "ALB-e"), Album.afterReplay(box, opA, Answer()).queue.map { it.id })
     }
 
-    @Test fun `afterConflict - S5 wins - the op and every later op on the same work are dropped, others stay, the mirror takes the body`() {
+    @Test fun `afterConflict - S5 wins - the op and every later LOG op on the same work are dropped, a photo and others stay, the mirror takes the body`() {
         // staff on /projects moved 10 to On hold meanwhile (seq 6): the phone's base 2 is stale
         val cur = state(6, 10, "On hold", "Done", "waiting on tiles", at = "2026-10-23T05:00:00.000Z").copy(by = "staff@x")
         val w = Work(10, "On hold", "staff@x", "", cur.at, 6, true, null, 1)
         val next = Album.afterConflict(box, opA, "Someone moved Demolition & site preparation meanwhile", Answer(cur, w))
-        assertEquals(listOf("ALB-c", "ALB-e"), next.queue.map { it.id }, "b (same work, later) and d (the photo on 10) go; c and e stay")
-        assertEquals(listOf("ALB-a", "ALB-b", "ALB-d"), next.dropped.map { it.id })
+        // port 61c slice K5: S5's photo record reads no seq, so the photo on 10 (d) meets its own answer -- b (same work, later) goes
+        assertEquals(listOf("ALB-c", "ALB-d", "ALB-e"), next.queue.map { it.id }, "b (same work, later) goes; c, d (the photo on 10) and e stay")
+        assertEquals(listOf("ALB-a", "ALB-b"), next.dropped.map { it.id })
         assertTrue(next.dropped.all { it.error == "Someone moved Demolition & site preparation meanwhile" })
         assertEquals("On hold", Album.stateOf(next.mirror!!.log, 10))
         assertEquals(w, next.mirror!!.works.first { it.id == 10 })
         // an EARLIER op on the same work is not touched: only later ones ride on the conflicting base
         val n2 = Album.afterConflict(box, opB, "x", Answer(cur, w))
-        assertEquals(listOf("ALB-a", "ALB-c", "ALB-e"), n2.queue.map { it.id })
-        assertEquals(listOf("ALB-b", "ALB-d"), n2.dropped.map { it.id })
+        assertEquals(listOf("ALB-a", "ALB-c", "ALB-d", "ALB-e"), n2.queue.map { it.id })
+        assertEquals(listOf("ALB-b"), n2.dropped.map { it.id })
         // a 409 on the review: its photo's work is 50, nothing else queued on 50; the body is {error, photo: id, ...review} (asis.js)
         val n3 = Album.afterConflict(box, opE, "Reviewed meanwhile", Answer(review = ReviewPatch("S7", Album.REVIEW_INTERNAL, "staff@x", "", "2026-10-23T05:00:00.000Z")))
         assertEquals(listOf("ALB-a", "ALB-b", "ALB-c", "ALB-d"), n3.queue.map { it.id })
@@ -1070,23 +1071,28 @@ class AlbumTest {
         assertEquals(box, Album.afterConflict(box, Op("ALB-q", Album.KIND_STATE, 20), "x", Answer()))
     }
 
-    @Test fun `afterLocked - S5 answered the banner - the op and later same-work ops are dropped saying so, the mirror as it was`() {
+    @Test fun `afterLocked - S5 answered the banner - the op and later same-work LOG ops are dropped saying so, the mirror as it was`() {
         val banner = Refusal.EXEC_LOCKED.text(Tx.EN)
         val next = Album.afterLocked(box, opA, banner)
-        assertEquals(listOf("ALB-c", "ALB-e"), next.queue.map { it.id })
-        assertEquals(listOf("ALB-a", "ALB-b", "ALB-d"), next.dropped.map { it.id })
+        // port 61c slice K5: the photo on 10 (d) is not dropped by a state's lock -- it meets its own locked 409
+        assertEquals(listOf("ALB-c", "ALB-d", "ALB-e"), next.queue.map { it.id })
+        assertEquals(listOf("ALB-a", "ALB-b"), next.dropped.map { it.id })
         assertTrue(next.dropped.all { it.error == "Work starts once the client approves the estimate" })
         assertEquals(mirror, next.mirror)
         // the next op on another work gets its own verdict on this pass
         val n2 = Album.afterLocked(next, opC, banner)
-        assertEquals(listOf("ALB-e"), n2.queue.map { it.id })
-        assertEquals(4, n2.dropped.size)
+        assertEquals(listOf("ALB-d", "ALB-e"), n2.queue.map { it.id })
+        assertEquals(3, n2.dropped.size)
+        // and the photo's own locked 409 drops it alone (no re-file or review of it is queued here)
+        val n2d = Album.afterLocked(n2, opD, banner)
+        assertEquals(listOf("ALB-e"), n2d.queue.map { it.id })
+        assertEquals(4, n2d.dropped.size)
         // the LOG POST's locked 409 echoes the work, its newest entry and the scope (asis.js `...cur`): the mirror takes them;
         // the photo record's locked 409 carries nothing (above), so the mirror stays
         val cur = state(6, 10, "Done", "In progress", "kept", at = "2026-10-23T05:00:00.000Z")
         val w = Work(10, "Done", "pm@x", "P M", cur.at, 6, true, null, 1)
         val n3 = Album.afterLocked(box, opA, banner, Answer(cur, w, scope = demoScope + 85, scopeAt = "2026-10-29T05:00:00.000Z"))
-        assertEquals(listOf("ALB-c", "ALB-e"), n3.queue.map { it.id })
+        assertEquals(listOf("ALB-c", "ALB-d", "ALB-e"), n3.queue.map { it.id })
         assertEquals(w, n3.mirror!!.works.first { it.id == 10 })
         assertEquals(cur, n3.mirror!!.log.first { it.id == cur.id })
         assertEquals(demoScope + 85, n3.mirror!!.scope)
@@ -1150,7 +1156,7 @@ class AlbumTest {
         val e = state(1, 10, "In progress")
         assertNull(Album.afterPost(b, opA, Answer(e, Work(10, "In progress"))).mirror)
         assertNull(Album.afterConflict(b, opA, "x", Answer(e)).mirror)
-        assertEquals(listOf("ALB-c", "ALB-e"), Album.afterConflict(b, opA, "x", Answer(e)).queue.map { it.id })
+        assertEquals(listOf("ALB-c", "ALB-d", "ALB-e"), Album.afterConflict(b, opA, "x", Answer(e)).queue.map { it.id })
         assertNull(Album.afterLocked(b, opA, "x").mirror)
         assertNull(Album.afterRefused(b, opA, "x").mirror)
         assertNull(Album.merged(null, Answer(e)))
@@ -1375,5 +1381,54 @@ class AlbumTest {
         // a clear whose prev is blank answers an add (a raise v61b wrote), as S5 reads it
         assertEquals(listOf(10, 20, 70, 90) to "t", Album.scopeWithQueued(scope, "", listOf(clear("ALB-0000000000e8", 70, "approved", "", "t"))))
         assertEquals(scope to "x", Album.scopeWithQueued(scope, "x", emptyList()))
+    }
+
+    // ---- K5: the progress shot and the single photo (DESIGN-port61c.md §20) ------------------------------------
+
+    @Test fun `photoIdOf and deviceIdOf map the twelve hex digits both ways and nothing else`() {
+        assertEquals("ALB-0a1b2c3d4e5f", Album.photoIdOf("MCAP-0a1b2c3d4e5f"))
+        assertEquals("MCAP-0a1b2c3d4e5f", Album.deviceIdOf("ALB-0a1b2c3d4e5f"))
+        assertTrue(Album.ID_RE.matches(Album.photoIdOf("MCAP-0a1b2c3d4e5f")!!), "S5's ALBUM_ID_RE")
+        val minted = Handover.mintDeviceId(ByteArray(6) { (it * 37 + 11).toByte() })
+        assertEquals(minted, Album.deviceIdOf(Album.photoIdOf(minted)), "round trip")
+        for (bad in listOf(null, "", "MCAP-T5", "MCAP-0A1B2C3D4E5F", "MCAP-0a1b2c3d4e5", "MCAP-0a1b2c3d4e5f0", "ALB-0a1b2c3d4e5f", "mcap-0a1b2c3d4e5f"))
+            assertNull(Album.photoIdOf(bad), "$bad")
+        for (bad in listOf(null, "", "ALB-p", "ALB-0A1B2C3D4E5F", "MCAP-0a1b2c3d4e5f", "ALB-0a1b2c3d4e5f ")) assertNull(Album.deviceIdOf(bad), "$bad")
+    }
+
+    @Test fun `dropWork - a log op's 409 keeps the photo ops behind it, a photo op's takes its own dependants alone`() {
+        // queue: a (state 10), b (state 10), c (raise 90), d (photo 10), e (review 50) -- and a re-file of d behind them
+        val fD = Album.refileOp(Photo("ALB-d", 10, ""), 95, kotlin.random.Random(70))
+        val q = queue + fD
+        val c = Album.afterConflict(Outbox(mirror, q), opA, "x", Answer())
+        assertEquals(listOf("ALB-c", "ALB-d", "ALB-e", fD.id), c.queue.map { it.id }, "the photo on 10 and its re-file stay")
+        assertEquals(listOf("ALB-a", "ALB-b"), c.dropped.map { it.id })
+        // the photo's own 409 (only ever `locked: true`): it and its re-file, nothing else on 10
+        val l = Album.afterLocked(Outbox(mirror, q), opD, "locked")
+        assertEquals(listOf("ALB-a", "ALB-b", "ALB-c", "ALB-e"), l.queue.map { it.id })
+        assertEquals(listOf("ALB-d", fD.id), l.dropped.map { it.id })
+        assertEquals(l.dropped.map { it.id }, Album.afterConflict(Outbox(mirror, q), opD, "locked", Answer()).dropped.map { it.id })
+    }
+
+    @Test fun `takenAt - client_at when it is an instant no later than at, else at`() {
+        val p = Photo("ALB-t", 90, "2026-11-09T12:30:00.000Z", clientAt = "2026-11-09T04:30:00Z")
+        assertEquals("2026-11-09T04:30:00Z", Album.takenAt(p))
+        assertEquals("2026-11-09T12:30:00.000Z", Album.takenAt(p.copy(clientAt = "2026-11-09T12:30:00.001Z")), "a clock ahead is capped at S5's at")
+        assertEquals("2026-11-09T12:30:00.000Z", Album.takenAt(p.copy(clientAt = "2026-11-09T12:30:00.000Z")), "the same instant: either")
+        assertEquals("2026-11-09T10:00:00+05:30", Album.takenAt(p.copy(clientAt = "2026-11-09T10:00:00+05:30")), "an offset is an instant")
+        assertEquals("2026-11-09T12:30:00.000Z", Album.takenAt(p.copy(clientAt = null)))
+        assertEquals("2026-11-09T12:30:00.000Z", Album.takenAt(p.copy(clientAt = "  ")))
+        assertEquals("2026-11-09T12:30:00.000Z", Album.takenAt(p.copy(clientAt = "2026-11-02")), "a day is no instant (a change request's client_at is)")
+        assertEquals("2026-11-09T04:30:00Z", Album.takenAt(p.copy(at = "")), "no at of S5's: the shutter")
+    }
+
+    @Test fun `merged takes a seed only where no row of its id is held`() {
+        val seed = Photo("ALB-s", 90, "2026-11-09T06:31:00Z", bytes = 10)
+        val m = View(Album.PM)
+        assertEquals(listOf(seed), Album.merged(m, Answer(seed = seed))!!.photos)
+        val held = m.copy(photos = listOf(seed.copy(at = "2026-11-09T06:35:00Z", bytes = 0)))
+        assertEquals(listOf(seed.copy(at = "2026-11-09T06:35:00Z", bytes = 10)), Album.merged(held, Answer(seed = seed, bytes = BytesPatch("ALB-s", 10)))!!.photos,
+            "S5's row kept, the bytes patched")
+        assertNull(Album.merged(null, Answer(seed = seed)))
     }
 }

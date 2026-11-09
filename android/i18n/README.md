@@ -425,6 +425,23 @@ prototype's caret), as are AlbumOutbox's log lines, its WorkManager name, the bo
 file suffix. 1,794 keys, unchanged; Tx is not regenerated. `unkeyed.tsv` is unchanged (860 lines): every new literal is
 keyed or a value. `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
 
+## Port 61c slice K5 (9 Nov 2026): the progress shot, no new key
+
+`pano/AlbumShot.kt` (new: the shot's file rules, no shown text), `app/AlbumShots.kt` (new: writes, keeps and trims the
+shot files, no shown text) and `app/AlbumCamera.kt` (new: the camera) joined `ported.txt`. Every text K5 draws is a key the
+tables already held -- L1 landed the prototype's album camera keys (v59 and v60): the button (`album.progress_shot`, its
+TalkBack label `album.aria.take_progress`), the camera's WORK row (`album.work_caps`; while locked `album.quote_journey`
+and `app.stg_locked_quote` on a line of its own, its leading space collapsing as HTML draws it; unlocked the work through
+`Masters.work` or `album.pick_work`, then `album.tap_to_change`), ROOM (`album.room_caps`, the room through `Masters.room`
+or `common.whole_project`), the caption (`album.caption_optional`), `common.cancel`, the shutter's TalkBack label
+`album.aria.take_photo`, the dialog's pane title `album.progress_shot`, Which work? (`album.which_work`, the states through
+`Masters.state`), Which room? (`album.which_room`) and the result line (`album.filed_x`, its `stage` the work's name, the
+Quote journey for 0), all in the prototype's English and Marathi. The shutter's rings are drawn, not text. AlbumShots's
+log lines and file names, AlbumShot's file-name prefix, AlbumQueue's NO_FILE note (a dropped op's, never shown),
+AlbumOutbox's new log lines and preference key, and the store's kind and state values MainActivity and AlbumOutbox
+compare against (`Photo`, `SYNCED`) are marked `// text:value`. 1,794 keys, unchanged; Tx is not regenerated.
+`unkeyed.tsv` is unchanged (860 lines). `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
+
 ## What is here
 
 | File | What it is | Who writes it |

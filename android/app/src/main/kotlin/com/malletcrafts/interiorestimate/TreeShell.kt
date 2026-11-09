@@ -539,9 +539,15 @@ fun WorkSheet(
     states: Map<Int, Album.WorkState>?,
     onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
+    /**
+     * Open WHOLE, as the prototype draws every sheet (port 61c slice K5: the progress shot camera's Which work? passes
+     * true, as the album's sheets open since the K4 review, finding 1); the Capture 360 sheet's and the WORK line's calls
+     * keep material3's half-open default -- the app-wide item §19 recorded, not K5's.
+     */
+    skipPartiallyExpanded: Boolean = false,
 ) {
     val tx = LocalTx.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipPartiallyExpanded)) {
         SheetTitle(tx.album_which_work)
         Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
             Album.WORKS.forEach { w ->

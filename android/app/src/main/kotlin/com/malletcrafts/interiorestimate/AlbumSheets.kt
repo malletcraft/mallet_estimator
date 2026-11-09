@@ -173,3 +173,27 @@ fun AlbumAnswerSheet(s: AlbumPage.AnswerSheet, onAnswer: (Album.CrOutcome, Strin
         }
     }
 }
+
+/**
+ * WHICH ROOM? (port 61c slice K5; index61c2.html camSheet, 7513-7515): the progress shot camera's room, drawn as Which
+ * work? is -- SheetTitle, one ListItem per room in the rooms grid's order and `Whole project` last, the camera's own on
+ * secondaryContainer, the rows scrolling, 12 dp after the last -- opening whole, as the three sheets above do. A pick
+ * sets the room (Whole project: none) and the caller closes it; a dismiss or ◁ leaves the room as it was. Drawn over the
+ * album, not over the camera: the prototype's ov() draws one overlay at a time (the K5 critic, finding 7).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlbumRoomSheet(s: AlbumPage.RoomSheet, onPick: (String?) -> Unit, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            SheetTitle(s.title)
+            for (r in s.rows) {
+                ListItem(
+                    headlineContent = { Text(r.text) },
+                    colors = rowColors(r.selected),
+                    modifier = Modifier.clickableRow { onPick(r.room) })
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+    }
+}

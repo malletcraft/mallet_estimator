@@ -676,8 +676,10 @@ class AlbumPageTest {
             assertTrue(k4.works.none { it.stateTap || it.raise != null || it.answer != null }, why)
             assertTrue(k4.cards.values.none { it.review || it.accept != null }, why)
             assertNull(k4.header.result, why)
-            // with no queue the page is K3's, field for field
-            assertEquals(AlbumPage.page(Tx.EN, "Demo flat", its, mirror, approvedCache, line(approvedCache, phoneOnly)), k4, why)
+            // with no queue the page is K3's, field for field -- but the Progress shot button, which a Designer signed in has
+            // (port 61c slice K5: staff shoot, the prototype's staff())
+            assertEquals(if (why == "a Designer") AlbumPage.Fab("Progress shot", "Take a progress shot") else null, k4.shot, why)
+            assertEquals(AlbumPage.page(Tx.EN, "Demo flat", its, mirror, approvedCache, line(approvedCache, phoneOnly)).copy(shot = k4.shot), k4, why)
         }
     }
 
@@ -712,7 +714,7 @@ class AlbumPageTest {
 
     @Test fun `the result line after a review, gone when the photo shows another review (the K4 critic, finding 4)`() {
         val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
-        val res = AlbumPage.Res(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
+        val res = AlbumPage.Res.Review(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
         val queued = model(pendingView, queue = listOf(acc))
         assertEquals("Accepted · the client sees it now", AlbumPage.resultText(Tx.EN, queued, res))
         assertEquals("Accepted · the client sees it now", AlbumPage.page(queued, result = AlbumPage.resultText(Tx.EN, queued, res)).header.result)
@@ -722,7 +724,7 @@ class AlbumPageTest {
         val kept = approved.copy(photos = approved.photos.map { if (it.party == Album.PARTY_VENDOR) it.copy(review = Album.REVIEW_INTERNAL) else it })
         assertNull(AlbumPage.resultText(Tx.EN, model(kept), res))
         val keep = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_INTERNAL, at))
-        assertEquals("Kept from the client", AlbumPage.resultText(Tx.EN, model(pendingView, queue = listOf(keep)), AlbumPage.Res(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
+        assertEquals("Kept from the client", AlbumPage.resultText(Tx.EN, model(pendingView, queue = listOf(keep)), AlbumPage.Res.Review(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
         assertNull(AlbumPage.resultText(Tx.EN, queued, null))
         assertNull(AlbumPage.page(queued).header.result)
     }
@@ -799,11 +801,11 @@ class AlbumPageTest {
         assertEquals("ग्राहकाचे उत्तर नोंदवा", w.answer)
         assertEquals("बदल विनंती नोंदवा", m.base.works.single { it.id == 20 }.raise)
         val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
-        val res = AlbumPage.Res(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
+        val res = AlbumPage.Res.Review(Album.REVIEW_ACCEPTED, "ALB-00000000001e")
         assertEquals("स्वीकारला · आता ग्राहकाला दिसतो", AlbumPage.resultText(Tx.MR, model(pendingView, queue = listOf(acc), tx = Tx.MR), res))
         val keep = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_INTERNAL, at))
         assertEquals("ग्राहकापासून राखून ठेवला",
-            AlbumPage.resultText(Tx.MR, model(pendingView, queue = listOf(keep), tx = Tx.MR), AlbumPage.Res(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
+            AlbumPage.resultText(Tx.MR, model(pendingView, queue = listOf(keep), tx = Tx.MR), AlbumPage.Res.Review(Album.REVIEW_INTERNAL, "ALB-00000000001e")))
     }
 
     @Test fun `K4's controls sit in K3's slots, read as source - nothing K3 drew moved`() {
@@ -836,8 +838,9 @@ class AlbumPageTest {
         assertTrue(sheets.contains("is AlbumWrite.Out.Refused) need = true"))
         assertTrue(sheets.contains("if (out is AlbumWrite.Out.Refused) err = out.why.text(tx)"))
         // each sheet opens whole, as `.sheet3` is drawn, never material3's half-open default (the K4 review, finding 1)
-        assertEquals(3, Regex("""ModalBottomSheet\(""").findAll(sheets).count())
-        assertEquals(3, Regex("""ModalBottomSheet\(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState\(skipPartiallyExpanded = true\)\)""")
+        // K5 adds Which room? (AlbumRoomSheet), opening whole as the three do
+        assertEquals(4, Regex("""ModalBottomSheet\(""").findAll(sheets).count())
+        assertEquals(4, Regex("""ModalBottomSheet\(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState\(skipPartiallyExpanded = true\)\)""")
             .findAll(sheets).count())
     }
 
@@ -873,5 +876,292 @@ class AlbumPageTest {
         assertTrue(app("AlbumSync.kt").contains("if (!tmp.renameTo(f)) {"))
         // the five readers of the states take the queue (QuoteStageSync.states), none the store's copy bare
         assertFalse(main.contains("fileCache?.states") || main.contains("capCache?.states"))
+    }
+
+    // ---- K5: the progress shot (DESIGN-port61c.md §20) -----------------------------------------------------------
+
+    private val shotAt = Instant.parse("2026-11-09T06:31:00Z")
+    private val shot = AlbumWrite.Shot("ALB-00000000a001", 90, "Kitchen", "units in")
+    private val shotOp = AlbumWrite.shotOp(shot, shotAt)
+    private val shotKey = "ALBUM|Kitchen|ALB-00000000a001"
+
+    /** The model as MainActivity builds it since K5: the items composed WITH this login's queue. */
+    private fun shotModel(mirror: View? = approved, cache: QuoteStage.Cache? = approvedCache, queue: List<Album.Op> = emptyList(), who: Me = me,
+                          local: List<Local> = emptyList(), tx: Tx = Tx.EN, phoneOnly: Boolean = false) =
+        AlbumPage.model(tx, "Demo flat", AlbumPage.compose(mirror, local, who, queue), mirror, cache, line(cache, phoneOnly), queue, who)
+
+    @Test fun `a queued shot shows at once - its card by this person at its shutter, in its work, room and caption, its chapter counting it, the tile counting it`() {
+        val items = AlbumPage.compose(approved, emptyList(), me, listOf(shotOp))
+        val it = items.single { p -> p.id == shot.id }
+        assertEquals(Source.ALBUM, it.source)
+        assertTrue(it.queued)
+        assertEquals(90, it.work)
+        assertEquals("Kitchen", it.room)
+        assertEquals("units in", it.caption)
+        assertEquals("pm@x", it.by)
+        assertEquals("P M", it.byName)
+        assertEquals("2026-11-09T06:31:00Z", it.at, "the shutter's instant")
+        assertEquals(Album.PARTY_STAFF, it.party)
+        assertEquals(Pic.AlbumJpeg(shot.id), AlbumPage.pic(it, false), "its picture is the shot on the phone (AlbumImages looks there first)")
+        val p = page(items, approved, approvedCache, queue = listOf(shotOp), who = me)
+        val ch = p.works.single { w -> w.id == 90 }
+        assertTrue(shotKey in ch.items)
+        assertEquals("1 photo · last photo 9 Nov", ch.line)
+        val card = p.cards.getValue(shotKey)
+        assertEquals("P M", card.who)
+        assertEquals(Album.whenOf(Tx.EN, "2026-11-09T06:31:00Z"), card.whenText)
+        assertEquals("Kitchen", card.room)
+        assertEquals("Modular furniture, factory-made", card.work)
+        val before = AlbumPage.tile(Tx.EN, "Demo flat", approved, line(approvedCache), AlbumPage.compose(approved, emptyList(), me))
+        assertEquals(before.count + 1, AlbumPage.tile(Tx.EN, "Demo flat", approved, line(approvedCache), items).count, "the tile counts it")
+    }
+
+    @Test fun `S5's row with bytes stands for it, and the record answer's row at bytes 0 never doubles it`() {
+        val row = Album.Photo(shot.id, 90, "2026-11-09T06:35:00Z", room = "Kitchen", caption = "units in", role = Album.PM, by = "pm@x", byName = "P M",
+            via = "phone", clientAt = "2026-11-09T06:31:00Z")
+        // the record answered (bytes 0, AlbumSync.take): the queued shot alone, never two
+        val recorded = approved.copy(photos = approved.photos + row)
+        val a = AlbumPage.compose(recorded, emptyList(), me, listOf(shotOp.copy(recorded = true))).filter { it.id == shot.id }
+        assertEquals(1, a.size)
+        assertTrue(a.single().queued)
+        // the JPEG landed: S5's row stands for it, and the queued op (gone a moment later) never doubles it
+        val landed = approved.copy(photos = approved.photos + row.copy(bytes = 10))
+        val b = AlbumPage.compose(landed, emptyList(), me, listOf(shotOp.copy(recorded = true))).filter { it.id == shot.id }
+        assertEquals(1, b.size)
+        assertFalse(b.single().queued)
+        assertEquals("2026-11-09T06:31:00Z", b.single().at, "at its client_at, as the queued shot was: no card's time moves")
+        // a bytes-0 row with no op behind it (a record whose JPEG was refused) is never listed: S5 lists none
+        assertTrue(AlbumPage.compose(recorded, emptyList(), me).none { it.id == shot.id })
+    }
+
+    @Test fun `a single photo is one item - claimed by its capture whether S5 or the outbox holds it - and its picture is the album photo once the kept file has gone`() {
+        val dev = "MCAP-0a1b2c3d4e5f"
+        val pid = "ALB-0a1b2c3d4e5f"
+        val row = local(dev, work = 90, kind = "Photo")
+        val single = assertNotNull(AlbumWrite.single(dev, 90, "Kitchen", row.createdAt))
+        val onS5 = approved.copy(photos = approved.photos + Album.Photo(pid, 90, "2026-11-09T07:00:00Z", room = "Kitchen", role = Album.PM,
+            by = "pm@x", byName = "P M", bytes = 10))
+        for ((why, mirror, queue) in listOf(Triple("S5 holds it", onS5, emptyList()), Triple("the outbox holds it", approved, listOf(single)),
+            Triple("both", onS5, listOf(single)))) {
+            val items = AlbumPage.compose(mirror, listOf(row), me, queue)
+            val mine = items.filter { it.id == dev || it.id == pid }
+            assertEquals(1, mine.size, why)
+            val it = mine.single()
+            assertEquals(Source.PHONE, it.source, why)
+            assertEquals(dev, it.id, why)
+            assertEquals(pid, it.album, why)
+            assertEquals(90, it.work, "$why: filed by the phone")
+            assertEquals(Pic.OnPhone(dev), AlbumPage.pic(it, true), why)
+            assertEquals(Pic.AlbumJpeg(pid), AlbumPage.pic(it, false), "$why: the kept file gone (the ERP leg deletes it), the album photo")
+        }
+        // neither holds it: the phone's alone, and with no kept file the plain block
+        val alone = AlbumPage.compose(approved, listOf(row), me).single { it.id == dev }
+        assertNull(alone.album)
+        assertEquals(Pic.None, AlbumPage.pic(alone, false))
+        // a 360's device id claims no album photo
+        val pano = AlbumPage.compose(onS5, listOf(local(dev, work = 90, kind = "360")), me)
+        assertTrue(pano.any { it.id == pid && it.source == Source.ALBUM }, "a 360 is no single photo")
+    }
+
+    @Test fun `an album photo is shown at its client_at, never after S5's at, and a quote-journey shot sits in its shutter's group`() {
+        val early = Album.Photo("ALB-00000000a002", 90, "2026-11-09T12:30:00Z", role = Album.PM, by = "pm@x", bytes = 10, clientAt = "2026-11-09T04:30:00Z")
+        val ahead = early.copy(id = "ALB-00000000a003", clientAt = "2026-11-10T04:30:00Z")
+        val junk = early.copy(id = "ALB-00000000a004", clientAt = "yesterday")
+        val items = AlbumPage.compose(approved.copy(photos = approved.photos + early + ahead + junk), emptyList(), me)
+        assertEquals("2026-11-09T04:30:00Z", items.single { it.id == early.id }.at, "taken offline at 10:00 IST, received at 18:00")
+        assertEquals("2026-11-09T12:30:00Z", items.single { it.id == ahead.id }.at, "a clock ahead of S5 is capped at S5's at")
+        assertEquals("2026-11-09T12:30:00Z", items.single { it.id == junk.id }.at, "a client_at that is no instant")
+        // a quote-journey shot taken between Vendor quoted (05:16:04.180) and Estimated (.181) and received after approval
+        val q = Album.Photo("ALB-00000000a005", 0, "2026-11-09T12:30:00Z", role = Album.PM, by = "pm@x", bytes = 10, clientAt = "2026-11-03T05:16:04.180500Z")
+        val its = AlbumPage.compose(approved.copy(photos = approved.photos + q), emptyList(), me)
+        val p = page(its, approved, approvedCache)
+        assertEquals("Vendor quoted", p.groupOf["ALBUM||ALB-00000000a005"], "quoteAt of the shutter, as the prototype's addShot stamps the shot at the tap")
+    }
+
+    @Test fun `the button per person - staff signed in on a project S5 lists, a Designer included - none with no sign-in, after a refused renewal, before the album's first read, on a project S5 does not list, for a vendor or a client`() {
+        val fab = AlbumPage.Fab("Progress shot", "Take a progress shot")
+        assertEquals(fab, page(AlbumPage.compose(approved, emptyList(), me), approved, approvedCache, who = me).shot)
+        val designer = approved.copy(role = Album.DESIGNER, pm = "other@x")
+        assertEquals(fab, page(AlbumPage.compose(designer, emptyList(), me), designer, approvedCache, who = me).shot, "the prototype's staff()")
+        assertEquals(fab, page(AlbumPage.compose(locked, emptyList(), me), locked, lockedCache, who = me).shot, "before approval too: the Quote journey's")
+        for ((why, mirror, who, phoneOnly) in listOf(
+            Quad("no sign-in", approved, Me("", ""), false), Quad("a refused renewal", approved, Me("pm@x", "P M", false), false),
+            Quad("before the album's first read", null, me, false), Quad("a project S5 does not list", approved, me, true),
+            Quad("a vendor", view(S5Album.GET_VENDOR), me, false), Quad("a client", view(S5Album.GET_CLIENT), me, false),
+        )) {
+            assertNull(page(AlbumPage.compose(mirror, emptyList(), who), mirror, approvedCache, phoneOnly = phoneOnly, who = who).shot, why)
+            assertFalse(AlbumPage.canShoot(mirror, phoneOnly, who), why)
+        }
+    }
+
+    @Test fun `the camera - WORK read-only with the lock while locked, else the work or Pick the work and tap to change - ROOM the room or Whole project - the shutter a tap only with a filing`() {
+        val lm = shotModel(locked, lockedCache)
+        val lc = assertNotNull(AlbumPage.camera(Tx.EN, lm, assertNotNull(AlbumWrite.openCam(lm))))
+        assertEquals(AlbumPage.CamRow("WORK", "Quote journey", "· locked until the client approves the estimate", tap = false, dim = true), lc.work)
+        assertEquals(AlbumPage.CamRow("ROOM", "Whole project", null, tap = true, dim = false), lc.room)
+        assertTrue(lc.shutter, "the Quote journey takes the shot")
+        assertEquals("Progress shot", lc.pane)
+        assertEquals("Caption (optional)", lc.captionLabel)
+        assertEquals("Take the photo", lc.shutterAria)
+        assertEquals("Cancel", lc.cancel)
+        val m = shotModel()
+        val pick = assertNotNull(AlbumPage.camera(Tx.EN, m, AlbumPage.Cam(null, null)))
+        assertEquals(AlbumPage.CamRow("WORK", "Pick the work", "tap to change", tap = true, dim = false), pick.work)
+        assertFalse(pick.shutter, "Pick the work: the same circle, no tap")
+        assertNull(pick.pick)
+        val on90 = assertNotNull(AlbumPage.camera(Tx.EN, m, AlbumPage.Cam(90, "Kitchen", "units in")))
+        assertEquals(AlbumPage.CamRow("WORK", "Modular furniture, factory-made", "tap to change", tap = true, dim = false), on90.work)
+        assertEquals("Kitchen", on90.room.value)
+        assertEquals("units in", on90.caption)
+        assertTrue(on90.shutter)
+        assertEquals(90, on90.pick)
+        assertNull(on90.sheet)
+        assertEquals(AlbumPage.CamSheet.WORK, assertNotNull(AlbumPage.camera(Tx.EN, m, AlbumPage.Cam(90, null, sheet = AlbumPage.CamSheet.WORK))).sheet)
+        // no camera for anybody who cannot shoot: the screen then closes it (ov(), 7576)
+        assertNull(AlbumPage.camera(Tx.EN, shotModel(view(S5Album.GET_VENDOR)), AlbumPage.Cam(90, null)))
+        assertNull(AlbumPage.camera(Tx.EN, shotModel(who = Me("pm@x", "P M", false)), AlbumPage.Cam(90, null)))
+        // Which work?'s states are the overlaid ones
+        val s20 = op(AlbumWrite.state(model(), 20, Album.IN_PROGRESS, "", at))
+        assertEquals(Album.IN_PROGRESS, AlbumPage.shootStates(shotModel(queue = listOf(s20)))!![20]?.state)
+        assertNull(AlbumPage.shootStates(shotModel(mirror = null)))
+    }
+
+    @Test fun `Which room - the rooms in order, Whole project last, the picked one selected`() {
+        val rooms = listOf("Living Room", "Kitchen", "Bedroom 4")
+        val s = AlbumPage.roomSheet(Tx.EN, AlbumPage.Cam(90, "Kitchen"), rooms)
+        assertEquals("Which room?", s.title)
+        assertEquals(listOf(AlbumPage.RoomRow("Living Room", "Living Room", false), AlbumPage.RoomRow("Kitchen", "Kitchen", true),
+            AlbumPage.RoomRow("Bedroom 4", "Bedroom 4", false), AlbumPage.RoomRow(null, "Whole project", false)), s.rows)
+        assertEquals(listOf(false, false, false, true), AlbumPage.roomSheet(Tx.EN, AlbumPage.Cam(90, null), rooms).rows.map { it.selected })
+        assertEquals(listOf(AlbumPage.RoomRow(null, "Whole project", true)), AlbumPage.roomSheet(Tx.EN, AlbumPage.Cam(90, null), emptyList()).rows)
+    }
+
+    @Test fun `the result line Progress shot filed at the work, the Quote journey for 0, gone when S5 dropped the shot - a review's line still K4's`() {
+        val m = shotModel(queue = listOf(shotOp))
+        assertEquals("Progress shot filed at Modular furniture, factory-made", AlbumPage.resultText(Tx.EN, m, AlbumPage.Res.Filed(90, shot.id)))
+        assertEquals("Progress shot filed at Modular furniture, factory-made", AlbumPage.page(m, result = AlbumPage.resultText(Tx.EN, m, AlbumPage.Res.Filed(90, shot.id))).header.result)
+        val q0 = AlbumWrite.shotOp(AlbumWrite.Shot("ALB-00000000a006", 0, null, ""), shotAt)
+        assertEquals("Progress shot filed at Quote journey", AlbumPage.resultText(Tx.EN, shotModel(queue = listOf(q0)), AlbumPage.Res.Filed(0, q0.photo)))
+        // S5 dropped it (its op gone to `dropped`, no row with bytes): the album no longer holds it -- no line, no words
+        assertNull(AlbumPage.resultText(Tx.EN, shotModel(), AlbumPage.Res.Filed(90, shot.id)))
+        // landed: S5's row stands for it, and the line stays
+        val landed = approved.copy(photos = approved.photos + Album.Photo(shot.id, 90, "2026-11-09T06:35:00Z", by = "pm@x", bytes = 10))
+        assertEquals("Progress shot filed at Modular furniture, factory-made", AlbumPage.resultText(Tx.EN, shotModel(landed), AlbumPage.Res.Filed(90, shot.id)))
+        // a review's line is K4's, unchanged
+        val acc = op(AlbumWrite.review(model(pendingView), vendorKey, Album.REVIEW_ACCEPTED, at))
+        assertEquals("Accepted · the client sees it now",
+            AlbumPage.resultText(Tx.EN, model(pendingView, queue = listOf(acc)), AlbumPage.Res.Review(Album.REVIEW_ACCEPTED, "ALB-00000000001e")))
+    }
+
+    @Test fun `every camera text in Marathi (Tx MR)`() {
+        val lm = shotModel(locked, lockedCache, tx = Tx.MR)
+        assertEquals(AlbumPage.Fab("कामाचा फोटो", "कामाचा फोटो काढा"), lm.base.shot)
+        val lc = assertNotNull(AlbumPage.camera(Tx.MR, lm, AlbumPage.Cam(0, null)))
+        assertEquals(AlbumPage.CamRow("काम", "कोटेशनचा प्रवास", "· ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक", tap = false, dim = true), lc.work)
+        assertEquals(AlbumPage.CamRow("खोली", "संपूर्ण प्रोजेक्ट", null, tap = true, dim = false), lc.room)
+        assertEquals("कामाचा फोटो", lc.pane)
+        assertEquals("कॅप्शन (हवे असल्यास)", lc.captionLabel)
+        assertEquals("फोटो काढा", lc.shutterAria)
+        assertEquals("रद्द करा", lc.cancel)
+        val m = shotModel(tx = Tx.MR)
+        assertEquals(AlbumPage.CamRow("काम", "काम निवडा", "बदलण्यासाठी टॅप करा", tap = true, dim = false), AlbumPage.camera(Tx.MR, m, AlbumPage.Cam(null, null))!!.work)
+        val on90 = assertNotNull(AlbumPage.camera(Tx.MR, m, AlbumPage.Cam(90, "Kitchen")))
+        assertEquals("मॉड्युलर फर्निचर, कारखान्यात बनवलेले", on90.work.value)
+        assertEquals("किचन", on90.room.value)
+        val rs = AlbumPage.roomSheet(Tx.MR, AlbumPage.Cam(90, "Kitchen"), listOf("Living Room", "Kitchen"))
+        assertEquals("कोणती खोली?", rs.title)
+        assertEquals(listOf("हॉल", "किचन", "संपूर्ण प्रोजेक्ट"), rs.rows.map { it.text })
+        val q0 = AlbumWrite.shotOp(AlbumWrite.Shot("ALB-00000000a006", 0, null, ""), shotAt)
+        assertEquals("कामाचा फोटो \"कोटेशनचा प्रवास\" मध्ये ठेवला",
+            AlbumPage.resultText(Tx.MR, shotModel(queue = listOf(q0), tx = Tx.MR), AlbumPage.Res.Filed(0, q0.photo)))
+        assertEquals("कामाचा फोटो \"मॉड्युलर फर्निचर, कारखान्यात बनवलेले\" मध्ये ठेवला",
+            AlbumPage.resultText(Tx.MR, shotModel(queue = listOf(shotOp), tx = Tx.MR), AlbumPage.Res.Filed(90, shot.id)))
+    }
+
+    @Test fun `K5's app, read as source - the button in the end padding, the camera over the album, its sheets over the album, the shot's file and its op`() {
+        val screen = app("AlbumScreen.kt")
+        fun code(src: String) = src.replace(Regex("""/\*[\s\S]*?\*/"""), "").lines().joinToString("\n") { it.substringBefore("//") }
+        // the button over the chapters, bottom end, 16 dp in (12 in landscape), in K3's 84 dp end padding, its TalkBack the aria-label
+        assertTrue(screen.contains("contentPadding = PaddingValues(bottom = 84.dp)"))
+        assertTrue(screen.contains("shot?.let { ShotFab(it, onShot, Modifier.align(Alignment.BottomEnd).padding(16.dp)) }"))
+        assertTrue(screen.contains("shot?.let { ShotFab(it, onShot, Modifier.align(Alignment.BottomEnd).padding(12.dp)) }"))
+        assertTrue(screen.contains("icon = { Icon(painterResource(R.drawable.ic_mcft_cam), contentDescription = null) },"))
+        assertTrue(screen.contains("clearAndSetSemantics { contentDescription = f.aria; role = Role.Button; onClick { onShot(); true } }"))
+        // the camera over the album after the viewer, its Back composed after the viewer's, and NOT while a sheet is open
+        val c = code(screen)
+        assertTrue(c.indexOf("BackHandler(enabled = view != null)") in 0 until c.indexOf("BackHandler(enabled = camera != null && camera.sheet == null) { onCamCancel() }"))
+        assertTrue(c.indexOf("AlbumViewer(project, page, shown") in 0 until c.indexOf("AlbumCamera(camera, landscape,"))
+        assertTrue(c.contains("if (camera != null && camera.sheet == null) {"), "the camera is not drawn while its sheet is (the K5 critic, finding 7)")
+        // the two sheets, over the album, each opening whole
+        assertTrue(c.contains("AlbumPage.CamSheet.WORK -> WorkSheet(current = cam.pick, states = camStates, onPick = onPickWork,"))
+        assertTrue(c.contains("onDismiss = onCamSheetGone, skipPartiallyExpanded = true)"))
+        assertTrue(c.contains("AlbumPage.CamSheet.ROOM -> roomSheet?.let { AlbumRoomSheet(it, onPick = onPickRoom, onDismiss = onCamSheetGone) }"))
+        val tree = app("TreeShell.kt")
+        assertTrue(tree.contains("ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = skipPartiallyExpanded)) {"))
+        assertTrue(tree.contains("skipPartiallyExpanded: Boolean = false,"), "the Capture 360 sheet's and the WORK line's calls keep the default")
+        // the camera draws the model and nothing of its own
+        val cam = code(app("AlbumCamera.kt"))
+        assertFalse(Regex("""Text\("""" ).containsMatchIn(cam), "no literal text in the camera")
+        assertTrue(cam.contains("semantics { paneTitle = model.pane }"))
+        assertTrue(cam.contains("if (enabled) onClick { onShutter(); true } else disabled()"))
+        // MainActivity: the camera's file through the FileProvider's shots/, the pending shot in saved state, filed from it alone
+        val main = app("MainActivity.kt")
+        assertTrue(main.contains("var albumPending by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }"))
+        assertTrue(main.contains("context, \"com.malletcrafts.interiorestimate.fileprovider\", AlbumShots.rawFile(context, shot.id))"))
+        assertTrue(main.contains("albumPending = AlbumWrite.Pending(k, albumMe.user, shot).saved()"))
+        assertTrue(main.contains("val pend = AlbumWrite.Pending.of(albumPending)"))
+        val filed = main.substring(main.indexOf("AlbumShots.file(context, pend, java.time.Instant.now()) { queued ->"))
+        assertTrue(filed.indexOf("if (queued) {") in 0 until filed.indexOf("Album.chapterOf(pend.shot.work)?.let { albumOpen[it] = true }"),
+            "the chapter opens and the line is set only once the op is queued (finding 2); chapterOf is an Int?, so a ?.let (finding 10)")
+        assertFalse(main.contains("albumOpen[Album.chapterOf("), "albumOpen[Album.chapterOf(work)] = true does not compile (finding 10)")
+        assertTrue(main.contains("remember(mirror, albumLocal, albumMe, albumQueue) { AlbumPage.compose(mirror, albumLocal, albumMe, albumQueue) }"))
+        assertTrue(main.contains("if (key == AlbumOutbox.KEY_ROWS) reload()"), "the drain's row changes reach the screens (finding 6)")
+        assertTrue(main.contains("if (w != cap.work || row.state != cap.state) navCapture = cap.copy(work = w, state = row.state)"))
+        // the shot written before it is queued, on the process's scope (finding 2)
+        val shots = code(app("AlbumShots.kt"))
+        val file = shots.substring(shots.indexOf("fun file("))
+        assertTrue(file.indexOf("write(app, raw, pending.shot.id)") in 0 until file.indexOf("AlbumOutbox.add("))
+        assertTrue(shots.contains("private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)"))
+        assertTrue(shots.contains("ExifInterface(source.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)"))
+        assertTrue(shots.contains("b.compress(Bitmap.CompressFormat.JPEG, q, out)"))
+        assertTrue(shots.contains("if (!tmp.renameTo(dest))"), "a temp file renamed into place")
+        // ingest queues the single photo's album op only after approval, for a project S5 lists, signed in
+        assertTrue(main.contains("if (fileApproved && albumKey != null && login.isNotEmpty() && S5Session.signedIn(context)) {\n                        AlbumWrite.single(id, workNow, r, shotAt)"))
+        // the re-file of a single photo goes through the outbox's lock in tap order; the delete unqueues it
+        assertTrue(main.contains("AlbumOutbox.refileSingle(context, key, login, cap.deviceId, from, work, landed)"))
+        assertTrue(main.contains("scope.launch(Dispatchers.IO) { AlbumOutbox.unqueuePhoto(context, photoId) }"))
+    }
+
+    @Test fun `K5's drain, read as source - every step sent, the JPEG as image-jpeg exactly, NO_FILE, the commit's steps around the apply, forgetAll leaving the shots`() {
+        fun code(src: String) = src.replace(Regex("""/\*[\s\S]*?\*/"""), "").lines().joinToString("\n") { it.substringBefore("//") }
+        val outbox = code(app("AlbumOutbox.kt"))
+        assertFalse(outbox.contains("K4_STEPS") || outbox.contains("pass.held"), "no K4 hold left")
+        val send = outbox.substring(outbox.indexOf("private fun send("), outbox.indexOf("private fun commit("))
+        assertTrue(send.contains("type = rq.contentType\n"), "the JPEG as image/jpeg exactly, no charset")
+        assertTrue(send.contains("return AlbumQueue.Sent(AlbumQueue.NO_FILE, null)"))
+        val commit = outbox.substring(outbox.indexOf("private fun commit("))
+        val take = commit.indexOf("AlbumSync.take(")
+        val rows = commit.indexOf("singlePhotoRow(context, op, landed, AlbumQueue.refiledBack(op, v, reply))")
+        val apply = commit.indexOf("AlbumQueue.apply(")
+        val adopt = commit.indexOf("if (landed) AlbumImages.adopt(context, project, op.photo)")
+        assertTrue(commit.indexOf("AlbumQueue.seeded(op, v, reply0,") in 0 until take, "a landed JPEG's whole row (finding 4)")
+        assertTrue(take in 0 until rows && rows < apply, "S5's rows, then the capture row, before the apply")
+        assertTrue(apply in 0 until adopt, "the shot moves into the cache AFTER the apply (finding 3)")
+        assertTrue(outbox.contains("AlbumShots.trim(context, allOrNull(context)?.let { AlbumQueue.heldPhotos(it) })"), "an unreadable outbox trims nothing (finding 5)")
+        assertTrue(outbox.contains("private val serial = java.util.concurrent.Executors.newSingleThreadExecutor()"), "the re-files in tap order (finding 1)")
+        // AlbumImages: the shot first, then the cache, then S5
+        val images = code(app("AlbumImages.kt"))
+        val fetch = images.substring(images.indexOf("suspend fun fetch("))
+        assertTrue(fetch.indexOf("AlbumShots.fileOf(context, pic.id)") in 0 until fetch.indexOf("val f = fileOf(context, project, pic)"))
+        assertTrue(images.contains("fun adopt(context: Context, project: String, id: String) {"))
+        // forgetAll deletes the mirror files, never under album/shots
+        assertTrue(app("AlbumSync.kt").contains("runCatching { dir(context).listFiles()?.filter { it.isFile }?.forEach { it.delete() } }"))
+        // SyncWorker's (c2) passes over a single photo whose album op is held
+        val sync = app("SyncWorker.kt")
+        val c2 = sync.substring(sync.indexOf("val notPhoto = "))
+        assertTrue(c2.indexOf("if (c.kind != \"360\" && AlbumOutbox.holdsPhoto(ctx, Album.photoIdOf(c.deviceId))) continue") in 0 until c2.indexOf("val why = "))
+        // K4's hold is gone everywhere in :pano too
+        val pano = java.io.File("src/main/kotlin/com/malletcrafts/interiorestimate/pano")
+        assertTrue(pano.walkTopDown().filter { it.isFile && it.name.endsWith(".kt") }.none { code(it.readText()).contains("K4_STEPS") })
     }
 }

@@ -58,6 +58,12 @@ import java.util.Collections
  * ([forgetAll], from AlbumSync.forgetAll): the pictures are the album as THAT person's role saw it. The deletes run on a
  * thread of their own, since sign-out is a tap; a download that lands after them keeps bytes S5 serves to any staff
  * member alike (the phone signs in staff only), so no generation is counted.
+ *
+ * A PROGRESS SHOT'S BYTES (port 61c slice K5): an album photo still queued, or just landed, is on the phone as its shot
+ * (AlbumShots, `filesDir/album/shots/<id>.jpg`), so [fetch] looks there FIRST, then in this cache, then asks S5 -- one rule
+ * about where an album photo's bytes are, as there is one for a capture's -- and when the JPEG lands AlbumOutbox's commit
+ * MOVES the shot into this cache under the photo's own name ([adopt]), so a card never asks S5 for the bytes it was just
+ * sent. One of the two files is there at every instant of the move.
  */
 object AlbumImages {
 
@@ -105,6 +111,11 @@ object AlbumImages {
      */
     suspend fun fetch(context: Context, project: String, pic: AlbumPage.Pic): File? {
         if (project.isBlank()) return null
+        // a progress shot on the phone, queued or just landed, before the cache and before S5 (port 61c slice K5)
+        if (pic is AlbumPage.Pic.AlbumJpeg) {
+            val shot = AlbumShots.fileOf(context, pic.id)
+            if (withContext(Dispatchers.IO) { shot.isFile && shot.length() > 0 }) return shot
+        }
         val f = fileOf(context, project, pic) ?: return null
         if (withContext(Dispatchers.IO) { hit(f) }) return f
         if (f.name in missing) return null
@@ -157,6 +168,30 @@ object AlbumImages {
             // Never the URL's credentials: the message is the exception's own, cut short.
             Log.w(TAG, "album image not fetched: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
             null
+        }
+    }
+
+    /**
+     * The shot of the album photo [id] of [project] MOVED into this cache under the photo's own name, once S5 has its
+     * bytes (AlbumOutbox's commit, after the outbox is applied: the K5 critic, finding 3) -- never copied, so the card
+     * never downloads what the phone just sent; a cache that already holds the file keeps its own and the shot goes (the
+     * same bytes: S5 writes a photo's JPEG once). Blocking; never throws.
+     */
+    fun adopt(context: Context, project: String, id: String) {
+        try {
+            val shot = AlbumShots.fileOf(context, id)
+            if (!shot.isFile) return
+            val f = fileOf(context, project, AlbumPage.Pic.AlbumJpeg(id)) ?: return
+            val d = dir(context).apply { mkdirs() }
+            if (f.isFile && f.length() > 0) { shot.delete(); return }
+            if (!shot.renameTo(f)) {
+                // a rename that cannot cross the two folders' filesystems: a copy in through a temp file, then the shot goes
+                val tmp = File(d, f.name + AlbumPage.PART)
+                try { shot.copyTo(tmp, overwrite = true); if (tmp.renameTo(f)) shot.delete() else tmp.delete() } catch (e: Exception) { tmp.delete(); throw e }
+            }
+            trim(d)
+        } catch (e: Exception) {
+            Log.w(TAG, "$id: shot not moved into the cache: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
         }
     }
 
