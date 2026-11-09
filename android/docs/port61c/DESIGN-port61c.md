@@ -8,8 +8,10 @@ derived the same day in the same way and built after its critic (its "The K4 cri
 the same day in the same way and built after its critic (its "The K5 critic" paragraph); and §26 M3b, derived on
 9 Nov 2026 from a SERVED copy of the approved prototype v61c.2 (its raw Marathi table extracted and diffed against
 android/i18n, its own text layer probed string by string, its survey prep screenshotted under मराठी in both
-orientations), from the shipped M3a (android/i18n/README.md and §25) and from the code on batch-next. The other
-sections (§1–§13, §17, §21–§24, §27–§31) are NOT here. For those slices the sources are the approved prototype
+orientations), from the shipped M3a (android/i18n/README.md and §25) and from the code on batch-next; and §27 M3c,
+derived on 9 Nov 2026 the same way (the served copy's PLAN tab and Export overlay driven under मराठी in both
+orientations — its vis() answers, the plan SVG's own text and the export preview captured — with §25, §26 and the
+code on batch-next). The other sections (§1–§13, §17, §21–§24, §28–§31) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -2806,6 +2808,259 @@ lambda's identity, `…$$Lambda/0x…@…`, never the note); both fixed:
 *(Review fixed 9 Nov 2026 on batch-next: :pano:test 926 tests, 0 failures, 0 errors, 0 skipped — the XML under
 pano/build/test-results — the two new tests being the bare-Msg scan and its fixture pin. :app is compiled only by
 CI; nothing has been seen on a phone.)*
+
+### 27. M3c · Marathi: the plan and the Export sheet (design slice 3c)
+
+**Size:** S · **Depends on:** M3b
+
+**Goal**
+
+Key the PLAN TAB — the six-drawing pane M3a's tab strip opens (chips, the fit button, the line under the drawing,
+and the words DRAWN on the plan canvas) — and the Export sheet's ON-SCREEN texts (the bar, its ✕, the pills, the
+screen-reader labels, the save and share refusals). The EXPORTED FILES stay English for good: the A4 sheet — title
+block, footnotes and the drawing ON it — the SVG, the PDF and the share payload (decision 4), and PlanExport.kt
+keeps ZERO Tx tokens (check (h) scans it whole). After M3c, survey prep INCLUDING its Plan tab and Export sheet is
+Marathi under मराठी but for the laser's connection states (DistoClient, M6) and the upload status line (AsIsUpload,
+M2) — §26's "only English left" sentence said the same without naming the plan, which was still English; this
+slice closes it.
+
+**Derived from, in this order**
+
+1. **The approved prototype v61c.2**, served as a COPY from the session scratchpad (m3cverify: index61c2.html +
+   its real-capture assets, byte-identical to M3b's copy) and driven in Playwright at the Mi A3 frame (360 × 780
+   and 780 × 360), switched to मराठी by its own language row. Three products decide this slice:
+   - **The plan SVG's own text under मराठी**, read out of `#planv svg text` per chip: the floor plan draws
+     "डाव्या कोपऱ्यात", "समोर" (FRONT), "W 3310 / L 5458" and "1 m"; the front elevation draws "◂ डावी भिंत",
+     "उजवी भिंत ▸", "समोरील भिंत" (the wall label), "FD1", "≈905", "W 3310 / H 2705"; the ceiling plan draws
+     "रिफ्लेक्टेड सीलिंग प्लॅन". So the DRAWN words translate ON SCREEN while codes, figures, axis letters and
+     "1 m" stay Latin — the exact split the table below pins.
+   - **The export overlay under मराठी**: the bar reads "एक्सपोर्ट · AP_LR_htu_ceiling-plan" (the FILE NAME stays
+     ASCII), the ✕'s aria is "बंद करा" — and the A4 PREVIEW STAYS WHOLLY ENGLISH ("Drawing / Reflected ceiling
+     plan / Client / Room / Captured / Scale / 1:50 on A4 · drawn 09 Nov 2026", both footnotes, and FRONT and
+     REFLECTED CEILING PLAN on the sheet's own drawing). Decision 4 proven on the approved page itself: the
+     preview IS the file, so the preview does not follow the screen's language.
+   - **84 `window.L57.vis()` probes** over every composed string the phone's plan tab and Export sheet show; every
+     answer in this scope agrees with the folder's own MR byte for byte (no M3b-style finalisation diffs here),
+     e.g. "Front · 2678 × 2677 · 1 mark" → "समोर · 2678 × 2677 · 1 मार्क", "fit · 150%" → "बसवा · 150%",
+     "905 from left corner" → "डाव्या कोपऱ्यापासून 905", "FB1 beam over" → "FB1 वर बीम", "Share" → "शेअर करा",
+     "SVG" / "PDF" / "1 m" / "W 2678" / "FD1 ≈905" / "Top" / "Bottom" → unchanged.
+2. **The shipped M3a and M3b** (§25, §26, android/i18n/README.md): the tab strip and `common.plan` are already
+   keyed (the प्लॅन tab in the derivation screenshots is M3a's); the drawn-words rules (figures, codes and units
+   stay Latin; the painters' language is a PARAMETER, M3b critic 5); decision 4 and check (h) with its FaceWriter
+   Tx.EN exemption; Tx.EN at tests' call sites; the Masters-pin lesson (M3a fix 7); the `tx.mr` 17 sp line
+   heights; the say() snapshot rule.
+3. **The code on batch-next** (1ca493f): every remaining unkeyed.tsv row of the five files below read in its file;
+   every caller of every changing signature listed — `SurveyPlan.drawing` (SurveyPlanScreen:85, SurveyExport:154,
+   SurveyPlanTest ×41), `infoOf` (SurveyPrepScreen:1400, drawing() itself ×3, SurveyPlanTest), `fitLabel`
+   (SurveyPlanScreen:122, SurveyPlanTest) — and every Tx accessor checked to exist in the generated Tx with its
+   exact signature: `sp_x_x_x_x(v, A, B, n: Int)` (the `{pl}` fold is `suf(n, …)`, empty under mr),
+   `plan_export_x(name)`, `plan_aria_a4_sheet_x_x(view, scale: String)`, `sp_fit_x(v)`,
+   `sp_x_from_left_corner(t)` / `sp_x_from_right_corner(t)`, the statics `sp_at_left_corner`, `sp_at_right_corner`,
+   `sp_front`, `sp_fit`, `sp_beam`, `sp_beam_over`, `sp_loft_over`, `plan_loft_suffix`,
+   `view_reflected_ceiling_plan_caps`, `common_export`, `common_close`, `common_share`, `common_room`, and the four
+   `export_msg_*_x(file)` templates with `export_share_x(file)`.
+
+**The keys: ZERO new ones — the card already holds every string this slice shows (1,797 stays 1,797).** card61c
+group 1 (approved with v61c, 28 Oct 2026) even where-notes the phone sites by line: `plan.export_x` and
+`plan.aria.a4_sheet_x_x` name SurveyPlanScreen.kt:176,178,187, and `export.msg.could_not_keep_x` /
+`export.msg.could_not_make_folder_x` / `export.msg.could_not_write_x` / `export.msg.downloads_refused_x` /
+`export.share_x` name PlanExport.kt:131/127/154/151/180 — the card was written for this slice. M3c consumes it and
+adds nothing; every EN renders today's literal byte for byte (`view_floor_plan` = "Floor plan" = `DTITLE["floor"]`,
+`sp.x_x_x_x` EN = the infoOf composition, mark/marks included, `export.msg.*` EN = PlanExport's four `error()`
+strings). Tx is still regenerated (`nice -n 15 gradle :pano:i18nGen --offline`, a no-op on the table here) and
+`nice -n 15 gradle :pano:i18nRatchet --offline` re-ratchets after.
+
+**Files and changes** (unkeyed.tsv rows before → after; 684 → 615, 69 rows off)
+
+**pano/:**
+- **SurveyPlan.kt (38 → 0, joins ported.txt).** `drawing`, `infoOf` and `fitLabel` take `tx: Tx` FIRST, no default
+  (M3b critic 5: the two callers deliberately differ — the screen live, the export Tx.EN — so every call site
+  states its language). VIEWS, DTITLE and NEIGH stay English identity maps marked `// text:value`, shown through
+  Masters: the chips' words through `Masters.surface_tab` (its keys ARE the VIEWS labels: "Floor" → जमीन,
+  "Ceiling" → छत, "Front" → समोर …), a drawing's full name through the NEW `Masters.view_title` (below), a
+  neighbour through `Masters.surface`. The drawn words: "FRONT" → `tx.sp_front` (समोर);
+  "REFLECTED CEILING PLAN" → `tx.view_reflected_ceiling_plan_caps`; the elevation's wall label →
+  `Masters.surface(tx, SurveyPrep.NAME.getValue(s)).uppercase()` — EN "Front wall".uppercase() = "FRONT WALL" byte
+  for byte, a no-op on Devanagari (समोरील भिंत, exactly what the page draws; M3a's cannotGo pattern, upper-cased);
+  the neighbours `"◂ " + Masters.surface(tx, ng.first)` / `+ " ▸"` (the glyphs values); the opening offsets →
+  `tx.sp_at_left_corner` / `sp_at_right_corner` and `sp_x_from_left_corner(fo.t)` / `sp_x_from_right_corner(fo.t)`
+  (left/right picked by `hx.key`, as the card's own where-notes split them); the floor-plan mark tails
+  `e.code + tx.sp_beam_over` / `+ tx.sp_loft_over`, the ceiling plan's `+ tx.sp_beam` / `+ tx.plan_loft_suffix`.
+  `infoOf`: the floor line `(room ?: tx.common_room) + " · " + figures`; the elevation and ceiling line
+  `tx.sp_x_x_x_x(Masters.surface_tab(tx, NAME minus " wall"), A, B, n)` — the plural folds in Tx (EN "1 mark" /
+  "2 marks", MR "1 मार्क" / "2 मार्क", the page's own "छत · 3310 × 5458 · 0 मार्क"). `fitLabel(tx, vb, box)` →
+  `tx.sp_fit` / `tx.sp_fit_x(pct)`. Marked `// text:value` and untouched: "1 m", "W/L/H/$ta + digits" (the axis
+  letters are M3a's identities), `${e.code} ${fig}` labels, "≈", "?", "◂", " ▸". The exception texts
+  ("not a wall: $s") are thrown on programmer error, never shown — not rows, untouched.
+- **Masters.kt.** ONE new map, `view_title` (6 values, keyed by the DTITLE value, pass-through unknown):
+  "Floor plan" → `tx.view_floor_plan`, "Reflected ceiling plan" → `tx.view_reflected_ceiling_plan`,
+  "<side> wall elevation" → `tx.view_*_wall_elevation`; joins `MAPS`. (view.ceiling_plan — "Ceiling plan" — is
+  deliberately NOT in it: no DTITLE says that.)
+- **PlanSave.kt (NEW, no shown literal).** The plan save's refusals as DATA, so PlanExport can stay Tx-free and
+  the words still translate: `enum Kind { FOLDER, KEEP, INSERT, WRITE }`, `text(tx, kind, file)` rendering
+  `export_msg_could_not_make_folder_x` / `_could_not_keep_x` / `_downloads_refused_x` / `_could_not_write_x`, and
+  `class Refused(kind, file) : Exception(text(Tx.EN, kind, file))` — the message is the PINNED ENGLISH render, so
+  a logcat line reads exactly as today (the M3b salvage-log precedent: a log is a diagnostic other parties read).
+  In :pano so the renders are pinned under both Tx — the conflictText lesson (M3b finding 4): a words-home in :app
+  cannot be pinned where the suite runs.
+- **SurveyExport.kt (11 → 0, joins ported.txt).** NO tx parameter anywhere — the Sheet IS the file. `sheet()`
+  builds its drawing as `SurveyPlan.drawing(Tx.EN, …)`, the literal, the FaceWriter idiom; the title block rows
+  ("Drawing", "Client", "Project", "Room", "Captured", "Scale"), `footSource`, `FOOT_ESTIMATE`,
+  "1:$sc on A4 · drawn …", "—" and "…" stay English literals marked `// text:value` (decision 4; the derivation's
+  export preview shows them English under मराठी). **And check (h) grows a region, as a decision** (the M3b shape:
+  (h) IS decision 4's enforcement): (h) now scans SurveyExport.kt whole, exempting — exactly as in FaceWriter.kt —
+  only the literal `Tx.EN` and the import that names it, and the (h) companion pins that `sheet()`'s drawing call
+  passes `Tx.EN` specifically. So no later slice can thread a live tx into the file by accident, and the SVG
+  (SvgWriter, same file) is covered by the same scan.
+- **Handover.kt (7 → 0, joins ported.txt).** All seven rows marked `// text:value`: `SEP` and the six
+  `FACE_LABELS` values are the WIRE — the filename vocabulary `mallet_estimator/handover.py` matches
+  (`MCAP-…_top.jpg`) and the caption burned into the ImageMeter photo, a document other parties consume (decision
+  4; M3b critic 6 pinned the ImageMeter photo English for good). "Top" and "Bottom" have no key and need none
+  (`vis()` answers them unchanged). AnnotateScreen (M8's screen) shows these labels raw today and keeps doing so —
+  an unkeyed screen staying English until its slice; when M8 keys Annotate it translates the SHOWN label through a
+  map, never the wire values.
+
+**app/:**
+- **SurveyPlanScreen.kt (8 → 0, joins ported.txt).** `val tx = LocalTx.current` in SpPlanPane, SpPlanFoot and
+  SpPlanExport (the M3a pattern). The chips: `Text(Masters.surface_tab(tx, lab))` with
+  `contentDescription = Masters.view_title(tx, SurveyPlan.DTITLE.getValue(v))`; **the drawing's `remember` gains
+  `tx` as a key** — without it a language flip keeps the old canvas words until the next edit bumps `rev`; `vb`
+  keeps its own keys, so the zoom survives the flip. `fitLabel(tx, shown, d.box)`. The foot: the Export pill is
+  `tx.common_export`; the bar `tx.plan_export_x(name)` (text and contentDescription); ✕ a value with
+  `contentDescription = tx.common_close`; the preview's label
+  `tx.plan_aria_a4_sheet_x_x(Masters.view_title(tx, DTITLE.getValue(sheet.view)), sheet.scale.toString())`; the
+  pills "SVG" and "PDF" stay Latin values (the page draws them Latin) and Share is `tx.common_share`. Marathi-only
+  line heights, M3a's remedy for the same element classes: the chip text and the foot's info line take
+  `lineHeight = if (tx.mr) 17.sp else 14.sp` (the chip sits centred in its 28 / 24 dp box, which the prototype
+  draws at full box height).
+- **PlanExport.kt (5 → 0, joins ported.txt; stays an (h) region with ZERO Tx tokens).** The four `error()` calls
+  become `throw PlanSave.Refused(PlanSave.Kind.…, display)` — no words left in the file; `share()` takes the
+  chooser's title as a plain String parameter (no Tx token). `EXTRA_SUBJECT` and the payload are unchanged data.
+- **SurveyPrepScreen.kt (already in ported.txt; call sites only).** `exportFailed` renders a `PlanSave.Refused`
+  through `PlanSave.text(tx, e.kind, e.file)`; any other Throwable keeps today's `e.message ?: simpleName` — the
+  system's own words stay the system's (the "Not saved: " / "Not shared: {why}" wrappers are already keyed). The
+  share call passes `tx.export_share_x(sv.file.name)` as the chooser title; `planFoot` passes `tx` into `infoOf`.
+
+**The words drawn on the plan — what translates and what stays Latin** (each proven by the served page's own plan
+SVG and `vis()`):
+
+| drawn | under मराठी | mechanism |
+|---|---|---|
+| FRONT (both plans) | समोर | `sp.front` |
+| REFLECTED CEILING PLAN | रिफ्लेक्टेड सीलिंग प्लॅन | `view.reflected_ceiling_plan.caps` |
+| the elevation's wall label (FRONT WALL) | समोरील भिंत | `Masters.surface(…).uppercase()`, a Devanagari no-op |
+| ◂ Left wall · Right wall ▸ | ◂ डावी भिंत · उजवी भिंत ▸ | `Masters.surface` + glyph values |
+| at the left corner / 905 from left corner | डाव्या कोपऱ्यात / डाव्या कोपऱ्यापासून 905 | `sp.at_*_corner` / `sp.x_from_*_corner` |
+| FB1 beam over · FL1 loft over (floor) | FB1 वर बीम · FL1 वर लॉफ्ट | code + `sp.beam_over` / `sp.loft_over` |
+| FB1 beam · FL1 loft (ceiling plan) | FB1 बीम · FL1 लॉफ्ट | code + `sp.beam` / `plan.loft_suffix` |
+| 1 m, W 3310, L 5458, H 2705, $ta tags, FD1 905, ≈905, ? | UNCHANGED | codes, digits, axis letters, units — identities |
+| the EXPORT SHEET's whole drawing, title block and footnotes | ENGLISH, both languages | `drawing(Tx.EN, …)` + literals; decision 4 |
+
+Fonts and metrics: paintItems' text paint is `Typeface.DEFAULT` / `DEFAULT_BOLD`, which carries Devanagari (M3b);
+sizes are the drawing's own mm (`fs`), and the prototype draws the Marathi words at the same sizes. SurveyPlan
+measures no text — every label is anchored — so EN and MR display lists are item-for-item equal but for the worded
+labels, which the metrics pin below turns into a test; the canvas failure mode stays overlap, never loss.
+
+**S5 must already serve**
+
+Nothing.
+
+**Tests and checks**
+
+- SurveyPlanTest keeps its English literals with `Tx.EN` at the new first parameter; its pins survive verbatim
+  ("◂ Front wall", "Room · 2678 × 3319", "Back · 2678 × 2677 · 1 mark", "fit · 150%", "W 2678", and
+  `DTITLE[v] == d.title` — `view_title`'s EN is DTITLE byte for byte).
+- SvgExportTest unchanged: `sheet()` takes no tx, so the file cannot follow a language.
+- **SurveyDrawMarathiTest grows a plan block**: (a) a byte-exact pin per drawn word under `Tx.MR` — the nine
+  translated rows of the table above, each against the string the served page drew or `vis()` answered; (b) the
+  figure-items pin: `drawing(Tx.EN, …)` and `drawing(Tx.MR, …)` on the fixture prep differ ONLY in those worded
+  Text items — every other item, positions included, byte-equal (nothing measures text, so this is exact), the
+  strongest "the Devanagari drawing is the English drawing" guarantee available.
+- **SurveyPrepMarathiTest grows an M3c block** (M3a fix 7's reason — a Masters map passes unknowns through, so a
+  wrong map leaks Latin only under मराठी): hand-typed Marathi pins for the six `view_title` renders, the six chip
+  words through `surface_tab`, the two infoOf shapes (समोर · 2678 × 2677 · 1 मार्क; खोली · … for the Room
+  fallback), `plan_export_x`, the A4 aria, and the four `PlanSave.text` renders.
+- **PlanSave's own :pano pins**: `text(Tx.EN, …)` byte-equal to PlanExport's four previous literals;
+  `text(Tx.MR, …)` to the card's MR; `Refused.message` IS the Tx.EN render.
+- I18nLiteralTest: (a)–(d) over the 69 removed rows and the 5 files joining ported.txt; (f)/(i) over the changed
+  signatures (names keep, so (i) stays quiet and CI's compile is the resolver — the build walks every caller
+  listed above before committing, the M3a lesson about second readers); **(h) with its M3c change**: SurveyExport.kt
+  joins the scanned regions with the FaceWriter-style exemption (exactly the literal `Tx.EN` plus its import), the
+  companion pins `sheet()`'s drawing argument as `Tx.EN`, and PlanExport.kt stays scanned whole with zero mentions.
+- MastersTest: `view_title` joins the MAPS walk.
+- I18nTableTest (1,797 keys, unchanged) and TxRenderTest (no new templates) stay as they are.
+- The CI gate; `:app` compiles only in CI (push batch-next, wait for android-app.yml) — nothing here has been seen
+  on a phone.
+
+**What Amit sees**
+
+Under English, nothing: every key's EN renders the current literal byte for byte, uppercase compositions included.
+Under मराठी the plan tab turns Marathi in one build — chips, बसवा, the info line, and the drawn corner fills, wall
+names and plan titles — and the Export sheet's bar, Close and Share translate, while the A4 preview, the saved SVG
+and PDF and the shared file stay English: exactly the served prototype's screens, both orientations. A failed save
+reads "सेव्ह नाही: " + the refusal in Marathi for the four PlanSave kinds; a system exception's words stay English
+after the keyed fragment, as everywhere else.
+
+**Risks**
+
+The clipped-Devanagari class (the phone is the only proof; the chips and foot take M3a's 17 sp, and the
+derivation's overflow probe found no plan-tab cut — its two entries are the title bar's, cut under English too). A
+longer Marathi word on the canvas can touch a neighbouring dimension on a small drawing — but the approved page
+draws the same words at the same anchors, so the overlap budget is the prototype's own. A language flip with the
+Export overlay open re-renders the bar at once and rebuilds the drawing through the `remember` key; the preview is
+English either way.
+
+**Deliberately NOT in M3c**
+
+- **The exported files' English is not a gap** — decision 4, now enforced over SurveyExport.kt by (h).
+- **The prototype v61c's richer export and plan** — its overlay's SVG · चित्र · PDF · आणखी… buttons, the office
+  view, the legend, the trades/states filters (plan.js v53+; the card's `sp.legend_x`, `sp.office_view_*`,
+  `sp.showing` rows) — M3c is a TRANSLATION slice over the phone's shipped v52 plan tab and adds no UI; those
+  features are no row of this table and wait for Amit to ask.
+- **The project-level Floor plan screen** (the prototype's `plan.*` arrange-rooms family, the Floor plan tile):
+  no phone screen exists to translate.
+- **FlatPresets.kt (31 rows: site types and room names, the bench's room master — M2's Add-site dialog data),
+  DeleteRoute.kt (5), RoomToken.kt (1), ServerMessage.kt (2)** — the tree's and dialogs' slices, not the plan's.
+- **M6** (DistoClient's 31 + Disto's 2), **M2** (AsIsUpload's 23), **M8** (FacePrep's 17, FacePrepScreen's 122,
+  AnnotateScreen's 46 — including, then, the shown face labels drawn through a map over Handover's wire values).
+
+**The M3c critic** — raised by a careful reader, answered:
+
+1. *The card holds Marathi for the title block (common.drawing, sp.1_x_a4_drawn, export.photo_not_yet_measured…) —
+   why does the phone's A4 preview stay English?* Because the preview IS the file: `paintSheet` is the ONE painter
+   for the overlay's Canvas and the PDF page ("what the phone shows before a save is the file it saves"), and the
+   served prototype's own export preview stays wholly English under मराठी — captured in this derivation. Those MR
+   rows belong to the prototype's OTHER readers (export53.js's sheet list and notes — screens the phone does not
+   have). Translating the preview would fork the painter (two answers) or translate the file (decision 4 broken).
+2. *Why a new :pano file for four error strings instead of keying them where they are?* Check (h) scans the whole
+   of PlanExport.kt and refuses every Tx token — rightly, it writes the files — while the card names those four
+   strings as phone texts to translate. The words therefore move to where a tx can reach them and a :pano test can
+   pin them, exactly as ReadingsSync's conflictText moved in M3b (finding 4); the kinds travel as data and the
+   screen renders with the live tx. The alternative — exempting four literals inside an export builder — would
+   blunt (h) at its sharpest edge.
+3. *Does share()'s title parameter smuggle a live language into a file?* No: the chooser title is Android's own
+   transient UI, not file content — the payload (EXTRA_STREAM bytes, SUBJECT = the file's name) is untouched; and
+   the card where-notes `export.share_x` to PlanExport.kt:180 as a phone text, so it is keyed rather than argued
+   away. A String parameter carries no Tx token, so (h) still holds over the file.
+4. *The chips say जमीन / छत — surface words for drawings that mean the floor PLAN and ceiling PLAN. Right?* The
+   approved page's own chips: text जमीन / छत / समोर …, aria the full plan titles — captured in plan-chrome. The
+   phone's Text + contentDescription split the same way, through `surface_tab` and `view_title`.
+5. *sp_x_x_x_x folds the plural — does मराठी lose the count?* No: `suf()` empties only the SUFFIX under mr; `{n}`
+   stays — "समोर · 3310 × 2705 · 2 मार्क", the page's own answer, and "1 मार्क" for one.
+6. *Why does `view_title` exist when `Drawing.title` could just translate inside drawing()?* It does both:
+   drawing() builds `title` through the map, and the SCREEN also needs the lookup where no Drawing exists yet (a
+   chip's aria for the five drawings not open, the export aria from `sheet.view`). One map, two call shapes —
+   against a second hand-written when, which is the two-answers fault.
+7. *The derivation lives in the scratchpad — the lost-plan fault again?* No (M3b critic 10's answer holds): what
+   later work depends on is IN THIS SECTION — the SVG text captures, the vis() rulings, the export-preview
+   finding, the per-file mapping — and the run is re-creatable in minutes from the published artifact and this
+   recipe. No client name, phone number or rate enters the repo: the probes use room geometry and the demo's
+   initials-style file names only (the page's own "Amit Phadke" title-block demo row stays on the page).
+
+**unkeyed.tsv** 684 → 615 · **ported.txt** + SurveyPlan.kt, SurveyExport.kt, Handover.kt (pano),
+SurveyPlanScreen.kt, PlanExport.kt · **keys** 1,797 → 1,797 (the card is consumed, not extended; Tx regenerated
+all the same, a no-op) · **new** pano/PlanSave.kt, `Masters.view_title` · **literal-counts** re-ratcheted where
+masked literals leave (SurveyExport.kt's 50 above all).
 
 ## Progress notes recovered
 
