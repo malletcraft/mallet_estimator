@@ -768,6 +768,9 @@ fb.sent_claude_waiting_read	-	skipped	fb (the prototype's feedback panel)
 fb.use_png_jpeg_webp	-	skipped	fb (the prototype's feedback panel)
 fb.x_screenshots_ready	-	skipped	fb (the prototype's feedback panel)
 fb.x_waiting_claude	-	skipped	fb (the prototype's feedback panel)
+fp.x_plan_x_deep	fp_x_plan_x_deep	template	name: String · plate: String · d: String
+fp.x_wall_corrected_x	fp_x_wall_corrected_x	template	name: String · wall: String · d: String
+fp.x_wall_depth_unknown	fp_x_wall_depth_unknown	template	name: String · wall: String
 help.each_tour_opens_demo	help_each_tour_opens_demo	static	-
 help.row	help_row	static	-
 help.subtitle	help_subtitle	static	-

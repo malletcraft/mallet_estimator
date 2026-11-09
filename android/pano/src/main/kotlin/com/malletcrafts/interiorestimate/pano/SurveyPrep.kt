@@ -72,11 +72,6 @@ object SurveyPrep {
         else -> slot
     }
 
-    /** The four names in ENGLISH, by slot, for the two readers that draw no language yet: the on-photo painter
-     *  (SurveyPrepDraw.drawLines) and the salvage notes (SurveyPrepFile), both port 61c slice M3b's. The words live
-     *  once, in the keys; this is their English rendering, not a second copy of it. */
-    fun lineNames(s: String): Map<String, String> = SLOTS.associateWith { lineName(Tx.EN, s, it) }
-
     /** The two lines each line crosses: its corners are there. */
     val CROSSES = mapOf("bottom" to listOf("left", "right"), "top" to listOf("left", "right"),
         "left" to listOf("bottom", "top"), "right" to listOf("bottom", "top"))
@@ -691,9 +686,10 @@ object SurveyPrep {
      * where a tap may land on another surface than the tab the type was picked on; 2 · Mark adds
      * only to the surface it shows.
      */
-    fun placeRefusal(from: String, to: String, t: String): String? = Pano360.placeRefusal(from, to, t)
+    fun placeRefusal(tx: Tx, from: String, to: String, t: String): String? = Pano360.placeRefusal(tx, from, to, t)
 
-    fun canPlace(from: String, to: String, t: String): Boolean = placeRefusal(from, to, t) == null
+    /** Whether it may go at all: the rule, not its words, so no language enters it. */
+    fun canPlace(from: String, to: String, t: String): Boolean = placeRefusal(Tx.EN, from, to, t) == null
 
     /**
      * POINTS ARE SPOTS (v52; Amit, 11 Oct 2026 20:35: "electric points are spots . dont let
@@ -823,13 +819,9 @@ object SurveyPrep {
 
     /**
      * One line of a mark's checklist: its key, what it is -- drawn in the language, so a [Msg] over the measure.* keys
-     * (port 61c slice M3a) -- and the photo's estimate (null: site only). The String constructor is for the two
-     * checklists not keyed yet, a Line's and a chain's (SurveyMeas.measures, SurveyChain.measures: port 61c slice
-     * M3b), whose English it draws whatever the language; it goes with M3b.
+     * (port 61c slice M3a; a Line's and a chain's joined M3b) -- and the photo's estimate (null: site only).
      */
-    class Measure(val key: String, val what: Msg, val est: Double?) {
-        constructor(key: String, what: String, est: Double?) : this(key, { _: Tx -> what }, est)
-    }
+    class Measure(val key: String, val what: Msg, val est: Double?)
 
     /**
      * Everything a mark asks the engineer to measure, before dropping what is

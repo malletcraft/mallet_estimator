@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.Readings.Remote
 import com.malletcrafts.interiorestimate.pano.Readings.Seen
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -122,8 +123,8 @@ class ReadingsTest {
         // the next pull of the same server state does not bring it back
         val m = Readings.pull(actual, seen, mapOf("FW1.w" to r(612.0, "t9", "staff@x")))
         assertNull(m.actual["FW1.w"])
-        assertTrue(Readings.orphanText(listOf("FW1.w"))!!.startsWith("FW1.w changed on the web after its mark was deleted here"))
-        assertNull(Readings.orphanText(emptyList()))
+        assertTrue(Readings.orphanText(Tx.EN, listOf("FW1.w"))!!.startsWith("FW1.w changed on the web after its mark was deleted here"))
+        assertNull(Readings.orphanText(Tx.EN, emptyList()))
     }
 
     @Test fun `a conflict the server answered with a delete on a gone mark needs nothing`() {
@@ -131,5 +132,28 @@ class ReadingsTest {
         val seen = mutableMapOf("FW1.w" to Seen(600.0, "t1"))
         assertEquals(emptyList(), Readings.orphans(actual, seen, mapOf("FW1.w" to r(null, "t9")), { false }))
         assertTrue(Readings.push(actual, seen).isEmpty())
+    }
+
+    // ---------------------------------------------------------------- port 61c slice M3b: the words, and the KIND
+
+    @Test fun `the conflict and orphan words render under both Tx -- moved here so pano pins them (the M3b critic)`() {
+        val two = mapOf("F-M1.len" to r(612.0, "t9", "staff@x"), "FK1.t" to r(3310.0, "t9", by = ""))
+        assertEquals("F-M1.len changed on the web by staff@x; FK1.t changed on the web", Readings.conflictText(Tx.EN, two))
+        assertEquals("F-M1.len वेबवर staff@x यांनी बदलले; FK1.t वेबवर बदलले", Readings.conflictText(Tx.MR, two))
+        assertEquals("FW1.w changed on the web after its mark was deleted here — deleted on the web too",
+            Readings.orphanText(Tx.EN, listOf("FW1.w")))
+        assertEquals("इथे मार्क हटवल्यानंतर FW1.w वेबवर बदलले — वेबवरूनही हटवले", Readings.orphanText(Tx.MR, listOf("FW1.w")))
+    }
+
+    @Test fun `the readings line colours by its KIND, and a successful pull that had to say something is never green`() {
+        // critic note 3: a string compare against a now-bilingual text would silently stop colouring; and the M3b
+        // critic's finding 4: OK is "the pull succeeded AND nothing was said" -- a conflict or an orphan on a
+        // successful pull keeps the line amber, which is the behaviour the string compare had
+        assertEquals(Readings.NoteKind.OK, Readings.noteKind(ok = true, notYet = false, clean = true))
+        assertEquals(Readings.NoteKind.FAILED, Readings.noteKind(ok = true, notYet = false, clean = false))
+        assertEquals(Readings.NoteKind.NOT_YET, Readings.noteKind(ok = false, notYet = true, clean = true))
+        assertEquals(Readings.NoteKind.FAILED, Readings.noteKind(ok = false, notYet = true, clean = false))
+        assertEquals(Readings.NoteKind.FAILED, Readings.noteKind(ok = false, notYet = false, clean = true))
+        assertEquals(Readings.NoteKind.FAILED, Readings.noteKind(ok = false, notYet = false, clean = false))
     }
 }

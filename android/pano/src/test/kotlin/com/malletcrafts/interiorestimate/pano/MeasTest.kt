@@ -70,15 +70,16 @@ class MeasTest {
         val d = SurveyMeas.Draft("front", SurveyMeas.TAPE, pt(0.0, 1200.0), W, H)
         d.move(at(pt(0.0, 1200.0), 2678.0, 1.0))
         assertEquals("h", d.snap); assertFalse(d.off)
-        assertTrue(SurveyMeas.dirText(d).startsWith("↔ along the face · "), SurveyMeas.dirText(d))
+        assertTrue(SurveyMeas.dirText(Tx.EN, d).startsWith("↔ along the face · "), SurveyMeas.dirText(Tx.EN, d))
         assertEquals(SurveyMeas.End.PLOTTED, SurveyMeas.end(d))
         // past the left corner into the next wall (ct52: to x = -220): off, the chip says so, refused on release
         val off = SurveyMeas.Draft("front", SurveyMeas.TAPE, pt(1000.0, 1500.0), W, H)
         off.move(pt(-220.0, 1500.0))
         assertTrue(off.off)
-        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText(off))
+        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText(Tx.EN, off))
         assertEquals(SurveyMeas.End.REFUSED, SurveyMeas.end(off))
-        assertEquals("Only things on this surface measure correctly.", SurveyMeas.OFF_REFUSAL)
+        assertEquals("Only things on this surface measure correctly.", SurveyMeas.offRefusal(Tx.EN))
+        assertEquals(SurveyMeas.offRefusal(Tx.EN), SurveyMeas.caution(Tx.EN))
         // within 25 mm past an edge still counts as on (sp.js onFace), as a finger on the boundary line is
         val edge = SurveyMeas.Draft("front", SurveyMeas.LINE, pt(1000.0, 1500.0), W, H)
         edge.move(pt(-20.0, 1500.0)); assertFalse(edge.off)
@@ -94,29 +95,29 @@ class MeasTest {
     }
 
     @Test fun `dirText on a wall, the floor and the ceiling`() {
-        assertEquals("↔ along the face · 1234 mm", SurveyMeas.dirText("front", 1234.4, "h", false))
-        assertEquals("↕ up the face · 2705 mm", SurveyMeas.dirText("left", 2705.0, "v", false))
-        assertEquals("diagonal on the face · 1000 mm", SurveyMeas.dirText("back", 1000.0, "d", false))
-        assertEquals("↔ left–right on the floor · 900 mm", SurveyMeas.dirText("floor", 900.0, "h", false))
-        assertEquals("↕ front–back on the floor · 900 mm", SurveyMeas.dirText("floor", 900.0, "v", false))
-        assertEquals("↔ left–right on the ceiling · 900 mm", SurveyMeas.dirText("ceil", 900.0, "h", false))
-        assertEquals("↕ front–back on the ceiling · 900 mm", SurveyMeas.dirText("ceil", 900.0, "v", false))
-        assertEquals("diagonal on the face · 900 mm", SurveyMeas.dirText("ceil", 900.0, "d", false))
-        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText("floor", 900.0, "h", true))
+        assertEquals("↔ along the face · 1234 mm", SurveyMeas.dirText(Tx.EN, "front", 1234.4, "h", false))
+        assertEquals("↕ up the face · 2705 mm", SurveyMeas.dirText(Tx.EN, "left", 2705.0, "v", false))
+        assertEquals("diagonal on the face · 1000 mm", SurveyMeas.dirText(Tx.EN, "back", 1000.0, "d", false))
+        assertEquals("↔ left–right on the floor · 900 mm", SurveyMeas.dirText(Tx.EN, "floor", 900.0, "h", false))
+        assertEquals("↕ front–back on the floor · 900 mm", SurveyMeas.dirText(Tx.EN, "floor", 900.0, "v", false))
+        assertEquals("↔ left–right on the ceiling · 900 mm", SurveyMeas.dirText(Tx.EN, "ceil", 900.0, "h", false))
+        assertEquals("↕ front–back on the ceiling · 900 mm", SurveyMeas.dirText(Tx.EN, "ceil", 900.0, "v", false))
+        assertEquals("diagonal on the face · 900 mm", SurveyMeas.dirText(Tx.EN, "ceil", 900.0, "d", false))
+        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText(Tx.EN, "floor", 900.0, "h", true))
         // the en dash, as sp.js has it
-        assertTrue(SurveyMeas.dirText("floor", 1.0, "h", false).contains("left–right"))
+        assertTrue(SurveyMeas.dirText(Tx.EN, "floor", 1.0, "h", false).contains("left–right"))
     }
 
     @Test fun `the chips -- Tape, Line, an area started, a drag in progress`() {
-        assertEquals("Tape · drag along the face · the photo gives its length", SurveyMeas.chipText("T", null, 0))
-        assertEquals("Line · drag = a marked length · tap corners = an area", SurveyMeas.chipText("M", null, 0))
-        assertEquals("Line · area · 1 corner · double-tap to end", SurveyMeas.chipText("M", null, 1))
-        assertEquals("Line · area · 3 corners · double-tap to end", SurveyMeas.chipText("M", null, 3))
+        assertEquals("Tape · drag along the face · the photo gives its length", SurveyMeas.chipText(Tx.EN, "T", null, 0))
+        assertEquals("Line · drag = a marked length · tap corners = an area", SurveyMeas.chipText(Tx.EN, "M", null, 0))
+        assertEquals("Line · area · 1 corner · double-tap to end", SurveyMeas.chipText(Tx.EN, "M", null, 1))
+        assertEquals("Line · area · 3 corners · double-tap to end", SurveyMeas.chipText(Tx.EN, "M", null, 3))
         val d = SurveyMeas.Draft("floor", SurveyMeas.LINE, pt(500.0, 500.0), W, L).also { it.move(pt(1400.0, 520.0)) }
-        assertEquals("↔ left–right on the floor · 900 mm", SurveyMeas.chipText("M", d, 2))
-        assertNull(SurveyMeas.chipText("W", null, 0)); assertNull(SurveyMeas.chipText("sel", null, 0))
+        assertEquals("↔ left–right on the floor · 900 mm", SurveyMeas.chipText(Tx.EN, "M", d, 2))
+        assertNull(SurveyMeas.chipText(Tx.EN, "W", null, 0)); assertNull(SurveyMeas.chipText(Tx.EN, "sel", null, 0))
         // nothing calls a tool "Measure" (item 6): the tools are Tape and Line
-        for (t in listOf(SurveyMeas.TAPE_CHIP, SurveyMeas.LINE_CHIP, SurveyMeas.areaChip(3), SurveyMeas.TAPE_NOTE, SurveyMeas.CAUTION))
+        for (t in listOf(SurveyMeas.tapeChip(Tx.EN), SurveyMeas.lineChip(Tx.EN), SurveyMeas.areaChip(Tx.EN, 3), SurveyMeas.tapeNote(Tx.EN), SurveyMeas.caution(Tx.EN)))
             assertFalse(Regex("\\bMeasure\\b").containsMatchIn(t), t)
         assertEquals("Tape", SurveyPrepPalette.toolName(Tx.EN, "T")); assertEquals("Line", SurveyPrepPalette.toolName(Tx.EN, "M"))
     }
@@ -180,7 +181,7 @@ class MeasTest {
             mapOf("id" to "c", "code" to "F-X1", "kind" to "chain?", "pts" to listOf(listOf(1, 2)), "z" to 9))  // a later kind: kept
         w["front"] = front
         val d = assertNotNull(SurveyPrepFile.decode(o.toMutableMap().apply { put("w", w) }))
-        assertEquals(1, d.problems.size); assertTrue(d.problems[0].contains("F-M1"), d.problems[0])
+        assertEquals(1, d.problems.size); assertTrue(d.problems[0](Tx.EN).contains("F-M1"), d.problems[0](Tx.EN))
         val m = d.prep.surface("front").meas
         assertEquals(listOf("F-T1", "F-X1"), m.map { it.code })
         assertTrue(SurveyPrep.isLocked(m[0]))
@@ -343,22 +344,22 @@ class MeasTest {
         val t = p.addMeas("front", SurveyMeas.TAPE, listOf(pt(0.0, 1200.0), pt(1234.0, 1200.0)), "t")
         val m = p.addMeas("front", SurveyMeas.LINE, listOf(pt(500.0, 1600.0), pt(1300.0, 2200.0)), "m")
         val a = p.addMeas("front", SurveyMeas.AREA, listOf(pt(0.0, 0.0), pt(1240.0, 0.0), pt(1240.0, 1500.0)), "a")
-        assertEquals("Tape · 1234 mm · from the photo", SurveyMeas.listName("front", t, false))
-        assertEquals("Tape · 1234 mm · from the photo · Front wall", SurveyMeas.listName("front", t, true))
-        assertEquals("Marked length", SurveyMeas.listName("front", m, false))
-        assertEquals("Marked area · 0.93 m²", SurveyMeas.listName("front", a, false))
-        assertEquals("Marked length · Front wall", SurveyMeas.listName("front", m, true))
-        assertEquals("Tape · 1234 mm", SurveyMeas.rowValue(t, p.actual))
-        assertEquals("≈1000 mm", SurveyMeas.rowValue(m, p.actual))
+        assertEquals("Tape · 1234 mm · from the photo", SurveyMeas.listName(Tx.EN, "front", t, false))
+        assertEquals("Tape · 1234 mm · from the photo · Front wall", SurveyMeas.listName(Tx.EN, "front", t, true))
+        assertEquals("Marked length", SurveyMeas.listName(Tx.EN, "front", m, false))
+        assertEquals("Marked area · 0.93 m²", SurveyMeas.listName(Tx.EN, "front", a, false))
+        assertEquals("Marked length · Front wall", SurveyMeas.listName(Tx.EN, "front", m, true))
+        assertEquals("Tape · 1234 mm", SurveyMeas.rowValue(Tx.EN, t, p.actual))
+        assertEquals("≈1000 mm", SurveyMeas.rowValue(Tx.EN, m, p.actual))
         p.actual["F-M1.len"] = 1004.0
-        assertEquals("1004 mm", SurveyMeas.rowValue(m, p.actual))
-        assertEquals("0.93 m²", SurveyMeas.rowValue(a, p.actual))
+        assertEquals("1004 mm", SurveyMeas.rowValue(Tx.EN, m, p.actual))
+        assertEquals("0.93 m²", SurveyMeas.rowValue(Tx.EN, a, p.actual))
         assertEquals("1234 mm", SurveyMeas.tapeTag(null, 1234.4)); assertEquals("F-T1 1234 mm", SurveyMeas.tapeTag("F-T1", 1234.4))
         assertEquals("F-M1 1000 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, m.pts))
         assertEquals("F-M2 0.93 m²", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, a.pts))
         assertEquals("0.93 m²…", SurveyMeas.lineTag(null, SurveyMeas.AREA, a.pts))
         assertEquals("", SurveyMeas.lineTag(null, SurveyMeas.AREA, a.pts.take(2)))
-        assertEquals("Tape", SurveyMeas.typeName(t)); assertEquals("Marked length", SurveyMeas.typeName(m)); assertEquals("Marked area", SurveyMeas.typeName(a))
+        assertEquals("Tape", SurveyMeas.typeName(Tx.EN, t)); assertEquals("Marked length", SurveyMeas.typeName(Tx.EN, m)); assertEquals("Marked area", SurveyMeas.typeName(Tx.EN, a))
     }
 
     @Test fun `an area by taps -- refused off the face, closed by a double tap or the first corner once it has three`() {

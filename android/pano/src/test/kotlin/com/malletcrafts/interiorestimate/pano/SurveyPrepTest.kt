@@ -591,10 +591,10 @@ class SurveyPrepTest {
     }
 
     @Test fun `a type is placed by what it IS -- no switch plate on the floor, no step on a wall`() {
-        assertEquals("A Switch plate cannot go on the floor", SurveyPrep.placeRefusal("front", "floor", "S"))
-        assertEquals("A Step cannot go on the front wall", SurveyPrep.placeRefusal("floor", "front", "S"))
+        assertEquals("A Switch plate cannot go on the floor", SurveyPrep.placeRefusal(Tx.EN, "front", "floor", "S"))
+        assertEquals("A Step cannot go on the front wall", SurveyPrep.placeRefusal(Tx.EN, "floor", "front", "S"))
         assertFalse(SurveyPrep.canPlace("front", "floor", "S")); assertFalse(SurveyPrep.canPlace("floor", "left", "S"))
-        assertEquals("A Fan cannot go on the floor", SurveyPrep.placeRefusal("ceil", "floor", "F"))
+        assertEquals("A Fan cannot go on the floor", SurveyPrep.placeRefusal(Tx.EN, "ceil", "floor", "F"))
         assertTrue(SurveyPrep.canPlace("front", "ceil", "F")); assertTrue(SurveyPrep.canPlace("front", "right", "S"))
         assertTrue(SurveyPrep.canPlace("floor", "ceil", "E")); assertTrue(SurveyPrep.canPlace("front", "floor", "P"))
         assertFalse(SurveyPrep.canPlace("front", "floor", "W"))

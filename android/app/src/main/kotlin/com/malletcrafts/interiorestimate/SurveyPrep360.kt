@@ -60,6 +60,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch
 import com.malletcrafts.interiorestimate.pano.SurveyRef
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.withContext
@@ -341,7 +342,7 @@ internal fun Sp360(
 
                 /** The surface under screen ([x], [y]) and the mm there (sp.js hitSurface), or null: said. */
                 fun hitAt(x: Double, y: Double): Pano360.Hit? =
-                    Pano360.hitSurface(v0.dirAt(x, y), fr).also { if (it == null) actS.say(Pano360.NO_LINES) }
+                    Pano360.hitSurface(v0.dirAt(x, y), fr).also { if (it == null) actS.say(Pano360.noLines(tx)) }
 
                 /** The finger at ([x], [y]) on surface [s]'s plane, mm (null where it never meets it). */
                 fun mmAt(s: String, x: Double, y: Double): DoubleArray? = Pano360.mmOn(s, fr[s], v0.dirAt(x, y))
@@ -364,7 +365,7 @@ internal fun Sp360(
                     if (tool0 == SurveyPrepPalette.TAPE) { if (startS == null && hitAt(x, y) == null) return; actS.tapeTap(); return }
                     val open = areaSurfS?.takeIf { !areaS0.isNullOrEmpty() }
                     val s = startS ?: open ?: hitAt(x, y)?.s ?: return
-                    val mm = startAt ?: mmAt(s, x, y) ?: run { actS.say(Pano360.NO_LINES); return }
+                    val mm = startAt ?: mmAt(s, x, y) ?: run { actS.say(Pano360.noLines(tx)); return }
                     val a = areaS0
                     val f = fr[s]
                     val near = a != null && a.isNotEmpty() && open == s && f != null &&
@@ -375,8 +376,8 @@ internal fun Sp360(
                 /** Chain on: a point where the finger is (or went down), on the chain's surface or the one under it. */
                 fun chainAt(x: Double, y: Double): Int? {
                     val s = chainS?.s ?: hitAt(x, y)?.s ?: return null
-                    val f = fr[s] ?: run { actS.say(Pano360.NO_LINES); return null }
-                    val mm = mmAt(s, x, y) ?: run { actS.say(Pano360.NO_LINES); return null }
+                    val f = fr[s] ?: run { actS.say(Pano360.noLines(tx)); return null }
+                    val mm = mmAt(s, x, y) ?: run { actS.say(Pano360.noLines(tx)); return null }
                     chainSurf = s; chainTol = Pano360.tolMm(v0, s, f, x, y, mm, d)
                     return actS.chainPress(s, mm, chainTol)
                 }
@@ -633,7 +634,7 @@ internal fun Sp360(
                 val v = Pano360.View(fr0.yaw, fr0.pitch, fr0.fov, size.width.toDouble(), size.height.toDouble())
                 val r = roomSize
                 val fr = Pano360.frames(prep, r[0], r[1], r[2])
-                P3Draw.paint(nc, v, fr, prep, P3Draw.State(sel?.id, tab, tool == SurveyPrepPalette.SEL, drag,
+                P3Draw.paint(nc, tx, v, fr, prep, P3Draw.State(sel?.id, tab, tool == SurveyPrepPalette.SEL, drag,
                     area?.takeIf { !it.isEmpty() }, areaS, chain, gNow, ga, grid), ink, size.width, size.height)
                 // THE FLOATING TRASH (sp.js fTrashP3): beside the picked mark, Tape, Line, area or chain, with Select on,
                 // never for the reference; placed by SurveyPrepTouch.trashSpot as on 2 · Mark, clear of its end handles
@@ -651,13 +652,13 @@ internal fun Sp360(
         // THE TOOL CHIP, as on 2 · Mark: "Placing Window · tap the 360"; the Tape's and Line's live words and caution;
         // the Chain's count and ✓; ✕ back to Select
         val chainN = chain?.nodes?.size ?: 0
-        val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(chainN)
-                       else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tool, drag, area?.size ?: 0)
+        val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(tx, chainN)
+                       else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tx, tool, drag, area?.size ?: 0)
                        else SurveyPrepPalette.chipText(tx, tab, tool, "360")
         if (chipText != null) {
             Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
                 SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool), Modifier,
-                    caution = if (SurveyPrepPalette.isMeasTool(tool) || tool == SurveyPrepPalette.CHAIN) SurveyMeas.CAUTION else null,
+                    caution = if (SurveyPrepPalette.isMeasTool(tool) || tool == SurveyPrepPalette.CHAIN) SurveyMeas.caution(tx) else null,
                     onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null) {
                     act.tool(SurveyPrepPalette.SEL) }
             }
@@ -665,13 +666,13 @@ internal fun Sp360(
         // fit (faces the open face again), the grid, and the view's width in degrees
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
             Column(horizontalAlignment = Alignment.End) {
-                Text("fit", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(tx.sp_fit, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         act.look(Pano360.faceView(tab, 1.0, 1.0)) }.padding(horizontal = 8.dp, vertical = 5.dp))
-                Text("grid", color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                Text(tx.sp_grid, color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
-                        .semantics { contentDescription = "Plane grid"; selected = grid }
+                        .semantics { contentDescription = tx.sp_aria_plane_grid; selected = grid }
                         .clickable(role = Role.Button) { act.grid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 Text(Pano360.zoomText(look.fov), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000))
@@ -736,7 +737,7 @@ private object P3Draw {
     private val LINE_C = SurveyMeas.LINE_COLOUR
     private val TAPE_C = SurveyMeas.TAPE_COLOUR
 
-    fun paint(c: android.graphics.Canvas, v: Pano360.View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep,
+    fun paint(c: android.graphics.Canvas, tx: Tx, v: Pano360.View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep,
               st: State, ink: P3Ink, w: Float, h: Float) {
         val u = ink.dp
         ink.a = 1f
@@ -758,8 +759,8 @@ private object P3Draw {
         for ((s, f) in fr) {
             val sf = prep.surface(s)
             meas(c, v, s, f, sf, st, ink, w, h)
-            chains(c, v, s, f, prep, sf, st, ink, w, h)
-            ref(c, v, s, f, sf, st.selId, ink)
+            chains(c, tx, v, s, f, prep, sf, st, ink, w, h)
+            ref(c, tx, v, s, f, sf, st.selId, ink)
         }
         val g = st.guide
         if (g != null && gS != null) guide(c, v, g, fr.getValue(gS), st.guideA, ink)
@@ -1033,16 +1034,16 @@ private object P3Draw {
     }
 
     /** THE CHAINS on [s] (sp.js drawChains), then the one being drawn there. */
-    private fun chains(c: android.graphics.Canvas, v: Pano360.View, s: String, f: SurveyPrep.Frame, prep: SurveyPrep.Prep,
+    private fun chains(c: android.graphics.Canvas, tx: Tx, v: Pano360.View, s: String, f: SurveyPrep.Frame, prep: SurveyPrep.Prep,
                        sf: SurveyPrep.Surface, st: State, ink: P3Ink, w: Float, h: Float) {
         for (k in sf.chains) if (k.nodes.isNotEmpty())
-            chain(c, v, s, f, k.nodes, k.axis, k.code, SurveyChain.vals(k, prep.actual, f.a, f.b), st.selId == k.id, false,
+            chain(c, tx, v, s, f, k.nodes, k.axis, k.code, SurveyChain.vals(k, prep.actual, f.a, f.b), st.selId == k.id, false,
                 SurveyPrep.isLocked(k), ink, w)
         st.chain?.takeIf { it.s == s && it.nodes.isNotEmpty() }?.let { d ->
-            chain(c, v, s, f, d.nodes, d.axis ?: "x", null, null, false, true, false, ink, w) }
+            chain(c, tx, v, s, f, d.nodes, d.axis ?: "x", null, null, false, true, false, ink, w) }
     }
 
-    private fun chain(c: android.graphics.Canvas, v: Pano360.View, s: String, f: SurveyPrep.Frame, nodes: List<DoubleArray>,
+    private fun chain(c: android.graphics.Canvas, tx: Tx, v: Pano360.View, s: String, f: SurveyPrep.Frame, nodes: List<DoubleArray>,
                       axis: String, code: String?, vals: SurveyChain.Vals?, sel: Boolean, draft: Boolean, locked: Boolean,
                       ink: P3Ink, w: Float) {
         val u = ink.dp; val col = SurveyChain.COLOUR
@@ -1079,12 +1080,12 @@ private object P3Draw {
             var dx = 0.0; var dy = -1.0
             if (q != null) { val l = hypot(q[0] - p[0], q[1] - p[1]); if (l > 0) { dx = (q[0] - p[0]) / l; dy = (q[1] - p[1]) / l } }
             val (t, tc) = if (vals != null) SurveyChain.segFigure(vals, i - 1)
-                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR
+                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR // text:value the ≈ glyph, a figure
             label(c, t, (p[0] + dx * off).toFloat() - textW(t, fs, ink) / 2, (p[1] + dy * off).toFloat() + 4f * u, tc, fs, ink)
         }
         if (vals != null && code != null) {
             val p = scr.last() ?: return
-            val t = SurveyChain.totalTag(code, vals); val ts = 11f * u
+            val t = SurveyChain.totalTag(tx, code, vals); val ts = 11f * u
             val x = max(4f * u, min(w - textW(t, ts, ink) - 6f * u, p[0].toFloat() + 8f * u))
             label(c, t, x, p[1].toFloat() + 20f * u, SurveyChain.totalColour(vals), ts, ink)
         }
@@ -1092,7 +1093,7 @@ private object P3Draw {
 
     /** THE REFERENCE ON THE 360 (item 13): its outline in dashed cyan through the face's frame, "Ref 905 × 2053" by its
      *  top-left corner -- never while its eye is off (SurveyRef.faceQuad), though it still squares the face then. */
-    private fun ref(c: android.graphics.Canvas, v: Pano360.View, s: String, f: SurveyPrep.Frame, sf: SurveyPrep.Surface,
+    private fun ref(c: android.graphics.Canvas, tx: Tx, v: Pano360.View, s: String, f: SurveyPrep.Frame, sf: SurveyPrep.Surface,
                     selId: String?, ink: P3Ink) {
         val mm = SurveyRef.faceQuad(sf, f) ?: return
         val r = SurveyRef.of(sf) ?: return
@@ -1100,6 +1101,6 @@ private object P3Draw {
         val p = ink.stroke(SurveyRef.COLOUR, (if (sel) 3f else 1.5f) * ink.dp, dash = ink.dash85)
         for (i in 0 until 4) Pano360.seg(v, s, f, mm[i], mm[(i + 1) % 4])?.let { seg(c, it, p) }
         Pano360.toS(v, s, f, mm[3][0], mm[3][1])?.let { q ->
-            label(c, SurveyRef.label(r), q[0].toFloat() + 4f * ink.dp, q[1].toFloat() - 6f * ink.dp, SurveyRef.COLOUR, 11f * ink.dp, ink) }
+            label(c, SurveyRef.label(tx, r), q[0].toFloat() + 4f * ink.dp, q[1].toFloat() - 6f * ink.dp, SurveyRef.COLOUR, 11f * ink.dp, ink) }
     }
 }

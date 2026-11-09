@@ -195,8 +195,8 @@ object SurveyPrepEdit {
      *  through Masters; a Tape's, a Line's and a chain's labels are SurveyMeas's and SurveyChain's (port 61c slice M3b). */
     fun labelOf(tx: Tx, p: SurveyPrep.Prep, id: String): String? {
         p.markById(id)?.let { (s, e) -> return e.code + " " + SurveyPrep.typeName(tx, s, e.t) }
-        p.measById(id)?.let { (_, m) -> return SurveyMeas.label(m) }
-        p.chainById(id)?.let { (_, c) -> return SurveyChain.label(c) }
+        p.measById(id)?.let { (_, m) -> return SurveyMeas.label(tx, m) }
+        p.chainById(id)?.let { (_, c) -> return SurveyChain.label(tx, c) }
         return null
     }
 
@@ -216,16 +216,16 @@ object SurveyPrepEdit {
         (if (SurveyPrep.isLocked(e)) "🔒 " else "") + e.code + " " + SurveyPrep.typeName(tx, s, e.t)
 
     /** ... on a Tape or a Line: "F-T1 tape", "🔒 F-M1 marked length". */
-    fun menuHeader(m: SurveyPrep.Meas): String = (if (SurveyPrep.isLocked(m)) "🔒 " else "") + SurveyMeas.label(m)
+    fun menuHeader(tx: Tx, m: SurveyPrep.Meas): String = (if (SurveyPrep.isLocked(m)) "🔒 " else "") + SurveyMeas.label(tx, m) // text:value the padlock glyph
 
     /** ... on a chain: "FK1 chain", "🔒 FK1 chain" (v52 slice 11). */
-    fun menuHeader(c: SurveyPrep.Chain): String = (if (SurveyPrep.isLocked(c)) "🔒 " else "") + SurveyChain.label(c)
+    fun menuHeader(tx: Tx, c: SurveyPrep.Chain): String = (if (SurveyPrep.isLocked(c)) "🔒 " else "") + SurveyChain.label(tx, c) // text:value the padlock glyph
 
     /** The head for any item by its id; null when there is none. The reference's, a Tape's, a Line's and a chain's
      *  heads are SurveyRef's, SurveyMeas's and SurveyChain's (port 61c slice M3b). */
     fun menuHeaderOf(tx: Tx, p: SurveyPrep.Prep, id: String): String? =
-        SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(tx, s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(m) }
-            ?: p.chainById(id)?.let { (_, c) -> menuHeader(c) }
+        SurveyRef.byId(p, id)?.let { (s, r) -> SurveyRef.menuHeader(tx, s, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuHeader(tx, s, e) } ?: p.measById(id)?.let { (_, m) -> menuHeader(tx, m) }
+            ?: p.chainById(id)?.let { (_, c) -> menuHeader(tx, c) }
 
     /** The menu on a mark, in order, as (action, text): Delete · Duplicate · Lock|Unlock · Lock all X|Unlock all X · Cancel
      *  (ct52: "Delete|Duplicate|Lock|Lock all Door|Cancel"). */
@@ -242,7 +242,7 @@ object SurveyPrepEdit {
 
     /** The menu for any item by its id; empty when there is none. The reference's is SurveyRef's (port 61c slice M3b). */
     fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String): List<Pair<String, String>> =
-        SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(tx, p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(tx, p, s, m) }
+        SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(tx, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(tx, p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(tx, p, s, m) }
             ?: p.chainById(id)?.let { (s, c) -> menuItems(tx, p, s, c) } ?: emptyList()
 
     /** "Lock" / "Unlock" and "Lock all" / "Unlock all" are chosen in code, so each is its own whole key (the card's group 2). */

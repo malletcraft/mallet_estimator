@@ -1,5 +1,8 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -39,21 +42,44 @@ object FacePrep {
     val LABEL = mapOf("floor" to "Floor", "front" to "Front wall", "left" to "Left wall",
         "right" to "Right wall", "back" to "Back wall", "ceiling" to "Ceiling")
 
-    /** What each box edge of a face meets — used to say "650 from left wall". */
+    /** What each box edge of a face meets — used to say "650 from left wall". English identity values, resolved to
+     *  the language by [fromWord] (the six measure.* keys); port 61c slice M3b. */
     val EDGE_NAMES: Map<String, Map<String, String>> = mapOf(
-        "front" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "ceiling", "v1" to "floor"),
-        "right" to mapOf("u0" to "front wall", "u1" to "back wall", "v0" to "ceiling", "v1" to "floor"),
-        "back" to mapOf("u0" to "right wall", "u1" to "left wall", "v0" to "ceiling", "v1" to "floor"),
-        "left" to mapOf("u0" to "back wall", "u1" to "front wall", "v0" to "ceiling", "v1" to "floor"),
-        "ceiling" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "back wall", "v1" to "front wall"),
-        "floor" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "front wall", "v1" to "back wall"),
+        "front" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "ceiling", "v1" to "floor"), // text:value identity, resolved by fromWord
+        "right" to mapOf("u0" to "front wall", "u1" to "back wall", "v0" to "ceiling", "v1" to "floor"), // text:value identity, resolved by fromWord
+        "back" to mapOf("u0" to "right wall", "u1" to "left wall", "v0" to "ceiling", "v1" to "floor"), // text:value identity, resolved by fromWord
+        "left" to mapOf("u0" to "back wall", "u1" to "front wall", "v0" to "ceiling", "v1" to "floor"), // text:value identity, resolved by fromWord
+        "ceiling" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "back wall", "v1" to "front wall"), // text:value identity, resolved by fromWord
+        "floor" to mapOf("u0" to "left wall", "u1" to "right wall", "v0" to "front wall", "v1" to "back wall"), // text:value identity, resolved by fromWord
     )
 
-    val STEP_KINDS = listOf("column" to "Column", "beam" to "Beam", "step" to "Other step")
-    val DETAIL_TYPES = listOf("door" to "Door", "window" to "Window", "opening" to "Opening",
-        "electrical" to "Electrical point", "loft" to "Loft")
+    /** English identity maps (their stored kinds and the Dim keys never show); the drawn word is [stepName] /
+     *  [detName], through Masters (port 61c slice M3b). */
+    val STEP_KINDS = listOf("column" to "Column", "beam" to "Beam", "step" to "Other step") // text:value identity, drawn through stepName
+    val DETAIL_TYPES = listOf("door" to "Door", "window" to "Window", "opening" to "Opening", // text:value identity, drawn through detName
+        "electrical" to "Electrical point", "loft" to "Loft") // text:value identity, drawn through detName
     fun stepLabel(kind: String) = STEP_KINDS.firstOrNull { it.first == kind }?.second ?: kind
     fun detailLabel(type: String) = DETAIL_TYPES.firstOrNull { it.first == type }?.second ?: type
+
+    /** A guide or locator word in the language: the first word of [stepLabel] / [detailLabel] through Masters.type
+     *  ("Column" → कॉलम, "Other" → इतर) or trade.electrical ("Electrical" → इलेक्ट्रिकल); an unknown kind as itself. */
+    private fun typeWord(tx: Tx, label: String): String {
+        val w = label.split(" ")[0] // text:value the identity's first word, drawn through Masters
+        return if (w == "Electrical") tx.trade_electrical else Masters.type(tx, w) // text:value identity ("Electrical point" has no Masters.type row; trade.electrical is its word)
+    }
+
+    /** The from-word a locating dimension is drawn with: one of [EDGE_NAMES]' six identities through its measure.*
+     *  key ("from left wall" → डाव्या भिंतीपासून), or a named mark through app.from_x ("from Door 1" → दरवाजा 1 पासून)
+     *  — the card's own pairing for FacePrepDraw.kt's locator tag (port 61c slice M3b). */
+    fun fromWord(tx: Tx, to: String): String = when (to) {
+        "left wall" -> tx.measure_left_wall // text:value identity
+        "right wall" -> tx.measure_right_wall // text:value identity
+        "front wall" -> tx.measure_front_wall // text:value identity
+        "back wall" -> tx.measure_back_wall // text:value identity
+        "floor" -> tx.measure_from_floor // text:value identity
+        "ceiling" -> tx.measure_from_ceiling // text:value identity
+        else -> tx.app_from_x(to)
+    }
 
     // ---------------------------------------------------------------- model
 
@@ -310,20 +336,21 @@ object FacePrep {
     fun spanToRoom(sp: Pair<Double, Double>, u: Double) = sp.first + u * (sp.second - sp.first)
     fun roomToSpan(sp: Pair<Double, Double>, u: Double) = (u - sp.first) / (sp.second - sp.first)
 
-    fun stepName(f: Face, i: Int): String {
+    fun stepName(tx: Tx, f: Face, i: Int): String {
         val k = f.steps[i].kind; var n = 0
         for (j in 0..i) if (f.steps[j].kind == k) n++
-        return "${stepLabel(k).split(" ")[0]} $n"
+        return "${typeWord(tx, stepLabel(k))} $n"
     }
-    fun detName(f: Face, i: Int): String {
+    fun detName(tx: Tx, f: Face, i: Int): String {
         val t = f.dets[i].type; var n = 0
         for (j in 0..i) if (f.dets[j].type == t) n++
-        return "${detailLabel(t).split(" ")[0]} $n"
+        return "${typeWord(tx, detailLabel(t))} $n"
     }
 
-    /** A wall's column or beam carried onto the floor/ceiling: an open dashed guide. */
+    /** A wall's column or beam carried onto the floor/ceiling: an open dashed guide. [label] is a [Msg]: the fp.*
+     *  keys, drawn in whatever language the painter is given (Tx.EN until M8). */
     class PlateGuide(val p0: DoubleArray, val p1: DoubleArray, val q0: DoubleArray, val q1: DoubleArray,
-                     val kind: String, val along: Int, val corrected: Boolean, val label: String)
+                     val kind: String, val along: Int, val corrected: Boolean, val label: Msg)
 
     fun plateGuides(room: Room, face: String): List<PlateGuide> {
         if (face != "floor" && face != "ceiling") return emptyList()
@@ -346,16 +373,23 @@ object FacePrep {
                 val inw = when (wall) { "front" -> intArrayOf(0, -1); "back" -> intArrayOf(0, 1); "right" -> intArrayOf(-1, 0); else -> intArrayOf(1, 0) }
                 val dv = if (face == "floor") intArrayOf(inw[0], -inw[1]) else inw
                 val step = doubleArrayOf(dv[0] * depth / w, dv[1] * depth / h)
+                // the label is the fp.* keys ({wall} the wall's shown name lowercased, a no-op on Devanagari;
+                // {d} whole mm digits), rendered by the painter's tx -- EN byte for byte what was composed before
+                val b = best
+                val label: Msg = { tx ->
+                    val wallName = Masters.surface(tx, LABEL.getValue(wall)).lowercase()
+                    if (b != null) tx.fp_x_wall_corrected_x(name = stepName(tx, f, i), wall = wallName, d = b[1].roundToInt().toString())
+                    else tx.fp_x_wall_depth_unknown(name = stepName(tx, f, i), wall = wallName)
+                }
                 out.add(PlateGuide(p0, p1, clampUV(p0[0] + step[0], p0[1] + step[1]), clampUV(p1[0] + step[0], p1[1] + step[1]),
-                    n.kind, if (dv[0] == 0) 0 else 1, best != null,
-                    "${stepName(f, i)} · $wall wall · " + if (best != null) "corrected for ${best[1].roundToInt()} mm depth" else "depth unknown — draw it here to correct"))
+                    n.kind, if (dv[0] == 0) 0 else 1, best != null, label))
             }
         }
         return out
     }
 
-    /** A floor/ceiling plan step, where this wall's photo shows its face. */
-    class WallGuide(val u0: Double, val u1: Double, val plate: String, val kind: String, val label: String)
+    /** A floor/ceiling plan step, where this wall's photo shows its face. [label] a [Msg], as a [PlateGuide]'s. */
+    class WallGuide(val u0: Double, val u1: Double, val plate: String, val kind: String, val label: Msg)
 
     fun wallGuides(room: Room, face: String): List<WallGuide> {
         if (face !in WALLS) return emptyList()
@@ -364,8 +398,12 @@ object FacePrep {
             val st = s0.norm()
             for (c in plateContacts(room, plate, st)) {
                 if (c.wall != face || (plate == "floor" && endsWall(room, st, c))) continue
+                // fp.x_plan_x_deep: {plate} from view.floor_plan.lc / view.ceiling_plan.lc, {d} whole mm digits
+                val label: Msg = { tx -> tx.fp_x_plan_x_deep(name = stepName(tx, room.face(plate), i),
+                    plate = if (plate == "floor") tx.view_floor_plan_lc else tx.view_ceiling_plan_lc,
+                    d = c.d.roundToInt().toString()) }
                 out.add(WallGuide(clamp01(roomToSpan(sp, toPhoto(g, c.u0, c.d))), clamp01(roomToSpan(sp, toPhoto(g, c.u1, c.d))),
-                    plate, st.kind, "${stepName(room.face(plate), i)} · $plate plan · ${c.d.roundToInt()} mm deep"))
+                    plate, st.kind, label))
             }
         }
         return out
@@ -386,7 +424,7 @@ object FacePrep {
      * (floor/ceiling), and across from the nearest thing beside it at the same
      * height — a wall, a column, or another detail.
      */
-    fun locators(face: String, f: Face, i: Int): List<Locator> {
+    fun locators(tx: Tx, face: String, f: Face, i: Int): List<Locator> {
         val d = f.dets[i]; val names = EDGE_NAMES.getValue(face); val wall = face in WALLS; val out = mutableListOf<Locator>()
         val ue = if (d.sx == 1) d.u1 else d.u0; val ve = if (d.sy == 1) d.v1 else d.v0
         if (wall) { if (d.v1 < 0.999) out.add(Locator(doubleArrayOf(ue, d.v1), doubleArrayOf(ue, 1.0), names.getValue("v1"))) }
@@ -396,8 +434,8 @@ object FacePrep {
                                                else Locator(doubleArrayOf(ue, d.v1), doubleArrayOf(ue, 1.0), names.getValue("v1")))
         }
         var leftAt = 0.0; var leftTo = names.getValue("u0"); var rightAt = 1.0; var rightTo = names.getValue("u1")
-        val others = f.steps.mapIndexed { k, s -> s.norm().let { doubleArrayOf(it.u0, it.v0, it.u1, it.v1) } to stepName(f, k) } +
-            f.dets.mapIndexedNotNull { k, r -> if (k == i) null else doubleArrayOf(r.u0, r.v0, r.u1, r.v1) to detName(f, k) }
+        val others = f.steps.mapIndexed { k, s -> s.norm().let { doubleArrayOf(it.u0, it.v0, it.u1, it.v1) } to stepName(tx, f, k) } +
+            f.dets.mapIndexedNotNull { k, r -> if (k == i) null else doubleArrayOf(r.u0, r.v0, r.u1, r.v1) to detName(tx, f, k) }
         for ((r, name) in others) {
             if (r[3] <= d.v0 || r[1] >= d.v1) continue
             if (r[2] <= d.u0 + 1e-6 && r[2] > leftAt) { leftAt = r[2]; leftTo = name }
@@ -487,17 +525,17 @@ object FacePrep {
      * line (pieces, then its total). This order is what "next unmeasured"
      * walks, and what the CSV lists.
      */
-    fun dims(room: Room, face: String): List<Dim> {
+    fun dims(tx: Tx, room: Room, face: String): List<Dim> {
         val f = room.face(face); val (w, h) = faceDims(room, face); val out = mutableListOf<Dim>()
         fun add(key: String, label: String, calc: Int) = out.add(Dim(key, label, calc, f.meas[key]))
         val pcs = outline(room, face, f); val ek = edgeKeys(pcs)
         pcs.forEachIndexed { n, pc -> add(ek[n], "E${n + 1} · ${pc.side?.let { SIDE_NAME.getValue(it).lowercase() + " edge" } ?: "step face"}", pc.len) }
         for (sd in SIDES) add("T:$sd", "${SIDE_NAME.getValue(sd)} total", if (sd == "top" || sd == "bottom") w else h)
         f.dets.forEachIndexed { i, d ->
-            val dn = detName(f, i)
+            val dn = detName(tx, f, i)
             val ws = detWidths(w, d); ws.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}", mm) }
             val hs = detHeights(h, d); hs.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}", mm) }
-            for (loc in locators(face, f, i)) add(detKey(d, if (loc.horizontal) "lh" else "lv"), "$dn from ${loc.to}", locatorMm(w, h, loc))
+            for (loc in locators(tx, face, f, i)) add(detKey(d, if (loc.horizontal) "lh" else "lv"), "$dn from ${loc.to}", locatorMm(w, h, loc))
         }
         f.lines.forEachIndexed { i, l ->
             val ps = linePieces(w, h, l)
@@ -528,7 +566,8 @@ object FacePrep {
         val marked = f.box != null || f.steps.isNotEmpty() || f.dets.isNotEmpty() || f.lines.isNotEmpty() ||
             f.splits.values.any { it.isNotEmpty() } || f.meas.isNotEmpty()
         if (!marked) return 0
-        return if (dims(room, face).all { it.site != null }) 2 else 1
+        // Tx.EN: only each dimension's site presence is read, never a label
+        return if (dims(Tx.EN, room, face).all { it.site != null }) 2 else 1
     }
 
     /**
@@ -551,9 +590,10 @@ object FacePrep {
         return null
     }
 
-    /** One CSV row per dimension: measure, calculated mm, site mm ("" when not taken). */
+    /** One CSV row per dimension: measure, calculated mm, site mm ("" when not taken). Tx.EN here, not a parameter:
+     *  the CSV is an export, and EXPORTS STAY ENGLISH (decision 4) -- its caller must not see a Tx (check h). */
     fun csvRows(room: Room, face: String): List<Triple<String, Int, String>> =
-        dims(room, face).map { Triple(it.label, it.calc, it.site?.toString() ?: "") }
+        dims(Tx.EN, room, face).map { Triple(it.label, it.calc, it.site?.toString() ?: "") }
 
     // ---------------------------------------------------------------- grid, references
 

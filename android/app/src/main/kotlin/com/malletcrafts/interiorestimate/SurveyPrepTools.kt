@@ -193,7 +193,7 @@ internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: 
             if (caution != null) Text(caution, color = SP_CAUT, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2)
         }
         if (onDone != null) Box(Modifier.size(32.dp).clip(shape).clickable { onDone() }
-            .semantics { contentDescription = SurveyChain.DONE_LABEL; role = Role.Button }, contentAlignment = Alignment.Center) {
+            .semantics { contentDescription = SurveyChain.doneLabel(tx); role = Role.Button }, contentAlignment = Alignment.Center) {
             Text("✓", color = SP_DONE, fontSize = 15.sp, lineHeight = 18.sp, fontWeight = FontWeight.Bold) // text:value glyph
         }
         Box(Modifier.size(32.dp).clip(shape).clickable { onClose() }.semantics { contentDescription = tx.sp_aria_back_select },

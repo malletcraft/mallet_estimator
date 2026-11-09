@@ -1,5 +1,8 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -48,10 +51,12 @@ object SurveyPrepFile {
     /** A chain's keys this build reads (v52 slice 11); its `locked` and anything else are kept as they came. */
     val CHAIN_KEYS = setOf("id", "code", "axis", "nodes", "snaps")
 
-    /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be dropped.
+    /** A prep as read: the prep, the size it was squared to (null when the file has no valid one), and what had to be
+     *  dropped -- each a [Msg], drawn in the language on when the note is drawn (port 61c slice M3b; the stored file,
+     *  its aside names and its keys stay byte-identical).
      *  [points] / [pointLog]: the older points [open] made 50 mm spots, and what that did to them and their readings
      *  (SurveyPrep.normPoints, v52 slice 4). */
-    class Decoded(val prep: SurveyPrep.Prep, val size: DoubleArray?, val problems: List<String>,
+    class Decoded(val prep: SurveyPrep.Prep, val size: DoubleArray?, val problems: List<Msg>,
                   val points: Int = 0, val pointLog: List<String> = emptyList(), val converted: Boolean = points > 0)
 
     private fun num(v: Any?): Double? = when (v) {
@@ -94,7 +99,9 @@ object SurveyPrepFile {
      */
     fun decode(o: Map<String, Any?>): Decoded? {
         val wo = o["w"] as? Map<*, *> ?: return null
-        val problems = mutableListOf<String>()
+        val problems = mutableListOf<Msg>()
+        // the surface's name in the note, in the language on when it is DRAWN (Masters.surface; NAME is the identity)
+        fun surf(tx: Tx, s: String) = Masters.surface(tx, SurveyPrep.NAME.getValue(s))
         val size = sizeOf(o)
         // A missing surface or line takes its default from the room as the file says it is
         // (SurveyPrep.fresh copes with a missing size on its own).
@@ -106,7 +113,8 @@ object SurveyPrepFile {
         for (s in SurveyPrep.SURFACES) {
             val so = wo[s] as? Map<*, *>
             if (so == null) {
-                problems.add("${SurveyPrep.NAME.getValue(s)}: ${if (wo.containsKey(s)) "unreadable" else "missing"}, started again")
+                val present = wo.containsKey(s)
+                problems.add { tx -> if (present) tx.sp_file_x_unreadable_started(surf(tx, s)) else tx.sp_file_x_missing_started(surf(tx, s)) }
                 out[s] = fresh.surface(s).copy()
                 continue
             }
@@ -116,7 +124,7 @@ object SurveyPrepFile {
             for (k in SurveyPrep.SLOTS) {
                 val l = line(so[k])
                 if (l == null) {
-                    problems.add("${SurveyPrep.NAME.getValue(s)}: its ${SurveyPrep.lineNames(s).getValue(k)} was unreadable, placed again")
+                    problems.add { tx -> tx.sp_file_x_line_unreadable(surface = surf(tx, s), line = SurveyPrep.lineName(tx, s, k)) }
                     lines[k] = fresh.surface(s).lines.getValue(k).let { f -> Array(2) { f[it].copyOf() } }
                     set[k] = false
                 } else {
@@ -127,13 +135,14 @@ object SurveyPrepFile {
             }
             val marks = mutableListOf<SurveyPrep.Mark>()
             val els = so["els"]
-            if (els != null && els !is List<*>) problems.add("${SurveyPrep.NAME.getValue(s)}: its marks were unreadable")
+            if (els != null && els !is List<*>) problems.add { tx -> tx.sp_file_x_marks_unreadable(surf(tx, s)) }
             (els as? List<*>)?.forEachIndexed { i, mv ->
                 val m = mv as? Map<*, *>
                 val id = str(m?.get("id")); val t = str(m?.get("t")); val code = str(m?.get("code"))
                 val c = listOf("x0", "x1", "y0", "y1").map { num(m?.get(it)) }
                 if (m == null || id == null || t == null || code == null || c.any { it == null }) {
-                    problems.add("${SurveyPrep.NAME.getValue(s)}: mark ${code ?: "#" + (i + 1)} was unreadable, left out")
+                    val named = code ?: "#" + (i + 1) // text:value a code, or its place in the list
+                    problems.add { tx -> tx.sp_file_x_mark_x_left_out(surface = surf(tx, s), code = named) }
                     return@forEachIndexed
                 }
                 marks.add(SurveyPrep.Mark(id, t, code, c[0]!!, c[1]!!, c[2]!!, c[3]!!, unknown(m, MARK_KEYS)))
@@ -142,7 +151,7 @@ object SurveyPrepFile {
             // itself; a kind a later build adds is kept and written back as it came (it is drawn by nothing here)
             val meas = mutableListOf<SurveyPrep.Meas>()
             val mo = so["meas"]
-            if (mo != null && mo !is List<*>) problems.add("${SurveyPrep.NAME.getValue(s)}: its measurements were unreadable")
+            if (mo != null && mo !is List<*>) problems.add { tx -> tx.sp_file_x_measurements_unreadable(surf(tx, s)) }
             (mo as? List<*>)?.forEachIndexed { i, mv ->
                 val m = mv as? Map<*, *>
                 val id = str(m?.get("id")); val code = str(m?.get("code")); val kind = str(m?.get("kind"))
@@ -152,7 +161,8 @@ object SurveyPrepFile {
                 val ok = m != null && id != null && code != null && kind != null && pts != null && pts.all { it != null } &&
                     (if (kind == SurveyMeas.TAPE || kind == SurveyMeas.LINE) pts.size == 2 else pts.size >= need)
                 if (!ok) {
-                    problems.add("${SurveyPrep.NAME.getValue(s)}: measurement ${code ?: "#" + (i + 1)} was unreadable, left out")
+                    val named = code ?: "#" + (i + 1) // text:value a code, or its place in the list
+                    problems.add { tx -> tx.sp_file_x_measurement_x_left_out(surface = surf(tx, s), code = named) }
                     return@forEachIndexed
                 }
                 meas.add(SurveyPrep.Meas(id!!, kind!!, code!!, pts!!.map { it!! }.toMutableList(), unknown(m!!, MEAS_KEYS)))
@@ -161,13 +171,14 @@ object SurveyPrepFile {
             // "y" is "x" (sp.js: `axis:D.axis||'x'`); snaps padded with nulls to the points. One that cannot be read costs itself
             val chains = mutableListOf<SurveyPrep.Chain>()
             val co = so["chains"]
-            if (co != null && co !is List<*>) problems.add("${SurveyPrep.NAME.getValue(s)}: its chains were unreadable")
+            if (co != null && co !is List<*>) problems.add { tx -> tx.sp_file_x_chains_unreadable(surf(tx, s)) }
             (co as? List<*>)?.forEachIndexed { i, cv ->
                 val c = cv as? Map<*, *>
                 val id = str(c?.get("id")); val code = str(c?.get("code"))
                 val nodes = (c?.get("nodes") as? List<*>)?.map { point(it) }
                 if (c == null || id == null || code == null || nodes == null || nodes.size < 2 || nodes.any { it == null }) {
-                    problems.add("${SurveyPrep.NAME.getValue(s)}: chain ${code ?: "#" + (i + 1)} was unreadable, left out")
+                    val named = code ?: "#" + (i + 1) // text:value a code, or its place in the list
+                    problems.add { tx -> tx.sp_file_x_chain_x_left_out(surface = surf(tx, s), code = named) }
                     return@forEachIndexed
                 }
                 val sl = c["snaps"] as? List<*>
@@ -180,11 +191,11 @@ object SurveyPrepFile {
         }
         val actual = LinkedHashMap<String, Double>()
         val ao = o["actual"]
-        if (ao != null && ao !is Map<*, *>) problems.add("the readings were unreadable")
+        if (ao != null && ao !is Map<*, *>) problems.add { tx -> tx.sp_file_readings_unreadable }
         (ao as? Map<*, *>)?.forEach { (k, v) ->
             val key = k as? String ?: return@forEach
             val d = num(v)
-            if (d == null) problems.add("reading $key was unreadable, left out") else actual[key] = d
+            if (d == null) problems.add { tx -> tx.sp_file_reading_x_left_out(key) } else actual[key] = d
         }
         val extraSurfaces = LinkedHashMap<String, Any?>()
         for ((k, v) in wo) if (k is String && k !in SurveyPrep.SURFACES) extraSurfaces[k] = v
@@ -319,7 +330,7 @@ object SurveyPrepFile {
     }
 
     /** The one-time note when opening re-centred older points; null when it did not. */
-    fun pointsNote(o: Opened): String? = pointsOf(o).takeIf { it > 0 }?.let { n -> "$n point${if (n == 1) "" else "s"} re-centred" }
+    fun pointsNote(o: Opened): Msg? = pointsOf(o).takeIf { it > 0 }?.let { n -> { tx: Tx -> tx.sp_file_x_points_recentred(n) } }
 
     // ------------------------------------------------------- the JSON library
 
@@ -370,26 +381,27 @@ object SurveyPrepFile {
     /** Whether a file name is a prep set aside for [id]. */
     fun isAside(id: String, name: String): Boolean = name.startsWith("$id.bad-") && name.endsWith(".json")
 
-    /** The screen's first word on a prep: the saved-state text beside the title. */
-    fun savedText(o: Opened): String = when (o) {
-        is Opened.Missing -> "Nothing saved yet"
-        is Opened.Restored -> "Restored ✓"
-        is Opened.Salvaged -> "Restored in part"
-        is Opened.Unreadable -> "Started fresh"
+    /** The screen's first word on a prep: the saved-state text beside the title (a [Msg], port 61c slice M3b). */
+    fun savedText(o: Opened): Msg = when (o) {
+        is Opened.Missing -> { tx -> tx.common_nothing_saved_yet }
+        is Opened.Restored -> { tx -> tx.common_restored }
+        is Opened.Salvaged -> { tx -> tx.sp_file_restored_in_part }
+        is Opened.Unreadable -> { tx -> tx.sp_file_started_fresh }
     }
 
-    /** The line that stays on screen when the saved prep could not be read whole; null when it was. */
-    fun openedNote(o: Opened): String? = when (o) {
+    /** The line that stays on screen when the saved prep could not be read whole; null when it was. {first} renders
+     *  problems[0] with the same tx; the aside file NAME is data, byte-identical in every language. */
+    fun openedNote(o: Opened): Msg? = when (o) {
         is Opened.Missing, is Opened.Restored -> null
-        is Opened.Salvaged -> {
+        is Opened.Salvaged -> { tx: Tx ->
             val n = o.decoded.problems.size
-            "Part of the saved prep could not be read ($n thing${if (n == 1) "" else "s"}: " +
-                o.decoded.problems.first() + (if (n > 1) " …" else "") + "). " +
-                (o.aside?.let { "The file as it was is kept as $it." }
-                    ?: "The file as it was could not be copied aside: nothing here is saved, so it is not overwritten.")
+            val first = o.decoded.problems.first()(tx)
+            val more = if (n > 1) " …" else "" // text:value the more-than-one glyph
+            o.aside?.let { tx.sp_file_part_unreadable_kept_x(n = n, first = first, more = more, file = it) }
+                ?: tx.sp_file_part_unreadable_not_aside(n = n, first = first, more = more)
         }
-        is Opened.Unreadable ->
-            o.aside?.let { "The saved prep could not be read. It is kept as $it, and this room starts fresh." }
-                ?: "The saved prep could not be read, nor moved aside: nothing here is saved, so it is not overwritten."
+        is Opened.Unreadable -> { tx: Tx ->
+            o.aside?.let { tx.sp_file_unreadable_kept_x(it) } ?: tx.sp_file_unreadable_not_aside
+        }
     }
 }

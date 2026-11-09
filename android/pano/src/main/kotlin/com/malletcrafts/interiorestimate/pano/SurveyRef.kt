@@ -52,46 +52,50 @@ object SurveyRef {
     /** The measured face differing from the laser's by more than this, mm, is said in amber (sp.js reftxt). */
     const val OFF_MM = 20.0
 
-    // ------------------------------------------------------------ the words (sp.js, exactly)
+    // ------------------------------------------------------------ the words (sp.js, exactly; keyed in port 61c slice M3b)
 
     /** Every delete path, with no undo entry (sp.js refNoDelete). */
-    const val NO_DELETE = "The reference stays — hide it with the eye in 1 · Lines"
+    fun noDelete(tx: Tx) = tx.sp_msg_reference_stays_hide_eye
     /** The eye's screen-reader label (sp.js aria-label). */
-    const val EYE_LABEL = "Show on faces"
-    const val EDGES = "Edges · laser"
-    const val REFERENCE = "Reference ▭"
-    const val SIZE_FROM = "Size from"
-    const val PLACE_HINT = "Drag the four cyan corners onto a rectangle on this surface, then type its width and height"
+    fun eyeLabel(tx: Tx) = tx.sp_aria_show_faces
+    fun edges(tx: Tx) = tx.sp_edges_laser
+    fun reference(tx: Tx) = tx.sp_reference
+    fun sizeFrom(tx: Tx) = tx.sp_size_from
+    fun placeHint(tx: Tx) = tx.sp_drag_four_cyan_corners
 
     /** What the eye says (sp.js setRefShown). */
-    fun shownSaid(s: String, shown: Boolean) =
-        if (shown) "Reference shown on 2 · Mark, 3 · List and 4 · 360"
-        else "Reference hidden on the faces — it still squares the ${SurveyPrep.NAME.getValue(s).lowercase()}"
+    fun shownSaid(tx: Tx, s: String, shown: Boolean) =
+        if (shown) tx.sp_reference_shown_2_mark
+        else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
 
     /** What it is called: "Front wall reference" (the menu's head, a refusal). */
-    fun name(s: String) = "${SurveyPrep.NAME.getValue(s)} reference"
+    fun name(tx: Tx, s: String) = tx.sp_x_reference(Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 
     /** A locked reference's corner dragged (sp.js hitLines): "Front wall reference is locked — unlock first" -- the
      *  prototype's own whole key, keyed with SurveyPrepEdit.refusal in port 61c slice M3a. */
     fun lockedSaid(tx: Tx, s: String) = tx.refuse_sp_x_reference_locked_unlock(Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 
     /** The long-press menu's head: "Front wall reference", "🔒 Front wall reference". */
-    fun menuHeader(s: String, locked: Boolean) = (if (locked) "🔒 " else "") + name(s)
+    fun menuHeader(tx: Tx, s: String, locked: Boolean) = (if (locked) "🔒 " else "") + name(tx, s) // text:value the padlock glyph
 
     /** The menu on it: Lock (or Unlock) · Cancel -- no Delete, no Duplicate, no Lock all (ct52 X4). */
-    fun menuItems(locked: Boolean): List<Pair<String, String>> =
-        listOf(SurveyPrepEdit.LOCK to if (locked) "Unlock" else "Lock", SurveyPrepEdit.CANCEL to "Cancel")
+    fun menuItems(tx: Tx, locked: Boolean): List<Pair<String, String>> =
+        listOf(SurveyPrepEdit.LOCK to if (locked) tx.common_unlock else tx.common_lock, SurveyPrepEdit.CANCEL to tx.common_cancel)
 
-    /** Its padlock's screen-reader label: "Lock the front wall reference". */
-    fun lockLabel(s: String, locked: Boolean) = "${if (locked) "Unlock" else "Lock"} the ${name(s).lowercase()}"
+    /** Its padlock's screen-reader label: "Lock the front wall reference" -- sp.aria.lock_x / unlock_x over
+     *  sp.the_x_reference, the card's own pairing (its where-note names it). */
+    fun lockLabel(tx: Tx, s: String, locked: Boolean): String {
+        val what = tx.sp_the_x_reference(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
+        return if (locked) tx.sp_aria_unlock_x(what) else tx.sp_aria_lock_x(what)
+    }
 
-    private fun fig(v: Double?): String = v?.let { if (it == Math.rint(it)) it.toLong().toString() else it.roundToInt().toString() } ?: "?"
+    private fun fig(v: Double?): String = v?.let { if (it == Math.rint(it)) it.toLong().toString() else it.roundToInt().toString() } ?: "?" // text:value the unknown-size glyph
 
-    /** Its label on the photo: "Ref 905 × 2053", "Ref ? × ?" before its size is typed (sp.js drawRef). */
-    fun label(r: Ref) = "Ref ${fig(r.w)} × ${fig(r.h)}"
+    /** Its label on the photo: "Ref 905 × 2053" / "संदर्भ 905 × 2053", "Ref ? × ?" before its size is typed (sp.js drawRef). */
+    fun label(tx: Tx, r: Ref) = tx.sp_ref_x_x(fig(r.w), fig(r.h))
 
     /** The face tab's subtitle while it squares that face, 9 sp in cyan: "Ref 905 × 2053"; null otherwise. */
-    fun tabText(sf: SurveyPrep.Surface): String? = of(sf)?.takeIf { on(it) }?.let { label(it) }
+    fun tabText(tx: Tx, sf: SurveyPrep.Surface): String? = of(sf)?.takeIf { on(it) }?.let { label(tx, it) }
 
     // ------------------------------------------------------------ the record
 
@@ -328,20 +332,21 @@ object SurveyRef {
      * · laser 2678 × 2677" and " ✓", or " · differs by +12 / −30 mm" in amber past [OFF_MM]; else the placing hint.
      * [laser] the face's laser size. Second: amber.
      */
-    fun refText(s: String, f: SurveyPrep.Frame?, laser: DoubleArray): Pair<String, Boolean> {
-        if (f == null || f.ref == null) return PLACE_HINT to false
+    fun refText(tx: Tx, s: String, f: SurveyPrep.Frame?, laser: DoubleArray): Pair<String, Boolean> {
+        if (f == null || f.ref == null) return placeHint(tx) to false
         val t = SurveyPrep.sizeTag(s)
         val dA = f.a - laser[0]; val dB = f.b - laser[1]
         val off = abs(dA) > OFF_MM || abs(dB) > OFF_MM
-        fun sgn(d: Double): String { val r = d.roundToInt(); return (if (r > 0) "+" else if (r < 0) "−" else "±") + abs(r) }
-        return ("Measured ${t.first} ${f.a.roundToInt()} × ${t.second} ${f.b.roundToInt()} · laser ${laser[0].roundToInt()} × ${laser[1].roundToInt()}" +
-            (if (off) " · differs by ${sgn(dA)} / ${sgn(dB)} mm" else " ✓")) to off
+        fun sgn(d: Double): String { val r = d.roundToInt(); return (if (r > 0) "+" else if (r < 0) "−" else "±") + abs(r) } // text:value sign glyphs on a figure
+        return (tx.sp_measured_x_x_x(ta = t.first, A = f.a.roundToInt().toString(), tb = t.second, B = f.b.roundToInt().toString(),
+            LS0 = laser[0].roundToInt().toString(), LS1 = laser[1].roundToInt().toString()) +
+            (if (off) tx.sp_differs_x_x_mm(sgn(dA), sgn(dB)) else " ✓")) to off // text:value the agreement glyph
     }
 
     /** [refText] for face [s] of [prep] at the laser size [l] x [w] x [h] (what 1 · Lines shows under the boxes). */
-    fun refText(s: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double): Pair<String, Boolean> {
-        val sf = prep.surfaces[s] ?: return PLACE_HINT to false
-        return refText(s, frameFromReference(sf.lines, of(sf)), SurveyPrep.size(s, l, w, h))
+    fun refText(tx: Tx, s: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double): Pair<String, Boolean> {
+        val sf = prep.surfaces[s] ?: return placeHint(tx) to false
+        return refText(tx, s, frameFromReference(sf.lines, of(sf)), SurveyPrep.size(s, l, w, h))
     }
 
     // ------------------------------------------------------------ the D2 into a reference box
@@ -371,14 +376,14 @@ object SurveyRef {
     sealed class Route {
         /** Into reference box [k] of face [s]: its W or H, never a reading key. */
         class Ref(val s: String, val k: String) : Route()
-        /** Set aside, and [note] says so. */
-        class Drop(val note: String) : Route()
+        /** Set aside: the caller says [leftSaid] of [mm]. */
+        class Drop(val mm: Int) : Route()
         /** As if no reference box were armed: the active measurement's, or "tap a measurement first". */
         object Normal : Route()
     }
 
-    /** What a set-aside reading says. */
-    fun leftSaid(mm: Int) = "D2 $mm mm — not used: the reference box was left"
+    /** What a set-aside reading says (rendered at say() time with the live tx, port 61c slice M3b). */
+    fun leftSaid(tx: Tx, mm: Int) = tx.sp_msg_d2_x_ref_left(mm.toString())
 
     /**
      * A reading of [mm] arriving at [now] with [shot] out: into its box while that box is in front and its face still has
@@ -387,7 +392,7 @@ object SurveyRef {
      */
     fun route(shot: Shot?, prep: SurveyPrep.Prep, mm: Int, now: Long): Route {
         if (shot == null) return Route.Normal
-        if (shot.left) return if (now - shot.at in 0..SHOT_MS) Route.Drop(leftSaid(mm)) else Route.Normal
+        if (shot.left) return if (now - shot.at in 0..SHOT_MS) Route.Drop(mm) else Route.Normal
         val r = prep.surfaces[shot.s]?.let { of(it) }
         return if (placed(r) && (shot.k == "w" || shot.k == "h")) Route.Ref(shot.s, shot.k) else Route.Normal
     }

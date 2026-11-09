@@ -2456,15 +2456,19 @@ android/i18n (the card's survey-prep group and its near-match pairs, `sp.*`, `re
 labels and its plan-guide label, screens the prototype never had (decision 6: Marathi by Claude, flag `phone-text`):
 
 - `fp.x_wall_corrected_x` · EN `{name} · {wall} · corrected for {d} mm depth` · MR
-  `{name} · {wall} · {d} mm खोली धरून दुरुस्त`
+  `{name} · {wall} · {d} mm डेप्थ धरून दुरुस्त`
 - `fp.x_wall_depth_unknown` · EN `{name} · {wall} · depth unknown — draw it here to correct` · MR
-  `{name} · {wall} · खोली माहीत नाही — दुरुस्तीसाठी इथे काढा`
-- `fp.x_plan_x_deep` · EN `{name} · {plate} · {d} mm deep` · MR `{name} · {plate} · {d} mm खोल`
+  `{name} · {wall} · डेप्थ माहीत नाही — दुरुस्तीसाठी इथे काढा`
+- `fp.x_plan_x_deep` · EN `{name} · {plate} · {d} mm deep` · MR `{name} · {plate} · {d} mm डेप्थ`
 
-`{name}` is a stepName rendered through tx (below), `{wall}` the wall's shown name lowercased
-(`Masters.surface(tx, NAME).lowercase()` — "front wall" in English byte for byte, a no-op on Devanagari: the
+(depth = डेप्थ, what staff say, as every shipped `measure.*depth*` row has it; the first version of this section
+wrote खोली/खोल, which reads as ROOM in this app's own register — the M3b critic's finding 1, applied before the
+keys were built.) `{name}` is a stepName rendered through tx (below), `{wall}` the wall's shown name lowercased
+(`Masters.surface(tx, LABEL).lowercase()` — "front wall" in English byte for byte, a no-op on Devanagari: the
 cannotGo pattern M3a reviewed), `{plate}` is `view.floor_plan.lc` / `view.ceiling_plan.lc` ("floor plan" /
-"फ्लोअर प्लॅन"), `{d}` an Int. 1,794 → 1,797 keys; Tx IS regenerated, with the repo's generator task under nice
+"फ्लोअर प्लॅन"), `{d}` a String of whole mm digits — not the Int this section first said: the generator types Int
+only for a `.length`/`.size` count or a folded plural, and bare digits are a Word, passed as given (found in the
+build). 1,794 → 1,797 keys; Tx IS regenerated, with the repo's generator task under nice
 (`nice -n 15 gradle :pano:i18nGen --offline`), never hand-edited; `nice -n 15 gradle :pano:i18nRatchet --offline`
 afterwards (it only lowers counts).
 
@@ -2539,7 +2543,11 @@ afterwards (it only lowers counts).
   plan-guide label become the three fp.* keys above.
 - **SurveyPrep.kt.** `lineNames(s)` (the Tx.EN render M3a left for the two M3b readers) is DELETED — both readers
   now take a tx — and `Measure`'s String constructor with it; no fallback stays (the NO FALLBACKS rule: a second
-  way to render a line name is a second answer).
+  way to render a line name is a second answer). `placeRefusal` threads the tx to Pano360's; `canPlace` keeps its
+  signature (the rule, not its words).
+- **SurveyPrepEdit.kt** (moved here from the app/ list — the M3b critic's finding 5): `menuHeaderOf` / `menuItemsOf`
+  hand the reference's branch a tx (`SurveyRef.menuHeader(tx, …)`, `menuItems(tx, …)`), and `labelOf` /
+  `menuHeader` thread it to `SurveyMeas.label(tx, m)` and `SurveyChain.label(tx, c)`.
 
 **app/:**
 - **SurveyPrepDraw.kt (9 → 0, joins ported.txt).** The 9 rows are glyphs and separators (" ", " | ", "+", "?",
@@ -2553,25 +2561,45 @@ afterwards (it only lowers counts).
   1017/1030, segFigure at 1083, totalTag at 1089, SurveyRef.label at 1103), so the 360 view changes through the
   one :pano source, plus its chip (`SurveyMeas.chipText`, CAUTION, `SurveyChain.chipText`) through the tx.
 - **ReadingsSync.kt (4 → 0, joins ported.txt).** NOT_YET → `sp.web_readings_not_yet` behind a KIND the Msg
-  carries (critic note 3); `conflictText(tx, conflicts)` → `sp_x_changed_web(code)` /
-  `sp_x_changed_web_by_x(code, by)` joined with "; " (a value). The PULL path (survey prep) renders with the
-  screen's tx; the PUSH path's note (AsIsUpload's status line, M2's screen) composes with `Tx.EN` until M2 — a
-  stored-note twin of M4's REPLACED / NOT_SENT rule, named in the code.
+  carries (critic note 3); **`conflictText` MOVES INTO :pano, beside `Readings.orphanText`** (`Readings.conflictText
+  (tx, conflicts)` → `sp_x_changed_web(code)` / `sp_x_changed_web_by_x(code, by)` joined with "; ", a value) — the
+  M3b critic's finding 4: ReadingsSync is :app (it imports android.content.Context), so the ":pano half pins
+  conflictText" this section first promised could not run there; moved, the pin is real. The PULL path (survey
+  prep) renders with the screen's tx; the PUSH path's note (AsIsUpload's status line, M2's screen) composes with
+  `Tx.EN` until M2 — a stored-note twin of M4's REPLACED / NOT_SENT rule, named in the code.
 - **SurveyPrepScreen.kt (already in ported.txt).** Call-site changes only: the readingsMsg branches drop the
   English constants (and the `msg == ReadingsSync.NOT_YET` COLOUR comparison at 1612 becomes the kind flag —
-  critic note 3); savedMsg takes SurveyPrepFile's Msg; every refusal from a pano Finish/Press/End is rendered at
-  say() time with the live tx (say() keeps a String: M3a's rule, a note raised before a language flip is not
-  redrawn).
-- **SurveyPrepTools.kt** (DONE_LABEL's reader), **SurveyPrepEdit.kt** (menuItems/menuHeader for the reference):
-  signatures follow.
+  critic note 3). **The KIND is `Readings.noteKind(ok, notYet, clean)`, and OK means the fetch SUCCEEDED AND
+  `said.isEmpty()`** — a successful pull that applied a conflict or re-deleted an orphan stays amber, which is
+  today's behaviour exactly (green required a clean "✓" line, because the conflict head is prefixed to it); a kind
+  mapped from the fetch outcome alone would have turned a conflict-carrying pull green in both languages — the M3b
+  critic's finding 4, and the case is pinned. savedMsg takes SurveyPrepFile's Msg; every refusal from a pano
+  Finish/Press/End is rendered at say() time with the live tx (say() keeps a String: M3a's rule, a note raised
+  before a language flip is not redrawn).
+- **SurveyPrepTools.kt** (DONE_LABEL's reader): signatures follow. (**SurveyPrepEdit.kt**, the reference's
+  menuItems/menuHeader and labelOf, is :pano, not app/ — the M3b critic's finding 5, moved to the pano/ list above,
+  because the grouping says which changes :pano tests run against. No row counts move: it has no unkeyed rows and
+  has been in ported.txt since M3a.)
 - **FacePrepDraw.kt (9 → 0, joins ported.txt).** The composed figure strings ("$a | ${len - a} mm", "$tot mm",
   "E$n ${pc.len}", "L${i + 1}", …) are marked `// text:value` (codes, digits, mm); the words go through the
-  FacePrep tx functions above — **and both of its callers (FacePrepScreen, FaceWriter.rewriteSurvey) pass
-  `Tx.EN`** until M8 flips the screen's argument, so Face Prep stays wholly English under मराठी today (critic
-  note 1) and the ImageMeter photo stays English for good (critic note 6).
+  FacePrep tx functions above — **and both of its callers pass `Tx.EN`: FacePrepScreen's screen Canvas (until M8)
+  and FacePrepScreen.exportAll, the ImageMeter photo writer (for good)**. The second caller is exportAll
+  (FacePrepScreen.kt, `private fun exportAll`'s draw of the "-faceprep.jpg" photos), NEVER FaceWriter.rewriteSurvey,
+  whose only painter call is SurveyPrepDraw.drawMarks — the M3b critic's finding 3; this section first named
+  FaceWriter, the same fault S5-P's review recorded as "the callers named rightly". So Face Prep stays wholly
+  English under मराठी today (critic note 1), the ImageMeter photo stays English for good (critic note 6), and
+  exportAll is pinned the way check (h) pins FaceWriter: I18nLiteralTest's (h) companion refuses any Tx mention in
+  exportAll but the literal `Tx.EN` and requires its draw to pass it — so M8's flip of the SCREEN call cannot
+  silently turn the exported photos Marathi.
 - **FaceWriter.kt.** The survey sheet pictures (`drawMarks(mode = "sheet")`) pass `Tx.EN` explicitly: the
   prototype's decision 4 verbatim — "EXPORTS STAY ENGLISH … the PDF and image writers build their text from the
-  English strings, never from the screen" (critic note 6).
+  English strings, never from the screen" (critic note 6). **And check (h) CHANGES WITH IT, as a decision** (the
+  M3b critic's finding 2: the slice's own suite would have gone red as first planned — (h) scanned the whole of
+  FaceWriter.kt and refused every Tx token, and drawMarks' tx has no default, so FaceWriter must write `Tx.EN`):
+  (h) now exempts, in FaceWriter.kt alone, exactly the literal `Tx.EN` — never `tx`, never LocalTx, never Tx.MR,
+  never a read like `Tx.EN.x`, plus the import that names it — and a companion test pins that the sheet render's
+  argument is `Tx.EN` specifically. (h) stays decision 4's enforcement: the export sees no LIVE language, only the
+  pinned English table.
 
 **The words drawn on the photo — what translates and what stays Latin** (each proven by the page's own layer,
 `vis()`, and the मराठी screenshots):
@@ -2618,12 +2646,17 @@ Nothing.
   returns a point inside the canvas for a text 1.6 × the English width (it is pure, so this is a real test, not a
   budget). The RENDERING itself has one proof, the phone (M3a review fix 4's sentence), and the prototype
   screenshots in this derivation are its preview.
-- The readingsMsg KIND: a test that the not-yet line colours by the kind, never by string equality (the :app half
-  is CI's; the pano half pins conflictText / orphanText under both Tx).
+- The readingsMsg KIND: a test that the not-yet line colours by the kind, never by string equality — and that a
+  SUCCESSFUL pull that had to say something is never OK (the conflict-carrying case, the M3b critic's finding 4).
+  The :app half (the colour `when` itself) is CI's; the pano half pins `Readings.noteKind`'s whole truth table and
+  `conflictText` / `orphanText` under both Tx — real pins now that conflictText lives in :pano (finding 4).
 - The i18n suite: I18nTableTest (1,797 keys, the three fp.* rows flagged `phone-text` with their where lists),
   TxRenderTest (the three new templates render), I18nLiteralTest (a)–(d) over the 145 removed rows and 10 added
   ported.txt files, (f)/(i) over every renamed member — the M3a lesson: a deleted constant's SECOND reader is
-  what (i) exists to catch — and the Tx-lambda parameter rule.
+  what (i) exists to catch — the Tx-lambda parameter rule, AND (h) with its M3b change (the M3b critic's finding 2:
+  (h) exempts exactly the literal `Tx.EN` in FaceWriter.kt, and its companion pins the sheet render's and
+  exportAll's arguments as `Tx.EN`), listed here because the first version of this section planned "FaceWriter
+  passes Tx.EN" without naming (h) and would have shipped a red suite.
 - The CI gate; `:app` compiles only in CI (push batch-next, wait for android-app.yml) — nothing here has been seen
   on a phone.
 
@@ -2656,7 +2689,9 @@ their failure mode is overlap, not loss.
   two refusals reach the screen only through DistoClient's onRefused, so they ride with it.
 - **M8** — Face Prep's CHROME (FacePrepScreen's 122 rows, FacePrep.kt's remaining 17: the Measure sheet's Dim
   labels, the capitalised side names, the piece labels), Annotate, the Laser test screen, the S5 sign-in sheet —
-  and the one-line flip of FacePrepScreen's painter argument from Tx.EN to the live tx.
+  and the one-line flip of FacePrepScreen's SCREEN-CANVAS painter argument from Tx.EN to the live tx (that one
+  call alone: exportAll's stays Tx.EN for good and (h)'s companion refuses any other Tx there, so the flip cannot
+  catch the export — the M3b critic's finding 3).
 
 **The M3b critic** — raised by a careful reader, answered:
 
@@ -2704,10 +2739,42 @@ their failure mode is overlap, not loss.
     (claude.ai/artifact/64peToYoeaRz9UNwB926m5) and this section's recipe. Nothing from the real capture's client
     data enters the repo (deny-patterns hold: the probe strings use room-geometry figures only).
 
+**The M3b critic, second pass** — five findings on this section as committed (87e8768), each checked in the source
+before the build; all five CONFIRMED and applied, and the section above corrected in place:
+
+1. *खोली for depth in the three fp.* MRs.* Confirmed: strings-mr.json renders every depth key with डेप्थ and its
+   notes say outright "खोली would read as 'room' on these screens", while ~50 shipped keys use खोली for room. The
+   three MRs were re-worded with डेप्थ before the keys were built, and SurveyDrawMarathiTest pins the corrected
+   strings. (Found alongside it in the build: `{d}` is a String, not the Int this section claimed — the generator
+   types Int only for a count expression or a folded plural.)
+2. *Check (h) refuses any Tx token in FaceWriter.kt, and the section never named (h).* Confirmed: (h) scans the
+   whole file and `drawMarks`' tx has no default, so the slice as planned shipped a red suite. (h) now exempts
+   exactly the literal `Tx.EN` there (and the import), a companion test pins the sheet render's argument, and the
+   change is recorded above as a decision — (h) IS decision 4's enforcement.
+3. *FacePrepDraw's second caller named wrongly (FaceWriter.rewriteSurvey).* Confirmed by grep: the two callers are
+   both in FacePrepScreen.kt — the screen Canvas and `private fun exportAll`, the ImageMeter photo writer; FaceWriter
+   never touches FacePrepDraw. The section now names exportAll, pins it English for good through (h)'s companion,
+   and narrows M8's flip to the screen-Canvas call alone — without which M8's "one-line flip of FacePrepScreen's
+   painter argument" would have turned the exported photos Marathi with no pin to catch it (the same fault S5-P's
+   review recorded as "the callers named rightly").
+4. *The readingsMsg kind under-specified — a successful pull WITH conflicts would turn green — and the ":pano half
+   pins conflictText" could not run (ReadingsSync is :app).* Confirmed: today's colour test is
+   `contains("✓") && !contains("changed on the web")`, so green has always required a CLEAN pull. OK is now
+   specified and built as "fetch succeeded AND said.isEmpty()" (`Readings.noteKind`), the conflict-carrying-success
+   case is pinned in ReadingsTest, and `conflictText` moved into :pano beside `orphanText` so the pin is real.
+5. *SurveyPrepEdit.kt grouped under app/.* Confirmed (it is pano/SurveyPrepEdit.kt); regrouped above. No row counts
+   move, but the grouping is what tells the builder which changes :pano tests can run against.
+
 **unkeyed.tsv** 829 → 684 · **ported.txt** + SurveyMeas.kt, SurveyChain.kt, SurveyRef.kt, SurveyPrepFile.kt,
 Pano360.kt, Readings.kt (pano), ReadingsSync.kt, SurveyPrepDraw.kt, SurveyPrep360.kt, FacePrepDraw.kt ·
-**keys** 1,794 → 1,797 (the three fp.* phone texts; Tx regenerated) · **literal-counts** re-ratcheted ·
-**Disto.kt and FacePrep.kt stay out** (M6; M8).
+**keys** 1,794 → 1,797 (the three fp.* phone texts; Tx regenerated) · **literal-counts** re-ratcheted
+(SurveyPrepScreen.kt 3 → 2) · **Disto.kt and FacePrep.kt stay out** (M6; M8).
+
+*(Built 9 Nov 2026 on batch-next: 145 rows off unkeyed.tsv (829 → 684), ten files into ported.txt, the three fp.*
+keys added with डेप्थ, Tx regenerated with i18nGen; :pano:test 924 tests, 0 failures, 0 errors, 0 skipped — the XML
+under pano/build/test-results — with SurveyDrawMarathiTest new, SurveyPrepMarathiTest's M3b block, ReadingsTest's
+kind and words pins, and I18nLiteralTest's (h) exemption + companion. :app is compiled only by CI; nothing has been
+seen on a phone.)*
 
 ## Progress notes recovered
 

@@ -2432,6 +2432,18 @@
   "mr": "· {waiting} Claude च्या वाचनाची वाट",
   "note": "prototype-only — no APK equivalent"
  },
+ "fp.x_plan_x_deep": {
+  "mr": "{name} · {plate} · {d} mm डेप्थ",
+  "note": "M3b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. depth = डेप्थ (what staff say); खोल/खोली would read as 'room' on these screens — the M3b critic's finding 1"
+ },
+ "fp.x_wall_corrected_x": {
+  "mr": "{name} · {wall} · {d} mm डेप्थ धरून दुरुस्त",
+  "note": "M3b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. depth = डेप्थ (what staff say); खोली would read as 'room' on these screens — the M3b critic's finding 1"
+ },
+ "fp.x_wall_depth_unknown": {
+  "mr": "{name} · {wall} · डेप्थ माहीत नाही — दुरुस्तीसाठी इथे काढा",
+  "note": "M3b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. depth = डेप्थ (what staff say); खोली would read as 'room' on these screens — the M3b critic's finding 1"
+ },
  "help.each_tour_opens_demo": {
   "mr": "प्रत्येक टूर डेमो फ्लॅट उघडते (Demo Client · गेस्ट बेडरूम), कुठे टॅप करायचे ते उजळवते आणि तुम्हाला ते करू देते. पुढे जाण्यासाठी \"पुढे\" दाबा; थांबण्यासाठी \"टूर वगळा\" किंवा ◁. टूर संपल्यावर सर्व काही पूर्वीसारखे होते."
  },

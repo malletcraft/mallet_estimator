@@ -4,6 +4,7 @@ import com.malletcrafts.interiorestimate.pano.FacePrep.Detail
 import com.malletcrafts.interiorestimate.pano.FacePrep.MLine
 import com.malletcrafts.interiorestimate.pano.FacePrep.Room
 import com.malletcrafts.interiorestimate.pano.FacePrep.Step
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -76,11 +77,11 @@ class FacePrepTest {
         val f = r.face("front")
         val door = Detail("door", 0.30, 0.25, 0.62, 1.0, sx = 0, sy = 1)
         f.dets.add(door)
-        val locs = FacePrep.locators("front", f, 0)
+        val locs = FacePrep.locators(Tx.EN, "front", f, 0)
         assertEquals(listOf("left wall"), locs.map { it.to })   // touches the floor: only the across locator
         val (w, h) = FacePrep.faceDims(r, "front")
         val calcW = FacePrep.mmU(w, door.u0, door.u1); val calcH = FacePrep.mmV(h, door.v0, door.v1)
-        val keys = FacePrep.dims(r, "front").map { it.key }
+        val keys = FacePrep.dims(Tx.EN, r, "front").map { it.key }
         assertTrue(FacePrep.detKey(door, "w") in keys && FacePrep.detKey(door, "h") in keys && FacePrep.detKey(door, "lh") in keys)
         FacePrep.setSite(f, FacePrep.detKey(door, "w"), 900)
         FacePrep.setSite(f, FacePrep.detKey(door, "h"), 2100)
@@ -88,14 +89,14 @@ class FacePrepTest {
         // geometry unchanged
         assertEquals(0.30, door.u0, 1e-12); assertEquals(0.62, door.u1, 1e-12)
         assertEquals(0.25, door.v0, 1e-12); assertEquals(1.0, door.v1, 1e-12)
-        val ds = FacePrep.dims(r, "front").associateBy { it.key }
+        val ds = FacePrep.dims(Tx.EN, r, "front").associateBy { it.key }
         val dw = ds.getValue(FacePrep.detKey(door, "w"))
         assertEquals(calcW, dw.calc); assertEquals(900, dw.site)
         assertEquals(calcH, ds.getValue(FacePrep.detKey(door, "h")).calc)
         assertEquals(2100, ds.getValue(FacePrep.detKey(door, "h")).site)
         assertEquals(650, ds.getValue(FacePrep.detKey(door, "lh")).site)
         FacePrep.clearSite(f, FacePrep.detKey(door, "lh"))
-        assertNull(FacePrep.dims(r, "front").first { it.key == FacePrep.detKey(door, "lh") }.site)
+        assertNull(FacePrep.dims(Tx.EN, r, "front").first { it.key == FacePrep.detKey(door, "lh") }.site)
     }
 
     @Test
@@ -107,22 +108,22 @@ class FacePrepTest {
         FacePrep.setSite(f, FacePrep.detKey(a, "w"), 700); FacePrep.setSite(f, FacePrep.detKey(b, "w"), 710)
         f.dets.removeAt(0); FacePrep.forgetSites(f, "d:${a.id}")
         assertEquals(mapOf(FacePrep.detKey(b, "w") to 710), f.meas)
-        assertEquals(710, FacePrep.dims(r, "front").first { it.key == FacePrep.detKey(b, "w") }.site)
+        assertEquals(710, FacePrep.dims(Tx.EN, r, "front").first { it.key == FacePrep.detKey(b, "w") }.site)
     }
 
     @Test
     fun `next unmeasured walks the drawn order and wraps`() {
         val r = Room(2600, 3000, 4000)
         val f = r.face("front")
-        val ds0 = FacePrep.dims(r, "front")
+        val ds0 = FacePrep.dims(Tx.EN, r, "front")
         assertEquals(listOf("E:top:1", "E:right:1", "E:bottom:1", "E:left:1", "T:top", "T:right", "T:bottom", "T:left"), ds0.map { it.key })
         assertEquals("E:right:1", FacePrep.nextUnmeasured(ds0, "E:top:1"))
         FacePrep.setSite(f, "E:right:1", 2601); FacePrep.setSite(f, "E:bottom:1", 2999)
-        assertEquals("E:left:1", FacePrep.nextUnmeasured(FacePrep.dims(r, "front"), "E:top:1"))
+        assertEquals("E:left:1", FacePrep.nextUnmeasured(FacePrep.dims(Tx.EN, r, "front"), "E:top:1"))
         for (k in listOf("E:left:1", "T:top", "T:right", "T:bottom", "T:left")) FacePrep.setSite(f, k, 1)
-        assertEquals("E:top:1", FacePrep.nextUnmeasured(FacePrep.dims(r, "front"), "T:left"), "wraps round to the start")
+        assertEquals("E:top:1", FacePrep.nextUnmeasured(FacePrep.dims(Tx.EN, r, "front"), "T:left"), "wraps round to the start")
         FacePrep.setSite(f, "E:top:1", 1)
-        assertNull(FacePrep.nextUnmeasured(FacePrep.dims(r, "front"), "E:top:1"))
+        assertNull(FacePrep.nextUnmeasured(FacePrep.dims(Tx.EN, r, "front"), "E:top:1"))
         assertEquals(2, FacePrep.faceStatus(r, "front"))
         assertEquals(0, FacePrep.faceStatus(r, "back"))
         r.face("left").lines.add(MLine(doubleArrayOf(0.1, 0.5), doubleArrayOf(0.9, 0.5)))
@@ -136,7 +137,7 @@ class FacePrepTest {
         val i = FacePrep.duplicate(f, "dets", 0)!!
         assertEquals(1, i); assertTrue(f.dets[1].id != f.dets[0].id)
         assertEquals(0.14, f.dets[1].u0, 1e-12)
-        assertNull(FacePrep.dims(r, "front").first { it.key == FacePrep.detKey(f.dets[1], "w") }.site)
+        assertNull(FacePrep.dims(Tx.EN, r, "front").first { it.key == FacePrep.detKey(f.dets[1], "w") }.site)
     }
 
     @Test
@@ -157,7 +158,7 @@ class FacePrepTest {
         l.ts.add(0.5)
         assertEquals(2, FacePrep.linePieces(w, h, l).size)
         r.face("front").lines.add(l)
-        val lk = FacePrep.dims(r, "front").filter { it.key.startsWith("l:") }.map { it.key }
+        val lk = FacePrep.dims(Tx.EN, r, "front").filter { it.key.startsWith("l:") }.map { it.key }
         assertEquals(listOf(FacePrep.lineKey(l, 1), FacePrep.lineKey(l, 2), FacePrep.lineKey(l)), lk)
         FacePrep.setSite(r.face("front"), FacePrep.lineKey(l), 1500)
         assertEquals((0.8 * w).toInt(), FacePrep.lineMm(w, h, l.a, l.b), "the line is not stretched")

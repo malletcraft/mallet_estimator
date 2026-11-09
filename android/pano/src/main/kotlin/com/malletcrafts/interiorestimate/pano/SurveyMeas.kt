@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -61,23 +63,23 @@ object SurveyMeas {
     const val HEAD_LEN_DP = 7.0
     const val HEAD_W_DP = 3.0
 
-    // ------------------------------------------------------------ the words (sp.js, exactly)
+    // ------------------------------------------------------------ the words (sp.js, exactly; keyed in port 61c slice M3b)
 
     /** What a drag that left the surface is refused with, on release (sp.js offRefuse), with no undo entry. */
-    const val OFF_REFUSAL = "Only things on this surface measure correctly."
-    /** The caution line under every Tape and Line chip. */
-    const val CAUTION = "Only things on this surface measure correctly."
+    fun offRefusal(tx: Tx) = tx.refuse_sp_only_things_surface_measure
+    /** The caution line under every Tape and Line chip: the same English, the same key (sp.js caut). */
+    fun caution(tx: Tx) = tx.refuse_sp_only_things_surface_measure
     /** The chip while a drag is off the surface. */
-    const val OFF_CHIP = "Off this surface — nothing will be plotted"
+    fun offChip(tx: Tx) = tx.refuse_sp_off_surface_nothing_will
     /** A tap with Tape on and no drag. */
-    const val TAPE_TAP = "Tape: drag along the face to pull it out"
+    fun tapeTap(tx: Tx) = tx.sp_msg_tape_drag_along_face
     /** The note over a tape in 3 · List and the List tab, which has no reading box. */
-    const val TAPE_NOTE = "No reading box: a tape's figure is what the photo says. A reading by D2 or keyboard goes on a Line."
-    const val TAPE_CHIP = "Tape · drag along the face · the photo gives its length"
-    const val LINE_CHIP = "Line · drag = a marked length · tap corners = an area"
+    fun tapeNote(tx: Tx) = tx.sp_no_reading_box_tape
+    fun tapeChip(tx: Tx) = tx.sp_tape_drag_along_face
+    fun lineChip(tx: Tx) = tx.sp_line_drag_marked_length
 
     /** The Line chip once an area is started: "Line · area · 3 corners · double-tap to end". */
-    fun areaChip(n: Int) = "Line · area · $n corner${if (n == 1) "" else "s"} · double-tap to end"
+    fun areaChip(tx: Tx, n: Int) = tx.sp_line_area_x_corner(n)
 
     // ------------------------------------------------------------ codes and keys
 
@@ -111,18 +113,18 @@ object SurveyMeas {
         if (pts.isEmpty()) 0.0 else plen(pts) + hypot(pts[0][0] - pts.last()[0], pts[0][1] - pts.last()[1])
 
     /** mm² as m², two places: "1.86 m²". */
-    fun m2txt(a: Double): String = String.format(Locale.ROOT, "%.2f m²", a / 1e6)
+    fun m2txt(a: Double): String = String.format(Locale.ROOT, "%.2f m²", a / 1e6) // text:value the unit m², a figure drawn as written
 
     /** A length as the screen says it: "1234 mm". */
-    fun mmTxt(v: Double) = "${v.roundToInt()} mm"
+    fun mmTxt(v: Double) = "${v.roundToInt()} mm" // text:value the unit mm, a figure drawn as written
 
     /**
      * WHAT A LINE ASKS FOR (sp.js measItems): a length, `len`, with the photo's figure; an area its perimeter, `per`
      * (the laser reads a length, not an area); a tape nothing -- its figure IS the photo's.
      */
     fun measures(m: SurveyPrep.Meas): List<SurveyPrep.Measure> = when (m.kind) {
-        LINE -> listOf(SurveyPrep.Measure("len", "length", plen(m.pts)))
-        AREA -> listOf(SurveyPrep.Measure("per", "perimeter", pperim(m.pts)))
+        LINE -> listOf(SurveyPrep.Measure("len", { tx: Tx -> tx.life_length }, plen(m.pts)))
+        AREA -> listOf(SurveyPrep.Measure("per", { tx: Tx -> tx.measure_perimeter }, pperim(m.pts)))
         else -> emptyList()
     }
 
@@ -193,29 +195,29 @@ object SurveyMeas {
      * face · 1234 mm" or "diagonal on the face · 1234 mm" on a wall; on the floor and the ceiling "↔ left–right on the
      * floor · …" and "↕ front–back on the ceiling · …"; and "Off this surface — nothing will be plotted" while off it.
      */
-    fun dirText(s: String, len: Double, snap: String?, off: Boolean): String {
-        if (off) return OFF_CHIP
-        val n = len.roundToInt(); val pl = SurveyPrep.isPlan(s)
-        val w = if (s == "floor") "on the floor" else "on the ceiling"
+    fun dirText(tx: Tx, s: String, len: Double, snap: String?, off: Boolean): String {
+        if (off) return offChip(tx)
+        val n = len.roundToInt().toString(); val pl = SurveyPrep.isPlan(s)
+        val w = if (s == "floor") tx.sp_on_the_floor else tx.sp_on_the_ceiling
         return when (snap) {
-            "h" -> if (pl) "↔ left–right $w · $n mm" else "↔ along the face · $n mm"
-            "v" -> if (pl) "↕ front–back $w · $n mm" else "↕ up the face · $n mm"
-            else -> "diagonal on the face · $n mm"
+            "h" -> if (pl) tx.sp_left_right_x_x(w = w, n = n) else tx.sp_along_face_x_mm(n)
+            "v" -> if (pl) tx.sp_front_back_x_x(w = w, n = n) else tx.sp_up_face_x_mm(n)
+            else -> tx.sp_diagonal_face_x_mm(n)
         }
     }
 
-    fun dirText(d: Draft) = dirText(d.s, d.len(), d.snap, d.off)
+    fun dirText(tx: Tx, d: Draft) = dirText(tx, d.s, d.len(), d.snap, d.off)
 
     /**
      * THE TOOL CHIP with Tape ("T") or Line ("M") on: the live [drag] when there is one, else the tool's own words, or
      * the area being built ([corners] tapped so far); null for any other tool. The caution line ([CAUTION]) goes under it.
      */
-    fun chipText(tool: String, drag: Draft?, corners: Int): String? = when {
+    fun chipText(tx: Tx, tool: String, drag: Draft?, corners: Int): String? = when {
         tool != "T" && tool != "M" -> null
-        drag != null -> dirText(drag)
-        tool == "T" -> TAPE_CHIP
-        corners > 0 -> areaChip(corners)
-        else -> LINE_CHIP
+        drag != null -> dirText(tx, drag)
+        tool == "T" -> tapeChip(tx)
+        corners > 0 -> areaChip(tx, corners)
+        else -> lineChip(tx)
     }
 
     // ------------------------------------------------------------ the area built by taps
@@ -260,39 +262,43 @@ object SurveyMeas {
     // ------------------------------------------------------------ the words on screen
 
     /** Its type name: "Tape", "Marked length", "Marked area" -- never "Measure" (item 6: the tool is the Line). */
-    fun typeName(m: SurveyPrep.Meas): String = when (m.kind) { TAPE -> "Tape"; LINE -> "Marked length"; else -> "Marked area" }
+    fun typeName(tx: Tx, m: SurveyPrep.Meas): String =
+        when (m.kind) { TAPE -> tx.common_tape; LINE -> tx.common_marked_length; else -> tx.common_marked_area }
 
     /** The label every delete and the long-press menu use (sp.js itemById): "F-M1 marked length", "F-T1 tape". */
-    fun label(m: SurveyPrep.Meas): String = m.code + when (m.kind) { TAPE -> " tape"; LINE -> " marked length"; else -> " marked area" }
+    fun label(tx: Tx, m: SurveyPrep.Meas): String =
+        m.code + when (m.kind) { TAPE -> tx.sp_tape_suffix; LINE -> tx.sp_marked_length; else -> tx.sp_marked_area }
 
     /**
      * Its name under its code in 3 · List and the List tab (sp.js markPanel): "Tape · 1234 mm · from the photo",
      * "Marked length", "Marked area · 1.86 m²" -- and on the List tab, " · Front wall" after it ([room]).
+     * sp.tape_x_mm_photo carries its own " mm" (the card's near-match ruling).
      */
-    fun listName(s: String, m: SurveyPrep.Meas, room: Boolean): String = when (m.kind) {
-        TAPE -> "Tape · ${mmTxt(plen(m.pts))} · from the photo"
-        LINE -> "Marked length"
-        else -> "Marked area · ${m2txt(parea(m.pts))}"
-    } + if (room) " · " + SurveyPrep.NAME.getValue(s) else ""
+    fun listName(tx: Tx, s: String, m: SurveyPrep.Meas, room: Boolean): String = when (m.kind) {
+        TAPE -> tx.sp_tape_x_mm_photo(plen(m.pts).roundToInt().toString())
+        LINE -> tx.common_marked_length
+        else -> tx.sp_marked_area_x(m2txt(parea(m.pts)))
+    } + if (room) " · " + Masters.surface(tx, SurveyPrep.NAME.getValue(s)) else "" // text:value the list separator
 
     /**
      * The selection row under the photo (sp.js 1507): a tape "Tape · 1234 mm"; a Line its reading "1234 mm" when it
-     * has one, else the photo's "≈1234 mm"; an area its "1.86 m²".
+     * has one, else the photo's "≈1234 mm" -- composed figures the prototype draws unchanged; an area its "1.86 m²".
      */
-    fun rowValue(m: SurveyPrep.Meas, actual: Map<String, Double>): String = when (m.kind) {
-        TAPE -> "Tape · ${mmTxt(plen(m.pts))}"
-        LINE -> actual[m.code + ".len"]?.let { mmTxt(it) } ?: "≈${mmTxt(plen(m.pts))}"
+    fun rowValue(tx: Tx, m: SurveyPrep.Meas, actual: Map<String, Double>): String = when (m.kind) {
+        TAPE -> tx.sp_tape_x_mm(plen(m.pts).roundToInt().toString())
+        LINE -> actual[m.code + ".len"]?.let { mmTxt(it) } ?: "≈${mmTxt(plen(m.pts))}" // text:value a figure, drawn as written
         else -> m2txt(parea(m.pts))
     }
 
-    /** The tag drawn at a tape's far end: "1234 mm" while it is pulled, "F-T1 1234 mm" once plotted. */
-    fun tapeTag(code: String?, len: Double) = (if (code != null) "$code " else "") + mmTxt(len)
+    /** The tag drawn at a tape's far end: "1234 mm" while it is pulled, "F-T1 1234 mm" once plotted. A code and a
+     *  figure: byte-equal in every language (port 61c slice M3b, SurveyDrawMarathiTest). */
+    fun tapeTag(code: String?, len: Double) = (if (code != null) "$code " else "") + mmTxt(len) // text:value a code and a figure
 
     /** A Line's label on the photo: "F-M1 1234 mm" ("1234 mm" while pulled); an area's "F-M2 1.86 m²" ("1.86 m²…"
-     *  while its corners are tapped, from the third). */
+     *  while its corners are tapped, from the third). Codes and figures: byte-equal in every language. */
     fun lineTag(code: String?, kind: String, pts: List<DoubleArray>): String = when (kind) {
-        LINE -> (if (code != null) "$code " else "") + mmTxt(plen(pts))
-        AREA -> if (code != null) "$code ${m2txt(parea(pts))}" else if (pts.size > 2) "${m2txt(parea(pts))}…" else ""
+        LINE -> (if (code != null) "$code " else "") + mmTxt(plen(pts)) // text:value a code and a figure
+        AREA -> if (code != null) "$code ${m2txt(parea(pts))}" else if (pts.size > 2) "${m2txt(parea(pts))}…" else "" // text:value a code and a figure
         else -> ""
     }
 

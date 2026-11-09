@@ -12,6 +12,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyMeas
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch
 import com.malletcrafts.interiorestimate.pano.SurveyRef
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -24,6 +25,12 @@ import kotlin.math.roundToInt
  * them (the screen passes its width / 480, a saved picture its width / 960).
  *
  * [m] maps picture pixels (a view's, or a squared surface's) to the canvas.
+ *
+ * THE LANGUAGE IS A PARAMETER of [drawMarks], [drawLines] and [drawRef], never a field on [Marks] (port 61c slice
+ * M3b, critic note 5): the two callers deliberately differ -- the screen passes its live tx, FaceWriter's survey
+ * sheets pass Tx.EN (decision 4: exports stay English) -- so every call site states its language, and check (i)
+ * sees every site. The words drawn: the four boundary-line names, the reference's "Ref 905 × 2053" tag and the
+ * chain total's " laser"; every other drawn string is a code, a figure or a glyph, byte-equal in every language.
  */
 internal object SurveyPrepDraw {
 
@@ -85,7 +92,7 @@ internal object SurveyPrepDraw {
      * and not segments; a solid line has been set by hand, a dashed one not
      * yet. No numbers -- only the boundary. [thin] is the magnifier's version.
      */
-    fun drawLines(c: Canvas, s: String, sf: SurveyPrep.Surface, frame: SurveyPrep.Frame?,
+    fun drawLines(c: Canvas, tx: Tx, s: String, sf: SurveyPrep.Surface, frame: SurveyPrep.Frame?,
                   m: (Double, Double) -> FloatArray, u: Float, thin: Boolean) {
         val ext = 2.0 * SurveyPrep.VW
         val locked = SurveyPrep.linesLocked(sf)
@@ -107,10 +114,10 @@ internal object SurveyPrepDraw {
                 lockGlyph(c, q[0], q[1] - 1f * u, 11f * u, argb(0x14160F))
             }
         }
-        val names = SurveyPrep.lineNames(s)
+        // the four boundary-line names, in the language -- the first Devanagari this painter draws (port 61c slice M3b)
         for (k in SurveyPrep.SLOTS) {
             val p = sf.lines.getValue(k)[1]; val q = m(p[0], p[1])
-            label(c, names.getValue(k), q[0] + 16f * u, q[1] - 10f * u, 0xffffff, 12f * u, u)
+            label(c, SurveyPrep.lineName(tx, s, k), q[0] + 16f * u, q[1] - 10f * u, 0xffffff, 12f * u, u)
         }
     }
 
@@ -120,7 +127,7 @@ internal object SurveyPrepDraw {
      * corners as diamonds dragged like line ends; "Ref 905 × 2053" by its topmost corner, with a padlock pill when
      * locked. Not in the magnifier.
      */
-    fun drawRef(c: Canvas, s: String, sf: SurveyPrep.Surface, m: (Double, Double) -> FloatArray, u: Float) {
+    fun drawRef(c: Canvas, tx: Tx, s: String, sf: SurveyPrep.Surface, m: (Double, Double) -> FloatArray, u: Float) {
         val r = SurveyRef.of(sf)?.takeIf { SurveyRef.placed(it) } ?: return
         val pts = r.q!!.map { m(it[0], it[1]) }
         val path = Path().apply { moveTo(pts[0][0], pts[0][1]); for (i in 1 until pts.size) lineTo(pts[i][0], pts[i][1]); close() }
@@ -128,7 +135,7 @@ internal object SurveyPrepDraw {
         c.drawPath(path, stroke(argb(SurveyRef.COLOUR), 2.5f * u).apply { pathEffect = DashPathEffect(floatArrayOf(8f * u, 5f * u), 0f) })
         for (p in pts) diamond(c, p[0], p[1], SurveyRef.COLOUR, 13f * u, u)
         val top = pts.minByOrNull { it[1] } ?: return
-        label(c, SurveyRef.label(r), top[0] + (if (r.locked) 30f else 14f) * u, top[1] - 8f * u, SurveyRef.COLOUR, 12f * u, u)
+        label(c, SurveyRef.label(tx, r), top[0] + (if (r.locked) 30f else 14f) * u, top[1] - 8f * u, SurveyRef.COLOUR, 12f * u, u)
         if (r.locked) padPill(c, top[0] + 28f * u, top[1] - 24f * u, SurveyRef.COLOUR, u)
     }
 
@@ -137,7 +144,7 @@ internal object SurveyPrepDraw {
      * pictures draw its outline through the face's ONE frame -- thin dashed cyan, 3 when picked -- and "Ref 905 × 2053"
      * by its top-left corner; never while its eye is off (SurveyRef.faceQuad), and it still squares the face then.
      */
-    private fun drawRefSq(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
+    private fun drawRefSq(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
         val sf = o.prep.surface(s)
         val mm = SurveyRef.faceQuad(sf, o.frame) ?: return
         val r = SurveyRef.of(sf) ?: return
@@ -146,7 +153,7 @@ internal object SurveyPrepDraw {
         val sel = o.selId == SurveyRef.id(s)
         val p = stroke(argb(SurveyRef.COLOUR), (if (sel) 3f else 1.5f) * u).apply { pathEffect = DashPathEffect(floatArrayOf(8f * u, 5f * u), 0f) }
         for (i in 0 until 4) { val a = pts[i]; val b = pts[(i + 1) % 4]; c.drawLine(a[0], a[1], b[0], b[1], p) }
-        label(c, SurveyRef.label(r), pts[3][0] + 4f * u, pts[3][1] - 6f * u, SurveyRef.COLOUR, (if (o.all) 22f else 11f) * u, u)
+        label(c, SurveyRef.label(tx, r), pts[3][0] + 4f * u, pts[3][1] - 6f * u, SurveyRef.COLOUR, (if (o.all) 22f else 11f) * u, u)
     }
 
     // ------------------------------------------------------------ 2 · Mark
@@ -240,7 +247,7 @@ internal object SurveyPrepDraw {
         }
     }
 
-    fun drawMarks(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
+    fun drawMarks(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
         val sq = o.sq; val thin = o.mode == "loupe"
         val els = o.prep.surface(s).marks
         val ta = m(sq.x(0.0), sq.y(o.b)); val tb = m(sq.x(o.a), sq.y(0.0))
@@ -320,9 +327,9 @@ internal object SurveyPrepDraw {
         if (o.mode != "loupe") drawMeas(c, s, o, m)
         // v52 slice 11: the chains after the Lines and tapes, as sp.js overlay draws them (drawMeas, drawTapes, drawChains)
         // -- not in the loupe either
-        if (o.mode != "loupe") drawChains(c, s, o, m)
+        if (o.mode != "loupe") drawChains(c, tx, s, o, m)
         // v52 slice 12: the reference rectangle after the chains, as sp.js overlay draws it (drawRefSq) -- not in the loupe
-        if (o.mode != "loupe") drawRefSq(c, s, o, m, u)
+        if (o.mode != "loupe") drawRefSq(c, tx, s, o, m, u)
         if (o.mode == "main") o.guide?.takeIf { it.s == s && o.guideAlpha > 0f }?.let { g -> drawGuide(c, g, o.a, o.b, ::face, o.guideAlpha, o.dp) }
     }
 
@@ -506,14 +513,14 @@ internal object SurveyPrepDraw {
      * THE CHAINS ON A SURFACE (sp.js drawChains), then the one being drawn: see [chain]. Every figure comes from
      * SurveyChain.vals -- the readings, the laser's total, the derived segment -- so the photo says what the list says.
      */
-    private fun drawChains(c: Canvas, s: String, o: Marks, m: (Double, Double) -> FloatArray) {
+    private fun drawChains(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray) {
         val sq = o.sq
         fun toS(p: DoubleArray) = m(sq.x(p[0]), sq.y(p[1]))
         for (k in o.prep.surface(s).chains) if (k.nodes.isNotEmpty())
-            chain(c, k.nodes, k.axis, k.code, SurveyChain.vals(k, o.prep.actual, o.a, o.b), o.selId == k.id, false,
+            chain(c, tx, k.nodes, k.axis, k.code, SurveyChain.vals(k, o.prep.actual, o.a, o.b), o.selId == k.id, false,
                 SurveyPrep.isLocked(k), o, ::toS)
         o.chain?.takeIf { it.s == s && it.nodes.isNotEmpty() }?.let { d ->
-            chain(c, d.nodes, d.axis ?: "x", null, null, false, true, false, o, ::toS) }
+            chain(c, tx, d.nodes, d.axis ?: "x", null, null, false, true, false, o, ::toS) }
     }
 
     /**
@@ -524,7 +531,7 @@ internal object SurveyPrepDraw {
      * total under the last point, "FK1 Σ 3310 laser" (amber when the readings disagree with it), kept on the canvas; a
      * locked chain's padlock over its first point. Sized in dp ([Marks.dp]).
      */
-    private fun chain(c: Canvas, nodes: List<DoubleArray>, axis: String, code: String?, v: SurveyChain.Vals?, sel: Boolean,
+    private fun chain(c: Canvas, tx: Tx, nodes: List<DoubleArray>, axis: String, code: String?, v: SurveyChain.Vals?, sel: Boolean,
                       draft: Boolean, locked: Boolean, o: Marks, toS: (DoubleArray) -> FloatArray) {
         val dp = o.dp; val col = SurveyChain.COLOUR
         val ai = SurveyChain.axisIndex(axis)
@@ -560,13 +567,13 @@ internal object SurveyPrepDraw {
             var dx = q[0] - p[0]; var dy = q[1] - p[1]; val l = hypot(dx, dy)
             if (l > 0f) { dx /= l; dy /= l } else { dx = 0f; dy = -1f }
             val (t, tc) = if (v != null) SurveyChain.segFigure(v, i - 1)
-                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR
+                          else ("≈" + abs(nodes[i][ai] - nodes[i - 1][ai]).roundToInt()) to SurveyChain.PHOTO_COLOUR // text:value the ≈ glyph, a figure
             val w = fp.measureText(t)
             label(c, t, p[0] + dx * off - w / 2, p[1] + dy * off + 4f * dp, tc, fs, dp)
         }
         if (v != null && code != null) {
             val p = scr[scr.size - 1]
-            val t = SurveyChain.totalTag(code, v)
+            val t = SurveyChain.totalTag(tx, code, v)
             val ts = 11f * dp
             val tw = Paint().apply { textSize = ts; isFakeBoldText = true }.measureText(t)
             // kept inside the picture (sp.js: "kept inside the picture")
@@ -612,22 +619,22 @@ internal object SurveyPrepDraw {
         if ("d" in ms) { line(midX, yT, midX, q[1]); tag("d", midX, q[1] + fs * 1.4f) }
     }
 
-    fun sgn(d: Double): String { val r = d.roundToInt(); return (if (r > 0) "+" else if (r < 0) "−" else "±") + abs(r) }
+    fun sgn(d: Double): String { val r = d.roundToInt(); return (if (r > 0) "+" else if (r < 0) "−" else "±") + abs(r) } // text:value sign glyphs on a figure
 
     /** A value tag: photo estimate and / or site reading, per the Show toggle; gold when it is the ACTIVE one.
      *  Centred on [x0], or starting there when [left]; [y0] is its baseline. */
     private fun vtag(c: Canvas, x0: Float, y0: Float, est: Double?, act: Double?, fs: Float, code: String, o: Marks, u: Float, left: Boolean = false) {
         val on = code == o.active
         val parts = mutableListOf<Pair<String, Int>>()
-        if (o.show != "actual") parts.add((if (est != null) "≈" + est.roundToInt() else "—") to 0xcfd3cb)
+        if (o.show != "actual") parts.add((if (est != null) "≈" + est.roundToInt() else "—") to 0xcfd3cb) // text:value glyphs on a figure
         if (o.show != "derived") {
-            if (o.show == "both") parts.add(" | " to 0x888888)
-            parts.add((if (act != null) act.roundToInt().toString() else "?") to 0xffffff)
+            if (o.show == "both") parts.add(" | " to 0x888888) // text:value the divider glyph
+            parts.add((if (act != null) act.roundToInt().toString() else "?") to 0xffffff) // text:value the unknown glyph, a figure
             if (o.show == "both" && act != null && est != null) {
-                val d = act - est; parts.add((" " + sgn(d)) to (if (abs(d) <= SurveyPrep.TOL) 0x7dff8a else 0xffc46b))
+                val d = act - est; parts.add((" " + sgn(d)) to (if (abs(d) <= SurveyPrep.TOL) 0x7dff8a else 0xffc46b)) // text:value a space before the sign
             }
         }
-        if (on && parts.isNotEmpty()) parts[0] = ("▶" + parts[0].first) to parts[0].second
+        if (on && parts.isNotEmpty()) parts[0] = ("▶" + parts[0].first) to parts[0].second // text:value the active-reading glyph
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = fs; typeface = MONO_BOLD }
         val w = parts.sumOf { p.measureText(it.first).toDouble() }.toFloat() + 10f * u
         val sh = SurveyPrepTouch.tagShape(SurveyPrepTouch.Anchor(x0.toDouble(), y0.toDouble(), left), w.toDouble(), fs.toDouble(),

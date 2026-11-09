@@ -187,15 +187,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	sent '$cmd'
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	state ${s.name}${note?.let { " — $it" } ?: ""}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	subscribed ${d.characteristic.uuid.toString().substring(0, 8)} (status $s)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	unit [${Disto.hex(bytes)}] = code $u
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$a | ${len - a} mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$mm from ${loc.to}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	$tot mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	${FacePrep.stepLabel(s.kind).split(" ")[0]} ${sCount[s.kind]}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	${g.left} | ${g.right} mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	E$n ${pc.len}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	L${i + 1}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt	L${i + 1} $tot
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	 wall
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$lab — ${HINT.getValue(m)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$roomName measures ($deviceId)
@@ -510,10 +501,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	Share ${save
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not keep $display
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not make a folder for $display
 app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	could not write $display to Downloads
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	 by ${r.by}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	$k changed on the web
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	; 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	web readings not available yet
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	(no client)
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	ERP did not accept that email and password
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Email and password are needed
@@ -532,19 +519,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	PDF
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	SVG
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	Share
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	✕
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	Plane grid
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	fit
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	grid
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	≈
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	 | 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	+
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	±
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	—
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	−
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	≈
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	▶
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - save its survey prep to send it to the web
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	on this phone only - the web takes a 360's survey prep, not a photo
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	pano file missing on device
@@ -636,39 +610,19 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn from
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${SIDE_NAME.getValue(sd)} total
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${detailLabel(t).split(" ")[0]} $n
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepLabel(k).split(" ")[0]} $n
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepName(f, i)} · $wall wall · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	${stepName(room.face(plate), i)} · $plate plan · ${c.d.roundToInt()} mm deep
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Back wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Beam
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Bottom
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Column
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Door
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	E${n + 1} · ${pc.side?.let { SIDE_NAME.getValue(it).lowercase() + " edge" } ?: "step face"}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Electrical point
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Floor
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Front wall
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Left
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Left wall
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Line ${i + 1}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Line ${i + 1} piece ${k + 1}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Loft
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Opening
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Other step
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Right wall
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Top
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	Window
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	back wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	corrected for ${best[1].roundToInt()} mm depth
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	depth unknown — draw it here to correct
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	front wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	left wall
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	right wall
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Balcony
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bathroom
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	Bedroom 4
@@ -707,36 +661,9 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Front
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Left
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Right
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	Top
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	${fov.roundToInt()}°
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	4 · 360 · drag to look round · ${SurveyPrep.NAME[s] ?: s}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	A $typeName cannot go on the ${SurveyPrep.NAME.getValue(to).lowercase()}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	Set this surface's lines first
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	 — deleted on the web too
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	$it changed on the web after its mark was deleted here
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	$t · $room
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	HTTP $code
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	…
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 d
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 laser
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	 · Σ 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	$code Σ ${totalText(v)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	$points point${if (points == 1) "" else "s"} · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	${c.code} chain
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	${r(d)} d
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	A chain needs two different points
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	A chain needs two points or more
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Chain · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Chain · ${direction(c)} · $n part${if (n == 1) "" else "s"}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	End the chain
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	Finish the chain on the ${SurveyPrep.NAME.getValue(s).lowercase()} first — ✓ or a double tap
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	chains
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	horizontal
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	segment ${i + 1}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	tap points along the surface, double-tap or ✓ to end
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	total
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	vertical
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	≈
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	${SurveyPlan.DTITLE.getValue(view)} from survey prep · laser sizes
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	1:$sc on A4 · drawn ${meta.drawn}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Captured
@@ -748,37 +675,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	Scal
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	—
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	…
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyExport.kt	≈ = from the photo, not yet measured · MCFT S2
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked area
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 marked length
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 tape
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	 · 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	$code 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	$code ${m2txt(parea(pts))}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	${m2txt(parea(pts))}…
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	${v.roundToInt()} mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Line · area · $n corner${if (n == 1) "" else "s"} · double-tap to end
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Line · drag = a marked length · tap corners = an area
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked area
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked area · ${m2txt(parea(m.pts))}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Marked length
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	No reading box: a tape's figure is what the photo says. A reading by D2 or keyboard goes on a Line.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Off this surface — nothing will be plotted
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Only things on this surface measure correctly.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · ${mmTxt(plen(m.pts))}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · ${mmTxt(plen(m.pts))} · from the photo
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape · drag along the face · the photo gives its length
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	Tape: drag along the face to pull it out
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	diagonal on the face · $n mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	length
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	on the ceiling
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	on the floor
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	perimeter
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↔ along the face · $n mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↔ left–right $w · $n mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↕ front–back $w · $n mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	↕ up the face · $n mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt	≈${mmTxt(plen(m.pts))}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 beam over
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	 loft
@@ -817,44 +713,3 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	fit · ${rnd(box[2] / vb[2] * 100)}%
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	≈
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPlan.kt	◂ 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	 …
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	$n point${if (n == 1) "" else "s"} re-centred
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: ${if (wo.containsKey(s)) "unreadable" else "missing"}, started again
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: chain ${code ?: "#" + (i + 1)} was unreadable, left out
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its ${SurveyPrep.lineNames(s).getValue(k)} was unreadable, placed again
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its chains were unreadable
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its marks were unreadable
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: its measurements were unreadable
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: mark ${code ?: "#" + (i + 1)} was unreadable, left out
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	${SurveyPrep.NAME.getValue(s)}: measurement ${code ?: "#" + (i + 1)} was unreadable, left out
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Nothing saved yet
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Part of the saved prep could not be read ($n thing${if (n == 1) "" else "s"}: 
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Restored in part
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Restored ✓
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	Started fresh
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The file as it was could not be copied aside: nothing here is saved, so it is not overwritten.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The file as it was is kept as $it.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The saved prep could not be read, nor moved aside: nothing here is saved, so it is not overwritten.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	The saved prep could not be read. It is kept as $it, and this room starts fresh.
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	reading $key was unreadable, left out
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	the readings were unreadable
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 · differs by ${sgn(dA)} / ${sgn(dB)} mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	 ✓
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	${SurveyPrep.NAME.getValue(s)} reference
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	${if (locked) "Unlock" else "Lock"} the ${name(s).lowercase()}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Cancel
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	D2 $mm mm — not used: the reference box was left
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Drag the four cyan corners onto a rectangle on this surface, then type its width and height
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Edges · laser
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Lock
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Measured ${t.first} ${f.a.roundToInt()} × ${t.second} ${f.b.roundToInt()} · laser ${laser[0].roundToInt()} × ${laser[1].roundToInt()}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Ref ${fig(r.w)} × ${fig(r.h)}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference hidden on the faces — it still squares the ${SurveyPrep.NAME.getValue(s).lowercase()}
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference shown on 2 · Mark, 3 · List and 4 · 360
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Reference ▭
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Show on faces
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Size from
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	The reference stays — hide it with the eye in 1 · Lines
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	Unlock
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	±
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	🔒 

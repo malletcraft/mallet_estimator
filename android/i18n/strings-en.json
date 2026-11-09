@@ -6184,6 +6184,50 @@
    "prototype-only"
   ]
  },
+ "fp.x_plan_x_deep": {
+  "en": "{name} · {plate} · {d} mm deep",
+  "where": [
+   "S2 APK phone text · FacePrep.kt wallGuides at 885c25a+M3b · Face Prep · the plan-guide label FacePrepDraw draws on a wall photo (a floor or ceiling step shown where this wall shows its face), drawn at Tx.EN until M8 · port 61c slice M3b, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the step's name, FacePrep.stepName rendered through tx (\"Column 1\")",
+   "plate": "view.floor_plan.lc / view.ceiling_plan.lc (\"floor plan\" / \"ceiling plan\")",
+   "d": "the depth, whole mm digits, as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.x_wall_corrected_x": {
+  "en": "{name} · {wall} · corrected for {d} mm depth",
+  "where": [
+   "S2 APK phone text · FacePrep.kt plateGuides at 885c25a+M3b · Face Prep · the plate-guide label FacePrepDraw draws on a floor or ceiling photo (a wall's column or beam carried onto the plan, its depth known from a contact), drawn at Tx.EN until M8 · port 61c slice M3b, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the step's name, FacePrep.stepName rendered through tx (\"Column 1\")",
+   "wall": "the wall's shown name lowercased, Masters.surface(tx, FacePrep.LABEL).lowercase() (\"front wall\")",
+   "d": "the depth, whole mm digits, as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.x_wall_depth_unknown": {
+  "en": "{name} · {wall} · depth unknown — draw it here to correct",
+  "where": [
+   "S2 APK phone text · FacePrep.kt plateGuides at 885c25a+M3b · Face Prep · the plate-guide label FacePrepDraw draws on a floor or ceiling photo when no contact gives the step's depth, drawn at Tx.EN until M8 · port 61c slice M3b, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "the step's name, FacePrep.stepName rendered through tx (\"Column 1\")",
+   "wall": "the wall's shown name lowercased, Masters.surface(tx, FacePrep.LABEL).lowercase() (\"front wall\")"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "help.each_tour_opens_demo": {
   "en": "Each tour opens the demo flat (Demo Client · Guest Bedroom), lights up what to tap and lets you do it. Press Next to go on, Skip tour or ◁ to stop. When a tour ends, everything is put back.",
   "where": "v55build/tour55.js:407 · intro",

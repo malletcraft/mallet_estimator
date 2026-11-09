@@ -4,6 +4,7 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -91,5 +92,57 @@ class SurveyPrepMarathiTest {
         assertEquals("UNDO", Tx.EN.sp_aria_undo.uppercase())
         assertEquals("हा 360", Tx.MR.sp_this_360.uppercase())
         assertEquals("मागे घ्या", Tx.MR.sp_aria_undo.uppercase())
+    }
+
+    // ---------------------------------------------------------------- the M3b block (port 61c slice M3b)
+    // Every Masters-backed lookup this slice adds, each against the exact strings the served prototype's own text
+    // layer (vis()) answered in §26's derivation -- a wrong map or a wrong identity prints the same English under
+    // every Tx.EN pin and leaks Latin only under मराठी.
+
+    @Test fun `M3b -- a salvage note fills the surface and its line nominative, as the prototype renders it`() {
+        val p = room()
+        val o = SurveyPrepFile.encode(p, L, W, H)
+        @Suppress("UNCHECKED_CAST") val w = (o["w"] as Map<String, Any?>).toMutableMap()
+        @Suppress("UNCHECKED_CAST") val front = (w["front"] as Map<String, Any?>).toMutableMap()
+        front["bottom"] = "oops"; w["front"] = front
+        val d = assertNotNull(SurveyPrepFile.decode(o.toMutableMap().apply { put("w", w) }))
+        // the folder's finalised Marathi has no genitive before the name (§26's page diff): the nominative fill
+        assertEquals("समोरील भिंत: जमिनीची रेषा वाचता आले नाही, पुन्हा ठेवले", d.problems.single()(Tx.MR))
+        assertEquals("Front wall: its floor line was unreadable, placed again", d.problems.single()(Tx.EN))
+        noLatin(d.problems.single()(Tx.MR), "the salvage note")
+    }
+
+    @Test fun `M3b -- the 360 caption, the placing refusal and the chain busy refusal fill their surface through Masters`() {
+        assertEquals("4 · 360 · फिरून पाहण्यासाठी ओढा · समोरील भिंत", Pano360.caption(Tx.MR, "front"))
+        assertEquals("4 · 360 · drag to look round · Front wall", Pano360.caption(Tx.EN, "front"))
+        // the Marathi restructures to "{surfName}: इथे {n} लावता येत नाही" -- the key's own shape (vis())
+        assertEquals("जमीन: इथे स्विच प्लेट लावता येत नाही", Pano360.placeRefusal(Tx.MR, "front", "floor", "S"))
+        assertEquals("A Switch plate cannot go on the floor", Pano360.placeRefusal(Tx.EN, "front", "floor", "S"))
+        assertEquals("छत: इथे पायरी लावता येत नाही", Pano360.cannotGo(Tx.MR, "Step", "ceil"))
+        assertEquals("आधी साखळी पूर्ण करा (समोरील भिंत) — ✓ किंवा डबल टॅप", SurveyChain.busyText(Tx.MR, "front"))
+        assertEquals("Finish the chain on the front wall first — ✓ or a double tap", SurveyChain.busyText(Tx.EN, "front"))
+        assertEquals("आधी या पृष्ठभागाच्या रेषा सेट करा", Pano360.noLines(Tx.MR))
+    }
+
+    @Test fun `M3b -- a list row's room tail, the eye's words and the reference aria fill their surface through Masters`() {
+        val p = room()
+        val t = p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(0.0, 1200.0), doubleArrayOf(1234.0, 1200.0)), "t")
+        assertEquals("टेप · 1234 mm · फोटोवरून · समोरील भिंत", SurveyMeas.listName(Tx.MR, "front", t, true))
+        assertEquals("टेप · 1234 mm · फोटोवरून", SurveyMeas.listName(Tx.MR, "front", t, false))
+        val k = p.addChain("front", "x", mutableListOf(doubleArrayOf(0.0, 1200.0), doubleArrayOf(905.0, 1200.0),
+            doubleArrayOf(3310.0, 1200.0)), listOf(null, null, null), "k1")
+        assertEquals("साखळी · आडवी · 2 भाग · समोरील भिंत", SurveyChain.listName(Tx.MR, "front", k, true))
+        assertEquals("Chain · horizontal · 2 parts · Front wall", SurveyChain.listName(Tx.EN, "front", k, true))
+        assertEquals("बाजूंवर संदर्भ लपवला — तरीही तो समोरील भिंत सरळ करतो", SurveyRef.shownSaid(Tx.MR, "front", false))
+        assertEquals("संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर दिसतो", SurveyRef.shownSaid(Tx.MR, "front", true))
+        // the card's own pairing: sp.aria.lock_x over sp.the_x_reference ("समोरील भिंत संदर्भ लॉक करा", vis())
+        assertEquals("समोरील भिंत संदर्भ लॉक करा", SurveyRef.lockLabel(Tx.MR, "front", false))
+        assertEquals("Lock the front wall reference", SurveyRef.lockLabel(Tx.EN, "front", false))
+        assertEquals("Unlock the front wall reference", SurveyRef.lockLabel(Tx.EN, "front", true))
+        assertEquals("समोरील भिंत संदर्भ", SurveyRef.name(Tx.MR, "front"))
+        for (s in SurveyPrep.SURFACES) {
+            noLatin(SurveyRef.name(Tx.MR, s), "reference name $s")
+            noLatin(SurveyChain.busyText(Tx.MR, s), "chain busy $s")
+        }
     }
 }

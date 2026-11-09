@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import java.time.ZoneId
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -109,7 +110,7 @@ class SurveyPrepFileTest {
         val o = parse(v1).toMutableMap()
         o["w"] = (o["w"] as Map<*, *>).filterKeys { it != "back" }
         val d = assertNotNull(SurveyPrepFile.decode(o))
-        assertEquals(1, d.problems.size); assertTrue(d.problems[0].startsWith("Back wall: missing"), d.problems[0])
+        assertEquals(1, d.problems.size); assertTrue(d.problems[0](Tx.EN).startsWith("Back wall: missing"), d.problems[0](Tx.EN))
         assertEquals(SurveyPrep.SURFACES, d.prep.surfaces.keys.toList())
         assertFalse(d.prep.surface("back").done())
         assertEquals(1, d.prep.surface("front").marks.size)
@@ -124,13 +125,13 @@ class SurveyPrepFileTest {
             .replace(""""FD1.h":2050.5""", """"FD1.h":{"v":2050}""")
         assertTrue(bad != v1)
         val d = assertNotNull(SurveyPrepFile.decode(parse(bad)))
-        assertEquals(3, d.problems.size, d.problems.toString())
+        assertEquals(3, d.problems.size, d.problems.map { it(Tx.EN) }.toString())
         val f = d.prep.surface("front")
         assertEquals(listOf("FD1"), f.marks.map { it.code })
         assertFalse(f.set["left"]!!); assertTrue(f.set["bottom"]!!)
         assertEquals(setOf("FD1.w"), d.prep.actual.keys)
-        assertTrue(d.problems.any { it.contains("left corner") })
-        assertTrue(d.problems.any { it.contains("FW1") })
+        assertTrue(d.problems.any { it(Tx.EN).contains("left corner") })
+        assertTrue(d.problems.any { it(Tx.EN).contains("FW1") })
     }
 
     @Test fun `what is not a prep is null, never an empty prep`() {
@@ -155,18 +156,18 @@ class SurveyPrepFileTest {
         assertFalse(SurveyPrepFile.isAside("MCAP-1", "MCAP-12.bad-20261015-224500.json"))
 
         assertNull(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Missing))
-        assertEquals("Nothing saved yet", SurveyPrepFile.savedText(SurveyPrepFile.Opened.Missing))
+        assertEquals("Nothing saved yet", SurveyPrepFile.savedText(SurveyPrepFile.Opened.Missing)(Tx.EN))
         val d = SurveyPrepFile.decode(parse(v1))!!
         assertNull(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Restored(d)))
-        assertEquals("Restored ✓", SurveyPrepFile.savedText(SurveyPrepFile.Opened.Restored(d)))
+        assertEquals("Restored ✓", SurveyPrepFile.savedText(SurveyPrepFile.Opened.Restored(d))(Tx.EN))
         assertEquals("The saved prep could not be read. It is kept as X.json, and this room starts fresh.",
-            SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Unreadable("X.json")))
-        assertTrue(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Unreadable(null))!!.contains("not overwritten"))
+            SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Unreadable("X.json"))!!(Tx.EN))
+        assertTrue(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Unreadable(null))!!(Tx.EN).contains("not overwritten"))
         val o = parse(v1).toMutableMap(); o["w"] = (o["w"] as Map<*, *>).filterKeys { it != "ceil" }
         val part = SurveyPrepFile.Opened.Salvaged(SurveyPrepFile.decode(o)!!, "Y.json")
         assertEquals("Part of the saved prep could not be read (1 thing: Ceiling: missing, started again). The file as it was is kept as Y.json.",
-            SurveyPrepFile.openedNote(part))
-        assertTrue(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Salvaged(part.decoded, null))!!.endsWith(
+            SurveyPrepFile.openedNote(part)!!(Tx.EN))
+        assertTrue(SurveyPrepFile.openedNote(SurveyPrepFile.Opened.Salvaged(part.decoded, null))!!(Tx.EN).endsWith(
             "could not be copied aside: nothing here is saved, so it is not overwritten."))
     }
 
@@ -261,7 +262,7 @@ class SurveyPrepFileTest {
         val r = open(v1Point, Disk())
         val o = r.opened as SurveyPrepFile.Opened.Restored
         assertEquals(1, o.decoded.points); assertEquals(1, SurveyPrepFile.pointsOf(o))
-        assertEquals("1 point re-centred", SurveyPrepFile.pointsNote(o))
+        assertEquals("1 point re-centred", SurveyPrepFile.pointsNote(o)!!(Tx.EN))
         assertTrue(o.decoded.pointLog.single().startsWith("front FE9: 150 x 150 re-centred"), o.decoded.pointLog.toString())
         val e = o.decoded.prep.surface("front").marks.first { it.code == "FE9" }
         assertEquals(listOf(350.0, 400.0, 350.0, 400.0), listOf(e.x0, e.x1, e.y0, e.y1))

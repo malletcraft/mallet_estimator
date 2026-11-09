@@ -54,3 +54,25 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumSheets.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumShot.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumShots.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AlbumCamera.kt
+# Port 61c slice M3b (9 Nov 2026) adds the measures and readings half of survey prep, and the words drawn on the
+# photo: pano/SurveyMeas.kt (the Tape's and Line's chips, refusals, names and list rows -- the tape/Line tags, mmTxt
+# and m2txt stay composed figures, marked `// text:value`), pano/SurveyChain.kt (the chain's chip, refusals, rows and
+# its total -- " laser" through sp.laser_suffix, the drawn " d" marker Latin by the prototype's own screen, marked),
+# pano/SurveyRef.kt (the reference's words, menu and refText), pano/SurveyPrepFile.kt (the salvage notes, the saved
+# state and the opened note, each a Msg; the aside file names stay byte-identical), pano/Pano360.kt (the 360 caption,
+# the placing refusal, the lines-first refusal), pano/Readings.kt (the orphan text; conflictText moved here from
+# ReadingsSync so :pano pins it under both Tx; NoteKind, the readings line's colour class), app/SurveyPrepDraw.kt
+# (the painters take a tx: the line names, the Ref tag and the chain total translate; glyphs and figures marked),
+# app/SurveyPrep360.kt (fit, grid, Plane grid; its painter threads the same tx), app/ReadingsSync.kt (the push's
+# stored note composes Tx.EN until M2) and app/FacePrepDraw.kt (the words through FacePrep's tx functions; both
+# callers pass Tx.EN -- the screen until M8, exportAll for good, decision 4).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyMeas.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepDraw.kt

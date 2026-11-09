@@ -76,17 +76,17 @@ class ChainTest {
         // one point: refused, said
         val one = SurveyChain.Draft("front")
         SurveyChain.press(one, "front", pt(100.0, 100.0), A, B, emptyList(), tol)
-        assertEquals(SurveyChain.NEED_TWO, (SurveyChain.finish(one) as SurveyChain.Finish.Refused).text)
-        assertEquals("A chain needs two points or more", SurveyChain.NEED_TWO)
+        assertEquals(SurveyChain.NEED_TWO(Tx.EN), (SurveyChain.finish(one) as SurveyChain.Finish.Refused).text!!(Tx.EN))
+        assertEquals("A chain needs two points or more", SurveyChain.NEED_TWO(Tx.EN))
         assertNull((SurveyChain.finish(SurveyChain.Draft("front")) as SurveyChain.Finish.Refused).text, "an empty draft says nothing")
         // two points on top of each other along the axis
         val same = SurveyChain.Draft("front")
         for (t in listOf(pt(1000.0, 600.0), pt(1300.0, 600.0))) SurveyChain.press(same, "front", t, A, B, emptyList(), tol)
         same.nodes[1][0] = 1000.4
-        assertEquals("A chain needs two different points", (SurveyChain.finish(same) as SurveyChain.Finish.Refused).text)
+        assertEquals("A chain needs two different points", (SurveyChain.finish(same) as SurveyChain.Finish.Refused).text!!(Tx.EN))
         // a tap on another surface while a chain is drawn adds nothing (sp.js kDown)
         val busy = SurveyChain.press(same, "right", pt(10.0, 10.0), L, B, emptyList(), tol)
-        assertEquals("Finish the chain on the front wall first — ✓ or a double tap", (busy as SurveyChain.Press.Busy).text)
+        assertEquals("Finish the chain on the front wall first — ✓ or a double tap", SurveyChain.busyText(Tx.EN, (busy as SurveyChain.Press.Busy).s))
         assertEquals(2, same.nodes.size)
         // a second finger takes back the point its press added; the draft goes when it is empty
         val c = SurveyChain.Draft("front")
@@ -123,8 +123,8 @@ class ChainTest {
         val v0 = SurveyChain.vals(k, p.actual, A, B)
         // ct52 K: 'total "laser 3310"', the row "FK1 ≈905 · ≈2405 · Σ 3310 laser"
         assertEquals(SurveyChain.LASER, v0.src); assertEquals(3310.0, v0.total)
-        assertEquals("≈905 · ≈2405 · Σ 3310 laser", SurveyChain.rowValue(v0))
-        assertEquals("FK1 Σ 3310 laser", SurveyChain.totalTag(k.code, v0))
+        assertEquals("≈905 · ≈2405 · Σ 3310 laser", SurveyChain.rowValue(Tx.EN, v0))
+        assertEquals("FK1 Σ 3310 laser", SurveyChain.totalTag(Tx.EN, k.code, v0))
         assertTrue(SurveyChain.totalReadOnly(v0), "the laser's total is not typed over")
         // ct52 K: "typing 900 into FK1.1 derives FK1.2 = 2410 (dashed, derived); the total reads laser 3310"
         p.actual["FK1.1"] = 900.0
@@ -132,7 +132,7 @@ class ChainTest {
         assertEquals(1, v1.der); assertEquals(2410.0, v1.value[1]!!, 1e-9)
         assertEquals("2410 d" to SurveyChain.DERIVED_COLOUR, SurveyChain.segFigure(v1, 1))
         assertEquals("900" to SurveyChain.MEASURED_COLOUR, SurveyChain.segFigure(v1, 0))
-        assertEquals("900 · 2410 d · Σ 3310 laser", SurveyChain.rowValue(v1))
+        assertEquals("900 · 2410 d · Σ 3310 laser", SurveyChain.rowValue(Tx.EN, v1))
         // both read: checked against the laser (0 off: rose); 60 off is amber
         p.actual["FK1.2"] = 2410.0
         assertEquals(0.0, SurveyChain.vals(k, p.actual, A, B).check!!, 1e-9)
@@ -145,11 +145,11 @@ class ChainTest {
         k.nodes[2][0] = 3000.0
         val v2 = SurveyChain.vals(k, p.actual, A, B)
         assertNull(v2.laser); assertEquals(SurveyChain.DERIVED, v2.src); assertEquals(3310.0, v2.total)
-        assertEquals("900 · 2410 · Σ 3310 d", SurveyChain.rowValue(v2))
+        assertEquals("900 · 2410 · Σ 3310 d", SurveyChain.rowValue(Tx.EN, v2))
         assertFalse(SurveyChain.totalReadOnly(v2))
         // short of the edge with nothing read: the photo's sum, unknown
         val v3 = SurveyChain.vals(k, emptyMap(), A, B)
-        assertNull(v3.total); assertEquals("≈905 · ≈2095 · Σ ≈3000", SurveyChain.rowValue(v3))
+        assertNull(v3.total); assertEquals("≈905 · ≈2095 · Σ ≈3000", SurveyChain.rowValue(Tx.EN, v3))
         // a measured total wins over the laser, and derives the one unknown segment
         k.nodes[2][0] = 3310.0
         val v4 = SurveyChain.vals(k, mapOf("FK1.t" to 3300.0, "FK1.1" to 900.0), A, B)
@@ -287,8 +287,8 @@ class ChainTest {
         // toggled one at a time
         assertEquals(false, SurveyPrepEdit.setLocked(p, k1.id, null))
         // the List names it: "Chain · horizontal · 2 parts", and on the List tab the face after it
-        assertEquals("Chain · horizontal · 2 parts", SurveyChain.listName("front", k1, false))
-        assertEquals("Chain · horizontal · 2 parts · Front wall", SurveyChain.listName("front", k1, true))
+        assertEquals("Chain · horizontal · 2 parts", SurveyChain.listName(Tx.EN, "front", k1, false))
+        assertEquals("Chain · horizontal · 2 parts · Front wall", SurveyChain.listName(Tx.EN, "front", k1, true))
     }
 
     @Test fun `a chain round-trips SurveyPrepFile -- points, snaps, lock, readings and its code counter`() {
@@ -320,7 +320,7 @@ class ChainTest {
         bad["w"] = w
         val d2 = assertNotNull(SurveyPrepFile.decode(bad))
         assertEquals(listOf("FK1"), d2.prep.surface("front").chains.map { it.code })
-        assertTrue(d2.problems.single().contains("chain FK7"), d2.problems.toString())
+        assertTrue(d2.problems.single()(Tx.EN).contains("chain FK7"), d2.problems.map { it(Tx.EN) }.toString())
     }
 
     @Test fun `X5 -- a chain point on the picked door's left tab, the tab resizes the door, and unpicked the point is grabbed`() {
@@ -345,11 +345,11 @@ class ChainTest {
     }
 
     @Test fun `the chip, its tick, and the guide while a chain is drawn (item 7)`() {
-        assertEquals("Chain · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(0))
-        assertEquals("Chain · 1 point · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(1))
-        assertEquals("Chain · 3 points · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(3))
+        assertEquals("Chain · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(Tx.EN, 0))
+        assertEquals("Chain · 1 point · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(Tx.EN, 1))
+        assertEquals("Chain · 3 points · tap points along the surface, double-tap or ✓ to end", SurveyChain.chipText(Tx.EN, 3))
         assertFalse(SurveyChain.showDone(1)); assertTrue(SurveyChain.showDone(2))
-        assertEquals("End the chain", SurveyChain.DONE_LABEL)
+        assertEquals("End the chain", SurveyChain.doneLabel(Tx.EN))
         val d = SurveyChain.Draft("front")
         assertNull(SurveyChain.guide(d)); assertNull(SurveyGuide.now(null, null, null, null, SurveyPrepPalette.CHAIN, d))
         SurveyChain.press(d, "front", pt(400.0, 1200.0), A, B, emptyList(), tol)

@@ -244,6 +244,15 @@ class I18nLiteralTest {
 
     private val TX_MENTION = Regex("""(?<![\w.])tx\b|\bTx\b|\bLocalTx\b|\bMasters\b|\bMsg\b""")
 
+    /** The one mention check (h) permits in FaceWriter.kt: the LITERAL `Tx.EN`, never read further (`Tx.EN.x` would
+     *  compose text here) -- the painters take a tx since M3b, and the sheet render pins English by passing it
+     *  (decision 4's enforcement stays (h)'s: the export sees no LIVE language, only the pinned English table). */
+    private fun isPinnedEnglish(masked: String, m: MatchResult): Boolean {
+        if (m.value != "Tx") return false
+        val tail = masked.substring(m.range.last + 1)
+        return Regex("""^\s*\.\s*EN\b(?!\s*\.)""").containsMatchIn(tail)
+    }
+
     @Test fun `h the export and upload builders never see Tx`() {
         val off = ArrayList<String>()
         for (s in scans) {
@@ -263,12 +272,50 @@ class I18nLiteralTest {
             }
             if (region != null && s.rel.startsWith("app/")) {
                 TX_MENTION.findAll(s.masked.substring(region.first, region.last + 1)).forEach {
-                    off += "${s.name}:${s.lineOf(region.first + it.range.first)}: ${it.value}"
+                    // M3b: FaceWriter's survey sheets pass the painter the literal `Tx.EN` (never `tx`, never
+                    // LocalTx, never Tx.MR, never a read like Tx.EN.x) -- the one exemption, pinned below;
+                    // the import that names it is the same exemption
+                    val line = s.lineText(s.lineOf(region.first + it.range.first)).trim()
+                    val pinned = s.name == "FaceWriter.kt" &&
+                        (isPinnedEnglish(s.masked.substring(region.first, region.last + 1), it) ||
+                         line == "import com.malletcrafts.interiorestimate.pano.i18n.Tx")
+                    if (!pinned) off += "${s.name}:${s.lineOf(region.first + it.range.first)}: ${it.value}"
                 }
             }
         }
         listOf("PlanExport.kt", "FaceWriter.kt", "AsIsUpload.kt").filter { n -> scans.none { it.name == n } }.forEach { off += "$it: not found (update this check)" }
-        I18n.check("h · Tx in an export or upload builder", off, "the PDF, the images and the upload body stay English (decision 4 of 21 Oct): they take no Tx")
+        I18n.check("h · Tx in an export or upload builder", off, "the PDF, the images and the upload body stay English (decision 4 of 21 Oct): they take no Tx -- FaceWriter may pass the painter only the literal Tx.EN (M3b)")
+    }
+
+    @Test fun `h the sheet render and the face-prep export are pinned English`() {
+        // THE (h) COMPANION (port 61c slice M3b; the M3b critic's findings 2 and 3). The painters take a tx now, so
+        // decision 4 is enforced by WHAT IS PASSED: FaceWriter's survey sheet render and FacePrepScreen.exportAll's
+        // ImageMeter render each pass the literal `Tx.EN` -- and exportAll (FacePrepDraw's second caller; never
+        // FaceWriter, which draws through SurveyPrepDraw alone) sees no other Tx mention, so M8's flip of the SCREEN
+        // Canvas call cannot silently turn the exported photos Marathi.
+        val off = ArrayList<String>()
+        val fw = scans.firstOrNull { it.name == "FaceWriter.kt" }
+        if (fw == null) off += "FaceWriter.kt: not found (update this check)"
+        else if (!Regex("""SurveyPrepDraw\s*\.\s*drawMarks\(\s*Canvas\(flat\),\s*Tx\.EN,""").containsMatchIn(fw.masked))
+            off += "FaceWriter.kt: the survey sheet render no longer passes Tx.EN as drawMarks' language"
+        val fps = scans.firstOrNull { it.name == "FacePrepScreen.kt" }
+        if (fps == null) off += "FacePrepScreen.kt: not found (update this check)"
+        else {
+            val at = Regex("""\bfun\s+exportAll\b""").find(fps.masked)?.range?.first
+            if (at == null) off += "FacePrepScreen.kt: no fun exportAll (update this check with the ImageMeter export's new name)"
+            else {
+                val open = fps.masked.indexOf('{', at); var d = 0; var i = open
+                while (i < fps.masked.length) { if (fps.masked[i] == '{') d++ else if (fps.masked[i] == '}') { d--; if (d == 0) break }; i++ }
+                val body = fps.masked.substring(open, minOf(i + 1, fps.masked.length))
+                TX_MENTION.findAll(body).forEach {
+                    if (!isPinnedEnglish(body, it)) off += "FacePrepScreen.kt:${fps.lineOf(open + it.range.first)}: ${it.value} in exportAll"
+                }
+                if (!Regex("""FacePrepDraw\s*\.\s*draw\(\s*c,\s*Tx\.EN,""").containsMatchIn(body))
+                    off += "FacePrepScreen.kt: exportAll no longer passes Tx.EN as FacePrepDraw.draw's language"
+            }
+        }
+        I18n.check("h · the exports' language is pinned", off,
+            "the ImageMeter photos and the survey sheets stay English (decision 4): their one painter argument is the literal Tx.EN")
     }
 
     @Test fun `the language row is shown while the screens are translated alongside`() {

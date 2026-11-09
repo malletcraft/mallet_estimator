@@ -95,7 +95,7 @@ class Pano360Test {
         assertEquals(40.0, Pano360.pinchFov(90.0, 100.0, 400.0))
         assertEquals(110.0, Pano360.pinchFov(90.0, 300.0, 100.0))
         assertEquals("90°", Pano360.zoomText(90.0)); assertEquals("47°", Pano360.zoomText(46.6))
-        assertEquals("4 · 360 · drag to look round · Front wall", Pano360.caption("front"))
+        assertEquals("4 · 360 · drag to look round · Front wall", Pano360.caption(Tx.EN, "front"))
     }
 
     // ------------------------------------------------------------------ mm <-> direction
@@ -131,7 +131,7 @@ class Pano360Test {
         assertFalse("back" in fr); assertEquals(5, fr.size)
         // the middle of the back wall is then on no surface: "Set this surface's lines first"
         assertNull(Pano360.hitSurface(Pano360.faceView("back", 680.0, 840.0).dirAt(340.0, 420.0), fr))
-        assertEquals("Set this surface's lines first", Pano360.NO_LINES)
+        assertEquals("Set this surface's lines first", Pano360.noLines(Tx.EN))
     }
 
     @Test fun `hitSurface at the corners, and just outside with the 1 % slack`() {
@@ -193,24 +193,24 @@ class Pano360Test {
     // ------------------------------------------------------------------ placing by name (ct52 2523)
 
     @Test fun `a Switch plate cannot go on the floor, nor a Step on a wall -- what a type IS, not its letter`() {
-        assertEquals("A Switch plate cannot go on the floor", Pano360.placeRefusal("front", "floor", "S"))
-        assertEquals("A Step cannot go on the front wall", Pano360.placeRefusal("floor", "front", "S"))
-        assertEquals("A Fan cannot go on the floor", Pano360.placeRefusal("ceil", "floor", "F"))
-        assertEquals("A Window cannot go on the ceiling", Pano360.placeRefusal("front", "ceil", "W"))
-        assertNull(Pano360.placeRefusal("front", "right", "S"))      // a Switch plate onto another wall
-        assertNull(Pano360.placeRefusal("front", "ceil", "F"))       // a Fan from a wall to the ceiling
-        assertNull(Pano360.placeRefusal("floor", "ceil", "E")); assertNull(Pano360.placeRefusal("front", "floor", "P"))
+        assertEquals("A Switch plate cannot go on the floor", Pano360.placeRefusal(Tx.EN, "front", "floor", "S"))
+        assertEquals("A Step cannot go on the front wall", Pano360.placeRefusal(Tx.EN, "floor", "front", "S"))
+        assertEquals("A Fan cannot go on the floor", Pano360.placeRefusal(Tx.EN, "ceil", "floor", "F"))
+        assertEquals("A Window cannot go on the ceiling", Pano360.placeRefusal(Tx.EN, "front", "ceil", "W"))
+        assertNull(Pano360.placeRefusal(Tx.EN, "front", "right", "S"))      // a Switch plate onto another wall
+        assertNull(Pano360.placeRefusal(Tx.EN, "front", "ceil", "F"))       // a Fan from a wall to the ceiling
+        assertNull(Pano360.placeRefusal(Tx.EN, "floor", "ceil", "E")); assertNull(Pano360.placeRefusal(Tx.EN, "front", "floor", "P"))
         assertTrue(Pano360.canPlace("Switch plate", "back")); assertFalse(Pano360.canPlace("Switch plate", "floor"))
         assertTrue(Pano360.canPlace("Step", "floor")); assertFalse(Pano360.canPlace("Step", "left"))
         assertTrue(Pano360.canPlace("Fan", "ceil")); assertFalse(Pano360.canPlace("Fan", "floor"))
-        assertEquals("A Switch plate cannot go on the floor", Pano360.cannotGo("Switch plate", "floor"))
+        assertEquals("A Switch plate cannot go on the floor", Pano360.cannotGo(Tx.EN, "Switch plate", "floor"))
         // every type onto every surface: refused exactly when the surface has no type of that name under that letter
         for (from in SurveyPrep.SURFACES) for (to in SurveyPrep.SURFACES) for (t in SurveyPrep.types(from)) {
             val ok = SurveyPrep.types(to).any { it.letter == t.letter && it.name == t.name }
-            assertEquals(ok, Pano360.placeRefusal(from, to, t.letter) == null, "${t.letter} $from -> $to")
+            assertEquals(ok, Pano360.placeRefusal(Tx.EN, from, to, t.letter) == null, "${t.letter} $from -> $to")
             assertEquals(ok, SurveyPrep.canPlace(from, to, t.letter), "${t.letter} $from -> $to")
             // a type moving between walls, or a point between any two surfaces that have it, is never refused
-            if (from == to) assertNull(Pano360.placeRefusal(from, to, t.letter))
+            if (from == to) assertNull(Pano360.placeRefusal(Tx.EN, from, to, t.letter))
         }
     }
 
@@ -393,7 +393,7 @@ class Pano360Test {
         assertFalse(d.off); assertEquals(SurveyMeas.End.PLOTTED, SurveyMeas.end(d))
         d.offPlane()
         assertTrue(d.off); assertEquals(SurveyMeas.End.REFUSED, SurveyMeas.end(d))
-        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText(d))
+        assertEquals("Off this surface — nothing will be plotted", SurveyMeas.dirText(Tx.EN, d))
     }
 
     @Test fun `the tool chip on the 360 says tap the 360`() {
@@ -419,7 +419,7 @@ class Pano360Test {
         val d = SurveyMeas.Draft("front", SurveyMeas.TAPE, under(v, "front", f, 400.0, 1000.0), f.a, f.b)
         d.move(under(v, "front", f, 1900.0, 1040.0))
         assertEquals("h", d.snap); assertEquals(SurveyMeas.End.PLOTTED, SurveyMeas.end(d))
-        assertTrue(SurveyMeas.dirText(d).startsWith("↔ along the face"))
+        assertTrue(SurveyMeas.dirText(Tx.EN, d).startsWith("↔ along the face"))
         val t3 = p.addMeas("front", d.kind, d.pts(), "t3")
         assertEquals("F-T3", t3.code); assertEquals(t3.pts[0][1], t3.pts[1][1]); assertEquals(1500.0, SurveyMeas.plen(t3.pts), 1.0)
         // with Select on its far end is dragged to where (2300, 1020) is: the end moves along the face, level, ~1900

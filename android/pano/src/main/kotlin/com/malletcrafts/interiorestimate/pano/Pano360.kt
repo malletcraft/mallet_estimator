@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -54,11 +56,11 @@ object Pano360 {
      *  photo box -- since a 2048 px preview has only 512 px across 90° anyway (see [render]). */
     const val RENDER_SCALE = 0.5
 
-    /** What the caption over the 360 says (sp.js render: capT). */
-    fun caption(s: String) = "4 · 360 · drag to look round · ${SurveyPrep.NAME[s] ?: s}"
+    /** What the caption over the 360 says (sp.js render: capT); keyed in port 61c slice M3b. */
+    fun caption(tx: Tx, s: String) = tx.sp_360_drag_look_x(Masters.surface(tx, SurveyPrep.NAME[s] ?: s))
 
     /** The zoom label beside fit: "90°". */
-    fun zoomText(fov: Double) = "${fov.roundToInt()}°"
+    fun zoomText(fov: Double) = "${fov.roundToInt()}°" // text:value a figure and the degree glyph
 
     /**
      * ONE VIEW OF THE 360: looking at [yaw] degrees round from the front wall (clockwise seen from above, the right wall
@@ -210,15 +212,18 @@ object Pano360 {
     }
 
     /** What a press with Chain, Tape, Line or a type on says off every bounded surface (sp.js). */
-    const val NO_LINES = "Set this surface's lines first"
+    fun noLines(tx: Tx) = tx.refuse_lines_first
 
     // ------------------------------------------------------------------ placing by what a type IS (item 11)
 
     /** Whether a type NAMED [typeName] may go on surface [to]: one of [to]'s types has that name. */
     fun canPlace(typeName: String, to: String): Boolean = SurveyPrep.types(to).any { it.name == typeName }
 
-    /** The refusal: "A Switch plate cannot go on the floor", "A Step cannot go on the front wall" (sp.js, exactly). */
-    fun cannotGo(typeName: String, to: String) = "A $typeName cannot go on the ${SurveyPrep.NAME.getValue(to).lowercase()}"
+    /** The refusal: "A Switch plate cannot go on the floor", "A Step cannot go on the front wall" (sp.js, exactly).
+     *  The Marathi restructures to "{surfName}: इथे {n} लावता येत नाही" -- the key's own shape (port 61c slice M3b). */
+    fun cannotGo(tx: Tx, typeName: String, to: String) =
+        tx.refuse_v360_x_cannot_go_x(n = Masters.type(tx, typeName),
+            surfName = Masters.surface(tx, SurveyPrep.NAME.getValue(to)).lowercase())
 
     /**
      * PLACING ON THE 360 COMPARES WHAT A TYPE IS, NOT ITS LETTER (v52 fix; Amit, 11 Oct 2026 20:36: "electric control
@@ -227,10 +232,10 @@ object Pano360 {
      * letter -- the wall's S is a Switch plate and the floor's S a Step, so neither crosses. Null: it may; else the
      * refusal, said as a note and nothing placed.
      */
-    fun placeRefusal(from: String, to: String, t: String): String? {
+    fun placeRefusal(tx: Tx, from: String, to: String, t: String): String? {
         val name = SurveyPrep.typeOf(from, t).name
         val ok = canPlace(name, to) && SurveyPrep.types(to).any { it.letter == t && it.name == name }
-        return if (ok) null else cannotGo(name, to)
+        return if (ok) null else cannotGo(tx, name, to)
     }
 
     // ------------------------------------------------------------------ marks on the screen

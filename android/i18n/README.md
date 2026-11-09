@@ -442,6 +442,48 @@ AlbumOutbox's new log lines and preference key, and the store's kind and state v
 compare against (`Photo`, `SYNCED`) are marked `// text:value`. 1,794 keys, unchanged; Tx is not regenerated.
 `unkeyed.tsv` is unchanged (860 lines). `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
 
+## Port 61c slice M3b (9 Nov 2026): the measures, the readings and the words drawn on the photo
+
+`pano/SurveyMeas.kt`, `pano/SurveyChain.kt`, `pano/SurveyRef.kt`, `pano/SurveyPrepFile.kt`, `pano/Pano360.kt`,
+`pano/Readings.kt`, `SurveyPrepDraw.kt`, `SurveyPrep360.kt`, `ReadingsSync.kt` and `FacePrepDraw.kt` joined
+`ported.txt` and their 145 `unkeyed.tsv` rows went (829 -> 684; `FacePrep.kt` 37 -> 17 -- only the words
+`FacePrepDraw` draws are keyed, the Measure sheet's Dim labels, the capitalised side names and the piece labels stay
+M8's rows). The constants of M3a's boundary became functions taking `tx: Tx` first (the Tape's and Line's chips,
+refusals, names, list rows and selection rows; the chain's chip, ✓ label, refusals, list name, row and total; the
+reference's words, menu, aria labels and refText; the 360 caption, the placing refusal and the lines-first refusal),
+and the salvage notes, the saved state, the opened note and the points note are each a `Msg`, drawn in the language
+on when they are drawn -- the stored FILE, its aside names and every wire value stay byte-identical.
+
+- **Three new keys**, the only ones (the card is otherwise consumed, not extended): `fp.x_wall_corrected_x`,
+  `fp.x_wall_depth_unknown` and `fp.x_plan_x_deep`, Face Prep's two plate-guide labels and its plan-guide label --
+  screens the prototype never had, so flag `phone-text`, Marathi by Claude (decision 6). 1,794 -> 1,797 keys; Tx
+  regenerated with `i18nGen`. **depth = डेप्थ in all three** (what staff say; खोली would read as 'room' on these
+  screens -- the M3b critic's finding 1, matching the five shipped `measure.*depth*` rows).
+- **The words DRAWN ON THE PHOTO take the language**: `SurveyPrepDraw.drawMarks` / `drawLines` / `drawRef` and
+  `FacePrepDraw.draw` take a `tx` PARAMETER, never a field on `Marks` (the two callers deliberately differ), so the
+  four boundary-line names, the reference's "संदर्भ 905 × 2053" tag and the chain total's " लेझर" translate on
+  screen -- while FaceWriter's survey sheets and FacePrepScreen.exportAll's ImageMeter photos pass `Tx.EN` (decision
+  4: EXPORTS STAY ENGLISH; check (h) permits exactly that literal in FaceWriter and its companion pins both call
+  sites -- the M3b critic's findings 2 and 3; M8 flips only FacePrepScreen's screen-Canvas argument).
+  `SurveyPrep.lineNames(s)` and `SurveyPrep.Measure`'s String constructor are DELETED -- no fallback stays.
+- **What stays Latin on the photo, on purpose**: the code-and-figure tags (`tapeTag`, `lineTag`, `segFigure`,
+  `zoomText`) take no Tx at all -- byte-equal in every language -- and the chain's derived " d" marker stays Latin
+  because the prototype's own screen draws "3310 d" under मराठी (its fragment dictionary admits only 3+-letter
+  words); a Marathi single-letter marker would be a state the prototype does not draw. `SurveyDrawMarathiTest` pins
+  each drawn word byte-exact under `Tx.MR`, the figure tags wordless, a width proxy with a mojibake guard, and that
+  `tapeTagAt` keeps a text 1.6 × the English width inside the canvas; `SurveyPrepMarathiTest`'s M3b block pins every
+  Masters-backed fill against the strings the served prototype's own text layer answered.
+- **The readings line colours by a KIND, never by string equality** (critic note 3): `Readings.NoteKind`
+  (OK / NOT_YET / FAILED) with `noteKind(ok, notYet, clean)` -- OK only when the pull succeeded AND nothing had to
+  be said, so a conflict-carrying pull stays amber, today's behaviour exactly (the M3b critic's finding 4).
+  `conflictText` moved from ReadingsSync into `pano/Readings.kt` so the :pano suite pins it under both Tx; the PUSH
+  path's stored note composes `Tx.EN` until M2 (the stored-note twin of M4's REPLACED / NOT_SENT rule).
+- **Identity values, drawn through their words**: `FacePrep.EDGE_NAMES` resolves through the six `measure.*` from-
+  keys (`fromWord`; a named mark through `app.from_x` -- "230 जमिनीपासून", "दरवाजा 1 पासून"), `STEP_KINDS` /
+  `DETAIL_TYPES` through `stepName` / `detName` (Masters.type; "Electrical" through `trade.electrical`);
+  `SurveyChain.GROUP` stays the identity "chains". `FacePrep.dims` and `locators` take a tx; `csvRows` and
+  `faceStatus` keep their signatures and use `Tx.EN` inside (the CSV is an export; the status reads no label).
+
 ## What is here
 
 | File | What it is | Who writes it |

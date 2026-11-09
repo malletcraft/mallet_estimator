@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.Readings
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -45,8 +46,6 @@ import java.time.format.DateTimeFormatter
  * 3 Nov 2026).
  */
 object ReadingsSync {
-
-    const val NOT_YET = "web readings not available yet"
 
     private val LOCK = Any()
 
@@ -115,7 +114,8 @@ object ReadingsSync {
 
     /**
      * The PULL's reading of a refusal (survey prep): a 404 on both of the capture's names, or a 405, is a capture
-     * whose readings the web does not have yet -- the quiet [NOT_YET]. Not the push's: after the job's own record
+     * whose readings the web does not have yet -- the quiet not-yet line (sp.web_readings_not_yet, grey by its
+     * Readings.NoteKind since port 61c slice M3b). Not the push's: after the job's own record
      * PUT, S5 serves the readings route of that capture (the explicit routes landed together, 14 Oct 2026), so a 404
      * there is the capture gone from the web, and AsIsUpload runs the job again from the record.
      */
@@ -188,12 +188,12 @@ object ReadingsSync {
             }
             st.conflicts.putAll(conflicts)
         }
-        return if (conflicts.isEmpty()) null else conflictText(conflicts)
+        // THE PUSH PATH'S NOTE COMPOSES WITH Tx.EN until M2 (port 61c slice M3b): it is a STORED note -- kept in the
+        // job's state (AsIsUpload.setState) and shown by the tree's status line, which is M2's screen -- so it stays
+        // English like M4's REPLACED / NOT_SENT notes. The PULL path (survey prep) renders Readings.conflictText with
+        // the screen's live tx.
+        return if (conflicts.isEmpty()) null else Readings.conflictText(Tx.EN, conflicts)
     }
-
-    fun conflictText(conflicts: Map<String, Readings.Remote>): String =
-        conflicts.entries.sortedBy { it.key }.joinToString("; ") { (k, r) ->
-            "$k changed on the web" + if (r.by.isNotBlank()) " by ${r.by}" else "" }
 
     /**
      * Survey prep's half, on the main thread: any waiting conflict is applied

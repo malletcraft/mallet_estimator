@@ -172,13 +172,13 @@ class RefFrameTest {
         assertEquals(false, SurveyRef.setShown(sf, null))
         assertNull(SurveyRef.faceQuad(sf, SurveyPrep.frameOf("front", p, L, W, H)), "hidden: not drawn on the faces")
         assertNotNull(SurveyPrep.frameOf("front", p, L, W, H)!!.ref, "hidden: still squaring")
-        assertEquals("Ref 905 × 2053", SurveyRef.tabText(sf), "the tab still says so")
-        assertEquals("Reference hidden on the faces — it still squares the front wall", SurveyRef.shownSaid("front", false))
-        assertEquals("Reference shown on 2 · Mark, 3 · List and 4 · 360", SurveyRef.shownSaid("front", true))
+        assertEquals("Ref 905 × 2053", SurveyRef.tabText(Tx.EN, sf), "the tab still says so")
+        assertEquals("Reference hidden on the faces — it still squares the front wall", SurveyRef.shownSaid(Tx.EN, "front", false))
+        assertEquals("Reference shown on 2 · Mark, 3 · List and 4 · 360", SurveyRef.shownSaid(Tx.EN, "front", true))
         assertEquals(true, SurveyRef.setShown(sf, null))
-        assertNull(SurveyRef.tabText(p.surface("right")))
+        assertNull(SurveyRef.tabText(Tx.EN, p.surface("right")))
         setRef(p, "right", null, 905.0, 2053.0)
-        assertNull(SurveyRef.tabText(p.surface("right")), "not placed: no subtitle")
+        assertNull(SurveyRef.tabText(Tx.EN, p.surface("right")), "not placed: no subtitle")
     }
 
     @Test fun `it is never an item -- not counted, not cleared, not deleted, kept by Start over locked or not`() {
@@ -221,7 +221,7 @@ class RefFrameTest {
         assertEquals(listOf("Unlock", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, id).map { it.second })
         assertFalse(SurveyRef.moveCorner(p.surface("front"), 0, 1.0, 1.0), "a locked reference does not move")
         assertEquals("Front wall reference is locked — unlock first", SurveyRef.lockedSaid(Tx.EN, "front"))
-        assertEquals("The reference stays — hide it with the eye in 1 · Lines", SurveyRef.NO_DELETE)
+        assertEquals("The reference stays — hide it with the eye in 1 · Lines", SurveyRef.noDelete(Tx.EN))
         assertNull(SurveyPrepEdit.lockGroupOf(p, id))
         // turned off, it is no item to pick
         SurveyRef.setMode(p.surface("front"), "front", false, null)
@@ -314,7 +314,7 @@ class RefFrameTest {
             assertNull(f.ref, why); assertEquals(W, f.a, why); assertEquals(H, f.b, why)
             assertEquals(listOf(W, H), SurveyPrep.sizeOf("front", p, L, W, H).toList(), why)
             assertNull(SurveyRef.frameFromReference(p.surface("front").lines, SurveyRef.of(p.surface("front"))), why)
-            assertEquals(SurveyRef.PLACE_HINT, SurveyRef.refText("front", p, L, W, H).first, why)
+            assertEquals(SurveyRef.placeHint(Tx.EN), SurveyRef.refText(Tx.EN, "front", p, L, W, H).first, why)
         }
         assertFalse(SurveyRef.convex(listOf(q[0], q[2], q[1], q[3])), "a bow-tie is not convex")
         assertTrue(SurveyRef.area(q) * SurveyRef.area(listOf(q[3], q[2], q[1], q[0])) < 0, "a flip turns the winding")
@@ -338,7 +338,7 @@ class RefFrameTest {
         val left = assertNotNull(SurveyRef.leave(shot))
         assertFalse(SurveyRef.armed(left, "front", "w"))
         val d = assertIs<SurveyRef.Route.Drop>(SurveyRef.route(left, p, 2053, t0 + 1200))
-        assertEquals("D2 2053 mm — not used: the reference box was left", d.note)
+        assertEquals("D2 2053 mm — not used: the reference box was left", SurveyRef.leftSaid(Tx.EN, d.mm))
         // long after, a stale shot takes nothing: the reading is the active measurement's again
         assertSame(SurveyRef.Route.Normal, SurveyRef.route(left, p, 2053, t0 + SurveyRef.SHOT_MS + 1))
         assertNull(SurveyRef.leave(null))
@@ -360,17 +360,17 @@ class RefFrameTest {
     }
 
     @Test fun `the reference's words`() {
-        assertEquals("Edges · laser", SurveyRef.EDGES); assertEquals("Reference ▭", SurveyRef.REFERENCE)
-        assertEquals("Show on faces", SurveyRef.EYE_LABEL)
+        assertEquals("Edges · laser", SurveyRef.edges(Tx.EN)); assertEquals("Reference ▭", SurveyRef.reference(Tx.EN))
+        assertEquals("Show on faces", SurveyRef.eyeLabel(Tx.EN)); assertEquals("Size from", SurveyRef.sizeFrom(Tx.EN))
         val p = room(); val sf = p.surface("front")
         SurveyRef.setMode(sf, "front", true, null)
-        assertEquals("Ref ? × ?", SurveyRef.label(SurveyRef.of(sf)!!))
-        assertEquals(SurveyRef.PLACE_HINT to false, SurveyRef.refText("front", null, doubleArrayOf(W, H)))
+        assertEquals("Ref ? × ?", SurveyRef.label(Tx.EN, SurveyRef.of(sf)!!))
+        assertEquals(SurveyRef.placeHint(Tx.EN) to false, SurveyRef.refText(Tx.EN, "front", null, doubleArrayOf(W, H)))
         setRef(p, "front", refQuad(p, "front", 300.0, 0.0, 905.0, 2053.0), 905.0, 2053.0)
-        val t = SurveyRef.refText("front", SurveyPrep.frameOf("front", p, L, W, H), doubleArrayOf(W, H))
+        val t = SurveyRef.refText(Tx.EN, "front", SurveyPrep.frameOf("front", p, L, W, H), doubleArrayOf(W, H))
         assertEquals("Measured W 2678 × H 2677 · laser 2678 × 2677 ✓", t.first); assertFalse(t.second)
         setRef(p, "front", refQuad(p, "front", 900.0, 400.0, 1000.0, 1200.0), 900.0, 1080.0)
-        val u = SurveyRef.refText("front", SurveyPrep.frameOf("front", p, L, W, H), doubleArrayOf(W, H))
+        val u = SurveyRef.refText(Tx.EN, "front", SurveyPrep.frameOf("front", p, L, W, H), doubleArrayOf(W, H))
         assertTrue(u.second && u.first.endsWith(" · differs by −268 / −268 mm"), u.first)
     }
 }

@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import com.malletcrafts.interiorestimate.pano.FacePrep
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -20,6 +21,14 @@ import kotlin.math.sin
  * ImageMeter photo — the prototype's rule, so what Amit lines up is exactly
  * what gets exported. [map] takes a point in face-photo pixels (the square
  * part, side [side]) and returns where to draw it on the target canvas.
+ *
+ * THE LANGUAGE IS A PARAMETER of [draw] (port 61c slice M3b): the word mechanism is :pano's (FacePrep.stepName,
+ * detName, fromWord, the guide labels' fp.* keys), threaded once here — and BOTH callers pass `Tx.EN`, each for its
+ * own reason: FacePrepScreen's Canvas because Face Prep's chrome is M8's, so the screen stays wholly English under
+ * मराठी until then (no mixed screen the prototype never drew), and FacePrepScreen.exportAll — the ImageMeter photos —
+ * for good (decision 4: EXPORTS STAY ENGLISH). M8's flip is the SCREEN Canvas call's one argument; the export's is
+ * pinned English by I18nLiteralTest's (h) companion. The M3b critic's finding 3: the second caller is exportAll,
+ * never FaceWriter, which draws through SurveyPrepDraw alone.
  */
 object FacePrepDraw {
 
@@ -54,7 +63,7 @@ object FacePrepDraw {
     fun uvToImg(box: FacePrep.Box, side: Float, u: Double, v: Double) =
         floatArrayOf(((box.x0 + u * (box.x1 - box.x0)) * side).toFloat(), ((box.y0 + v * (box.y1 - box.y0)) * side).toFloat())
 
-    fun draw(c: Canvas, room: FacePrep.Room, face: String, box: FacePrep.Box, side: Float,
+    fun draw(c: Canvas, tx: Tx, room: FacePrep.Room, face: String, box: FacePrep.Box, side: Float,
              map: (Float, Float) -> FloatArray, sc: Float, o: Opts) {
         val f = room.face(face)
         val (w, h) = FacePrep.faceDims(room, face)
@@ -133,17 +142,16 @@ object FacePrepDraw {
         val corners = listOf(P(0.0, 0.0), P(1.0, 0.0), P(1.0, 1.0), P(0.0, 1.0))
         for (k in 0..3) line(corners[k], corners[(k + 1) % 4], 0xB3FFD23F.toInt(), max(1.5f, lw * 0.5f), 6f * sc)
 
-        // columns, beams, other steps: shaded, named
-        val sCount = HashMap<String, Int>()
+        // columns, beams, other steps: shaded, named (the name through FacePrep.stepName, port 61c slice M3b)
         f.steps.forEachIndexed { i, s0 ->
-            val s = s0.norm(); sCount[s.kind] = (sCount[s.kind] ?: 0) + 1
+            val s = s0.norm()
             val pts = listOf(P(s.u0, s.v0), P(s.u1, s.v0), P(s.u1, s.v1), P(s.u0, s.v1))
             val path = Path().apply { moveTo(pts[0][0], pts[0][1]); for (k in 1..3) lineTo(pts[k][0], pts[k][1]); close() }
             fill.color = 0x610A0A0A; c.drawPath(path, fill)
             val on = o.sel?.kind == "steps" && o.sel?.i == i
             val col = STEP_COL[s.kind] ?: EDGE
             for (k in 0..3) line(pts[k], pts[(k + 1) % 4], if (on) -1 else col, (if (on) 3f else 2f) * sc, 8f * sc)
-            tag("${FacePrep.stepLabel(s.kind).split(" ")[0]} ${sCount[s.kind]}", P((s.u0 + s.u1) / 2, (s.v0 + s.v1) / 2), col)
+            tag(FacePrep.stepName(tx, f, i), P((s.u0 + s.u1) / 2, (s.v0 + s.v1) / 2), col)
             if (o.handles == "steps") for (p in pts) grip(c, fill, stroke, p, if (on) -1 else col, (if (on) 10f else 8f) * sc)
         }
 
@@ -164,7 +172,7 @@ object FacePrepDraw {
             arrow(p, q, EDGE, max(1.6f, lw * 0.7f), 4f * sc)
             line(a, p, EDGE, max(1f, lw * 0.45f), 4f * sc); line(b, q, EDGE, max(1f, lw * 0.45f), 4f * sc)
             val labOff = fs * 0.9f
-            dimTag(edgeKeys[n - 1], "E$n ${pc.len}", add(mid(p, q), ov, labOff), EDGE, fs, p, q)
+            dimTag(edgeKeys[n - 1], "E$n ${pc.len}", add(mid(p, q), ov, labOff), EDGE, fs, p, q) // text:value a code and a figure
             pc.side?.let { reach[it] = max(reach[it] ?: 0f, off + labOff * 2) }
         }
         // the measured totals, beyond the edge dimensions
@@ -173,7 +181,7 @@ object FacePrepDraw {
             val (a, b) = when (sd) { "top" -> P(0.0, 0.0) to P(1.0, 0.0); "bottom" -> P(0.0, 1.0) to P(1.0, 1.0)
                                      "left" -> P(0.0, 0.0) to P(0.0, 1.0); else -> P(1.0, 0.0) to P(1.0, 1.0) }
             val m = mid(a, b); val ctr = P(0.5, 0.5); val ov = unit(floatArrayOf(m[0] - ctr[0], m[1] - ctr[1]))
-            dimTag("T:$sd", "$tot mm", add(m, ov, (reach[sd] ?: off) + fs), -1, fs, a, b)
+            dimTag("T:$sd", "$tot mm", add(m, ov, (reach[sd] ?: off) + fs), -1, fs, a, b) // text:value a figure and the unit mm
         }
         // box dividers
         for ((sd, ts) in f.splits) ts.forEachIndexed { i, t ->
@@ -193,20 +201,20 @@ object FacePrepDraw {
                 stroke.color = if (on) -1 else GUIDE; stroke.strokeWidth = 3.5f * sc; c.drawCircle(p[0], p[1], 22f * sc, stroke)
                 fill.color = GUIDE; c.drawCircle(p[0], p[1], 4f * sc, fill) }
         }
-        // a wall's columns and beams carried onto this floor / ceiling
+        // a wall's columns and beams carried onto this floor / ceiling (the label a Msg: the fp.* keys, M3b)
         for (g in FacePrep.plateGuides(room, face)) {
             val col = STEP_COL[g.kind] ?: EDGE
             line(P(g.p0[0], g.p0[1]), P(g.q0[0], g.q0[1]), col, 2.4f * sc, 10f * sc)
             line(P(g.p1[0], g.p1[1]), P(g.q1[0], g.q1[1]), col, 2.4f * sc, 10f * sc)
             line(P(g.q0[0], g.q0[1]), P(g.q1[0], g.q1[1]), col, 1.6f * sc, 10f * sc)
-            tag(g.label, mid(P(g.q0[0], g.q0[1]), P(g.q1[0], g.q1[1])), col, fs * 0.85f)
+            tag(g.label(tx), mid(P(g.q0[0], g.q0[1]), P(g.q1[0], g.q1[1])), col, fs * 0.85f)
         }
         // the floor / ceiling plan's steps, where this wall shows their face
         for (g in FacePrep.wallGuides(room, face)) {
             val col = STEP_COL[g.kind] ?: EDGE
             val vEnd = if (g.plate == "floor") 0.0 else 0.3; val vStart = if (g.plate == "floor") 1.0 else 0.0
             line(P(g.u0, vStart), P(g.u0, vEnd), col, 2.4f * sc, 10f * sc); line(P(g.u1, vStart), P(g.u1, vEnd), col, 2.4f * sc, 10f * sc)
-            tag(g.label, P((g.u0 + g.u1) / 2, if (g.plate == "floor") 0.94 else 0.06), col, fs * 0.85f)
+            tag(g.label(tx), P((g.u0 + g.u1) / 2, if (g.plate == "floor") 0.94 else 0.06), col, fs * 0.85f)
         }
         // details: a rectangle each, two size arrows, and where it sits
         f.dets.forEachIndexed { i, d ->
@@ -231,17 +239,18 @@ object FacePrepDraw {
             }
             for (t in d.sw) { val p = P(d.u0 + (d.u1 - d.u0) * t, ve); fill.color = col; c.drawCircle(p[0], p[1], 6f * sc, fill) }
             for (t in d.sh) { val p = P(ue, d.v0 + (d.v1 - d.v0) * t); fill.color = col; c.drawCircle(p[0], p[1], 6f * sc, fill) }
-            for (loc in FacePrep.locators(face, f, i)) {
+            for (loc in FacePrep.locators(tx, face, f, i)) {
                 val a = P(loc.a[0], loc.a[1]); val b = P(loc.b[0], loc.b[1])
                 arrow(a, b, col, max(1.4f, lw * 0.6f), 6f * sc)
                 val mm = FacePrep.locatorMm(w, h, loc)
-                dimTag(FacePrep.detKey(d, if (loc.horizontal) "lh" else "lv"), "$mm from ${loc.to}",
+                // "230 from floor" / "230 जमिनीपासून": the figure, then the from-word (FacePrep.fromWord, M3b)
+                dimTag(FacePrep.detKey(d, if (loc.horizontal) "lh" else "lv"), "$mm " + FacePrep.fromWord(tx, loc.to), // text:value a figure before the word
                     add(mid(a, b), if (loc.horizontal) floatArrayOf(0f, 1f) else floatArrayOf(1f, 0f),
                         if (loc.horizontal) wOut * fs * 1.2f else hOut * fs * 5f), col, fs * 0.9f, a, b)
             }
             val ctr = P((d.u0 + d.u1) / 2, (d.v0 + d.v1) / 2)
             val small = abs(pts[1][0] - pts[0][0]) < fs * 9 || abs(pts[3][1] - pts[0][1]) < fs * 4
-            tag(FacePrep.detName(f, i), if (small) floatArrayOf(ctr[0], min(pts[0][1], pts[1][1]) - fs * 1.6f) else ctr, col)
+            tag(FacePrep.detName(tx, f, i), if (small) floatArrayOf(ctr[0], min(pts[0][1], pts[1][1]) - fs * 1.6f) else ctr, col)
             if (o.handles == "dets") for (p in pts) grip(c, fill, stroke, p, if (on) -1 else col, (if (on) 10f else 8f) * sc)
         }
         // free measure lines
@@ -256,8 +265,8 @@ object FacePrepDraw {
                 val seg = (tot * (ts[k + 1] - ts[k])).roundToInt()
                 dimTag(if (ts.size == 2) FacePrep.lineKey(l) else FacePrep.lineKey(l, k + 1), "$seg", add(mid(pa, pb), nrm, fs * 1.3f), LINE, fs, pa, pb)
             }
-            if (ts.size > 2) dimTag(FacePrep.lineKey(l), "L${i + 1} $tot", add(mid(A, B), nrm, -fs * 1.5f), LINE, fs * 0.95f, A, B)
-            else tag("L${i + 1}", add(A, nrm, -fs * 1.3f), LINE, fs * 0.85f)
+            if (ts.size > 2) dimTag(FacePrep.lineKey(l), "L${i + 1} $tot", add(mid(A, B), nrm, -fs * 1.5f), LINE, fs * 0.95f, A, B) // text:value a code and a figure
+            else tag("L${i + 1}", add(A, nrm, -fs * 1.3f), LINE, fs * 0.85f) // text:value a code
             l.ts.forEachIndexed { j, t -> val q = l.at(t); val p = P(q[0], q[1]); val onj = o.sel?.kind == "lsplit" && o.sel?.i == i && o.sel?.j == j
                 fill.color = LINE; c.drawCircle(p[0], p[1], (if (onj) 11f else 7f) * sc, fill)
                 if (onj) { stroke.color = -1; stroke.strokeWidth = 3f * sc; c.drawCircle(p[0], p[1], 11f * sc, stroke) } }
@@ -268,13 +277,13 @@ object FacePrepDraw {
             val col = if (g.onRef) GUIDE_ON else GUIDE
             g.upright?.let { u -> line(P(u, 0.0), P(u, 1.0), col, 2.4f * sc, 14f * sc) }
             g.level?.let { v -> line(P(0.0, v), P(1.0, v), col, 2.4f * sc, 14f * sc) }
-            o.guideAt?.let { at -> tag("${g.left} | ${g.right} mm", add(P(at[0], at[1]), floatArrayOf(0f, 1f), -fs * 2.4f), col, fs * 1.1f) }
+            o.guideAt?.let { at -> tag("${g.left} | ${g.right} mm", add(P(at[0], at[1]), floatArrayOf(0f, 1f), -fs * 2.4f), col, fs * 1.1f) } // text:value figures and the unit mm
         }
         o.boxGuide?.let { (sd, t) ->
             val horiz = sd == "top" || sd == "bottom"; val len = if (horiz) w else h; val a = (t * len).roundToInt()
             val (p, q) = if (horiz) P(t, 0.0) to P(t, 1.0) else P(0.0, t) to P(1.0, t)
             line(p, q, GUIDE, 2.4f * sc, 14f * sc)
-            tag("$a | ${len - a} mm", add(mid(p, q), floatArrayOf(0f, 1f), -fs * 2.4f), GUIDE, fs * 1.1f)
+            tag("$a | ${len - a} mm", add(mid(p, q), floatArrayOf(0f, 1f), -fs * 2.4f), GUIDE, fs * 1.1f) // text:value figures and the unit mm
         }
     }
 

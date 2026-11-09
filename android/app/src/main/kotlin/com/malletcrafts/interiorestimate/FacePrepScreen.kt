@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.FacePrep
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -149,11 +150,11 @@ fun FacePrepScreen(
     }
     fun openPick(k: String?) { pick = k; typed = ""; sheetOpen = k != null }
     fun nextDim() {
-        val nx = FacePrep.nextUnmeasured(FacePrep.dims(room, face), pick)
+        val nx = FacePrep.nextUnmeasured(FacePrep.dims(Tx.EN, room, face), pick)
         if (nx != null) openPick(nx) else { openPick(null); note = "Every figure on this face is measured" }
     }
     fun take(mm: Int) {
-        val ds = FacePrep.dims(room, face)
+        val ds = FacePrep.dims(Tx.EN, room, face)
         if (mode != "measure") { mode = "measure"; sel = null }
         val k = pick?.takeIf { p -> ds.any { it.key == p } } ?: FacePrep.nextUnmeasured(ds, null) ?: ds.firstOrNull()?.key
         if (k == null) { note = "Nothing to measure on this face yet"; return }
@@ -436,7 +437,8 @@ fun FacePrepScreen(
             else -> "The laser is connecting…" } }
     }
     rev   // read so the sheet and the tabs follow every model change
-    val dsNow = FacePrep.dims(room, face)
+    // Tx.EN: Face Prep's chrome is M8's, so its sheet stays English under मराठी until then (critic note 1)
+    val dsNow = FacePrep.dims(Tx.EN, room, face)
     val sheetCur = if (mode == "measure" && sheetOpen) dsNow.firstOrNull { it.key == pick } else null
     fun switchFace(fName: String) { face = fName; sel = null; scale = 1f; off = Offset.Zero; openPick(null); showTune = false }
 
@@ -486,7 +488,9 @@ fun FacePrepScreen(
                     android.graphics.RectF(b0.x, b0.y, b0.x + b.width * k, b0.y + b.height * k), Paint(Paint.FILTER_BITMAP_FLAG))
                 nc.restore()
                 drawn.clear()
-                FacePrepDraw.draw(nc, room, face, boxNow(), side,
+                // Tx.EN until M8: Face Prep stays wholly English under मराठी -- no mixed screen the prototype
+                // never drew (M3b critic note 1). M8's flip is THIS argument, this call alone, never exportAll's.
+                FacePrepDraw.draw(nc, Tx.EN, room, face, boxNow(), side,
                     { x, y -> val q = imgToScreen(x, y); floatArrayOf(q.x, q.y) }, 1.2f,
                     FacePrepDraw.Opts(handles = when (mode) { "box" -> "box"; "steps" -> "steps"; "dets" -> "dets"; "lines" -> "lines"; else -> null },
                         sel = if (mode == "measure") pick?.let { FacePrepDraw.Sel("dim", key = it) } else sel,
@@ -872,7 +876,9 @@ private fun exportAll(context: Context, deviceId: String, roomName: String, room
         val c = android.graphics.Canvas(out)
         c.drawBitmap(src, android.graphics.Rect(x0.toInt(), y0.toInt(), x1.toInt(), y1.toInt()),
             android.graphics.RectF(0f, 0f, out.width.toFloat(), out.height.toFloat()), Paint(Paint.FILTER_BITMAP_FLAG))
-        FacePrepDraw.draw(c, room, face, box, side, { x, y -> floatArrayOf(((x - x0) * s).toFloat(), ((y - y0) * s).toFloat()) },
+        // Tx.EN FOR GOOD: the ImageMeter photo is a document other parties consume -- EXPORTS STAY ENGLISH
+        // (decision 4); pinned by I18nLiteralTest's (h) companion. M8 flips only the screen Canvas call above.
+        FacePrepDraw.draw(c, Tx.EN, room, face, box, side, { x, y -> floatArrayOf(((x - x0) * s).toFloat(), ((y - y0) * s).toFloat()) },
             max(1.4f, out.width / 1200f), FacePrepDraw.Opts())
         val (w, h) = FacePrep.faceDims(room, face)
         val band = (out.width * 0.03f)

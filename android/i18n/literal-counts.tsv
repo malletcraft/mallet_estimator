@@ -47,7 +47,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepLocks.kt	0
-app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	3
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt	2
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepStore.kt	4
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	13
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	0

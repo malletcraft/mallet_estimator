@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 
 /**
@@ -120,8 +121,33 @@ object Readings {
         return out.sorted()
     }
 
-    /** What the screen says about [orphans]' keys, or null when there are none. */
-    fun orphanText(keys: List<String>): String? =
+    /** What the screen says about [orphans]' keys, or null when there are none (keyed in port 61c slice M3b). */
+    fun orphanText(tx: Tx, keys: List<String>): String? =
         if (keys.isEmpty()) null
-        else keys.joinToString("; ") { "$it changed on the web after its mark was deleted here" } + " — deleted on the web too"
+        else keys.joinToString("; ") { tx.sp_x_changed_web_mark_deleted(it) } + tx.sp_deleted_web_too // text:value the list separator
+
+    /**
+     * WHAT A PUSH'S CONFLICTS SAY (moved here from ReadingsSync in port 61c slice M3b, so the :pano suite can pin the
+     * rendering under both Tx -- ReadingsSync is :app and no :pano test can reach it; the M3b critic's finding 4).
+     * The PULL path (survey prep) renders with the screen's tx; the PUSH path's stored note composes with Tx.EN until
+     * M2 (ReadingsSync.push).
+     */
+    fun conflictText(tx: Tx, conflicts: Map<String, Remote>): String =
+        conflicts.entries.sortedBy { it.key }.joinToString("; ") { (k, r) -> // text:value the list separator
+            if (r.by.isNotBlank()) tx.sp_x_changed_web_by_x(code = k, by = r.by) else tx.sp_x_changed_web(k) }
+
+    /**
+     * THE READINGS LINE'S COLOUR CLASS, decided by KIND, never by string equality (port 61c slice M3b, critic note 3:
+     * a string compare against a now-bilingual text is the two-answers fault in miniature). OK (green) only when the
+     * pull SUCCEEDED and nothing had to be said -- a conflict or an orphan keeps the line amber even on a successful
+     * pull, which is today's behaviour exactly (the M3b critic's finding 4); NOT_YET (grey) only when clean too.
+     */
+    enum class NoteKind { OK, NOT_YET, FAILED }
+
+    fun noteKind(ok: Boolean, notYet: Boolean, clean: Boolean): NoteKind = when {
+        !clean -> NoteKind.FAILED
+        ok -> NoteKind.OK
+        notYet -> NoteKind.NOT_YET
+        else -> NoteKind.FAILED
+    }
 }

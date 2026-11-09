@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.max
@@ -70,44 +72,47 @@ object SurveyChain {
     const val LASER = "laser"
     const val DERIVED = "derived"
 
-    // ------------------------------------------------------------ the words (sp.js, exactly)
+    // ------------------------------------------------------------ the words (sp.js, exactly; keyed in port 61c slice M3b)
 
-    /** The chip with Chain on: "Chain · 2 points · tap points along the surface, double-tap or ✓ to end". */
-    fun chipText(points: Int): String =
-        "Chain · " + (if (points > 0) "$points point${if (points == 1) "" else "s"} · " else "") +
-            "tap points along the surface, double-tap or ✓ to end"
+    /** The chip with Chain on: "Chain · 2 points · tap points along the surface, double-tap or ✓ to end" -- the points
+     *  tail from its own fragment key, as the card's where-note on sp.x_points_tail asks. */
+    fun chipText(tx: Tx, points: Int): String =
+        tx.sp_chain_x_tap_points(if (points > 0) tx.sp_x_points_tail(points) else "")
 
     /** ✓ on the chip ends the chain -- shown from its second point (ct52 K: "no ✓ before two points"). */
     fun showDone(points: Int) = points >= 2
 
     /** ✓'s screen-reader label (sp.html data-kdone). */
-    const val DONE_LABEL = "End the chain"
+    fun doneLabel(tx: Tx) = tx.sp_aria_end_chain
 
-    /** A chain let go with one point. */
-    const val NEED_TWO = "A chain needs two points or more"
+    /** A chain let go with one point -- a [Msg], rendered by the caller's tx at say() time. */
+    val NEED_TWO: Msg = { tx -> tx.refuse_sp_chain_needs_two_points }
     /** ... or with every point on top of another. */
-    const val NEED_DIFFERENT = "A chain needs two different points"
+    val NEED_DIFFERENT: Msg = { tx -> tx.refuse_sp_chain_needs_two_different }
 
-    /** A tap on another surface while a chain is being drawn (sp.js kDown). */
-    fun busy(s: String) = "Finish the chain on the ${SurveyPrep.NAME.getValue(s).lowercase()} first — ✓ or a double tap"
+    /** A tap on another surface while a chain is being drawn (sp.js kDown): [Press.Busy] carries the surface, and the
+     *  refusal is rendered at say() time with the live tx. */
+    fun busyText(tx: Tx, s: String) =
+        tx.refuse_sp_finish_chain_x_first(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
 
     /** What a locked chain's point says when it is dragged: "FK1 is locked — unlock to move it". */
     fun lockedNode(tx: Tx, code: String) = SurveyGuide.lockedEnd(tx, code)
 
     /** What every delete path and the menu call a chain (sp.js itemById): "FK1 chain"; the trash says "Delete FK1 chain". */
-    fun label(c: SurveyPrep.Chain) = "${c.code} chain"
+    fun label(tx: Tx, c: SurveyPrep.Chain) = tx.sp_x_chain(c.code)
 
-    /** The long-press menu's group (sp.js lockGroup): "Lock all chains". */
-    const val GROUP = "chains"
+    /** The long-press menu's group (sp.js lockGroup): the ENGLISH identity, drawn through SurveyPrepEdit.groupName. */
+    const val GROUP = "chains" // text:value the group's identity, drawn through SurveyPrepEdit.groupName (sp.group.chains)
 
     /** "horizontal" or "vertical" (sp.js chainPanel). */
-    fun direction(c: SurveyPrep.Chain) = if (c.axis == "y") "vertical" else "horizontal"
+    fun direction(tx: Tx, c: SurveyPrep.Chain) = if (c.axis == "y") tx.sp_vertical else tx.sp_horizontal
 
     /** Under its code in 3 · List and the List tab (sp.js chainPanel): "Chain · horizontal · 2 parts" -- and on the List
-     *  tab ([room]), " · Front wall" after it. */
-    fun listName(s: String, c: SurveyPrep.Chain, room: Boolean): String {
+     *  tab ([room]), " · Front wall" after it: the key carries the room tail as its own {v}. */
+    fun listName(tx: Tx, s: String, c: SurveyPrep.Chain, room: Boolean): String {
         val n = max(0, c.nodes.size - 1)
-        return "Chain · ${direction(c)} · $n part${if (n == 1) "" else "s"}" + if (room) " · " + SurveyPrep.NAME.getValue(s) else ""
+        return tx.sp_chain_x_x_part(dir = direction(tx, c), n = n,
+            v = if (room) Masters.surface(tx, SurveyPrep.NAME.getValue(s)) else null)
     }
 
     // ------------------------------------------------------------ figures (sp.js kA, kSegs, kLaser, kVals, kItems)
@@ -165,11 +170,12 @@ object SurveyChain {
         return Vals(est, est.sum(), meas, value, der, total, src, lz, sum, check)
     }
 
-    /** What a chain asks for (sp.js kItems): "segment 1" … with its photo figure, then "total" with theirs. */
+    /** What a chain asks for (sp.js kItems): "segment 1" … with its photo figure, then "total" with theirs -- each
+     *  label a [Msg], the number joined after sp.segment as the prototype joins its fragment key. */
     fun measures(c: SurveyPrep.Chain): List<SurveyPrep.Measure> {
         val est = segs(c)
-        return est.mapIndexed { i, v -> SurveyPrep.Measure((i + 1).toString(), "segment ${i + 1}", v) } +
-            SurveyPrep.Measure(TOTAL, "total", est.sum())
+        return est.mapIndexed { i, v -> SurveyPrep.Measure((i + 1).toString(), { tx: Tx -> tx.sp_segment + (i + 1) }, v) } +
+            SurveyPrep.Measure(TOTAL, { tx: Tx -> tx.measure_total }, est.sum())
     }
 
     /** The keys the D2 flow walks: the segments, then the total -- not when the laser gives it (sp.js nextOpen). */
@@ -183,28 +189,32 @@ object SurveyChain {
 
     private fun r(v: Double) = v.roundToInt().toString()
 
-    /** A total as the screen shows it: "3310 laser", "3310 d" (derived), "3310" (measured), "≈3702" (unknown). */
-    fun totalText(v: Vals): String = v.total?.let { r(it) + when (v.src) { LASER -> " laser"; DERIVED -> " d"; else -> "" } } ?: "≈" + r(v.estT)
+    /** A total as the screen shows it: "3310 laser", "3310 d" (derived), "3310" (measured), "≈3702" (unknown).
+     *  " laser" translates (sp.laser_suffix); " d" stays Latin -- the prototype's own screen draws "3310 d" under
+     *  मराठी, so a Marathi single-letter marker would be a state it does not draw (M3b critic note 4). */
+    fun totalText(tx: Tx, v: Vals): String =
+        v.total?.let { r(it) + when (v.src) { LASER -> tx.sp_laser_suffix; DERIVED -> " d"; else -> "" } } ?: "≈" + r(v.estT) // text:value the drawn " d" marker and the ≈ glyph
 
-    /** Segment [i]'s figure on the photo and its colour: its reading (white), "2410 d" derived (violet), or "≈905". */
+    /** Segment [i]'s figure on the photo and its colour: its reading (white), "2410 d" derived (violet), or "≈905".
+     *  Figures and the Latin " d" only -- byte-equal in every language (M3b critic note 4). */
     fun segFigure(v: Vals, i: Int): Pair<String, Int> {
         val m = v.meas.getOrNull(i); val d = v.value.getOrNull(i)
         return when {
             m != null -> r(m) to MEASURED_COLOUR
-            v.der == i && d != null -> "${r(d)} d" to DERIVED_COLOUR
-            else -> "≈" + r(v.est.getOrElse(i) { 0.0 }) to PHOTO_COLOUR
+            v.der == i && d != null -> "${r(d)} d" to DERIVED_COLOUR // text:value the drawn " d" marker, a figure
+            else -> "≈" + r(v.est.getOrElse(i) { 0.0 }) to PHOTO_COLOUR // text:value the ≈ glyph, a figure
         }
     }
 
-    /** The tag under the last point (sp.js drawChains): "FK1 Σ 3310 laser". */
-    fun totalTag(code: String, v: Vals) = "$code Σ ${totalText(v)}"
+    /** The tag under the last point (sp.js drawChains): "FK1 Σ 3310 laser" / "FK1 Σ 3310 लेझर". */
+    fun totalTag(tx: Tx, code: String, v: Vals) = "$code Σ ${totalText(tx, v)}" // text:value a code, Σ and a figure round totalText's word
 
     /** Its colour: the chain's rose, amber when the readings and a laser or measured total disagree by more than TOL. */
     fun totalColour(v: Vals): Int { val ck = v.check; return if (ck != null && abs(ck) > SurveyPrep.TOL) CHECK_COLOUR else COLOUR }
 
     /** The selection row under the photo (sp.js 1503, ct52 K): "≈905 · ≈2405 · Σ 3310 laser". */
-    fun rowValue(v: Vals): String =
-        v.est.indices.joinToString(" · ") { segFigure(v, it).first } + " · Σ " + totalText(v)
+    fun rowValue(tx: Tx, v: Vals): String =
+        v.est.indices.joinToString(" · ") { segFigure(v, it).first } + " · Σ " + totalText(tx, v) // text:value separators and Σ round the figures
 
     // ------------------------------------------------------------ drawing one (sp.js kPlace, kDown, kFinish)
 
@@ -240,14 +250,14 @@ object SurveyChain {
 
     /** What a tap with Chain on did (sp.js kDown, its double tap aside: GestureClassifier reports that). */
     sealed class Press {
-        /** A chain is being drawn on another surface: nothing added, [text] said. */
-        class Busy(val text: String) : Press()
+        /** A chain is being drawn on surface [s], another one: nothing added; the caller says [busyText]. */
+        class Busy(val s: String) : Press()
         /** Point [idx] added to [draft] -- a new draft when there was none. */
         class Added(val draft: Draft, val idx: Int) : Press()
     }
 
     fun press(d: Draft?, s: String, mm: DoubleArray, a: Double, b: Double, marks: List<SurveyPrep.Mark>, tol: Double): Press {
-        if (d != null && d.s != s) return Press.Busy(busy(d.s))
+        if (d != null && d.s != s) return Press.Busy(d.s)
         val dd = d ?: Draft(s)
         val idx = dd.nodes.size
         val q = place(dd, mm, idx, a, b, marks, tol)
@@ -273,8 +283,8 @@ object SurveyChain {
 
     /** What ending a draft makes (sp.js kFinish). */
     sealed class Finish {
-        /** Nothing plotted; [text] said, or nothing for an empty draft. */
-        class Refused(val text: String?) : Finish()
+        /** Nothing plotted; [text] said with the caller's tx, or nothing for an empty draft. */
+        class Refused(val text: Msg?) : Finish()
         /** A chain along [axis] through [nodes] (in order along it, 0.01 mm), each with what it snapped onto. */
         class Done(val axis: String, val nodes: List<DoubleArray>, val snaps: List<String?>) : Finish()
     }

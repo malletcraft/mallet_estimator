@@ -13,6 +13,7 @@ import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.Stamp
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.io.File
 
 /**
@@ -383,7 +384,11 @@ object FaceWriter {
                     // "dp" (a spot's rim and its 6 dp floor, v52 slice 4) does too -- 2 u, about what one dp is to
                     // the drawing unit on the phone's own sheet -- or a 1.6 px rim vanishes on a 4000 px picture.
                     val pu = flat.width / 960f
-                    SurveyPrepDraw.drawMarks(Canvas(flat), s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
+                    // Tx.EN, EXPLICITLY AND FOR GOOD (port 61c slice M3b): the survey sheet pictures are documents
+                    // other parties consume -- "EXPORTS STAY ENGLISH ... the PDF and image writers build their text
+                    // from the English strings, never from the screen" (decision 4). This literal `Tx.EN` is the ONE
+                    // Tx token check (h) permits in this file, and (h)'s companion pins that it is this call's.
+                    SurveyPrepDraw.drawMarks(Canvas(flat), Tx.EN, s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
                         null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu, frame = f),
                         { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, pu)
                     val marked = captionedBitmap(flat, Handover.captionText(
