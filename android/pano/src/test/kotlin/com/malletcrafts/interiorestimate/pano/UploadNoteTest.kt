@@ -108,6 +108,62 @@ class UploadNoteTest {
         assertEquals("web answered nothing useful", UploadNote.line(Tx.MR, "web answered nothing useful"))
     }
 
+    // ---- the M6 block: the S5 sign-in refusals (port 61c slice M6) ----
+
+    @Test fun `the sign-in constants are the bytes 0 3 303 stored`() {
+        // pinned against what S5Session wrote into prefs (`refused`) and AsIsUpload folded into a
+        // capture's note at 0.3.303, byte for byte — a changed byte orphans every stored refusal
+        assertEquals("Email and password are needed", UploadNote.EMAIL_PASSWORD_NEEDED)
+        assertEquals("web unreachable", UploadNote.WEB_UNREACHABLE)
+        assertEquals("ERP did not accept that email and password", UploadNote.ERP_NOT_ACCEPT)
+        assertEquals("the web did not start a session", UploadNote.WEB_NO_SESSION)
+        assertEquals("signed out meanwhile", UploadNote.SIGNED_OUT_MEANWHILE)
+        assertEquals("Only MCFT staff can send captures from this app; this ERP account is ", UploadNote.ONLY_STAFF_IS)
+        assertEquals("Only MCFT staff can send captures from this app; this ERP account is not staff",
+            UploadNote.onlyStaff(""))
+        assertEquals("Only MCFT staff can send captures from this app; this ERP account is a vendor account",
+            UploadNote.onlyStaff("vendor"))
+    }
+
+    @Test fun `line renders each sign-in refusal under both Tx`() {
+        val pins = mapOf(
+            UploadNote.EMAIL_PASSWORD_NEEDED to "ईमेल आणि पासवर्ड दोन्ही हवेत",
+            UploadNote.WEB_UNREACHABLE to "वेबशी संपर्क होत नाही",
+            UploadNote.ERP_NOT_ACCEPT to "ERP ने तो ईमेल आणि पासवर्ड स्वीकारला नाही",
+            UploadNote.WEB_NO_SESSION to "वेबने सेशन सुरू केले नाही",
+            UploadNote.SIGNED_OUT_MEANWHILE to "दरम्यान साइन आउट झाले",
+        )
+        for ((stored, want) in pins) assertEquals(want, UploadNote.line(Tx.MR, stored), stored)
+        for (stored in pins.keys) assertEquals(stored, UploadNote.line(Tx.EN, stored))
+    }
+
+    @Test fun `the only-staff refusal round-trips — one composer, one parser, both Tx`() {
+        // owner and parser one file (the conflictNoteLine idiom): line(tx, onlyStaff(kind)) is the
+        // key's render for a blank and a named kind; under English it is the stored bytes themselves
+        assertEquals("या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते स्टाफचे नाही", UploadNote.line(Tx.MR, UploadNote.onlyStaff("")))
+        assertEquals("या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते vendor प्रकारचे आहे",
+            UploadNote.line(Tx.MR, UploadNote.onlyStaff("vendor")))
+        assertEquals("Only MCFT staff can send captures from this app; this ERP account is not staff",
+            UploadNote.line(Tx.EN, UploadNote.onlyStaff("")))
+        assertEquals("Only MCFT staff can send captures from this app; this ERP account is a client account",
+            UploadNote.line(Tx.EN, UploadNote.onlyStaff("client")))
+        // a tail neither composed form carries is drawn AS STORED, never guessed at
+        assertEquals(UploadNote.ONLY_STAFF_IS + "something else",
+            UploadNote.line(Tx.MR, UploadNote.ONLY_STAFF_IS + "something else"))
+    }
+
+    @Test fun `the sign-again tail now translates whole through the nested line`() {
+        // M2 built the pipe (the nested SIGN_AGAIN parse); M6 fills the last constants — the queue
+        // rows' and web line's sign-in tails translate with no new wiring
+        assertEquals("पुन्हा साइन इन करा (मेनू → सर्व्हर) - ERP ने तो ईमेल आणि पासवर्ड स्वीकारला नाही",
+            UploadNote.line(Tx.MR, UploadNote.SIGN_AGAIN_PREFIX + UploadNote.ERP_NOT_ACCEPT))
+        assertEquals("sign in again (menu → Server) - ERP did not accept that email and password",
+            UploadNote.line(Tx.EN, UploadNote.SIGN_AGAIN_PREFIX + UploadNote.ERP_NOT_ACCEPT))
+        // S5's OWN error sentence is data: the head translates, the tail stays as S5 sent it
+        assertEquals("पुन्हा साइन इन करा (मेनू → सर्व्हर) - User disabled. Ask the office.",
+            UploadNote.line(Tx.MR, UploadNote.SIGN_AGAIN_PREFIX + "User disabled. Ask the office."))
+    }
+
     @Test fun `an unknown note is drawn as stored, and the stored conflict note re-renders`() {
         assertEquals("the bench said no", UploadNote.line(Tx.MR, "the bench said no"))
         // the done state's tail is ReadingsSync.push's stored conflictText(Tx.EN, …): its owner re-renders it

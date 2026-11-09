@@ -216,6 +216,12 @@ object Masters {
         else -> value
     }
 
+    /** 1 values. */
+    fun client_name(tx: Tx, value: String): String = when (value) {
+        "(no client)" -> tx.app_no_client
+        else -> value
+    }
+
     /** 11 values. */
     fun service(tx: Tx, value: String): String = when (value) {
         "Electrical works" -> tx.svc_electrical
@@ -309,5 +315,5 @@ object Masters {
     }
 
     /** The map names, in order: for the tests that walk every identity list. */
-    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "service", "service_note", "type", "type_short", "surface", "surface_tab", "view_title")
+    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "client_name", "service", "service_note", "type", "type_short", "surface", "surface_tab", "view_title")
 }

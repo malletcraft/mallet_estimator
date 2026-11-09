@@ -3550,7 +3550,8 @@ compiles only in CI.
 
 ### 29. M6 · Marathi: the rest of the shell and the S5 sign-in sheet (design slice 6)
 
-**Size:** M · **Depends on:** M2
+**Size:** M · **Depends on:** M2 · (§28, M4 — Marathi: the rest of the wish list — shipped 3 Nov 2026
+inside the port's wish-list work and has no section of its own; the table's row 28 is its record.)
 
 **Goal**
 
@@ -3745,15 +3746,21 @@ words-home in :app or :camera cannot be pinned where the suite runs):
   sites, the PL review's lesson: BrowseScreens.ClientsScreen:221 (`title = c`; the badge stays `initials(c)`
   on the stored value, a code), the client crumbs (MainActivity:1748 with its :1749 sibling labels, :2502),
   searchTree's client hit (:3553) and the client fills of its site/project hits (:3560, :3564), the project
-  sheet's Client value (TreeShell:279), HomeScreens' two lines (:132, :166), queueRow's subtitle fill. AND A
+  sheet's Client value (TreeShell:279), HomeScreens' two lines (:132 — where the hero card also drew the
+  SITE raw while :166 drew it through `Masters.site_name`, the M6 critic's finding 2, so :132 takes BOTH
+  masters — and :166), queueRow's subtitle fill. AND A
   CATCH-UP THE DERIVATION FOUND: the room-crumbs' SITE label (MainActivity:2506) draws `st` raw where the
   tree crumb (:1753) goes through `Masters.site_name` — an M2 leftover of the same class, threaded here with
   the client crumbs and pinned beside them.
 - **FrappeClient.kt (1 → 0, joins ported.txt, stays Tx-free — it is the wire's client).**
-  `class Download(val code: Int) : ApiException(code, "download: HTTP $code")` thrown by downloadPrivate; the
-  message literal marked `// text:value a diagnostic — the shown line renders app.download_http_x from
-  [code]`. startUpdate's onFailure becomes `lastResult = { tx -> tx.app_msg_update_failed_x(why = if (it is
-  FrappeClient.Download) tx.app_download_http_x(it.code.toString()) else it.message ?: …) }` — "अपडेट झाले
+  `ApiException` becomes `open` and `class Download(code: Int) : ApiException(code, "download: HTTP $code")`
+  (no `val` — the inherited `code` serves the update flow's check) is thrown by downloadPrivate; the first
+  version of this bullet subclassed a FINAL class and re-declared `code`, two compile errors in the module
+  only CI compiles (the M6 critic's finding 1). SyncWorker:224's `catch (e: FrappeClient.ApiException)` still
+  catches a Download unchanged. The message literal marked `// text:value a diagnostic — the shown line
+  renders app.download_http_x from [code]`. startUpdate's onFailure becomes
+  `lastResult = { tx -> tx.app_msg_update_failed_x(why = if (e is FrappeClient.Download)
+  tx.app_download_http_x(e.code.toString()) else e.message.orEmpty()) }` — "अपडेट झाले
   नाही: डाउनलोड: HTTP 404", the served page's own composition.
 - **AnnotationPush.kt (2 → 0, joins ported.txt, ZERO Tx tokens).** Both rows marked `// text:value`:
   "Annotated in ImageMeter; matched by the app's stamp" is the comment uploadAnnotation SENDS — stored on the
@@ -3783,7 +3790,9 @@ words-home in :app or :camera cannot be pinned where the suite runs):
   comes OUT: the card has held app.discard_360, the page's own shoot-and-keep label, since L1; §24's out-list
   repeated the stale claim and this section corrects it — a note describing a state has to move when the
   state does). THE X3 WIRING — `camNote` becomes `Msg?` (:2465, :2852).
-- **Call sites only** (all already in ported.txt): TreeShell.kt — CaptureSheet's `cameraNote: Msg?`, rendered
+- **Call sites only** (the first four already in ported.txt; the three M8 screens stay on unkeyed.tsv —
+  I18nLiteralTest (d) would fail them as ported files with 24/46/122 unkeyed rows — and take only the Tx.EN
+  renders): TreeShell.kt — CaptureSheet's `cameraNote: Msg?`, rendered
   `cameraNote?.invoke(tx)` at :495 (a LONG-LIVED note drawn in the language on when it is drawn — the M3b
   readingsMsg rule; its stale KDoc "shown as it says it" reworded), and the project sheet's Client value
   through `Masters.client_name` (:279); BrowseScreens.kt (ClientsScreen title); HomeScreens.kt (the client
@@ -3939,11 +3948,34 @@ lastResult re-render at next draw (Msg, the readingsMsg rule).
     client name, phone number or rate enters the repo: the probe fills are demo rows, status codes and
     system-exception phrases, and the deny-pattern check runs over the tables as always.
 
+**The M6 critic** (the workflow's second reviewer, read against the source with the build) — three findings,
+all three CONFIRMED and applied; none refuted:
+
+1. *FrappeClient.Download as specified cannot compile* — CONFIRMED (major). FrappeClient.kt:35 at 80d3526 is
+   `class ApiException(val code: Int, …)`: FINAL, so the specified subclass was one compile error, and its
+   `val code` re-declaring the supertype's property a second — both in :app, which only CI compiles, the
+   exact path the section claimed to have walked. The bullet above is amended as the critic prescribed:
+   `open class ApiException`, `class Download(code: Int)` with no `val` (the inherited `code` serves the
+   update flow), SyncWorker:224's typed catch unchanged — and the build ships that shape. The lesson for the
+   next walk: "every caller of every changing signature" has to include the SUPERTYPE a new class extends.
+2. *HomeScreens:132 leaves the hero card's SITE raw* — CONFIRMED (minor). `resume.site` is
+   `p?.site ?: Catalogue.DEFAULT_SITE` (MainActivity:3495) and DEFAULT_SITE is "Main site", a mapped master,
+   so under मराठी the Work tab showed "Main site" on the hero card over "मुख्य साइट" in the rooms list below
+   it — the same class as the :2506 catch-up this section already records. :132 now threads
+   `Masters.site_name` beside `Masters.client_name`, and TreeQueueMarathiTest's M6 block pins the maps.
+3. *"Call sites only (all already in ported.txt)" is false for the three M8 screens* — CONFIRMED (minor).
+   ported.txt holds TreeShell, BrowseScreens, HomeScreens and SurveyPrepScreen and CANNOT hold the M8 three
+   (check (d) fails a ported file with unkeyed rows; they hold 24/46/122). The parenthetical above is
+   reworded as prescribed: the M8 screens stay on unkeyed.tsv and take only the `Tx.EN` renders.
+
 **unkeyed.tsv** 347 → 239 (108 rows off; what remains is M8's five files plus FaceWriter's 13, decision 4's) ·
 **ported.txt** + LaserNote.kt, CameraNote.kt, Disto.kt (pano), DistoClient.kt, S5Session.kt, FrappeClient.kt,
 AnnotationPush.kt, MainActivity.kt (app), X3Bridge.kt (camera) · **keys** 1,798 → 1,814 (the sixteen above; Tx
 regenerated, Masters.kt regenerated — the NEW `client_name` map, one masters.tsv row) · **literal-counts**
-re-ratcheted over every touched file.
+re-ratcheted: every touched file's count stood (each leaving row keyed or marked in the same commit) and the
+two new :pano files enter at 0. Built as one commit on batch-next; :pano 966 tests, 0 failures, 0 skipped
+(the XML under pano/build/test-results); :app and :camera compile only in CI — nothing here has been seen on
+a phone.
 
 ## Progress notes recovered
 

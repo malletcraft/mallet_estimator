@@ -79,6 +79,9 @@ class MastersTest {
             Triple("WishList.SERVICES", Masters::service, WishList.SERVICES.map { it.name }),
             Triple("WishList.SERVICES notes", Masters::service_note, WishList.SERVICES.map { it.detail }.filter { it.isNotEmpty() }),
             Triple("the default site", Masters::site_name, listOf("Main site")),
+            // S5Masters.NO_CLIENT (an :app constant this module cannot read): the stored bucket
+            // value byte for byte, through the map masters.tsv gained in port 61c slice M6
+            Triple("S5Masters.NO_CLIENT", Masters::client_name, listOf("(no client)")),
         )
         val off = ArrayList<String>()
         for ((list, show, values) in lists) for (v in values) {

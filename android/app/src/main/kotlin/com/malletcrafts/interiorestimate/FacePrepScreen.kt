@@ -170,8 +170,9 @@ fun FacePrepScreen(
             else -> note = "The laser is still connecting…"
         }
     }
-    disto.onState = { s, n -> distoState = s; if (n != null) note = n }
-    disto.onRefused = { why -> note = why }
+    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
+    disto.onState = { s, n -> distoState = s; if (n != null) note = n(Tx.EN) }
+    disto.onRefused = { why -> note = why(Tx.EN) }
     disto.onReading = { r -> take(r.mm) }
 
     // ---- viewport: fit, then zoom/pan

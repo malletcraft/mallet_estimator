@@ -67,6 +67,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWire.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AlbumWrite.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/AsIsPath.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraPort.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt	0
@@ -76,6 +77,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MmBox.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2

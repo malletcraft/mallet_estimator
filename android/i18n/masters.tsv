@@ -37,10 +37,11 @@ room	type.x
 # The default site's name, and the no-site bucket's (port 61c slice M2, with its reader, Catalogue.NO_SITE).
 site_name	common.main_site
 site_name	app.no_site
-# One more identity value has had its key since port 61c slice L2 and has no row here yet. The v61c card
-# says "masters.tsv gains the row"; the row lands with its reader:
-# - app.no_client, "(no client)" (S5Session.NO_CLIENT), in Marathi slice 6 (port M6, which keys S5Session.kt).
-# (L2's commit message gave it to M2; app.no_client is M6's.)
+
+# The client folder of an S5 project nobody named a customer for (S5Masters.NO_CLIENT), the row L2's
+# comment promised to M6, landed with its readers (port 61c slice M6): the crumbs, the search hits,
+# the project sheet, the hero card and the queue subtitles show a client through Masters.client_name.
+client_name	app.no_client
 
 # WishList.SERVICES names (CCTV is an abbreviation and is shown as written).
 service	svc.electrical

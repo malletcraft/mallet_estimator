@@ -93,7 +93,16 @@ object Disto {
     fun hex(bytes: ByteArray): String = bytes.joinToString(" ") { "%02X".format(java.util.Locale.ROOT, it) }
 
     /** What became of one distance indication. Exactly one of the two is set. */
-    data class Outcome(val reading: Reading?, val refused: String?)
+    data class Outcome(val reading: Reading?, val refused: Refusal?)
+
+    /**
+     * Why a distance was refused (port 61c slice M6). A KIND and the pre-formatted figure, never a
+     * sentence: this file is the wire's parser and carries no language (the ServerMessage/AsIsPath
+     * idiom) — LaserNote renders the words from this, in the language on when it is said.
+     */
+    class Refusal(val kind: Kind, val arg: String) {
+        enum class Kind { NOT_METRIC, NOT_A_LENGTH }
+    }
 
     data class Reading(val mm: Int, val unitCode: Int)
 
@@ -123,9 +132,9 @@ object Disto {
         }
 
         private fun judge(metres: Float): Outcome = when {
-            !plausible(metres) -> Outcome(null, "Not a length (%.4f)".format(java.util.Locale.ROOT, metres))
-            !isMetric(unit) -> Outcome(null,
-                "Meter is not showing metres/mm (unit code $unit) — set it to m or mm")
+            !plausible(metres) -> Outcome(null, Refusal(Refusal.Kind.NOT_A_LENGTH,
+                "%.4f".format(java.util.Locale.ROOT, metres))) // text:value the figure as the meter sent it, pre-formatted pure
+            !isMetric(unit) -> Outcome(null, Refusal(Refusal.Kind.NOT_METRIC, unit.toString()))
             else -> Outcome(Reading(toMm(metres), unit), null)
         }
     }

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,10 +50,11 @@ fun LaserTestScreen(onBack: () -> Unit) {
     }
 
     DisposableEffect(Unit) { onDispose { disto.stop() } }
-    disto.onState = { s, n -> state = s; note = n }
+    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
+    disto.onState = { s, n -> state = s; note = n?.invoke(Tx.EN) }
     disto.onEvent = { add(it) }
     disto.onReading = { r -> lastMm = r.mm; add("READING ${r.mm} mm (unit code ${r.unitCode})") }
-    disto.onRefused = { why -> note = why }
+    disto.onRefused = { why -> note = why(Tx.EN) }
 
     // Android 12+ gates a BLE scan behind runtime permission; without it the
     // scan fails silently, which would look exactly like a flat meter.

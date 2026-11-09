@@ -62,6 +62,37 @@ class TreeQueueMarathiTest {
         assertEquals("Project name", Tx.EN.common_project + Tx.EN.app_name)
     }
 
+    // ---- the M6 block (port 61c slice M6) ----
+
+    @Test fun `the no-client bucket shows through its master, a typed name passes through`() {
+        // the M3a fix-7 reason: a Masters map passes unknowns through, so a lookup wired to the
+        // wrong map prints the same English in every Tx.EN pin and leaks Latin only under मराठी
+        assertEquals("(ग्राहक नाही)", Masters.client_name(Tx.MR, "(no client)"))
+        assertEquals("(no client)", Masters.client_name(Tx.EN, "(no client)"))
+        assertEquals("Yogesh S", Masters.client_name(Tx.MR, "Yogesh S"))
+        assertEquals("", Masters.client_name(Tx.MR, ""))
+    }
+
+    @Test fun `the sign-in sheet reads in the sheet's own register`() {
+        assertEquals("साइन इन करा", Tx.MR.app_sign_in)
+        assertEquals("Sign in", Tx.EN.app_sign_in)
+        assertEquals("साइन इन होत आहे…", Tx.MR.app_signing_in)
+        assertEquals("ERP ईमेल", Tx.MR.app_erp_email)
+        assertEquals("पासवर्ड", Tx.MR.app_password)
+        assertEquals("ERPNext साठी वापरता तोच ईमेल आणि पासवर्ड.", Tx.MR.app_same_email_password_erpnext)
+        assertEquals("ERP की (जुनी पद्धत)", Tx.MR.app_erp_key_legacy)
+        assertEquals("Medha म्हणून साइन इन केले", Tx.MR.app_signed_in_as_x("Medha"))
+        assertEquals("कॅप्चर MCFT Interior Estimate (https://x) कडे जातात.", Tx.MR.app_captures_go_x("https://x"))
+    }
+
+    @Test fun `the update failure composes the served page's own line`() {
+        // "Update failed: download: HTTP 404" — the keyed head over the keyed download refusal
+        assertEquals("अपडेट झाले नाही: डाउनलोड: HTTP 404",
+            Tx.MR.app_msg_update_failed_x(why = Tx.MR.app_download_http_x("404")))
+        assertEquals("Update failed: download: HTTP 404",
+            Tx.EN.app_msg_update_failed_x(why = Tx.EN.app_download_http_x("404")))
+    }
+
     @Test fun `the queue's words are the served page's`() {
         assertEquals("सिंक रांग", Tx.MR.app_sync_queue)
         assertEquals("1 बाकी", Tx.MR.app_x_waiting_queue(n = 1))

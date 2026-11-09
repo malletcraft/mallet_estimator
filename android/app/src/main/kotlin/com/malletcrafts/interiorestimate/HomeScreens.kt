@@ -129,7 +129,9 @@ fun WorkScreen(
                             color = Color.White, fontSize = 21.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${resume.client} / ${resume.site} / ${resume.projectTitle}", // text:value names and glyphs only
+                        // the client and the site through their masters, as the recent rows below
+                        // (the hero card drew both raw — the M6 critic's finding 2)
+                        Text("${Masters.client_name(tx, resume.client)} / ${Masters.site_name(tx, resume.site)} / ${resume.projectTitle}", // text:value names and glyphs only
                             color = Color.White.copy(alpha = .92f), fontSize = 11.sp,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -163,7 +165,7 @@ fun WorkScreen(
                         Column(Modifier.weight(1f)) {
                             Text(Masters.room(tx, r.room), style = MaterialTheme.typography.bodyLarge,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("${r.client} · ${Masters.site_name(tx, r.site)}", // text:value the name and the glyph; the site through its master
+                            Text("${Masters.client_name(tx, r.client)} · ${Masters.site_name(tx, r.site)}", // text:value the glyph; the client and the site through their masters
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)

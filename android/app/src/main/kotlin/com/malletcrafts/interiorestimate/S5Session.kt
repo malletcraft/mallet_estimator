@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.UploadNote
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
@@ -91,29 +92,33 @@ object S5Session {
     fun login(context: Context, usr: String, pwd: String): String? =
         attempt(context, usr, pwd, synchronized(lock) { epochOf(context) }).error
 
+    // The error strings are UploadNote's constants (port 61c slice M6): they are STORED — relogin
+    // writes one into prefs (`refused`), AsIsUpload folds it into a capture's note — so they live
+    // with the stored notes' ONE mapper, UploadNote.line, which draws them in the live language.
+    // S5's OWN error sentence (its /api/auth/login body's text) still travels as given: data.
     private fun attempt(context: Context, usr: String, pwd: String, epoch: Long): Outcome {
         val u = usr.trim()
-        if (u.isBlank() || pwd.isBlank()) return Outcome("Email and password are needed", false)
+        if (u.isBlank() || pwd.isBlank()) return Outcome(UploadNote.EMAIL_PASSWORD_NEEDED, false)
         val body = JSONObject().put("usr", u).put("pwd", pwd).toString().toByteArray(Charsets.UTF_8)
         val a = try {
             AsIsUpload.exchange("POST", url("/api/auth/login"), "", body, "application/json; charset=utf-8")
         } catch (e: Exception) {
             // IOException above all (no signal, DNS, TLS); never the request, which carries the password.
-            return Outcome("web unreachable", false)
+            return Outcome(UploadNote.WEB_UNREACHABLE, false)
         }
         if (!a.ok) {
             val text = runCatching { JSONObject(a.body).optString("error") }.getOrNull().orEmpty()
                 .replace(Regex("\\s+"), " ").trim().take(160)
             val msg = when {
-                a.code == 401 -> text.ifBlank { "ERP did not accept that email and password" }
+                a.code == 401 -> text.ifBlank { UploadNote.ERP_NOT_ACCEPT }
                 text.isNotBlank() -> text
-                else -> "web answered ${a.code}"
+                else -> UploadNote.WEB_ANSWERED_PREFIX + a.code
             }
             // S5 answers 401 for a refused email/password and 403 for an account linked to nobody.
             return Outcome(msg, a.code == 401 || a.code == 403)
         }
         val cookie = a.setCookie?.let { COOKIE.find(it)?.groupValues?.get(1) }
-            ?: return Outcome("the web did not start a session", false)
+            ?: return Outcome(UploadNote.WEB_NO_SESSION, false)
         val who = runCatching { JSONObject(a.body) }.getOrNull() ?: JSONObject()
         who.remove("ok")
         // STAFF ONLY. S5 signs in vendors and clients too, but every write this phone makes
@@ -122,11 +127,10 @@ object S5Session {
         val kind = who.optString("kind")
         if (kind != "staff") {
             runCatching { AsIsUpload.exchange("POST", url("/api/auth/logout"), "mie_s=$cookie", null, null) }
-            return Outcome("Only MCFT staff can send captures from this app; this ERP account is " +
-                (if (kind.isBlank()) "not staff" else "a $kind account"), true)
+            return Outcome(UploadNote.onlyStaff(kind), true)
         }
         synchronized(lock) {
-            if (epochOf(context) != epoch) return Outcome("signed out meanwhile", false)
+            if (epochOf(context) != epoch) return Outcome(UploadNote.SIGNED_OUT_MEANWHILE, false)
             prefs(context).edit()
                 .putString("usr", u)
                 .putString("pwd", pwd)
@@ -361,6 +365,7 @@ object S5Masters {
 
     /** Marks a masters project added from S5's list, as opposed to an ERP bootstrap's. */
     private const val FROM_S5 = "from_s5"
-    /** The client folder for an S5 project nobody has named a customer for. */
-    const val NO_CLIENT = "(no client)"
+    /** The client folder for an S5 project nobody has named a customer for: an identity value,
+     *  stored and compared in English, SHOWN through Masters.client_name (port 61c slice M6). */
+    const val NO_CLIENT = "(no client)" // text:value a stored bucket value, shown through Masters.client_name
 }

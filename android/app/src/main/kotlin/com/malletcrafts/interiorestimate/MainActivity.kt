@@ -71,6 +71,7 @@ import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumPage
 import com.malletcrafts.interiorestimate.pano.AlbumWrite
 import com.malletcrafts.interiorestimate.pano.AsIsPath
+import com.malletcrafts.interiorestimate.pano.CameraNote
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
@@ -856,7 +857,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val path = filed.relativePath
                         lastResult = { tx -> tx.app_msg_photo_filed_x(path) }
                     }
-                }.onFailure { lastResult = { _ -> "Could not split: ${it.message}" } }
+                }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_split_x(why = e.message.orEmpty()) } }
                 refreshQueue()
             }
         }
@@ -888,10 +889,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         mediaTick += 1
-        lastResult = { _ -> if (granted) "Gallery access granted — looking for annotations now."
-                     else "Without gallery access the app cannot see what " +
-                          "ImageMeter wrote. Settings → Apps → MCFT Interior " +
-                          "Estimate → Permissions → Photos." }
+        lastResult = { tx -> if (granted) tx.app_msg_gallery_access_granted
+                     else tx.app_msg_without_gallery_access }
         if (granted) SyncWorker.syncNow(context)
     }
     LaunchedEffect(configured) {
@@ -947,28 +946,20 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             }
                             Triple(scan, sent, waiting)
                         }.getOrNull()
-                        val localLine = local?.let { (scan, sent, waiting) ->
+                        // A Msg, rendered at draw: the verdict sits in the banner until the next
+                        // action, so it redraws in the language on THEN (the readingsMsg rule).
+                        val localLine: Msg = local?.let { (scan, sent, waiting) ->
                             when {
-                                !scan.allowed ->
-                                    "Android is hiding other apps' photos from " +
-                                    "this app — grant Photos access and press " +
-                                    "this again."
-                                sent > 0 -> "Sent $sent annotated " +
-                                    (if (sent == 1) "face" else "faces") + " from the gallery."
+                                !scan.allowed -> { tx: Tx -> tx.app_msg_android_hiding_photos }
+                                sent > 0 -> { tx: Tx -> tx.app_msg_sent_x_annotated_gallery(sent) }
                                 scan.stamped > 0 && waiting > 0 ->
-                                    "${scan.stamped} annotated, but their captures " +
-                                    "have not reached the server yet — sync first."
+                                    { tx: Tx -> tx.app_msg_x_annotated_not_reached("${scan.stamped}") }
                                 scan.stamped > 0 ->
-                                    "${scan.stamped} annotated already sent, nothing new."
-                                scan.looked == 0 ->
-                                    "No photos in the gallery to look at."
-                                else ->
-                                    "Looked at ${scan.looked} gallery photos, none " +
-                                    "carrying this app's stamp. Only faces captured " +
-                                    "with 0.3.93 or later are stamped — re-shoot and " +
-                                    "annotate that one."
+                                    { tx: Tx -> tx.app_msg_x_annotated_already_sent("${scan.stamped}") }
+                                scan.looked == 0 -> { tx: Tx -> tx.app_msg_no_photos_gallery }
+                                else -> { tx: Tx -> tx.app_msg_looked_x_gallery_photos("${scan.looked}") }
                             }
-                        } ?: "Could not read the gallery."
+                        } ?: { tx: Tx -> tx.app_msg_could_not_read_gallery }
                         // THE DRIVE LEG IS GONE, and it is a removal rather
                         // than a regression. Amit, 2026-09-04: "everything
                         // works on local fone storage now like imagemeter and
@@ -989,7 +980,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         // and the sentence that confused the answer.
                         withContext(Dispatchers.Main) {
                             busy = null
-                            lastResult = { _ -> localLine }
+                            lastResult = localLine
                         }
                     }
     }
@@ -1239,7 +1230,13 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 }
                 withContext(Dispatchers.Main) {
                     busy = null
-                    outcome.onFailure { lastResult = { _ -> "Update failed: ${it.message}" } }
+                    // the download's own refusal keyed from its code (FrappeClient.Download); any
+                    // other failure's words are the system's, data — "अपडेट झाले नाही: डाउनलोड: HTTP 404"
+                    outcome.onFailure { e ->
+                        lastResult = { tx -> tx.app_msg_update_failed_x(why =
+                            if (e is FrappeClient.Download) tx.app_download_http_x(e.code.toString())
+                            else e.message.orEmpty()) }
+                    }
                 }
             }
         }
@@ -1273,7 +1270,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 // is no S5 session to fall back on, the row says so and the tap signs in —
                 // the alternative was each queued row reading "HTTP 401" with no way out.
                 server = s5Name
-                    ?: if (FrappeClient.refused(context)) "ERP key refused — tap to sign in to S5"
+                    ?: if (FrappeClient.refused(context)) tx.app_erp_key_refused_sign_s5
                        else FrappeClient.savedUrl(context),
                 onToggle = { key ->
                     if (key == "clear_cache") {
@@ -1745,8 +1742,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 label = tx.common_clients,
                 onUp = { navClient = null; navSite = null; navProject = null }))
             if (client != null) add(Crumb(
-                label = shortName(client),
-                siblings = cs.clients.map { it to it },
+                // the no-client bucket through its master; a typed name passes through, then shortens
+                label = shortName(Masters.client_name(tx, client)),
+                siblings = cs.clients.map { it to Masters.client_name(tx, it) },
                 onUp = { navSite = null; navProject = null },
                 onSibling = { openClient(it) }))
             if (client != null && site != null) add(Crumb(
@@ -1867,7 +1865,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     if (!configured) {
                         Banner(tx.app_sign_erp_email_password)
                     } else if (s5Refused != null) {
-                        Banner(tx.app_sign_again_menu_server_x(why = s5Refused))
+                        // the stored refusal through its one mapper: the constants render their keys,
+                        // S5's own sentence stays as stored (UploadNote.line, port 61c slice M6)
+                        Banner(tx.app_sign_again_menu_server_x(why = UploadNote.line(tx, s5Refused)))
                     } else if (masters == null) {
                         Banner(tx.app_waiting_first_master_list)
                     }
@@ -2085,10 +2085,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     AnnotationPush.push(context, server, cap.deviceId, annotatedLocal)
                 }
             }.onSuccess { n ->
-                if (n > 0) lastResult = { _ -> "Sent $n annotated " +
-                    (if (n == 1) "face" else "faces") + " to $server" }
-            }.onFailure {
-                lastResult = { _ -> "Could not send the annotation: ${it.message}" }
+                if (n > 0) lastResult = { tx -> tx.app_msg_sent_x_annotated_to_x(n = n, server = server) }
+            }.onFailure { e ->
+                lastResult = { tx -> tx.app_msg_could_not_send_annotation_x(why = e.message.orEmpty()) }
             }
         }
         LaunchedEffect(cap.deviceId) {
@@ -2462,7 +2461,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
     val scopeRoom = rememberCoroutineScope()
     val cam = CameraCapability.port
     var camConnected by remember { mutableStateOf(cam?.connected == true) }
-    var camNote by remember { mutableStateOf<String?>(null) }
+    var camNote by remember { mutableStateOf<Msg?>(null) }
     val projSkus = cat.skusOf(masters, navProject)
     // Each 360's survey prep in one line, for its tile.
     val surveyLines = remember(queue, surveyTick, roomName, tx) {
@@ -2499,11 +2498,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
             navClient = null; navSite = null; navProject = null; navRoom = null
         }))
         navClient?.let { c ->
-            add(Crumb(label = shortName(c),
+            add(Crumb(label = shortName(Masters.client_name(tx, c)),
                 onUp = { navSite = null; navProject = null; navRoom = null }))
         }
         navSite?.let { st ->
-            add(Crumb(label = st, onUp = { navProject = null; navRoom = null }))
+            // the site through its master, as the tree crumb above draws it (an M2 leftover, threaded in M6)
+            add(Crumb(label = Masters.site_name(tx, st), onUp = { navProject = null; navRoom = null }))
         }
         navProject?.let { p ->
             add(Crumb(label = p.title, onUp = { navRoom = null }))
@@ -2696,7 +2696,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             val count = it.faceCount.toString()
                             val path = it.relativePath
                             lastResult = { tx -> tx.app_msg_x_pictures_saved_x(v = count, v2 = path) }
-                        }.onFailure { lastResult = { _ -> "Could not save: ${it.message}" } }
+                        }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_save_x(why = e.message.orEmpty()) } }
                         refreshQueue()
                     }
                 }
@@ -2748,8 +2748,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 title = { Text(tx.app_rooms_x(ss = ss)) }, // the typed site name, as typed
                 text = {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
-                        // "not set" stays an unkeyed drawer row until M6; the type itself through its master
-                        Text(tx.app_site_type_x_pick(v = Masters.site(tx, siteType.ifBlank { "not set" })),
+                        // no type picked renders its key, never an unknown value through the master (M6)
+                        Text(tx.app_site_type_x_pick(v = if (siteType.isBlank()) tx.common_not_set else Masters.site(tx, siteType)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.height(8.dp))
@@ -2866,7 +2866,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         busy = null
                         result.fold(
                             onSuccess = { path -> ingest(Uri.fromFile(File(path))) },
-                            onFailure = { lastResult = { _ -> "X3 capture failed: ${it.message}" } })
+                            // a typed refusal renders keyed; an alien exception's words stay as given
+                            onFailure = { e -> lastResult = { tx ->
+                                tx.app_msg_x3_capture_failed_x(CameraNote.line(tx, e)) } })
                     }
                 }
                 }
@@ -2878,8 +2880,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 val u = androidx.core.content.FileProvider.getUriForFile(
                     context, "com.malletcrafts.interiorestimate.fileprovider", f)
                 shotUri = u
-                runCatching { camera.launch(u) }.onFailure {
-                    lastResult = { _ -> "No camera app answered: ${it.message}" }
+                runCatching { camera.launch(u) }.onFailure { e ->
+                    lastResult = { tx -> tx.app_msg_no_camera_app_x(why = e.message.orEmpty()) }
                 }
             },
             onPickPhoto = {
@@ -2967,25 +2969,27 @@ private fun AppScreenBody(onLang: () -> Unit) {
 @Composable
 private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
                            onSave: (String, String, String) -> Unit) {
+    val tx = LocalTx.current
     var url by remember { mutableStateOf(initialUrl) }
     var key by remember { mutableStateOf("") }
     var secret by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Server") },
+        title = { Text(tx.app_server) },
         text = {
             Column {
-                OutlinedTextField(url, { url = it }, label = { Text("Site URL") },
+                OutlinedTextField(url, { url = it }, label = { Text(tx.app_site_url) },
                     singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(key, { key = it }, label = { Text("API key") },
+                OutlinedTextField(key, { key = it }, label = { Text(tx.app_api_key) },
                     singleLine = true)
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(secret, { secret = it },
-                    label = { Text("API secret") }, singleLine = true)
+                    label = { Text(tx.app_api_secret) }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                Text("Generate both on your User page in ERPNext " +
-                    "(Settings → API Access). The secret is shown once.",
+                // ONE key for the page's whole sentence (ERPNext's own screen names stay as its
+                // English screen shows them, the app.generate_both_your_user rule)
+                Text(tx.app_generate_both_your_user,
                     style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -2993,9 +2997,9 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
             TextButton(
                 onClick = { onSave(url, key, secret) },
                 enabled = url.isNotBlank() && key.isNotBlank() && secret.isNotBlank(),
-            ) { Text("Save") }
+            ) { Text(tx.common_save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tx.common_cancel) } },
     )
 }
 
@@ -3011,17 +3015,20 @@ private fun SettingsDialog(initialUrl: String, onDismiss: () -> Unit,
 @Composable
 private fun S5SignInDialog(onDismiss: () -> Unit, onSignedIn: () -> Unit,
                            onSignOut: () -> Unit, onLegacy: () -> Unit) {
+    val tx = LocalTx.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var signedIn by remember { mutableStateOf(S5Session.signedIn(context)) }
     var usr by remember { mutableStateOf(S5Session.who(context)?.optString("user").orEmpty()) }
     var pwd by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    // Opened after a refused renewal: why the phone was signed out (S5Session.refusal).
+    // Opened after a refused renewal: why the phone was signed out (S5Session.refusal). ONE string,
+    // two sources — a fresh login error or the STORED refusal — so ONE mapper (UploadNote.line)
+    // renders it where it is shown; rendering keys directly here would be a second answer.
     var problem by remember { mutableStateOf(S5Session.refusal(context)) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Sign in") },
+        title = { Text(tx.app_sign_in) },
         text = {
             Column {
                 if (signedIn) {
@@ -3029,36 +3036,38 @@ private fun S5SignInDialog(onDismiss: () -> Unit, onSignedIn: () -> Unit,
                     val name = who?.optString("full_name")?.ifBlank { null }
                         ?: who?.optString("user").orEmpty()
                     val kind = who?.optString("kind").orEmpty()
-                    Text("Signed in as $name" + if (kind.isNotBlank()) " ($kind)" else "",
+                    // the " ({kind})" tail stays a value join: S5's own stored word, data — after
+                    // the staff gate it is always "staff"
+                    Text(tx.app_signed_in_as_x(name) + if (kind.isNotBlank()) " ($kind)" else "",
                         style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
-                    Text("Captures go to MCFT Interior Estimate (${BuildConfig.WEB_URL}).",
+                    Text(tx.app_captures_go_x(BuildConfig.WEB_URL),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     OutlinedTextField(usr, { usr = it; problem = null },
-                        label = { Text("ERP email") }, singleLine = true, enabled = !busy,
+                        label = { Text(tx.app_erp_email) }, singleLine = true, enabled = !busy,
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Email))
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(pwd, { pwd = it; problem = null },
-                        label = { Text("Password") }, singleLine = true, enabled = !busy,
+                        label = { Text(tx.app_password) }, singleLine = true, enabled = !busy,
                         visualTransformation =
                             androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Password))
                     Spacer(Modifier.height(8.dp))
-                    Text("The same email and password you use for ERPNext.",
+                    Text(tx.app_same_email_password_erpnext,
                         style = MaterialTheme.typography.bodySmall)
                     problem?.let {
                         Spacer(Modifier.height(8.dp))
-                        Text(it, style = MaterialTheme.typography.bodySmall,
+                        Text(UploadNote.line(tx, it), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error)
                     }
                 }
                 Spacer(Modifier.height(4.dp))
                 TextButton(onClick = onLegacy, enabled = !busy) {
-                    Text("ERP key (legacy)", style = MaterialTheme.typography.bodySmall)
+                    Text(tx.app_erp_key_legacy, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -3068,7 +3077,7 @@ private fun S5SignInDialog(onDismiss: () -> Unit, onSignedIn: () -> Unit,
                     onSignOut()
                     signedIn = S5Session.signedIn(context)
                     pwd = ""
-                }) { Text("Sign out") }
+                }) { Text(tx.app_sign_out) }
             } else {
                 TextButton(
                     enabled = usr.isNotBlank() && pwd.isNotBlank() && !busy,
@@ -3085,12 +3094,12 @@ private fun S5SignInDialog(onDismiss: () -> Unit, onSignedIn: () -> Unit,
                                 } else problem = err
                             }
                         }
-                    }) { Text(if (busy) "Signing in…" else "Sign in") }
+                    }) { Text(if (busy) tx.app_signing_in else tx.app_sign_in) }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !busy) {
-                Text(if (signedIn) "Close" else "Cancel")
+                Text(if (signedIn) tx.common_close else tx.common_cancel)
             }
         },
     )
@@ -3521,7 +3530,7 @@ private fun queueRow(tx: Tx, c: CaptureStore.Capture) = QueueRow(
     token = RoomToken.of(c.room),
     // the room as the masters name it beside the date ("हॉल · 2026-10-10", the served page's own row)
     title = "${Masters.room(tx, c.room)} · ${c.captureDate}", // text:value the glyph and a date
-    subtitle = listOf(c.customerName, c.projectTitle).filter { it.isNotBlank() }
+    subtitle = listOf(Masters.client_name(tx, c.customerName), c.projectTitle).filter { it.isNotBlank() }
         .joinToString(" / ") // text:value names and a glyph
         .let { base ->
             val err = c.error
@@ -3550,18 +3559,19 @@ private fun searchTree(
 
     cat.clients(masters).forEach { c ->
         if (c.lowercase().contains(q)) {
-            out.add(SearchHit(initials(c), c, tx.common_client, c, "", "", ""))
+            // the badge stays initials of the stored value, a code; the label through its master
+            out.add(SearchHit(initials(c), Masters.client_name(tx, c), tx.common_client, c, "", "", ""))
         }
     }
     projects.forEach { p ->
         if (p.site.lowercase().contains(q) &&
             out.none { it.label == Masters.site_name(tx, p.site) && it.client == p.client }) {
             // the hit type word after the glyph is the noun; the badge is the prototype's own raw literal (the PL ruling)
-            out.add(SearchHit("SITE", Masters.site_name(tx, p.site), "${p.client} · ${tx.noun_site(1)}", // text:value the badge
+            out.add(SearchHit("SITE", Masters.site_name(tx, p.site), "${Masters.client_name(tx, p.client)} · ${tx.noun_site(1)}", // text:value the badge
                 p.client, p.site, "", ""))
         }
         if (p.title.lowercase().contains(q)) {
-            out.add(SearchHit("PRJ", p.title, "${p.client} / ${Masters.site_name(tx, p.site)} · ${Masters.job(tx, p.jobType)}", // text:value the badge and the glyphs
+            out.add(SearchHit("PRJ", p.title, "${Masters.client_name(tx, p.client)} / ${Masters.site_name(tx, p.site)} · ${Masters.job(tx, p.jobType)}", // text:value the badge and the glyphs
                 p.client, p.site, p.key, ""))
         }
         cat.skusOf(masters, p).forEach { sku ->
@@ -3664,7 +3674,9 @@ private fun NewCaptureSurvey(
     if (d == null) {
         SurveyDimsDialog(
             title = RoomToken.label(tx, pending.room), start = start,
-            okLabel = "Survey prep", dismissLabel = "Discard 360", // the shoot-and-keep flow's labels stay English until M6 (Discard 360 has no key yet)
+            // the page's own shoot-and-keep labels (the card has held app.discard_360 since L1;
+            // §24's "no key yet" claim was stale and §29 corrects it)
+            okLabel = tx.common_survey_prep, dismissLabel = tx.app_discard_360,
             onOk = { dims = it }, onDismiss = onDiscard)
         return
     }

@@ -122,6 +122,7 @@ app.cancelled	app_cancelled	static	-
 app.cant_identify_project	app_cant_identify_project	static	-
 app.cant_identify_site	app_cant_identify_site	static	-
 app.capture	app_capture	static	-
+app.captures_go_x	app_captures_go_x	template	url: String
 app.carry_on	app_carry_on	static	-
 app.characteristics_3ab10101_notify_read	app_characteristics_3ab10101_notify_read	static	-
 app.checks_1_press_measure	app_checks_1_press_measure	static	-
@@ -154,7 +155,9 @@ app.due_x	app_due_x	template	end: String
 app.elsewhere_project	app_elsewhere_project	static	-
 app.empty	app_empty	static	-
 app.ends	app_ends	static	-
+app.erp_email	app_erp_email	static	-
 app.erp_id	app_erp_id	static	-
+app.erp_key_legacy	app_erp_key_legacy	static	-
 app.erp_key_refused_sign_s5	app_erp_key_refused_sign_s5	static	-
 app.every_photographed_room_current	app_every_photographed_room_current	static	-
 app.everything_phone_has_been	app_everything_phone_has_been	static	-
@@ -217,6 +220,7 @@ app.msg.gallery_access_granted	app_msg_gallery_access_granted	static	-
 app.msg.importing_imagemeter	app_msg_importing_imagemeter	static	-
 app.msg.local_copy_removed_capture	app_msg_local_copy_removed_capture	static	-
 app.msg.looked_14_gallery_photos	app_msg_looked_14_gallery_photos	static	-
+app.msg.looked_x_gallery_photos	app_msg_looked_x_gallery_photos	template	n: String
 app.msg.no_camera_app_x	app_msg_no_camera_app_x	template	why: String
 app.msg.no_photos_gallery	app_msg_no_photos_gallery	static	-
 app.msg.photo_filed_x	app_msg_photo_filed_x	template	v: String
@@ -268,23 +272,30 @@ app.not_synced_still_only	app_not_synced_still_only	static	-
 app.not_tagged_sku	app_not_tagged_sku	static	-
 app.not_x_stage	app_not_x_stage	template	job: String
 app.note.capture_no_longer_phone	app_note_capture_no_longer_phone	static	-
+app.note.email_password_needed	app_note_email_password_needed	static	-
+app.note.erp_not_accept_email_password	app_note_erp_not_accept_email_password	static	-
 app.note.no_survey_prep_saved	app_note_no_survey_prep_saved	static	-
 app.note.not_enough_memory	app_note_not_enough_memory	static	-
 app.note.not_signed_in_open_menu	app_note_not_signed_in_open_menu	static	-
+app.note.only_staff_not_staff	app_note_only_staff_not_staff	static	-
+app.note.only_staff_x_account	app_note_only_staff_x_account	template	kind: String
 app.note.pano_file_missing	app_note_pano_file_missing	static	-
 app.note.phone_only_not_photo	app_note_phone_only_not_photo	static	-
 app.note.phone_only_save_prep	app_note_phone_only_save_prep	static	-
 app.note.readings_not_sent_x	app_note_readings_not_sent_x	template	why: String
 app.note.sign_again_x	app_note_sign_again_x	template	why: String
+app.note.signed_out_meanwhile	app_note_signed_out_meanwhile	static	-
 app.note.upload_failed	app_note_upload_failed	static	-
 app.note.waiting_capture_filed	app_note_waiting_capture_filed	static	-
 app.note.waiting_project_erp	app_note_waiting_project_erp	static	-
 app.note.web_answered_x	app_note_web_answered_x	template	code: String
+app.note.web_no_session	app_note_web_no_session	static	-
 app.note.web_refused_password	app_note_web_refused_password	static	-
 app.note.web_session_expired	app_note_web_session_expired	static	-
 app.note.web_session_renewed	app_note_web_session_renewed	static	-
 app.note.web_session_to_renew	app_note_web_session_to_renew	static	-
 app.note.web_signin_refused_key	app_note_web_signin_refused_key	static	-
+app.note.web_unreachable	app_note_web_unreachable	static	-
 app.nothing_captured_phone_yet	app_nothing_captured_phone_yet	static	-
 app.nothing_matches_x	app_nothing_matches_x	template	q: String
 app.nothing_waiting	app_nothing_waiting	static	-
@@ -299,6 +310,7 @@ app.original	app_original	static	-
 app.original_360	app_original_360	static	-
 app.original_360_survey_prep	app_original_360_survey_prep	static	-
 app.over_x	app_over_x	template	plN: Int
+app.password	app_password	static	-
 app.phase	app_phase	static	-
 app.phases	app_phases	static	-
 app.phone_camera_simulated	-	skipped	prototype-only
@@ -324,6 +336,7 @@ app.room_photo_not_tied	app_room_photo_not_tied	static	-
 app.room_size_mm	app_room_size_mm	static	-
 app.rooms_x	app_rooms_x	template	ss: String
 app.rooms_x_hidden	app_rooms_x_hidden	template	hidden: String
+app.same_email_password_erpnext	app_same_email_password_erpnext	static	-
 app.select_photo	app_select_photo	static	-
 app.sending	app_sending	static	-
 app.sent	app_sent	static	-
@@ -341,7 +354,10 @@ app.showing_all_x_stages	app_showing_all_x_stages	template	length: Int
 app.sign_again_menu_server_x	app_sign_again_menu_server_x	template	why: String
 app.sign_erp_email_password	app_sign_erp_email_password	static	-
 app.sign_first_menu_server	app_sign_first_menu_server	static	-
+app.sign_in	app_sign_in	static	-
 app.sign_out	app_sign_out	static	-
+app.signed_in_as_x	app_signed_in_as_x	template	name: String
+app.signing_in	app_signing_in	static	-
 app.since_x	app_since_x	template	stageSince: String
 app.single_photo	app_single_photo	static	-
 app.site_name	app_site_name	static	-

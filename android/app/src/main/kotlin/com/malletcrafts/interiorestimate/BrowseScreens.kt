@@ -217,8 +217,10 @@ fun ClientsScreen(
             val s = siteCount(c)
             val p = projectCount(c)
             FolderRow(
+                // the badge stays initials of the stored value, a code; the title through its
+                // master, so the no-client bucket reads "(ग्राहक नाही)" (port 61c slice M6)
                 badge = initials(c),
-                title = c,
+                title = Masters.client_name(tx, c),
                 subtitle = "${tx.pl_site(s)} · ${tx.pl_project(p)}",
                 onClick = { onOpen(c) },
                 onLongClick = { onRename(c) })

@@ -966,6 +966,19 @@
   "where": "v53build/app.js:218 · groups",
   "kind": "static"
  },
+ "app.captures_go_x": {
+  "en": "Captures go to MCFT Interior Estimate ({url}).",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3035 at 80d3526 · the S5 sign-in sheet · the product name Latin, the URL data · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "url": "BuildConfig.WEB_URL (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.carry_on": {
   "en": "CARRY ON",
   "where": "v53build/app.js:430 · h",
@@ -1181,10 +1194,30 @@
   "where": "v53build/app.js:256 · rows",
   "kind": "static"
  },
+ "app.erp_email": {
+  "en": "ERP email",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3040 at 80d3526 · the S5 sign-in sheet · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.erp_id": {
   "en": "ERP id",
   "where": "v53build/app.js:256 · rows",
   "kind": "static"
+ },
+ "app.erp_key_legacy": {
+  "en": "ERP key (legacy)",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3061 at 80d3526 · the S5 sign-in sheet · the link to the legacy key dialog during the migration · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.erp_key_refused_sign_s5": {
   "en": "ERP key refused — tap to sign in to S5",
@@ -1622,6 +1655,19 @@
   "where": "v53build/app.js:233 · importIM",
   "kind": "static"
  },
+ "app.msg.looked_x_gallery_photos": {
+  "en": "Looked at {n} gallery photos, none carrying this app's stamp. Only faces captured with 0.3.93 or later are stamped — re-shoot and annotate that one.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:966 at 80d3526 · ImageMeter import and annotation results · the card's app.msg.looked_14_gallery_photos with {n} for its baked-in demo count — a static cannot carry scan.looked; the demo static stays the page's · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "a count"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.msg.no_camera_app_x": {
   "en": "No camera app answered: {why}",
   "where": [
@@ -2045,6 +2091,26 @@
    "phone-text"
   ]
  },
+ "app.note.email_password_needed": {
+  "en": "Email and password are needed",
+  "where": [
+   "S2 APK phone text · S5Session.kt:96 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal: stays English in prefs and is shown through UploadNote.line · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.erp_not_accept_email_password": {
+  "en": "ERP did not accept that email and password",
+  "where": [
+   "S2 APK phone text · S5Session.kt:108 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal: stays English in prefs and is shown through UploadNote.line · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.note.no_survey_prep_saved": {
   "en": "no survey prep saved for this capture",
   "where": [
@@ -2071,6 +2137,29 @@
    "S2 APK phone text · AsIsUpload.kt:232 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
   ],
   "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.only_staff_not_staff": {
+  "en": "Only MCFT staff can send captures from this app; this ERP account is not staff",
+  "where": [
+   "S2 APK phone text · S5Session.kt:125 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal (UploadNote.onlyStaff, blank kind), refuse.stage.staff_only's register · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.only_staff_x_account": {
+  "en": "Only MCFT staff can send captures from this app; this ERP account is a {kind} account",
+  "where": [
+   "S2 APK phone text · S5Session.kt:125 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal (UploadNote.onlyStaff); {kind} is S5's own word, Latin — the M4 reasonLine rule · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "kind": "S5's own kind word, as stored (data)"
+  },
   "flags": [
    "phone-text"
   ]
@@ -2131,6 +2220,16 @@
    "phone-text"
   ]
  },
+ "app.note.signed_out_meanwhile": {
+  "en": "signed out meanwhile",
+  "where": [
+   "S2 APK phone text · S5Session.kt:129 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal: stays English in prefs and is shown through UploadNote.line · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.note.upload_failed": {
   "en": "upload failed",
   "where": [
@@ -2170,6 +2269,16 @@
   "placeholders": {
    "code": "the HTTP status"
   },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_no_session": {
+  "en": "the web did not start a session",
+  "where": [
+   "S2 APK phone text · S5Session.kt:116 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal: stays English in prefs and is shown through UploadNote.line · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
   "flags": [
    "phone-text"
   ]
@@ -2218,6 +2327,16 @@
   "en": "web sign-in refused - sending with the ERP key",
   "where": [
    "S2 APK phone text · AsIsUpload.kt:348 at 6575b85 · Sync and upload status lines: a stored upload note: stays English in asisupload/<id>.json and is shown through Notes.kt (design §6 slice 2) · card61c group 1, approved with v61c (28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.note.web_unreachable": {
+  "en": "web unreachable",
+  "where": [
+   "S2 APK phone text · S5Session.kt:102 at 80d3526 · the S5 sign-in sheet · a stored sign-in refusal: stays English in prefs and is shown through UploadNote.line · port 61c slice M6, Marathi by Claude (decision 6)"
   ],
   "kind": "static",
   "flags": [
@@ -2327,6 +2446,16 @@
   "flags": [
    "fragment",
    "plural-by-suffix"
+  ]
+ },
+ "app.password": {
+  "en": "Password",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3045 at 80d3526 · the S5 sign-in sheet · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "app.phase": {
@@ -2493,6 +2622,16 @@
    "hidden": "hidden"
   }
  },
+ "app.same_email_password_erpnext": {
+  "en": "The same email and password you use for ERPNext.",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3051 at 80d3526 · the S5 sign-in sheet · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.select_photo": {
   "en": "Select a photo",
   "where": "v53build/app.js:604 · kind",
@@ -2625,10 +2764,43 @@
    "phone-text"
   ]
  },
+ "app.sign_in": {
+  "en": "Sign in",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3024, MainActivity.kt:3088 at 80d3526 · the S5 sign-in sheet · its title and its button · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.sign_out": {
   "en": "Sign out",
   "where": "v53build/app.js:226 · groups",
   "kind": "static"
+ },
+ "app.signed_in_as_x": {
+  "en": "Signed in as {name}",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3032 at 80d3526 · the S5 sign-in sheet · the \" ({kind})\" tail stays a value join: S5's own stored word, data · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "name": "S5's full_name, else its user (data)"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "app.signing_in": {
+  "en": "Signing in…",
+  "where": [
+   "S2 APK phone text · MainActivity.kt:3088 at 80d3526 · the S5 sign-in sheet · the button while the login is out · port 61c slice M6, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "app.since_x": {
   "en": "since {stageSince}",

@@ -64,9 +64,9 @@ object AnnotationPush {
                 // reliably give one.
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     tmp.outputStream().use { out -> input.copyTo(out) }
-                } ?: error("could not read the annotated image")
+                } ?: error("could not read the annotated image") // text:value a diagnostic swallowed by runCatching (onSuccess-only): no screen shows it
                 client.uploadAnnotation(docname, face, tmp,
-                    "Annotated in ImageMeter; matched by the app's stamp")
+                    "Annotated in ImageMeter; matched by the app's stamp") // text:value the comment SENT with the upload: stored on the bench, read in ERP (decision 4)
             }.onSuccess {
                 // Marked sent only after the server has it. A crash between
                 // the two costs one duplicate upload, which is recoverable;

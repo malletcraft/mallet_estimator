@@ -453,8 +453,9 @@ internal fun SurveyPrepDialog(
         if (!SurveyRef.setDim(prep.surface(s), k, v)) { hist.removeAt(hist.size - 1); return }
         changed()
     }
-    disto.onState = { s, n -> distoState = s; if (n != null) say(n) }
-    disto.onRefused = { why -> say(why) }
+    // the laser's words rendered LIVE on the one keyed screen that says them (port 61c slice M6)
+    disto.onState = { s, n -> distoState = s; if (n != null) say(n(tx)) }
+    disto.onRefused = { why -> say(why(tx)) }
     disto.onReading = { r ->
         val route = SurveyRef.route(refShot, prep, r.mm, System.currentTimeMillis())
         refShot = null

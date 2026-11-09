@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.interiorestimate.pano.Annotation
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -250,8 +251,9 @@ fun AnnotateScreen(
     // confirm, because the person is holding a meter and standing on site.
     // With nothing selected it is deliberately ignored rather than guessed
     // at: a number on the wrong wall is worse than no number.
-    disto.onState = { s, note -> distoState = s; distoNote = note }
-    disto.onRefused = { why -> distoNote = why }
+    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
+    disto.onState = { s, n -> distoState = s; distoNote = n?.invoke(Tx.EN) }
+    disto.onRefused = { why -> distoNote = why(Tx.EN) }
     disto.onReading = { r ->
         val s = selected
         if (s is Sel.L) {

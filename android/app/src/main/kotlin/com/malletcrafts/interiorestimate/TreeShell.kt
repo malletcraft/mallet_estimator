@@ -13,6 +13,7 @@ import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -276,7 +277,7 @@ fun ProjectSheet(
         })
         add(tx.app_erp_id to project.serverId.ifBlank { "—" }) // text:value a dash for a blank field
         add(tx.common_site to Masters.site_name(tx, project.site))
-        add(tx.common_client to project.client)
+        add(tx.common_client to Masters.client_name(tx, project.client))
         add(tx.app_starts to project.start.ifBlank { "—" }) // text:value a dash for a blank field
         add(tx.app_ends to project.end.ifBlank { "—" }) // text:value a dash for a blank field
         add(tx.app_photos to tx.app_x_phone("$photos"))
@@ -357,7 +358,8 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
  * change`, and the tap opens Which work? ([WorkSheet]). The thirty-nine-stage
  * picker that was FILED AT is gone with it: nothing on the phone picks a stage
  * any more. Every text is keyed; the camera's own note ([cameraNote]) is the
- * camera module's, shown as it says it.
+ * camera module's, a LONG-LIVED note drawn in the language on when it is drawn
+ * (the M3b readingsMsg rule; port 61c slice M6).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -379,7 +381,7 @@ fun CaptureSheet(
     /** Null on the public build, which has no SDK and no 360 camera. */
     hasCamera: Boolean,
     cameraConnected: Boolean,
-    cameraNote: String?,
+    cameraNote: Msg?,
     busy: Boolean,
     onRoomLength: (String) -> Unit,
     onRoomWidth: (String) -> Unit,
@@ -492,7 +494,7 @@ fun CaptureSheet(
                         Text(if (cameraConnected) tx.app_x3_connected else tx.app_x3_not_connected)
                     },
                     supportingContent = {
-                        Text(cameraNote ?: if (cameraConnected) tx.app_ready_shoot
+                        Text(cameraNote?.invoke(tx) ?: if (cameraConnected) tx.app_ready_shoot
                              else tx.app_join_camera_s_wi)
                     },
                     modifier = Modifier.clickableRow(onCamera))

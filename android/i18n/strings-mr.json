@@ -363,6 +363,9 @@
  "app.capture": {
   "mr": "कॅप्चर"
  },
+ "app.captures_go_x": {
+  "mr": "कॅप्चर MCFT Interior Estimate ({url}) कडे जातात."
+ },
  "app.carry_on": {
   "mr": "पुढे चला"
  },
@@ -463,8 +466,14 @@
  "app.ends": {
   "mr": "शेवट"
  },
+ "app.erp_email": {
+  "mr": "ERP ईमेल"
+ },
  "app.erp_id": {
   "mr": "ERP आयडी"
+ },
+ "app.erp_key_legacy": {
+  "mr": "ERP की (जुनी पद्धत)"
  },
  "app.erp_key_refused_sign_s5": {
   "mr": "ERP की नाकारली — S5 मध्ये साइन इन करण्यासाठी टॅप करा"
@@ -662,6 +671,9 @@
  "app.msg.looked_14_gallery_photos": {
   "mr": "गॅलरीतील 14 फोटो पाहिले, एकावरही या अ‍ॅपचा शिक्का नाही. फक्त 0.3.93 किंवा नंतरच्या आवृत्तीने कॅप्चर केलेल्या बाजूंवर शिक्का असतो — तो फोटो पुन्हा काढा आणि खुणा करा."
  },
+ "app.msg.looked_x_gallery_photos": {
+  "mr": "गॅलरीतील {n} फोटो पाहिले, एकावरही या अ‍ॅपचा शिक्का नाही. फक्त 0.3.93 किंवा नंतरच्या आवृत्तीने कॅप्चर केलेल्या बाजूंवर शिक्का असतो — तो फोटो पुन्हा काढा आणि खुणा करा."
+ },
  "app.msg.no_camera_app_x": {
   "mr": "कोणत्याही कॅमेरा अ‍ॅपने उत्तर दिले नाही: {why}"
  },
@@ -818,6 +830,12 @@
  "app.note.capture_no_longer_phone": {
   "mr": "हे कॅप्चर आता फोनवर नाही"
  },
+ "app.note.email_password_needed": {
+  "mr": "ईमेल आणि पासवर्ड दोन्ही हवेत"
+ },
+ "app.note.erp_not_accept_email_password": {
+  "mr": "ERP ने तो ईमेल आणि पासवर्ड स्वीकारला नाही"
+ },
  "app.note.no_survey_prep_saved": {
   "mr": "या कॅप्चरसाठी सर्व्हे तयारी सेव्ह केलेली नाही"
  },
@@ -826,6 +844,12 @@
  },
  "app.note.not_signed_in_open_menu": {
   "mr": "साइन इन केलेले नाही - मेनू उघडा आणि साइन इन करा"
+ },
+ "app.note.only_staff_not_staff": {
+  "mr": "या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते स्टाफचे नाही"
+ },
+ "app.note.only_staff_x_account": {
+  "mr": "या अ‍ॅपमधून कॅप्चर फक्त MCFT स्टाफच पाठवू शकतो; हे ERP खाते {kind} प्रकारचे आहे"
  },
  "app.note.pano_file_missing": {
   "mr": "360 ची फाइल फोनवर नाही"
@@ -842,6 +866,9 @@
  "app.note.sign_again_x": {
   "mr": "पुन्हा साइन इन करा (मेनू → सर्व्हर) - {why}"
  },
+ "app.note.signed_out_meanwhile": {
+  "mr": "दरम्यान साइन आउट झाले"
+ },
  "app.note.upload_failed": {
   "mr": "अपलोड झाले नाही"
  },
@@ -853,6 +880,9 @@
  },
  "app.note.web_answered_x": {
   "mr": "वेबचे उत्तर {code}"
+ },
+ "app.note.web_no_session": {
+  "mr": "वेबने सेशन सुरू केले नाही"
  },
  "app.note.web_refused_password": {
   "mr": "वेबने सेव्ह केलेला पासवर्ड नाकारला"
@@ -868,6 +898,9 @@
  },
  "app.note.web_signin_refused_key": {
   "mr": "वेब साइन-इन नाकारले - ERP कीने पाठवत आहे"
+ },
+ "app.note.web_unreachable": {
+  "mr": "वेबशी संपर्क होत नाही"
  },
  "app.nothing_captured_phone_yet": {
   "mr": "या फोनवर अजून काहीही कॅप्चर केलेले नाही. \"ब्राउझ\" उघडा, खोली निवडा आणि फोटो काढा."
@@ -911,6 +944,9 @@
  "app.over_x": {
   "mr": " · {pl}",
   "note": "review: ' {pl} मध्ये' printed '3 दिवस मध्ये' (needs दिवसांत); ' · 3 दिवस' after the photo count says the same. {pl} = plural(n,'day') → noun.day"
+ },
+ "app.password": {
+  "mr": "पासवर्ड"
  },
  "app.phase": {
   "mr": "फेज"
@@ -992,6 +1028,9 @@
  "app.rooms_x_hidden": {
   "mr": "खोल्या · लपवलेल्या: {hidden}"
  },
+ "app.same_email_password_erpnext": {
+  "mr": "ERPNext साठी वापरता तोच ईमेल आणि पासवर्ड."
+ },
  "app.select_photo": {
   "mr": "फोटो निवडा"
  },
@@ -1047,8 +1086,17 @@
  "app.sign_first_menu_server": {
   "mr": "आधी साइन इन करा — मेनू → सर्व्हर."
  },
+ "app.sign_in": {
+  "mr": "साइन इन करा"
+ },
  "app.sign_out": {
   "mr": "साइन आउट"
+ },
+ "app.signed_in_as_x": {
+  "mr": "{name} म्हणून साइन इन केले"
+ },
+ "app.signing_in": {
+  "mr": "साइन इन होत आहे…"
  },
  "app.since_x": {
   "mr": "{stageSince} पासून"

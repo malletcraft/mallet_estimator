@@ -16,7 +16,9 @@ import com.arashivision.sdkmedia.export.ExportImageParamsBuilder
 import com.arashivision.sdkmedia.export.ExportUtils
 import com.arashivision.sdkmedia.export.IExportCallback
 import com.arashivision.sdkmedia.work.WorkWrapper
+import com.malletcrafts.interiorestimate.pano.CameraNote
 import com.malletcrafts.interiorestimate.pano.CameraPort
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 
 /**
  * The only class that touches the Insta360 SDK. Flow, per the
@@ -29,7 +31,7 @@ object X3Bridge : CameraPort {
 
     override val ready: Boolean = true
 
-    private var statusListener: ((Boolean, String?) -> Unit)? = null
+    private var statusListener: ((Boolean, Msg?) -> Unit)? = null
 
     // THE CAMERA'S Wi-Fi HAS NO INTERNET, and on Android 10+ that is enough to
     // break the connection on its own.
@@ -52,8 +54,8 @@ object X3Bridge : CameraPort {
     private fun cm(): ConnectivityManager? =
         appRef?.getSystemService(ConnectivityManager::class.java)
 
-    private fun bindToCameraWifi(onBound: (String?) -> Unit) {
-        val manager = cm() ?: return onBound("no ConnectivityManager")
+    private fun bindToCameraWifi(onBound: (Msg?) -> Unit) {
+        val manager = cm() ?: return onBound { _ -> CameraNote.NO_CM }
         releaseNetwork()
         val request = NetworkRequest.Builder()
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -61,7 +63,7 @@ object X3Bridge : CameraPort {
             .build()
         val main = Handler(Looper.getMainLooper())
         var settled = false
-        val settle = { problem: String? ->
+        val settle = { problem: Msg? ->
             if (!settled) { settled = true; main.post { onBound(problem) } }
         }
         val cb = object : ConnectivityManager.NetworkCallback() {
@@ -80,11 +82,11 @@ object X3Bridge : CameraPort {
         // wants is a handle to the one that exists, which ACCESS_NETWORK_STATE
         // (already declared) is enough for.
         runCatching { manager.registerNetworkCallback(request, cb) }
-            .onFailure { return settle("cannot watch Wi-Fi: ${it.message}") }
+            .onFailure { return settle(CameraNote.cannotWatchWifi(it.message.orEmpty())) }
         // Its own timeout, since registerNetworkCallback has no timeout
         // parameter and a connect button that never answers is worse than one
         // that fails.
-        main.postDelayed({ settle("phone is not on the camera's Wi-Fi") },
+        main.postDelayed({ settle(CameraNote.notOnCameraWifi) },
                          WIFI_BIND_TIMEOUT_MS.toLong())
     }
 
@@ -120,10 +122,7 @@ object X3Bridge : CameraPort {
             // nothing either: the SDK ships no public code table, so the only
             // honest thing the app can do is say what the code was AND what
             // the three things that actually cause it are.
-            statusListener?.invoke(false,
-                "camera connect error $errorCode — check the X3 is on, its " +
-                "Wi-Fi is joined in Android Settings, and no other app " +
-                "(Insta360 app) is holding the camera")
+            statusListener?.invoke(false, CameraNote.connectError(errorCode))
         }
     }
 
@@ -139,13 +138,13 @@ object X3Bridge : CameraPort {
         get() = InstaCameraManager.getInstance().cameraConnectedType !=
             InstaCameraManager.CONNECT_TYPE_NONE
 
-    override fun connect(onChange: (Boolean, String?) -> Unit) {
+    override fun connect(onChange: (Boolean, Msg?) -> Unit) {
         statusListener = onChange
         // Bind FIRST, open second. openCamera reaches the camera over a socket,
         // so binding after it would race the very connection it is meant to fix.
         bindToCameraWifi { problem ->
             if (problem != null) {
-                onChange(false, "$problem — join the X3's Wi-Fi in Settings, then try again")
+                onChange(false, CameraNote.joinWifi(problem))
                 return@bindToCameraWifi
             }
             InstaCameraManager.getInstance().openCamera(InstaCameraManager.CONNECT_TYPE_WIFI)
@@ -166,8 +165,7 @@ object X3Bridge : CameraPort {
             override fun onCaptureFinish(filePaths: Array<String>?) {
                 mgr.setCaptureStatusListener(null)
                 if (filePaths.isNullOrEmpty()) {
-                    onDone(Result.failure(IllegalStateException(
-                        "camera reported capture finished but returned no file")))
+                    onDone(Result.failure(CameraNote.Refused(CameraNote.Kind.NO_FILE)))
                     return
                 }
                 export(filePaths, targetPath, onDone)
@@ -175,7 +173,7 @@ object X3Bridge : CameraPort {
 
             override fun onCaptureError(errorCode: Int) {
                 mgr.setCaptureStatusListener(null)
-                onDone(Result.failure(RuntimeException("capture error $errorCode")))
+                onDone(Result.failure(CameraNote.Refused(CameraNote.Kind.CAPTURE_ERROR, errorCode)))
             }
         })
         mgr.startNormalCapture()
@@ -198,10 +196,10 @@ object X3Bridge : CameraPort {
                     override fun onStart(exportId: Int) {}
                     override fun onSuccess() = onDone(Result.success(targetPath))
                     override fun onFail(errorCode: Int, message: String?) =
-                        onDone(Result.failure(RuntimeException(
-                            "stitch export failed ($errorCode): $message")))
+                        onDone(Result.failure(
+                            CameraNote.Refused(CameraNote.Kind.STITCH_FAILED, errorCode, message)))
                     override fun onCancel() =
-                        onDone(Result.failure(RuntimeException("stitch export cancelled")))
+                        onDone(Result.failure(CameraNote.Refused(CameraNote.Kind.STITCH_CANCELLED)))
                 })
             }.onFailure { onDone(Result.failure(it)) }
         }.start()

@@ -34,7 +34,7 @@ HTTP	app.download_http_x
 S5
 S2	export.photo_not_yet_measured,sp.photo_not_yet_measured
 ERP
-MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured,app.msg.without_gallery_access
+MCFT	export.photo_not_yet_measured,sp.photo_not_yet_measured,app.msg.without_gallery_access,app.captures_go_x,app.note.only_staff_not_staff,app.note.only_staff_x_account
 SKU
 API
 URL	app.site_url
@@ -84,8 +84,8 @@ Settings	app.msg.without_gallery_access,app.x3.x_join_wifi,app.x3.connect_error_
 Apps	app.msg.without_gallery_access
 Permissions	app.msg.without_gallery_access
 Photos	app.msg.without_gallery_access,app.msg.android_hiding_photos
-Interior	app.msg.without_gallery_access
-Estimate	app.msg.without_gallery_access
+Interior	app.msg.without_gallery_access,app.captures_go_x
+Estimate	app.msg.without_gallery_access,app.captures_go_x
 
 ## ERPNext's own screen names, as its English screen shows them
 User	app.generate_both_your_user

@@ -17,6 +17,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import com.malletcrafts.interiorestimate.pano.Disto
+import com.malletcrafts.interiorestimate.pano.LaserNote
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.util.ArrayDeque
 import java.util.UUID
 
@@ -50,10 +53,12 @@ class DistoClient(private val context: Context) {
     var state: State = State.OFF
         private set
 
-    /** Set by the screen that wants readings. */
-    var onState: (State, String?) -> Unit = { _, _ -> }
+    /** Set by the screen that wants readings. A state's note and a refusal travel as a [Msg],
+     *  rendered where they are shown with the language on THEN (port 61c slice M6): survey prep
+     *  says them live; the Laser test, Annotate and Face Prep screens render `Tx.EN` until M8. */
+    var onState: (State, Msg?) -> Unit = { _, _ -> }
     var onReading: (Disto.Reading) -> Unit = {}
-    var onRefused: (String) -> Unit = {}
+    var onRefused: (Msg) -> Unit = {}
     var onEvent: (String) -> Unit = {}
 
     private val main = Handler(Looper.getMainLooper())
@@ -71,10 +76,13 @@ class DistoClient(private val context: Context) {
     private fun adapter(): BluetoothAdapter? =
         (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
 
-    private fun moveTo(s: State, note: String? = null) {
+    private fun moveTo(s: State, note: Msg? = null) {
         state = s
         main.post { onState(s, note) }
-        event("state ${s.name}${note?.let { " — $it" } ?: ""}")
+        // The LOG stays English (decision 4; the page's own demo log line): the note is rendered
+        // Tx.EN here BY HAND, because a Msg in a string template compiles and prints the lambda
+        // (the M3b salvage-log fault) — this line and the refused one below are the two sites.
+        event("state ${s.name}${note?.let { " — " + it(Tx.EN) } ?: ""}") // text:value the laser log, a diagnostic other parties read
     }
 
     private fun event(line: String) = main.post { onEvent(line) }
@@ -97,7 +105,7 @@ class DistoClient(private val context: Context) {
         // the middle of measuring a room loses the visit.
         runCatching { op(g) }.onFailure {
             busy = false
-            moveTo(State.OFF, "Bluetooth refused: ${it.message}")
+            moveTo(State.OFF, LaserNote.bluetoothRefused(it.message.orEmpty()))
         }
     }
 
@@ -111,12 +119,12 @@ class DistoClient(private val context: Context) {
     fun start() {
         val ad = adapter()
         if (ad == null || !ad.isEnabled) {
-            moveTo(State.OFF, "Turn Bluetooth on")
+            moveTo(State.OFF, LaserNote.turnBluetoothOn)
             return
         }
         val scanner = ad.bluetoothLeScanner
         if (scanner == null) {
-            moveTo(State.OFF, "No BLE scanner")
+            moveTo(State.OFF, LaserNote.noBleScanner)
             return
         }
         // No ScanFilter: it is not established that every DISTO advertises
@@ -129,11 +137,11 @@ class DistoClient(private val context: Context) {
         val token = ++scanToken
         moveTo(State.SCANNING)
         runCatching { scanner.startScan(null, settings, scanCallback) }
-            .onFailure { moveTo(State.OFF, "Scan refused: ${it.message}") }
+            .onFailure { moveTo(State.OFF, LaserNote.scanRefused(it.message.orEmpty())) }
         // Android throttles scanning; give up after 20 s rather than draining
         // the phone while the meter is asleep.
         main.postDelayed({
-            if (scanning && token == scanToken) { stopScan(); moveTo(State.OFF, "No DISTO found — press its Bluetooth button and try again") }
+            if (scanning && token == scanToken) { stopScan(); moveTo(State.OFF, LaserNote.noDistoFound) }
         }, 20_000)
     }
 
@@ -162,14 +170,14 @@ class DistoClient(private val context: Context) {
         val g = gatt ?: return
         val ch = g.getService(uuid(Disto.SERVICE))
             ?.getCharacteristic(uuid(Disto.CH_COMMAND))
-        if (ch == null) { event("no command characteristic — cannot send '$cmd'"); return }
+        if (ch == null) { event("no command characteristic — cannot send '$cmd'"); return } // text:value the laser log (the GATT transcript)
         enqueue {
             @Suppress("DEPRECATION")
             ch.value = cmd.toByteArray(Charsets.US_ASCII)
             ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             @Suppress("DEPRECATION")
             val ok = it.writeCharacteristic(ch)
-            event("sent '$cmd' (${if (ok) "accepted" else "refused by Android"})")
+            event("sent '$cmd' (${if (ok) "accepted" else "refused by Android"})") // text:value the laser log (the GATT transcript)
             // Android still calls onCharacteristicWrite for a write-without-
             // response; only a refused write leaves the queue waiting.
             if (!ok) done()
@@ -184,27 +192,29 @@ class DistoClient(private val context: Context) {
                 ?.contains(ParcelUuid(uuid(Disto.SERVICE))) == true
             val byName = name?.startsWith(Disto.NAME_PREFIX) == true
             if (!advertised && !byName) return
-            event("found '${name ?: "?"}' rssi ${result.rssi} — " +
-                if (advertised) "advertises the DISTO service" else "matched by name only")
+            event("found '${name ?: "?"}' rssi ${result.rssi} — " + // text:value the laser log (the GATT transcript)
+                if (advertised) "advertises the DISTO service" else "matched by name only") // text:value the laser log (the GATT transcript)
             stopScan()
             connect(dev)
         }
 
         override fun onScanFailed(errorCode: Int) {
             scanning = false
-            moveTo(State.OFF, "Scan failed ($errorCode)")
+            moveTo(State.OFF, LaserNote.scanFailed(errorCode))
         }
     }
 
     private fun connect(device: BluetoothDevice) {
-        moveTo(State.CONNECTING, runCatching { device.name }.getOrNull() ?: "DISTO")
+        // CONNECTING's note is the DEVICE NAME: data, never translated.
+        val name = runCatching { device.name }.getOrNull() ?: "DISTO" // text:value the device's own name, the page's value list names it
+        moveTo(State.CONNECTING, { _ -> name })
         gatt = runCatching {
             device.connectGatt(context, false, gattCallback,
                 BluetoothDevice.TRANSPORT_LE)
         }.getOrElse {
             // BLUETOOTH_CONNECT can be refused even when BLUETOOTH_SCAN was
             // granted, and this is the first call that needs it.
-            moveTo(State.OFF, "Bluetooth connect permission refused")
+            moveTo(State.OFF, LaserNote.connectPermissionRefused)
             null
         }
     }
@@ -229,10 +239,10 @@ class DistoClient(private val context: Context) {
                 if (status != BluetoothGatt.GATT_SUCCESS && retries < 3) {
                     retries++
                     main.postDelayed({ start() }, 800L * retries)
-                    moveTo(State.SCANNING, "Reconnecting ($status)…")
+                    moveTo(State.SCANNING, LaserNote.reconnecting(status))
                 } else {
                     moveTo(State.OFF, if (status == BluetoothGatt.GATT_SUCCESS)
-                        "Meter disconnected" else "Disconnected ($status)")
+                        LaserNote.meterDisconnected else LaserNote.disconnected(status))
                 }
             }
         }
@@ -240,16 +250,16 @@ class DistoClient(private val context: Context) {
         override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
             val svc = g.getService(uuid(Disto.SERVICE))
             if (svc == null) {
-                moveTo(State.OFF, "Not a DISTO (no DISTO service)")
+                moveTo(State.OFF, LaserNote.notADisto)
                 return
             }
-            event("characteristics: " + svc.characteristics.joinToString(", ") {
-                it.uuid.toString().substring(0, 8) + "/" + props(it.properties)
+            event("characteristics: " + svc.characteristics.joinToString(", ") { // text:value the laser log (the GATT transcript)
+                it.uuid.toString().substring(0, 8) + "/" + props(it.properties) // text:value the log's glyph join
             })
             val dist = svc.getCharacteristic(uuid(Disto.CH_DISTANCE))
             val unit = svc.getCharacteristic(uuid(Disto.CH_DISTANCE_UNIT))
             if (dist == null || unit == null) {
-                moveTo(State.OFF, "Meter is missing the distance characteristic")
+                moveTo(State.OFF, LaserNote.noDistanceCharacteristic)
                 return
             }
             subscribe(dist)
@@ -278,7 +288,7 @@ class DistoClient(private val context: Context) {
         }
 
         override fun onDescriptorWrite(g: BluetoothGatt, d: BluetoothGattDescriptor, s: Int) {
-            event("subscribed ${d.characteristic.uuid.toString().substring(0, 8)} (status $s)")
+            event("subscribed ${d.characteristic.uuid.toString().substring(0, 8)} (status $s)") // text:value the laser log (the GATT transcript)
             done()
         }
 
@@ -315,20 +325,25 @@ class DistoClient(private val context: Context) {
         val outcome = when (c.uuid) {
             uuid(Disto.CH_DISTANCE) -> {
                 val m = Disto.readFloat32Le(bytes)
-                event("distance [${Disto.hex(bytes)}] = %.4f m".format(java.util.Locale.ROOT, m))
+                event("distance [${Disto.hex(bytes)}] = %.4f m".format(java.util.Locale.ROOT, m)) // text:value the laser log (the GATT transcript)
                 pairing.onDistance(m)
             }
             uuid(Disto.CH_DISTANCE_UNIT) -> {
                 val u = Disto.readUint16Le(bytes)
-                event("unit [${Disto.hex(bytes)}] = code $u")
+                event("unit [${Disto.hex(bytes)}] = code $u") // text:value the laser log (the GATT transcript)
                 pairing.onUnit(u)
             }
             else -> {
-                event("${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]")
+                event("${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]") // text:value the laser log (the GATT transcript)
                 null
             }
         } ?: return
         outcome.reading?.let { r -> main.post { onReading(r) } }
-        outcome.refused?.let { why -> event("refused: $why"); main.post { onRefused(why) } }
+        // The second hand-rendered template site (see moveTo): the LOG keeps today's bytes at Tx.EN.
+        outcome.refused?.let { r ->
+            val why = LaserNote.refusal(r)
+            event("refused: " + why(Tx.EN)) // text:value the laser log, a diagnostic other parties read
+            main.post { onRefused(why) }
+        }
     }
 }

@@ -32,7 +32,13 @@ class FrappeClient(private val baseUrl: String, private val key: String,
 
     private val json = "application/json; charset=utf-8".toMediaType()
 
-    class ApiException(val code: Int, message: String) : Exception(message)
+    open class ApiException(val code: Int, message: String) : Exception(message)
+
+    /** The OTA download's refusal (port 61c slice M6). A SUBCLASS, so SyncWorker's typed catch and
+     *  every `is ApiException` keep working, and the update flow can tell a download refusal apart
+     *  and render it keyed: the shown line is app.msg.update_failed_x over app.download_http_x from
+     *  [code]. The message stays this file's diagnostic — a logcat line reads exactly as before. */
+    class Download(code: Int) : ApiException(code, "download: HTTP $code") // text:value a diagnostic — the shown line renders app.download_http_x from [code]
 
     private fun call(req: Request): JSONObject {
         http.newCall(req).execute().use { resp ->
@@ -177,7 +183,7 @@ class FrappeClient(private val baseUrl: String, private val key: String,
         val req = Request.Builder().url("$baseUrl$fileUrl")
             .header("Authorization", "token $key:$secret").get().build()
         http.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) throw ApiException(resp.code, "download: HTTP ${resp.code}")
+            if (!resp.isSuccessful) throw Download(resp.code)
             dest.parentFile?.mkdirs()
             dest.outputStream().use { out ->
                 resp.body!!.byteStream().copyTo(out)

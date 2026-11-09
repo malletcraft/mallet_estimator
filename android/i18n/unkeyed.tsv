@@ -76,39 +76,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	tap Valu
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	tap to view
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	voice note
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt	▶ 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	Annotated in ImageMeter; matched by the app's stamp
-app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt	could not read the annotated image
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	 — $it
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	${c.uuid.toString().substring(0, 8)} [${Disto.hex(bytes)}]
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	, 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	/
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	?
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Bluetooth connect permission refused
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Bluetooth refused: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	DISTO
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Disconnected ($status)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Meter disconnected
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Meter is missing the distance characteristic
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	No BLE scanner
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	No DISTO found — press its Bluetooth button and try again
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Not a DISTO (no DISTO service)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Reconnecting ($status)…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Scan failed ($errorCode)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Scan refused: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	Turn Bluetooth on
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	accepted
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	advertises the DISTO service
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	characteristics: 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	distance [${Disto.hex(bytes)}] = %.4f m
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	found '${name ?: "?"}' rssi ${result.rssi} — 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	matched by name only
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	no command characteristic — cannot send '$cmd'
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	refused by Android
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	refused: $why
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	sent '$cmd' (${if (ok) "accepted" else "refused by Android"})
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	state ${s.name}${note?.let { " — $it" } ?: ""}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	subscribed ${d.characteristic.uuid.toString().substring(0, 8)} (status $s)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/DistoClient.kt	unit [${Disto.hex(bytes)}] = code $u
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	 wall
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$lab — ${HINT.getValue(m)}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt	$roomName measures ($deviceId)
@@ -244,7 +211,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	export the 3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	gallery refused the file
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a 360 photo (${bounds.outWidth}\u00d7${bounds.outHeight} is not 2:1) \u2014 
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	not a decodable image
-app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt	download: HTTP ${resp.code}
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	$it mm
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	${clock.format(Date())}  $line
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	4) leave it idle and note when it disconnects. Then Share the log.
@@ -269,78 +235,6 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	\n$it
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	connect pressed
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	permission refused
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt	— mm
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 ($kind)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 from the gallery.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	 to $server
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated already sent, nothing new.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	${scan.stamped} annotated, but their captures 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	(Settings → API Access). The secret is shown once.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API key
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	API secret
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Android is hiding other apps' photos from 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Cancel
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Captures go to MCFT Interior Estimate (${BuildConfig.WEB_URL}).
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Close
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not read the gallery.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not save: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not send the annotation: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Could not split: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Discard 360
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP email
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key (legacy)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ERP key refused — tap to sign in to S5
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Estimate → Permissions → Photos.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Gallery access granted — looking for annotations now.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Generate both on your User page in ERPNext 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	ImageMeter wrote. Settings → Apps → MCFT Interior 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Looked at ${scan.looked} gallery photos, none 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No camera app answered: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	No photos in the gallery to look at.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Password
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Save
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $n annotated 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sent $sent annotated 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Server
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign in
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Sign out
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signed in as $name
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Signing in…
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Site URL
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Survey prep
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	The same email and password you use for ERPNext.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Update failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	Without gallery access the app cannot see what 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	X3 capture failed: ${it.message}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	annotate that one.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	carrying this app's stamp. Only faces captured 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	face
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	faces
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	have not reached the server yet — sync first.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	not set
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this again.
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	this app — grant Photos access and press 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt	with 0.3.93 or later are stamped — re-shoot and 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	(no client)
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	ERP did not accept that email and password
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Email and password are needed
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	Only MCFT staff can send captures from this app; this ERP account is 
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	a $kind account
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	not staff
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	signed out meanwhile
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	the web did not start a session
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web answered ${a.code}
-app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	web unreachable
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	$problem — join the X3's Wi-Fi in Settings, then try again
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	(Insta360 app) is holding the camera
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	Wi-Fi is joined in Android Settings, and no other app 
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	camera connect error $errorCode — check the X3 is on, its 
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	camera reported capture finished but returned no file
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	cannot watch Wi-Fi: ${it.message}
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	capture error $errorCode
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	no ConnectivityManager
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	phone is not on the camera's Wi-Fi
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	stitch export cancelled
-camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt	stitch export failed ($errorCode): $message
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 $eighths/8
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 ${eighths / 2}/4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	 ${eighths / 4}/2
@@ -358,8 +252,6 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	ft
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	in
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	m
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt	mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Meter is not showing metres/mm (unit code $unit) — set it to m or mm
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	Not a length (%.4f)
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn from ${loc.to}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}

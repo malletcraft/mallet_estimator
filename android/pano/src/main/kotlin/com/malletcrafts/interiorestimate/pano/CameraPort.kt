@@ -1,5 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
+
 /**
  * The app's view of a 360 camera, SDK-free. The proprietary Insta360 SDK
  * lives behind this interface in the optional :camera module; the app
@@ -20,9 +22,9 @@ interface CameraPort {
     val connected: Boolean
 
     /** Open the Wi-Fi connection (must be called on the main thread).
-     *  [onChange] fires with every connect/disconnect, plus an error text
-     *  when the SDK reports one. */
-    fun connect(onChange: (connected: Boolean, error: String?) -> Unit)
+     *  [onChange] fires with every connect/disconnect, plus an error note,
+     *  rendered at draw time, when the SDK reports one (port 61c slice M6). */
+    fun connect(onChange: (connected: Boolean, error: Msg?) -> Unit)
 
     fun disconnect()
 

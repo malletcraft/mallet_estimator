@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -69,10 +70,28 @@ class DistoTest {
         p.onUnit(4)
         val o = p.onDistance(1.2192f)
         assertNull(o?.reading)
-        assertNotNull(o?.refused)
-        assertTrue(o!!.refused!!.contains("unit code 4"))
+        // the refusal travels TYPED (port 61c slice M6): the wire's parser carries no language, and
+        // LaserNote renders it — pinned here under both Tx, the figure as the parser formatted it
+        val r = assertNotNull(o?.refused)
+        assertEquals(Disto.Refusal.Kind.NOT_METRIC, r.kind)
+        assertEquals("Meter is not showing metres/mm (unit code 4) — set it to m or mm",
+            LaserNote.refusal(r)(Tx.EN))
+        assertEquals("मीटरवर मीटर/mm दिसत नाही (युनिट कोड 4) — तो m किंवा mm वर सेट करा", LaserNote.refusal(r)(Tx.MR))
         // Back to metres, and readings flow again.
         p.onUnit(0)
         assertEquals(2000, p.onDistance(2.0f)?.reading?.mm)
+    }
+
+    @Test
+    fun `an implausible distance is refused as not a length, the figure pre-formatted pure`() {
+        val p = Disto.Pairing()
+        p.onUnit(0)
+        val o = p.onDistance(0.0f)
+        assertNull(o?.reading)
+        val r = assertNotNull(o?.refused)
+        assertEquals(Disto.Refusal.Kind.NOT_A_LENGTH, r.kind)
+        assertEquals("0.0000", r.arg)
+        assertEquals("Not a length (0.0000)", LaserNote.refusal(r)(Tx.EN))
+        assertEquals("हे लांबीचे मोजमाप नाही (0.0000)", LaserNote.refusal(r)(Tx.MR))
     }
 }
