@@ -69,7 +69,8 @@ class TreeQueueMarathiTest {
         // wrong map prints the same English in every Tx.EN pin and leaks Latin only under मराठी
         assertEquals("(ग्राहक नाही)", Masters.client_name(Tx.MR, "(no client)"))
         assertEquals("(no client)", Masters.client_name(Tx.EN, "(no client)"))
-        assertEquals("Yogesh S", Masters.client_name(Tx.MR, "Yogesh S"))
+        // a neutral name that is nobody's: any unknown value proves the else-branch (the M6 review)
+        assertEquals("Asha P", Masters.client_name(Tx.MR, "Asha P"))
         assertEquals("", Masters.client_name(Tx.MR, ""))
     }
 

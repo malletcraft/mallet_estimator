@@ -105,7 +105,9 @@ class DistoClient(private val context: Context) {
         // the middle of measuring a room loses the visit.
         runCatching { op(g) }.onFailure {
             busy = false
-            moveTo(State.OFF, LaserNote.bluetoothRefused(it.message.orEmpty()))
+            // the message goes NULLABLE: LaserNote renders a null as the word null, the 0.3.306
+            // log bytes (decision 4; the M6 review) — orEmpty here would print an empty tail
+            moveTo(State.OFF, LaserNote.bluetoothRefused(it.message))
         }
     }
 
@@ -137,7 +139,7 @@ class DistoClient(private val context: Context) {
         val token = ++scanToken
         moveTo(State.SCANNING)
         runCatching { scanner.startScan(null, settings, scanCallback) }
-            .onFailure { moveTo(State.OFF, LaserNote.scanRefused(it.message.orEmpty())) }
+            .onFailure { moveTo(State.OFF, LaserNote.scanRefused(it.message)) } // nullable on purpose: a null renders null, the 0.3.306 log bytes
         // Android throttles scanning; give up after 20 s rather than draining
         // the phone while the meter is asleep.
         main.postDelayed({

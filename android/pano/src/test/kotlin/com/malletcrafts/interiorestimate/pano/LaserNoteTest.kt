@@ -21,6 +21,11 @@ class LaserNoteTest {
         assertEquals("Scan failed (6)", LaserNote.scanFailed(6)(Tx.EN))
         assertEquals("Bluetooth refused: need android.permission.BLUETOOTH_CONNECT",
             LaserNote.bluetoothRefused("need android.permission.BLUETOOTH_CONNECT")(Tx.EN))
+        // a Throwable can hand onFailure a NULL message; the old template printed "null", and so
+        // do these (the CameraNote pin's twin — the M6 review). orEmpty at the call site rendered
+        // "Scan refused: " and moveTo's event line fed that into the laser log, decision 4's bytes.
+        assertEquals("Scan refused: null", LaserNote.scanRefused(null)(Tx.EN))
+        assertEquals("Bluetooth refused: null", LaserNote.bluetoothRefused(null)(Tx.EN))
         assertEquals("Bluetooth connect permission refused", LaserNote.connectPermissionRefused(Tx.EN))
         assertEquals("Reconnecting (133)…", LaserNote.reconnecting(133)(Tx.EN))
         assertEquals("Meter disconnected", LaserNote.meterDisconnected(Tx.EN))

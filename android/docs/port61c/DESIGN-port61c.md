@@ -3869,6 +3869,10 @@ Nothing.
 Under English, nothing: every key's EN renders the current literal byte for byte — the sixteen new keys' EN
 ARE today's literals — the stored prefs and state files keep reading (no stored byte moves), the exported
 ImageMeter caption and the laser log keep their bytes, and the X3/laser logcat lines read exactly as today.
+One recorded edge (the M6 review): a Throwable with a NULL message renders an EMPTY tail at MainActivity's
+five `orEmpty()` sites where the old template printed `null` — the house idiom at every earlier-keyed site,
+on shown notes only; the laser's two refusals keep the `null` bytes (LaserNote renders `why.toString()`,
+pinned), so the laser log holds byte for byte.
 Under मराठी the shell FINISHES turning in one build: the sign-in sheet, the legacy key dialog, the ImageMeter
 import's every verdict, the shoot-and-keep refusals, the X3's connect and capture notes, the update failure,
 and the laser's states on survey prep — which closes survey prep entirely. The Laser test, Face Prep and
@@ -3967,6 +3971,32 @@ all three CONFIRMED and applied; none refuted:
    ported.txt holds TreeShell, BrowseScreens, HomeScreens and SurveyPrepScreen and CANNOT hold the M8 three
    (check (d) fails a ported file with unkeyed rows; they hold 24/46/122). The parenthetical above is
    reworded as prescribed: the M8 screens stay on unkeyed.tsv and take only the `Tx.EN` renders.
+
+**The M6 review (9 Nov 2026)** — two findings on 1848b64, both independently confirmed and both minor; both
+fixed:
+
+1. *The M6 pass-through pin named a real client.* TreeQueueMarathiTest's new line pinned
+   `Masters.client_name(Tx.MR, "Yogesh S")` — the YS customer of the house's own sku grammar, the exact
+   abbreviation MainActivity's shortName KDoc renders — against the slice's rule that no client name enters
+   any code, table, test or fixture. Any unknown value proves the map's else-branch equally, so the pin now
+   reads `"Asha P"`, a name that is nobody's. No name ever reached the i18n tables (the deny-pattern check
+   covers those; masters.tsv's client_name row maps only app.no_client). The full name's PRE-EXISTING
+   occurrences — HandoverConventionTest.kt, RoomToken.kt's KDoc, MainActivity.kt's shortName KDoc, all older
+   than M6 — are a cleanup of their own, outside this slice, not smuggled into a review fix.
+2. *A null exception message rendered empty where 0.3.306 printed `null` — unrecorded, and it touched the
+   laser log.* The old `"Scan refused: ${it.message}"` template printed a message-less Throwable's null as
+   `null` (Kotlin's template semantics); M6's `LaserNote.scanRefused(it.message.orEmpty())` rendered
+   `Scan refused: ` — and DistoClient's moveTo event line feeds that render into the laser LOG, whose bytes
+   decision 4 and this section's "What Amit sees" promise unchanged, while the SAME commit pinned the opposite
+   choice for the X3 (CameraNote's `why.toString()`, "the old template printed \"null\", and so does this").
+   Fixed where the words live, not at the call sites: `scanRefused` and `bluetoothRefused` take `String?` and
+   render `why.toString()` (CameraNote's pinned choice), DistoClient passes `it.message` bare, and
+   LaserNoteTest pins the null fills — `Scan refused: null`, `Bluetooth refused: null` — which do not even
+   COMPILE against the old `String` signature, so the suite is red without the fix. MainActivity's five
+   `orEmpty()` sites (could_not_split, update_failed's else-branch, could_not_send_annotation, could_not_save,
+   no_camera_app) STAY the house idiom — shown notes, never the log, and a message-less Throwable is rare on
+   those paths — and "What Amit sees" above now records that edge instead of denying it: a byte claim with a
+   silent exception is the stale-note fault wearing a test.
 
 **unkeyed.tsv** 347 → 239 (108 rows off; what remains is M8's five files plus FaceWriter's 13, decision 4's) ·
 **ported.txt** + LaserNote.kt, CameraNote.kt, Disto.kt (pano), DistoClient.kt, S5Session.kt, FrappeClient.kt,

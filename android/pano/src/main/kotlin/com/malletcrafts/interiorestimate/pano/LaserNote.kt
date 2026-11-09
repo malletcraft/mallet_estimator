@@ -20,8 +20,10 @@ object LaserNote {
     /** `No BLE scanner` — the adapter has no LE scanner. */
     val noBleScanner: Msg = { tx -> tx.sp_laser_no_ble_scanner }
 
-    /** `Scan refused: {why}` — the system's own message as given. */
-    fun scanRefused(why: String): Msg = { tx -> tx.sp_laser_scan_refused_x(why) }
+    /** `Scan refused: {why}` — the system's own message as given; a NULL message renders `null`,
+     *  the bytes the 80d3526 template printed into the laser log (decision 4) — CameraNote's pinned
+     *  `why.toString()` choice, not `orEmpty()` (the M6 review). */
+    fun scanRefused(why: String?): Msg = { tx -> tx.sp_laser_scan_refused_x(why.toString()) }
 
     /** `No DISTO found — press its Bluetooth button and try again` — the 20 s scan ended empty. */
     val noDistoFound: Msg = { tx -> tx.sp_laser_no_disto_found }
@@ -29,8 +31,9 @@ object LaserNote {
     /** `Scan failed ({code})` — Android's scan error code, data. */
     fun scanFailed(code: Int): Msg = { tx -> tx.sp_laser_scan_failed_x(code.toString()) }
 
-    /** `Bluetooth refused: {why}` — a GATT call threw (SCAN granted, CONNECT not). */
-    fun bluetoothRefused(why: String): Msg = { tx -> tx.sp_laser_bluetooth_refused_x(why) }
+    /** `Bluetooth refused: {why}` — a GATT call threw (SCAN granted, CONNECT not); a NULL message
+     *  renders `null`, the 80d3526 bytes (the scanRefused rule). */
+    fun bluetoothRefused(why: String?): Msg = { tx -> tx.sp_laser_bluetooth_refused_x(why.toString()) }
 
     /** `Bluetooth connect permission refused` — connectGatt threw. */
     val connectPermissionRefused: Msg = { tx -> tx.sp_laser_connect_permission_refused }
