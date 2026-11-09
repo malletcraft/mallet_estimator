@@ -11,7 +11,9 @@ So a refresh is now DIRECT SUBSTITUTION on the page as last published, done by `
    first line up to `<body>\n` and the trailing `</body></html>` — and check the md5 against the last build's);
 2. `HDR_DATE="<D Mon YYYY>" python3 -I refresh.py <run> "<HH:MM>" "<HH:MM IST>" ["one sentence added to the bullet"]` (since
    9 Nov 2026 the build date comes from HDR_DATE; left unset, the page's own date stays; the added sentence must not name
-   the build, or the "named exactly twice" check refuses) — exactly three substitutions
+   the build, or the "named exactly twice" check refuses; HDR_SUBS, a JSON list of [old, new] pairs each matched once, carries a
+   changed clause of the 4th line or a changed phrase of the bullet, and look.js then takes the clauses as env CL) — exactly
+   three substitutions plus the HDR_SUBS pairs
    (the build-time span, `phone APK <b>0.3.<run></b>`, `APK 0.3.<run>, from Google Play internal testing`), each matched
    once; refuses otherwise; the new build must then be named exactly twice and the old one nowhere;
 3. the Playwright look, `look.js` (env URL, VER, OUT), at 360 × 780 and 780 × 360 in EN and मराठी: the 4th line's text,
@@ -32,3 +34,4 @@ clause means re-measuring with a clone of the clause span in the page's own font
 | 75 | 0.3.280 | 21:34, 3 Nov | 21:36, 3 Nov | e9354156… | last build by the one-constant system |
 | 76 | 0.3.283 | 23:39, 3 Nov | 23:42, 3 Nov | cda1a2b4… | first refresh by substitution; the bullet gains one sentence (AS1, FW1); look 4/0 |
 | 77 | 0.3.286 | 10:18, 9 Nov | 10:47, 9 Nov | a9dc11e9… | refresh.py takes the build date (HDR_DATE); the bullet gains one sentence (FW2); look 4/0 |
+| 78 | 0.3.288 | 12:56, 9 Nov | 12:58, 9 Nov | 7b731a52… | the Album ships read-only (K3): the clauses change by HDR_SUBS to `carries phases, Approve, wish list, Album, Marathi` (292.6 of 328 px at 360; "v61c.2" is on the eyebrow's 2nd line) and `not yet: Album edits, tour`; the bullet's not-yet phrase and one sentence; look 4/0 |

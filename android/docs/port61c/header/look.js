@@ -1,10 +1,10 @@
 // hdr6 look (3 Nov 2026, night; written after the container re-creation lost the hdr scripts): the eyebrow's 4th line at
 // 360 x 780 and 780 x 360, EN and मराठी. Checks: the text equals L4 (typed here from the brief, not read from the page);
 // the two clauses are whole nowrap spans; every drawn line is inside the box; no ellipsis; the line breaks only at " · ";
-// the build is the only bold; no sideways scroll; no page error. Env: URL (the page), VER (e.g. 0.3.283), OUT (dir for shots).
+// the build is the only bold; no sideways scroll; no page error. Env: URL (the page), VER (e.g. 0.3.283), OUT (dir for shots), CL (the two clauses, JSON; default the 3 Nov ones).
 const { chromium } = require('playwright');
 const URL = process.env.URL, OUT = process.env.OUT || '.', VER = process.env.VER;
-const CL = ['carries v61c.2: phases, Approve, wish list, Marathi', 'not yet: Album, tour'];
+const CL = process.env.CL ? JSON.parse(process.env.CL) : ['carries v61c.2: phases, Approve, wish list, Marathi', 'not yet: Album, tour'];   // env CL: the two clauses as a JSON list, typed from the brief
 const L4 = `phone APK ${VER} · ${CL[0]} · ${CL[1]}`;
 (async () => {
   const b = await chromium.launch(); let pass = 0, fail = 0;
