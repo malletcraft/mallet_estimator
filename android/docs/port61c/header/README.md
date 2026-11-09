@@ -38,3 +38,4 @@ clause means re-measuring with a clone of the clause span in the page's own font
 | 79 | 0.3.292 | 15:36, 9 Nov | 15:38, 9 Nov | cd8bdebe… | the PM's writes ship (K4): the 2nd clause becomes `not yet: progress shot, tour` (163.8 of 328 px at 360); the bullet's Album phrase and one sentence; look 4/0 |
 | 80 | 0.3.296 | 18:48, 9 Nov | 18:50, 9 Nov | 012b56d8… | the progress shot ships (K5): the 2nd clause becomes `not yet: tour` (76.1 of 328 px at 360); the bullet's phrase and one sentence; look 4/0 |
 | 81 | 0.3.299 | 21:52, 9 Nov | 21:54, 9 Nov | db718921… | Marathi measures/readings ship (M3b): no clause change; the bullet gains one sentence; look 4/0 |
+| 82 | 0.3.303 | 23:30, 9 Nov | 23:33, 9 Nov | df9fd1a1… | Marathi plan + Export sheet ship (M3c): no clause change; the bullet gains one sentence; look 4/0 |
