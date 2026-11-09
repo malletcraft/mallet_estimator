@@ -19,10 +19,13 @@ orientations, 95 vis() probes over the laser, X3, ImageMeter, dialog and sign-in
 diffed against android/i18n again — with §24–§27 and the code on batch-next); and §30 M8, derived on 9 Nov 2026
 from the shipped tables and the code on batch-next ALONE (decision 6: these screens have no prototype rows, so
 there is no page to drive — the card's own laser-test keys, proven byte for byte in M6's derivation, and the
-shipped survey-prep register are the vocabulary, with §24–§29). §28 M4 shipped on 3 Nov 2026
+shipped survey-prep register are the vocabulary, with §24–§29); and §31 the tour, derived on 9 Nov 2026
+from a SERVED copy of the approved prototype v61c.2 — its seven guided tours driven whole under English and
+मराठी, 73 steps each run, every step screenshotted at the Mi A3 frame, the demo room's prep fetched from the
+published artifact's own db — and from the code on batch-next, audited anchor by anchor. §28 M4 shipped on 3 Nov 2026
 (0.3.272, batch C part 1) BEFORE this plan was re-derived, so it has no section; its record is
 android/i18n/README.md "Port 61c slice M4" and the progress note below. The other sections
-(§1–§13, §17, §21–§23, §31) are NOT here. For those slices the sources are the approved prototype
+(§1–§13, §17, §21–§23) are NOT here. For those slices the sources are the approved prototype
 (https://claude.ai/artifact/64peToYoeaRz9UNwB926m5, v61c.2 Version 75: its page is the UI spec and its #ch61c notes the
 change log), the code as shipped (android/i18n/README.md has a section per shipped slice), S5's CLAUDE.md in
 mcft-interior-estimate for every route, and this table. A line that ends abruptly was cut at a column by the tool that
@@ -4523,6 +4526,366 @@ composition, 3–5 corrected the plan's own claims.
    and fails on any ड्रॅग — red on the old row (proven before the fix was restored), so the loanword
    cannot be coined again anywhere in the table. No key, accessor or caller moved; AnnotateScreen.kt
    is untouched (the words live in the card, which is the point of the card).
+
+### 31. The tour (the last slice of the port)
+
+**Size:** L · **Depends on:** L1/L2 (the keys are shipped), QM1 (the strip), AS1 (the capture-keyed upload the
+demo must never enter), M2/M3a–c/M6/M8 (every screen the tour lights already reads in Marathi)
+
+**The number.** The table's row 31, VIS ("Switch the भाषा · Language row on"), is MOOT: the language row has
+shipped visible since Amit's 28 Oct "Show it now, translate alongside" (`LangRow.VISIBLE`, drawn in
+`drawerGroups`), and M8 left `unkeyed.tsv` empty, so there is no switch left to flip. The tour takes the §31
+number. It is the last clause of the prototype eyebrow's phone line — "not yet: tour" — and the last slice of
+the port.
+
+**THE PROTOTYPE HAS A TOUR, and it was driven whole before this section was written** (9 Nov 2026). A copy of
+the approved v61c.2 page (`index61c2.html`) was served with its assets (`real/htu.js`,
+`real/MCAP-61753b40f4f7.jpg`, `pano.jpg`) from the session scratchpad's `tourverify/` on a local port, in
+Playwright, at the Mi A3 frame (360 × 780). The page's demo survey prep is NOT in the page: it lives in the
+published artifact's own database (the page's `db.doc('prep/guest-bedroom')` — collection `prep`, doc
+`guest-bedroom`, `{state, savedAt: 2026-10-11, version: "v35"}`, ~4.4 KB), fetched with ArtifactData and served
+to the copy through a `claude.use('db')` stub; without it the demo room opens unbounded and empty, exactly as
+`restore()`'s "Not saving: no storage in this view" path says. Then all SEVEN tours were driven end to end
+under English AND मराठी — 73 steps each run, every step screenshotted, 150 screenshots in all — with this
+result: every step's anchor resolved (`found` true on all 73 × 2), no bubble overlapped its target and no body
+clipped (`overlap` false, `clip` 0 throughout — the ct55 bar), every tour ended `done`, and every tour's
+`wrote` was 0 (a Next-only run writes nothing — the restore rule, proven live). All 146 shown titles and bodies
+under मराठी matched `android/i18n/strings-mr.json` byte for byte, and the English run matched
+`strings-en.json` the same way: the phone's tables ARE the tour's texts already. The drawer row read
+"Help · guided tours · 7 tours" / "मदत · मार्गदर्शक टूर · 7 टूर".
+
+**What it is** (the page's own words, v55 Builder E, from Amit, 21 Oct 2026: "i want a guided tour on apk and
+prototype both . not some thing i will just read but execute there it self like a highlighted screen showing
+what to do next in a help section"): a dark scrim clipped to the phone frame with a rounded SPOTLIGHT cut over
+one LIVE element, and a bubble beside it — counter `3/9`, the flow's name, a mode chip, the step's title and
+body, and `Skip tour · Back · Next` (`Next` reads `Done` on the last step; `Back` is disabled on step 1 and
+while a move runs). On a `do` step taps inside the spotlight reach the app and Amit really does it; on a
+`look` step the hole is covered too (✓ Save, Capture 360, D2, Reset layout are shown, never pressed).
+Everything outside the hole is blocked.
+
+**Where it starts, and the first-run rule.** The ≡ drawer gains a FIRST group, HELP, with one row:
+`help.row` ("Help · guided tours") valued `<n> + app.tours` (" tours") — first because the drawer already
+scrolls and a row at its foot starts below the fold (ch55). The row opens a full HELP SCREEN, built like the
+Laser test screen: its own top bar with ← , title `common.help`, subtitle `help.subtitle` ("Guided tours · on
+the demo flat"), the intro paragraph `help.each_tour_opens_demo`, then one row per flow — its `tour.<id>.name`,
+its one-line `tour.<id>.line`, and a `common.start` button. ◁ and ← close it. **There is no first-run
+overlay, no auto-start and no seen-once prefs flag anywhere in the prototype**: the Help row is the tour's
+only entry, and every tour re-runs as often as wanted. The phone copies that exactly — the task-list guess
+("first run? a prefs flag?") is answered by the prototype with NO.
+
+**How it advances and dismisses.** `Next` ALWAYS works and never writes data. A step may also auto-advance on
+its `done` rule: a tap inside the spotlight (≥ 320 ms after the step showed), an anchor appearing or
+disappearing (`{exists:…}` / `{gone:…}`), the app reaching a screen (`{screen:…}`), the demo's phase
+(`{phase:n}`), survey prep's tool / tab / step (`{tool:…}` `{tab:…}` `{mode:…}`), or one more mark than when
+the step showed (`{marks:'+1'}`). The engine polls at 150 ms; every step's `setup` is a POSITION ("be here"),
+run on Next, Back and jumps alike, so Back always lands right — and a step with a `done` has a setup that
+makes its predicate false when it shows, so Back never lands on a step that advances again at once. Dismissal:
+`Skip tour`, or ◁ or Home during a tour (caught before the app sees them), or `Done` on the last step — and
+EVERY end restores everything the tour touched (the stores it snapshotted at start; survey prep put back IN
+PLACE — marks, readings, size, the ↶ history — before it closes, and written only if the practice changed
+it), then returns to the Help screen. Nothing of the tour exists when no tour runs.
+
+**The bubble's placement** (the part worth porting as pure geometry): the bubble takes a side of the hole with
+room for ALL of it — below / above first in portrait at width min(328 dp, frame − 16), right / left first in
+landscape at 300 dp — then above / below at full width, then beside it down to 176 dp; when no side has room
+it TRIMS the lit part to the target's leading part (≥ 48 dp of it left in portrait, ≥ 96 in landscape) so a
+side fits whole; the squeeze (a scrolling body, side room ≥ 72 dp) and sitting over the target are last
+resorts the prototype never needs (ct55's bar, re-proven in this run: `trim` only where designed, `clip` 0,
+`overlap` false on all 146). Constants: PAD 6 round the target, EDGE 8 to the frame, GAP 10 to the bubble.
+When a step's anchor is null or missing the bubble sits centred with no spotlight. The target is first
+scrolled into view in ITS OWN list (never the page), and anchors are RE-RESOLVED EVERY FRAME — a kept element
+is a stale answer.
+
+**The texts are already on the phone — this slice adds no literal and no translation.** The RAW table carries
+160 `tour.*` keys (7 × name + line, 73 × title + body: phases 22, survey 26, existing 28, wish 28, vendor 26,
+360 16, plan 14) and 7 `help.*` keys, all landed with L1/L2 and all with approved Marathi;
+`gradle :pano:i18nGen` has already generated their Tx accessors (`tour_360_1_body`, `help_row`, …; they are in
+`android/i18n/index.tsv` today). The chrome reuses rows the table already has: `common.start` (सुरू करा),
+`common.next` (पुढे), `common.done` (पूर्ण), `help.tour.skip` ("Skip tour" / टूर वगळा), `help.tour.mode.do`
+("Try it" / करून पाहा), `help.tour.mode.look` ("Look only" / फक्त पाहा), `help.tour.aria`, `common.help`,
+`app.tours`, and — the one borrowed row — the bubble's Back label is the table's one EN "Back" row,
+`app.aria.back` (मागे), exactly what the prototype showed in the driven run. The counter is digits. Decision 6
+(Claude translates at full authority) has NOTHING to write here; `unkeyed.tsv` stays empty by construction.
+
+**The contract, which the Kotlin port reuses verbatim** (the page keeps it as a header over the flows, marked
+"the contract the Kotlin port reuses verbatim"): a FLOW is `{id, name, line, steps}`; a STEP is
+`{id, screen, anchor, focus?, title, body, mode: do|look, setup, next?, done?}`; a MOVE is a position object
+(`close`, `go:<screen>`, `drawer`, `phase:<0-3>`, `ask`, `cancelAsk`, `survey:<room>`, `tab`, `mode`, `show`,
+`look:<surface>`, `tool` (+`nm`), `more`, `sel`, `pick`, `sheet`, `sheetClose`, `planSel`, `wait`, and v58's
+`wishes`, `states`, `statePop`, `export`, `details`). **An anchor is a NAME from one vocabulary, never a
+selector**, so the phone tags the same elements with `Modifier.tourAnchor("<name>")` and the flows port word
+for word: `help · menu · flow:<id> · start:<id> · row:<title> · room:<room> · cap:<kind> · capture360 ·
+p54seg:<0-3> · phase:strip · phase:ask · phase:band · chip:wish · quote · wish:head · phase:packs ·
+pack:<trade> · details · stg · service:<id> · service:row:<id> · plan:tile · plan:room:<room> · plan:rotate ·
+plan:fit · plan:reset · mode[:<step>] · tab:<tab> · save · lines:row · palette · tool:<t> · toolchip[:as] ·
+more[:<trade>] · selrow[:code] · chips · reading:mm · reading:d2 · show · lock · photo · pano · sheet ·
+sheet:move:<life> · sheet:act · sheet:acts · sheet:done · trade · list:state · list:move · list:export ·
+list:pop · x53 · x53:pack:<id> · x53:trades · x53:fmt` — plus two VIRTUAL anchors the phone computes with
+survey prep's own drawing maths, not a tag: `area:<surface>:x0,y0,x1,y1` (fractions of the surface, lit
+wherever that surface is drawn now — its photo or the 360) and `mark:<code>` (a mark's own box).
+
+**The seven flows as the prototype ships them** — order, targets, auto-advance and titles. Every title and
+body is `tour.<flow>.<n>.title` / `.body` in `android/i18n/strings-en.json` / `strings-mr.json`, committed,
+approved and byte-verified against the served page in both languages, so the bodies are not duplicated here:
+the tables are the one home of the texts (the M-slices' own rule).
+
+**Tour `phases` · The phases / फेज** — 10 steps. Line: `tour.phases.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | project | `phase:strip` | look | — | Four phases, one strip · चार फेज, एक पट्टी |
+| 2 | project | `p54seg:0` | look | — | Survey comes first · आधी सर्व्हे |
+| 3 | project | `p54seg:1` | do | {phase:1} | Move to Wish list · इच्छा-यादीकडे जा |
+| 4 | project | `chip:wish` | look | — | The Wish list appears · इच्छा-यादी दिसते |
+| 5 | project | `quote` | look | — | The quote stage follows · कोटेशनचा टप्पा मागोमाग |
+| 6 | project | `p54seg:2` | look | — | Then vendor review · मग व्हेंडर तपासणी |
+| 7 | project | `p54seg:3` | look | — | Estimation hands off · अंदाजपत्रकाकडे सुपूर्द |
+| 8 | project | `p54seg:0` | do | {exists:phase:ask} | Going back asks first · मागे जाताना आधी विचारते |
+| 9 | project | `phase:ask` | do | {gone:phase:ask} | Keep or move back · ठेवा किंवा मागे न्या |
+| 10 | survey | `phase:band` | look | — | The phase in survey prep · सर्व्हे तयारीतील फेज |
+
+Moves its setups use: `close`, `go`, `phase`, `cancelAsk`, `ask`, `survey`, `tab`, `mode`.
+
+**Tour `survey` · Survey a room / खोलीचा सर्व्हे** — 12 steps. Line: `tour.survey.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | clients | `row:Demo Client` | do | {screen:client} | Start from Clients · ग्राहकांपासून सुरुवात |
+| 2 | client | `row:Demo Site, Pune` | do | {screen:site} | Then the site · मग साइट |
+| 3 | site | `row:Demo flat interiors` | do | {screen:project} | Then the project · मग प्रोजेक्ट |
+| 4 | project | `room:Guest Bedroom` | do | {screen:room} | Pick the room · खोली निवडा |
+| 5 | room | `capture360` | look | — | Capture 360 starts one · "360 कॅप्चर" नवीन सुरू करते |
+| 6 | room | `cap:360` | do | {screen:survey} | Open the 360 · 360 उघडा |
+| 7 | survey | `mode:lines` | look | — | 1 · Lines bounds it · 1 · रेषा हद्द आखते |
+| 8 | survey | `lines:row` | look | — | Nudge the last millimetres · शेवटचे मिलिमीटर जुळवा |
+| 9 | survey | `tab:front` | look | — | Every surface gets ✓ · प्रत्येक पृष्ठभागाला ✓ |
+| 10 | survey | `mode:mark` | do | {mode:mark} | 2 · Mark what is there · 2 · जे आहे ते मार्क करा |
+| 11 | survey | `mode:list` | do | {mode:list} | 3 · List is the sheet · 3 · यादी हाच तक्ता |
+| 12 | survey | `save` | look | — | ✓ Save when all six · सहाही झाल्यावर ✓ सेव्ह |
+
+Moves its setups use: `close`, `go`, `phase`, `survey`, `tab`, `mode`.
+
+**Tour `existing` · Mark existing items / सध्याच्या वस्तू मार्क करा** — 13 steps. Line: `tour.existing.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | survey | `palette` | look | — | The mark palette · मार्क पॅलेट |
+| 2 | survey | `tool:E` | do | {tool:E} | Pick a type · प्रकार निवडा |
+| 3 | survey | `toolchip` | look | — | Placed as Existing · "सध्याचे" म्हणून ठेवले |
+| 4 | survey | `area:front:0.25,0.18,0.75,0.32` | do | {marks:+1} | Tap to place it · ठेवण्यासाठी टॅप करा |
+| 5 | survey | `tool:sel` | do | {tool:sel} | Select stops placing · "निवडा" ठेवणे थांबवते |
+| 6 | survey | `tool:more` | do | {exists:more} | More ▸ has every type · "आणखी ▸" मध्ये सर्व प्रकार |
+| 7 | survey | `more:electrical` | look | — | One row per trade · प्रत्येक ट्रेडची एक ओळ |
+| 8 | survey | `selrow` | look | — | A selected mark · निवडलेला मार्क |
+| 9 | survey | `chips` | look | — | 3 · List takes readings · 3 · यादी मध्ये रीडिंग |
+| 10 | survey | `reading:mm` | do | — | Type a reading · रीडिंग टाका |
+| 11 | survey | `reading:d2` | look | — | Or read the D2 · किंवा D2 ने वाचा |
+| 12 | survey | `show` | do | 'tap' | Photo, measured or both · फोटो, मोजलेले किंवा दोन्ही |
+| 13 | survey | `lock` | do | 'tap' | Lock a finished mark · पूर्ण झालेला मार्क लॉक करा |
+
+Moves its setups use: `close`, `phase`, `survey`, `tab`, `mode`, `tool`, `more`, `sel`, `pick`.
+
+**Tour `wish` · Build the wish list / इच्छा-यादी बनवा** — 13 steps. Line: `tour.wish.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | project | `p54seg:1` | do | {phase:1} | Move to Wish list · इच्छा-यादीकडे जा |
+| 2 | project | `chip:wish` | do | {screen:wish} | Open the Wish list · इच्छा-यादी उघडा |
+| 3 | wish | `wish:head` | look | — | What the client wants · ग्राहकाला काय हवे |
+| 4 | wish | `service:electrical` | do | 'tap' | Tick a service · सेवा टिक करा |
+| 5 | wish | `service:row:master-bath` | look | — | The bathroom bundle · बाथरूम संच |
+| 6 | survey | `phase:band` | look | — | Wishes in survey prep · सर्व्हे तयारीत इच्छा |
+| 7 | survey | `toolchip:as` | look | — | Placed as Client wish · "ग्राहकाची इच्छा" म्हणून ठेवले |
+| 8 | survey | `area:front:0.25,0.18,0.75,0.32` | do | {marks:+1} | Place a wish · इच्छा ठेवा |
+| 9 | survey | `selrow:code` | do | {exists:sheet} | Open an existing mark · सध्याचा मार्क उघडा |
+| 10 | survey | `sheet:move:wish` | do | {exists:sheet:act} | Make it a wish · त्याला इच्छा बनवा |
+| 11 | survey | `sheet:acts` | do | — | Say what is wanted · काय हवे ते सांगा |
+| 12 | survey | `sheet:done` | do | {gone:sheet} | Done applies it · "पूर्ण" लागू करते |
+| 13 | survey | `mark:FW1` | look | — | FW1 is now a wish · FW1 आता इच्छा आहे |
+
+Moves its setups use: `close`, `go`, `phase`, `survey`, `tab`, `mode`, `tool`, `sel`, `sheet`.
+
+**Tour `vendor` · Vendor review / व्हेंडर तपासणी** — 12 steps. Line: `tour.vendor.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | project | `p54seg:2` | do | {phase:2} | Move to Vendor review · व्हेंडर तपासणीकडे जा |
+| 2 | project | `phase:packs` | look | — | Wishes become trades · इच्छांचे ट्रेड बनतात |
+| 3 | project | `pack:doors-windows` | look | — | One pack per vendor · प्रत्येक व्हेंडरसाठी एक पॅक |
+| 4 | survey | `trade` | look | — | Show marks for a trade · एका ट्रेडचे मार्क दाखवा |
+| 5 | survey | `toolchip:as` | look | — | Placed as Vendor added · "व्हेंडरने जोडले" म्हणून ठेवले |
+| 6 | survey | `area:front:0.25,0.18,0.75,0.32` | do | {marks:+1} | Place a vendor's mark · व्हेंडरचा मार्क ठेवा |
+| 7 | survey | `list:state` | do | {exists:list:pop} | State ▾ earns its place · "स्थिती ▾" आता उपयोगी |
+| 8 | survey | `list:pop` | do | 'tap' | Pick one state · एक स्थिती निवडा |
+| 9 | survey | `list:move` | look | — | Move them on together · सगळे मिळून पुढे हलवा |
+| 10 | survey | `list:export` | do | {exists:x53} | Export for one vendor · एका व्हेंडरसाठी एक्सपोर्ट |
+| 11 | survey | `x53:trades` | look | — | Their trades, as PDF or image · त्यांचे ट्रेड, PDF किंवा चित्र म्हणून |
+| 12 | capture | `stg` | look | — | Photos are filed by work · फोटो कामानुसार ठेवले जातात |
+
+Moves its setups use: `close`, `go`, `phase`, `wishes`, `survey`, `tab`, `mode`, `tool`, `states`, `statePop`,
+`export`, `details`. (In v61c.2 the `stg` anchor resolves to the capture screen's WORK line, and
+`tour.vendor.12.body` already says "its WORK line stays on the Quote journey until the client approves the
+estimate" — the one flow text that was UPDATED for v61c.)
+
+**Tour `360` · The 360 / 360** — 7 steps. Line: `tour.360.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | survey | `tab:360` | do | {tab:360} | Open the 360 tab · 360 टॅब उघडा |
+| 2 | survey | `pano` | do | — | Drag to look round · फिरून पाहण्यासाठी ओढा |
+| 3 | survey | `mode` | look | — | No steps in the 360 · 360 मध्ये पायऱ्या नाहीत |
+| 4 | survey | `palette` | look | — | One palette for all · सर्वांसाठी एकच पॅलेट |
+| 5 | survey | `tool:E` | do | {tool:E} | Pick a point type · पॉइंटचा प्रकार निवडा |
+| 6 | survey | `area:front:0.25,0.18,0.75,0.32` | do | {marks:+1} | Tap where it is · जिथे आहे तिथे टॅप करा |
+| 7 | survey | `tab:front` | look | — | Back to a surface · पृष्ठभागावर परत |
+
+Moves its setups use: `close`, `phase`, `survey`, `tab`, `mode`, `tool`, `look`.
+
+**Tour `plan` · Floor plan / फ्लोअर प्लॅन** — 6 steps. Line: `tour.plan.line`.
+
+| n | screen | anchor | mode | done (auto-advance) | title (EN · MR) |
+|---|---|---|---|---|---|
+| 1 | project | `plan:tile` | do | {screen:plan} | The Floor plan tile · फ्लोअर प्लॅन टाइल |
+| 2 | plan | `plan:room:Guest Bedroom` | do | — | Drag a room · खोली ओढा |
+| 3 | plan | `plan:rotate` | do | 'tap' | Turn it 90° · 90° फिरवा |
+| 4 | plan | `plan:room:Guest Bedroom` | look | — | Edges snap together · कडा आपोआप जुळतात |
+| 5 | plan | `plan:fit` | do | 'tap' | Fit shows them all · "बसवा" सगळ्या दाखवते |
+| 6 | plan | `plan:reset` | look | — | Reset starts over · रीसेट पुन्हा सुरुवात करते |
+
+Moves its setups use: `close`, `go`, `planSel`.
+
+**The demo flat — the one decision the prototype itself names for the port** (ch55, "Kotlin needs", approved
+with v55): "a built-in demo project, kept on the phone only and never synced — the APK carries only real
+projects, and a tour's phase move there would be a real stage move on S5 (PUT /api/asis/:project/stage). This
+is the one decision the port cannot avoid: the demo is the Guest Bedroom's sample 360 and its prep, flagged
+never-sync." So the phone gains, exactly as the prototype seeds it: **Demo Client → Demo Site, Pune → Demo
+flat interiors → Guest Bedroom**, one 360 capture (the prototype's `pano.jpg`, ~161 KB, bundled as an app
+asset) with room size L 3319 · W 2678 · H 2677 and the demo prep as the artifact's db holds it (the
+`prep/guest-bedroom` state fetched above: all six surfaces bounded, marks FW1 FN1 FN2 FE1 · RE1 · BD1 BE1 BL1
+· LN1 · GS1 · CE1 and their readings — bundled as a JSON resource so `TourFlowsTest` can read it). Rules, each
+ONE place:
+
+- `TourDemo` (:pano) is the single is-this-the-demo rule: the fixed client / site / project names and the
+  fixed capture id (its own `DEMO-` grammar, outside `MCAP-`'s, so AS1's device-id rule can never mint a
+  colliding real one). Every sync entry point refuses demo rows through it and nothing else: `AsIsUpload`
+  (enqueue), `SyncWorker`, `QuoteStageSync` (the guarded S5 stage move), `WishSync`, `AlbumOutbox` /
+  `AlbumQueue`, `ReadingsSync`. A demo row never reaches a queue, a PUT or the bench.
+- The demo project's stage is PHONE-LOCAL — the one exception to v61c.2's "a project S5 does not list has no
+  stage of its own", made by ch55's approved decision, because without it the strip the `phases` tour teaches
+  is dead on the demo. The strip, the chip gate (`WishList.chipShown`) and the quote line read the demo's
+  local stage through the same `TourDemo` rule; a segment tap moves it locally and `QuoteStageSync` never
+  hears of it. Its wish list likewise lives on the phone only.
+- The demo is seeded idempotently at app start (`TourDemo.ensure(store)`) and is always in Browse, as Demo
+  Client always is on the prototype — practising outside a tour is allowed and is the person's own; a tour
+  snapshots at `start()` and restores THAT, not the factory seed, exactly as the prototype does.
+- The demo capture sits in `CaptureStore` with a sent-state (the prototype's row is `SYNCED`), so it adds
+  nothing to "N waiting" and the Queue tab draws it as the prototype draws its demo rows.
+
+**What ships on the phone in this slice, and what cannot yet.** The port rule (workspace CLAUDE.md): a UI
+state the approved prototype does not draw does not reach the phone — and its mirror: a tour step whose
+target the phone does not have cannot run true, and a flow with a step cut out is a UI state the prototype
+does not draw, so a cut needs Amit's approval ON THE PROTOTYPE first. Each flow was audited anchor by anchor
+against batch-next:
+
+| flow | verdict | why |
+|---|---|---|
+| `survey` (12) | **SHIPS WHOLE** | every anchor exists: the Browse rows and room tile (`BrowseScreens.kt`), Capture 360 and the capture tile (`HomeScreens.kt`), the step strip, a 1 · Lines nudge row (`SurveyPrepScreen.kt` `nudgeLine` rows), the face tabs, ✓ Save |
+| `360` (7) | **SHIPS WHOLE** | the 360 mode, pano view, step strip, palette, tool `E`, the `area:` box over the pano (the same maths that draws marks there), the face tabs (`SurveyPrep360.kt`, `SurveyPrepTools.kt`) |
+| `phases` (10) | blocked by ONE step | steps 1–9 run true on the shipped strip (`PhaseStrip.kt`, the ask, the wish chip gate, the quote line); step 10's `phase:band` is v54's phase band at the top of survey prep, which the phone does not have |
+| `existing` (13) | blocked by THREE steps | 7 `more:electrical` (the phone's More ▸ is a type grid, `SpMoreSheet`, with no per-trade rows), 9 `chips` (the phone's 3 · List is a checklist of rows, not the prototype's mark chips), 12 `show` (no Show ≈ Photo / Measured / Both control — the phone shows both as columns) |
+| `wish` (13) | blocked | steps 6–13 need the v53/v54 lifecycle the phone has never had: the phase band, "as Client wish" on the tool chip, the Mark sheet and its moves (`sheet:*` anchors); steps 1–5 alone are not the approved flow |
+| `vendor` (12) | blocked | VENDOR PACKS, the Trade chip, State ▾ and its popover, Move N ▸, the Export sheet's pack/trades chips and the `wishes` seeding — all v54/v58 survey-prep features the phone does not have |
+| `plan` (6) | blocked | the project-level Floor plan arranger (drag, ↻ 90°, snap, Fit, Reset) does not exist on the phone at all (`SurveyPlanScreen.kt` is the per-room PLAN tab, a different thing) |
+
+So the slice ships the ENGINE, the drawer row, the Help screen, the demo flat, and the two flows that run
+true — `survey` and `360`, 19 steps. The Help list and the drawer count are computed from the shipped flows
+(the prototype's own `flows().length + ' tours'`), so the row honestly reads "2 tours" / "2 टूर" until more
+flows' targets exist. Each blocked flow's data ships in `TourFlows.kt` marked blocked with its missing anchors
+named, so adding a flow later is flipping its entry after its targets land, not re-deriving it.
+
+**Held for Amit** (to join the held prototype questions, raised after the final build per the quiet-run plan —
+none of them blocks this slice):
+
+1. S2 APK: cut `phases` to 9 steps on the prototype (drop step 10, the phase band) so the phone can carry the
+   tour that teaches the strip Amit just shipped (QM1/QM2)? Claude recommends yes; the step returns when the
+   band ports. The same question for `existing` at 10 steps (drop 7, 9, 12) is NOT recommended — three cuts
+   change the flow's sense, and its 3 · List steps describe chips the phone's checklist does not draw.
+2. S2 APK (prototype content, not port work): the `phases` texts predate v61b — `tour.phases.name/line/1.*`
+   say FOUR phases while the approved strip has five segments (Revisions) over six quote stages, and no tour
+   anywhere covers Revisions, Approve, the scope sheet or the Album (v61c's own features). A v61c tour is
+   prototype work first (Amit approves it there), then its keys and a flow entry here; nothing of it is
+   invented by this port.
+
+**The phone half — files.**
+
+:pano (pure JVM, tested here):
+- `pano/Tour.kt` — the contract's types (Flow, Step, Move, Done, the anchor-name grammar) and THE SEVEN FLOWS
+  as data, titles and bodies through the existing Tx accessors, each flow carrying `ships` (true: survey,
+  360) and, when false, its missing anchors as text. A test, not a comment, keeps the shipped set honest.
+- `pano/TourPlace.kt` — the placement geometry, pure rect-in/rect-out: the side orders (portrait and
+  landscape), full-width, the 176 narrow fit, trim (48 / 96), squeeze (72), centre-when-no-hole; PAD 6,
+  EDGE 8, GAP 10, widths 328 / 300.
+- `pano/TourMachine.kt` — the step machine: start / next / back / skip / end, busy, the counter, `doneNow`
+  over a host-fed world (screen, tool, tab, mode, markCount, anchor-exists, phase), the 320 ms tap rule, the
+  log (flow, how it ended, steps seen, wrote).
+- `pano/TourDemo.kt` — the demo's identity (the one rule), its seed (the prep JSON as a resource, the fixed
+  ids, the size), `ensure` semantics.
+
+:pano tests (all run here with `nice -n 15 gradle :pano:test --offline`):
+- `TourFlowsTest` — the counts (7 flows, 73 steps; survey 12, 360 7 shipped); every anchor parses against the
+  vocabulary; every step's title and body accessor non-blank in BOTH languages; every flow's name and line
+  keys present; every `done` step's setup makes its predicate false (checkable for tool / tab / mode / phase);
+  the first step of every flow opens with the everything-goes-back sentence (the key's own text, pinned).
+- `TourPlaceTest` — the prototype's placement bar as properties: the bubble never covers the hole, never
+  leaves the frame, trim only when no side fits, squeeze and overlap never on any shipped step's measured
+  rects (the driven run's 146 step rects, exported from `report.json`, replayed as fixtures).
+- `TourMachineTest` — Next always advances; Back lands on a non-auto-advancing position; Skip / Done both
+  end; a Next-only run records wrote 0; the tap rule's 320 ms.
+- `TourDemoTest` — the seed parses, six surfaces `set`, the named marks present; `isDemo` covers every seeded
+  row and nothing else; and the never-sync rule: the :pano-side queue logic (`AlbumQueue`) refuses demo keys
+  (the :app guards are read in review; CI compiles them).
+
+:app (compiled ONLY by CI, as every slice):
+- `TourOverlay.kt` (new) — the scrim's four blocks + hole + look-cover, the bubble (counter, flow name, mode
+  chip, title, body, Skip tour / Back / Next-Done), placement from `TourPlace`, anchors from a
+  `Modifier.tourAnchor(name)` registry (`onGloballyPositioned` into one snapshot map, re-read every frame);
+  taps outside the hole consumed; ◁ via BackHandler = skip; the activity's ON_STOP (Home, the task switcher)
+  = skip, because Android gives no Home intercept and a tour must never outlive the screen it lit.
+- `HelpScreen.kt` (new) — the full screen (bar ← · Help · subtitle, intro, a row per shipped flow with
+  Start), opened like the Laser test screen from one flag in `MainActivity`.
+- `MainActivity.kt` — the HELP drawer group FIRST in `drawerGroups` (row `help.row`, value computed count +
+  `app.tours`); the help flag; the TourHost: every MOVE the two shipped flows use (`close`, `go`, `survey`,
+  `phase` — demo-local, `tab`, `mode`, `tool`, `look`) executed through the app's own state and stores, never
+  a parallel path; the demo snapshot / restore (the demo's prep via `SurveyPrepStore`, its local stage, its
+  wish rows, the navigation) on every end.
+- `CaptureStore.kt` / `TourDemo` wiring — the demo seeded idempotently at start.
+- `BrowseScreens.kt`, `HomeScreens.kt`, `SurveyPrepScreen.kt`, `SurveyPrepTools.kt`, `SurveyPrep360.kt`,
+  `PhaseStrip.kt` — `Modifier.tourAnchor` tags on exactly the anchors the shipped flows name (`row:`,
+  `room:`, `capture360`, `cap:`, `mode`, `mode:<step>`, `tab:<tab>`, `save`, `lines:row`, `palette`,
+  `tool:<t>`, `pano`), plus the `area:` rect computed from the prep's own mapping where the surface is drawn.
+- `AsIsUpload.kt`, `SyncWorker.kt`, `QuoteStageSync.kt`, `WishSync.kt`, `AlbumOutbox.kt` — the one-line
+  `TourDemo.isDemo` refusal at each entry.
+
+**What Amit sees.** A new first group in the ≡ drawer: "Help · guided tours · 2 tours" (मदत · मार्गदर्शक टूर ·
+2 टूर). Inside, the Help screen with "Survey a room" and "The 360", each with Start. A started tour darkens
+the screen, lights one real control at a time on the demo flat — which now sits in Browse under Demo Client —
+and lets him do the step; Next, Back, Skip tour, the counter, Try it / Look only, everything in whichever
+language the drawer is set to; Done (or Skip, or ◁, or Home) puts the demo back exactly as it was and returns
+to Help. Nothing he does in a tour reaches S5, ERP or the queue — provable from the Queue tab staying still.
+When this build ships, the prototype eyebrow's phone line drops "not yet: tour" in the same step (the
+workspace rule: the ship is not done until the eyebrow names it), and S2's Running row moves with it.
+
+**Risks.** (1) The anchor registry is the new moving part: a tag on a composable that recomposes away (the
+drawer, sheets) must deregister, or a stale rect lights empty screen — the registry is keyed by name with
+last-write-wins and a disposal hook, and `TourOverlay` re-reads it every frame as the engine re-resolves every
+frame. (2) The `area:` box over the pano reuses the 360's own direction-to-screen maths; if the phone's pano
+projection differs from the prototype's the lit box sits elsewhere on the picture — the box is fractions of
+the SURFACE, so it stays on bare wall wherever the projection puts it, and the step's words ("tap the bare
+wall in the lit part") stay true. (3) The demo is new permanent data in Browse; if Amit does not want it
+visible outside the Help screen that is a one-question change (seed on first Help open instead) — but the
+prototype shows it always, so the port does too. (4) Nothing here has been seen on a phone; the driven
+prototype run and the :pano suites are the stand-in, as every slice before it.
+
 
 ## Progress notes recovered
 
