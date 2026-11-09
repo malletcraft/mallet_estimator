@@ -15,6 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -124,14 +125,23 @@ class AlbumPageTest {
         assertEquals("Staff", who("ALB-000000000014").whoAria)
         assertEquals("P M", who("MCAP-DEMO-1").who, "S5's uploader pm@x is this login: its name")
         assertEquals("P M", who("MCAP-T7").who, "not on S5 yet: the person signed in")
-        // another login signed in now: S5's uploader stays S5's, shown as its login
+        // another login signed in now: S5's uploader stays S5's, shown as its login while S5 sends no name for it
         val other = AlbumPage.compose(approved, listOf(local("MCAP-DEMO-1"), local("MCAP-T7")), Me("d@x", "D N"))
         val q = page(other, approved, approvedCache)
         assertEquals("pm@x", q.cards.values.single { it.key.endsWith("|MCAP-DEMO-1") }.who)
         assertEquals("D N", q.cards.values.single { it.key.endsWith("|MCAP-T7") }.who)
-        // nobody signed in (a legacy ERP key): never an empty pill
+        // the K3 review, finding 3: S5's own name for the uploader, when it sends one, is kept -- for a capture the phone
+        // also holds (K3 blanked it, so the pill fell back to the login) and for one only S5 holds
+        val named = approved.copy(captures = listOf(approved.captures.single().copy(by = "d@x", byName = "D N")))
+        assertEquals("D N", page(AlbumPage.compose(named, listOf(local("MCAP-DEMO-1")), me), named, approvedCache)
+            .cards.values.single { it.key.endsWith("|MCAP-DEMO-1") }.who)
+        assertEquals("D N", page(AlbumPage.compose(named, emptyList(), me), named, approvedCache)
+            .cards.values.single { it.key.startsWith("CAPTURE") }.who)
+        // nobody signed in (a legacy ERP key): the prototype's `esc(it.who||'')`, an empty pill whose TalkBack says Staff
+        // (the K3 review, finding 2: K3 wrote `Staff` into it, which the prototype does not draw)
         val none = page(AlbumPage.compose(null, listOf(local("MCAP-T7")), Me("", "")), null, null, phoneOnly = true)
-        assertEquals("Staff", none.cards.values.single().who)
+        assertEquals("", none.cards.values.single().who)
+        assertEquals("Staff", none.cards.values.single().whoAria)
         // S5's own capture taken by another login: its login
         val theirs = AlbumPage.compose(approved.copy(captures = listOf(approved.captures.single().copy(by = "d@x"))), emptyList(), me)
         assertEquals("d@x", page(theirs, approved, approvedCache).cards.values.single { it.key.startsWith("CAPTURE") }.who)
@@ -139,7 +149,7 @@ class AlbumPageTest {
 
     // ---- the header ----------------------------------------------------------------------------------------
 
-    @Test fun `the header - Viewing as from the mirror, none without it, the PM for a project S5 does not list - Open, No work open yet, Open not read yet`() {
+    @Test fun `the header - Viewing as from the mirror, none without it, the PM for a project S5 does not list - Open, No work open yet`() {
         val items = AlbumPage.compose(approved, emptyList(), me)
         val h = page(items, approved, approvedCache).header
         assertEquals("Viewing as Project Manager", h.viewingAs)
@@ -155,7 +165,8 @@ class AlbumPageTest {
         // Open
         val open = approvedCache.copy(states = mapOf(50 to WorkState(Album.IN_PROGRESS, 12), 110 to WorkState(Album.IN_PROGRESS, 13)))
         assertEquals("Open: Waterproofing · Sanitaryware & CP fittings", page(items, approved, open).header.open)
-        assertEquals("Open: not read yet", page(items, approved, approvedCache.copy(states = null)).header.open)
+        // a copy holding no states: the prototype's openWorks over no state row, `No work open yet` (the K3 review, finding 2)
+        assertEquals("No work open yet", page(items, approved, approvedCache.copy(states = null)).header.open)
         assertEquals("No work open yet", page(emptyList(), null, null, phoneOnly = true).header.open, "nothing can be recorded on it")
     }
 
@@ -171,11 +182,11 @@ class AlbumPageTest {
         assertNull(page(emptyList(), locked, lockedCache).header.changeRequests)
     }
 
-    @Test fun `Work log counts state rows only, newest first by seq - Work log not read yet with no mirror, (0) for a project S5 does not list`() {
+    @Test fun `Work log counts state rows only, newest first by seq - always the prototype's toggle, (0) with no mirror and for a project S5 does not list`() {
         val items = AlbumPage.compose(approved, emptyList(), me)
         val closed = page(items, approved, approvedCache).header.log
         assertEquals("Work log (2)", closed.toggle, "the two state rows of 10, not the stage moves, the requests or the review")
-        assertTrue(closed.toggleable)
+        assertFalse(closed.open)
         assertEquals(emptyList(), closed.rows, "folded")
         val open = page(items, approved, approvedCache, logOpen = true).header.log
         assertEquals(listOf(7L, 6L), open.rows.map { it.seq })
@@ -184,11 +195,13 @@ class AlbumPageTest {
         assertEquals("debris out", open.rows[0].remark)
         assertEquals("Demolition & site preparation → In progress", open.rows[1].head)
         assertNull(open.empty)
-        // a listed project with no mirror held: the log is unknown, and (0) would say there is none
+        // a listed project with no mirror held: the prototype's toggle over the rows the phone holds, none (the K3 review,
+        // finding 2: K3's `Work log · not read yet` with no tap is the prototype's to carry first)
         val unread = page(items, null, approvedCache, logOpen = true).header.log
-        assertEquals("Work log · not read yet", unread.toggle)
-        assertFalse(unread.toggleable)
+        assertEquals("Work log (0)", unread.toggle)
+        assertTrue(unread.open)
         assertEquals(emptyList(), unread.rows)
+        assertEquals("No work state recorded yet", unread.empty)
         // a project S5 does not list: none can exist, which is true
         val local = page(emptyList(), null, null, phoneOnly = true, logOpen = true).header.log
         assertEquals("Work log (0)", local.toggle)
@@ -216,13 +229,15 @@ class AlbumPageTest {
         }
     }
 
-    @Test fun `an unread stage claims no group not reached and no group now, and leaves the works open as the prototype's execMode does`() {
+    @Test fun `an unread stage draws the prototype's own rule - Survey reached, the five after it not reached yet, none now - and leaves the works open as its execMode does`() {
         val items = AlbumPage.compose(null, listOf(local("MCAP-T10")), me)
         for (stage in listOf("", "On hold")) {
             val cache = QuoteStage.Cache(listed = true, stage = stage, readAt = read, states = emptyMap())
             val p = page(items, null, cache)
             assertTrue(p.quote.groups.none { it.now != null })
-            assertTrue(p.quote.groups.none { it.empty == "not reached yet" }, stage)
+            // index61c2.html 7257 `cur<0?i===0:i<=cur` (the K3 review, finding 2): K3 had drawn `no photos` here
+            assertEquals(List(5) { "not reached yet" }, p.quote.groups.drop(1).map { it.empty }, stage)
+            assertEquals("1 photo", p.quote.groups[0].count, stage)
             assertNull(p.banner, stage)
             assertTrue(p.works.none { it.locked }, stage)
         }
@@ -283,10 +298,11 @@ class AlbumPageTest {
         assertEquals(10, w[90]!!.n)
     }
 
-    @Test fun `states not read - every chip reads not read yet, nothing is open, the album is not closed`() {
+    @Test fun `a copy holding no states - every chip is the prototype's Not started, nothing is open, the album is not closed`() {
+        // the K3 review, finding 2: K3 drew `not read yet` in the chip, a state the prototype does not have
         val cache = approvedCache.copy(states = null)
         val p = page(AlbumPage.compose(approved, emptyList(), me), approved, cache)
-        assertTrue(p.works.all { it.state == null && it.stateText == "not read yet" })
+        assertTrue(p.works.all { it.state == Album.NOT_STARTED && it.stateText == "Not started" })
         assertTrue(p.works.none { it.now })
         assertFalse(p.end.closed)
         assertEquals("The album closes when Cleaning & handover is Done", p.end.text)
@@ -295,11 +311,11 @@ class AlbumPageTest {
         assertTrue(page(emptyList(), approved, approvedCache.copy(states = emptyMap())).works.all { it.stateText == "Not started" })
     }
 
-    @Test fun `statesFor - the empty map for a project S5 does not list, the store's copy otherwise, null when it holds none`() {
+    @Test fun `statesFor - the empty map for a project S5 does not list and for a copy holding none, the store's copy otherwise`() {
         assertEquals(emptyMap(), AlbumPage.statesFor(line(null, phoneOnly = true), null))
         assertEquals(emptyMap(), AlbumPage.statesFor(line(QuoteStage.Cache(listed = false, readAt = read)), QuoteStage.Cache(listed = false, readAt = read)))
-        assertNull(AlbumPage.statesFor(line(approvedCache.copy(states = null)), approvedCache.copy(states = null)))
-        assertNull(AlbumPage.statesFor(line(null), null), "never read")
+        assertEquals(emptyMap(), AlbumPage.statesFor(line(approvedCache.copy(states = null)), approvedCache.copy(states = null)))
+        assertEquals(emptyMap(), AlbumPage.statesFor(line(null), null), "never read")
         assertEquals(approvedCache.states, AlbumPage.statesFor(line(approvedCache), approvedCache))
     }
 
@@ -321,6 +337,27 @@ class AlbumPageTest {
         assertFalse(page(emptyList(), locked, lockedCache.copy(stage = "")).quote.open)
     }
 
+    @Test fun `a tap sets only each chapter's open and the log's rows on the model - the chapters, cards, walk and groups are the model's own (the K3 review, finding 4)`() {
+        val items = AlbumPage.compose(approved, emptyList(), me)
+        val m = AlbumPage.model(Tx.EN, "Demo flat", items, approved, approvedCache, line(approvedCache))
+        assertEquals(page(items, approved, approvedCache), m.base, "the model's base is the page with no tap")
+        val taps = mapOf(0 to false, 1 to true, 5 to false)
+        val t = AlbumPage.page(m, taps, logOpen = true)
+        // the same objects, not equal copies: nothing heavy is rebuilt for a tap
+        assertSame(m.base.cards, t.cards)
+        assertSame(m.base.items, t.items)
+        assertSame(m.base.order, t.order)
+        assertSame(m.base.groupOf, t.groupOf)
+        assertSame(m.base.quote.groups, t.quote.groups)
+        // and it is the page the whole build gives for the same taps
+        assertEquals(page(items, approved, approvedCache, toggled = taps, logOpen = true), t)
+        assertEquals(listOf(7L, 6L), t.header.log.rows.map { it.seq })
+        assertSame(m.base, AlbumPage.page(m), "no tap: the base itself")
+        // a locked chapter still takes no tap
+        val lm = AlbumPage.model(Tx.EN, "Demo flat", AlbumPage.compose(locked, emptyList(), me), locked, lockedCache, line(lockedCache))
+        assertTrue(AlbumPage.page(lm, (1..16).associateWith { true }).works.none { it.open })
+    }
+
     @Test fun `the end line, closed with the day 140 went Done`() {
         val done = approvedCache.copy(states = mapOf(140 to WorkState(Album.DONE, 30, "2026-12-20T05:00:00.000Z")))
         val e = page(emptyList(), approved, done).end
@@ -330,11 +367,11 @@ class AlbumPageTest {
         assertEquals("अल्बम पूर्ण झाला · \"स्वच्छता व हस्तांतरण\" पूर्ण", page(emptyList(), approved, done, tx = Tx.MR).end.text)
     }
 
-    @Test fun `the more line appears only when S5 says more, the empty line only when nothing is visible`() {
+    @Test fun `S5's more draws no line of its own, the empty line only when nothing is visible`() {
         val items = AlbumPage.compose(approved, emptyList(), me)
-        assertNull(page(items, approved, approvedCache).more)
-        assertEquals("Showing the newest 2 photos", page(items, approved.copy(more = true), approvedCache).more)
-        assertEquals("सर्वात नवीन 2 फोटो दाखवत आहे", page(items, approved.copy(more = true), approvedCache, tx = Tx.MR).more)
+        // the K3 review, finding 2: `Showing the newest N photos` is a line the prototype does not have, so it waits for
+        // the prototype; S5's `more` changes nothing on the page until then
+        assertEquals(page(items, approved, approvedCache), page(items, approved.copy(more = true), approvedCache))
         assertNull(page(items, approved, approvedCache).empty)
         assertEquals("No photos yet — the survey's 360s come first", page(emptyList(), null, null, phoneOnly = true).empty)
     }
@@ -397,7 +434,8 @@ class AlbumPageTest {
         val cp = page(AlbumPage.compose(cv, emptyList(), me), cv, QuoteStage.fromAlbum(cv, read))
         val vp = cp.order.first { it.endsWith("|ALB-00000000001e") }
         assertNull(assertNotNull(AlbumPage.shown(Tx.EN, cp, vp)).review)
-        assertEquals("Vendor", cp.cards.getValue(vp).who, "never an empty pill")
+        assertEquals("", cp.cards.getValue(vp).who, "the prototype's empty pill: S5 blanked the vendor's names")
+        assertEquals("Vendor", cp.cards.getValue(vp).whoAria)
     }
 
     @Test fun `the tile counts what this person may see, with its TalkBack label`() {
@@ -432,6 +470,26 @@ class AlbumPageTest {
         assertEquals("/api/asis/PROJ%20T1/Room%2F1/c/legacy-1/img/front", AsIsPath.path(AlbumPage.faceImage("PROJ T1", "Room/1", "legacy-1"), enc))
     }
 
+    @Test fun `the cache's trim - a temp file a minute old goes, a younger one stays uncounted, then the oldest drawn down to 192 MB (the K3 review, finding 6)`() {
+        val mb = 1024L * 1024
+        val now = 1_000_000_000L
+        // under the cap: only the orphaned temp file goes
+        val small = listOf(AlbumPage.CacheFile("a.jpg", 10 * mb, now - 5_000), AlbumPage.CacheFile("b.jpg.part", 8 * mb, now - 61_000),
+            AlbumPage.CacheFile("c.jpg.part", 8 * mb, now - 2_000))
+        assertEquals(listOf("b.jpg.part"), AlbumPage.trimmed(small, now))
+        // a young temp file is a download in flight: neither deleted nor counted against the cap
+        val busy = listOf(AlbumPage.CacheFile("a.jpg", 250 * mb, now - 5_000), AlbumPage.CacheFile("c.jpg.part", 8 * mb, now - 2_000))
+        assertEquals(emptyList(), AlbumPage.trimmed(busy, now))
+        // over 256 MB: the least recently drawn first, until under 192 MB
+        val full = (1..30).map { i -> AlbumPage.CacheFile("f$i.jpg", 9 * mb, now - (31 - i) * 1_000L) } +
+            AlbumPage.CacheFile("old.jpg.part", 8 * mb, now - 3_600_000)
+        val gone = AlbumPage.trimmed(full, now)
+        assertTrue("old.jpg.part" in gone)
+        val left = full.filter { !it.name.endsWith(".part") && it.name !in gone }.sumOf { it.bytes }
+        assertTrue(left <= AlbumPage.CACHE_TRIM_TO, "left $left")
+        assertEquals((1..9).map { "f$it.jpg" }, gone.filter { it.endsWith(".jpg") }, "oldest first, and no more than needed")
+    }
+
     // ---- :app, read as source (only CI compiles :app) ------------------------------------------------------
 
     private fun app(name: String): String {
@@ -462,6 +520,37 @@ class AlbumPageTest {
         }
     }
 
+    @Test fun `the K3 review's app fixes, read as source - no space under a work's grid, the taps on the model, the album held above Search, the cache's trim and sign-out`() {
+        val screen = app("AlbumScreen.kt")
+        val main = app("MainActivity.kt")
+        val images = app("AlbumImages.kt")
+        // finding 1: an open work's grid ends at the next chapter; only a quote group and the unfiled photos keep 8 dp
+        assertFalse(screen.contains("\"wp\""), "no spacer after a work's grid")
+        assertTrue(screen.contains("item(key = \"gp:\" + g.stage) { Spacer(Modifier.height(8.dp)) }"))
+        assertTrue(screen.contains("item(key = \"up\") { Spacer(Modifier.height(8.dp)) }"))
+        // finding 2: no line of its own for S5's more, and the Work log always the prototype's toggle
+        assertFalse(screen.contains("page.more") || screen.contains("toggleable"))
+        // finding 4: the model is remembered on the data alone, and a tap applies to it
+        assertTrue(main.contains("remember(tx, proj.title, albumItems, mirror, wishCache, projectLine) {\n                AlbumPage.model("))
+        assertTrue(main.contains("remember(albumModel, toggled, albumLog) { AlbumPage.page(albumModel, toggled, albumLog) }"))
+        // finding 5: the mirror, the kept files and the list's scroll are held above the search overlay's early return
+        val search = main.indexOf("    if (showSearch) {")
+        assertTrue(search > 0)
+        for (held in listOf("var heldMirror by remember", "var heldFiles by remember", "var albumList by remember")) {
+            assertTrue(main.indexOf(held) in 0 until search, "$held above Search")
+        }
+        assertFalse(main.contains("var mirror by remember(stageKey)"), "no mirror state below Search")
+        assertTrue(main.contains("listState = albumList,"))
+        assertTrue(screen.contains("LazyColumn(modifier.fillMaxWidth(), state = listState,"))
+        // finding 6: one trim rule (AlbumPage.trimmed, the temp files included), a write that throws takes its temp file,
+        // and the sign-out's deletes on a thread of their own
+        assertTrue(images.contains("AlbumPage.trimmed("))
+        assertFalse(images.contains("!it.name.endsWith(\".part\")"), "the trim no longer skips the temp files")
+        assertTrue(images.contains("catch (e: Exception) { tmp.delete(); throw e }"))
+        val forget = images.substring(images.indexOf("fun forgetAll("))
+        assertTrue(forget.substringBefore("\n    }").contains("Thread {"), "the deletes off the main thread")
+    }
+
     // ---- Marathi -------------------------------------------------------------------------------------------
 
     @Test fun `every new line and each header line in Marathi`() {
@@ -469,10 +558,10 @@ class AlbumPageTest {
         val mr = page(items, approved, approvedCache, tx = Tx.MR)
         assertEquals("प्रोजेक्ट मॅनेजर म्हणून पाहत आहे", mr.header.viewingAs)
         assertEquals("अजून कोणतेही काम चालू नाही", mr.header.open)
-        assertEquals("चालू कामे: अजून वाचलेले नाही", page(items, approved, approvedCache.copy(states = null), tx = Tx.MR).header.open)
+        assertEquals("अजून कोणतेही काम चालू नाही", page(items, approved, approvedCache.copy(states = null), tx = Tx.MR).header.open)
         assertEquals("बदल विनंत्या: 1", mr.header.changeRequests)
         assertEquals("कामांची नोंद (2)", mr.header.log.toggle)
-        assertEquals("कामांची नोंद · अजून वाचलेले नाही", page(items, null, approvedCache, tx = Tx.MR).header.log.toggle)
+        assertEquals("कामांची नोंद (0)", page(items, null, approvedCache, tx = Tx.MR).header.log.toggle)
         val lockMr = page(emptyList(), locked, lockedCache, tx = Tx.MR)
         assertEquals("अंदाजपत्रक मंजूर होईपर्यंत लॉक", lockMr.works.first().line)
         assertEquals("ग्राहकाने अंदाजपत्रक मंजूर केल्यावर काम सुरू होते", lockMr.banner)

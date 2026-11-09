@@ -727,14 +727,31 @@ object Album {
      * stageView sends no kind, so a kind test would drop every move S5 sends (only a name outside the
      * six is left out).
      */
-    fun quoteAt(stages: List<Entry>, at: String, current: String? = null, currentAt: String? = null): String {
-        val h = ArrayList<Pair<String, Long>>()
-        for (e in bySeq(stages)) if (e.value in QuoteStage.STAGES) h += e.value to t0(e.at)
-        if (current != null && current.trim() in QuoteStage.STAGES && !currentAt.isNullOrBlank()) h += current.trim() to t0(currentAt)
-        val t = t0(at)
-        var q = QuoteStage.STAGES[0]
-        for ((s, ts) in h.withIndex().sortedWith(compareBy({ it.value.second }, { it.index })).map { it.value }) if (ts <= t) q = s
-        return q
+    fun quoteAt(stages: List<Entry>, at: String, current: String? = null, currentAt: String? = null): String =
+        QuoteHistory(stages, current, currentAt).at(at)
+
+    /**
+     * [quoteAt]'s history read ONCE -- the moves by seq and the current point, parsed and put in time order -- so a page
+     * that places every quote-journey item asks [at] per item and never re-parses or re-sorts the stage rows (the K3
+     * review, finding 4: chapters() called quoteAt once per item PER GROUP, items x 6 x stage rows date parses on every
+     * tap). [at] answers exactly what [quoteAt] does: the newest point at or before the instant, ties in arrival order,
+     * else Survey.
+     */
+    class QuoteHistory(stages: List<Entry>, current: String?, currentAt: String?) {
+        private val points: List<Pair<String, Long>> = run {
+            val h = ArrayList<Pair<String, Long>>()
+            for (e in bySeq(stages)) if (e.value in QuoteStage.STAGES) h += e.value to t0(e.at)
+            if (current != null && current.trim() in QuoteStage.STAGES && !currentAt.isNullOrBlank()) h += current.trim() to t0(currentAt)
+            h.withIndex().sortedWith(compareBy({ it.value.second }, { it.index })).map { it.value }
+        }
+
+        /** The quote stage at [at] (the moment an item was taken). */
+        fun at(at: String): String {
+            val t = t0(at)
+            var q = QuoteStage.STAGES[0]
+            for ((s, ts) in points) if (ts <= t) q = s
+            return q
+        }
     }
 
     /**
@@ -814,22 +831,20 @@ object Album {
     /**
      * One quote-stage group of chapter 0. `stage` is S5's name, shown through [Masters.quote]. [reached] is null --
      * and no group is [now] -- for a project S5 does not list (the prototype v61c.2: "no quote group is now or not
-     * reached yet") and for a stage the phone has not read (blank or outside the six: the phone cannot say which
-     * groups are behind it, port 61c slice K3).
+     * reached yet"). A stage the phone has not read (blank or outside the six) is the prototype's own `cur < 0 ?
+     * i === 0` (index61c2.html 7257): Survey reached, the five after it not reached, none now (the K3 review, finding 2:
+     * K3 had drawn its own rule here, which is the prototype's to approve first).
      */
     data class QuoteGroup(val stage: String, val i: Int, val items: List<Photo>, val reached: Boolean?, val now: Boolean)
 
     /** Chapter 0, the quote journey: a group per quote stage, the unfiled items (staff only, by [canSee]). */
     data class QuoteChapter(val groups: List<QuoteGroup>, val unfiled: List<Photo>, val count: Int, val locked: Boolean)
 
-    /**
-     * Chapters 1-16, one per work, each a grid in time order with its own state, live request and decided ones.
-     * [state] is null when the caller's store holds no states in the read shape (`not read yet`, K3).
-     */
+    /** Chapters 1-16, one per work, each a grid in time order with its own state, live request and decided ones. */
     data class Chapter(
         val n: Int,
         val id: Int,
-        val state: String?,
+        val state: String,
         val items: List<Photo>,
         val mine: Boolean,
         val locked: Boolean,
@@ -866,9 +881,7 @@ object Album {
      * vendor's chapter 0 and the works outside `mine` lock too, and a vendor sees no change request
      * outside `mine` (S5 sends none). An item on a work id that is not one of the sixteen is unfiled.
      *
-     * Port 61c slice K3: [states] null means the store holds none in the read shape ("not read yet",
-     * QuoteStage.Cache.states): every [Chapter.state] is null, [Chapters.open] empty, the album not
-     * closed, and the lock decided by the stage alone. [notOnS5] is a project S5 does not list (made on
+     * Port 61c slice K3: [notOnS5] is a project S5 does not list (made on
      * this phone and never sent, or read as not listed): it has no stage of its own, so no group is now
      * or not reached, every quote-journey item sits at Survey (the prototype's quoteAt: "its captures are
      * filed at Survey, S5's default for the project its first upload creates"), and the works LOCK as at
@@ -877,24 +890,27 @@ object Album {
      */
     fun chapters(
         items: List<Photo>, log: List<Entry>, stages: List<Entry>, scope: List<Int>?,
-        quoteStage: String?, quoteStageAt: String?, states: Map<Int, WorkState>?, viewer: Viewer,
+        quoteStage: String?, quoteStageAt: String?, states: Map<Int, WorkState>, viewer: Viewer,
         notOnS5: Boolean = false,
     ): Chapters {
         val all = visible(viewer, items)
         val cur = if (notOnS5) -1 else QuoteStage.indexOf(quoteStage?.trim().orEmpty())
         val ven = viewer.role == VENDOR
-        val xlock = notOnS5 || !exec(quoteStage, !states.isNullOrEmpty())
+        val xlock = notOnS5 || !exec(quoteStage, states.isNotEmpty())
+        // each quote-journey item placed ONCE, from a history read once (the prototype's one quoteAt per item, 7262)
+        val quoteItems = all.filter { it.work == QUOTE_WORK }
+        val history = if (notOnS5) null else QuoteHistory(stages, quoteStage, quoteStageAt)
+        val placed = quoteItems.map { history?.at(it.at) ?: QuoteStage.STAGES[0] }
         val groups = QuoteStage.STAGES.mapIndexed { i, q ->
-            QuoteGroup(q, i, all.filter {
-                it.work == QUOTE_WORK && (if (notOnS5) QuoteStage.STAGES[0] else quoteAt(stages, it.at, quoteStage, quoteStageAt)) == q
-            }, reached = if (cur < 0) null else i <= cur, now = cur >= 0 && i == cur)
+            QuoteGroup(q, i, quoteItems.filterIndexed { j, _ -> placed[j] == q },
+                reached = if (notOnS5) null else if (cur < 0) i == 0 else i <= cur, now = cur >= 0 && i == cur)
         }
         val unfiled = all.filter { it.work == null || (it.work != QUOTE_WORK && !isWork(it.work)) }
         val quote = QuoteChapter(groups, unfiled, groups.sumOf { it.items.size } + unfiled.size, locked = ven)
         val works = WORKS.mapIndexed { i, w ->
             val seen = !ven || w.id in viewer.mine
             Chapter(
-                n = i + 1, id = w.id, state = states?.let { stateName(it[w.id]?.state) },
+                n = i + 1, id = w.id, state = stateName(states[w.id]?.state),
                 items = all.filter { it.work == w.id },
                 mine = ven && w.id in viewer.mine,
                 locked = (ven && w.id !in viewer.mine) || xlock,
@@ -905,10 +921,10 @@ object Album {
             )
         }
         val order = groups.flatMap { it.items } + unfiled + works.flatMap { it.items }
-        val closed = states != null && stateName(states[LAST_WORK]?.state) == DONE
-        val closedAt = if (closed) states?.get(LAST_WORK)?.at?.ifBlank { null } else null
+        val closed = stateName(states[LAST_WORK]?.state) == DONE
+        val closedAt = if (closed) states[LAST_WORK]?.at?.ifBlank { null } else null
         val crs = changeRequests(log).filter { !ven || it.id in viewer.mine }
-        return Chapters(quote, works, all.size, closed, closedAt, order, xlock, crs, states?.let { openWorks(it) } ?: emptyList())
+        return Chapters(quote, works, all.size, closed, closedAt, order, xlock, crs, openWorks(states))
     }
 
     // ---- the writer gates: null = allowed; a [Refusal] = refused, and why (nothing is written) ----

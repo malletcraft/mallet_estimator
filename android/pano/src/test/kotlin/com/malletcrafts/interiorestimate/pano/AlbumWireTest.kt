@@ -322,10 +322,16 @@ class AlbumWireTest {
         assertNull(works.first { it["id"] == 10 }["cr"])
         @Suppress("UNCHECKED_CAST") val caps = pm["captures"] as List<Map<String, Any?>>
         assertEquals(listOf(mapOf("room" to "Kitchen", "capture" to "MCAP-DEMO-1", "captured_at" to "2026-10-11T08:30:00+05:30", "work" to 0, "by" to "pm@x",
-            "at" to "2026-11-03T05:16:04.175Z")), caps)
+            "by_name" to "", "at" to "2026-11-03T05:16:04.175Z")), caps)
         // a capture stored and read back is still a CAPTURE item with its upload `at` (K3): the face's file name survives a restart
         assertEquals(Album.Source.CAPTURE, roundTrip(view(S5Album.GET_PM)).captures.single().source)
         assertEquals("2026-11-03T05:16:04.175Z", roundTrip(view(S5Album.GET_PM)).captures.single().uploadedAt)
+        // the K3 review, finding 3: a capture's `by_name`, when S5 sends it, is read and kept through the stored mirror,
+        // so the card names a person, not a login (S5's capturesOf sends `by` alone today, and it reads blank)
+        val named = view("""{"role":"pm","captures":[{"room":"Kitchen","capture":"MCAP-T1","captured_at":"2026-10-11T08:30:00+05:30","stage":"","work":0,"by":"d@x","by_name":"D N","at":"2026-11-03T05:16:04.175Z"}]}""")
+        assertEquals("D N", named.captures.single().byName)
+        assertEquals("D N", roundTrip(named).captures.single().byName)
+        assertEquals("", view(S5Album.GET_PM).captures.single().byName)
         // a paged mirror (two pages merged) stores its whole log and the newer page's cursor
         val first = view(S5Album.GET_PM)
         val page = first.copy(log = first.log.takeLast(2), logNext = 99, logMore = true)

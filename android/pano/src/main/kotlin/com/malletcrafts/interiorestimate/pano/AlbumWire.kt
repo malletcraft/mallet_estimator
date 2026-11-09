@@ -127,6 +127,9 @@ object AlbumWire {
      * [Album.Source.CAPTURE] (port 61c slice K3), and S5's `at` -- the record's `updated_at`, moved by every record PUT
      * and not by S5-R's re-file -- is kept as [Photo.uploadedAt], which names the phone's cached copy of its front face
      * (the K3 critic, finding 2: a re-saved survey prep re-squares the faces under the same capture name).
+     * `by_name`, the uploader's full name, is read when S5 sends it: capturesOf sends only `by`, the ERP login, so until
+     * an S5 slice stores the name with the room record and sends it, a capture by another login shows that login where
+     * the prototype shows a person's name (the K3 review, finding 3).
      */
     fun capture(r: Read, o: Any?): Photo? {
         if (!r.isObject(o)) return null
@@ -134,7 +137,7 @@ object AlbumWire {
         return Photo(
             id = id, work = int(r.field(o, "work")), at = none(r.field(o, "captured_at")) ?: str(r.field(o, "at")) ?: "",
             party = Album.PARTY_STAFF, room = none(r.field(o, "room")), kind = Album.PHOTO_360, by = str(r.field(o, "by")) ?: "",
-            source = Album.Source.CAPTURE, uploadedAt = str(r.field(o, "at")) ?: "",
+            byName = str(r.field(o, "by_name")) ?: "", source = Album.Source.CAPTURE, uploadedAt = str(r.field(o, "at")) ?: "",
         )
     }
 
@@ -229,7 +232,7 @@ object AlbumWire {
     )
 
     private fun captureRow(c: Photo): Map<String, Any?> = linkedMapOf(
-        "room" to c.room, "capture" to c.id, "captured_at" to c.at, "work" to c.work, "by" to c.by, "at" to c.uploadedAt,
+        "room" to c.room, "capture" to c.id, "captured_at" to c.at, "work" to c.work, "by" to c.by, "by_name" to c.byName, "at" to c.uploadedAt,
     )
 
     /**

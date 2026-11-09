@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,7 +76,7 @@ import com.malletcrafts.interiorestimate.pano.AlbumPage
  *
  * The header (Viewing as, Open, To review, Change requests, the project line, the Work log) is fixed above the chapters
  * in portrait (`.alb59h` is flex: none) and a 248 dp column of its own that scrolls in landscape, with a 1 dp rule to
- * its right (`.alb59.land`). The chapters are ONE LazyColumn: the `more` and empty lines, chapter 0 with its quote
+ * its right (`.alb59.land`). The chapters are ONE LazyColumn: the empty line, chapter 0 with its quote
  * groups and the staff's unfiled photos, the lock banner, the sixteen works, the end line, and 84 dp at the bottom where
  * K5's Progress shot FAB lands with nothing reflowing (`.alb59body`). A grid is rows of cards inside it (2 across, 3 in
  * landscape), since a lazy grid cannot nest in a lazy list.
@@ -99,6 +100,11 @@ fun AlbumScreen(
     localPath: (String) -> String?,
     /** The key of the item open in the viewer, or null. */
     view: String?,
+    /**
+     * The chapters' scroll, the visit's: held by MainActivity above the search overlay, so Search then Back returns to
+     * the album where it was (the K3 review, finding 5), and a new one for each visit.
+     */
+    listState: LazyListState,
     onView: (String?) -> Unit,
     /** A chapter's header tapped: its number, and whether it is now open. */
     onToggle: (Int, Boolean) -> Unit,
@@ -123,12 +129,12 @@ fun AlbumScreen(
                         AlbumHeader(page.header, onLog, capLog = false)
                     }
                     Box(Modifier.width(1.dp).fillMaxHeight().background(cs.outlineVariant))
-                    AlbumBody(project, page, localPath, cols = 3, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
+                    AlbumBody(project, page, localPath, listState, cols = 3, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
                 }
             } else {
                 Column(Modifier.padding(pad).fillMaxSize()) {
                     Column(Modifier.fillMaxWidth().background(cs.background)) { AlbumHeader(page.header, onLog, capLog = true) }
-                    AlbumBody(project, page, localPath, cols = 2, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
+                    AlbumBody(project, page, localPath, listState, cols = 2, onView = onView, onToggle = onToggle, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -216,16 +222,14 @@ private fun AlbumHeader(h: AlbumPage.Header, onLog: () -> Unit, capLog: Boolean)
         Modifier
             .fillMaxWidth()
             .heightIn(min = 40.dp)
-            .then(if (!log.toggleable) Modifier else Modifier
-                .clickable(role = Role.Button, onClick = onLog)
-                .semantics { if (log.open) collapse { onLog(); true } else expand { onLog(); true } })
+            .clickable(role = Role.Button, onClick = onLog)
+            .semantics { if (log.open) collapse { onLog(); true } else expand { onLog(); true } }
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // not read yet takes no tap, so it is not drawn as one
-        Text(log.toggle, style = ty.labelLarge, color = if (log.toggleable) cs.primary else cs.onSurfaceVariant, modifier = Modifier.weight(1f))
-        if (log.toggleable) Caret(log.open)
+        Text(log.toggle, style = ty.labelLarge, color = cs.primary, modifier = Modifier.weight(1f))
+        Caret(log.open)
     }
     if (log.open) {
         Column(
@@ -268,16 +272,13 @@ private val AMBER_RING = Color(0xFFC98A1C)
 
 @Composable
 private fun AlbumBody(
-    project: String, page: AlbumPage.Page, localPath: (String) -> String?, cols: Int,
+    project: String, page: AlbumPage.Page, localPath: (String) -> String?, listState: LazyListState, cols: Int,
     onView: (String?) -> Unit, onToggle: (Int, Boolean) -> Unit, modifier: Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
     val ty = MaterialTheme.typography
     val card: @Composable (String) -> Unit = { k -> AlbumCard(project, page, k, localPath, onView) }
-    LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 84.dp)) {
-        page.more?.let { m ->
-            item(key = "more") { Text(m, style = ty.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
-        }
+    LazyColumn(modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = 84.dp)) {
         page.empty?.let { e ->
             item(key = "empty") { Text(e, style = ty.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
         }
@@ -324,8 +325,10 @@ private fun AlbumBody(
                         Text(none, style = ty.bodySmall, color = cs.onSurfaceVariant, modifier = Modifier.padding(start = 46.dp, end = 12.dp, bottom = 8.dp))
                     }
                 } else {
+                    // nothing under a work's grid: `.alb59chb` has no rule and `.alb59grid` pads only its sides (1486),
+                    // so the last card meets the next chapter's rule -- only a quote group (`.alb59sg`, 1479) keeps 8 dp
+                    // (the K3 review, finding 1)
                     gridRows(w.items, cols, "w" + w.n, card)
-                    item(key = "wp" + w.n) { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
@@ -496,7 +499,7 @@ private fun WorkHeader(w: AlbumPage.WorkCh, onToggle: (Int, Boolean) -> Unit) {
 
 /**
  * The state chip (`.alb60st`), as the prototype draws it for a person it offers no sheet to (K3 offers it to nobody):
- * 28 dp, 14 dp round, 10 dp sides, 12 sp medium -- Not started (and `not read yet`) a 1 dp outline ring, In progress
+ * 28 dp, 14 dp round, 10 dp sides, 12 sp medium -- Not started a 1 dp outline ring, In progress
  * tertiaryContainer, Done primary, On hold #5C3A00 on #FFE3B0, Abandoned surfaceVariant struck through at .75.
  */
 @Composable

@@ -16,6 +16,7 @@ import com.malletcrafts.interiorestimate.pano.Album.Viewer
 import com.malletcrafts.interiorestimate.pano.Album.Work
 import com.malletcrafts.interiorestimate.pano.Album.WorkState
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import java.time.Instant
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -548,7 +549,7 @@ class AlbumTest {
         staff("U2", 45, "2026-10-23T05:00:00.000Z"))
 
     private fun ch(items: List<Photo> = demoItems, log: List<Entry> = demoLog, stages: List<Entry> = demoStages, scope: List<Int>? = demoScope,
-                   q: String? = "Survey", qAt: String? = "", states: Map<Int, WorkState>? = demoStates, viewer: Viewer = pm) =
+                   q: String? = "Survey", qAt: String? = "", states: Map<Int, WorkState> = demoStates, viewer: Viewer = pm) =
         Album.chapters(items, log, stages, scope, q, qAt, states, viewer)
 
     @Test fun `chapters for the PM - 17 chapters, the quote groups, the states, the scope, the CR, the order (D3, E2-E4)`() {
@@ -654,16 +655,9 @@ class AlbumTest {
         assertEquals(listOf("MCAP-1"), open.quote.groups[0].items.map { it.id })
     }
 
-    @Test fun `chapters with no states read, for a project S5 does not list, and at an unread stage (port 61c slice K3)`() {
+    @Test fun `chapters for a project S5 does not list, and at an unread stage (port 61c slice K3 and its review)`() {
         val items = listOf(Photo("MCAP-1", 0, "2026-10-05T05:00:00.000Z", kind = Album.PHOTO_360),
             Photo("MCAP-2", 0, "2026-10-28T05:00:00.000Z", kind = Album.PHOTO_360))
-        // states not read in the store's shape: no chip has a state, nothing is open, nothing closed; the lock is the stage's
-        val unread = ch(items, demoLog, emptyList(), null, "Client approved", "2026-10-26T15:09:00.000Z", null)
-        assertTrue(unread.works.all { it.state == null })
-        assertEquals(emptyList(), unread.open)
-        assertFalse(unread.closed)
-        assertFalse(unread.execLocked)
-        assertTrue(ch(items, demoLog, emptyList(), null, "Revisions", "2026-10-26T15:09:00.000Z", null).execLocked, "no recorded work is known")
         // a project S5 does not list: no group now or not reached, every quote-journey item at Survey, and the works LOCKED
         // as at Survey (the prototype makes it at quote 'Survey'; the K3 critic, finding 1) -- whatever stage a stray copy says
         for (q in listOf(null, "Client approved", "Revisions")) {
@@ -673,12 +667,34 @@ class AlbumTest {
             assertTrue(local.execLocked, "$q")
             assertTrue(local.works.all { it.locked && it.execLocked }, "$q")
         }
-        // an unread stage: no group now and none `not reached`, the works open as the prototype's execMode leaves them
+        // an unread stage: the prototype's own `cur < 0 ? i === 0` (index61c2.html 7257) -- Survey reached, the five
+        // after it not reached, none now -- and the works open as its execMode leaves them (the K3 review, finding 2:
+        // K3's "no group not reached" was a rule of its own, which the prototype has to carry first)
         for (q in listOf(null, "", "On hold")) {
             val c = ch(items, emptyList(), emptyList(), null, q, "", emptyMap())
-            assertTrue(c.quote.groups.all { it.reached == null && !it.now }, "$q")
+            assertEquals(listOf(true, false, false, false, false, false), c.quote.groups.map { it.reached }, "$q")
+            assertTrue(c.quote.groups.none { it.now }, "$q")
             assertFalse(c.execLocked, "$q")
         }
+    }
+
+    @Test fun `chapters read the stage history once, never once per item per group (the K3 review, finding 4)`() {
+        // a stage-row list that counts every element read: sorting, iterating and copying all go through get()
+        class Counted(private val inner: List<Entry>) : AbstractList<Entry>() {
+            var reads = 0
+            override val size: Int get() = inner.size
+            override fun get(index: Int): Entry { reads++; return inner[index] }
+        }
+        val moves = Counted((1..10).map { i -> Entry(i.toLong(), "S$i", "stage", null, value = QuoteStage.STAGES[i % 5],
+            at = Instant.parse("2026-10-01T05:00:00Z").plusSeconds(i * 86_400L).toString()) })
+        val items = (1..60).map { i -> Photo("MCAP-$i", 0, Instant.parse("2026-10-01T05:00:00Z").plusSeconds(i * 20_000L).toString(), kind = Album.PHOTO_360) }
+        val c = Album.chapters(items, emptyList(), moves, null, "Revisions", "2026-10-20T05:00:00.000Z", emptyMap(), pm)
+        assertEquals(60, c.quote.count)
+        // K3 asked quoteAt for every item in every one of the six groups: 60 x 6 x 10 reads; one history is 10
+        assertTrue(moves.reads <= 2 * moves.size, "the stage rows were read ${moves.reads} times for ${moves.size} rows")
+        // and each item sits where quoteAt alone places it
+        for (g in c.quote.groups) for (it in g.items) assertEquals(Album.quoteAt(moves, it.at, "Revisions", "2026-10-20T05:00:00.000Z"), g.stage)
+        assertEquals(Album.quoteAt(moves, items[30].at), Album.QuoteHistory(moves, null, null).at(items[30].at))
     }
 
     @Test fun `chapters group a quote-journey item by the current stage when no move was logged (critic G2b)`() {

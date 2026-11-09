@@ -31,6 +31,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -194,11 +195,21 @@ private fun AppScreenBody(onLang: () -> Unit) {
     val albumOpen = remember { mutableStateMapOf<Int, Boolean>() }
     var albumLog by remember { mutableStateOf(false) }
     var albumView by remember { mutableStateOf<String?>(null) }
+    // The chapters' scroll, the visit's as its taps are: a new one for each visit, and gone with the leave.
+    var albumList by remember { mutableStateOf(LazyListState()) }
+    // The opened project's album mirror and the kept files of its captures, held HERE, above the search overlay's early
+    // return, each with the key it was read under (the K3 review, finding 5): read inside the folder level, they left
+    // composition while Search was up, so Back drew the album with no mirror -- no Viewing as, the phone's captures
+    // alone, chapters folding and unfolding -- until the file was read again. Another project's never draws: the key
+    // is compared where they are read.
+    var heldMirror by remember { mutableStateOf<Pair<String, Album.View?>?>(null) }
+    var heldFiles by remember { mutableStateOf<Pair<String, Map<String, String>>?>(null) }
     fun leaveAlbum() {
         albumFor = null
         albumOpen.clear()
         albumLog = false
         albumView = null
+        albumList = LazyListState()
     }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
@@ -1366,10 +1377,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // (albumTick: the read on project open, a sync's, a Record's answer) and after a reload (dataTick) --
         // OFF the main thread, as the refresh is: the file holds the whole paged log and up to a thousand photos,
         // and a read in composition parsed all of it on every tick (QV review). None until the read lands, and
-        // none again for another project (keyed on stageKey), so no project's scope shows on another's row.
-        var mirror by remember(stageKey) { mutableStateOf<Album.View?>(null) }
+        // none again for another project (held under its stageKey), so no project's scope shows on another's row.
+        // Held above the search overlay (heldMirror, the K3 review, finding 5), so Search then Back keeps it.
+        val mirror = heldMirror?.takeIf { it.first == stageKey }?.second
         LaunchedEffect(stageKey, albumTick, dataTick) {
-            mirror = stageKey?.let { k -> withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) } }
+            val k = stageKey
+            heldMirror = if (k == null) null else k to withContext(Dispatchers.IO) { AlbumSync.mirror(context, k) }
         }
         // THE PROJECT ALBUM (port 61c slice K3): its items -- S5's photos and captures from the mirror, and the
         // phone's own captures of this project (the rows the room screen reads: the project's title, ignoring
@@ -1393,13 +1406,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
         val albumItems = remember(mirror, albumLocal, albumMe) { AlbumPage.compose(mirror, albumLocal, albumMe) }
         // The kept file of each of the phone's captures that is still there (a removed local copy is not), by
-        // device id -- read off the main thread, a disk check per row.
-        var albumFiles by remember(proj?.key) { mutableStateOf<Map<String, String>>(emptyMap()) }
+        // device id -- read off the main thread, a disk check per row; held above the search overlay with its key (heldFiles).
+        val albumFiles = heldFiles?.takeIf { it.first == proj?.key }?.second.orEmpty()
         LaunchedEffect(proj?.key, albumRows) {
             val rows = albumRows
-            albumFiles = withContext(Dispatchers.IO) {
+            val k = proj?.key
+            val files = withContext(Dispatchers.IO) {
                 rows.filter { it.panoPath.isNotBlank() && File(it.panoPath).isFile }.associate { it.deviceId to it.panoPath }
             }
+            heldFiles = if (k == null) null else k to files
         }
         // The tile, last in the rooms grid: the count of what this person may see (AlbumPage.tile). Opening it starts
         // a visit: nothing opened or folded by hand, the log folded, no photo open, the missing pictures asked again.
@@ -1409,6 +1424,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 albumOpen.clear()
                 albumLog = false
                 albumView = null
+                albumList = LazyListState()
                 albumFor = p.key
             }
         }
@@ -1493,16 +1509,21 @@ private fun AppScreenBody(onLang: () -> Unit) {
         // store copy and project line the project screen holds -- the stage and the states from the store, never
         // from the mirror file -- with this visit's taps. Nothing here writes.
         if (proj != null && albumFor != null && proj.key == albumFor) {
-            val toggled = albumOpen.toMap()
-            val albumPage = remember(tx, proj.title, albumItems, mirror, wishCache, projectLine, toggled, albumLog) {
-                AlbumPage.page(tx, proj.title, albumItems, mirror, wishCache, projectLine, toggled, albumLog)
+            // The page's data is built where the data changes, and a chapter or Work log tap only sets each chapter's
+            // open and the log's rows on it (AlbumPage.Model; the K3 review, finding 4): a tap re-ran the whole page
+            // -- the chapters, a card per item, the walk -- on the main thread.
+            val albumModel = remember(tx, proj.title, albumItems, mirror, wishCache, projectLine) {
+                AlbumPage.model(tx, proj.title, albumItems, mirror, wishCache, projectLine)
             }
+            val toggled = albumOpen.toMap()
+            val albumPage = remember(albumModel, toggled, albumLog) { AlbumPage.page(albumModel, toggled, albumLog) }
             BackHandler { leaveAlbum() }
             AlbumScreen(
                 project = stageKey.orEmpty(),
                 page = albumPage,
                 localPath = { id -> albumFiles[id] },
                 view = albumView,
+                listState = albumList,
                 onView = { albumView = it },
                 onToggle = { n, open -> albumOpen[n] = open },
                 onLog = { albumLog = !albumLog },

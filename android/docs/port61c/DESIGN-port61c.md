@@ -336,7 +336,8 @@ prototype draws it for a person it offers no sheet to), in the place K4 and K5 w
   map (nothing can be recorded on a project S5 has no record of); for a listed project whose copy holds no states
   (`states == null`, "not read in this shape" [Ph QuoteStage.kt:73-78]) they stay NULL and the album says `not read yet`
   where a state would stand [C, the PL review's rule: "never a count it has not read" — QuoteStage.projectLine says
-  `Execution · not read yet` for the same copy].
+  `Execution · not read yet` for the same copy]. **[Superseded by the K3 review, finding 2: a state the prototype does not have; the album draws the
+  prototype's Not started / `No work open yet` for such a copy until Amit approves it on the prototype — below.]**
 - **The header's project line** is the project screen's own, `QuoteStageSync.lineFor(context, stageKey, tx).text`
   [Ph QuoteStageSync.kt:130; P 7412: the header draws `P54.projectLine(p).text`, the first line only].
 - **The phone's own captures** come from the capture queue the room screen reads (`queue`, rows whose `projectTitle`
@@ -433,7 +434,9 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
   `me.name`) [P 7229: `BY[id] || ME`; the K3 critic, finding 7]), S5's captures not matched (source CAPTURE; byName =
   `me.name` when S5's `by` is this login, else blank, so the chip shows S5's login), S5's photos (source ALBUM); in time
   order by instant, then by key [P 7234]. An author nobody knows (no S5 session: a legacy ERP key, or signed out) is
-  blank, which the card shows as `Staff` (`album.staff`), never an empty pill.
+  blank, which the card shows as `Staff` (`album.staff`), never an empty pill. **[Superseded by the K3 review, finding 2: the pill is empty, as the
+  prototype's `esc(it.who||'')`; `album.staff` stays its TalkBack label. And finding 3: a matched capture by another
+  login keeps S5's `by_name` when S5 sends one.]**
 - `key(p)` = source, room and id — so two `legacy-…` captures of two rooms uploaded in one second (S5's 0006 ids
   collide across rooms [S5 CLAUDE.md, S5-R]) are two items, two cache files and two places in the walk.
 - `viewer(mirror, notOnS5)` — Album.viewerOf(mirror) when held; the PM for a project S5 does not list (D3 with no
@@ -447,7 +450,7 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
   - **header** [P 7405-7423]: `viewingAs` (above); `open` — `Open: <works In progress, joined by · >`
     (`album.open_x`), `No work open yet` (`album.no_open_work`), or `Open: not read yet` (`album.open_x(works =
     tx.wish_not_read_yet)`, the one text: the test name `Open · not read yet` was wrong, finding 10) when the states are not
-    read; `toReview` — `To review: N` (`album.to_review_x`) for the PM
+    read **[Superseded by the K3 review, finding 2: `No work open yet`]**; `toReview` — `To review: N` (`album.to_review_x`) for the PM
     when N > 0, N = Album.pending over the items, the screen deriving its own count as Album.View's doc says rather
     than S5's `to_review` [Ph Album.kt:361-363]; `changeRequests` — `Change requests: N` (`album.change_requests_x`)
     when N > 0, Chapters.changeRequests [P 7410-7411]; `line` — the project line's text; `log` — the toggle `Work log
@@ -455,10 +458,12 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
     seq, each row `<work> → <state>` / `<when, IST> · <by_name, else by>` / the remark when there is one [P 7419-7421],
     empty `No work state recorded yet` (`album.no_work_log`); with no mirror for a project S5 lists, `Work log · not
     read yet` (`album.work_log_unread`, NEW), not a toggle — the log is unknown, and `Work log (0)` would say there is
-    none [C]; for a project S5 does not list, `Work log (0)` and `No work state recorded yet`, which is true;
+    none [C] **[Superseded by the K3 review, finding 2: always the toggle `Work log (N)`, as the prototype; the key is out of the tables]**; for a
+    project S5 does not list, `Work log (0)` and `No work state recorded yet`, which is true;
   - **more** — `Showing the newest N photos` (`album.newest_x`, NEW) above the chapters when the mirror says `more`
     [S5 asis.js:236 ALBUM_PHOTO_CAP = 1000, 779; C: the counts below are of what the phone holds, and a silent cap would make
-    every count confidently short];
+    every count confidently short] **[Superseded by the K3 review, finding 2: no line until Amit approves one on the prototype; the key is out of the
+    tables]**;
   - **empty** — `No photos yet — the survey's 360s come first` (`album.empty`) when nothing is visible [P 7476];
   - **chapter 0** [P 7443-7451, 7438-7442]: the header `0`, `Quote journey`, and `n photos` (`noun.photo`'s
     pl_photo), `no photos yet` (`album.no_photos_yet`) or — locked, a vendor only — `not your work`
@@ -476,7 +481,7 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
     estimate is approved` (`album.locked_until_approved`, NEW: the prototype draws it with no key [P 7453], so it is
     English under मराठी there) or, a vendor's other works, `not your work`; else `n photos · last photo <d MMM>`
     (pl_photo and `album.last_photo_x`) or `no photos yet`; the live change request's chip, its kind
-    (`crkind.add|remove|change`); the state chip (Masters.state; `not read yet` with no states); open: `Payment: <milestones
+    (`crkind.add|remove|change`); the state chip (Masters.state; `not read yet` with no states **[Superseded by the K3 review, finding 2: Not started]**); open: `Payment: <milestones
     joined by · >` (`album.payment_x`, Album.payOf), the live request's note `Change request · raised <d MMM> by` +
     `<by_name, else by>` + ` · <note>` (`album.cr_raised_x`), the decided list (Album.decidedText, newest first), then
     the grid or `no photos yet`;
@@ -523,7 +528,8 @@ Album.dayOf / whenOf; names, captions, notes and remarks are data.
   null — and no group `now` — for a project S5 does not list [P 7255-7256, v61c.2: "no quote group is now or not
   reached yet"] AND for a stage the phone has not read (blank or outside the six) [C: the prototype's `cur < 0 ? i === 0`
   marks every later group `not reached yet`, which the phone cannot know for a stage it has not read — PL's rule again].
-  `Chapter.state` becomes `String?`.
+  `Chapter.state` becomes `String?`. **[Superseded by the K3 review, finding 2: an unread stage is the prototype's `cur < 0 ? i === 0` again (`reached`
+  null only for a project S5 does not list), and `states` and `Chapter.state` are non-null again.]**
 
 **pano/…/AlbumWire.kt (CHANGED)** — `capture()` sets `source = Album.Source.CAPTURE` and keeps S5's `at` as
 `uploadedAt`; `captureRow` writes it back as `at`, so the stored mirror reads back the same (finding 2).
@@ -619,7 +625,8 @@ grid's last item.
 **pano/…/Phases.kt (CHANGED, KDoc only)** — `needsMirror` is the SYNC's and a move's predicate; since K3 the project
 open reads every listed project's album.
 
-**android/i18n** — three NEW keys, born keyed, each with the flag `phone-text` and a `where` naming its phone source
+**android/i18n** — three NEW keys **(two taken out again by the K3 review, finding 2: `album.work_log_unread` and
+`album.newest_x`; 1,796 → 1,794)**, born keyed, each with the flag `phone-text` and a `where` naming its phone source
 (I18nTableTest 10); Marathi by Claude (decision 6 of 28 Oct):
 
 | key | EN | MR | why |
@@ -693,6 +700,15 @@ All on stage since 26 Oct – 2 Nov, nothing new: `GET …/album[?since=]` (albu
 Amit's walk, one step at a time: the album of a quote-journey project; then the approved project's album, a work
 chapter opened, one photo walked with ‹ ›; then the same under मराठी.
 
+**Claude [C] deviations NOT on the phone, waiting for the prototype** (the K3 review, finding 2): five album states the
+approved prototype does not draw. The phone draws the prototype's rendering for each until Amit approves the state on the
+prototype, so his walk shows none of them, and each needs his yes on the prototype before it comes back:
+1. `Showing the newest N photos` above the chapters when S5 says `more` (a project past S5's 1000 newest photos).
+2. `Work log · not read yet` with no tap, for a listed project whose album the phone has not read yet.
+3. `not read yet` in the state chip and in `Open:`, for a store copy that holds no states.
+4. `Staff` / `Vendor` inside an empty who pill, when nobody is known.
+5. An unread stage's quote groups all `no photos`, where the prototype marks the five after Survey `not reached yet`.
+
 **Deliberately NOT in K3**
 
 - Every write: a work's state, Accept / Not for client, a change request raised or answered, the scope, a progress shot,
@@ -734,13 +750,15 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
    everything. No PM-only line is drawn from it, and `Viewing as` is absent until S5 has said — but for a project S5 does
    not list, where S5's own albumRole answers `pm` (finding 11).
 4. *"`Not started` with no states read is a confident answer."* — So `not read yet` stands in the chip and in `Open:`.
+   **[Superseded by the K3 review, finding 2: the prototype's Not started, until Amit approves `not read yet` there.]**
    The empty map is used only for a project S5 does not list, where nothing can have been recorded.
 5. *"`To review` should be S5's `to_review`, which counts past the cap."* — K1b's View doc has the screen derive its own
    count, so K4's merges never leave it behind. Past the cap the `more` line says the album shows only the newest
    photos.
 6. *"Grouping a capture under Survey with no mirror contradicts FW2's `not read yet` line."* — It can, but only for a
    listed project never read on this phone. Since the project open now reads every listed project, the mirror is there
-   from the first open, and with a mirror both read `Album.quoteAt`. The header's `Work log · not read yet` marks the
+   from the first open, and with a mirror both read `Album.quoteAt`. The header's `Work log · not read yet` **[taken out
+   by the K3 review, finding 2: `Work log (0)`, the prototype's]** marks the
    case. A group must hold the photo somewhere, and the prototype's rule is the newest move at or before it, else
    Survey.
 7. *"A stale mirror's `stages` misses a move."* — `Album.quoteAt` adds the store's current stage at its stamp as one
@@ -762,6 +780,8 @@ chapter opened, one photo walked with ‹ ›; then the same under मराठ�
     anyone else (photoView `hide`).
 14. *"A thousand photos composed on the main thread."* — The mirror is parsed off it, as QV does. `compose` and
     `chapters` are linear passes over at most a thousand rows and six groups, remembered on their inputs.
+    **[Corrected by the K3 review, finding 4: they were not — chapters asked quoteAt per item per group, and the
+    page was remembered on the visit's taps, so every tap rebuilt it. Both are fixed below.]**
 15. *"K4 will have to move things."* — Each writing control has an empty slot where the prototype draws it. The state
     chip is already where its ▾ goes, and the body's end padding is already the FAB's.
 
@@ -786,6 +806,69 @@ item's quote group); `page` takes this visit's taps, which MainActivity holds so
 it was; the S5 face's file needs S5's `at`, which the mirror had been throwing away; `fetchBytes` is a suspend call, not a
 blocking one; and the duplicated auth header literals in AsIsUpload would have raised its literal ratchet (5 → 8), so
 `exchange` and `fetchBytes` share one `authorized` rule.
+
+**The K3 review (9 Nov 2026)** — six findings on 9b9f12a, each independently confirmed and all minor; all six fixed:
+
+1. *Every open work had 8 dp under its grid that the prototype does not have* — **fixed**: the `wp` spacer after a
+   work's grid is gone (`.alb59chb` has no rule and `.alb59grid` pads only its sides, 1486, so the last card meets the
+   next chapter's rule); `gp` (a quote group, `.alb59sg` 1479), `up` (the unfiled) and `wn` (`.alb60none`, 1569) keep
+   their 8 dp. Pinned by AlbumPageTest reading AlbumScreen.kt.
+2. *Album states not on the approved prototype reached batch-next* — **fixed by dropping them back to the prototype's
+   rendering** (the finding's second option) [C: an S2 UI change reaches batch-next only after Amit approves it on the
+   prototype (11 Oct 2026), and a gate written only in this file before the Play build would be a hazard written down,
+   not handled]: (a) no line for S5's `more` (`Page.more` gone); (b) the Work log is always the toggle `Work log (N)`
+   (`Log.toggleable` gone), so a listed project not read yet shows `Work log (0)` and, open, `No work state recorded
+   yet`; (c) a store copy holding no states reads Not started in every chip and `No work open yet` (`statesFor` is never
+   null, and `Album.chapters` takes non-null states and `Chapter.state` is a String again, as before K3); (d) an unknown
+   author is an empty who pill, the prototype's `esc(it.who||'')`, its TalkBack still Staff / Vendor; (e) an unread
+   stage's groups are the prototype's `cur < 0 ? i === 0` again (Survey reached, the five after it `not reached yet`,
+   none now; `reached` null only for a project S5 does not list). `album.work_log_unread` and `album.newest_x` leave
+   the tables (1,796 → 1,794, Tx regenerated with `:pano:i18nGen`); each comes back born keyed with Amit's yes. The five
+   are listed under Amit's walk above as Claude [C] deviations waiting for the prototype. What the drop-back costs,
+   recorded rather than hidden: for a copy with no states the header's project line (QuoteStage.projectLine, the project
+   screen's own) still says `Execution · not read yet` while the chips say Not started — the window between an app
+   update and the next list read, or offline; past S5's 1000 newest photos the counts are short without saying so; a
+   listed project opened offline before its first album read shows `Work log (0)`. Pinned: AlbumPageTest (the header,
+   the log, the chips, statesFor, the unread stage, `more` changing nothing on the page, the empty pill, the Marathi) and
+   AlbumTest (the unread stage's `reached`).
+3. *The who pill on an S5 capture by another login shows the raw ERP login* — **the phone's half fixed, S5's half
+   recorded**: AlbumWire.capture reads `by_name` when S5 sends it, captureRow stores it in the mirror, and compose keeps
+   S5's name for a matched capture by another login, which K3 blanked. S5's capturesOf sends `{room, capture,
+   captured_at, stage, work, by, at}` (asis.js 645-647) and asis_rooms keeps only `updated_by`, so until an S5 slice
+   stores the uploader's `full_name` with each room record and sends it as `by_name` on `captures[]`, the pill on a
+   capture by another login (or by this phone under an earlier login) shows that login where the prototype shows a
+   name. Staff only, so nothing leaks. The S5 slice is in mcft-interior-estimate and is not built here. Pinned:
+   AlbumWireTest (read, stored and read back; blank from today's S5 body) and AlbumPageTest (kept for a matched capture
+   and for an S5-only one).
+4. *Every chapter or Work log tap rebuilt the whole page on the main thread, and the quote grouping scaled with captures
+   × groups × stage moves* — **fixed**: `AlbumPage.model(…)` (the page with no tap, and the Work log's rows) is
+   remembered in MainActivity on the data alone, and `AlbumPage.page(model, toggled, logOpen)` only sets each chapter's
+   `open` and the log's rows on it, sharing the model's cards, items, walk and groups; `Album.QuoteHistory` reads,
+   parses and sorts the stage rows ONCE, and `Album.chapters` places each quote-journey item once, as the prototype's
+   chapters() does (7262) — `quoteAt` delegates to it with the same answer. Critic note 14's "linear passes" is
+   corrected above. Pinned: AlbumPageTest (the tapped page holds the model's own objects and equals the whole build for
+   the same taps; a locked chapter still takes no tap) and AlbumTest (a counting stage list: 10 reads for 10 rows and 60
+   items, where K3's grouping read 3,600; every item where quoteAt alone puts it). Not done: the model is still built in
+   composition when a mirror read lands — once per read, not per tap; building it off the main thread would need a frame
+   with no page, which the prototype has no drawing for.
+5. *Search then Back did not return to the album as it was* — **fixed**: the mirror (`heldMirror`), the kept files of
+   the phone's captures (`heldFiles`) and the chapters' `LazyListState` (`albumList`) are held in AppScreenBody ABOVE the
+   search overlay's early return; the mirror and the file map are each tagged with the key they were read under, so
+   another project's never draws (the same reset `remember(stageKey)` and `remember(proj?.key)` gave), and the list state
+   is new for each visit (the tile's tap and leaveAlbum). AlbumScreen takes `listState`. Not held: the landscape header
+   column's and the portrait Work log list's own scroll (`rememberScrollState` inside AlbumScreen), which still reset
+   after a Search. Pinned by AlbumPageTest reading MainActivity.kt and AlbumScreen.kt.
+6. *The image cache never trimmed orphaned `.part` files, and a sign-out deleted the whole cache on the main thread* —
+   **fixed**: `AlbumPage.trimmed` is the one trim rule, pure in :pano — a `.part` older than a minute goes (an orphan: a
+   temp file lives only between its write and its rename, inside its per-file lock), a younger one is neither deleted
+   nor counted, then over 256 MB the least recently drawn files until under 192 MB; a write that throws deletes its temp
+   file (PlanExport.keep's pattern); `forgetAll` clears the 404s at once and deletes the files on a Thread of its own, as
+   signOut sends its logout. No generation counter: a download landing after the forget keeps bytes S5 serves to any
+   staff member alike (the phone signs in staff only). Pinned: AlbumPageTest (the trim's cases; AlbumImages.kt read for
+   the rule, the catch and the Thread).
+
+:pano tests after the review, from the XML under pano/build/test-results/test: 824 tests, 0 failures, 0 errors, 0 skipped
+(820 before: AlbumPageTest 23 → 26, AlbumTest 66 → 67). :app is compiled only by CI; nothing has been seen on a phone.
 
 
 ### 25. M3a · Marathi: survey prep chrome (design slice 3a) — SHIPPED 3 Nov 2026 (0.3.280)

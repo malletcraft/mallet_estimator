@@ -376,7 +376,7 @@ the rooms: the header (`album.viewing_as_x` with the role through `Album.roleLab
 chapter 0 (`album.quote_journey`, `album.quote_journey_sub`, `noun.photo`, `album.no_photos_yet`, `album.not_your_work`,
 the six stages through `Masters.quote`, `album.now`, `app.since_x`, `album.not_reached`, `album.no_photos`,
 `album.unfiled`), the banner (`album.exec_lock_banner`), the sixteen works (`Masters.work`, `album.last_photo_x`, the
-state through `Masters.state` or `wish.not_read_yet`, `crkind.*`, `album.payment_x` over `album.pay_before_x` /
+state through `Masters.state` (K3 also drew `wish.not_read_yet` there; its review took it out, below), `crkind.*`, `album.payment_x` over `album.pay_before_x` /
 `album.pay_when_x`, `album.cr_raised_x`, the decided requests through `Album.decidedText`), the end line
 (`album.closes_cleaning`, `album.closed_cleaning`), the cards (`album.staff`, `common.vendor`, `album.awaiting_review`,
 `album.not_for_client`, a room through `Masters.room` else `common.whole_project`) and the viewer (`common.close`,
@@ -398,11 +398,21 @@ Marked `// text:value`: `AlbumPage.SEP` (` · `), the Work log's ` → `, S5's s
 ‹ › glyphs, `AlbumImages`' log lines and cache-file name parts. `unkeyed.tsv` is unchanged (860 lines, 828 rows):
 every new literal is keyed or a value. `literal-counts.tsv` gains the three new files at 0 (`i18nRatchet`).
 
+**The K3 review (9 Nov 2026) takes two of the three phone texts out again**, 1,796 -> 1,794 keys, Tx regenerated with
+`:pano:i18nGen`: `album.work_log_unread` (`Work log · not read yet`) and `album.newest_x` (`Showing the newest {pl}`)
+drew states the approved prototype does not have, and an S2 UI change reaches batch-next only after Amit approves it
+on the prototype (11 Oct 2026). Until he does, the album draws what the prototype draws there: `Work log (N)` over the
+rows the phone holds, and no line for S5's `more` (DESIGN-port61c.md §18, "The K3 review", finding 2, which lists them
+as proposals for the prototype, with the `not read yet` chip and `Open:`, `Staff` in an empty who pill, and an unread
+stage's groups). A key comes back with the approval, born keyed again. `wish.not_read_yet` and `album.staff` stay (other
+readers; `album.staff` is still the who pill's TalkBack label). `album.locked_until_approved` stays: it is the
+prototype's own English (7453). `unkeyed.tsv` and `ported.txt` are unchanged.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,796 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 11 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 3 in K3, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,794 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 9 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

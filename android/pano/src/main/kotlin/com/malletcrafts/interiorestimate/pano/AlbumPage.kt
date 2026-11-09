@@ -76,8 +76,10 @@ object AlbumPage {
      * - A capture only the phone holds (not sent yet, a single photo, a project S5 does not list) is the phone's alone.
      * - S5's album photos are themselves.
      * WHO (the K3 critic, finding 7): CaptureStore keeps no "taken by", so a capture S5 holds is S5's uploader (`by`,
-     * the record's updated_by), named [Me.name] when that is this login; only a capture not on S5 yet is credited to the
-     * person signed in now (the prototype's `BY[id] || ME`). Unknown is blank, which a card shows as `Staff`.
+     * the record's updated_by), named [Me.name] when that is this login, else by S5's own `by_name` for it -- which S5
+     * does not send on `captures[]` yet (an S5 slice; until it lands the card shows the login, the K3 review, finding
+     * 3); only a capture not on S5 yet is credited to the person signed in now (the prototype's `BY[id] || ME`).
+     * Unknown is blank, and the card's pill is then empty, as the prototype's `esc(it.who||'')` draws it (finding 2).
      * In time order by instant, then by [key] (the prototype's sort, 7234).
      */
     fun compose(mirror: Album.View?, local: List<Local>, me: Me): List<Photo> {
@@ -95,7 +97,7 @@ object AlbumPage {
             claimed += byId + byName + byTaken
             val m = (byId.firstOrNull() ?: byName.firstOrNull() ?: byTaken.maxByOrNull { s5[it].uploadedAt })?.let { s5[it] }
             val by = if (m != null) m.by else me.user
-            val name = if (m == null) me.name else if (isMe(m.by, me)) me.name else ""
+            val name = if (m == null) me.name else if (isMe(m.by, me)) me.name else m.byName
             out += Photo(
                 id = l.deviceId, work = Album.workOfCapture(l.work, l.stage), at = Instant.ofEpochMilli(l.createdAt).toString(),
                 party = Album.PARTY_STAFF, room = l.room.ifBlank { null }, kind = if (l.kind == Album.PHOTO_360) Album.PHOTO_360 else Album.PHOTO,
@@ -139,11 +141,13 @@ object AlbumPage {
 
     /**
      * The works' states as the album draws them: the empty map for a project S5 does not list (nothing can be recorded
-     * on a project S5 has no record of), else the store's copy -- null when it holds none in the read shape, which the
-     * album reads as `not read yet`, never as Not started (the PL review's rule: never a count it has not read).
+     * on a project S5 has no record of), else the store's copy -- and the empty map when it holds none in the read
+     * shape, which the album draws as the prototype's stateOf does with no state row: Not started, and `No work open
+     * yet` (index61c2.html 7218-7219). K3 drew `not read yet` there, a state the prototype does not have; it is Amit's
+     * to approve on the prototype first (the K3 review, finding 2), so the phone draws the prototype's until then.
      */
-    fun statesFor(line: QuoteStage.ProjectLine, cache: QuoteStage.Cache?): Map<Int, Album.WorkState>? =
-        if (notOnS5(line)) emptyMap() else cache?.states
+    fun statesFor(line: QuoteStage.ProjectLine, cache: QuoteStage.Cache?): Map<Int, Album.WorkState> =
+        if (notOnS5(line)) emptyMap() else cache?.states.orEmpty()
 
     // ---- the page ------------------------------------------------------------------------------------------
 
@@ -151,10 +155,11 @@ object AlbumPage {
     data class LogRow(val seq: Long, val head: String, val sub: String, val remark: String)
 
     /**
-     * The Work log toggle and its rows. [toggleable] false: the log is not read yet (`Work log · not read yet`), which
-     * takes no tap. [empty] is `No work state recorded yet` when it is open with no row.
+     * The Work log toggle `Work log (N)` and its rows, always a toggle, as the prototype draws it (index61c2.html 7418;
+     * K3's `Work log · not read yet` with no tap was a state the prototype does not have: the K3 review, finding 2).
+     * [empty] is `No work state recorded yet` when it is open with no row.
      */
-    data class Log(val toggle: String, val toggleable: Boolean, val open: Boolean, val rows: List<LogRow>, val empty: String?)
+    data class Log(val toggle: String, val open: Boolean, val rows: List<LogRow>, val empty: String?)
 
     /** The header (index61c2.html 7405-7423), every line optional but [open] and [line]; the result line is K4's. */
     data class Header(
@@ -196,7 +201,7 @@ object AlbumPage {
     )
 
     /**
-     * One work's chapter. [state] is the store's identity value (null: not read), [stateText] as shown; [crChip] the live
+     * One work's chapter. [state] is the store's identity value, [stateText] as shown; [crChip] the live
      * change request's kind as the chip says it; [crNote] the raise line; [decided] the answered requests, newest first.
      */
     data class WorkCh(
@@ -208,7 +213,7 @@ object AlbumPage {
         val open: Boolean,
         val now: Boolean,
         val aria: String,
-        val state: String?,
+        val state: String,
         val stateText: String,
         val stateAria: String,
         val crChip: String?,
@@ -247,7 +252,6 @@ object AlbumPage {
         val sub: String,
         val viewer: Viewer,
         val header: Header,
-        val more: String?,
         val empty: String?,
         val quote: QuoteCh,
         val banner: String?,
@@ -260,15 +264,45 @@ object AlbumPage {
     )
 
     /**
+     * The page's DATA, built once per read and kept while the visit taps (the K3 review, finding 4): [base] is the page
+     * with no tap -- every chapter at its default, the Work log folded -- and [logRows] every row the log shows when it
+     * is opened. A chapter or Work log tap is [page] (model, taps), which only sets each chapter's `open` and the log's
+     * rows on [base]: the chapters, the cards, the walk and the groups are never rebuilt for a tap.
+     */
+    class Model internal constructor(val base: Page, internal val logRows: List<LogRow>, internal val noLog: String)
+
+    /**
      * The page, from [items] ([compose]'s), the [mirror] (null: not read on this phone, or S5 does not list the project),
      * the store's [cache] and the project [line] -- the stage, its stamp and the states from the store, never from the
      * mirror file (AlbumWire.stored), the mirror's log and stage moves as history -- with this visit's taps: [toggled]
-     * the chapters whose header was tapped (n -> open), [logOpen] the Work log.
+     * the chapters whose header was tapped (n -> open), [logOpen] the Work log. [model] then [page] (model, taps), in one.
      */
     fun page(
         tx: Tx, title: String, items: List<Photo>, mirror: Album.View?, cache: QuoteStage.Cache?, line: QuoteStage.ProjectLine,
         toggled: Map<Int, Boolean> = emptyMap(), logOpen: Boolean = false,
-    ): Page {
+    ): Page = page(model(tx, title, items, mirror, cache, line), toggled, logOpen)
+
+    /**
+     * [model]'s page with this visit's taps: a chapter's `open` is its tap where it has one and is not locked (a locked
+     * chapter takes no tap), else its default; the Work log's rows when [logOpen]. Everything else is [Model.base]'s own,
+     * the same objects.
+     */
+    fun page(m: Model, toggled: Map<Int, Boolean> = emptyMap(), logOpen: Boolean = false): Page {
+        val b = m.base
+        if (toggled.isEmpty() && !logOpen) return b
+        val log = b.header.log.copy(open = logOpen, rows = if (logOpen) m.logRows else emptyList(),
+            empty = if (logOpen && m.logRows.isEmpty()) m.noLog else null)
+        return b.copy(
+            header = b.header.copy(log = log),
+            quote = toggled[0]?.let { t -> b.quote.copy(open = !b.quote.locked && t) } ?: b.quote,
+            works = b.works.map { w -> toggled[w.n]?.let { t -> w.copy(open = !w.locked && t) } ?: w },
+        )
+    }
+
+    /** The page's data with no tap of this visit ([Model]); built where the mirror, the store or the phone's captures change. */
+    fun model(
+        tx: Tx, title: String, items: List<Photo>, mirror: Album.View?, cache: QuoteStage.Cache?, line: QuoteStage.ProjectLine,
+    ): Model {
         val local = notOnS5(line)
         val v = viewer(mirror, local)
         val states = statesFor(line, cache)
@@ -278,21 +312,15 @@ object AlbumPage {
         val visible = Album.visible(v, items)
 
         // the header
-        val open = when {
-            states == null -> tx.album_open_x(works = tx.wish_not_read_yet)
-            ch.open.isEmpty() -> tx.album_no_open_work
-            else -> tx.album_open_x(works = ch.open.joinToString(SEP) { Album.workName(tx, it) })
-        }
+        val open = if (ch.open.isEmpty()) tx.album_no_open_work else tx.album_open_x(works = ch.open.joinToString(SEP) { Album.workName(tx, it) })
         val pend = if (v.role == Album.PM) Album.pending(visible).size else 0
         val crs = ch.changeRequests.size
         val stateRows = mirror?.log.orEmpty().filter { it.kind == Album.KIND_STATE && it.work != null }.sortedByDescending { it.seq }
-        val log = if (mirror == null && !local) Log(tx.album_work_log_unread, false, false, emptyList(), null)
-            else Log(tx.album_work_log_x(stateRows.size), true, logOpen,
-                if (!logOpen) emptyList() else stateRows.map { e ->
-                    LogRow(e.seq, Album.workName(tx, e.work) + ARROW + Album.stateText(tx, e.value),
-                        listOf(Album.whenOf(tx, e.at), e.byName.ifBlank { e.by }).filter { it.isNotBlank() }.joinToString(SEP), e.note)
-                },
-                if (logOpen && stateRows.isEmpty()) tx.album_no_work_log else null)
+        val logRows = stateRows.map { e ->
+            LogRow(e.seq, Album.workName(tx, e.work) + ARROW + Album.stateText(tx, e.value),
+                listOf(Album.whenOf(tx, e.at), e.byName.ifBlank { e.by }).filter { it.isNotBlank() }.joinToString(SEP), e.note)
+        }
+        val log = Log(tx.album_work_log_x(stateRows.size), false, emptyList(), null)
         val header = Header(
             viewingAs = if (roleKnown(mirror, local)) tx.album_viewing_as_x(role = Album.roleLabel(tx, v.role)) else null,
             open = open,
@@ -317,7 +345,7 @@ object AlbumPage {
             )
         }
         val now0 = q.groups.any { it.now }
-        val open0 = !q.locked && (toggled[0] ?: (q.count > 0 || now0 || local))
+        val open0 = !q.locked && (q.count > 0 || now0 || local)
         val quote = QuoteCh(
             name = tx.album_quote_journey,
             count = when { q.locked -> tx.album_not_your_work; q.count > 0 -> tx.pl_photo(q.count); else -> tx.album_no_photos_yet },
@@ -333,7 +361,7 @@ object AlbumPage {
         // chapters 1-16
         val works = ch.works.map { c ->
             val name = Album.workName(tx, c.id)
-            val shown = c.state?.let { Album.stateText(tx, it) } ?: tx.wish_not_read_yet
+            val shown = Album.stateText(tx, c.state)
             val lineW = when {
                 c.locked -> if (c.execLocked) tx.album_locked_until_approved else tx.album_not_your_work
                 c.count > 0 -> listOf(tx.pl_photo(c.count), tx.album_last_photo_x(day = Album.dayOf(tx, c.last))).joinToString(SEP)
@@ -344,7 +372,7 @@ object AlbumPage {
             val chip = c.cr?.let { (it.crKind ?: Album.CrKind.ADD).word(tx) }
             WorkCh(
                 n = c.n, id = c.id, name = name, line = lineW, locked = c.locked,
-                open = !c.locked && (toggled[c.n] ?: (c.count > 0 || now)), now = now,
+                open = !c.locked && (c.count > 0 || now), now = now,
                 aria = tx.album_aria_chapter_x(n = c.n.toString(), name = name),
                 state = c.state, stateText = shown, stateAria = tx.album_aria_state_x(work = name, state = shown),
                 crChip = chip, crAria = chip?.let { tx.album_aria_cr_kind_x(kind = it, name = name) },
@@ -362,12 +390,11 @@ object AlbumPage {
             else End(tx.album_closes_cleaning, false, null)
         val groupOf = HashMap<String, String>()
         for (g in q.groups) for (it in g.items) groupOf[key(it)] = g.stage
-        return Page(
+        return Model(Page(
             title = tx.album_title_x(title = title),
             sub = tx.album_sub_x(ch.total),
             viewer = v,
             header = header,
-            more = mirror?.takeIf { it.more }?.let { tx.album_newest_x(plN = it.photos.size) },
             empty = if (ch.total == 0) tx.album_empty else null,
             quote = quote,
             banner = if (ch.execLocked) tx.album_exec_lock_banner else null,
@@ -377,16 +404,20 @@ object AlbumPage {
             items = ch.order.associateBy { key(it) },
             cards = ch.order.associate { key(it) to card(tx, v, it) },
             groupOf = groupOf,
-        )
+        ), logRows, tx.album_no_work_log)
     }
 
     /** An item's filing as the album draws it: 0 the quote journey, one of the sixteen, else not filed to a work. */
     private fun filing(p: Photo): Int? = if (p.work == Album.QUOTE_WORK || Album.isWork(p.work)) p.work else null
 
-    /** Who a card names: a vendor's photo its vendor, else the name, else the login; unknown, `Staff` (never an empty pill). */
-    private fun whoOf(tx: Tx, p: Photo): String =
+    /**
+     * Who a card names: a vendor's photo its vendor, else the name, else the login; unknown, blank -- the prototype's
+     * `esc(it.who||'')` (index61c2.html 7366), an empty pill beside its glyph, whose TalkBack label still says Staff or
+     * Vendor ([CardLine.whoAria]). K3 wrote `Staff` / `Vendor` into it, a text the prototype does not draw there (the K3
+     * review, finding 2).
+     */
+    private fun whoOf(p: Photo): String =
         (if (p.party == Album.PARTY_VENDOR) p.vendor.orEmpty() else "").ifBlank { p.byName }.ifBlank { p.by }
-            .ifBlank { if (p.party == Album.PARTY_VENDOR) tx.common_vendor else tx.album_staff }
 
     /** The review a card's badge and the viewer's line name, never to a client: null for a staff photo and for a client. */
     private fun reviewOf(viewer: Viewer, p: Photo): String? =
@@ -402,7 +433,7 @@ object AlbumPage {
         val rv = reviewOf(viewer, p)
         return CardLine(
             key = key(p),
-            who = whoOf(tx, p),
+            who = whoOf(p),
             vendor = p.party == Album.PARTY_VENDOR,
             whoAria = if (p.party == Album.PARTY_VENDOR) tx.common_vendor else tx.album_staff,
             badge = when (rv) { Album.REVIEW_PENDING -> tx.album_awaiting_review; Album.REVIEW_INTERNAL -> tx.album_not_for_client; else -> null },
@@ -514,4 +545,43 @@ object AlbumPage {
 
     /** A capture's front face, `GET …/<room>/c/<capture>/img/front` (0006's explicit capture route), each segment encoded once by the caller. */
     fun faceImage(project: String, room: String, capture: String): List<String> = AsIsPath.image(project, room, capture, FACE)
+
+    // ---- the cache's trim: what a full folder lets go (app/AlbumImages.kt keeps the files) -----------------------
+
+    /** The JPEG cache's cap, and what a trim brings it down to (app/AlbumImages.kt, `cacheDir/album-img`). */
+    const val CACHE_CAP_BYTES = 256L * 1024 * 1024
+    const val CACHE_TRIM_TO = 192L * 1024 * 1024
+
+    /** A download's temp file: written, then renamed onto its name, inside one lock per file. */
+    const val PART = ".part" // text:value a temp file's suffix, never shown
+
+    /** A temp file this old is no download in flight (one lives only between its write and its rename) but an orphan. */
+    const val STALE_PART_MS = 60_000L
+
+    /** One file of the cache as [trimmed] reads it: its name, its size and its mtime (epoch ms, which a draw moves). */
+    data class CacheFile(val name: String, val bytes: Long, val mtime: Long)
+
+    /**
+     * The names a trim deletes from [files] at [now] (the K3 review, finding 6): every [PART] older than [STALE_PART_MS]
+     * -- the orphan of a process killed between the write and the rename, or of a write that threw -- which K3's trim
+     * neither counted nor ever removed, so up to 8 MB each sat outside the cap until sign-out; never a younger one,
+     * which is a download in flight and is not counted either. Then, while the rest is over [CACHE_CAP_BYTES], the
+     * least recently drawn files (by mtime) until it is under [CACHE_TRIM_TO].
+     */
+    fun trimmed(files: List<CacheFile>, now: Long): List<String> {
+        val out = ArrayList<String>()
+        val kept = ArrayList<CacheFile>()
+        for (f in files) {
+            if (!f.name.endsWith(PART)) kept += f
+            else if (now - f.mtime > STALE_PART_MS) out += f.name
+        }
+        var total = kept.sumOf { it.bytes }
+        if (total <= CACHE_CAP_BYTES) return out
+        for (f in kept.sortedBy { it.mtime }) {
+            if (total <= CACHE_TRIM_TO) break
+            out += f.name
+            total -= f.bytes
+        }
+        return out
+    }
 }

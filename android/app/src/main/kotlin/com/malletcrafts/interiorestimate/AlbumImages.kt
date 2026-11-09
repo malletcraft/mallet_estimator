@@ -44,8 +44,10 @@ import java.util.Collections
  * room passes NAME_MAX, as S5's own backup found), and a face re-squared by a later record PUT is a new file (finding 2).
  * An album photo's bytes are written ONCE on S5 (asis.js), so its file never goes stale.
  *
- * HOW MUCH. The folder is held to [CAP_BYTES]: after every write the files least recently drawn (by mtime, which a hit
- * moves) go until it is under [TRIM_TO]. At most two downloads run at once ([inFlight]), one per file at a time (a lock
+ * HOW MUCH. The folder is held to AlbumPage.CACHE_CAP_BYTES: after every write the files least recently drawn (by mtime,
+ * which a hit moves) go until it is under AlbumPage.CACHE_TRIM_TO, and a temp file older than a minute -- the orphan of a
+ * process killed mid-download, or of a write that threw -- goes too (AlbumPage.trimmed, the K3 review, finding 6). A write
+ * that throws deletes its own temp file. At most two downloads run at once ([inFlight]), one per file at a time (a lock
  * per name); each is CANCELLED with the card that asked for it (AsIsUpload.fetchBytes), so the cards on screen never wait
  * behind ones scrolled past. A 404 is remembered for the visit ([newVisit]): a LazyColumn composes a card again every
  * time it scrolls back, and asking S5 again each time would be a request per scroll for a picture that is not there.
@@ -53,15 +55,15 @@ import java.util.Collections
  * WHAT IS KEPT. Only S5's 200 with JPEG bytes (FF D8 FF) of at most 8 MB (S5's MAX_IMG), written to a temp file and
  * renamed. A 401 renews the S5 sign-in once, as AlbumSync does. Anything else -- no network, a 5xx, a refusal -- leaves
  * the plain block and is one Log.w; nothing here is a failure of anything. A sign-out forgets every file with the mirrors
- * ([forgetAll], from AlbumSync.forgetAll): the pictures are the album as THAT person's role saw it.
+ * ([forgetAll], from AlbumSync.forgetAll): the pictures are the album as THAT person's role saw it. The deletes run on a
+ * thread of their own, since sign-out is a tap; a download that lands after them keeps bytes S5 serves to any staff
+ * member alike (the phone signs in staff only), so no generation is counted.
  */
 object AlbumImages {
 
     private const val TAG = "AlbumImages"
     private const val DIR = "album-img"
     private const val MAX_IMG = 8 * 1024 * 1024
-    private const val CAP_BYTES = 256L * 1024 * 1024
-    private const val TRIM_TO = 192L * 1024 * 1024
 
     private val inFlight = Semaphore(2)
     private val locks = HashMap<String, Mutex>()
@@ -142,9 +144,10 @@ object AlbumImages {
             }
             withContext(Dispatchers.IO) {
                 val d = dir(context).apply { mkdirs() }
-                val tmp = File(d, f.name + ".part")
-                tmp.writeBytes(b)
-                if (!tmp.renameTo(f)) { tmp.delete(); return@withContext null }
+                val tmp = File(d, f.name + AlbumPage.PART)
+                // a write that throws (a full disk) takes its temp file with it, as PlanExport.keep does
+                val renamed = try { tmp.writeBytes(b); tmp.renameTo(f) } catch (e: Exception) { tmp.delete(); throw e }
+                if (!renamed) { tmp.delete(); return@withContext null }
                 trim(d)
                 f
             }
@@ -157,22 +160,22 @@ object AlbumImages {
         }
     }
 
-    /** The folder held to [CAP_BYTES]: the least recently drawn files go first until it is under [TRIM_TO]. */
+    /** The folder trimmed by AlbumPage.trimmed's one rule: the cap by mtime, and the temp files a minute old. */
     private fun trim(d: File) {
-        val files = d.listFiles()?.filter { it.isFile && !it.name.endsWith(".part") } ?: return
-        var total = files.sumOf { it.length() }
-        if (total <= CAP_BYTES) return
-        for (x in files.sortedBy { it.lastModified() }) {
-            if (total <= TRIM_TO) break
-            val n = x.length()
-            if (x.delete()) total -= n
-        }
+        val files = d.listFiles()?.filter { it.isFile } ?: return
+        val gone = AlbumPage.trimmed(files.map { AlbumPage.CacheFile(it.name, it.length(), it.lastModified()) }, System.currentTimeMillis()).toHashSet()
+        for (x in files) if (x.name in gone) x.delete()
     }
 
-    /** Every cached picture goes (S5Session.signOut through AlbumSync.forgetAll). Never throws. */
+    /**
+     * Every cached picture goes (S5Session.signOut through AlbumSync.forgetAll). The 404s are forgotten at once; the
+     * files are deleted OFF the main thread -- signOut is called from the UI, and the folder may hold 256 MB, hundreds
+     * of unlinks (the K3 review, finding 6) -- on a thread of its own, as signOut sends its logout. Never throws.
+     */
     fun forgetAll(context: Context) {
         missing.clear()
-        runCatching { dir(context).listFiles()?.forEach { it.delete() } }
+        val d = dir(context)
+        Thread { runCatching { d.listFiles()?.forEach { it.delete() } } }.start()
     }
 }
 
