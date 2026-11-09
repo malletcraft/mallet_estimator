@@ -4054,9 +4054,10 @@ under मराठी is exactly decision 4's — the exports, the wire, the las
    good, the CSV is an export), `FacePrep.LABEL` (FacePrepScreen:501,510,514,560 — shown, threaded through
    `Masters.surface` / `surface_tab`; :887 exportAll's caption and :916 shareCsv — exports, raw),
    `FacePrep.SIDE_NAME` (dims only), the note states (LaserTestScreen:39,54,57,71,101; AnnotateScreen:191,
-   255–256,263,265 and its status line :405; FacePrepScreen:116,126,149,154,160,163,170,174–175,436–438,536,
-   566 — every assignment becomes a Msg, every render an `invoke`), `FaceWriter`'s throw sites (begin:298,304,
-   306; single:555,561,568; decodePano:455; saveToGallery:744,747) and their FOUR catchers (MainActivity:479
+   255–256,263,265 and its status line :405; FacePrepScreen:116,125,126,149,154,160,163,170,174–175,436–438,
+   532,535,536,566 — the busy state's own sites :125/:532/:535 included (the M8 critic's finding 4); every
+   assignment becomes a Msg, every render an `invoke`), `FaceWriter`'s throw sites (begin:298,304,
+   306; single:555,561,568; decodePano:455; saveToGallery:744,747) and their FOUR catchers (MainActivity:480
    `app_msg_could_not_open_360_x`, :522 `app_msg_survey_prep_saved_not_written_x`, :860
    `app_msg_could_not_split_x`, :2699 `app_msg_could_not_save_x` — each `{why}` flips from
    `e.message.orEmpty()` to `FaceNote.line(tx, e)`; AsIsUpload:486's `fullPano` path stores a thrown message
@@ -4079,7 +4080,9 @@ gets). By family:
 - `fp.grid_settings` · `Grid settings…` · `ग्रिड सेटिंग्ज…`
 - `fp.save_photos_imagemeter` · `Save photos for ImageMeter` · `ImageMeter साठी फोटो सेव्ह करा`
 - `fp.share_measures_csv` · `Share measures (CSV)` · `मापे शेअर करा (CSV)`
-- `fp.laser_connected_tap` · `connected (tap to disconnect)` · `कनेक्ट आहे (डिस्कनेक्टसाठी टॅप करा)`
+- `fp.laser_connected_tap` · `connected (tap to disconnect)` · `कनेक्ट आहे (डिस्कनेक्टसाठी टॅप करा)` — the
+  ⋮ menu's laser row composes `tx.app_laser + " · "` (the join a value) + the state word, so `app.laser`
+  (लेझर) is CONSUMED, not re-coined (the M8 critic's finding 2)
 - `fp.room_size` · `Room size…` · `खोलीचा आकार…`
 - `fp.reset_box_corners` · `Reset box to the corners` · `चौकट पुन्हा कोपऱ्यांवर ठेवा`
 - `fp.fit_photo` · `Fit photo` · `फोटो बसवा`
@@ -4113,7 +4116,8 @@ the laser button (4):
 - `fp.connect_laser` · `Connect laser` · `लेझर कनेक्ट करा`
 - `fp.finding` · `Finding…` · `शोधत आहे…` (the More-menu's lowercase "finding…" is this key's `.lowercase()`
   — a Devanagari no-op, the cannotGo pattern; so is `app.connect`'s for "connect")
-- `fp.linking` · `Linking…` · `जोडत आहे…`
+- `fp.linking` · `Linking…` · `जोडत आहे…` (the menu's lowercase "linking…" is this key's `.lowercase()`
+  likewise — finding 2 named it beside `fp.finding`'s)
 
 the keypad sheet (4):
 - `fp.calculated_x_x_measured` · `calculated {calc} · {done}/{all} measured` ·
@@ -4179,7 +4183,10 @@ Help, the title and the share (9):
 - `fp.top_total` / `fp.right_total` / `fp.bottom_total` / `fp.left_total` · EN `Top total` / `Right total` /
   `Bottom total` / `Left total` · MR `वरची एकूण` / `उजवी एकूण` / `खालची एकूण` / `डावी एकूण` — four WHOLE keys,
   the DeleteRoute gendered idiom, never one template
-- `fp.step_face` · `step face` · `स्टेपची कडा` — the edge-piece label's fallback; the sides compose
+- `fp.step_face` · `step face` · `स्टेपची कडा` — कडा DELIBERATELY, where the shipped face word is बाजू
+  (the M8 critic's finding 6): the Dim is an edge piece and its siblings are वरची कडा / उजवी कडा …, so the
+  family word wins; if Amit's phone prefers बाजू it is a one-row card edit. The edge-piece label's fallback;
+  the sides compose
   `"E${n + 1} · "` (a value) + `edge.top_edge` / `right_edge` / `bottom_edge` / `left_edge` (consumed — their
   EN IS `SIDE_NAME.lowercase() + " edge"` byte for byte)
 - `fp.piece_x` · EN ` piece {k}` · MR ` भाग {k}` — the leading-space fragment (`sp.laser_suffix`'s shape;
@@ -4211,9 +4218,10 @@ Help, the title and the share (9):
 Tx IS regenerated (`nice -n 15 gradle :pano:i18nGen --offline`, then `nice -n 15 gradle :pano:i18nRatchet
 --offline`), never hand-edited; the regen is a no-op on Masters.kt this time (no masters.tsv row — `surface`,
 `surface_tab` and `room` already carry every identity this slice shows). **latin-ok.txt grows the Latin runs
-the new MRs carry, each with its where-list** (ImageMeter, CSV, DISTO, Insta360, faceprep, jpg; mm and D2 are
-already allowed) — TxRenderTest's leak scan refuses any other, and an entry nothing needs fails, so the list
-stays exactly what the tables use.
+the new MRs carry** — CSV, faceprep and jpg are NEW entries with where-lists, DISTO and Insta360 each gain a
+where-list entry (fp.disto_ready, refuse.fw.not_360_x_x), and ImageMeter, mm and D2 are already allowed with
+no where-list, so they gain nothing (the M8 critic's finding 4) — TxRenderTest's leak scan refuses any other,
+and an entry nothing needs fails, so the list stays exactly what the tables use.
 
 **One new :pano word-home, no shown literal, joins ported.txt — FaceNote.kt**, the PlanSave idiom byte for
 byte (M3c critic 2's reason, a third time: check (h) scans the whole of FaceWriter.kt and refuses every Tx
@@ -4253,8 +4261,10 @@ pinned, and line() must not change their null-message bytes.
   become `Msg?` — every assignment a `{ tx -> … }` lambda over the keys above, rendered at draw
   (`(busy ?: note)?.let { m -> Text(m(tx)…) }`), the M3b readingsMsg rule; `disto.onState` / `onRefused`
   hand their Msg straight to the state (the `n?.invoke(Tx.EN)` bridge and its comment leave — a note
-  describing a state moves when the state does), and the BLE-refusal literal becomes
-  `LaserNote.connectPermissionRefused`. take()'s site note snapshots its `label` from `dims(tx, …)` at say
+  describing a state moves when the state does), and the BLE-refusal literal becomes the byte-for-byte key
+  `sp.msg.bluetooth_refused` — the Msg SurveyPrepScreen:427 already shows on the SAME launcher-deny event —
+  never `LaserNote.connectPermissionRefused`, whose EN is the GATT event's different sentence (the M8
+  critic's finding 1). take()'s site note snapshots its `label` from `dims(tx, …)` at say
   time (the M3a say() rule: a 2.6 s note is not redrawn across a flip) and renders `fp_x_site_x_mm` live.
   The face words thread `Masters.surface` (top bar + " ▾", the dropdown, the no-photo fill) and
   `Masters.surface_tab` (the tabs, on `LABEL.getValue(fName).removeSuffix(" wall")` — the suffix operand
@@ -4263,8 +4273,8 @@ pinned, and line() must not change their null-message bytes.
   the words are pinned in the TABLE, not in a mapper). shareCsv takes the chooser title as a plain String
   parameter (`tx.fp_share_measures` at the call — the M3c share() idiom) and its CSV header, rows and
   EXTRA_SUBJECT stay `// text:value` (the export); exportAll's caption line likewise. The keypad digits,
-  glyphs ("←", "↶", "↷", "⋮", "✕", "⧉", "⚙", "🗑", "◉", "—", "┆", "╱", "▢", "▥", "⊡", "↔"), "$roomName ·
-  $deviceId" and the " — " / " · " joins are values.
+  glyphs ("←", "↶", "↷", "⋮", "✕", "⧉", "⚙", "🗑", "◉", "—", "⌫", "┆", "╱", "▢", "▥", "⊡", "↔"), "$roomName ·
+  $deviceId" and the " — " / " · " joins are values (⌫ joined the glyph list — the M8 critic's finding 4).
 - **FacePrepDraw.kt (no rows; the M3b "M8 owns its pill metrics" debt).** `tag` / `dimTag` pick their paint
   PER STRING: a tag with a Devanagari code point (`'ऀ'..'ॿ'`) draws in `Typeface.DEFAULT_BOLD` with
   the pill sized by the paint's own FontMetrics (ascenders and matras clear the box); every other tag keeps
@@ -4277,7 +4287,7 @@ pinned, and line() must not change their null-message bytes.
   `app.laser_test_disto_d2`, Back `app.aria.back`, Share `common.share`, the chooser `app.share_laser_log`,
   the state line's four `app.*` statics, the buttons `app.connect / disconnect / fire / laser_on / laser_off`,
   the checks note `app.checks_1_press_measure` replacing its two fragments); the BLE-refusal literal becomes
-  `LaserNote.connectPermissionRefused`. THE LOG STAYS ENGLISH WHOLE (decision 4; the page's demo-log ruling,
+  `sp.msg.bluetooth_refused` (finding 1, as on FacePrepScreen). THE LOG STAYS ENGLISH WHOLE (decision 4; the page's demo-log ruling,
   M6 critic 1): the readout "$it mm" / "— mm", the clock join, "READING … (unit code …)", "connect pressed",
   "permission refused" and the share payload's header line are `// text:value` — the card's own
   `app.connect_pressed` / `found_disto_d2_4512` (flag diagnostic-log, MR == EN) are the PAGE's demo rows and
@@ -4289,7 +4299,7 @@ pinned, and line() must not change their null-message bytes.
   the gone-image line → `ann.face_image_gone_phone`; FacesScreen's title threads `Masters.room` on
   `capture.room` (the PL-review class: a room name drawn raw today), its hint → `ann.tap_face_look`, the rows
   thread `surface_tab` with `ann.image_not_phone` / `ann.tap_to_view`. `distoNote` becomes `Msg?` with the
-  LaserNote wiring as above. THE DORMANT EDITOR'S ~39 ROWS ARE MARKED, NOT KEYED: everything behind
+  onState/onRefused wiring as above and the launcher-deny on `sp.msg.bluetooth_refused` (finding 1). THE DORMANT EDITOR'S ~39 ROWS ARE MARKED, NOT KEYED: everything behind
   `ANNOTATION_ENABLED = false` (the toolbar, the three dialogs, the drawn labels, the laser button, the
   selection hints, the counts row — "+ Measure", "Record", "What is this?", "voice note" and their kin) takes
   `// text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool);
@@ -4353,16 +4363,22 @@ Nothing.
   name, phone number or rate in the new keys — the MRs above carry none), I18nLiteralTest (a)–(d) over the
   239 removed rows and the SEVEN files joining ported.txt, (f) over every new accessor, (i) over every moved
   member — and the TYPE changes walked BY HAND because (f)/(i) cannot see them (the M3b salvage-log lesson):
-  the three note states (every reader is in the same three files, listed in "Derived from" 3 — a missed one
-  is `String?` taking a Msg, a compile error CI refuses, not a silent lambda print; no string template takes
-  any of them), dims' callers, and FaceWriter's thrown types (all four catchers are `runCatching`).
+  the three note states (every reader is in the same three files, listed in "Derived from" 3 — a missed
+  ASSIGNMENT is `String?` taking a Msg, a compile error CI refuses; the one TEMPLATE reader of a note state,
+  LaserTestScreen:101's `"\n$it"`, WOULD compile on a Msg and print the lambda, so it is rewritten in this
+  slice as `"\n" + it(tx)`, the join a value — the M8 critic's finding 3 corrected the claim that no
+  template takes any of them), dims' callers, and FaceWriter's thrown types (all four catchers are
+  `runCatching`).
   **(h) UNCHANGED**: the regions stay PlanExport, FaceWriter, SurveyExport and AsIsUpload's `fun doWork`;
-  FaceWriter's region now carries ZERO Tx mentions at all (the Tx.EN exemption stays for `drawMarks`), the
+  FaceWriter's region yields ZERO UNEXEMPT mentions (exportBuilderMentions is empty): the pinned `drawMarks`
+  `Tx.EN` and its import stay, exactly as before — M8 adds no Tx mention to the file (the M8 critic's
+  finding 5 corrected the first wording, "ZERO Tx mentions at all", which contradicted the companion). The
   companion still pins exportAll's `FacePrepDraw.draw(c, Tx.EN,` — the screen call it must NOT match is
   `draw(nc, tx,` — and `FaceNote` is none of (h)'s tokens, exactly as `PlanSave` is not.
 - The CI gate; `:app` compiles only in CI (push batch-next, wait for android-app.yml) — FacePrepScreen is the
-  largest file this port has touched and nothing here has been seen on a phone; the readers' walk against the
-  files AS THEY ARE on cdde242 is the stand-in, as every M-slice before it.
+  largest file this port has keyed WHOLE in one slice (MainActivity, at 3,700+ lines the larger file, went over
+  M2 and M6 — the M8 critic's finding 4) and nothing here has been seen on a phone; the readers' walk against
+  the files AS THEY ARE on cdde242 is the stand-in, as every M-slice before it.
 
 **What Amit sees**
 
@@ -4461,6 +4477,36 @@ untouched — no masters.tsv row) · **latin-ok.txt** + the where-listed tokens 
 re-ratcheted (every touched file's leaving rows keyed or marked in the same commit; FaceNote.kt enters at 0).
 To be built as one commit on batch-next; :pano totals from the XML under pano/build/test-results; :app
 compiles only in CI — nothing here will have been seen on a phone until Amit's one update from Play.
+
+**The M8 critic (build review, 9 Nov 2026)** — six findings on §30 as written, each checked against the
+source before the build; ALL SIX CONFIRMED and applied, in the text above and in the commit:
+1. *(major)* The BLE-refusal literal is "Bluetooth permission refused — the laser can't connect" on all
+   three screens — byte for byte `sp.msg.bluetooth_refused`'s EN, the key SurveyPrepScreen:427 already shows
+   on the SAME launcher-deny event — while `LaserNote.connectPermissionRefused` renders "Bluetooth connect
+   permission refused", a different sentence for a different event (connectGatt threw). As first planned the
+   consume would have reworded three screens and broken "every key's EN renders the current literal byte for
+   byte", with no :pano test to catch it. Fixed: the three launcher-deny sites assign
+   `{ tx -> tx.sp_msg_bluetooth_refused }`; `connectPermissionRefused` stays DistoClient's own (:219).
+2. FacePrepScreen:541's "Laser · " prefix had no stated disposal. Fixed: the row composes
+   `tx.app_laser + " · "` + the state word (`app.connect` / `fp.finding` / `fp.linking` lowercased,
+   `fp.laser_connected_tap`), `app.laser` consumed, and `fp.linking`'s `.lowercase()` is said beside
+   `fp.finding`'s.
+3. "No string template takes any of them" was false: LaserTestScreen:101 interpolated the note state into
+   `"\n$it"`, which compiles on a Msg and prints the lambda — the exact silent-print class the claim ruled
+   out. The design already rewrote that render; the CLAIM is corrected to name it as the one template reader.
+4. Enumeration fixes: the busy state's sites :125/:532/:535 join the list; MainActivity's first catcher is
+   :480, not :479; ⌫ joins the keypad glyphs; ImageMeter is already allowed ANYWHERE in latin-ok.txt (only
+   DISTO and Insta360 gain where-list entries; CSV, faceprep and jpg are new); and MainActivity (3,700+
+   lines, ported over M2 and M6) is larger than FacePrepScreen, so the size claim now reads "largest file
+   keyed WHOLE in one slice".
+5. "FaceWriter's region now carries ZERO Tx mentions at all" contradicted (h)'s companion, which FAILS if
+   the `drawMarks` `Tx.EN` leaves. Reworded: ZERO UNEXEMPT mentions — the pinned `Tx.EN` and its import
+   stay, M8 adds no Tx mention to the file.
+6. `fp.step_face` renders EN "step face" with the register's EDGE word (स्टेपची कडा) where the shipped face
+   word is बाजू — a deliberate divergence that was unstated. Now stated on the key's line and in the table's
+   note: the Dim is an edge piece among वरची कडा siblings, and Amit's phone decides.
+None refuted; finding 1 changed what was built, 2 and 6 changed the table's documentation and one
+composition, 3–5 corrected the plan's own claims.
 
 ## Progress notes recovered
 

@@ -35,7 +35,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.interiorestimate.pano.Annotation
 import com.malletcrafts.interiorestimate.pano.Handover
-import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -161,6 +162,7 @@ fun AnnotateScreen(
     onBack: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val tx = LocalTx.current
     val uri = remember { FaceFiles.findFace(context, deviceId, face) }
     val bitmap: ImageBitmap? = remember(uri) {
         uri?.let { loadBitmap(context, it)?.asImageBitmap() }
@@ -188,7 +190,7 @@ fun AnnotateScreen(
     // measure" — which is why the selection model had to come first.
     val disto = remember { DistoClient(context) }
     var distoState by remember { mutableStateOf(DistoClient.State.OFF) }
-    var distoNote by remember { mutableStateOf<String?>(null) }
+    var distoNote by remember { mutableStateOf<Msg?>(null) }
     DisposableEffect(Unit) { onDispose { disto.stop() } }
     // Android 12+ gates a BLE scan behind runtime permission; without it the
     // scan fails silently, which would look exactly like a flat meter.
@@ -202,7 +204,7 @@ fun AnnotateScreen(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
         if (granted.values.all { it }) disto.start()
-        else distoNote = "Bluetooth permission refused — the laser can't connect"
+        else distoNote = { tx -> tx.sp_msg_bluetooth_refused }
     }
 
     // --- viewport maths -------------------------------------------------
@@ -251,18 +253,18 @@ fun AnnotateScreen(
     // confirm, because the person is holding a meter and standing on site.
     // With nothing selected it is deliberately ignored rather than guessed
     // at: a number on the wrong wall is worse than no number.
-    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
-    disto.onState = { s, n -> distoState = s; distoNote = n?.invoke(Tx.EN) }
-    disto.onRefused = { why -> distoNote = why(Tx.EN) }
+    // the note state is a Msg, drawn in the language on when it is drawn (port 61c slice M8)
+    disto.onState = { s, n -> distoState = s; distoNote = n }
+    disto.onRefused = { why -> distoNote = why }
     disto.onReading = { r ->
         val s = selected
         if (s is Sel.L) {
             persist(ann.copy(lines = ann.lines.toMutableList().also {
                 if (s.i in it.indices) it[s.i] = it[s.i].copy(mm = r.mm)
             }))
-            distoNote = "Measured ${Annotation.label(r.mm, showImperial)}"
+            distoNote = { _ -> "Measured ${Annotation.label(r.mm, showImperial)}" } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         } else {
-            distoNote = "Select a measure first"
+            distoNote = { _ -> "Select a measure first" } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         }
     }
 
@@ -285,8 +287,8 @@ fun AnnotateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(Handover.FACE_LABELS[face] ?: face) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                title = { Text(Masters.surface_tab(tx, Handover.FACE_LABELS[face] ?: face)) },
+                navigationIcon = { TextButton(onClick = onBack) { Text(tx.app_aria_back) } },
                 actions = {
                     if (!ANNOTATION_ENABLED) return@TopAppBar
                     TextButton(onClick = {
@@ -294,10 +296,10 @@ fun AnnotateScreen(
                         else disto.measure()
                     }) {
                         Text(when (distoState) {
-                            DistoClient.State.OFF -> "Laser"
-                            DistoClient.State.SCANNING -> "Finding…"
-                            DistoClient.State.CONNECTING -> "Linking…"
-                            DistoClient.State.READY -> "Shoot"
+                            DistoClient.State.OFF -> "Laser" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                            DistoClient.State.SCANNING -> "Finding…" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                            DistoClient.State.CONNECTING -> "Linking…" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                            DistoClient.State.READY -> "Shoot" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         })
                     }
                     if (undo.isNotEmpty()) {
@@ -307,13 +309,13 @@ fun AnnotateScreen(
                             store.save(deviceId, face, prev)
                             selected = null
                             SyncWorker.syncNow(context)
-                        }) { Text("Undo") }
+                        }) { Text("Undo") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     }
                     FilterChip(selected = showImperial, onClick = {
                         showImperial = !showImperial
                         context.getSharedPreferences("capture", Context.MODE_PRIVATE)
                             .edit().putBoolean("imperial", showImperial).apply()
-                    }, label = { Text("m · ft") })
+                    }, label = { Text("m · ft") }) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                 })
         },
         bottomBar = {
@@ -330,16 +332,16 @@ fun AnnotateScreen(
                         persist(ann.copy(lines = ann.lines +
                             Annotation.Line(a.first, a.second, b.first, b.second, 0)))
                         selected = Sel.L(ann.lines.lastIndex)
-                    }) { Text("+ Measure") }
+                    }) { Text("+ Measure") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     Box {
                         TextButton(onClick = { openingMenu = true }) {
-                            Text("+ Opening")
+                            Text("+ Opening") // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         }
                         DropdownMenu(expanded = openingMenu,
                             onDismissRequest = { openingMenu = false }) {
                             Annotation.Kind.entries.forEach { k ->
                                 DropdownMenuItem(
-                                    text = { Text(k.label) },
+                                    text = { Text(k.label) }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                                     onClick = {
                                         openingMenu = false
                                         // Dropped over the middle of what's on
@@ -366,7 +368,7 @@ fun AnnotateScreen(
                         val i = ann.pins.lastIndex
                         selected = Sel.P(i)
                         noteFor = i
-                    }) { Text("+ Note") }
+                    }) { Text("+ Note") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     val s = selected
                     TextButton(
                         enabled = s != null,
@@ -377,7 +379,7 @@ fun AnnotateScreen(
                                 is Sel.Q -> tagFor = s.i
                                 null -> {}
                             }
-                        }) { Text(if (selected is Sel.Q) "Tag" else "Value") }
+                        }) { Text(if (selected is Sel.Q) "Tag" else "Value") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     TextButton(
                         enabled = s != null,
                         onClick = {
@@ -391,21 +393,21 @@ fun AnnotateScreen(
                                 null -> {}
                             }
                             selected = null
-                        }) { Text("Delete") }
+                        }) { Text("Delete") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                 }
             }
         }) { pad ->
         if (bitmap == null) {
-            Text("This face's image is no longer on the phone.",
+            Text(tx.ann_face_image_gone_phone,
                 Modifier.padding(pad).padding(16.dp))
             return@Scaffold
         }
         Column(Modifier.padding(pad)) {
-            Text(if (!ANNOTATION_ENABLED) "Pinch to zoom · drag to move around"
-                 else distoNote ?: when (selected) {
-                    null -> "Pinch to zoom · tap something to select it"
-                    is Sel.Q -> "Drag the 4 corners onto the opening · Tag says what it is"
-                    else -> "Drag the ends onto the wall · Value, or shoot the laser"
+            Text(if (!ANNOTATION_ENABLED) tx.ann_pinch_zoom_drag
+                 else distoNote?.invoke(tx) ?: when (selected) {
+                    null -> "Pinch to zoom · tap something to select it" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                    is Sel.Q -> "Drag the 4 corners onto the opening · Tag says what it is" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                    else -> "Drag the ends onto the wall · Value, or shoot the laser" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                 },
                 Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.bodySmall)
@@ -576,7 +578,7 @@ fun AnnotateScreen(
                         drawCircle(col, HANDLE_PX / 2f, it, style = Stroke(5f))
                     }
                     val label = Annotation.Kind.of(q.kind).label +
-                        (if (q.note.isNotBlank()) " · ${q.note.take(18)}" else "")
+                        (if (q.note.isNotBlank()) " · ${q.note.take(18)}" else "") // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     drawContext.canvas.nativeCanvas.apply {
                         val paint = android.graphics.Paint().apply {
                             textSize = 38f
@@ -607,7 +609,7 @@ fun AnnotateScreen(
                     }
                     val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
                     val text = if (l.mm > 0) Annotation.label(l.mm, showImperial)
-                               else "tap Value"
+                               else "tap Value" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     drawContext.canvas.nativeCanvas.apply {
                         val paint = android.graphics.Paint().apply {
                             textSize = 42f
@@ -635,7 +637,7 @@ fun AnnotateScreen(
                             setShadowLayer(6f, 0f, 0f, android.graphics.Color.BLACK)
                         }
                         val label = (if (p.hasAudio) "▶ " else "") +
-                            (if (p.text.isBlank()) "voice note" else p.text.take(24))
+                            (if (p.text.isBlank()) "voice note" else p.text.take(24)) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         drawText(label, at.x + 36f, at.y + 12f, paint)
                     }
                 }
@@ -753,16 +755,16 @@ private fun DimensionDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Measurement") },
+        title = { Text("Measurement") }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         text = {
             Column {
                 OutlinedTextField(value = value, onValueChange = { value = it },
-                    label = { Text("Value") }, singleLine = true)
+                    label = { Text("Value") }, singleLine = true) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                 Row {
                     Annotation.Unit.entries.forEach { u ->
                         FilterChip(selected = unit == u,
                             onClick = { unit = u },
-                            label = { Text(u.label) },
+                            label = { Text(u.label) }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                             modifier = Modifier.padding(end = 4.dp))
                     }
                 }
@@ -777,9 +779,9 @@ private fun DimensionDialog(
                 value.toDoubleOrNull()?.let { v ->
                     if (v > 0) onSave(Annotation.toMm(v, unit))
                 }
-            }) { Text("Save") }
+            }) { Text("Save") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
 }
 
 /** What an opening IS. The tag is the machine-readable part the model
@@ -795,27 +797,27 @@ private fun TagDialog(
     var note by remember { mutableStateOf(initialNote) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("What is this?") },
+        title = { Text("What is this?") }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         text = {
             Column {
                 Annotation.Kind.entries.chunked(3).forEach { row ->
                     Row {
                         row.forEach { k ->
                             FilterChip(selected = kind == k, onClick = { kind = k },
-                                label = { Text(k.label) },
+                                label = { Text(k.label) }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                                 modifier = Modifier.padding(end = 4.dp))
                         }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = note, onValueChange = { note = it },
-                    label = { Text("Note (optional)") }, singleLine = true)
+                    label = { Text("Note (optional)") }, singleLine = true) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(kind, note.trim()) }) { Text("Save") }
+            TextButton(onClick = { onSave(kind, note.trim()) }) { Text("Save") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
 }
 
 /** A note: typed, spoken, or both. Speaking exists because on site there is
@@ -848,11 +850,11 @@ private fun NoteDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Note") },
+        title = { Text("Note") }, // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         text = {
             Column {
                 OutlinedTextField(value = text, onValueChange = { text = it },
-                    label = { Text("What's here?") })
+                    label = { Text("What's here?") }) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = {
@@ -863,22 +865,22 @@ private fun NoteDialog(
                         } else {
                             askMic.launch(android.Manifest.permission.RECORD_AUDIO)
                         }
-                    }) { Text(if (recording) "Stop" else "Record") }
+                    }) { Text(if (recording) "Stop" else "Record") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     if (clip.isNotBlank() || audioUrl.isNotBlank()) {
                         TextButton(onClick = {
                             val local = VoiceNotes.file(context, clip)
                             if (clip.isNotBlank() && local.exists())
                                 VoiceNotes.play(local.absolutePath)
-                        }) { Text("Play") }
+                        }) { Text("Play") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         TextButton(onClick = {
                             if (clip.isNotBlank())
                                 VoiceNotes.file(context, clip).delete()
                             clip = ""
-                        }) { Text("Clear") }
+                        }) { Text("Clear") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                     }
                 }
                 if (recording) {
-                    Text("Recording — say what a carpenter needs to know",
+                    Text("Recording — say what a carpenter needs to know", // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -893,9 +895,9 @@ private fun NoteDialog(
                 }
                 if (text.isNotBlank() || clip.isNotBlank())
                     onSave(text.trim(), clip)
-            }) { Text("Save") }
+            }) { Text("Save") } // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }) // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
 }
 
 /** The six faces of one capture: tap to annotate. Wall faces first. */
@@ -908,16 +910,18 @@ fun FacesScreen(
     onBack: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val tx = LocalTx.current
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text("${capture.projectTitle} — ${capture.room}") },
-            navigationIcon = { TextButton(onClick = onBack) { Text("Back") } })
+            // the room through its master (the PL-review class: a name drawn raw is invisible to every literal check)
+            title = { Text(capture.projectTitle + " — " + Masters.room(tx, capture.room)) },
+            navigationIcon = { TextButton(onClick = onBack) { Text(tx.app_aria_back) } })
     }) { pad ->
         Column(Modifier.padding(pad).padding(12.dp)) {
             Text(if (ANNOTATION_ENABLED)
-                    "Annotate every wall — measured faces are what the " +
-                    "SketchUp model gets built from."
-                 else "Tap a face to look at it.",
+                    "Annotate every wall — measured faces are what the " + // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                    "SketchUp model gets built from." // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                 else tx.ann_tap_face_look,
                 style = MaterialTheme.typography.bodySmall)
             Spacer(Modifier.height(8.dp))
             FaceFiles.ORDER.forEach { face ->
@@ -929,13 +933,13 @@ fun FacesScreen(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Row(Modifier.padding(14.dp).fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(Handover.FACE_LABELS[face] ?: face)
+                        Text(Masters.surface_tab(tx, Handover.FACE_LABELS[face] ?: face))
                         Text(when {
-                            !present -> "image not on this phone"
-                            !ANNOTATION_ENABLED -> "tap to view"
-                            ann.isEmpty -> "not annotated"
-                            else -> "${ann.lines.size} lines · " +
-                                "${ann.quads.size} openings · ${ann.pins.size} notes"
+                            !present -> tx.ann_image_not_phone
+                            !ANNOTATION_ENABLED -> tx.ann_tap_to_view
+                            ann.isEmpty -> "not annotated" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                            else -> "${ann.lines.size} lines · " + // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
+                                "${ann.quads.size} openings · ${ann.pins.size} notes" // text:value dormant: behind ANNOTATION_ENABLED = false — the held annotator (ImageMeter is the tool); key it through the then-current card before the switch flips
                         }, style = MaterialTheme.typography.bodySmall)
                     }
                 }

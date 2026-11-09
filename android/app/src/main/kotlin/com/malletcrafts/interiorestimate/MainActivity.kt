@@ -75,6 +75,7 @@ import com.malletcrafts.interiorestimate.pano.CameraNote
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
+import com.malletcrafts.interiorestimate.pano.FaceNote
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.Phases
@@ -477,7 +478,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
             withContext(Dispatchers.Main) {
                 surveyLoading = false
                 r.onSuccess { surveyKept = KeptSurvey(row, title, it, size) }
-                    .onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_open_360_x(why = e.message.orEmpty()) } }
+                    .onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_open_360_x(why = FaceNote.line(tx, e)) } }
             }
         }
     }
@@ -519,7 +520,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     }
                     withContext(Dispatchers.Main) {
                         n.onSuccess { c -> lastResult = { tx -> tx.app_msg_survey_prep_saved_x(c.toString()) } }
-                            .onFailure { e -> lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = e.message.orEmpty()) } }
+                            .onFailure { e -> lastResult = { tx -> tx.app_msg_survey_prep_saved_not_written_x(why = FaceNote.line(tx, e)) } }
                     }
                 }
             },
@@ -857,7 +858,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         val path = filed.relativePath
                         lastResult = { tx -> tx.app_msg_photo_filed_x(path) }
                     }
-                }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_split_x(why = e.message.orEmpty()) } }
+                }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_split_x(why = FaceNote.line(tx, e)) } }
                 refreshQueue()
             }
         }
@@ -2696,7 +2697,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                             val count = it.faceCount.toString()
                             val path = it.relativePath
                             lastResult = { tx -> tx.app_msg_x_pictures_saved_x(v = count, v2 = path) }
-                        }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_save_x(why = e.message.orEmpty()) } }
+                        }.onFailure { e -> lastResult = { tx -> tx.app_msg_could_not_save_x(why = FaceNote.line(tx, e)) } }
                         refreshQueue()
                     }
                 }

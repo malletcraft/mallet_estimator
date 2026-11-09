@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.FacePrep
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -91,6 +93,7 @@ fun FacePrepScreen(
     startFace: String = "floor",
 ) {
     val context = LocalContext.current
+    val tx = LocalTx.current
     val scope = rememberCoroutineScope()
     val store = remember { FacePrepStore(context) }
     val room = remember { store.load(deviceId) ?: FacePrep.Room(startDims.first, startDims.second, startDims.third) }
@@ -113,7 +116,7 @@ fun FacePrepScreen(
     var sel by remember { mutableStateOf<FacePrepDraw.Sel?>(null) }
     var snapOn by remember { mutableStateOf(prefs.getBoolean("snap", false)) }
     var grid by remember { mutableStateOf(loadGrid(prefs)) }
-    var note by remember { mutableStateOf<String?>(null) }
+    var note by remember { mutableStateOf<Msg?>(null) }
     var guide by remember { mutableStateOf<Pair<FacePrep.LineGuide, DoubleArray>?>(null) }
     var boxGuide by remember { mutableStateOf<Pair<String, Double>?>(null) }
     var showRoom by remember { mutableStateOf(false) }
@@ -122,7 +125,7 @@ fun FacePrepScreen(
     var showFaces by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var showTune by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf<Msg?>(null) }
     LaunchedEffect(note) { if (note != null) { delay(2600); note = null } }
 
     // ---- the photo of this face (the square part: the caption strip is below it)
@@ -146,33 +149,35 @@ fun FacePrepScreen(
         else arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)
     }
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.all { it }) disto.start() else note = "Bluetooth permission refused — the laser can't connect"
+        if (granted.values.all { it }) disto.start() else note = { tx -> tx.sp_msg_bluetooth_refused }
     }
     fun openPick(k: String?) { pick = k; typed = ""; sheetOpen = k != null }
     fun nextDim() {
-        val nx = FacePrep.nextUnmeasured(FacePrep.dims(Tx.EN, room, face), pick)
-        if (nx != null) openPick(nx) else { openPick(null); note = "Every figure on this face is measured" }
+        val nx = FacePrep.nextUnmeasured(FacePrep.dims(tx, room, face), pick)
+        if (nx != null) openPick(nx) else { openPick(null); note = { tx -> tx.fp_every_figure_measured } }
     }
     fun take(mm: Int) {
-        val ds = FacePrep.dims(Tx.EN, room, face)
+        val ds = FacePrep.dims(tx, room, face)
         if (mode != "measure") { mode = "measure"; sel = null }
         val k = pick?.takeIf { p -> ds.any { it.key == p } } ?: FacePrep.nextUnmeasured(ds, null) ?: ds.firstOrNull()?.key
-        if (k == null) { note = "Nothing to measure on this face yet"; return }
+        if (k == null) { note = { tx -> tx.fp_nothing_measure_face_yet }; return }
         pick = k
         pushUndo(); FacePrep.setSite(room.face(face), k, mm); save()
-        note = "${ds.first { it.key == k }.label}: site $mm mm"
+        // the label is snapshotted at say time (the M3a say() rule: a 2.6 s note is not redrawn across a flip)
+        val label = ds.first { it.key == k }.label
+        note = { tx -> tx.fp_x_site_x_mm(label = label, mm = mm.toString()) }
         nextDim()
     }
     fun fire() {
         when (distoState) {
             DistoClient.State.OFF -> askBle.launch(blePerms)
             DistoClient.State.READY -> disto.measure()
-            else -> note = "The laser is still connecting…"
+            else -> note = { tx -> tx.sp_msg_laser_still_connecting }
         }
     }
-    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
-    disto.onState = { s, n -> distoState = s; if (n != null) note = n(Tx.EN) }
-    disto.onRefused = { why -> note = why(Tx.EN) }
+    // the note state is a Msg, drawn in the language on when it is drawn (port 61c slice M8)
+    disto.onState = { s, n -> distoState = s; if (n != null) note = n }
+    disto.onRefused = { why -> note = why }
     disto.onReading = { r -> take(r.mm) }
 
     // ---- viewport: fit, then zoom/pan
@@ -433,13 +438,12 @@ fun FacePrepScreen(
     fun chooseTool(m: String) {
         mode = m; sel = null; showTune = false
         if (m != "measure") { sheetOpen = false; pick = null; typed = "" }
-        else { note = when (distoState) { DistoClient.State.READY -> "Laser connected — tap a figure, then fire"
-            DistoClient.State.OFF -> "Tap a figure to give it its site figure. The yellow button connects the laser."
-            else -> "The laser is connecting…" } }
+        else { note = when (distoState) { DistoClient.State.READY -> { tx -> tx.fp_laser_tap_figure_fire }
+            DistoClient.State.OFF -> { tx -> tx.fp_tap_figure_yellow_laser }
+            else -> { tx -> tx.fp_laser_connecting } } }
     }
     rev   // read so the sheet and the tabs follow every model change
-    // Tx.EN: Face Prep's chrome is M8's, so its sheet stays English under मराठी until then (critic note 1)
-    val dsNow = FacePrep.dims(Tx.EN, room, face)
+    val dsNow = FacePrep.dims(tx, room, face)
     val sheetCur = if (mode == "measure" && sheetOpen) dsNow.firstOrNull { it.key == pick } else null
     fun switchFace(fName: String) { face = fName; sel = null; scale = 1f; off = Offset.Zero; openPick(null); showTune = false }
 
@@ -489,62 +493,62 @@ fun FacePrepScreen(
                     android.graphics.RectF(b0.x, b0.y, b0.x + b.width * k, b0.y + b.height * k), Paint(Paint.FILTER_BITMAP_FLAG))
                 nc.restore()
                 drawn.clear()
-                // Tx.EN until M8: Face Prep stays wholly English under मराठी -- no mixed screen the prototype
-                // never drew (M3b critic note 1). M8's flip is THIS argument, this call alone, never exportAll's.
-                FacePrepDraw.draw(nc, Tx.EN, room, face, boxNow(), side,
+                // THE M8 FLIP: the words drawn on the photo follow the language row (the M3b word functions,
+                // lit by this one argument). exportAll's draw(c, Tx.EN, …) stays, pinned by (h)'s companion.
+                FacePrepDraw.draw(nc, tx, room, face, boxNow(), side,
                     { x, y -> val q = imgToScreen(x, y); floatArrayOf(q.x, q.y) }, 1.2f,
                     FacePrepDraw.Opts(handles = when (mode) { "box" -> "box"; "steps" -> "steps"; "dets" -> "dets"; "lines" -> "lines"; else -> null },
                         sel = if (mode == "measure") pick?.let { FacePrepDraw.Sel("dim", key = it) } else sel,
                         grid = grid.takeIf { it.on }, guide = guide?.first, guideAt = guide?.second, boxGuide = boxGuide, dims = drawn))
             }
         }
-        if (bitmap == null) Text(if (uri == null) "No ${FacePrep.LABEL[face]} photo for this capture on this phone" else "Loading…",
+        if (bitmap == null) Text(if (uri == null) tx.fp_no_x_photo_capture_phone(Masters.surface(tx, FacePrep.LABEL.getValue(face))) else tx.sp_loading,
             Modifier.align(Alignment.Center).padding(24.dp), color = onC)
 
         // ---- top: a thin translucent app bar, then the face tabs with a status dot each
         Column(Modifier.align(Alignment.TopCenter).fillMaxWidth().background(chrome).statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                FpIconButton("←", "Back", onC) { onBack() }
+                FpIconButton("←", tx.app_aria_back, onC) { onBack() }
                 Box(Modifier.weight(1f)) {
                     Column(Modifier.clip(RoundedCornerShape(8.dp)).clickable { showFaces = true }.padding(horizontal = 4.dp, vertical = 2.dp)) {
-                        Text("${FacePrep.LABEL[face]} ▾", color = onC, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                        Text("$roomName · $deviceId", color = onC2, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(Masters.surface(tx, FacePrep.LABEL.getValue(face)) + " ▾", color = onC, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text("$roomName · $deviceId", color = onC2, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) // text:value a name and an id
                     }
                     DropdownMenu(expanded = showFaces, onDismissRequest = { showFaces = false }) {
-                        for (fName in FacePrep.FACE_ORDER) DropdownMenuItem(text = { Text(FacePrep.LABEL.getValue(fName)) },
+                        for (fName in FacePrep.FACE_ORDER) DropdownMenuItem(text = { Text(Masters.surface(tx, FacePrep.LABEL.getValue(fName))) },
                             onClick = { showFaces = false; switchFace(fName) })
                     }
                 }
-                FpIconButton("↶", "Undo", if (undo.isNotEmpty()) onC else Color(0xFF6D685D)) {
+                FpIconButton("↶", tx.sp_aria_undo, if (undo.isNotEmpty()) onC else Color(0xFF6D685D)) {
                     undo.removeLastOrNull()?.let { redo.add(room.copy()); restore(it); sel = null; save() } }
-                FpIconButton("↷", "Redo", if (redo.isNotEmpty()) onC else Color(0xFF6D685D)) {
+                FpIconButton("↷", tx.fp_redo, if (redo.isNotEmpty()) onC else Color(0xFF6D685D)) {
                     redo.removeLastOrNull()?.let { undo.add(room.copy()); restore(it); sel = null; save() } }
                 Box {
-                    FpIconButton("⋮", "More", onC) { showMenu = true }
+                    FpIconButton("⋮", tx.common_more_2, onC) { showMenu = true }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(text = { Text("Snap") }, onClick = { snapOn = !snapOn; prefs.edit().putBoolean("snap", snapOn).apply() },
+                        DropdownMenuItem(text = { Text(tx.fp_snap) }, onClick = { snapOn = !snapOn; prefs.edit().putBoolean("snap", snapOn).apply() },
                             trailingIcon = { Switch(checked = snapOn, onCheckedChange = { snapOn = it; prefs.edit().putBoolean("snap", it).apply() }) })
-                        DropdownMenuItem(text = { Text("Reference grid") }, onClick = { grid = grid.copy(on = !grid.on); saveGrid(prefs, grid) },
+                        DropdownMenuItem(text = { Text(tx.fp_reference_grid) }, onClick = { grid = grid.copy(on = !grid.on); saveGrid(prefs, grid) },
                             trailingIcon = { Switch(checked = grid.on, onCheckedChange = { grid = grid.copy(on = it); saveGrid(prefs, grid) }) })
-                        DropdownMenuItem(text = { Text("Grid settings…") }, onClick = { showMenu = false; showGrid = true })
+                        DropdownMenuItem(text = { Text(tx.fp_grid_settings) }, onClick = { showMenu = false; showGrid = true })
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Save photos for ImageMeter") }, enabled = busy == null, onClick = {
-                            showMenu = false; busy = "Saving photos…"
+                        DropdownMenuItem(text = { Text(tx.fp_save_photos_imagemeter) }, enabled = busy == null, onClick = {
+                            showMenu = false; busy = { tx -> tx.fp_saving_photos }
                             scope.launch {
                                 val n = withContext(Dispatchers.IO) { exportAll(context, deviceId, roomName, room, fovDeg) }
                                 busy = null
-                                note = if (n > 0) "Saved $n ImageMeter photos next to the faces (…-faceprep.jpg)" else "No face photos found to save"
+                                note = if (n > 0) { tx -> tx.fp_saved_x_imagemeter_photos(n.toString()) } else { tx -> tx.fp_no_face_photos_save }
                             }
                         })
-                        DropdownMenuItem(text = { Text("Share measures (CSV)") }, onClick = { showMenu = false; shareCsv(context, roomName, deviceId, room) })
+                        DropdownMenuItem(text = { Text(tx.fp_share_measures_csv) }, onClick = { showMenu = false; shareCsv(context, roomName, deviceId, room, tx.fp_share_measures) })
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Laser · " + when (distoState) { DistoClient.State.OFF -> "connect"; DistoClient.State.SCANNING -> "finding…"
-                                DistoClient.State.CONNECTING -> "linking…"; DistoClient.State.READY -> "connected (tap to disconnect)" }) },
+                        DropdownMenuItem(text = { Text(tx.app_laser + " · " + when (distoState) { DistoClient.State.OFF -> tx.app_connect.lowercase(); DistoClient.State.SCANNING -> tx.fp_finding.lowercase()
+                                DistoClient.State.CONNECTING -> tx.fp_linking.lowercase(); DistoClient.State.READY -> tx.fp_laser_connected_tap }) },
                             onClick = { showMenu = false; if (distoState == DistoClient.State.OFF) askBle.launch(blePerms) else { disto.stop(); distoState = DistoClient.State.OFF } })
-                        DropdownMenuItem(text = { Text("Room size…") }, onClick = { showMenu = false; showRoom = true })
-                        DropdownMenuItem(text = { Text("Reset box to the corners") }, onClick = { showMenu = false; pushUndo(); room.face(face).box = null; save() })
-                        DropdownMenuItem(text = { Text("Fit photo") }, onClick = { showMenu = false; scale = 1f; off = Offset.Zero })
-                        DropdownMenuItem(text = { Text("Help") }, onClick = { showMenu = false; showHelp = true })
+                        DropdownMenuItem(text = { Text(tx.fp_room_size) }, onClick = { showMenu = false; showRoom = true })
+                        DropdownMenuItem(text = { Text(tx.fp_reset_box_corners) }, onClick = { showMenu = false; pushUndo(); room.face(face).box = null; save() })
+                        DropdownMenuItem(text = { Text(tx.fp_fit_photo) }, onClick = { showMenu = false; scale = 1f; off = Offset.Zero })
+                        DropdownMenuItem(text = { Text(tx.common_help) }, onClick = { showMenu = false; showHelp = true })
                     }
                 }
             }
@@ -557,14 +561,14 @@ fun FacePrepScreen(
                         Row(Modifier.height(40.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
                             Spacer(Modifier.width(6.dp))
-                            Text(FacePrep.LABEL.getValue(fName).removeSuffix(" wall"), color = if (on) onC else onC2, fontSize = 13.5.sp, fontWeight = FontWeight.Medium)
+                            Text(Masters.surface_tab(tx, FacePrep.LABEL.getValue(fName).removeSuffix(" wall")), color = if (on) onC else onC2, fontSize = 13.5.sp, fontWeight = FontWeight.Medium) // text:value the suffix operand
                         }
                         Box(Modifier.width(36.dp).height(3.dp).background(if (on) pri else Color.Transparent))
                     }
                 }
             }
-            (busy ?: note)?.let { t ->
-                Text(t, Modifier.fillMaxWidth().background(Color(0xFF2A2823)).padding(horizontal = 12.dp, vertical = 6.dp), color = onC, fontSize = 13.sp)
+            (busy ?: note)?.let { m ->
+                Text(m(tx), Modifier.fillMaxWidth().background(Color(0xFF2A2823)).padding(horizontal = 12.dp, vertical = 6.dp), color = onC, fontSize = 13.sp)
             }
         }
 
@@ -585,13 +589,13 @@ fun FacePrepScreen(
             val ay = ((anchor?.y ?: (canvas.height - padBottom)) - barH - 14f).coerceIn(padTop, max(padTop, canvas.height - padBottom - barH))
             Row(Modifier.offset { IntOffset(ax.roundToInt(), ay.roundToInt()) }.clip(RoundedCornerShape(24.dp)).background(chrome2).padding(2.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                FpIconButton("🗑", "Delete", onC) { deleteSel() }
+                FpIconButton("🗑", tx.common_delete, onC) { deleteSel() }
                 if (whole) {
-                    FpIconButton("⧉", "Duplicate", onC) {
+                    FpIconButton("⧉", tx.common_duplicate, onC) {
                         pushUndo(); FacePrep.duplicate(f, selNow.kind, selNow.i)?.let { sel = FacePrepDraw.Sel(selNow.kind, it) }; save() }
-                    FpIconButton("⚙", "Details", onC) { showTune = true }
+                    FpIconButton("⚙", tx.app_details, onC) { showTune = true }
                 }
-                FpIconButton("✕", "Done", onC) { sel = null }
+                FpIconButton("✕", tx.common_done, onC) { sel = null }
             }
         }
 
@@ -607,20 +611,20 @@ fun FacePrepScreen(
                         .border(1.dp, if (on) pri else Color(0xFF5D584C), RoundedCornerShape(8.dp))
                         .clickable { if (mode == "steps") stepKind = k else detType = k }.padding(horizontal = 12.dp),
                         contentAlignment = Alignment.Center) {
-                        Text(lab, color = if (on) Color(0xFFFFE89A) else onC, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text(FacePrep.chipWord(tx, lab), color = if (on) Color(0xFFFFE89A) else onC, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
             Row(Modifier.clip(RoundedCornerShape(30.dp)).background(if (mode == "measure") Color(0xFF3D3412) else chrome2)
                 .height(60.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for ((m, glyph, lab) in FP_TOOLS) {
+                for ((m, glyph) in FP_TOOLS) {
                     val on = mode == m
                     Row(Modifier.height(48.dp).widthIn(min = 44.dp).clip(RoundedCornerShape(24.dp)).background(if (on) pri else Color.Transparent)
                         .clickable { chooseTool(m) }.padding(horizontal = if (on) 12.dp else 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                         Text(glyph, color = if (on) onPri else onC, fontSize = 20.sp)
-                        if (on) { Spacer(Modifier.width(6.dp)); Text(lab, color = onPri, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                        if (on) { Spacer(Modifier.width(6.dp)); Text(fpToolLabel(tx, m), color = onPri, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
                     }
                 }
             }
@@ -631,8 +635,8 @@ fun FacePrepScreen(
             horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFFFFCF2E)).clickable { fire() },
                 contentAlignment = Alignment.Center) { Text("◉", color = onPri, fontSize = 30.sp) }
-            Text(when (distoState) { DistoClient.State.READY -> "DISTO ready"; DistoClient.State.OFF -> "Connect laser"
-                DistoClient.State.SCANNING -> "Finding…"; DistoClient.State.CONNECTING -> "Linking…" },
+            Text(when (distoState) { DistoClient.State.READY -> tx.fp_disto_ready; DistoClient.State.OFF -> tx.fp_connect_laser
+                DistoClient.State.SCANNING -> tx.fp_finding; DistoClient.State.CONNECTING -> tx.fp_linking },
                 color = onC, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
         }
 
@@ -645,15 +649,15 @@ fun FacePrepScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(cur.label, color = onC, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("calculated ${cur.calc} · ${ds.count { it.site != null }}/${ds.size} measured", color = onC2, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(tx.fp_calculated_x_x_measured(calc = cur.calc.toString(), done = ds.count { it.site != null }.toString(), all = ds.size.toString()), color = onC2, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
-                    FpIconButton("✕", "Close", onC) { sheetOpen = false }
+                    FpIconButton("✕", tx.common_close, onC) { sheetOpen = false }
                 }
                 Row(Modifier.padding(top = 6.dp).fillMaxWidth().height(54.dp).border(2.dp, siteC, RoundedCornerShape(10.dp)).padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(typed.ifEmpty { cur.site?.toString() ?: "—" }, Modifier.weight(1f), color = siteC, fontSize = 26.sp,
+                    Text(typed.ifEmpty { cur.site?.toString() ?: "—" }, Modifier.weight(1f), color = siteC, fontSize = 26.sp, // text:value a figure's placeholder glyph
                         fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace)
-                    Text("mm · site", color = onC2, fontSize = 14.sp)
+                    Text(tx.fp_mm_site, color = onC2, fontSize = 14.sp)
                 }
                 for (row in listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(".", "0", "⌫")))
                     Row(Modifier.padding(top = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -664,14 +668,14 @@ fun FacePrepScreen(
                     }
                 Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Box(Modifier.weight(1.2f).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFFFCF2E)).clickable { fire() },
-                        contentAlignment = Alignment.Center) { Text("◉ Fire", color = onPri, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                        contentAlignment = Alignment.Center) { Text("◉ " + tx.app_fire, color = onPri, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) } // text:value the glyph
                     Box(Modifier.weight(0.8f).height(46.dp).clip(RoundedCornerShape(23.dp)).border(1.dp, Color(0xFF6A655A), RoundedCornerShape(23.dp))
                         .clickable { if (cur.site != null) { pushUndo(); FacePrep.clearSite(room.face(face), cur.key); save() }; typed = "" },
-                        contentAlignment = Alignment.Center) { Text("Clear", color = onC, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                        contentAlignment = Alignment.Center) { Text(tx.fp_clear, color = onC, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
                     Box(Modifier.weight(1.3f).height(46.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFF2E5C35)).clickable {
                         val mm = typed.toDoubleOrNull()?.roundToInt()
                         if (mm != null && mm > 0) take(mm) else nextDim()
-                    }, contentAlignment = Alignment.Center) { Text("✓ Save & next", color = Color(0xFFD9FFDE), fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+                    }, contentAlignment = Alignment.Center) { Text("✓ " + tx.fp_save_and_next, color = Color(0xFFD9FFDE), fontSize = 14.sp, fontWeight = FontWeight.SemiBold) } // text:value the glyph
                 }
             }
         }
@@ -681,14 +685,14 @@ fun FacePrepScreen(
         var hS by remember { mutableStateOf(room.H.toString()) }; var xS by remember { mutableStateOf(room.X.toString()) }
         var zS by remember { mutableStateOf(room.Z.toString()) }; var chS by remember { mutableStateOf(room.ch.toString()) }
         var cxS by remember { mutableStateOf(room.cx.toString()) }; var czS by remember { mutableStateOf(room.cz.toString()) }
-        AlertDialog(onDismissRequest = { showRoom = false }, title = { Text("Room box, mm") },
+        AlertDialog(onDismissRequest = { showRoom = false }, title = { Text(tx.fp_room_box_mm) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                for ((lab, v, set) in listOf(Triple("Height", hS) { s: String -> hS = s }, Triple("Width ↔ (left to right)", xS) { s: String -> xS = s },
-                    Triple("Length ↕ (front to back)", zS) { s: String -> zS = s }, Triple("Lens height", chS) { s: String -> chS = s },
-                    Triple("Camera left ↔ right of centre", cxS) { s: String -> cxS = s }, Triple("Camera back ↕ front of centre", czS) { s: String -> czS = s }))
+                for ((lab, v, set) in listOf(Triple(tx.fp_height, hS) { s: String -> hS = s }, Triple(tx.fp_width_left_right, xS) { s: String -> xS = s },
+                    Triple(tx.fp_length_front_back, zS) { s: String -> zS = s }, Triple(tx.fp_lens_height, chS) { s: String -> chS = s },
+                    Triple(tx.fp_camera_left_right_centre, cxS) { s: String -> cxS = s }, Triple(tx.fp_camera_back_front_centre, czS) { s: String -> czS = s }))
                     OutlinedTextField(v, { set(it.filter { c -> c.isDigit() || c == '-' }.take(6)) }, label = { Text(lab) }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                Text("Room sizes reshape every face. A wall's own figures (Measure) never move anything — they are kept beside the calculated ones.", style = MaterialTheme.typography.bodySmall)
+                Text(tx.fp_room_sizes_reshape, style = MaterialTheme.typography.bodySmall)
             } },
             confirmButton = { TextButton(onClick = {
                 pushUndo()
@@ -698,8 +702,8 @@ fun FacePrepScreen(
                 zS.toIntOrNull()?.takeIf { it > 300 && it != room.Z }?.let { FacePrep.roomReading(room, "Z", it) }; chS.toIntOrNull()?.takeIf { it in 300 until room.H }?.let { room.ch = it }
                 cxS.toIntOrNull()?.let { room.cx = it }; czS.toIntOrNull()?.let { room.cz = it }
                 showRoom = false; save()
-            }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { showRoom = false }) { Text("Cancel") } })
+            }) { Text(tx.app_ok) } },
+            dismissButton = { TextButton(onClick = { showRoom = false }) { Text(tx.common_cancel) } })
     }
     if (showGrid) {
         var gx by remember { mutableStateOf(grid.x.toString()) }; var gy by remember { mutableStateOf(grid.y.toString()) }
@@ -707,73 +711,72 @@ fun FacePrepScreen(
         var gsy by remember { mutableStateOf(grid.sy.toString()) }; var left by remember { mutableStateOf(grid.fromLeft) }
         var bottom by remember { mutableStateOf(grid.fromBottom) }; var labels by remember { mutableStateOf(grid.labels) }
         var alpha by remember { mutableStateOf(grid.alpha.toFloat()) }
-        AlertDialog(onDismissRequest = { showGrid = false }, title = { Text("Reference grid") },
+        AlertDialog(onDismissRequest = { showGrid = false }, title = { Text(tx.fp_reference_grid) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(gx, { gx = it.filter(Char::isDigit).take(5) }, label = { Text("Across mm") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(gx, { gx = it.filter(Char::isDigit).take(5) }, label = { Text(tx.fp_across_mm) }, singleLine = true, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(gy, { gy = it.filter(Char::isDigit).take(5) }, label = { Text("Up mm") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(gy, { gy = it.filter(Char::isDigit).take(5) }, label = { Text(tx.fp_up_mm) }, singleLine = true, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
-                OutlinedTextField(gm, { gm = it.filter(Char::isDigit).take(5) }, label = { Text("Bold every mm (0 = none)") }, singleLine = true,
+                OutlinedTextField(gm, { gm = it.filter(Char::isDigit).take(5) }, label = { Text(tx.fp_bold_every_mm) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                Row(verticalAlignment = Alignment.CenterVertically) { Text("Count across from", Modifier.weight(1f))
-                    FilterChip(selected = left, onClick = { left = true }, label = { Text("Left") }); Spacer(Modifier.width(4.dp))
-                    FilterChip(selected = !left, onClick = { left = false }, label = { Text("Right") }) }
-                Row(verticalAlignment = Alignment.CenterVertically) { Text("Count up from", Modifier.weight(1f))
-                    FilterChip(selected = bottom, onClick = { bottom = true }, label = { Text("Floor") }); Spacer(Modifier.width(4.dp))
-                    FilterChip(selected = !bottom, onClick = { bottom = false }, label = { Text("Ceiling") }) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Text(tx.fp_count_across_from, Modifier.weight(1f))
+                    FilterChip(selected = left, onClick = { left = true }, label = { Text(tx.surface_left_short) }); Spacer(Modifier.width(4.dp))
+                    FilterChip(selected = !left, onClick = { left = false }, label = { Text(tx.surface_right_short) }) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Text(tx.fp_count_up_from, Modifier.weight(1f))
+                    FilterChip(selected = bottom, onClick = { bottom = true }, label = { Text(tx.surface_floor) }); Spacer(Modifier.width(4.dp))
+                    FilterChip(selected = !bottom, onClick = { bottom = false }, label = { Text(tx.surface_ceil) }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedTextField(gsx, { gsx = it.filter { c -> c.isDigit() || c == '-' }.take(6) }, label = { Text("Shift across") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(gsx, { gsx = it.filter { c -> c.isDigit() || c == '-' }.take(6) }, label = { Text(tx.fp_shift_across) }, singleLine = true, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(gsy, { gsy = it.filter { c -> c.isDigit() || c == '-' }.take(6) }, label = { Text("Shift up") }, singleLine = true, modifier = Modifier.weight(1f),
+                    OutlinedTextField(gsy, { gsy = it.filter { c -> c.isDigit() || c == '-' }.take(6) }, label = { Text(tx.fp_shift_up) }, singleLine = true, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
-                Text("Strength", style = MaterialTheme.typography.bodySmall)
+                Text(tx.fp_strength, style = MaterialTheme.typography.bodySmall)
                 Slider(value = alpha, onValueChange = { alpha = it }, valueRange = 10f..90f)
-                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(labels, { labels = it }); Text("mm labels") }
+                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(labels, { labels = it }); Text(tx.fp_mm_labels) }
             } },
             confirmButton = { TextButton(onClick = {
                 grid = FacePrep.Grid(on = true, x = (gx.toIntOrNull() ?: 500).coerceIn(10, 5000), y = (gy.toIntOrNull() ?: 500).coerceIn(10, 5000),
                     major = (gm.toIntOrNull() ?: 0).coerceIn(0, 10000), fromLeft = left, fromBottom = bottom,
                     sx = gsx.toIntOrNull() ?: 0, sy = gsy.toIntOrNull() ?: 0, alpha = alpha.toInt(), labels = labels)
                 saveGrid(prefs, grid); showGrid = false
-            }) { Text("OK") } },
+            }) { Text(tx.app_ok) } },
             dismissButton = { Row {
-                TextButton(onClick = { grid = FacePrep.Grid(on = true); saveGrid(prefs, grid); showGrid = false }) { Text("Reset") }
-                TextButton(onClick = { showGrid = false }) { Text("Cancel") } } })
+                TextButton(onClick = { grid = FacePrep.Grid(on = true); saveGrid(prefs, grid); showGrid = false }) { Text(tx.common_reset) }
+                TextButton(onClick = { showGrid = false }) { Text(tx.common_cancel) } } })
     }
     if (showTune) {
         val f = room.face(face); val sNow = sel; val si = sNow?.i ?: -1
         AlertDialog(onDismissRequest = { showTune = false },
-            title = { Text(when (sNow?.kind) { "steps" -> "What it is"; "dets" -> "What it is"; else -> "Line" }) },
+            title = { Text(when (sNow?.kind) { "steps", "dets" -> tx.fp_what_it_is; else -> tx.common_line }) },
             text = { Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 when (sNow?.kind) {
                     "steps" -> f.steps.getOrNull(si)?.let { st -> for ((k, lab) in FacePrep.STEP_KINDS)
-                        FilterChip(selected = st.kind == k, onClick = { pushUndo(); st.kind = k; save(); showTune = false }, label = { Text(lab) }) }
+                        FilterChip(selected = st.kind == k, onClick = { pushUndo(); st.kind = k; save(); showTune = false }, label = { Text(FacePrep.chipWord(tx, lab)) }) }
                     "dets" -> f.dets.getOrNull(si)?.let { dd -> for ((k, lab) in FacePrep.DETAIL_TYPES)
-                        FilterChip(selected = dd.type == k, onClick = { pushUndo(); dd.type = k; save(); showTune = false }, label = { Text(lab) }) }
+                        FilterChip(selected = dd.type == k, onClick = { pushUndo(); dd.type = k; save(); showTune = false }, label = { Text(FacePrep.chipWord(tx, lab)) }) }
                     "line" -> f.lines.getOrNull(si)?.let { l ->
                         TextButton(onClick = {
                             val ts = listOf(0.0) + l.ts.sorted() + listOf(1.0); var kk = 0
                             for (j in 1 until ts.size - 1) if (ts[j + 1] - ts[j] > ts[kk + 1] - ts[kk]) kk = j
                             pushUndo(); l.ts.add((ts[kk] + ts[kk + 1]) / 2); save(); showTune = false
-                        }) { Text("Divide the longest piece in half") }
-                        Text("Or use Dividers and tap the line where it should be divided.", style = MaterialTheme.typography.bodySmall)
+                        }) { Text(tx.fp_divide_longest_half) }
+                        Text(tx.fp_or_dividers_tap_line, style = MaterialTheme.typography.bodySmall)
                     }
-                    else -> Text("Nothing selected.")
+                    else -> Text(tx.fp_nothing_selected)
                 }
             } },
-            confirmButton = { TextButton(onClick = { showTune = false }) { Text("Done") } })
+            confirmButton = { TextButton(onClick = { showTune = false }) { Text(tx.common_done) } })
     }
     if (showHelp) {
-        AlertDialog(onDismissRequest = { showHelp = false }, title = { Text("Face Prep") },
+        AlertDialog(onDismissRequest = { showHelp = false }, title = { Text(tx.fp_face_prep) },
             text = { Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((m, _, lab) in FP_TOOLS) Text("$lab — ${HINT.getValue(m)}", style = MaterialTheme.typography.bodySmall)
-                Text("Two fingers zoom and move the photo. Undo and redo are in the top bar; snap, grid, saving and the laser are in ⋮.",
-                    style = MaterialTheme.typography.bodySmall)
+                for ((m, _) in FP_TOOLS) Text(fpToolLabel(tx, m) + " — " + fpHint(tx, m), style = MaterialTheme.typography.bodySmall) // text:value the join
+                Text(tx.fp_two_fingers_zoom, style = MaterialTheme.typography.bodySmall)
             } },
-            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("OK") } })
+            confirmButton = { TextButton(onClick = { showHelp = false }) { Text(tx.app_ok) } })
     }
 }
 
@@ -789,18 +792,21 @@ private class GLEnd(val i: Int, val end: Int, val fresh: Boolean = false) : FpGr
 private class GLSplit(val i: Int, val j: Int) : FpGrab()
 private class GLBody(val i: Int, val t: Double, val start: DoubleArray, val a: DoubleArray, val b: DoubleArray) : FpGrab()
 
-private val HINT = mapOf(
-    "box" to "drag a corner grip or a box line onto the room's corner lines. On an elevation from the split the box is already on the corners.",
-    "steps" to "pick column, beam or other step, then drag a rectangle over the part of the face it takes away. Drag a side, a corner or the middle to adjust.",
-    "edges" to "tap a line, a door/window arrow or a box edge to divide it; drag a divider to slide it — the guide shows the mm either side.",
-    "dets" to "pick a type and drag a rectangle over it, starting at the corner its sizes are measured from. Tap one to select it: delete, duplicate, change its type.",
-    "lines" to "drag a straight line in any direction (snaps level or upright within 3°). Drag an end to stretch, drag it to move.",
-    "measure" to "tap any figure: its arrow lights up white and the keypad opens. Fire the D2 (the yellow button, or the D2's own) or type the site figure, then Save & next. The calculated figure stays; the site figure shows beside it in green and goes into the ImageMeter photo and the CSV.",
-)
+/** The six tools' hints, Help's rows (fp.hint.*): a `when(mode)` in :app — no English-byte matching, so
+ *  the words are pinned in the TABLE, not in a mapper (port 61c slice M8). */
+private fun fpHint(tx: Tx, mode: String): String = when (mode) {
+    "box" -> tx.fp_hint_box; "steps" -> tx.fp_hint_steps; "edges" -> tx.fp_hint_edges
+    "dets" -> tx.fp_hint_dets; "lines" -> tx.fp_hint_lines; else -> tx.fp_hint_measure
+}
 
-/** The one tool strip: mode, glyph, label (the approved mock-up's six tools). */
-private val FP_TOOLS = listOf(Triple("box", "▢", "Box"), Triple("steps", "▥", "Columns"), Triple("edges", "┆", "Dividers"),
-    Triple("dets", "⊡", "Details"), Triple("lines", "╱", "Line"), Triple("measure", "↔", "Measure"))
+/** The six tools' labels (the approved mock-up's words), likewise a `when(mode)` of tx reads. */
+private fun fpToolLabel(tx: Tx, mode: String): String = when (mode) {
+    "box" -> tx.fp_box; "steps" -> tx.fp_columns; "edges" -> tx.fp_dividers
+    "dets" -> tx.app_details; "lines" -> tx.common_line; else -> tx.common_measure
+}
+
+/** The one tool strip: mode, glyph (the labels are [fpToolLabel]'s, port 61c slice M8). */
+private val FP_TOOLS = listOf("box" to "▢", "steps" to "▥", "edges" to "┆", "dets" to "⊡", "lines" to "╱", "measure" to "↔")
 
 /** A round 44 dp tap target holding a glyph — the app carries no icon font, so the mock-up's icons are characters. */
 @Composable
@@ -884,7 +890,7 @@ private fun exportAll(context: Context, deviceId: String, roomName: String, room
         val (w, h) = FacePrep.faceDims(room, face)
         val band = (out.width * 0.03f)
         c.drawRect(0f, out.height - band, out.width.toFloat(), out.height.toFloat(), Paint().apply { color = 0xCC0F0E0C.toInt() })
-        c.drawText("$roomName · ${FacePrep.LABEL[face]} · face ${w}×${h} mm · mm scaled, Disto is the real figure", band * 0.5f, out.height - band * 0.32f,
+        c.drawText("$roomName · ${FacePrep.LABEL[face]} · face ${w}×${h} mm · mm scaled, Disto is the real figure", band * 0.5f, out.height - band * 0.32f, // text:value the ImageMeter caption (decision 4)
             Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFF1EDE6.toInt(); textSize = band * 0.5f; typeface = android.graphics.Typeface.MONOSPACE })
         if (saveNextTo(context, uri, Handover.filename(deviceId, FacePrep.panoFace(face)).removeSuffix(".jpg") + "-faceprep.jpg", out)) n++
         out.recycle(); src.recycle()
@@ -908,12 +914,14 @@ private fun saveNextTo(context: Context, faceUri: Uri, name: String, bmp: Bitmap
     true
 }.getOrDefault(false)
 
-/** The measures, every face, as CSV text handed to the share sheet (Drive, WhatsApp, mail). */
-private fun shareCsv(context: Context, roomName: String, deviceId: String, room: FacePrep.Room) {
+/** The measures, every face, as CSV text handed to the share sheet (Drive, WhatsApp, mail). The CSV is an
+ *  export and stays English (decision 4); only [chooserTitle] — Android's transient UI — is the caller's
+ *  language (the M3c share() idiom, port 61c slice M8). */
+private fun shareCsv(context: Context, roomName: String, deviceId: String, room: FacePrep.Room, chooserTitle: String) {
     fun cell(s: String) = if (s.any { it == ',' || it == '"' || it == '\n' }) "\"" + s.replace("\"", "\"\"") + "\"" else s
-    val rows = mutableListOf("Room,Face,Measure,Calculated mm,Site mm")
+    val rows = mutableListOf("Room,Face,Measure,Calculated mm,Site mm") // text:value the CSV header (decision 4)
     for (face in FacePrep.FACE_ORDER) for ((m, calc, site) in FacePrep.csvRows(room, face))
         rows.add(listOf(roomName, FacePrep.LABEL.getValue(face), m, calc.toString(), site).joinToString(",") { cell(it) })
     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
-        .putExtra(Intent.EXTRA_SUBJECT, "$roomName measures ($deviceId)").putExtra(Intent.EXTRA_TEXT, rows.joinToString("\n")), "Share measures"))
+        .putExtra(Intent.EXTRA_SUBJECT, "$roomName measures ($deviceId)").putExtra(Intent.EXTRA_TEXT, rows.joinToString("\n")), chooserTitle)) // text:value the export's subject (decision 4)
 }

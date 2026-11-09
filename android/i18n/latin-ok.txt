@@ -13,7 +13,7 @@ in	app.checks_1_press_measure
 MB	app.remove_local_copy_x
 
 ## Product, platform and file-format names
-DISTO	app.laser_test_disto_d2,sp.laser.no_disto_found,sp.laser.not_a_disto
+DISTO	app.laser_test_disto_d2,sp.laser.no_disto_found,sp.laser.not_a_disto,fp.disto_ready
 D2
 Leica	tour.existing.11.body
 X3
@@ -25,9 +25,10 @@ PDF
 PNG	tour.vendor.11.body
 JPEG	tour.vendor.11.body
 SVG	export.svg_exactly_one_drawing
+CSV	fp.share_measures_csv,fp.hint.measure
 A4
 Downloads	common.save_downloads,sp.msg.saved_x_downloads,export.msg.downloads_refused_x,export.msg.could_not_write_x
-Insta360	app.x3.connect_error_x
+Insta360	app.x3.connect_error_x,refuse.fw.not_360_x_x
 HTTP	app.download_http_x
 
 ## The suite's own codes and abbreviations
@@ -94,6 +95,8 @@ Access	app.generate_both_your_user
 
 ## A file-name suffix
 plan	sp.plan
+faceprep	fp.saved_x_imagemeter_photos
+jpg	fp.saved_x_imagemeter_photos
 
 ## Months stay English, Jan–Dec (decision 3 of 21 Oct)
 Jan	date.month.*

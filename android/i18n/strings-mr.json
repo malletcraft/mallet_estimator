@@ -288,6 +288,26 @@
  "album.work_log_x": {
   "mr": "कामांची नोंद ({n})"
  },
+ "ann.face_image_gone_phone": {
+  "mr": "या बाजूचा फोटो आता या फोनवर नाही.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "ann.image_not_phone": {
+  "mr": "फोटो या फोनवर नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "ann.pinch_zoom_drag": {
+  "mr": "दोन बोटांनी झूम करा · सरकवण्यासाठी ड्रॅग करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "ann.tap_face_look": {
+  "mr": "बाजूवर टॅप करून ती पाहा.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "ann.tap_to_view": {
+  "mr": "पाहण्यासाठी टॅप करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "app.360_no_longer_phone": {
   "mr": "360 आता या फोनवर नाही · कारणासाठी टॅप करा"
  },
@@ -2483,9 +2503,285 @@
   "mr": "· {waiting} Claude च्या वाचनाची वाट",
   "note": "prototype-only — no APK equivalent"
  },
+ "fp.across_mm": {
+  "mr": "आडवे mm",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.bold_every_mm": {
+  "mr": "दर इतक्या mm ला ठळक (0 = नाही)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.bottom_total": {
+  "mr": "खालची एकूण",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.box": {
+  "mr": "चौकट",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.calculated_x_x_measured": {
+  "mr": "हिशोबाने {calc} · {done}/{all} मोजले",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.camera_back_front_centre": {
+  "mr": "कॅमेरा मध्यापासून मागे ↕ पुढे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.camera_left_right_centre": {
+  "mr": "कॅमेरा मध्यापासून डावीकडे ↔ उजवीकडे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.clear": {
+  "mr": "काढा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.columns": {
+  "mr": "कॉलम",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.connect_laser": {
+  "mr": "लेझर कनेक्ट करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.count_across_from": {
+  "mr": "आडवे कुठून मोजायचे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.count_up_from": {
+  "mr": "उभे कुठून मोजायचे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.disto_ready": {
+  "mr": "DISTO तयार",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.divide_longest_half": {
+  "mr": "सगळ्यात लांब भागाचे दोन समान भाग करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.dividers": {
+  "mr": "डिव्हायडर",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.electrical_point": {
+  "mr": "इलेक्ट्रिक पॉइंट",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.every_figure_measured": {
+  "mr": "या बाजूवरचा प्रत्येक आकडा मोजून झाला",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.face_prep": {
+  "mr": "बाजूंची तयारी",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. If Amit's phone prefers the spoken फेस प्रेप, it is a one-row card edit"
+ },
+ "fp.finding": {
+  "mr": "शोधत आहे…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.fit_photo": {
+  "mr": "फोटो बसवा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.grid_settings": {
+  "mr": "ग्रिड सेटिंग्ज…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.height": {
+  "mr": "उंची",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.box": {
+  "mr": "कोपऱ्याचा ग्रिप किंवा चौकटीची रेषा ओढून खोलीच्या कोपऱ्याच्या रेषांवर ठेवा. स्प्लिटने बनलेल्या एलिव्हेशनवर चौकट आधीच कोपऱ्यांवर असते.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.dets": {
+  "mr": "प्रकार निवडा आणि त्यावर आयत ओढा — जिथून मापे मोजली जातात त्या कोपऱ्यापासून सुरुवात करा. निवडण्यासाठी टॅप करा: हटवा, प्रत बनवा, प्रकार बदला.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.edges": {
+  "mr": "रेषा, दरवाजा/खिडकीचा बाण किंवा चौकटीची कड विभागण्यासाठी त्यावर टॅप करा; डिव्हायडर सरकवण्यासाठी ओढा — गाईड दोन्ही बाजूंचे mm दाखवते.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.lines": {
+  "mr": "कोणत्याही दिशेने सरळ रेषा ओढा (3° च्या आत आडवी किंवा उभी स्नॅप होते). ताणण्यासाठी टोक ओढा, हलवण्यासाठी रेषा ओढा.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.measure": {
+  "mr": "कोणत्याही आकड्यावर टॅप करा: त्याचा बाण पांढरा होतो आणि कीपॅड उघडतो. D2 फायर करा (पिवळे बटण, किंवा D2 चे स्वतःचे) किंवा साइटचा आकडा टाइप करा, मग सेव्ह आणि पुढचा. हिशोबाचा आकडा राहतोच; साइटचा आकडा शेजारी हिरव्या रंगात दिसतो आणि ImageMeter फोटोत व CSV मध्ये जातो.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.hint.steps": {
+  "mr": "कॉलम, बीम किंवा इतर निवडा, मग बाजूचा जो भाग तो व्यापतो त्यावर आयत ओढा. जुळवण्यासाठी कड, कोपरा किंवा मधला भाग ओढा.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.laser_connected_tap": {
+  "mr": "कनेक्ट आहे (डिस्कनेक्टसाठी टॅप करा)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.laser_connecting": {
+  "mr": "लेझर कनेक्ट होत आहे…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.laser_tap_figure_fire": {
+  "mr": "लेझर कनेक्ट झाला — आकड्यावर टॅप करा, मग फायर करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.left_total": {
+  "mr": "डावी एकूण",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.length_front_back": {
+  "mr": "लांबी ↕ (समोरून मागे)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.lens_height": {
+  "mr": "लेन्सची उंची",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.linking": {
+  "mr": "जोडत आहे…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.mm_labels": {
+  "mr": "mm आकडे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.mm_site": {
+  "mr": "mm · साइट",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.no_face_photos_save": {
+  "mr": "सेव्ह करायला बाजूंचे फोटो मिळाले नाहीत",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.no_x_photo_capture_phone": {
+  "mr": "{face}: या कॅप्चरचा फोटो या फोनवर नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.nothing_measure_face_yet": {
+  "mr": "या बाजूवर मोजायला अजून काही नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.nothing_selected": {
+  "mr": "काहीही निवडलेले नाही.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.or_dividers_tap_line": {
+  "mr": "किंवा डिव्हायडर वापरा आणि जिथे भाग पाडायचा तिथे रेषेवर टॅप करा.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.other_step": {
+  "mr": "इतर",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.piece_x": {
+  "mr": " भाग {k}",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.redo": {
+  "mr": "पुन्हा करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.reference_grid": {
+  "mr": "संदर्भ ग्रिड",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.reset_box_corners": {
+  "mr": "चौकट पुन्हा कोपऱ्यांवर ठेवा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.right_total": {
+  "mr": "उजवी एकूण",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.room_box_mm": {
+  "mr": "खोलीची चौकट, mm",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.room_size": {
+  "mr": "खोलीचा आकार…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.room_sizes_reshape": {
+  "mr": "खोलीच्या मापांनी प्रत्येक बाजू नव्याने आखली जाते. भिंतीचे स्वतःचे आकडे (मोजा) काहीही हलवत नाहीत — ते हिशोबाच्या आकड्यांशेजारीच राहतात.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.save_and_next": {
+  "mr": "सेव्ह आणि पुढचा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.save_photos_imagemeter": {
+  "mr": "ImageMeter साठी फोटो सेव्ह करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.saved_x_imagemeter_photos": {
+  "mr": "ImageMeter साठी {n} फोटो बाजूंच्या शेजारी सेव्ह केले (…-faceprep.jpg)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.saving_photos": {
+  "mr": "फोटो सेव्ह होत आहेत…",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.share_measures": {
+  "mr": "मापे शेअर करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.share_measures_csv": {
+  "mr": "मापे शेअर करा (CSV)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.shift_across": {
+  "mr": "आडवे सरकवा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.shift_up": {
+  "mr": "उभे सरकवा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.snap": {
+  "mr": "स्नॅप",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.step_face": {
+  "mr": "स्टेपची कडा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. कडा deliberately, where the shipped face word is बाजू: the Dim is an edge piece and its siblings are वरची कडा / उजवी कडा … (the edge.* family); Amit's phone decides"
+ },
+ "fp.strength": {
+  "mr": "गडदपणा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.tap_figure_yellow_laser": {
+  "mr": "आकड्यावर टॅप करा म्हणजे त्याला साइटचा आकडा देता येईल. पिवळे बटण लेझर कनेक्ट करते.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.top_total": {
+  "mr": "वरची एकूण",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.two_fingers_zoom": {
+  "mr": "दोन बोटांनी फोटो झूम आणि सरकवता येतो. मागे घ्या / पुन्हा करा टॉप बारमध्ये; स्नॅप, ग्रिड, सेव्ह आणि लेझर ⋮ मध्ये.",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.up_mm": {
+  "mr": "उभे mm",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.what_it_is": {
+  "mr": "हे काय आहे",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "fp.width_left_right": {
+  "mr": "रुंदी ↔ (डावीकडून उजवीकडे)",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "fp.x_plan_x_deep": {
   "mr": "{name} · {plate} · {d} mm डेप्थ",
   "note": "M3b: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone. depth = डेप्थ (what staff say); खोल/खोली would read as 'room' on these screens — the M3b critic's finding 1"
+ },
+ "fp.x_site_x_mm": {
+  "mr": "{label}: साइट {mm} mm",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "fp.x_wall_corrected_x": {
   "mr": "{name} · {wall} · {d} mm डेप्थ धरून दुरुस्त",
@@ -3367,6 +3663,34 @@
  "refuse.fb.feedback_needs_published_page": {
   "mr": "फीडबॅकसाठी प्रकाशित पान लागते (इथे उपलब्ध नाही)",
   "note": "prototype-only — no APK equivalent"
+ },
+ "refuse.fw.could_not_decode_photo": {
+  "mr": "फोटो वाचता आला नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.could_not_decode_selected": {
+  "mr": "निवडलेला फोटो वाचता आला नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.could_not_open_photo": {
+  "mr": "निवडलेला फोटो उघडता आला नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.could_not_write_gallery": {
+  "mr": "गॅलरीत लिहिता आले नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.gallery_refused": {
+  "mr": "गॅलरीने फाइल नाकारली",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.not_360_x_x": {
+  "mr": "360 फोटो नाही ({w}×{h} म्हणजे 2:1 नाही) — आधी Insta360 अ‍ॅपमधून 360 एक्सपोर्ट करा",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
+ "refuse.fw.not_decodable": {
+  "mr": "ही इमेज वाचता येत नाही",
+  "note": "M8: Marathi written by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "refuse.life.finish_survey_first_stage": {
   "mr": "आधी सर्व्हे पूर्ण करा — S5 वर टप्पा \"ग्राहकाची इच्छा-यादी\" वर जातो"

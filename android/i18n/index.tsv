@@ -97,6 +97,11 @@ album.which_room	album_which_room	static	-
 album.which_work	album_which_work	static	-
 album.work_caps	album_work_caps	static	-
 album.work_log_x	album_work_log_x	template	n: Int
+ann.face_image_gone_phone	ann_face_image_gone_phone	static	-
+ann.image_not_phone	ann_image_not_phone	static	-
+ann.pinch_zoom_drag	ann_pinch_zoom_drag	static	-
+ann.tap_face_look	ann_tap_face_look	static	-
+ann.tap_to_view	ann_tap_to_view	static	-
 app.360_no_longer_phone	app_360_no_longer_phone	static	-
 app.360_not_phone_removed	app_360_not_phone_removed	static	-
 app.360_photo_capture_was	app_360_photo_capture_was	static	-
@@ -785,7 +790,76 @@ fb.sent_claude_waiting_read	-	skipped	fb (the prototype's feedback panel)
 fb.use_png_jpeg_webp	-	skipped	fb (the prototype's feedback panel)
 fb.x_screenshots_ready	-	skipped	fb (the prototype's feedback panel)
 fb.x_waiting_claude	-	skipped	fb (the prototype's feedback panel)
+fp.across_mm	fp_across_mm	static	-
+fp.bold_every_mm	fp_bold_every_mm	static	-
+fp.bottom_total	fp_bottom_total	static	-
+fp.box	fp_box	static	-
+fp.calculated_x_x_measured	fp_calculated_x_x_measured	template	calc: String · done: String · all: String
+fp.camera_back_front_centre	fp_camera_back_front_centre	static	-
+fp.camera_left_right_centre	fp_camera_left_right_centre	static	-
+fp.clear	fp_clear	static	-
+fp.columns	fp_columns	static	-
+fp.connect_laser	fp_connect_laser	static	-
+fp.count_across_from	fp_count_across_from	static	-
+fp.count_up_from	fp_count_up_from	static	-
+fp.disto_ready	fp_disto_ready	static	-
+fp.divide_longest_half	fp_divide_longest_half	static	-
+fp.dividers	fp_dividers	static	-
+fp.electrical_point	fp_electrical_point	static	-
+fp.every_figure_measured	fp_every_figure_measured	static	-
+fp.face_prep	fp_face_prep	static	-
+fp.finding	fp_finding	static	-
+fp.fit_photo	fp_fit_photo	static	-
+fp.grid_settings	fp_grid_settings	static	-
+fp.height	fp_height	static	-
+fp.hint.box	fp_hint_box	static	-
+fp.hint.dets	fp_hint_dets	static	-
+fp.hint.edges	fp_hint_edges	static	-
+fp.hint.lines	fp_hint_lines	static	-
+fp.hint.measure	fp_hint_measure	static	-
+fp.hint.steps	fp_hint_steps	static	-
+fp.laser_connected_tap	fp_laser_connected_tap	static	-
+fp.laser_connecting	fp_laser_connecting	static	-
+fp.laser_tap_figure_fire	fp_laser_tap_figure_fire	static	-
+fp.left_total	fp_left_total	static	-
+fp.length_front_back	fp_length_front_back	static	-
+fp.lens_height	fp_lens_height	static	-
+fp.linking	fp_linking	static	-
+fp.mm_labels	fp_mm_labels	static	-
+fp.mm_site	fp_mm_site	static	-
+fp.no_face_photos_save	fp_no_face_photos_save	static	-
+fp.no_x_photo_capture_phone	fp_no_x_photo_capture_phone	template	face: String
+fp.nothing_measure_face_yet	fp_nothing_measure_face_yet	static	-
+fp.nothing_selected	fp_nothing_selected	static	-
+fp.or_dividers_tap_line	fp_or_dividers_tap_line	static	-
+fp.other_step	fp_other_step	static	-
+fp.piece_x	fp_piece_x	template	k: String
+fp.redo	fp_redo	static	-
+fp.reference_grid	fp_reference_grid	static	-
+fp.reset_box_corners	fp_reset_box_corners	static	-
+fp.right_total	fp_right_total	static	-
+fp.room_box_mm	fp_room_box_mm	static	-
+fp.room_size	fp_room_size	static	-
+fp.room_sizes_reshape	fp_room_sizes_reshape	static	-
+fp.save_and_next	fp_save_and_next	static	-
+fp.save_photos_imagemeter	fp_save_photos_imagemeter	static	-
+fp.saved_x_imagemeter_photos	fp_saved_x_imagemeter_photos	template	n: String
+fp.saving_photos	fp_saving_photos	static	-
+fp.share_measures	fp_share_measures	static	-
+fp.share_measures_csv	fp_share_measures_csv	static	-
+fp.shift_across	fp_shift_across	static	-
+fp.shift_up	fp_shift_up	static	-
+fp.snap	fp_snap	static	-
+fp.step_face	fp_step_face	static	-
+fp.strength	fp_strength	static	-
+fp.tap_figure_yellow_laser	fp_tap_figure_yellow_laser	static	-
+fp.top_total	fp_top_total	static	-
+fp.two_fingers_zoom	fp_two_fingers_zoom	static	-
+fp.up_mm	fp_up_mm	static	-
+fp.what_it_is	fp_what_it_is	static	-
+fp.width_left_right	fp_width_left_right	static	-
 fp.x_plan_x_deep	fp_x_plan_x_deep	template	name: String · plate: String · d: String
+fp.x_site_x_mm	fp_x_site_x_mm	template	label: String · mm: String
 fp.x_wall_corrected_x	fp_x_wall_corrected_x	template	name: String · wall: String · d: String
 fp.x_wall_depth_unknown	fp_x_wall_depth_unknown	template	name: String · wall: String
 help.each_tour_opens_demo	help_each_tour_opens_demo	static	-
@@ -1047,6 +1121,13 @@ refuse.export.drawing_not_available	refuse_export_drawing_not_available	static	-
 refuse.export.nothing_export_no_marks	refuse_export_nothing_export_no_marks	static	-
 refuse.export.phone_saves_x_downloads	-	skipped	prototype-only
 refuse.fb.feedback_needs_published_page	-	skipped	prototype-only
+refuse.fw.could_not_decode_photo	refuse_fw_could_not_decode_photo	static	-
+refuse.fw.could_not_decode_selected	refuse_fw_could_not_decode_selected	static	-
+refuse.fw.could_not_open_photo	refuse_fw_could_not_open_photo	static	-
+refuse.fw.could_not_write_gallery	refuse_fw_could_not_write_gallery	static	-
+refuse.fw.gallery_refused	refuse_fw_gallery_refused	static	-
+refuse.fw.not_360_x_x	refuse_fw_not_360_x_x	template	w: String · h: String
+refuse.fw.not_decodable	refuse_fw_not_decodable	static	-
 refuse.life.finish_survey_first_stage	refuse_life_finish_survey_first_stage	static	-
 refuse.life.no_move	refuse_life_no_move	static	-
 refuse.life.note_needs_words_type	refuse_life_note_needs_words_type	static	-

@@ -73,7 +73,8 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	0
-pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FaceNote.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4

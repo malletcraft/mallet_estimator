@@ -781,6 +781,56 @@
    "n": "log.length"
   }
  },
+ "ann.face_image_gone_phone": {
+  "en": "This face's image is no longer on the phone.",
+  "where": [
+   "S2 APK phone text · AnnotateScreen.kt at cdde242+M8 · Face viewer · the viewer's empty state when the face image left MediaStore · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "ann.image_not_phone": {
+  "en": "image not on this phone",
+  "where": [
+   "S2 APK phone text · AnnotateScreen.kt FacesScreen at cdde242+M8 · Face viewer · a face row whose image left MediaStore · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "ann.pinch_zoom_drag": {
+  "en": "Pinch to zoom · drag to move around",
+  "where": [
+   "S2 APK phone text · AnnotateScreen.kt at cdde242+M8 · Face viewer · the viewer's hint line while the annotator stays held (the app.pinch_zoom_double_tap register) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "ann.tap_face_look": {
+  "en": "Tap a face to look at it.",
+  "where": [
+   "S2 APK phone text · AnnotateScreen.kt FacesScreen at cdde242+M8 · Face viewer · the faces list's hint while the annotator stays held · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "ann.tap_to_view": {
+  "en": "tap to view",
+  "where": [
+   "S2 APK phone text · AnnotateScreen.kt FacesScreen at cdde242+M8 · Face viewer · a face row's action word while the annotator stays held · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "app.360_no_longer_phone": {
   "en": "The 360 is no longer on this phone · tap for why",
   "where": "v53build/app.js:525 · kept",
@@ -6367,6 +6417,700 @@
    "prototype-only"
   ]
  },
+ "fp.across_mm": {
+  "en": "Across mm",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's across spacing field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.bold_every_mm": {
+  "en": "Bold every mm (0 = none)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's major field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.bottom_total": {
+  "en": "Bottom total",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the bottom side's total dimension label · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.box": {
+  "en": "Box",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the tool strip's first tool: the tool aligns the measured frame, sp.msg.d2_x_ref_left's own word · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.calculated_x_x_measured": {
+  "en": "calculated {calc} · {done}/{all} measured",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the keypad sheet's sub-line · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "calc": "the calculated figure, whole mm digits",
+   "done": "how many have a site figure, digits",
+   "all": "how many dimensions the face has, digits"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.camera_back_front_centre": {
+  "en": "Camera back ↕ front of centre",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's camera z field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.camera_left_right_centre": {
+  "en": "Camera left ↔ right of centre",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's camera x field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.clear": {
+  "en": "Clear",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the keypad sheet's clear button: removes ONE site figure (the register's cleared-items word), not sp.clear_surface's रिकामा करा, which empties a surface · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.columns": {
+  "en": "Columns",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the tool strip's steps tool · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.connect_laser": {
+  "en": "Connect laser",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the big laser button's off word · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.count_across_from": {
+  "en": "Count across from",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's across corner row; the chips are surface.left.short / surface.right.short · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.count_up_from": {
+  "en": "Count up from",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's up corner row; the chips are surface.floor / surface.ceil · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.disto_ready": {
+  "en": "DISTO ready",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the big laser button's ready word; the device name stays Latin · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.divide_longest_half": {
+  "en": "Divide the longest piece in half",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the selection dialog's line action · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.dividers": {
+  "en": "Dividers",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the tool strip's dividers tool · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.electrical_point": {
+  "en": "Electrical point",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the details chip; a near-match pair of type.e (Electric point), the card's own idiom · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.every_figure_measured": {
+  "en": "Every figure on this face is measured",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the note when next-unmeasured wraps and finds nothing · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.face_prep": {
+  "en": "Face Prep",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the help dialog's title: the common.survey_prep register (सर्व्हे तयारी), a translation, not a transliteration — the screen prepares the capture's faces · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.finding": {
+  "en": "Finding…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the big laser button while scanning; the ⋮ menu's lowercase finding… is this key's .lowercase(), a Devanagari no-op · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.fit_photo": {
+  "en": "Fit photo",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's fit row; fit = बसवा (sp.fit's register) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.grid_settings": {
+  "en": "Grid settings…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu row that opens the grid dialog · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.height": {
+  "en": "Height",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's height field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.box": {
+  "en": "drag a corner grip or a box line onto the room's corner lines. On an elevation from the split the box is already on the corners.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Box hint, in Help after the tool's label · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.dets": {
+  "en": "pick a type and drag a rectangle over it, starting at the corner its sizes are measured from. Tap one to select it: delete, duplicate, change its type.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Details hint, in Help · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.edges": {
+  "en": "tap a line, a door/window arrow or a box edge to divide it; drag a divider to slide it — the guide shows the mm either side.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Dividers hint, in Help · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.lines": {
+  "en": "drag a straight line in any direction (snaps level or upright within 3°). Drag an end to stretch, drag it to move.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Line hint, in Help · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.measure": {
+  "en": "tap any figure: its arrow lights up white and the keypad opens. Fire the D2 (the yellow button, or the D2's own) or type the site figure, then Save & next. The calculated figure stays; the site figure shows beside it in green and goes into the ImageMeter photo and the CSV.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Measure hint, in Help · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.hint.steps": {
+  "en": "pick column, beam or other step, then drag a rectangle over the part of the face it takes away. Drag a side, a corner or the middle to adjust.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Columns hint, in Help · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.laser_connected_tap": {
+  "en": "connected (tap to disconnect)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's laser row state word, after app.laser and the · join · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.laser_connecting": {
+  "en": "The laser is connecting…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Measure tool's note while the laser connects; the still line is sp.msg.laser_still_connecting · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.laser_tap_figure_fire": {
+  "en": "Laser connected — tap a figure, then fire",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Measure tool's note while the laser is ready · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.left_total": {
+  "en": "Left total",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the left side's total dimension label · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.length_front_back": {
+  "en": "Length ↕ (front to back)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's length field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.lens_height": {
+  "en": "Lens height",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's lens height field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.linking": {
+  "en": "Linking…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the big laser button while connecting; the ⋮ menu's lowercase linking… is this key's .lowercase(), a Devanagari no-op · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.mm_labels": {
+  "en": "mm labels",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's labels checkbox · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.mm_site": {
+  "en": "mm · site",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the keypad sheet's unit tag beside the typed figure · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.no_face_photos_save": {
+  "en": "No face photos found to save",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the note when the ImageMeter export found nothing · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.no_x_photo_capture_phone": {
+  "en": "No {face} photo for this capture on this phone",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the empty state when the face has no photo; the colon in place of an uninflectable genitive, the folder's own M3a finalisation style · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "face": "the face's shown name, Masters.surface(tx, FacePrep.LABEL) (\"Front wall\" / \"समोरील भिंत\")"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.nothing_measure_face_yet": {
+  "en": "Nothing to measure on this face yet",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the note when a reading arrives on a face with no dimensions · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.nothing_selected": {
+  "en": "Nothing selected.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the selection dialog's empty state · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.or_dividers_tap_line": {
+  "en": "Or use Dividers and tap the line where it should be divided.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the selection dialog's line hint · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.other_step": {
+  "en": "Other step",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the steps chip for the step kind; stepName already renders इतर {n} for the kind · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.piece_x": {
+  "en": " piece {k}",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the leading-space fragment after a divided arrow's width/height word (sp.laser_suffix's shape; भाग is sp.segment's own word) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "k": "the piece number, digits, counted from 1"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.redo": {
+  "en": "Redo",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the top bar's redo button label; sp.aria.undo (मागे घ्या) is its pair · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.reference_grid": {
+  "en": "Reference grid",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's grid toggle, and the grid dialog's title · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.reset_box_corners": {
+  "en": "Reset box to the corners",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's box reset row · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.right_total": {
+  "en": "Right total",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the right side's total dimension label · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.room_box_mm": {
+  "en": "Room box, mm",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's title · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.room_size": {
+  "en": "Room size…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu row that opens the room box dialog; the app.room_size_mm register · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.room_sizes_reshape": {
+  "en": "Room sizes reshape every face. A wall's own figures (Measure) never move anything — they are kept beside the calculated ones.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's body note · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.save_and_next": {
+  "en": "Save & next",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the keypad sheet's save button, drawn \"✓ \" + the key (the glyph a value) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.save_photos_imagemeter": {
+  "en": "Save photos for ImageMeter",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's export row (the export itself stays English, decision 4) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.saved_x_imagemeter_photos": {
+  "en": "Saved {n} ImageMeter photos next to the faces (…-faceprep.jpg)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the note after the ImageMeter export; the file token stays Latin, the wire · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "how many were saved, digits, as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.saving_photos": {
+  "en": "Saving photos…",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the busy line while the ImageMeter export runs · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.share_measures": {
+  "en": "Share measures",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the CSV chooser's title, Android's transient UI, keyed as export.share_x was (M3c critic 3); the CSV itself stays decision 4's · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.share_measures_csv": {
+  "en": "Share measures (CSV)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's CSV row (the CSV itself stays English, decision 4) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.shift_across": {
+  "en": "Shift across",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's across shift field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.shift_up": {
+  "en": "Shift up",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's up shift field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.snap": {
+  "en": "Snap",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the ⋮ menu's snap toggle · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.step_face": {
+  "en": "step face",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the edge-piece label's fallback when the piece runs along a step, not a box side; the sides compose \"E{n} · \" + edge.* · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.strength": {
+  "en": "Strength",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's alpha slider label · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.tap_figure_yellow_laser": {
+  "en": "Tap a figure to give it its site figure. The yellow button connects the laser.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the Measure tool's note while the laser is off · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.top_total": {
+  "en": "Top total",
+  "where": [
+   "S2 APK phone text · FacePrep.kt dims at cdde242+M8 · Face Prep · the top side's total dimension label; four WHOLE keys, the DeleteRoute gendered idiom, never one template · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.two_fingers_zoom": {
+  "en": "Two fingers zoom and move the photo. Undo and redo are in the top bar; snap, grid, saving and the laser are in ⋮.",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · Help's closing line · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.up_mm": {
+  "en": "Up mm",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the grid dialog's up spacing field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.what_it_is": {
+  "en": "What it is",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the selection dialog's title for a step or a detail · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.width_left_right": {
+  "en": "Width ↔ (left to right)",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the room box dialog's width field · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "fp.x_plan_x_deep": {
   "en": "{name} · {plate} · {d} mm deep",
   "where": [
@@ -6377,6 +7121,20 @@
    "name": "the step's name, FacePrep.stepName rendered through tx (\"Column 1\")",
    "plate": "view.floor_plan.lc / view.ceiling_plan.lc (\"floor plan\" / \"ceiling plan\")",
    "d": "the depth, whole mm digits, as given"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "fp.x_site_x_mm": {
+  "en": "{label}: site {mm} mm",
+  "where": [
+   "S2 APK phone text · FacePrepScreen.kt at cdde242+M8 · Face Prep · the note after a site figure lands; the label is snapshotted at say time (the M3a say() rule) · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "label": "the dimension's label from FacePrep.dims, snapshotted at say time",
+   "mm": "the site figure, whole mm digits"
   },
   "flags": [
    "phone-text"
@@ -8527,6 +9285,80 @@
   "kind": "static",
   "flags": [
    "prototype-only"
+  ]
+ },
+ "refuse.fw.could_not_decode_photo": {
+  "en": "could not decode the photo",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt single at cdde242+M8 · Shoot and keep · the {why} when a flat photo would not decode · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.could_not_decode_selected": {
+  "en": "could not decode the selected photo",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt decodePano at cdde242+M8 · Shoot and keep · the {why} when the kept pano would not decode; also AsIsUpload's stored note off a failed fullPano, stored at Tx.EN · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.could_not_open_photo": {
+  "en": "could not open the selected photo",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt begin/single at cdde242+M8 · Shoot and keep · the {why} of MainActivity's keyed heads when the picked photo would not open · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.could_not_write_gallery": {
+  "en": "could not write to the gallery",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt saveToGallery at cdde242+M8 · Shoot and keep · the {why} when MediaStore's output stream answers null · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.gallery_refused": {
+  "en": "gallery refused the file",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt saveToGallery at cdde242+M8 · Shoot and keep · the {why} when MediaStore's insert answers null · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.not_360_x_x": {
+  "en": "not a 360 photo ({w}×{h} is not 2:1) — export the 360 from the Insta360 app first",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt begin at cdde242+M8 · Shoot and keep · the {why} when the picked photo is not equirect; ONE key for the two concatenated fragments (the app.x3.connect_error_x idiom); Insta360 Latin, a product name · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "w": "the decoded width, px digits",
+   "h": "the decoded height, px digits"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "refuse.fw.not_decodable": {
+  "en": "not a decodable image",
+  "where": [
+   "S2 APK phone text · FaceNote.kt for FaceWriter.kt begin/single at cdde242+M8 · Shoot and keep · the {why} when the picked file decodes to nothing · port 61c slice M8, Marathi by Claude (decision 6)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "refuse.life.finish_survey_first_stage": {

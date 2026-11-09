@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.net.Uri
 import android.provider.MediaStore
+import com.malletcrafts.interiorestimate.pano.FaceNote
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.Stamp
@@ -230,8 +231,8 @@ object FaceWriter {
         val textHalo = Paint(text).apply {
             color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = text.textSize / 6f
         }
-        val label = (if (bar.fromPhoto) "\u2248 " else "") + "${Math.round(bar.mm)} mm" +
-            (if (bar.fromPhoto) " (from photo)" else "")
+        val label = (if (bar.fromPhoto) "\u2248 " else "") + "${Math.round(bar.mm)} mm" + // text:value the scale bar's figure (decision 4)
+            (if (bar.fromPhoto) " (from photo)" else "") // text:value the scale bar's tail (decision 4)
         val tick = stroke * 4f
         fun line(ax: Float, ay: Float, bx: Float, by: Float) {
             c.drawLine(ax, ay, bx, by, halo); c.drawLine(ax, ay, bx, by, ink)
@@ -295,17 +296,15 @@ object FaceWriter {
         panoDir.mkdirs()
         val panoFile = File(panoDir, "$deviceId.jpg")
         resolver.openInputStream(source).use { input ->
-            requireNotNull(input) { "could not open the selected photo" }
+            if (input == null) throw FaceNote.Refused(FaceNote.Kind.OPEN)
             panoFile.outputStream().use { input.copyTo(it) }
         }
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(panoFile.path, bounds)
-        require(bounds.outWidth > 0) { "not a decodable image" }
-        require(Panorama.looksEquirect(bounds.outWidth, bounds.outHeight)) {
-            "not a 360 photo (${bounds.outWidth}\u00d7${bounds.outHeight} is not 2:1) \u2014 " +
-                "export the 360 from the Insta360 app first"
-        }
+        if (bounds.outWidth <= 0) throw FaceNote.Refused(FaceNote.Kind.NOT_IMAGE)
+        if (!Panorama.looksEquirect(bounds.outWidth, bounds.outHeight))
+            throw FaceNote.Refused(FaceNote.Kind.NOT_360, bounds.outWidth, bounds.outHeight)
 
         val previewPano = decodePano(panoFile, PREVIEW_PANO_WIDTH)
         val proposed = Group.entries.associateWith { g ->
@@ -366,7 +365,7 @@ object FaceWriter {
                           else flat.copy(Bitmap.Config.ARGB_8888, true)
                 drawScaleBar(bmp, scaleBarFor(s, size))
                 val captioned = captionedBitmap(bmp, Handover.captionText(
-                    deviceId, room, "$label elevation", captureDate, stage))
+                    deviceId, room, "$label elevation", captureDate, stage)) // text:value the caption's face token (decision 4)
                 try {
                     val name = elevationFilename(deviceId, face)
                     deleteByName(context, name)
@@ -392,7 +391,7 @@ object FaceWriter {
                         null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu, frame = f),
                         { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, pu)
                     val marked = captionedBitmap(flat, Handover.captionText(
-                        deviceId, room, "$label survey marks", captureDate, stage))
+                        deviceId, room, "$label survey marks", captureDate, stage)) // text:value the caption's face token (decision 4)
                     try {
                         saveToGallery(context, marked, relativePath, surveyName)
                         written += 1
@@ -452,7 +451,7 @@ object FaceWriter {
         val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
-        }) ?: error("could not decode the selected photo")
+        }) ?: throw FaceNote.Refused(FaceNote.Kind.DECODE_SELECTED)
         return try {
             val px = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(px, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
@@ -552,20 +551,20 @@ object FaceWriter {
         panoDir.mkdirs()
         val file = File(panoDir, "$deviceId.jpg")
         resolver.openInputStream(source).use { input ->
-            requireNotNull(input) { "could not open the selected photo" }
+            if (input == null) throw FaceNote.Refused(FaceNote.Kind.OPEN)
             file.outputStream().use { input.copyTo(it) }
         }
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
-        require(bounds.outWidth > 0) { "not a decodable image" }
+        if (bounds.outWidth <= 0) throw FaceNote.Refused(FaceNote.Kind.NOT_IMAGE)
         var sample = 1
         while (bounds.outWidth / sample > MAX_DECODE_WIDTH) sample *= 2
         val bitmap = BitmapFactory.decodeFile(file.path,
             BitmapFactory.Options().apply {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
-            }) ?: error("could not decode the photo")
+            }) ?: throw FaceNote.Refused(FaceNote.Kind.DECODE)
 
         val relPath = Handover.relativePath(customerName, projectTitle, room)
         val captioned = captionedBitmap(bitmap, Handover.captionText(
@@ -741,10 +740,10 @@ object FaceWriter {
         val collection = MediaStore.Images.Media.getContentUri(
             MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val uri = resolver.insert(collection, values)
-            ?: error("gallery refused the file")
+            ?: throw FaceNote.Refused(FaceNote.Kind.GALLERY)
         try {
             resolver.openOutputStream(uri).use { out ->
-                requireNotNull(out) { "could not write to the gallery" }
+                if (out == null) throw FaceNote.Refused(FaceNote.Kind.WRITE)
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
             }
             values.clear()

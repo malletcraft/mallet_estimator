@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -34,9 +34,10 @@ import java.util.Locale
 @Composable
 fun LaserTestScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val tx = LocalTx.current
     val disto = remember { DistoClient(context) }
     var state by remember { mutableStateOf(DistoClient.State.OFF) }
-    var note by remember { mutableStateOf<String?>(null) }
+    var note by remember { mutableStateOf<Msg?>(null) }
     var lastMm by remember { mutableStateOf<Int?>(null) }
     var laserOn by remember { mutableStateOf(false) }
     val log = remember { mutableStateListOf<String>() }
@@ -45,16 +46,16 @@ fun LaserTestScreen(onBack: () -> Unit) {
         // Also to logcat, so the whole log can be read over USB (adb logcat -s McftLaser)
         // without anyone copying it off the screen -- Amit, 2026-10-09: "get log yourself".
         android.util.Log.i("McftLaser", line)
-        log.add("${clock.format(Date())}  $line")
+        log.add("${clock.format(Date())}  $line") // text:value the laser log's clock join (decision 4)
         if (log.size > 400) log.removeAt(0)
     }
 
     DisposableEffect(Unit) { onDispose { disto.stop() } }
-    // the note state keeps String and renders Tx.EN until M8: no mixed screen (port 61c slice M6)
-    disto.onState = { s, n -> state = s; note = n?.invoke(Tx.EN) }
+    // the note state is a Msg, drawn in the language on when it is drawn (port 61c slice M8)
+    disto.onState = { s, n -> state = s; note = n }
     disto.onEvent = { add(it) }
-    disto.onReading = { r -> lastMm = r.mm; add("READING ${r.mm} mm (unit code ${r.unitCode})") }
-    disto.onRefused = { why -> note = why(Tx.EN) }
+    disto.onReading = { r -> lastMm = r.mm; add("READING ${r.mm} mm (unit code ${r.unitCode})") } // text:value the laser log (decision 4)
+    disto.onRefused = { why -> note = why }
 
     // Android 12+ gates a BLE scan behind runtime permission; without it the
     // scan fails silently, which would look exactly like a flat meter.
@@ -68,7 +69,7 @@ fun LaserTestScreen(onBack: () -> Unit) {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
         if (granted.values.all { it }) disto.start()
-        else { note = "Bluetooth permission refused — the laser can't connect"; add("permission refused") }
+        else { note = { tx -> tx.sp_msg_bluetooth_refused }; add("permission refused") } // text:value the laser log (decision 4)
     }
 
     val listState = rememberLazyListState()
@@ -77,44 +78,42 @@ fun LaserTestScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Laser test · DISTO D2") },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                title = { Text(tx.app_laser_test_disto_d2) },
+                navigationIcon = { TextButton(onClick = onBack) { Text(tx.app_aria_back) } },
                 actions = {
                     TextButton(enabled = log.isNotEmpty(), onClick = {
-                        val text = "MCFT Interior Estimate ${appVersion(context)} — laser test\n" + log.joinToString("\n")
+                        val text = "MCFT Interior Estimate ${appVersion(context)} — laser test\n" + log.joinToString("\n") // text:value the share payload's header, the log whole (decision 4)
                         context.startActivity(Intent.createChooser(
                             Intent(Intent.ACTION_SEND).setType("text/plain")
-                                .putExtra(Intent.EXTRA_TEXT, text), "Share laser log"))
-                    }) { Text("Share") }
+                                .putExtra(Intent.EXTRA_TEXT, text), tx.app_share_laser_log))
+                    }) { Text(tx.common_share) }
                 })
         },
     ) { pad ->
         Column(Modifier.padding(pad).padding(16.dp).fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(lastMm?.let { "$it mm" } ?: "— mm",
+            Text(lastMm?.let { "$it mm" } ?: "— mm", // text:value the readout: a figure and the unit
                 fontSize = 44.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
             Text(when (state) {
-                DistoClient.State.OFF -> "Not connected"
-                DistoClient.State.SCANNING -> "Looking for the meter…"
-                DistoClient.State.CONNECTING -> "Connecting…"
-                DistoClient.State.READY -> "Connected — press the measure button on the D2"
-            } + (note?.let { "\n$it" } ?: ""), style = MaterialTheme.typography.bodyMedium)
+                DistoClient.State.OFF -> tx.app_not_connected
+                DistoClient.State.SCANNING -> tx.app_looking_meter
+                DistoClient.State.CONNECTING -> tx.app_connecting
+                DistoClient.State.READY -> tx.app_connected_press_measure_button
+            } + (note?.let { "\n" + it(tx) } ?: ""), style = MaterialTheme.typography.bodyMedium)
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state == DistoClient.State.OFF)
-                    Button(onClick = { add("connect pressed"); askBle.launch(blePerms) }) { Text("Connect") }
+                    Button(onClick = { add("connect pressed"); askBle.launch(blePerms) }) { Text(tx.app_connect) } // text:value the laser log (decision 4)
                 else
-                    OutlinedButton(onClick = { disto.stop() }) { Text("Disconnect") }
+                    OutlinedButton(onClick = { disto.stop() }) { Text(tx.app_disconnect) }
                 // The remote commands are the least certain part of the protocol
                 // (one public source), which is exactly why they are buttons here.
-                Button(enabled = state == DistoClient.State.READY, onClick = { disto.measure() }) { Text("Fire") }
+                Button(enabled = state == DistoClient.State.READY, onClick = { disto.measure() }) { Text(tx.app_fire) }
                 OutlinedButton(enabled = state == DistoClient.State.READY, onClick = {
                     laserOn = !laserOn; disto.laser(laserOn)
-                }) { Text(if (laserOn) "Laser off" else "Laser on") }
+                }) { Text(if (laserOn) tx.app_laser_off else tx.app_laser_on) }
             }
-            Text("Checks: 1) press measure on the D2 · 2) tap Fire · 3) set the D2 to mm, m, ft, in and measure once in each · " +
-                "4) leave it idle and note when it disconnects. Then Share the log.",
-                style = MaterialTheme.typography.bodySmall)
+            Text(tx.app_checks_1_press_measure, style = MaterialTheme.typography.bodySmall)
             HorizontalDivider()
             LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth()) {
                 items(log) { line ->

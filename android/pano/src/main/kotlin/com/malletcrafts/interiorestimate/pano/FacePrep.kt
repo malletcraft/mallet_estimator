@@ -39,8 +39,10 @@ object FacePrep {
     /** The other way: a split face's name to Face Prep's. */
     fun prepFace(pano: String): String = when (pano.lowercase()) { "down" -> "floor"; "up" -> "ceiling"; else -> pano.lowercase() }
 
-    val LABEL = mapOf("floor" to "Floor", "front" to "Front wall", "left" to "Left wall",
-        "right" to "Right wall", "back" to "Back wall", "ceiling" to "Ceiling")
+    /** English identity map: shown through Masters.surface / Masters.surface_tab; raw in the CSV and the
+     *  burned caption, the exports (port 61c slice M8). */
+    val LABEL = mapOf("floor" to "Floor", "front" to "Front wall", "left" to "Left wall", // text:value identity, shown through Masters.surface / surface_tab
+        "right" to "Right wall", "back" to "Back wall", "ceiling" to "Ceiling") // text:value identity, shown through Masters.surface / surface_tab
 
     /** What each box edge of a face meets — used to say "650 from left wall". English identity values, resolved to
      *  the language by [fromWord] (the six measure.* keys); port 61c slice M3b. */
@@ -60,6 +62,22 @@ object FacePrep {
         "electrical" to "Electrical point", "loft" to "Loft") // text:value identity, drawn through detName
     fun stepLabel(kind: String) = STEP_KINDS.firstOrNull { it.first == kind }?.second ?: kind
     fun detailLabel(type: String) = DETAIL_TYPES.firstOrNull { it.first == type }?.second ?: type
+
+    /** A tool chip's or the selection dialog's FULL-label word ("Column" → type.c … "Other step" →
+     *  fp.other_step, "Electrical point" → fp.electrical_point), an unknown label as itself — in :pano, so
+     *  the English-byte map is pinned where the suite runs (port 61c slice M8). Under `Tx.EN` every word is
+     *  the label byte for byte. */
+    fun chipWord(tx: Tx, label: String): String = when (label) {
+        "Column" -> tx.type_c // text:value identity
+        "Beam" -> tx.type_b // text:value identity
+        "Other step" -> tx.fp_other_step // text:value identity
+        "Door" -> tx.type_d // text:value identity
+        "Window" -> tx.type_w // text:value identity
+        "Opening" -> tx.type_o // text:value identity
+        "Electrical point" -> tx.fp_electrical_point // text:value identity ("Electric point" is type.e; the chip's label differs by a syllable)
+        "Loft" -> tx.type_l // text:value identity
+        else -> label
+    }
 
     /** A guide or locator word in the language: the first word of [stepLabel] / [detailLabel] through Masters.type
      *  ("Column" → कॉलम, "Other" → इतर) or trade.electrical ("Electrical" → इलेक्ट्रिकल); an unknown kind as itself. */
@@ -485,7 +503,10 @@ object FacePrep {
 
     // ---------------------------------------------------------------- dimensions and site figures
 
-    val SIDE_NAME = mapOf("top" to "Top", "right" to "Right", "bottom" to "Bottom", "left" to "Left")
+    /** English identity map (port 61c slice M8: [dims] composes its labels through the edge.* and fp.*_total
+     *  keys now, so nothing reads this for a label any more; kept, never deleted — the stored Dim keys'
+     *  vocabulary and the prototype's). */
+    val SIDE_NAME = mapOf("top" to "Top", "right" to "Right", "bottom" to "Bottom", "left" to "Left") // text:value identity
 
     /**
      * One dimension drawn on a face: its stable [key], what it is called, the
@@ -519,29 +540,47 @@ object FacePrep {
         return (0 until ts.size - 1).map { k -> (if (ts.size == 2) "h" else "h${k + 1}") to mmV(h, d.v0 + (d.v1 - d.v0) * ts[k], d.v0 + (d.v1 - d.v0) * ts[k + 1]) }
     }
 
+    /** A box side's edge-piece word: the edge.* keys, whose EN IS `SIDE_NAME.lowercase() + " edge"` byte
+     *  for byte; a piece along a step is `fp.step_face` (port 61c slice M8). */
+    private fun edgeWord(tx: Tx, side: String): String = when (side) {
+        "top" -> tx.edge_top_edge; "right" -> tx.edge_right_edge; "bottom" -> tx.edge_bottom_edge; else -> tx.edge_left_edge
+    }
+
+    /** A side's total label: four WHOLE keys, the DeleteRoute gendered idiom (डावी / उजवी / वरची / खालची
+     *  agree with the feminine कडा; a {side} fill could not inflect) — EN `Top total` … byte for byte. */
+    private fun totalWord(tx: Tx, side: String): String = when (side) {
+        "top" -> tx.fp_top_total; "right" -> tx.fp_right_total; "bottom" -> tx.fp_bottom_total; else -> tx.fp_left_total
+    }
+
+    /** ` piece {k}` after a divided arrow's word, nothing when undivided — fp.piece_x, the leading-space
+     *  fragment (sp.laser_suffix's shape). */
+    private fun pieceTail(tx: Tx, parts: Int, k: Int): String = if (parts == 1) "" else tx.fp_piece_x((k + 1).toString())
+
     /**
      * Every dimension on a face, in the order the photo draws them: edge
      * pieces, the four totals, each detail (width, height, locators), each
      * line (pieces, then its total). This order is what "next unmeasured"
-     * walks, and what the CSV lists.
+     * walks, and what the CSV lists. The labels compose through [tx] (port
+     * 61c slice M8) — under `Tx.EN` byte for byte what they said before.
      */
     fun dims(tx: Tx, room: Room, face: String): List<Dim> {
         val f = room.face(face); val (w, h) = faceDims(room, face); val out = mutableListOf<Dim>()
         fun add(key: String, label: String, calc: Int) = out.add(Dim(key, label, calc, f.meas[key]))
         val pcs = outline(room, face, f); val ek = edgeKeys(pcs)
-        pcs.forEachIndexed { n, pc -> add(ek[n], "E${n + 1} · ${pc.side?.let { SIDE_NAME.getValue(it).lowercase() + " edge" } ?: "step face"}", pc.len) }
-        for (sd in SIDES) add("T:$sd", "${SIDE_NAME.getValue(sd)} total", if (sd == "top" || sd == "bottom") w else h)
+        pcs.forEachIndexed { n, pc -> add(ek[n], "E${n + 1} · " + (pc.side?.let { edgeWord(tx, it) } ?: tx.fp_step_face), pc.len) } // text:value a code and its join
+        for (sd in SIDES) add("T:$sd", totalWord(tx, sd), if (sd == "top" || sd == "bottom") w else h)
         f.dets.forEachIndexed { i, d ->
             val dn = detName(tx, f, i)
-            val ws = detWidths(w, d); ws.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn width${if (ws.size == 1) "" else " piece ${k + 1}"}", mm) }
-            val hs = detHeights(h, d); hs.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn height${if (hs.size == 1) "" else " piece ${k + 1}"}", mm) }
-            for (loc in locators(tx, face, f, i)) add(detKey(d, if (loc.horizontal) "lh" else "lv"), "$dn from ${loc.to}", locatorMm(w, h, loc))
+            val ws = detWidths(w, d); ws.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn " + tx.measure_width + pieceTail(tx, ws.size, k), mm) }
+            val hs = detHeights(h, d); hs.forEachIndexed { k, (part, mm) -> add(detKey(d, part), "$dn " + tx.measure_height + pieceTail(tx, hs.size, k), mm) }
+            for (loc in locators(tx, face, f, i)) add(detKey(d, if (loc.horizontal) "lh" else "lv"), "$dn " + fromWord(tx, loc.to), locatorMm(w, h, loc))
         }
         f.lines.forEachIndexed { i, l ->
             val ps = linePieces(w, h, l)
-            if (ps.size == 1) add(lineKey(l), "Line ${i + 1}", ps[0])
-            else { ps.forEachIndexed { k, p -> add(lineKey(l, k + 1), "Line ${i + 1} piece ${k + 1}", p) }
-                   add(lineKey(l), "Line ${i + 1}", lineMm(w, h, l.a, l.b)) }
+            val name = tx.common_line + " ${i + 1}"
+            if (ps.size == 1) add(lineKey(l), name, ps[0])
+            else { ps.forEachIndexed { k, p -> add(lineKey(l, k + 1), name + tx.fp_piece_x((k + 1).toString()), p) }
+                   add(lineKey(l), name, lineMm(w, h, l.a, l.b)) }
         }
         return out
     }

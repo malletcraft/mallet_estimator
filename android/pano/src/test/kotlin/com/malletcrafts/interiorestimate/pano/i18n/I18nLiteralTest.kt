@@ -363,6 +363,26 @@ class I18nLiteralTest {
             "the ImageMeter photos and the survey sheets stay English (decision 4): their one painter argument is the literal Tx.EN")
     }
 
+    @Test fun `the annotate editor's marks are licensed by its gate`() {
+        // Port 61c slice M8: the held annotator's ~35 texts are marked `// text:value dormant: behind
+        // ANNOTATION_ENABLED = false`, because a text NO PERSON CAN SEE is what every existing mark has in
+        // common — and Claude's Marathi there could never meet its only review, Amit's phone (decision 6).
+        // The licence can lapse (someone flips the gate), so it is a TEST, not a comment: the day the editor
+        // returns the suite goes red NAMING THE RECIPE instead of ~35 marked English strings silently
+        // reaching the screen. A hazard written down in a mark is not a hazard handled.
+        val s = scans.firstOrNull { it.name == "AnnotateScreen.kt" }
+        val off = when {
+            s == null -> listOf("AnnotateScreen.kt: not found (update this check)")
+            !Regex("""\bprivate\s+const\s+val\s+ANNOTATION_ENABLED\s*=\s*false\b""").containsMatchIn(s.masked) ->
+                listOf("AnnotateScreen.kt: ANNOTATION_ENABLED is not `private const val ANNOTATION_ENABLED = false` any more — " +
+                    "the dormant `// text:value` marks were licensed by that gate: key the editor's rows through the " +
+                    "then-current card and remove the dormant marks before the switch flips")
+            else -> emptyList()
+        }
+        I18n.check("the annotate editor's gate", off,
+            "the held annotator's English is licensed by ANNOTATION_ENABLED = false (M8): key its rows through the then-current card when the editor returns")
+    }
+
     @Test fun `the language row is shown while the screens are translated alongside`() {
         // Amit, 28 Oct 2026, ~13:10 IST: "Show it now, translate alongside" -- decision 2 of 27 Oct
         // (hidden until every screen is translated) is reversed. The row ships now; a screen not keyed

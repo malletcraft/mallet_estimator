@@ -23,12 +23,16 @@ import kotlin.math.sin
  * part, side [side]) and returns where to draw it on the target canvas.
  *
  * THE LANGUAGE IS A PARAMETER of [draw] (port 61c slice M3b): the word mechanism is :pano's (FacePrep.stepName,
- * detName, fromWord, the guide labels' fp.* keys), threaded once here — and BOTH callers pass `Tx.EN`, each for its
- * own reason: FacePrepScreen's Canvas because Face Prep's chrome is M8's, so the screen stays wholly English under
- * मराठी until then (no mixed screen the prototype never drew), and FacePrepScreen.exportAll — the ImageMeter photos —
- * for good (decision 4: EXPORTS STAY ENGLISH). M8's flip is the SCREEN Canvas call's one argument; the export's is
- * pinned English by I18nLiteralTest's (h) companion. The M3b critic's finding 3: the second caller is exportAll,
- * never FaceWriter, which draws through SurveyPrepDraw alone.
+ * detName, fromWord, the guide labels' fp.* keys), threaded once here. Since M8 the SCREEN Canvas passes the live
+ * tx — the words drawn on the photo follow the language row — while FacePrepScreen.exportAll (the ImageMeter
+ * photos) passes `Tx.EN` for good (decision 4: EXPORTS STAY ENGLISH), pinned by I18nLiteralTest's (h) companion.
+ * The M3b critic's finding 3: the second caller is exportAll, never FaceWriter, which draws through
+ * SurveyPrepDraw alone.
+ *
+ * THE PILL'S PAINT AND METRICS ARE PICKED PER STRING (the M3b "M8 owns its pill metrics" debt): MONOSPACE has no
+ * Devanagari glyphs and the 1.3-em pill clips matras, so a tag with a Devanagari code point draws in
+ * `Typeface.DEFAULT_BOLD` with the pill sized by the paint's own FontMetrics; every other tag keeps MONOSPACE and
+ * the 1.3-em pill — so under English, and in every export (Tx.EN can render no Devanagari), not one pixel moves.
  */
 object FacePrepDraw {
 
@@ -63,6 +67,9 @@ object FacePrepDraw {
     fun uvToImg(box: FacePrep.Box, side: Float, u: Double, v: Double) =
         floatArrayOf(((box.x0 + u * (box.x1 - box.x0)) * side).toFloat(), ((box.y0 + v * (box.y1 - box.y0)) * side).toFloat())
 
+    /** A Devanagari code point anywhere in [t]: the tag draws whole in DEFAULT_BOLD (per STRING, never per word). */
+    private fun hasDevanagari(t: String) = t.any { it in 'ऀ'..'ॿ' }
+
     fun draw(c: Canvas, tx: Tx, room: FacePrep.Room, face: String, box: FacePrep.Box, side: Float,
              map: (Float, Float) -> FloatArray, sc: Float, o: Opts) {
         val f = room.face(face)
@@ -88,12 +95,22 @@ object FacePrepDraw {
             }
         }
         val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = android.graphics.Typeface.MONOSPACE; isFakeBoldText = true }
+        // the per-string paint: DEFAULT_BOLD for a worded Marathi tag, MONOSPACE (fake-bold) for everything else
+        fun facePaint(t: String) {
+            if (hasDevanagari(t)) { text.typeface = android.graphics.Typeface.DEFAULT_BOLD; text.isFakeBoldText = false }
+            else { text.typeface = android.graphics.Typeface.MONOSPACE; text.isFakeBoldText = true }
+        }
+        // the pill's height: the paint's own FontMetrics for Devanagari (ascenders and matras clear the box),
+        // else today's 1.3 em — byte-stable under Tx.EN
+        fun pillH(t: String, size: Float): Float =
+            if (hasDevanagari(t)) text.fontMetrics.let { it.bottom - it.top } else size * 1.3f
         fun tag(t: String, at: FloatArray, col: Int, size: Float = fs) {
-            text.textSize = size; text.color = col
-            val tw = text.measureText(t); val th = size * 1.3f
+            facePaint(t); text.textSize = size; text.color = col
+            val tw = text.measureText(t); val th = pillH(t, size)
+            val base = if (hasDevanagari(t)) at[1] - (text.fontMetrics.ascent + text.fontMetrics.descent) / 2 else at[1] + size * 0.36f
             fill.color = 0xD90F0E0C.toInt()
             c.drawRoundRect(RectF(at[0] - tw / 2 - size * 0.35f, at[1] - th / 2, at[0] + tw / 2 + size * 0.35f, at[1] + th / 2), 4f, 4f, fill)
-            c.drawText(t, at[0] - tw / 2, at[1] + size * 0.36f, text)
+            c.drawText(t, at[0] - tw / 2, base, text)
         }
         fun add(p: FloatArray, v: FloatArray, k: Float) = floatArrayOf(p[0] + v[0] * k, p[1] + v[1] * k)
         fun mid(a: FloatArray, b: FloatArray, t: Float = 0.5f) = floatArrayOf(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
@@ -112,13 +129,13 @@ object FacePrepDraw {
                 for (e in listOf(a, b)) line(add(e, nb, -bar), add(e, nb, bar), 0xFFFFFFFF.toInt(), max(3f, lw * 1.3f))
             }
             tag(txt, at, col, size)
-            text.textSize = size
-            val tw = text.measureText(txt) + size * 0.7f; val th = size * 1.3f
+            facePaint(txt); text.textSize = size
+            val tw = text.measureText(txt) + size * 0.7f; val th = pillH(txt, size)
             if (isSel) { strokeRect.color = 0xFFFFFFFF.toInt(); strokeRect.strokeWidth = 3f * sc
                 c.drawRect(at[0] - tw / 2 - 3f, at[1] - th / 2 - 3f, at[0] + tw / 2 + 3f, at[1] + th / 2 + 3f, strokeRect) }
             val site = f.meas[key]
             if (site != null) {
-                val t2 = "$site"; text.textSize = size; val w2 = text.measureText(t2) + size * 0.7f
+                val t2 = "$site"; facePaint(t2); text.textSize = size; val w2 = text.measureText(t2) + size * 0.7f
                 val qx = at[0] + tw / 2 + 4f * sc + w2 / 2; val qy = at[1]
                 fill.color = 0xEB063012.toInt(); c.drawRect(qx - w2 / 2, qy - th / 2, qx + w2 / 2, qy + th / 2, fill)
                 strokeRect.color = SITE; strokeRect.strokeWidth = 2f * sc

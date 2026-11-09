@@ -136,3 +136,20 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotationPush.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/MainActivity.kt
 camera/src/main/kotlin/com/malletcrafts/interiorestimate/camera/X3Bridge.kt
+# Port 61c slice M8 (9 Nov 2026) adds the screens the prototype never had (decision 6) — the worklist empties:
+# pano/FaceNote.kt (new: FaceWriter's refusals as data, the PlanSave idiom; no shown literal), pano/FacePrep.kt
+# (dims composes every label through the tx: the edge.* words, the four fp.*_total whole keys, measure.width/height
+# with fp.piece_x, fromWord; LABEL and SIDE_NAME marked identity maps; chipWord gives the chips' full-label words),
+# pano/Annotation.kt (stays Tx-FREE: the Kind and Unit labels and the figure fragments marked `// text:value`),
+# app/FacePrepScreen.kt (the chrome, menu, dialogs, keypad and tool strip keyed; note/busy become Msg; the screen
+# Canvas draws through the live tx — exportAll stays Tx.EN, decision 4), app/AnnotateScreen.kt (the live viewer
+# texts keyed; the held editor's rows marked dormant behind ANNOTATION_ENABLED = false, the gate pinned by
+# I18nLiteralTest), app/LaserTestScreen.kt (the chrome keyed over the deliberately-English log, decision 4) and
+# app/FaceWriter.kt (the eight refusals become FaceNote.Refused; the drawn rows stay values — decision 4).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FaceNote.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Annotation.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt

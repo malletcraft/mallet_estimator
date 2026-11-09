@@ -49,11 +49,11 @@ object Annotation {
      *  tag is what the model reads, so it has to stay machine-readable —
      *  anything that doesn't fit goes in the free-text note instead. */
     enum class Kind(val tag: String, val label: String) {
-        WINDOW("window", "Window"),
-        DOOR("door", "Door"),
-        COLUMN("column", "Column"),
-        BEAM("beam", "Beam"),
-        OPENING("opening", "Opening");
+        WINDOW("window", "Window"), // text:value identity a DORMANT screen draws (through type.* when the editor returns; ANNOTATION_ENABLED = false since 2026-08-20, ImageMeter is the tool)
+        DOOR("door", "Door"), // text:value identity a DORMANT screen draws (through type.* when the editor returns; ANNOTATION_ENABLED = false since 2026-08-20, ImageMeter is the tool)
+        COLUMN("column", "Column"), // text:value identity a DORMANT screen draws (through type.* when the editor returns; ANNOTATION_ENABLED = false since 2026-08-20, ImageMeter is the tool)
+        BEAM("beam", "Beam"), // text:value identity a DORMANT screen draws (through type.* when the editor returns; ANNOTATION_ENABLED = false since 2026-08-20, ImageMeter is the tool)
+        OPENING("opening", "Opening"); // text:value identity a DORMANT screen draws (through type.* when the editor returns; ANNOTATION_ENABLED = false since 2026-08-20, ImageMeter is the tool)
 
         companion object {
             fun of(tag: String?): Kind =
@@ -119,11 +119,11 @@ object Annotation {
     /** The units a site person keys a measurement in. Everything converts
      *  to mm at entry; display converts back out. */
     enum class Unit(val label: String, val toMm: Double) {
-        MM("mm", 1.0),
-        CM("cm", 10.0),
-        M("m", 1000.0),
-        IN("in", 25.4),
-        FT("ft", 304.8),
+        MM("mm", 1.0), // text:value a unit, drawn Latin
+        CM("cm", 10.0), // text:value a unit, drawn Latin
+        M("m", 1000.0), // text:value a unit, drawn Latin
+        IN("in", 25.4), // text:value a unit, drawn Latin
+        FT("ft", 304.8), // text:value a unit, drawn Latin
     }
 
     fun toMm(value: Double, unit: Unit): Int = (value * unit.toMm).roundToInt()
@@ -133,8 +133,8 @@ object Annotation {
     fun metricLabel(mm: Int): String =
         if (mm >= 1000) {
             val m = mm / 1000.0
-            "${(m * 100).roundToInt() / 100.0} m"
-        } else "$mm mm"
+            "${(m * 100).roundToInt() / 100.0} m" // text:value a figure
+        } else "$mm mm" // text:value a figure
 
     /** Feet-and-inches to the nearest 1/8" — the resolution a tape measure
      *  and a carpenter actually use. 1220 mm → 4' 0", 1250 mm → 4' 1 1/4". */
@@ -146,17 +146,17 @@ object Annotation {
         val eighths = rem % 8
         val frac = when {
             eighths == 0 -> ""
-            eighths % 4 == 0 -> " ${eighths / 4}/2"
-            eighths % 2 == 0 -> " ${eighths / 2}/4"
-            else -> " $eighths/8"
+            eighths % 4 == 0 -> " ${eighths / 4}/2" // text:value a figure
+            eighths % 2 == 0 -> " ${eighths / 2}/4" // text:value a figure
+            else -> " $eighths/8" // text:value a figure
         }
-        return "$feet' $inches$frac\""
+        return "$feet' $inches$frac\"" // text:value a figure
     }
 
     /** What the label says: metric always; imperial beside it when asked —
      *  Amit's "showing both dimensions when enabled". */
     fun label(mm: Int, showImperial: Boolean): String =
-        if (showImperial) "${metricLabel(mm)} · ${imperialLabel(mm)}"
+        if (showImperial) "${metricLabel(mm)} · ${imperialLabel(mm)}" // text:value a figures joined
         else metricLabel(mm)
 
     /** Distance from a point to a line's nearest endpoint, normalized space —
