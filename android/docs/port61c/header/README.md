@@ -35,3 +35,4 @@ clause means re-measuring with a clone of the clause span in the page's own font
 | 76 | 0.3.283 | 23:39, 3 Nov | 23:42, 3 Nov | cda1a2b4… | first refresh by substitution; the bullet gains one sentence (AS1, FW1); look 4/0 |
 | 77 | 0.3.286 | 10:18, 9 Nov | 10:47, 9 Nov | a9dc11e9… | refresh.py takes the build date (HDR_DATE); the bullet gains one sentence (FW2); look 4/0 |
 | 78 | 0.3.288 | 12:56, 9 Nov | 12:58, 9 Nov | 7b731a52… | the Album ships read-only (K3): the clauses change by HDR_SUBS to `carries phases, Approve, wish list, Album, Marathi` (292.6 of 328 px at 360; "v61c.2" is on the eyebrow's 2nd line) and `not yet: Album edits, tour`; the bullet's not-yet phrase and one sentence; look 4/0 |
+| 79 | 0.3.292 | 15:36, 9 Nov | 15:38, 9 Nov | cd8bdebe… | the PM's writes ship (K4): the 2nd clause becomes `not yet: progress shot, tour` (163.8 of 328 px at 360); the bullet's Album phrase and one sentence; look 4/0 |
