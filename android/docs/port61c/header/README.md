@@ -40,3 +40,4 @@ clause means re-measuring with a clone of the clause span in the page's own font
 | 81 | 0.3.299 | 21:52, 9 Nov | 21:54, 9 Nov | db718921… | Marathi measures/readings ship (M3b): no clause change; the bullet gains one sentence; look 4/0 |
 | 82 | 0.3.303 | 23:30, 9 Nov | 23:33, 9 Nov | df9fd1a1… | Marathi plan + Export sheet ship (M3c): no clause change; the bullet gains one sentence; look 4/0 |
 | 83 | 0.3.306 | 01:22, 10 Nov | 01:24, 10 Nov | a11c287b… | Marathi tree/queue/upload status ship (M2): no clause change; the bullet gains one sentence; look 4/0 |
+| 84 | 0.3.310 | 03:27, 10 Nov | 03:29, 10 Nov | 1cd6076f… | Marathi shell + S5 sign-in + laser words ship (M6): no clause change; the bullet gains one sentence; look 4/0 |
