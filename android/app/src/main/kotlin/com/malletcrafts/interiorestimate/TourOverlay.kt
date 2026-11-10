@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -189,7 +190,7 @@ object TourState {
 @Suppress("ModifierFactoryUnreferencedReceiver")
 fun Modifier.tourAnchor(name: String?, host: Int = TourState.HOST_TREE): Modifier =
     if (name == null) this
-    else androidx.compose.ui.composed {
+    else composed {
         DisposableEffect(name) { onDispose { TourState.anchors.remove(name) } }
         onGloballyPositioned { TourState.anchors[name] = host to it.boundsInRoot() }
     }
