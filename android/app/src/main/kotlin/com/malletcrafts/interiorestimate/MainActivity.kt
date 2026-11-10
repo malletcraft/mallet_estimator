@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.malletcrafts.interiorestimate.pano.Album
@@ -83,6 +84,9 @@ import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.TourDemo
+import com.malletcrafts.interiorestimate.pano.TourFlows
+import com.malletcrafts.interiorestimate.pano.TourMachine
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import com.malletcrafts.interiorestimate.pano.WishList
 import com.malletcrafts.interiorestimate.pano.i18n.LangRow
@@ -90,8 +94,10 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.io.File
 import java.security.SecureRandom
@@ -141,7 +147,15 @@ private fun AppScreen() {
         Tx.of(if (LangRow.VISIBLE) AppPrefs.read(prefs).lang else null)
     }
     CompositionLocalProvider(LocalTx provides tx) {
-        AppScreenBody(onLang = { langTick++ })
+        Box {
+            AppScreenBody(onLang = { langTick++ })
+            // THE TOUR OVERLAY, the activity window's instance (port 61c §31): drawn over
+            // whatever AppScreenBody rendered, exactly as the prototype mounts #t55 as the
+            // last child of #appwrap. Survey prep is a Dialog — its OWN window, which this
+            // cannot cover — so SurveyPrepDialog hosts the second instance, and only the
+            // host the running step is in draws anything. No tour, nothing composed.
+            TourOverlay(TourState.HOST_TREE)
+        }
     }
 }
 
@@ -362,6 +376,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
     val annStore = remember { AnnotationStore(context) }
     var facesFor by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var laserTest by remember { mutableStateOf(false) }
+    // THE HELP SCREEN (port 61c §31): the guided tours' only entry — the drawer's first
+    // group opens it; no first-run overlay, no auto-start, no seen-once flag (the prototype
+    // has none). Its branch returns early like the laser test's, below the tour host.
+    var helpOpen by remember { mutableStateOf(false) }
     // Face Prep on one capture's six faces (Amit, 2026-10-09: "Build and ship apk").
     var facePrep by remember { mutableStateOf<CaptureStore.Capture?>(null) }
     var facePrepStart by remember { mutableStateOf("floor") }
@@ -542,6 +560,121 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 Text(tx.app_360_photo_capture_was)
             },
             confirmButton = { TextButton(onClick = { surveyMissing = null }) { Text(tx.app_ok) } })
+    }
+
+    // ---- THE GUIDED TOURS' HOST (port 61c §31) -------------------------------------------
+    // The demo flat, seeded idempotently at start (ch55, approved with v55): the capture row,
+    // the bundled pano, the prep. Always in Browse, as Demo Client always is on the prototype.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { runCatching { TourSeed.ensure(context, store) } }
+        reload()
+    }
+    // Where the app is, for the machine's screen predicates (the engine's screen(); survey
+    // prep's own world rides TourBindSurvey in its Dialog).
+    SideEffect {
+        TourState.screen = when {
+            helpOpen -> "help"
+            laserTest -> "laser"
+            tab != "browse" -> tab
+            navRoom != null -> if (navCapture != null) "capture" else "room"
+            navProject != null -> if (albumFor != null) "album" else if (wishFor != null) "wish" else "project"
+            navSite != null -> "site"
+            navClient != null -> "client"
+            else -> "clients"
+        }
+    }
+    // EVERY end — Done, Skip, ◁, Home — puts the demo back (the prep IN PLACE, written only
+    // if the practice changed it; the row's size; the local phase) and returns to Help.
+    TourState.onEnd = { r, how ->
+        surveyKept = null
+        navClient = null; navSite = null; navProject = null; navRoom = null
+        navCapture = null; navFace = null
+        tab = "browse"; showSearch = false
+        TourState.demoPhase = r.snap.phase
+        helpOpen = true
+        android.util.Log.i("McftTour", "${r.flow.id}: $how after ${r.machine.seen.size} steps") // text:value log line
+        scope.launch {
+            // The dialog's own dispose-save (SurveyPrepScreen: `if (unsaved[0]) store.save(…)`)
+            // must land BEFORE the restore, or the practice the tour made would be written back
+            // over the snapshot: wait for the survey window to really leave — its bridge closes
+            // the world (spOpen false) in the same disposal pass, after which that save has run.
+            withTimeoutOrNull(TourMachine.WAIT_MS) { while (TourState.spOpen) delay(20) }
+            val w = withContext(Dispatchers.IO) { TourSeed.restore(context, store, r.snap) }
+            r.machine.wrote += w
+            reload()
+        }
+    }
+    // One step's setup, run on start, Next, Back and jumps alike (every setup is a POSITION,
+    // so Back always lands right); then the anchor is awaited and the step shows. The two
+    // shipped flows use close / go / phase / survey / tab / mode and nothing else
+    // (TourFlowsTest pins it); a blocked flow cannot start, so no other move is hosted.
+    val tourRun = TourState.run
+    LaunchedEffect(tourRun, tourRun?.stepSeq) {
+        val r = tourRun ?: return@LaunchedEffect
+        val step = r.machine.step
+        fun goTo(where: String) {
+            if (surveyKept != null) surveyKept = null
+            helpOpen = false; showSearch = false; showCaptureSheet = false
+            showDetail = false; chooseRooms = false
+            leaveWish(); leaveAlbum()
+            navCapture = null; navFace = null
+            tab = "browse"
+            val depth = when (where) {
+                "clients" -> 0; "client" -> 1; "site" -> 2; "project" -> 3; "room" -> 4
+                else -> -1
+            }
+            if (depth < 0) return
+            navClient = if (depth >= 1) TourDemo.CLIENT else null
+            navSite = if (depth >= 2) TourDemo.SITE else null
+            navProject = if (depth >= 3) cat.projects(masters)
+                .firstOrNull { TourDemo.isDemoProject(it.client, it.title) } else null
+            navRoom = if (depth >= 4) TourDemo.ROOM else null
+        }
+        for (mv in step.setup) {
+            if (TourState.run !== r) return@LaunchedEffect
+            when (mv.kind) {
+                "close" -> {
+                    runCatching { drawerState.close() }
+                    showSearch = false; showCaptureSheet = false; chooseRooms = false; showDetail = false
+                }
+                "go" -> goTo(mv.arg.orEmpty())
+                // the demo's phase is PHONE-LOCAL (ch55's approved exception): no PUT, ever
+                "phase" -> TourState.demoPhase = mv.arg?.toIntOrNull() ?: 0
+                "survey" -> if (!TourState.spOpen) {
+                    goTo("room")
+                    openSurveyFor(TourDemo.CAPTURE)
+                    withTimeoutOrNull(TourMachine.WAIT_MS) { while (!TourState.spOpen) delay(50) }
+                }
+                "tab", "mode" -> {
+                    withTimeoutOrNull(TourMachine.WAIT_MS) { while (TourState.surveyMove == null) delay(50) }
+                    TourState.surveyMove?.invoke(
+                        if (mv.kind == "tab") mv.arg else null,
+                        if (mv.kind == "mode") mv.arg else null)
+                    delay(30)
+                }
+                else -> {}
+            }
+        }
+        step.anchor?.let { a ->
+            withTimeoutOrNull(TourMachine.WAIT_MS) {
+                while (TourState.run === r && TourState.anchors[a] == null) delay(50)
+            }
+        }
+        if (TourState.run === r) r.machine.shown(TourState.spMarks, System.currentTimeMillis())
+    }
+    // The Help screen, an early-return branch like the laser test's; a Start snapshots the
+    // demo off the main thread, then the tour runs. ◁ and ← close it; a tour's end reopens it.
+    if (helpOpen) {
+        BackHandler(enabled = TourState.run == null) { helpOpen = false }
+        HelpScreen(
+            onBack = { helpOpen = false },
+            onStart = { flow ->
+                scope.launch {
+                    val snap = withContext(Dispatchers.IO) { TourSeed.snapshot(context, store) }
+                    TourState.start(flow, snap)
+                }
+            })
+        return
     }
 
 
@@ -1303,6 +1436,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 onSyncNow = { SyncWorker.syncNow(context) },
                 onServer = { showSettings = true },
                 onLaserTest = { laserTest = true },
+                tours = remember(tx) { TourFlows.shipped(tx).size },
+                onHelp = { helpOpen = true },
             ))
     }
 
@@ -2921,7 +3056,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     onClick = { showCaptureSheet = true },
                     icon = { Icon(painterResource(R.drawable.ic_mcft_cam),
                                   contentDescription = null) },
-                    text = { Text(tx.common_capture_360) })
+                    text = { Text(tx.common_capture_360) },
+                    // the survey tour's step 5 lights it, never presses it (port 61c §31)
+                    modifier = Modifier.tourAnchor("capture360"))
             },
         ) { pad ->
             Column(Modifier.padding(pad).fillMaxSize()) {
@@ -3335,7 +3472,18 @@ private fun drawerGroups(
     onServer: () -> Unit,
     onSignOut: () -> Unit,
     onLaserTest: () -> Unit,
+    /** How many guided tours ship on this build (TourFlows.shipped), and the Help screen. */
+    tours: Int,
+    onHelp: () -> Unit,
 ): List<DrawerGroup> = listOf(
+    // THE HELP GROUP, FIRST (port 61c §31; ch55: the drawer already scrolls, and a row at its
+    // foot starts below the fold). One row, "Help · guided tours · N tours", opening the full
+    // Help screen; the count is computed from the shipped flows, the prototype's own
+    // `flows().length + ' tours'` — so it reads honestly while flows are still blocked.
+    DrawerGroup(tx.common_help, listOf(
+        DrawerLine(tx.help_row, value = "$tours${tx.app_tours}",
+            icon = R.drawable.ic_mcft_info, onClick = onHelp),
+    )),
     DrawerGroup(tx.app_sync, listOf(
         DrawerLine(tx.common_sync_now,
             value = if (queued == 0) lastSync else tx.app_x_waiting(queued.toString()),

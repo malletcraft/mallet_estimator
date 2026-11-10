@@ -5,6 +5,7 @@ import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONObject
 import java.io.IOException
@@ -361,6 +362,9 @@ object QuoteStageSync {
      * Nothing is queued: the move is an online act, as it is on /projects.
      */
     fun move(context: Context, project: String, to: String, scope: Collection<Int>? = null, scopeBase: String = ""): MoveOutcome {
+        // THE DEMO NEVER REACHES S5 (port 61c §31): its stage is phone-local (ch55's approved
+        // exception, TourState.demoPhase), so a move for a demo key sends nothing, ever.
+        if (TourDemo.isDemoKey(project)) return MoveOutcome.None
         val cache = cached(context, project)
         // an Approve's scope_base is the caller's (the sheet's opening stamp); a strip move carries none, and nothing here reads the mirror
         val send = when (val m = QuoteMove.stage(project, cache, to, scope, scopeBase)) {

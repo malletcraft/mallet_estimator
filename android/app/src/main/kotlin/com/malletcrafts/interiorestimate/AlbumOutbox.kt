@@ -17,6 +17,7 @@ import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumQueue
 import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.AlbumWrite
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -146,6 +147,8 @@ object AlbumOutbox {
      */
     fun add(context: Context, project: String, login: String, op: Album.Op, seen: List<Album.Op>): Boolean {
         if (project.isBlank()) return false
+        // THE DEMO NEVER REACHES S5 (port 61c §31): no album op is ever queued against it
+        if (TourDemo.isDemoKey(project)) return false
         return try {
             synchronized(LOCK) {
                 val me = S5Session.loginKey(context)

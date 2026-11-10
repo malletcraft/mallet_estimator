@@ -1075,6 +1075,8 @@ internal fun SurveyPrepDialog(
                     .padding(horizontal = 8.dp, vertical = 2.dp))
             // ✓ SAVE: gold once all six surfaces are bounded, and only then does it do anything
             Box(Modifier.padding(start = 2.dp).onGloballyPositioned { saveBox = it.boundsInRoot() }
+                // the guided tour's `save` anchor (port 61c §31): shown, never pressed (a look step)
+                .tourAnchor("save", TourState.HOST_SURVEY)
                 .height(if (land) 28.dp else 32.dp).clip(RoundedCornerShape(16.dp))
                 .background(if (done == 6) SP_GOLD else SP_LINE_BORDER)
                 .clickable(enabled = done == 6) { saveNow() }
@@ -1106,7 +1108,10 @@ internal fun SurveyPrepDialog(
                         // a face squared from its reference says so under its name, "Ref 905 × 2053" (v52 slice 12) --
                         // shown or hidden on the faces, since it squares the face either way
                         val refT = if (t in SurveyPrep.SURFACES) SurveyRef.tabText(tx, prep.surface(t)) else null
-                        SpTab(StepRoute.tabName(tx, t), tab == t, tick, Modifier.weight(1f).fillMaxHeight(), ref = refT, land = land) { showTab(t) }
+                        // the guided tour's `tab:<tab>` anchor (port 61c §31), in the dialog's own window
+                        SpTab(StepRoute.tabName(tx, t), tab == t, tick,
+                            Modifier.weight(1f).fillMaxHeight().tourAnchor("tab:$t", TourState.HOST_SURVEY),
+                            ref = refT, land = land) { showTab(t) }
                     }
                 }
             }
@@ -1132,6 +1137,8 @@ internal fun SurveyPrepDialog(
                 val lab = StepRoute.label(tx, i)
                 Row(Modifier.height(if (tight) 20.dp else if (land) 22.dp else 26.dp)
                     .onGloballyPositioned { stepBoxes[k] = it.boundsInRoot() }
+                    // the guided tour's `mode:<step>` anchor (port 61c §31)
+                    .tourAnchor("mode:$k", TourState.HOST_SURVEY)
                     .semantics(mergeDescendants = true) {
                         contentDescription = lab
                         role = Role.Tab
@@ -1458,7 +1465,10 @@ internal fun SurveyPrepDialog(
             for (k in SurveyPrep.SLOTS) {
                 val col = Color(SurveyPrepDraw.argb(SurveyPrepDraw.LINE_COLOUR.getValue(k)))
                 val h = k == "bottom" || k == "top"
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                // the guided tour's `lines:row` anchor (port 61c §31): the FIRST nudge row, as the
+                // prototype's resolver takes the first `.lrow`
+                Row(Modifier.tourAnchor(if (k == SurveyPrep.SLOTS.first()) "lines:row" else null, TourState.HOST_SURVEY),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     Row(Modifier.width(74.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(col))
                         Spacer(Modifier.width(4.dp))
@@ -1827,6 +1837,15 @@ internal fun SurveyPrepDialog(
                     onCancel = { lwhOpen = false },
                     onApply = { applyLwh() })
             }
+            // ---- THE GUIDED TOUR (port 61c §31): survey prep is a Dialog — its OWN window, which
+            // the activity's overlay cannot cover — so it hosts the second TourOverlay instance,
+            // and the bridge reports the open tab / step / mark count into the tour's world and
+            // takes the host's `tab` / `mode` moves. Composed LAST, so the scrim draws over
+            // everything, the sheets and menus included. Nothing composes when no tour runs.
+            TourBindSurvey(tab, mode,
+                marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size },
+                onTab = { showTab(it) }, onMode = { goStepS(it) })
+            TourOverlay(TourState.HOST_SURVEY)
           }
         }
     }

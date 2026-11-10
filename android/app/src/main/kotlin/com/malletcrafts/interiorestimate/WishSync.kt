@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.WishList
 import org.json.JSONArray
 import org.json.JSONObject
@@ -282,7 +283,9 @@ object WishSync {
     fun push(context: Context) {
         val auth = S5Auth.fresh(context) ?: return
         val dirty = try {
-            all(context).filter { (k, l) -> l.dirty && !WishList.isLocal(k) }
+            // the demo's key is local by construction (TourDemo.wishKey), so !isLocal already
+            // excludes it; the demo term says so outright (port 61c §31, the never-sync rule)
+            all(context).filter { (k, l) -> l.dirty && !WishList.isLocal(k) && !TourDemo.isDemoKey(k) }
         } catch (e: Exception) {
             Log.w(TAG, "wish lists not read: " + (e.message?.take(160) ?: e.javaClass.simpleName)); return
         }

@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
@@ -503,6 +504,13 @@ class Catalogue(context: Context) {
                 clientId = "", jobType = l.jobType, local = true))
             seen.add(keyOf(l.client, l.site, l.project))
         }
+        // THE DEMO FLAT (port 61c §31; ch55, approved with v55): always in Browse, as Demo
+        // Client always is on the prototype — appended HERE, never written into locals(), so
+        // no sync leg ever sees it (the locals are what the ERP leg pushes). TourDemo is the
+        // one is-this-the-demo rule; every sync entry point refuses its rows through it.
+        if (out.none { TourDemo.isDemoProject(it.client, it.title) })
+            out.add(Project(TourDemo.CLIENT, TourDemo.SITE, "", TourDemo.PROJECT, "",
+                clientId = "", jobType = JOB_NEW, local = true))
         return out.sortedWith(compareBy({ it.client.lowercase() },
             { siteOrder(it.site) }, { it.site.lowercase() }, { it.title.lowercase() }))
     }

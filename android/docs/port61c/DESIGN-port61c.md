@@ -4574,7 +4574,10 @@ only entry, and every tour re-runs as often as wanted. The phone copies that exa
 ("first run? a prefs flag?") is answered by the prototype with NO.
 
 **How it advances and dismisses.** `Next` ALWAYS works and never writes data. A step may also auto-advance on
-its `done` rule: a tap inside the spotlight (≥ 320 ms after the step showed), an anchor appearing or
+its `done` rule: a tap inside the spotlight after the step showed, advancing 320 ms AFTER THE TAP — a settle
+delay, so the app's response to the tap is seen before the bubble moves; the engine's own line is
+`run.tapAt>run.shownAt && Date.now()-run.tapAt>=320` (this sentence first demanded the tap itself come ≥ 320 ms
+after show, which would IGNORE a prompt tap — critic finding 4, confirmed and corrected) — an anchor appearing or
 disappearing (`{exists:…}` / `{gone:…}`), the app reaching a screen (`{screen:…}`), the demo's phase
 (`{phase:n}`), survey prep's tool / tab / step (`{tool:…}` `{tab:…}` `{mode:…}`), or one more mark than when
 the step showed (`{marks:'+1'}`). The engine polls at 150 ms; every step's `setup` is a POSITION ("be here"),
@@ -4603,8 +4606,12 @@ is a stale answer.
 `android/i18n/index.tsv` today). The chrome reuses rows the table already has: `common.start` (सुरू करा),
 `common.next` (पुढे), `common.done` (पूर्ण), `help.tour.skip` ("Skip tour" / टूर वगळा), `help.tour.mode.do`
 ("Try it" / करून पाहा), `help.tour.mode.look` ("Look only" / फक्त पाहा), `help.tour.aria`, `common.help`,
-`app.tours`, and — the one borrowed row — the bubble's Back label is the table's one EN "Back" row,
-`app.aria.back` (मागे), exactly what the prototype showed in the driven run. The counter is digits. Decision 6
+`app.tours`, and — the one borrowed row — the bubble's Back label is the navigation row `app.aria.back` (मागे),
+by M2's decision-6 rule recorded in that row's own where note: a navigation control must not share a surface
+word's key. The tables carry a SECOND EN "Back" — `surface.back.short`, the back WALL's tab name, the same
+मराठी — and the RAW table files the tour's own Back lines (`tour55.js:261 · o`, `:402 · bar`) under THAT row,
+so the first version of this sentence ("the table's one EN Back row") was false as written while the driven
+byte-match still held either way (critic finding 5, confirmed). The counter is digits. Decision 6
 (Claude translates at full authority) has NOTHING to write here; `unkeyed.tsv` stays empty by construction.
 
 **The contract, which the Kotlin port reuses verbatim** (the page keeps it as a header over the flows, marked
@@ -4772,9 +4779,12 @@ ONE place:
   `AlbumQueue`, `ReadingsSync`. A demo row never reaches a queue, a PUT or the bench.
 - The demo project's stage is PHONE-LOCAL — the one exception to v61c.2's "a project S5 does not list has no
   stage of its own", made by ch55's approved decision, because without it the strip the `phases` tour teaches
-  is dead on the demo. The strip, the chip gate (`WishList.chipShown`) and the quote line read the demo's
-  local stage through the same `TourDemo` rule; a segment tap moves it locally and `QuoteStageSync` never
-  hears of it. Its wish list likewise lives on the phone only.
+  is dead on the demo. IN THIS BUILD that local stage exists only as the tour world's `TourState.demoPhase`
+  (the host's `phase` move sets it; the machine's `{phase:n}` reads it): with the `phases` and `wish` flows
+  blocked, no shipped step lights the strip, so the strip, the chip gate (`WishList.chipShown`) and the quote
+  line are NOT yet rewired to it — the demo project's screen shows the shipped "not on S5 yet" state, which
+  is true of it. That rewiring lands with the flow that needs it; `QuoteStageSync.move` refuses demo keys
+  either way, so a strip tap there can never become a PUT. Its wish list likewise lives on the phone only.
 - The demo is seeded idempotently at app start (`TourDemo.ensure(store)`) and is always in Browse, as Demo
   Client always is on the prototype — practising outside a tour is allowed and is the person's own; a tour
   snapshots at `start()` and restores THAT, not the factory seed, exactly as the prototype does.
@@ -4789,39 +4799,50 @@ against batch-next:
 
 | flow | verdict | why |
 |---|---|---|
-| `survey` (12) | **SHIPS WHOLE** | every anchor exists: the Browse rows and room tile (`BrowseScreens.kt`), Capture 360 and the capture tile (`HomeScreens.kt`), the step strip, a 1 · Lines nudge row (`SurveyPrepScreen.kt` `nudgeLine` rows), the face tabs, ✓ Save |
-| `360` (7) | **SHIPS WHOLE** | the 360 mode, pano view, step strip, palette, tool `E`, the `area:` box over the pano (the same maths that draws marks there), the face tabs (`SurveyPrep360.kt`, `SurveyPrepTools.kt`) |
+| `survey` (12) | **SHIPS WHOLE** | every anchor exists: the Browse rows and room tile (`BrowseScreens.kt`), Capture 360 (the room screen's FAB, `MainActivity.kt`) and the capture tile (`CaptureScreens.kt` `CaptureTile` — critic finding 3: the first version named `HomeScreens.kt`, which holds Work and Queue, neither of these), the step strip, a 1 · Lines nudge row (`SurveyPrepScreen.kt` `nudgeLine` rows), the face tabs, ✓ Save |
+| `360` (7) | blocked | **critic finding 1, confirmed — the first version said SHIPS WHOLE and was wrong.** The prototype's survey prep draws a real 360 TAB (its tab rows are FRONT RIGHT BACK LEFT / FLOOR CEILING 360 LIST PLAN) and its 360 view has NO step strip ("360 · every surface · every mark type"); the page's own flows header calls "a fourth '4 · 360' step" a STALE part not carried over. The phone still has that stale model: `StepRoute.TAB_ROWS` has no 360 tab and its 360 is strip step 4 (`StepRoute.STEPS`, `SurveyPrep360.kt` "4 · 360"). So step 1's anchor `tab:360` has no tab to tag, step 3's words ("The 360 has no step strip") are FALSE on a strip visibly showing 1–4 with 4 lit, and step 7's "A surface tab leaves the 360" describes the wrong mechanism. The engine's `doneNow` already maps `{tab:'360'}` to the phone's `mode === '360'` (kept in `TourMachine`), so the predicate ports; the drawn UI and the committed texts do not |
 | `phases` (10) | blocked by ONE step | steps 1–9 run true on the shipped strip (`PhaseStrip.kt`, the ask, the wish chip gate, the quote line); step 10's `phase:band` is v54's phase band at the top of survey prep, which the phone does not have |
-| `existing` (13) | blocked by THREE steps | 7 `more:electrical` (the phone's More ▸ is a type grid, `SpMoreSheet`, with no per-trade rows), 9 `chips` (the phone's 3 · List is a checklist of rows, not the prototype's mark chips), 12 `show` (no Show ≈ Photo / Measured / Both control — the phone shows both as columns) |
+| `existing` (13) | blocked by TWO steps | 7 `more:electrical` (the phone's More ▸ is a type grid, `SpMoreSheet`, with no per-trade rows), 9 `chips` (the phone's 3 · List is a checklist of rows, not the prototype's mark chips). Step 12's target EXISTS — `SurveyPrepScreen.kt`'s `showRow` is exactly the Show · ≈ Photo / Measured / Both pills, drawn in list view and mark mode — so the first version's third blocker ("no Show control") was wrong (critic finding 2, confirmed) |
 | `wish` (13) | blocked | steps 6–13 need the v53/v54 lifecycle the phone has never had: the phase band, "as Client wish" on the tool chip, the Mark sheet and its moves (`sheet:*` anchors); steps 1–5 alone are not the approved flow |
 | `vendor` (12) | blocked | VENDOR PACKS, the Trade chip, State ▾ and its popover, Move N ▸, the Export sheet's pack/trades chips and the `wishes` seeding — all v54/v58 survey-prep features the phone does not have |
 | `plan` (6) | blocked | the project-level Floor plan arranger (drag, ↻ 90°, snap, Fit, Reset) does not exist on the phone at all (`SurveyPlanScreen.kt` is the per-room PLAN tab, a different thing) |
 
-So the slice ships the ENGINE, the drawer row, the Help screen, the demo flat, and the two flows that run
-true — `survey` and `360`, 19 steps. The Help list and the drawer count are computed from the shipped flows
-(the prototype's own `flows().length + ' tours'`), so the row honestly reads "2 tours" / "2 टूर" until more
-flows' targets exist. Each blocked flow's data ships in `TourFlows.kt` marked blocked with its missing anchors
-named, so adding a flow later is flipping its entry after its targets land, not re-deriving it.
+So the slice ships the ENGINE, the drawer row, the Help screen, the demo flat, and the ONE flow that runs
+true — `survey`, 12 steps (the first version said "survey and 360, 19 steps"; the 360's blocking is critic
+finding 1). The Help list and the drawer count are computed from the shipped flows (the prototype's own
+`flows().length + ' tours'`), so the row honestly reads "1 tour" / "1 टूर" until more flows' targets exist.
+Each blocked flow's data ships in `Tour.kt` marked blocked with its missing anchors named, so adding a flow
+later is flipping its entry after its targets land, not re-deriving it.
 
 **Held for Amit** (to join the held prototype questions, raised after the final build per the quiet-run plan —
 none of them blocks this slice):
 
 1. S2 APK: cut `phases` to 9 steps on the prototype (drop step 10, the phase band) so the phone can carry the
    tour that teaches the strip Amit just shipped (QM1/QM2)? Claude recommends yes; the step returns when the
-   band ports. The same question for `existing` at 10 steps (drop 7, 9, 12) is NOT recommended — three cuts
-   change the flow's sense, and its 3 · List steps describe chips the phone's checklist does not draw.
+   band ports. The same question for `existing` at ELEVEN steps (drop 7 and 9 — critic finding 2: step 12's
+   Show control exists on the phone, so the hypothetical cut is two steps, not three) is still NOT
+   recommended, though more narrowly than first written: step 9's words ("3 · List takes readings" over mark
+   CHIPS) describe a list the phone's checklist does not draw, and cutting the More ▸ trade rows (7) with it
+   thins the flow's middle.
 2. S2 APK (prototype content, not port work): the `phases` texts predate v61b — `tour.phases.name/line/1.*`
    say FOUR phases while the approved strip has five segments (Revisions) over six quote stages, and no tour
    anywhere covers Revisions, Approve, the scope sheet or the Album (v61c's own features). A v61c tour is
    prototype work first (Amit approves it there), then its keys and a flow entry here; nothing of it is
    invented by this port.
+3. S2 APK: the `360` flow (critic finding 1). Two honest ways to unblock it, both Amit's: port the
+   prototype's APPROVED 360-tab layout first — the tab among the face tabs and a strip-less 360 view; the
+   prototype IS the approved UI and the phone is behind it (its 4 · 360 is the layout the page's own header
+   calls stale) — after which the flow's texts run true as committed; or approve ADAPTED step texts on the
+   prototype for the phone's strip-step 360. Claude recommends the first: it removes the divergence instead
+   of writing around it.
 
 **The phone half — files.**
 
 :pano (pure JVM, tested here):
 - `pano/Tour.kt` — the contract's types (Flow, Step, Move, Done, the anchor-name grammar) and THE SEVEN FLOWS
-  as data, titles and bodies through the existing Tx accessors, each flow carrying `ships` (true: survey,
-  360) and, when false, its missing anchors as text. A test, not a comment, keeps the shipped set honest.
+  as data, titles and bodies through the existing Tx accessors, each flow carrying `ships` (true: survey
+  alone, after critic finding 1) and, when false, its missing anchors as text. A test, not a comment, keeps
+  the shipped set honest.
 - `pano/TourPlace.kt` — the placement geometry, pure rect-in/rect-out: the side orders (portrait and
   landscape), full-width, the 176 narrow fit, trim (48 / 96), squeeze (72), centre-when-no-hole; PAD 6,
   EDGE 8, GAP 10, widths 328 / 300.
@@ -4832,13 +4853,16 @@ none of them blocks this slice):
   ids, the size), `ensure` semantics.
 
 :pano tests (all run here with `nice -n 15 gradle :pano:test --offline`):
-- `TourFlowsTest` — the counts (7 flows, 73 steps; survey 12, 360 7 shipped); every anchor parses against the
+- `TourFlowsTest` — the counts (7 flows, 73 steps; survey's 12 shipped alone); every anchor parses against the
   vocabulary; every step's title and body accessor non-blank in BOTH languages; every flow's name and line
   keys present; every `done` step's setup makes its predicate false (checkable for tool / tab / mode / phase);
   the first step of every flow opens with the everything-goes-back sentence (the key's own text, pinned).
 - `TourPlaceTest` — the prototype's placement bar as properties: the bubble never covers the hole, never
-  leaves the frame, trim only when no side fits, squeeze and overlap never on any shipped step's measured
-  rects (the driven run's 146 step rects, exported from `report.json`, replayed as fixtures).
+  leaves the frame, trim only when no side fits, squeeze and overlap never on any driven step's measured
+  rects. The 146 step rects are COMMITTED as a :pano test resource (`test/resources/tour/tour-place-rects.json`,
+  re-exported from the driven page with `android/docs/port61c/tour-drive.mjs`, itself committed) — critic
+  finding 6, confirmed: the first plan replayed them from the scratchpad's `report.json`, against the repo's
+  own workbench-not-storage rule, and a container restart would have lost the gate's inputs.
 - `TourMachineTest` — Next always advances; Back lands on a non-auto-advancing position; Skip / Done both
   end; a Next-only run records wrote 0; the tap rule's 320 ms.
 - `TourDemoTest` — the seed parses, six surfaces `set`, the named marks present; `isDemo` covers every seeded
@@ -4854,20 +4878,28 @@ none of them blocks this slice):
 - `HelpScreen.kt` (new) — the full screen (bar ← · Help · subtitle, intro, a row per shipped flow with
   Start), opened like the Laser test screen from one flag in `MainActivity`.
 - `MainActivity.kt` — the HELP drawer group FIRST in `drawerGroups` (row `help.row`, value computed count +
-  `app.tours`); the help flag; the TourHost: every MOVE the two shipped flows use (`close`, `go`, `survey`,
-  `phase` — demo-local, `tab`, `mode`, `tool`, `look`) executed through the app's own state and stores, never
-  a parallel path; the demo snapshot / restore (the demo's prep via `SurveyPrepStore`, its local stage, its
-  wish rows, the navigation) on every end.
-- `CaptureStore.kt` / `TourDemo` wiring — the demo seeded idempotently at start.
-- `BrowseScreens.kt`, `HomeScreens.kt`, `SurveyPrepScreen.kt`, `SurveyPrepTools.kt`, `SurveyPrep360.kt`,
-  `PhaseStrip.kt` — `Modifier.tourAnchor` tags on exactly the anchors the shipped flows name (`row:`,
-  `room:`, `capture360`, `cap:`, `mode`, `mode:<step>`, `tab:<tab>`, `save`, `lines:row`, `palette`,
-  `tool:<t>`, `pano`), plus the `area:` rect computed from the prep's own mapping where the surface is drawn.
-- `AsIsUpload.kt`, `SyncWorker.kt`, `QuoteStageSync.kt`, `WishSync.kt`, `AlbumOutbox.kt` — the one-line
-  `TourDemo.isDemo` refusal at each entry.
+  `app.tours`); the help flag; the TourHost: every MOVE the shipped flow uses (`close`, `go`, `survey`,
+  `phase` — demo-local, `tab`, `mode` — `tool` and `look` left unhosted with the flows that need them,
+  TourFlowsTest pinning the hosted set) executed through the app's own state and stores, never a parallel
+  path; the demo snapshot / restore (the demo's prep via `SurveyPrepStore`, the row's size, the local phase,
+  the navigation) on every end — the restore WAITING for the survey dialog to leave first, because the
+  dialog's own dispose-save would otherwise write the practice back over the restored snapshot.
+- `CaptureStore.kt` / `TourSeed` wiring — the demo seeded idempotently at start (the pano asset
+  `tour_demo_pano.jpg`, the SYNCED capture row, the prep file).
+- `BrowseScreens.kt` (`row:`, `room:` — the demo rows only, so a real row never writes an anchor),
+  `CaptureScreens.kt` (`cap:` on the demo capture's tile), `MainActivity.kt` (`capture360`, the room screen's
+  FAB — critic finding 3: the first version put the FAB and the tile in `HomeScreens.kt`, which holds Work
+  and Queue), `SurveyPrepScreen.kt` (`mode:<step>`, `tab:<tab>`, `save`, `lines:row`, in the dialog's own
+  window) — `Modifier.tourAnchor` tags on exactly the anchors the SHIPPED flow names; the blocked flows' tag
+  sites (`palette`, `tool:<t>`, `pano`, the strip and band, the `area:` maths) land when their flows flip.
+- `AsIsUpload.kt` (enqueue — SyncWorker's prep sweep comes through it), `SyncWorker.kt` (the ERP leg, whose
+  only-on-S5 filter is exactly the demo row's shape: SYNCED, no serverName), `QuoteStageSync.kt` (move),
+  `WishSync.kt` (push — the demo's key is also local by construction), `AlbumOutbox.kt` (add),
+  `ReadingsSync.kt` (fetch and push), and :pano's `AlbumQueue.requestOf` — the one-line `TourDemo` refusal at
+  each entry.
 
-**What Amit sees.** A new first group in the ≡ drawer: "Help · guided tours · 2 tours" (मदत · मार्गदर्शक टूर ·
-2 टूर). Inside, the Help screen with "Survey a room" and "The 360", each with Start. A started tour darkens
+**What Amit sees.** A new first group in the ≡ drawer: "Help · guided tours · 1 tour" (मदत · मार्गदर्शक टूर ·
+1 टूर). Inside, the Help screen with "Survey a room" and Start. A started tour darkens
 the screen, lights one real control at a time on the demo flat — which now sits in Browse under Demo Client —
 and lets him do the step; Next, Back, Skip tour, the counter, Try it / Look only, everything in whichever
 language the drawer is set to; Done (or Skip, or ◁, or Home) puts the demo back exactly as it was and returns
@@ -4881,13 +4913,60 @@ last-write-wins and a disposal hook, and `TourOverlay` re-reads it every frame a
 frame. (2) The `area:` box over the pano reuses the 360's own direction-to-screen maths; if the phone's pano
 projection differs from the prototype's the lit box sits elsewhere on the picture — the box is fractions of
 the SURFACE, so it stays on bare wall wherever the projection puts it, and the step's words ("tap the bare
-wall in the lit part") stay true. (3) The demo is new permanent data in Browse; if Amit does not want it
+wall in the lit part") stay true. (Moot in THIS build: with the 360 flow blocked, no shipped step names a
+virtual anchor, and the phone computes none yet.) (3) The demo is new permanent data in Browse; if Amit does not want it
 visible outside the Help screen that is a one-question change (seed on first Help open instead) — but the
 prototype shows it always, so the port does too. (4) Nothing here has been seen on a phone; the driven
 prototype run and the :pano suites are the stand-in, as every slice before it.
 
+**The tour critic (build review, 10 Nov 2026)** — six findings on §31 as written (`1d68c8e`), each checked
+against the code on batch-next and the served v61c.2 page before the build applied it. ALL SIX CONFIRMED;
+none refuted. The corrections are folded into the section above, marked by finding; this list is the record.
 
-## Progress notes recovered
+1. **CONFIRMED (major) — the `360` flow does not run true on the phone.** The prototype draws a 360 TAB
+   (FRONT RIGHT BACK LEFT / FLOOR CEILING 360 LIST PLAN) and a strip-less 360 view ("360 · every surface ·
+   every mark type"); its flows header calls "a fourth '4 · 360' step" a stale part not carried over. The
+   phone IS that stale part: `StepRoute.TAB_ROWS` has no 360 and `StepRoute.STEPS` ends `"360"`. Steps 1, 3
+   and 7's committed texts are false on the phone's screen — §31's own standard, the one it blocked
+   `existing` over. Applied: the verdict row, `ships` (survey alone, 1 tour, 12 steps), held question 3.
+   The mitigating fact stands and is kept in the row: `doneNow`'s `{tab:'360'}` → `mode === '360'` mapping
+   ports, so unblocking is UI-and-texts work, not engine work.
+2. **CONFIRMED (major) — `existing` is blocked by TWO steps, not three.** `SurveyPrepScreen.kt`'s `showRow`
+   (Show · ≈ Photo / Measured / Both, keys `common.show/photo/measured/both` in both tables) is exactly step
+   12's target, drawn in list view and mark mode. Applied: the verdict row and held question 1 (a
+   hypothetical cut is 7 and 9, eleven steps remain).
+3. **CONFIRMED (minor) — Capture 360 and the capture tile are not in `HomeScreens.kt`** (Work and Queue live
+   there). The FAB is `MainActivity.kt` (`tx.common_capture_360`), the tile `CaptureScreens.kt`
+   (`CapturesScreen` / `CaptureTile`). Applied: the survey verdict row and the tag-site bullet; the build
+   tagged the right files.
+4. **CONFIRMED (minor) — the 320 ms runs from the TAP, not from show.** The engine:
+   `if(d==='tap') return run.tapAt>run.shownAt&&Date.now()-run.tapAt>=320` — any tap after show qualifies and
+   the advance settles 320 ms after it. The first wording would have made `TourMachine` IGNORE a prompt tap.
+   Applied: the advance paragraph, `TourMachine`'s rule and doc, and `TourMachineTest`'s two tap cases (a
+   prompt tap advances 320 ms later; `shown` resets the tap so Back never inherits one).
+5. **CONFIRMED (minor) — the tables hold TWO EN "Back" rows.** `surface.back.short` (the back WALL, same
+   मराठी) is where the RAW table files `tour55.js`'s own Back lines; `app.aria.back` remains the right key by
+   M2's recorded rule (a navigation control must not share a surface word's key), but "the table's one EN
+   Back row" was false as written. Applied: the chrome-keys paragraph.
+6. **CONFIRMED (minor) — the placement fixtures lived only in the scratchpad**, against this repo's own
+   "workbench, not storage" rule, written after that exact loss. Applied: the 146 step rects are a committed
+   :pano test resource (`tour/tour-place-rects.json`) and the Playwright driver that exports them is
+   committed beside the plan (`android/docs/port61c/tour-drive.mjs`).
+
+**Build notes** (the narrowings the build made, recorded so nobody rediscovers them as bugs):
+- The REVEAL (scrolling a target into view in its own list) is not built: a target off screen leaves the
+  bubble centred with no spotlight — the engine's own missing-anchor shape. The demo sits near the top of
+  every list it is in, so no shipped step needs the scroll.
+- No host feeds `TourMachine.tap` yet: no SHIPPED step carries a `done: tap` rule (they are all in blocked
+  flows). The machine carries the rule, tested, for the flow that first needs it.
+- Only the shipped flow's anchors are tagged, and the Browse/capture tags are the DEMO rows' only (a real
+  row never writes an anchor rect, so a registry entry can never name a client).
+- The end-of-tour restore waits for the survey dialog to leave before writing the snapshot back, because the
+  dialog saves unsaved work in its own dispose (`SurveyPrepScreen`'s `onDispose` save) — restoring first
+  would let that save write the practice back over the restored prep.
+- `tour.phases.5.body` is flagged `prototype-only` in the table ("the prototype sends nothing" is false of
+  the phone), so i18nGen generates no accessor and the step's body is empty until the `phases` flow's phone
+  wording is approved on the prototype; `TourFlowsTest` pins the one exception. The flow is blocked anyway.
 
 ## Progress, 3 Nov 2026 ~15:25 IST
 

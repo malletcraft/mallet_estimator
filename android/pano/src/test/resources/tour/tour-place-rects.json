@@ -1,0 +1,5550 @@
+[
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 0,
+  "id": "phases.1",
+  "anchor": "phase:strip",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    352,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    360,
+    60
+   ],
+   "bubble": [
+    16,
+    230,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 1,
+  "id": "phases.2",
+  "anchor": "p54seg:0",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    80.390625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 2,
+  "id": "phases.3",
+  "anchor": "p54seg:1",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    74.390625,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    68.390625,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 3,
+  "id": "phases.4",
+  "anchor": "chip:wish",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    134.765625,
+    243,
+    111.578125,
+    32
+   ],
+   "hole": [
+    128.765625,
+    237,
+    123.578125,
+    44
+   ],
+   "bubble": [
+    24,
+    291,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 4,
+  "id": "phases.5",
+  "anchor": "quote",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    52
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    64
+   ],
+   "bubble": [
+    16,
+    180,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 5,
+  "id": "phases.6",
+  "anchor": "p54seg:2",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    144.796875,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    138.796875,
+    160,
+    82.390625,
+    60
+   ],
+   "bubble": [
+    15.9921875,
+    230,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 6,
+  "id": "phases.7",
+  "anchor": "p54seg:3",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    215.1875,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    209.1875,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    24,
+    230,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 7,
+  "id": "phases.8",
+  "anchor": "p54seg:0",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    80.390625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 8,
+  "id": "phases.9",
+  "anchor": "phase:ask",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    8,
+    236,
+    344,
+    110
+   ],
+   "hole": [
+    2,
+    230,
+    356,
+    122
+   ],
+   "bubble": [
+    16,
+    362,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "phases",
+  "i": 9,
+  "id": "phases.10",
+  "anchor": "phase:band",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    8,
+    340,
+    20
+   ],
+   "hole": [
+    4,
+    2,
+    352,
+    32
+   ],
+   "bubble": [
+    16,
+    44,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 0,
+  "id": "survey.1",
+  "anchor": "row:Demo Client",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    176,
+    360,
+    64
+   ],
+   "hole": [
+    0,
+    170,
+    360,
+    76
+   ],
+   "bubble": [
+    16,
+    256,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 1,
+  "id": "survey.2",
+  "anchor": "row:Demo Site, Pune",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    64
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    76
+   ],
+   "bubble": [
+    16,
+    192,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 2,
+  "id": "survey.3",
+  "anchor": "row:Demo flat interiors",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    77
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    89
+   ],
+   "bubble": [
+    16,
+    205,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 3,
+  "id": "survey.4",
+  "anchor": "room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    1,
+    316,
+    118,
+    118
+   ],
+   "hole": [
+    0,
+    310,
+    125,
+    130
+   ],
+   "bubble": [
+    8,
+    450,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 4,
+  "id": "survey.5",
+  "anchor": "capture360",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    194.21875,
+    556,
+    149.78125,
+    56
+   ],
+   "hole": [
+    188.21875,
+    550,
+    161.78125,
+    68
+   ],
+   "bubble": [
+    24,
+    344,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 5,
+  "id": "survey.6",
+  "anchor": "cap:360",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    1,
+    165,
+    178,
+    133.5
+   ],
+   "hole": [
+    0,
+    159,
+    185,
+    145.5
+   ],
+   "bubble": [
+    8,
+    314.5,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 6,
+  "id": "survey.7",
+  "anchor": "mode:lines",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    77.4375,
+    166,
+    64.546875,
+    26
+   ],
+   "hole": [
+    71.4375,
+    160,
+    76.546875,
+    38
+   ],
+   "bubble": [
+    8,
+    208,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 7,
+  "id": "survey.8",
+  "anchor": "lines:row",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    528,
+    340,
+    28
+   ],
+   "hole": [
+    4,
+    522,
+    352,
+    40
+   ],
+   "bubble": [
+    16,
+    336,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 8,
+  "id": "survey.9",
+  "anchor": "tab:front",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    100,
+    85,
+    32
+   ],
+   "hole": [
+    4,
+    94,
+    97,
+    44
+   ],
+   "bubble": [
+    8,
+    148,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 9,
+  "id": "survey.10",
+  "anchor": "mode:mark",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    216.984375,
+    166,
+    28,
+    26
+   ],
+   "hole": [
+    210.984375,
+    160,
+    40,
+    38
+   ],
+   "bubble": [
+    24,
+    208,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 10,
+  "id": "survey.11",
+  "anchor": "mode:list",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    320,
+    166,
+    28,
+    26
+   ],
+   "hole": [
+    314,
+    160,
+    40,
+    38
+   ],
+   "bubble": [
+    24,
+    208,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "survey",
+  "i": 11,
+  "id": "survey.12",
+  "anchor": "save",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    237.109375,
+    36,
+    68.890625,
+    32
+   ],
+   "hole": [
+    231.109375,
+    30,
+    80.890625,
+    44
+   ],
+   "bubble": [
+    24,
+    84,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 0,
+  "id": "existing.1",
+  "anchor": "palette",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    340,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    352,
+    62
+   ],
+   "bubble": [
+    16,
+    420,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 1,
+  "id": "existing.2",
+  "anchor": "tool:E",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    265,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    259,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    460,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 2,
+  "id": "existing.3",
+  "anchor": "toolchip",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    18,
+    260,
+    259.140625,
+    32
+   ],
+   "hole": [
+    12,
+    254,
+    271.140625,
+    44
+   ],
+   "bubble": [
+    8,
+    308,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 3,
+  "id": "existing.4",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    233.58672862556364,
+    328,
+    256
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 4,
+  "id": "existing.5",
+  "anchor": "tool:sel",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    8,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 5,
+  "id": "existing.6",
+  "anchor": "tool:more",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    307.5,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    301.5,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 6,
+  "id": "existing.7",
+  "anchor": "more:electrical",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    388,
+    340,
+    44
+   ],
+   "hole": [
+    4,
+    382,
+    352,
+    56
+   ],
+   "bubble": [
+    16,
+    448,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 7,
+  "id": "existing.8",
+  "anchor": "selrow",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    608,
+    340,
+    38
+   ],
+   "hole": [
+    4,
+    602,
+    352,
+    50
+   ],
+   "bubble": [
+    16,
+    396,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 8,
+  "id": "existing.9",
+  "anchor": "chips",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    262,
+    340,
+    40
+   ],
+   "hole": [
+    4,
+    256,
+    352,
+    52
+   ],
+   "bubble": [
+    16,
+    318,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 9,
+  "id": "existing.10",
+  "anchor": "reading:mm",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    206,
+    504,
+    62,
+    36
+   ],
+   "hole": [
+    200,
+    498,
+    74,
+    48
+   ],
+   "bubble": [
+    24,
+    312,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 10,
+  "id": "existing.11",
+  "anchor": "reading:d2",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    272,
+    504,
+    40,
+    36
+   ],
+   "hole": [
+    266,
+    498,
+    52,
+    48
+   ],
+   "bubble": [
+    24,
+    312,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 11,
+  "id": "existing.12",
+  "anchor": "show",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    192,
+    340,
+    38
+   ],
+   "hole": [
+    4,
+    186,
+    352,
+    50
+   ],
+   "bubble": [
+    16,
+    246,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "existing",
+  "i": 12,
+  "id": "existing.13",
+  "anchor": "lock",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    54,
+    449,
+    30,
+    40
+   ],
+   "hole": [
+    48,
+    443,
+    42,
+    52
+   ],
+   "bubble": [
+    8,
+    505,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 0,
+  "id": "wish.1",
+  "anchor": "p54seg:1",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    74.390625,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    68.390625,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 1,
+  "id": "wish.2",
+  "anchor": "chip:wish",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    134.765625,
+    243,
+    111.578125,
+    32
+   ],
+   "hole": [
+    128.765625,
+    237,
+    123.578125,
+    44
+   ],
+   "bubble": [
+    24,
+    291,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 2,
+  "id": "wish.3",
+  "anchor": "wish:head",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    64,
+    360,
+    69
+   ],
+   "hole": [
+    0,
+    58,
+    360,
+    81
+   ],
+   "bubble": [
+    16,
+    149,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 3,
+  "id": "wish.4",
+  "anchor": "service:electrical",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    133,
+    360,
+    56
+   ],
+   "hole": [
+    0,
+    127,
+    360,
+    68
+   ],
+   "bubble": [
+    16,
+    205,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 4,
+  "id": "wish.5",
+  "anchor": "service:row:master-bath",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    532,
+    360,
+    77
+   ],
+   "hole": [
+    0,
+    526,
+    360,
+    89
+   ],
+   "bubble": [
+    16,
+    280,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 5,
+  "id": "wish.6",
+  "anchor": "phase:band",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    8,
+    340,
+    20
+   ],
+   "hole": [
+    4,
+    2,
+    352,
+    32
+   ],
+   "bubble": [
+    16,
+    44,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 6,
+  "id": "wish.7",
+  "anchor": "toolchip:as",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    30,
+    288,
+    97.90625,
+    14
+   ],
+   "hole": [
+    24,
+    282,
+    109.90625,
+    26
+   ],
+   "bubble": [
+    8,
+    318,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 7,
+  "id": "wish.8",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    273.58672862556364,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 8,
+  "id": "wish.9",
+  "anchor": "selrow:code",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    16,
+    618,
+    52,
+    24
+   ],
+   "hole": [
+    10,
+    612,
+    64,
+    36
+   ],
+   "bubble": [
+    8,
+    426,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 9,
+  "id": "wish.10",
+  "anchor": "sheet:move:wish",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    494,
+    336,
+    40
+   ],
+   "hole": [
+    6,
+    488,
+    348,
+    52
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 10,
+  "id": "wish.11",
+  "anchor": "sheet:acts",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    494,
+    336,
+    40
+   ],
+   "hole": [
+    6,
+    488,
+    348,
+    52
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 11,
+  "id": "wish.12",
+  "anchor": "sheet:done",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    652,
+    336,
+    48
+   ],
+   "hole": [
+    6,
+    646,
+    348,
+    60
+   ],
+   "bubble": [
+    16,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "wish",
+  "i": 12,
+  "id": "wish.13",
+  "anchor": "mark:FW1",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    108.52266203531906,
+    341.806407991837,
+    143.13482960489182,
+    138.7938592023089
+   ],
+   "hole": [
+    102.52266203531906,
+    335.806407991837,
+    155.13482960489182,
+    150.7938592023089
+   ],
+   "bubble": [
+    16.09007683776497,
+    89.80640799183698,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 0,
+  "id": "vendor.1",
+  "anchor": "p54seg:2",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    144.796875,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    138.796875,
+    160,
+    82.390625,
+    60
+   ],
+   "bubble": [
+    15.9921875,
+    230,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 1,
+  "id": "vendor.2",
+  "anchor": "phase:packs",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    232,
+    352,
+    80
+   ],
+   "hole": [
+    0,
+    226,
+    360,
+    92
+   ],
+   "bubble": [
+    16,
+    328,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 2,
+  "id": "vendor.3",
+  "anchor": "pack:doors-windows",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    100.546875,
+    234,
+    135.40625,
+    36
+   ],
+   "hole": [
+    94.546875,
+    228,
+    147.40625,
+    48
+   ],
+   "bubble": [
+    8,
+    286,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 3,
+  "id": "vendor.4",
+  "anchor": "trade",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    300,
+    167,
+    48,
+    24
+   ],
+   "hole": [
+    294,
+    161,
+    60,
+    36
+   ],
+   "bubble": [
+    24,
+    207,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 4,
+  "id": "vendor.5",
+  "anchor": "toolchip:as",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    30,
+    288,
+    113.9375,
+    14
+   ],
+   "hole": [
+    24,
+    282,
+    125.9375,
+    26
+   ],
+   "bubble": [
+    8,
+    318,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 5,
+  "id": "vendor.6",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    293.58672862556364,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 6,
+  "id": "vendor.7",
+  "anchor": "list:state",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    232,
+    83.390625,
+    28
+   ],
+   "hole": [
+    6,
+    226,
+    95.390625,
+    40
+   ],
+   "bubble": [
+    8,
+    276,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 7,
+  "id": "vendor.8",
+  "anchor": "list:pop",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    8,
+    494,
+    344,
+    206
+   ],
+   "hole": [
+    2,
+    488,
+    356,
+    218
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 8,
+  "id": "vendor.9",
+  "anchor": "list:move",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    150.15625,
+    232,
+    72.328125,
+    28
+   ],
+   "hole": [
+    144.15625,
+    226,
+    84.328125,
+    40
+   ],
+   "bubble": [
+    22.3203125,
+    276,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 9,
+  "id": "vendor.10",
+  "anchor": "list:export",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    272.6875,
+    232,
+    75.3125,
+    28
+   ],
+   "hole": [
+    266.6875,
+    226,
+    87.3125,
+    40
+   ],
+   "bubble": [
+    24,
+    276,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 10,
+  "id": "vendor.11",
+  "anchor": "x53:trades",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    65.984375,
+    200,
+    106.890625,
+    32
+   ],
+   "hole": [
+    59.984375,
+    194,
+    118.890625,
+    44
+   ],
+   "bubble": [
+    8,
+    248,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "vendor",
+  "i": 11,
+  "id": "vendor.12",
+  "anchor": "stg",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    64,
+    360,
+    61
+   ],
+   "hole": [
+    0,
+    58,
+    360,
+    73
+   ],
+   "bubble": [
+    16,
+    141,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 0,
+  "id": "360.1",
+  "anchor": "tab:360",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    180.5625,
+    132,
+    51.78125,
+    32
+   ],
+   "hole": [
+    174.5625,
+    126,
+    63.78125,
+    44
+   ],
+   "bubble": [
+    24,
+    180,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 1,
+  "id": "360.2",
+  "anchor": "pano",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": true,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    214,
+    340,
+    280
+   ],
+   "hole": [
+    4,
+    208,
+    352,
+    286
+   ],
+   "bubble": [
+    16,
+    504,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 2,
+  "id": "360.3",
+  "anchor": "mode",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    164,
+    340,
+    28
+   ],
+   "hole": [
+    4,
+    158,
+    352,
+    40
+   ],
+   "bubble": [
+    16,
+    208,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 3,
+  "id": "360.4",
+  "anchor": "palette",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    340,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    352,
+    62
+   ],
+   "bubble": [
+    16,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 4,
+  "id": "360.5",
+  "anchor": "tool:E",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    265,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    259,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 5,
+  "id": "360.6",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    95.26474404131545,
+    498.6182012216939,
+    157.4452451498729,
+    40.48197397413173
+   ],
+   "hole": [
+    89.26474404131545,
+    492.6182012216939,
+    169.4452451498729,
+    52.48197397413173
+   ],
+   "bubble": [
+    9.987366616251904,
+    246.61820122169388,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "360",
+  "i": 6,
+  "id": "360.7",
+  "anchor": "tab:front",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    100,
+    85,
+    32
+   ],
+   "hole": [
+    4,
+    94,
+    97,
+    44
+   ],
+   "bubble": [
+    8,
+    148,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 0,
+  "id": "plan.1",
+  "anchor": "plan:tile",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    241,
+    316,
+    118,
+    118
+   ],
+   "hole": [
+    235,
+    310,
+    125,
+    130
+   ],
+   "bubble": [
+    24,
+    450,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 1,
+  "id": "plan.2",
+  "anchor": "plan:room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": true,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    28,
+    161.38336181640625,
+    304.001220703125,
+    352.61663818359375
+   ],
+   "hole": [
+    22,
+    155.38336181640625,
+    316.001220703125,
+    358.61663818359375
+   ],
+   "bubble": [
+    16.0006103515625,
+    524,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 2,
+  "id": "plan.3",
+  "anchor": "plan:rotate",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    268,
+    125.59375,
+    64,
+    40
+   ],
+   "hole": [
+    262,
+    119.59375,
+    76,
+    52
+   ],
+   "bubble": [
+    24,
+    181.59375,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 3,
+  "id": "plan.4",
+  "anchor": "plan:room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": true,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    28,
+    161.38336181640625,
+    304.001220703125,
+    332.61663818359375
+   ],
+   "hole": [
+    22,
+    155.38336181640625,
+    316.001220703125,
+    338.61663818359375
+   ],
+   "bubble": [
+    16.0006103515625,
+    504,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 4,
+  "id": "plan.5",
+  "anchor": "plan:fit",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    189.234375,
+    638,
+    46.25,
+    40
+   ],
+   "hole": [
+    183.234375,
+    632,
+    58.25,
+    52
+   ],
+   "bubble": [
+    24,
+    446,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "en",
+  "flow": "plan",
+  "i": 5,
+  "id": "plan.6",
+  "anchor": "plan:reset",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    243.484375,
+    638,
+    108.515625,
+    40
+   ],
+   "hole": [
+    237.484375,
+    632,
+    120.515625,
+    52
+   ],
+   "bubble": [
+    24,
+    446,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 0,
+  "id": "phases.1",
+  "anchor": "phase:strip",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    352,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    360,
+    60
+   ],
+   "bubble": [
+    16,
+    230,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 1,
+  "id": "phases.2",
+  "anchor": "p54seg:0",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    80.390625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 2,
+  "id": "phases.3",
+  "anchor": "p54seg:1",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    74.390625,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    68.390625,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 3,
+  "id": "phases.4",
+  "anchor": "chip:wish",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    156.609375,
+    243,
+    110.84375,
+    32
+   ],
+   "hole": [
+    150.609375,
+    237,
+    122.84375,
+    44
+   ],
+   "bubble": [
+    24,
+    291,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 4,
+  "id": "phases.5",
+  "anchor": "quote",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    52
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    64
+   ],
+   "bubble": [
+    16,
+    180,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 5,
+  "id": "phases.6",
+  "anchor": "p54seg:2",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    144.796875,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    138.796875,
+    160,
+    82.390625,
+    60
+   ],
+   "bubble": [
+    15.9921875,
+    230,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 6,
+  "id": "phases.7",
+  "anchor": "p54seg:3",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    215.1875,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    209.1875,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    24,
+    230,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 7,
+  "id": "phases.8",
+  "anchor": "p54seg:0",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    0,
+    160,
+    80.390625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 8,
+  "id": "phases.9",
+  "anchor": "phase:ask",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    8,
+    236,
+    344,
+    110
+   ],
+   "hole": [
+    2,
+    230,
+    356,
+    122
+   ],
+   "bubble": [
+    16,
+    362,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "phases",
+  "i": 9,
+  "id": "phases.10",
+  "anchor": "phase:band",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    8,
+    340,
+    20
+   ],
+   "hole": [
+    4,
+    2,
+    352,
+    32
+   ],
+   "bubble": [
+    16,
+    44,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 0,
+  "id": "survey.1",
+  "anchor": "row:Demo Client",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    176,
+    360,
+    64
+   ],
+   "hole": [
+    0,
+    170,
+    360,
+    76
+   ],
+   "bubble": [
+    16,
+    256,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 1,
+  "id": "survey.2",
+  "anchor": "row:Demo Site, Pune",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    64
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    76
+   ],
+   "bubble": [
+    16,
+    192,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 2,
+  "id": "survey.3",
+  "anchor": "row:Demo flat interiors",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    112,
+    360,
+    77
+   ],
+   "hole": [
+    0,
+    106,
+    360,
+    89
+   ],
+   "bubble": [
+    16,
+    205,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 3,
+  "id": "survey.4",
+  "anchor": "room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    1,
+    316,
+    118,
+    118
+   ],
+   "hole": [
+    0,
+    310,
+    125,
+    130
+   ],
+   "bubble": [
+    8,
+    450,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 4,
+  "id": "survey.5",
+  "anchor": "capture360",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    214.15625,
+    556,
+    129.84375,
+    56
+   ],
+   "hole": [
+    208.15625,
+    550,
+    141.84375,
+    68
+   ],
+   "bubble": [
+    24,
+    364,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 5,
+  "id": "survey.6",
+  "anchor": "cap:360",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    1,
+    165,
+    178,
+    133.5
+   ],
+   "hole": [
+    0,
+    159,
+    185,
+    145.5
+   ],
+   "bubble": [
+    8,
+    314.5,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 6,
+  "id": "survey.7",
+  "anchor": "mode:lines",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    79.59375,
+    166,
+    50.375,
+    26
+   ],
+   "hole": [
+    73.59375,
+    160,
+    62.375,
+    38
+   ],
+   "bubble": [
+    8,
+    208,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 7,
+  "id": "survey.8",
+  "anchor": "lines:row",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    528,
+    340,
+    28
+   ],
+   "hole": [
+    4,
+    522,
+    352,
+    40
+   ],
+   "bubble": [
+    16,
+    336,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 8,
+  "id": "survey.9",
+  "anchor": "tab:front",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    100,
+    85,
+    32
+   ],
+   "hole": [
+    4,
+    94,
+    97,
+    44
+   ],
+   "bubble": [
+    8,
+    148,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 9,
+  "id": "survey.10",
+  "anchor": "mode:mark",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    210.984375,
+    166,
+    28,
+    26
+   ],
+   "hole": [
+    204.984375,
+    160,
+    40,
+    38
+   ],
+   "bubble": [
+    24,
+    208,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 10,
+  "id": "survey.11",
+  "anchor": "mode:list",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    320,
+    166,
+    28,
+    26
+   ],
+   "hole": [
+    314,
+    160,
+    40,
+    38
+   ],
+   "bubble": [
+    24,
+    208,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "survey",
+  "i": 11,
+  "id": "survey.12",
+  "anchor": "save",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    244.765625,
+    36,
+    61.234375,
+    32
+   ],
+   "hole": [
+    238.765625,
+    30,
+    73.234375,
+    44
+   ],
+   "bubble": [
+    24,
+    84,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 0,
+  "id": "existing.1",
+  "anchor": "palette",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    340,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    352,
+    62
+   ],
+   "bubble": [
+    16,
+    440,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 1,
+  "id": "existing.2",
+  "anchor": "tool:E",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    265,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    259,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    460,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 2,
+  "id": "existing.3",
+  "anchor": "toolchip",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    18,
+    260,
+    249.34375,
+    32
+   ],
+   "hole": [
+    12,
+    254,
+    261.34375,
+    44
+   ],
+   "bubble": [
+    8,
+    308,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 3,
+  "id": "existing.4",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    233.58672862556364,
+    328,
+    256
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 4,
+  "id": "existing.5",
+  "anchor": "tool:sel",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    8,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 5,
+  "id": "existing.6",
+  "anchor": "tool:more",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    307.5,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    301.5,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 6,
+  "id": "existing.7",
+  "anchor": "more:electrical",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    388,
+    340,
+    44
+   ],
+   "hole": [
+    4,
+    382,
+    352,
+    56
+   ],
+   "bubble": [
+    16,
+    448,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 7,
+  "id": "existing.8",
+  "anchor": "selrow",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    608,
+    340,
+    38
+   ],
+   "hole": [
+    4,
+    602,
+    352,
+    50
+   ],
+   "bubble": [
+    16,
+    416,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 8,
+  "id": "existing.9",
+  "anchor": "chips",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    262,
+    340,
+    40
+   ],
+   "hole": [
+    4,
+    256,
+    352,
+    52
+   ],
+   "bubble": [
+    16,
+    318,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 9,
+  "id": "existing.10",
+  "anchor": "reading:mm",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    206,
+    504,
+    62,
+    36
+   ],
+   "hole": [
+    200,
+    498,
+    74,
+    48
+   ],
+   "bubble": [
+    24,
+    312,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 10,
+  "id": "existing.11",
+  "anchor": "reading:d2",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    272,
+    504,
+    40,
+    36
+   ],
+   "hole": [
+    266,
+    498,
+    52,
+    48
+   ],
+   "bubble": [
+    24,
+    332,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 11,
+  "id": "existing.12",
+  "anchor": "show",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    192,
+    340,
+    38
+   ],
+   "hole": [
+    4,
+    186,
+    352,
+    50
+   ],
+   "bubble": [
+    16,
+    246,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "existing",
+  "i": 12,
+  "id": "existing.13",
+  "anchor": "lock",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    54,
+    449,
+    30,
+    40
+   ],
+   "hole": [
+    48,
+    443,
+    42,
+    52
+   ],
+   "bubble": [
+    8,
+    505,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 0,
+  "id": "wish.1",
+  "anchor": "p54seg:1",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    74.390625,
+    166,
+    70.40625,
+    48
+   ],
+   "hole": [
+    68.390625,
+    160,
+    82.40625,
+    60
+   ],
+   "bubble": [
+    8,
+    230,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 1,
+  "id": "wish.2",
+  "anchor": "chip:wish",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    156.609375,
+    243,
+    110.84375,
+    32
+   ],
+   "hole": [
+    150.609375,
+    237,
+    122.84375,
+    44
+   ],
+   "bubble": [
+    24,
+    291,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 2,
+  "id": "wish.3",
+  "anchor": "wish:head",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    64,
+    360,
+    69
+   ],
+   "hole": [
+    0,
+    58,
+    360,
+    81
+   ],
+   "bubble": [
+    16,
+    149,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 3,
+  "id": "wish.4",
+  "anchor": "service:electrical",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    133,
+    360,
+    56
+   ],
+   "hole": [
+    0,
+    127,
+    360,
+    68
+   ],
+   "bubble": [
+    16,
+    205,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 4,
+  "id": "wish.5",
+  "anchor": "service:row:master-bath",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    532,
+    360,
+    77
+   ],
+   "hole": [
+    0,
+    526,
+    360,
+    89
+   ],
+   "bubble": [
+    16,
+    280,
+    328,
+    236
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 5,
+  "id": "wish.6",
+  "anchor": "phase:band",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    8,
+    340,
+    20
+   ],
+   "hole": [
+    4,
+    2,
+    352,
+    32
+   ],
+   "bubble": [
+    16,
+    44,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 6,
+  "id": "wish.7",
+  "anchor": "toolchip:as",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    30,
+    288,
+    122.5,
+    14
+   ],
+   "hole": [
+    24,
+    282,
+    134.5,
+    26
+   ],
+   "bubble": [
+    8,
+    318,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 7,
+  "id": "wish.8",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    293.58672862556364,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 8,
+  "id": "wish.9",
+  "anchor": "selrow:code",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    16,
+    618,
+    52,
+    24
+   ],
+   "hole": [
+    10,
+    612,
+    64,
+    36
+   ],
+   "bubble": [
+    8,
+    426,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 9,
+  "id": "wish.10",
+  "anchor": "sheet:move:wish",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    494,
+    336,
+    40
+   ],
+   "hole": [
+    6,
+    488,
+    348,
+    52
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 10,
+  "id": "wish.11",
+  "anchor": "sheet:acts",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    494,
+    336,
+    40
+   ],
+   "hole": [
+    6,
+    488,
+    348,
+    52
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 11,
+  "id": "wish.12",
+  "anchor": "sheet:done",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    652,
+    336,
+    48
+   ],
+   "hole": [
+    6,
+    646,
+    348,
+    60
+   ],
+   "bubble": [
+    16,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "wish",
+  "i": 12,
+  "id": "wish.13",
+  "anchor": "mark:FW1",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    108.52266203531906,
+    341.806407991837,
+    143.13482960489182,
+    138.7938592023089
+   ],
+   "hole": [
+    102.52266203531906,
+    335.806407991837,
+    155.13482960489182,
+    150.7938592023089
+   ],
+   "bubble": [
+    16.09007683776497,
+    109.80640799183698,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 0,
+  "id": "vendor.1",
+  "anchor": "p54seg:2",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    144.796875,
+    166,
+    70.390625,
+    48
+   ],
+   "hole": [
+    138.796875,
+    160,
+    82.390625,
+    60
+   ],
+   "bubble": [
+    15.9921875,
+    230,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 1,
+  "id": "vendor.2",
+  "anchor": "phase:packs",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    4,
+    232,
+    352,
+    40
+   ],
+   "hole": [
+    0,
+    226,
+    360,
+    52
+   ],
+   "bubble": [
+    16,
+    288,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 2,
+  "id": "vendor.3",
+  "anchor": "pack:doors-windows",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    55.640625,
+    234,
+    120.59375,
+    36
+   ],
+   "hole": [
+    49.640625,
+    228,
+    132.59375,
+    48
+   ],
+   "bubble": [
+    8,
+    286,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 3,
+  "id": "vendor.4",
+  "anchor": "trade",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    300,
+    167,
+    48,
+    24
+   ],
+   "hole": [
+    294,
+    161,
+    60,
+    36
+   ],
+   "bubble": [
+    24,
+    207,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 4,
+  "id": "vendor.5",
+  "anchor": "toolchip:as",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    30,
+    288,
+    115.640625,
+    14
+   ],
+   "hole": [
+    24,
+    282,
+    127.640625,
+    26
+   ],
+   "bubble": [
+    8,
+    318,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 5,
+  "id": "vendor.6",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    101.2962962962963,
+    505.58672862556364,
+    157.4074074074074,
+    44.057616242082304
+   ],
+   "hole": [
+    95.2962962962963,
+    499.58672862556364,
+    169.4074074074074,
+    56.057616242082304
+   ],
+   "bubble": [
+    16,
+    293.58672862556364,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 6,
+  "id": "vendor.7",
+  "anchor": "list:state",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    12,
+    232,
+    79.09375,
+    28
+   ],
+   "hole": [
+    6,
+    226,
+    91.09375,
+    40
+   ],
+   "bubble": [
+    8,
+    276,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 7,
+  "id": "vendor.8",
+  "anchor": "list:pop",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    8,
+    494,
+    344,
+    206
+   ],
+   "hole": [
+    2,
+    488,
+    356,
+    218
+   ],
+   "bubble": [
+    16,
+    302,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 8,
+  "id": "vendor.9",
+  "anchor": "list:move",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    148.921875,
+    232,
+    66.859375,
+    28
+   ],
+   "hole": [
+    142.921875,
+    226,
+    78.859375,
+    40
+   ],
+   "bubble": [
+    18.3515625,
+    276,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 9,
+  "id": "vendor.10",
+  "anchor": "list:export",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    267.703125,
+    232,
+    80.296875,
+    28
+   ],
+   "hole": [
+    261.703125,
+    226,
+    92.296875,
+    40
+   ],
+   "bubble": [
+    24,
+    276,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 10,
+  "id": "vendor.11",
+  "anchor": "x53:trades",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    34.4375,
+    200,
+    92.59375,
+    32
+   ],
+   "hole": [
+    28.4375,
+    194,
+    104.59375,
+    44
+   ],
+   "bubble": [
+    8,
+    248,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "vendor",
+  "i": 11,
+  "id": "vendor.12",
+  "anchor": "stg",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    0,
+    64,
+    360,
+    61
+   ],
+   "hole": [
+    0,
+    58,
+    360,
+    73
+   ],
+   "bubble": [
+    16,
+    141,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 0,
+  "id": "360.1",
+  "anchor": "tab:360",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    161.921875,
+    132,
+    63.421875,
+    32
+   ],
+   "hole": [
+    155.921875,
+    126,
+    75.421875,
+    44
+   ],
+   "bubble": [
+    24,
+    180,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 1,
+  "id": "360.2",
+  "anchor": "pano",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    214,
+    340,
+    432
+   ],
+   "hole": [
+    4,
+    208,
+    352,
+    444
+   ],
+   "bubble": [
+    16,
+    22,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 2,
+  "id": "360.3",
+  "anchor": "mode",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    164,
+    340,
+    28
+   ],
+   "hole": [
+    4,
+    158,
+    352,
+    40
+   ],
+   "bubble": [
+    16,
+    208,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 3,
+  "id": "360.4",
+  "anchor": "palette",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    652,
+    340,
+    50
+   ],
+   "hole": [
+    4,
+    646,
+    352,
+    62
+   ],
+   "bubble": [
+    16,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 4,
+  "id": "360.5",
+  "anchor": "tool:E",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    265,
+    652,
+    42.5,
+    50
+   ],
+   "hole": [
+    259,
+    646,
+    54.5,
+    62
+   ],
+   "bubble": [
+    24,
+    480,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 5,
+  "id": "360.6",
+  "anchor": "area:front:0.25,0.18,0.75,0.32",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    95.26474404131545,
+    498.6182012216939,
+    157.4452451498729,
+    40.48197397413173
+   ],
+   "hole": [
+    89.26474404131545,
+    492.6182012216939,
+    169.4452451498729,
+    52.48197397413173
+   ],
+   "bubble": [
+    9.987366616251904,
+    266.6182012216939,
+    328,
+    216
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "360",
+  "i": 6,
+  "id": "360.7",
+  "anchor": "tab:front",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    10,
+    100,
+    85,
+    32
+   ],
+   "hole": [
+    4,
+    94,
+    97,
+    44
+   ],
+   "bubble": [
+    8,
+    148,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 0,
+  "id": "plan.1",
+  "anchor": "plan:tile",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    241,
+    316,
+    118,
+    118
+   ],
+   "hole": [
+    235,
+    310,
+    125,
+    130
+   ],
+   "bubble": [
+    24,
+    450,
+    328,
+    196
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 1,
+  "id": "plan.2",
+  "anchor": "plan:room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": true,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    28,
+    161.38336181640625,
+    304.001220703125,
+    352.61663818359375
+   ],
+   "hole": [
+    22,
+    155.38336181640625,
+    316.001220703125,
+    358.61663818359375
+   ],
+   "bubble": [
+    16.0006103515625,
+    524,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 2,
+  "id": "plan.3",
+  "anchor": "plan:rotate",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    268,
+    125.59375,
+    64,
+    40
+   ],
+   "hole": [
+    262,
+    119.59375,
+    76,
+    52
+   ],
+   "bubble": [
+    24,
+    181.59375,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 3,
+  "id": "plan.4",
+  "anchor": "plan:room:Guest Bedroom",
+  "found": true,
+  "side": "below",
+  "overlap": false,
+  "clip": 0,
+  "trim": true,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    28,
+    161.38336181640625,
+    304.001220703125,
+    352.61663818359375
+   ],
+   "hole": [
+    22,
+    155.38336181640625,
+    316.001220703125,
+    358.61663818359375
+   ],
+   "bubble": [
+    16.0006103515625,
+    524,
+    328,
+    176
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 4,
+  "id": "plan.5",
+  "anchor": "plan:fit",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    191.53125,
+    638,
+    59.171875,
+    40
+   ],
+   "hole": [
+    185.53125,
+    632,
+    71.171875,
+    52
+   ],
+   "bubble": [
+    24,
+    466,
+    328,
+    156
+   ]
+  }
+ },
+ {
+  "lang": "mr",
+  "flow": "plan",
+  "i": 5,
+  "id": "plan.6",
+  "anchor": "plan:reset",
+  "found": true,
+  "side": "above",
+  "overlap": false,
+  "clip": 0,
+  "trim": false,
+  "rect": {
+   "frame": [
+    0,
+    0,
+    360,
+    708
+   ],
+   "target": [
+    258.703125,
+    638,
+    93.296875,
+    40
+   ],
+   "hole": [
+    252.703125,
+    632,
+    105.296875,
+    52
+   ],
+   "bubble": [
+    24,
+    466,
+    328,
+    156
+   ]
+  }
+ }
+]

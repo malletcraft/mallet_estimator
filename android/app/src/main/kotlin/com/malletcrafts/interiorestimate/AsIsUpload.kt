@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -78,6 +79,9 @@ object AsIsUpload {
 
     /** Queue (or re-queue) the upload of one capture's survey prep. */
     fun enqueue(context: Context, captureId: String) {
+        // THE DEMO NEVER REACHES S5 (port 61c §31, TourDemo's one rule). SyncWorker's prep
+        // sweep comes through this enqueue too, so this one line covers both.
+        if (TourDemo.isDemoCapture(captureId)) return
         setState(context, captureId, "waiting", null)
         val req = OneTimeWorkRequestBuilder<AsIsUploadWorker>()
             .setConstraints(Constraints.Builder()

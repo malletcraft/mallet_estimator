@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
 import com.malletcrafts.interiorestimate.pano.RoomToken
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 
@@ -108,6 +109,8 @@ private fun FolderRow(
     muted: Boolean = false,
     /** A project row's subtitle takes two lines, as the prototype's `.ell2` does (v61c: the line leads it). */
     subtitleLines: Int = 1,
+    /** The guided tour's name for this row (`row:<stored name>`, port 61c §31) — the demo rows only. */
+    anchor: String? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
@@ -115,6 +118,7 @@ private fun FolderRow(
         Row(
             Modifier
                 .fillMaxWidth()
+                .tourAnchor(anchor)
                 .heightIn(min = ROW_HEIGHT)
                 // Hold to rename. A correction is not a primary action and
                 // must not sit where a scrolling thumb can hit it, but it
@@ -222,6 +226,8 @@ fun ClientsScreen(
                 badge = initials(c),
                 title = Masters.client_name(tx, c),
                 subtitle = "${tx.pl_site(s)} · ${tx.pl_project(p)}",
+                // the survey tour's step 1 (§31): the anchor NAME is the flow's own spelling
+                anchor = if (c.trim().equals(TourDemo.CLIENT, ignoreCase = true)) "row:" + TourDemo.CLIENT else null,
                 onClick = { onOpen(c) },
                 onLongClick = { onRename(c) })
         }
@@ -249,6 +255,8 @@ fun SitesScreen(
                 count = projectCount(s),
                 pill = if (s.local) tx.app_offline else null,
                 muted = true,
+                // the survey tour's step 2 (§31)
+                anchor = if (s.name.trim().equals(TourDemo.SITE, ignoreCase = true)) "row:" + TourDemo.SITE else null,
                 onClick = { onOpen(s) },
                 onLongClick = { onRename(s) })
         }
@@ -285,6 +293,8 @@ fun ProjectsScreen(
                 pill = p.statusLabel(tx).ifBlank { null },
                 warn = p.statusWarn,
                 muted = true,
+                // the survey tour's step 3 (§31)
+                anchor = if (TourDemo.isDemoProject(p.client, p.title)) "row:" + TourDemo.PROJECT else null,
                 onClick = { onOpen(p) },
                 onLongClick = { onRename(p) })
         }
@@ -395,7 +405,10 @@ fun RoomsScreen(
             contentPadding = PaddingValues(2.dp),
         ) {
             items(shot) { r ->
-                RoomTile(r, captureCount(r), roomDot(r), lastPano(r)) { onOpen(r) }
+                // the survey tour's step 4 (§31): the demo project's Guest Bedroom tile
+                RoomTile(r, captureCount(r), roomDot(r), lastPano(r),
+                    anchor = if (TourDemo.isDemoProject(project.client, project.title) &&
+                        r.trim().equals(TourDemo.ROOM, ignoreCase = true)) "room:" + TourDemo.ROOM else null) { onOpen(r) }
             }
             item {
                 Box(
@@ -796,6 +809,8 @@ private fun RoomTile(
     /** The dot's colour: green when true, amber when false (QuoteStage.roomDot). */
     green: Boolean,
     pano: String?,
+    /** The guided tour's name for this tile (`room:<stored name>`, port 61c §31) — the demo room only. */
+    anchor: String? = null,
     onClick: () -> Unit,
 ) {
     val tx = LocalTx.current
@@ -806,6 +821,7 @@ private fun RoomTile(
     Box(
         Modifier
             .aspectRatio(1f)
+            .tourAnchor(anchor)
             .background(
                 if (shot) MaterialTheme.colorScheme.secondaryContainer
                 else MaterialTheme.colorScheme.surfaceContainerHigh)

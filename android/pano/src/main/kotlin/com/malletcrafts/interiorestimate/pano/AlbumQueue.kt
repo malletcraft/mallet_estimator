@@ -102,6 +102,10 @@ object AlbumQueue {
      * that op alone, as an op no retry can send.
      */
     fun requestOf(op: Op, project: String): Request? {
+        // THE DEMO NEVER REACHES S5 (port 61c §31, TourDemo's one rule): an op queued against
+        // the demo — which no writer should ever do, every queue entry refusing demo rows —
+        // builds no request, and the drain's null-request 400 drops that op alone, with no call.
+        if (TourDemo.isDemoKey(project)) return null
         val photo = listOf(project, "album", "photos", op.photo)
         return when (stepOf(op) ?: return null) {
             Step.LOG -> Request("POST", listOf(project, "album", "log"), linkedMapOf(

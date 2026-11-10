@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.Phases
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -230,6 +231,9 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // the bench), so a pair stored after an S5-only spell still sends them to ERP.
         val onlyOnS5 = store.all().filter { it.state == "SYNCED" && it.serverName.isNullOrBlank() }
         for (c in store.pending() + onlyOnS5) {
+            // THE DEMO NEVER REACHES ERP EITHER (port 61c §31): its row is SYNCED with no
+            // serverName — exactly this filter's shape — so the one rule refuses it here.
+            if (TourDemo.isDemoCapture(c.deviceId)) continue
             try {
                 store.setState(c.deviceId, "SYNCING")
 

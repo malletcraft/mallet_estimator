@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.Readings
+import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
 import org.json.JSONObject
@@ -153,6 +154,8 @@ object ReadingsSync {
      * 404 on both, throws.
      */
     fun fetch(auth: String, project: String, room: String, capture: String, erpCapture: String? = null): Map<String, Readings.Remote> {
+        // THE DEMO NEVER REACHES S5 (port 61c §31): a demo capture has no web readings to pull
+        if (TourDemo.isDemoCapture(capture)) return emptyMap()
         val older = erpCapture?.takeIf { it != capture }
         return try {
             get(auth, project, room, capture)
@@ -170,6 +173,8 @@ object ReadingsSync {
      */
     fun push(context: Context, id: String, auth: String, project: String, room: String, capture: String,
              local: Map<String, Double>): String? {
+        // THE DEMO NEVER REACHES S5 (port 61c §31): its readings stay on the phone
+        if (TourDemo.isDemoCapture(capture) || TourDemo.isDemoCapture(id)) return null
         val seen = update(context, id) { it.seen.toMap() }
         val p = Readings.push(local, seen)
         if (p.isEmpty()) return null

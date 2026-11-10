@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.TourDemo
 
 /**
  * A room's captures, as photographs.
@@ -257,7 +258,11 @@ private fun WorkHeading(work: Int?, photos: Int, days: Int) {
 @Composable
 private fun CaptureTile(c: CaptureCard, onOpen: (CaptureCard) -> Unit, onDetails: (CaptureCard) -> Unit) {
     val tx = LocalTx.current
-    Column(Modifier.clickable { onOpen(c) }) {
+    // the survey tour's step 6 (port 61c §31): the demo capture's tile, `cap:360` — the demo's only,
+    // so a real 360's tile never writes the anchor the tour lights
+    Column(Modifier
+        .tourAnchor(if (TourDemo.isDemoCapture(c.deviceId)) "cap:" + c.kind else null)
+        .clickable { onOpen(c) }) {
         Box(
             Modifier
                 .aspectRatio(4f / 3f),
