@@ -3,7 +3,6 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -34,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -41,6 +41,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.SubcomposeLayout
@@ -214,14 +215,22 @@ internal fun TourBindSurvey(tab: String, mode: String, marks: Int, onTab: (Strin
     }
 }
 
-// the scrim and the card, the prototype's t55 palette on survey prep's dark ground
-private val TOUR_SCRIM = Color(0xB3000000)
-private val TOUR_CARD = Color(0xF21E2219)
-private val TOUR_EDGE = Color(0xFF4A4F42)
-private val TOUR_FG = Color.White
-private val TOUR_MUTED = Color(0xFFABB1A2)
-private val TOUR_GOLD = Color(0xFFD9B64A)
-private val TOUR_DIM = Color(0xFF6E7466)
+// The prototype's t55 chrome, verbatim from the page's ONE tour style (`#t55 …` in
+// index61c2.html): Material light, drawn over survey prep's dark ground too. The review of
+// this slice (the tour review, finding 1) found the first build had invented a dark-gold
+// palette here while this comment claimed it was the page's; these are the page's own values
+// now, and TourChromeTest (:pano) pins them.
+private val TOUR_SCRIM = Color(0x9E000000) // rgba(0,0,0,.62)
+private val TOUR_RING = Color(0xEBFFFFFF) // the spotlight's 2px ring, rgba(255,255,255,.92)
+private val TOUR_CARD = Color(0xFFF7F2FA) // .t55bub background
+private val TOUR_INK = Color(0xFF1D1B20) // .t55bub color — the title
+private val TOUR_MUTED = Color(0xFF49454F) // .t55hd, .t55b, the Skip button
+private val TOUR_PRIMARY = Color(0xFF6750A4) // .t55n, .t55btn, .t55pri background
+private val TOUR_CHIP_BG = Color(0xFFE8DEF8) // .t55m on a do step
+private val TOUR_CHIP_FG = Color(0xFF1D192B)
+private val TOUR_LOOK_BG = Color(0xFFECE6F0) // .t55look .t55m (a look step; its text is TOUR_MUTED)
+private val TOUR_DISABLED = Color(0x611D1B20) // .t55btn:disabled, rgba(29,27,32,.38)
+private val TOUR_PRI_DIS = Color(0x1F1D1B20) // .t55pri:disabled, rgba(29,27,32,.12)
 
 @Composable
 fun TourOverlay(host: Int) {
@@ -305,10 +314,11 @@ private fun Modifier.tourConsume(): Modifier = pointerInput(Unit) {
 }
 
 /**
- * The dark scrim with a rounded SPOTLIGHT over the target: one clear-blend hole for the eye,
- * four consuming blocks round it for the finger. On a `do` step taps inside the hole reach
- * the app; on a `look` step a fifth block covers the hole too (✓ Save, Capture 360 are
- * shown, never pressed). No hole blocks the whole frame.
+ * The dark scrim with a rounded SPOTLIGHT over the target: one clear-blend hole for the eye
+ * ringed in white (the page's .t55hole box-shadow), four consuming blocks round it for the
+ * finger. On a `do` step taps inside the hole reach the app; on a `look` step a fifth block
+ * covers the hole too (✓ Save, Capture 360 are shown, never pressed). No hole blocks the
+ * whole frame, with no ring (the page's .t55none).
  */
 @Composable
 private fun TourScrim(frame: TourPlace.R, hole: TourPlace.R?, look: Boolean) {
@@ -323,8 +333,16 @@ private fun TourScrim(frame: TourPlace.R, hole: TourPlace.R?, look: Boolean) {
                             Color.Black,
                             topLeft = Offset(hole.x.dp.toPx(), hole.y.dp.toPx()),
                             size = Size(hole.w.dp.toPx(), hole.h.dp.toPx()),
-                            cornerRadius = CornerRadius(10.dp.toPx()),
+                            cornerRadius = CornerRadius(12.dp.toPx()),
                             blendMode = BlendMode.Clear)
+                        // the 2px ring just OUTSIDE the hole (box-shadow 0 0 0 2px), drawn
+                        // after the clear so it stays visible
+                        drawRoundRect(
+                            TOUR_RING,
+                            topLeft = Offset((hole.x - 1).dp.toPx(), (hole.y - 1).dp.toPx()),
+                            size = Size((hole.w + 2).dp.toPx(), (hole.h + 2).dp.toPx()),
+                            cornerRadius = CornerRadius(13.dp.toPx()),
+                            style = Stroke(2.dp.toPx()))
                     }
                 })
         if (hole == null) {
@@ -341,21 +359,20 @@ private fun TourScrim(frame: TourPlace.R, hole: TourPlace.R?, look: Boolean) {
     }
 }
 
-/** A small text button of the bubble's own scale (material's minimum would double the card). */
+/** The page's .t55btn: a 40px text button (20dp radius, 500 14/20 type), filled when primary. */
 @Composable
-private fun TourBtn(label: String, enabled: Boolean, primary: Boolean = false, onClick: () -> Unit) {
+private fun TourBtn(label: String, enabled: Boolean, primary: Boolean = false, color: Color = TOUR_PRIMARY, onClick: () -> Unit) {
     Text(
         label,
-        color = if (!enabled) TOUR_DIM else if (primary) Color(0xFF14160F) else TOUR_FG,
-        fontSize = 13.sp, fontWeight = FontWeight.Bold,
+        color = if (!enabled) TOUR_DISABLED else if (primary) Color.White else color,
+        fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium,
         modifier = Modifier
-            .clip(RoundedCornerShape(15.dp))
-            .background(if (primary && enabled) TOUR_GOLD else Color.Transparent)
-            .border(1.dp, if (primary && enabled) TOUR_GOLD else TOUR_EDGE, RoundedCornerShape(15.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (!primary) Color.Transparent else if (enabled) TOUR_PRIMARY else TOUR_PRI_DIS)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() }, indication = null,
                 enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp))
+            .padding(horizontal = if (primary) 20.dp else 12.dp, vertical = 10.dp))
 }
 
 /**
@@ -367,33 +384,36 @@ private fun TourBtn(label: String, enabled: Boolean, primary: Boolean = false, o
 private fun TourBubble(tx: Tx, m: TourMachine, hasHole: Boolean, step: TourStep, scroll: Boolean) {
     Column(
         Modifier
+            .shadow(4.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(TOUR_CARD)
-            .border(1.dp, TOUR_EDGE, RoundedCornerShape(12.dp))
             .semantics { contentDescription = tx.help_tour_aria }
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(m.counter, color = TOUR_GOLD, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(m.counter, color = TOUR_PRIMARY, fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(8.dp))
-            Text(m.flow.name, color = TOUR_MUTED, fontSize = 11.sp, maxLines = 1,
+            Text(m.flow.name, color = TOUR_MUTED, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             if (hasHole) {
+                val look = step.mode == "look"
                 Spacer(Modifier.width(8.dp))
-                Text(if (step.mode == "look") tx.help_tour_mode_look else tx.help_tour_mode_do,
-                    color = TOUR_GOLD, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                Text(if (look) tx.help_tour_mode_look else tx.help_tour_mode_do,
+                    color = if (look) TOUR_MUTED else TOUR_CHIP_FG, fontSize = 12.sp, lineHeight = 16.sp,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(9.dp)).border(1.dp, TOUR_GOLD, RoundedCornerShape(9.dp))
-                        .padding(horizontal = 7.dp, vertical = 2.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (look) TOUR_LOOK_BG else TOUR_CHIP_BG)
+                        .padding(horizontal = 6.dp, vertical = 2.dp))
             }
         }
-        Text(step.title, color = TOUR_FG, fontSize = 14.sp, lineHeight = 18.sp,
-            fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
-        Text(step.body, color = Color(0xFFCFD4C8), fontSize = 12.sp, lineHeight = 16.sp,
+        Text(step.title, color = TOUR_INK, fontSize = 16.sp, lineHeight = 24.sp,
+            fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 4.dp))
+        Text(step.body, color = TOUR_MUTED, fontSize = 14.sp, lineHeight = 20.sp,
             modifier = (if (scroll) Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()) else Modifier)
-                .padding(top = 4.dp))
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            TourBtn(tx.help_tour_skip, enabled = true) { TourState.skip() }
+                .padding(top = 2.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            TourBtn(tx.help_tour_skip, enabled = true, color = TOUR_MUTED) { TourState.skip() }
             Spacer(Modifier.weight(1f))
             TourBtn(tx.app_aria_back, enabled = m.i > 0 && !m.busy) { TourState.back() }
             Spacer(Modifier.width(8.dp))

@@ -72,3 +72,6 @@ let bad = 0;
 for (const s of all) if (!s.found || s.overlap || s.clip > 0 || !s.rect || !s.rect.frame || !s.rect.bubble) { bad++; console.log('ODD', s.lang, s.flow, s.id, s.found, s.overlap, s.clip); }
 console.log(`steps: ${all.length} (en ${en.length}, mr ${mr.length}), odd: ${bad}, trims: ${all.filter(s => s.trim).length}, holes: ${all.filter(s => s.rect && s.rect.hole).length}`);
 console.log('DONE');
+// Close the browser or node never exits: a run that has finished looks stuck, and piped
+// through tail the summary never flushes (the tour review, finding 4).
+await browser.close();

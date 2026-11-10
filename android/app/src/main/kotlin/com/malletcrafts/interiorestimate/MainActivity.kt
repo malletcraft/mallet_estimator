@@ -605,8 +605,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
     }
     // One step's setup, run on start, Next, Back and jumps alike (every setup is a POSITION,
-    // so Back always lands right); then the anchor is awaited and the step shows. The two
-    // shipped flows use close / go / phase / survey / tab / mode and nothing else
+    // so Back always lands right); then the anchor is awaited and the step shows. The one
+    // shipped flow uses close / go / phase / survey / tab / mode and nothing else
     // (TourFlowsTest pins it); a blocked flow cannot start, so no other move is hosted.
     val tourRun = TourState.run
     LaunchedEffect(tourRun, tourRun?.stepSeq) {

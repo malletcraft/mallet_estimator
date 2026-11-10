@@ -4810,7 +4810,10 @@ against batch-next:
 So the slice ships the ENGINE, the drawer row, the Help screen, the demo flat, and the ONE flow that runs
 true — `survey`, 12 steps (the first version said "survey and 360, 19 steps"; the 360's blocking is critic
 finding 1). The Help list and the drawer count are computed from the shipped flows (the prototype's own
-`flows().length + ' tours'`), so the row honestly reads "1 tour" / "1 टूर" until more flows' targets exist.
+`flows().length + ' tours'`), so the row reads "1 tours" / "1 टूर" until more flows' targets exist — the EN
+suffix is the prototype's own static `' tours'` (which only ever shows 7 there), मराठी's ` टूर` has no plural,
+and a singular EN form would be a new table row for one build's count, left until more flows flip (the tour
+review, finding 2; the first version of this sentence promised "1 tour", which the EN screen never showed).
 Each blocked flow's data ships in `Tour.kt` marked blocked with its missing anchors named, so adding a flow
 later is flipping its entry after its targets land, not re-deriving it.
 
@@ -4898,8 +4901,8 @@ none of them blocks this slice):
   `ReadingsSync.kt` (fetch and push), and :pano's `AlbumQueue.requestOf` — the one-line `TourDemo` refusal at
   each entry.
 
-**What Amit sees.** A new first group in the ≡ drawer: "Help · guided tours · 1 tour" (मदत · मार्गदर्शक टूर ·
-1 टूर). Inside, the Help screen with "Survey a room" and Start. A started tour darkens
+**What Amit sees.** A new first group in the ≡ drawer: "Help · guided tours · 1 tours" (मदत · मार्गदर्शक टूर ·
+1 टूर; the EN plural is the prototype's own static suffix — the tour review, finding 2). Inside, the Help screen with "Survey a room" and Start. A started tour darkens
 the screen, lights one real control at a time on the demo flat — which now sits in Browse under Demo Client —
 and lets him do the step; Next, Back, Skip tour, the counter, Try it / Look only, everything in whichever
 language the drawer is set to; Done (or Skip, or ◁, or Home) puts the demo back exactly as it was and returns
@@ -4967,6 +4970,36 @@ none refuted. The corrections are folded into the section above, marked by findi
 - `tour.phases.5.body` is flagged `prototype-only` in the table ("the prototype sends nothing" is false of
   the phone), so i18nGen generates no accessor and the step's body is empty until the `phases` flow's phone
   wording is approved on the prototype; `TourFlowsTest` pins the one exception. The flow is blocked anyway.
+
+**The tour review (reviewer findings on `e0f1a5c`, 10 Nov 2026)** — four findings, each re-checked against
+the code and the v61c.2 page's own CSS before anything was changed. ALL FOUR CONFIRMED; none declined.
+
+1. **CONFIRMED (major) — the overlay's chrome was an invented dark-gold palette, under a comment claiming it
+   was the page's.** The page has exactly ONE tour style (every `.t55*` rule): Material light — bubble
+   `#F7F2FA` with `#1D1B20`/`#49454F` text (title 16/24 weight 500, body 14/20), counter and buttons
+   `#6750A4`, mode chip `#E8DEF8`/`#1D192B` (a look step: `#ECE6F0`/`#49454F`), 40px buttons of 20px radius
+   with a filled `#6750A4` primary, a `.62` scrim and a 2px `rgba(255,255,255,.92)` ring round a 12px-radius
+   spotlight — drawn over survey prep's dark ground too. The build drew a dark olive card `0xF21E2219` with
+   gold `0xFFD9B64A` (not even survey prep's own gold, `0xFFE0B040`), a `.70` scrim, a 10dp hole and no
+   ring; `1E2219`/`D9B64A` appear nowhere in the page, and no build note recorded a narrowing. Under "exact
+   replica … colours" — the standard this section blocked the `360` flow over — that chrome must not reach
+   the phone. FIXED by repainting `TourOverlay.kt` to the page's values (scrim, ring, hole radius, card,
+   type scale, chip and both button states, and the look-mode chip variant the first build also lacked) and
+   correcting the comment; `TourChromeTest` (:pano, reading the source the way the i18n tests do, since
+   :app does not compile here) fails if a page value goes missing or an invented one comes back.
+2. **CONFIRMED (minor) — the EN drawer row reads "1 tours", not the promised "1 tour".** `app.tours` EN is
+   the static suffix `' tours'` (the prototype's own `flows().length + ' tours'`, which only ever shows 7
+   there); मराठी `' टूर'` has no plural and reads right. The CODE is faithful to the page; this section's two
+   sentences and `e0f1a5c`'s commit message were false of the EN screen. FIXED in the two sentences above
+   ("1 tours"); a singular/plural table form is left until more flows flip, because a new EN form for one
+   build's count is a wording the prototype never draws. The ship message must say "1 tours" too.
+3. **CONFIRMED (minor) — a stale comment said "The two shipped flows" where one ships.** `TourFlowsTest`
+   asserts `listOf("survey")`; the comment predates critic finding 1 (the `360` block). The hosted move set
+   itself is right for the survey flow. FIXED: `MainActivity.kt` now reads "The one shipped flow uses …".
+4. **CONFIRMED (minor) — `tour-drive.mjs` never closed the browser**, so the driver hangs after writing
+   `out/rects.json` and, piped through `tail`, its summary never flushes — a finished run that looks stuck,
+   this file's "silence and success look identical" shape with the signs swapped. FIXED:
+   `await browser.close()` after the summary logs.
 
 ## Progress, 3 Nov 2026 ~15:25 IST
 
