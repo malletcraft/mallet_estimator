@@ -5,7 +5,7 @@
 const { chromium } = require('playwright');
 const URL = process.env.URL, OUT = process.env.OUT || '.', VER = process.env.VER;
 const CL = process.env.CL ? JSON.parse(process.env.CL) : ['carries v61c.2: phases, Approve, wish list, Marathi', 'not yet: Album, tour'];   // env CL: the two clauses as a JSON list, typed from the brief
-const L4 = `phone APK ${VER} · ${CL[0]} · ${CL[1]}`;
+const L4 = ['phone APK ' + VER, ...CL].join(' · ');   // the 4th line from VER and however many clauses CL holds (Version 86 has one)
 (async () => {
   const b = await chromium.launch(); let pass = 0, fail = 0;
   for (const [W, H] of [[360, 780], [780, 360]]) for (const lang of ['en', 'mr']) {

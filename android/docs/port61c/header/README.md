@@ -42,3 +42,4 @@ clause means re-measuring with a clone of the clause span in the page's own font
 | 83 | 0.3.306 | 01:22, 10 Nov | 01:24, 10 Nov | a11c287b… | Marathi tree/queue/upload status ship (M2): no clause change; the bullet gains one sentence; look 4/0 |
 | 84 | 0.3.310 | 03:27, 10 Nov | 03:29, 10 Nov | 1cd6076f… | Marathi shell + S5 sign-in + laser words ship (M6): no clause change; the bullet gains one sentence; look 4/0 |
 | 85 | 0.3.314 | 05:00, 10 Nov | 05:02, 10 Nov | 492cb68a… | Marathi for Face Prep/Annotate/Laser test ships (M8, unkeyed.tsv empties): no clause change; the bullet gains one sentence; look 4/0 |
+| 86 | 0.3.318 | 11:44, 10 Nov | 11:49, 10 Nov | 5aa0a190… | the tour ships (the port's last slice): the clauses become ONE — `carries the whole v61c port, survey tour included` (286.7 of 328 px at 360), `not yet:` clears; look.js joins N clauses instead of assuming two; the bullet gains one sentence; look 4/0 |
