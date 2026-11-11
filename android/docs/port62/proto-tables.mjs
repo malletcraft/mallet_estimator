@@ -253,6 +253,13 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   J('a Note needs its words', p => { put(M('a', 'NOTE', 'FNOTE1', { note: 'old' })); L53.openSheet('a'); p(shown()); type('note', null, '  '); p(done()); type('note', null, 'new words'); tap('trp'); tap('cat', 'civil'); p(done()); });
   J('the stage moves under an open sheet (1 -> 3): the move picked is no longer offered', p => { put(M('a', 'W', 'FW1')); L53.openSheet('a'); tap('mv', 'wish'); stage = 3; p(done()); p(S()); stage = 1; });
   J('a mark past Existing with no act stored: Done writes Replace', p => { put(M('a', 'W', 'FW1', { life: 'wish' })); L53.openSheet('a'); p(S()); p(done()); });
+  // the L3 review (11 Nov 2026): the page's apply has no stage term in actCh, so it writes Replace at Survey too, where it draws
+  // no chip; at Client approved it draws the chips (Vendor review's sheet) and writes. THE PHONE WRITES NONE AT CLIENT APPROVED:
+  // its own gate draws no chip there (Q-list 6), and a control that is not drawn must not write. Survey stays as the page has it.
+  J('... the same at Survey (stage 0) and at Client approved (stage 5), nothing touched, then with a note typed -- and an act this build does not know', p => { for (const s of [0, 5]) { stage = s;
+      put(M('a', 'W', 'FW1', { life: 'wish', lifeAs: 'client' })); L53.openSheet('a'); p(`stage ${s} · acts drawn: ${/l53acts/.test(html())} · ` + done());
+      put(M('a', 'W', 'FW1', { life: 'wish', lifeAs: 'client' })); L53.openSheet('a'); type('note', null, 'ask the client'); p(`stage ${s} · a note typed: ` + done());
+      put(M('a', 'W', 'FW1', { life: 'wish', act: 'closeup' })); L53.openSheet('a'); type('note', null, 'n'); p(`stage ${s} · act "closeup", a note typed: ` + done()); } stage = 1; });
   J('an act chip changed beside a move past the wish is not written: the act is written only on Existing -> Client wish (stage 2)', p => { stage = 2; put(M('a', 'W', 'FW1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'replace' })); L53.openSheet('a'); tap('act', 'shift'); tap('mv', 'vrev'); p(S()); p(done()); stage = 1; });
   J('at Estimation (stage 3) no move is offered, and an act chip changed alone is still written', p => { stage = 3; put(M('a', 'W', 'FW1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'replace' })); L53.openSheet('a'); p('act shift: ' + tap('act', 'shift')); p(done()); stage = 1; });
   J('a Dropped mark restored from its sheet', p => { put(M('a', 'W', 'FW1', { note: 'n', life: 'drop', lifeAt: at, lifeAs: 'client', act: 'remove', why: 'no budget' })); L53.openSheet('a'); p(shown()); tap('mv', 'wish'); p(done()); });

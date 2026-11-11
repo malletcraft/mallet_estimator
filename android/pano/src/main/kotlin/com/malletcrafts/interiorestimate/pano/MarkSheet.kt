@@ -350,6 +350,12 @@ object MarkSheet {
      * the move picked ([MarkLife.move], with its why, and with the act on Existing → Client wish), or, with no move
      * picked, the act chip changed on a mark born Existing that has left Existing ([MarkLife.setAct]). A locked mark
      * changes its note alone: its moves, its acts and its trade are not offered, and none is applied.
+     *
+     * AT CLIENT APPROVED NO ACT IS WRITTEN (the L3 review, 11 Nov 2026): the phone's own gate draws no act chip there
+     * ([actsShown]; DESIGN-port62 Q-list 6), and the chip a sheet opens with stands on Replace for a mark whose stored
+     * act is absent or none of the four ([open]) -- so without this any Done there, a note's included, wrote
+     * `act: replace` on a wish after approval, with no control shown. At Survey the act IS written, as the page writes
+     * it: its apply asks the stage only through the moves, and Survey's gate is the page's own.
      */
     fun apply(prep: SurveyPrep.Prep, st: State, stage: Int?, at: Instant, snapshot: () -> Unit): Applied {
         val it = itemOf(prep, st.id) ?: return Applied(Outcome.GONE, null)
@@ -361,7 +367,7 @@ object MarkSheet {
         val catCh = !ro && st.cat != st.cat0
         val noteCh = noted[MarkLife.KEY_NOTE] != orNone(before[MarkLife.KEY_NOTE]) || noted[MarkLife.KEY_VIS] != orNone(before[MarkLife.KEY_VIS])
         val actCh = st.to == null && mark != null && !MarkLife.isNote(mark) && MarkLife.bornOf(mark) == MarkLife.EXIST &&
-            MarkLife.pastExisting(mark) && !ro && st.act != st.act0
+            MarkLife.pastExisting(mark) && !ro && st.act != st.act0 && PhaseTools.gate(stage) != PhaseTools.Gate.APPROVED
         if (!catCh && !noteCh && st.to == null && !actCh) return Applied(Outcome.UNCHANGED, null)
         val move = st.to?.let { to -> offered(it, stage).firstOrNull { x -> x.to == to } }
         if (st.to != null && (move == null || ro)) return Applied(Outcome.STAYS, st.copy(to = null))

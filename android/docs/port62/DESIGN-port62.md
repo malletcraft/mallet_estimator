@@ -485,7 +485,7 @@ snapshot) — and nothing has been seen on a phone.
     test's golden (`pano/src/test/resources/marksheet/proto-sheet-rows.txt`, cut from the script's output as its header
     says): `MarkSheetTest` prints `MarkSheet.view` in the same form and compares row for row -- every text, every dot's
     colour, every control's on / off -- for stages 0-4 and unread; at stage 5 it pins the phone's own rule instead. Its
-    journeys (17) are the expected values of the hand-written tests: the sheet's state after each tap and keystroke, the
+    journeys (17; 18 since the L3 review) are the expected values of the hand-written tests: the sheet's state after each tap and keystroke, the
     keys Done writes IN THEIR ORDER, and the undo steps. Both builds of the page print the same L3 rows (v61c.2, 9,563
     lines, and the v62a page now at the builders' path). The page was also driven in a browser (Playwright, the Demo
     project, portrait 360 x 708 and landscape 732 x 336, English and मराठी) and its sheet measured: every size in
@@ -507,7 +507,8 @@ snapshot) — and nothing has been seen on a phone.
     state that holds such a move, and `apply` writes nothing for it. (d) A why typed in the box the sheet OPENED on
     (Delete on a wish) picks Dropped at its third character; typed in any other box it does not -- a tap does. (e) A
     mark past Existing with no `act` stored (no build writes one) gets `act: replace` from any Done, with an undo step:
-    the chip stands on Replace and differs from "none". (f) A stored `vis` that is not `office` is deleted by any Done.
+    the chip stands on Replace and differs from "none" -- at Survey too, where no chip is drawn; **not at Client
+    approved since the L3 review** (below). (f) A stored `vis` that is not `office` is deleted by any Done.
     (g) "decided by …" is drawn whenever `lifeAs` is stored, on an Existing mark too; a `lifeAt` that is no time gives
     no "since". (h) The note, its audience and TRADE are the item's at EVERY stage, Survey included: a note on a
     surveyed mark is not a wish.
@@ -554,6 +555,26 @@ snapshot) — and nothing has been seen on a phone.
     without L4). `quoteStage` is the dialog's parameter now: the band, the strip and the palette read the same value.
   - **Not ported, and why.** KIND and `setSub` (L5, L6); a new Note's `fresh` sheet and `removeFresh` (L6); the List's
     "State: … ▾", "Move N ▸" and `bulkMove` (Q-list 3); `openSheet`'s `focus:'note'` (no caller on the page).
+
+#### The L3 review (11 Nov 2026) — one finding on commit `2190179`, minor
+
+Checked against the committed code and against the prototype's own code before anything was changed: the fault
+was first reproduced as a FAILING `:pano` test on L3's code, and the page's own answer was run for the record —
+`proto-tables.mjs` gains one journey ("... the same at Survey (stage 0) and at Client approved (stage 5)"), the
+page's own `openSheet`, input and `apply` handlers at both stages. **Confirmed: the one finding. Declined: none.**
+The reviewer's clean checks (the golden re-cut and byte-identical, the page driven at stages 0–5 and unread, the
+note's cut, the geometry untouched, the app's half read call by call, the i18n tree) were not repeated beyond what
+the fix touches: the golden was re-cut from the script after its new journey and is still byte-identical.
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | At Client approved, Done can still write `act` on a mark, though the sheet draws no act chip there (minor) | **CONFIRMED.** `MarkSheet.apply`'s `actCh` (`:363-364`) asked: no move picked, a mark that is no Note, born Existing, past Existing, not read-only, `st.act != st.act0` — and never the gate, which `actsShown` (`:125`) and `pickAct` (`:161`) both ask. `open` (`:106`) sets `act = act0 ?: REPLACE`, so a mark past Existing whose stored `act` is absent or none of the four opens with `act = replace`, `act0 = null`, and they differ before anything is touched. The new test on L3's code: `{life: wish, lifeAs: client}` at stage 5, open then Done → `DONE · undo 1 · {life=wish, lifeAs=client, act=replace}`, while the sheet shows no chip, no move and the approval lock's line. And a mark whose `act` this build does not know (`closeup`) had it REPLACED by `replace` by a note-only Done there. **The page** (run): at stage 5 it paints Vendor review's sheet — `acts drawn: true` — and writes `act: replace` in all three cases; so the write follows a drawn control on the page and none on the phone, whose no-chip rule there is its own (Q-list 6, the plan critic's finding 1). Reach is narrow, as the reviewer says: `MarkLife.move` writes `act` on Existing → Client wish, so only a file another writer made, or one holding an act this build does not know, gets here — but it is a wish's act written after approval, somewhere other than the change requests, with no control shown | **`actCh` is false at the phone's own gate** — the reviewer's fix, one term: `&& PhaseTools.gate(stage) != PhaseTools.Gate.APPROVED`. Nothing else in `apply` changes: at Client approved the note with its audience and an Other's trade are still written, one undo step (provisional, Q-list 6 and 9). **Survey is left as the page has it**, as the reviewer asks: the page's `actCh` has no stage term (`P L3076`) and at stage 0 it draws its gate's line and NO chip, yet writes `act: replace` in the same three cases (run: `acts drawn: false`, then the three writes) — the phone does what the page DOES there, the test pins it, and it is added to Q-list 9 as the prototype's question. `MarkSheetTest` +1: at stage 5 a wish with no stored act, open then Done → `UNCHANGED`, 0 undo steps, the map not even replaced, no `act` key; the same with a note typed → the note written, `act` still absent; an unknown act kept, untouched and beside a note; an Other's trade written with no act; a state that holds another act (the screen cannot make one) writes none; and at stages 0–4 and unread the page's own values. It FAILS on L3's code (run first, before the fix: "expected UNCHANGED · undo 0 … but was DONE · undo 1 · {…, act=replace}") |
+
+`:pano` after the fix, from the XML, forced fresh: 1,136 tests in 82 suites, none failed, none skipped (1,135
+before: `MarkSheetTest` 23 → 24). No key added, Tx not regenerated, `i18nRatchet` lowered nothing, `unkeyed.tsv`
+still empty. `:app` is unchanged by this fix (it calls `MarkSheet.apply` as before), is compiled only by CI — and
+nothing has been seen on a phone. If Amit's answer to Q-list 6 / 9 makes the sheet read-only at approval, this
+term goes with it.
 
 ### 3.4 L4 · the phase in survey prep, and a NEW thing placed as a Client wish (M) — closes B2
 L4 carries the phase's gate on the mark tools TOGETHER with the "as …" placement, so no build can place a mark
@@ -763,6 +784,12 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    are open, and an Other's TRADE can be picked: `apply` has no rule for the stage (`P L3071-3088`), so each is
    written. The phone does the same, as the page DOES. To decide on the prototype: is the sheet read-only at
    Estimation -- and, with Q-list 6, at Client approved, where the phone already draws no act chip?
+   **Since the L3 review the phone also WRITES no act at Client approved** (§3.3): the note, its audience and an
+   Other's trade are still written there, provisionally. **And one more of the kind, at Survey** (run on the page's
+   code in that review): the page draws its gate's line and no chip there, yet any Done on a mark past Existing
+   whose `act` is absent or not one of the four writes `act: replace` -- with nothing touched, and beside a note.
+   Reachable only with the stage moved back to Survey, or for a file another writer made; the phone does the
+   same, as the page DOES. Is that write meant at Survey?
 10. **The Mark sheet with the keyboard up** -- a state a page never has (L3). On the phone the sheet rises over the
     keyboard and, when its blocks then need more height than is left, they scroll between the head and Done. Shown to
     him on the phone with B2, not drawn on the prototype; listed so it is his to change.

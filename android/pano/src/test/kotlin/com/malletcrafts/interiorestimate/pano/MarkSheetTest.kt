@@ -396,6 +396,43 @@ class MarkSheetTest {
         assertEquals("DONE · undo 1 · {life=wish, act=replace}", n.done())
     }
 
+    @Test fun `at Client approved Done writes no act -- the sheet draws no act chip there, so a mark with none stored, or one this build does not know, keeps what it has`() {
+        // The L3 review (11 Nov 2026). The chip stands on Replace for a mark past Existing whose stored act is absent or none of
+        // the four (act = replace, act0 = none), and the phone's own gate draws NO chip at Client approved (Q-list 6): a control
+        // that is not drawn must not write. (The page draws Vendor review's sheet there, chips and all, and writes -- the
+        // journey "... the same at Survey (stage 0) and at Client approved (stage 5)" of proto-tables.mjs.)
+        val bare = """"life":"wish","lifeAs":"client""""
+        val n = Run(window(bare), PhaseTools.APPROVED).open()
+        assertEquals(listOf<Any?>("replace", null), listOf(n.st!!.act, n.st!!.act0))
+        assertEquals(listOf<Any?>(0, 0, "Approved — changes go through change requests"), n.view().state!!.let { listOf(it.acts.size, it.moves.size, it.gate) })
+        val was = n.extra()
+        assertEquals("UNCHANGED · undo 0 · {life=wish, lifeAs=client}", n.done(), "nothing touched: nothing written, no undo step")
+        assertSame(was, n.extra(), "not even the map is replaced"); assertNull(n.st, "the sheet closes")
+        // a note typed there is written (provisional, Q-list 6 and 9) -- and the act is still absent
+        val t = Run(window(bare), PhaseTools.APPROVED).open(); t.note("ask the client")
+        assertEquals("DONE · undo 1 · {life=wish, lifeAs=client, note=ask the client}", t.done())
+        // an act this build does not know is not replaced by Replace: untouched, and beside a note
+        val u = Run(window(""""life":"wish","act":"closeup""""), PhaseTools.APPROVED).open()
+        assertEquals(listOf<Any?>("replace", null), listOf(u.st!!.act, u.st!!.act0))
+        assertEquals("UNCHANGED · undo 0 · {life=wish, act=closeup}", u.done())
+        u.open(); u.note("n")
+        assertEquals("DONE · undo 1 · {life=wish, act=closeup, note=n}", u.done())
+        // an Other's trade picked there is written too, and still no act
+        val o = Run(prepOf(markJson("X", "FX1", bare)), PhaseTools.APPROVED).open(); o.trade(); o.cat("carpentry")
+        assertEquals("DONE · undo 1 · {life=wish, lifeAs=client, cat=carpentry}", o.done())
+        // even a state that holds another act -- the screen cannot make one there: pickAct changes nothing -- writes none
+        val held = Run(window(wish), PhaseTools.APPROVED).open(); held.act("shift"); assertEquals("replace", held.st!!.act)
+        held.st = held.st!!.copy(act = "shift")
+        assertEquals("UNCHANGED · undo 0 · {life=wish, lifeAt=$before, lifeAs=client, act=replace}", held.done())
+        // EVERY OTHER STAGE IS THE PAGE'S: its apply asks the stage only through the moves, so the act is written at Survey too
+        // (where the page, like the phone, draws its gate's line and no chip), at Estimation, and wherever the chips are drawn
+        for (stage in listOf(0, 1, 2, 3, 4, null)) {
+            assertEquals("DONE · undo 1 · {life=wish, lifeAs=client, act=replace}", Run(window(bare), stage).open().done(), "stage $stage")
+            val k = Run(window(""""life":"wish","act":"closeup""""), stage).open(); k.note("n")
+            assertEquals("DONE · undo 1 · {life=wish, act=replace, note=n}", k.done(), "stage $stage: an unknown act, beside a note")
+        }
+    }
+
     @Test fun `the note is capped at 280 characters, an emoji never halved -- and Office only is kept only beside a note`() {
         val r = Run(window()).open()
         r.note("x".repeat(279) + "😀😀"); r.office(true)
