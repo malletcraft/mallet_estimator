@@ -366,6 +366,8 @@ app.signing_in	app_signing_in	static	-
 app.since_x	app_since_x	template	stageSince: String
 app.single_photo	app_single_photo	static	-
 app.site_name	app_site_name	static	-
+app.site_not_renamed_here	app_site_not_renamed_here	static	-
+app.site_on_s5_so_new	app_site_on_s5_so_new	static	-
 app.site_type	app_site_type	static	-
 app.site_type_x_pick	app_site_type_x_pick	template	v: String
 app.site_url	app_site_url	static	-
@@ -1151,6 +1153,11 @@ refuse.plan.nothing_arrange_yet	refuse_plan_nothing_arrange_yet	static	-
 refuse.readonly.readings	refuse_readonly_readings	static	-
 refuse.readonly.wishlist	refuse_readonly_wishlist	static	-
 refuse.readonly.wishlist_approved	refuse_readonly_wishlist_approved	static	-
+refuse.site.capture_on_way	refuse_site_capture_on_way	static	-
+refuse.site.offline	refuse_site_offline	static	-
+refuse.site.part_x	refuse_site_part_x	template	done: Int · of: Int
+refuse.site.renamed_x	refuse_site_renamed_x	template	by: String · site: String
+refuse.site.signed_out	refuse_site_signed_out	static	-
 refuse.sp.chain_needs_two_different	refuse_sp_chain_needs_two_different	static	-
 refuse.sp.chain_needs_two_points	refuse_sp_chain_needs_two_points	static	-
 refuse.sp.finish_chain_x_first	refuse_sp_finish_chain_x_first	template	v: String

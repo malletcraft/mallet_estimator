@@ -82,6 +82,8 @@ import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
+import com.malletcrafts.interiorestimate.pano.RenameRoute
+import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.TourDemo
@@ -254,6 +256,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
         mutableStateOf<RenameTarget?>(null)
     }
     var renameBusy by remember { mutableStateOf(false) }
+    // WHY THE LAST SAVE DID NOT RENAME (port 62 slice A2; the prototype's P0, approved 11 Nov 2026): drawn under the
+    // name while the dialog stays open, set on failure, cleared on edit and on dismiss. A Msg, so it reads in the
+    // language shown; the tick counts failures, so the dialog returns to its top for each one, the same words or not.
+    var renameWhy by remember { mutableStateOf<Msg?>(null) }
+    var renameWhyTick by remember { mutableStateOf(0) }
+    // The S5 projects this dialog's site rename is sending to, fixed by its first Save. S5's answers move the names
+    // the tree groups by at once (a 409's stored name, 1 of 2 renamed), so "the projects under the old name" is no
+    // longer the same list on Save again -- these are, each with the base S5 last gave for it.
+    var renameIds by remember { mutableStateOf<List<String>?>(null) }
     // The server's own words for why a delete was refused — "still has 3
     // capture(s)". Cleared whenever the dialog target changes, so a refusal
     // about one project never arms a cascade on the next.
@@ -1178,67 +1189,189 @@ private fun AppScreenBody(onLang: () -> Unit) {
             })
     }
 
+    // ---- the rename dialog (port 62 slice A2) ------------------------------------------------
+    fun closeRename() {
+        renaming = null
+        renameWhy = null
+        renameIds = null
+        deleteBlocker = null
+        deleteFatal = false
+    }
+    // Every failure of a rename is said IN the dialog, which stays open (audit R2): never on a banner another screen draws.
+    fun renameFailed(why: Msg) {
+        renameBusy = false
+        renameWhy = why
+        renameWhyTick += 1
+    }
+    // WHERE A RENAME GOES IS DECIDED IN ONE PLACE, and it is tested (Renames.route in :pano, beside Deletes.route).
+    // This used to be `if (t.serverId.isBlank())` inline: a blank id renamed "locally" without checking a row was
+    // there, and any id went to the bench -- with a key that died on 23 Oct, for a site S5 now keeps the name of.
+    fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {
+        val isSite = t.kind == "site"
+        val ids: List<String> = if (!isSite) emptyList() else (renameIds ?: cat.s5ProjectsOf(masters, t.client, t.site))
+        return Renames.route(
+            tx, t.kind, t.current, t.serverId,
+            hasLocalRow = cat.hasLocal(t.kind, t.client, t.site, t.project),
+            s5Projects = ids.mapNotNull { id -> S5Sites.held(context, id)?.let { RenameRoute.Write(id, it.site) } },
+            // an S5 sign-in, or the legacy key S5 also takes: with neither there is nothing to call S5 with
+            signedIn = S5Session.signedIn(context) || FrappeClient.authorization(context) != null,
+            legacyPair = FrappeClient.load(context) != null,
+            unlisted = isSite && cat.hasUnlistedCapture(masters, queue, t.client, t.site),
+            listRead = listRead)
+    }
+
     renaming?.let { t ->
-        BackHandler { if (!renameBusy) renaming = null }
+        BackHandler { if (!renameBusy) closeRename() }
+        // The form the dialog opens in: which grey line, and whether the name can be edited at all (P0 b, c).
+        val opened = remember(t, masters, queue, dataTick, renameIds, renameWhyTick, tx) { renameRoute(t) }
         RenameDialog(
-            what = t.kind, current = t.current, onServer = t.serverId.isNotBlank(),
+            what = t.kind, current = t.current,
+            line = Renames.line(opened),
+            shut = if (opened is RenameRoute.Blocked && Renames.shut(opened)) opened.reason else "",
+            why = renameWhy?.invoke(tx),
+            whyTick = renameWhyTick,
+            onEdit = { renameWhy = null },
             serverId = t.serverId,
             busy = renameBusy,
-            onDismiss = { renaming = null; deleteBlocker = null; deleteFatal = false },
+            onDismiss = { closeRename() },
             onSave = { newName ->
-                // A local row is words in this phone's preferences, so it is
-                // corrected here and now, with no signal. An ERP row is the
-                // office's record and has to go to the server — and must not
-                // be reported as done until the server says so.
-                if (t.serverId.isBlank()) {
-                    cat.renameLocal(t.kind, t.client, t.site, t.project, newName)
-                    // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
-                    // for a phone-only project, so it follows the new name -- or the chip reads
-                    // 0/12 and the re-key never finds it. The keys still in use AFTER the rename
-                    // decide a move from a copy (the same title at another site keeps its list).
-                    WishSync.renameLocal(context, t.kind, t.client, t.project, newName,
-                        cat.projects(store.masters()).filter { !it.synced }
-                            .map { WishList.localKey(it.client, it.title) }.toSet())
-                    reload()
-                    // Follow the rename: a person renaming the thing they are
-                    // standing in should not be thrown back to the root.
-                    when (t.kind) {
-                        "client" -> { navClient = newName; navSite = null; navProject = null }
-                        "site" -> { navSite = newName; navProject = null }
-                        else -> navProject = null
-                    }
-                    lastResult = { tx -> tx.app_msg_renamed_x(newName) }
-                    renaming = null
-                } else {
-                    renameBusy = true
-                    scope.launch(Dispatchers.IO) {
-                        val res = runCatching {
-                            FrappeClient.load(context)
-                                ?.renameNode(t.kind, t.serverId, newName)
-                                ?: error(tx.app_no_server_configured)
-                            // Pull the masters back immediately rather than
-                            // waiting for the next sync: the rule is that a
-                            // change is visible at once, and a rename that
-                            // needs a sync to appear is the same bug again.
-                            FrappeClient.load(context)?.bootstrap()?.let {
-                                store.saveMasters(it)
-                            }
-                        }
-                        withContext(Dispatchers.Main) {
-                            renameBusy = false
-                            reload()
-                            res.onSuccess {
-                                when (t.kind) {
-                                    "client" -> { navClient = newName; navSite = null; navProject = null }
-                                    "site" -> { navSite = newName; navProject = null }
-                                    else -> navProject = null
+                when (val route = renameRoute(t)) {
+                    // A local row is words in this phone's preferences, so it is
+                    // corrected here and now, with no signal -- and CHECKED: a
+                    // rename that touched no row is a failure, never the success
+                    // that closed the dialog onto an empty folder (audit R3).
+                    RenameRoute.Local -> {
+                        if (!cat.renameLocal(t.kind, t.client, t.site, t.project, newName)) {
+                            renameFailed { tx -> Renames.nothingRenamed(tx, t.kind, t.current) }
+                        } else {
+                            if (t.kind == "site") {
+                                // The site's chosen rooms follow its name (R7), and so does every row of the stored
+                                // masters that names this client's site: nothing of the old name stays behind.
+                                cat.moveRoomScope(t.client, t.site, newName)
+                                store.masters()?.let { m ->
+                                    if (cat.renameSiteRows(m, t.client, t.site, newName)) store.saveMasters(m)
                                 }
-                                lastResult = { tx -> tx.app_msg_renamed_x(newName) }
-                                renaming = null
-                            }.onFailure { e ->
-                                lastResult = { tx -> tx.app_msg_could_not_rename_x(why = e.message.orEmpty()) }
+                            }
+                            // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
+                            // for a phone-only project, so it follows the new name -- or the chip reads
+                            // 0/12 and the re-key never finds it. The keys still in use AFTER the rename
+                            // decide a move from a copy (the same title at another site keeps its list).
+                            WishSync.renameLocal(context, t.kind, t.client, t.project, newName,
+                                cat.projects(store.masters()).filter { !it.synced }
+                                    .map { WishList.localKey(it.client, it.title) }.toSet())
+                            reload()
+                            // Follow the rename: a person renaming the thing they are
+                            // standing in should not be thrown back to the root.
+                            when (t.kind) {
+                                "client" -> { navClient = newName; navSite = null; navProject = null }
+                                "site" -> { navSite = newName; navProject = null }
+                                else -> navProject = null
+                            }
+                            lastResult = { tx -> tx.app_msg_renamed_x(newName) }
+                            closeRename()
+                        }
+                    }
+                    // A CLIENT or a PROJECT the bench holds, with a stored pair: the
+                    // office's record, renamed on the bench and not reported as done
+                    // until the bench says so. Never a site (Renames.route).
+                    is RenameRoute.Legacy -> {
+                        renameBusy = true
+                        renameWhy = null
+                        scope.launch(Dispatchers.IO) {
+                            val res = runCatching {
+                                FrappeClient.load(context)
+                                    ?.renameNode(t.kind, route.docname, newName)
+                                    ?: error(tx.app_no_server_configured)
+                            }
+                            // JUDGED ON THE RENAME ALONE (audit R6). The masters are pulled back at once so the
+                            // change is visible without a sync -- but in a call of their own: on a weak signal the
+                            // bench had the new name and a failed refresh was reported as a failed rename.
+                            if (res.isSuccess) runCatching {
+                                FrappeClient.load(context)?.bootstrap()?.let {
+                                    store.saveMasters(it)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                reload()
+                                res.onSuccess {
+                                    when (t.kind) {
+                                        "client" -> { navClient = newName; navSite = null; navProject = null }
+                                        else -> navProject = null
+                                    }
+                                    lastResult = { tx -> tx.app_msg_renamed_x(newName) }
+                                    renameBusy = false
+                                    closeRename()
+                                }.onFailure { e ->
+                                    val said = e.message
+                                    renameFailed { tx -> Renames.benchRefused(tx, said) }
+                                }
                             }
                         }
+                    }
+                    // A SITE S5 HOLDS (Amit, 11 Nov 2026: "Yes — S5 keeps the site name"): one PUT …/site per
+                    // project of it that S5 lists, each with its own base. Success is S5's answers ALONE.
+                    is RenameRoute.S5 -> {
+                        renameBusy = true
+                        renameWhy = null
+                        scope.launch {
+                            var go: RenameRoute = route
+                            if (route.readFirst) {
+                                // AUDIT R9: a capture of this site is under an S5 key the masters do not list. S5's
+                                // list is read FIRST -- the Save needs the signal anyway -- and the route asked
+                                // again: listed now, its project is one of the writes; still not, the rename is
+                                // refused until it is (a rename now would fork that project on its next capture).
+                                val fresh = withContext(Dispatchers.IO) {
+                                    S5Masters.fetch(context)?.also { store.saveMasters(it) }
+                                }
+                                if (fresh == null) {
+                                    renameFailed { tx -> tx.refuse_site_offline }
+                                    return@launch
+                                }
+                                reload()
+                                go = renameRoute(t, listRead = true)
+                            }
+                            val s5 = go as? RenameRoute.S5
+                            if (s5 == null) {
+                                val said = (go as? RenameRoute.Blocked)?.reason
+                                renameFailed { tx -> said ?: tx.refuse_site_offline }
+                                return@launch
+                            }
+                            renameIds = s5.writes.map { it.project }
+                            val outcome = withContext(Dispatchers.IO) { SiteRename.rename(context, s5.writes, newName) }
+                            if (outcome is Renames.Outcome.Done) {
+                                // IN ONE STEP, once S5 has answered for every project: the phone's own rows under
+                                // the old name are re-keyed (R8's phone half: the bench is deliberately not told),
+                                // the room-scope key moves (R7), and every row of the stored masters that still
+                                // says the old name -- the bootstrap's `sites` row above all -- says the new one,
+                                // so the old name is not left behind as an empty site. S5's name for each project
+                                // is already kept (SiteRename, S5Sites): the tree shows it without a sync (R4).
+                                val name = outcome.site
+                                withContext(Dispatchers.IO) {
+                                    cat.renameLocal("site", t.client, t.site, "", name)
+                                    cat.moveRoomScope(t.client, t.site, name)
+                                    store.masters()?.let { m ->
+                                        if (cat.renameSiteRows(m, t.client, t.site, name)) store.saveMasters(m)
+                                    }
+                                }
+                                reload()
+                                navSite = name
+                                navProject = null
+                                lastResult = { tx -> tx.app_msg_renamed_x(name) }
+                                renameBusy = false
+                                closeRename()
+                            } else {
+                                // Not every project took the name: the dialog stays open and says why. What S5 DID
+                                // answer is already on the phone (a 409's stored name, the projects that were
+                                // renamed), so the tree is redrawn from it and Save again sends against it.
+                                reload()
+                                renameFailed { tx -> Renames.text(tx, outcome).orEmpty() }
+                            }
+                        }
+                    }
+                    // Nothing to send and nothing to rename: said under the name, at once.
+                    is RenameRoute.Blocked -> {
+                        val said = route.reason
+                        renameFailed { _ -> said }
                     }
                 }
             },
@@ -1270,9 +1403,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         else -> navProject = null
                     }
                     lastResult = { tx -> Deletes.localOnlyMessage(tx, t.current) }
-                    deleteBlocker = null
-                    deleteFatal = false
-                    renaming = null
+                    closeRename()
                 } else {
                     renameBusy = true
                     scope.launch(Dispatchers.IO) {
@@ -1301,9 +1432,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                     else -> navProject = null
                                 }
                                 lastResult = { tx -> tx.app_msg_deleted_x(t.current) }
-                                deleteBlocker = null
-                                deleteFatal = false
-                                renaming = null
+                                closeRename()
                             }.onFailure { e ->
                                 // Kept in the dialog rather than thrown at the
                                 // snackbar: the refusal is the question, and

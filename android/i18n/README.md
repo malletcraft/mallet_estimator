@@ -484,6 +484,30 @@ on when they are drawn -- the stored FILE, its aside names and every wire value 
   `SurveyChain.GROUP` stays the identity "chains". `FacePrep.dims` and `locators` take a tx; `csvRows` and
   `faceStatus` keep their signatures and use `Tx.EN` inside (the CSV is an export; the status reads no label).
 
+## Port 62 slice A2 (11 Nov 2026): the site's rename dialog says why, 7 keys
+
+Amit approved prototype item P0 (mock-up v62a, Version 87) on 11 Nov 2026: a site renames through S5, and a rename
+that cannot be saved says why in a red line under the name while the dialog stays open. Its seven texts are added
+under the prototype's own keys, English and Marathi byte for byte as the page's dictionary has them (the commit's
+script compared each with `RAW` of the Version 87 page), 1,895 -> 1,902 keys:
+
+| key | drawn |
+|---|---|
+| `app.site_on_s5_so_new` | the grey line for a site S5 holds (P0 b), in place of `app.x_server_so_new`'s "ERP and every other device" |
+| `app.site_not_renamed_here` | in the grey line's place, the name not editable: a site that cannot be renamed from this phone (P0 c) |
+| `refuse.site.offline` | under the name: no signal, or no answer of S5's (P0 a) |
+| `refuse.site.signed_out` | under the name: no S5 sign-in, said at once; also S5's 401 (P0 a) |
+| `refuse.site.renamed_x` | under the name: S5's 409, built from the reply's `site_by` and `site` -- data, passed through (P0 a) |
+| `refuse.site.part_x` | under the name: `{done}` of `{of}` projects renamed (two counts, `Int`s), Save again finishes (P0 a) |
+| `refuse.site.capture_on_way` | under the name: a capture of the site has not reached S5 yet (P0 d); the Marathi is the review's corrected neuter line |
+
+They are PROTOTYPE keys (a `where` list naming `android/docs/port62/proto/build87.py`, no `phone-text` flag). Not added:
+the page's two `room.*` texts (item P2, the room's plan chip, is not approved) and its sixteen `proto.rn.*` texts (the
+Prototype test row, which never ships). No new text was written for a client's or a project's failed rename, which the
+prototype does not draw: `pano/RenameRoute.kt` says those through the approved `app.msg.could_not_rename_x`, with the
+bench's own words, `app.no_server_configured`, or the row's name as `{why}`. S5's other refusals (its 400, 403, 404
+and the two rarer 409s) are shown as S5 sent them: data, like every S5 refusal the phone shows.
+
 ## What is here
 
 | File | What it is | Who writes it |

@@ -29,6 +29,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepStore.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceSkus.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt	3
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FrappeClient.kt	15
+app/src/main/kotlin/com/malletcrafts/interiorestimate/HelpScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/HomeScreens.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/JsonRead.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Lang.kt	0
@@ -40,8 +41,10 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/PlanExport.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/QuoteStageSync.kt	1
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ReadingsSync.kt	1
 app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Session.kt	4
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Sites.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SitePhotosApp.kt	0
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SiteRename.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/StampScan.kt	2
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	0
@@ -52,6 +55,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepStore.kt	4
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepTools.kt	13
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SyncWorker.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/Thumbs.kt	0
+app/src/main/kotlin/com/malletcrafts/interiorestimate/TourOverlay.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/TreeShell.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/VoiceNotes.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/WishListScreen.kt	0
@@ -88,10 +92,12 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Readings.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RenameRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomCorners.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomQuad.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SiteRows.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Stamp.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	0
@@ -105,6 +111,10 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepFile.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepPalette.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyPrepTouch.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyRef.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Tour.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TourDemo.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TourMachine.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/TourPlace.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/UploadNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Viewport.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/WallCorners.kt	2

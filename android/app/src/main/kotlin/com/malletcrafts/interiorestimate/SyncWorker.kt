@@ -142,6 +142,14 @@ class SyncWorker(context: Context, params: WorkerParameters) :
         // keeps the room and stage lists and every project already known). Null = stale kept.
         S5Masters.fetch(ctx)?.let { store.saveMasters(it) }
 
+        // (a2) THE ONE-OFF SITE-NAME SEED (port 62 slice A2; Amit, 11 Nov 2026: "Yes — S5 keeps the site name"). The
+        // list just read says which projects S5 holds NO site name for -- every one uploaded before S5 kept them --
+        // and each that this phone knows a name for is sent it once, `PUT …/site {site, base: ""}`: the first write
+        // wins, S5's answer is kept (S5Sites), and a project that has a name is never sent one again. Never the demo
+        // (Renames.seed). Not a failure of the sync, whatever S5 answers. From here on a NEW project is named by its
+        // first upload's record (AsIsPath.body's `site`), and a name changes only through the rename dialog.
+        SiteRename.seed(ctx)
+
         // (b) A capture from a NEW site has no project id, and with no bench there is nobody
         // to mint one: it takes the project the masters hold for that client and title, else
         // the deterministic phone key (S5Auth.keyFor), so every capture of that site lands on

@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.UploadNote
 import org.json.JSONArray
 import org.json.JSONObject
@@ -294,15 +295,23 @@ object S5Masters {
      * maySee compares and what the upload sends back -- while `customer_name`, which the
      * tree files a project under, falls back to the name typed on this phone's own captures
      * of that project when S5 has no customer (a site that exists only on phones).
+     *
+     * THE SITE NAME IS S5'S (port 62 slice A2, 11 Nov 2026; Amit: "Yes — S5 keeps the site name").
+     * Each row of the list carries the project's `site` and `site_at` since S5's slice A1, and
+     * they go to S5Sites -- one home for S5's names, kept by S5's own stamp, which the tree reads
+     * first for whichever masters entry holds the project (a bootstrap's or an S5 one). An S5
+     * entry is no longer stamped with the name of this phone's own row (audit R4: that copy was
+     * what the tree showed, and a rename did not update it); where S5 holds no name yet the tree
+     * resolves it from that row itself (Catalogue.erpProjects).
      */
     fun fetch(context: Context): JSONObject? = try {
         val auth = S5Auth.fresh(context) ?: throw IllegalStateException("not signed in")
         val o = JSONObject(AsIsUpload.send("GET", BuildConfig.WEB_URL.trimEnd('/') + "/api/asis", auth, null, null))
         // A 200 without the list is not "no projects": it would hide every one.
         val arr = o.getJSONArray("projects")
+        S5Sites.takeList(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
         val store = CaptureStore(context)
         val captures = store.all()
-        val cat = Catalogue(context)
         val base = store.masters()?.let { JSONObject(it.toString()) } ?: JSONObject()
         val had = base.optJSONArray("projects") ?: JSONArray()
         val known = mutableSetOf<String>()
@@ -335,8 +344,6 @@ object S5Masters {
                 .put("customer", customer)
                 .put("customer_name", client)
                 .put(FROM_S5, true)
-            val site = if (t.isNotBlank()) cat.localSiteFor(client, t) else ""
-            if (site.isNotBlank()) m.put("site_name", site)
             out.put(m)
             known.add(key)
         }
@@ -363,8 +370,9 @@ object S5Masters {
         }
     }
 
-    /** Marks a masters project added from S5's list, as opposed to an ERP bootstrap's. */
-    private const val FROM_S5 = "from_s5"
+    /** Marks a masters project added from S5's list, as opposed to an ERP bootstrap's. Catalogue reads it: such an
+     *  entry carries no site name of its own, so its site is S5's, else this phone's own row's. */
+    internal const val FROM_S5 = "from_s5"
     /** The client folder for an S5 project nobody has named a customer for: an identity value,
      *  stored and compared in English, SHOWN through Masters.client_name (port 61c slice M6). */
     const val NO_CLIENT = "(no client)" // text:value a stored bucket value, shown through Masters.client_name

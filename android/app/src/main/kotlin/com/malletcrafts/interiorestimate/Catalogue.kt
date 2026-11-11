@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.SiteRows
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import org.json.JSONArray
@@ -27,6 +28,9 @@ import org.json.JSONObject
 class Catalogue(context: Context) {
 
     private val prefs = context.getSharedPreferences("catalogue", Context.MODE_PRIVATE)
+
+    /** For S5's own site names (S5Sites, port 62 slice A2), which the tree reads beside the masters. */
+    private val appContext: Context = context.applicationContext
 
     data class Site(
         val client: String,
@@ -242,6 +246,21 @@ class Catalogue(context: Context) {
     }
 
     /**
+     * Whether a row made on this phone carries the name -- what [renameLocal] would touch, asked BEFORE anything is
+     * renamed (Renames.route's `hasLocalRow`, port 62 slice A2). The local branch used to report success without
+     * checking that a row was there (audit R3): "(no site)", the demo's rows and a site whose row was pruned all
+     * closed the dialog onto an empty folder with the new name, the old one still listed.
+     */
+    fun hasLocal(kind: String, client: String, site: String, project: String): Boolean = locals().any { l ->
+        when (kind) {
+            "client" -> same(l.client, client)
+            "site" -> same(l.client, client) && same(l.site, site)
+            "project" -> same(l.client, client) && same(l.site, site) && same(l.project, project)
+            else -> false
+        }
+    }
+
+    /**
      * Drop a local row and everything filed under it.
      *
      * forgetLocal below is the SYNC case and is project-shaped: one row has
@@ -360,6 +379,25 @@ class Catalogue(context: Context) {
         return all.filter { it in chosen || hasCaptures(it) }
     }
 
+    /**
+     * The site's chosen rooms follow its name (audit R7, port 62 slice A2): the list is keyed by the site's NAME, so a
+     * rename that landed left it behind and the rooms grid fell back to the 2 BHK preset, the chooser asking again.
+     * Read through [roomScope], so a list still kept per project (before 2026-10-10) is migrated first. A site that
+     * already has its own list under the new name keeps it. A change of case or spacing alone is the same key.
+     */
+    fun moveRoomScope(client: String, from: String, to: String) {
+        if (same(from, to)) return
+        val rooms = roomScope(client, from)
+        val there = roomScope(client, to)
+        val ed = prefs.edit()
+        if (rooms.isNotEmpty() && there.isEmpty()) {
+            val arr = JSONArray()
+            rooms.sorted().forEach { arr.put(it) }
+            ed.putString(scopeKey(client, to), arr.toString())
+        }
+        ed.remove(scopeKey(client, from)).apply()
+    }
+
     /** The rooms a site starts with: its type's preset at 2 BHK. */
     fun defaultScope(siteType: String): Set<String> {
         val type = com.malletcrafts.interiorestimate.pano.FlatPresets.TYPES
@@ -465,18 +503,27 @@ class Catalogue(context: Context) {
 
     private fun erpProjects(masters: JSONObject?): List<Project> {
         val arr = masters?.optJSONArray("projects") ?: return emptyList()
+        // ONE SOURCE FOR A SITE'S NAME (port 62 slice A2; audit R4). S5 keeps each project's site name, and where it
+        // holds one that is the name shown -- read from S5Sites, which every list read and every answer to a rename
+        // feeds, so a rename is on screen the moment S5 answers and no bootstrap can bring an older name back.
+        val s5 = S5Sites.all(appContext)
+        val rows = locals()
         val out = mutableListOf<Project>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val client = o.optString("customer_name").ifBlank { o.optString("customer") }
             val title = o.optString("title").ifBlank { o.optString("project") }
             if (client.isBlank() || title.isBlank()) continue
+            // A project only S5 lists has no site of its own in the masters (S5Masters.fetch no longer stamps one in):
+            // where S5 holds no name for it either, it is the name this phone's own row gives it.
+            val own = if (o.optBoolean(S5Masters.FROM_S5))
+                rows.firstOrNull { same(it.client, client) && same(it.project, title) }?.site.orEmpty() else ""
             out.add(Project(
                 client = client,
                 // A project the office made before the site level existed has
                 // no site. It is filed under one named bucket rather than
                 // dropped: an invisible project is worse than an awkward folder.
-                site = o.optString("site_name").ifBlank { NO_SITE },
+                site = SiteRows.nameOf(s5[o.optString("project")]?.site, o.optString("site_name"), own).ifBlank { NO_SITE },
                 siteId = o.optString("site"),
                 title = title,
                 serverId = o.optString("project"),
@@ -520,16 +567,18 @@ class Catalogue(context: Context) {
         // Built from projects alone this list dropped a client the moment its
         // last project went, hiding every site underneath — the same hole as
         // sitesOf, one level up.
-        (projects(masters).map { it.client } + serverSites(masters).values.map {
+        (projects(masters).map { it.client } + serverSites(masters, emptyList()).rows.values.map {
             it.optString("customer_name").ifBlank { it.optString("customer") }
         }.filter { it.isNotBlank() })
             .distinctBy { it.lowercase() }.sorted()
 
     fun sitesOf(masters: JSONObject?, client: String): List<Site> {
-        val mine = projects(masters).filter { same(it.client, client) }
+        val all = projects(masters)
+        val mine = all.filter { same(it.client, client) }
         val typeOf = locals().associate { key(it.site) to it.siteType }
         val addrOf = locals().associate { key(it.site) to it.address }
-        val erp = serverSites(masters)
+        val listed = serverSites(masters, all)
+        val erp = listed.rows
         val grouped = LinkedHashMap<String, MutableList<Project>>()
         for (p in mine) grouped.getOrPut(key(p.site)) { mutableListOf() }.add(p)
         // A SITE WITH NO PROJECTS IS STILL A SITE. The tree was built purely
@@ -542,9 +591,10 @@ class Catalogue(context: Context) {
         // site created at the DESK has no projects until someone adds one, so
         // it was invisible on the phone exactly when a technician standing at
         // it needed to pick it.
-        for ((k, o) in erp) {
+        // Each row under the name it is LISTED under (SiteRows.listed): its own, or S5's where S5 renamed the site.
+        for (k in erp.keys) {
             if (!k.startsWith(key(client) + "\u0000")) continue
-            val n = o.optString("site_name").trim()
+            val n = listed.names[k].orEmpty()
             if (n.isNotEmpty()) grouped.getOrPut(key(n)) { mutableListOf() }
         }
         return grouped.map { (k, ps) ->
@@ -553,8 +603,7 @@ class Catalogue(context: Context) {
                 // ps may be EMPTY now (a site with no projects), so the name
                 // comes from the server row when there is no project to ask.
                 name = ps.firstOrNull()?.site
-                    ?: erp.entries.firstOrNull { it.key == siteKey(client, k) }
-                        ?.value?.optString("site_name").orEmpty().ifEmpty { k },
+                    ?: listed.names[siteKey(client, k)].orEmpty().ifEmpty { k },
                 // ERP'S OWN ANSWER FIRST. This used to infer the docname from
                 // the site's PROJECTS, which meant a site whose projects were
                 // absent from the tree — cancelled, filtered, or simply not
@@ -596,6 +645,78 @@ class Catalogue(context: Context) {
     fun projectsOf(masters: JSONObject?, client: String, site: String): List<Project> =
         projects(masters).filter { same(it.client, client) && same(it.site, site) }
 
+    // ---- a site renamed through S5 (port 62 slice A2) --------------------
+
+    /**
+     * The S5 projects of one site: one `PUT …/site` goes to each, with that project's own base. They are the projects
+     * the tree lists under the site whose id S5's list has named (S5Sites holds a name for each, blank included) --
+     * and the projects MADE ON THIS PHONE under it that S5 holds under their phone-minted key (S5Auth.localKey, the
+     * same hash of client|site|title the upload minted) and still names as this site, or not at all. The second half
+     * is what keeps a site S5's while nobody is signed in: sign-out drops the projects only S5 listed from the masters
+     * (S5Masters.forget), the phone's own row shows again in their place, and without it the rename would fall to that
+     * row -- a local rename of a site S5 holds, undone by the next sign-in. With it the dialog says to sign in.
+     */
+    fun s5ProjectsOf(masters: JSONObject?, client: String, site: String): List<String> {
+        val listed = projectsOf(masters, client, site).map { it.serverId }
+            .filter { it.isNotBlank() && S5Sites.held(appContext, it) != null }
+        val minted = locals().filter { same(it.client, client) && same(it.site, site) }
+            .map { S5Auth.localKey(it.client, it.site, it.project) }
+            .filter { id -> S5Sites.held(appContext, id)?.let { it.site.isBlank() || same(it.site, site) } == true }
+        return (listed + minted).distinct()
+    }
+
+    /**
+     * AUDIT R9, for a site: a capture of this site queued or uploaded under a phone-minted S5 key ("S5-…", a hash of
+     * client|site|title, re-derived and never stored) that the masters do not list yet. Renamed now, the site's next
+     * capture would mint a NEW hash -- two S5 projects with one title. The site of a capture is read where its key
+     * was minted from: the phone's own row for its client and title (S5Auth.keyFor).
+     */
+    fun hasUnlistedCapture(masters: JSONObject?, captures: List<CaptureStore.Capture>, client: String, site: String): Boolean {
+        val listed = HashSet<String>()
+        masters?.optJSONArray("projects")?.let { ps ->
+            for (i in 0 until ps.length()) ps.optJSONObject(i)?.optString("project")?.let { listed.add(it) }
+        }
+        return captures.any { c ->
+            S5Auth.isLocalKey(c.project) && c.project !in listed &&
+                same(c.customerName, client) && same(localSiteFor(c.customerName, c.projectTitle), site)
+        }
+    }
+
+    /**
+     * THE OLD NAME MUST NOT STAY BEHIND (the plan critic's finding 2): the rename step's masters half. Every row of
+     * [masters] that says [client]'s site is called [from] says [to] -- the bootstrap's `sites` row (its docname,
+     * type, city and address stay with the site) and the `site_name` of each of that client's project entries, so a
+     * project S5 does not list yet follows its site on this phone and goes up under the new name. S5's own name still
+     * wins wherever S5 holds one. Returns whether anything changed; the caller saves the masters.
+     */
+    fun renameSiteRows(masters: JSONObject, client: String, from: String, to: String): Boolean {
+        var touched = false
+        for (list in listOf("sites", "projects")) {
+            val arr = masters.optJSONArray(list) ?: continue
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
+                val name = o.optString("site_name")
+                if (name.isBlank() || !same(owner, client) || !same(name, from)) continue
+                o.put("site_name", to)
+                touched = true
+            }
+        }
+        return touched
+    }
+
+    /**
+     * The phone's name for the site of one capture's project, as the tree shows it -- found by the project's S5 id,
+     * else by client and title -- for the `site` its upload's record carries (AsIsPath.body; S5 takes it only while
+     * it holds none). '' when the phone has no name for it but the bucket's.
+     */
+    fun siteFor(masters: JSONObject?, projectId: String, client: String, title: String): String {
+        val all = projects(masters)
+        val p = all.firstOrNull { projectId.isNotBlank() && it.serverId == projectId }
+            ?: all.firstOrNull { same(it.client, client) && same(it.title, title) }
+        return p?.site?.takeIf { it != NO_SITE } ?: localSiteFor(client, title)
+    }
+
     // ---- one read, many questions ---------------------------------------
 
     /**
@@ -636,7 +757,8 @@ class Catalogue(context: Context) {
         val locals = locals()
         val typeOf = locals.associate { key(it.site) to it.siteType }
         val addrOf = locals.associate { key(it.site) to it.address }
-        val erp = serverSites(masters)
+        val listed = serverSites(masters, all)
+        val erp = listed.rows
 
         val byClient = LinkedHashMap<String, MutableList<Project>>()
         val bySite = LinkedHashMap<String, MutableList<Project>>()
@@ -667,7 +789,8 @@ class Catalogue(context: Context) {
             // knows about that simply has no jobs on it yet, or any more.
             for ((ek, owner) in ownerOf) {
                 if (key(owner) != ck) continue
-                val n = erp[ek]?.optString("site_name").orEmpty().trim()
+                // under the name it is LISTED under (SiteRows.listed): its own, or S5's where S5 renamed the site
+                val n = listed.names[ek].orEmpty()
                 if (n.isNotEmpty()) grouped.getOrPut(key(n)) { mutableListOf() }
             }
             sites[ck] = grouped.map { (sk, sps) ->
@@ -682,7 +805,7 @@ class Catalogue(context: Context) {
                 Site(
                     client = who,
                     name = sps.firstOrNull()?.site
-                        ?: erp[ek]?.optString("site_name").orEmpty().ifEmpty { sk },
+                        ?: listed.names[ek].orEmpty().ifEmpty { sk },
                     serverId = erp[ek]?.optString("name").orEmpty()
                         .ifEmpty { sps.firstOrNull { it.siteId.isNotBlank() }?.siteId ?: "" },
                     type = erp[ek]?.optString("site_type").orEmpty().ifEmpty { typeOf[sk] ?: "" },
@@ -795,6 +918,9 @@ class Catalogue(context: Context) {
         return erp + locals
     }
 
+    /** [rows]: ERP's site rows by client and the name each is LISTED under; [names]: that name, by the same key. */
+    private class ServerSites(val rows: Map<String, JSONObject>, val names: Map<String, String>)
+
     /** ERP's own site rows, keyed the same way site names are matched.
      *
      *  Without this the type and address were read from the OFFLINE list
@@ -809,17 +935,39 @@ class Catalogue(context: Context) {
      *  been some other customer's. A site row carrying the wrong docname is
      *  the worst bug this app could have, because the delete would succeed.
      */
-    private fun serverSites(masters: JSONObject?): Map<String, JSONObject> {
-        val arr = masters?.optJSONArray("sites") ?: return emptyMap()
-        val out = LinkedHashMap<String, JSONObject>()
+    /**
+     * THE NAME A ROW IS LISTED UNDER IS :pano's RULE (SiteRows.listed, port 62 slice A2; the plan critic's finding 2).
+     * The masters' `sites` array is kept as an ERP bootstrap brought it, so after S5 took a site's new name the row of
+     * the OLD name would be listed beside it as an empty site. A row whose docname is the `site` of a project that S5
+     * names differently is therefore keyed -- and listed -- under S5's name: the same site as its projects. A row
+     * under its OWN name goes in first, so a row S5's name moved never takes the place of the row that is called that.
+     * [projects] are the projects as the tree lists them (their `site` already S5's where S5 holds one).
+     */
+    private fun serverSites(masters: JSONObject?, projects: List<Project>): ServerSites {
+        val arr = masters?.optJSONArray("sites") ?: return ServerSites(emptyMap(), emptyMap())
+        val objs = ArrayList<JSONObject>()
+        val rows = ArrayList<SiteRows.Row>()
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             val n = o.optString("site_name").trim()
             if (n.isEmpty()) continue
             val owner = o.optString("customer_name").ifBlank { o.optString("customer") }
-            out[siteKey(owner, n)] = o
+            objs.add(o)
+            rows.add(SiteRows.Row(o.optString("name"), owner, n))
         }
-        return out
+        val under = SiteRows.listed(rows, projects.map { SiteRows.Proj(it.client, it.site, it.siteId) })
+        val out = LinkedHashMap<String, JSONObject>()
+        val names = LinkedHashMap<String, String>()
+        for (own in listOf(true, false)) {
+            for (i in rows.indices) {
+                if ((key(under[i]) == key(rows[i].name)) != own) continue
+                val k = siteKey(rows[i].client, under[i])
+                if (!own && out.containsKey(k)) continue
+                out[k] = objs[i]
+                names[k] = under[i]
+            }
+        }
+        return ServerSites(out, names)
     }
 
     /** The one key shape for an ERP site: whose it is, then what it is called. */

@@ -95,9 +95,15 @@ object AsIsPath {
      * through as the caller built them (org.json objects in :app). [work] and [stage] are the capture row's;
      * the body carries the ONE filing, [Album.workOfCapture] of the two. [erpCapture] is sent only when ERP has
      * named the capture. [capturedAt] is [AsIsPath.capturedAt]'s text, built by the caller on the phone's zone.
+     *
+     * [site] (port 62 slice A2, 11 Nov 2026) is the phone's name for the capture's site, as the tree shows it. S5
+     * keeps the site name on the project since slice A1 and takes a record's `site` ONLY WHILE IT HOLDS NONE (the
+     * first value; an upload never renames, PUT …/site does), so a new project reaches the web with its site named
+     * and nothing a phone still holding an old name sends can write it back. Sent only when the phone has a name
+     * ([Renames.recordSite]: never blank, never the "(no site)" bucket); S5 reads an absent key as "not named here".
      */
     fun body(
-        project: String, projectTitle: String, customer: String, room: String, capture: String, erpCapture: String?,
+        project: String, projectTitle: String, customer: String, site: String?, room: String, capture: String, erpCapture: String?,
         capturedAt: String, appVersion: String, l: Double, w: Double, h: Double, prep: Any?, surfaces: Any?,
         work: Int?, stage: String?,
     ): LinkedHashMap<String, Any?> {
@@ -106,6 +112,7 @@ object AsIsPath {
         b["project"] = project
         b["project_title"] = projectTitle
         b["customer"] = customer
+        Renames.recordSite(site)?.let { b["site"] = it }
         b["room"] = room
         b["capture"] = capture
         if (erpCapture != null) b["erp_capture"] = erpCapture

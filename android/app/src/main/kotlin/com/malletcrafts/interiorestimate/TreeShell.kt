@@ -11,11 +11,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.CaptureGeometry
+import com.malletcrafts.interiorestimate.pano.RenameRoute
 import com.malletcrafts.interiorestimate.pano.RoomToken
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Msg
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -596,12 +600,35 @@ fun previewCode(client: String, room: String, articleCode: String): String =
  * those have different consequences and the person deserves to know which
  * they are about to do: a local row is words on this phone, an ERP row is the
  * office's record and every other device's view of it.
+ *
+ * AND IT SAYS WHY A RENAME DID NOT HAPPEN (port 62 slice A2; the prototype's P0,
+ * mock-up v62a, approved by Amit on 11 Nov 2026). Until then every refusal of a
+ * rename went to a banner drawn on another screen, so Save showed "Saving…",
+ * then "Save" again, and nothing else (audit R2). Now: [why] is drawn in red
+ * directly under the name, the field outlined in the same red, and the dialog
+ * STAYS OPEN -- set on failure, cleared on edit ([onEdit]) and on dismiss. A site
+ * that cannot be renamed from this phone at all ([line] is SHUT) shows its name
+ * NOT editable, Save off, and the reason ([shut]) in the grey line's place. The
+ * grey line itself says where the rename goes ([line]): a site S5 holds no
+ * longer claims "ERP and every other device".
  */
 @Composable
 fun RenameDialog(
     what: String,          // "client" | "site" | "project"
     current: String,
-    onServer: Boolean,
+    /** Where this rename goes (Renames.line): which grey line is drawn, and
+     *  whether the name can be edited at all. */
+    line: RenameRoute.Line,
+    /** For [line] SHUT: why this row cannot be renamed here, in the grey
+     *  line's place. */
+    shut: String = "",
+    /** Why the last Save did not rename, or null. Drawn under the name. */
+    why: String? = null,
+    /** Bumped with every failure -- the same words twice are still two
+     *  failures -- so the body returns to the top each time a reason is set. */
+    whyTick: Int = 0,
+    /** The name was edited: the reason goes. */
+    onEdit: () -> Unit = {},
     busy: Boolean = false,
     /** What stands in the way of deleting this, from the server's last
      *  refusal — "still has 3 capture(s)". Shown in place of the explanation,
@@ -642,6 +669,15 @@ fun RenameDialog(
     }
     var text by remember(current) { mutableStateOf(current) }
     val changed = text.trim().isNotEmpty() && text.trim() != current
+    val isShut = line == RenameRoute.Line.SHUT
+    // THE BODY SCROLLS, AND RETURNS TO THE TOP WHEN A REASON IS SET (the prototype's
+    // "Kotlin needs", measured at 780 × 360): in landscape a site's dialog fills its
+    // space exactly, so the reason line makes it taller than that space -- by one
+    // line of 20 dp for each of the five reasons, more when a long name wraps it --
+    // and the Delete half would be cut. Scrolled back to the top, the name and the
+    // reason are in view each time one is set, as the page's rn62Top does.
+    val scroll = rememberScrollState()
+    LaunchedEffect(whyTick) { if (why != null) scroll.scrollTo(0) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         // The name is wrong HERE and the thing is unwanted HERE. Sending a
@@ -656,19 +692,39 @@ fun RenameDialog(
         // what this particular dialog can actually do.
         title = { Text(if (onDelete != null) tx.app_rename_remove_x(kindWord) else tx.app_rename_x(kindWord)) },
         text = {
-            Column {
+            Column(Modifier.verticalScroll(scroll)) {
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { text = it; onEdit() },
                     singleLine = true,
-                    enabled = !busy,
+                    // P0 (c): a name that is shown, not edited -- the outlined field in its disabled tones
+                    enabled = !busy && !isShut,
+                    isError = why != null,
                     label = { Text(kindCap + tx.app_name) }, // "Client" + " name", byte for byte; MR "ग्राहक नाव", the page's own vis answer
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // P0 (a) · (d): the reason, under the name, in the page's own place and
+                // tones (.bs.errc, padding 4 16 0; role="alert", so it is read out when set)
+                if (why != null) {
+                    Text(
+                        why,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .padding(start = 16.dp, top = 4.dp, end = 16.dp)
+                            .semantics { liveRegion = LiveRegionMode.Assertive },
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    if (onServer) tx.app_x_server_so_new(kindWord)
-                    else tx.app_x_has_not_synced(kindWord),
+                    when (line) {
+                        // P0 (c): the reason stands in the grey line's place
+                        RenameRoute.Line.SHUT -> shut
+                        // P0 (b): a site S5 holds
+                        RenameRoute.Line.S5 -> tx.app_site_on_s5_so_new
+                        RenameRoute.Line.SERVER -> tx.app_x_server_so_new(kindWord)
+                        RenameRoute.Line.PHONE -> tx.app_x_has_not_synced(kindWord)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -745,7 +801,7 @@ fun RenameDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = changed && !busy,
+            TextButton(enabled = changed && !busy && !isShut,
                 onClick = { onSave(text.trim()) }) {
                 Text(if (busy) tx.common_saving else tx.common_save)
             }

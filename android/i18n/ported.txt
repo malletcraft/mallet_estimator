@@ -153,3 +153,13 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt
+# Port 62 slice A2 (11 Nov 2026) adds the site rename through S5, born keyed: pano/RenameRoute.kt (where a rename goes,
+# the PUT …/site wire and the line a failed Save draws -- every text a tx accessor: app.site_on_s5_so_new,
+# app.site_not_renamed_here, the five refuse.site.* keys, app.msg.could_not_rename_x; S5's own refusals are data; the
+# "(no site)" bucket marked `// text:value`), pano/SiteRows.kt (which site rows the tree lists: no text), app/S5Sites.kt
+# (S5's site names as the phone keeps them: prefs keys only) and app/SiteRename.kt (the sends: a content type and two
+# log lines, marked).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RenameRoute.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SiteRows.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/S5Sites.kt
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SiteRename.kt

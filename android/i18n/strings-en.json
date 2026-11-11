@@ -2873,6 +2873,20 @@
   "where": "v53build/app.js:288 · body",
   "kind": "static"
  },
+ "app.site_not_renamed_here": {
+  "en": "This site cannot be renamed from this phone: S5 does not hold it and it was not made here.",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (c) in the grey line's place, the name shown and not edited: a site that cannot be renamed"
+  ],
+  "kind": "static"
+ },
+ "app.site_on_s5_so_new": {
+  "en": "This site is on S5, so the new name is saved there and reaches the web and every other phone. Photos already filed under it keep their place — only the label changes.",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (b) the grey line, for a site S5 holds"
+  ],
+  "kind": "static"
+ },
  "app.site_type": {
   "en": "Site type",
   "where": "v53build/app.js:290 · body",
@@ -9532,6 +9546,49 @@
   "en": "Approved — changes go through change requests",
   "where": [
    "v61cbuild/integrate61c.py -> P54 / wish (v61c.1) · the Wish list's read-only banner at Client approved: S5 asis.js APPROVED_FINAL verbatim (its 409 adds \"; not saved\", which is refuse.stage.approved_final, shown when a save is refused there); the Marathi is refuse.stage.approved_final's without its \"; not saved\" part"
+  ],
+  "kind": "static"
+ },
+ "refuse.site.capture_on_way": {
+  "en": "A capture of this site has not reached S5 yet — rename the site once it has; not saved",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (d) under the name field: a capture of the site still on its way to S5"
+  ],
+  "kind": "static"
+ },
+ "refuse.site.offline": {
+  "en": "Offline — the name changes only when S5 answers; not saved",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (a) under the name field: no signal, or no answer of S5's"
+  ],
+  "kind": "static"
+ },
+ "refuse.site.part_x": {
+  "en": "Renamed on {done} of {of} projects — Save again to finish",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (a) under the name field: a site with several projects on S5, not all renamed ({done} the projects that took the name, {of} the site's projects on S5)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "done": "done.length",
+   "of": "listed.length"
+  }
+ },
+ "refuse.site.renamed_x": {
+  "en": "Renamed by {by} meanwhile — now {site}; not saved",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (a) under the name field: S5's own refusal (its 409), built from the reply's fields ({by} is a login and {site} a typed name: data, passed through)"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "by": "r.site_by",
+   "site": "r.site"
+  }
+ },
+ "refuse.site.signed_out": {
+  "en": "Not signed in to S5, so not saved — sign in (menu → Server) and Save again",
+  "where": [
+   "android/docs/port62/proto/build87.py -> P0 (the site's rename dialog; mock-up v62a, Version 87, approved 11 Nov 2026) · (a) under the name field: signed out of S5, said at once, nothing sent"
   ],
   "kind": "static"
  },

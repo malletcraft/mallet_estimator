@@ -59,9 +59,9 @@ class AsIsPathTest {
         assertEquals("/api/asis/", AsIsPath.PREFIX)
     }
 
-    private fun body(erp: String? = "MEST-PH-00012", work: Int? = null, stage: String = "", prep: Any? = mapOf("v" to 3), surfaces: Any? = mapOf("front" to mapOf("a" to 2678.0))) =
+    private fun body(erp: String? = "MEST-PH-00012", work: Int? = null, stage: String = "", prep: Any? = mapOf("v" to 3), surfaces: Any? = mapOf("front" to mapOf("a" to 2678.0)), site: String? = null) =
         AsIsPath.body(
-            project = "PROJ-DEMO", projectTitle = "Demo flat", customer = "CUST-DEMO", room = "Living Room", capture = CAP, erpCapture = erp,
+            project = "PROJ-DEMO", projectTitle = "Demo flat", customer = "CUST-DEMO", site = site, room = "Living Room", capture = CAP, erpCapture = erp,
             capturedAt = "2023-11-15T03:43:20+05:30", appVersion = "0.3.280", l = 3319.0, w = 2678.0, h = 2677.0, prep = prep, surfaces = surfaces,
             work = work, stage = stage,
         )
@@ -85,6 +85,25 @@ class AsIsPathTest {
         assertEquals(listOf("v", "project", "project_title", "customer", "room", "capture", "captured_at", "app_version",
             "L", "W", "H", "prep", "surfaces", "work"), b2.keys.toList())
         assertEquals(CAP, b2["capture"])
+    }
+
+    @Test fun `the record's site (port 62 A2) - the phone's name for the capture's site, after the customer, and not sent when it has none`() {
+        // S5 keeps the site name on the project and takes a record's only while it holds none: the first value
+        val b = body(site = "Demo Site, Pune")
+        assertEquals(listOf("v", "project", "project_title", "customer", "site", "room", "capture", "erp_capture", "captured_at", "app_version",
+            "L", "W", "H", "prep", "surfaces", "work"), b.keys.toList())
+        assertEquals("Demo Site, Pune", b["site"])
+        assertEquals("Main site", body(site = " Main site ")["site"], "trimmed, as the tree shows it")
+        // no name on the phone: the key is not sent at all -- S5 reads an absent `site` as "not named here" -- and the
+        // "(no site)" bucket is never a name (Renames.recordSite); every other key is exactly what AS1 sent
+        for (none in listOf(null, "", "   ", "(no site)", "(No Site)")) {
+            val b0 = body(site = none)
+            assertFalse(b0.containsKey("site"), "'$none': $b0")
+            assertEquals(body().keys.toList(), b0.keys.toList())
+        }
+        // it rides the record alone: no address carries a site, so no upload can rename one
+        for (segs in listOf(AsIsPath.record("P", "R", "C"), AsIsPath.image("P", "R", "C", "floor"), AsIsPath.readings("P", "R", "C"), AsIsPath.work("P", "R", "C")))
+            assertFalse("site" in segs, "$segs")
     }
 
     @Test fun `the record's work is the one filing - Album workOfCapture of the row's work and stage - and a null is SENT as null`() {

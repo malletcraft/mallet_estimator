@@ -453,8 +453,13 @@ class AsIsUploadWorker(context: Context, params: WorkerParameters) :
             // beside it as information -- and JSONObject(map) writes a null `work` as JSON null (AlbumQueue's rule:
             // `put(k, null)` would DROP the key, and with the key absent S5 files the capture at 0, the quote
             // journey, which the client sees -- not as "not filed", which the client does not; asis.js workOfRecord).
+            // `site` (port 62 slice A2): the phone's name for this capture's site, as the tree shows its project. S5
+            // keeps the site name on the project and takes a record's ONLY WHILE IT HOLDS NONE, so a new project
+            // reaches the web named and an upload never renames one (that is PUT …/site, the rename dialog's).
             val body = AsIsPath.body(
-                project = c.project, projectTitle = c.projectTitle, customer = customer, room = c.room,
+                project = c.project, projectTitle = c.projectTitle, customer = customer,
+                site = Catalogue(ctx).siteFor(CaptureStore(ctx).masters(), c.project, c.customerName, c.projectTitle),
+                room = c.room,
                 capture = c.deviceId, erpCapture = c.serverName,
                 capturedAt = AsIsPath.capturedAt(c.createdAt, ZoneId.systemDefault()),
                 appVersion = appVersion, l = l, w = w, h = h, prep = prepJson, surfaces = surfaces,

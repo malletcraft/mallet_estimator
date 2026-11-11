@@ -193,6 +193,71 @@ DELIBERATELY LEFT, slice A3: **R10** (a PROJECT or CLIENT rename leaves the phon
 name), **R11** (the v37 Choose rooms / + Room fix below the tree's early return), **R12** (a one-site client
 resolved by name across clients).
 
+### A2 as built (11 Nov 2026) — one local commit on `batch-next`, not pushed
+
+**P0 was approved by Amit on 11 Nov 2026** (mock-up v62a, Version 87; `proto/PROTO-v62a.md`). **A1 was NOT on stage
+when this was built** (S5 `69554b5` + its review `3a1c490`, local commits): every S5 answer below is S5's own code run
+on its real SQL (`a2/harness.mjs` → `pano/src/test/.../S5Site.kt`), never a deployed S5. `:pano` is tested here; `:app`
+is compiled only by CI, and nothing has been seen on a phone.
+
+**What it is.** `pano/RenameRoute.kt` (`RenameRoute` + `Renames`: the route, the `PUT …/site` request, S5's verdict
+read from the body's fields, what a Save over several projects comes to and the line it draws, the order S5's names
+are kept in, the seed) and `pano/SiteRows.kt` (`nameOf`, `listed`), with `RenameRouteTest` (23), `SiteRowsTest` (7)
+and `S5Site` (S5's 14 answers to the PUT with the bodies that drew them, and two reads of its list). In `:app`: `S5Sites.kt` (S5's name per project, on the
+phone), `SiteRename.kt` (the sends: a rename, the seed), `Catalogue.kt` (the tree reads S5's name first and lists the
+bootstrap's rows through `SiteRows.listed`; `hasLocal`, `s5ProjectsOf`, `hasUnlistedCapture`, `moveRoomScope`,
+`renameSiteRows`, `siteFor`), `MainActivity.kt` (the dialog's Save through `Renames.route`), `TreeShell.kt`
+(`RenameDialog`: the red reason under the name, the S5 grey line, the not-editable form, a body that scrolls and
+returns to its top when a reason is set), `S5Session.kt` / `QuoteStageSync.kt` (both list reads feed `S5Sites`; an S5
+entry is no longer stamped with the local row's name), `SyncWorker.kt` (the seed, after the S5 leg's list read),
+`AsIsUpload.kt` + `pano/AsIsPath.kt` (the record's optional `site`). Seven keys, all P0's (`i18n/README.md`).
+
+**The twelve defects, as built.**
+
+| | As built |
+|---|---|
+| R1 | **CLOSED for a site.** A site S5 holds renames through S5 with the S5 sign-in; the bench is never called for a site (`RenameRouteTest`: one `renameNode(` in `MainActivity`, on the Legacy route). A client or a project the bench holds still needs the stored pair, and without one says so in the dialog instead of trying |
+| R2 | **CLOSED.** Every failure of a rename is the red line under the name, the dialog open: a site's (P0's words, or S5's own), and a client's or a project's (`app.msg.could_not_rename_x`). The banner carries a rename's success only |
+| R3 | **CLOSED.** A site with nothing on S5 and no row made here opens NOT editable (P0 c: "(no site)", the demo site, a bootstrap-only site, a row that is gone). A local rename reads `Catalogue.renameLocal`'s Boolean: nothing renamed is a failure, navigation untouched. A client or a project with no docname and no row here (the demo's, the "(no client)" bucket) is refused at Save |
+| R4 | **CLOSED.** S5's name is the one shown wherever S5 holds one (`S5Sites` → `SiteRows.nameOf`), kept from every answer the moment it lands; no copy of the local row's name is stamped into an S5 entry |
+| R5 | **NOT REACHABLE for a site** (no bench call). S1 unchanged |
+| R6 | **CLOSED.** A site rename reads no bootstrap; success is S5's answers alone (`Renames.outcome`). The bench rename of a client or project refreshes the masters in a call of its own, after the judged one |
+| R7 | **CLOSED.** `Catalogue.moveRoomScope`, on the S5 route's success step and on a local site rename |
+| R8 | **HALF, as planned.** The phone's own rows are re-keyed in the success step; the bench is not told |
+| R9 | **CLOSED FOR A SITE RENAME, with one residue.** `Catalogue.hasUnlistedCapture` → the S5 route reads S5's list first and is routed again; still unlisted, or the Local route, is refused (`refuse.site.capture_on_way`). The residue: the key is still re-derived, so AFTER a site rename a phone whose masters lose the S5 entry (a sign-out) and that keys a new capture before the next list read mints a hash from the NEW name. Storing the key is A3 |
+| R10–R12 | **LEFT, slice A3**, with R9's project and client thirds |
+
+**Where the build differs from the letter above, and why.**
+1. **S5's names live in `S5Sites` (their own preferences file), not in the stored masters' `site_name`.** The masters
+   are replaced whole by every bootstrap a phone with a live pair makes, so a name kept there would be undone by the
+   next one — the read-time rule (ii) needs S5's name to outlive a bootstrap. Each write goes by S5's own `site_at`,
+   never by arrival (`Renames.takes`): a list read that went out before a rename cannot put the old name back.
+   `QuoteStageSync.refresh`, the list read both legs make, feeds it too, so a live-pair phone hears S5's names.
+2. **The rename step re-names more than the `sites` row:** also `site_name` on that client's masters PROJECT entries
+   of the old name. A project S5 does not list yet would otherwise keep the old name and hold the old site open.
+3. **"Nothing moves" on a failure means the phone's own things** (its rows, the room-scope key, the masters' rows,
+   navigation). What S5 DID answer is kept at once — a 409's stored name, the projects that took the name on 1 of 2 —
+   so after Cancel the tree shows what S5 holds, and the dialog keeps its own list of projects (fixed by its first
+   Save), each sent against the base S5 last gave: Save again finishes. A project already renamed answers `written:
+   false` and counts as done.
+4. **The route has two things the signature above lacks:** `listRead` (the route asked again after R9's list read) and
+   `RenameRoute.S5.readFirst`; `Blocked` carries which grey line it stands under (`Line.SHUT` = P0 c's form).
+5. **Verdicts:** S5's 401 is `Refused(401)` and draws `refuse.site.signed_out`; every non-answer (nothing back, a page
+   that is not S5's, a 5xx) is `Offline` and draws `refuse.site.offline` — P0 has no separate words. S5's "Renamed by …
+   meanwhile" 409 is drawn through `refuse.site.renamed_x` from the reply's fields (it reads in Marathi); its other
+   two 409s, and its 400 / 403 / 404, are S5's words as sent.
+6. **A site stays S5's while nobody is signed in:** besides the tree's S5-listed projects, a project made on this
+   phone counts when S5 holds it under its phone-minted key (sign-out drops S5-only projects from the masters and the
+   phone's own row shows in their place). Otherwise the dialog would rename that row locally.
+7. **The seed runs in the S5 leg only**, as written; a phone with a live pair never seeds.
+
+**Not in this build, or to decide.** (a) The prototype draws the reason line on a SITE's dialog only (`PROTO-v62a.md`
+§5.7); a client's and a project's use it by this plan's R2, with the one approved sentence and no new words — a
+sentence of their own is a prototype question. (b) The delete half still says "Deleting removes it from ERP for
+everyone" and shows the bench's docname on a site S5 holds (§5.8): untouched. (c) No text holds a name to S5's 140
+characters: S5's 400 answers one. (d) P2 (the room's plan chip) is not approved and not built; its two `room.*` texts
+are not in the tables.
+
 **P0 · prototype items (Amit approves them there before A2 is built).** The prototype's `doRename`
 (`P L7934-7938`) never fails, so there is nothing to copy. (a) The failure line: where it sits, and its words for
 no signal, signed out of S5, S5's own refusal (shown as S5 sent it) and "renamed 1 of 2 — Save again to finish".
