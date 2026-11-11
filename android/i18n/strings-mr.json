@@ -2947,8 +2947,16 @@
  "life.note": {
   "mr": "नोंद"
  },
+ "life.note_area_optional": {
+  "mr": "या क्षेत्रफळावर नोंद (ऐच्छिक)",
+  "note": "L3: worded as life.note_mark_optional (या मार्कवर नोंद (ऐच्छिक)), with life.area's क्षेत्रफळ; the prototype shows this placeholder in English under Marathi, its three glued pieces having no whole key; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.note_has_no_state": {
   "mr": "नोंदीला स्थिती नसते"
+ },
+ "life.note_length_optional": {
+  "mr": "या लांबीवर नोंद (ऐच्छिक)",
+  "note": "L3: worded as life.note_mark_optional (या मार्कवर नोंद (ऐच्छिक)), with life.length's लांबी; the prototype shows this placeholder in English under Marathi, its three glued pieces having no whole key; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "life.note_mark_optional": {
   "mr": "या मार्कवर नोंद (ऐच्छिक)"

@@ -7539,10 +7539,30 @@
   "where": "v53build/life53.js:310 · amber",
   "kind": "static"
  },
+ "life.note_area_optional": {
+  "en": "A note on this area (optional)",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 82496b1+L3 · MarkSheet.view, the placeholder of the note box in the Mark sheet of an AREA (port 62 slice L3, 11 Nov 2026): the prototype's own English (index61c2.html 3054, paint: `'A note on this '+(e.kind==='line'?'length':'area')+' (optional)'`), which it glues from three pieces -- life.a_note_on_this, life.area and a ' (optional)' that has no key -- so it reads English under Marathi there; one whole text here, worded as life.note_mark_optional; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "life.note_has_no_state": {
   "en": "A Note has no state",
   "where": "v53build/life53.js:94 · stage",
   "kind": "static"
+ },
+ "life.note_length_optional": {
+  "en": "A note on this length (optional)",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 82496b1+L3 · MarkSheet.view, the placeholder of the note box in the Mark sheet of a LINE (a marked length) (port 62 slice L3, 11 Nov 2026): the prototype's own English (index61c2.html 3054, paint: `'A note on this '+(e.kind==='line'?'length':'area')+' (optional)'`), which it glues from three pieces -- life.a_note_on_this, life.length and a ' (optional)' that has no key -- so it reads English under Marathi there; one whole text here, worded as life.note_mark_optional; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "life.note_mark_optional": {
   "en": "A note on this mark (optional)",

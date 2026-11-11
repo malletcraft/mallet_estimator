@@ -131,9 +131,17 @@ object WishSync {
      * phone-only project a screen still holds after the sync re-keyed its list -- the id that list
      * moved to; null when the project is only on this phone.
      */
-    fun stageKey(context: Context, project: Catalogue.Project): String? {
+    fun stageKey(context: Context, project: Catalogue.Project): String? =
+        stageKey(context, project.serverId, project.client, project.title)
+
+    /**
+     * The same ONE rule for a project named by what a CAPTURE carries of it -- its ERP id ("" for a project made on
+     * the phone), its client and its title, as the capture's row and a pending split hold them (port 62 slice L3:
+     * survey prep is given its project's stage from the capture it opens on, wherever it was opened from).
+     */
+    fun stageKey(context: Context, serverId: String, client: String, title: String): String? {
         val p = prefs(context)
-        return WishList.stageKey(WishList.keyOf(project.serverId, project.client, project.title)) { f ->
+        return WishList.stageKey(WishList.keyOf(serverId, client, title)) { f ->
             p.getString(f, null)
         }
     }

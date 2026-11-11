@@ -473,6 +473,88 @@ snapshot) — and nothing has been seen on a phone.
   then → Client wish → ↻ Replace → "install UPVC window" → Done; a door → ✕ Remove → "close with brickwork".
   The mark is dashed, with the pill, the act and ✎.
 
+- **L3 AS BUILT (11 Nov 2026; branch `port62-wish`, local).** New `pano/MarkSheet.kt` (the sheet's state, everything it
+  draws, its Done) and `MarkSheetTest` (23); new `app/MarkSheet.kt` (the bottom sheet, `SpMarkSheet`); wired in
+  `app/SurveyPrepScreen.kt` (the `quoteStage` parameter, `openSheet`, `sheetDone`, the three codes that open it, Drop);
+  the stage handed at both call sites of `MainActivity.kt` through the new `QuoteStageSync.prepStage` and a second
+  `WishSync.stageKey`. `:pano` 1,135 tests in 82 suites, none failed (1,112 in 81 before). Two keys added (below); Tx regenerated; `android/i18n/README.md` ("Port 62
+  slice L3") lists every text. `:app` is compiled only by CI and NOTHING HAS BEEN SEEN ON A PHONE.
+  - **Cross-checked against the prototype's own code, and driven.** `proto-tables.mjs` gains an "L3" section: the page's
+    own L53 module bound to a stub host, its sheet PAINTED by its own `paint` and driven through its own click, input
+    and `apply` handlers. Its first table -- the sheet for 21 kinds of item at stages 0-5 and unread, 147 rows -- IS the
+    test's golden (`pano/src/test/resources/marksheet/proto-sheet-rows.txt`, cut from the script's output as its header
+    says): `MarkSheetTest` prints `MarkSheet.view` in the same form and compares row for row -- every text, every dot's
+    colour, every control's on / off -- for stages 0-4 and unread; at stage 5 it pins the phone's own rule instead. Its
+    journeys (17) are the expected values of the hand-written tests: the sheet's state after each tap and keystroke, the
+    keys Done writes IN THEIR ORDER, and the undo steps. Both builds of the page print the same L3 rows (v61c.2, 9,563
+    lines, and the v62a page now at the builders' path). The page was also driven in a browser (Playwright, the Demo
+    project, portrait 360 x 708 and landscape 732 x 336, English and मराठी) and its sheet measured: every size in
+    `app/MarkSheet.kt` is a measured one. 73 one-line mutations -- 66 of `MarkSheet`'s rules, 7 of the app's wiring, which
+    the test reads from the sources -- were run against `MarkSheetTest` in a throwaway copy: 71 turned it red at once,
+    and the two that survived (a why of EXACTLY three characters; which Why box takes the keyboard where there is none)
+    each got the assertion that now kills it. **The app's half was not compiled** (no Android SDK here). The nearest
+    check there is: `kotlinc` 2.0.21 over `app/MarkSheet.kt` against the real `:pano` classes and hand-written
+    signature stubs of the Compose calls it makes (in the scratchpad, not a repository) -- it type-checks clean -- and
+    over every app source for syntax: none wrong, and no error on a line this slice touched beyond Android names the
+    stubs do not carry. That proves the file's own Kotlin, its imports and its use of `:pano`; CI is the compiler.
+  - **What the page's code does that this plan does not say -- ported as it DOES them.** (a) The act chips are drawn on
+    every mark born Existing that is past Existing -- a Dropped one and one in Scope too -- **at Estimation as well**,
+    and an act chip changed there, with no move, IS written: `apply` asks the stage only through the moves. So at
+    Estimation the sheet still changes an act, the note, its audience and an Other's trade (Q-list 9). (b) An act chip
+    changed beside any move but Existing → Client wish is DROPPED: `move` writes the act on that one move, and the
+    chip-alone write needs no move picked. (c) Done is never off on screen: a why cut under three characters un-picks
+    its move (`onInput`), so what waits for the why is the MOVE's button; `MarkSheet.view` still answers Done off for a
+    state that holds such a move, and `apply` writes nothing for it. (d) A why typed in the box the sheet OPENED on
+    (Delete on a wish) picks Dropped at its third character; typed in any other box it does not -- a tap does. (e) A
+    mark past Existing with no `act` stored (no build writes one) gets `act: replace` from any Done, with an undo step:
+    the chip stands on Replace and differs from "none". (f) A stored `vis` that is not `office` is deleted by any Done.
+    (g) "decided by …" is drawn whenever `lifeAs` is stored, on an Existing mark too; a `lifeAt` that is no time gives
+    no "since". (h) The note, its audience and TRADE are the item's at EVERY stage, Survey included: a note on a
+    surveyed mark is not a wish.
+  - **Decided here, where the plan was silent or the phone must differ.**
+    1. *Whose stage.* The dialog is given the stage of THE CAPTURE'S OWN PROJECT -- its ERP id, client and title as the
+       capture's row (or the pending split) holds them, through `WishSync.stageKey`, then `QuoteStageSync.prepStage` =
+       `PhaseTools.stageOf` over the one store's copy -- not of whatever project the tree shows. It is read on every
+       recomposition of the call site, so a sync that moves the stage while survey prep is open reaches it (the page
+       reads the stage on every render). No default on the parameter. **For TR:** the tour's Demo project is a project
+       S5 does not list, so its survey prep opens under Survey's rules whatever `TourState.demoPhase` says; the one
+       tour that ships (`survey`) runs at phase 0. The `phases` and `wish` tours need that phase handed here.
+    2. *The texts.* An act chip is the whole key `act.*.sym` ("↻ Replace"), not a glyph glued to the name key this plan
+       listed: the tables hold exactly the chip's text, and it is what the page's own layer finds for it; the test
+       holds the two equal. STATE is `common.state` in capitals and "staff" `album.staff` lower-cased, as the page's
+       layer shows them. **Two keys added**, the page's own English: `life.note_length_optional`,
+       `life.note_area_optional` -- a Line's and an area's note placeholder, which the page glues from three pieces
+       (one of them unkeyed) and so shows in English under मराठी.
+    3. *The sheet's window.* material3's `ModalBottomSheet`, `skipPartiallyExpanded = true` (it opens whole, as the
+       album's sheets), no drag handle, full width in landscape, the prototype's colours. A SWIPE DOWN cancels it,
+       which the page has not: material3 gives every sheet one.
+    4. *The keyboard.* The page never has one. The sheet rises over it (`imePadding`), and only when the blocks then
+       need more height than is left do they scroll, between the head and Done, which stay put (in landscape Done sits
+       in the left column, as drawn, and scrolls with it). With the keyboard down nothing scrolls in either
+       orientation at 360 x 780 -- this plan's "no scroll" (Q-list 10).
+    5. *The trade picker* is a Popup over the sheet, 8 dp in from its sides and foot (460 dp wide at the right in
+       landscape): on a Line's short sheet it stands taller than the sheet, as on the page. It takes no focus and no
+       outside tap, so the page's three cases hold: the TRADE button shuts it, any other control does its own work, a
+       bare part of the sheet shuts it. ◁ cancels the sheet, as the page's does.
+    6. *V+ on the now-line* is a filled span in the badge's colour: no 3 dp corners, no padding (it flows with the
+       line, which wraps in portrait).
+    7. *The Why box takes the keyboard* when Delete on a wish opened the sheet (the page focuses it).
+    8. *KIND* is not drawn: the phone has no sub-kind until L5, and its picker is L6's. In landscape its row's gap is
+       kept, so TRADE and NOTE sit where the page has them.
+    9. *A Note a file already holds* opens the sheet like any item (TRADE and NOTE, no STATE); its head reads the type's
+       token, `NOTE`, until L5 gives the phone the type. Done with no words says the page's line and stays open -- on
+       the snackbar UNDER the sheet, where it cannot be read; nothing can place a Note before L6, which brings its
+       `fresh` sheet and should say that line on the sheet.
+  - **Where it opens.** The picked mark's label under the photo (2 · Mark and 4 · 360), a picked Line's or area's code,
+    a list row's code (3 · List and the List tab), and Drop on a mark past Existing. A Tape, a chain and the reference
+    have no sheet (`MarkSheet.opens`): their code is no button.
+  - **For L4.** The sheet is NOT gated by `PhaseTools.editable`: the page opens it on any mark at any stage, and only
+    its moves follow the phase. `delOk` hides the Delete that opens it on Dropped at Estimated and at Client approved;
+    until L4 wires that, a tap on Drop there opens the sheet on the line that says why nothing moves (B2 never ships
+    without L4). `quoteStage` is the dialog's parameter now: the band, the strip and the palette read the same value.
+  - **Not ported, and why.** KIND and `setSub` (L5, L6); a new Note's `fresh` sheet and `removeFresh` (L6); the List's
+    "State: … ▾", "Move N ▸" and `bulkMove` (Q-list 3); `openSheet`'s `focus:'note'` (no caller on the page).
+
 ### 3.4 L4 · the phase in survey prep, and a NEW thing placed as a Client wish (M) — closes B2
 L4 carries the phase's gate on the mark tools TOGETHER with the "as …" placement, so no build can place a mark
 where the prototype has no tool. (The first version of this plan left the gate to L10, three builds later: on
@@ -675,6 +757,15 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    phase places (keeping its sub-kind and trade), or is Duplicate a Survey tool? Until he rules, L4 does what
    the page DOES, not what its comment says: a copy is the box alone, as `SurveyPrepEdit.duplicate` makes it
    today, offered where `PhaseTools.editable` allows — and `DuplicateTest` pins that no copy is stamped.
+9. **What the Mark sheet may still change at Estimation** (found building L3, 11 Nov; run on the page's own code).
+   The band there says "hand-off · read-only · nothing new is marked" and the sheet offers no move ("… Estimation moves
+   nothing"), yet its act chips are drawn and on for a mark born Existing that is past Existing, its note and audience
+   are open, and an Other's TRADE can be picked: `apply` has no rule for the stage (`P L3071-3088`), so each is
+   written. The phone does the same, as the page DOES. To decide on the prototype: is the sheet read-only at
+   Estimation -- and, with Q-list 6, at Client approved, where the phone already draws no act chip?
+10. **The Mark sheet with the keyboard up** -- a state a page never has (L3). On the phone the sheet rises over the
+    keyboard and, when its blocks then need more height than is left, they scroll between the head and Done. Shown to
+    him on the phone with B2, not drawn on the prototype; listed so it is his to change.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,

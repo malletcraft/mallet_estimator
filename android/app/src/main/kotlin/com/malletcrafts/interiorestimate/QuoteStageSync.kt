@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.TourDemo
@@ -132,6 +133,19 @@ object QuoteStageSync {
         val local = stageKey.isNullOrBlank()
         return QuoteStage.projectLine(if (local) null else cached(context, stageKey!!), local,
             if (local) emptyList() else AlbumOutbox.queued(context, stageKey), tx, Instant.now())
+    }
+
+    /**
+     * THE STAGE SURVEY PREP IS GIVEN (port 62 slice L3; PhaseTools.stageOf) for the S5 id [stageKey] its project's
+     * stage is read under (WishSync.stageKey): 0-5 as the one store holds it for a project S5 lists; 0, Survey's rules,
+     * for a project only on this phone ([stageKey] null or blank) or one the store read as not listed -- the prototype's
+     * own rule, "Survey for a project made on the phone"; null while a listed project's stage has not been read. The
+     * SAME decision [lineFor] makes for the project line, from the same copy, so survey prep's tools and the line never
+     * disagree about where the project is.
+     */
+    fun prepStage(context: Context, stageKey: String?): Int? {
+        val local = stageKey.isNullOrBlank()
+        return PhaseTools.stageOf(if (local) null else cached(context, stageKey!!), local)
     }
 
     /**

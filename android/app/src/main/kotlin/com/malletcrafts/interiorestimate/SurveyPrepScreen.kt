@@ -105,6 +105,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.MarkSheet
 import com.malletcrafts.interiorestimate.pano.MmBox
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
@@ -163,6 +164,11 @@ import kotlin.math.roundToInt
  *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
+ *  - The Mark sheet (port 62 slice L3, SpMarkSheet): a tap on a mark's code --
+ *    on the picked row under the photo, or in a list -- opens it: the moves the
+ *    project's quote stage offers the mark (→ Client wish ...), the four acts,
+ *    its note, and the trade of an Other, a Line or an area. Every rule and
+ *    every write is MarkSheet / MarkLife in :pano.
  *  - 4 · 360 (v52 slice 17, SurveyPrep360): the same marks, tapes, Lines,
  *    chains and reference on the 360 itself, turned by the finger, and
  *    placed and edited there through the same functions -- one model, two
@@ -196,6 +202,15 @@ internal fun SurveyPrepDialog(
     clientInitials: String = "",
     projectCode: String = "",
     captureDate: String = "",
+    /**
+     * THE PROJECT'S QUOTE STAGE, AS SURVEY PREP IS GIVEN IT (port 62 slice L3; PhaseTools.stageOf, through
+     * QuoteStageSync.prepStage at both call sites): 0-5 for a project S5 lists; 0, Survey's rules, for a project S5
+     * does not list -- "The tools keep following the project's own phase, Survey for a project made on the phone"
+     * (index61c2.html 4091-4093); null only while a listed project's stage is unread, when the Mark sheet offers every
+     * move and says "Quote stage not read yet". It decides what the Mark sheet offers a mark (MarkSheet.view) and what
+     * a Restore answers (deleteMark). NO DEFAULT: a caller that forgot it would open every room under one stage's rules.
+     */
+    quoteStage: Int?,
     /** Save: the prep, and the room size it is squared to now (L, W, H mm -- the size line may have changed it). */
     onDone: (SurveyPrep.Prep, DoubleArray) -> Unit,
     /** Back without Save: the work is kept on the phone either way, and handed back as it stands, with its size. */
@@ -218,12 +233,6 @@ internal fun SurveyPrepDialog(
         is SurveyPrepFile.Opened.Missing, is SurveyPrepFile.Opened.Unreadable -> null
     }
     val loaded = decoded?.prep
-    // THE PROJECT'S QUOTE STAGE, AS SURVEY PREP IS GIVEN IT (port 62). NOT GIVEN YET: slice L3 hands this dialog the
-    // stage (PhaseTools.stageOf) at its two call sites, and this line becomes that parameter. Until then it is Survey,
-    // whose gate offers no life-cycle move (PhaseTools.gate) -- so in slice L2, which ships no control that sets a
-    // state, a Dropped mark's Restore is answered by the gate's own words, before any undo step, and moves nothing
-    // (deleteMark, below).
-    val quoteStage: Int? = PhaseTools.SURVEY
     // THE ROOM SIZE IN USE (v51; Amit, 15 Oct 2026: "Yes, with slice 2"): the saved prep's own size, which its
     // lines were squared to, else the capture's; the size sheet changes it, and every face, save and caller follows
     var roomSize by remember { mutableStateOf(decoded?.size ?: doubleArrayOf(lengthMm, widthMm, heightMm)) }
@@ -700,6 +709,29 @@ internal fun SurveyPrepDialog(
         tool = SurveyPrepPalette.next(tool, t); moreOpen = false; dropDrafts()
         if (t != SurveyPrepPalette.SEL) note = null
     }
+    // ---- THE MARK SHEET (port 62 slice L3; the prototype's L53 sheet, index61c2.html 3012-3115): open on one item, or
+    // null. Its state is MarkSheet.State in :pano, a value: every tap and keystroke REPLACES it through MarkSheet's pure
+    // functions, and nothing reaches the prep until Done (sheetDone).
+    var markSheet by remember { mutableStateOf<MarkSheet.State?>(null) }
+    /** A tap on a mark's code (or a Line's, an area's): its sheet opens. [focusMove]: the move whose Why box it opens on
+     *  -- Dropped, when a tap on Drop opened it. A Tape, a chain and the reference have no sheet: nothing opens. */
+    fun openSheet(mid: String, focusMove: String? = null) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove) }
+    /**
+     * DONE on the Mark sheet (the prototype's apply, 3071-3088): MarkSheet.apply writes through MarkLife and Trades --
+     * the trade, the note, then the move or the act -- and takes ONE undo step through the snapshot handed to it, just
+     * before its first write; nothing changed closes the sheet with no undo step at all. A move the office is told of
+     * says "After the estimate — tell the office". The sheet stays open while the move picked still needs its why.
+     */
+    fun sheetDone() {
+        val st = markSheet ?: return
+        val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }
+        markSheet = done.state
+        when (done.outcome) {
+            MarkSheet.Outcome.DONE -> { changed(); if (done.amber) say(MarkLife.afterEstimate(tx)) }
+            MarkSheet.Outcome.NEEDS_WORDS -> snack(MarkSheet.needsWords(tx), undo = false)
+            MarkSheet.Outcome.GONE, MarkSheet.Outcome.UNCHANGED, MarkSheet.Outcome.STAYS -> Unit
+        }
+    }
     /** DELETE (every path: the bar row, the floating trash, a list row, the long-press menu): '<code> deleted' with
      *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
      *  Line or an area (v52 slice 9) the same: F-M1 takes F-M1.len with it, and the readings sync deletes it on the web. */
@@ -715,8 +747,9 @@ internal fun SurveyPrepDialog(
         // 2940-2946): its control reads Drop, or Restore on a Dropped mark (MarkLife.deleteLabel), and
         // MarkLife.deleteAct says what a tap does. RESTORE moves it back at once to what it was born -- one ↶ step,
         // "FW1 restored to Client wish" with UNDO -- or, where the stage offers no move, says why with no UNDO and
-        // no undo entry. DROP needs its why, which is typed in the Mark sheet: slice L3 opens the sheet HERE, on
-        // Dropped; until then nothing is done, and nothing is ever deleted (SurveyPrep.Prep.deleteMark refuses too).
+        // no undo entry. DROP needs its why, which is typed in the Mark sheet: the sheet opens HERE, on Dropped (slice
+        // L3; interceptDelete's `openSheet(id,{focusMove:'drop'})`), with no undo step of its own -- its Done takes
+        // the one step. Nothing is ever deleted (SurveyPrep.Prep.deleteMark refuses too).
         val lifeMark = prep.markById(mid)?.second
         if (lifeMark != null) when (MarkLife.deleteAct(lifeMark)) {
             MarkLife.DeleteAct.PLAIN -> Unit
@@ -732,7 +765,7 @@ internal fun SurveyPrepDialog(
                 snack(MarkLife.restoredText(tx, lifeMark)); changed()
                 return
             }
-            MarkLife.DeleteAct.DROP_SHEET -> return
+            MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }
         }
         snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
@@ -1356,6 +1389,7 @@ internal fun SurveyPrepDialog(
                     onRow = { e, code -> selectMark(s, e, code) },
                     onMeasRow = { m, code -> selectMeas(s, m.id, code) },
                     onChainRow = { k, code -> selectChain(s, k.id, code) },
+                    onSheet = { openSheet(it) },
                     onDelete = { deleteMark(it) },
                     onFocus = { active = it },
                     onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
@@ -1560,10 +1594,12 @@ internal fun SurveyPrepDialog(
             val lifeBar = MarkLife.barColour(sm)
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                // ... and A TAP ON IT OPENS THE MARK SHEET (slice L3; nlAttrs' role=button, "Open the Mark sheet for FW1")
                 Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp).drawBehind {
+                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
                         if (lifeBar != null) drawRect(Color(SurveyPrepDraw.argb(lifeBar)), size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height))
-                    })
+                    }.clickable(role = Role.Button) { openSheet(sm.id) }
+                        .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(sm.code) })
                 val bs: List<Triple<String, Double, Double>> = when {
                     horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0)) // text:value glyphs and mm
                     vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0)) // text:value glyphs and mm
@@ -1585,8 +1621,12 @@ internal fun SurveyPrepDialog(
             val tp = sq.kind == SurveyMeas.TAPE
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // a Line's or an area's code opens its Mark sheet, for its TRADE and its NOTE (slice L3); a tape has none
                 Text(sq.code, color = Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1)
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1,
+                    modifier = if (!MarkSheet.opens(prep, sq.id)) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
+                        .clickable(role = Role.Button) { openSheet(sq.id) }
+                        .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(sq.code) })
                 Text(SurveyMeas.rowValue(tx, sq, prep.actual), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sq.code) else tx.sp_aria_lock_x(sq.code)) { toggleLock(sq.id) }
@@ -1891,6 +1931,24 @@ internal fun SurveyPrepDialog(
                     },
                     onCancel = { lwhOpen = false },
                     onApply = { applyLwh() })
+            }
+            // ---- THE MARK SHEET (port 62 slice L3): a bottom sheet over survey prep, in its own window -- ✕, the scrim
+            // and ◁ cancel it before anything of this screen. What it draws is MarkSheet.view for the stage this
+            // dialog was given; each tap and keystroke replaces the sheet's state, read as it stands when it lands.
+            markSheet?.let { st ->
+                val drawn = MarkSheet.view(tx, prep, st, quoteStage)
+                if (drawn == null) LaunchedEffect(st.id) { markSheet = null }   // its item is gone: the sheet closes
+                else SpMarkSheet(drawn, land, MarkSheetActions(
+                    onMove = { to -> markSheet = markSheet?.let { cur -> MarkSheet.pickMove(prep, cur, quoteStage, to) } },
+                    onWhy = { to, typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeWhy(prep, cur, quoteStage, to, typed) } },
+                    onAct = { act -> markSheet = markSheet?.let { cur -> MarkSheet.pickAct(prep, cur, quoteStage, act) } },
+                    onNote = { typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeNote(cur, typed) } },
+                    onOffice = { office -> markSheet = markSheet?.let { cur -> MarkSheet.pickOffice(cur, office) } },
+                    onTrade = { markSheet = markSheet?.let { cur -> MarkSheet.togglePicker(prep, cur) } },
+                    onCat = { cat -> markSheet = markSheet?.let { cur -> MarkSheet.pickCat(cur, cat) } },
+                    onBare = { markSheet = markSheet?.let { cur -> MarkSheet.closePicker(cur) } },
+                    onDone = { sheetDone() },
+                    onCancel = { markSheet = null }))
             }
             // ---- THE GUIDED TOUR (port 61c §31): survey prep is a Dialog — its OWN window, which
             // the activity's overlay cannot cover — so it hosts the second TourOverlay instance,
@@ -2897,6 +2955,8 @@ private fun SpTable(
     onMeasRow: (SurveyPrep.Meas, String?) -> Unit,
     /** A chain's row tapped (v52 slice 11): the chain, and the reading key the row is (FK1.2, FK1.t). */
     onChainRow: (SurveyPrep.Chain, String?) -> Unit,
+    /** A code tapped (port 62 slice L3): its Mark sheet opens -- a mark's, a Line's, an area's; the item's id. */
+    onSheet: (String) -> Unit,
     onDelete: (String) -> Unit,
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
@@ -2919,11 +2979,15 @@ private fun SpTable(
         Text(tx.common_measured, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
         Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End) // text:value glyph
     }
-    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. */
+    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. The code
+     *  of a mark, a Line and an area is a button: it opens the Mark sheet (slice L3; the prototype's markPanel, 6660). */
     @Composable
     fun head(id: String, code: String, colour: Color, name: String?) {
         Column(Modifier.width(56.dp).padding(3.dp)) {
-            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                modifier = if (!MarkSheet.opens(prep, id)) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
+                    .clickable(role = Role.Button) { onSheet(id) }
+                    .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(code) })
             if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
             // a mark's own word -- Drop past Existing, Restore on a Dropped one (port 62 slice L2); Delete for the rest
             Text(SurveyPrepEdit.deleteWord(tx, prep, id), color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,

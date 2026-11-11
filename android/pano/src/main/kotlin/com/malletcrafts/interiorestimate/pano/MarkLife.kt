@@ -24,13 +24,14 @@ import kotlin.math.max
  * [outlineWidth], [ringWidth] and [tag] (the prototype's outline 2872, ring 2887, paintState 2898-2911) and the picked
  * mark's label from [barColour] (nlAttrs, 2930); a delete control reads [deleteLabel] and acts by [deleteAct]; the
  * clears, Start over, the padlock and Lock all keep what [spared] and [unlockable] say (SurveyPrep.Prep.deleteMark and
- * dropUnlocked, SurveyPrepEdit). NO CONTROL SETS A STATE YET: L3's Mark sheet offers [allowedMoves] and applies [move],
- * [setAct] and [setNote]; L4 places with [placeAs]; L9 shows [countLife]. A SHEET FOR ANYONE BUT THE OFFICE never
+ * dropUnlocked, SurveyPrepEdit). SLICE L3 (11 Nov 2026) is the first control that SETS a state: the Mark sheet
+ * ([MarkSheet]) offers [allowedMoves] and, on Done, applies [move], [setAct] and [setNote] -- the only callers of the
+ * three on the phone; it also draws the "since" and "decided by" of its now-line ([MarkSheet.sinceText],
+ * [MarkSheet.decidedBy]). L4 places with [placeAs]; L9 shows [countLife]. A SHEET FOR ANYONE BUT THE OFFICE never
  * reaches the state at all: [SheetMarks] hands its painter the room as surveyed.
- * Not here, each with its slice: the Note's pin (L6); the sheet's "since" and "decided by" line (L3 -- `staff` has no
- * `life.*` key: the prototype's own text layer draws it through `album.staff`, lower-cased); the roll-up's words (L9
- * -- `existing`, `wish`, `scope` and `dropped` have no key yet, and the prototype leaves that line English under
- * मराठी). android/i18n/README.md, "Port 62 slice L1" and "slice L2", have them.
+ * Not here, each with its slice: the Note's pin (L6); the roll-up's words (L9 -- `existing`, `wish`, `scope` and
+ * `dropped` have no key yet, and the prototype leaves that line English under मराठी). android/i18n/README.md, "Port 62
+ * slice L1", "slice L2" and "slice L3", have them.
  */
 object MarkLife {
 
@@ -178,10 +179,14 @@ object MarkLife {
         else -> tx.life_replace
     }
 
-    /** Who decided a move, stored in `lifeAs` (a row's `as`; AS_WORDS names a fourth, `surveyor`, which nothing writes). */
+    /**
+     * Who decided a move, stored in `lifeAs` (a row's `as`). AS_WORDS names a fourth, [AS_SURVEYOR], which nothing
+     * writes: the Mark sheet's now-line reads it, should a file hold it ([MarkSheet.decidedBy]).
+     */
     const val AS_CLIENT = "client"
     const val AS_VENDOR = "vendor"
     const val AS_STAFF = "staff"
+    const val AS_SURVEYOR = "surveyor"
 
     /** The Note's type token: a Note is a mark with no state, no act and no measures. */
     const val NOTE_TYPE = Trades.NOTE

@@ -16,6 +16,10 @@
 // names no rule and falls through to Vendor review's moves; PhaseTools offers none there -- and so, since the L1 review
 // (§3.1), PhaseTools.delOk is 0 at stage 5 for a mark past Existing, where the page prints 1 (its Delete is a Drop or a
 // Restore, which the page still offers there). Every other row must agree.
+// SLICE L3 (11 Nov 2026) adds one section, "L3 …": the Mark sheet, painted and driven by the page's own code bound to a stub
+// host -- what it draws for each kind of item at each stage, what each tap and keystroke leaves in its state, and what Done
+// writes, with its undo steps. It is the cross-check behind MarkSheetTest, and its first table IS that test's golden:
+//   node proto-tables.mjs <page> | awk '/^L3 the sheet/{f=1;next} /^L3 a Tape/{f=0} f' > ../../pano/src/test/resources/marksheet/proto-sheet-rows.txt
 // THE L2 REVIEW (11 Nov 2026; DESIGN-port62.md §3.2): given the line `Drop`, the page prints `"Drop" -> "ड्रॉप"` -- its text
 // layer finds a text by its English word, and that word is also the Ceiling drop type's short name. The phone's delete
 // control says वगळा (life.drop.verb), the verb of वगळले. And the page this was last run on is mock-up v62a (v61c.2 plus the
@@ -152,6 +156,112 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
       { id: 'm', kind: 'line', code: 'F-M1', life: 'wish' }, { id: 'm', kind: 'line', code: 'F-M1', locked: true }].map(x => L53.spared(x))));
   console.log('L2 unlockable: a Scope mark, a Note in "scope", a Client approved mark, a Line in "scope" ->',
     JSON.stringify([mk2('scope', 'exist', { locked: true }), mk2('scope', 'exist', { t: 'NOTE', locked: true }), mk2('cok', 'exist', { locked: true }), { id: 'm', kind: 'line', code: 'F-M1', life: 'scope', locked: true }].map(x => L53.unlockable(x))));
+}
+
+// ---- SLICE L3: THE MARK SHEET, run on the page's own code -- openSheet (3012), paint (3023-3060), onClick / onInput (3089-3115),
+// apply (3071-3088) and interceptDelete (2940) -- bound to a stub host: the cross-check behind MarkSheetTest (pano/MarkSheet.kt:
+// view, the pick / type functions, apply). The sheet's HTML is captured as the page writes it and printed as its texts; a tap is
+// the page's own click handler given the control's data attribute, and never a control the HTML marks `disabled`.
+// WHAT THE PHONE DOES DIFFERENTLY, ON PURPOSE: at stage 5 it draws the approval lock's line and no move (Q-list 6); it has no
+// KIND block until L5 / L6 (the stub host has no subsOf either); and under मराठी a Line's and an area's note placeholder is
+// keyed whole (life.note_length_optional, life.note_area_optional) where the page glues three pieces and shows English.
+{
+  const kind = s => (s === 'floor' || s === 'ceil' ? s : 'wall');
+  const els = {}; const fake = id => (els[id] = els[id] || { id, hidden: true, innerHTML: '', classList: { toggle() {}, add() {}, remove() {} }, _q: {},
+    querySelector(q) { return (this._q[q] = this._q[q] || { disabled: false, value: '', textContent: '', classList: { add() {}, remove() {} }, focus() { this.focused = true; }, setSelectionRange() {} }); },
+    querySelectorAll() { return []; } });
+  document.getElementById = id => (/^l53(sheet|scrim|pop)$/.test(id) ? fake(id) : null);
+  const ls = {}; const rootEl = { querySelector: () => null, appendChild() {}, addEventListener(t, f) { ls[t] = f; } };
+  const W = { front: { els: [], meas: [] } }; let stage = 1; const said = [];
+  const H = { st: { hist: [], w: W, sel: null, active: null }, snapshot() { H.st.hist.push(JSON.stringify(W)); }, changed() {}, render() {}, snack(t) { said.push('snack: ' + t); }, say(t) { said.push('say: ' + t); },
+    markById: id => { const e = W.front.els.find(x => x.id === id); return e ? ['front', e] : [null, null]; },
+    lineById: id => { const m = W.front.meas.find(x => x.id === id && (x.kind === 'line' || x.kind === 'area')); return m ? ['front', m] : [null, null]; },
+    tinfo: (s, t) => [t, T53.displayName(t, kind(s))], subName: (s, e, sub) => T53.displayName(e.t, kind(s), sub != null ? sub : e.sub),
+    trades: () => T53.TRADES, tradeOf: (s, e, cat, sub) => T53.tradeOf(e.kind === 'line' || e.kind === 'area' ? e.kind : e.t, kind(s), sub != null ? sub : e.sub, cat != null ? cat : e.cat),
+    catOf: (s, e) => e.cat || 'general', takesCat: t => t === 'NOTE' || t === 'X', isLand: () => false, root: () => rootEl, captureId: () => 'c1', stageIdx: () => stage, NAME: {}, CODE: {} };
+  try { L57.set('en'); } catch (_) {}
+  L53.bind(H); L53.setNow(() => new Date('2026-11-11T05:00:00Z'));
+  const html = () => (els.l53sheet && !els.l53sheet.hidden ? els.l53sheet.innerHTML : null);
+  const dec = t => t.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  // the painted sheet as ONE ROW, the form MarkSheetTest prints a MarkSheet.View in: every text, every dot's colour, and each
+  // control's state -- (on) picked, (off) disabled
+  const col = t => ((/background:(#\w+)/.exec(t) || [, ''])[1] || '').toLowerCase();
+  const txt = t => dec(t.replace(/<[^>]+>/g, ''));
+  const shown = () => { const h = html(); if (h == null) return '(closed)'; const out = [];
+    const one = (re, f) => { const m = re.exec(h); if (m) out.push(f(m)); };
+    one(/<span class="l53ttl">(.*?)<\/span>/, m => txt(m[1]));
+    one(/<span class="l53trd">(<i[^>]*><\/i>)(.*?)<\/span>/, m => `trade ${col(m[1])} ${txt(m[2])}`);
+    one(/<div class="l53lab">([^<]*)<\/div><button class="l53c l53tp" data-l53trp="1"( disabled)?>(<i[^>]*><\/i>)(.*?)<\/button>/, m => `${txt(m[1])} ${col(m[3])} ${txt(m[4])}${m[2] ? ' (off)' : ''}`);
+    one(/<div class="l53blk l53state"><div class="l53lab">([^<]*)<\/div><div class="l53now"[^>]*>(<i[^>]*><\/i>)<b>(.*?)<\/b>(.*?)<\/div>/, m => `${txt(m[1])} | now ${col(m[2])} ${txt(m[3])}${txt(m[4].replace(/<span class="l53vp">(.*?)<\/span>/, '[$1]'))}`);
+    one(/<div class="l53chips l53acts">(.*?)<\/div>/, m => 'acts ' + [...m[1].matchAll(/<button class="l53c (on)?" data-l53act="(\w+)"( disabled)?>(.*?)<\/button>/g)].map(a => `${txt(a[4])}${a[1] ? '(on)' : ''}${a[3] ? '(off)' : ''}`).join(', '));
+    for (const m of h.matchAll(/<button class="l53mv (on)?" data-l53mv="(\w+)"( disabled)?>(<i[^>]*><\/i>)<span>(.*?)<\/span>(?:<small>(.*?)<\/small>)?<\/button>(?:<input class="l53why" data-l53why="\w+" maxlength="(\d+)" placeholder="([^"]*)" value="([^"]*)"( disabled)?>)?/g))
+      out.push(`move ${m[2]} ${col(m[4])} ${txt(m[5])}${m[6] ? ' ~ ' + txt(m[6]) : ''}${m[1] ? ' (on)' : ''}${m[3] ? ' (off)' : ''}${m[7] ? ` + why[${dec(m[9])}]${m[10] ? '(off)' : ''} max ${m[7]} ph[${dec(m[8])}]` : ''}`);
+    for (const m of h.matchAll(/<div class="l53(gate|amb|foot)">(.*?)<\/div>/g)) out.push(`${m[1]}: ${txt(m[2])}`);
+    one(/<div class="l53blk l53note"><div class="l53lab">([^<]*)<span class="l53cnt"[^>]*>([^<]*)<\/span><\/div><textarea[^>]*maxlength="(\d+)"[^>]*placeholder="([^"]*)">([^<]*)<\/textarea>(.*?)<\/div><\/div>/,
+      m => `${txt(m[1]).trim()} ${m[2]} [${dec(m[5])}] ph[${dec(m[4])}] ` + [...m[6].matchAll(/<button class="(on)?" data-l53vis="(\w+)"[^>]*>(.*?)<\/button>/g)].map(v => `${txt(v[3])}${v[1] ? '(on)' : ''}`).join(' / '));
+    one(/<button class="l53b on" data-l53apply="1">(.*?)<\/button>/, m => `${txt(m[1])} ${els.l53sheet._q['[data-l53apply]'] && els.l53sheet._q['[data-l53apply]'].disabled ? 'off' : 'on'}`);
+    if (els.l53pop && !els.l53pop.hidden) { const q = els.l53pop.innerHTML; out.push('picker ' + txt((/<div class="l53lab">(.*?)<\/div>/.exec(q) || [, ''])[1]) + ': ' +
+      [...q.matchAll(/<button class="l53c (on)?" data-l53cat="([\w-]+)">(<i[^>]*><\/i>)(.*?)<\/button>/g)].map(c => `${txt(c[4])} ${col(c[3])}${c[1] ? '(on)' : ''}`).join(', ')); }
+    return out.join(' | '); };
+  const disabled = attr => new RegExp(`data-l53${attr}[^>]* disabled`).test(html() || '');
+  const tap = (k, v) => { if (k !== 'apply' && k !== 'close' && disabled(`${k}="${v == null ? '1' : v}"`)) return 'off'; ls.click({ target: { closest: () => ({ dataset: { ['l53' + k]: v == null ? '1' : v }, id: '' }) }, stopPropagation() {}, preventDefault() {} }); return 'ok'; };
+  const type = (k, v, text) => { if (k === 'why' && disabled(`why="${v}"`)) return 'off'; ls.input({ target: { dataset: { ['l53' + k]: v == null ? '1' : v }, value: text } }); L53.sheetState() && tap('vis', L53.sheetState().vis); return 'ok'; };
+  const M = (id, t, code, x = {}) => Object.assign({ id, t, code, x0: 0, x1: 1, y0: 0, y1: 1 }, x);
+  const put = (...items) => { W.front.els = items.filter(x => !x.kind); W.front.meas = items.filter(x => x.kind); H.st.hist.length = 0; said.length = 0; };
+  const at = '2026-11-10T06:37:09+05:30';
+  const ITEMS = () => [
+    ['a surveyed window', M('a', 'W', 'FW1')], ['... with a note for the office', M('a', 'W', 'FW1', { note: 'check the sill', vis: 'office' })],
+    ['a wish to replace', M('a', 'W', 'FW1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'replace' })], ['a mark born a wish', M('a', 'W', 'FW1', { born: 'wish', life: 'wish', lifeAt: at, lifeAs: 'client' })],
+    ['in Vendor review', M('a', 'W', 'FW1', { life: 'vrev', lifeAt: at, lifeAs: 'staff', act: 'shift' })], ['Vendor approved', M('a', 'W', 'FW1', { life: 'vok', lifeAt: at, lifeAs: 'vendor', act: 'replace' })],
+    ['Vendor added', M('a', 'W', 'FW1', { born: 'vadd', life: 'vadd', lifeAt: at, lifeAs: 'vendor' })], ['Client approved', M('a', 'W', 'FW1', { life: 'cok', lifeAt: at, lifeAs: 'client', act: 'repair' })],
+    ['Client approved, born Vendor added', M('a', 'W', 'FW1', { born: 'vadd', life: 'cok', lifeAt: at, lifeAs: 'client' })], ['in Scope', M('a', 'W', 'FW1', { life: 'scope', lifeAt: at, lifeAs: 'staff', act: 'replace', locked: true })],
+    ['Dropped', M('a', 'W', 'FW1', { life: 'drop', lifeAt: at, lifeAs: 'client', act: 'remove', why: 'no budget' })], ['Dropped, born Vendor added', M('a', 'W', 'FW1', { born: 'vadd', life: 'drop', lifeAt: at, lifeAs: 'client', why: 'no budget' })],
+    ['a locked door', M('a', 'D', 'FD1', { locked: true })], ['a locked wish', M('a', 'D', 'FD1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'remove', locked: true })],
+    ['an Other', M('a', 'X', 'FX1')], ['an Other for the carpenter, locked', M('a', 'X', 'FX1', { cat: 'carpentry', locked: true })], ['an Other whose cat is no trade', M('a', 'X', 'FX1', { cat: 'zzz' })],
+    ['a switch plate', M('a', 'S', 'FS1')], ['a stamp nobody can read, decided by somebody else', M('a', 'W', 'FW1', { life: 'wish', lifeAt: 'soon', lifeAs: 'architect' })],
+    ['a Line', { id: 'a', kind: 'line', code: 'F-M1', pts: [[0, 0], [9, 0]] }], ['an area for the tiler, locked, with a note', { id: 'a', kind: 'area', code: 'F-M2', pts: [[0, 0], [9, 0], [9, 9]], cat: 'tiling', locked: true, note: 'skirting too' }],
+  ];
+  console.log('\nL3 the sheet as the page paints it, item by item, at stages 0..5 and unread (each dot as its colour before its text; ~ before the hint of a move; (on) picked, (off) disabled):');
+  for (const [n, e] of ITEMS()) { console.log('  ', n, '=', JSON.stringify(e)); for (const s of STAGES) { stage = s; put(ITEMS().find(x => x[0] === n)[1]); L53.openSheet('a'); console.log('      ', String(s).padEnd(4), shown()); L53.cancelSheet(); } }
+  console.log('L3 a Tape, a chain and an unknown id open no sheet:', JSON.stringify([(put({ id: 'a', kind: 'tape', code: 'F-T1', pts: [] }), L53.openSheet('a')), (put(), L53.openSheet('zz'))]));
+  // ---- journeys: what each tap and keystroke leaves in the sheet's state, and what Done writes
+  const S = () => { const x = L53.sheetState(); return x ? JSON.stringify({ to: x.to, why: x.why, act: x.act, act0: x.act0, note: x.note, vis: x.vis, cat: x.cat, picker: x.picker, focusMove: x.focusMove }) : '(closed)'; };
+  const done = () => { tap('apply'); return `${L53.isOpen() ? 'OPEN' : 'closed'} · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0] || W.front.meas[0])}${said.length ? ' · ' + said.join(' ; ') : ''}`; };
+  const J = (title, f) => { console.log('  ', title); f(l => console.log('      ', l)); };
+  console.log('L3 journeys (stage 1 unless said):');
+  stage = 1;
+  J('nothing changed: Done closes with no undo step', p => { put(M('a', 'W', 'FW1')); L53.openSheet('a'); p(done()); });
+  J('Existing -> Client wish, Remove, a note for the office', p => { put(M('a', 'W', 'FW1')); L53.openSheet('a'); p('tap wish: ' + tap('mv', 'wish') + ' ' + S()); p('tap wish again: ' + tap('mv', 'wish') + ' ' + S()); tap('mv', 'wish');
+    p('act remove: ' + tap('act', 'remove') + ' ' + S()); type('note', null, 'close with brickwork'); tap('vis', 'office'); p(shown()); p(done());
+    L53.openSheet('a'); p('reopened: ' + S()); p('act shift alone: ' + tap('act', 'shift')); p(done());
+    p('Delete: handled ' + L53.interceptDelete('a') + ' ' + S()); p('why "no": ' + type('why', 'drop', 'no') + ' ' + S() + ' · tap drop: ' + tap('mv', 'drop')); p('why "no budget": ' + type('why', 'drop', 'no budget') + ' ' + S());
+    p('why "n" again: ' + type('why', 'drop', 'n') + ' ' + S()); type('why', 'drop', '  not needed  '); p(shown()); p(done());
+    p('Delete on the Dropped mark: handled ' + L53.interceptDelete('a') + ' · ' + JSON.stringify(W.front.els[0]) + ' · undo steps ' + H.st.hist.length + ' · ' + said.join(' ; ')); });
+  J('a why typed with no Delete before it does not pick the move; a tap does', p => { put(M('a', 'W', 'FW1', { life: 'wish', lifeAs: 'client', act: 'replace' })); L53.openSheet('a'); p('why: ' + type('why', 'drop', 'too dear') + ' ' + S()); p('tap: ' + tap('mv', 'drop') + ' ' + S()); p('its why cut short again: ' + (type('why', 'drop', 'to'), S())); });
+  J('← Back to Existing takes the act and the stamp away, and keeps the note', p => { put(M('a', 'W', 'FW1', { note: 'n', life: 'wish', lifeAt: at, lifeAs: 'client', act: 'shift' })); L53.openSheet('a'); p('tap exist: ' + tap('mv', 'exist') + ' · acts drawn: ' + /l53acts/.test(html())); p(done()); });
+  J('the note: 281 characters are cut to 280, an emoji never halved; Office only is kept only beside a note', p => { put(M('a', 'W', 'FW1')); L53.openSheet('a'); type('note', null, 'x'.repeat(279) + '😀😀'); tap('vis', 'office'); const r = done(); const e = W.front.els[0];
+    p(`note ${[...e.note].length} characters, ${e.note.length} units, ends ${JSON.stringify(e.note.slice(-3))} · vis ${e.vis} · undo steps ${H.st.hist.length}`);
+    L53.openSheet('a'); type('note', null, '   '); p('blanked: ' + done()); L53.openSheet('a'); tap('vis', 'office'); p('Office only with no note: ' + done()); });
+  J('an Other takes a trade; General deletes it', p => { put(M('a', 'X', 'FX1')); L53.openSheet('a'); p('open the picker: ' + tap('trp')); p(shown()); p('carpentry: ' + tap('cat', 'carpentry') + ' ' + S()); p(shown()); p(done());
+    L53.openSheet('a'); tap('trp'); tap('cat', 'general'); p(done()); L53.openSheet('a'); tap('trp'); tap('trp'); p('opened and shut: ' + done()); });
+  J('a locked mark changes its note alone', p => { put(M('a', 'D', 'FD1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'remove', locked: true })); L53.openSheet('a'); p('drop: ' + tap('mv', 'drop') + ' · its why: ' + type('why', 'drop', 'because') + ' · act: ' + tap('act', 'shift')); type('note', null, 'ask the client'); p(done()); });
+  J('a locked Other keeps its trade', p => { put(M('a', 'X', 'FX1', { cat: 'carpentry', locked: true })); L53.openSheet('a'); p('the picker: ' + tap('trp') + ' ' + S()); type('note', null, 'n'); p(done()); });
+  J('a Line takes a trade and a note; a locked one its note alone', p => { put({ id: 'a', kind: 'line', code: 'F-M1', pts: [[0, 0], [9, 0]] }); L53.openSheet('a'); tap('trp'); tap('cat', 'painting'); type('note', null, 'cornice'); tap('vis', 'office'); p(done());
+    W.front.meas[0].locked = true; L53.openSheet('a'); p('the picker: ' + tap('trp')); type('note', null, 'cornice, both sides'); tap('vis', 'cv'); p(done()); });
+  J('Scope, after the estimate (stage 4): out of scope unlocks, and the office is told', p => { stage = 4; put(M('a', 'W', 'FW1', { life: 'scope', lifeAt: at, lifeAs: 'staff', act: 'replace', locked: true })); L53.openSheet('a'); p('tap cok: ' + tap('mv', 'cok')); p(shown()); p(done());
+    L53.openSheet('a'); tap('mv', 'scope'); p(shown()); p(done()); stage = 1; });
+  J('a Note needs its words', p => { put(M('a', 'NOTE', 'FNOTE1', { note: 'old' })); L53.openSheet('a'); p(shown()); type('note', null, '  '); p(done()); type('note', null, 'new words'); tap('trp'); tap('cat', 'civil'); p(done()); });
+  J('the stage moves under an open sheet (1 -> 3): the move picked is no longer offered', p => { put(M('a', 'W', 'FW1')); L53.openSheet('a'); tap('mv', 'wish'); stage = 3; p(done()); p(S()); stage = 1; });
+  J('a mark past Existing with no act stored: Done writes Replace', p => { put(M('a', 'W', 'FW1', { life: 'wish' })); L53.openSheet('a'); p(S()); p(done()); });
+  J('an act chip changed beside a move past the wish is not written: the act is written only on Existing -> Client wish (stage 2)', p => { stage = 2; put(M('a', 'W', 'FW1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'replace' })); L53.openSheet('a'); tap('act', 'shift'); tap('mv', 'vrev'); p(S()); p(done()); stage = 1; });
+  J('at Estimation (stage 3) no move is offered, and an act chip changed alone is still written', p => { stage = 3; put(M('a', 'W', 'FW1', { life: 'wish', lifeAt: at, lifeAs: 'client', act: 'replace' })); L53.openSheet('a'); p('act shift: ' + tap('act', 'shift')); p(done()); stage = 1; });
+  J('a Dropped mark restored from its sheet', p => { put(M('a', 'W', 'FW1', { note: 'n', life: 'drop', lifeAt: at, lifeAs: 'client', act: 'remove', why: 'no budget' })); L53.openSheet('a'); p(shown()); tap('mv', 'wish'); p(done()); });
+  J('an unknown audience is put right by any Done', p => { put(M('a', 'W', 'FW1', { note: 'n', vis: 'cv' })); L53.openSheet('a'); p(done()); });
+  console.log('L3 sinceText:', JSON.stringify(['2026-10-16T06:37:09+05:30', '2026-09-03T23:59:59+05:30', '', 'soon', undefined].map(x => L53.sinceText(x))));
+  try { L57.set('mr'); } catch (_) {}
+  console.log('L3 under मराठी, the texts the page finds:', JSON.stringify(['STATE', 'TRADE', 'NOTE', 'Done', 'Close', 'Mark sheet', '↻ Replace', '⇢ Shift', '⚒ Repair', '✕ Remove', ' · decided by staff', ' · decided by the surveyor', 'since 16 Oct, 06:37 IST',
+    'Client & vendors', 'Office only', 'A note on this mark (optional)', 'A note on this length (optional)', 'What should the office or the vendor know here?', 'Trade · FX1', 'Open the Mark sheet for FW1',
+    'FD1 is locked — only its note can change', 'A Note needs its words — type them, or delete the Note'].map(x => L57.vis(x))));
 }
 
 // ---- L57: what the page shows under मराठी for each line of the file given (a text it does not know comes back as it went in)

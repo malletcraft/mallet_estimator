@@ -7,6 +7,7 @@ import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.MarkSheet
 import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
@@ -190,6 +191,11 @@ class MastersTest {
             // the band, the gate's line and the refusals take a Tx
             PhaseTools::class.java to listOf("stageOf", "can", "steps", "modeFor", "toolFor", "asFor", "asChip", "nextAs", "moveOk", "gate",
                 "editable", "delOk", "lockOk", "bulk"),
+            // port 62 slice L3: the Mark sheet's state holds what Done WRITES -- the move's target, the act, the why, the note,
+            // its audience, the trade -- so opening it, every tap and keystroke, and apply take no Tx; only view (and the
+            // texts it composes: sinceText, decidedBy, actText, needsWords) does
+            MarkSheet::class.java to listOf("itemOf", "opens", "open", "pickMove", "typeWhy", "pickAct", "noteCut", "typeNote", "pickOffice",
+                "togglePicker", "closePicker", "pickCat", "apply"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

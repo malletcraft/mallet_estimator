@@ -908,7 +908,9 @@ life.msg.x_restored_x	life_msg_x_restored_x	template	code: String · v: String
 life.no_marks_match_x	life_no_marks_match_x	template	v: String?
 life.not_mark	life_not_mark	static	-
 life.note	life_note	static	-
+life.note_area_optional	life_note_area_optional	static	-
 life.note_has_no_state	life_note_has_no_state	static	-
+life.note_length_optional	life_note_length_optional	static	-
 life.note_mark_optional	life_note_mark_optional	static	-
 life.on_this_phone	life_on_this_phone	static	-
 life.out_scope	life_out_scope	static	-
