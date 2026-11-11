@@ -175,7 +175,7 @@ class LockTest {
         assertEquals(listOf("Delete", "Duplicate", "Lock", "Lock all Door", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
         // a wish: Drop
         life(p, "d1", "life" to "wish", "act" to "replace")
-        assertEquals("Drop / Drop FD1 Door | ड्रॉप / ड्रॉप FD1 दरवाजा", row("d1"))
+        assertEquals("Drop / Drop FD1 Door | वगळा / वगळा FD1 दरवाजा", row("d1"))
         assertEquals(listOf("Drop", "Duplicate", "Lock", "Lock all Door", "Cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.second })
         assertEquals(listOf("del", "dup", "lock", "lockall", "cancel"), SurveyPrepEdit.menuItemsOf(Tx.EN, p, "d1").map { it.first }, "the row is still the delete row: the screen decides what a tap does")
         // a Dropped mark: Restore

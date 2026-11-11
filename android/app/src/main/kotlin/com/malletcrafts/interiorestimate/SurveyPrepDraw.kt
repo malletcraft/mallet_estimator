@@ -323,11 +323,11 @@ internal object SurveyPrepDraw {
                 textSize = 7f * u; isFakeBoldText = true; textAlign = Paint.Align.CENTER; color = argb(TAG_INK, al(255)) })
             x += 2 * r + 3f * u
         }
-        if (t.vplus) {
+        t.vplus?.let { v ->
             val vp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9f * u; isFakeBoldText = true }
-            val w = vp.measureText(MarkLife.VPLUS) + 6f * u; val h = 13f * u
+            val w = vp.measureText(v) + 6f * u; val h = 13f * u
             c.drawRoundRect(RectF(x, yc - h / 2, x + w, yc + h / 2), 3f * u, 3f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(VPLUS_COLOUR, al(255)) })
-            vp.color = argb(0xffffff, al(255)); c.drawText(MarkLife.VPLUS, x + 3f * u, yc + 3.2f * u, vp)
+            vp.color = argb(0xffffff, al(255)); c.drawText(v, x + 3f * u, yc + 3.2f * u, vp)
             x += w + 3f * u
         }
         t.pill?.let { nm ->

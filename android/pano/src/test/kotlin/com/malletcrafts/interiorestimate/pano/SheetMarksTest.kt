@@ -170,6 +170,136 @@ class SheetMarksTest {
         assertTrue(SheetMarks.any(k.surface("front"), Audience.OTHERS))
     }
 
+    // ------------------------------------------------------------------ the Plan tab's A4 sheet (the L2 review, finding 1)
+
+    private val meta = SurveyExport.Meta("AP", "htu", "LR · Living Room", "2026-10-14", SurveyExport.drawn(java.time.LocalDate.of(2026, 10, 19)))
+
+    private fun put(p: SurveyPrep.Prep, s: String, t: String, code: String, x0: Double, x1: Double, y0: Double, y1: Double, vararg extra: Pair<String, Any?>) {
+        p.surface(s).marks.add(SurveyPrep.Mark("id-$code", t, code, x0, x1, y0, y1, linkedMapOf(*extra)))
+    }
+
+    /** The room as it was surveyed, a v52 prep: a window and a socket on the front wall, a door at the back, a step, a beam and a fan overhead. */
+    private fun surveyedRoom(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        put(p, "front", "W", "FW1", 782.0, 1953.0, 919.0, 2100.0); put(p, "front", "E", "FE1", 325.0, 375.0, 325.0, 375.0)
+        put(p, "back", "D", "BD1", 1500.0, 2300.0, 0.0, 1900.0); put(p, "floor", "S", "GS1", 889.0, 1789.0, 150.0, 450.0)
+        put(p, "ceil", "B", "CB1", 600.0, 830.0, 0.0, 3319.0); put(p, "ceil", "F", "CF1", 1325.0, 1475.0, 2125.0, 2275.0)
+        p.actual["FW1.s"] = 920.0; p.actual["BD1.w"] = 800.0
+        return p
+    }
+
+    /** The marks the wish round put into that room that were never in it, by code. */
+    private val BORN = listOf("LD1", "RW1", "FO1", "FNOTE1", "BX1", "GX1", "CE1", "CX1")
+
+    /**
+     * The same room once wishes are marked on it (slices L3 and L4): the surveyed window to be replaced, the surveyed
+     * door's wish since Dropped, the socket in Scope -- and, never in the room, a NEW door on the left wall, a window a
+     * vendor added on the right, a new opening and a Note on the front wall, a new unit against the back wall and one
+     * on the floor, and two things overhead, with the readings taken for them.
+     */
+    private fun wishedRoom(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        put(p, "front", "W", "FW1", 782.0, 1953.0, 919.0, 2100.0, "life" to "wish", "lifeAt" to "2026-11-11T10:30:00+05:30", "lifeAs" to "client",
+            "act" to "replace", "note" to WISH_NOTE)
+        put(p, "front", "E", "FE1", 325.0, 375.0, 325.0, 375.0, "life" to "scope", "lifeAt" to "2026-11-13T18:05:09+05:30", "lifeAs" to "staff")
+        put(p, "front", "O", "FO1", 2100.0, 2600.0, 0.0, 2100.0, "born" to "wish", "life" to "wish", "lifeAs" to "client")
+        put(p, "front", "NOTE", "FNOTE1", 1000.0, 1050.0, 1000.0, 1050.0, "note" to NOTE_OFFICE, "vis" to "office")
+        put(p, "back", "D", "BD1", 1500.0, 2300.0, 0.0, 1900.0, "life" to "drop", "act" to "remove", "why" to WHY)
+        put(p, "back", "X", "BX1", 200.0, 1200.0, 0.0, 2100.0, "born" to "wish", "life" to "wish", "cat" to "carpentry", "note" to BORN_NOTE)
+        put(p, "left", "D", "LD1", 400.0, 1300.0, 0.0, 2100.0, "born" to "wish", "life" to "wish", "lifeAs" to "client", "note" to BORN_NOTE)
+        put(p, "right", "W", "RW1", 900.0, 2100.0, 900.0, 2100.0, "born" to "vadd", "life" to "cok", "lifeAs" to "client")
+        put(p, "floor", "S", "GS1", 889.0, 1789.0, 150.0, 450.0)
+        put(p, "floor", "X", "GX1", 100.0, 700.0, 2000.0, 3000.0, "born" to "wish", "life" to "wish", "cat" to "carpentry")
+        put(p, "ceil", "B", "CB1", 600.0, 830.0, 0.0, 3319.0); put(p, "ceil", "F", "CF1", 1325.0, 1475.0, 2125.0, 2275.0)
+        put(p, "ceil", "E", "CE1", 1725.0, 1775.0, 725.0, 775.0, "born" to "vadd", "life" to "vadd", "lifeAs" to "vendor")
+        put(p, "ceil", "X", "CX1", 200.0, 2400.0, 200.0, 3100.0, "born" to "wish", "life" to "wish", "cat" to "false-ceiling")
+        p.actual["FW1.s"] = 920.0; p.actual["BD1.w"] = 800.0
+        p.actual["LD1.w"] = 905.0; p.actual["RW1.w"] = 1210.0; p.actual["GX1.w"] = 600.0; p.actual["CE1.cl"] = 1750.0
+        return p
+    }
+
+    private fun mine(it: SurveyPlan.Item, code: String) = it.key == code || it.key?.startsWith("$code.") == true ||
+        (it is SurveyPlan.Text && Regex("(^|[^A-Za-z0-9])" + Regex.escape(code) + "($|[^A-Za-z0-9])").containsMatchIn(it.text))
+
+    @Test fun `the exported A4 sheet is the room as surveyed on all six drawings -- a mark born a wish is on no sheet, a wished one is drawn as it is there`() {
+        val wished = wishedRoom(); val surveyed = surveyedRoom()
+        fun held(p: SurveyPrep.Prep) = SurveyPrep.SURFACES.map { s -> p.surface(s).marks.map { m -> listOf(m.id, m.t, m.code, m.x0, m.x1, m.y0, m.y1, m.extra) } } to p.actual.toMap()
+        val before = held(wished)
+        for ((v, _) in SurveyPlan.VIEWS) {
+            val sheet = SurveyExport.sheet(v, wished, L, W, H, meta, "Living Room")
+            // byte for byte the sheet of the room with no wish round at all: nothing of a state, an act, a why or a note, and no new thing
+            assertEquals(SvgWriter.write(SurveyExport.sheet(v, surveyed, L, W, H, meta, "Living Room")), SvgWriter.write(sheet), v)
+            for (code in BORN) assertTrue(sheet.drawing.items.none { mine(it, code) }, "$code is on the exported $v sheet")
+            // THE SCREEN'S Plan tab is the office's: it draws the prep itself, every mark (until slice L8 draws a wish as a wish)
+            val screen = SurveyPlan.drawing(Tx.EN, v, wished, L, W, H, "Living Room")
+            val there = BORN.filter { c -> screen.items.any { mine(it, c) } }
+            assertTrue(there.isNotEmpty(), "$v: the fixture puts a mark born a wish on every drawing")
+        }
+        // the door a client WISHES for is the case that matters: on the floor plan a door is a gap through the wall band
+        val screen = SurveyPlan.drawing(Tx.EN, "floor", wished, L, W, H)
+        assertTrue(screen.withKey("op", "LD1").isNotEmpty() && screen.withKey("swing", "LD1").isNotEmpty(), "the screen draws the wished door's gap and swing")
+        val floor = SurveyExport.sheet("floor", wished, L, W, H, meta).drawing
+        assertEquals(listOf("FW1", "BD1"), floor.items.filter { it.role == "op" }.map { it.key }, "the sheet's wall is cut where the room's walls are, and nowhere else")
+        assertTrue(floor.withKey("swing", "BD1").isNotEmpty(), "the surveyed door, whose wish was Dropped, is the door that is there")
+        assertEquals("920", SurveyExport.sheet("front", wished, L, W, H, meta).drawing.dim("FW1.s")?.text, "a surveyed mark keeps its readings")
+        // the prep the sheets were drawn from still holds every wish: a copy was drawn
+        assertEquals(before, held(wished))
+        assertEquals(listOf("wish", "scope", "wish", "exist"), wished.surface("front").marks.map { MarkLife.lifeOf(it) })
+    }
+
+    @Test fun `the prep a drawing for others is made from -- itself when nothing is left out, else a new prep that shares all but the marks`() {
+        // a v52 prep IS the prep its sheet is drawn from, for both audiences: the sheet is what it always was
+        val v52 = surveyedRoom()
+        assertSame(v52, SheetMarks.prep(v52, Audience.OTHERS)); assertSame(v52, SheetMarks.prep(v52, Audience.OFFICE))
+        SurveyPrepEdit.setLocked(v52, "id-BD1", true)
+        assertSame(v52, SheetMarks.prep(v52, Audience.OTHERS), "a lock is the room's own key")
+        // the office is handed the prep with its wishes
+        val w = wishedRoom()
+        assertSame(w, SheetMarks.prep(w, Audience.OFFICE))
+        // others: a new prep, each surface's marks what SheetMarks.marks gives, everything else the very same objects
+        w.addMeas("front", SurveyMeas.LINE, listOf(doubleArrayOf(100.0, 200.0), doubleArrayOf(900.0, 200.0)), "m1")
+        w.addChain("front", "x", listOf(doubleArrayOf(0.0, 500.0), doubleArrayOf(900.0, 500.0)), listOf(null, null), "k1")
+        val o = SheetMarks.prep(w, Audience.OTHERS)
+        assertNotSame(w, o)
+        assertEquals(SurveyPrep.SURFACES.toSet(), o.surfaces.keys)
+        for (s in SurveyPrep.SURFACES) {
+            val a = w.surface(s); val b = o.surface(s)
+            assertEquals(SheetMarks.marks(a.marks, Audience.OTHERS).map { it.code to it.extra }, b.marks.map { it.code to it.extra }, s)
+            assertNotSame(a.marks, b.marks, "$s: its own list, so the prep's is never touched")
+            assertSame(a.lines, b.lines, s); assertSame(a.set, b.set, s); assertSame(a.extra, b.extra, s)
+            assertSame(a.meas, b.meas, s); assertSame(a.chains, b.chains, s)
+            assertEquals(listOf(a.measKey, a.chainsKey), listOf(b.measKey, b.chainsKey), s)
+        }
+        assertEquals(listOf("FW1", "FE1"), o.surface("front").marks.map { it.code }); assertEquals(emptyList(), o.surface("left").marks.map { it.code })
+        assertSame(w.actual, o.actual); assertSame(w.extra, o.extra); assertSame(w.extraSurfaces, o.extraSurfaces)
+        // a prep whose only difference is a STATE on a surveyed mark is a new prep too: the mark is handed over without it
+        val st = surveyedRoom(); val fw1 = st.surface("front").marks[0]; fw1.extra = mapOf("life" to "wish", "act" to "replace")
+        val so = SheetMarks.prep(st, Audience.OTHERS)
+        assertNotSame(st, so); assertEquals(emptyMap(), so.surface("front").marks[0].extra); assertEquals("wish", MarkLife.lifeOf(fw1))
+    }
+
+    /** A :pano source file's code lines, its comment lines left out. */
+    private fun pano(name: String): String = File("src/main/kotlin/com/malletcrafts/interiorestimate/pano", name).readLines()
+        .filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
+
+    @Test fun `SurveyExport never hands SurveyPlan the prep itself, and in the app only the screen's Plan tab draws from it`() {
+        val ex = pano("SurveyExport.kt")
+        assertTrue(ex.contains("val room = SheetMarks.prep(prep, SheetMarks.Audience.OTHERS)"), "the sheet's room as surveyed")
+        val calls = Regex("""SurveyPlan\s*\.\s*(dims|drawing|infoOf)\(([^)]*)\)""").findAll(ex).map { it.groupValues[1] to it.groupValues[2] }.toList()
+        assertEquals(listOf("dims", "drawing"), calls.map { it.first })
+        for ((f, args) in calls) {
+            assertTrue(Regex("""\broom\b""").containsMatchIn(args), "SurveyPlan.$f is not handed the room as surveyed: ($args)")
+            assertFalse(Regex("""\bprep\b""").containsMatchIn(args), "SurveyPlan.$f is handed the prep itself: ($args)")
+        }
+        assertFalse(ex.contains("Audience.OFFICE"), "an exported sheet is never the office's")
+        // in the app a drawing is made in ONE place, the Plan tab on screen (the live language, the prep itself); every FILE is a
+        // SurveyExport.Sheet, which PlanExport paints and writes -- it builds no drawing of its own
+        val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
+        assertEquals(listOf("SurveyPlanScreen.kt"), files.filter { Regex("""SurveyPlan\s*\.\s*drawing\(""").containsMatchIn(code(it)) })
+        assertEquals(listOf("SurveyPrepScreen.kt"), files.filter { Regex("""SurveyExport\s*\.\s*sheet\(""").containsMatchIn(code(it)) })
+        assertFalse(Regex("""SurveyPlan\s*\.\s*(dims|drawing|infoOf)\(""").containsMatchIn(code("PlanExport.kt")), "PlanExport makes a drawing of its own")
+    }
+
     // ------------------------------------------------------------------ the wiring, read from the app's sources
 
     private val app = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")

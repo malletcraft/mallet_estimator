@@ -499,7 +499,8 @@ prototype's own v53 / v54 keys, unused on the phone until now (the count of acce
   `life.client_changes`, `life.to_x`), the refusals (`refuse.life.x_x_cannot_move`, `life.note_has_no_state`,
   `life.why_least_3_characters`, `refuse.life.x_scope_take_out`), the notes (`life.after_estimate_tell_office`,
   `life.quote_stage_not_read`, `life.msg.x_restored_x`), Delete / Drop / Restore (`common.delete`, `type.cdp.short` -- the
-  key the prototype's own text layer gives delWord's `Drop`, as the key's `where` says -- and `common.restore`) and what a
+  key the prototype's own text layer gives delWord's `Drop`, as the key's `where` says; since the L2 review the verb has
+  its own key, `life.drop.verb`, below -- and `common.restore`) and what a
   clear kept (`life.x_item_x_cleared`, `life.cleared_x_item_x`, `life.x_locked_kept`, `life.x_mark_x_past`,
   `life.x_mark_x_past_2`, `life.x_scope_mark_x`).
 - **PhaseTools**: the band (`phase.band.*`, `phase.phase_x_4_x`, `phase.phase_not_read_yet`, a phase's name through
@@ -560,14 +561,14 @@ What the screen now draws from keys the tables already held:
 - **On the face, in the live language** (`app/SurveyPrepDraw.kt`, through `MarkLife.tag`): a state's name on its pill --
   the seven `life.*` state keys (`life.wish` … `life.drop`; Existing has no pill). A box under 90 u wide shows the name's
   FIRST WORD AS SHOWN, as the prototype cuts it after its text layer (`ग्राहकाची`, `व्हेंडर`, `ग्राहक`; English `Client`,
-  `Vendor`): the cut is `substringBefore(' ')` of the rendered name, no key of its own. The act's glyph (↻ ⇢ ⚒ ✕), the note
-  badge `✎` and `V+` are marked `// text:value` in `MarkLife` (glyphs, and the prototype's own badge, which its text layer
-  shows as `V+` under मराठी too).
-- **A delete control's word** (`SurveyPrepEdit.deleteWord`, the menu's first row): `common.delete`, `type.cdp.short`
-  (Drop) and `common.restore`, as L1 keyed them. **Its screen-reader label on a mark past Existing is the word, a space
-  and the mark** -- `Drop FW1 Window`, `ड्रॉप FW1 खिडकी` -- because no whole key holds `Drop {label}`: the prototype joins
-  them itself (`${delWord} ${code}`, index61c2.html 6660) and its own text layer shows `ड्रॉप FW1`. `Delete …` keeps its
-  whole key (`sp.delete_x`). The space is marked `// text:value`.
+  `Vendor`): the cut is `substringBefore(' ')` of the rendered name, no key of its own. The act's glyph (↻ ⇢ ⚒ ✕) and the
+  note badge `✎` are glyphs, the badge marked `// text:value` in `MarkLife`. `V+`, the badge of a mark a vendor added, was
+  marked so too; it is LETTERS, and since the L2 review it is `life.vadd.badge` (below).
+- **A delete control's word** (`SurveyPrepEdit.deleteWord`, the menu's first row): `common.delete`, `common.restore` and,
+  for Drop, `life.drop.verb` (the L2 review, below; L2 itself read `type.cdp.short`). **Its screen-reader label on a mark
+  past Existing is the word, a space and the mark** -- `Drop FW1 Window`, `वगळा FW1 खिडकी` -- because no whole key holds
+  `Drop {label}`: the prototype joins them itself (`${delWord} ${code}`, index61c2.html 6660). `Delete …` keeps its whole
+  key (`sp.delete_x`). The space is marked `// text:value`.
 - **Restore**: `life.msg.x_restored_x`; refused, the gate's or the move's own line (`refuse.life.finish_survey_first_stage`
   is the one L2 can reach: the dialog is given the project's stage in L3, and until then it is Survey's).
 - **A clear that kept a wish**: `life.cleared_x_item_x` with `life.x_locked_kept` and `life.x_mark_x_past` (through
@@ -583,13 +584,35 @@ What the screen now draws from keys the tables already held:
 (check (h) and its companion are unchanged) and now also `SheetMarks.Audience.OTHERS`: the painter is handed the room as
 surveyed, so no state name, act or note badge is drawn into a picture that leaves the phone -- in either language.
 `SheetMarks` decides an export's content, so MastersTest holds it among the WHOLE wire and export builders: its
-compiled bytes may not name the i18n package.
+compiled bytes may not name the i18n package. Since the L2 review the Plan tab's exported A4 sheet is drawn from the
+room as surveyed too (`SheetMarks.prep`, through `SurveyExport.sheet`): still `Tx.EN`, and no new word on it.
+
+**The L2 review (11 Nov 2026): two keys added, `life.vadd.badge` and `life.drop.verb`** (DESIGN-port62 §3.2, findings 2
+and 3). Both are the prototype's own English, flag `phone-text`, Marathi by Claude (decision 6).
+
+- `life.vadd.badge` -- `V+` / `V+`. L2 drew the badge from a literal marked `// text:value`. The mark is for a wire or
+  stored value, a product name, a unit or a code; V+ is the abbreviation of Vendor added, letters a person reads on the
+  face -- the L1 review's ruling for `AC`. The prototype paints it from a literal as well, outside its text layer, so it
+  reads `V+` under मराठी there; `tour.vendor.6.body` already calls it "the V+ badge" / `V+ बॅज`. `V` on `latin-ok.txt`
+  now names both keys. `MarkLife.Tag.vplus` carries the text and `MarkLife.VPLUS` is gone. Nothing changes on screen.
+- `life.drop.verb` -- `Drop` / `वगळा`: the word on the delete control of a mark past Existing. L2 read `type.cdp.short`,
+  the key the prototype's text layer finds for the English word -- the Ceiling drop TYPE's short name, `ड्रॉप` -- because
+  that layer looks a text up by its English. The tables already say the verb: `life.drop` is `वगळले`, `life.dropped`
+  `→ वगळले`, and "drop them one by one" (`life.x_mark_x_past`, shown after a clear) `… एकेक करून वगळा`. So under मराठी
+  the control now reads `वगळा`, and its label `वगळा FW1 खिडकी`; the English is unchanged. `type.cdp.short` keeps its
+  `where` (both prototype sites) and its `ड्रॉप`, for the type (slices L5 and L6); it has no reader on the phone again
+  until then.
+
+1,896 -> 1,898 keys; Tx regenerated (`life_drop_verb`, `life_vadd_badge`; 1,827 accessors); `i18nRatchet` lowered nothing;
+`unkeyed.tsv` stays empty; the accessors nothing calls go 677 -> 678 (`type_cdp_short`). `MarkLifeTest` asks a table whose
+every cell is a marker for every state's pill, the badge and the three delete words: a literal, or Drop read from another
+text's key, fails it.
 
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,896 keys each (counted 11 Nov 2026, each step from that commit's own table): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 111 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, and 1 in the L1 review of port 62 (`trade.hvac.short`). 282 of the 1,896 carry the flag `phone-text` (the card's 171 and these 111). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,898 keys each (counted 11 Nov 2026, each step from that commit's own table): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 113 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`) and 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`). 284 of the 1,898 carry the flag `phone-text` (the card's 171 and these 113). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

@@ -2895,6 +2895,10 @@
   "mr": "वगळले",
   "note": "alt: रद्द"
  },
+ "life.drop.verb": {
+  "mr": "वगळा",
+  "note": "L2 review: the verb of life.drop (वगळले) and life.dropped (→ वगळले), as life.x_mark_x_past already says it (… ते एकेक करून वगळा); the prototype shows ड्रॉप here only because its text layer finds the word through type.cdp.short, the Ceiling drop type's short name; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.dropped": {
   "mr": "→ वगळले"
  },
@@ -3005,6 +3009,10 @@
  "life.vadd": {
   "mr": "व्हेंडरने जोडले",
   "note": "long — state chip/button · DECIDED 21 Oct: D1 register"
+ },
+ "life.vadd.badge": {
+  "mr": "V+",
+  "note": "L2 review: kept as written -- the prototype paints V+ under मराठी too, and tour.vendor.6.body calls it the V+ बॅज; V is on latin-ok.txt for both keys; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "life.vadd.short": {
   "mr": "व्हें. जोडले",

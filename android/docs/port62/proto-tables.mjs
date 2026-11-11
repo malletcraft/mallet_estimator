@@ -16,6 +16,11 @@
 // names no rule and falls through to Vendor review's moves; PhaseTools offers none there -- and so, since the L1 review
 // (§3.1), PhaseTools.delOk is 0 at stage 5 for a mark past Existing, where the page prints 1 (its Delete is a Drop or a
 // Restore, which the page still offers there). Every other row must agree.
+// THE L2 REVIEW (11 Nov 2026; DESIGN-port62.md §3.2): given the line `Drop`, the page prints `"Drop" -> "ड्रॉप"` -- its text
+// layer finds a text by its English word, and that word is also the Ceiling drop type's short name. The phone's delete
+// control says वगळा (life.drop.verb), the verb of वगळले. And the page this was last run on is mock-up v62a (v61c.2 plus the
+// prototype items P0 and P2, 9,657 lines): the four modules are cut by their opening lines, so they are found wherever they
+// sit, and they print what the 9,563-line v61c.2 printed -- only the first line, their line numbers, differs (+26).
 import fs from 'node:fs';
 
 const page = process.argv[2];

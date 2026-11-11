@@ -105,17 +105,21 @@ object MarkLife {
     /** How wide a spot's ring is drawn, in u (ring): the state's own width, else [RING_W]. The selection does not change it. */
     fun ringWidth(st: Stroke): Double = st.width ?: RING_W
 
-    /** The ✎ badge after the code of a mark that has a note, and the badge of a mark a vendor added. */
+    /**
+     * The ✎ badge after the code of a mark that has a note: a glyph. The badge of a mark a vendor added, "V+", is
+     * LETTERS a person reads, so it is a text of the tables ([Tag.vplus], `life.vadd.badge`; the L2 review, finding 2 --
+     * the L1 review's ruling for the trade short name AC), never a literal here.
+     */
     const val NOTE_BADGE = "✎" // text:value a glyph, the same in both languages
-    const val VPLUS = "V+" // text:value the prototype's badge: its own text layer shows V+ under मराठी too
 
     /**
      * What is drawn after a mark's code on a face (paintState), left to right: [act], the act's glyph, only on a mark
-     * past Existing; [note], the ✎ badge of a mark that has a note; [vplus], "V+" on a mark born Vendor added; [pill],
-     * the state's name on a pill of [colour] (0xRRGGBB) -- none for Existing. A Dropped mark's are drawn at [alpha] .6,
-     * every other's at 1: the tag is drawn at ITS OWN alpha, never at the fade of a mark that is not the picked one.
+     * past Existing; [note], the ✎ badge of a mark that has a note; [vplus], the badge of a mark born Vendor added, in
+     * the language ("V+"; null: none); [pill], the state's name on a pill of [colour] (0xRRGGBB) -- none for Existing.
+     * A Dropped mark's are drawn at [alpha] .6, every other's at 1: the tag is drawn at ITS OWN alpha, never at the
+     * fade of a mark that is not the picked one.
      */
-    class Tag(val act: String?, val note: Boolean, val vplus: Boolean, val pill: String?, val colour: Int, val alpha: Double)
+    class Tag(val act: String?, val note: Boolean, val vplus: String?, val pill: String?, val colour: Int, val alpha: Double)
 
     /**
      * The mark's [Tag] in the language, or null when nothing is drawn after its code: an Existing mark with no note
@@ -130,8 +134,9 @@ object MarkLife {
         if (life == EXIST && !note && act == null) return null
         val past = life != EXIST
         val pill = if (past) name(tx, life).let { if (crowded) it.substringBefore(' ') else it } else null
-        val t = Tag(if (past) glyph(act) else null, note, bornOf(e) == VADD, pill, byId(life).colour, if (life == DROP) 0.6 else 1.0)
-        return if (t.act == null && !t.note && !t.vplus && t.pill == null) null else t
+        val t = Tag(if (past) glyph(act) else null, note, if (bornOf(e) == VADD) tx.life_vadd_badge else null, pill, byId(life).colour,
+            if (life == DROP) 0.6 else 1.0)
+        return if (t.act == null && !t.note && t.vplus == null && t.pill == null) null else t
     }
 
     /** The 3 dp bar on the left edge of the picked mark's code label, in its state's colour (nlAttrs); null for Existing: none. */
@@ -477,10 +482,15 @@ object MarkLife {
         else -> DeleteWord.DELETE
     }
 
-    /** ... in the language. Drop's key is the one the prototype's own text layer gives the word (`type.cdp.short`, where: delWord). */
+    /**
+     * ... in the language. Drop is the VERB, `life.drop.verb` (the L2 review, finding 3): the prototype's text layer
+     * finds a text by its English word, so it draws delWord's Drop through `type.cdp.short`, the Ceiling drop type's
+     * short name, and under मराठी the control read as that type; the table gives the verb its own Marathi, the one
+     * `life.drop` (Dropped) and "drop them one by one" already use.
+     */
     fun deleteLabel(tx: Tx, e: SurveyPrep.Mark): String = when (deleteWord(e)) {
         DeleteWord.DELETE -> tx.common_delete
-        DeleteWord.DROP -> tx.type_cdp_short
+        DeleteWord.DROP -> tx.life_drop_verb
         DeleteWord.RESTORE -> tx.common_restore
     }
 

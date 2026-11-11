@@ -25,6 +25,12 @@ package com.malletcrafts.interiorestimate.pano
  *
  * A Tape, a Line, an area and a chain are drawn as they are for every audience: no painter draws their note or
  * their trade, and they carry no state. Pure, and it takes no language: what an EXPORT draws is decided here.
+ *
+ * THE PLAN TAB'S A4 SHEET IS SUCH A DOCUMENT TOO (the L2 review, finding 1): SurveyExport.sheet is saved to Downloads
+ * and shared, and SurveyPlan draws every mark it is handed as v52 does -- on the floor plan a door, a window or an
+ * opening on a wall as A GAP THROUGH THE WALL BAND. Until the six drawings draw a wish as a wish (slice L8), a mark born
+ * a wish would be on that sheet as if it were in the room. So the sheet is drawn from [prep] for [Audience.OTHERS]:
+ * the room as surveyed, by the one rule above. The Plan tab ON SCREEN is the office's and draws the prep itself.
  */
 object SheetMarks {
 
@@ -66,6 +72,24 @@ object SheetMarks {
     fun marks(marks: List<SurveyPrep.Mark>, audience: Audience): List<SurveyPrep.Mark> = when (audience) {
         Audience.OFFICE -> marks
         Audience.OTHERS -> marks.filter(::surveyed).map(::asSurveyed)
+    }
+
+    /**
+     * The prep a DRAWING OF THE ROOM for [audience] is made from (the Plan tab's six drawings, SurveyPlan): for the
+     * office [p] itself; for others [p] with each surface's marks replaced by [marks] -- the room as surveyed. A v52
+     * prep, and any prep whose every mark is surveyed and carries no key but [KEPT], is answered as ITSELF, so its
+     * sheet is what it always was. Else a NEW prep that SHARES everything but the lists of marks -- the lines, the
+     * readings, the Tapes, Lines, areas and chains, the reference -- and is only ever READ: [p] is never changed, and
+     * the readings of a mark that is left out stay in the map, where no drawing asks for them.
+     */
+    fun prep(p: SurveyPrep.Prep, audience: Audience): SurveyPrep.Prep {
+        if (audience == Audience.OFFICE) return p
+        val shown = p.surfaces.mapValues { (_, sf) -> marks(sf.marks, audience) }
+        if (p.surfaces.all { (s, sf) -> shown.getValue(s).let { m -> m.size == sf.marks.size && m.indices.all { m[it] === sf.marks[it] } } }) return p
+        val surfaces = LinkedHashMap<String, SurveyPrep.Surface>()
+        for ((s, sf) in p.surfaces)
+            surfaces[s] = SurveyPrep.Surface(sf.lines, sf.set, shown.getValue(s).toMutableList(), sf.extra, sf.meas, sf.measKey, sf.chains, sf.chainsKey)
+        return SurveyPrep.Prep(surfaces, p.actual, p.extra, p.extraSurfaces)
     }
 
     /**

@@ -9,6 +9,27 @@ and why is the last section, "The port 62 plan critic".**
 - `P L<n>` = the approved prototype v61c.2 (Version 86), a built page of 9,563 lines, re-read for this plan.
   Phone paths `app/…` and `pano/…` as in the audit. S5 at `9a51733` (= `stage`). Sizes: S about a day, M two to
   four days, L a week or needs its own design first.
+- **The page in the scratchpad was REBUILT on 11 Nov 2026 (18:36 IST) and its lines have moved** (the L2 review,
+  finding 5). `v61cbuild/index61c2.html` is now **mock-up v62a**: v61c.2 plus this plan's prototype items P0 and
+  P2, "to approve, not on the phone" — 9,657 lines. Diffed against the 9,563-line page this plan read (the copy
+  the critic drove, `critic/site/` in the same scratchpad): 21 hunks, every one P0's or P2's — CSS, the header and
+  help texts, new rows in the one-line text table, the rename dialog, the room screen's "Plan & elevations" chip
+  and survey prep opening on its Plan tab. **Nothing of the wish-marks code changed**: every line between the
+  hunks is byte-identical, and `proto-tables.mjs` prints the same rows from both pages (only its first line, the
+  modules' line numbers, differs). So a `P L<n>` in this file, and an `index61c2.html <n>` in the code's
+  comments, still names v61c.2's line; **on the page now on disk read it as:**
+
+  | `P L<n>` cited here | on the rebuilt page | what lies there |
+  |---|---|---|
+  | up to 1595 | the same | the CSS (`L1257`–`L1372`) |
+  | 1596 – 1714 | + 7 | the header and the help cards |
+  | 1715 – 6923 | **+ 26** | T53, L53, P54 and survey prep: everything L1–L6 and L10 cite (`outline` 2872 → 2898, `interceptDelete` 2940 → 2966, `TOOLS` 3947 → 3973, `clearCount` 5651 → 5677) |
+  | 6924 – 7923 | + 27 | Start over's note (6942 → 6969), `openLWH` (6977 → 7004) |
+  | 7924 – 8151 | + 55 to + 77 | the rename dialog (P0's own lines are among them) |
+  | 8152 on | + 93, then + 94 from 8162 | the room screen and Capture 360 (8185 → 8279), the Wish list (`rowCount` 8530 → 8624), the tours (8838 → 8932) |
+
+  Search for the function's name, not the number, when a line does not match. The page a later slice reads is
+  whatever is on disk then; this table is for the build of 11 Nov only.
 - **Rules that bind every slice.** The prototype is the spec for every APK screen: replicate, invent nothing; a
   state it does not draw goes on a **prototype question** list, never onto the phone. Texts come from
   `android/i18n` (a missing one is added from the prototype's own words, never coined); exports and wire values
@@ -381,6 +402,30 @@ that padlock is hidden there too, and until then it is on Q-list 6(c).
     kind of document as finding 3's pictures, and this plan names no rule for it between B2 and B4: `SheetMarks` could
     hand `SurveyExport` the room as surveyed in one line, but the Plan TAB is the office's own screen and paints
     through the same painter, so it is L8's decision or the plan owner's, not made here. Put with Q-list 7.
+    **Decided in the L2 review (finding 1): the exported sheet is the room as surveyed until L8** — below.
+
+#### The L2 review (11 Nov 2026) — five findings on commit `f9e20b0`: one major, four minor
+
+Each was checked against the committed code and against the prototype's own code before anything was changed: the
+page now on disk AND the 9,563-line v61c.2 this plan read, which were diffed (finding 5), with `proto-tables.mjs`
+run on both. **Confirmed: all five** (finding 5 with its "+26 throughout" corrected). **Declined: none.** Fixed in
+one commit on `port62-wish`, local. Each code fix has a `:pano` test that FAILS without it — tried: the four
+fixes were put back one by one in a throwaway copy and six tests went red (`LockTest` 1, `MarkLifeTest` 3,
+`SheetMarksTest` 2), then the files were restored and checked by hash.
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | From B2 until L8 (B4) the Plan tab's exported A4 sheet would draw a mark born a wish as if it were in the room (major) | **CONFIRMED.** `SurveyPlan` reads `prep.surfaces[s]?.marks` at five places (`:306`, `:372`, `:413`, `:523`, `:535`) with no filter, and draws a D, W or O on a wall as "a gap through the wall band" (`:310-312`); `SurveyExport.sheet` drew from it in `Tx.EN` (`:157-159`); the app's only caller is `planSheet()` (`SurveyPrepScreen.kt:1380`), whose sheet `PlanExport` saves to Downloads and shares (`:1412`). Nothing reaches it in L2 (no control sets a state), but B2 = L1–L4 would: a door the client WISHES for, cut into the wall of a shared drawing. It is the plan critic's finding 3 again, for a document L2's builder saw and left to the plan owner | **The sheet draws the room as surveyed** — the reviewer's first fix, and this plan's own rule for the saved pictures (the critic's correction). New pure `SheetMarks.prep(prep, audience)`: the office gets the prep itself; others a prep whose every surface holds `SheetMarks.marks(…, OTHERS)` and shares everything else (lines, readings, Tapes, Lines, chains, the reference), read only — and a prep with nothing to leave out, every v52 prep, is answered as ITSELF, so its sheet is what it always was. `SurveyExport.sheet` hands `SurveyPlan` that prep and never its own. **The Plan tab ON SCREEN is unchanged** (the office's: every mark, drawn as v52 draws it until L8) — so between B2 and B4 the drawing on screen shows a new wished door and its exported sheet does not; that is said in §7 and stays on Q-list 7. `SheetMarksTest` +3: on all six drawings the sheet of a room with a wish round (a wished window, a Dropped door, a Scope socket; a door, a window, an opening, a Note, two units and two overhead things that were never in the room) is BYTE FOR BYTE the sheet of the room as surveyed, none of the eight new codes is on any sheet while each is on the screen's drawing, the sheet's wall is cut at the two surveyed openings only, and the prep is unchanged; `prep()`'s sharing and identity; and, read from the sources, that `SurveyExport` hands `SurveyPlan` nothing but that prep and that in the app only `SurveyPlanScreen` makes a drawing and only `planSheet()` a sheet. **L8** (§3.8) replaces this rule with the prototype's own for a drawing, and changes these tests on purpose |
+| 2 | "V+" is a shown text marked `// text:value` instead of keyed, which the L1 review ruled against for "AC" (minor) | **CONFIRMED.** `MarkLife.kt:110` was `const val VPLUS = "V+" // text:value …`, drawn on the face after a mark's code (`SurveyPrepDraw.kt:326-330`). The page paints it from a literal too (`const t='V+'`, paintState) and OUTSIDE its text layer — the act and the pill go through `V57L`, V+ does not — so it reads V+ under मराठी there; no key held it (the only V+ in the tables is inside `tour.vendor.6.body`, "the V+ badge" / "V+ बॅज"). It is letters a person reads, the abbreviation of Vendor added, not a glyph: the same case as AC, and the README's rule for the mark is "a wire or stored value, a product name, a unit or a code" | **Keyed** — the reviewer's first fix: `life.vadd.badge`, English `V+` (the prototype's own text), Marathi `V+` (as the page paints it and as the tour's own Marathi names it), flag `phone-text`; `V` on `latin-ok.txt` now names both keys. `MarkLife.Tag.vplus` is the TEXT (`String?`, null: none) and `MarkLife.VPLUS` is gone; the painter draws what the tag hands it. `MarkLifeTest`: a table whose every cell is a marker must answer every state's pill and the badge with one cell (as `TradesTest` asks for the trade names), and `MarkLife`'s code may hold no `"V+"`. What the phone shows is unchanged in both languages. ✎, the acts' glyphs and ` · ` stay marked: glyphs and a separator |
+| 3 | Under मराठी the delete control on a wish reads "ड्रॉप", the Ceiling drop type's short name, while the state it leads to reads "वगळले" (minor) | **CONFIRMED — a table matter, as the reviewer says, and the tables already hold the answer.** `MarkLife.deleteLabel` read `tx.type_cdp_short`, whose `where` lists two unrelated uses of the English word (`trades53.js:40`, the type; `life53.js:193`, delWord). The page shows `"Drop" -> "ड्रॉप"` and `"Drop FW1" -> "ड्रॉप FW1"` (run on both builds) only because its text layer finds a text BY ITS ENGLISH WORD; the same tables say `life.drop` वगळले, `life.dropped` → वगळले, and — the sentence L2 itself shows after a clear — "drop them one by one" as "ते एकेक करून **वगळा**" (`life.x_mark_x_past`). So one control would have named the act by a transliterated noun and the next line by its Marathi verb. The English is the prototype's word and does not change; the Marathi is Claude's to finalise (decision 6, 28 Oct), so it is not a prototype question | **The verb has its own key** — the reviewer's first fix: `life.drop.verb`, English `Drop`, Marathi `वगळा`, flag `phone-text` (the page draws the word through the type's key; `type.cdp.short` keeps its `where` and its ड्रॉप for the Ceiling drop type, L5 and L6). `MarkLife.deleteLabel` reads it, so the picked row's button, a list row, the menu's first row and the head of their screen-reader labels (`वगळा FD1 दरवाजा`) follow. `MarkLifeTest` (the seven Drop rows; Drop a cell of its own; `MarkLife` may not name `type_cdp_short`) and `LockTest` (the row and its label) — both fail on L2's code. `type_cdp_short` has no reader again until L5 |
+| 4 | A Restore refused at Survey takes an undo snapshot first; the prototype answers before any snapshot (minor) | **CONFIRMED.** `SurveyPrepScreen.kt:722-726`: `snapshot(); val moved = MarkLife.restore(…); if (!moved.ok) { hist.removeAt(hist.size - 1); … }`, and `snapshot()` (`:387`) is `hideSnack(); hist.add(prep.copy()); if (hist.size > 40) hist.removeAt(0)` — with 40 steps held a refused tap drops the OLDEST and then its own, leaving 39. The page: `if(stage===0){ H.snack(T_SURVEY,false); H.render(); return true; }` and only then `H.snapshot()` (interceptDelete). Unreachable in L2 (no mark can be Dropped), reachable from L3 at Survey and at the phone's own gate | **The gate is asked first**, as the reviewer wrote it: `val gate = PhaseTools.gate(quoteStage); if (gate != null) { snack(PhaseTools.gateText(tx, gate), undo = false); return }`, then the snapshot, the move and — for the refusals the page also snapshots for (a move not offered: Estimation) — the pop, as before. The words do not change: at a gate `MarkLife.restore` answers the gate's own line. The order is the app's, compiled only in CI, so `MarkLifeTest` reads `deleteMark`'s RESTORE branch from the source (gate, its line, ONE snapshot, then the move) and pins beside it that the gate's line is what a refused Restore says at stages 0 and 5 in both languages, and that stages 1–4 and unread have no gate. **L3 keeps this order** when `quoteStage` becomes the dialog's parameter |
+| 5 | The page line numbers in L2's comments and in this plan are 26 off the prototype file now on disk (minor) | **CONFIRMED, and the "+26 throughout" CORRECTED.** The file at the builders' path is 9,657 lines, written 11 Nov 13:18 UTC; this plan read 9,563. The reviewer did not diff the two builds; this pass did (the 9,563-line page is still in the scratchpad, `critic/site/`). The page on disk is **mock-up v62a** — v61c.2 plus the prototype items P0 and P2, to approve — and the offset is +26 only for lines 1715–6923: +7 before that from 1596, +27 from 6924 (the reviewer's own "Start over 6969 (6942)" is +27), and up to +94 from 7924 on. No hunk touches T53, L53, P54 or survey prep's delete, lock, clear and Start over; `proto-tables.mjs` prints the same rows from both pages | No code change, as the reviewer says: the comments cite v61c.2, the approved build. The offsets are a table at the head of this file, under the `P L<n>` rule, for the L3 and L4 builders — who should also know that **the page at that path is no longer the approved v61c.2 alone**: it carries P0's rename dialog and P2's room chip, which are not approved and are no part of L3 or L4 |
+
+`:pano` after the fix, from the XML: 1,112 tests in 81 suites, none failed (1,107 before: `MarkLifeTest` +2,
+`SheetMarksTest` +3). Two keys added, both `phone-text` (1,896 → 1,898; Tx regenerated with `:pano:i18nGen`, 1,827
+accessors; `i18nRatchet` lowered nothing; `unkeyed.tsv` still empty). `:app` is compiled only by CI — two files
+changed there, `SurveyPrepDraw.kt` (the badge's text from the tag) and `SurveyPrepScreen.kt` (the gate before the
+snapshot) — and nothing has been seen on a phone.
 
 ### 3.3 L3 · the Mark sheet (M) — the first thing he can do
 - **Prototype:** `openSheet` `P L3012`, the sheet `L3024-3063`: the head (code · name, the trade's dot); STATE (the
@@ -410,7 +455,10 @@ that padlock is hidden there too, and until then it is on Q-list 6(c).
   Delete on a mark past Existing opens it on Dropped (wherever `PhaseTools.delOk` draws it: not at Estimated
   and, since the L1 review, not at Client approved); `SurveyPrepDialog` (`:181`) is given the project's stage
   at its two call sites (`MainActivity.kt:519`, `:3838`) by the rule at the head of §3 — Survey's gate for a
-  project not on S5, null only for a listed project whose stage is unread. **Prep:** it writes `life`, `lifeAt`,
+  project not on S5, null only for a listed project whose stage is unread. In `deleteMark` a Restore asks the
+  phase's gate BEFORE its undo snapshot (the L2 review, finding 4; `MarkLifeTest` reads that order from the source)
+  — L3 keeps it, and opens the sheet on Dropped the same way, with no snapshot of its own (one undo step per
+  sheet, taken by `apply`). **Prep:** it writes `life`, `lifeAt`,
   `lifeAs`, `act`, `why`, `note`, `vis` (and `cat` on a Line, an area or an Other).
 - **Tests:** `MarkSheetTest` — nothing changed closes with no undo step; a move that needs a why keeps Done off
   until 3 characters; `act` written only on Existing → Client wish; the note capped at 280 code points; "Office
@@ -463,6 +511,10 @@ with the gate, because a hidden tool needs the line that says why.
   `PlaceAtTest` (nothing is placed at Estimated, at Client approved, or as a wish on a project not on S5).
   **i18n on:** `phase.band.*`, `sp.toolchip.as_wish`, `sp.toolchip.as_existing`, `life.aria.marks_are_placed_x`,
   `refuse.phase.x_was_marked_x`, `refuse.phase.x_estimation_changes_nothing`.
+- **B2 and the exported drawings (the L2 review, finding 1).** From this slice a mark can be BORN a wish, and
+  until L8 the six drawings draw every mark as a surveyed one. The exported A4 sheet therefore draws the room as
+  surveyed (`SurveyExport.sheet` through `SheetMarks.prep(…, OTHERS)`, in since the L2 review): B2 is not merged
+  with `SheetMarksTest`'s three sheet tests red or removed. The Plan tab on screen still draws the new mark, plain.
 - **Amit can:** at Client wish list, pick a type and tap the photo: the box is born a wish — with today's twelve
   types until B3 (for one build a new wardrobe is an "Other" with its trade, from L3, plus a note). At Estimated
   and after approval survey prep opens on 3 · List with no mark tools, under the band that says why.
@@ -510,6 +562,11 @@ with the gate, because a hidden tool needs the line that says why.
   `L6502-6515`. With nothing past Existing, no note and no new type, a drawing is v52's to the byte (`L6083-6084`).
 - **Files:** `pano/SurveyPlan.kt`, `pano/SurveyExport.kt`, `app/SurveyPlanScreen.kt`, `app/PlanExport.kt` (the
   exported sheet carries the same marks, in English). **i18n on:** `sp.legend_x`, `sp.office_view_*`.
+  **L8 takes over the rule B2 ships with** (the L2 review, finding 1): until this slice `SurveyExport.sheet` draws
+  the room as surveyed — it hands `SurveyPlan` `SheetMarks.prep(prep, OTHERS)`, so no mark born a wish, no Note
+  and no state is on a sheet. L8 replaces that line with what the prototype's drawings carry (the states, the
+  legend, Office view) and rewrites `SheetMarksTest`'s three sheet tests in the same commit; it does not just
+  delete them. What a sheet for OTHERS may carry is still Q-list 7.
 - **Tests:** `SurveyPlanTest`, `SvgExportTest`: a v52 prep gives today's SVG; a wish carries its dash and state;
   an office-only note is drawn only with Office view on.
 
@@ -605,6 +662,8 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    **A third document, seen building L2 and NOT covered by either:** the Plan tab's exported A4 sheet
    (`SurveyExport`, drawn by `SurveyPlan`). From B2 until L8 (B4) it draws a mark born a wish like a surveyed one
    (§3.2, "Seen, NOT changed"). Whether that export is the surveyed room in the meantime is the same question.
+   **Since the L2 review it is the surveyed room** (`SheetMarks.prep`, §3.2), like the other two, until he rules
+   or L8 draws a wish as a wish there; the Plan tab on screen, the office's, still draws every mark.
 8. **What a Duplicate is born as** (found building L1, 11 Nov; read in the page's code, not driven). L53's own
    comment says placing "as …" is called by "addEl / addElAt / duplicate" (`P L2957`), and §3.4 L4 above was
    written from it ("a new mark gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement", `DuplicateTest`).
@@ -833,6 +892,11 @@ this plan named the drawings only inside AR's and RQ's outlines, so both stood o
 - **L4 and L10 hide tools he uses today** — B2: the mark tools at Estimated and after approval; B5: Lines,
   readings and Capture 360 between Survey and approval. It is the approved prototype, the band says the phase,
   and each build's note says so plainly, so it does not read as a fault.
+- **From B2 until L8 (B4) the Plan tab and its export differ.** On screen the six drawings draw a mark born a
+  wish like a surveyed one (a wished door is a gap in the wall, with no pill); the exported sheet leaves every
+  such mark out (the L2 review, finding 1). The safe half of a state the prototype does not draw — its drawings
+  show wishes as wishes, which is L8 — and B2's build note says so plainly, so a wish missing from an exported
+  drawing does not read as a fault.
 - **Client approved is a state the prototype's survey prep does not design** (Q-list 6). The phone's behaviour
   there is provisional and the strict one: no move, no mark tools.
 - **A vendor or client login on /projects sees no wish at all** until Amit answers Q-list 7 — stricter than the

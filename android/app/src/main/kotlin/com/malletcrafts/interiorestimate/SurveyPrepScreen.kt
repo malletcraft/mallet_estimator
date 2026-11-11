@@ -221,7 +221,8 @@ internal fun SurveyPrepDialog(
     // THE PROJECT'S QUOTE STAGE, AS SURVEY PREP IS GIVEN IT (port 62). NOT GIVEN YET: slice L3 hands this dialog the
     // stage (PhaseTools.stageOf) at its two call sites, and this line becomes that parameter. Until then it is Survey,
     // whose gate offers no life-cycle move (PhaseTools.gate) -- so in slice L2, which ships no control that sets a
-    // state, a Dropped mark's Restore is answered by the gate's own words and moves nothing (MarkLife.restore).
+    // state, a Dropped mark's Restore is answered by the gate's own words, before any undo step, and moves nothing
+    // (deleteMark, below).
     val quoteStage: Int? = PhaseTools.SURVEY
     // THE ROOM SIZE IN USE (v51; Amit, 15 Oct 2026: "Yes, with slice 2"): the saved prep's own size, which its
     // lines were squared to, else the capture's; the size sheet changes it, and every face, save and caller follows
@@ -720,6 +721,11 @@ internal fun SurveyPrepDialog(
         if (lifeMark != null) when (MarkLife.deleteAct(lifeMark)) {
             MarkLife.DeleteAct.PLAIN -> Unit
             MarkLife.DeleteAct.RESTORE -> {
+                // THE PHASE'S GATE ANSWERS BEFORE ANY UNDO STEP (the L2 review, finding 4; interceptDelete asks
+                // `stage===0` and says the gate's line BEFORE H.snapshot()): a snapshot taken first and popped again
+                // would drop the OLDEST of 40 held steps on every refused tap. The gate's own line, no UNDO.
+                val gate = PhaseTools.gate(quoteStage)
+                if (gate != null) { snack(PhaseTools.gateText(tx, gate), undo = false); return }
                 snapshot()
                 val moved = MarkLife.restore(lifeMark, quoteStage, java.time.Instant.now())
                 if (!moved.ok) { hist.removeAt(hist.size - 1); snack(MarkLife.refusalText(tx, lifeMark, moved).orEmpty(), undo = false); return }
@@ -1376,7 +1382,9 @@ internal fun SurveyPrepDialog(
     // the client's initials, the room's token and the project's code (SurveyExport.exportName); the phone says what it
     // saved in the snackbar (the prototype's "On the phone this saves …" note is the prototype's alone).
     fun planName(): String = SurveyExport.exportName(clientInitials, SurveyExport.roomToken(title), projectCode, planV)
-    /** The drawing shown, on its sheet, from the prep and the room size as they stand NOW (main thread; it is cheap). */
+    /** The drawing shown, on its sheet, from the prep and the room size as they stand NOW (main thread; it is cheap).
+     *  Of the prep's marks the sheet draws THE ROOM AS SURVEYED -- it is saved and shared -- which SurveyExport.sheet
+     *  decides (SheetMarks.prep; port 62, the L2 review): this screen's Plan tab above draws the prep itself. */
     fun planSheet(): SurveyExport.Sheet =
         SurveyExport.sheet(planV, prep, roomSize[0], roomSize[1], roomSize[2],
             SurveyExport.Meta(clientInitials, projectCode, title, captureDate,

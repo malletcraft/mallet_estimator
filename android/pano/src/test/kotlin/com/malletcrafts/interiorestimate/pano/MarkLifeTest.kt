@@ -100,7 +100,7 @@ class MarkLifeTest {
 
     /** A tag as one line: the act's glyph, ✎, V+, the pill and its colour, and the alpha when it is not 1; "-" for none. */
     private fun shown(t: MarkLife.Tag?): String = if (t == null) "-" else listOfNotNull(
-        t.act, if (t.note) MarkLife.NOTE_BADGE else null, if (t.vplus) MarkLife.VPLUS else null,
+        t.act, if (t.note) MarkLife.NOTE_BADGE else null, t.vplus,
         t.pill?.let { "[$it #" + t.colour.toString(16).padStart(6, '0') + "]" }, if (t.alpha != 1.0) "@${t.alpha}" else null).joinToString(" ")
 
     @Test fun `the tag after a mark's code - the act, the note badge, V+ and the pill, row by row, as the prototype's paintState draws them`() {
@@ -131,7 +131,46 @@ class MarkLifeTest {
             Triple("a Note is its own pin (slice L6): no tag, whatever it carries", mark(mapOf("life" to "wish", "note" to "words"), t = "NOTE"), "-"),
         )
         for ((what, e, want) in rows) assertEquals(want, shown(MarkLife.tag(Tx.EN, e)), what)
-        assertEquals(listOf("✎", "V+"), listOf(MarkLife.NOTE_BADGE, MarkLife.VPLUS))
+        assertEquals("✎", MarkLife.NOTE_BADGE)
+        // V+ reads V+ under मराठी too, as the prototype paints it -- from the table, where it is a text (below)
+        assertEquals(listOf("V+", "V+"), listOf(Tx.EN, Tx.MR).map { MarkLife.tag(it, mk("vadd", "vadd"))!!.vplus })
+        assertNull(MarkLife.tag(Tx.EN, mk("wish", "wish"))!!.vplus, "no badge on a mark a vendor did not add")
+    }
+
+    /** A table whose every cell is a marker, as TradesTest asks it: a text read from the tables comes back as ONE cell, whole. */
+    private fun probe(): Tx {
+        val tab = Tx::class.java.getDeclaredField("tab").apply { isAccessible = true }
+        val cells = (tab.get(Tx.EN) as Array<*>).size
+        return Tx::class.java.getDeclaredConstructor(com.malletcrafts.interiorestimate.pano.i18n.Lang::class.java, Array<String>::class.java)
+            .apply { isAccessible = true }.newInstance(com.malletcrafts.interiorestimate.pano.i18n.Lang.EN, Array(cells) { "\u27e6$it\u27e7" })
+    }
+
+    /**
+     * The L2 review, findings 2 and 3: every WORD a mark's tag and its delete control show is a cell of the tables --
+     * the state's pill, the V+ badge (letters a person reads, not a glyph: the L1 review's ruling for the trade short
+     * name AC) and Delete / Drop / Restore -- and Drop is a cell of its OWN, not the Ceiling drop type's short name.
+     */
+    @Test fun `the pill, the V+ badge and the delete control's word are cells of the tables, never a literal -- and Drop has a cell of its own`() {
+        val p = probe(); val cell = Regex("^\u27e6\\d+\u27e7$")
+        for (life in MarkLife.STORED) for (born in listOf("exist", "wish", "vadd")) {
+            val t = MarkLife.tag(p, mk(life, born))!!
+            assertTrue(cell.matches(t.pill!!), "the pill of $life: ${t.pill}")
+            if (born == "vadd") assertTrue(cell.matches(t.vplus!!), "V+ on $life born $born: ${t.vplus}") else assertNull(t.vplus, "$life born $born")
+        }
+        // the glyphs stay glyphs: an act's and the note badge are the same in every table
+        assertEquals("↻", MarkLife.tag(p, mark(mapOf("life" to "wish", "act" to "replace")))!!.act); assertEquals("✎", MarkLife.NOTE_BADGE)
+        // Delete, Drop, Restore: three cells, each its own -- and none of them the pill of the state it leads to
+        val words = listOf(mark(), mk("wish"), mk("drop")).map { MarkLife.deleteLabel(p, it) }
+        for (w in words) assertTrue(cell.matches(w), w)
+        assertEquals(3, words.toSet().size)
+        // Drop is the verb's key: under मराठी it is वगळा, the verb of the state it leads to (वगळले), not ड्रॉप -- which is
+        // what the Ceiling drop type is called for short, and what the prototype's text layer finds for the English word
+        assertEquals(listOf("Drop", "वगळा"), listOf(Tx.EN, Tx.MR).map { MarkLife.deleteLabel(it, mk("wish")) })
+        assertEquals("वगळले", MarkLife.name(Tx.MR, "drop"))
+        val src = java.io.File("src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt").readLines()
+            .filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
+        assertFalse(src.contains("type_cdp_short"), "MarkLife reads the Ceiling drop type's short name: that key is the TYPE's (slices L5 and L6)")
+        assertFalse(src.contains("\"V+\""), "V+ is a literal in MarkLife again")
     }
 
     @Test fun `a crowded box cuts the pill to the state's first word as shown, in both languages -- and nothing else`() {
@@ -604,15 +643,15 @@ class MarkLifeTest {
             Triple("an Existing mark", mark(), "DELETE PLAIN Delete हटवा"),
             Triple("a Note", mark(t = "NOTE"), "DELETE PLAIN Delete हटवा"),
             Triple("a Note carrying a life", mk("wish", t = "NOTE"), "DELETE PLAIN Delete हटवा"),
-            Triple("a wish on a surveyed mark", mk("wish"), "DROP DROP_SHEET Drop ड्रॉप"),
-            Triple("a mark born a wish", mk("wish", "wish"), "DROP DROP_SHEET Drop ड्रॉप"),
-            Triple("a Vendor added mark", mk("vadd", "vadd"), "DROP DROP_SHEET Drop ड्रॉप"),
-            Triple("in Vendor review", mk("vrev"), "DROP DROP_SHEET Drop ड्रॉप"),
-            Triple("Client approved", mk("cok"), "DROP DROP_SHEET Drop ड्रॉप"),
+            Triple("a wish on a surveyed mark", mk("wish"), "DROP DROP_SHEET Drop वगळा"),
+            Triple("a mark born a wish", mk("wish", "wish"), "DROP DROP_SHEET Drop वगळा"),
+            Triple("a Vendor added mark", mk("vadd", "vadd"), "DROP DROP_SHEET Drop वगळा"),
+            Triple("in Vendor review", mk("vrev"), "DROP DROP_SHEET Drop वगळा"),
+            Triple("Client approved", mk("cok"), "DROP DROP_SHEET Drop वगळा"),
             Triple("a Dropped mark", mk("drop"), "RESTORE RESTORE Restore परत आणा"),
             // locked: v52's own delete answers, and refuses with "locked — unlock first" (a Scope mark is locked)
-            Triple("a locked wish", mark(mapOf("locked" to true, "life" to "wish")), "DROP PLAIN Drop ड्रॉप"),
-            Triple("in Scope", mark(mapOf("life" to "scope", "locked" to true)), "DROP PLAIN Drop ड्रॉप"),
+            Triple("a locked wish", mark(mapOf("locked" to true, "life" to "wish")), "DROP PLAIN Drop वगळा"),
+            Triple("in Scope", mark(mapOf("life" to "scope", "locked" to true)), "DROP PLAIN Drop वगळा"),
             Triple("a locked Dropped mark", mark(mapOf("locked" to true, "life" to "drop")), "RESTORE PLAIN Restore परत आणा"),
             Triple("an unknown life", mark(mapOf("life" to "zzz")), "DELETE PLAIN Delete हटवा"),
         )
@@ -634,6 +673,35 @@ class MarkLifeTest {
         val est = mk("drop"); val r = MarkLife.restore(est, 3, at)
         assertEquals(Refusal.NOT_OFFERED, r.refusal); assertEquals("FW1: Dropped cannot move to Client wish", MarkLife.refusalText(Tx.EN, est, r))
         assertEquals(Refusal.APPROVED, MarkLife.restore(mk("drop"), 5, at).refusal)
+    }
+
+    /**
+     * The L2 review, finding 4: a Restore the phase's gate refuses is answered BEFORE any undo step, as the prototype's
+     * interceptDelete answers `stage===0` before `H.snapshot()`. The screen took its snapshot first and popped it on a
+     * refusal -- and a snapshot with 40 steps held drops the OLDEST, so every refused tap cost one. The order is the
+     * app's (compiled only in CI), so it is read from its source; what the gate says is pinned here beside it.
+     */
+    @Test fun `a Restore the gate refuses is answered before any undo step, in the gate's own words`() {
+        // where there is a gate, it says what a refused Restore would say -- so asking it first changes no word ...
+        for (stage in listOf(PhaseTools.SURVEY, PhaseTools.APPROVED)) for (tx in listOf(Tx.EN, Tx.MR)) {
+            val e = mk("drop"); val gate = PhaseTools.gate(stage)!!
+            assertEquals(PhaseTools.gateText(tx, gate), MarkLife.refusalText(tx, e, MarkLife.restore(e, stage, at)), "stage $stage")
+        }
+        assertEquals("Finish the survey first — the stage moves to Client wish list on S5", PhaseTools.gateText(Tx.EN, PhaseTools.gate(0)!!))
+        // ... and where there is none, the Restore is the move's to answer (it moves, or at Estimation says why)
+        for (stage in listOf(1, 2, 3, 4, null)) assertNull(PhaseTools.gate(stage), "stage $stage")
+        // the screen: in deleteMark's RESTORE branch the gate is asked, and answers, before snapshot()
+        val src = java.io.File("../app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepScreen.kt").readLines()
+            .filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
+        val branch = src.substringAfter("MarkLife.DeleteAct.RESTORE -> {", "").substringBefore("MarkLife.DeleteAct.DROP_SHEET")
+        assertTrue(branch.isNotEmpty(), "deleteMark's RESTORE branch was not found in SurveyPrepScreen.kt")
+        val gate = branch.indexOf("val gate = PhaseTools.gate(quoteStage)")
+        val said = branch.indexOf("if (gate != null) { snack(PhaseTools.gateText(tx, gate), undo = false); return }")
+        val snap = branch.indexOf("snapshot()"); val move = branch.indexOf("MarkLife.restore(lifeMark, quoteStage,")
+        assertTrue(gate >= 0 && said > gate, "the gate is asked and answers with its own line, no UNDO")
+        assertTrue(snap > said, "the undo step is taken only after the gate has let the Restore through (gate $said, snapshot $snap)")
+        assertTrue(move > snap, "and the move after the undo step")
+        assertEquals(1, Regex("snapshot\\(\\)").findAll(branch).count(), "one undo step per Restore")
     }
 
     @Test fun `a Scope mark is not unlocked by its padlock or by Unlock all -- it is taken Out of scope in its sheet`() {
