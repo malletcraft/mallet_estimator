@@ -322,6 +322,26 @@ object SurveyPrepEdit {
         SurveyRef.byId(p, id)?.let { (_, r) -> SurveyRef.menuItems(tx, r.locked) } ?: p.markById(id)?.let { (s, e) -> menuItems(tx, p, s, e) } ?: p.measById(id)?.let { (s, m) -> menuItems(tx, p, s, m) }
             ?: p.chainById(id)?.let { (s, c) -> menuItems(tx, p, s, c) } ?: emptyList()
 
+    /**
+     * THE MENU AS THE PHASE LEAVES IT (port 62 slice L4; the prototype's spPost, index61c2.html 4262-4263): a row
+     * that would change an item the phase holds read-only is HIDDEN, never greyed -- Delete (or Drop / Restore) only
+     * where its delete control shows ([PhaseTools.delOk]); Lock / Unlock only where its padlock does
+     * ([PhaseTools.lockOk]); Duplicate and Lock all only where the item may be edited ([PhaseTools.editable]). Cancel
+     * is always there, so on a surveyed mark outside Survey the menu is its head and Cancel, as the prototype's is.
+     * The reference rectangle's menu is never cut: its padlock is not the phase's, and the three rules answer true
+     * for an id that is no item. (Lock all, where it shows outside Survey, answers [PhaseTools.refuseBulk] -- the
+     * prototype's own: it draws the row for a mark the phase lets be edited and refuses the act. DESIGN-port62 Q-list 11.)
+     */
+    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?): List<Pair<String, String>> =
+        menuItemsOf(tx, p, id).filter { (k, _) ->
+            when (k) {
+                DELETE -> PhaseTools.delOk(p, id, stage)
+                LOCK -> PhaseTools.lockOk(p, id, stage)
+                DUPLICATE, LOCK_ALL -> PhaseTools.editable(p, id, stage)
+                else -> true
+            }
+        }
+
     /** "Lock" / "Unlock" and "Lock all" / "Unlock all" are chosen in code, so each is its own whole key (the card's group 2).
      *  [delete]: the first row's word -- Delete, or a mark's own. */
     private fun menu(tx: Tx, g: Group, locked: Boolean, delete: String = tx.common_delete) =
@@ -338,6 +358,13 @@ object SurveyPrepEdit {
      * that would leave the [a] x [b] face, never past its edge; the same type and size; the NEXT code of its
      * type (codes are never reused: [SurveyPrep.Prep.claimCode]); NO READINGS -- it is another thing on the
      * wall, measured on its own; and unlocked, even when the original is locked. Null when there is no such mark.
+     *
+     * THE COPY IS THE BOX ALONE (port 62 slice L4; index61c2.html 5633-5635): the prototype's duplicateItem builds
+     * `{id, t, code, x0, x1, y0, y1, locked: false}` and nothing more -- no `born`, `life`, act, note, sub-kind or
+     * trade -- so the copy of a wish is an EXISTING mark, which every phase after Survey then holds read-only like a
+     * surveyed one. That is what the page DOES (its own comment says otherwise); whether a copy should be born what
+     * the phase places is DESIGN-port62 Q-list 8, and until Amit rules nothing is stamped here. Where a copy may be
+     * made at all is the phase's ([PhaseTools.editable]), asked by the screen before this.
      */
     fun duplicate(p: SurveyPrep.Prep, id: String, a: Double, b: Double, newId: String): SurveyPrep.Mark? {
         val (s, e) = p.markById(id) ?: return null

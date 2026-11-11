@@ -527,6 +527,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // the prototype reads the stage on every render. Survey's rules for a project S5 does not list.
             quoteStage = QuoteStageSync.prepStage(context,
                 WishSync.stageKey(context, k.row.project, k.row.customerName, k.row.projectTitle)),
+            // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4), read the same way
+            projectLine = QuoteStageSync.prepLine(context,
+                WishSync.stageKey(context, k.row.project, k.row.customerName, k.row.projectTitle), tx),
             onDone = { p, size ->
                 surveyKept = null; surveyTick++
                 // The room size as survey prep now has it (v51: its size line is editable) goes to the
@@ -3853,6 +3856,9 @@ private fun NewCaptureSurvey(
         // is a project S5 does not list -- Survey's rules -- and a new room of a listed project takes that project's
         quoteStage = QuoteStageSync.prepStage(context,
             WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle)),
+        // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4)
+        projectLine = QuoteStageSync.prepLine(context,
+            WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle), tx),
         onDone = { p, size -> keepWith(p, size) },
         onCancel = { p, size -> keepWith(p, size) },
         onDiscard = onDiscard)

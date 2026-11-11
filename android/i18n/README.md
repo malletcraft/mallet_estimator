@@ -673,6 +673,35 @@ of the tables' own, read for the first time: the four `act.*.sym`, `common.clien
 `life.trade_x`, `life.what_should_office_vendor`, `life.x_locked_only_note`, `refuse.life.note_needs_words_type`).
 `MarkSheetTest` asks a table whose every cell is a marker for every word the sheet shows: a literal fails it.
 
+## Port 62 slice L4 (11 Nov 2026): the phase in survey prep, and a mark placed "as …" -- no new key
+
+No file joined `ported.txt` and no key was added: every text this slice puts on a screen was already in the tables, most of
+them read by `pano/PhaseTools.kt` since slice L1 and now, for the first time, drawn (DESIGN-port62 §3.4). L4 closes build
+B2 (L1-L4 reach `main` together).
+
+- **The band over survey prep** (`SpPhaseBand`, from `PhaseTools.band`): the phase's number and name through `Phases`
+  (`phase.*`), then `phase.band.survey`, `phase.band.wish`, `phase.band.vendor`, `phase.band.estimation`, `phase.band.rev`;
+  at Client approved the stage's name through `Masters.quote` and the project's one derived line (`QuoteStage.projectLine`,
+  keyed since slice PL); unread, `phase.phase_not_read_yet`; what a screen reader is told, `phase.phase_x_4_x`. The dot
+  between its two parts is the prototype's separator, marked `// text:value`.
+- **The tool chip's second half** (`SurveyPrepPalette.chip`): `sp.toolchip.as_wish`, `sp.toolchip.as_vadd`,
+  `sp.toolchip.as_existing` after `sp.placing_x_tap_photo` / `sp.placing_x_tap_360`; what a screen reader is told for it,
+  `life.aria.marks_are_placed_x` (plain words, where the phase fixes it) and `life.aria.place_marks_x_tap` (the cycling
+  button, only while the stage is unread). ` · ` and ` ▾` are a separator and a glyph, marked.
+- **What a refused act says** (`PhaseTools.refuseText` / `refuseBulk` / `refuseStartOver`, said as a note):
+  `refuse.phase.x_was_marked_x` ("FW1 was marked in Survey — move the phase back to change it", the phase's name through
+  `Phases`), `refuse.phase.x_estimation_changes_nothing` (with `phase.this` for a clear),
+  `refuse.phase.clearing_locking_every_mark`, `refuse.phase.start_over_survey_tool`.
+- **After a mark is placed at Revisions**: `life.after_estimate_tell_office`.
+
+**Stored in English, never through a key**: what a placement writes -- `born`, `life`, `lifeAt`, `lifeAs`
+(`MarkLife.placeAs`, through `PhaseTools.place`, which takes no `Tx`) -- and the capture's remembered "as" (`exist`, `wish`,
+`vadd`, a file beside the prep, never uploaded).
+
+1,900 keys, unchanged; Tx regenerated to the same file (1,829 accessors); `i18nRatchet` lowered nothing; `unkeyed.tsv` stays
+empty; the accessors nothing calls go 657 -> 652 (the three `sp.toolchip.as_*`, `life.aria.marks_are_placed_x`,
+`life.aria.place_marks_x_tap`). `PaletteTest` holds the chip in both languages to what the prototype's page draws.
+
 ## What is here
 
 | File | What it is | Who writes it |

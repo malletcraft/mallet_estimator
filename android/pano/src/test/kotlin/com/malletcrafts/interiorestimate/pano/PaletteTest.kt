@@ -108,4 +108,81 @@ class PaletteTest {
         assertEquals("Placing Switch plate · tap the photo", SurveyPrepPalette.chipText(Tx.EN, "left", "S"))
         assertEquals("Placing Step · tap the photo", SurveyPrepPalette.chipText(Tx.EN, "floor", "S"))
     }
+
+
+    // ------------------------------------------------------------------ port 62 slice L4: "· as Client wish"
+
+    private val STAGES: List<Int?> = listOf(0, 1, 2, 3, 4, 5, null)
+    private fun chipAt(stage: Int?, tool: String = "E", where: String = "photo", picked: String? = null, tx: Tx = Tx.EN) =
+        SurveyPrepPalette.chip(tx, "front", PhaseTools.toolFor(tool, stage), stage, picked, where)
+
+    @Test fun `the chip per stage - none at Survey, plain words where the phase fixes it, the cycling button only while unread`() {
+        // the page's own chip with Electric on, driven at each stage (v61c.2, 11 Nov 2026)
+        assertEquals("Placing Electric point · tap the photo", chipAt(0)!!.text)
+        assertEquals("Placing Electric point · tap the photo · as Client wish", chipAt(1)!!.text)
+        assertEquals("Placing Electric point · tap the photo · as Vendor added", chipAt(2)!!.text)
+        assertNull(chipAt(3), "Estimation has no palette: the tool is Select and no chip is drawn")
+        assertEquals("Placing Electric point · tap the photo · as Vendor added", chipAt(4)!!.text)
+        assertNull(chipAt(5), "nor has Client approved")
+        assertEquals("Placing Electric point · tap the photo · as Existing ▾", chipAt(null)!!.text)
+        // which face it is
+        assertEquals(listOf("none", "plain", "plain", "-", "plain", "-", "button"), STAGES.map { st ->
+            chipAt(st)?.let { if (it.asText == null) "none" else if (it.cycles) "button" else "plain" } ?: "-" })
+        // Survey's chip is v52's own, to the letter: no second half, nothing to say for one
+        chipAt(0)!!.let { c -> assertEquals(SurveyPrepPalette.chipText(Tx.EN, "front", "E"), c.text); assertEquals(-1, c.asFrom); assertNull(c.asLabel); assertEquals(c.main, c.spoken); assertFalse(c.cycles) }
+        // a project S5 does not list is given Survey's stage: its chip is Survey's
+        assertEquals(chipAt(0)!!.text, chipAt(PhaseTools.stageOf(null, phoneOnly = true))!!.text)
+        // on the 360 the same second half
+        assertEquals("Placing Window · tap the 360 · as Client wish", chipAt(1, "W", "360")!!.text)
+        assertEquals("Placing Window · tap the 360", chipAt(0, "W", "360")!!.text)
+        // Select and the drawing tools have other chips, in every phase
+        for (st in STAGES) for (t in listOf(SurveyPrepPalette.SEL, "T", "M", "K")) assertNull(chipAt(st, t), "$t at $st")
+        // a Note has no state: its chip has no second half (the page's `tool==='NOTE'?''`)
+        assertNull(SurveyPrepPalette.chip(Tx.EN, "front", MarkLife.NOTE_TYPE, 1, null)!!.asText)
+    }
+
+    @Test fun `the chip's second half - where it starts, what is said for it, and that it is the phase's own word`() {
+        val wish = chipAt(1)!!
+        assertEquals("Placing Electric point · tap the photo", wish.main); assertEquals("as Client wish", wish.asText); assertFalse(wish.cycles)
+        assertEquals("as Client wish", wish.text.substring(wish.asFrom)); assertEquals("Placing Electric point · tap the photo · ", wish.text.substring(0, wish.asFrom))
+        assertEquals("Marks are placed as Client wish in this phase", wish.asLabel)
+        assertEquals("Placing Electric point · tap the photo · Marks are placed as Client wish in this phase", wish.spoken)
+        assertEquals("Marks are placed as Vendor added in this phase", chipAt(2)!!.asLabel); assertEquals(chipAt(2)!!.asLabel, chipAt(4)!!.asLabel)
+        // where the phase fixes it, what this capture's button was once cycled to changes nothing
+        for (picked in listOf(null, "exist", "wish", "vadd", "nonsense")) {
+            assertEquals("as Client wish", chipAt(1, picked = picked)!!.asText, "$picked"); assertEquals("as Vendor added", chipAt(4, picked = picked)!!.asText, "$picked")
+            assertNull(chipAt(0, picked = picked)!!.asText, "$picked at Survey")
+        }
+        // the words are what is PLACED: the chip and the placement read one rule
+        for (st in STAGES) for (picked in listOf(null, "exist", "wish", "vadd")) chipAt(st, picked = picked)?.asText?.let { said ->
+            assertEquals(SurveyPrepPalette.asName(Tx.EN, PhaseTools.asFor(st, picked)), said.removeSuffix(" ▾"), "$st $picked") }
+        assertEquals(listOf("as Existing", "as Client wish", "as Vendor added", "as Existing", "as Existing"),
+            listOf("exist", "wish", "vadd", null, "nonsense").map { SurveyPrepPalette.asName(Tx.EN, it) })
+    }
+
+    @Test fun `while the stage is unread the button cycles Existing, Client wish, Vendor added, per capture`() {
+        var picked: String? = null; val seen = ArrayList<String>(); val said = ArrayList<String>()
+        repeat(4) {
+            val c = chipAt(null, "W", picked = picked)!!
+            assertTrue(c.cycles); seen.add(c.text); said.add(c.asLabel.orEmpty())
+            picked = PhaseTools.nextAs(null, picked)
+        }
+        // driven on the page: four faces of the chip, a tap on its button between each
+        assertEquals(listOf("Placing Window · tap the photo · as Existing ▾", "Placing Window · tap the photo · as Client wish ▾",
+            "Placing Window · tap the photo · as Vendor added ▾", "Placing Window · tap the photo · as Existing ▾"), seen)
+        assertEquals(listOf("Place marks as Existing — tap to change", "Place marks as Client wish — tap to change",
+            "Place marks as Vendor added — tap to change", "Place marks as Existing — tap to change"), said)
+        chipAt(null, "W", picked = "wish")!!.let { c -> assertEquals("as Client wish ▾", c.text.substring(c.asFrom)); assertEquals("Placing Window · tap the photo · Place marks as Client wish — tap to change", c.spoken) }
+        // nothing cycles where the phase fixes it, at Survey, or where there is no palette
+        for (st in 0..5) assertNull(PhaseTools.nextAs(st, "wish"), "$st")
+    }
+
+    @Test fun `the chip in Marathi, as the page draws it`() {
+        assertEquals("इलेक्ट्रिक पॉइंट ठेवत आहे · फोटोवर टॅप करा · ग्राहकाची इच्छा म्हणून", chipAt(1, tx = Tx.MR)!!.text)
+        assertEquals("या फेजमध्ये मार्क ग्राहकाची इच्छा म्हणून ठेवले जातात", chipAt(1, tx = Tx.MR)!!.asLabel)
+        assertEquals("इलेक्ट्रिक पॉइंट ठेवत आहे · फोटोवर टॅप करा · व्हेंडरने जोडले म्हणून", chipAt(4, tx = Tx.MR)!!.text)
+        assertEquals("इलेक्ट्रिक पॉइंट ठेवत आहे · फोटोवर टॅप करा · सध्याचे म्हणून ▾", chipAt(null, tx = Tx.MR)!!.text)
+        assertEquals("मार्क सध्याचे म्हणून ठेवा — बदलण्यासाठी टॅप करा", chipAt(null, tx = Tx.MR)!!.asLabel)
+        assertEquals("इलेक्ट्रिक पॉइंट ठेवत आहे · फोटोवर टॅप करा · ग्राहकाची इच्छा म्हणून ▾", chipAt(null, picked = "wish", tx = Tx.MR)!!.text)
+    }
 }

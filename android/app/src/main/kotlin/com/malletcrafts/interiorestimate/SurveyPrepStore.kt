@@ -44,9 +44,22 @@ class SurveyPrepStore(context: Context) {
         runCatching { file(id).delete() }
         // its readings baseline goes with it (ReadingsSync), and any copy set aside
         runCatching { File(dir, "$id.sync.json").delete() }
+        runCatching { asFile(id).delete() }
         runCatching { dir.listFiles()?.filter { SurveyPrepFile.isAside(id, it.name) }?.forEach { it.delete() } }
         synchronized(held) { held.remove(id) }
     }
+
+    /**
+     * WHAT THIS CAPTURE'S "as Existing ▾" BUTTON WAS LAST CYCLED TO (port 62 slice L4; the prototype's asMem, kept per
+     * capture under 'mcft-placeas-v53', index61c2.html 2853-2858): `exist`, `wish` or `vadd`, or null when it never
+     * was. It is read only while the project's quote stage is unread -- every stage that is read fixes what a mark is
+     * placed as (PhaseTools.asFor, which also throws away anything that is none of the three) -- and it is a memory of
+     * this screen, never part of the prep: it lies beside the prep's file, is not uploaded, and goes with the capture.
+     */
+    private fun asFile(id: String) = File(dir, "$id.as")
+    fun placeAs(id: String): String? =
+        runCatching { asFile(id).takeIf { it.exists() }?.readText()?.trim() }.getOrNull()?.takeIf { it.isNotEmpty() }
+    fun setPlaceAs(id: String, asId: String) { runCatching { asFile(id).writeText(asId) } }
 
     fun loadText(id: String): String? = runCatching { file(id).takeIf { it.exists() }?.readText() }.getOrNull()
 

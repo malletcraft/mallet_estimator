@@ -105,4 +105,38 @@ class DuplicateTest {
         val q = SurveyPrep.fresh(L, W, H); SurveyPrepEdit.keepSeq(q, back)
         assertEquals("FW3", back.nextCode("front", "W"))
     }
+
+
+    // ------------------------------------------------------------------ port 62 slice L4: a copy is the box alone
+
+    @Test fun `the copy of a wish is the box alone - no born, no state, no act, no note - as the page's duplicateItem makes it`() {
+        val p = SurveyPrep.fresh(L, W, H)
+        val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
+        // a socket placed in the Wish list stage, with a note; and a surveyed window the client wished
+        val e = PhaseTools.place(p, "front", "E", 1300.0, 600.0, W, H, "e", PhaseTools.WISH_LIST, null, at) { }!!.mark
+        MarkLife.setNote(e, "above the counter", office = true)
+        val w = p.addMarkAt("front", "W", 1300.0, 1500.0, W, H, "w")
+        assertEquals(true, MarkLife.move(w, MarkLife.WISH, 1, at, act = MarkLife.SHIFT).ok)
+        for ((id, copyId, code) in listOf(Triple("e", "e2", "FE2"), Triple("w", "w2", "FW2"))) {
+            val src = p.markById(id)!!.second
+            val c = assertNotNull(SurveyPrepEdit.duplicate(p, id, W, H, copyId))
+            // driven on the page: the copy of the mark just placed as a wish is {t, code, locked: false} and its box
+            assertEquals(code, c.code); assertEquals(src.t, c.t)
+            for (k in MarkLife.KEYS) assertFalse(c.extra.containsKey(k), "$code carries no $k")
+            assertEquals(MarkLife.EXIST, MarkLife.lifeOf(c)); assertEquals(MarkLife.EXIST, MarkLife.bornOf(c))
+            assertNull(MarkLife.actOf(c)); assertEquals("", MarkLife.noteOf(c.extra)); assertNull(MarkLife.tag(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, c))
+            assertFalse(SurveyPrep.isLocked(c))
+            assertEquals(src.x1 - src.x0, c.x1 - c.x0); assertEquals(src.y1 - src.y0, c.y1 - c.y0)
+            // the original keeps everything
+            assertEquals(MarkLife.WISH, MarkLife.lifeOf(src))
+        }
+        assertEquals("above the counter", MarkLife.noteOf(p.markById("e")!!.second.extra))
+        // so in the very phase it was made in the copy is held like a surveyed mark: nothing of it can be changed
+        // there, and its delete control is gone (driven: the copy's row is its label alone) -- DESIGN-port62 Q-list 8
+        for (st in listOf(1, 2, 3, 4, 5)) { assertFalse(PhaseTools.editable(p, "e2", st), "$st"); assertFalse(PhaseTools.delOk(p, "e2", st), "$st") }
+        assertTrue(PhaseTools.editable(p, "e2", 0)); assertTrue(PhaseTools.editable(p, "e2", null))
+        // where a copy may be made at all is the phase's: the wish-born socket in the Wish list, never the surveyed window
+        assertTrue(PhaseTools.editable(p, "e", 1)); assertFalse(PhaseTools.editable(p, "w", 1))
+        assertEquals("FW1 was marked in Survey — move the phase back to change it", PhaseTools.refuseText(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, p, "w", 1))
+    }
 }

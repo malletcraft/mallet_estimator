@@ -25,6 +25,14 @@
 // control says वगळा (life.drop.verb), the verb of वगळले. And the page this was last run on is mock-up v62a (v61c.2 plus the
 // prototype items P0 and P2, 9,657 lines): the four modules are cut by their opening lines, so they are found wherever they
 // sit, and they print what the 9,563-line v61c.2 printed -- only the first line, their line numbers, differs (+26).
+// SLICE L4 (11 Nov 2026) adds one section, "L4 …": the phase in survey prep, by the page's own P54.spPre run on a stub
+// survey-prep root -- the step and the tool it moves on, the band it writes -- and L53's "as …": the chip's second half per
+// stage, the cycle, and what a placed mark is stamped with; then what the phase leaves of each item's controls and menu rows
+// (spEdit / spDelOk / spBulk, as spPost hides them) and what a refused act says. It is the cross-check behind the L4 tests of
+// PhaseToolsTest, PaletteTest, PlaceAtTest and DuplicateTest. WHERE THE PHONE DIFFERS, ON PURPOSE (DESIGN-port62.md §3.4):
+// it honours the `mark` and `palette` rows only until slice L10, so 1 · Lines is not moved on at stages 1-4 (the page prints
+// lines -> mark / list there); and at Client approved it draws 3 · List without steps 1 and 2 and hides a Drop / Restore and
+// a Scope mark's padlock (Q-list 6), where the page prints them.
 import fs from 'node:fs';
 
 const page = process.argv[2];
@@ -269,6 +277,53 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   console.log('L3 under मराठी, the texts the page finds:', JSON.stringify(['STATE', 'TRADE', 'NOTE', 'Done', 'Close', 'Mark sheet', '↻ Replace', '⇢ Shift', '⚒ Repair', '✕ Remove', ' · decided by staff', ' · decided by the surveyor', 'since 16 Oct, 06:37 IST',
     'Client & vendors', 'Office only', 'A note on this mark (optional)', 'A note on this length (optional)', 'What should the office or the vendor know here?', 'Trade · FX1', 'Open the Mark sheet for FW1',
     'FD1 is locked — only its note can change', 'A Note needs its words — type them, or delete the Note'].map(x => L57.vis(x))));
+}
+
+// ---- SLICE L4: the phase in survey prep -- P54.spPre (4204-4224) on a stub root, L53's asChipHTML / cycleAs / asPlace
+// (2848-2860), and P54's editable / delOk / spBulk / refuseText (4232-4264) as spPost applies them to a row and to the menu
+{
+  try { L57.set('en'); } catch (_) {}
+  const QUOTE = P54.QUOTE, strip = h => String(h).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  // a survey-prep root with a band element spPre can write, in portrait (`land` false) or landscape
+  const rootOf = land => { const bandEl = { dataset: {}, attrs: {}, innerHTML: '', parentElement: null, setAttribute(k, v) { this.attrs[k] = v; }, remove() {} };
+    const host = id => ({ id, firstElementChild: null, lastElementChild: null, firstChild: null, insertBefore(b) { b.parentElement = this; this.firstElementChild = b; b.where = id + ':first'; }, appendChild(b) { b.parentElement = this; this.lastElementChild = b; b.where = id + ':last'; } });
+    const hosts = { '#spctl': host('spctl'), '#spmain': host('spmain') };
+    return { bandEl, dataset: {}, classList: { contains: c => c === 'land' && land }, querySelector: q => (q === '#p54band' ? bandEl : hosts[q] || null) }; };
+  const pre = (stage, mode, tool, markable, land = false) => { const root = rootOf(land), st = { tab: 'front', mode, tool, more: true };
+    P54.spPre({ root, st, meta: { quote: stage == null ? null : QUOTE[stage], project: 'none' }, SURF: ['front'], frame: () => markable }); return { root, st }; };
+  console.log('\nL4 spPre, the step and the tool moved on, at stages 0..5 and unread:');
+  for (const [mode, markable] of [['lines', true], ['lines', false], ['mark', true], ['list', true], ['360', true]])
+    console.log('  ', (mode + (mode === 'lines' ? (markable ? ' (lines closed)' : ' (lines open)') : '')).padEnd(22), STAGES.map(s => pre(s, mode, 'sel', markable).st.mode).join(' '));
+  for (const tool of ['E', 'T', 'M', 'K', 'sel']) console.log('   tool', tool.padEnd(17), STAGES.map(s => pre(s, 'mark', tool, true).st.tool).join(' '));
+  console.log('L4 the band spPre writes (pips on / 5 | its text | its aria-label | where), portrait then landscape:');
+  for (const s of STAGES) for (const land of [false, true]) { const { root } = pre(s, 'mark', 'sel', true, land), b = root.bandEl;
+    console.log('  ', String(s).padEnd(4), land ? 'land' : 'port', '|', (b.innerHTML.match(/<i class="on">/g) || []).length, '|', strip(b.innerHTML.replace(/<\/b>/, '</b> ')), '|', b.attrs['aria-label'], '|', b.where, '| data-ph', root.dataset.ph54); }
+  console.log('L4 the chip\'s second half, asChipHTML at stages 0..5 and unread (text | aria-label | what it is):');
+  try { localStorage.removeItem('mcft-placeas-v53'); } catch (_) {}
+  for (const s of STAGES) { const h = L53.asChipHTML('capA', s); console.log('  ', String(s).padEnd(4), '|', JSON.stringify(strip(h)), '|', (/aria-label="([^"]*)"/.exec(h) || [, ''])[1], '|', !h ? 'none' : /<button/.test(h) ? 'button' : 'plain words'); }
+  console.log('   drawn where the palette is:', bits(s => P54.can('palette', s)), '(0: no chip at all)');
+  { const seq = []; for (let i = 0; i < 4; i++) { seq.push(strip(L53.asChipHTML('capA', null)) + ' [places ' + L53.asFor('capA', null) + ']'); L53.cycleAs('capA', null); }
+    console.log('   unread, a tap on the button between each:', seq.join('  ->  '), '· another capture:', strip(L53.asChipHTML('capB', null)));
+    console.log('   cycled to wish on capA, then read at 0..5:', (L53.cycleAs('capA', null), STAGES.slice(0, 6).map(s => L53.asFor('capA', s)).join(',')), '· cycleAs at 1:', L53.cycleAs('capA', 1)); }
+  L53.setNow(() => new Date('2026-11-11T05:00:09Z')); try { localStorage.removeItem('mcft-placeas-v53'); } catch (_) {}
+  console.log('L4 a mark placed (asPlace with asFor), the keys it gains, at stages 0..5 and unread -- the page asks only where its palette is:');
+  for (const s of STAGES) { const e = { id: 'n', t: 'E', code: 'FE2', locked: false }; const r = L53.asPlace(e, L53.asFor('capZ', s), s); delete e.id; delete e.t; delete e.code; delete e.locked;
+    console.log('  ', String(s).padEnd(4), P54.can('palette', s) ? 'placed  ' : 'NO TOOL ', JSON.stringify(e), '-> ' + r, '· said:', s != null && s >= 3 ? 'After the estimate — tell the office' : '-'); }
+  console.log('   a Note placed at stage 1:', JSON.stringify(L53.asPlace({ t: 'NOTE', code: 'FNOTE1' }, 'wish', 1)));
+  // the picked row's controls and the menu's rows, as spPost hides them: N nudges (spEdit), L padlock (spEdit), D delete (spDelOk)
+  const its = { 'a surveyed mark': mk('exist', 'exist'), 'born a wish': mk('wish', 'wish'), 'born Vendor added': mk('vadd', 'vadd'), 'a surveyed mark wished': mk('wish', 'exist'),
+    'a copy of a wish (the box alone)': mk('exist', 'exist'), 'born Vendor added, in Scope, locked': Object.assign(mk('scope', 'vadd'), { locked: true }),
+    'a Line': { id: 'm', kind: 'line', code: 'F-M1' }, 'a chain': { id: 'k', code: 'FK1', nodes: [[0, 0], [9, 0]] } };
+  console.log('L4 the picked item\'s controls the phase leaves (N nudges and tabs, L padlock, D delete) and its menu rows, at stages 0..5 and unread:');
+  for (const [n, e] of Object.entries(its)) console.log('  ', (n + ':').padEnd(38), STAGES.map(s => { pre(s, 'mark', 'sel', true); return (P54.spEdit(e) ? 'NL' : '--') + (P54.spDelOk(e) ? 'D' : '-'); }).join(' '),
+    ' menu:', STAGES.map(s => { pre(s, 'mark', 'sel', true); return [P54.spDelOk(e) ? (e.kind || e.nodes ? 'Delete' : L53.delWord(e)) : null, ...(P54.spEdit(e) ? ['Duplicate', e.locked ? 'Unlock' : 'Lock', 'Lock all'] : []), 'Cancel'].filter(Boolean).join('|'); }).join('  '));
+  console.log('L4 ⋮ Clear, Lock all and Start over shown (spBulk):', STAGES.map(s => { pre(s, 'mark', 'sel', true); return P54.spBulk() ? 1 : 0; }).join(''));
+  console.log('L4 what a refused act says (refuseText), stage by stage:');
+  for (const s of [1, 2, 3, 4, 5]) { pre(s, 'mark', 'sel', true); console.log('  ', s, '|', [its['a surveyed mark'], its['born a wish'], its['born Vendor added'], its['a Line'], null, 'restart'].map(x => P54.refuseText(x)).join(' | ')); }
+  try { L57.set('mr'); } catch (_) {}
+  console.log('L4 under मराठी, the texts the page finds:', JSON.stringify(['as Existing', 'as Client wish', 'as Vendor added', 'Marks are placed as Client wish in this phase', 'Place marks as Existing — tap to change',
+    'Placing Electric point · tap the photo', 'every mark you place is a client wish', 'Phase not read yet — S5 decides when online', 'FW1 was marked in Survey — move the phase back to change it',
+    'After the estimate — tell the office'].map(x => L57.vis(x))));
 }
 
 // ---- L57: what the page shows under मराठी for each line of the file given (a text it does not know comes back as it went in)

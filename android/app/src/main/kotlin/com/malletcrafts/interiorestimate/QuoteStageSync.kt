@@ -149,6 +149,16 @@ object QuoteStageSync {
     }
 
     /**
+     * WHAT SURVEY PREP'S BAND SAYS AFTER "Client approved" (port 62 slice L4; the prototype's spPre, index61c2.html
+     * 4219-4221: `Client approved · ` and the project line's own text) for the S5 id [stageKey]: the ONE derived line
+     * ([lineFor]) while it is the execution line -- "Execution · 1 in progress · 1 done" -- else null: through the
+     * quote journey the band says the phase's own words and asks for no line. The same copy and the same queued
+     * writes as every other reader of the line, so the band and the project screen never say two things.
+     */
+    fun prepLine(context: Context, stageKey: String?, tx: Tx): String? =
+        lineFor(context, stageKey, tx).takeIf { it.kind == QuoteStage.LineKind.EXEC }?.text
+
+    /**
      * The works' states every other reader draws (port 61c slice K4): the store's copy for [stageKey] with the signed-in
      * login's queued state writes laid over it (QuoteStage.statesWith) -- Which work?'s state lines, the capture
      * sheet's default pick (Album.newCaptureWork: the first work In progress) and the WORK line. Null when the project

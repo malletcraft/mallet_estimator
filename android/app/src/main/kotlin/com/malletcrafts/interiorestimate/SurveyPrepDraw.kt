@@ -205,6 +205,10 @@ internal object SurveyPrepDraw {
         /** v52 slice 12: the face's ONE frame (SurveyPrep.frameOf), through which its reference rectangle is drawn; null
          *  draws none. */
         val frame: SurveyPrep.Frame? = null,
+        /** Port 62 slice L4: the picked mark's eight resize tabs are drawn (the editing photo only). False where the
+         *  phase holds that mark read-only -- a control that would change it is HIDDEN, never greyed (the prototype's
+         *  `!P54.spEdit(e)`, index61c2.html 5097); the caller asks PhaseTools.editable. */
+        val tabs: Boolean = true,
     )
 
     /**
@@ -421,7 +425,7 @@ internal object SurveyPrepDraw {
                 // ... and after its code its act, ✎, V+ and pill; the pill is its first word on a box under 90 u wide
                 lifeTagOf(c, tx, e, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
                 if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
-                if (sel && o.mode == "main" && !locked) {
+                if (sel && o.mode == "main" && !locked && o.tabs) {
                     val xm = (p[0] + q[0]) / 2; val ym = (p[1] + q[1]) / 2; val h = 5f * u
                     for ((tx, ty) in listOf(p[0] to p[1], q[0] to p[1], q[0] to q[1], p[0] to q[1], xm to p[1], xm to q[1], p[0] to ym, q[0] to ym)) {
                         c.drawRect(tx - h, ty - h, tx + h, ty + h, Paint().apply { color = argb(0xffffff) })

@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,15 +35,26 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.interiorestimate.pano.PhaseTools
+import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
@@ -180,16 +195,56 @@ internal fun SpMoreSheet(s: String, tool: String, modifier: Modifier, onPick: (S
  * 1234 mm") -- with the amber [caution] under it: "Only things on this surface measure correctly." (sp.js .caut).
  * With Chain on (v52 slice 11) it counts the points ("Chain · 2 points · tap points along the surface, double-tap or ✓
  * to end"), and from the second point a green ✓ ([onDone], sp.html data-kdone "End the chain") ends the chain.
+ *
+ * ITS SECOND HALF, "· as Client wish" (port 62 slice L4; the prototype's asChipHTML, index61c2.html 2860, CSS 1071 and
+ * 1280): with a type on, [text] ends in what a tap places the mark AS, from [asFrom] on (SurveyPrepPalette.Chip; -1:
+ * none) -- drawn bold, in the same run of words, so it wraps with them. Where the phase fixes it, it is plain words
+ * with nothing to pick; while the quote stage is unread ([cycles]) it is the chip's one other button, underlined, and
+ * a press that lands on those words -- and only on them -- cycles it ([onAs]); every other press on the chip's words
+ * is still the photo's. [spoken] is what a screen reader is told in place of [text] (the second half has its own label).
  */
 @Composable
 internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: String? = null, onDone: (() -> Unit)? = null,
+                        asFrom: Int = -1, cycles: Boolean = false, spoken: String? = null, onAs: (() -> Unit)? = null,
                         onClose: () -> Unit) {
     val tx = LocalTx.current
     val col = Color(SurveyPrepDraw.argb(colour)); val shape = RoundedCornerShape(16.dp)
+    val from = if (asFrom in 0..text.length) asFrom else -1
+    val words: AnnotatedString = if (from < 0) AnnotatedString(text) else buildAnnotatedString {
+        append(text.substring(0, from))
+        withStyle(SpanStyle(fontWeight = FontWeight.Bold, textDecoration = if (cycles) TextDecoration.Underline else null)) {
+            append(text.substring(from)) }
+    }
+    // the words as last laid out, for telling a press on the second half from one on the rest: written by the layout,
+    // read only by the press, so it recomposes nothing
+    val laid = remember { arrayOfNulls<TextLayoutResult>(1) }
+    val onAsS by rememberUpdatedState(onAs)
+    val button = cycles && from >= 0 && onAs != null
     Row(modifier.heightIn(min = 32.dp).clip(shape).background(Color(0xD0000000)).border(1.5.dp, col, shape).padding(start = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f, fill = false).padding(vertical = 4.dp)) {
-            Text(text, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(words, color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, maxLines = if (from < 0) 2 else 3, overflow = TextOverflow.Ellipsis,
+                onTextLayout = { laid[0] = it },
+                modifier = Modifier
+                    .let { m -> if (spoken == null) m else m.clearAndSetSemantics {
+                        contentDescription = spoken
+                        if (button) onClick { onAsS?.invoke(); true }
+                    } }
+                    .let { m -> if (!button) m else m.pointerInput(from) {
+                        // as the step strip's own touch area takes a press (routeToStep): a press that is not on the
+                        // second half is left unconsumed, and the photo under the chip takes it
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            val lay = laid[0] ?: return@awaitEachGesture
+                            if (lay.getOffsetForPosition(down.position) < from) return@awaitEachGesture
+                            down.consume()
+                            do {
+                                val ev = awaitPointerEvent()
+                                ev.changes.forEach { it.consume() }
+                            } while (ev.changes.any { it.pressed })
+                            onAsS?.invoke()
+                        }
+                    } })
             if (caution != null) Text(caution, color = SP_CAUT, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 2)
         }
         if (onDone != null) Box(Modifier.size(32.dp).clip(shape).clickable { onDone() }
@@ -200,6 +255,35 @@ internal fun SpToolChip(text: String, colour: Int, modifier: Modifier, caution: 
             contentAlignment = Alignment.Center) {
             Text("✕", color = Color.White, fontSize = 15.sp, lineHeight = 18.sp) // text:value glyph
         }
+    }
+}
+
+/**
+ * THE PHASE BAND (port 62 slice L4; the prototype's P54 band, index61c2.html spPre 4218-4224 and CSS 1260-1270): one
+ * 20 dp line that says which phase the open capture's project is in -- five 8 x 3 dp pips, lit up to the phase (all
+ * five at Client approved, none while unread), the phase's number and name bold in gold ("2 · Wish list"), then its
+ * words in the muted grey, cut with an ellipsis when the line is short ("· every mark you place is a client wish");
+ * unread, the words alone in amber ("Phase not read yet — S5 decides when online"). It is why a tool is not there, so
+ * it is always on screen; it is never a control -- the phase moves on the project screen -- and takes no touch.
+ * In portrait it is survey prep's first line, over the bar (6 dp inset); in landscape ([land]) it lies over the foot of
+ * the left column -- the photo, the list or the drawing -- on black at 72 %, its lower corners the photo's 12 dp, 10 dp
+ * inset, so the right-hand column loses no height. What it says is PhaseTools.band, tested in :pano.
+ */
+@Composable
+internal fun SpPhaseBand(band: PhaseTools.Band, land: Boolean, modifier: Modifier = Modifier) {
+    Row(modifier.fillMaxWidth().height(20.dp)
+        .let { if (land) it.clip(RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp)).background(SP_BAND_BG) else it }
+        .clearAndSetSemantics { contentDescription = band.label }
+        .padding(horizontal = if (land) 10.dp else 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (i in 0 until Phases.N) Box(Modifier.size(8.dp, 3.dp).clip(RoundedCornerShape(2.dp))
+                .background(if (i < band.lit) SP_SELECT else SP_BAND_DIM))
+        }
+        if (band.head.isNotEmpty()) Text(band.head, color = SP_SELECT, fontSize = 11.sp, lineHeight = 20.sp, letterSpacing = 0.3.sp,
+            fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+        if (band.rest.isNotEmpty()) Text(band.rest, color = if (band.unread) SP_CAUT else SP_BAND_FG, fontSize = 11.sp, lineHeight = 20.sp,
+            letterSpacing = 0.3.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }
 
@@ -258,6 +342,10 @@ private val SP_TILE = Color(0xFF2A2D25)
 /** The tape icon's ink, and the chip's amber caution line (sp.js .caut). */
 private val SP_INK = Color(0xFF14160F)
 private val SP_CAUT = Color(0xFFFFC46B)
+/** The phase band (phase54.css .p54band): its words #9AA096, an unlit pip #555A50, and in landscape black at 72 % behind it. */
+private val SP_BAND_FG = Color(0xFF9AA096)
+private val SP_BAND_DIM = Color(0xFF555A50)
+private val SP_BAND_BG = Color(0xB8000000)
 /** The chain chip's ✓ (v42.css .toolchip button[data-kdone]: #7dff8a, bold). */
 private val SP_DONE = Color(0xFF7DFF8A)
 

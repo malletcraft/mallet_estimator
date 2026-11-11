@@ -498,4 +498,221 @@ class PhaseToolsTest {
         assertEquals("Phase not read yet — S5 decides when online", unread.whole)
         assertEquals(unread, PhaseTools.band(Tx.EN, 9), "a stage that is none is unread")
     }
+
+
+    // ------------------------------------------------------------------ slice L4: the phase in survey prep, as wired
+
+    /** One row of DESIGN-port62 section 3.4's table: 2 · Mark and the palette, the chip's second half, the band. */
+    private fun l4row(stage: Int?, line: String? = null): String {
+        val shown = PhaseTools.can(Tool.MARK, stage) && PhaseTools.can(Tool.PALETTE, stage)
+        assertEquals(PhaseTools.can(Tool.MARK, stage), PhaseTools.can(Tool.PALETTE, stage), "2 · Mark and its palette go together at $stage")
+        val chip = SurveyPrepPalette.chip(Tx.EN, "front", PhaseTools.toolFor("W", stage), stage, null)
+        val half = when {
+            chip == null -> "never drawn"
+            chip.asText == null -> "none"
+            chip.cycles -> "button: " + chip.asText
+            else -> "plain: " + chip.asText
+        }
+        return (if (shown) "shown" else "HIDDEN") + " | " + half + " | " + PhaseTools.band(Tx.EN, stage, line).whole
+    }
+
+    @Test fun `L4 - the plan's table row by row - 2 Mark and the palette, the chip's second half, the band`() {
+        // driven on the approved page (v61c.2, 360 x 780, the Demo project) at all six stages and unread, 11 Nov 2026
+        assertEquals("shown | none | 1 · Survey · capture · bound · mark what is there · readings", l4row(0))
+        assertEquals("shown | plain: as Client wish | 2 · Wish list · every mark you place is a client wish", l4row(1))
+        assertEquals("shown | plain: as Vendor added | 3 · Vendor review · trades · vendor packs · new marks are vendor added", l4row(2))
+        assertEquals("HIDDEN | never drawn | 4 · Estimation · hand-off · read-only · nothing new is marked", l4row(3))
+        assertEquals("shown | plain: as Vendor added | 5 · Revisions · iterate the estimate · marks and packs move · nothing new is surveyed", l4row(4))
+        assertEquals("HIDDEN | never drawn | Client approved · Execution · 1 in progress · 1 done", l4row(5, "Execution · 1 in progress · 1 done"))
+        assertEquals("shown | button: as Existing ▾ | Phase not read yet — S5 decides when online", l4row(null))
+        // a project S5 does not list is given Survey's stage: Survey's row, never a wish (Amit, 14 Oct: "the wishlist
+        // should never get mixed with survey")
+        assertEquals(l4row(0), l4row(PhaseTools.stageOf(null, phoneOnly = true)))
+        assertEquals(l4row(0), l4row(PhaseTools.stageOf(Cache(listed = false, stage = "Client wish list", by = "", at = "", readAt = "2026-11-11T04:59:00Z"), false)))
+    }
+
+    @Test fun `L4 - the strip survey prep draws - no 2 Mark at Estimated and at Client approved, 1 Lines kept until slice L10`() {
+        assertEquals(setOf(Tool.MARK, Tool.PALETTE), PhaseTools.PREP_HONOURS)
+        val all = listOf("lines", "mark", "list", "360"); val noMark = listOf("lines", "list", "360")
+        assertEquals(listOf(all, all, all, noMark, all, noMark, all), STAGES.map { PhaseTools.prepSteps(it) })
+        // every step it draws is one of the strip's, in the strip's order, so each keeps its own number
+        for (st in STAGES) assertEquals(PhaseTools.prepSteps(st), StepRoute.STEPS.filter { it in PhaseTools.prepSteps(st) })
+        // what it shows is the table's cell for a row it honours, and shown for one it does not yet
+        for (t in Tool.entries) assertEquals(STAGES.joinToString("") { if (t !in PhaseTools.PREP_HONOURS || PhaseTools.can(t, it)) "1" else "0" },
+            bits { PhaseTools.prepShows(t, it) }, t.id)
+        assertEquals("1110101", bits { PhaseTools.prepShows(Tool.MARK, it) }); assertEquals("1110101", bits { PhaseTools.prepShows(Tool.PALETTE, it) })
+        assertEquals("1111111", bits { PhaseTools.prepShows(Tool.LINES, it) }, "slice L10's row: 1 · Lines stays in every phase until then")
+        assertEquals("1111111", bits { PhaseTools.prepShows(Tool.READINGS, it) }, "slice L10's row")
+        // ... which is exactly where it differs from the whole table: the two L10 rows
+        assertEquals(listOf("", "lines", "lines", "lines", "lines", "lines", ""), STAGES.map { st -> (PhaseTools.prepSteps(st) - PhaseTools.steps(st).toSet()).joinToString(",") })
+        for (st in STAGES) assertTrue(PhaseTools.prepSteps(st).containsAll(PhaseTools.steps(st)), "$st: nothing the whole table shows is missing")
+    }
+
+    @Test fun `L4 - a step and a tool the phase does not show are moved on - Mark to List, the tool to Select`() {
+        val never = { error("1 · Lines is not hidden by this build, so whether the face can be marked is never asked") }
+        fun row(mode: String) = STAGES.joinToString(" ") { PhaseTools.prepMode(mode, it, never) }
+        assertEquals("mark mark mark list mark list mark", row("mark"))
+        assertEquals("lines lines lines lines lines lines lines", row("lines"))
+        assertEquals("list list list list list list list", row("list"))
+        assertEquals("360 360 360 360 360 360 360", row("360"))
+        // the step it lands on is always one the strip draws
+        for (st in STAGES) for (m in StepRoute.STEPS) assertTrue(PhaseTools.prepMode(m, st, never) in PhaseTools.prepSteps(st), "$m at $st")
+        // the tool: a type, a Tape, a Line and a Chain all go back to Select where there is no palette
+        for (t in listOf("W", "E", "T", "M", "K")) assertEquals(listOf(t, t, t, "sel", t, "sel", t), STAGES.map { PhaseTools.toolFor(t, it) }, t)
+        assertEquals(List(7) { "sel" }, STAGES.map { PhaseTools.toolFor("sel", it) })
+    }
+
+    @Test fun `L4 - the band's two parts as drawn - the bold head, then the dot and the words`() {
+        fun parts(b: PhaseTools.Band) = "${b.lit} [${b.head}] [${b.rest}]"
+        assertEquals("1 [1 · Survey] [· capture · bound · mark what is there · readings]", parts(PhaseTools.band(Tx.EN, 0)))
+        assertEquals("2 [2 · Wish list] [· every mark you place is a client wish]", parts(PhaseTools.band(Tx.EN, 1)))
+        assertEquals("3 [3 · Vendor review] [· trades · vendor packs · new marks are vendor added]", parts(PhaseTools.band(Tx.EN, 2)))
+        assertEquals("4 [4 · Estimation] [· hand-off · read-only · nothing new is marked]", parts(PhaseTools.band(Tx.EN, 3)))
+        assertEquals("5 [5 · Revisions] [· iterate the estimate · marks and packs move · nothing new is surveyed]", parts(PhaseTools.band(Tx.EN, 4)))
+        assertEquals("5 [Client approved] [· Execution · 1 in progress · 1 done]", parts(PhaseTools.band(Tx.EN, 5, "Execution · 1 in progress · 1 done")))
+        assertEquals("5 [Client approved] []", parts(PhaseTools.band(Tx.EN, 5, null)), "no line to say: the name alone, no dot")
+        assertEquals("0 [] [Phase not read yet — S5 decides when online]", parts(PhaseTools.band(Tx.EN, null)), "unread: the words alone, amber")
+        assertTrue(PhaseTools.band(Tx.EN, null).unread)
+        // the two parts and the gap between them are the whole line
+        for (st in STAGES) PhaseTools.band(Tx.EN, st, "Execution · 2 done").let { b ->
+            assertEquals(b.whole, listOf(b.head, b.rest).filter { it.isNotEmpty() }.joinToString(" "), "$st") }
+        // as the page draws it under मराठी (driven)
+        assertEquals("2 [2 · इच्छा-यादी] [· तुम्ही ठेवलेला प्रत्येक मार्क ग्राहकाची इच्छा असतो]", parts(PhaseTools.band(Tx.MR, 1)))
+        assertEquals("0 [] [फेज अजून वाचलेली नाही — ऑनलाइन आल्यावर S5 ठरवते]", parts(PhaseTools.band(Tx.MR, null)))
+        // what a screen reader is told
+        assertEquals("Phase 2 of 5: Wish list — every mark you place is a client wish. The phase moves on the project screen.", PhaseTools.band(Tx.EN, 1).label)
+        assertEquals("Client approved · Execution · 1 in progress · 1 done", PhaseTools.band(Tx.EN, 5, "Execution · 1 in progress · 1 done").label)
+    }
+
+    /** The picked item's controls the phase leaves: nudges (and the eight tabs), the padlock, the delete control. */
+    private fun ctl(p: SurveyPrep.Prep, id: String) = STAGES.joinToString(" ") { st ->
+        (if (PhaseTools.editable(p, id, st)) "N" else "-") + (if (PhaseTools.lockOk(p, id, st)) "L" else "-") + (if (PhaseTools.delOk(p, id, st)) "D" else "-") }
+
+    private fun room(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+        p.addMarkAt("front", "W", 1300.0, 1500.0, 2678.0, 2677.0, "w")                                        // FW1, surveyed
+        p.addMarkAt("front", "E", 600.0, 600.0, 2678.0, 2677.0, "e").extra = mapOf("born" to "wish", "life" to "wish")   // FE1, born a wish
+        p.addMarkAt("front", "D", 400.0, 1200.0, 2678.0, 2677.0, "d").extra = mapOf("born" to "vadd", "life" to "vadd")  // FD1, born Vendor added
+        p.addMarkAt("front", "N", 2200.0, 1200.0, 2678.0, 2677.0, "n").extra = mapOf("life" to "wish", "act" to "replace") // FN1, a surveyed thing wished
+        p.addMeas("front", SurveyMeas.LINE, listOf(doubleArrayOf(200.0, 200.0), doubleArrayOf(1200.0, 200.0)), "m")
+        p.addChain("front", "x", listOf(doubleArrayOf(0.0, 100.0), doubleArrayOf(900.0, 100.0)), listOf(null, null), "k")
+        return p
+    }
+
+    @Test fun `L4 - the picked item's controls by its id - hidden where the phase holds it read-only, as the page hides them`() {
+        val p = room()
+        //                    Survey Wish Vendor Estim. Revis. Approved unread     (driven: FW1's row, the placed mark's, the Line's)
+        assertEquals("NLD --- --- --- --- --- NLD", ctl(p, "w"), "a surveyed mark: its label alone after Survey")
+        assertEquals("NLD NLD --D --- --D --- NLD", ctl(p, "e"), "born a wish: the Wish list's own; later only its Drop")
+        assertEquals("NLD --D NLD --- NLD NL- NLD", ctl(p, "d"), "born Vendor added: Vendor review's and Revisions' own")
+        assertEquals("NLD --D --D --- --D --- NLD", ctl(p, "n"), "a surveyed thing the client wished: only its Drop")
+        assertEquals("NLD NLD NLD --- NLD NLD NLD", ctl(p, "m"), "a Line: editable up to Estimation")
+        assertEquals("NLD NLD NLD --- NLD NLD NLD", ctl(p, "k"), "a chain: the same")
+        // an id that is no item -- the four lines' and the reference's padlocks -- is never hidden by the phase
+        for (id in listOf(SurveyRef.id("front"), "lines:front", "nothing")) assertEquals(List(7) { "NLD" }.joinToString(" "), ctl(p, id), id)
+        // and by id it is the item's own answer
+        for (st in STAGES) {
+            assertEquals(PhaseTools.editable(p.markById("e")!!.second, st), PhaseTools.editable(p, "e", st))
+            assertEquals(PhaseTools.delOk(p.measById("m")!!.second, st), PhaseTools.delOk(p, "m", st))
+            assertEquals(PhaseTools.lockOk(p.chainById("k")!!.second, st), PhaseTools.lockOk(p, "k", st))
+        }
+    }
+
+    @Test fun `L4 - what a refused act on an item says, by its id`() {
+        val p = room()
+        assertEquals("FW1 was marked in Survey — move the phase back to change it", PhaseTools.refuseText(Tx.EN, p, "w", 1))
+        assertEquals("FE1 was marked in Wish list — move the phase back to change it", PhaseTools.refuseText(Tx.EN, p, "e", 2))
+        assertEquals("FD1 was marked in Vendor review — move the phase back to change it", PhaseTools.refuseText(Tx.EN, p, "d", 1))
+        assertEquals("FW1 · Estimation changes nothing — move the phase back on the project screen", PhaseTools.refuseText(Tx.EN, p, "w", 3))
+        assertEquals("F-M1 · Estimation changes nothing — move the phase back on the project screen", PhaseTools.refuseText(Tx.EN, p, "m", 3))
+        assertEquals("FK1 · Estimation changes nothing — move the phase back on the project screen", PhaseTools.refuseText(Tx.EN, p, "k", 3))
+        assertEquals("FW1 Survey मध्ये मार्क झाला होता — बदलण्यासाठी फेज मागे न्या".replace("Survey", Phases.all(Tx.MR)[0].name), PhaseTools.refuseText(Tx.MR, p, "w", 1))
+        assertNull(PhaseTools.refuseText(Tx.EN, p, "nothing", 1)); assertNull(PhaseTools.refuseText(Tx.EN, p, SurveyRef.id("front"), 3))
+        // ⋮'s clears, Lock all and Start over are Survey's (and an unread stage's): what each says elsewhere
+        assertEquals("1000001", bits { PhaseTools.bulk(it) })
+        assertEquals("Clearing and locking every mark is a Survey tool — move the phase back to use it", PhaseTools.refuseBulk(Tx.EN, 1))
+        assertEquals("This · Estimation changes nothing — move the phase back on the project screen", PhaseTools.refuseBulk(Tx.EN, 3))
+        assertEquals("Start over is a Survey tool — move the phase back to use it", PhaseTools.refuseStartOver(Tx.EN))
+    }
+
+    private fun menu(p: SurveyPrep.Prep, id: String, st: Int?) = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st).joinToString("|") { it.second }
+
+    @Test fun `L4 - the long-press menu's rows by phase - a row that would change a read-only item is hidden, Cancel stays`() {
+        val p = room()
+        // driven on the page: FW1 (surveyed), the mark just placed in its own phase, and a Line
+        assertEquals("Delete|Duplicate|Lock|Lock all Window|Cancel", menu(p, "w", 0)); assertEquals(menu(p, "w", 0), menu(p, "w", null))
+        for (st in 1..5) assertEquals("Cancel", menu(p, "w", st), "a surveyed mark at $st")
+        assertEquals("Drop|Duplicate|Lock|Lock all Electric point|Cancel", menu(p, "e", 1))
+        assertEquals("Drop|Duplicate|Lock|Lock all Door|Cancel", menu(p, "d", 2)); assertEquals(menu(p, "d", 2), menu(p, "d", 4))
+        assertEquals("Drop|Cancel", menu(p, "e", 2), "a wish in Vendor review: its Drop alone"); assertEquals("Drop|Cancel", menu(p, "n", 1))
+        assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", menu(p, "m", 1))
+        for (st in listOf(0, 1, 2, 4, 5, null)) assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", menu(p, "m", st), "the Line at $st")
+        assertEquals("Cancel", menu(p, "m", 3)); assertEquals("Cancel", menu(p, "k", 3)); assertEquals("Cancel", menu(p, "e", 3))
+        // Client approved, the phone's own (Q-list 6): no Drop on a mark past Existing; a mark born Vendor added keeps the rest
+        assertEquals("Cancel", menu(p, "e", 5)); assertEquals("Duplicate|Lock|Lock all Door|Cancel", menu(p, "d", 5))
+        // a LOCKED mark in Scope, born Vendor added: its Unlock is on the menu where its padlock shows -- and at Client
+        // approved neither is there, for the unlock could only say "take it Out of scope in its sheet" (PhaseTools.lockOk)
+        p.addMarkAt("front", "L", 2200.0, 2400.0, 2678.0, 2677.0, "l").extra = mapOf("born" to "vadd", "life" to "scope", SurveyPrep.LOCKED to true)
+        assertEquals("Drop|Duplicate|Unlock|Unlock all Loft|Cancel", menu(p, "l", 2)); assertEquals(menu(p, "l", 2), menu(p, "l", 4))
+        assertEquals("Duplicate|Unlock all Loft|Cancel", menu(p, "l", 5))
+        // the rows are the unfiltered menu's own, in its order, and the reference's menu is never cut
+        for (st in STAGES) for (id in listOf("w", "e", "d", "n", "m", "k", "l")) {
+            val whole = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id); val cut = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st)
+            assertEquals(whole.filter { it in cut }, cut, "$id at $st"); assertEquals(SurveyPrepEdit.CANCEL, cut.last().first)
+        }
+        SurveyRef.setMode(p, "front", true, 3319.0, 2678.0, 2677.0)
+        for (st in STAGES) assertEquals(SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")), SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front"), st), "the reference at $st")
+        assertTrue(SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")).isNotEmpty())
+    }
+
+    // ------------------------------------------------------------------ slice L4: the screen asks these rules, read from its source
+
+    private val appDir = java.io.File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
+
+    /** An app source with its comment lines taken out (the app is compiled only by CI; what it calls is read here). */
+    private fun app(name: String): String = java.io.File(appDir, name).readLines()
+        .filter { l -> l.trimStart().let { !it.startsWith("//") && !it.startsWith("*") && !it.startsWith("/*") } }.joinToString("\n")
+    private fun count(src: String, what: String) = src.windowed(what.length) { if (it == what) 1 else 0 }.sum()
+
+    @Test fun `L4 - survey prep asks the phase - every placement, the step, the tool, the strip, the band and the menu`() {
+        val screen = app("SurveyPrepScreen.kt"); val p3 = app("SurveyPrep360.kt"); val main = app("MainActivity.kt")
+        // EVERY PLACEMENT GOES THROUGH PhaseTools.place -- 2 · Mark's and the 360's -- and nothing in the app adds a mark itself
+        assertEquals(2, count(screen, "PhaseTools.place(prep, s, t, mx, my, a[0], a[1],"))
+        for (f in appDir.listFiles { x -> x.name.endsWith(".kt") }!!) assertEquals(0, count(app(f.name), "addMarkAt("), f.name + " places no mark of its own")
+        assertEquals(2, count(screen, "quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null"), "born what the phase places, one undo step, or nothing")
+        assertEquals(2, count(screen, "if (placed.amber) say(MarkLife.afterEstimate(tx))"))
+        // the step and the tool that are ON are the phase's answer, and only a step or tool change writes the ones last set
+        assertEquals(1, count(screen, "val mode = PhaseTools.prepMode(modeSet, quoteStage) {"))
+        assertEquals(1, count(screen, "val tool = PhaseTools.toolFor(toolSet, quoteStage)"))
+        assertFalse(Regex("""(?<![A-Za-z.])mode = "(lines|mark|list|360)"""").containsMatchIn(screen), "no step is set past the phase")
+        assertFalse(Regex("""(?<![A-Za-z.])tool = SurveyPrepPalette""").containsMatchIn(screen), "no tool is set past the phase")
+        // the strip, a press routed to a step and setMode all read the steps the phase shows -- never the strip's whole list
+        assertEquals(3, count(screen, "PhaseTools.prepSteps(quoteStage)")); assertEquals(0, count(screen, "StepRoute.STEPS"))
+        // the palette and the More sheet are drawn only where the phase has a palette
+        assertEquals(2, count(screen, "PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)"))
+        assertTrue(screen.contains("if (PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))\n            SpPalette("))
+        assertTrue(screen.contains("if (moreOpen && marking && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))"))
+        // the band: one line from one rule, drawn in both orientations
+        assertEquals(1, count(screen, "val band = PhaseTools.band(tx, quoteStage, projectLine)"))
+        assertEquals(1, count(screen, "SpPhaseBand(band, false)")); assertEquals(1, count(screen, "SpPhaseBand(band, true, Modifier.align(Alignment.BottomCenter))"))
+        assertEquals(3, count(screen, "            bandOver()\n            notesOver()") + count(screen, "        bandOver()\n        if (planExp)"), "over the photo, the list and the drawing, under the notes")
+        // neither the stage nor the band's line has a default: a caller that forgot one would open every room under one rule
+        assertTrue(screen.contains("    quoteStage: Int?,\n")); assertTrue(screen.contains("    projectLine: String?,\n"))
+        assertEquals(2, count(main, "quoteStage = QuoteStageSync.prepStage(context,")); assertEquals(2, count(main, "projectLine = QuoteStageSync.prepLine(context,"))
+        // the menu's rows are the phase's, and both views are handed the stage
+        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage)")); assertEquals(0, count(screen, "menuItemsOf(tx, prep, c.id)"))
+        assertEquals(2, count(screen, "stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })"), "2 · Mark's photo and the 360")
+        // a refused act: the phase is asked BEFORE the lock, as sp.js asks it
+        fun before(a: String, b: String) { val i = screen.indexOf(a); val j = screen.indexOf(b, i); assertTrue(i >= 0 && j > i, "$a before $b") }
+        before("if (!PhaseTools.delOk(prep, mid, quoteStage)) { phaseRefuse(", "if (it0.locked) { refuse(code); return }")
+        before("if (!PhaseTools.editable(e, quoteStage)) { phaseRefuse(", "if (SurveyPrep.isLocked(e)) { refuse(e.code); return }")
+        assertEquals(2, count(screen, "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse("), "the padlock and Duplicate")
+        assertEquals(2, count(screen, "if (!PhaseTools.bulk(quoteStage)) { phaseRefuse(PhaseTools.refuseBulk(tx, quoteStage)); return }"), "Lock all and the clears")
+        // a mark of an earlier phase is held, not moved, on both views: the grab that refuses, and no tabs, no trash
+        for (src in listOf(screen, p3)) {
+            assertEquals(3, count(src, "PhaseTools.refuseText(txS, "), "a mark, a chain's point, a Line's end")
+            assertEquals(3, Regex("""PhaseTools\.refuseText\(txS, \w+, stageS\), (gate = true, )?said = true\)""").findAll(src).count(), "each said as it is, nothing moved")
+        }
+        for (src in listOf(screen, p3)) { assertEquals(1, count(src, "PhaseTools.delOk(prep, sid, stage)"), "the trash"); assertEquals(1, count(src, "PhaseTools.editable(prep, sid, stage)"), "the tabs") }
+    }
 }

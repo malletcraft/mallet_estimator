@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
+import java.time.Instant
 
 /**
  * WHAT EACH PHASE SHOWS IN SURVEY PREP, AND WHAT IT LETS A MARK DO (port 62 slice L1, 11 Nov 2026; the approved
@@ -30,7 +31,11 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * THE STAGE SURVEY PREP IS GIVEN is [stageOf]: 0-5 for a project S5 lists; 0, Survey's rules, for one S5 does not list
  * ("The tools keep following the project's own phase, Survey for a project made on the phone", index61c2.html
  * 4091-4093); null while a listed project's stage is unread, when every tool shows and every move is offered, as v53
- * did. Pure: NOTHING ON SCREEN READS THIS YET (slices L3, L4 and L10 wire it).
+ * did. Pure. SLICE L3 wired the moves and the gate (the Mark sheet); SLICE L4 (11 Nov 2026) wires survey prep itself:
+ * the band ([band]), the `mark` and `palette` rows ([prepSteps], [prepMode], [toolFor]), what a type tool's tap places
+ * ([place], and the chip's second half through SurveyPrepPalette.chip), and the marks of earlier phases held read-only
+ * ([editable], [delOk], [lockOk], [bulk] and what a refused act says). The `lines`, `readings` and `capture` rows are
+ * slice L10's ([PREP_HONOURS]).
  */
 object PhaseTools {
 
@@ -146,6 +151,43 @@ object PhaseTools {
     /** The palette's tool, put back to Select where the phase has no palette (spPre): nothing is placed or drawn there. */
     fun toolFor(tool: String, stage: Int?): String = if (can(Tool.PALETTE, stage)) tool else SurveyPrepPalette.SEL
 
+    // ------------------------------------------------------------------ survey prep, as far as it is wired (slice L4)
+
+    /**
+     * THE ROWS OF [TOOLS] SURVEY PREP'S OWN SCREEN HONOURS SO FAR (port 62 slice L4, which closes build B2): `mark` and
+     * `palette` -- at Estimation and at Client approved there is no 2 · Mark and no palette, so no build can place a
+     * mark where the prototype has no tool (the plan critic's blocker). The rest of the phase's hiding -- 1 · Lines
+     * and the reading boxes after Survey -- reaches the phone with slice L10 (build B5), which adds [Tool.LINES] and
+     * [Tool.READINGS] here; until then the strip keeps 1 · Lines in every phase, as before. `list` and `view360` are
+     * shown in every phase, so honouring them changes nothing. ONE PLACE: the strip, the step survey prep is on and
+     * every press routed to a step read [prepSteps] / [prepMode], never a rule of their own.
+     */
+    val PREP_HONOURS: Set<Tool> = setOf(Tool.MARK, Tool.PALETTE)
+
+    /** Whether survey prep shows [tool] at [stage] in this build: the table's cell for a row it honours, else shown. */
+    fun prepShows(tool: Tool, stage: Int?): Boolean = tool !in PREP_HONOURS || can(tool, stage)
+
+    /**
+     * The steps survey prep's strip draws at [stage], in [StepRoute.STEPS] order -- each keeps its own number, so with
+     * 2 · Mark hidden the strip reads 1 · 3 · 4, as the prototype's does with its hidden step's circle gone (CSS
+     * 1272-1274): all four at Survey, the Wish list, Vendor review, Revisions and while unread; no 2 · Mark at
+     * Estimation and at Client approved.
+     */
+    fun prepSteps(stage: Int?): List<String> = StepRoute.STEPS.filter { k -> toolOf(k)?.let { prepShows(it, stage) } ?: false }
+
+    /**
+     * The step survey prep is on at [stage], moved on from one it does not show (spPre, by the rows it honours): 2 ·
+     * Mark goes to 3 · List where the phase has no Mark; every other [mode] is kept. (A hidden 1 · Lines will go to
+     * 2 · Mark when [markable] -- the open tab is a face whose four lines close -- else to 3 · List, once slice L10
+     * honours that row; [markable] is asked only then.)
+     */
+    fun prepMode(mode: String, stage: Int?, markable: () -> Boolean): String {
+        var m = mode
+        if (m == "lines" && !prepShows(Tool.LINES, stage)) m = if (prepShows(Tool.MARK, stage) && markable()) "mark" else "list"
+        if (m == "mark" && !prepShows(Tool.MARK, stage)) m = "list"
+        return m
+    }
+
     // ------------------------------------------------------------------ what a new mark is placed as
 
     /**
@@ -192,6 +234,35 @@ object PhaseTools {
     fun nextAs(stage: Int?, picked: String?): String? {
         if (asChip(stage) != AsChip.CYCLE) return null
         return AS_CYCLE[(AS_CYCLE.indexOf(asFor(stage, picked)) + 1) % AS_CYCLE.size]
+    }
+
+    /** What [place] did: the new [mark]; [amber]: "After the estimate — tell the office" is said ([MarkLife.afterEstimate]). */
+    class Placed(val mark: SurveyPrep.Mark, val amber: Boolean)
+
+    /**
+     * A TYPE TOOL'S TAP (port 62 slice L4; the prototype's addElAt and L53.placed, index61c2.html 5922-5926, 2959-2961):
+     * a mark of type [t] on [s] where the finger is, ([x], [y]) mm on the [a] x [b] face, with the next code of its
+     * type and the id [id] ([SurveyPrep.Prep.addMarkAt]) -- BORN WHAT THE PHASE PLACES ([asFor], [MarkLife.placeAs]):
+     * a v52 mark with no key at Survey (and on a project S5 does not list, which is given Survey's stage); a Client
+     * wish at the Wish list; Vendor added at Vendor review and Revisions; while the stage is unread, what this
+     * capture's chip was last cycled to ([picked]). `born`, `life`, `lifeAt` ([at]) and `lifeAs` are written ONCE,
+     * here, and never for a Note.
+     *
+     * NULL, WITH NOTHING PLACED AND NO UNDO STEP, WHERE THE PHASE HAS NO PALETTE -- Estimation and Client approved:
+     * the palette is not drawn there and the tool is Select ([toolFor]), so no press asks; this is the same rule read
+     * once more where the mark would be made, so no path places one there. [snapshot] is the caller's ONE undo step,
+     * taken just before the mark is added. [Placed.amber]: from Estimation on a placement is told to the office (the
+     * prototype's `stage>=3`; in practice Revisions, the one later phase with a palette).
+     * A DUPLICATE is not a placement: the prototype's duplicateItem copies the box alone and stamps nothing
+     * ([SurveyPrepEdit.duplicate]; DESIGN-port62 Q-list 8).
+     */
+    fun place(p: SurveyPrep.Prep, s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String,
+              stage: Int?, picked: String?, at: Instant, snapshot: () -> Unit): Placed? {
+        if (!can(Tool.PALETTE, stage)) return null
+        snapshot()
+        val e = p.addMarkAt(s, t, x, y, a, b, id)
+        MarkLife.placeAs(e, asFor(stage, picked), stage, at)
+        return Placed(e, phaseOf(stage).let { it != null && it >= ESTIMATION })
     }
 
     // ------------------------------------------------------------------ the life-cycle moves a phase offers
@@ -307,6 +378,24 @@ object PhaseTools {
     fun lockOk(m: SurveyPrep.Meas, stage: Int?): Boolean = editable(m, stage)
     fun lockOk(c: SurveyPrep.Chain, stage: Int?): Boolean = editable(c, stage)
 
+    /**
+     * [editable], [delOk] and [lockOk] for the item of [p] with the id [id], whatever it is -- a mark, a Tape, a Line,
+     * an area or a chain (slice L4: the screen's rows, menus and discs ask by id). An id that is no item answers
+     * TRUE: the four lines' and the reference rectangle's padlocks are never hidden by the phase (spPost,
+     * index61c2.html 4259: `!/^(lines|ref):/.test(id)`).
+     */
+    fun editable(p: SurveyPrep.Prep, id: String, stage: Int?): Boolean =
+        p.markById(id)?.let { editable(it.second, stage) } ?: p.measById(id)?.let { editable(it.second, stage) }
+            ?: p.chainById(id)?.let { editable(it.second, stage) } ?: true
+
+    fun delOk(p: SurveyPrep.Prep, id: String, stage: Int?): Boolean =
+        p.markById(id)?.let { delOk(it.second, stage) } ?: p.measById(id)?.let { delOk(it.second, stage) }
+            ?: p.chainById(id)?.let { delOk(it.second, stage) } ?: true
+
+    fun lockOk(p: SurveyPrep.Prep, id: String, stage: Int?): Boolean =
+        p.markById(id)?.let { lockOk(it.second, stage) } ?: p.measById(id)?.let { lockOk(it.second, stage) }
+            ?: p.chainById(id)?.let { lockOk(it.second, stage) } ?: true
+
     /** ⋮'s Clear this surface, Clear whole room, Lock all and Start over act on every phase's marks: Survey only, and unread (spBulk). */
     fun bulk(stage: Int?): Boolean = phaseOf(stage).let { it == null || it == SURVEY }
 
@@ -331,6 +420,11 @@ object PhaseTools {
     fun refuseText(tx: Tx, e: SurveyPrep.Mark, stage: Int?): String = refusal(tx, e.code, MarkLife.bornOf(e), stage)
     fun refuseText(tx: Tx, m: SurveyPrep.Meas, stage: Int?): String = refusal(tx, m.code, MarkLife.EXIST, stage)
     fun refuseText(tx: Tx, c: SurveyPrep.Chain, stage: Int?): String = refusal(tx, c.code, MarkLife.EXIST, stage)
+
+    /** [refuseText] for the item of [p] with the id [id]; null when there is no such item. */
+    fun refuseText(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?): String? =
+        p.markById(id)?.let { refuseText(tx, it.second, stage) } ?: p.measById(id)?.let { refuseText(tx, it.second, stage) }
+            ?: p.chainById(id)?.let { refuseText(tx, it.second, stage) }
 
     /** What a refused Clear or Lock all says (refuseText with no item): at Estimation "This · Estimation changes nothing — …". */
     fun refuseBulk(tx: Tx, stage: Int?): String =
@@ -359,6 +453,14 @@ object PhaseTools {
      */
     data class Band(val lit: Int, val head: String, val tail: String, val label: String, val unread: Boolean = false) {
         val whole: String get() = listOf(head, tail).filter { it.isNotEmpty() }.joinToString(SEP)
+
+        /**
+         * The band's SECOND part as it is drawn beside the bold [head] (slice L4): `· every mark you place is a client
+         * wish` -- the separator's dot leads it, its space is the gap between the two parts (the prototype's `.p54bt`
+         * is ` · words` in a flex row, where the leading space is dropped). With no [head] (unread) the words alone;
+         * with no [tail] (Client approved with no line to say) nothing.
+         */
+        val rest: String get() = if (head.isEmpty() || tail.isEmpty()) tail else SEP.trimStart() + tail
     }
 
     /** A phase's band words (PHASES[i].band), for the five phases of the strip. */

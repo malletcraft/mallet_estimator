@@ -126,7 +126,7 @@ object TourFlows {
 
     private fun phases(tx: Tx) = TourFlow(
         id = "phases", name = tx.tour_phases_name, line = tx.tour_phases_line, ships = false,
-        missing = "phase:band — v54's phase band at the top of survey prep (step 10); the phone has no band", // text:value a blocked flow's missing-anchor note, developer-facing
+        missing = "phase:band — v54's phase band over survey prep (step 10): on the phone since port 62 slice L4, with no tour anchor on it yet; the flow's texts wait for prototype item P1", // text:value a blocked flow's missing-anchor note, developer-facing
         steps = listOf(
             TourStep("phases.1", "project", "phase:strip", "look",
                 listOf(m("close"), m("go", "project"), m("phase", "0")),
@@ -252,7 +252,7 @@ object TourFlows {
 
     private fun wish(tx: Tx) = TourFlow(
         id = "wish", name = tx.tour_wish_name, line = tx.tour_wish_line, ships = false,
-        missing = "phase:band; the tool chip's as-Client-wish face (toolchip:as); the Mark sheet and its moves (sheet, sheet:move:wish, sheet:act, sheet:acts, sheet:done) — v53/v54 survey-prep lifecycle the phone has never had (steps 6-13)", // text:value a blocked flow's missing-anchor note, developer-facing
+        missing = "phase:band; the tool chip's as-Client-wish face (toolchip:as); the Mark sheet and its moves (sheet, sheet:move:wish, sheet:act, sheet:acts, sheet:done) — v53/v54 survey-prep lifecycle, on the phone since port 62 slices L3 and L4 with no tour anchor on any of it yet (steps 6-13)", // text:value a blocked flow's missing-anchor note, developer-facing
         steps = listOf(
             TourStep("wish.1", "project", "p54seg:1", "do",
                 listOf(m("close"), m("go", "project"), m("phase", "0")),

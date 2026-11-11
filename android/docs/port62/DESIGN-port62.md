@@ -622,6 +622,110 @@ with the gate, because a hidden tool needs the line that says why.
   types until B3 (for one build a new wardrobe is an "Other" with its trade, from L3, plus a note). At Estimated
   and after approval survey prep opens on 3 · List with no mark tools, under the band that says why.
 
+- **L4 AS BUILT (11 Nov 2026; branch `port62-wish`, local).** `pano/PhaseTools.kt` (`PREP_HONOURS`, `prepShows`,
+  `prepSteps`, `prepMode`, `place`, the three rules and `refuseText` by an item's id, `Band.rest`),
+  `pano/SurveyPrepPalette.kt` (`Chip`, `chip`, `asName`), `pano/SurveyPrepEdit.kt` (`menuItemsOf` with the stage; what
+  `duplicate` copies, written down); in the app `SurveyPrepScreen.kt` (the wiring), `SurveyPrep360.kt` (the same rules
+  on the 360), `SurveyPrepTools.kt` (`SpPhaseBand`; the chip's second half), `SurveyPrepDraw.kt` (no tabs on a
+  read-only mark), `SurveyPrepStore.kt` (the capture's remembered "as"), `QuoteStageSync.prepLine` and the dialog's
+  second parameter at both call sites of `MainActivity.kt`. Tests: `PhaseToolsTest` +8, `PaletteTest` +4,
+  `PlaceAtTest` +6, `DuplicateTest` +1. `:pano` 1,155 tests in 82 suites, none failed, none skipped (1,136 before).
+  No key added, Tx regenerated to the same file, `i18nRatchet` lowered nothing, `unkeyed.tsv` empty;
+  `android/i18n/README.md` ("Port 62 slice L4") lists every text now drawn. `:app` is compiled only by CI and NOTHING
+  HAS BEEN SEEN ON A PHONE.
+  - **Cross-checked against the prototype's own code, and driven.** `proto-tables.mjs` gains an "L4" section: the
+    page's own `P54.spPre` run on a stub survey-prep root (the step and tool it moves on, the band it writes, in
+    portrait and landscape), L53's `asChipHTML` / `cycleAs` / `asPlace` per stage, and `spEdit` / `spDelOk` /
+    `spBulk` / `refuseText` for eight kinds of item. The page was also DRIVEN (Playwright, the Demo project, 360 x
+    780 portrait and 732 x 336 landscape, English and मराठी, stages 0-5 and unread): the band's text, place and
+    measured box; the strip; the chip's words, its second half's tag (a `span` where the phase fixes it, a `button`
+    while unread) and labels; a real tap that places a mark and the keys it gains; the picked row's controls, the
+    floating trash, the long-press menu's rows and ⋮'s buttons for a surveyed mark, a mark just placed, its copy and a
+    Line; a drag on a surveyed mark; the cycle. Every expected value in the four test classes is written by hand
+    from those two runs. 28 one-line mutations -- 20 of the `:pano` rules, 8 of the app's wiring, which
+    `PhaseToolsTest` reads from the sources -- were run against the four suites: 26 turned them red at once; one
+    survivor got its assertion (the menu's Unlock on a locked Scope mark), the other was a line that could not
+    change an answer and is gone. **The app's half was not compiled** (no Android SDK here). The nearest check:
+    `kotlinc` 2.0.21 over every app source against the real `:pano` classes and the L3 signature stubs, widened in
+    the scratchpad for the calls this slice adds -- no syntax error, no new error against the same run on L3's
+    commit beyond Android names the stubs lack, and `SurveyPrepTools.kt`'s two new composables type-check clean.
+    That proves this slice's Kotlin and its use of `:pano`, not Compose; CI is the compiler.
+  - **WHICH ROWS OF THE TABLE L4 HONOURS: `mark` AND `palette`, AND ONLY THOSE** (`PhaseTools.PREP_HONOURS`). This
+    plan says two things about B2 and they do not agree: §3.4's "Amit can" has survey prep OPEN on 3 · List at
+    Estimated and after approval, which needs 1 · Lines hidden there too; §3.10 and §7 give `lines` to L10 ("B2:
+    the mark tools at Estimated and after approval; B5: Lines, readings and Capture 360 between Survey and
+    approval"), with `StepRouteTest` by stage among L10's tests. L4 follows the second: the strip keeps 1 · Lines in
+    every phase and survey prep still opens on it, as 0.3.318 does; at Estimated and at Client approved the strip
+    reads 1 · 3 · 4 (each step keeps its own number, as the page's hidden step leaves the others'), a step set to
+    2 · Mark shows 3 · List, the tool is Select, and there is no palette, no More sheet and no chip. **"Opens on 3 ·
+    List" comes true with L10**, which adds `LINES` and `READINGS` to that one set: `prepSteps` / `prepMode` then
+    answer what `steps` / `modeFor` answer and can be folded into them (`PhaseToolsTest` pins exactly where the two
+    differ today: 1 · Lines at stages 1-5). The screen already hands `prepMode` whether the open face can be marked,
+    asked only once Lines is hidden. Until L10 the four lines can still be moved in every phase, as today -- at
+    Client approved too, where the page shows the step and bounces it (Q-list 6).
+  - **The step and the tool are DERIVED, then made permanent.** The dialog keeps the step and tool as last set and
+    reads `PhaseTools.prepMode` / `toolFor` of them on every recomposition, so a sync that moves the stage while
+    survey prep is open takes the step and the tool with it in the same frame (the page's `spPre` runs first in every
+    render); an effect then writes the moved-on values back, as `spPre` writes `st.mode` and `st.tool`, so a stage
+    moved back later does not bring a hidden step back by itself. A press routed to where a hidden step was, and a
+    tour's `mode` move, do nothing (`setMode` and the step router read `prepSteps`).
+  - **The band** (`SpPhaseBand`, sizes from the page's CSS and its measured boxes): 20 dp; five 8 x 3 dp pips, 2 dp
+    apart, lit up to the phase; the head bold in gold; the words in #9AA096 with an ellipsis, amber while unread; 11
+    sp on a 20 sp line, 0.3 sp tracking. Portrait: the screen's FIRST line, over the bar, 6 dp inset (the page: first
+    child of `#spctl`, `[10, 8, 340, 20]`); ⋮'s menu drops 20 dp with the bar (CSS `L1283`). Landscape: over the foot
+    of the LEFT column -- the photo, 3 · List or the Plan drawing -- on black at 72 %, its lower corners the photo's
+    12 dp, 10 dp inset (the page: last child of `#spmain`, `[8, 310, 388, 20]`, in list mode the same box); the note
+    and the snackbar are drawn after it, over it, as the page's z-order has them; it takes no touch. At Client
+    approved its second part is the project's ONE derived line (`QuoteStageSync.prepLine` = `lineFor(...).text`
+    while that line is the execution line), read at the call site on every recomposition like the stage.
+  - **The chip.** `SurveyPrepPalette.chip` gives the whole text and where its second half starts; `SpToolChip` draws
+    that half bold in the same run of words, so it wraps with them. Where the phase fixes it, it is plain words; while
+    the stage is unread it is underlined and a press that lands ON those words cycles it (told from any other press
+    by the text's own layout: every other press on the chip is still the photo's, as the page's chip takes no touch
+    but its buttons). What it was cycled to is kept per capture in `<id>.as` beside the prep (`SurveyPrepStore`; the
+    page's `mcft-placeas-v53`), never uploaded, deleted with the capture. **Not copied:** the page's second half is
+    an inline element that keeps the BUTTON's 32 px line even as plain words, so its chip is 55 px tall in portrait
+    and 72 px where the words break (measured); the phone draws the half on the chip's own 15 sp line (Q-list 12c).
+  - **A placement.** Both views call `PhaseTools.place`: nothing, and no undo step, where there is no palette; else
+    `addMarkAt`, then `MarkLife.placeAs` with `asFor` -- exactly the page's placed mark (`born`, `life`, `lifeAt`,
+    `lifeAs`; driven) -- and at Revisions the note "After the estimate — tell the office" (the page's `stage>=3`).
+    Nothing else in the app adds a mark (`PhaseToolsTest` reads every app source for it).
+  - **A mark of an earlier phase.** HIDDEN, by `PhaseTools.editable` / `lockOk` / `delOk`: the picked row's nudges,
+    padlock and delete (the label stays and still opens the sheet); a Line's and a chain's padlock and delete; a
+    list row's delete word; the floating trash on both views; the eight resize tabs; the menu's rows (on a surveyed
+    mark after Survey: its head and Cancel, as driven); ⋮'s two clears and Start over outside Survey. REFUSED, with
+    the phase's own line as a 2.6 s note and no undo entry, should an act still arrive: delete (asked before the
+    lock, as `sp.js` asks), nudge, lock, duplicate, Lock all, a clear, Start over. A press on such a mark PICKS it
+    and nothing moves; once the finger has moved 4 dp it says why, once per gesture -- the phone's own path for a
+    locked mark.
+  - **Decided here, where this plan was silent or the page's code and its rule disagree** (each is a prototype
+    question, Q-list 11 and 12; none is a new state on the phone):
+    1. *A refused drag takes no undo step.* The page snapshots before it asks (`o.before()` then `moveEl`), so a
+       drag on a surveyed mark in the Wish list leaves an EMPTY undo step (driven: `hist` 0 -> 1, nothing moved).
+       The phone refuses first, as it does for a locked mark.
+    2. *No tabs on a read-only mark on the 360 either.* The page hides them on the squared face (`P L5097`) and still
+       draws them on the 360, where a press on one is refused. One rule for both views.
+    3. *At Estimation a Line's end and a chain's point do not move.* `editable` answers false for them there and
+       the page hides their padlock and delete, but its end and node grabs never ask it -- on its 360 they still
+       move. The phone holds them and says "F-M1 · Estimation changes nothing — …" (`refuseText`, the page's words).
+    4. *No palette on the 360 at Client approved.* The page draws its tools row there (CSS `L1277` hides it at
+       Estimation only) and `spPre` bounces every tool to Select (driven). Hidden, like steps 1 and 2 (Q-list 6).
+    5. *Lock all stays on the menu of a mark the phase lets be edited, and refuses* -- as the page's does (driven:
+       "Clearing and locking every mark is a Survey tool — move the phase back to use it"). Copied as it is; Q-list 11.
+    6. *The copy of a wish is the box alone* (Q-list 8, as planned): `DuplicateTest` pins that nothing is stamped
+       and that the copy is then held like a surveyed mark in the very phase it was made in (driven: its row is its
+       label alone).
+    7. *`Tour.kt`'s two `missing` notes* no longer say the phone has no band or has never had the sheet; they say no
+       tour anchor is on either yet. Nothing else of the tours is touched (L10, P1, TR).
+  - **For L10.** Add `LINES` and `READINGS` to `PREP_HONOURS` (and fold `prepSteps` / `prepMode` into `steps` /
+    `modeFor`); the reading boxes, the room-size line and Capture 360 are untouched here. **For L7:** the 360
+    already has the chip, the placement and the read-only rules; it draws no state yet. **For L6:** a Note's chip has
+    no second half and `place` stamps none; its `fresh` sheet is L6's. **For TR:** no tour anchor is on the band or on
+    the chip's second half (`phase:band`, `toolchip:as`).
+  - **Not ported, and why.** `spPre`'s resets of the Trade chip and the List's state filter (neither is on the
+    phone, Q-list 3); `T53.newFields` at placement (a new mark's sub-kind and trade: L5, L6); ⋮'s "Lock all marks /
+    Unlock all marks" box (the phone never had it); the reading boxes as figures (L10).
+
 ### 3.5 L5 · the ten new types and their sub-kinds, pure (M)
 - **Prototype:** the ten `P L2397-2407` (NOTE, GRL, AC, CDP, PLB, CTR, CRP, LV, SAN, DEF — 22 types: wall 21,
   floor 11, ceiling 13; PLB and LV are 50 mm points), SUBS `L2423-2466`, `displayName` `L2478`, the code grammar
@@ -793,6 +897,19 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
 10. **The Mark sheet with the keyboard up** -- a state a page never has (L3). On the phone the sheet rises over the
     keyboard and, when its blocks then need more height than is left, they scroll between the head and Done. Shown to
     him on the phone with B2, not drawn on the prototype; listed so it is his to change.
+11. **"Lock all <type>" on the menu outside Survey** (driven building L4, 11 Nov). The long-press menu of a mark
+    the phase lets be edited -- one just placed in the Wish list, a Line in any phase but Estimation -- still
+    offers Lock all, and the tap is refused: "Clearing and locking every mark is a Survey tool — move the phase
+    back to use it" (`P L4263` hides the row only with Duplicate and Lock; `lockAll` asks `spBulk`, `L5055`). The
+    phone does the same, as the page DOES. Is the row meant to be there?
+12. **Four things the page's code does in survey prep that its own phase rule does not say** (driven and read
+    building L4; the phone does NOT copy them, §3.4 "L4 AS BUILT"; each is for the prototype to settle):
+    (a) a drag on a read-only mark takes an undo step before it is refused, so ↶ lights up and undoes nothing;
+    (b) on the 360 a read-only picked mark still shows its eight resize tabs, and at Estimation a Line's end and a
+    chain's point can still be dragged there (the end and node grabs do not ask `spEdit`); (c) the chip's "· as
+    Client wish" keeps the cycling button's 32 px line although it is plain words, so the chip is 55-72 px tall;
+    (d) at Client approved the 360 still draws its palette row, every tool of which bounces back to Select -- one
+    more control that shows and cannot act (item 6).
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,
