@@ -2,6 +2,7 @@ package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.Instant
+import kotlin.math.max
 
 /**
  * A MARK'S LIFE CYCLE (port 62 slice L1, 11 Nov 2026; the approved prototype v61c.2, index61c2.html, module L53: LIFE
@@ -18,13 +19,18 @@ import java.time.Instant
  * (SurveyPrepFile) -- so there is no file migration -- and every write REPLACES the map, never changes it in place:
  * an undo copy may share the old one.
  *
- * The life-cycle table is ported WHOLE; which of its moves a phase offers is [PhaseTools.moveOk]'s. Pure: NOTHING ON
- * SCREEN READS THIS YET. Slice L2 draws from [stroke] and wires the delete, unlock and clear rules; L3's Mark sheet
- * offers [allowedMoves] and applies [move], [setAct] and [setNote]; L4 places with [placeAs]; L9 shows [countLife].
- * Not here, each with its slice: the pill, the act glyph and the note badge after a code (L2); the sheet's "since"
- * and "decided by" line (L3 -- `staff` has no `life.*` key: the prototype's own text layer draws it through
- * `album.staff`, lower-cased); the roll-up's words (L9 -- `existing`, `wish`, `scope` and `dropped` have no key yet,
- * and the prototype leaves that line English under मराठी). android/i18n/README.md, "Port 62 slice L1", has both.
+ * The life-cycle table is ported WHOLE; which of its moves a phase offers is [PhaseTools.moveOk]'s. Pure. SLICE L2
+ * (11 Nov 2026) is its first reader on the phone: survey prep's painter draws a mark's state from [stroke],
+ * [outlineWidth], [ringWidth] and [tag] (the prototype's outline 2872, ring 2887, paintState 2898-2911) and the picked
+ * mark's label from [barColour] (nlAttrs, 2930); a delete control reads [deleteLabel] and acts by [deleteAct]; the
+ * clears, Start over, the padlock and Lock all keep what [spared] and [unlockable] say (SurveyPrep.Prep.deleteMark and
+ * dropUnlocked, SurveyPrepEdit). NO CONTROL SETS A STATE YET: L3's Mark sheet offers [allowedMoves] and applies [move],
+ * [setAct] and [setNote]; L4 places with [placeAs]; L9 shows [countLife]. A SHEET FOR ANYONE BUT THE OFFICE never
+ * reaches the state at all: [SheetMarks] hands its painter the room as surveyed.
+ * Not here, each with its slice: the Note's pin (L6); the sheet's "since" and "decided by" line (L3 -- `staff` has no
+ * `life.*` key: the prototype's own text layer draws it through `album.staff`, lower-cased); the roll-up's words (L9
+ * -- `existing`, `wish`, `scope` and `dropped` have no key yet, and the prototype leaves that line English under
+ * मराठी). android/i18n/README.md, "Port 62 slice L1" and "slice L2", have them.
  */
 object MarkLife {
 
@@ -72,6 +78,64 @@ object MarkLife {
 
     /** A state's outline; null for Existing (and for an id that is no state), which v52 draws. */
     fun stroke(life: String?): Stroke? = byId(life).stroke
+
+    // ------------------------------------------------------------------ what is drawn of a state on a face (slice L2)
+
+    /** The fill behind a mark's outline: the outline's own colour at this alpha (`col+'22'`), a Dropped mark's in its grey. */
+    const val FILL_ALPHA = 0x22
+
+    /** The red diagonal across a Dropped mark, from its bottom-left corner to its top-right, [SLASH_W] u wide. */
+    const val SLASH = 0xe03131
+    const val SLASH_W = 2.0
+
+    /** A spot's state is a ring [RING_GAP] u outside its dot, [RING_W] u wide where the state names no width of its own. */
+    const val RING_GAP = 3.0
+    const val RING_W = 2.0
+
+    /**
+     * How wide a box's outline is drawn, in u (outline): Existing ([st] null) and a state that names no width take v52's
+     * own, which follows the selection -- 1.5 in the loupe ([thin]), 3.5 picked ([sel]), else 2.5; a state that names
+     * one keeps it, in the loupe too, and picked is drawn one wider than the greater of it and 2.5.
+     */
+    fun outlineWidth(st: Stroke?, sel: Boolean, thin: Boolean): Double {
+        val w = st?.width ?: return if (thin) 1.5 else if (sel) 3.5 else 2.5
+        return if (sel) max(w, 2.5) + 1 else w
+    }
+
+    /** How wide a spot's ring is drawn, in u (ring): the state's own width, else [RING_W]. The selection does not change it. */
+    fun ringWidth(st: Stroke): Double = st.width ?: RING_W
+
+    /** The ✎ badge after the code of a mark that has a note, and the badge of a mark a vendor added. */
+    const val NOTE_BADGE = "✎" // text:value a glyph, the same in both languages
+    const val VPLUS = "V+" // text:value the prototype's badge: its own text layer shows V+ under मराठी too
+
+    /**
+     * What is drawn after a mark's code on a face (paintState), left to right: [act], the act's glyph, only on a mark
+     * past Existing; [note], the ✎ badge of a mark that has a note; [vplus], "V+" on a mark born Vendor added; [pill],
+     * the state's name on a pill of [colour] (0xRRGGBB) -- none for Existing. A Dropped mark's are drawn at [alpha] .6,
+     * every other's at 1: the tag is drawn at ITS OWN alpha, never at the fade of a mark that is not the picked one.
+     */
+    class Tag(val act: String?, val note: Boolean, val vplus: Boolean, val pill: String?, val colour: Int, val alpha: Double)
+
+    /**
+     * The mark's [Tag] in the language, or null when nothing is drawn after its code: an Existing mark with no note
+     * (whatever a stale `act` it carries: an act is drawn only past Existing), and a Note, which is its own pin (slice
+     * L6) and has no state. [crowded] -- the box is under 90 u wide -- cuts the pill to the name's FIRST WORD AS SHOWN
+     * ("Client", "ग्राहकाची"). As the prototype's paintState, the early return included: an Existing mark born Vendor
+     * added shows its V+ only beside a note or an act.
+     */
+    fun tag(tx: Tx, e: SurveyPrep.Mark, crowded: Boolean = false): Tag? {
+        if (isNote(e)) return null
+        val life = lifeOf(e); val act = actOf(e); val note = noteOf(e.extra).trim().isNotEmpty()
+        if (life == EXIST && !note && act == null) return null
+        val past = life != EXIST
+        val pill = if (past) name(tx, life).let { if (crowded) it.substringBefore(' ') else it } else null
+        val t = Tag(if (past) glyph(act) else null, note, bornOf(e) == VADD, pill, byId(life).colour, if (life == DROP) 0.6 else 1.0)
+        return if (t.act == null && !t.note && !t.vplus && t.pill == null) null else t
+    }
+
+    /** The 3 dp bar on the left edge of the picked mark's code label, in its state's colour (nlAttrs); null for Existing: none. */
+    fun barColour(e: SurveyPrep.Mark): Int? = if (pastExisting(e)) byId(lifeOf(e)).colour else null
 
     /** A state's name on screen ("Client wish"); an id that is no state reads Existing's, as [byId]. */
     fun name(tx: Tx, life: String?): String = when (byId(life).id) {

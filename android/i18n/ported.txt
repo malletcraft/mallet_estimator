@@ -157,3 +157,5 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhaseTools.kt
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Trades.kt
+# Port 62 slice L2 (11 Nov 2026) adds pano/SheetMarks.kt (new: which marks a drawing of a face shows, by who it is for -- the office's screen every mark with its state, a saved "survey marks" picture the room as surveyed; it decides an EXPORT's content and names no language at all: MastersTest holds it among the wire and export builders, its compiled bytes free of the i18n package). No shown literal.
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SheetMarks.kt

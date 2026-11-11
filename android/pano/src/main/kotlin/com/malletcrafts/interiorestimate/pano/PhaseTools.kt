@@ -21,10 +21,11 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * (DESIGN-port62 Q-list 6): no life-cycle move is offered ([moveOk]; the prototype falls through to Vendor review's
  * moves, which would record a change after approval outside the change requests), the gate's line there is the
  * approval lock's own words ([gate]), and the step strip shows 3 · List without the two steps the prototype draws
- * but cannot enter ([steps]). One more follows from the first: a mark past Existing has no delete control there
+ * but cannot enter ([steps]). Two more follow from the first: a mark past Existing has no delete control there
  * ([delOk]) -- its Delete is a Drop or a Restore, a move, and a control that could only refuse is hidden, as at
- * Estimation. Everything else there is as the prototype's own code answers for a stage past Estimation
- * ([editable], [refuseText]).
+ * Estimation -- and a locked mark in Scope has no padlock there ([lockOk], slice L2): its unlock could only say
+ * "take it Out of scope in its sheet". Everything else there is as the prototype's own code answers for a stage
+ * past Estimation ([editable], [refuseText]).
  *
  * THE STAGE SURVEY PREP IS GIVEN is [stageOf]: 0-5 for a project S5 lists; 0, Survey's rules, for one S5 does not list
  * ("The tools keep following the project's own phase, Survey for a project made on the phone", index61c2.html
@@ -290,6 +291,21 @@ object PhaseTools {
 
     fun delOk(m: SurveyPrep.Meas, stage: Int?): Boolean = editable(m, stage)
     fun delOk(c: SurveyPrep.Chain, stage: Int?): Boolean = editable(c, stage)
+
+    /**
+     * Whether the mark's PADLOCK shows at [stage] -- the picked row's, and the menu's Lock / Unlock: as [editable],
+     * the prototype's own answer (spEdit), with ONE cell the phone hides. At Client approved a LOCKED mark in Scope has
+     * none: its unlock can only answer "FW1 is in Scope — take it Out of scope in its sheet"
+     * ([MarkLife.unlockRefusal]), a move the phone's sheet does not offer after approval ([moveOk]; Q-list 6) -- so the
+     * control could only refuse, and is HIDDEN, the L1 review's rule for [delOk] there. Decided in slice L2, which
+     * wires that refusal, as the L1 review left it (DESIGN-port62 section 3.1). Only a mark born Vendor added reaches
+     * this cell: [editable] has already hidden every other mark's controls there. Slice L4 asks it.
+     */
+    fun lockOk(e: SurveyPrep.Mark, stage: Int?): Boolean =
+        editable(e, stage) && !(phaseOf(stage) == APPROVED && SurveyPrep.isLocked(e) && !MarkLife.unlockable(e))
+
+    fun lockOk(m: SurveyPrep.Meas, stage: Int?): Boolean = editable(m, stage)
+    fun lockOk(c: SurveyPrep.Chain, stage: Int?): Boolean = editable(c, stage)
 
     /** ⋮'s Clear this surface, Clear whole room, Lock all and Start over act on every phase's marks: Survey only, and unread (spBulk). */
     fun bulk(stage: Int?): Boolean = phaseOf(stage).let { it == null || it == SURVEY }

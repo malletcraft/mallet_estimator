@@ -6,6 +6,8 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
 import com.malletcrafts.interiorestimate.pano.SurveyMeas
@@ -31,6 +33,14 @@ import kotlin.math.roundToInt
  * sheets pass Tx.EN (decision 4: exports stay English) -- so every call site states its language, and check (i)
  * sees every site. The words drawn: the four boundary-line names, the reference's "Ref 905 × 2053" tag and the
  * chain total's " laser"; every other drawn string is a code, a figure or a glyph, byte-equal in every language.
+ *
+ * SO IS THE AUDIENCE (port 62 slice L2, 11 Nov 2026; DESIGN-port62 section 3.2, the plan critic's finding 3), for the
+ * same reason: [drawMarks] takes a SheetMarks.Audience with no default, and is HANDED its marks by SheetMarks.marks.
+ * The screen passes OFFICE and draws a mark's state -- its outline, a spot's ring, and after its code the act, the ✎
+ * note badge, V+ and the state's pill, in the live language (MarkLife.stroke / tag; the prototype's outline, ring and
+ * paintState, index61c2.html 2872-2911). FaceWriter's saved "survey marks" pictures pass OTHERS and are handed THE
+ * ROOM AS SURVEYED: no mark born a wish or Vendor added, no Note, and no state on the marks that are there -- so this
+ * painter cannot draw one into a document for anybody else, and a v52 prep's picture is what it always was.
  */
 internal object SurveyPrepDraw {
 
@@ -247,9 +257,113 @@ internal object SurveyPrepDraw {
         }
     }
 
-    fun drawMarks(c: Canvas, tx: Tx, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
+    // ------------------------------------------------------------ a mark's state (port 62 slice L2)
+
+    /** A state's line on [p]: its dashes and gaps in u, round caps for a dotted one (MarkLife.Stroke; sp.js setLineDash, lineCap). */
+    private fun lifeLine(p: Paint, st: MarkLife.Stroke, u: Float): Paint = p.apply {
+        if (st.dash.isNotEmpty()) pathEffect = DashPathEffect(FloatArray(st.dash.size) { st.dash[it].toFloat() * u }, 0f)
+        if (st.round) strokeCap = Paint.Cap.ROUND
+    }
+
+    /**
+     * THE OUTLINE OF A MARK PAST EXISTING, in place of v52's (the prototype's L53.outline, index61c2.html 2872): the
+     * box filled 0x22 and outlined in its state's line -- Client wish dashed 6 / 4, Vendor review 2 / 3, Vendor added
+     * dotted, Vendor approved 1.5, Client approved and Scope 2.5, a Dropped mark grey at 40 % with a red diagonal from
+     * its bottom-left to its top-right -- in the type's colour (a Dropped one's grey), as wide as
+     * MarkLife.outlineWidth says for the selection and the loupe. False for an Existing mark, drawing nothing: the
+     * caller draws v52's own.
+     */
+    private fun lifeOutline(c: Canvas, e: SurveyPrep.Mark, p: FloatArray, q: FloatArray, col: Int, u: Float, sel: Boolean, thin: Boolean): Boolean {
+        val life = MarkLife.lifeOf(e)
+        val st = MarkLife.stroke(life) ?: return false
+        val ink = st.grey ?: col
+        fun al(base: Int) = (base * st.alpha).roundToInt()
+        c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(ink, al(MarkLife.FILL_ALPHA)) })
+        c.drawRect(p[0], p[1], q[0], q[1], lifeLine(stroke(argb(ink, al(255)), MarkLife.outlineWidth(st, sel, thin).toFloat() * u), st, u))
+        if (life == MarkLife.DROP) c.drawLine(p[0], q[1], q[0], p[1], stroke(argb(MarkLife.SLASH, al(255)), MarkLife.SLASH_W.toFloat() * u))
+        return true
+    }
+
+    /**
+     * A SPOT'S STATE (L53.ring, 2887): a ring 3 u outside its dot, in the state's line -- the dot itself stays v52's --
+     * and a Dropped spot's red diagonal across it. Nothing for an Existing spot.
+     */
+    private fun lifeRing(c: Canvas, e: SurveyPrep.Mark, x: Float, y: Float, r: Float, col: Int, u: Float) {
+        val life = MarkLife.lifeOf(e)
+        val st = MarkLife.stroke(life) ?: return
+        val a = (255 * st.alpha).roundToInt(); val rr = r + MarkLife.RING_GAP.toFloat() * u
+        c.drawCircle(x, y, rr, lifeLine(stroke(argb(st.grey ?: col, a), MarkLife.ringWidth(st).toFloat() * u), st, u))
+        if (life == MarkLife.DROP) c.drawLine(x - rr, y + rr, x + rr, y - rr, stroke(argb(MarkLife.SLASH, a), MarkLife.SLASH_W.toFloat() * u))
+    }
+
+    private const val TAG_INK = 0x1d1f1a
+    private const val VPLUS_COLOUR = 0x6741d9
+
+    /**
+     * AFTER A MARK'S CODE, drawn at ([x0], [y]) (its baseline) in bold [fs] px (L53.paintState, 2898-2911): the act's
+     * glyph, as the code is drawn (a 3 u dark halo under white); the ✎ note badge, a 10 u white disc ringed in ink; V+
+     * on violet for a mark a vendor added; then the state's name on a 16 u pill of its colour, ringed white. All at the
+     * tag's own alpha (.6 for a Dropped mark). [t] is MarkLife.tag's: this draws what it says and decides nothing.
+     */
+    private fun lifeTag(c: Canvas, code: String, t: MarkLife.Tag, x0: Float, y: Float, fs: Float, u: Float) {
+        fun al(base: Int) = (base * t.alpha).roundToInt()
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = fs; isFakeBoldText = true }
+        var x = x0 + p.measureText(code) + 3f * u
+        val yc = y - fs * .36f
+        t.act?.let { a ->
+            p.style = Paint.Style.STROKE; p.strokeWidth = 3f * u; p.color = argb(0x000000, al(0xcc)); c.drawText(a, x, y, p)
+            p.style = Paint.Style.FILL; p.color = argb(0xffffff, al(255)); c.drawText(a, x, y, p)
+            x += p.measureText(a) + 3f * u
+        }
+        if (t.note) {
+            val r = 5f * u
+            c.drawCircle(x + r, yc, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(0xffffff, al(255)) })
+            c.drawCircle(x + r, yc, r, stroke(argb(TAG_INK, al(255)), 1f * u))
+            c.drawText(MarkLife.NOTE_BADGE, x + r, yc + 2.5f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = 7f * u; isFakeBoldText = true; textAlign = Paint.Align.CENTER; color = argb(TAG_INK, al(255)) })
+            x += 2 * r + 3f * u
+        }
+        if (t.vplus) {
+            val vp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9f * u; isFakeBoldText = true }
+            val w = vp.measureText(MarkLife.VPLUS) + 6f * u; val h = 13f * u
+            c.drawRoundRect(RectF(x, yc - h / 2, x + w, yc + h / 2), 3f * u, 3f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(VPLUS_COLOUR, al(255)) })
+            vp.color = argb(0xffffff, al(255)); c.drawText(MarkLife.VPLUS, x + 3f * u, yc + 3.2f * u, vp)
+            x += w + 3f * u
+        }
+        t.pill?.let { nm ->
+            val pp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 10f * u; isFakeBoldText = true }
+            val w = pp.measureText(nm) + 10f * u; val h = 16f * u
+            val box = RectF(x, yc - h / 2, x + w, yc + h / 2)
+            c.drawRoundRect(box, h / 2, h / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(t.colour, al(255)) })
+            c.drawRoundRect(box, h / 2, h / 2, stroke(argb(0xffffff, al(255)), 1f * u))
+            pp.color = argb(0xffffff, al(255)); c.drawText(nm, x + 5f * u, yc + 3.5f * u, pp)
+        }
+    }
+
+    /** The alpha a mark that is not the picked one is drawn at while one is (sp.js 191 / 255). */
+    private const val FADE = 191
+
+    /**
+     * [lifeTag] for the mark [e], when MarkLife.tag has one. AT ITS OWN ALPHA, NEVER THE FADE'S: the prototype's
+     * paintState SETS the alpha (1, or .6 for a Dropped mark) rather than multiplying it, so while another mark is picked
+     * the rest dim to 75 % and their tags do not. A [faded] mark is being drawn into the fade's layer: that layer is
+     * closed for the tag and opened again after it, so what follows -- the padlock -- still dims, and is still drawn
+     * over the tag. Only a mark that HAS a tag pays for the second layer.
+     */
+    private fun lifeTagOf(c: Canvas, tx: Tx, e: SurveyPrep.Mark, x: Float, y: Float, fs: Float, u: Float, crowded: Boolean, faded: Boolean) {
+        val t = MarkLife.tag(tx, e, crowded) ?: return
+        if (faded) c.restore()
+        lifeTag(c, e.code, t, x, y, fs, u)
+        if (faded) c.saveLayerAlpha(null, FADE)
+    }
+
+    /**
+     * [audience] decides WHICH marks are drawn and what of them (SheetMarks.marks): the office's screen every mark with
+     * its state; anyone else's picture the room as surveyed. It has no default -- every call site names who it draws for.
+     */
+    fun drawMarks(c: Canvas, tx: Tx, audience: SheetMarks.Audience, s: String, o: Marks, m: (Double, Double) -> FloatArray, u: Float) {
         val sq = o.sq; val thin = o.mode == "loupe"
-        val els = o.prep.surface(s).marks
+        val els = SheetMarks.marks(o.prep.surface(s).marks, audience)
         val ta = m(sq.x(0.0), sq.y(o.b)); val tb = m(sq.x(o.a), sq.y(0.0))
         c.drawRect(ta[0], ta[1], tb[0], tb[1], stroke(argb(0xffffff, 0x99), 1.5f * u).apply {
             pathEffect = DashPathEffect(floatArrayOf(6f * u, 5f * u), 0f) })
@@ -275,13 +389,16 @@ internal object SurveyPrepDraw {
             val faded = sm != null && !sel
             // a locked mark (v52 slice 8): a padlock beside its code on the editing photo, and no resize tabs
             val locked = SurveyPrep.isLocked(e)
-            if (faded) c.saveLayerAlpha(null, 191)
+            if (faded) c.saveLayerAlpha(null, FADE)
             if (SurveyPrep.isPoint(e.t)) {
                 // A SPOT: its dot and symbol, its code beside it, its two figures when picked -- no tabs
                 val d = spotOf(e, sq, m, o.dp)
                 spot(c, d[0], d[1], d[2], e.t, col, sel, thin, o.dp)
                 if (!thin) {
+                    // its state (port 62 slice L2): the ring round the dot, then the tag after its code
+                    lifeRing(c, e, d[0], d[1], d[2], col, u)
                     label(c, e.code, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, col, (if (o.all) 26f else 13f) * u, u)
+                    lifeTagOf(c, tx, e, d[0] + d[2] + 4f * u, d[1] - d[2] - 2f * u, (if (o.all) 26f else 13f) * u, u, false, faded)
                     if (locked && o.mode == "main") padPill(c, d[0] + d[2] + 30f * u, d[1] - d[2] - 16f * u, col, u)
                     if (sel || o.all) dims(c, s, e, o, m, p, q, (if (o.all) 22f else 12f) * u, u)
                 }
@@ -293,10 +410,16 @@ internal object SurveyPrepDraw {
                 }
                 continue
             }
-            c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(col, 0x22) })
-            c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
+            // A MARK PAST EXISTING is outlined in its state's line (port 62 slice L2), the loupe's thin copy too; an
+            // Existing one exactly as v52 draws it -- and a sheet for anyone but the office is handed Existing marks alone
+            if (!lifeOutline(c, e, p, q, col, u, sel, thin)) {
+                c.drawRect(p[0], p[1], q[0], q[1], Paint().apply { color = argb(col, 0x22) })
+                c.drawRect(p[0], p[1], q[0], q[1], stroke(argb(col), (if (thin) 1.5f else if (sel) 3.5f else 2.5f) * u))
+            }
             if (!thin) {
                 label(c, e.code, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, col, (if (o.all) 26f else 13f) * u, u)
+                // ... and after its code its act, ✎, V+ and pill; the pill is its first word on a box under 90 u wide
+                lifeTagOf(c, tx, e, p[0] + 6f * u, p[1] + (if (o.all) 30f else 16f) * u, (if (o.all) 26f else 13f) * u, u, q[0] - p[0] < 90f * u, faded)
                 if (locked && o.mode == "main") padPill(c, q[0] - 3f * u, p[1] + 3f * u, col, u)
                 if (sel && o.mode == "main" && !locked) {
                     val xm = (p[0] + q[0]) / 2; val ym = (p[1] + q[1]) / 2; val h = 5f * u

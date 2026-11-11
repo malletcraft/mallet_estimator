@@ -74,6 +74,90 @@ class MarkLifeTest {
         for (s in MarkLife.STATES) assertSame(s.stroke, MarkLife.stroke(s.id))
     }
 
+    // ------------------------------------------------------------------ slice L2: what the painter draws of a state
+
+    @Test fun `the outline's width, state by state -- plain, picked, in the loupe, picked in the loupe -- as the prototype's outline strokes it`() {
+        // the prototype's own strokeRect line widths (proto-tables.mjs, "L2 outline"), in u; Existing is v52's own
+        val want = linkedMapOf(
+            "exist" to listOf(2.5, 3.5, 1.5, 1.5),
+            "wish" to listOf(2.5, 3.5, 1.5, 1.5),   // names no width: v52's, which follows the selection
+            "vrev" to listOf(2.5, 3.5, 1.5, 1.5),
+            "vok" to listOf(1.5, 3.5, 1.5, 3.5),    // names 1.5: kept in the loupe; picked is max(1.5, 2.5) + 1
+            "vadd" to listOf(2.5, 3.5, 1.5, 1.5),
+            "cok" to listOf(2.5, 3.5, 2.5, 3.5),
+            "scope" to listOf(2.5, 3.5, 2.5, 3.5),
+            "drop" to listOf(1.0, 3.5, 1.0, 3.5),
+        )
+        assertEquals(MarkLife.IDS, want.keys.toList())
+        for ((life, w) in want) assertEquals(w, listOf(false to false, true to false, false to true, true to true).map { (sel, thin) ->
+            MarkLife.outlineWidth(MarkLife.stroke(life), sel, thin) }, life)
+        // a spot's ring: 3 u outside the dot, the state's own width or 2, whatever the selection; Existing has no ring
+        assertEquals(listOf(2.0, 2.0, 1.5, 2.0, 2.5, 2.5, 1.0), MarkLife.STORED.map { MarkLife.ringWidth(MarkLife.stroke(it)!!) })
+        assertEquals(listOf(3.0, 2.0), listOf(MarkLife.RING_GAP, MarkLife.RING_W))
+        // the fill behind the outline, and a Dropped mark's red diagonal
+        assertEquals(listOf(0x22, 0xe03131), listOf(MarkLife.FILL_ALPHA, MarkLife.SLASH)); assertEquals(2.0, MarkLife.SLASH_W)
+    }
+
+    /** A tag as one line: the act's glyph, ✎, V+, the pill and its colour, and the alpha when it is not 1; "-" for none. */
+    private fun shown(t: MarkLife.Tag?): String = if (t == null) "-" else listOfNotNull(
+        t.act, if (t.note) MarkLife.NOTE_BADGE else null, if (t.vplus) MarkLife.VPLUS else null,
+        t.pill?.let { "[$it #" + t.colour.toString(16).padStart(6, '0') + "]" }, if (t.alpha != 1.0) "@${t.alpha}" else null).joinToString(" ")
+
+    @Test fun `the tag after a mark's code - the act, the note badge, V+ and the pill, row by row, as the prototype's paintState draws them`() {
+        // every row is what the prototype's own paintState logs for the same mark (proto-tables.mjs, "L2 paintState")
+        val rows = listOf(
+            Triple("an Existing mark", mark(), "-"),
+            Triple("... with a note", mark(mapOf("note" to "check the sill")), "✎"),
+            Triple("... with a blank note", mark(mapOf("note" to "   ")), "-"),
+            Triple("... with a stale act: an act is drawn only past Existing", mark(mapOf("act" to "shift")), "-"),
+            Triple("... with a stale act and a note", mark(mapOf("act" to "shift", "note" to "x")), "✎"),
+            Triple("an Existing mark born Vendor added, alone", mark(mapOf("born" to "vadd")), "-"),
+            Triple("... beside a note its V+ shows", mark(mapOf("born" to "vadd", "note" to "x")), "✎ V+"),
+            Triple("... and beside a stale act", mark(mapOf("born" to "vadd", "act" to "shift")), "V+"),
+            Triple("a wish to replace", mark(mapOf("life" to "wish", "act" to "replace")), "↻ [Client wish #0f766e]"),
+            Triple("a wish to remove, with a note", mark(mapOf("life" to "wish", "act" to "remove", "note" to "close with brickwork")), "✕ ✎ [Client wish #0f766e]"),
+            Triple("a wish whose act is not one of the four", mark(mapOf("life" to "wish", "act" to "paint")), "[Client wish #0f766e]"),
+            Triple("a mark born a wish", mk("wish", "wish"), "[Client wish #0f766e]"),
+            Triple("... with an office-only note: the badge, never its words", mark(mapOf("born" to "wish", "life" to "wish", "note" to "n", "vis" to "office")), "✎ [Client wish #0f766e]"),
+            Triple("in Vendor review, to repair", mark(mapOf("life" to "vrev", "act" to "repair")), "⚒ [Vendor review #9a6700]"),
+            Triple("Vendor approved", mk("vok"), "[Vendor approved #1864ab]"),
+            Triple("Vendor added", mk("vadd", "vadd"), "V+ [Vendor added #6741d9]"),
+            Triple("Client approved, born Vendor added, with a note", mark(mapOf("born" to "vadd", "life" to "cok", "note" to "n")), "✎ V+ [Client approved #2b8a3e]"),
+            Triple("Client approved, to shift", mark(mapOf("life" to "cok", "act" to "shift")), "⇢ [Client approved #2b8a3e]"),
+            Triple("in Scope", mark(mapOf("life" to "scope", "locked" to true)), "[Scope #1d1f1a]"),
+            Triple("Dropped: its why is never drawn, and the tag is at 60 %", mark(mapOf("life" to "drop", "act" to "replace", "why" to "no budget")), "↻ [Dropped #b3261e] @0.6"),
+            Triple("Dropped, born Vendor added", mk("drop", "vadd"), "V+ [Dropped #b3261e] @0.6"),
+            Triple("an unknown life reads Existing", mark(mapOf("life" to "zzz", "act" to "replace")), "-"),
+            Triple("a Note is its own pin (slice L6): no tag, whatever it carries", mark(mapOf("life" to "wish", "note" to "words"), t = "NOTE"), "-"),
+        )
+        for ((what, e, want) in rows) assertEquals(want, shown(MarkLife.tag(Tx.EN, e)), what)
+        assertEquals(listOf("✎", "V+"), listOf(MarkLife.NOTE_BADGE, MarkLife.VPLUS))
+    }
+
+    @Test fun `a crowded box cuts the pill to the state's first word as shown, in both languages -- and nothing else`() {
+        fun pill(tx: Tx, life: String, crowded: Boolean) = MarkLife.tag(tx, mk(life), crowded)!!.pill
+        assertEquals(listOf("Client", "Vendor", "Vendor", "Vendor", "Client", "Scope", "Dropped"), MarkLife.STORED.map { pill(Tx.EN, it, true) })
+        assertEquals(listOf("Client wish", "Vendor review", "Vendor approved", "Vendor added", "Client approved", "Scope", "Dropped"),
+            MarkLife.STORED.map { pill(Tx.EN, it, false) })
+        // the first word of the name AS THE SCREEN SHOWS IT, as the prototype cuts it under मराठी
+        assertEquals(listOf("ग्राहकाची", "व्हेंडर", "व्हेंडर", "व्हेंडरने", "ग्राहक", "स्कोप", "वगळले"), MarkLife.STORED.map { pill(Tx.MR, it, true) })
+        assertEquals(listOf("ग्राहकाची इच्छा", "व्हेंडर तपासणी", "व्हेंडर मंजूर", "व्हेंडरने जोडले", "ग्राहक मंजूर", "स्कोप", "वगळले"),
+            MarkLife.STORED.map { pill(Tx.MR, it, false) })
+        // the act, the badge and V+ are the same crowded or not, and in either language
+        val e = mark(mapOf("born" to "vadd", "life" to "cok", "act" to "repair", "note" to "n"))
+        assertEquals("⚒ ✎ V+ [Client #2b8a3e]", shown(MarkLife.tag(Tx.EN, e, crowded = true)))
+        assertEquals("⚒ ✎ V+ [ग्राहक #2b8a3e]", shown(MarkLife.tag(Tx.MR, e, crowded = true)))
+        assertEquals("⚒ ✎ V+ [Client approved #2b8a3e]", shown(MarkLife.tag(Tx.EN, e)))
+        // the model gives an act only to a mark born Existing (setAct); the painter draws the act a file holds on any mark past Existing
+        assertEquals("⚒ [Client wish #0f766e]", shown(MarkLife.tag(Tx.EN, mark(mapOf("born" to "wish", "life" to "wish", "act" to "repair")), crowded = false)))
+    }
+
+    @Test fun `the picked mark's label carries a bar in its state's colour -- none for an Existing mark or a Note`() {
+        assertNull(MarkLife.barColour(mark())); assertNull(MarkLife.barColour(mark(mapOf("life" to "zzz"))))
+        assertNull(MarkLife.barColour(mk("wish", t = "NOTE")))
+        assertEquals(listOf(0x0F766E, 0x9a6700, 0x1864ab, 0x6741d9, 0x2b8a3e, 0x1d1f1a, 0xb3261e), MarkLife.STORED.map { MarkLife.barColour(mk(it)) })
+    }
+
     @Test fun `ACTS - the four acts, their glyphs and their names in both languages`() {
         assertEquals(listOf("replace", "shift", "repair", "remove"), MarkLife.ACTS.map { it.id })
         assertEquals(listOf("↻", "⇢", "⚒", "✕"), MarkLife.ACTS.map { it.glyph })

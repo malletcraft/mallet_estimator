@@ -371,6 +371,37 @@ class PhaseToolsTest {
         assertFalse(PhaseTools.delOk(mk("exist"), PhaseTools.APPROVED))
     }
 
+    /**
+     * Slice L2, as the L1 review left it ("L2 decides whether that padlock is hidden there too"): a mark in Scope stays
+     * locked, and its padlock answers "take it Out of scope in its sheet" -- a move the phone's sheet does not offer at
+     * Client approved. There the padlock could only refuse, so it is not drawn; everywhere else it follows editable.
+     */
+    @Test fun `the padlock follows editable -- but a locked mark in Scope has none at Client approved, where it could only refuse`() {
+        fun locked(e: SurveyPrep.Mark) = e.also { it.extra = it.extra + (SurveyPrep.LOCKED to true) }
+        // the one cell: Scope, locked, born Vendor added (the only mark still editable there), at Client approved
+        val scope = locked(mk("scope", "vadd"))
+        assertEquals("1010111", bits { PhaseTools.editable(scope, it) }); assertEquals("1010101", bits { PhaseTools.lockOk(scope, it) })
+        // what its padlock would do there: refuse, with words that point at a move nothing offers
+        assertEquals("FW1 is in Scope — take it Out of scope in its sheet", MarkLife.unlockRefusal(Tx.EN, scope))
+        assertTrue(MarkLife.allowedMoves(scope, PhaseTools.APPROVED).isEmpty())
+        // ... while at Vendor review and Revisions the sheet offers ← Out of scope, so the padlock stays and its words can be followed
+        for (st in listOf(PhaseTools.VENDOR_REVIEW, PhaseTools.REVISIONS)) assertEquals(listOf(MarkLife.COK), MarkLife.allowedMoves(scope, st).map { it.to }, "$st")
+        // every other mark, state and lock: exactly editable, at every stage
+        val marks = MarkLife.IDS.flatMap { life -> listOf("exist", "wish", "vadd").flatMap { born -> listOf(mk(life, born), locked(mk(life, born))) } } +
+            mark(t = "NOTE") + locked(mk("scope", t = "NOTE"))
+        for (e in marks) for (st in STAGES) {
+            val theCell = st == PhaseTools.APPROVED && MarkLife.lifeOf(e) == MarkLife.SCOPE && SurveyPrep.isLocked(e) && MarkLife.bornOf(e) == MarkLife.VADD
+            assertEquals(if (theCell) false else PhaseTools.editable(e, st), PhaseTools.lockOk(e, st), "${e.t} ${e.extra} at $st")
+        }
+        // a Scope mark that is NOT locked (a file may hold one) keeps its padlock: locking it is an act that works
+        assertTrue(PhaseTools.lockOk(mk("scope", "vadd"), PhaseTools.APPROVED))
+        // a Note has no state; a Line, a Tape and a chain lock as they are edited
+        assertTrue(PhaseTools.lockOk(locked(mk("scope", t = "NOTE")), PhaseTools.APPROVED))
+        assertEquals(bits { PhaseTools.editable(meas("line"), it) }, bits { PhaseTools.lockOk(meas("line"), it) })
+        assertEquals(bits { PhaseTools.editable(meas("tape"), it) }, bits { PhaseTools.lockOk(meas("tape"), it) })
+        assertEquals(bits { PhaseTools.editable(chain(), it) }, bits { PhaseTools.lockOk(chain(), it) })
+    }
+
     @Test fun `Clear, Lock all and Start over act on every phase's marks - Survey only, and unread`() {
         assertEquals("1000001", bits { PhaseTools.bulk(it) })
         assertTrue(PhaseTools.bulk(PhaseTools.stageOf(null, phoneOnly = true)))

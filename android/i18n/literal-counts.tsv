@@ -96,6 +96,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomCorners.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomQuad.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/RoomToken.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/ServerMessage.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SheetMarks.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Stamp.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/StepRoute.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/SurveyChain.kt	0

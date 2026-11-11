@@ -9,6 +9,9 @@
 //
 // The modules are found by their own opening lines, not by line number: L57 (the text layer), T53 (trades, types), L53
 // (the life cycle and the Mark sheet) and P54 (the phase flow and its tool gating).
+// SLICE L2 (11 Nov 2026) adds one section, "L2 …": what the page DRAWS of a mark's state -- its outline, a spot's ring and
+// the tag after its code -- on a recording canvas, in English and under मराठी; the bar on the picked label; what a clear
+// keeps and what stays locked. It is the cross-check behind MarkLifeTest's width and tag tables.
 // WHAT THE PHONE DOES DIFFERENTLY, ON PURPOSE (DESIGN-port62.md §3, Q-list 6): at Client approved (stage 5) the prototype
 // names no rule and falls through to Vendor review's moves; PhaseTools offers none there -- and so, since the L1 review
 // (§3.1), PhaseTools.delOk is 0 at stage 5 for a mark past Existing, where the page prints 1 (its Delete is a Drop or a
@@ -88,6 +91,63 @@ const items = { 'a surveyed mark': mk('exist', 'exist'), 'a wish on a surveyed m
   'a Dropped surveyed mark': mk('drop', 'exist'), 'a Note': { id: 'n', t: 'NOTE', code: 'FNOTE1' }, 'a Line': { id: 'm', kind: 'line', code: 'F-M1' }, 'a Tape': { id: 't', kind: 'tape', code: 'F-T1' }, 'a chain': { id: 'k', code: 'FK1', nodes: [[0, 0], [1, 0]] } };
 console.log('editable, delOk at stages 0..5 and unread:'); for (const [n, e] of Object.entries(items)) console.log('  ', n + ':', bits(s => P54.editable(e, s)), bits(s => P54.delOk(e, s)));
 console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'wish']) console.log('  ', s, L, '|', P54.noMoveText(L, s, L53.byId(L).name));
+
+// ---- SLICE L2: what the page DRAWS of a mark's state -- outline (2872), ring (2887), paintState (2898-2911), nlAttrs (2930) --
+// on a recording canvas: the cross-check behind MarkLifeTest's width and tag tables (MarkLife.outlineWidth, ringWidth, tag,
+// barColour) and behind the app's SurveyPrepDraw.lifeOutline / lifeRing / lifeTag, which no test here can run. A text is
+// measured as (its characters) x (its px) x 0.5, so the x positions are comparable, not real.
+{
+  const rec = [];
+  const mkG = () => { const st = []; const g = { globalAlpha: 1, lineWidth: 1, strokeStyle: '', fillStyle: '', font: '', lineCap: 'butt', textAlign: 'left', _dash: [], _path: [],
+    save() { st.push([g.globalAlpha, g.lineWidth, g.strokeStyle, g.fillStyle, g.font, g.lineCap, g._dash.slice()]); },
+    restore() { [g.globalAlpha, g.lineWidth, g.strokeStyle, g.fillStyle, g.font, g.lineCap, g._dash] = st.pop(); },
+    setLineDash(d) { g._dash = d.slice(); }, beginPath() { g._path = []; }, moveTo(x, y) { g._path.push(`M${x},${y}`); }, lineTo(x, y) { g._path.push(`L${x},${y}`); },
+    arc(x, y, r) { g._path.push(`arc(${x},${y} r${r})`); }, roundRect(x, y, w, h, r) { g._path = [`rr(${x},${+y.toFixed(2)} ${w}x${h} r${r})`]; }, rect() {}, closePath() {},
+    fill() { rec.push(`fill ${g.fillStyle} a${+g.globalAlpha.toFixed(3)} ${g._path.join(' ')}`); },
+    stroke() { rec.push(`stroke ${g.strokeStyle} w${g.lineWidth} ${g._dash.join('/') || 'solid'} ${g.lineCap} a${+g.globalAlpha.toFixed(3)} ${g._path.join(' ')}`); },
+    fillRect() { rec.push(`fillRect ${g.fillStyle} a${+g.globalAlpha.toFixed(3)}`); },
+    strokeRect() { rec.push(`strokeRect ${g.strokeStyle} w${g.lineWidth} ${g._dash.join('/') || 'solid'} ${g.lineCap} a${+g.globalAlpha.toFixed(3)}`); },
+    measureText(t) { const m = /(\d+(?:\.\d+)?)px/.exec(g.font); return { width: [...t].length * (m ? +m[1] : 10) * 0.5 }; },
+    strokeText(t, x, y) { rec.push(`strokeText "${t}" ${g.strokeStyle} w${g.lineWidth} at ${x},${y} a${+g.globalAlpha.toFixed(3)}`); },
+    fillText(t, x, y) { rec.push(`fillText "${t}" ${g.fillStyle} at ${x},${+y.toFixed(2)} ${(/bold [\d.]+px/.exec(g.font) || [''])[0]} ${g.textAlign} a${+g.globalAlpha.toFixed(3)}`); } };
+    return g; };
+  const mk2 = (life, born, extra = {}) => Object.assign(mk(life, born), extra);
+  console.log('\nL2 outline, u = 1, a box (10,20)-(110,220) in #4dabf7: plain || picked || in the loupe || picked in the loupe');
+  for (const l of L53.LIFE_IDS) console.log('  ', l.padEnd(6), [[false, false], [true, false], [false, true], [true, true]].map(([sel, thin]) => {
+    rec.length = 0; return L53.outline(mkG(), mk2(l, 'exist'), [10, 20], [110, 220], '#4dabf7', 1, sel, thin) ? rec.join(' ; ') : 'false (v52 draws it)'; }).join('  ||  '));
+  console.log('   a Note with a life:', L53.outline(mkG(), mk2('wish', 'exist', { t: 'NOTE' }), [0, 0], [1, 1], '#fff', 1, false, false));
+  console.log('L2 ring, u = 2, a dot of radius 12 at (100,100) in #ffd43b:');
+  for (const l of L53.LIFE_IDS) { rec.length = 0; console.log('  ', l.padEnd(6), L53.ring(mkG(), mk2(l, 'exist', { t: 'E' }), [100, 100], 12, '#ffd43b', 2) ? rec.join(' ; ') : 'false (no ring)'); }
+  const cases = [
+    ['existing', mk2('exist', 'exist')], ['existing + note', mk2('exist', 'exist', { note: 'check' })], ['existing + blank note', mk2('exist', 'exist', { note: '   ' })],
+    ['existing + stale act', mk2('exist', 'exist', { act: 'shift' })], ['existing + stale act + note', mk2('exist', 'exist', { act: 'shift', note: 'x' })],
+    ['existing born vadd', mk2('exist', 'vadd')], ['existing born vadd + note', mk2('exist', 'vadd', { note: 'x' })], ['existing born vadd + stale act', mk2('exist', 'vadd', { act: 'shift' })],
+    ['wish + replace', mk2('wish', 'exist', { act: 'replace' })], ['wish + remove + note', mk2('wish', 'exist', { act: 'remove', note: 'close with brickwork' })],
+    ['wish + an act that is none', mk2('wish', 'exist', { act: 'paint' })], ['born wish', mk2('wish', 'wish')], ['born wish + act', mk2('wish', 'wish', { act: 'repair' })],
+    ['born wish + office note', mk2('wish', 'wish', { note: 'n', vis: 'office' })], ['vrev + repair', mk2('vrev', 'exist', { act: 'repair' })], ['vok', mk2('vok', 'exist')],
+    ['vadd born vadd', mk2('vadd', 'vadd')], ['cok born vadd + note', mk2('cok', 'vadd', { note: 'n' })], ['cok born vadd + act + note', mk2('cok', 'vadd', { act: 'repair', note: 'n' })],
+    ['cok + shift', mk2('cok', 'exist', { act: 'shift' })], ['scope', mk2('scope', 'exist', { locked: true })], ['drop + act + why', mk2('drop', 'exist', { act: 'replace', why: 'no budget' })],
+    ['drop born vadd', mk2('drop', 'vadd')], ['unknown life', mk2('exist', 'exist', { life: 'zzz', act: 'replace' })],
+  ];
+  for (const lang of ['en', 'mr']) {
+    try { L57.set(lang); } catch (_) { store['mcft-lang-v57'] = JSON.stringify({ lang }); }
+    console.log(`L2 paintState under ${L57.lang()} (the canvas alpha is 0.75 going in, a faded mark's): the log, plain | crowded`);
+    for (const [n, e] of cases) console.log('  ', n.padEnd(32), [false, true].map(crowded => { L53.clearDrawLog(); const g = mkG(); g.globalAlpha = 0.75;
+      L53.paintState(g, e, { x: 100, y: 200, fs: 26 }, 2, { crowded }); const d = L53.drawLog().slice(-1)[0];
+      return d ? [d.act, d.noteBadge ? '✎' : null, d.vplus ? 'V+' : null, d.pill ? `[${d.pill} ${d.pillCol}]` : null].filter(Boolean).join(' ') || '(nothing drawn)' : '-'; }).join('  |  '));
+  }
+  try { L57.set('mr'); } catch (_) {}
+  for (const [n, e] of [['wish + remove + note', cases[9][1]], ['cok born vadd + note', cases[17][1]], ['drop + act + why', cases[21][1]]]) {
+    rec.length = 0; const g = mkG(); g.globalAlpha = 0.75; L53.paintState(g, e, { x: 100, y: 200, fs: 26 }, 2, {});
+    console.log(`L2 paintState, every call for "${n}" (u = 2, the code at x 100, baseline 200, bold 26 px; alpha after: ${g.globalAlpha}):`); for (const r of rec) console.log('     ', r); }
+  console.log('L2 nlAttrs (the picked label\'s bar):', L53.LIFE_IDS.map(l => l + '=' + ((/inset 3px 0 0 (#\w+)/.exec(L53.nlAttrs(mk2(l, 'exist'))) || [, 'none'])[1])).join(' '),
+    '· a Line:', (/inset/.test(L53.nlAttrs({ id: 'm', kind: 'line', code: 'F-M1' })) ? 'bar' : 'none'));
+  console.log('L2 spared (a clear and Start over keep it): existing, locked, wish, dropped, a Note with a life, a Line with a life, a locked Line ->',
+    JSON.stringify([mk2('exist', 'exist'), mk2('exist', 'exist', { locked: true }), mk2('wish', 'exist'), mk2('drop', 'exist'), mk2('wish', 'exist', { t: 'NOTE' }),
+      { id: 'm', kind: 'line', code: 'F-M1', life: 'wish' }, { id: 'm', kind: 'line', code: 'F-M1', locked: true }].map(x => L53.spared(x))));
+  console.log('L2 unlockable: a Scope mark, a Note in "scope", a Client approved mark, a Line in "scope" ->',
+    JSON.stringify([mk2('scope', 'exist', { locked: true }), mk2('scope', 'exist', { t: 'NOTE', locked: true }), mk2('cok', 'exist', { locked: true }), { id: 'm', kind: 'line', code: 'F-M1', life: 'scope', locked: true }].map(x => L53.unlockable(x))));
+}
 
 // ---- L57: what the page shows under मराठी for each line of the file given (a text it does not know comes back as it went in)
 if (process.argv[3]) for (const s of fs.readFileSync(process.argv[3], 'utf8').split('\n').filter(Boolean)) console.log(JSON.stringify(s), '->', JSON.stringify(L57.vis(s)));

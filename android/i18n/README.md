@@ -546,6 +546,45 @@ phone shows does not change in either language. `TradesTest` asks a table whose 
 name and short name: a literal in the code now fails it. 1,895 -> 1,896 keys; Tx regenerated (`trade_hvac_short`; 1,825
 accessors); `i18nRatchet` lowered nothing (`Trades.kt` was already at 0); the accessors nothing calls stay 678.
 
+## Port 62 slice L2 (11 Nov 2026): a mark's state on the face -- the first of these texts a screen can show, no new key
+
+`pano/SheetMarks.kt` (new) joined `ported.txt`: it has no shown literal and names no language at all (below). L2 is the
+first READER of L1's models on the phone (DESIGN-port62 §3.2): survey prep's painter draws a mark's state, a delete
+control reads Drop or Restore, and the clears, Start over and the padlock say what they kept. **No control sets a state
+yet** (L3's Mark sheet, L4's placement), so none of this can be reached on the phone until B2 = L1–L4 is merged. No table
+changed (1,896 keys each); Tx was not regenerated; `unkeyed.tsv` stays empty; `i18nRatchet` added `SheetMarks.kt` at 0 and
+lowered nothing. The accessors nothing calls went 678 -> 677 (`sp.msg.started_over_x`, below).
+
+What the screen now draws from keys the tables already held:
+
+- **On the face, in the live language** (`app/SurveyPrepDraw.kt`, through `MarkLife.tag`): a state's name on its pill --
+  the seven `life.*` state keys (`life.wish` … `life.drop`; Existing has no pill). A box under 90 u wide shows the name's
+  FIRST WORD AS SHOWN, as the prototype cuts it after its text layer (`ग्राहकाची`, `व्हेंडर`, `ग्राहक`; English `Client`,
+  `Vendor`): the cut is `substringBefore(' ')` of the rendered name, no key of its own. The act's glyph (↻ ⇢ ⚒ ✕), the note
+  badge `✎` and `V+` are marked `// text:value` in `MarkLife` (glyphs, and the prototype's own badge, which its text layer
+  shows as `V+` under मराठी too).
+- **A delete control's word** (`SurveyPrepEdit.deleteWord`, the menu's first row): `common.delete`, `type.cdp.short`
+  (Drop) and `common.restore`, as L1 keyed them. **Its screen-reader label on a mark past Existing is the word, a space
+  and the mark** -- `Drop FW1 Window`, `ड्रॉप FW1 खिडकी` -- because no whole key holds `Drop {label}`: the prototype joins
+  them itself (`${delWord} ${code}`, index61c2.html 6660) and its own text layer shows `ड्रॉप FW1`. `Delete …` keeps its
+  whole key (`sp.delete_x`). The space is marked `// text:value`.
+- **Restore**: `life.msg.x_restored_x`; refused, the gate's or the move's own line (`refuse.life.finish_survey_first_stage`
+  is the one L2 can reach: the dialog is given the project's stage in L3, and until then it is Survey's).
+- **A clear that kept a wish**: `life.cleared_x_item_x` with `life.x_locked_kept` and `life.x_mark_x_past` (through
+  `MarkLife.clearText`); with none kept, v52's `sp.cleared_x_item_x` / `sp.x_item_x_cleared`, word for word.
+- **Start over that kept a wish**: `sp.msg.started_over_x` -- v52's own `Started over — {v}`, unused on the phone until
+  now -- around `life.x_mark_x_past_2`, as the prototype composes it (index61c2.html 6942).
+- **The padlock on a mark in Scope**: `refuse.life.x_scope_take_out`; **Unlock all**: `life.x_scope_mark_x`, said alone or
+  after v52's `sp.msg.unlocked_x_item_x`, joined by the prototype's ` · ` (marked `// text:value`). Two whole sentences
+  joined, each in its own key's Marathi -- NOT the prototype's rendering of the joined line, which its text layer garbles
+  under मराठी (`स्कोपमधील 2 आयटम अनलॉक केले · front wall · 1 मार्क लॉक राहतात`, run with `docs/port62/proto-tables.mjs`).
+
+**The saved "survey marks" pictures get no new text and no language.** `FaceWriter` still passes the literal `Tx.EN`
+(check (h) and its companion are unchanged) and now also `SheetMarks.Audience.OTHERS`: the painter is handed the room as
+surveyed, so no state name, act or note badge is drawn into a picture that leaves the phone -- in either language.
+`SheetMarks` decides an export's content, so MastersTest holds it among the WHOLE wire and export builders: its
+compiled bytes may not name the i18n package.
+
 ## What is here
 
 | File | What it is | Who writes it |

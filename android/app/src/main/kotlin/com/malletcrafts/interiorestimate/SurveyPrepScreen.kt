@@ -104,10 +104,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
+import com.malletcrafts.interiorestimate.pano.MarkLife
 import com.malletcrafts.interiorestimate.pano.MmBox
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.PlanSave
+import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.StepRoute
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyExport
@@ -215,6 +218,11 @@ internal fun SurveyPrepDialog(
         is SurveyPrepFile.Opened.Missing, is SurveyPrepFile.Opened.Unreadable -> null
     }
     val loaded = decoded?.prep
+    // THE PROJECT'S QUOTE STAGE, AS SURVEY PREP IS GIVEN IT (port 62). NOT GIVEN YET: slice L3 hands this dialog the
+    // stage (PhaseTools.stageOf) at its two call sites, and this line becomes that parameter. Until then it is Survey,
+    // whose gate offers no life-cycle move (PhaseTools.gate) -- so in slice L2, which ships no control that sets a
+    // state, a Dropped mark's Restore is answered by the gate's own words and moves nothing (MarkLife.restore).
+    val quoteStage: Int? = PhaseTools.SURVEY
     // THE ROOM SIZE IN USE (v51; Amit, 15 Oct 2026: "Yes, with slice 2"): the saved prep's own size, which its
     // lines were squared to, else the capture's; the size sheet changes it, and every face, save and caller follows
     var roomSize by remember { mutableStateOf(decoded?.size ?: doubleArrayOf(lengthMm, widthMm, heightMm)) }
@@ -702,6 +710,24 @@ internal fun SurveyPrepDialog(
         val code = it0.code
         ctx = null
         if (it0.locked) { refuse(code); return }
+        // A MARK PAST EXISTING IS NEVER DELETED (port 62 slice L2; the prototype's interceptDelete, index61c2.html
+        // 2940-2946): its control reads Drop, or Restore on a Dropped mark (MarkLife.deleteLabel), and
+        // MarkLife.deleteAct says what a tap does. RESTORE moves it back at once to what it was born -- one ↶ step,
+        // "FW1 restored to Client wish" with UNDO -- or, where the stage offers no move, says why with no UNDO and
+        // no undo entry. DROP needs its why, which is typed in the Mark sheet: slice L3 opens the sheet HERE, on
+        // Dropped; until then nothing is done, and nothing is ever deleted (SurveyPrep.Prep.deleteMark refuses too).
+        val lifeMark = prep.markById(mid)?.second
+        if (lifeMark != null) when (MarkLife.deleteAct(lifeMark)) {
+            MarkLife.DeleteAct.PLAIN -> Unit
+            MarkLife.DeleteAct.RESTORE -> {
+                snapshot()
+                val moved = MarkLife.restore(lifeMark, quoteStage, java.time.Instant.now())
+                if (!moved.ok) { hist.removeAt(hist.size - 1); snack(MarkLife.refusalText(tx, lifeMark, moved).orEmpty(), undo = false); return }
+                snack(MarkLife.restoredText(tx, lifeMark)); changed()
+                return
+            }
+            MarkLife.DeleteAct.DROP_SHEET -> return
+        }
         snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
@@ -720,6 +746,11 @@ internal fun SurveyPrepDialog(
     fun toggleLock(mid: String) {
         // ... or the reference rectangle's padlock (v52 slice 12): one undo step, nothing said, as a mark's
         if (prep.itemById(mid) == null && SurveyRef.byId(prep, mid) == null) return
+        // A MARK IN SCOPE STAYS LOCKED (port 62 slice L2; the prototype's setLock, index61c2.html 5053): its padlock
+        // and the menu's Unlock answer "FW1 is in Scope — take it Out of scope in its sheet", with no UNDO and no
+        // undo entry (SurveyPrepEdit.setLocked refuses the unlock as well)
+        val scopeNo = SurveyPrepEdit.unlockRefusal(tx, prep, mid)
+        if (scopeNo != null) { ctx = null; snack(scopeNo, undo = false); return }
         ctx = null; snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
     }
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
@@ -762,8 +793,15 @@ internal fun SurveyPrepDialog(
     fun lockAllOf(s: String, t: String?, on: Boolean, kind: String? = null) {
         ctx = null; snapshot()
         val n = SurveyPrepEdit.lockAll(prep, s, t, on, kind)
-        if (n == 0) { hist.removeAt(hist.size - 1); return }
-        snack(SurveyPrepEdit.lockedSnack(tx, on, n, s)); changed()
+        // UNLOCK ALL SKIPS SCOPE MARKS (port 62 slice L2; the prototype's lockAll, index61c2.html 5055-5056): they stay
+        // locked, and the snackbar says how many -- after what it unlocked, or alone and with no UNDO when it unlocked nothing
+        val scopeKept = SurveyPrepEdit.scopeKept(prep, s, t, on, kind)
+        if (n == 0) {
+            hist.removeAt(hist.size - 1)
+            if (scopeKept > 0) snack(MarkLife.scopeKeptText(tx, scopeKept), undo = false)
+            return
+        }
+        snack(SurveyPrepEdit.lockedSnack(tx, on, n, s, scopeKept)); changed()
     }
     /** Duplicate: the copy 100 mm away with the next code, picked, its first measurement active (sp.js duplicateItem). */
     fun duplicateMark(mid: String) {
@@ -875,7 +913,8 @@ internal fun SurveyPrepDialog(
         val r = SurveyPrepEdit.clearItems(prep, scope, tab)
         if (r.n == 0) { hist.removeAt(hist.size - 1); return }
         sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()
-        snack(SurveyPrepEdit.clearedSnack(tx, r.n, r.kept))
+        // a mark past Existing is kept, locked or not, and the snackbar names it (port 62 slice L2; SurveyPrepEdit.clearedSnack)
+        snack(SurveyPrepEdit.clearedSnack(tx, r))
         changed()
     }
     fun nudgeLine(slot: String, mm: Double, deg: Double) {
@@ -1299,7 +1338,8 @@ internal fun SurveyPrepDialog(
                     drawIntoCanvas { cv ->
                         val nc = cv.nativeCanvas
                         nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
-                        SurveyPrepDraw.drawMarks(nc, tx, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
+                        // the List's picture is the office's own screen: every mark, with its state (port 62 slice L2)
+                        SurveyPrepDraw.drawMarks(nc, tx, SheetMarks.Audience.OFFICE, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
                             size.width, size.height, null, density, frame = frameOf(s)),
                             { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
                     }
@@ -1507,10 +1547,15 @@ internal fun SurveyPrepDialog(
             // A LOCKED MARK (v52 slice 8, sp.js 1500-1502): "locked" under its code, the nudges disabled, its padlock
             // lit; Delete stays, dimmed, and answers "FD1 is locked — unlock first"
             val lk = SurveyPrep.isLocked(sm)
+            // ITS STATE (port 62 slice L2; the prototype's nlAttrs, index61c2.html 2930): a 3 dp bar on the label's left
+            // edge in the state's colour -- none for an Existing mark, whose label is v52's
+            val lifeBar = MarkLife.barColour(sm)
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
+                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp).drawBehind {
+                        if (lifeBar != null) drawRect(Color(SurveyPrepDraw.argb(lifeBar)), size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height))
+                    })
                 val bs: List<Triple<String, Double, Double>> = when {
                     horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0)) // text:value glyphs and mm
                     vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0)) // text:value glyphs and mm
@@ -1518,7 +1563,8 @@ internal fun SurveyPrepDialog(
                 }
                 for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land, enabled = !lk) { nudgeMark(dx, dy) }
                 SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
-                SpButton(tx.common_delete, Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: tx.common_delete },
+                // Delete, Drop on a mark past Existing, Restore on a Dropped one (port 62 slice L2; the prototype's delWord)
+                SpButton(MarkLife.deleteLabel(tx, sm), Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: MarkLife.deleteLabel(tx, sm) },
                     SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
             }
         }
@@ -1669,7 +1715,8 @@ internal fun SurveyPrepDialog(
                     val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
                     hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
                     ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
-                    prep = r.prep; SurveyPrepEdit.startedOver(tx, r.kept)?.let { say(it) }; changed()
+                    // ... and every mark past Existing, locked or not (port 62 slice L2): the note names those first
+                    prep = r.prep; SurveyPrepEdit.startedOver(tx, r)?.let { say(it) }; changed()
                 }
             }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
             Text(if (armed) SurveyPrepEdit.startOverArmed(tx) else SurveyPrepEdit.startOverLabel(tx),
@@ -2701,7 +2748,8 @@ private fun SpPhoto(
                         if (which == "main") SurveyPrepDraw.drawRef(c, tx, tab, prep.surface(tab), mm, u)
                     }
                     else rect?.let { r ->
-                        SurveyPrepDraw.drawMarks(c, tx, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
+                        // the editing photo and its loupe are the office's own screen (port 62 slice L2)
+                        SurveyPrepDraw.drawMarks(c, tx, SheetMarks.Audience.OFFICE, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
                             density.density, drag = drag?.takeIf { it.s == tab }, area = area,
                             gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL,
@@ -2869,7 +2917,8 @@ private fun SpTable(
         Column(Modifier.width(56.dp).padding(3.dp)) {
             Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
-            Text(tx.common_delete, color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+            // a mark's own word -- Drop past Existing, Restore on a Dropped one (port 62 slice L2); Delete for the rest
+            Text(SurveyPrepEdit.deleteWord(tx, prep, id), color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
                     .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, id) ?: tx.sp_aria_delete_x(code) }
                     .padding(horizontal = 6.dp, vertical = 3.dp))

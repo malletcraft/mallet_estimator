@@ -304,6 +304,7 @@ slice that wires it): at Client approved a mark born Vendor added that has reach
 of scope in its sheet" (`MarkLife.unlockRefusal`), a move the phone's sheet does not offer there. The padlock is
 `editable`'s, shared with move, resize, nudge and duplicate, and `setLocked` is wired in L2: L2 decides whether
 that padlock is hidden there too, and until then it is on Q-list 6(c).
+**Decided in L2 (11 Nov 2026): hidden** -- `PhaseTools.lockOk`, §3.2 "L2 AS BUILT".
 
 ### 3.2 L2 · the state on the face, and the rules that protect a wish (M)
 - **Prototype:** `outline` `P L2872`, `ring` `L2887` (a spot), `paintState` `L2898-2911` (after the code: the act
@@ -331,6 +332,55 @@ that padlock is hidden there too, and until then it is on Q-list 6(c).
   **i18n on:** the eight state names, `life.msg.x_restored_x`, `life.cleared_x_item_x`, `life.x_mark_x_past`,
   `life.x_scope_mark_x`, `refuse.life.x_scope_take_out`.
 - **Amit:** nothing yet. Drop needs its why, typed in the sheet, so L2 reaches Play only with L3 behind it.
+- **L2 AS BUILT (11 Nov 2026; branch `port62-wish`, local).** New `pano/SheetMarks.kt` and `SheetMarksTest` (10); the
+  painter's state in `app/SurveyPrepDraw.kt`; the rules in `pano/SurveyPrep.kt` and `pano/SurveyPrepEdit.kt`, wired in
+  `app/SurveyPrepScreen.kt`; `app/FaceWriter.kt` draws for others. `MarkLifeTest` +4 (the width and tag tables, the
+  crowded pill in both languages, the label's bar), `ClearTest` +4, `StartOverTest` +2, `LockTest` +3, `PhaseToolsTest`
+  +1. `:pano` 1,107 tests in 81 suites, none failed (1,083 in 80 before). No new key, no table change, Tx not regenerated;
+  `android/i18n/README.md` ("Port 62 slice L2") lists what a screen can now show. **Nothing here is reachable by a user:
+  no control sets a state** (L3's sheet, L4's placement). `:app` is compiled only by CI.
+  - **Cross-checked against the prototype's own code.** `proto-tables.mjs` gains an "L2" section: the page's `outline`,
+    `ring` and `paintState` run on a recording canvas, in English and under मराठी. Every row of MarkLifeTest's two
+    tables equals what it prints (but the Note's: the page never asks `paintState` about one, it paints its pin) --
+    the outline's width for each state plain, picked, in the loupe and picked in the
+    loupe (a state that names a width keeps it in the loupe; picked is `max(w, 2.5) + 1`); the ring (3 u out, the
+    state's width or 2); and 24 marks' tags, crowded and not. 46 one-line mutations of the new rules -- seven of them
+    in the app's own sources, which `SheetMarksTest` reads -- each turned their suite red (one survived the first run:
+    an UNLOCKED Scope mark counted as "kept locked"; `LockTest` now holds it).
+  - **Three things the page's code does that its comments do not say, all ported as it DOES them.** (a) The tag is
+    drawn at ITS OWN alpha: `paintState` sets `globalAlpha` (1, or .6 for a Dropped mark) instead of multiplying it,
+    so while another mark is picked the rest dim to 75 % and their pills do not. The phone fades a mark through a
+    layer, so that layer is closed for the tag and opened again after it (only for a mark that has a tag). (b) An act
+    is drawn on ANY mark past Existing that carries one, whatever it was born; an Existing mark's stale act is not.
+    (c) An Existing mark born Vendor added shows V+ only beside a note or an act (the early return comes first).
+  - **The saved pictures: an allow-list, and `born` read strictly.** `SheetMarks.asSurveyed` keeps a mark's seven
+    fields and `locked`, `sub` -- RD's own row for a mark (§3.11) -- so a key a later build adds is office-only
+    until named; and a `born` that is anything but absent or `exist` is "not in the room", an unknown value included
+    (RD's wording; `MarkLife.bornOf` reads an unknown born as Existing, which is right for the screen and wrong for
+    a document). The painter has NO branch on the audience: it draws a state from the mark it is handed, and for
+    others it is handed marks that have none. `FaceWriter` gates the picture on the same call (`SheetMarks.any`), so
+    a surface that holds only wishes gets no "survey marks" picture, as one with nothing marked never did.
+    `SheetMarksTest` reads the app's sources for the wiring (one read of a surface's marks in the painter; no default
+    audience; who passes which), and MastersTest holds `SheetMarks` among the whole export builders: no language.
+  - **For L3: the stage, and Drop.** `SurveyPrepDialog` holds `val quoteStage: Int? = PhaseTools.SURVEY` until L3
+    makes it the parameter this plan gives L3. So in L2 a Dropped mark's Restore is answered by Survey's gate and
+    moves nothing -- which is also why L2 ships no control that sets a state. A tap on **Drop** does nothing yet
+    (`MarkLife.DeleteAct.DROP_SHEET -> return` in `deleteMark`): L3 opens the sheet there, on Dropped. Neither path
+    deletes, and `SurveyPrep.Prep.deleteMark` refuses a mark past Existing on its own.
+  - **For L4: the padlock at Client approved -- decided here, as the L1 review left it to L2.** A LOCKED mark in
+    Scope has no padlock there (`PhaseTools.lockOk`): its unlock can only answer "take it Out of scope in its sheet",
+    a move the phone's sheet does not offer after approval -- the L1 review's rule for its Delete. Everywhere else
+    `lockOk` is `editable`. L4 asks it for the padlock and for the menu's Lock row. Q-list 6(c) is reworded.
+  - **Not ported, and why.** The Note's pin (`paintNote`, L6): until then a NOTE mark from a file is drawn as an
+    unknown type, as before, and `MarkLife.tag` gives it none. `outlinePoly` on the 360 and the List chip's dot (L7).
+    The picked label as a button that opens the sheet (L3). The phase's gate on Delete, the padlock and the clears
+    (`P54.spDelOk`, `spEdit`, `spBulk`: L4).
+  - **Seen, NOT changed -- the Plan tab's drawings and their export.** `pano/SurveyPlan.kt` draws every mark of a
+    surface as v52 does, and `SurveyExport` saves that drawing as the A4 sheet that is shared. From B2 a mark born a
+    wish is on that sheet as if it were in the room, undistinguished, until L8 (B4) draws wishes there. It is the same
+    kind of document as finding 3's pictures, and this plan names no rule for it between B2 and B4: `SheetMarks` could
+    hand `SurveyExport` the room as surveyed in one line, but the Plan TAB is the office's own screen and paints
+    through the same painter, so it is L8's decision or the plan owner's, not made here. Put with Q-list 7.
 
 ### 3.3 L3 · the Mark sheet (M) — the first thing he can do
 - **Prototype:** `openSheet` `P L3012`, the sheet `L3024-3063`: the head (code · name, the trade's dot); STATE (the
@@ -542,14 +592,19 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    shows on a mark past Existing, where on the prototype it works (Drop, Restore). **The phone does not draw
    that Delete** (the L1 review, §3.1): with no move offered it could only open the sheet on the approval
    lock's words or be refused with them, so it is hidden as at Estimated — to confirm or redraw on the
-   prototype. One more of this kind is still open on the phone: the padlock of a Scope mark born Vendor added
-   shows there and can only say "take it Out of scope in its sheet", which the sheet does not offer (L2). (d) For L10's size-line rule: the CSS leaves the room-size pencil showing
+   prototype. **Nor, since L2, the padlock of a LOCKED mark in Scope** (`PhaseTools.lockOk`, §3.2): on the
+   prototype it shows there and its unlock says "take it Out of scope in its sheet", which the prototype's sheet
+   then offers and the phone's does not — the same question, to confirm or redraw with the Delete.
+   (d) For L10's size-line rule: the CSS leaves the room-size pencil showing
    there (`L1278` hides it at phases 1–4 only), but `openLWH` returns at once wherever readings are hidden
    (`L6977`), Client approved included — so the pencil is one more control that shows and cannot act, not an
    editable size line.
 7. **What a document for others carries once wishes exist**: the phone's saved "survey marks" pictures (L2)
    and what a vendor or a client login sees of a room on /projects (RD). Both are the surveyed room until he
    rules; the prototype's own rule for a document is the pack (`P L3194-3199`, `L3280-3289`).
+   **A third document, seen building L2 and NOT covered by either:** the Plan tab's exported A4 sheet
+   (`SurveyExport`, drawn by `SurveyPlan`). From B2 until L8 (B4) it draws a mark born a wish like a surveyed one
+   (§3.2, "Seen, NOT changed"). Whether that export is the surveyed room in the meantime is the same question.
 8. **What a Duplicate is born as** (found building L1, 11 Nov; read in the page's code, not driven). L53's own
    comment says placing "as …" is called by "addEl / addElAt / duplicate" (`P L2957`), and §3.4 L4 above was
    written from it ("a new mark gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement", `DuplicateTest`).

@@ -1033,7 +1033,7 @@ object SurveyPrep {
          * nothing here does -- the test ↶ and the readings sync use to keep a reading only while its owner is there.
          */
         fun ownerOf(code: String): Item? {
-            markOf(code)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e)) }
+            markOf(code)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e), past = MarkLife.pastExisting(e)) }
             measOf(code)?.let { (s, m) -> return Item(s, m.id, m.code, "meas", isLocked(m), m.kind) }
             // a chain owns FK1.1 … FK1.n and FK1.t (v52 slice 11): ↶ and the readings sync keep them while it is there
             chainOf(code)?.let { (s, c) -> return Item(s, c.id, c.code, SurveyChain.KIND, isLocked(c)) }
@@ -1042,7 +1042,7 @@ object SurveyPrep {
 
         /** Any item by its id: a mark, a Tape / Line / area, or a chain. */
         fun itemById(id: String): Item? {
-            markById(id)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e)) }
+            markById(id)?.let { (s, e) -> return Item(s, e.id, e.code, "mark", isLocked(e), past = MarkLife.pastExisting(e)) }
             measById(id)?.let { (s, m) -> return Item(s, m.id, m.code, "meas", isLocked(m), m.kind) }
             chainById(id)?.let { (s, c) -> return Item(s, c.id, c.code, SurveyChain.KIND, isLocked(c)) }
             return null
@@ -1140,13 +1140,16 @@ object SurveyPrep {
         }
 
         /** A mark -- or a Tape, a Line, an area (v52 slice 9), a chain (slice 11) -- and its readings go together: F-M1
-         *  takes F-M1.len and nothing else. A LOCKED one is not deleted (v52 slice 8): false, nothing changed. */
+         *  takes F-M1.len and nothing else. A LOCKED one is not deleted (v52 slice 8): false, nothing changed. NOR IS A
+         *  MARK PAST EXISTING, EVER (port 62 slice L2; the prototype's interceptDelete, index61c2.html 2940-2946): a wish
+         *  is dropped through its sheet, with its why, and a Dropped mark is restored -- [MarkLife.deleteAct] says which,
+         *  and no path through here takes one away. A Note has no state and is deleted like an Existing mark. */
         fun deleteMark(id: String): Boolean {
             for (s in SURFACES) {
                 val sf = surfaces[s] ?: continue
                 val m = sf.marks.firstOrNull { it.id == id }
                 if (m != null) {
-                    if (isLocked(m)) return false
+                    if (isLocked(m) || MarkLife.pastExisting(m)) return false
                     recordCodes(s, listOf(m))
                     sf.marks.remove(m)
                     actual.keys.removeAll { it.startsWith(m.code + ".") }
@@ -1177,15 +1180,17 @@ object SurveyPrep {
          * here and in [dropUnlocked], and nothing that walks them changes.
          */
         fun itemsOf(s: String): List<Item> = surface(s).let { sf ->
-            sf.marks.map { Item(s, it.id, it.code, "mark", isLocked(it)) } +
+            sf.marks.map { Item(s, it.id, it.code, "mark", isLocked(it), past = MarkLife.pastExisting(it)) } +
                 sf.meas.map { Item(s, it.id, it.code, "meas", isLocked(it), it.kind) } +
                 sf.chains.map { Item(s, it.id, it.code, SurveyChain.KIND, isLocked(it)) } }
 
-        /** Every UNLOCKED item on [s] taken away (its readings are the caller's: [SurveyPrepEdit.clearItems]). */
+        /** Every UNLOCKED item on [s] taken away (its readings are the caller's: [SurveyPrepEdit.clearItems]) -- but
+         *  never a mark past Existing (port 62 slice L2; the prototype's spared, index61c2.html 2789): a wish is dropped
+         *  one by one, with its why, never swept away. What stays is what [MarkLife.spared] says. */
         fun dropUnlocked(s: String) {
             val sf = surface(s)
-            recordCodes(s, sf.marks.filter { !isLocked(it) })
-            sf.marks.removeAll { !isLocked(it) }
+            recordCodes(s, sf.marks.filter { !MarkLife.spared(it) })
+            sf.marks.removeAll { !MarkLife.spared(it) }
             recordTypes(s, sf.meas.filter { !isLocked(it) }.map { SurveyMeas.seqKey(it.kind) })
             sf.meas.removeAll { !isLocked(it) }
             recordTypes(s, sf.chains.filter { !isLocked(it) }.map { SurveyChain.LETTER })
@@ -1238,8 +1243,13 @@ object SurveyPrep {
     }
 
     /** One thing drawn on a surface, as a clear or a lock sees it: where, which, its code, what kind ("mark", "meas",
-     *  "chain" -- v52 slice 11), whether it is locked, and for a "meas" whether it is a "tape", a "line" or an "area". */
-    class Item(val s: String, val id: String, val code: String, val kind: String, val locked: Boolean, val measKind: String? = null)
+     *  "chain" -- v52 slice 11), whether it is locked, and for a "meas" whether it is a "tape", a "line" or an "area".
+     *  [past] (port 62 slice L2): a mark past Existing, which no delete and no clear takes; [spared]: what a clear and
+     *  Start over keep -- every locked item and every mark past Existing ([MarkLife.spared]). */
+    class Item(val s: String, val id: String, val code: String, val kind: String, val locked: Boolean, val measKind: String? = null,
+               val past: Boolean = false) {
+        val spared: Boolean get() = locked || past
+    }
 
     // ------------------------------------------------------ older points made spots
 
