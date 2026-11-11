@@ -40,7 +40,7 @@ windows, POP etc."
 | Survey | as shipped | as shipped |
 | Wish marks on the photos | **all of it:** state, Mark sheet, new types, drawn on face / 360 / List / drawings, the wish list counting them (§3) | shows them to staff; a vendor or client login is given the room AS SURVEYED and nothing of the wish round, until Amit decides what each sees (§3.11, §3.13) |
 | Vendor review, RFQ, quotes, comparison, revisions | **nothing new.** Answer 3 says so of the RFQ and the quotes; keeping the REST of the vendor round off the phone (Trade chip, packs, State ▾, the bundle) is CLAUDE'S READING of it, not his decision — asked as Q-list 3. The wish row's Vendor field stays as shipped | all of it (§6). ERPNext's standard Request for Quotation and Supplier Quotation are the RECOMMENDED home of a quote, not a decision (§6, question 7) |
-| A room's plan and elevations | PENDING AMIT (§4) | the six line drawings on the room page (slice RP, §4.1); the arranger and the RFQ document both stand on them |
+| A room's plan and elevations | opens from the room screen (PL, §4; decided 11 Nov) | the six line drawings on the room page (slice RP, §4.1); the arranger and the RFQ document both stand on them |
 | The whole flat's plan | read-only, later | the arranger and the whole plan on the project page (§5) |
 | Finalise, then work | as shipped (PM approves, scope, album) | as shipped; the award join comes with §6 |
 
@@ -90,7 +90,7 @@ new thing placed (L4). RD and V5 are on S5 `stage` before B2; T5 before B3.
 | 16 | L10 | Lines, readings, the room-size line and Capture 360 by phase | S2 APK | S–M | L4 | B5 | After Survey there is no 1 · Lines and no reading box; Capture 360 shows in Survey and again after the client approves |
 | 17 | P1 | Prototype: the "The phases" and "Build the wish list" tour texts for the phone as port 62 leaves it | S2 APK (prototype) | S | — | — | On the prototype the two tours no longer speak of four phases, vendor packs or the bathroom bundle; he approves the words |
 | 18 | TR | Tours: "The phases" and "Build the wish list" switch on | S2 APK | S | **P1 approved**; L10, L3, L4 | B6 | Help lists three tours instead of one — only once P1 is approved; until then the two stay off |
-| 19 | PL | The room's plan on the phone | S2 APK | S–M | **PENDING AMIT** (§4) | — | decided by his answer |
+| 19 | PL | The room's plan opens from the room screen (Amit, 11 Nov: "it should be on the room") | S2 APK | S | prototype item P2 approved (§4) | the first build after P2 | One tap on a room opens its floor plan, ceiling and four elevations |
 | 20 | RP | S5 web: a room's floor plan, ceiling plan and four elevations as line drawings on its room page (§4.1) | S5 QUOTE | M | RD; T5 | stage | On a computer each room's page shows its six clean drawings beside the photos, inside that room only |
 | 21 | AR | S5 web: arrange the rooms into the flat's plan (outline, §5) | S5 QUOTE | L | **RP**; its own design | — | On a computer he drags the rooms into place; the whole plan shows on the project page |
 | 22 | RQ | S5 web: an RFQ per trade to several vendors, quotes, comparison, rounds (outline, §6) | S5 QUOTE + S6 ERP | L, several slices | **RP** (the drawings); §6's seven answers; AR only for the whole-flat key plan | — | On a computer he sends one trade's 2D document to several vendors and compares what they quote |
@@ -545,7 +545,7 @@ reading box, and the project page a "Marks: …" line from a per-state count add
 (`asis.js:469`) for staff. A vendor or client sees the surveyed room, unchanged. Display only; nothing on the
 web edits a mark.
 
-## 4. The room's plan on the phone — PENDING AMIT
+## 4. The room's plan on the phone — DECIDED 11 Nov: it opens from the room screen
 
 **What 0.3.318 already has.** Inside one capture's survey prep, the eighth tab, PLAN (`pano/StepRoute.kt:65`):
 six drawings of that room — Floor, reflected Ceiling, Front, Right, Back, Left elevations — one at a time by
@@ -560,8 +560,12 @@ room only" is already true; what his words add is "a cleaner look to verify quic
 | c | The room's floor plan as the picture on its tile | S–M | recognisable at a glance; verifies little |
 | d | The six drawings as they are, with the wishes on them (slice L8) | in §3 | if "verify" means checking the wishes on clean drawings |
 
-**The choice is PENDING AMIT** — he is being asked what he saw in 0.3.318. Nothing is built before his answer,
-and the choice is drawn on the prototype first. Fixed either way: no arranger on the phone (answer 4; the audit's
+**DECIDED (Amit, 11 Nov 2026, on a selector, after this section was first written): "Found it, but it should be on
+the room"** — the PLAN tab works; the floor plan and elevations must open from the ROOM screen itself, one tap, not
+hidden inside a capture. So the choice is candidate (a): a way in, nothing new drawn — the room screen opens the six
+drawings of the room's current capture (the last one with a survey prep). It is an S2 UI change, so it is drawn on the
+prototype first as item **P2** (the room screen's plan entry, and what it shows for a room with no prep yet) and rides
+the first build after his approval there. Candidates (b)–(d) stay recorded, not chosen. Fixed either way: no arranger on the phone (answer 4; the audit's
 F1 and F2 move to S5), and the phone's whole-flat view is §5's, read-only, later.
 
 ### 4.1 RP · S5 web: a room's six line drawings on its room page (M) — the S5 half of answer 4
