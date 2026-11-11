@@ -366,4 +366,102 @@ class SurveyPrepFileTest {
             .getValue("front")["els"] as List<Map<String, Any?>>)
         assertEquals(false, els[0]["locked"])
     }
+
+    // ------------------------------------------------------------------ port 62 slice L1: a mark's life keys
+
+    /**
+     * As the prototype (v53) stores a room once wishes are marked on it: a surveyed window the client wants replaced, a
+     * door she dropped, a new wardrobe born a wish, a vendor's TV unit, a Note for the office, an Other with its trade,
+     * a point in Scope -- each with only the keys that are not default, in the order the prototype wrote them -- a
+     * state a newer build added, a Line with a trade and a note, and three of the ten new types.
+     */
+    private val v53 = """{"v":1,"L":5458.5,"W":3310,"H":2705,"w":{""" +
+        listOf("front", "right", "back", "left", "floor", "ceil").joinToString(",") { s ->
+            "\"$s\":" + when (s) {
+                "front" -> surface(
+                    extra = ""","meas":[{"id":"m1","code":"F-M1","kind":"line","locked":false,"cat":"painting","note":"skirting here","vis":"office","pts":[[100,200],[900,200]]}]""",
+                    els = "[" + listOf(
+                        """{"id":"a1","t":"W","code":"FW1","x0":1000,"x1":2200,"y0":900,"y1":2100,"locked":false,"life":"wish","lifeAt":"2026-11-11T10:30:00+05:30","lifeAs":"client","act":"replace","note":"install UPVC window"}""",
+                        """{"id":"a2","t":"D","code":"FD1","x0":300,"x1":1200,"y0":0,"y1":2100,"life":"drop","lifeAt":"2026-11-11T10:31:00+05:30","lifeAs":"client","act":"remove","why":"she changed her mind"}""",
+                        """{"id":"a3","t":"CRP","code":"FCRP1","x0":150,"x1":1350,"y0":0,"y1":2100,"born":"wish","life":"wish","lifeAt":"2026-11-11T10:32:00+05:30","lifeAs":"client"}""",
+                        """{"id":"a4","t":"CRP","code":"FCRP2","x0":1500,"x1":3300,"y0":400,"y1":850,"sub":"tv","born":"vadd","life":"cok","lifeAt":"2026-11-12T09:00:00+05:30","lifeAs":"client"}""",
+                        """{"id":"a5","t":"NOTE","code":"FNOTE1","x0":1630,"x1":1680,"y0":1327,"y1":1377,"cat":"carpentry","note":"keep the old shelf","vis":"office"}""",
+                        """{"id":"a6","t":"X","code":"FX1","x0":100,"x1":700,"y0":100,"y1":700,"cat":"plumbing","life":"zzz","later":{"by":"v70","n":[1,null]}}""",
+                        """{"id":"a7","t":"E","code":"FE1","x0":325,"x1":375,"y0":325,"y1":375,"life":"scope","lifeAt":"2026-11-13T18:05:09+05:30","lifeAs":"staff","act":"shift","locked":true}""",
+                    ).joinToString(",") + "]")
+                "ceil" -> surface(els = """[{"id":"c1","t":"CDP","code":"CCDP1","x0":300,"x1":3010,"y0":300,"y1":5158.5,"sub":"full","born":"wish","life":"wish","lifeAt":"2026-11-11T10:40:00+05:30","lifeAs":"client"}]""")
+                else -> surface()
+            }
+        } + """},"actual":{"FW1.w":1210}}"""
+
+    @Suppress("UNCHECKED_CAST")
+    private fun elsOf(tree: Map<String, Any?>, s: String) = ((tree["w"] as Map<String, Map<String, Any?>>).getValue(s)["els"] as List<Map<String, Any?>>)
+
+    @Test fun `a v53 prep -- wishes, acts, whys, notes, trades, sub-kinds, new types -- round-trips every key, on its own mark, in its own order`() {
+        val (o, back) = roundTrip(v53)
+        assertEquals(norm(o), norm(back))
+        for (s in listOf("front", "ceil")) assertEquals(elsOf(o, s).map { it.keys.toList() }, elsOf(back, s).map { it.keys.toList() }, "$s: every mark's keys, in the order they came")
+        // each of the ten keys is where the prototype put it: after the seven, in the order it wrote them
+        assertEquals(listOf("id", "t", "code", "x0", "x1", "y0", "y1", "locked", "life", "lifeAt", "lifeAs", "act", "note"), elsOf(back, "front")[0].keys.toList())
+        assertEquals(listOf("id", "t", "code", "x0", "x1", "y0", "y1", "sub", "born", "life", "lifeAt", "lifeAs"), elsOf(back, "front")[3].keys.toList())
+        @Suppress("UNCHECKED_CAST") val m0 = ((back["w"] as Map<String, Map<String, Any?>>).getValue("front")["meas"] as List<Map<String, Any?>>)[0]
+        assertEquals(listOf("id", "code", "kind", "locked", "cat", "note", "vis", "pts"), m0.keys.toList())
+
+        // and the build reads them: the state, what it was born, the act, the why, the note and its audience, the trade
+        val d = SurveyPrepFile.decode(parse(v53))!!
+        assertTrue(d.problems.isEmpty(), d.problems.map { it(Tx.EN) }.toString())
+        val f = d.prep.surface("front").marks.associateBy { it.id }
+        fun row(id: String) = f.getValue(id).let { e ->
+            listOf(MarkLife.lifeOf(e), MarkLife.bornOf(e), MarkLife.actOf(e), MarkLife.whyOf(e), MarkLife.noteOf(e.extra), MarkLife.isOffice(e.extra), Trades.of("front", e)).joinToString(" | ")
+        }
+        assertEquals("wish | exist | replace |  | install UPVC window | false | doors-windows", row("a1"))
+        assertEquals("drop | exist | remove | she changed her mind |  | false | doors-windows", row("a2"))
+        assertEquals("wish | wish | null |  |  | false | carpentry", row("a3"))
+        assertEquals("cok | vadd | null |  |  | false | carpentry", row("a4"))
+        assertEquals("exist | exist | null |  | keep the old shelf | true | carpentry", row("a5"))
+        assertEquals("exist | exist | null |  |  | false | plumbing", row("a6"), "a state this build does not know reads Existing")
+        assertEquals("scope | exist | shift |  |  | false | electrical", row("a7"))
+        assertEquals("zzz", f.getValue("a6").extra["life"], "... and is kept as it came")
+        assertEquals(norm(mapOf("by" to "v70", "n" to listOf(1, null))), norm(f.getValue("a6").extra["later"]), "an unknown key beside the life keys stays whole")
+        assertEquals("tv", Trades.subOf(f.getValue("a4").extra)); assertNull(Trades.subOf(f.getValue("a3").extra), "the first sub-kind is never stored")
+        assertTrue(SurveyPrep.isLocked(f.getValue("a7"))); assertEquals("2026-11-13T18:05:09+05:30", MarkLife.lifeAt(f.getValue("a7"))); assertEquals("staff", MarkLife.lifeAs(f.getValue("a7")))
+        val c1 = d.prep.surface("ceil").marks.single()
+        assertEquals("false-ceiling", Trades.of("ceil", c1)); assertEquals("wish", MarkLife.bornOf(c1)); assertEquals("full", Trades.subOf(c1.extra))
+        val line = d.prep.surface("front").meas.single()
+        assertEquals("painting", Trades.of("front", line)); assertEquals("skirting here", MarkLife.noteOf(line.extra)); assertTrue(MarkLife.isOffice(line.extra))
+        assertEquals("{exist=1, wish=3, vrev=0, vok=0, vadd=0, cok=1, scope=1, drop=1}", MarkLife.countLife(d.prep).toString(), "the Note is not counted; the unknown state counts as Existing")
+
+        // a copy for undo, a move and a save keep every key of every OTHER mark, and the moved mark's unknown ones
+        val p = d.prep.copy()
+        assertTrue(MarkLife.move(p.markById("a1")!!.second, "drop", PhaseTools.WISH_LIST, java.time.Instant.parse("2026-11-14T05:00:00Z"), why = "too dear").ok)
+        val saved = SurveyPrepFile.encode(p, 5458.5, 3310.0, 2705.0)
+        assertEquals(elsOf(back, "front").drop(1).map { norm(it) }, elsOf(saved, "front").drop(1).map { norm(it) })
+        assertEquals(listOf("id", "t", "code", "x0", "x1", "y0", "y1", "locked", "life", "lifeAt", "lifeAs", "act", "note", "why"), elsOf(saved, "front")[0].keys.toList())
+        assertEquals("drop", elsOf(saved, "front")[0]["life"]); assertEquals("install UPVC window", elsOf(saved, "front")[0]["note"])
+        assertEquals("wish", MarkLife.lifeOf(d.prep.markById("a1")!!.second), "the prep the copy was taken from is untouched")
+    }
+
+    @Test fun `a v52 prep saves unchanged -- every mark reads Existing, and nothing writes a key whose value is its default`() {
+        for (text in listOf(v1, proto)) {
+            val o = parse(text); val d = SurveyPrepFile.decode(o)!!; val z = d.size!!
+            val before = write(SurveyPrepFile.encode(d.prep, z[0], z[1], z[2]))
+            assertEquals(norm(o), norm(parse(before)), "the file as it was")
+            val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
+            for (s in SurveyPrep.SURFACES) {
+                for (e in d.prep.surface(s).marks) {
+                    // read: a v52 mark is Existing, born Existing, with no act, no why, no note; its trade is its type's
+                    assertEquals(listOf("exist", "exist", null, "", "", false), listOf(MarkLife.lifeOf(e), MarkLife.bornOf(e), MarkLife.actOf(e), MarkLife.whyOf(e), MarkLife.noteOf(e.extra), MarkLife.isOffice(e.extra)))
+                    assertEquals(emptySet(), e.extra.keys intersect MarkLife.KEYS.toSet())
+                    assertEquals("doors-windows", Trades.of(s, e))
+                    // written with every default: placed as Existing, General, no note, an act where none belongs -- and to a wish and back
+                    assertNull(MarkLife.placeAs(e, PhaseTools.asFor(PhaseTools.SURVEY), PhaseTools.SURVEY, at))
+                    Trades.setCat(e, Trades.GENERAL); MarkLife.setNote(e, "  ", office = true); assertFalse(MarkLife.setAct(e, "shift"))
+                    assertTrue(MarkLife.move(e, "wish", PhaseTools.WISH_LIST, at, act = "shift").ok); assertTrue(MarkLife.move(e, "exist", PhaseTools.WISH_LIST, at).ok)
+                }
+                for (m in d.prep.surface(s).meas) { Trades.setCat(m, null); MarkLife.setNote(m, "", office = false) }
+            }
+            assertEquals("{exist=1, wish=0, vrev=0, vok=0, vadd=0, cok=0, scope=0, drop=0}", MarkLife.countLife(d.prep).toString())
+            assertEquals(before, write(SurveyPrepFile.encode(d.prep, z[0], z[1], z[2])), "byte for byte the file it was")
+        }
+    }
 }

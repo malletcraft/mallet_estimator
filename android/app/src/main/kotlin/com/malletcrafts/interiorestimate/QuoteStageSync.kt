@@ -3,6 +3,7 @@ package com.malletcrafts.interiorestimate
 import android.content.Context
 import android.util.Log
 import com.malletcrafts.interiorestimate.pano.Album
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.Renames
@@ -134,6 +135,29 @@ object QuoteStageSync {
         return QuoteStage.projectLine(if (local) null else cached(context, stageKey!!), local,
             if (local) emptyList() else AlbumOutbox.queued(context, stageKey), tx, Instant.now())
     }
+
+    /**
+     * THE STAGE SURVEY PREP IS GIVEN (port 62 slice L3; PhaseTools.stageOf) for the S5 id [stageKey] its project's
+     * stage is read under (WishSync.stageKey): 0-5 as the one store holds it for a project S5 lists; 0, Survey's rules,
+     * for a project only on this phone ([stageKey] null or blank) or one the store read as not listed -- the prototype's
+     * own rule, "Survey for a project made on the phone"; null while a listed project's stage has not been read. The
+     * SAME decision [lineFor] makes for the project line, from the same copy, so survey prep's tools and the line never
+     * disagree about where the project is.
+     */
+    fun prepStage(context: Context, stageKey: String?): Int? {
+        val local = stageKey.isNullOrBlank()
+        return PhaseTools.stageOf(if (local) null else cached(context, stageKey!!), local)
+    }
+
+    /**
+     * WHAT SURVEY PREP'S BAND SAYS AFTER "Client approved" (port 62 slice L4; the prototype's spPre, index61c2.html
+     * 4219-4221: `Client approved · ` and the project line's own text) for the S5 id [stageKey]: the ONE derived line
+     * ([lineFor]) while it is the execution line -- "Execution · 1 in progress · 1 done" -- else null: through the
+     * quote journey the band says the phase's own words and asks for no line. The same copy and the same queued
+     * writes as every other reader of the line, so the band and the project screen never say two things.
+     */
+    fun prepLine(context: Context, stageKey: String?, tx: Tx): String? =
+        lineFor(context, stageKey, tx).takeIf { it.kind == QuoteStage.LineKind.EXEC }?.text
 
     /**
      * The works' states every other reader draws (port 61c slice K4): the store's copy for [stageKey] with the signed-in

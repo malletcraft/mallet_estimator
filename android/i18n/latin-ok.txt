@@ -67,7 +67,7 @@ E	tour.existing.4.body
 F	tour.existing.4.body
 Front	tour.existing.4.body
 Electric	tour.existing.4.body
-V	tour.vendor.6.body
+V	tour.vendor.6.body,life.vadd.badge
 H	sp.*
 L	sp.*
 W	sp.*

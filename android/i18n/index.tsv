@@ -894,6 +894,7 @@ life.cok	life_cok	static	-
 life.cok.short	life_cok_short	static	-
 life.decided_x	life_decided_x	template	v: String
 life.drop	life_drop	static	-
+life.drop.verb	life_drop_verb	static	-
 life.dropped	life_dropped	static	-
 life.every_approved_mark_scope	life_every_approved_mark_scope	static	-
 life.exist	life_exist	static	-
@@ -909,7 +910,9 @@ life.msg.x_restored_x	life_msg_x_restored_x	template	code: String · v: String
 life.no_marks_match_x	life_no_marks_match_x	template	v: String?
 life.not_mark	life_not_mark	static	-
 life.note	life_note	static	-
+life.note_area_optional	life_note_area_optional	static	-
 life.note_has_no_state	life_note_has_no_state	static	-
+life.note_length_optional	life_note_length_optional	static	-
 life.note_mark_optional	life_note_mark_optional	static	-
 life.on_this_phone	life_on_this_phone	static	-
 life.out_scope	life_out_scope	static	-
@@ -929,6 +932,7 @@ life.to_x	life_to_x	template	v: String
 life.trade	life_trade	static	-
 life.trade_x	life_trade_x	template	code: String
 life.vadd	life_vadd	static	-
+life.vadd.badge	life_vadd_badge	static	-
 life.vadd.short	life_vadd_short	static	-
 life.vendor_added	life_vendor_added	static	-
 life.vendor_approved	life_vendor_approved	static	-
@@ -1720,6 +1724,7 @@ trade.general	trade_general	static	-
 trade.grills	trade_grills	static	-
 trade.grills.short	trade_grills_short	static	-
 trade.hvac	trade_hvac	static	-
+trade.hvac.short	trade_hvac_short	static	-
 trade.lowvolt	trade_lowvolt	static	-
 trade.lowvolt.short	trade_lowvolt_short	static	-
 trade.painting	trade_painting	static	-

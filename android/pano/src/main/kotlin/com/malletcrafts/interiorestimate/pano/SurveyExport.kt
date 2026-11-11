@@ -150,13 +150,20 @@ object SurveyExport {
     /**
      * Drawing [view] of [prep] at the room size [l] × [w] × [h] mm on its A4 sheet, named for [meta] (initials, project
      * code, room title) -- plan.js's #planexp: the drawing at the export's text unit, the sheet scale from its box, the box
-     * centred in the drawing area, the title block and the two footnotes.
+     * centred in the drawing area, the title block and the two footnotes. Of [prep]'s marks the sheet draws THE ROOM AS
+     * SURVEYED ([SheetMarks.prep]); a prep with no wish in it -- every v52 prep -- gives the sheet it always gave.
      */
     fun sheet(view: String, prep: SurveyPrep.Prep, l: Double, w: Double, h: Double, meta: Meta, roomName: String? = null): Sheet {
-        val dd = SurveyPlan.dims(view, prep, l, w, h)
+        // THE SHEET LEAVES THE PHONE (saved to Downloads, shared), SO IT DRAWS THE ROOM AS SURVEYED (port 62, the L2
+        // review's finding 1): no mark born a Client wish or Vendor added, no Note -- SheetMarks' one rule for a document
+        // for anyone but the office, the saved "survey marks" pictures' too. SurveyPlan draws a mark it is handed as if
+        // it were in the room (a door as a gap through the wall), so it is never handed [prep] here. Slice L8, which
+        // draws a wish as a wish on the six drawings, decides what this sheet carries then (DESIGN-port62 Q-list 7).
+        val room = SheetMarks.prep(prep, SheetMarks.Audience.OTHERS)
+        val dd = SurveyPlan.dims(view, room, l, w, h)
         // the Sheet IS the file (its preview paints through the same painter as the PDF), so the drawing's words are
         // pinned English by passing the literal Tx.EN -- decision 4, enforced by check (h) over this whole file
-        val d = SurveyPlan.drawing(Tx.EN, view, prep, l, w, h, roomName, max(dd[0], dd[1]) / FS_DIV)
+        val d = SurveyPlan.drawing(Tx.EN, view, room, l, w, h, roomName, max(dd[0], dd[1]) / FS_DIV)
         val b = d.box; val sc = sheetScale(b[2], b[3])
         val ox = MARGIN + (AREA_W - b[2] / sc) / 2; val oy = MARGIN + (AREA_H - b[3] / sc) / 2
         val ls = mutableListOf<Label>()

@@ -533,6 +533,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
             // the Plan tab's export names its files and fills its title block from these: initials, never the name
             clientInitials = RoomToken.initials(k.row.customerName), projectCode = k.row.project,
             captureDate = k.row.captureDate,
+            // THE PROJECT'S QUOTE STAGE (port 62 slice L3): the capture's own project's, as the one store holds it NOW
+            // -- read on every recomposition, so a sync that moves the stage while survey prep is open reaches it, as
+            // the prototype reads the stage on every render. Survey's rules for a project S5 does not list.
+            quoteStage = QuoteStageSync.prepStage(context,
+                WishSync.stageKey(context, k.row.project, k.row.customerName, k.row.projectTitle)),
+            // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4), read the same way
+            projectLine = QuoteStageSync.prepLine(context,
+                WishSync.stageKey(context, k.row.project, k.row.customerName, k.row.projectTitle), tx),
             onDone = { p, size ->
                 surveyKept = null; surveyTick++
                 // The room size as survey prep now has it (v51: its size line is editable) goes to the
@@ -3967,6 +3975,7 @@ private fun NewCaptureSurvey(
     onKeep: () -> Unit,
 ) {
     val tx = LocalTx.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val session = pending.session
     val start = listOf(pending.lengthMm, pending.widthMm, session.heightMm)
     var dims by remember {
@@ -3996,6 +4005,13 @@ private fun NewCaptureSurvey(
         // the Plan tab's export names its files and fills its title block from these: initials, never the name
         clientInitials = RoomToken.initials(pending.customerName), projectCode = pending.projectName,
         captureDate = pending.captureDate,
+        // THE PROJECT'S QUOTE STAGE (port 62 slice L3), by the same rule as a kept capture's: a new site's first survey
+        // is a project S5 does not list -- Survey's rules -- and a new room of a listed project takes that project's
+        quoteStage = QuoteStageSync.prepStage(context,
+            WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle)),
+        // ... and, for the band at Client approved, that project's one derived line (port 62 slice L4)
+        projectLine = QuoteStageSync.prepLine(context,
+            WishSync.stageKey(context, pending.projectName, pending.customerName, pending.projectTitle), tx),
         onDone = { p, size -> keepWith(p, size) },
         onCancel = { p, size -> keepWith(p, size) },
         onDiscard = onDiscard)

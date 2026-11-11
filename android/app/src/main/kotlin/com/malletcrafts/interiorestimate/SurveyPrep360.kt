@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
 import com.malletcrafts.interiorestimate.pano.SurveyMeas
@@ -179,7 +180,11 @@ private class P3Scene(
 /** A drag in progress on the 360: the surface it is on, what it moves (the finger's mm on that surface's plane), and
  *  how it refuses. As 2 · Mark's SpGrab, in mm rather than picture px. */
 private class P3Grab(val s: String, val id: String, val locked: String? = null, val endLock: Boolean = false,
-                     val gate: Boolean = false, val cancel: (() -> Unit)? = null, val move: (DoubleArray) -> Unit)
+                     val gate: Boolean = false, val cancel: (() -> Unit)? = null,
+                     /** Port 62 slice L4: [locked] is said as it is, as a note -- the phase's own refusal of a mark it
+                      *  holds read-only ("FW1 was marked in Survey — move the phase back to change it"), as 2 · Mark's. */
+                     val said: Boolean = false,
+                     val move: (DoubleArray) -> Unit)
 
 @Composable
 internal fun Sp360(
@@ -201,6 +206,13 @@ internal fun Sp360(
     guide: SurveyGuide.Guide?,
     grid: Boolean,
     act: P3Actions,
+    /** Port 62 slice L4: the project's quote stage, as the dialog was given it -- a mark the phase holds read-only
+     *  (PhaseTools.editable) is picked and does not move, a drag on it says why, and it has no tabs and no trash; the
+     *  chip's second half says what a tap places a mark as. One rule with 2 · Mark: one model, two views. */
+    stage: Int?,
+    /** What this capture's chip was last cycled to while the stage is unread, and a tap on that button. */
+    asPicked: String?,
+    onAs: () -> Unit,
 ) {
     val dens = LocalDensity.current
     val dpx = dens.density
@@ -214,6 +226,7 @@ internal fun Sp360(
     val roomS by rememberUpdatedState(roomSize)
     val areaS0 by rememberUpdatedState(area); val areaSurfS by rememberUpdatedState(areaS)
     val chainS by rememberUpdatedState(chain)
+    val stageS by rememberUpdatedState(stage)
     var boxW by remember { mutableStateOf(1f) }
     var boxH by remember { mutableStateOf(1f) }
     var boxAt by remember { mutableStateOf(Offset.Zero) }
@@ -269,9 +282,10 @@ internal fun Sp360(
             }
             for (m in sf.meas) if (SurveyMeas.known(m.kind)) measL.add(Pano360.measLine(v, s, f, m, d))
         }
-        // the picked mark's tabs -- none on a locked mark or a spot (it is grabbed whole)
+        // the picked mark's tabs -- none on a locked mark or a spot (it is grabbed whole), nor on one the phase holds
+        // read-only (port 62 slice L4)
         val tabs = sm?.let { (s, e) ->
-            if (SurveyPrep.isLocked(e) || SurveyPrep.isPoint(e.t)) emptyList()
+            if (SurveyPrep.isLocked(e) || SurveyPrep.isPoint(e.t) || !PhaseTools.editable(e, stageS)) emptyList()
             else Pano360.tabsOf(e).mapNotNull { (part, mm) -> Pano360.toS(v, s, fr.getValue(s), mm[0], mm[1])?.let { part to it } }
         } ?: emptyList()
         val ends = sq?.let { (s, m) -> Pano360.screenPts(v, s, fr.getValue(s), m.pts) }
@@ -411,6 +425,8 @@ internal fun Sp360(
                                 } else {
                                     actS.grab(SpSel(s, id = m.id)); actS.focus(s); gc.grabbed()
                                     grab = if (SurveyPrep.isLocked(m)) P3Grab(s, m.id, m.code, endLock = true, gate = true) { }
+                                    // read-only at Estimation (port 62 slice L4): picked, nothing moves, a drag says why
+                                    else if (!PhaseTools.editable(m, stageS)) P3Grab(s, m.id, PhaseTools.refuseText(txS, m, stageS), gate = true, said = true) { }
                                     else {
                                         val f = fr.getValue(s)
                                         val tol = Pano360.tolMm(v0, s, f, e.x, e.y, mmAt(s, e.x, e.y), d)
@@ -445,6 +461,7 @@ internal fun Sp360(
                                     val (s, c) = sc; val i = pk.i
                                     actS.grab(SpSel(s, id = c.id)); actS.focus(s); gc.grabbed(); gated = true
                                     grab = if (SurveyPrep.isLocked(c)) P3Grab(s, c.id, c.code, endLock = true, gate = true) { }
+                                    else if (!PhaseTools.editable(c, stageS)) P3Grab(s, c.id, PhaseTools.refuseText(txS, c, stageS), gate = true, said = true) { }
                                     else {
                                         val tol = Pano360.tolMm(v0, s, fr.getValue(s), e.x, e.y, mmAt(s, e.x, e.y), d)
                                         P3Grab(s, c.id, gate = true) { mm ->
@@ -462,6 +479,9 @@ internal fun Sp360(
                                     val s = pk.s
                                     actS.grab(SpSel(s, id = mk.id)); actS.focus(s); gc.grabbed()
                                     grab = if (SurveyPrep.isLocked(mk)) P3Grab(s, mk.id, mk.code) { }
+                                    // A MARK OF AN EARLIER PHASE IS READ-ONLY (port 62 slice L4), exactly as on 2 · Mark:
+                                    // picked, nothing moves, no undo entry, and a drag says why
+                                    else if (!PhaseTools.editable(mk, stageS)) P3Grab(s, mk.id, PhaseTools.refuseText(txS, mk, stageS), said = true) { }
                                     else {
                                         val m0 = mmAt(s, e.x, e.y); val start = mk.copy()
                                         P3Grab(s, mk.id) { mm ->
@@ -522,7 +542,9 @@ internal fun Sp360(
                                 // LOCKED: nothing moves, no undo entry; the refusal once the finger has really moved
                                 if (!refused && hypot(e.dx, e.dy) > 4.dp.toPx()) {
                                     refused = true
-                                    if (g.endLock) actS.say(SurveyGuide.lockedEnd(txS, g.locked)) else actS.refuse(g.locked)
+                                    if (g.endLock) actS.say(SurveyGuide.lockedEnd(txS, g.locked))
+                                    else if (g.said) actS.say(g.locked)
+                                    else actS.refuse(g.locked)
                                 }
                             } else if (g != null) {
                                 if (!gated || endGate.move(e.dx, e.dy)) {
@@ -635,11 +657,14 @@ internal fun Sp360(
                 val r = roomSize
                 val fr = Pano360.frames(prep, r[0], r[1], r[2])
                 P3Draw.paint(nc, tx, v, fr, prep, P3Draw.State(sel?.id, tab, tool == SurveyPrepPalette.SEL, drag,
-                    area?.takeIf { !it.isEmpty() }, areaS, chain, gNow, ga, grid), ink, size.width, size.height)
+                    area?.takeIf { !it.isEmpty() }, areaS, chain, gNow, ga, grid,
+                    // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
+                    tabs = sel?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), ink, size.width, size.height)
                 // THE FLOATING TRASH (sp.js fTrashP3): beside the picked mark, Tape, Line, area or chain, with Select on,
                 // never for the reference; placed by SurveyPrepTouch.trashSpot as on 2 · Mark, clear of its end handles
                 trashAt[0] = null
-                Pano360.trashOf(v, fr, prep, tool, sel?.id)?.let { t ->
+                // ... nor where the phase hides the picked item's delete (port 62 slice L4; sp.js fTrashP3's `!P54.spDelOk`)
+                Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) })?.let { t ->
                     SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
                         t.handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)
                 }?.let { ts ->
@@ -652,14 +677,18 @@ internal fun Sp360(
         // THE TOOL CHIP, as on 2 · Mark: "Placing Window · tap the 360"; the Tape's and Line's live words and caution;
         // the Chain's count and ✓; ✕ back to Select
         val chainN = chain?.nodes?.size ?: 0
+        // ... and after a type's words what the tap places the mark AS (port 62 slice L4; SurveyPrepPalette.chip)
+        val typeChip = if (tool == SurveyPrepPalette.CHAIN || SurveyPrepPalette.isMeasTool(tool)) null
+                       else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked, "360")
         val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(tx, chainN)
                        else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tx, tool, drag, area?.size ?: 0)
-                       else SurveyPrepPalette.chipText(tx, tab, tool, "360")
+                       else typeChip?.text
         if (chipText != null) {
             Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
                 SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool), Modifier,
                     caution = if (SurveyPrepPalette.isMeasTool(tool) || tool == SurveyPrepPalette.CHAIN) SurveyMeas.caution(tx) else null,
-                    onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null) {
+                    onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null,
+                    asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken, onAs = onAs) {
                     act.tool(SurveyPrepPalette.SEL) }
             }
         }
@@ -715,7 +744,9 @@ private object P3Draw {
 
     class State(val selId: String?, val tab: String, val ends: Boolean, val drag: SurveyMeas.Draft?,
                 val area: List<DoubleArray>?, val areaS: String?, val chain: SurveyChain.Draft?,
-                val guide: SurveyGuide.Guide?, val guideA: Float, val grid: Boolean)
+                val guide: SurveyGuide.Guide?, val guideA: Float, val grid: Boolean,
+                /** Port 62 slice L4: the picked mark's eight tabs are drawn; false where the phase holds it read-only. */
+                val tabs: Boolean = true)
 
     private const val OUT = SurveyPrepDraw.OUT_COLOUR
 
@@ -766,7 +797,7 @@ private object P3Draw {
         if (g != null && gS != null) guide(c, v, g, fr.getValue(gS), st.guideA, ink)
         // the picked mark's eight tabs: white squares ringed in its colour, where a press resizes it
         val sm = st.selId?.let { prep.markById(it) }?.takeIf { it.first in fr }
-        if (sm != null && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isPoint(sm.second.t)) {
+        if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isPoint(sm.second.t)) {
             val (s, e) = sm; val f = fr.getValue(s); val hh = Pano360.TAB_HALF_DP.toFloat() * u
             val col = SurveyPrep.typeOf(s, e.t).colour
             for ((_, mm) in Pano360.tabsOf(e)) {

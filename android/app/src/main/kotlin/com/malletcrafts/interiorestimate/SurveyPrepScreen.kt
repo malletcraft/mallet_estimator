@@ -104,10 +104,14 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
+import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.MarkSheet
 import com.malletcrafts.interiorestimate.pano.MmBox
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.PlanSave
+import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.StepRoute
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyExport
@@ -160,6 +164,18 @@ import kotlin.math.roundToInt
  *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
  *  - 3 · List: the surface's checklist, the only part of the screen that
  *    scrolls (v52 slice 6).
+ *  - The Mark sheet (port 62 slice L3, SpMarkSheet): a tap on a mark's code --
+ *    on the picked row under the photo, or in a list -- opens it: the moves the
+ *    project's quote stage offers the mark (→ Client wish ...), the four acts,
+ *    its note, and the trade of an Other, a Line or an area. Every rule and
+ *    every write is MarkSheet / MarkLife in :pano.
+ *  - The phase (port 62 slice L4): the project's quote stage decides what is
+ *    here. A band says which phase it is ("2 · Wish list · every mark you place
+ *    is a client wish"); at Estimated and at Client approved there is no 2 ·
+ *    Mark and no palette; a type tapped in the Wish list stage is BORN a Client
+ *    wish (the chip says "· as Client wish"); and a mark of an earlier phase is
+ *    read-only -- its controls are hidden, a drag on it says why. Every rule is
+ *    PhaseTools in :pano.
  *  - 4 · 360 (v52 slice 17, SurveyPrep360): the same marks, tapes, Lines,
  *    chains and reference on the 360 itself, turned by the finger, and
  *    placed and edited there through the same functions -- one model, two
@@ -193,6 +209,23 @@ internal fun SurveyPrepDialog(
     clientInitials: String = "",
     projectCode: String = "",
     captureDate: String = "",
+    /**
+     * THE PROJECT'S QUOTE STAGE, AS SURVEY PREP IS GIVEN IT (port 62 slice L3; PhaseTools.stageOf, through
+     * QuoteStageSync.prepStage at both call sites): 0-5 for a project S5 lists; 0, Survey's rules, for a project S5
+     * does not list -- "The tools keep following the project's own phase, Survey for a project made on the phone"
+     * (index61c2.html 4091-4093); null only while a listed project's stage is unread, when the Mark sheet offers every
+     * move and says "Quote stage not read yet". It decides what the Mark sheet offers a mark (MarkSheet.view) and what
+     * a Restore answers (deleteMark). NO DEFAULT: a caller that forgot it would open every room under one stage's rules.
+     * Since slice L4 it also decides what survey prep itself shows (PhaseTools): the band, 2 · Mark and the palette,
+     * what a type tool's tap places a mark as, and which marks may be changed.
+     */
+    quoteStage: Int?,
+    /**
+     * WHAT THE BAND SAYS AFTER "Client approved" (port 62 slice L4; QuoteStageSync.prepLine at both call sites): the
+     * project's one derived line, "Execution · 1 in progress", or null in every other stage, where the band says the
+     * phase's own words. NO DEFAULT, as the stage has none.
+     */
+    projectLine: String?,
     /** Save: the prep, and the room size it is squared to now (L, W, H mm -- the size line may have changed it). */
     onDone: (SurveyPrep.Prep, DoubleArray) -> Unit,
     /** Back without Save: the work is kept on the phone either way, and handed back as it stands, with its size. */
@@ -222,7 +255,9 @@ internal fun SurveyPrepDialog(
     var prep by remember { mutableStateOf(loaded ?: SurveyPrep.fresh(roomSize[0], roomSize[1], roomSize[2])) }
     var rev by remember { mutableIntStateOf(0) }
     var tab by remember { mutableStateOf("front") }
-    var mode by remember { mutableStateOf("lines") }
+    // THE STEP AS IT WAS LAST SET; `mode`, below, is the step survey prep is ON: this, moved on from one the project's
+    // phase does not show (port 62 slice L4). Everything reads `mode`; only a step change writes this.
+    var modeSet by remember { mutableStateOf("lines") }
     // 4 · 360 (v52 slice 17): where the 360 looks -- yaw, pitch and fov; the viewer sizes it to its box. A face tab, the
     // step and fit face the open face again (sp.js P3.face); a look round or a pinch moves it. Not stored with the prep:
     // the 360 is a VIEW of the same marks, and nothing is kept per view.
@@ -253,7 +288,10 @@ internal fun SurveyPrepDialog(
     var menuOpen by remember { mutableStateOf(false) }
     // THE PALETTE (v52 slice 7): the tool on in 2 · Mark -- Select, or a type's letter, STICKY until another is
     // picked or the one on is tapped again -- and whether the More sheet is open
-    var tool by remember { mutableStateOf(SurveyPrepPalette.SEL) }
+    // ... as it was last picked; `tool` is the one that is ON: Select wherever the phase has no palette (port 62 slice
+    // L4; the prototype's spPre, index61c2.html 4210), so at Estimated and at Client approved nothing is placed or drawn
+    var toolSet by remember { mutableStateOf(SurveyPrepPalette.SEL) }
+    val tool = PhaseTools.toolFor(toolSet, quoteStage)
     var moreOpen by remember { mutableStateOf(false) }
     // LINE AND TAPE (v52 slice 9): a Tape or a Line being pulled (the Draft changes as the finger moves; rev follows
     // it), and the corners of a Line area tapped so far, on [areaS]
@@ -315,6 +353,25 @@ internal fun SurveyPrepDialog(
     fun ab(s: String) = SurveyPrep.sizeOf(s, prep, roomSize[0], roomSize[1], roomSize[2])
     fun frameOf(s: String) = SurveyPrep.frameOf(s, prep, roomSize[0], roomSize[1], roomSize[2])
     fun keyOf(s: String): String? = frameOf(s)?.key()
+
+    // ---- THE PHASE (port 62 slice L4; the prototype's P54.spPre, index61c2.html 4204-4224). The project has ONE phase,
+    // its S5 quote stage, and survey prep shows only that phase's tools -- hidden, never greyed. The step it is on is the
+    // one last set, moved on from a step the phase does not show: 2 · Mark goes to 3 · List at Estimated and at Client
+    // approved (PhaseTools.prepMode; 1 · Lines is slice L10's). Read on every recomposition, so a sync that moves the
+    // stage while the screen is open takes the step and the tool with it, as the prototype's render does.
+    val mode = PhaseTools.prepMode(modeSet, quoteStage) { StepRoute.isFace(tab) && frameOf(tab) != null }
+    // the band: which phase this is, and with it why a tool is not there
+    val band = PhaseTools.band(tx, quoteStage, projectLine)
+    // "AS …" WHILE THE STAGE IS UNREAD (the prototype's asMem, 2853-2858): what this capture's chip was last cycled to.
+    // Every stage that is read fixes what a mark is placed as, and PhaseTools.asFor reads this only when none is.
+    var asPicked by remember { mutableStateOf(store.placeAs(id)) }
+    fun cycleAs() {
+        val next = PhaseTools.nextAs(quoteStage, asPicked) ?: return
+        asPicked = next; store.setPlaceAs(id, next); rev++
+    }
+    /** An act the phase does not allow on an item (the prototype's spRefuse): said for 2.6 s, nothing changed, no undo
+     *  entry. Its control is hidden, so this is only ever reached by a drag, or by a press already on its way. */
+    fun phaseRefuse(text: String?) { ctx = null; if (text != null) say(text) }
 
     // Saved a moment after each change, then read back: the tick is only shown when what is on disk matches.
     val unsaved = remember { booleanArrayOf(false) }
@@ -584,7 +641,7 @@ internal fun SurveyPrepDialog(
         sel = SpSel(s, id = e.id)
         if (measure != null) active = measure
         else if (fresh) active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
         rev++
     }
     /** A finger down on a line or a mark: it is selected, with the part grabbed; a newly selected mark's
@@ -613,9 +670,14 @@ internal fun SurveyPrepDialog(
         val s = tab; val a = ab(s)
         if (mode != "mark" || SurveyPrep.types(s).none { it.letter == t }) return null
         if (!SurveyPrep.onFace(a[0], a[1], mx, my)) { say(SurveyPrep.placeMiss(tx, s)); return null }
-        snapshot()
-        val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
+        // BORN WHAT THE PHASE PLACES (port 62 slice L4; the prototype's L53.placed, index61c2.html 2959): a Client wish in
+        // the Wish list stage, Vendor added at Vendor review and Revisions, a v52 mark at Survey -- and NOTHING, with no
+        // undo step, where the phase has no palette. PhaseTools.place decides, stamps and takes the one undo step.
+        val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
+            quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null
+        val e = placed.mark
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
+        if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
         return e
     }
@@ -629,9 +691,12 @@ internal fun SurveyPrepDialog(
         if (mode != "360" || !StepRoute.isFace(tab) || s !in SurveyPrep.SURFACES) return null
         Pano360.placeRefusal(tx, tab, s, t)?.let { say(it); return null }
         val a = ab(s)
-        snapshot()
-        val e = prep.addMarkAt(s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8))
+        // born what the phase places, or not placed at all, exactly as on 2 · Mark (PhaseTools.place; slice L4)
+        val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
+            quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null
+        val e = placed.mark
         tab = s; sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
+        if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
         return e
     }
@@ -688,8 +753,38 @@ internal fun SurveyPrepDialog(
      *  (sp.js setTool: st.mdraft=null); a chain half drawn is ENDED first -- plotted with two points or more (kFlush). */
     fun pickTool(t: String) {
         flushChain()
-        tool = SurveyPrepPalette.next(tool, t); moreOpen = false; dropDrafts()
+        toolSet = SurveyPrepPalette.next(tool, t); moreOpen = false; dropDrafts()
         if (t != SurveyPrepPalette.SEL) note = null
+    }
+    // THE PHASE'S MOVE IS MADE FOR GOOD (spPre writes st.mode and st.tool, 4208-4210): once a step or a tool has been
+    // moved on, the one last set is forgotten, so a stage moved back later does not bring it back by itself. A chain
+    // half drawn is ended as any tool change ends it; the More sheet shuts.
+    LaunchedEffect(modeSet, toolSet, quoteStage) {
+        if (modeSet != mode) modeSet = mode
+        if (toolSet != tool) { flushChain(); toolSet = tool; moreOpen = false; dropDrafts() }
+    }
+    // ---- THE MARK SHEET (port 62 slice L3; the prototype's L53 sheet, index61c2.html 3012-3115): open on one item, or
+    // null. Its state is MarkSheet.State in :pano, a value: every tap and keystroke REPLACES it through MarkSheet's pure
+    // functions, and nothing reaches the prep until Done (sheetDone).
+    var markSheet by remember { mutableStateOf<MarkSheet.State?>(null) }
+    /** A tap on a mark's code (or a Line's, an area's): its sheet opens. [focusMove]: the move whose Why box it opens on
+     *  -- Dropped, when a tap on Drop opened it. A Tape, a chain and the reference have no sheet: nothing opens. */
+    fun openSheet(mid: String, focusMove: String? = null) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove) }
+    /**
+     * DONE on the Mark sheet (the prototype's apply, 3071-3088): MarkSheet.apply writes through MarkLife and Trades --
+     * the trade, the note, then the move or the act -- and takes ONE undo step through the snapshot handed to it, just
+     * before its first write; nothing changed closes the sheet with no undo step at all. A move the office is told of
+     * says "After the estimate — tell the office". The sheet stays open while the move picked still needs its why.
+     */
+    fun sheetDone() {
+        val st = markSheet ?: return
+        val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }
+        markSheet = done.state
+        when (done.outcome) {
+            MarkSheet.Outcome.DONE -> { changed(); if (done.amber) say(MarkLife.afterEstimate(tx)) }
+            MarkSheet.Outcome.NEEDS_WORDS -> snack(MarkSheet.needsWords(tx), undo = false)
+            MarkSheet.Outcome.GONE, MarkSheet.Outcome.UNCHANGED, MarkSheet.Outcome.STAYS -> Unit
+        }
     }
     /** DELETE (every path: the bar row, the floating trash, a list row, the long-press menu): '<code> deleted' with
      *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
@@ -701,7 +796,34 @@ internal fun SurveyPrepDialog(
         val it0 = prep.itemById(mid) ?: return
         val code = it0.code
         ctx = null
+        // THE PHASE FIRST (port 62 slice L4; sp.js deleteMark's `!P54.spDelOk(e)`, before the lock and before Drop): an
+        // item the phase holds read-only is not deleted, dropped or restored -- its control is hidden, and this says why
+        if (!PhaseTools.delOk(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
         if (it0.locked) { refuse(code); return }
+        // A MARK PAST EXISTING IS NEVER DELETED (port 62 slice L2; the prototype's interceptDelete, index61c2.html
+        // 2940-2946): its control reads Drop, or Restore on a Dropped mark (MarkLife.deleteLabel), and
+        // MarkLife.deleteAct says what a tap does. RESTORE moves it back at once to what it was born -- one ↶ step,
+        // "FW1 restored to Client wish" with UNDO -- or, where the stage offers no move, says why with no UNDO and
+        // no undo entry. DROP needs its why, which is typed in the Mark sheet: the sheet opens HERE, on Dropped (slice
+        // L3; interceptDelete's `openSheet(id,{focusMove:'drop'})`), with no undo step of its own -- its Done takes
+        // the one step. Nothing is ever deleted (SurveyPrep.Prep.deleteMark refuses too).
+        val lifeMark = prep.markById(mid)?.second
+        if (lifeMark != null) when (MarkLife.deleteAct(lifeMark)) {
+            MarkLife.DeleteAct.PLAIN -> Unit
+            MarkLife.DeleteAct.RESTORE -> {
+                // THE PHASE'S GATE ANSWERS BEFORE ANY UNDO STEP (the L2 review, finding 4; interceptDelete asks
+                // `stage===0` and says the gate's line BEFORE H.snapshot()): a snapshot taken first and popped again
+                // would drop the OLDEST of 40 held steps on every refused tap. The gate's own line, no UNDO.
+                val gate = PhaseTools.gate(quoteStage)
+                if (gate != null) { snack(PhaseTools.gateText(tx, gate), undo = false); return }
+                snapshot()
+                val moved = MarkLife.restore(lifeMark, quoteStage, java.time.Instant.now())
+                if (!moved.ok) { hist.removeAt(hist.size - 1); snack(MarkLife.refusalText(tx, lifeMark, moved).orEmpty(), undo = false); return }
+                snack(MarkLife.restoredText(tx, lifeMark)); changed()
+                return
+            }
+            MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }
+        }
         snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
@@ -711,6 +833,8 @@ internal fun SurveyPrepDialog(
     fun nudgeMark(dx: Double, dy: Double) {
         val sl = sel ?: return; val mid = sl.id ?: return
         val e = prep.surface(sl.s).marks.firstOrNull { it.id == mid } ?: return
+        // a mark of an earlier phase is not nudged (slice L4; sp.js nudgeMark's `!P54.spEdit(e)`, before the lock)
+        if (!PhaseTools.editable(e, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, e, quoteStage)); return }
         if (SurveyPrep.isLocked(e)) { refuse(e.code); return }
         val a = ab(sl.s); snapshot()
         SurveyPrep.moveMark(e, e.copy(), sl.part, dx, dy, a[0], a[1])     // buttons never snap
@@ -720,6 +844,14 @@ internal fun SurveyPrepDialog(
     fun toggleLock(mid: String) {
         // ... or the reference rectangle's padlock (v52 slice 12): one undo step, nothing said, as a mark's
         if (prep.itemById(mid) == null && SurveyRef.byId(prep, mid) == null) return
+        // an item the phase holds read-only is neither locked nor unlocked (slice L4; sp.js setLock's `!P54.spEdit`) --
+        // never the reference's padlock, which is not the phase's (PhaseTools.editable answers true for it)
+        if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
+        // A MARK IN SCOPE STAYS LOCKED (port 62 slice L2; the prototype's setLock, index61c2.html 5053): its padlock
+        // and the menu's Unlock answer "FW1 is in Scope — take it Out of scope in its sheet", with no UNDO and no
+        // undo entry (SurveyPrepEdit.setLocked refuses the unlock as well)
+        val scopeNo = SurveyPrepEdit.unlockRefusal(tx, prep, mid)
+        if (scopeNo != null) { ctx = null; snack(scopeNo, undo = false); return }
         ctx = null; snapshot(); SurveyPrepEdit.setLocked(prep, mid, null); changed()
     }
     /** 1 · Lines' padlock: the open face's four lines locked or unlocked, said for 2.6 s. */
@@ -760,14 +892,33 @@ internal fun SurveyPrepDialog(
     /** Lock all / Unlock all of type [t] on [s] -- or, with [kind], every tape or every Line mark (v52 slice 9): "Locked
      *  N items · front wall" with UNDO; no change, no undo entry. */
     fun lockAllOf(s: String, t: String?, on: Boolean, kind: String? = null) {
+        // LOCK ALL IS A SURVEY TOOL (slice L4; sp.js lockAll's `!P54.spBulk()`): outside Survey -- where the menu still
+        // offers it on a mark the phase lets be edited, as the prototype's does -- it says so and locks nothing
+        if (!PhaseTools.bulk(quoteStage)) { phaseRefuse(PhaseTools.refuseBulk(tx, quoteStage)); return }
         ctx = null; snapshot()
         val n = SurveyPrepEdit.lockAll(prep, s, t, on, kind)
-        if (n == 0) { hist.removeAt(hist.size - 1); return }
-        snack(SurveyPrepEdit.lockedSnack(tx, on, n, s)); changed()
+        // UNLOCK ALL SKIPS SCOPE MARKS (port 62 slice L2; the prototype's lockAll, index61c2.html 5055-5056): they stay
+        // locked, and the snackbar says how many -- after what it unlocked, or alone and with no UNDO when it unlocked nothing
+        val scopeKept = SurveyPrepEdit.scopeKept(prep, s, t, on, kind)
+        if (n == 0) {
+            hist.removeAt(hist.size - 1)
+            if (scopeKept > 0) snack(MarkLife.scopeKeptText(tx, scopeKept), undo = false)
+            return
+        }
+        snack(SurveyPrepEdit.lockedSnack(tx, on, n, s, scopeKept)); changed()
     }
     /** Duplicate: the copy 100 mm away with the next code, picked, its first measurement active (sp.js duplicateItem). */
     fun duplicateMark(mid: String) {
         val s = prep.itemById(mid)?.s ?: return
+        // only what the phase lets be edited is copied (slice L4; sp.js duplicateItem's `!P54.spEdit(it)`). THE COPY IS
+        // THE BOX ALONE, as the prototype's is -- never stamped "as …" (SurveyPrepEdit.duplicate; DESIGN-port62 Q-list 8)
+        if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
+        // ... AND A MARK IS COPIED ONLY WHERE THAT UNSTAMPED BOX IS WHAT A TAP WOULD PLACE (the L4 review, finding 1;
+        // PhaseTools.copyOk): at Survey, and while the stage is unread with the chip on "as Existing". Anywhere else the
+        // copy of a mark born a wish would leave the office as a thing that is in the room. The row is not on the menu
+        // there; a press that still arrives makes nothing, takes no undo step and says nothing -- the prototype has no
+        // line for it (Q-list 8)
+        if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }
         val a = ab(s); ctx = null; snapshot()
         val nid = java.util.UUID.randomUUID().toString().take(8)
         if (prep.markById(mid) != null) {
@@ -789,6 +940,7 @@ internal fun SurveyPrepDialog(
     }
     /** A menu row picked (SurveyPrepEdit.menuItems). */
     fun ctxPick(mid: String, k: String) {
+        // a row the phase hides is not on the menu (SurveyPrepEdit.menuItemsOf with the stage); each act asks again
         when (k) {
             SurveyPrepEdit.DELETE -> deleteMark(mid)
             SurveyPrepEdit.DUPLICATE -> duplicateMark(mid)
@@ -807,7 +959,7 @@ internal fun SurveyPrepDialog(
         sel = SpSel(s, id = cid)
         if (measure != null) active = measure
         else if (fresh) active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
         rev++
     }
     /** A Tape, a Line or an area picked (sp.js mPick): selected; a newly picked Line's reading becomes the one being
@@ -817,7 +969,7 @@ internal fun SurveyPrepDialog(
         val fresh = sel?.id != mid
         sel = SpSel(s, id = mid)
         active = SurveyMeas.pickActive(m, fresh, measure, active)
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") mode = "mark"; dropDrafts() }
+        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
         rev++
     }
     /**
@@ -868,6 +1020,8 @@ internal fun SurveyPrepDialog(
      * many, and how many locked ones were kept.
      */
     fun clearTap(scope: String) {
+        // the clears are Survey tools (slice L4; sp.js clearItems' `!P54.spBulk()`): hidden outside Survey, and refused
+        if (!PhaseTools.bulk(quoteStage)) { phaseRefuse(PhaseTools.refuseBulk(tx, quoteStage)); return }
         if (SurveyPrepEdit.clearCount(prep, scope, tab) == 0) return
         if (armedClear != scope) { armedClear = scope; return }
         armedClear = null
@@ -875,7 +1029,8 @@ internal fun SurveyPrepDialog(
         val r = SurveyPrepEdit.clearItems(prep, scope, tab)
         if (r.n == 0) { hist.removeAt(hist.size - 1); return }
         sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()
-        snack(SurveyPrepEdit.clearedSnack(tx, r.n, r.kept))
+        // a mark past Existing is kept, locked or not, and the snackbar names it (port 62 slice L2; SurveyPrepEdit.clearedSnack)
+        snack(SurveyPrepEdit.clearedSnack(tx, r))
         changed()
     }
     fun nudgeLine(slot: String, mm: Double, deg: Double) {
@@ -897,13 +1052,16 @@ internal fun SurveyPrepDialog(
     fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
         // on 4 · 360 a face tab turns the 360 to that face (sp.js showTab: P3.face)
         if (mode == "360" && StepRoute.isFace(t)) p3Look = Pano360.faceView(t, 1.0, 1.0)
-        tab = t; sel = null; menuOpen = false; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+        tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
     fun setMode(m: String) {
+        // a step the phase does not show cannot be opened (slice L4): it is not on the strip, and a press routed to
+        // where it was, or a tour's move, does nothing
+        if (m !in PhaseTools.prepSteps(quoteStage)) return
         if (m == "mark" && frameOf(tab) == null) { say(tx.refuse_sp_these_four_lines_do_2); return }
         flushChain(); refShot = SurveyRef.leave(refShot)
         // 4 · 360 opens facing the open face (sp.js setMode: P3.face)
         if (m == "360") p3Look = Pano360.faceView(tab, 1.0, 1.0)
-        mode = m; sel = null; tool = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
+        modeSet = m; sel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
     }
 
     fun openLwh() {
@@ -967,7 +1125,8 @@ internal fun SurveyPrepDialog(
     fun stepAt(x: Float, y: Float): String? =
         if (!StepRoute.showStrip(tab)) null
         else StepRoute.stepFor(x.toDouble(), y.toDouble(),
-            StepRoute.STEPS.mapNotNull { k ->
+            // ... of the steps the strip draws now: a step the phase hides keeps no touch area (slice L4)
+            PhaseTools.prepSteps(quoteStage).mapNotNull { k ->
                 stepBoxes[k]?.let { r -> StepRoute.Step(k, r.left.toDouble(), r.top.toDouble(), r.right.toDouble(), r.bottom.toDouble()) } },
             stripAt.y.toDouble(), dens.density.toDouble())
     // The long-lived pointer handlers below read these, so a handler started on an earlier frame acts on this one.
@@ -1130,8 +1289,11 @@ internal fun SurveyPrepDialog(
             verticalAlignment = Alignment.CenterVertically) {
             Text(StepRoute.stripFace(tx, tab), color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
                 modifier = Modifier.padding(end = 6.dp))
-            StepRoute.STEPS.forEachIndexed { i, k ->
-                if (i > 0) Box(Modifier.weight(1f).height(1.5.dp).background(SP_JOIN))
+            // ONLY THE STEPS THE PHASE SHOWS (port 62 slice L4; phase54.css 1272-1274 hides a step's circle and the join
+            // after it): each keeps its own number, so with 2 · Mark gone the strip reads 1 · 3 · 4
+            PhaseTools.prepSteps(quoteStage).forEachIndexed { n, k ->
+                val i = StepRoute.stepIndex(k)
+                if (n > 0) Box(Modifier.weight(1f).height(1.5.dp).background(SP_JOIN))
                 val on = i == ci
                 val past = ci >= 0 && i < ci
                 val lab = StepRoute.label(tx, i)
@@ -1195,6 +1357,12 @@ internal fun SurveyPrepDialog(
 
     // THE NOTE AND THE SNACKBAR over the bottom of the photo (or the list), the note above the snackbar: neither
     // costs any height (v52 slice 8 keeps slice 7's dp budget). UNDO undoes the change the snackbar names.
+    // THE BAND IN LANDSCAPE lies over the foot of the left column -- the photo, the list or the drawing -- so the
+    // right-hand column loses no height (port 62 slice L4; phase54.css 1269-1270); the note and the snackbar are drawn
+    // after it, over it, as the prototype stacks them. In portrait it is the screen's first line, over the bar.
+    val bandOver: @Composable BoxScope.() -> Unit = {
+        if (land) SpPhaseBand(band, true, Modifier.align(Alignment.BottomCenter))
+    }
     val notesOver: @Composable BoxScope.() -> Unit = {
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1214,7 +1382,8 @@ internal fun SurveyPrepDialog(
             if (mode == "360") {
                 // 4 · 360 (v52 slice 17): the same marks on the 360 itself, edited through the same functions as 2 · Mark
                 Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,
-                    mdrag, area, areaS, kdraft, SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft), grid, p3Actions)
+                    mdrag, area, areaS, kdraft, SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft), grid, p3Actions,
+                    stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })
             } else if (img == null) {
                 Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -1262,8 +1431,11 @@ internal fun SurveyPrepDialog(
                     onGrid = { grid = !grid; rev++ },
                     onEndGuide = { g -> endG = g; rev++ },
                     onSay = { t -> say(t) },
-                    onBusy = { b -> photoBusy = b })
+                    onBusy = { b -> photoBusy = b },
+                    // port 62 slice L4: the phase -- which marks may be changed, and the chip's "as …"
+                    stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })
             }
+            bandOver()
             notesOver()
         }
     }
@@ -1299,17 +1471,19 @@ internal fun SurveyPrepDialog(
                     drawIntoCanvas { cv ->
                         val nc = cv.nativeCanvas
                         nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
-                        SurveyPrepDraw.drawMarks(nc, tx, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
+                        // the List's picture is the office's own screen: every mark, with its state (port 62 slice L2)
+                        SurveyPrepDraw.drawMarks(nc, tx, SheetMarks.Audience.OFFICE, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
                             size.width, size.height, null, density, frame = frameOf(s)),
                             { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
                     }
                 }
             }
             if (!room || prep.surface(s).done()) {
-                SpTable(s, prep, a, rev, sel, active, show, room,
+                SpTable(s, prep, a, rev, sel, active, show, room, quoteStage,
                     onRow = { e, code -> selectMark(s, e, code) },
                     onMeasRow = { m, code -> selectMeas(s, m.id, code) },
                     onChainRow = { k, code -> selectChain(s, k.id, code) },
+                    onSheet = { openSheet(it) },
                     onDelete = { deleteMark(it) },
                     onFocus = { active = it },
                     onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
@@ -1326,6 +1500,7 @@ internal fun SurveyPrepDialog(
                 if (tab == "list") for (s in SurveyPrep.SURFACES) surfaceBlock(s, true)
                 else surfaceBlock(tab, false)
             }
+            bandOver()
             notesOver()
         }
     }
@@ -1336,7 +1511,9 @@ internal fun SurveyPrepDialog(
     // the client's initials, the room's token and the project's code (SurveyExport.exportName); the phone says what it
     // saved in the snackbar (the prototype's "On the phone this saves …" note is the prototype's alone).
     fun planName(): String = SurveyExport.exportName(clientInitials, SurveyExport.roomToken(title), projectCode, planV)
-    /** The drawing shown, on its sheet, from the prep and the room size as they stand NOW (main thread; it is cheap). */
+    /** The drawing shown, on its sheet, from the prep and the room size as they stand NOW (main thread; it is cheap).
+     *  Of the prep's marks the sheet draws THE ROOM AS SURVEYED -- it is saved and shared -- which SurveyExport.sheet
+     *  decides (SheetMarks.prep; port 62, the L2 review): this screen's Plan tab above draws the prep itself. */
     fun planSheet(): SurveyExport.Sheet =
         SurveyExport.sheet(planV, prep, roomSize[0], roomSize[1], roomSize[2],
             SurveyExport.Meta(clientInitials, projectCode, title, captureDate,
@@ -1384,6 +1561,7 @@ internal fun SurveyPrepDialog(
     // over the drawing: the export overlay when open (the whole pane, as v42.css .planx), and over it the note and the
     // snackbar as over a photo (notesOver), lifted clear of the overlay's buttons
     val planOver: @Composable BoxScope.() -> Unit = {
+        bandOver()
         if (planExp) {
             val sheet = remember(planV, rev, prep, roomSize, title, clientInitials, projectCode, captureDate) { runCatching { planSheet() }.getOrNull() }
             SpPlanExport(sheet?.name ?: planName(), sheet, planBusy, Modifier.matchParentSize(),
@@ -1507,19 +1685,33 @@ internal fun SurveyPrepDialog(
             // A LOCKED MARK (v52 slice 8, sp.js 1500-1502): "locked" under its code, the nudges disabled, its padlock
             // lit; Delete stays, dimmed, and answers "FD1 is locked — unlock first"
             val lk = SurveyPrep.isLocked(sm)
+            // ITS STATE (port 62 slice L2; the prototype's nlAttrs, index61c2.html 2930): a 3 dp bar on the label's left
+            // edge in the state's colour -- none for an Existing mark, whose label is v52's
+            val lifeBar = MarkLife.barColour(sm)
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                // ... and A TAP ON IT OPENS THE MARK SHEET (slice L3; nlAttrs' role=button, "Open the Mark sheet for FW1")
                 Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
+                    textAlign = TextAlign.Center, modifier = Modifier.width(52.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
+                        if (lifeBar != null) drawRect(Color(SurveyPrepDraw.argb(lifeBar)), size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height))
+                    }.clickable(role = Role.Button) { openSheet(sm.id) }
+                        .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(sm.code) })
                 val bs: List<Triple<String, Double, Double>> = when {
                     horiz -> listOf(Triple("▼5", 0.0, -5.0), Triple("▼1", 0.0, -1.0), Triple("▲1", 0.0, 1.0), Triple("▲5", 0.0, 5.0)) // text:value glyphs and mm
                     vert -> listOf(Triple("◀5", -5.0, 0.0), Triple("◀1", -1.0, 0.0), Triple("1▶", 1.0, 0.0), Triple("5▶", 5.0, 0.0)) // text:value glyphs and mm
                     else -> listOf(Triple("◀", -1.0, 0.0), Triple("▶", 1.0, 0.0), Triple("▼", 0.0, -1.0), Triple("▲", 0.0, 1.0)) // text:value glyphs
                 }
-                for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land, enabled = !lk) { nudgeMark(dx, dy) }
-                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
-                SpButton(tx.common_delete, Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: tx.common_delete },
-                    SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
+                // A MARK OF AN EARLIER PHASE IS READ-ONLY (port 62 slice L4; the prototype's spPost, index61c2.html
+                // 4257-4260): its nudges, its padlock and its delete are HIDDEN, never greyed -- the label stays, and
+                // still opens its Mark sheet. Each of the three is its own rule in PhaseTools.
+                if (PhaseTools.editable(sm, quoteStage))
+                    for ((lab, dx, dy) in bs) SpButton(lab, Modifier.weight(1f), SP_GOLD, compact = land, enabled = !lk) { nudgeMark(dx, dy) }
+                if (PhaseTools.lockOk(sm, quoteStage))
+                    SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
+                // Delete, Drop on a mark past Existing, Restore on a Dropped one (port 62 slice L2; the prototype's delWord)
+                if (PhaseTools.delOk(sm, quoteStage))
+                    SpButton(MarkLife.deleteLabel(tx, sm), Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: MarkLife.deleteLabel(tx, sm) },
+                        SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
             }
         }
         // A PICKED TAPE, LINE OR AREA (v52 slice 9, sp.js 1505-1507): its own row -- "F-T1 · Tape · 1234 mm", "F-M1 ·
@@ -1531,13 +1723,20 @@ internal fun SurveyPrepDialog(
             val tp = sq.kind == SurveyMeas.TAPE
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // a Line's or an area's code opens its Mark sheet, for its TRADE and its NOTE (slice L3); a tape has none
                 Text(sq.code, color = Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
-                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1)
+                    fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1,
+                    modifier = if (!MarkSheet.opens(prep, sq.id)) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
+                        .clickable(role = Role.Button) { openSheet(sq.id) }
+                        .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(sq.code) })
                 Text(SurveyMeas.rowValue(tx, sq, prep.actual), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sq.code) else tx.sp_aria_lock_x(sq.code)) { toggleLock(sq.id) }
-                SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sq.id) ?: tx.common_delete },
-                    SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
+                // a Tape, a Line and an area are the phase's own tools up to Estimation, where these two go (slice L4)
+                if (PhaseTools.lockOk(sq, quoteStage))
+                    SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sq.code) else tx.sp_aria_lock_x(sq.code)) { toggleLock(sq.id) }
+                if (PhaseTools.delOk(sq, quoteStage))
+                    SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sq.id) ?: tx.common_delete },
+                        SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
             }
         }
         // A PICKED CHAIN (v52 slice 11, sp.js 1503, ct52 K): its own row -- "FK1 ≈905 · ≈2405 · Σ 3310 laser", each
@@ -1553,9 +1752,12 @@ internal fun SurveyPrepDialog(
                     lineHeight = 16.sp, maxLines = 1)
                 Text(SurveyChain.rowValue(tx, kv), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
                     lineHeight = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sk.code) else tx.sp_aria_lock_x(sk.code)) { toggleLock(sk.id) }
-                SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sk.id) ?: tx.common_delete },
-                    SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
+                // ... and so is a chain (slice L4)
+                if (PhaseTools.lockOk(sk, quoteStage))
+                    SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sk.code) else tx.sp_aria_lock_x(sk.code)) { toggleLock(sk.id) }
+                if (PhaseTools.delOk(sk, quoteStage))
+                    SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sk.id) ?: tx.common_delete },
+                        SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
             }
         }
         // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, or a
@@ -1577,7 +1779,10 @@ internal fun SurveyPrepDialog(
         }
         // THE PALETTE (v52 slice 7) in place of the old toolbar: 6 + 50 dp (6 + 46 in landscape), where SpMarkToolbar
         // took 48 + 5 -- the photo gives up 3 dp in portrait and gains 1 in landscape
-        SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })
+        // ... where the phase has one (port 62 slice L4): at Estimated and at Client approved there is no palette --
+        // nothing new is marked there, and the band over the screen says so
+        if (PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))
+            SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })
     }
 
     // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
@@ -1651,30 +1856,37 @@ internal fun SurveyPrepDialog(
         // taps, one ↶; what is locked is never counted and never taken
         val nS = SurveyPrepEdit.clearCount(prep, SurveyPrepEdit.SURF, tab); val kS = SurveyPrepEdit.lockedCount(prep, SurveyPrepEdit.SURF, tab)
         val nR = SurveyPrepEdit.clearCount(prep, SurveyPrepEdit.ROOM, tab); val kR = SurveyPrepEdit.lockedCount(prep, SurveyPrepEdit.ROOM, tab)
-        if (face) {
-            SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.SURF, nS, kS, armedClear == SurveyPrepEdit.SURF),
-                armedClear == SurveyPrepEdit.SURF, nS > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.SURF) }
+        // THE CLEARS AND START OVER ACT ON EVERY PHASE'S MARKS, so they are Survey's -- and an unread stage's (port 62
+        // slice L4; the prototype's spBulk, index61c2.html 4239, 4264): in any other phase all three are HIDDEN
+        val bulk = PhaseTools.bulk(quoteStage)
+        if (bulk) {
+            if (face) {
+                SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.SURF, nS, kS, armedClear == SurveyPrepEdit.SURF),
+                    armedClear == SurveyPrepEdit.SURF, nS > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.SURF) }
+                Spacer(Modifier.height(6.dp))
+            }
+            SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.ROOM, nR, kR, armedClear == SurveyPrepEdit.ROOM),
+                armedClear == SurveyPrepEdit.ROOM, nR > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.ROOM) }
             Spacer(Modifier.height(6.dp))
-        }
-        SpTwoTap(SurveyPrepEdit.clearLabel(tx, SurveyPrepEdit.ROOM, nR, kR, armedClear == SurveyPrepEdit.ROOM),
-            armedClear == SurveyPrepEdit.ROOM, nR > 0, land, SP_AMB) { clearTap(SurveyPrepEdit.ROOM) }
-        Spacer(Modifier.height(6.dp))
-        // ---- start over, discard: each takes two taps. START OVER KEEPS WHAT IS LOCKED (v52 slice 8, sp.js 1683):
-        // a locked surface's lines, every locked mark and its readings; everything else starts fresh
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else SP_LINE_BORDER, RoundedCornerShape(12.dp))
-            .clickable {
-                if (!armed) armed = true
-                else {
-                    armed = false
-                    val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
-                    hist.clear(); sel = null; active = null; tool = SurveyPrepPalette.SEL; moreOpen = false
-                    ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
-                    prep = r.prep; SurveyPrepEdit.startedOver(tx, r.kept)?.let { say(it) }; changed()
-                }
-            }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
-            Text(if (armed) SurveyPrepEdit.startOverArmed(tx) else SurveyPrepEdit.startOverLabel(tx),
-                color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center)
+            // ---- start over, discard: each takes two taps. START OVER KEEPS WHAT IS LOCKED (v52 slice 8, sp.js 1683):
+            // a locked surface's lines, every locked mark and its readings; everything else starts fresh
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).border(1.dp, if (armed) SP_AMB else SP_LINE_BORDER, RoundedCornerShape(12.dp))
+                .clickable {
+                    if (!PhaseTools.bulk(quoteStage)) { armed = false; phaseRefuse(PhaseTools.refuseStartOver(tx)) }
+                    else if (!armed) armed = true
+                    else {
+                        armed = false
+                        val r = SurveyPrepEdit.startOver(prep, roomSize[0], roomSize[1], roomSize[2])
+                        hist.clear(); sel = null; active = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false
+                        ctx = null; armedClear = null; menuOpen = false; hideSnack(); dropDrafts()
+                        // ... and every mark past Existing, locked or not (port 62 slice L2): the note names those first
+                        prep = r.prep; SurveyPrepEdit.startedOver(tx, r)?.let { say(it) }; changed()
+                    }
+                }.padding(if (land) 6.dp else 9.dp), contentAlignment = Alignment.Center) {
+                Text(if (armed) SurveyPrepEdit.startOverArmed(tx) else SurveyPrepEdit.startOverLabel(tx),
+                    color = if (armed) SP_AMB else SP_MUTED, fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center)
+            }
         }
         if (onDiscard != null) {
             Spacer(Modifier.height(6.dp))
@@ -1729,7 +1941,9 @@ internal fun SurveyPrepDialog(
             rev    // read, so every model change recomposes the screen
             if (!land) {
                 // PORTRAIT, 360 x 780: bar 40 · tabs 64 + strip 28 = 92 · (Show) · caption · THE PHOTO · what works on it
+                // ... and since port 62 slice L4 the phase band over them all, 20 dp: the screen's first line
                 Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)) {
+                    SpPhaseBand(band, false)
                     bar()
                     openedLine()
                     tabsUi()
@@ -1785,7 +1999,7 @@ internal fun SurveyPrepDialog(
             }
             // ---- MORE ▸ (v52 slice 7): "Every mark type · <Face>" over the bottom of the screen -- the whole width in
             // portrait, 340 dp at the right in landscape (v42.css .moresheet); a pick or ✕ closes it
-            if (moreOpen && marking) {
+            if (moreOpen && marking && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)) {
                 SpMoreSheet(tab, tool,
                     if (land) Modifier.align(Alignment.BottomEnd).width(340.dp) else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                     onPick = { t -> pickTool(t) }, onClose = { moreOpen = false })
@@ -1796,7 +2010,8 @@ internal fun SurveyPrepDialog(
                 Box(Modifier.fillMaxSize().onGloballyPositioned { overlayAt = it.positionInRoot() }
                     .pointerInput(Unit) { detectTapGestures { off -> outsideTapS(off) } }
                     .semantics { onClick(label = tx.sp_aria_close_menu) { menuOpen = false; true } })
-                Box(Modifier.align(Alignment.TopEnd).padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = if (land) 40.dp else 48.dp)) {
+                // in portrait the band has moved the bar, and ⋮ with it, 20 dp down (phase54.css 1283)
+                Box(Modifier.align(Alignment.TopEnd).padding(start = 10.dp, end = 10.dp, bottom = 10.dp, top = if (land) 40.dp else 68.dp)) {
                     menu()
                 }
             }
@@ -1815,7 +2030,9 @@ internal fun SurveyPrepDialog(
                 val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { 232.dp.toPx() }
                 val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
                 val top = (c.y - rootTop - with(dens) { 12.dp.toPx() }).coerceAtMost(rootH - mh - edge).coerceAtLeast(edge)
-                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id),
+                // ... less the rows the phase hides (port 62 slice L4): on a surveyed mark after Survey, its head and Cancel;
+                // and no Duplicate on a mark where its copy would not be what a tap places (the L4 review; copyOk)
+                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked),
                     Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
@@ -1836,6 +2053,24 @@ internal fun SurveyPrepDialog(
                     },
                     onCancel = { lwhOpen = false },
                     onApply = { applyLwh() })
+            }
+            // ---- THE MARK SHEET (port 62 slice L3): a bottom sheet over survey prep, in its own window -- ✕, the scrim
+            // and ◁ cancel it before anything of this screen. What it draws is MarkSheet.view for the stage this
+            // dialog was given; each tap and keystroke replaces the sheet's state, read as it stands when it lands.
+            markSheet?.let { st ->
+                val drawn = MarkSheet.view(tx, prep, st, quoteStage)
+                if (drawn == null) LaunchedEffect(st.id) { markSheet = null }   // its item is gone: the sheet closes
+                else SpMarkSheet(drawn, land, MarkSheetActions(
+                    onMove = { to -> markSheet = markSheet?.let { cur -> MarkSheet.pickMove(prep, cur, quoteStage, to) } },
+                    onWhy = { to, typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeWhy(prep, cur, quoteStage, to, typed) } },
+                    onAct = { act -> markSheet = markSheet?.let { cur -> MarkSheet.pickAct(prep, cur, quoteStage, act) } },
+                    onNote = { typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeNote(cur, typed) } },
+                    onOffice = { office -> markSheet = markSheet?.let { cur -> MarkSheet.pickOffice(cur, office) } },
+                    onTrade = { markSheet = markSheet?.let { cur -> MarkSheet.togglePicker(prep, cur) } },
+                    onCat = { cat -> markSheet = markSheet?.let { cur -> MarkSheet.pickCat(cur, cat) } },
+                    onBare = { markSheet = markSheet?.let { cur -> MarkSheet.closePicker(cur) } },
+                    onDone = { sheetDone() },
+                    onCancel = { markSheet = null }))
             }
             // ---- THE GUIDED TOUR (port 61c §31): survey prep is a Dialog — its OWN window, which
             // the activity's overlay cannot cover — so it hosts the second TourOverlay instance,
@@ -2024,6 +2259,13 @@ private fun SpPhoto(
     /** A finger is on the photo (true at the first down, false when the gesture ends however it ends): a wider cut waits
      *  for it to lift (sp.js surfV.busy). */
     onBusy: (Boolean) -> Unit,
+    /** Port 62 slice L4: the project's quote stage, as the dialog was given it. A mark the phase holds read-only
+     *  (PhaseTools.editable) is picked by a press and does not move -- a drag says why, once -- and has no tabs and
+     *  no trash; the chip's second half says what a tap places a mark as. */
+    stage: Int?,
+    /** What this capture's chip was last cycled to while the stage is unread, and a tap on that button. */
+    asPicked: String?,
+    onAs: () -> Unit,
 ) {
     val density = LocalDensity.current
     // the language (port 61c slice M3a): the chip, the fit and grid buttons; and, through a State, what the gesture says
@@ -2040,6 +2282,7 @@ private fun SpPhoto(
     val oxS by rememberUpdatedState(ox); val oyS by rememberUpdatedState(oy)
     val iwS by rememberUpdatedState(iw); val ihS by rememberUpdatedState(ih)
     val onBusyS by rememberUpdatedState(onBusy)
+    val stageS by rememberUpdatedState(stage)
     // The gesture below outlives recompositions (it restarts only for a new surface, mode or -- off 1 · Lines --
     // squaring), so everything it reads that can change under it is read through these.
     val prepS by rememberUpdatedState(prep); val selS by rememberUpdatedState(sel)
@@ -2102,10 +2345,13 @@ private fun SpPhoto(
             gAlpha.animateTo(0f, tween(SurveyGuide.fadeOutMs(gAlpha.value.toDouble()), easing = LinearEasing))
         }
     }
+    // ... and after it what the tap places the mark AS: "· as Client wish" in the Wish list stage (port 62 slice L4;
+    // SurveyPrepPalette.chip: none at Survey, plain words where the phase fixes it, the cycling button while unread)
+    val typeChip = if (mode != "mark" || chainTool || measTool) null else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked)
     val chipText = if (mode != "mark") null
                    else if (chainTool) SurveyChain.chipText(tx, chainN)
                    else if (measTool) SurveyMeas.chipText(tx, tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
-                   else SurveyPrepPalette.chipText(tx, tab, tool)
+                   else typeChip?.text
 
     // THE FIT RECT IN THE BOX at zoom 1, letterboxed (Amit, 2026-10-11: "does not show full foto for marking"; sp.js
     // V.k): the scale fits both sides of whatever box the screen gives it (v52 slice 6: all the height left). The
@@ -2180,6 +2426,9 @@ private fun SpPhoto(
         val px = sq.x(p0[0]); val py = sq.y(p0[1])
         val pick = SpSel(tab, id = c.id)
         if (SurveyPrep.isLocked(c)) return SpGrab(px, py, pick, null, c.code, endLock = true, gate = true) { _, _ -> }
+        // at Estimation a chain is read-only (port 62 slice L4, PhaseTools.editable): picked, nothing moves, and a drag
+        // says "FK1 · Estimation changes nothing — …"
+        if (!PhaseTools.editable(c, stageS)) return SpGrab(px, py, pick, null, PhaseTools.refuseText(txS, c, stageS), gate = true, said = true) { _, _ -> }
         // 14 dp in face mm at the scale the press was made at
         val tol = SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(sq.mpp, k()))
         val s = tab
@@ -2226,7 +2475,8 @@ private fun SpPhoto(
         }
         val tol = with(density) { 16.dp.toPx() }.toDouble()
         // a LOCKED picked mark has no tabs (v52 slice 8): it is tested as a mark like any other, so a press on it holds it
-        val selId = selS?.id?.takeIf { sid -> els.firstOrNull { it.id == sid }?.let { !SurveyPrep.isLocked(it) } == true }
+        // ... and so has a picked mark the phase holds read-only (port 62 slice L4): no tabs drawn, none to press
+        val selId = selS?.id?.takeIf { sid -> els.firstOrNull { it.id == sid }?.let { !SurveyPrep.isLocked(it) && PhaseTools.editable(it, stageS) } == true }
         // A CHAIN'S POINTS (v52 slice 11), with Select on: AFTER the picked mark's tabs (ct52 X5: "a chain point on a
         // door's left tab resizes the door") and before every tag and mark -- 16 dp each (sp.js hit)
         val nodes = if (toolS == SurveyPrepPalette.SEL) chainsOnScreen().map { (id, pts) -> SurveyPrepTouch.Nodes(id, pts) } else emptyList()
@@ -2243,6 +2493,11 @@ private fun SpPhoto(
                 val e = els.firstOrNull { it.id == h.id }
                 if (e == null) null
                 else if (SurveyPrep.isLocked(e)) { val at = fromS(sx, sy); SpGrab(at[0], at[1], SpSel(tab, id = e.id), null, e.code) { _, _ -> } }
+                // A MARK OF AN EARLIER PHASE IS READ-ONLY (port 62 slice L4; sp.js moveEl's `!P54.spEdit(e)`): the press
+                // picks it -- its label opens its Mark sheet -- nothing moves, no undo entry, and once the finger has
+                // really moved it says why: "FW1 was marked in Survey — move the phase back to change it"
+                else if (!PhaseTools.editable(e, stageS)) { val at = fromS(sx, sy)
+                    SpGrab(at[0], at[1], SpSel(tab, id = e.id), null, PhaseTools.refuseText(txS, e, stageS), said = true) { _, _ -> } }
                 else {
                     val part = h.part; val at = fromS(sx, sy)
                     val start = e.copy(); val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])
@@ -2316,6 +2571,9 @@ private fun SpPhoto(
         val p0 = m.pts[i].copyOf(); val px = sq.x(p0[0]); val py = sq.y(p0[1])
         val pick = SpSel(tab, id = m.id)
         if (ep is SurveyGuide.EndPress.Locked) return SpEnd(SpGrab(px, py, pick, null, ep.code, endLock = true) { _, _ -> }, p0)
+        // at Estimation a Tape, a Line and an area are read-only (port 62 slice L4, PhaseTools.editable): the end is
+        // picked and does not move, and a drag says "F-M1 · Estimation changes nothing — …"
+        if (!PhaseTools.editable(m, stageS)) return SpEnd(SpGrab(px, py, pick, null, PhaseTools.refuseText(txS, m, stageS), said = true) { _, _ -> }, p0)
         // 14 dp in face mm at the scale the press was made at
         val tol = SurveyGuide.endTol(density.density.toDouble(), SurveyGuide.mmPerCanvasPx(sq.mpp, k()))
         val s = tab
@@ -2701,11 +2959,14 @@ private fun SpPhoto(
                         if (which == "main") SurveyPrepDraw.drawRef(c, tx, tab, prep.surface(tab), mm, u)
                     }
                     else rect?.let { r ->
-                        SurveyPrepDraw.drawMarks(c, tx, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
+                        // the editing photo and its loupe are the office's own screen (port 62 slice L2)
+                        SurveyPrepDraw.drawMarks(c, tx, SheetMarks.Audience.OFFICE, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
                             sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
                             density.density, drag = drag?.takeIf { it.s == tab }, area = area,
                             gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL,
-                            chain = chain?.takeIf { it.s == tab }, frame = frame), mm, u)
+                            chain = chain?.takeIf { it.s == tab }, frame = frame,
+                            // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
+                            tabs = sel?.takeIf { it.s == tab }?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), mm, u)
                     }
                 }
                 tags.clear()
@@ -2714,7 +2975,8 @@ private fun SpPhoto(
                 // by SurveyPrepTouch.trashSpot so it never covers one of its figures -- a tap on a figure never deletes
                 trashAt[0] = null
                 // with a type on the disc is not drawn (sp.js 801: "with a drawing tool on, the trash stays in the bar")
-                val pickedId = if (mode == "mark" && tool == SurveyPrepPalette.SEL) sel?.takeIf { it.s == tab }?.id else null
+                // ... nor where the phase hides the picked item's delete (port 62 slice L4; sp.js fTrashSurf's `!P54.spDelOk`)
+                val pickedId = if (mode == "mark" && tool == SurveyPrepPalette.SEL) sel?.takeIf { it.s == tab }?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) } else null
                 val picked = pickedId?.let { sid -> prep.surface(tab).marks.firstOrNull { it.id == sid } }
                 // ... or beside a picked Tape, Line or area (v52 slice 9): round the box of its points
                 val pickedM = if (picked == null) pickedId?.let { sid -> prep.surface(tab).meas.firstOrNull { it.id == sid && it.pts.isNotEmpty() } } else null
@@ -2801,7 +3063,9 @@ private fun SpPhoto(
                 SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool),
                     Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() },
                     caution = if (measTool || chainTool) SurveyMeas.caution(tx) else null,
-                    onDone = if (chainTool && SurveyChain.showDone(chainN)) ({ onChainFinish() }) else null) { onTool(SurveyPrepPalette.SEL) }
+                    onDone = if (chainTool && SurveyChain.showDone(chainN)) ({ onChainFinish() }) else null,
+                    asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken,
+                    onAs = onAs) { onTool(SurveyPrepPalette.SEL) }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {
@@ -2837,10 +3101,14 @@ private fun SpPhoto(
 private fun SpTable(
     s: String, prep: SurveyPrep.Prep, ab: DoubleArray, rev: Int,
     sel: SpSel?, active: String?, show: String, room: Boolean,
+    /** Port 62 slice L4: the project's quote stage -- a row's Delete is hidden where the phase holds its item read-only. */
+    stage: Int?,
     onRow: (SurveyPrep.Mark, String) -> Unit,
     onMeasRow: (SurveyPrep.Meas, String?) -> Unit,
     /** A chain's row tapped (v52 slice 11): the chain, and the reading key the row is (FK1.2, FK1.t). */
     onChainRow: (SurveyPrep.Chain, String?) -> Unit,
+    /** A code tapped (port 62 slice L3): its Mark sheet opens -- a mark's, a Line's, an area's; the item's id. */
+    onSheet: (String) -> Unit,
     onDelete: (String) -> Unit,
     onFocus: (String) -> Unit,
     onValue: (String, Double?) -> Unit,
@@ -2863,13 +3131,19 @@ private fun SpTable(
         Text(tx.common_measured, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
         Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End) // text:value glyph
     }
-    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. */
+    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. The code
+     *  of a mark, a Line and an area is a button: it opens the Mark sheet (slice L3; the prototype's markPanel, 6660). */
     @Composable
     fun head(id: String, code: String, colour: Color, name: String?) {
         Column(Modifier.width(56.dp).padding(3.dp)) {
-            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                modifier = if (!MarkSheet.opens(prep, id)) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
+                    .clickable(role = Role.Button) { onSheet(id) }
+                    .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(code) })
             if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
-            Text(tx.common_delete, color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+            // a mark's own word -- Drop past Existing, Restore on a Dropped one (port 62 slice L2); Delete for the rest --
+            // and none at all where the phase holds the item read-only (slice L4; the prototype's spPost on [data-del])
+            if (PhaseTools.delOk(prep, id, stage)) Text(SurveyPrepEdit.deleteWord(tx, prep, id), color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
                     .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, id) ?: tx.sp_aria_delete_x(code) }
                     .padding(horizontal = 6.dp, vertical = 3.dp))

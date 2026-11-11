@@ -2901,6 +2901,10 @@
   "mr": "वगळले",
   "note": "alt: रद्द"
  },
+ "life.drop.verb": {
+  "mr": "वगळा",
+  "note": "L2 review: the verb of life.drop (वगळले) and life.dropped (→ वगळले), as life.x_mark_x_past already says it (… ते एकेक करून वगळा); the prototype shows ड्रॉप here only because its text layer finds the word through type.cdp.short, the Ceiling drop type's short name; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.dropped": {
   "mr": "→ वगळले"
  },
@@ -2949,8 +2953,16 @@
  "life.note": {
   "mr": "नोंद"
  },
+ "life.note_area_optional": {
+  "mr": "या क्षेत्रफळावर नोंद (ऐच्छिक)",
+  "note": "L3: worded as life.note_mark_optional (या मार्कवर नोंद (ऐच्छिक)), with life.area's क्षेत्रफळ; the prototype shows this placeholder in English under Marathi, its three glued pieces having no whole key; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.note_has_no_state": {
   "mr": "नोंदीला स्थिती नसते"
+ },
+ "life.note_length_optional": {
+  "mr": "या लांबीवर नोंद (ऐच्छिक)",
+  "note": "L3: worded as life.note_mark_optional (या मार्कवर नोंद (ऐच्छिक)), with life.length's लांबी; the prototype shows this placeholder in English under Marathi, its three glued pieces having no whole key; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "life.note_mark_optional": {
   "mr": "या मार्कवर नोंद (ऐच्छिक)"
@@ -3011,6 +3023,10 @@
  "life.vadd": {
   "mr": "व्हेंडरने जोडले",
   "note": "long — state chip/button · DECIDED 21 Oct: D1 register"
+ },
+ "life.vadd.badge": {
+  "mr": "V+",
+  "note": "L2 review: kept as written -- the prototype paints V+ under मराठी too, and tour.vendor.6.body calls it the V+ बॅज; V is on latin-ok.txt for both keys; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "life.vadd.short": {
   "mr": "व्हें. जोडले",
@@ -5596,6 +5612,10 @@
  },
  "trade.hvac": {
   "mr": "AC व व्हेंटिलेशन"
+ },
+ "trade.hvac.short": {
+  "mr": "AC",
+  "note": "L1 review: kept as written -- the abbreviation staff say, on latin-ok.txt (\"Trade and material abbreviations as staff say them\"), as trade.hvac's own AC व व्हेंटिलेशन keeps it and as the prototype shows it under मराठी; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "trade.lowvolt": {
   "mr": "CCTV, इंटरकॉम व डेटा"

@@ -12,6 +12,7 @@ import android.provider.MediaStore
 import com.malletcrafts.interiorestimate.pano.FaceNote
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.Stamp
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -377,8 +378,14 @@ object FaceWriter {
                 }
                 val surveyName = surveyFilename(deviceId, face)
                 deleteByName(context, surveyName)
-                // a surface with only Tapes or Lines (v52 slice 9) or chains (slice 11) on it gets its marked picture too
-                if (prep.surface(s).marks.isNotEmpty() || prep.surface(s).meas.isNotEmpty() || prep.surface(s).chains.isNotEmpty()) {
+                // a surface with only Tapes or Lines (v52 slice 9) or chains (slice 11) on it gets its marked picture too.
+                // THE PICTURE IS THE ROOM AS SURVEYED (port 62 slice L2; DESIGN-port62 section 3.2, the plan critic's
+                // finding 3): it goes to the gallery for the handover folder, so it is drawn for SheetMarks.Audience.OTHERS
+                // -- no mark born a wish or Vendor added, no Note, no state, act or note on the marks that are there --
+                // and a surface that holds only wishes gets none, as one with nothing marked never did. The same audience
+                // decides whether there is a picture (SheetMarks.any) and what is on it (drawMarks), so the two cannot
+                // disagree. What such a picture carries once wishes exist is Amit's to rule (Q-list 7).
+                if (SheetMarks.any(prep.surface(s), SheetMarks.Audience.OTHERS)) {
                     // A saved picture has no screen density: everything in it scales with u = width / 960, so its
                     // "dp" (a spot's rim and its 6 dp floor, v52 slice 4) does too -- 2 u, about what one dp is to
                     // the drawing unit on the phone's own sheet -- or a 1.6 px rim vanishes on a 4000 px picture.
@@ -387,7 +394,7 @@ object FaceWriter {
                     // other parties consume -- "EXPORTS STAY ENGLISH ... the PDF and image writers build their text
                     // from the English strings, never from the screen" (decision 4). This literal `Tx.EN` is the ONE
                     // Tx token check (h) permits in this file, and (h)'s companion pins that it is this call's.
-                    SurveyPrepDraw.drawMarks(Canvas(flat), Tx.EN, s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
+                    SurveyPrepDraw.drawMarks(Canvas(flat), Tx.EN, SheetMarks.Audience.OTHERS, s, SurveyPrepDraw.Marks(prep, size[0], size[1], sq, "sheet", true,
                         null, null, "both", flat.width.toFloat(), flat.height.toFloat(), null, 2f * pu, frame = f),
                         { x, y -> floatArrayOf(x.toFloat(), y.toFloat()) }, pu)
                     val marked = captionedBitmap(flat, Handover.captionText(

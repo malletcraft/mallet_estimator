@@ -7431,6 +7431,16 @@
   ],
   "kind": "static"
  },
+ "life.drop.verb": {
+  "en": "Drop",
+  "where": [
+   "S2 APK phone text · MarkLife.kt:483 at f9e20b0 · MarkLife.deleteLabel, the word on the delete control of a mark past Existing -- the picked row's button, a list row, the menu's first row, and the head of their screen-reader labels (port 62 slice L2 review, 11 Nov 2026): the prototype's own English (index61c2.html, L53's delWord, `'Drop'`), a verb. The prototype's text layer finds a text by its English word, so it draws this one through type.cdp.short, the Ceiling drop type's short name, and under Marathi the control reads as that type there; L2 read the same key. The verb has a key of its own here; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "life.dropped": {
   "en": "→ Dropped",
   "where": [
@@ -7543,10 +7553,30 @@
   "where": "v53build/life53.js:310 · amber",
   "kind": "static"
  },
+ "life.note_area_optional": {
+  "en": "A note on this area (optional)",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 82496b1+L3 · MarkSheet.view, the placeholder of the note box in the Mark sheet of an AREA (port 62 slice L3, 11 Nov 2026): the prototype's own English (index61c2.html 3054, paint: `'A note on this '+(e.kind==='line'?'length':'area')+' (optional)'`), which it glues from three pieces -- life.a_note_on_this, life.area and a ' (optional)' that has no key -- so it reads English under Marathi there; one whole text here, worded as life.note_mark_optional; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "life.note_has_no_state": {
   "en": "A Note has no state",
   "where": "v53build/life53.js:94 · stage",
   "kind": "static"
+ },
+ "life.note_length_optional": {
+  "en": "A note on this length (optional)",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 82496b1+L3 · MarkSheet.view, the placeholder of the note box in the Mark sheet of a LINE (a marked length) (port 62 slice L3, 11 Nov 2026): the prototype's own English (index61c2.html 3054, paint: `'A note on this '+(e.kind==='line'?'length':'area')+' (optional)'`), which it glues from three pieces -- life.a_note_on_this, life.length and a ' (optional)' that has no key -- so it reads English under Marathi there; one whole text here, worded as life.note_mark_optional; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "life.note_mark_optional": {
   "en": "A note on this mark (optional)",
@@ -7675,6 +7705,16 @@
    "v53build/export53.js:52 · LIFE0"
   ],
   "kind": "static"
+ },
+ "life.vadd.badge": {
+  "en": "V+",
+  "where": [
+   "S2 APK phone text · MarkLife.kt:110 at f9e20b0 · MarkLife.tag, the badge drawn on the face after the code of a mark born Vendor added (port 62 slice L2 review, 11 Nov 2026): the prototype's own text (index61c2.html, L53's paintState, `const t='V+'`), which it paints with no key and outside its text layer, so it reads V+ under Marathi there too; L2 had it as a bare literal marked text:value, which is for wire and stored values, and this is a shown text -- the L1 review's ruling for AC (trade.hvac.short); Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "life.vadd.short": {
   "en": "V added",
@@ -14137,6 +14177,16 @@
   "en": "AC & ventilation",
   "where": "v53build/trades53.js:24 · TRADES",
   "kind": "static"
+ },
+ "trade.hvac.short": {
+  "en": "AC",
+  "where": [
+   "S2 APK phone text · Trades.kt:83 at 0619176 · Trades.short, the short name of AC & ventilation on a chip, a row label and the Mark sheet's head (port 62 slice L1 review, 11 Nov 2026): the prototype's own English (index61c2.html 2385, TRADES `short:'AC'`), the one trade short it draws with no key, so it reads AC under मराठी there too; L1 had it as a bare literal marked text:value, which is for wire and stored values, and this is a shown text; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "trade.lowvolt": {
   "en": "CCTV, intercom & data",

@@ -111,6 +111,56 @@ object SurveyPrepPalette {
         else if (where == "360") tx.sp_placing_x_tap_360(tool = SurveyPrep.typeName(tx, s, tool))
         else tx.sp_placing_x_tap_photo(tool = SurveyPrep.typeName(tx, s, tool))
 
+    // ------------------------------------------------------------------ the chip's second half, "· as Client wish"
+
+    /** The separator before the chip's second half, as the prototype joins it. */
+    private const val AS_SEP = " · " // text:value the prototype's separator, the same in both languages
+    /** After the cycling button's words: it opens nothing, each tap goes to the next. */
+    private const val AS_MORE = " ▾" // text:value a glyph, the same in both languages
+
+    /**
+     * THE TOOL CHIP WITH A TYPE ON (port 62 slice L4; the prototype's chip and asChipHTML, index61c2.html 6698 and
+     * 2860): [main], "Placing Door · tap the photo", and after it what a tap places the mark AS -- [asText], or null
+     * when the chip has no second half. [cycles]: the second half is a BUTTON, "as Existing ▾", and a tap on it goes
+     * to the next ([PhaseTools.nextAs]); else it is plain words, nothing to pick. [asLabel] is what a screen reader
+     * says for the second half ("Marks are placed as Client wish in this phase" / "Place marks as Existing — tap to
+     * change").
+     */
+    class Chip(val main: String, val asText: String?, val asLabel: String?, val cycles: Boolean) {
+        /** The chip's words as drawn: "Placing Door · tap the photo · as Client wish". */
+        val text: String get() = if (asText == null) main else main + AS_SEP + asText
+        /** Where the second half starts in [text] -- it is drawn bold from there, and a cycling one takes the tap; -1: none. */
+        val asFrom: Int get() = if (asText == null) -1 else main.length + AS_SEP.length
+        /** The chip as a screen reader says it: [main], then the second half's own label. */
+        val spoken: String get() = if (asLabel == null) main else main + AS_SEP + asLabel
+    }
+
+    /** "as Existing", "as Client wish", "as Vendor added" (AS_NAME), by the state a mark is placed as. */
+    fun asName(tx: Tx, asId: String?): String = when (asId) {
+        MarkLife.WISH -> tx.sp_toolchip_as_wish
+        MarkLife.VADD -> tx.sp_toolchip_as_vadd
+        else -> tx.sp_toolchip_as_existing
+    }
+
+    /**
+     * The chip with [tool] on, on [s], at quote stage [stage] ([PhaseTools.stageOf]); null with Select or a drawing
+     * tool, whose chips say other things. Its second half is [PhaseTools.asChip]'s, exactly as asChipHTML gives it:
+     * NONE at Survey -- every mark there is Existing -- and for a project S5 does not list, which is given Survey's
+     * stage; the phase's own "as Client wish" (the Wish list) or "as Vendor added" (Vendor review, Revisions) in
+     * PLAIN WORDS where the phase fixes it; and only while the stage is unread the BUTTON, on what this capture's was
+     * last cycled to ([picked]; Existing until then). At Estimation and at Client approved there is no palette, so no
+     * type is on and no chip is drawn at all. A Note's chip has no second half: a Note has no state. [where] as
+     * [chipText]'s: "photo" on 2 · Mark, "360" on 4 · 360.
+     */
+    fun chip(tx: Tx, s: String, tool: String, stage: Int?, picked: String?, where: String = "photo"): Chip? {
+        val main = chipText(tx, s, tool, where) ?: return null
+        val face = if (tool == MarkLife.NOTE_TYPE) PhaseTools.AsChip.NONE else PhaseTools.asChip(stage)
+        if (face == PhaseTools.AsChip.NONE) return Chip(main, null, null, false)
+        val name = asName(tx, PhaseTools.asFor(stage, picked))
+        return if (face == PhaseTools.AsChip.FIXED) Chip(main, name, tx.life_aria_marks_are_placed_x(name), false)
+               else Chip(main, name + AS_MORE, tx.life_aria_place_marks_x_tap(name), true)
+    }
+
     /** The More sheet's heading: "Every mark type · Front wall". */
     fun sheetTitle(tx: Tx, s: String) = tx.sp_every_mark_type_x(T = Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 }

@@ -6,16 +6,21 @@ import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.MarkSheet
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
+import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.SurveyExport
 import com.malletcrafts.interiorestimate.pano.SurveyPlan
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SvgWriter
+import com.malletcrafts.interiorestimate.pano.Trades
 import com.malletcrafts.interiorestimate.pano.WireCleanProbe
 import com.malletcrafts.interiorestimate.pano.WireLeakProbe
 import com.malletcrafts.interiorestimate.pano.WishList
@@ -137,8 +142,10 @@ class MastersTest {
         // Tx.EN (decision 4), so its bytes name the i18n package by design -- check (h) scans the file whole and its
         // companion pins the argument; what stays here is that no SIGNATURE takes an i18n type, so no caller can ever
         // hand the sheet a live language
+        // port 62 slice L2: SheetMarks decides which marks a picture that LEAVES the phone draws (FaceWriter's saved
+        // "survey marks"), and what of them -- an export's content, so the whole object names no language at all
         val whole = listOf(Handover::class.java, SvgWriter::class.java, AlbumQueue::class.java, AlbumWire::class.java,
-            AsIsPath::class.java)
+            AsIsPath::class.java, SheetMarks::class.java)
         val named = mapOf(
             SurveyExport::class.java to listOf("footSource", "sheetScale", "safePart", "exportName", "shareExt",
                 "keepDir", "roomToken", "drawn", "sheet"),
@@ -170,6 +177,25 @@ class MastersTest {
             // SENDS: open, its review), a tap, and what its submit SENDS -- hold S5's work ids; only the texts (title, note,
             // countLine, the labels, scopeRow) take a Tx
             QuoteView::class.java to listOf("openTicks", "open", "toggled", "submit", "rows"),
+            // port 62 slice L1: a mark's life keys are STORED in the prep file -- the state, what it was born, the act, who
+            // decided, the stamp, the why, the note -- so every reader and writer of them takes no Tx; only the names, the
+            // words on a move's button and the refusals do
+            // (slice L2 adds what the painter reads of the stored state without a word: the widths and the label's bar;
+            // only tag, which names the state on its pill, takes a Tx)
+            MarkLife::class.java to listOf("lifeOf", "bornOf", "actOf", "whyOf", "noteOf", "allowedMoves", "move", "restore", "placeAs",
+                "setAct", "withNote", "setNote", "istIso", "countLife", "addCounts", "rollUp", "outlineWidth", "ringWidth", "barColour",
+                "deleteAct", "spared", "unlockable"),
+            // ... a mark's trade is its stored cat or its type's own; only name and short take a Tx
+            Trades::class.java to listOf("tradeOf", "of", "catOf", "subOf", "withCat", "setCat", "ownOn", "seesOn", "moreRows"),
+            // ... and what a phase shows, offers and places decides what is WRITTEN (asFor: the `born` a new mark gets); only
+            // the band, the gate's line and the refusals take a Tx
+            PhaseTools::class.java to listOf("stageOf", "can", "steps", "modeFor", "toolFor", "asFor", "asChip", "nextAs", "moveOk", "gate",
+                "editable", "delOk", "lockOk", "bulk"),
+            // port 62 slice L3: the Mark sheet's state holds what Done WRITES -- the move's target, the act, the why, the note,
+            // its audience, the trade -- so opening it, every tap and keystroke, and apply take no Tx; only view (and the
+            // texts it composes: sinceText, decidedBy, actText, needsWords) does
+            MarkSheet::class.java to listOf("itemOf", "opens", "open", "pickMove", "typeWhy", "pickAct", "noteCut", "typeNote", "pickOffice",
+                "togglePicker", "closePicker", "pickCat", "apply"),
         )
         val off = ArrayList<String>()
         for (c in whole) {

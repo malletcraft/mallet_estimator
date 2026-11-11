@@ -91,4 +91,53 @@ class StartOverTest {
         assertEquals(setOf("note"), q.extra.keys); assertEquals(setOf("wall360"), q.extraSurfaces.keys)
         assertEquals(setOf(SurveyRef.KEY), SurveyPrepEdit.START_OVER_KEEPS, "the reference rectangle (v52 slice 12)")
     }
+
+    // ------------------------------------------------------------------ port 62 slice L2: Start over keeps a wish
+
+    private fun life(p: SurveyPrep.Prep, id: String, vararg keys: Pair<String, Any?>) { val e = p.markById(id)!!.second; e.extra = e.extra + keys }
+
+    @Test fun `a mark past Existing survives Start over, locked or not, where it was and with its readings -- and the note names it`() {
+        val p = worked()
+        // FW1 (unlocked) is a surveyed window the client wants replaced; CB1 (unlocked) a wish since Dropped; FD1 (locked) is in Scope
+        life(p, "fw1", "life" to "wish", "lifeAs" to "client", "act" to "replace", "note" to "install UPVC window")
+        life(p, "cb1", "life" to "drop", "why" to "not needed")
+        life(p, "fd1", "life" to "scope")
+        // and a Note and an Existing mark, which go as before
+        p.surface("front").marks.add(SurveyPrep.Mark("n", "NOTE", "FNOTE1", 1000.0, 1050.0, 1000.0, 1050.0, mapOf("life" to "wish", "note" to "a Note has no state")))
+        p.addMarkAt("front", "S", 1300.0, 1100.0, W, H, "fs1"); p.actual["FS1.w"] = 150.0
+        val wish = p.markById("fw1")!!.second
+        val r = SurveyPrepEdit.startOver(p, L, W, H); val q = r.prep
+        assertEquals(3, r.kept, "locked: the right wall's lines, FD1 and CF1"); assertEquals(2, r.past, "unlocked marks past Existing: FW1 and CB1")
+        assertEquals(listOf("FD1", "FW1"), q.surface("front").marks.map { it.code }, "in the surface's own order")
+        assertEquals(listOf("CF1", "CB1"), q.surface("ceil").marks.map { it.code })
+        // the wish is the mark that was there: its box, its state, its act and its note, and still unlocked
+        val kept = q.markById("fw1")!!.second
+        assertEquals(listOf(wish.x0, wish.x1, wish.y0, wish.y1), listOf(kept.x0, kept.x1, kept.y0, kept.y1)); assertEquals(wish.extra, kept.extra)
+        assertFalse(SurveyPrep.isLocked(kept)); assertEquals("wish", MarkLife.lifeOf(kept)); assertEquals("drop", MarkLife.lifeOf(q.markById("cb1")!!.second))
+        // their readings with them, and nothing else
+        assertEquals(mapOf("FD1.w" to 905.0, "FW1.w" to 1200.0, "CF1.cl" to 1300.0, "CB1.w" to 230.0), q.actual.toMap())
+        // the note names the marks past Existing -- the locked ones are not counted in that line, as the prototype's says only the one
+        assertEquals("Started over — 2 marks past Existing kept — drop them one by one", SurveyPrepEdit.startedOver(Tx.EN, r))
+        assertEquals("पुन्हा सुरुवात — \"सध्याचे\" च्या पुढे गेलेले 2 मार्क ठेवले — ते एकेक करून वगळा", SurveyPrepEdit.startedOver(Tx.MR, r))
+        // the codes that went are not handed out again, and a kept wish's is still its own
+        assertEquals("FW2", q.nextCode("front", "W")); assertEquals("FS2", q.nextCode("front", "S")); assertEquals("FNOTE2", q.nextCode("front", "NOTE"))
+        assertEquals("CB2", q.nextCode("ceil", "B"))
+        // the prep it was given is untouched, and a kept wish is a copy
+        kept.x0 = 0.0; assertEquals(wish.x0, p.markById("fw1")!!.second.x0); assertTrue(wish.x0 > 0.0)
+    }
+
+    @Test fun `with no mark past Existing kept, Start over says what v52 said -- a locked Scope mark is a locked item`() {
+        val v = SurveyPrepEdit.startOver(worked(), L, W, H)
+        assertEquals(0, v.past); assertEquals("Started over — 3 locked kept", SurveyPrepEdit.startedOver(Tx.EN, v))
+        assertEquals(SurveyPrepEdit.startedOver(Tx.EN, v.kept), SurveyPrepEdit.startedOver(Tx.EN, v))
+        val p = worked(); life(p, "fd1", "life" to "scope")
+        val s = SurveyPrepEdit.startOver(p, L, W, H)
+        assertEquals(3, s.kept); assertEquals(0, s.past); assertEquals("Started over — 3 locked kept", SurveyPrepEdit.startedOver(Tx.EN, s))
+        val n = worked()
+        SurveyPrepEdit.setLocked(n, "fd1", false); SurveyPrepEdit.setLocked(n, "cf1", false); SurveyPrepEdit.setLinesLocked(n, "right", false)
+        assertNull(SurveyPrepEdit.startedOver(Tx.EN, SurveyPrepEdit.startOver(n, L, W, H)))
+        // one mark, singular
+        life(n, "fw1", "life" to "wish")
+        assertEquals("Started over — 1 mark past Existing kept — drop them one by one", SurveyPrepEdit.startedOver(Tx.EN, SurveyPrepEdit.startOver(n, L, W, H)))
+    }
 }

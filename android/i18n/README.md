@@ -508,11 +508,241 @@ prototype does not draw: `pano/RenameRoute.kt` says those through the approved `
 bench's own words, `app.no_server_configured`, or the row's name as `{why}`. S5's other refusals (its 400, 403, 404
 and the two rarer 409s) are shown as S5 sent them: data, like every S5 refusal the phone shows.
 
+## Port 62 slice L1 (11 Nov 2026): the wish-marks models, born keyed, no new key and no screen
+
+`pano/MarkLife.kt`, `pano/PhaseTools.kt` and `pano/Trades.kt` (all new) joined `ported.txt`. They are the pure half of the
+wish-marks port (DESIGN-port62 §3.1) and NO SCREEN READS THEM YET, so nothing changes on the phone in either language;
+slices L2, L3, L4 and L6 draw from them. Every text they can produce is a `tx.<key>` the tables already held -- the
+prototype's own v53 / v54 keys, unused on the phone until now (the count of accessors nothing calls went 757 -> 678):
+
+- **MarkLife**: the eight state names (`life.exist`, `life.wish`, `life.vrev`, `life.vok`, `life.vadd`, `life.cok`,
+  `life.scope`, `life.drop`), the four acts (`life.replace`, `life.shift`, `job.repair`, `common.remove`), the words on a
+  move's button and its hint (`life.client_wish`, `life.client_wish_2`, `life.vendor_review`, `life.dropped`,
+  `life.back_existing`, `life.vendor_approved`, `life.client_approved`, `life.scope_2`, `life.out_scope`, `life.restore`,
+  `life.vendor_added`; `life.client_wants_changed`, `life.vendor_asks_change`, `life.vendor_cannot_do`,
+  `life.client_changes`, `life.to_x`), the refusals (`refuse.life.x_x_cannot_move`, `life.note_has_no_state`,
+  `life.why_least_3_characters`, `refuse.life.x_scope_take_out`), the notes (`life.after_estimate_tell_office`,
+  `life.quote_stage_not_read`, `life.msg.x_restored_x`), Delete / Drop / Restore (`common.delete`, `type.cdp.short` -- the
+  key the prototype's own text layer gives delWord's `Drop`, as the key's `where` says; since the L2 review the verb has
+  its own key, `life.drop.verb`, below -- and `common.restore`) and what a
+  clear kept (`life.x_item_x_cleared`, `life.cleared_x_item_x`, `life.x_locked_kept`, `life.x_mark_x_past`,
+  `life.x_mark_x_past_2`, `life.x_scope_mark_x`).
+- **PhaseTools**: the band (`phase.band.*`, `phase.phase_x_4_x`, `phase.phase_not_read_yet`, a phase's name through
+  `Phases`, Client approved through `Masters.quote`), the gate's line (`refuse.life.finish_survey_first_stage`; at Client
+  approved `refuse.readonly.wishlist_approved`, the Wish list's own banner there), the no-move line (`refuse.phase.no_move_x`,
+  `refuse.phase.x_estimation_moves_nothing`, `refuse.phase.x_next_move_vendor`, `refuse.phase.x_wish_marked_wish`) and the
+  refusals (`refuse.phase.x_was_marked_x`, `refuse.phase.x_estimation_changes_nothing`, `phase.this`,
+  `refuse.phase.clearing_locking_every_mark`, `refuse.phase.start_over_survey_tool`, `refuse.readonly.readings`).
+- **Trades**: each trade's name and short name (`trade.*`, `trade.*.short`; Electrical, Tiling and General are short
+  already, so their one key serves both; AC & ventilation's short, `trade.hvac.short`, is a phone text added by the L1
+  review, below).
+
+**Stored in English, never through a key**: the state ids (`wish`, `vrev` …), the act ids, who decided (`client`, `vendor`,
+`staff`), the ten key names a mark gains (`life`, `lifeAt`, `lifeAs`, `why`, `born`, `act`, `note`, `vis`, `sub`, `cat`), the
+trade ids, the type tokens and the wish-service ids. MastersTest's wire check names every reader and writer of them
+(`MarkLife.move`, `placeAs`, `withNote` …, `Trades.tradeOf`, `withCat` …, `PhaseTools.asFor`, `moveOk` …): none takes a `Tx`.
+Marked `// text:value`: the ` · ` separator alone (the same in both languages, and the prototype's own join).
+
+**Two texts these models do NOT produce, each left to the slice that first draws it** (what the prototype's own text layer
+shows under मराठी was run for this slice with `docs/port62/proto-tables.mjs`):
+- `decided by staff`, on the Mark sheet's now-line (L3). `life.the_surveyor`, `life.the_client` and `life.the_vendor` exist;
+  `staff` has no `life.*` key. The prototype shows `ठरवणारे: स्टाफ`: its layer looks a lower-cased value up capitalised and
+  finds `album.staff` (`Staff` / `स्टाफ`). So no key is missing -- L3 draws `tx.album_staff.lowercase()` (case done in code,
+  a no-op on Devanagari, as M3a's `uppercase()` is for `UNDO`), never the bare English word.
+- the roll-up `Marks: 8 existing · 4 wish` beside the quote stage (L9). Four of the eight short state words have NO key --
+  `existing`, `wish`, `scope`, `dropped` (only `life.vrev.short`, `life.vok.short`, `life.vadd.short` and `life.cok.short`
+  exist) -- and the prototype shows the whole line in English under मराठी (`Marks: 8 existing · 4 wish`, unchanged), so
+  there is no prototype Marathi to copy. L9 adds the four keys from the prototype's own English (Marathi by Claude,
+  decision 6) before it draws the line; L1 ports the COUNTS only (`MarkLife.countLife`, `rollUp`).
+
+No table changed in L1 itself (1,895 keys each), so Tx was not regenerated by it. `unkeyed.tsv` stays empty.
+`literal-counts.tsv` gains the three new files at 0, and the six rows the tour slice's new files never had
+(`HelpScreen.kt`, `TourOverlay.kt`, `pano/Tour.kt`, `TourDemo.kt`, `TourMachine.kt`, `TourPlace.kt`, each 0): `i18nRatchet`
+rewrites the whole list, and 0 is what check (b) expects of a file with no row.
+
+**The L1 review (11 Nov 2026): one key added, `trade.hvac.short`.** L1 drew AC & ventilation's short name from a literal,
+`"AC" // text:value`. The mark is for a wire or stored value, a product name, a unit or a code; this is a text a person
+sees on a chip, a row label and the Mark sheet's head, and it was the only shown text of the three objects that did not
+come from the tables. It is keyed now: English `AC`, the prototype's own word (index61c2.html 2385, TRADES `short:'AC'`,
+which the page draws with no key), Marathi `AC` -- as the prototype shows it under मराठी (run through
+`docs/port62/proto-tables.mjs`), as `trade.hvac`'s own `AC व व्हेंटिलेशन` keeps it, and as `latin-ok.txt` lists it ("Trade
+and material abbreviations as staff say them"). Flag `phone-text`, since the prototype has no site for the key. What the
+phone shows does not change in either language. `TradesTest` asks a table whose every cell is a marker for each trade's
+name and short name: a literal in the code now fails it. 1,895 -> 1,896 keys; Tx regenerated (`trade_hvac_short`; 1,825
+accessors); `i18nRatchet` lowered nothing (`Trades.kt` was already at 0); the accessors nothing calls stay 678.
+
+## Port 62 slice L2 (11 Nov 2026): a mark's state on the face -- the first of these texts a screen can show, no new key
+
+`pano/SheetMarks.kt` (new) joined `ported.txt`: it has no shown literal and names no language at all (below). L2 is the
+first READER of L1's models on the phone (DESIGN-port62 §3.2): survey prep's painter draws a mark's state, a delete
+control reads Drop or Restore, and the clears, Start over and the padlock say what they kept. **No control sets a state
+yet** (L3's Mark sheet, L4's placement), so none of this can be reached on the phone until B2 = L1–L4 is merged. No table
+changed (1,896 keys each); Tx was not regenerated; `unkeyed.tsv` stays empty; `i18nRatchet` added `SheetMarks.kt` at 0 and
+lowered nothing. The accessors nothing calls went 678 -> 677 (`sp.msg.started_over_x`, below).
+
+What the screen now draws from keys the tables already held:
+
+- **On the face, in the live language** (`app/SurveyPrepDraw.kt`, through `MarkLife.tag`): a state's name on its pill --
+  the seven `life.*` state keys (`life.wish` … `life.drop`; Existing has no pill). A box under 90 u wide shows the name's
+  FIRST WORD AS SHOWN, as the prototype cuts it after its text layer (`ग्राहकाची`, `व्हेंडर`, `ग्राहक`; English `Client`,
+  `Vendor`): the cut is `substringBefore(' ')` of the rendered name, no key of its own. The act's glyph (↻ ⇢ ⚒ ✕) and the
+  note badge `✎` are glyphs, the badge marked `// text:value` in `MarkLife`. `V+`, the badge of a mark a vendor added, was
+  marked so too; it is LETTERS, and since the L2 review it is `life.vadd.badge` (below).
+- **A delete control's word** (`SurveyPrepEdit.deleteWord`, the menu's first row): `common.delete`, `common.restore` and,
+  for Drop, `life.drop.verb` (the L2 review, below; L2 itself read `type.cdp.short`). **Its screen-reader label on a mark
+  past Existing is the word, a space and the mark** -- `Drop FW1 Window`, `वगळा FW1 खिडकी` -- because no whole key holds
+  `Drop {label}`: the prototype joins them itself (`${delWord} ${code}`, index61c2.html 6660). `Delete …` keeps its whole
+  key (`sp.delete_x`). The space is marked `// text:value`.
+- **Restore**: `life.msg.x_restored_x`; refused, the gate's or the move's own line (`refuse.life.finish_survey_first_stage`
+  is the one L2 can reach: the dialog is given the project's stage in L3, and until then it is Survey's).
+- **A clear that kept a wish**: `life.cleared_x_item_x` with `life.x_locked_kept` and `life.x_mark_x_past` (through
+  `MarkLife.clearText`); with none kept, v52's `sp.cleared_x_item_x` / `sp.x_item_x_cleared`, word for word.
+- **Start over that kept a wish**: `sp.msg.started_over_x` -- v52's own `Started over — {v}`, unused on the phone until
+  now -- around `life.x_mark_x_past_2`, as the prototype composes it (index61c2.html 6942).
+- **The padlock on a mark in Scope**: `refuse.life.x_scope_take_out`; **Unlock all**: `life.x_scope_mark_x`, said alone or
+  after v52's `sp.msg.unlocked_x_item_x`, joined by the prototype's ` · ` (marked `// text:value`). Two whole sentences
+  joined, each in its own key's Marathi -- NOT the prototype's rendering of the joined line, which its text layer garbles
+  under मराठी (`स्कोपमधील 2 आयटम अनलॉक केले · front wall · 1 मार्क लॉक राहतात`, run with `docs/port62/proto-tables.mjs`).
+
+**The saved "survey marks" pictures get no new text and no language.** `FaceWriter` still passes the literal `Tx.EN`
+(check (h) and its companion are unchanged) and now also `SheetMarks.Audience.OTHERS`: the painter is handed the room as
+surveyed, so no state name, act or note badge is drawn into a picture that leaves the phone -- in either language.
+`SheetMarks` decides an export's content, so MastersTest holds it among the WHOLE wire and export builders: its
+compiled bytes may not name the i18n package. Since the L2 review the Plan tab's exported A4 sheet is drawn from the
+room as surveyed too (`SheetMarks.prep`, through `SurveyExport.sheet`): still `Tx.EN`, and no new word on it.
+
+**The L2 review (11 Nov 2026): two keys added, `life.vadd.badge` and `life.drop.verb`** (DESIGN-port62 §3.2, findings 2
+and 3). Both are the prototype's own English, flag `phone-text`, Marathi by Claude (decision 6).
+
+- `life.vadd.badge` -- `V+` / `V+`. L2 drew the badge from a literal marked `// text:value`. The mark is for a wire or
+  stored value, a product name, a unit or a code; V+ is the abbreviation of Vendor added, letters a person reads on the
+  face -- the L1 review's ruling for `AC`. The prototype paints it from a literal as well, outside its text layer, so it
+  reads `V+` under मराठी there; `tour.vendor.6.body` already calls it "the V+ badge" / `V+ बॅज`. `V` on `latin-ok.txt`
+  now names both keys. `MarkLife.Tag.vplus` carries the text and `MarkLife.VPLUS` is gone. Nothing changes on screen.
+- `life.drop.verb` -- `Drop` / `वगळा`: the word on the delete control of a mark past Existing. L2 read `type.cdp.short`,
+  the key the prototype's text layer finds for the English word -- the Ceiling drop TYPE's short name, `ड्रॉप` -- because
+  that layer looks a text up by its English. The tables already say the verb: `life.drop` is `वगळले`, `life.dropped`
+  `→ वगळले`, and "drop them one by one" (`life.x_mark_x_past`, shown after a clear) `… एकेक करून वगळा`. So under मराठी
+  the control now reads `वगळा`, and its label `वगळा FW1 खिडकी`; the English is unchanged. `type.cdp.short` keeps its
+  `where` (both prototype sites) and its `ड्रॉप`, for the type (slices L5 and L6); it has no reader on the phone again
+  until then.
+
+1,896 -> 1,898 keys; Tx regenerated (`life_drop_verb`, `life_vadd_badge`; 1,827 accessors); `i18nRatchet` lowered nothing;
+`unkeyed.tsv` stays empty; the accessors nothing calls go 677 -> 678 (`type_cdp_short`). `MarkLifeTest` asks a table whose
+every cell is a marker for every state's pill, the badge and the three delete words: a literal, or Drop read from another
+text's key, fails it.
+
+## Port 62 slice L3 (11 Nov 2026): the Mark sheet, born keyed -- two keys added
+
+`pano/MarkSheet.kt` and `app/MarkSheet.kt` (both new) joined `ported.txt`. L3 is the first control that SETS a mark's state
+(DESIGN-port62 §3.3): a tap on a mark's code opens the sheet the prototype draws, and every text on it is a `tx.<key>` --
+through `MarkSheet.view` in `:pano`, which hands the screen each text whole; `app/MarkSheet.kt` reads no table at all
+(`MarkSheetTest` reads its source: no `tx`, no `LocalTx`). It reaches Play only with L4 (B2 = L1-L4).
+
+What the sheet draws, from keys the tables already held unless said:
+
+- **What a screen reader calls it, and its buttons**: `life.aria.mark_sheet`, `common.close` (✕), `common.done`; a code that
+  opens it, `life.aria.open_mark_sheet_x` ("Open the Mark sheet for FW1" -- the picked mark's label, a picked Line's or area's
+  code, a list row's code).
+- **The head**: the code, ` · `, the type's name through `Masters.type` (a Line `common.marked_length`, an area
+  `common.marked_area`, through `SurveyMeas.typeName`), and the trade's short name through `Trades.short`.
+- **The labels**: `life.trade` (TRADE), `life.note` (NOTE) and, for STATE, **`common.state` in capitals**. No key holds the
+  word in capitals; under मराठी the prototype shows `स्थिती` for it (run with `docs/port62/proto-tables.mjs`), which is the
+  Marathi of `common.state` ("State"), the one key whose English is that word -- as its layer shows `staff` through
+  `album.staff`. The capitals are done in code (`uppercase()`, Locale.ROOT, a no-op on Devanagari), as M3a draws
+  `sp.this_360`.
+- **The now-line**: the state's name (`life.*`), then ` · ` and `life.since_x_x_ist` ("since 11 Nov, 10:30 IST": the day and
+  the time through `QuoteStage.day` / `hm`, the prototype's en-GB months in both languages), then `life.decided_x` -- a
+  fragment that carries its own separator -- around who decided: `life.the_surveyor`, `life.the_client`, `life.the_vendor`
+  and, for staff, **`album.staff` lower-cased**, as slice L1's note said this slice would draw it (`decided by staff`,
+  `ठरवणारे: स्टाफ`). A `lifeAs` that is none of the four is shown as stored. The badge of a mark a vendor added is
+  `life.vadd.badge`.
+- **The act chips**: `act.replace.sym`, `act.shift.sym`, `act.repair.sym`, `act.remove.sym` -- "↻ Replace" … "✕ Remove", each
+  ONE text of the tables. The plan named the four name keys (`life.replace`, `life.shift`, `job.repair`, `common.remove`),
+  which `MarkLife.actName` reads; a chip is the act's glyph, a space and that name, and the tables already hold exactly that
+  as a whole text -- the one the prototype's own layer finds for the chip -- so no glyph is glued to a word in code.
+  `MarkSheetTest` holds the two equal in both languages (`"${glyph} ${actName}" == actText`).
+- **The moves and their hints**: `MarkLife.label` / `hint` (slice L1's keys); the Why box's placeholder
+  `life.why_least_3_characters`.
+- **Where the phase offers no move**: the gate's line through `PhaseTools.gateText` (`refuse.life.finish_survey_first_stage`;
+  at Client approved `refuse.readonly.wishlist_approved`) or `PhaseTools.noMoveText` (`refuse.phase.*`); the amber line
+  `life.after_estimate_tell_office`; the unread stage's foot `life.quote_stage_not_read`; a locked mark's
+  `life.x_locked_only_note`.
+- **NOTE**: the count is digits and `/` (`20/280`); the audience `common.client_vendors` and `common.office_only`; the
+  placeholder `life.note_mark_optional`, a Note's `life.what_should_office_vendor`, and for a Line and an area the two keys
+  below. Done on a Note with no words says `refuse.life.note_needs_words_type`.
+- **TRADE**: the picked trade's short name and ` ▾` (a glyph, marked `// text:value`); the picker's title `life.trade_x`
+  ("Trade · FX1") and the 13 short names.
+
+**Two keys added, both the prototype's own English, flag `phone-text`, Marathi by Claude (decision 6):**
+
+- `life.note_length_optional` -- `A note on this length (optional)` / `या लांबीवर नोंद (ऐच्छिक)`
+- `life.note_area_optional` -- `A note on this area (optional)` / `या क्षेत्रफळावर नोंद (ऐच्छिक)`
+
+The prototype glues this placeholder from three pieces (index61c2.html 3054: `'A note on this '+(…'length':'area')+' (optional)'`):
+`life.a_note_on_this` and `life.length` / `life.area` are in the tables as fragments, ` (optional)` has no key, and so the
+page shows the whole placeholder in ENGLISH under मराठी (run with `docs/port62/proto-tables.mjs`). Gluing the fragments here
+would give `या ` + `लांबी` + an English tail. Each is one whole text instead, worded as `life.note_mark_optional` is
+(`या मार्कवर नोंद (ऐच्छिक)`) with `life.length`'s and `life.area`'s own nouns. The three fragments stay uncalled.
+
+**Stored in English, never through a key**: everything Done writes -- the state, `lifeAs`, the act, the why and the note as
+typed, `vis`, `cat`. MastersTest's wire check names `MarkSheet`'s opening, every tap and keystroke, and `apply`: none takes
+a `Tx`; only `view` and the four small texts it composes (`sinceText`, `decidedBy`, `actText`, `needsWords`) do.
+
+1,898 -> 1,900 keys; Tx regenerated (`life_note_area_optional`, `life_note_length_optional`; 1,829 accessors); `i18nRatchet`
+added the two new files at 0 and lowered nothing; `unkeyed.tsv` stays empty; the accessors nothing calls go 678 -> 657 (21
+of the tables' own, read for the first time: the four `act.*.sym`, `common.client_vendors`, `common.office_only`,
+`common.state`, `life.aria.mark_sheet`, `life.aria.open_mark_sheet_x`, `life.decided_x`, `life.note`,
+`life.note_mark_optional`, `life.since_x_x_ist`, `life.the_client`, `life.the_surveyor`, `life.the_vendor`, `life.trade`,
+`life.trade_x`, `life.what_should_office_vendor`, `life.x_locked_only_note`, `refuse.life.note_needs_words_type`).
+`MarkSheetTest` asks a table whose every cell is a marker for every word the sheet shows: a literal fails it.
+
+## Port 62 slice L4 (11 Nov 2026): the phase in survey prep, and a mark placed "as …" -- no new key
+
+No file joined `ported.txt` and no key was added: every text this slice puts on a screen was already in the tables, most of
+them read by `pano/PhaseTools.kt` since slice L1 and now, for the first time, drawn (DESIGN-port62 §3.4). L4 closes build
+B2 (L1-L4 reach `main` together).
+
+- **The band over survey prep** (`SpPhaseBand`, from `PhaseTools.band`): the phase's number and name through `Phases`
+  (`phase.*`), then `phase.band.survey`, `phase.band.wish`, `phase.band.vendor`, `phase.band.estimation`, `phase.band.rev`;
+  at Client approved the stage's name through `Masters.quote` and the project's one derived line (`QuoteStage.projectLine`,
+  keyed since slice PL); unread, `phase.phase_not_read_yet`; what a screen reader is told, `phase.phase_x_4_x`. The dot
+  between its two parts is the prototype's separator, marked `// text:value`.
+- **The tool chip's second half** (`SurveyPrepPalette.chip`): `sp.toolchip.as_wish`, `sp.toolchip.as_vadd`,
+  `sp.toolchip.as_existing` after `sp.placing_x_tap_photo` / `sp.placing_x_tap_360`; what a screen reader is told for it,
+  `life.aria.marks_are_placed_x` (plain words, where the phase fixes it) and `life.aria.place_marks_x_tap` (the cycling
+  button, only while the stage is unread). ` · ` and ` ▾` are a separator and a glyph, marked.
+- **What a refused act says** (`PhaseTools.refuseText` / `refuseBulk` / `refuseStartOver`, said as a note):
+  `refuse.phase.x_was_marked_x` ("FW1 was marked in Survey — move the phase back to change it", the phase's name through
+  `Phases`), `refuse.phase.x_estimation_changes_nothing` (with `phase.this` for a clear),
+  `refuse.phase.clearing_locking_every_mark`, `refuse.phase.start_over_survey_tool`.
+- **After a mark is placed at Revisions**: `life.after_estimate_tell_office`.
+
+**Stored in English, never through a key**: what a placement writes -- `born`, `life`, `lifeAt`, `lifeAs`
+(`MarkLife.placeAs`, through `PhaseTools.place`, which takes no `Tx`) -- and the capture's remembered "as" (`exist`, `wish`,
+`vadd`, a file beside the prep, never uploaded).
+
+1,900 keys, unchanged; Tx regenerated to the same file (1,829 accessors); `i18nRatchet` lowered nothing; `unkeyed.tsv` stays
+empty; the accessors nothing calls go 657 -> 652 (the three `sp.toolchip.as_*`, `life.aria.marks_are_placed_x`,
+`life.aria.place_marks_x_tap`). `PaletteTest` holds the chip in both languages to what the prototype's page draws.
+
+## Port 62 build 2 (11 Nov 2026): the merge of slice A2 and slices L1-L4 -- 1,907 keys, no new key
+
+Slices L1-L4 were built on a branch cut before slice A2, so each section above counts from its own side's table: A2 went
+1,895 -> 1,902 (its 7 prototype keys), L1-L4 went 1,895 -> 1,900 (their 5 phone texts). The merge holds the UNION, 1,907
+keys in each table: no key was on both sides, neither side changed or removed a key the other had, and every entry is
+byte for byte its own side's. `Tx.kt`, `TxEn.kt` and `TxMr.kt` were not merged by hand: one side's files were taken and
+`i18nGen` rewrote them from the joined tables (1,836 accessors = L4's 1,829 + A2's 7; the same 14 refused; 19 master
+maps; `Masters.kt` came out unchanged, as on both sides, and `index.tsv` as the two sides' own rows joined).
+`i18nRatchet` lowered nothing and no file is gone; `literal-counts.tsv` and `ported.txt` carry both sides' rows;
+`unkeyed.tsv` stays empty; the accessors nothing calls stay 652. Where a section above says "1,900 keys" or "1,902
+keys", read it as that slice's own branch on 11 Nov.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,794 keys each: the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus 9 phone texts (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,907 keys each (counted 11 Nov 2026, each step from that commit's own table; joined by the build 2 merge, above): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 115 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`) and 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`). 286 of the 1,907 carry the flag `phone-text` (the card's 171 and these 115). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |
