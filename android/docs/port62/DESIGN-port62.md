@@ -609,7 +609,9 @@ with the gate, because a hidden tool needs the line that says why.
   `app/SurveyPrepScreen.kt` (the band; the step strip and palette by stage; place, duplicate, nudge, drag, lock,
   the trash and the ⋮ acts ask `PhaseTools`); `pano/SurveyPrepEdit.kt` `duplicate` `:264`. **Prep:** a new mark
   gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement; never a Note. (**A DUPLICATE is not such a
-  placement on the prototype** — found building L1: the page copies the box alone and stamps nothing. Q-list 8.)
+  placement on the prototype** — found building L1: the page copies the box alone and stamps nothing. Q-list 8.
+  **Since the L4 review the phone makes that copy of a MARK only where it is what a tap would place** — Survey, and
+  unread with the chip on "as Existing" — `PhaseTools.copyOk`, below.)
 - **Tests:** `PhaseToolsTest` (the table above, row by row), `PaletteTest` (the chip per stage), `DuplicateTest`,
   `PlaceAtTest` (nothing is placed at Estimated, at Client approved, or as a wish on a project not on S5).
   **i18n on:** `phase.band.*`, `sp.toolchip.as_wish`, `sp.toolchip.as_existing`, `life.aria.marks_are_placed_x`,
@@ -714,7 +716,8 @@ with the gate, because a hidden tool needs the line that says why.
        "Clearing and locking every mark is a Survey tool — move the phase back to use it"). Copied as it is; Q-list 11.
     6. *The copy of a wish is the box alone* (Q-list 8, as planned): `DuplicateTest` pins that nothing is stamped
        and that the copy is then held like a surveyed mark in the very phase it was made in (driven: its row is its
-       label alone).
+       label alone). **SUPERSEDED BY THE L4 REVIEW, finding 1, below:** what `duplicate` makes is unchanged, but the
+       phone no longer offers Duplicate on a mark where that copy would be made of a wish.
     7. *`Tour.kt`'s two `missing` notes* no longer say the phone has no band or has never had the sheet; they say no
        tour anchor is on either yet. Nothing else of the tours is touched (L10, P1, TR).
   - **For L10.** Add `LINES` and `READINGS` to `PREP_HONOURS` (and fold `prepSteps` / `prepMode` into `steps` /
@@ -725,6 +728,31 @@ with the gate, because a hidden tool needs the line that says why.
   - **Not ported, and why.** `spPre`'s resets of the Trade chip and the List's state filter (neither is on the
     phone, Q-list 3); `T53.newFields` at placement (a new mark's sub-kind and trade: L5, L6); ⋮'s "Lock all marks /
     Unlock all marks" box (the phone never had it); the reading boxes as figures (L10).
+
+#### The L4 review (11 Nov 2026) — two findings on commit `1efd0f2`: one major, one minor
+
+Each was checked against the committed code, S5's `asis.js` (slice RD, read in the local checkout) and the
+prototype's own code before anything was changed; `proto-tables.mjs` was run again on the page for the copy's
+row ("a copy of a wish (the box alone): `NLD --- --- --- --- --- NLD`", and the page's menu keeps Duplicate on a
+mark born in the phase at stages 1, 2, 4 and 5). **Confirmed: both. Declined: none.** Finding 1 is fixed in code; finding 2 is the plan
+owner's to decide between two remedies and is recorded here, in §3.10 and in §7 — no code, as the reviewer asks.
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | A Duplicate made after Survey is an unstamped mark: S5 and the exported sheet treat the copy of a wish as a thing that is in the room (major) | **CONFIRMED, every step.** L4 gated Duplicate by `PhaseTools.editable` (the menu's row and `duplicateMark`), and after Survey `editable` is true ONLY for a mark born in that phase — so every copy of a mark made at stages 1, 2, 4 and 5 was the copy of a thing that is not in the room. `SurveyPrepEdit.duplicate` builds `Mark(newId, t, code, box)` with no extra; `SheetMarks.surveyed` is `born == null \|\| born == exist`, so the exported A4 sheet and the saved "survey marks" pictures draw that copy; S5's `markSurveyed` (`asis.js`, slice RD) is `!ownKey(e,'born') \|\| born === 'exist'`, so a vendor and a client login are given it, against RD's own rule "the room as surveyed, whatever is marked later", and V5 gives it reading boxes on /projects. **The page does the same** (`duplicateItem` `P L5633-5635`, gated by `spEdit`, the copy `{id, t, code, x0, x1, y0, y1, locked: false}`), which is why the builder followed Q-list 8 — but Q-list 8 recorded only the read-only copy, not where it goes. On the prototype there is no S5 allow-list and no surveyed-room sheet for it to slip through; on the phone there are both, and before L4 no mark could be born a wish, so the path opened with this commit. At Client approved it was also a new mark made after approval. **One case the reviewer did not name, found confirming it:** while the stage is UNREAD and the capture's chip is cycled to "as Client wish", a tap is stamped and a copy would not have been — the same leak, and "Duplicate is a Survey tool" (`bulk`) alone would have left it | **A mark is duplicated only where its copy — the box alone — is what a type tool's tap would place.** New `PhaseTools.copyOk(mark, stage, picked)` = `editable` and `asFor(stage, picked) == Existing`: at Survey (and on a project S5 does not list), and while unread as long as the chip reads "as Existing". Not at the Wish list, Vendor review, Revisions or Client approved, nor while unread with the chip cycled on. It is the reviewer's strict remedy ("Duplicate of a mark is a Survey tool until Amit rules") stated by the placement rule instead of by the stage, so the unread case is closed too; the other remedy — stamping the copy with `MarkLife.placeAs` — would have put on the phone a mark the prototype does not make. `SurveyPrepEdit.menuItemsOf` takes the chip's `picked` (no default) and hides the row by `copyOk`; `duplicateMark` asks `copyOk` after `editable`, before the undo step — a press that still arrives makes nothing and says nothing (the prototype has no line for it; no key added). A Tape, a Line, an area and a chain are copied wherever they may be edited, as before (no state; every document draws them as they are); a Note keeps `editable`'s answer (no tap stamps one, no document for others shows one; L6's). What `duplicate` MAKES is unchanged. **Where the phone now differs from the page:** no Duplicate row on a mark born in the phase at stages 1, 2, 4, 5 — Q-list 8, which now carries the consequence. **What stays as the page has it, said so it is not read as closed:** at Survey a copy of a mark born a wish (the stage moved back) is an Existing mark, as every mark placed at Survey is, under either answer to Q-list 8. Tests: `PhaseToolsTest` +2 (the table by stage and chip for four births of mark, a Line, a chain, a Note and an id that is no item; the rule itself — wherever a copy is offered a tap there is unstamped, and the reverse; the menu's rows, only Duplicate moved) and its menu and source tests changed (the one menu call hands the chip; `copyOk` is asked once, before `snapshot()` and before the app's one `SurveyPrepEdit.duplicate(`); `DuplicateTest` +1 and its L4 test now also shows the leak the copy would have been (a sheet for others drawing `FE2`, never `FE1`). Eight one-line mutations of the fix — the menu back to `editable` (L4 as reviewed), `copyOk` as `editable`, as `bulk`, a Note or a Line by the mark's rule, the screen not asking, asking after the undo step, the menu not handed the chip — each turned at least one test of the two classes red |
+| 2 | From B2 until L10 (B5) a new 360 captured in a project past Survey is surveyed as wishes, or cannot be marked at all (minor) | **CONFIRMED.** `NewCaptureSurvey` (`MainActivity.kt`) hands a new capture's survey prep its project's stage (`QuoteStageSync.prepStage`, L3's comment: "a new room of a listed project takes that project's"), and since L4 the stage decides placement: every mark of the new room is born a Client wish at the Wish list, Vendor added at Vendor review and Revisions, and there is no 2 · Mark at Estimated or Client approved. No app source names `Tool.CAPTURE` and `PREP_HONOURS` is `{MARK, PALETTE}`: Capture 360 is untouched until L10, as this plan requires. On the prototype the room cannot exist at stages 1–4: `TOOLS.capture` is `[1,0,0,0,0]` (`P L3961`) and CSS `L1362` hides the button there (driven by the plan critic at stages 1 and 3). So between B2 and B5 an engineer who adds a missed room after the stage has moved marks its real doors and windows as wishes — left off the exported sheet, kept from a vendor and a client login, with no reading box on /projects — under a band and a chip that do say "every mark you place is a client wish". §7 named the hidden tools, not this | **No code in L4** (the capture rule is L10's, and the reviewer proposes none). Recorded in §7 (a new risk), in §3.10 (L10 closes it) and here as B2's build note: *"a room added after the stage has moved is marked as that phase marks — its doors and windows would be born wishes. Put the stage back to Survey on /projects before capturing a missed room, and forward again after; a mark already placed as a wish stays one."* At Client approved the stage cannot go back: a 360 taken there is a work photo and its survey prep has no mark tools, as on the prototype. **For the plan owner, before B2 is merged — the other remedy is open:** bring L10's Capture 360 gate (`PhaseTools.can(Tool.CAPTURE, stage)` on the room screen: hidden at stages 1–4, shown at Survey and at Client approved) forward into B2, so the room cannot be made, as on the prototype. It was not done here: it is a change to what B2 hides ("a change he may read as a loss", §3.10) and to an app screen this container cannot compile, and which build carries it is the plan's decision, not a review fix's |
+
+`:pano` after the fix, from the XML, forced fresh: 1,158 tests in 82 suites, none failed, none skipped (1,155
+before: `PhaseToolsTest` 32 → 34, `DuplicateTest` 7 → 8). No key added or removed, Tx not regenerated,
+`i18nRatchet` lowered nothing, `unkeyed.tsv` untouched and still empty. **The app's half was not compiled** (no
+Android SDK here): `SurveyPrepScreen.kt` changes two calls — the menu's `menuItemsOf(…, quoteStage, asPicked)`
+and `duplicateMark`'s `copyOk` line — and the L4 `kotlinc` check
+(2.0.21 over every app source against the real `:pano` classes and the stubs) reports no new error against L4's
+own run, while the same check with either call given the old arguments reports the mismatch at `duplicateMark`
+(the menu's call sits inside a composable the stubs do not resolve, so it is read, not checked). CI is the
+compiler, and NOTHING HAS BEEN SEEN ON A PHONE. If Amit's answer to Q-list 8 is "a copy is born what the phase
+places", `copyOk` goes and `duplicate` stamps; if it is "Duplicate is a Survey tool", `copyOk` is already it but
+for the unread chip.
 
 ### 3.5 L5 · the ten new types and their sub-kinds, pure (M)
 - **Prototype:** the ten `P L2397-2407` (NOTE, GRL, AC, CDP, PLB, CTR, CRP, LV, SAN, DEF — 22 types: wall 21,
@@ -815,6 +843,10 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
 - **Amit sees a change he may read as a loss:** after Survey there is no 1 · Lines, no reading box, and no
   Capture 360 until he moves the phase back — or the client approves, when Capture 360 returns for photos by
   work. The builder drives the served prototype at all six stages first.
+- **L10's Capture 360 gate also closes the L4 review's finding 2** (§3.4): from B2 until this slice a new 360
+  captured in a project past Survey opens survey prep at that project's stage, so its marks are born wishes (or,
+  at Estimated, cannot be placed). Hidden at stages 1–4, the room cannot be made there, as on the prototype.
+  Unless the plan owner brings this one gate forward into B2, B2–B4's build notes carry the warning.
 - **P1 · prototype item (S): the two tours' texts.** The tours cannot switch on as they are written.
   `wish.5` (`P L8971-8973`) is "The bathroom bundle … Parts ▾ lists them", and the flow's own line says "tick the
   services and the bathroom bundle" (`L8957`): port 62 puts no bundle on the phone, yet the step's anchor
@@ -852,7 +884,8 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    the phone. (b) A refused edit there says "FW1 was marked in Survey — move the phase back to change it"
    (`refuseText`, `L4245`), which nobody can do after approval; the phone says it as written until he rules.
    (c) `editable` and `delOk` fall through to Vendor review's (`L4232-4237`): a mark born Vendor added can still
-   be locked, unlocked and duplicated (item 8); a Line, a Tape, a chain and a Note edited or deleted; and Delete
+   be locked, unlocked and duplicated (item 8 — **not duplicated on the phone since the L4 review**, §3.4); a Line,
+   a Tape, a chain and a Note edited or deleted; and Delete
    shows on a mark past Existing, where on the prototype it works (Drop, Restore). **The phone does not draw
    that Delete** (the L1 review, §3.1): with no move offered it could only open the sheet on the approval
    lock's words or be refused with them, so it is hidden as at Estimated — to confirm or redraw on the
@@ -882,6 +915,17 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    phase places (keeping its sub-kind and trade), or is Duplicate a Survey tool? Until he rules, L4 does what
    the page DOES, not what its comment says: a copy is the box alone, as `SurveyPrepEdit.duplicate` makes it
    today, offered where `PhaseTools.editable` allows — and `DuplicateTest` pins that no copy is stamped.
+   **WHERE THAT COPY GOES, which this item did not say (the L4 review, finding 1, §3.4):** an unstamped mark is
+   read as IN THE ROOM by everything that leaves the office — the exported A4 sheet and the saved pictures
+   (`SheetMarks.surveyed`), S5's answer to a vendor or a client login (slice RD) and /projects' reading boxes
+   (V5). So the copy of a wished wardrobe, made in the Wish list phase, would have gone to a vendor as a wardrobe
+   that is there. **Since that review the phone copies a MARK only where the box alone is what a tap would
+   place** (`PhaseTools.copyOk`): at Survey, and while the stage is unread with the chip on "as Existing" — the
+   strict reading of both answers above, since there either makes a mark born Existing. The row is hidden on a
+   mark born in the phase at the Wish list, Vendor review, Revisions and Client approved, where the prototype
+   draws it; a Tape, a Line, an area and a chain keep theirs. Two things for him with the question: on the
+   prototype the same copy is made (and nothing there sends it out as surveyed); and at Survey a copy of a mark
+   born a wish — the stage moved back — is still an Existing mark, on the page and the phone alike.
 9. **What the Mark sheet may still change at Estimation** (found building L3, 11 Nov; run on the page's own code).
    The band there says "hand-off · read-only · nothing new is marked" and the sheet offers no move ("… Estimation moves
    nothing"), yet its act chips are drawn and on for a mark born Existing that is past Existing, its note and audience
@@ -1132,6 +1176,19 @@ this plan named the drawings only inside AR's and RQ's outlines, so both stood o
   such mark out (the L2 review, finding 1). The safe half of a state the prototype does not draw — its drawings
   show wishes as wishes, which is L8 — and B2's build note says so plainly, so a wish missing from an exported
   drawing does not read as a fault.
+- **From B2 until L10 (B5) a room captured after the stage has moved is marked as that phase marks** (the L4
+  review, finding 2, §3.4). Capture 360 stays on the room screen in every phase until L10, and a new capture's
+  survey prep takes its project's stage: at Client wish list every mark placed in the new room is born a Client
+  wish, at Vendor quoted and Revisions Vendor added, and at Estimated there is no 2 · Mark. On the prototype that
+  room cannot be made (Capture 360 is hidden at phases 1–4). Real doors and windows marked so are left off the
+  exported sheet, kept from a vendor and a client login, and get no reading box on /projects; the band and the
+  chip say what is happening, and nothing turns such a mark into a surveyed one afterwards. Until L10 — or until
+  its Capture 360 gate is brought forward — each build's note says: put the stage back to Survey on /projects
+  before capturing a missed room, and forward again after.
+- **Duplicate of a mark is a Survey tool on the phone** — and an unread stage's while its chip reads "as
+  Existing" (the L4 review, finding 1; Q-list 8): the prototype also offers it on a mark born in the Wish list,
+  Vendor review or Revisions, where the copy — unstamped — would leave the office as a thing that is in the room.
+  He may read the missing row as a loss; B2's note says so.
 - **Client approved is a state the prototype's survey prep does not design** (Q-list 6). The phone's behaviour
   there is provisional and the strict one: no move, no mark tools.
 - **A vendor or client login on /projects sees no wish at all** until Amit answers Q-list 7 — stricter than the

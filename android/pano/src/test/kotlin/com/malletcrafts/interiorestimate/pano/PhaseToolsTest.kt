@@ -635,34 +635,115 @@ class PhaseToolsTest {
         assertEquals("Start over is a Survey tool — move the phase back to use it", PhaseTools.refuseStartOver(Tx.EN))
     }
 
-    private fun menu(p: SurveyPrep.Prep, id: String, st: Int?) = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st).joinToString("|") { it.second }
+    /** The menu's rows at [st]; [picked]: what the capture's chip was cycled to, read only while the stage is unread. */
+    private fun menu(p: SurveyPrep.Prep, id: String, st: Int?, picked: String? = null) =
+        SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st, picked).joinToString("|") { it.second }
 
     @Test fun `L4 - the long-press menu's rows by phase - a row that would change a read-only item is hidden, Cancel stays`() {
         val p = room()
         // driven on the page: FW1 (surveyed), the mark just placed in its own phase, and a Line
         assertEquals("Delete|Duplicate|Lock|Lock all Window|Cancel", menu(p, "w", 0)); assertEquals(menu(p, "w", 0), menu(p, "w", null))
         for (st in 1..5) assertEquals("Cancel", menu(p, "w", st), "a surveyed mark at $st")
-        assertEquals("Drop|Duplicate|Lock|Lock all Electric point|Cancel", menu(p, "e", 1))
-        assertEquals("Drop|Duplicate|Lock|Lock all Door|Cancel", menu(p, "d", 2)); assertEquals(menu(p, "d", 2), menu(p, "d", 4))
+        // ... WITHOUT ITS DUPLICATE, which the page draws there (the L4 review, finding 1): the copy would be an
+        // unstamped box -- a thing that is in the room, to the sheet and to S5 -- of a thing that is not (copyOk)
+        assertEquals("Drop|Lock|Lock all Electric point|Cancel", menu(p, "e", 1))
+        assertEquals("Drop|Lock|Lock all Door|Cancel", menu(p, "d", 2)); assertEquals(menu(p, "d", 2), menu(p, "d", 4))
         assertEquals("Drop|Cancel", menu(p, "e", 2), "a wish in Vendor review: its Drop alone"); assertEquals("Drop|Cancel", menu(p, "n", 1))
         assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", menu(p, "m", 1))
         for (st in listOf(0, 1, 2, 4, 5, null)) assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", menu(p, "m", st), "the Line at $st")
         assertEquals("Cancel", menu(p, "m", 3)); assertEquals("Cancel", menu(p, "k", 3)); assertEquals("Cancel", menu(p, "e", 3))
-        // Client approved, the phone's own (Q-list 6): no Drop on a mark past Existing; a mark born Vendor added keeps the rest
-        assertEquals("Cancel", menu(p, "e", 5)); assertEquals("Duplicate|Lock|Lock all Door|Cancel", menu(p, "d", 5))
+        // Client approved, the phone's own (Q-list 6): no Drop on a mark past Existing; a mark born Vendor added keeps
+        // its lock rows -- and no Duplicate, which would make a new mark after approval (the L4 review)
+        assertEquals("Cancel", menu(p, "e", 5)); assertEquals("Lock|Lock all Door|Cancel", menu(p, "d", 5))
         // a LOCKED mark in Scope, born Vendor added: its Unlock is on the menu where its padlock shows -- and at Client
         // approved neither is there, for the unlock could only say "take it Out of scope in its sheet" (PhaseTools.lockOk)
         p.addMarkAt("front", "L", 2200.0, 2400.0, 2678.0, 2677.0, "l").extra = mapOf("born" to "vadd", "life" to "scope", SurveyPrep.LOCKED to true)
-        assertEquals("Drop|Duplicate|Unlock|Unlock all Loft|Cancel", menu(p, "l", 2)); assertEquals(menu(p, "l", 2), menu(p, "l", 4))
-        assertEquals("Duplicate|Unlock all Loft|Cancel", menu(p, "l", 5))
+        assertEquals("Drop|Unlock|Unlock all Loft|Cancel", menu(p, "l", 2)); assertEquals(menu(p, "l", 2), menu(p, "l", 4))
+        assertEquals("Unlock all Loft|Cancel", menu(p, "l", 5))
         // the rows are the unfiltered menu's own, in its order, and the reference's menu is never cut
-        for (st in STAGES) for (id in listOf("w", "e", "d", "n", "m", "k", "l")) {
-            val whole = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id); val cut = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st)
+        for (st in STAGES) for (picked in PICKED) for (id in listOf("w", "e", "d", "n", "m", "k", "l")) {
+            val whole = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id); val cut = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st, picked)
             assertEquals(whole.filter { it in cut }, cut, "$id at $st"); assertEquals(SurveyPrepEdit.CANCEL, cut.last().first)
         }
         SurveyRef.setMode(p, "front", true, 3319.0, 2678.0, 2677.0)
-        for (st in STAGES) assertEquals(SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")), SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front"), st), "the reference at $st")
+        for (st in STAGES) for (picked in PICKED)
+            assertEquals(SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")), SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front"), st, picked), "the reference at $st")
         assertTrue(SurveyPrepEdit.menuItemsOf(Tx.EN, p, SurveyRef.id("front")).isNotEmpty())
+    }
+
+    // ------------------------------------------------------------------ the L4 review, finding 1: where a mark is copied
+
+    /** What a capture's chip can have been cycled to, and two things it never was. */
+    private val PICKED: List<String?> = listOf(null, "exist", "wish", "vadd", "nonsense")
+
+    @Test fun `the L4 review - a mark is duplicated only where its copy, the box alone, is what a tap would place`() {
+        val p = room()
+        p.surface("front").marks.add(SurveyPrep.Mark("note", MarkLife.NOTE_TYPE, "FNOTE1", 2100.0, 2300.0, 300.0, 500.0))   // a Note (slice L6 places them)
+        fun copy(id: String, picked: String? = null) = bits { PhaseTools.copyOk(p, id, it, picked) }
+        //            Survey Wish Vendor Estim. Revis. Approved unread
+        // A MARK: at Survey, and while unread -- whatever it was born. The page's own answer is spEdit's: 1000001 for the
+        // surveyed window, 1100001 born a wish, 1010111 born Vendor added (proto-tables "L4": the menu's Duplicate)
+        for (id in listOf("w", "e", "d", "n")) assertEquals("1000001", copy(id), id)
+        // ... and while unread only as long as the chip reads "as Existing": cycled to a wish, a tap is stamped and a copy would not be
+        for (id in listOf("w", "e", "d", "n")) {
+            assertEquals("1000001", copy(id, "exist"), id); assertEquals("1000001", copy(id, "nonsense"), id)
+            assertEquals("1000000", copy(id, "wish"), id); assertEquals("1000000", copy(id, "vadd"), id)
+        }
+        // a Tape, a Line, an area and a chain carry no state: copied wherever they may be edited, whatever the chip says
+        for (id in listOf("m", "k")) for (picked in PICKED) {
+            assertEquals("1110111", copy(id, picked), "$id, $picked"); assertEquals(bits { PhaseTools.editable(p, id, it) }, copy(id, picked))
+        }
+        // a Note is stamped by no tap and shown on no document for others: as it may be edited (slice L6's)
+        for (picked in PICKED) assertEquals(bits { PhaseTools.editable(p, "note", it) }, copy("note", picked), "the Note, $picked")
+        assertEquals("1110111", copy("note"))
+        // an id that is no item is never cut
+        for (id in listOf(SurveyRef.id("front"), "lines:front", "nothing")) for (picked in PICKED) assertEquals("1111111", copy(id, picked), id)
+        // by id it is the mark's own answer; and never where the mark may not be edited
+        for (st in STAGES) for (picked in PICKED) for (id in listOf("w", "e", "d", "n", "note")) {
+            val e = p.markById(id)!!.second
+            assertEquals(PhaseTools.copyOk(e, st, picked), PhaseTools.copyOk(p, id, st, picked), "$id at $st, $picked")
+            if (PhaseTools.copyOk(e, st, picked)) assertTrue(PhaseTools.editable(e, st), "$id at $st, $picked")
+        }
+
+        // THE RULE ITSELF, NOT ITS TABLE: wherever a mark's copy is offered, a type tool's tap there places a mark with
+        // no `born` -- so the copy, the box alone, is exactly what the phase would have placed, and a sheet for others
+        // and S5 read both as a thing that is in the room. And wherever a tap is stamped, no mark is copied.
+        val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
+        for (st in STAGES) for (picked in PICKED) {
+            val q = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+            val tapped = PhaseTools.place(q, "front", "E", 1300.0, 600.0, 2678.0, 2677.0, "t", st, picked, at) { }?.mark
+            val stamped = tapped == null || tapped.extra.containsKey(MarkLife.KEY_BORN)
+            for (id in listOf("w", "e", "d", "n")) assertEquals(!stamped, PhaseTools.copyOk(p, id, st, picked), "$id at $st, $picked")
+            if (tapped != null && !stamped) {
+                val c = SurveyPrepEdit.duplicate(q, "t", 2678.0, 2677.0, "t2")!!
+                assertTrue(c.extra.isEmpty()); assertEquals(MarkLife.bornOf(tapped), MarkLife.bornOf(c)); assertEquals(MarkLife.lifeOf(tapped), MarkLife.lifeOf(c))
+                assertTrue(SheetMarks.surveyed(tapped) && SheetMarks.surveyed(c))
+            }
+        }
+    }
+
+    @Test fun `the L4 review - the menu offers no Duplicate on a mark after Survey, nor while unread with the chip cycled to a wish`() {
+        val p = room()
+        fun keys(id: String, st: Int?, picked: String?) = SurveyPrepEdit.menuItemsOf(Tx.EN, p, id, st, picked).map { it.first }
+        // stages 1-5: no mark of any birth has the row -- so no copy of a wish is ever made there
+        for (st in 1..5) for (picked in PICKED) for (id in listOf("w", "e", "d", "n"))
+            assertFalse(SurveyPrepEdit.DUPLICATE in keys(id, st, picked), "$id at $st, $picked")
+        // Survey, and a project not on S5 (given Survey's stage): every mark has it, as v52 and the page
+        for (picked in PICKED) for (id in listOf("w", "e", "d", "n")) assertTrue(SurveyPrepEdit.DUPLICATE in keys(id, 0, picked), "$id, $picked")
+        assertEquals("Delete|Duplicate|Lock|Lock all Window|Cancel", menu(p, "w", 0, "wish"), "the chip is not read at a stage that is read")
+        // unread: by the chip
+        assertEquals("Delete|Duplicate|Lock|Lock all Window|Cancel", menu(p, "w", null)); assertEquals(menu(p, "w", null), menu(p, "w", null, "exist"))
+        assertEquals("Delete|Lock|Lock all Window|Cancel", menu(p, "w", null, "wish")); assertEquals(menu(p, "w", null, "wish"), menu(p, "w", null, "vadd"))
+        assertEquals("Drop|Lock|Lock all Electric point|Cancel", menu(p, "e", null, "wish"))
+        // a Line and a chain keep the row wherever they may be edited, as the page's menu has it
+        for (st in listOf(0, 1, 2, 4, 5, null)) for (picked in PICKED) for (id in listOf("m", "k"))
+            assertTrue(SurveyPrepEdit.DUPLICATE in keys(id, st, picked), "$id at $st, $picked")
+        // ONLY Duplicate moved: every other row is where the phase's three rules put it
+        for (st in STAGES) for (picked in PICKED) for (id in listOf("w", "e", "d", "n", "m", "k")) {
+            val rows = keys(id, st, picked)
+            assertEquals(PhaseTools.delOk(p, id, st), SurveyPrepEdit.DELETE in rows); assertEquals(PhaseTools.lockOk(p, id, st), SurveyPrepEdit.LOCK in rows)
+            assertEquals(PhaseTools.editable(p, id, st), SurveyPrepEdit.LOCK_ALL in rows); assertEquals(PhaseTools.copyOk(p, id, st, picked), SurveyPrepEdit.DUPLICATE in rows)
+        }
     }
 
     // ------------------------------------------------------------------ slice L4: the screen asks these rules, read from its source
@@ -700,13 +781,24 @@ class PhaseToolsTest {
         assertTrue(screen.contains("    quoteStage: Int?,\n")); assertTrue(screen.contains("    projectLine: String?,\n"))
         assertEquals(2, count(main, "quoteStage = QuoteStageSync.prepStage(context,")); assertEquals(2, count(main, "projectLine = QuoteStageSync.prepLine(context,"))
         // the menu's rows are the phase's, and both views are handed the stage
-        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage)")); assertEquals(0, count(screen, "menuItemsOf(tx, prep, c.id)"))
+        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)")); assertEquals(0, count(screen, "menuItemsOf(tx, prep, c.id)"))
+        assertEquals(1, count(screen, "menuItemsOf("), "the one menu, cut by the stage and the capture's chip")
         assertEquals(2, count(screen, "stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })"), "2 · Mark's photo and the 360")
         // a refused act: the phase is asked BEFORE the lock, as sp.js asks it
         fun before(a: String, b: String) { val i = screen.indexOf(a); val j = screen.indexOf(b, i); assertTrue(i >= 0 && j > i, "$a before $b") }
         before("if (!PhaseTools.delOk(prep, mid, quoteStage)) { phaseRefuse(", "if (it0.locked) { refuse(code); return }")
         before("if (!PhaseTools.editable(e, quoteStage)) { phaseRefuse(", "if (SurveyPrep.isLocked(e)) { refuse(e.code); return }")
         assertEquals(2, count(screen, "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse("), "the padlock and Duplicate")
+        // DUPLICATE ASKS ONE THING MORE (the L4 review, finding 1): the copy rule, before the undo step and before the
+        // one call in the app that copies a mark -- a press that arrives where the row is hidden makes nothing
+        val ask = "if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }"
+        assertEquals(1, count(screen, ask)); assertEquals(1, count(screen, "PhaseTools.copyOk("))
+        val made = "SurveyPrepEdit.duplicate(prep, mid, a[0], a[1], nid)"
+        for (f in appDir.listFiles { x -> x.name.endsWith(".kt") }!!)
+            assertEquals(if (f.name == "SurveyPrepScreen.kt") 1 else 0, count(app(f.name), "SurveyPrepEdit.duplicate("), f.name + " copies no mark of its own")
+        screen.indexOf(ask).let { i -> val j = screen.indexOf("snapshot()", i); val k = screen.indexOf(made, i)
+            assertTrue(i >= 0 && j > i && k > j, "the copy rule, then the undo step, then the copy")
+            assertTrue(screen.lastIndexOf("fun duplicateMark(mid: String) {", i).let { it >= 0 && screen.indexOf("\n    fun ", it + 1) > k }, "all three in duplicateMark") }
         assertEquals(2, count(screen, "if (!PhaseTools.bulk(quoteStage)) { phaseRefuse(PhaseTools.refuseBulk(tx, quoteStage)); return }"), "Lock all and the clears")
         // a mark of an earlier phase is held, not moved, on both views: the grab that refuses, and no tabs, no trash
         for (src in listOf(screen, p3)) {

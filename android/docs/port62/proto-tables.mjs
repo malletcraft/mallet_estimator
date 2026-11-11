@@ -33,6 +33,11 @@
 // it honours the `mark` and `palette` rows only until slice L10, so 1 · Lines is not moved on at stages 1-4 (the page prints
 // lines -> mark / list there); and at Client approved it draws 3 · List without steps 1 and 2 and hides a Drop / Restore and
 // a Scope mark's padlock (Q-list 6), where the page prints them.
+// THE L4 REVIEW (11 Nov 2026; DESIGN-port62.md §3.4, finding 1): the page's menu prints Duplicate on a MARK wherever spEdit is
+// true -- so on a mark born in the phase at stages 1, 2, 4 and 5 -- and its copy is the box alone ("a copy of a wish (the box
+// alone)" below). The phone's menu has that row on a mark only where the box alone is what a tap would place
+// (PhaseTools.copyOk: Survey, and unread with the chip on "as Existing"), because the unstamped copy of a wish would leave the
+// office as a surveyed mark (Q-list 8). A Line's and a chain's rows agree with the page's.
 import fs from 'node:fs';
 
 const page = process.argv[2];

@@ -326,18 +326,26 @@ object SurveyPrepEdit {
      * THE MENU AS THE PHASE LEAVES IT (port 62 slice L4; the prototype's spPost, index61c2.html 4262-4263): a row
      * that would change an item the phase holds read-only is HIDDEN, never greyed -- Delete (or Drop / Restore) only
      * where its delete control shows ([PhaseTools.delOk]); Lock / Unlock only where its padlock does
-     * ([PhaseTools.lockOk]); Duplicate and Lock all only where the item may be edited ([PhaseTools.editable]). Cancel
+     * ([PhaseTools.lockOk]); Lock all only where the item may be edited ([PhaseTools.editable]). Cancel
      * is always there, so on a surveyed mark outside Survey the menu is its head and Cancel, as the prototype's is.
-     * The reference rectangle's menu is never cut: its padlock is not the phase's, and the three rules answer true
+     * The reference rectangle's menu is never cut: its padlock is not the phase's, and the rules answer true
      * for an id that is no item. (Lock all, where it shows outside Survey, answers [PhaseTools.refuseBulk] -- the
      * prototype's own: it draws the row for a mark the phase lets be edited and refuses the act. DESIGN-port62 Q-list 11.)
+     *
+     * DUPLICATE ONLY WHERE THE COPY MAY BE MADE ([PhaseTools.copyOk]; the L4 review, finding 1): a Tape, a Line, an
+     * area and a chain wherever they may be edited, as the prototype's menu has it; A MARK only where its copy -- the
+     * box alone, an Existing mark -- is what a tap would place: at Survey, and while the stage is unread with this
+     * capture's chip on "as Existing" ([picked], which has no default). The prototype draws the row on a mark born in
+     * the phase at the Wish list, Vendor review, Revisions and Client approved as well; there the copy of a thing that
+     * is not in the room would leave the office as a surveyed one (DESIGN-port62 Q-list 8).
      */
-    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?): List<Pair<String, String>> =
+    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?): List<Pair<String, String>> =
         menuItemsOf(tx, p, id).filter { (k, _) ->
             when (k) {
                 DELETE -> PhaseTools.delOk(p, id, stage)
                 LOCK -> PhaseTools.lockOk(p, id, stage)
-                DUPLICATE, LOCK_ALL -> PhaseTools.editable(p, id, stage)
+                DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked)
+                LOCK_ALL -> PhaseTools.editable(p, id, stage)
                 else -> true
             }
         }
@@ -363,8 +371,12 @@ object SurveyPrepEdit {
      * `{id, t, code, x0, x1, y0, y1, locked: false}` and nothing more -- no `born`, `life`, act, note, sub-kind or
      * trade -- so the copy of a wish is an EXISTING mark, which every phase after Survey then holds read-only like a
      * surveyed one. That is what the page DOES (its own comment says otherwise); whether a copy should be born what
-     * the phase places is DESIGN-port62 Q-list 8, and until Amit rules nothing is stamped here. Where a copy may be
-     * made at all is the phase's ([PhaseTools.editable]), asked by the screen before this.
+     * the phase places is DESIGN-port62 Q-list 8, and until Amit rules nothing is stamped here.
+     *
+     * WHERE A COPY OF A MARK MAY BE MADE AT ALL is [PhaseTools.copyOk], asked by the menu and by the screen before
+     * this (the L4 review, finding 1): only where this unstamped mark is what a tap would place -- an unstamped mark
+     * is read as IN THE ROOM by the exported sheet ([SheetMarks.surveyed]) and by S5's answer to a vendor or a client,
+     * so the copy of a wish made in the Wish list would have left the office as a surveyed thing.
      */
     fun duplicate(p: SurveyPrep.Prep, id: String, a: Double, b: Double, newId: String): SurveyPrep.Mark? {
         val (s, e) = p.markById(id) ?: return null

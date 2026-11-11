@@ -207,7 +207,7 @@ object PhaseTools {
      * phase's own at the Wish list, Vendor review and Revisions; and with the stage unread, what this capture's button
      * was last cycled to ([picked]; anything else is Existing). A type tool's tap is what asks this. What a DUPLICATE
      * is born as is not decided here: the prototype's duplicateItem copies the box alone and never asks (DESIGN-port62
-     * Q-list 8, for slice L4).
+     * Q-list 8) -- so a mark is copied only where this answers Existing ([copyOk], the L4 review).
      */
     fun asFor(stage: Int?, picked: String? = null): String? {
         if (!can(Tool.PALETTE, stage)) return null
@@ -254,7 +254,8 @@ object PhaseTools {
      * taken just before the mark is added. [Placed.amber]: from Estimation on a placement is told to the office (the
      * prototype's `stage>=3`; in practice Revisions, the one later phase with a palette).
      * A DUPLICATE is not a placement: the prototype's duplicateItem copies the box alone and stamps nothing
-     * ([SurveyPrepEdit.duplicate]; DESIGN-port62 Q-list 8).
+     * ([SurveyPrepEdit.duplicate]; DESIGN-port62 Q-list 8) -- and the phone makes that copy of a mark only where a tap
+     * here would place the same unstamped mark ([copyOk]).
      */
     fun place(p: SurveyPrep.Prep, s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String,
               stage: Int?, picked: String?, at: Instant, snapshot: () -> Unit): Placed? {
@@ -331,6 +332,7 @@ object PhaseTools {
      * Survey and while unread; nothing at Estimation; at the Wish list only what was BORN a Client wish; at Vendor
      * review, Revisions -- and Client approved, as the prototype's code answers for any later stage -- only what was
      * born Vendor added. A Note is editable up to Estimation. A refused act's control is HIDDEN, never greyed.
+     * (Whether a mark may be DUPLICATED asks one thing more: [copyOk].)
      */
     fun editable(e: SurveyPrep.Mark, stage: Int?): Boolean = when (val ph = phaseOf(stage)) {
         null, SURVEY -> true
@@ -377,6 +379,39 @@ object PhaseTools {
 
     fun lockOk(m: SurveyPrep.Meas, stage: Int?): Boolean = editable(m, stage)
     fun lockOk(c: SurveyPrep.Chain, stage: Int?): Boolean = editable(c, stage)
+
+    /**
+     * WHETHER DUPLICATE IS OFFERED ON THE MARK [e] at [stage] (the L4 review, finding 1; DESIGN-port62 Q-list 8). A copy
+     * is THE BOX ALONE ([SurveyPrepEdit.duplicate], as the prototype's duplicateItem makes it): a mark with no `born`
+     * and no state -- an EXISTING mark, which the exported sheet and the saved pictures ([SheetMarks.surveyed]) and S5's
+     * answer to a vendor or a client login (slice RD) all read as a thing that is IN THE ROOM. So a mark is copied only
+     * where that unstamped mark is what a type tool's tap would place ([asFor] answers Existing): at Survey -- and on a
+     * project S5 does not list, which is given Survey's stage -- and, while the stage is unread, as long as this
+     * capture's chip reads "as Existing" ([picked]).
+     *
+     * NOT in the Wish list, Vendor review or Revisions: the only marks those phases let be edited are the ones born a
+     * Client wish or Vendor added ([editable]), so every copy there would be the copy of a thing that is NOT in the
+     * room, leaving the office as a surveyed one -- and held read-only in the very phase it was made in. NOT at Client
+     * approved: there it would also be a new mark made after approval. NOT while unread with the chip cycled to Client
+     * wish or Vendor added: a tap there is stamped, the copy would not be. The row is HIDDEN, never greyed. The
+     * prototype offers it wherever [editable] answers true and its copy is unstamped there too; whether a copy is to
+     * be born what the phase places, or Duplicate is a Survey tool, is Q-list 8 -- this is the strict reading of both
+     * until Amit rules: wherever the phone still copies a mark, either answer makes a mark born Existing.
+     *
+     * A NOTE keeps [editable]'s answer: a tap stamps a Note in no phase ([MarkLife.placeAs]), it carries no `born`, and
+     * no document for others shows one (it reaches the phone with slice L6).
+     */
+    fun copyOk(e: SurveyPrep.Mark, stage: Int?, picked: String?): Boolean =
+        editable(e, stage) && (MarkLife.isNote(e) || asFor(stage, picked) == MarkLife.EXIST)
+
+    /**
+     * [copyOk] for the item of [p] with the id [id]: a mark's own; a Tape, a Line, an area and a chain are copied
+     * wherever they may be edited ([editable]) -- they carry no state and every document draws them as they are; an id
+     * that is no item answers TRUE, as [editable] does. [picked] has NO default: the menu and the act both name what
+     * this capture's chip was cycled to.
+     */
+    fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?): Boolean =
+        p.markById(id)?.let { copyOk(it.second, stage, picked) } ?: editable(p, id, stage)
 
     /**
      * [editable], [delOk] and [lockOk] for the item of [p] with the id [id], whatever it is -- a mark, a Tape, a Line,

@@ -913,6 +913,12 @@ internal fun SurveyPrepDialog(
         // only what the phase lets be edited is copied (slice L4; sp.js duplicateItem's `!P54.spEdit(it)`). THE COPY IS
         // THE BOX ALONE, as the prototype's is -- never stamped "as …" (SurveyPrepEdit.duplicate; DESIGN-port62 Q-list 8)
         if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(PhaseTools.refuseText(tx, prep, mid, quoteStage)); return }
+        // ... AND A MARK IS COPIED ONLY WHERE THAT UNSTAMPED BOX IS WHAT A TAP WOULD PLACE (the L4 review, finding 1;
+        // PhaseTools.copyOk): at Survey, and while the stage is unread with the chip on "as Existing". Anywhere else the
+        // copy of a mark born a wish would leave the office as a thing that is in the room. The row is not on the menu
+        // there; a press that still arrives makes nothing, takes no undo step and says nothing -- the prototype has no
+        // line for it (Q-list 8)
+        if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }
         val a = ab(s); ctx = null; snapshot()
         val nid = java.util.UUID.randomUUID().toString().take(8)
         if (prep.markById(mid) != null) {
@@ -2024,8 +2030,9 @@ internal fun SurveyPrepDialog(
                 val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { 232.dp.toPx() }
                 val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
                 val top = (c.y - rootTop - with(dens) { 12.dp.toPx() }).coerceAtMost(rootH - mh - edge).coerceAtLeast(edge)
-                // ... less the rows the phase hides (port 62 slice L4): on a surveyed mark after Survey, its head and Cancel
-                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage),
+                // ... less the rows the phase hides (port 62 slice L4): on a surveyed mark after Survey, its head and Cancel;
+                // and no Duplicate on a mark where its copy would not be what a tap places (the L4 review; copyOk)
+                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked),
                     Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)

@@ -109,6 +109,7 @@ class DuplicateTest {
 
     // ------------------------------------------------------------------ port 62 slice L4: a copy is the box alone
 
+    /** What [SurveyPrepEdit.duplicate] MAKES, wherever it is asked. Where the phone asks it at all is the next test's. */
     @Test fun `the copy of a wish is the box alone - no born, no state, no act, no note - as the page's duplicateItem makes it`() {
         val p = SurveyPrep.fresh(L, W, H)
         val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
@@ -131,12 +132,39 @@ class DuplicateTest {
             assertEquals(MarkLife.WISH, MarkLife.lifeOf(src))
         }
         assertEquals("above the counter", MarkLife.noteOf(p.markById("e")!!.second.extra))
-        // so in the very phase it was made in the copy is held like a surveyed mark: nothing of it can be changed
-        // there, and its delete control is gone (driven: the copy's row is its label alone) -- DESIGN-port62 Q-list 8
+        // so in the very phase it was made in such a copy would be held like a surveyed mark: nothing of it could be
+        // changed there, and its delete control would be gone (driven on the page: the copy's row is its label alone)
         for (st in listOf(1, 2, 3, 4, 5)) { assertFalse(PhaseTools.editable(p, "e2", st), "$st"); assertFalse(PhaseTools.delOk(p, "e2", st), "$st") }
         assertTrue(PhaseTools.editable(p, "e2", 0)); assertTrue(PhaseTools.editable(p, "e2", null))
-        // where a copy may be made at all is the phase's: the wish-born socket in the Wish list, never the surveyed window
-        assertTrue(PhaseTools.editable(p, "e", 1)); assertFalse(PhaseTools.editable(p, "w", 1))
-        assertEquals("FW1 was marked in Survey — move the phase back to change it", PhaseTools.refuseText(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, p, "w", 1))
+        // ... AND IT WOULD LEAVE THE OFFICE AS A THING THAT IS IN THE ROOM (the L4 review, finding 1): a sheet for others
+        // -- the exported A4 sheet, the saved pictures; S5's rule for a vendor or a client login is the same -- draws the
+        // two copies, never the wished socket they were made from
+        assertEquals(listOf("FW1", "FE2", "FW2"), SheetMarks.marks(p.surface("front").marks, SheetMarks.Audience.OTHERS).map { it.code })
+        assertFalse(SheetMarks.surveyed(p.markById("e")!!.second)); assertTrue(SheetMarks.surveyed(p.markById("e2")!!.second))
+    }
+
+    @Test fun `the L4 review - so the phone copies a mark only where that box is what a tap places - never the copy of a wish in the phase it was wished in`() {
+        val p = SurveyPrep.fresh(L, W, H)
+        val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
+        val en = com.malletcrafts.interiorestimate.pano.i18n.Tx.EN
+        p.addMarkAt("front", "W", 1300.0, 1500.0, W, H, "w")                                                              // FW1, surveyed
+        PhaseTools.place(p, "front", "E", 600.0, 600.0, W, H, "e", PhaseTools.WISH_LIST, null, at) { }!!                  // FE1, born a Client wish
+        PhaseTools.place(p, "front", "D", 600.0, 1200.0, W, H, "d", PhaseTools.VENDOR_REVIEW, null, at) { }!!             // FD1, born Vendor added
+        fun dup(id: String, st: Int?, picked: String? = null) = SurveyPrepEdit.menuItemsOf(en, p, id, st, picked).any { it.first == SurveyPrepEdit.DUPLICATE }
+        // the Wish list: the socket is the phase's own -- moved, locked, dropped -- and NOT copied; the window is held
+        assertTrue(PhaseTools.editable(p, "e", 1)); assertFalse(PhaseTools.copyOk(p, "e", 1, null)); assertFalse(dup("e", 1))
+        assertFalse(PhaseTools.editable(p, "w", 1)); assertFalse(PhaseTools.copyOk(p, "w", 1, null)); assertFalse(dup("w", 1))
+        assertEquals("FW1 was marked in Survey — move the phase back to change it", PhaseTools.refuseText(en, p, "w", 1))
+        // Vendor review, Revisions and Client approved: the vendor's door the same -- at approval it would be a new mark
+        for (st in listOf(2, 4, 5)) { assertTrue(PhaseTools.editable(p, "d", st), "$st"); assertFalse(PhaseTools.copyOk(p, "d", st, null), "$st"); assertFalse(dup("d", st), "$st") }
+        for (st in 1..5) for (id in listOf("w", "e", "d")) assertFalse(dup(id, st), "$id at $st")
+        // Survey: every mark is copied, and the copy is what a tap places there -- an Existing mark, whatever the original
+        for (id in listOf("w", "e", "d")) assertTrue(dup(id, 0), id)
+        // unread: while the chip reads "as Existing" a tap and a copy make the same unstamped mark; cycled on, no copy
+        for (id in listOf("w", "e", "d")) { assertTrue(dup(id, null), id); assertTrue(dup(id, null, "exist"), id); assertFalse(dup(id, null, "wish"), id); assertFalse(dup(id, null, "vadd"), id) }
+        // so with the copies the phone still makes, a sheet for others is the room as surveyed plus what Survey added
+        val c = SurveyPrepEdit.duplicate(p, "w", W, H, "w2")!!
+        assertEquals(listOf("FW1", "FW2"), SheetMarks.marks(p.surface("front").marks, SheetMarks.Audience.OTHERS).map { it.code })
+        assertTrue(c.extra.isEmpty())
     }
 }
