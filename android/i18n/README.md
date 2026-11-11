@@ -484,6 +484,58 @@ on when they are drawn -- the stored FILE, its aside names and every wire value 
   `SurveyChain.GROUP` stays the identity "chains". `FacePrep.dims` and `locators` take a tx; `csvRows` and
   `faceStatus` keep their signatures and use `Tx.EN` inside (the CSV is an export; the status reads no label).
 
+## Port 62 slice L1 (11 Nov 2026): the wish-marks models, born keyed, no new key and no screen
+
+`pano/MarkLife.kt`, `pano/PhaseTools.kt` and `pano/Trades.kt` (all new) joined `ported.txt`. They are the pure half of the
+wish-marks port (DESIGN-port62 §3.1) and NO SCREEN READS THEM YET, so nothing changes on the phone in either language;
+slices L2, L3, L4 and L6 draw from them. Every text they can produce is a `tx.<key>` the tables already held -- the
+prototype's own v53 / v54 keys, unused on the phone until now (the count of accessors nothing calls went 757 -> 678):
+
+- **MarkLife**: the eight state names (`life.exist`, `life.wish`, `life.vrev`, `life.vok`, `life.vadd`, `life.cok`,
+  `life.scope`, `life.drop`), the four acts (`life.replace`, `life.shift`, `job.repair`, `common.remove`), the words on a
+  move's button and its hint (`life.client_wish`, `life.client_wish_2`, `life.vendor_review`, `life.dropped`,
+  `life.back_existing`, `life.vendor_approved`, `life.client_approved`, `life.scope_2`, `life.out_scope`, `life.restore`,
+  `life.vendor_added`; `life.client_wants_changed`, `life.vendor_asks_change`, `life.vendor_cannot_do`,
+  `life.client_changes`, `life.to_x`), the refusals (`refuse.life.x_x_cannot_move`, `life.note_has_no_state`,
+  `life.why_least_3_characters`, `refuse.life.x_scope_take_out`), the notes (`life.after_estimate_tell_office`,
+  `life.quote_stage_not_read`, `life.msg.x_restored_x`), Delete / Drop / Restore (`common.delete`, `type.cdp.short` -- the
+  key the prototype's own text layer gives delWord's `Drop`, as the key's `where` says -- and `common.restore`) and what a
+  clear kept (`life.x_item_x_cleared`, `life.cleared_x_item_x`, `life.x_locked_kept`, `life.x_mark_x_past`,
+  `life.x_mark_x_past_2`, `life.x_scope_mark_x`).
+- **PhaseTools**: the band (`phase.band.*`, `phase.phase_x_4_x`, `phase.phase_not_read_yet`, a phase's name through
+  `Phases`, Client approved through `Masters.quote`), the gate's line (`refuse.life.finish_survey_first_stage`; at Client
+  approved `refuse.readonly.wishlist_approved`, the Wish list's own banner there), the no-move line (`refuse.phase.no_move_x`,
+  `refuse.phase.x_estimation_moves_nothing`, `refuse.phase.x_next_move_vendor`, `refuse.phase.x_wish_marked_wish`) and the
+  refusals (`refuse.phase.x_was_marked_x`, `refuse.phase.x_estimation_changes_nothing`, `phase.this`,
+  `refuse.phase.clearing_locking_every_mark`, `refuse.phase.start_over_survey_tool`, `refuse.readonly.readings`).
+- **Trades**: each trade's name and short name (`trade.*`, `trade.*.short`; Electrical, Tiling and General are short
+  already, so their one key serves both).
+
+**Stored in English, never through a key**: the state ids (`wish`, `vrev` …), the act ids, who decided (`client`, `vendor`,
+`staff`), the ten key names a mark gains (`life`, `lifeAt`, `lifeAs`, `why`, `born`, `act`, `note`, `vis`, `sub`, `cat`), the
+trade ids, the type tokens and the wish-service ids. MastersTest's wire check names every reader and writer of them
+(`MarkLife.move`, `placeAs`, `withNote` …, `Trades.tradeOf`, `withCat` …, `PhaseTools.asFor`, `moveOk` …): none takes a `Tx`.
+Marked `// text:value`: the ` · ` separator, and `AC`, the short name of AC & ventilation -- the one trade short the
+prototype has no key for; it is an abbreviation on `latin-ok.txt` and the prototype shows it as written under मराठी.
+
+**Two texts these models do NOT produce, each left to the slice that first draws it** (what the prototype's own text layer
+shows under मराठी was run for this slice with `docs/port62/proto-tables.mjs`):
+- `decided by staff`, on the Mark sheet's now-line (L3). `life.the_surveyor`, `life.the_client` and `life.the_vendor` exist;
+  `staff` has no `life.*` key. The prototype shows `ठरवणारे: स्टाफ`: its layer looks a lower-cased value up capitalised and
+  finds `album.staff` (`Staff` / `स्टाफ`). So no key is missing -- L3 draws `tx.album_staff.lowercase()` (case done in code,
+  a no-op on Devanagari, as M3a's `uppercase()` is for `UNDO`), never the bare English word.
+- the roll-up `Marks: 8 existing · 4 wish` beside the quote stage (L9). Four of the eight short state words have NO key --
+  `existing`, `wish`, `scope`, `dropped` (only `life.vrev.short`, `life.vok.short`, `life.vadd.short` and `life.cok.short`
+  exist) -- and the prototype shows the whole line in English under मराठी (`Marks: 8 existing · 4 wish`, unchanged), so
+  there is no prototype Marathi to copy. L9 adds the four keys from the prototype's own English (Marathi by Claude,
+  decision 6) before it draws the line; L1 ports the COUNTS only (`MarkLife.countLife`, `rollUp`).
+
+No table changed, so Tx is not regenerated; the tables hold 1,895 keys each at this commit (counted -- the composition
+under "What is here" below was last brought up to date at M3b and says 1,794). `unkeyed.tsv` stays empty. `literal-counts.tsv`
+gains the three new files at 0, and the six rows the tour slice's new files never had (`HelpScreen.kt`, `TourOverlay.kt`,
+`pano/Tour.kt`, `TourDemo.kt`, `TourMachine.kt`, `TourPlace.kt`, each 0): `i18nRatchet` rewrites the whole list, and 0 is
+what check (b) expects of a file with no row.
+
 ## What is here
 
 | File | What it is | Who writes it |

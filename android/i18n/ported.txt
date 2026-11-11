@@ -153,3 +153,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/FacePrepScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/AnnotateScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/LaserTestScreen.kt
 app/src/main/kotlin/com/malletcrafts/interiorestimate/FaceWriter.kt
+# Port 62 slice L1 (11 Nov 2026) adds the three pure models of the wish-marks port, born keyed and read by no screen yet: pano/MarkLife.kt (a mark's life cycle: the eight states' names, the acts, the words on a move's button and its hint, the refusals, Delete / Drop / Restore, what a clear kept -- every one a tx accessor; the state, act and who-decided ids and the key names are stored values; the separator marked `// text:value`), pano/PhaseTools.kt (what each of the six stages shows and offers: the band, the gate's line, the no-move line and the refusals, every one a tx accessor, a phase's name through Phases, Client approved through Masters.quote; the tool ids and step keys are identities; the separator marked `// text:value`) and pano/Trades.kt (the 13 trades: each name and short name a tx accessor; AC, the one short with no key, an abbreviation shown as written and marked `// text:value`; the trade ids, the type tokens and the service ids are stored values).
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhaseTools.kt
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Trades.kt

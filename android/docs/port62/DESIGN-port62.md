@@ -247,6 +247,40 @@ allows in each phase.
   "as …" rule is never asked there; `capture` shown at 0 and 5 only; AS_FIXED, `moveOk`, `editable`, `delOk`, the
   words), `TradesTest` (every type and sub-kind on every surface kind), `SurveyPrepFileTest` (a v53 prep
   round-trips; a v52 prep saves unchanged). Nothing is drawn.
+- **L1 AS BUILT (11 Nov 2026; branch `port62-wish`, local).** The three objects, `TradesTest` (14), `MarkLifeTest`
+  (33), `PhaseToolsTest` (22) and two tests in `SurveyPrepFileTest`; MastersTest's wire check names every reader
+  and writer of the stored keys. `:pano` 1,081 tests in 80 suites, none failed (1,010 in 77 before). No new key,
+  no table change, nothing on screen; `android/i18n/README.md` ("Port 62 slice L1") lists the keys now read.
+  **Cross-checked against the prototype's own code, not only its text:** `proto-tables.mjs` (this folder) loads
+  the page's T53, L53, P54 and L57 modules into node and prints what they answer; every row the tests pin for
+  stages 0–4 and unread equals it, and 30 one-line mutations of the three objects each turned their suite red.
+  - **The sixth column, cell by cell** (`PhaseTools.TOOLS`; the plan names `mark`, `palette` and `capture`, the
+    other eleven are read off the page): hidden — `lines`, `mark`, `palette`, `readings`, `trade`, `stateFilter`,
+    `wishEdit`, `vendorUI` (what `can()` answers where the page asks it), `vendorPacks`, `handoff` (the strip is
+    folded); shown — `list`, `view360`, `wishlist` (nothing asks `can()` for them and the page shows all three:
+    the mode is held on List, the 360 opens, the Wish list chip is hidden at Survey alone, CSS `P L1257`) and
+    `capture` (CSS `P L1362`, `L1372`).
+  - **The stage is one decision.** `PhaseTools.stageOf(cache, phoneOnly)` is the project line's own (`QuoteStage.
+    projectLine`): a copy READ as not listed is Survey too, as that line calls it "not on S5 yet"; a test holds
+    the two together for every kind of line.
+  - **At Client approved, three things the phone decides until Q-list 6 is answered:** no move (`moveOk`, as
+    planned); `MarkLife.move` refuses there with the approval lock's own words, as it refuses at Survey with the
+    gate's (a Restore from the delete control is the one path that reaches it); and `asFor` answers NULL where
+    there is no palette, at Estimated as well — nothing is placed, so the prototype's fall-through to "as Client
+    wish" cannot be reached. Everything else there is the prototype's own code for a stage past Estimation
+    (`editable`, `delOk`, `refuseText`) — see the additions to Q-list 6.
+  - **For the slices that wire it.** L3: the lock is the sheet's rule (`move` does not look at it, as the
+    prototype's does not); "decided by staff" is drawn through `album.staff`, lower-cased — the prototype's own
+    text layer shows `ठरवणारे: स्टाफ` that way, so no key is missing. L4: **what a Duplicate is born as is
+    NOT what this plan's L4 assumes — Q-list 8, to settle before Duplicate is wired**; and the four lines' and
+    the reference's padlocks are never hidden by the phase (`P L4259`). L9: the roll-up's `existing`, `wish`,
+    `scope` and `dropped` have no key and the prototype shows that line in English under मराठी; L1 ports the
+    counts only.
+  - **Not ported, and why.** `move`'s "Not a mark" refusal and its `o.as` override (a `SurveyPrep.Mark` is always
+    a mark; no caller of the prototype passes `as`); the Trade chip's `MarkFilter` and `paletteMain` by trade
+    (Q-list 3); `serviceOf` and `serviceRoomMatch` (L9, they need L5's sub-kinds); the roll-up's words and hint
+    (L9); the pill, glyph and badge after a code (L2); the now-line's "since" and "decided by" (L3); the chip's
+    "as …" words (L4); the SUBS table (L5 — TradesTest carries the sub-kind ids as its own fixture).
 
 ### 3.2 L2 · the state on the face, and the rules that protect a wish (M)
 - **Prototype:** `outline` `P L2872`, `ring` `L2887` (a spot), `paintState` `L2898-2911` (after the code: the act
@@ -349,7 +383,8 @@ with the gate, because a hidden tool needs the line that says why.
 - **Files:** `pano/PhaseTools.kt` (wired in), `pano/SurveyPrepPalette.kt` `chipText` (`:108-112`);
   `app/SurveyPrepScreen.kt` (the band; the step strip and palette by stage; place, duplicate, nudge, drag, lock,
   the trash and the ⋮ acts ask `PhaseTools`); `pano/SurveyPrepEdit.kt` `duplicate` `:264`. **Prep:** a new mark
-  gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement; never a Note.
+  gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement; never a Note. (**A DUPLICATE is not such a
+  placement on the prototype** — found building L1: the page copies the box alone and stamps nothing. Q-list 8.)
 - **Tests:** `PhaseToolsTest` (the table above, row by row), `PaletteTest` (the chip per stage), `DuplicateTest`,
   `PlaceAtTest` (nothing is placed at Estimated, at Client approved, or as a wish on a project not on S5).
   **i18n on:** `phase.band.*`, `sp.toolchip.as_wish`, `sp.toolchip.as_existing`, `life.aria.marks_are_placed_x`,
@@ -473,9 +508,32 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    chips 1 and 2 show but cannot be entered. The phone, until he rules: no move (the approval lock's words), 3 ·
    List alone, the rest as the prototype leaves it. To decide on the prototype: is a mark's state and note
    locked at approval like the wish list, with change requests the one way to change it?
+   **Four more of the same kind, read in the page's code while building L1 (not driven):** (a) the Trade chip
+   and "State: … ▾" are DRAWN there (the CSS hides them at other phases only, `P L1275-1276`) while `spPre`
+   resets both on every render (`L4212-4216`) — controls that cannot act, like step chips 1 and 2; neither is on
+   the phone. (b) A refused edit there says "FW1 was marked in Survey — move the phase back to change it"
+   (`refuseText`, `L4245`), which nobody can do after approval; the phone says it as written until he rules.
+   (c) `editable` and `delOk` fall through to Vendor review's (`L4232-4237`): a mark born Vendor added can still
+   be locked, unlocked and duplicated (item 8); a Line, a Tape, a chain and a Note edited or deleted; and Delete
+   shows on a mark past Existing, where on the phone it opens the sheet on the approval lock's words (Drop) or
+   is refused with them (Restore). (d) For L10's size-line rule: the CSS leaves the room-size pencil showing
+   there (`L1278` hides it at phases 1–4 only), but `openLWH` returns at once wherever readings are hidden
+   (`L6977`), Client approved included — so the pencil is one more control that shows and cannot act, not an
+   editable size line.
 7. **What a document for others carries once wishes exist**: the phone's saved "survey marks" pictures (L2)
    and what a vendor or a client login sees of a room on /projects (RD). Both are the surveyed room until he
    rules; the prototype's own rule for a document is the pack (`P L3194-3199`, `L3280-3289`).
+8. **What a Duplicate is born as** (found building L1, 11 Nov; read in the page's code, not driven). L53's own
+   comment says placing "as …" is called by "addEl / addElAt / duplicate" (`P L2957`), and §3.4 L4 above was
+   written from it ("a new mark gets `born`, `life`, `lifeAt`, `lifeAs` once, at placement", `DuplicateTest`).
+   The page does otherwise: `L53.placed` has two callers, the tap of a type tool on a face and on the 360
+   (`P L5865`, `L5926`); `duplicateItem` (`L5633-5640`) builds `{id, t, code, x0, x1, y0, y1, locked: false}`
+   and nothing more. So on the prototype the copy of a wish, made in the Wish list phase, is an EXISTING mark
+   with no sub-kind, trade, act or note — which that phase then holds read-only, as a survey mark — and a copy
+   made at Vendor review or after approval is the same. To decide on the prototype: is a copy born what the
+   phase places (keeping its sub-kind and trade), or is Duplicate a Survey tool? Until he rules, L4 does what
+   the page DOES, not what its comment says: a copy is the box alone, as `SurveyPrepEdit.duplicate` makes it
+   today, offered where `PhaseTools.editable` allows — and `DuplicateTest` pins that no copy is stamped.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,

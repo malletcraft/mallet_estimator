@@ -6,6 +6,8 @@ import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.AsIsPath
 import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
+import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
 import com.malletcrafts.interiorestimate.pano.QuoteStage
@@ -16,6 +18,7 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.SurveyPrepFile
 import com.malletcrafts.interiorestimate.pano.SurveyPrepPalette
 import com.malletcrafts.interiorestimate.pano.SvgWriter
+import com.malletcrafts.interiorestimate.pano.Trades
 import com.malletcrafts.interiorestimate.pano.WireCleanProbe
 import com.malletcrafts.interiorestimate.pano.WireLeakProbe
 import com.malletcrafts.interiorestimate.pano.WishList
@@ -170,6 +173,17 @@ class MastersTest {
             // SENDS: open, its review), a tap, and what its submit SENDS -- hold S5's work ids; only the texts (title, note,
             // countLine, the labels, scopeRow) take a Tx
             QuoteView::class.java to listOf("openTicks", "open", "toggled", "submit", "rows"),
+            // port 62 slice L1: a mark's life keys are STORED in the prep file -- the state, what it was born, the act, who
+            // decided, the stamp, the why, the note -- so every reader and writer of them takes no Tx; only the names, the
+            // words on a move's button and the refusals do
+            MarkLife::class.java to listOf("lifeOf", "bornOf", "actOf", "whyOf", "noteOf", "allowedMoves", "move", "restore", "placeAs",
+                "setAct", "withNote", "setNote", "istIso", "countLife", "addCounts", "rollUp"),
+            // ... a mark's trade is its stored cat or its type's own; only name and short take a Tx
+            Trades::class.java to listOf("tradeOf", "of", "catOf", "subOf", "withCat", "setCat", "ownOn", "seesOn", "moreRows"),
+            // ... and what a phase shows, offers and places decides what is WRITTEN (asFor: the `born` a new mark gets); only
+            // the band, the gate's line and the refusals take a Tx
+            PhaseTools::class.java to listOf("stageOf", "can", "steps", "modeFor", "toolFor", "asFor", "asChip", "nextAs", "moveOk", "gate",
+                "editable", "delOk", "bulk"),
         )
         val off = ArrayList<String>()
         for (c in whole) {
