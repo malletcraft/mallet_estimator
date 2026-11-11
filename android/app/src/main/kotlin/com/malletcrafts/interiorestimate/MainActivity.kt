@@ -700,12 +700,19 @@ private fun AppScreenBody(onLang: () -> Unit) {
                         store.saveMasters(it)
                     }
                 }
+                // A PAIR IS STORED (the A2 review, finding 1): the S5 read below is not made, and no other read of
+                // S5's list runs until a sync or an opened project -- so on the update that brought S5Sites, the
+                // rename dialog opened on names S5 had never been asked for. Whatever S5 takes from this phone (its
+                // sign-in, or the stored key) reads the list ONCE here, for its site names alone: the masters stay
+                // the bootstrap's.
+                if (FrappeClient.load(context) != null && S5Auth.current(context) != null) SiteRename.hear(context)
                 // No pair, an S5 sign-in: S5's project list is the masters' projects
                 // (S5Masters merges; null keeps what is here), as the sync does.
                 if (FrappeClient.load(context) == null && S5Session.signedIn(context))
                     S5Masters.fetch(context)?.let { store.saveMasters(it) }
             }
-            masters = store.masters()
+            // reload, not `masters =` alone: the tree also draws from S5Sites, which no state object observes
+            reload()
         }
     }
 
@@ -1209,6 +1216,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
     fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {
         val isSite = t.kind == "site"
         val ids: List<String> = if (!isSite) emptyList() else (renameIds ?: cat.s5ProjectsOf(masters, t.client, t.site))
+        // Until S5's list has been read on this phone, "S5Sites names no project of the site" is not S5's answer
+        // (the A2 review, finding 1): a site that may be on S5 then reads the list first (Renames.route).
+        val heard = !isSite || S5Sites.heard(context)
         return Renames.route(
             tx, t.kind, t.current, t.serverId,
             hasLocalRow = cat.hasLocal(t.kind, t.client, t.site, t.project),
@@ -1217,7 +1227,45 @@ private fun AppScreenBody(onLang: () -> Unit) {
             signedIn = S5Session.signedIn(context) || FrappeClient.authorization(context) != null,
             legacyPair = FrappeClient.load(context) != null,
             unlisted = isSite && cat.hasUnlistedCapture(masters, queue, t.client, t.site),
-            listRead = listRead)
+            listRead = listRead,
+            heard = heard,
+            mayHold = !heard && cat.mayBeOnS5(masters, queue, t.client, t.site))
+    }
+    // THE LOCAL RENAME -- the Local route's Save, and a site's Save whose route became Local once S5's list had been
+    // read for it (the A2 review, finding 1). A local row is words in this phone's preferences, so it is corrected
+    // here and now, with no signal -- and CHECKED: a rename that touched no row is a failure, never the success
+    // that closed the dialog onto an empty folder (audit R3).
+    fun renameHere(t: RenameTarget, newName: String) {
+        renameBusy = false
+        if (!cat.renameLocal(t.kind, t.client, t.site, t.project, newName)) {
+            renameFailed { tx -> Renames.nothingRenamed(tx, t.kind, t.current) }
+            return
+        }
+        if (t.kind == "site") {
+            // The site's chosen rooms follow its name (R7), and so does every row of the stored
+            // masters that names this client's site: nothing of the old name stays behind.
+            cat.moveRoomScope(t.client, t.site, newName)
+            store.masters()?.let { m ->
+                if (cat.renameSiteRows(m, t.client, t.site, newName)) store.saveMasters(m)
+            }
+        }
+        // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
+        // for a phone-only project, so it follows the new name -- or the chip reads
+        // 0/12 and the re-key never finds it. The keys still in use AFTER the rename
+        // decide a move from a copy (the same title at another site keeps its list).
+        WishSync.renameLocal(context, t.kind, t.client, t.project, newName,
+            cat.projects(store.masters()).filter { !it.synced }
+                .map { WishList.localKey(it.client, it.title) }.toSet())
+        reload()
+        // Follow the rename: a person renaming the thing they are
+        // standing in should not be thrown back to the root.
+        when (t.kind) {
+            "client" -> { navClient = newName; navSite = null; navProject = null }
+            "site" -> { navSite = newName; navProject = null }
+            else -> navProject = null
+        }
+        lastResult = { tx -> tx.app_msg_renamed_x(newName) }
+        closeRename()
     }
 
     renaming?.let { t ->
@@ -1236,41 +1284,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
             onDismiss = { closeRename() },
             onSave = { newName ->
                 when (val route = renameRoute(t)) {
-                    // A local row is words in this phone's preferences, so it is
-                    // corrected here and now, with no signal -- and CHECKED: a
-                    // rename that touched no row is a failure, never the success
-                    // that closed the dialog onto an empty folder (audit R3).
-                    RenameRoute.Local -> {
-                        if (!cat.renameLocal(t.kind, t.client, t.site, t.project, newName)) {
-                            renameFailed { tx -> Renames.nothingRenamed(tx, t.kind, t.current) }
-                        } else {
-                            if (t.kind == "site") {
-                                // The site's chosen rooms follow its name (R7), and so does every row of the stored
-                                // masters that names this client's site: nothing of the old name stays behind.
-                                cat.moveRoomScope(t.client, t.site, newName)
-                                store.masters()?.let { m ->
-                                    if (cat.renameSiteRows(m, t.client, t.site, newName)) store.saveMasters(m)
-                                }
-                            }
-                            // The client's wish list (slice 5b) is kept under 'local:<client>|<title>'
-                            // for a phone-only project, so it follows the new name -- or the chip reads
-                            // 0/12 and the re-key never finds it. The keys still in use AFTER the rename
-                            // decide a move from a copy (the same title at another site keeps its list).
-                            WishSync.renameLocal(context, t.kind, t.client, t.project, newName,
-                                cat.projects(store.masters()).filter { !it.synced }
-                                    .map { WishList.localKey(it.client, it.title) }.toSet())
-                            reload()
-                            // Follow the rename: a person renaming the thing they are
-                            // standing in should not be thrown back to the root.
-                            when (t.kind) {
-                                "client" -> { navClient = newName; navSite = null; navProject = null }
-                                "site" -> { navSite = newName; navProject = null }
-                                else -> navProject = null
-                            }
-                            lastResult = { tx -> tx.app_msg_renamed_x(newName) }
-                            closeRename()
-                        }
-                    }
+                    // The phone's own row: renamed here and now, and checked (renameHere).
+                    RenameRoute.Local -> renameHere(t, newName)
                     // A CLIENT or a PROJECT the bench holds, with a stored pair: the
                     // office's record, renamed on the bench and not reported as done
                     // until the bench says so. Never a site (Renames.route).
@@ -1320,6 +1335,9 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 // list is read FIRST -- the Save needs the signal anyway -- and the route asked
                                 // again: listed now, its project is one of the writes; still not, the rename is
                                 // refused until it is (a rename now would fork that project on its next capture).
+                                // AND THE A2 REVIEW, FINDING 1: S5's list had not been read on this phone at all, so
+                                // nothing said whether S5 holds the site. Read now, the route asked again is S5's
+                                // own answer: its projects are the writes, or S5 does not hold it (below).
                                 val fresh = withContext(Dispatchers.IO) {
                                     S5Masters.fetch(context)?.also { store.saveMasters(it) }
                                 }
@@ -1329,6 +1347,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
                                 }
                                 reload()
                                 go = renameRoute(t, listRead = true)
+                            }
+                            if (go == RenameRoute.Local) {
+                                // S5's list, read for this Save, names no project of the site, and a row made
+                                // here carries it: the phone's own row, renamed as the Local route renames one.
+                                renameHere(t, newName)
+                                return@launch
                             }
                             val s5 = go as? RenameRoute.S5
                             if (s5 == null) {

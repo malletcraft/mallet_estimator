@@ -73,6 +73,26 @@ object SiteRename {
     }
 
     /**
+     * S5'S LIST, READ FOR ITS SITE NAMES ALONE (the A2 review, finding 1): one `GET /api/asis`, every row's name into
+     * S5Sites (S5Sites.takeRead, which also records that a read has landed). For the one place no other list read
+     * runs -- app start on a phone that still holds an ERP pair, where S5Masters.fetch is not called (its merge is
+     * the S5 leg's, and the next bootstrap would replace it) and QuoteStageSync.refresh waits for a sync or an
+     * opened project. Without it such a phone opened the rename dialog, after the update that brought S5Sites, on a
+     * file that had heard nothing. The masters are not touched. Blocking; false on any failure; never throws.
+     */
+    fun hear(context: Context): Boolean = try {
+        val auth = S5Auth.fresh(context) ?: throw IllegalStateException("not signed in") // text:value log line
+        val o = JSONObject(AsIsUpload.send("GET", BuildConfig.WEB_URL.trimEnd('/') + "/api/asis", auth, null, null)) // text:value the wire
+        // A 200 without the list is not "no projects": nothing is recorded as heard.
+        val arr = o.getJSONArray("projects")
+        S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "site names not read from S5: " + (e.message?.take(160) ?: e.javaClass.simpleName)) // text:value log line
+        false
+    }
+
+    /**
      * THE ONE-OFF SEED (SyncWorker's S5 leg, after the list read): every project S5 lists with NO site name that this
      * phone knows one for gets `PUT …/site {site, base: ""}` -- the projects uploaded before S5 kept site names. Which
      * projects, and never the demo, is :pano's rule (Renames.seed); the base is '' , so the first write wins and a

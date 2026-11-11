@@ -309,7 +309,7 @@ object S5Masters {
         val o = JSONObject(AsIsUpload.send("GET", BuildConfig.WEB_URL.trimEnd('/') + "/api/asis", auth, null, null))
         // A 200 without the list is not "no projects": it would hide every one.
         val arr = o.getJSONArray("projects")
-        S5Sites.takeList(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
+        S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
         val store = CaptureStore(context)
         val captures = store.all()
         val base = store.masters()?.let { JSONObject(it.toString()) } ?: JSONObject()

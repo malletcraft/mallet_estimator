@@ -31,7 +31,8 @@ class RenameRouteTest {
     private fun site(
         name: String = "Demo Site, Pune", serverId: String = "", hasLocalRow: Boolean = false, s5: List<Write> = emptyList(),
         signedIn: Boolean = true, legacyPair: Boolean = false, unlisted: Boolean = false, listRead: Boolean = false, tx: Tx = en,
-    ) = Renames.route(tx, "site", name, serverId, hasLocalRow, s5, signedIn, legacyPair, unlisted, listRead)
+        heard: Boolean = true, mayHold: Boolean = false,
+    ) = Renames.route(tx, "site", name, serverId, hasLocalRow, s5, signedIn, legacyPair, unlisted, listRead, heard, mayHold)
 
     private val shutWords = "This site cannot be renamed from this phone: S5 does not hold it and it was not made here."
 
@@ -113,6 +114,94 @@ class RenameRouteTest {
         // signed out wins: nothing can be read or sent
         assertEquals(Line.S5, assertIs<RenameRoute.Blocked>(site(s5 = w, unlisted = true, signedIn = false)).line)
         assertTrue(assertIs<RenameRoute.Blocked>(site(s5 = w, unlisted = true, signedIn = false)).reason.startsWith("Not signed in to S5"))
+    }
+
+    @Test fun `S5's list not heard yet on this phone - a site that may be on S5 reads the list first, never SHUT and never a local rename (the A2 review, 1)`() {
+        // After the update that brings S5's names to the phone, nothing has read S5's list yet: no project of any site is
+        // named, and that is NOT S5 saying it does not hold the site. A site with a project that carries a server id, or
+        // a capture that carries a project id, may be on S5 -- so the Save reads S5's list first and the route is asked again.
+        val first = RenameRoute.S5(emptyList(), readFirst = true)
+        // no row made here: it used to open as "cannot be renamed — S5 does not hold it", the name greyed and Save off
+        val bare = site(name = "Main site", serverId = "MEST-SITE-0002", heard = false, mayHold = true)
+        assertEquals(first, bare)
+        assertFalse(Renames.shut(bare), "the name is editable: nothing says yet that S5 does not hold it")
+        assertEquals(Line.S5, Renames.line(bare))
+        // a row made here: it used to rename on the phone alone and say "Renamed", with nothing sent to S5
+        val row = site(hasLocalRow = true, heard = false, mayHold = true)
+        assertEquals(first, row); assertTrue(row !is RenameRoute.Local)
+        // a stored pair changes nothing (the phone this was found on holds one): a site never takes the bench's route
+        assertEquals(first, site(hasLocalRow = true, serverId = "MEST-SITE-0005", legacyPair = true, heard = false, mayHold = true))
+        // R9's capture is S5's to answer too once the list is read: not the Local route's refusal before it
+        assertEquals(first, site(hasLocalRow = true, unlisted = true, heard = false, mayHold = true))
+        // signed out, the list cannot be read: said, under the S5 line, the name editable -- never SHUT, never Local
+        for (local in listOf(true, false)) {
+            val out = site(hasLocalRow = local, signedIn = false, heard = false, mayHold = true)
+            assertEquals(RenameRoute.Blocked("Not signed in to S5, so not saved — sign in (menu → Server) and Save again", Line.S5), out, "local=$local")
+            assertFalse(Renames.shut(out))
+        }
+        // THE LIST READ FOR THIS SAVE IS S5'S ANSWER, whatever it named: the route asked again is the ordinary one, and
+        // never "read first" a second time
+        assertEquals(RenameRoute.Local, site(hasLocalRow = true, heard = false, mayHold = true, listRead = true))
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Main site", heard = false, mayHold = true, listRead = true))
+        val w = listOf(Write(P, "Demo Site, Pune"))
+        assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w, hasLocalRow = true, heard = true, mayHold = true, listRead = true))
+        // and once a read has landed (heard), an empty list of S5 projects IS "S5 does not hold it", as before
+        assertEquals(RenameRoute.Local, site(hasLocalRow = true, heard = true, mayHold = true))
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "Main site", heard = true, mayHold = true))
+        // NOTHING S5 COULD HOLD -- made on this phone and never sent, the demo site: its routes do not wait for a read
+        assertEquals(RenameRoute.Local, site(hasLocalRow = true, heard = false, mayHold = false))
+        assertEquals(RenameRoute.Local, site(hasLocalRow = true, heard = false, mayHold = false, signedIn = false))
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = TourDemo.SITE, heard = false, mayHold = false))
+        // a name S5 already gave for a project (an answer to a PUT, a read that landed between) is S5's answer: its route
+        assertEquals(RenameRoute.S5(w, readFirst = false), site(s5 = w, heard = false, mayHold = true))
+        // the bucket has no name to change, heard or not
+        assertEquals(RenameRoute.Blocked(shutWords, Line.SHUT), site(name = "(no site)", hasLocalRow = true, heard = false, mayHold = true))
+        // a client and a project are not S5's to name: neither fact moves them off their routes
+        for (kind in listOf("client", "project"))
+            assertEquals(RenameRoute.Local, Renames.route(en, kind, "Asha flat", "", true, emptyList(), true, false, false, false, heard = false, mayHold = true), kind)
+        // the defaults are the heard phone: every caller that does not say otherwise routes as before the review
+        assertEquals(site(hasLocalRow = true), Renames.route(en, "site", "Demo Site, Pune", "", true, emptyList(), true, false, false))
+    }
+
+    @Test fun `the chosen rooms follow the name S5 gives a site - from another phone, a 409 or 1 of 2 alike (R7 - the A2 review, 2)`() {
+        fun p(project: String, site: String, client: String = "Asha") = Renames.Placed(project, client, site)
+        fun step(from: String, to: String, leave: Boolean, client: String = "Asha") = Renames.ScopeStep(client, from, to, leave)
+        // (a) another phone renamed the site and a list read hears it -- or (b) this dialog's own 409 gave the name as
+        // stored: the project is listed under the new name, nothing is left under the old one, and the rooms go with it
+        assertEquals(listOf(step("Old flat", "New flat", leave = true)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", "New flat")), setOf("PROJ-1")))
+        // (c) 1 of 2: the project that took the name is listed under it WITH the rooms; the other is still under the
+        // old name, and that site keeps its rooms too
+        assertEquals(listOf(step("Old flat", "New flat", leave = false)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat"), p("PROJ-2", "Old flat")), listOf(p("PROJ-1", "New flat"), p("PROJ-2", "Old flat")), setOf("PROJ-1")))
+        // a row only this phone holds (no S5 id) still under the old name keeps that site's rooms the same way
+        assertEquals(listOf(step("Old flat", "New flat", leave = false)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat"), p("", "old  FLAT")), listOf(p("PROJ-1", "New flat"), p("", "old  FLAT")), setOf("PROJ-1")))
+        // both projects renamed by one write: one step, not two
+        assertEquals(listOf(step("Old flat", "New flat", leave = true)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat"), p("PROJ-2", "Old flat")), listOf(p("PROJ-1", "New flat"), p("PROJ-2", "new_flat")), setOf("PROJ-1", "PROJ-2")))
+        // two projects of one phone-site that S5 names differently: each new name gets the rooms
+        assertEquals(listOf(step("Old flat", "North", leave = true), step("Old flat", "South", leave = true)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat"), p("PROJ-2", "Old flat")), listOf(p("PROJ-1", "North"), p("PROJ-2", "South")), setOf("PROJ-1", "PROJ-2")))
+        // the first name S5 gives, where it is not the name the phone listed the project under (seeded by another phone)
+        assertEquals(listOf(step("Flat 12", "Flat 12, Baner", leave = true)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Flat 12")), listOf(p("PROJ-1", "Flat 12, Baner")), setOf("PROJ-1")))
+        // "nothing left under the old name" is asked of THIS client's sites: another client's site of the same name is not it
+        assertEquals(listOf(step("Old flat", "New flat", leave = true)),
+            Renames.scopeSteps(listOf(p("PROJ-1", "Old flat"), p("PROJ-9", "Old flat", "Bhave")), listOf(p("PROJ-1", "New flat"), p("PROJ-9", "Old flat", "Bhave")), setOf("PROJ-1")))
+
+        // NO STEP: the same name as the catalogue compares names (case, spacing, underscores) is the same key
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", " old_FLAT ")), setOf("PROJ-1")))
+        // the "(no site)" bucket is a bucket, not a site: nothing is taken from it, and nothing is given to it
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", Renames.NO_SITE)), listOf(p("PROJ-1", "New flat")), setOf("PROJ-1")))
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", Renames.NO_SITE)), setOf("PROJ-1")))
+        // only the projects whose name THIS write changed: a listing that differs for another reason moves nothing
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", "New flat")), setOf("PROJ-2")))
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", "New flat")), emptySet()))
+        // a row with no S5 id is never S5's to move; a project the tree no longer lists, or lists under another client, moves nothing
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("", "Old flat")), listOf(p("", "New flat")), setOf("")))
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), emptyList(), setOf("PROJ-1")))
+        assertEquals(emptyList(), Renames.scopeSteps(listOf(p("PROJ-1", "Old flat")), listOf(p("PROJ-1", "New flat", "Bhave")), setOf("PROJ-1")))
     }
 
     @Test fun `a client and a project keep their two routes - with a refusal in place of a call that cannot succeed`() {
@@ -402,12 +491,85 @@ class RenameRouteTest {
         assertTrue(done.contains("val name = outcome.site"), "the name applied is S5's own answer")
         // R2: no failure of a rename goes to the banner any more
         assertFalse(main.contains("app_msg_could_not_rename_x"), "the could-not-rename banner is gone from MainActivity: the dialog says it")
-        for ((branch, src) in listOf("Local" to between(save, "RenameRoute.Local ->", "is RenameRoute.Legacy ->"), "Legacy" to legacy, "S5" to s5, "Blocked" to save.substring(save.indexOf("is RenameRoute.Blocked ->"))))
+        // the local rename is ONE function, the Local route's Save and the S5 route's alike (below): the Local branch is that call
+        val here = between(main, "fun renameHere(t: RenameTarget, newName: String) {", "renaming?.let { t ->")
+        assertTrue(between(save, "RenameRoute.Local ->", "is RenameRoute.Legacy ->").contains("RenameRoute.Local -> renameHere(t, newName)"), "the Local route renames through renameHere")
+        for ((branch, src) in listOf("Local" to here, "Legacy" to legacy, "S5" to s5, "Blocked" to save.substring(save.indexOf("is RenameRoute.Blocked ->"))))
             assertTrue(src.contains("renameFailed {"), "the $branch route says its failure in the dialog")
         assertEquals(3, Regex("renameFailed \\{").findAll(s5).count(), "the S5 route: no list read, still blocked after it, and S5's own answer")
         assertFalse(save.contains("lastResult = { tx -> Renames") || save.contains("lastResult = { _ ->"), "the banner carries a rename's success only")
+        assertFalse(here.contains("lastResult = { tx -> Renames") || here.contains("lastResult = { _ ->"), "nor does the local rename's")
         // R3: the local rename's Boolean is read
-        assertTrue(Regex("if \\(!cat\\.renameLocal\\(t\\.kind, t\\.client, t\\.site, t\\.project, newName\\)\\)").containsMatchIn(save), "a local rename that renamed nothing is a failure")
+        assertTrue(Regex("if \\(!cat\\.renameLocal\\(t\\.kind, t\\.client, t\\.site, t\\.project, newName\\)\\)").containsMatchIn(here), "a local rename that renamed nothing is a failure")
+        assertEquals(1, Regex("cat\\.renameLocal\\(t\\.kind,").findAll(main).count(), "and there is one local rename, not a copy of it")
+        for (step in listOf("cat.moveRoomScope(t.client, t.site, newName)", "cat.renameSiteRows(m, t.client, t.site, newName)"))
+            assertTrue(here.contains(step), "a local site rename holds `$step`")
+    }
+
+    @Test fun `S5's list not heard yet - the phone records a landed read, reads the list at start with a pair stored, and the dialog routes on it (the A2 review, 1)`() {
+        // a landed read of the list is recorded, in a file of its own, by the list reads and by nothing else
+        val sites = app("S5Sites.kt")
+        val heard = between(sites, "fun heard(context: Context): Boolean", "fun take(")
+        val take = between(sites, "fun takeRead(context: Context", "fun takeList(context: Context")
+        assertTrue(heard.contains("getSharedPreferences(READS, Context.MODE_PRIVATE).getBoolean(HEARD, false)"), "heard reads the record")
+        assertTrue(take.contains("takeList(context, rows)") && take.contains("putBoolean(HEARD, true)"), "a read's rows are taken and the read recorded")
+        assertEquals(1, Regex("putBoolean\\(HEARD").findAll(sites).count(), "one writer of the record")
+        assertFalse(between(sites, "fun takeList(context: Context", "\n}").contains("HEARD"), "an answer to a PUT is not a read of the list")
+        val rename = app("SiteRename.kt")
+        assertFalse(between(rename, "private fun put(", "fun hear(context: Context)").contains("takeRead("), "the PUTs' answers are taken, not recorded as a read")
+        assertFalse(between(rename, "fun seed(context: Context)", "\n    }\n").contains("takeRead("), "nor the seed's")
+        // the three reads of S5's list: the S5 leg's, the one both legs make, and the one made at start with a pair stored
+        assertTrue(between(app("S5Session.kt"), "fun fetch(context: Context)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch")
+        assertTrue(between(app("QuoteStageSync.kt"), "fun refresh(context: Context", "// ---- Record the approved scope").contains("S5Sites.takeRead(context, "), "QuoteStageSync.refresh")
+        val hear = between(rename, "fun hear(context: Context): Boolean", "fun seed(context: Context)")
+        assertTrue(hear.contains("\"/api/asis\"") && hear.contains("o.getJSONArray(\"projects\")") && hear.contains("S5Sites.takeRead(context, "), "SiteRename.hear reads the list for its names")
+        assertFalse(hear.contains("saveMasters") || hear.contains("S5Masters"), "and leaves the masters the bootstrap's")
+        // app start: with a pair stored the S5 leg's read is not made, so the list is read there too
+        val main = app("MainActivity.kt")
+        val start = between(main, "LaunchedEffect(configured) {", "// Back from the camera")
+        assertTrue(start.contains("if (FrappeClient.load(context) != null && S5Auth.current(context) != null) SiteRename.hear(context)"), "a stored pair: S5's list is read at start")
+        assertTrue(start.contains("if (FrappeClient.load(context) == null && S5Session.signedIn(context))") && start.contains("S5Masters.fetch(context)?.let { store.saveMasters(it) }"), "no pair: the S5 leg's read, as before")
+        assertTrue(start.contains("reload()"), "and the tree is redrawn from what was heard")
+        // the dialog: both facts go to Renames.route, the second asked only while the first is false
+        val route = between(main, "fun renameRoute(t: RenameTarget, listRead: Boolean = false): RenameRoute {", "fun renameHere(")
+        assertTrue(route.contains("val heard = !isSite || S5Sites.heard(context)") && route.contains("heard = heard,"), "whether a read has landed")
+        assertTrue(route.contains("mayHold = !heard && cat.mayBeOnS5(masters, queue, t.client, t.site)"), "and whether S5 may hold the site")
+        val may = between(app("Catalogue.kt"), "fun mayBeOnS5(", "fun hasUnlistedCapture(")
+        assertTrue(may.contains("projectsOf(masters, client, site).any { it.serverId.isNotBlank() }"), "a project of it carries a server id")
+        assertTrue(may.contains("c.project.isNotBlank() && !TourDemo.isDemoProject(c.customerName, c.projectTitle)") && may.contains("same(localSiteFor(c.customerName, c.projectTitle), site)"), "or a capture of it a project id -- never the demo's")
+        // the Save: the route asked again after the read may be the phone's own row, and is then renamed as one --
+        // before the review anything but an S5 route there was said as "offline"
+        val save = between(main, "onSave = { newName ->", "blocker = deleteBlocker")
+        val s5 = between(save, "is RenameRoute.S5 ->", "is RenameRoute.Blocked ->")
+        val again = s5.indexOf("go = renameRoute(t, listRead = true)"); val local = s5.indexOf("if (go == RenameRoute.Local) {"); val sent = s5.indexOf("SiteRename.rename(")
+        assertTrue(again in 0 until local && local < sent, "Local is taken after the route is asked again and before anything is sent")
+        assertTrue(between(s5, "if (go == RenameRoute.Local) {", "val s5 = go as? RenameRoute.S5").contains("renameHere(t, newName)"), "through the one local rename")
+    }
+
+    @Test fun `the chosen rooms follow S5's name where it is written - S5Sites takeList, by Renames scopeSteps (R7 - the A2 review, 2)`() {
+        val sites = app("S5Sites.kt")
+        val take = between(sites, "fun takeList(context: Context", "\n}")
+        // which projects' names this write changes, read before the write
+        assertTrue(take.contains("if (stored?.site.orEmpty() != copy.site) moved.add(project)"), "a name that changes, not a first hearing of no name")
+        // the tree before, the write, the tree after -- in that order -- and :pano's rule between them
+        val before = take.indexOf("cat.placed(masters) }.getOrNull()"); val write = take.indexOf("ed.apply()")
+        val after = take.indexOf("cat.followS5Names(Renames.scopeSteps(before, cat.placed(masters), moved))")
+        assertTrue(before in 0 until write && write < after, "the tree is read before the names are written and again after")
+        assertEquals(1, Regex("ed\\.apply\\(\\)").findAll(take).count(), "S5's names are written once, whatever the rooms' step does")
+        // every writer of S5's names goes through it: the single answer and a read's rows
+        assertTrue(sites.contains("fun take(context: Context, project: String, copy: Renames.Held): Boolean = takeList(context, listOf(project to copy)) > 0"), "an answer to a PUT")
+        assertTrue(between(sites, "fun takeRead(context: Context", "fun takeList(context: Context").contains("takeList(context, rows)"), "a list read")
+        assertEquals(1, Regex("putString\\(project, encode\\(copy\\)\\)").findAll(sites).count(), "one place writes a name")
+        // the catalogue's half: every new name is given the rooms first, then an old name nothing is listed under loses its own
+        val cat = app("Catalogue.kt")
+        assertTrue(cat.contains("projects(masters).map { Renames.Placed(it.serverId, it.client, it.site) }"), "the tree as scopeSteps reads it")
+        val follow = between(cat, "fun followS5Names(steps: List<Renames.ScopeStep>) {", "\n    }\n")
+        val give = follow.indexOf("for (s in steps) moveRoomScope(s.client, s.from, s.to, leave = false)"); val drop = follow.indexOf("for (s in steps) if (s.leave) moveRoomScope(s.client, s.from, s.to)")
+        assertTrue(give in 0 until drop, "given first, dropped after")
+        val move = between(cat, "fun moveRoomScope(client: String, from: String, to: String, leave: Boolean = true) {", "\n    }\n")
+        assertTrue(move.contains("if (rooms.isNotEmpty() && there.isEmpty())") && move.contains("if (leave) ed.remove(scopeKey(client, from))"), "a site with its own list keeps it; the old list goes only when nothing is left there")
+        // the dialog's own success step still moves it for what S5's names do not cover: the phone's own rows re-keyed there
+        assertTrue(app("MainActivity.kt").contains("cat.moveRoomScope(t.client, t.site, name)"), "the Done step's move stays")
     }
 
     @Test fun `S5's names have one home on the phone, fed by every list read and every answer - and the tree reads it`() {
@@ -415,9 +577,9 @@ class RenameRouteTest {
         assertTrue(sites.contains("Renames.takes(") && sites.contains("Renames.Held("), "kept by S5's own stamp")
         // the two list reads feed it, by :pano's reader
         val session = app("S5Session.kt")
-        assertTrue(between(session, "fun fetch(context: Context)", "fun forget(context: Context)").contains("S5Sites.takeList(context, "), "S5Masters.fetch feeds the names")
+        assertTrue(between(session, "fun fetch(context: Context)", "fun forget(context: Context)").contains("S5Sites.takeRead(context, "), "S5Masters.fetch feeds the names")
         assertFalse(session.contains("m.put(\"site_name\""), "an S5 entry is no longer stamped with the local row's name (R4)")
-        assertTrue(between(app("QuoteStageSync.kt"), "fun refresh(context: Context", "// ---- Record the approved scope").contains("S5Sites.takeList(context, "), "the list read both legs make feeds them too")
+        assertTrue(between(app("QuoteStageSync.kt"), "fun refresh(context: Context", "// ---- Record the approved scope").contains("S5Sites.takeRead(context, "), "the list read both legs make feeds them too")
         // every answer to a PUT …/site is kept at once
         val rename = app("SiteRename.kt")
         assertTrue(rename.contains("Renames.siteRequest(") && rename.contains("Renames.siteVerdict(JsonRead, "), "the request and the verdict are :pano's")

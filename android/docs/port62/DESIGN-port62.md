@@ -222,7 +222,7 @@ entry is no longer stamped with the local row's name), `SyncWorker.kt` (the seed
 | R4 | **CLOSED.** S5's name is the one shown wherever S5 holds one (`S5Sites` → `SiteRows.nameOf`), kept from every answer the moment it lands; no copy of the local row's name is stamped into an S5 entry |
 | R5 | **NOT REACHABLE for a site** (no bench call). S1 unchanged |
 | R6 | **CLOSED.** A site rename reads no bootstrap; success is S5's answers alone (`Renames.outcome`). The bench rename of a client or project refreshes the masters in a call of its own, after the judged one |
-| R7 | **CLOSED.** `Catalogue.moveRoomScope`, on the S5 route's success step and on a local site rename |
+| R7 | **CLOSED.** `Catalogue.moveRoomScope`, on the S5 route's success step and on a local site rename. *As `af6c453` left it this held for a Save that completed on this phone only; the A2 review (below, finding 2) moved the rooms to where S5's name is written* |
 | R8 | **HALF, as planned.** The phone's own rows are re-keyed in the success step; the bench is not told |
 | R9 | **CLOSED FOR A SITE RENAME, with one residue.** `Catalogue.hasUnlistedCapture` → the S5 route reads S5's list first and is routed again; still unlisted, or the Local route, is refused (`refuse.site.capture_on_way`). The residue: the key is still re-derived, so AFTER a site rename a phone whose masters lose the S5 entry (a sign-out) and that keys a new capture before the next list read mints a hash from the NEW name. Storing the key is A3 |
 | R10–R12 | **LEFT, slice A3**, with R9's project and client thirds |
@@ -264,6 +264,85 @@ no signal, signed out of S5, S5's own refusal (shown as S5 sent it) and "renamed
 (b) The grey line for a site S5 holds: "…the new name reaches ERP and every other device" (`P L7926`, key
 `app.x_server_so_new`) is untrue now. (c) A row that cannot be renamed: the line, or no rename offered. (d) The
 words for a site with a capture still on its way to the web (R9): rename refused until it is listed.
+
+### The A2 review (12 Nov 2026, ~00:10 IST) — two findings on `af6c453`, both confirmed, none declined
+
+A reviewer read slice A2 as committed. Each finding was checked against the code, S5's slice A1 and the approved P0
+before anything was changed; both stand. One local commit on `batch-next`, not pushed. `:pano` is tested here;
+`:app` is compiled only by CI, and nothing has been seen on a phone.
+
+**1 · CONFIRMED (major). Until the first read of S5's list after the update, "S5Sites names no project of the
+site" was read as "S5 does not hold it".** `S5Sites` is a new, empty file on the update that brings it, fed only by
+the list reads and the PUT answers. At app start the list was read only when NO ERP pair is stored
+(`MainActivity`, `LaunchedEffect(configured)`); with a pair, nothing read it until the hourly sync, a `syncNow`, or
+an opened project — and a site is held on the Clients screen, with no project open. So `Catalogue.s5ProjectsOf` was
+empty and `Renames.route` answered `Blocked(SHUT)` ("S5 does not hold it and it was not made here", untrue) for a
+site with no row made here, and `Local` for one with a row: "Renamed", nothing sent, and S5's old name back on the
+tree at the next read — after the phone's rows, the room-scope key and the masters' rows had all been moved to the
+new one. The audit's own note that the phone holds a long-dead pair (`GAP-0.3.318.md`) makes this the first thing
+Amit would have met. A phone with no pair had the same window, for the seconds before its start read lands, and
+for as long as it starts with no signal. Fixed, in four parts:
+- **`S5Sites.heard`** — whether a read of S5's list has landed on this phone, recorded by `S5Sites.takeRead`, which
+  the three list reads call (`S5Masters.fetch`, `QuoteStageSync.refresh`, `SiteRename.hear`); an answer to a PUT is
+  not a read. Kept in a file of its own (`s5_sites_reads`): `s5_sites` is keyed by S5's free-text project ids, so no
+  key in it is safe to reserve.
+- **`Renames.route` takes `heard` and `mayHold`** (`:pano`, tested). Not heard, and the site MAY be on S5 — a project
+  under it carries a server id, or a capture of it a project id (`Catalogue.mayBeOnS5`; never the demo's) — the
+  route is `S5(writes = [], readFirst = true)`: the Save reads S5's list (R9's existing path) and the route is asked
+  again, now on S5's own answer. Signed out, the list cannot be read: `Blocked(refuse.site.signed_out)` under the S5
+  line, the name editable. A site with nothing S5 could hold — made here, never sent; the demo site — keeps its
+  routes, heard or not. A read made for this Save is S5's answer whatever it named, so the route is never "read
+  first" twice.
+- **The list is read at app start with a pair stored too** — `SiteRename.hear`, one `GET /api/asis` for its site
+  names alone; the masters stay the bootstrap's (`S5Masters.fetch` there would merge S5-only projects that the next
+  bootstrap replaces). The start effect ends in `reload()`, since the tree also draws from `S5Sites`.
+- **The route asked again may be `Local`** — S5's list names no project of the site and a row made here carries it.
+  `af6c453` said "offline" for anything but an S5 route there (it could not happen then). The local rename is now
+  ONE function, `renameHere`, called by the Local route's Save and by this one.
+
+  Decided by Claude where the finding was silent: (i) the grey line in the not-heard state is P0's S5 line — P0 has
+  three lines and no fourth, and a new text is a prototype question; it stands for seconds on a phone with signal;
+  (ii) a read that names no project, or comes from an S5 that serves no site names yet (before A1), still counts as
+  heard — such an S5 holds no name to rename against, and a later read brings the names; (iii) with a dead pair and
+  no S5 sign-in the start read is refused, the site stays not-heard, and Save says `refuse.site.offline`
+  (`S5Masters.fetch` answers null for every failure, and P0 has no separate words for a refused key). **Not closed:**
+  a project the masters gain BETWEEN two list reads (a bootstrap's new project that S5 already holds from another
+  phone) is unknown to `S5Sites` until the next read — the start read and every sync narrow that to minutes; the
+  reviewer did not raise it and it is left.
+
+**2 · CONFIRMED (minor). R7 was closed only for a Save that completed on this phone.** `Catalogue.moveRoomScope`
+had two callers, both in the dialog's success steps, while the tree lists a project under S5's name the moment
+`S5Sites` holds it — also from a list read that hears another phone's rename, from this dialog's own 409 ("Renamed
+by … meanwhile — now Y") followed by Cancel, and for the one project that took the name on "1 of 2". In all three
+the rooms stayed under `room_scope:<client>|<old name>`, the grid fell back to the 2 BHK preset and the chooser
+opened again. Fixed where the name is written, as the finding's first option asks:
+- **`S5Sites.takeList`** — the one writer of S5's names (a read's rows and a single answer both go through it) —
+  reads the tree just before and just after the write, for the projects whose name that write changes, and applies
+  `Renames.scopeSteps` through `Catalogue.followS5Names`. The step never costs S5's name: the name is written
+  whatever the step does.
+- **`Renames.scopeSteps`** (`:pano`, tested): one step per (client, old site, new site), compared as the catalogue
+  compares names. **It is a COPY while anything is still listed under the old name** (`leave = false`) — the
+  finding's `moveRoomScope(client, old, new)` as written would have taken the rooms away from the site the second
+  project of "1 of 2" is still under. The old name's list goes only when nothing is listed there any more; a site
+  that already has its own list keeps it; the "(no site)" bucket gives and takes nothing; every new name is given
+  the rooms before any old list is dropped (two projects of one site that S5 names differently both get them).
+- The dialog's own Done step keeps its `moveRoomScope`: it covers the phone's own rows, re-keyed in that step.
+
+  **What this does not cover, left for A3:** the ROOMS follow; this phone's own rows do not. When a rename is heard
+  from elsewhere, a project only this phone holds under the old name stays there as its own site, and the site type
+  and address this phone noted on its rows stay under the old name (the bench's `sites` row is already listed under
+  S5's name, `SiteRows.listed`). And a project that S5's list brings into the masters for the FIRST time, under a
+  name other than the one this phone's own row had it under, is not followed: a read's rows are taken before the
+  masters hold the project.
+
+**Tests.** `RenameRouteTest` 23 → 27: the not-heard route case by case; `scopeSteps` for the three cases the
+finding names and its refusals; and, read as source because only CI compiles `:app`, that the record has one writer
+and three readers of the list, that app start reads the list with a pair stored, that the dialog passes both facts
+and renames the phone's own row through the one function after the read, and that every write of S5's names goes
+through the step. Switching either rule off in `RenameRoute.kt` fails its pure test (checked by mutation, then
+restored). `:pano` 1045 tests, 0 failures, 0 errors, 0 skipped, 79 suites, from the XML under
+`pano/build/test-results/test` (1041 before). No text was added or changed: the tables, `Tx` and `unkeyed.tsv`
+(empty) are untouched, and the ratchet lowered nothing.
 
 ## 3. The wish-marks port (prototype v53, and the parts of v54 the wish journey needs)
 

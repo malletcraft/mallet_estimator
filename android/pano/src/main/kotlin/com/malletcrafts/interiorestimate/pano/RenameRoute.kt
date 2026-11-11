@@ -26,6 +26,15 @@ package com.malletcrafts.interiorestimate.pano
  *    `S5-…` key the masters do not list yet would get a NEW hash on its next capture -- two S5 projects. So with
  *    such a capture ([Renames.route]'s `unlisted`) the S5 route reads S5's list first ([RenameRoute.S5.readFirst])
  *    and is routed again; still unlisted, and the Local route with one, are [RenameRoute.Blocked] (P0 d).
+ *  - S5'S LIST NOT HEARD YET (the A2 review, finding 1). "No name held for any project of the site" has two causes
+ *    that must not be read as one: S5 does not hold the site, or this phone has not read S5's list since it began
+ *    keeping S5's names -- the first minutes after the update, or longer with no signal. Read as the first, a site
+ *    S5 holds opened as "S5 does not hold it" or was renamed on the phone alone and reported as renamed. So until
+ *    a read of the list has landed ([Renames.route]'s `heard`), a site that MAY be on S5 (`mayHold`: a project of it
+ *    carries a server id, or a capture of it a project id) takes [RenameRoute.S5] with no writes yet and
+ *    [RenameRoute.S5.readFirst]: the Save reads S5's list and the route is asked again, now on S5's own answer.
+ *    Signed out, the list cannot be read: [RenameRoute.Blocked] with the sign-in line. A site with nothing S5 could
+ *    hold -- made on this phone and never sent -- keeps its routes, heard or not.
  *  - A CLIENT and a PROJECT keep the two routes they had (the phone's own row, else the bench by docname), with
  *    [RenameRoute.Blocked] in place of a call that cannot succeed: no stored ERP pair to call the bench with, or
  *    no row on this phone to rename. Their other defects (R10-R12, and R9's project and client thirds) are slice A3.
@@ -52,7 +61,9 @@ sealed class RenameRoute {
 
     /**
      * Rename through S5: one `PUT …/site` per entry of [writes]. [readFirst]: a capture of the site is still under
-     * an `S5-…` key the masters do not list, so S5's list is read first and the route asked again (R9).
+     * an `S5-…` key the masters do not list (R9), or S5's list has not been read on this phone yet and [writes] is
+     * still empty (the A2 review, finding 1) -- S5's list is read first and the route asked again. Nothing is sent
+     * on a route with [readFirst]: the route asked again is the one that is followed.
      */
     data class S5(val writes: List<Write>, val readFirst: Boolean) : RenameRoute()
 
@@ -88,12 +99,16 @@ object Renames {
      * @param legacyPair  whether an ERP pair is stored, for a client's or a project's bench rename
      * @param unlisted    for a site: a capture of it is queued or uploaded under an `S5-…` key the masters do not list
      * @param listRead    S5's list has just been read for this Save, so [unlisted] is S5's own answer
+     * @param heard       for a site: a read of S5's list has landed on this phone since it keeps S5's site names
+     *                    (S5Sites.heard in :app). False, an empty [s5Projects] says nothing about S5
+     * @param mayHold     for a site, read only while not [heard]: S5 may hold something of it -- a project under it
+     *                    carries a server id, or a capture of it a project id (Catalogue.mayBeOnS5)
      */
     @JvmStatic
     fun route(
         tx: Tx, kind: String, name: String, serverId: String, hasLocalRow: Boolean,
         s5Projects: List<RenameRoute.Write>, signedIn: Boolean, legacyPair: Boolean, unlisted: Boolean,
-        listRead: Boolean = false,
+        listRead: Boolean = false, heard: Boolean = true, mayHold: Boolean = false,
     ): RenameRoute {
         if (kind == "site") {
             // The bucket has no name to change, whatever is filed in it: renaming it would name every unnamed project at once.
@@ -105,6 +120,14 @@ object Renames {
                 // S5's list was read first and the capture's project is still not on it.
                 if (unlisted && listRead) return RenameRoute.Blocked(tx.refuse_site_capture_on_way, RenameRoute.Line.S5)
                 return RenameRoute.S5(writes, readFirst = unlisted)
+            }
+            // S5'S LIST NOT HEARD YET, and the site may be on it: "no project of it is named" is not S5's answer, so it
+            // is neither "S5 does not hold it" (SHUT) nor a rename of the phone's own row (Local). The Save reads S5's
+            // list first and the route is asked again; signed out, the list cannot be read, and that is said. A read
+            // made for this Save IS S5's answer, whatever it named.
+            if (!heard && !listRead && mayHold) {
+                if (!signedIn) return RenameRoute.Blocked(tx.refuse_site_signed_out, RenameRoute.Line.S5)
+                return RenameRoute.S5(emptyList(), readFirst = true)
             }
             if (hasLocalRow) {
                 return if (unlisted) RenameRoute.Blocked(tx.refuse_site_capture_on_way, RenameRoute.Line.PHONE) else RenameRoute.Local
@@ -305,6 +328,44 @@ object Renames {
      * every stamp). A copy at the same stamp is the same write and is taken.
      */
     fun takes(stored: Held?, copy: Held): Boolean = stored == null || copy.at >= stored.at
+
+    // ---- the site's chosen rooms follow the name S5 gives it (audit R7; the A2 review, finding 2) ------------
+
+    /** One project as the tree lists it: its S5 project id ('' for a row only this phone holds), its client, and the site it is listed under. */
+    data class Placed(val project: String, val client: String, val site: String)
+
+    /**
+     * The rooms chosen for [client]'s site [from] are [to]'s as well, where [to] has no list of its own. [leave]:
+     * nothing is listed under [from] any more, so its own list goes; false while a project or a row of this phone's
+     * is still listed there -- that site keeps its rooms.
+     */
+    data class ScopeStep(val client: String, val from: String, val to: String, val leave: Boolean)
+
+    /**
+     * WHERE THE CHOSEN ROOMS GO WHEN S5'S NAME FOR A PROJECT CHANGES ON THIS PHONE. The rooms a site has are kept
+     * under the site's NAME, and the tree lists a project under S5's name the moment the phone holds it -- from this
+     * phone's own Save, and just as much from a list read that hears another phone's rename, a 409's name as stored,
+     * or the one project that took the name on "1 of 2". Moved only in the dialog's success step, the list stayed
+     * under the old name in the other three: the rooms grid fell back to the 2 BHK preset and the chooser asked
+     * again, which is R7.
+     *
+     * [before] and [after] are the tree's projects just before and just after S5's names were written; [moved] the
+     * S5 project ids whose name that write changed. One step for each (client, old site, new site) such a project
+     * went through -- compared as the catalogue compares names ([key]), so a change of case or spacing alone is no
+     * step. The "(no site)" bucket is a bucket, not a site: nothing is taken from it or given to it. A project of
+     * another write, or one whose listing changed for another reason, gives no step.
+     */
+    fun scopeSteps(before: List<Placed>, after: List<Placed>, moved: Set<String>): List<ScopeStep> {
+        val out = LinkedHashMap<String, ScopeStep>()
+        for (b in before) {
+            if (b.project.isBlank() || b.project !in moved) continue
+            val a = after.firstOrNull { it.project == b.project && key(it.client) == key(b.client) } ?: continue
+            if (!named(b.site) || !named(a.site) || key(a.site) == key(b.site)) continue
+            val leave = after.none { key(it.client) == key(b.client) && key(it.site) == key(b.site) }
+            out.getOrPut(key(b.client) + "\u0000" + key(b.site) + "\u0000" + key(a.site)) { ScopeStep(b.client, b.site, a.site, leave) }
+        }
+        return out.values.toList()
+    }
 
     // ---- the first value: the record's `site`, and the one-off seed ------------------------------------------
 

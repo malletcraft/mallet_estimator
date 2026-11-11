@@ -209,7 +209,7 @@ object QuoteStageSync {
             // S5's SITE NAME for each project rides the same list (port 62 slice A2): `site` and `site_at`, kept in
             // S5Sites by S5's own stamp. Fed here as well as by S5Masters.fetch because THIS read runs in both legs,
             // so a phone whose masters are an ERP bootstrap's hears S5's names too.
-            S5Sites.takeList(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
+            S5Sites.takeRead(context, (0 until arr.length()).mapNotNull { i -> Renames.listedOf(JsonRead, arr.opt(i)) })
             // Each row read by :pano's own reader (QuoteStage.listedOf): the stage, who and when, S5's null
             // as '', and S5-L's work_states -- absent (an S5 before S5-L) as not read, never "none started".
             val listed = (0 until arr.length()).mapNotNull { i -> QuoteStage.listedOf(JsonRead, arr.opt(i)) }

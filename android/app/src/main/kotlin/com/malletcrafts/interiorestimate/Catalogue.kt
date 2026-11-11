@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate
 
 import android.content.Context
+import com.malletcrafts.interiorestimate.pano.Renames
 import com.malletcrafts.interiorestimate.pano.SiteRows
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -384,8 +385,10 @@ class Catalogue(context: Context) {
      * rename that landed left it behind and the rooms grid fell back to the 2 BHK preset, the chooser asking again.
      * Read through [roomScope], so a list still kept per project (before 2026-10-10) is migrated first. A site that
      * already has its own list under the new name keeps it. A change of case or spacing alone is the same key.
+     * [leave] false gives [to] the list and keeps it under [from] too: something is still listed under the old name
+     * (the A2 review, finding 2 -- one project of two took the name), and that site keeps its rooms.
      */
-    fun moveRoomScope(client: String, from: String, to: String) {
+    fun moveRoomScope(client: String, from: String, to: String, leave: Boolean = true) {
         if (same(from, to)) return
         val rooms = roomScope(client, from)
         val there = roomScope(client, to)
@@ -395,7 +398,25 @@ class Catalogue(context: Context) {
             rooms.sorted().forEach { arr.put(it) }
             ed.putString(scopeKey(client, to), arr.toString())
         }
-        ed.remove(scopeKey(client, from)).apply()
+        if (leave) ed.remove(scopeKey(client, from))
+        ed.apply()
+    }
+
+    /** The tree's projects as Renames.scopeSteps reads them: each one's S5 project id ('' for a row only this phone holds), client and site. */
+    fun placed(masters: JSONObject?): List<Renames.Placed> =
+        projects(masters).map { Renames.Placed(it.serverId, it.client, it.site) }
+
+    /**
+     * THE CHOSEN ROOMS FOLLOW THE NAME S5 GIVES A SITE, WHEREVER THAT NAME COMES FROM (the A2 review, finding 2;
+     * audit R7). Called by S5Sites.takeList, the one place S5's names are written, with what Renames.scopeSteps
+     * found between the tree before the write and after it -- so another phone's rename heard by a list read, a
+     * 409's name as stored and "1 of 2" move the rooms exactly as this phone's own completed Save does. Every list
+     * is given to its new name first, and only then is an old name's own list dropped where nothing is listed
+     * under it any more: two projects of one site that S5 names differently both get the rooms.
+     */
+    fun followS5Names(steps: List<Renames.ScopeStep>) {
+        for (s in steps) moveRoomScope(s.client, s.from, s.to, leave = false)
+        for (s in steps) if (s.leave) moveRoomScope(s.client, s.from, s.to)
     }
 
     /** The rooms a site starts with: its type's preset at 2 BHK. */
@@ -664,6 +685,22 @@ class Catalogue(context: Context) {
             .filter { id -> S5Sites.held(appContext, id)?.let { it.site.isBlank() || same(it.site, site) } == true }
         return (listed + minted).distinct()
     }
+
+    /**
+     * WHETHER S5 MAY HOLD SOMETHING OF THIS SITE -- asked only while S5's list has not been read on this phone
+     * (S5Sites.heard false; the A2 review, finding 1), when "S5Sites names no project of it" says nothing. A project
+     * the tree lists under it carries a server id (S5 keys a project by that id once a capture of it is uploaded),
+     * or a capture of it carries a project id -- it has gone up, or is about to, under that id. The site of such a
+     * capture is read where a phone-minted key takes it from, the phone's own row for its client and title
+     * (S5Auth.keyFor); a capture of a listed project is already covered by its project's server id. Never the
+     * demo's captures. A site with neither was made on this phone and never sent: S5 cannot hold it.
+     */
+    fun mayBeOnS5(masters: JSONObject?, captures: List<CaptureStore.Capture>, client: String, site: String): Boolean =
+        projectsOf(masters, client, site).any { it.serverId.isNotBlank() } ||
+            captures.any { c ->
+                c.project.isNotBlank() && !TourDemo.isDemoProject(c.customerName, c.projectTitle) &&
+                    same(c.customerName, client) && same(localSiteFor(c.customerName, c.projectTitle), site)
+            }
 
     /**
      * AUDIT R9, for a site: a capture of this site queued or uploaded under a phone-minted S5 key ("S5-…", a hash of
