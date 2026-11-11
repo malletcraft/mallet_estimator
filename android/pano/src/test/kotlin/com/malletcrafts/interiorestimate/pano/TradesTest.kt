@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.i18n.Lang
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -55,11 +56,32 @@ class TradesTest {
         assertEquals(listOf("सिव्हिल व स्ट्रक्चर", "दरवाजे व खिडक्या", "ग्रिल व रेलिंग", "इलेक्ट्रिकल", "CCTV, इंटरकॉम व डेटा",
             "AC व व्हेंटिलेशन", "फॉल्स सीलिंग", "सुतारकाम व फर्निचर", "प्लंबिंग व सॅनिटरी", "टाइलिंग", "रंगकाम व फिनिश",
             "पडदे व ब्लाइंड्स", "सामान्य"), Trades.IDS.map { Trades.name(Tx.MR, it) })
-        // AC is an abbreviation with no key: the prototype shows it as written under मराठी too
+        // AC is an abbreviation the prototype draws with no key and shows as written under मराठी too: trade.hvac.short holds it
         assertEquals(listOf("सिव्हिल", "दारे-खिडक्या", "ग्रिल", "इलेक्ट्रिकल", "CCTV व डेटा", "AC", "फॉ. सीलिंग", "सुतारकाम", "प्लंबिंग",
             "टाइलिंग", "रंगकाम", "पडदे", "सामान्य"), Trades.IDS.map { Trades.short(Tx.MR, it) })
         assertEquals("general", Trades.GENERAL); assertEquals(Trades.IDS.last(), Trades.GENERAL)
         assertEquals(13, Trades.IDS.toSet().size)
+    }
+
+    /**
+     * The L1 review, finding 2: a trade's name and short name are SHOWN (a chip, a row label, the Mark sheet's head), so
+     * each is read from the tables -- none is a literal in the code, however the same it reads in both languages. Asked
+     * of a table whose every cell is a marker, each of the 26 must come back as one cell, whole.
+     */
+    @Test fun `every trade's name and short name is a cell of the tables, never a literal in the code`() {
+        val tab = Tx::class.java.getDeclaredField("tab").apply { isAccessible = true }
+        val cells = (tab.get(Tx.EN) as Array<*>).size
+        val probe = Tx::class.java.getDeclaredConstructor(Lang::class.java, Array<String>::class.java).apply { isAccessible = true }
+            .newInstance(Lang.EN, Array(cells) { "\u27e6$it\u27e7" })
+        val cell = Regex("^\u27e6\\d+\u27e7$")
+        for (id in Trades.IDS + listOf(null, "plaster")) {
+            assertTrue(cell.matches(Trades.name(probe, id)), "name of $id: ${Trades.name(probe, id)}")
+            assertTrue(cell.matches(Trades.short(probe, id)), "short of $id: ${Trades.short(probe, id)}")
+        }
+        // 13 names; 10 shorts of their own, and Electrical, Tiling and General short already: one key serves both
+        assertEquals(13, Trades.IDS.map { Trades.name(probe, it) }.toSet().size)
+        assertEquals(13, Trades.IDS.map { Trades.short(probe, it) }.toSet().size)
+        assertEquals(listOf("electrical", "tiling", "general"), Trades.IDS.filter { Trades.name(probe, it) == Trades.short(probe, it) })
     }
 
     @Test fun `a trade by its id -- and an id outside the 13 is no trade, read as General`() {

@@ -71,8 +71,9 @@ object Trades {
 
     /**
      * A trade's short name, as a chip, a row label and the Mark sheet's head print it ("Doors & win.", "CCTV & data").
-     * Electrical, Tiling and General are short already, so their one key serves both; AC & ventilation's short is the
-     * abbreviation AC, which the prototype has no key for and shows as written in both languages.
+     * Electrical, Tiling and General are short already, so their one key serves both. AC & ventilation's short is the
+     * abbreviation AC: the prototype draws it with no key, so `trade.hvac.short` is a phone text holding the
+     * prototype's own word, AC in both languages (the L1 review: a shown text is keyed, never a marked literal).
      */
     fun short(tx: Tx, id: String?): String = when (known(id)) {
         CIVIL -> tx.trade_civil_short
@@ -80,7 +81,7 @@ object Trades {
         GRILLS -> tx.trade_grills_short
         ELECTRICAL -> tx.trade_electrical
         LOWVOLT -> tx.trade_lowvolt_short
-        HVAC -> "AC" // text:value the prototype's short for AC & ventilation: an abbreviation with no key, shown as written (latin-ok.txt)
+        HVAC -> tx.trade_hvac_short
         FALSE_CEILING -> tx.trade_false_ceiling_short
         CARPENTRY -> tx.trade_carpentry_short
         PLUMBING -> tx.trade_plumbing_short

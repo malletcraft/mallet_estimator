@@ -18,8 +18,9 @@ import kotlin.test.assertTrue
  * v61c.2 (index61c2.html, P54: PHASES 3931-3941, TOOLS 3947-3961, AS_FIXED 3964, moveOk 3985, noMoveText 3990, spPre
  * 4204-4224, editable / delOk 4232-4237, the refusals 4241-4250), cell by cell over SIX stages, unread, and a project
  * S5 does not list. The first five columns of every table are the prototype's own; the sixth, Client approved, is what
- * the page does there -- and, for the moves, the gate and the step strip, the phone's rule until Amit decides
- * (DESIGN-port62 Q-list 6). Every expected value is written out by hand.
+ * the page does there -- and, for the moves, the gate, the step strip and the delete control of a mark past Existing
+ * (the L1 review), the phone's rule until Amit decides (DESIGN-port62 Q-list 6). Every expected value is written out
+ * by hand.
  */
 class PhaseToolsTest {
 
@@ -304,10 +305,10 @@ class PhaseToolsTest {
         // each row: edit, then delete, at Survey, Wish list, Vendor quoted, Estimated, Revisions, Client approved, unread
         val want = listOf(
             "a surveyed mark: 1000001 1000001",
-            "a wish on a surveyed mark: 1000001 1110111",   // Delete is Drop there: a move, which the phase filters
-            "a mark born a wish: 1100001 1110111",
-            "a mark born Vendor added: 1010111 1110111",
-            "a Dropped surveyed mark: 1000001 1110111",     // Delete is Restore
+            "a wish on a surveyed mark: 1000001 1110101",   // Delete is Drop there: a move, which the phase filters
+            "a mark born a wish: 1100001 1110101",
+            "a mark born Vendor added: 1010111 1110101",    // still editable after approval, but its Delete is a Drop
+            "a Dropped surveyed mark: 1000001 1110101",     // Delete is Restore
             "a Note: 1110111 1110111",
             "a Line: 1110111 1110111",
             "a Tape: 1110111 1110111",
@@ -331,6 +332,43 @@ class PhaseToolsTest {
         assertTrue(PhaseTools.editable(mk("cok", "vadd"), 4)); assertFalse(PhaseTools.editable(mk("cok", "vadd"), 1))
         // a Note carrying a life is still a Note: its delete follows editable, never the Drop rule
         assertEquals(bits { PhaseTools.editable(mark(t = "NOTE"), it) }, bits { PhaseTools.delOk(mk("wish", t = "NOTE"), it) })
+    }
+
+    /**
+     * The L1 review, finding 1. The prototype keeps Delete on a mark past Existing because it is "a life-cycle move, which
+     * the phase already filters (moveOk) -- so it stays, except in Estimation" (index61c2.html 4229-4230). The phone offers
+     * no move at Client approved either (Q-list 6), so there the same reason hides it: the control could only open the
+     * sheet on the approval lock's line (Drop) or be refused with it (Restore).
+     */
+    @Test fun `at Client approved a delete control that shows really deletes -- a mark past Existing has none, as at Estimation`() {
+        val lives = MarkLife.IDS.filter { it != MarkLife.EXIST }
+        assertEquals(7, lives.size)
+        for (life in lives) for (born in listOf("exist", "wish", "vadd")) for (locked in listOf(false, true)) {
+            val e = mk(life, born).also { if (locked) it.extra = it.extra + (SurveyPrep.LOCKED to true) }
+            val what = "$life born $born${if (locked) ", locked" else ""}"
+            // what the control would do there: nothing but refuse
+            assertTrue(MarkLife.allowedMoves(e, PhaseTools.APPROVED).isEmpty(), what)
+            assertEquals(MarkLife.Refusal.APPROVED, MarkLife.move(e, MarkLife.DROP, PhaseTools.APPROVED, now, why = "client changed her mind").refusal, what)
+            assertEquals(MarkLife.Refusal.APPROVED, MarkLife.restore(e, PhaseTools.APPROVED, now).refusal, what)
+            // so it is not drawn -- at Client approved as at Estimation
+            assertFalse(PhaseTools.delOk(e, PhaseTools.APPROVED), what)
+            assertFalse(PhaseTools.delOk(e, PhaseTools.ESTIMATION), what)
+            // where the phase does offer moves, Drop / Restore stays on every one of them, as the prototype has it
+            for (st in listOf(PhaseTools.WISH_LIST, PhaseTools.VENDOR_REVIEW, PhaseTools.REVISIONS, null)) assertTrue(PhaseTools.delOk(e, st), "$what at $st")
+        }
+        // every delete control that does show at Client approved is v52's own delete, never a Drop or a Restore
+        val shown = (MarkLife.IDS.flatMap { life -> listOf("exist", "wish", "vadd").map { mk(life, it) } } + mark(t = "NOTE") + mk("wish", t = "NOTE"))
+            .filter { PhaseTools.delOk(it, PhaseTools.APPROVED) }
+        assertTrue(shown.isNotEmpty())
+        for (e in shown) {
+            assertEquals(MarkLife.DeleteAct.PLAIN, MarkLife.deleteAct(e), e.extra.toString())
+            assertEquals(MarkLife.DeleteWord.DELETE, MarkLife.deleteWord(e), e.extra.toString())
+        }
+        // a Note is still deleted there, and a Line, a Tape and a chain: the prototype's own answer for a stage past Estimation
+        assertTrue(PhaseTools.delOk(mark(t = "NOTE"), PhaseTools.APPROVED)); assertTrue(PhaseTools.delOk(mk("wish", t = "NOTE"), PhaseTools.APPROVED))
+        assertTrue(PhaseTools.delOk(meas("line"), PhaseTools.APPROVED)); assertTrue(PhaseTools.delOk(meas("tape"), PhaseTools.APPROVED)); assertTrue(PhaseTools.delOk(chain(), PhaseTools.APPROVED))
+        // and a surveyed mark has no delete there, as before: nothing born in Survey is the stage's to change
+        assertFalse(PhaseTools.delOk(mk("exist"), PhaseTools.APPROVED))
     }
 
     @Test fun `Clear, Lock all and Start over act on every phase's marks - Survey only, and unread`() {

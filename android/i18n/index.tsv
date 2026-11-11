@@ -1713,6 +1713,7 @@ trade.general	trade_general	static	-
 trade.grills	trade_grills	static	-
 trade.grills.short	trade_grills_short	static	-
 trade.hvac	trade_hvac	static	-
+trade.hvac.short	trade_hvac_short	static	-
 trade.lowvolt	trade_lowvolt	static	-
 trade.lowvolt.short	trade_lowvolt_short	static	-
 trade.painting	trade_painting	static	-

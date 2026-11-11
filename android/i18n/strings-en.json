@@ -14081,6 +14081,16 @@
   "where": "v53build/trades53.js:24 · TRADES",
   "kind": "static"
  },
+ "trade.hvac.short": {
+  "en": "AC",
+  "where": [
+   "S2 APK phone text · Trades.kt:83 at 0619176 · Trades.short, the short name of AC & ventilation on a chip, a row label and the Mark sheet's head (port 62 slice L1 review, 11 Nov 2026): the prototype's own English (index61c2.html 2385, TRADES `short:'AC'`), the one trade short it draws with no key, so it reads AC under मराठी there too; L1 had it as a bare literal marked text:value, which is for wire and stored values, and this is a shown text; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "trade.lowvolt": {
   "en": "CCTV, intercom & data",
   "where": "v53build/trades53.js:23 · TRADES",

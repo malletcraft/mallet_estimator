@@ -263,12 +263,13 @@ allows in each phase.
   - **The stage is one decision.** `PhaseTools.stageOf(cache, phoneOnly)` is the project line's own (`QuoteStage.
     projectLine`): a copy READ as not listed is Survey too, as that line calls it "not on S5 yet"; a test holds
     the two together for every kind of line.
-  - **At Client approved, three things the phone decides until Q-list 6 is answered:** no move (`moveOk`, as
+  - **At Client approved, four things the phone decides until Q-list 6 is answered:** no move (`moveOk`, as
     planned); `MarkLife.move` refuses there with the approval lock's own words, as it refuses at Survey with the
-    gate's (a Restore from the delete control is the one path that reaches it); and `asFor` answers NULL where
-    there is no palette, at Estimated as well — nothing is placed, so the prototype's fall-through to "as Client
-    wish" cannot be reached. Everything else there is the prototype's own code for a stage past Estimation
-    (`editable`, `delOk`, `refuseText`) — see the additions to Q-list 6.
+    gate's; `asFor` answers NULL where there is no palette, at Estimated as well — nothing is placed, so the
+    prototype's fall-through to "as Client wish" cannot be reached; and — since the L1 review, below — a mark
+    past Existing has NO delete control there (`delOk`), so no control reaches that refusal at all. Everything
+    else there is the prototype's own code for a stage past Estimation (`editable`, `refuseText`) — see the
+    additions to Q-list 6.
   - **For the slices that wire it.** L3: the lock is the sheet's rule (`move` does not look at it, as the
     prototype's does not); "decided by staff" is drawn through `album.staff`, lower-cased — the prototype's own
     text layer shows `ठरवणारे: स्टाफ` that way, so no key is missing. L4: **what a Duplicate is born as is
@@ -281,6 +282,28 @@ allows in each phase.
     (Q-list 3); `serviceOf` and `serviceRoomMatch` (L9, they need L5's sub-kinds); the roll-up's words and hint
     (L9); the pill, glyph and badge after a code (L2); the now-line's "since" and "decided by" (L3); the chip's
     "as …" words (L4); the SUBS table (L5 — TradesTest carries the sub-kind ids as its own fixture).
+
+#### The L1 review (11 Nov 2026) — three findings on commit `0619176`, all minor
+
+Each was checked against the committed code and the prototype's own code before anything was changed
+(`proto-tables.mjs` run again on the page; the reviewer's probe was not kept, so its rows were re-derived).
+**Confirmed: all three. Declined: none.** Fixed in one commit on `port62-wish`, local.
+
+| # | Finding | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | At Client approved the delete control still shows on a mark past Existing, though the phone's own no-move rule means it can only refuse | **CONFIRMED.** The page keeps Delete on such a mark because it is "a life-cycle move, which the phase already filters (moveOk) — so it stays, except in Estimation" (`P L4229-4230`, `delOk` `L4235-4237`), and its `delOk` answers `1110111` for a wish on a surveyed mark, a mark born a wish, a mark born Vendor added and a Dropped mark (run). L1's `PhaseTools.delOk` answered the same — while `moveOk` is false for all 17 rows at stage 5, `allowedMoves` is empty and `MarkLife.move` / `restore` answer `Refusal.APPROVED`. So on the phone Drop would open the sheet on the approval lock's line and Restore be refused with it: a control that can only refuse | **Hidden, as at Estimation** — the first of the reviewer's two fixes, and widened. The page's own reason for keeping the control is that the phase offers the move; where the phone offers none, the same reason removes it, and it is this plan's rule for the step chips 1 and 2 there (§3.4: a control that cannot act is a prototype gap, not a design). **The reviewer's formula was not enough:** `(ph != APPROVED && past Existing) \|\| editable` leaves the control on a mark born Vendor added, which `editable` still answers true for there and whose Delete is a Drop all the same (tried: the new test fails on "wish born vadd"). So at Client approved a mark past Existing has no delete control whatever it was born; a Note, a Line, a Tape and a chain keep theirs (a real delete, the page's own answer). `PhaseToolsTest`: the table's sixth cell for the four rows is 0, and a new test walks the seven states past Existing × born × locked — nothing is offered, `move` and `restore` refuse, `delOk` is false at stages 3 and 5 and true at 1, 2, 4 and unread — and requires every delete control that does show at stage 5 to be v52's plain Delete. Both fail on L1's code. Q-list 6(c) stays, reworded: the question is the prototype's |
+| 2 | "AC", a shown trade short name, is marked `// text:value` instead of being keyed | **CONFIRMED.** `Trades.kt:83` was `HVAC -> "AC" // text:value …`; the page's TRADES has `short:'AC'` (`P L2385`); no key held English "AC" (`trade.hvac` is "AC & ventilation", `type.ac` "AC unit"); the page's text layer shows `"AC" -> "AC"` under मराठी (run); `AC` is on `latin-ok.txt`. What the phone would show was right in both languages; the mark is for wire and stored values, and this is a shown text — the only one of the three objects not read from the tables | **Keyed** — the first of the reviewer's two fixes, because the slice rule is that a shown literal is born keyed: `trade.hvac.short`, English `AC` (the prototype's own word, never coined), Marathi `AC` (as the page shows it; decision 6), flag `phone-text`. Tx regenerated with `:pano:i18nGen` (1,896 keys, 1,825 accessors), the ratchet run (nothing to lower), `Trades.short` reads `tx.trade_hvac_short`. `TradesTest` gains a test that asks a table whose every cell is a marker for each trade's name and short name; it fails on the literal |
+| 3 | `i18n/README.md`'s "What is here" row still says 1,794 keys; L1 pointed at the stale row instead of correcting it | **CONFIRMED.** The row read "1,794 keys each"; L1's own section said the tables held 1,895 and that the row was last brought up to date at M3b | The row is brought up to date: 1,896 keys, its composition counted from each commit's own table (1,794 through K3's review, then 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 here), and L1's sentence about the stale row is gone |
+
+`:pano` after the fix, from the XML: 1,083 tests in 80 suites, none failed (1,081 before). `:app` is compiled only
+by CI; nothing calls `delOk` or `Trades.short` there yet.
+
+**Seen while confirming finding 1, of the same kind, NOT changed here** (not a reported finding; recorded for the
+slice that wires it): at Client approved a mark born Vendor added that has reached **Scope** is still `editable`
+— the page's own answer — so its padlock shows, and unlocking it is refused with "… is in Scope — take it Out
+of scope in its sheet" (`MarkLife.unlockRefusal`), a move the phone's sheet does not offer there. The padlock is
+`editable`'s, shared with move, resize, nudge and duplicate, and `setLocked` is wired in L2: L2 decides whether
+that padlock is hidden there too, and until then it is on Q-list 6(c).
 
 ### 3.2 L2 · the state on the face, and the rules that protect a wish (M)
 - **Prototype:** `outline` `P L2872`, `ring` `L2887` (a spot), `paintState` `L2898-2911` (after the code: the act
@@ -334,7 +357,8 @@ allows in each phase.
   question.
 - **Files:** new `pano/MarkSheet.kt` (the sheet's state and `apply`, pure) and `app/MarkSheet.kt` (a bottom sheet,
   keyboard-aware, no scroll in either orientation); `app/SurveyPrepScreen.kt`: the selected mark's code opens it,
-  Delete on a mark past Existing opens it on Dropped; `SurveyPrepDialog` (`:181`) is given the project's stage
+  Delete on a mark past Existing opens it on Dropped (wherever `PhaseTools.delOk` draws it: not at Estimated
+  and, since the L1 review, not at Client approved); `SurveyPrepDialog` (`:181`) is given the project's stage
   at its two call sites (`MainActivity.kt:519`, `:3838`) by the rule at the head of §3 — Survey's gate for a
   project not on S5, null only for a listed project whose stage is unread. **Prep:** it writes `life`, `lifeAt`,
   `lifeAs`, `act`, `why`, `note`, `vis` (and `cat` on a Line, an area or an Other).
@@ -515,8 +539,11 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
    (`refuseText`, `L4245`), which nobody can do after approval; the phone says it as written until he rules.
    (c) `editable` and `delOk` fall through to Vendor review's (`L4232-4237`): a mark born Vendor added can still
    be locked, unlocked and duplicated (item 8); a Line, a Tape, a chain and a Note edited or deleted; and Delete
-   shows on a mark past Existing, where on the phone it opens the sheet on the approval lock's words (Drop) or
-   is refused with them (Restore). (d) For L10's size-line rule: the CSS leaves the room-size pencil showing
+   shows on a mark past Existing, where on the prototype it works (Drop, Restore). **The phone does not draw
+   that Delete** (the L1 review, §3.1): with no move offered it could only open the sheet on the approval
+   lock's words or be refused with them, so it is hidden as at Estimated — to confirm or redraw on the
+   prototype. One more of this kind is still open on the phone: the padlock of a Scope mark born Vendor added
+   shows there and can only say "take it Out of scope in its sheet", which the sheet does not offer (L2). (d) For L10's size-line rule: the CSS leaves the room-size pencil showing
    there (`L1278` hides it at phases 1–4 only), but `openLWH` returns at once wherever readings are hidden
    (`L6977`), Client approved included — so the pencil is one more control that shows and cannot act, not an
    editable size line.

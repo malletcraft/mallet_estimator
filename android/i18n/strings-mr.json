@@ -5576,6 +5576,10 @@
  "trade.hvac": {
   "mr": "AC व व्हेंटिलेशन"
  },
+ "trade.hvac.short": {
+  "mr": "AC",
+  "note": "L1 review: kept as written -- the abbreviation staff say, on latin-ok.txt (\"Trade and material abbreviations as staff say them\"), as trade.hvac's own AC व व्हेंटिलेशन keeps it and as the prototype shows it under मराठी; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "trade.lowvolt": {
   "mr": "CCTV, इंटरकॉम व डेटा"
  },

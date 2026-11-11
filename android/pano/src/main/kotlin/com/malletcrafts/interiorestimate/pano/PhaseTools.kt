@@ -21,8 +21,10 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * (DESIGN-port62 Q-list 6): no life-cycle move is offered ([moveOk]; the prototype falls through to Vendor review's
  * moves, which would record a change after approval outside the change requests), the gate's line there is the
  * approval lock's own words ([gate]), and the step strip shows 3 · List without the two steps the prototype draws
- * but cannot enter ([steps]). Everything else there is as the prototype's own code answers for a stage past
- * Estimation ([editable], [delOk], [refuseText]).
+ * but cannot enter ([steps]). One more follows from the first: a mark past Existing has no delete control there
+ * ([delOk]) -- its Delete is a Drop or a Restore, a move, and a control that could only refuse is hidden, as at
+ * Estimation. Everything else there is as the prototype's own code answers for a stage past Estimation
+ * ([editable], [refuseText]).
  *
  * THE STAGE SURVEY PREP IS GIVEN is [stageOf]: 0-5 for a project S5 lists; 0, Survey's rules, for one S5 does not list
  * ("The tools keep following the project's own phase, Survey for a project made on the phone", index61c2.html
@@ -270,12 +272,20 @@ object PhaseTools {
     /**
      * Whether the mark's delete control shows at [stage] (delOk): as [editable] -- except that on a mark past
      * Existing Delete is v53's Drop / Restore, a life-cycle move the phase already filters ([moveOk]), so it stays
-     * everywhere but Estimation.
+     * everywhere but Estimation, which offers no move ("so it stays, except in Estimation", index61c2.html
+     * 4229-4230). ON THE PHONE CLIENT APPROVED OFFERS NO MOVE EITHER (Q-list 6), so there the prototype's own reason
+     * hides it as well: a Drop would open the Mark sheet on the approval lock's line and a Restore be refused with
+     * it, and a control that can only refuse is HIDDEN, never shown. This holds for a mark born Vendor added too,
+     * which [editable] still lets be moved, resized and locked there: past Existing its Delete is a Drop, not a
+     * delete. (The prototype shows the control at Client approved because its moveOk falls through to Vendor
+     * review's moves there; the L1 review, DESIGN-port62 section 3.1.)
      */
-    fun delOk(e: SurveyPrep.Mark, stage: Int?): Boolean = when (phaseOf(stage)) {
-        null, SURVEY -> true
-        ESTIMATION -> false
-        else -> (!MarkLife.isNote(e) && MarkLife.pastExisting(e)) || editable(e, stage)
+    fun delOk(e: SurveyPrep.Mark, stage: Int?): Boolean {
+        val ph = phaseOf(stage)
+        if (ph == null || ph == SURVEY) return true
+        if (ph == ESTIMATION) return false
+        if (!MarkLife.isNote(e) && MarkLife.pastExisting(e)) return ph != APPROVED   // Drop / Restore: a move, never a delete
+        return editable(e, stage)
     }
 
     fun delOk(m: SurveyPrep.Meas, stage: Int?): Boolean = editable(m, stage)

@@ -10,7 +10,9 @@
 // The modules are found by their own opening lines, not by line number: L57 (the text layer), T53 (trades, types), L53
 // (the life cycle and the Mark sheet) and P54 (the phase flow and its tool gating).
 // WHAT THE PHONE DOES DIFFERENTLY, ON PURPOSE (DESIGN-port62.md §3, Q-list 6): at Client approved (stage 5) the prototype
-// names no rule and falls through to Vendor review's moves; PhaseTools offers none there. Every other row must agree.
+// names no rule and falls through to Vendor review's moves; PhaseTools offers none there -- and so, since the L1 review
+// (§3.1), PhaseTools.delOk is 0 at stage 5 for a mark past Existing, where the page prints 1 (its Delete is a Drop or a
+// Restore, which the page still offers there). Every other row must agree.
 import fs from 'node:fs';
 
 const page = process.argv[2];
