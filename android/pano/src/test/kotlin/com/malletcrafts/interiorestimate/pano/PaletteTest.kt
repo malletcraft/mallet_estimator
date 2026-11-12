@@ -430,10 +430,10 @@ class PaletteTest {
             assertEquals(1, count6(src, "val kinds = if (typeChip == null || typeChip.kindFrom < 0) null else SurveyPrepPalette.kindList(tx, tab, tool, kindNow)"))
             assertEquals(1, count6(src, "kindFrom = typeChip?.kindFrom ?: -1, kindTo = typeChip?.kindTo ?: -1, kindLabel = typeChip?.kindLabel,"))
             // the button opens and shuts the list; a pick is remembered and shuts it; a press on the photo shuts it
-            assertEquals(1, count6(src, "onKind = { kindFor = if (kindFor == kindKey) null else kindKey }"))
-            assertEquals(1, count6(src, "if (kinds != null && kindFor == kindKey) {"))
-            assertEquals(1, count6(src, "SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindFor = null }"))
-            assertTrue(Regex("""val first = awaitFirstDown\(\)\n\s+first\.consume\(\)\n\s+kindFor = null\n""").containsMatchIn(src), "any press on the photo shuts the list of kinds")
+            assertEquals(1, count6(src, "onKind = { kindOpen.value = !kindOpen.value }"))
+            assertEquals(1, count6(src, "if (kinds != null && kindOpen.value) {"))
+            assertEquals(1, count6(src, "SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindOpen.value = false }"))
+            assertTrue(Regex("""val first = awaitFirstDown\(\)\n\s+first\.consume\(\)\n\s+kindOpenS\.value = false\n""").containsMatchIn(src), "any press on the photo shuts the list of kinds")
         }
         // More ▸ is drawn from the rows and columns, and the screen hands it the orientation; 700 dp at the right in landscape
         assertTrue(tools.contains("val columns = SurveyPrepPalette.moreColumns(SurveyPrepPalette.moreRows(tx, s), land)"))
@@ -446,5 +446,48 @@ class PaletteTest {
         val draw = app6("SurveyPrepDraw.kt")
         assertEquals(1, count6(draw, "fun newSpotSym(c: Canvas, x: Float, y: Float, k: Float, t: String, fill: Paint, line: Paint): Boolean {"))
         assertEquals(1, count6(draw, "\"PLB\", \"LV\" -> {\n                p.style = Paint.Style.FILL\n                newSpotSym(c, x, y, k, t, p,")); assertEquals(1, count6(p3, "\"PLB\", \"LV\" -> SurveyPrepDraw.newSpotSym(c, x, y, k, t,"))
+    }
+
+    /**
+     * THE L6 REVIEW (the list of kinds came back open by itself). The first version kept the face and tool the list was
+     * opened FOR (`kindFor`, a key "front|CRP") in a state that outlived both, and drew the list while it matched: ✕ on
+     * the chip, then the same type again -- or another face and back -- matched again, and the list was open unasked. The
+     * page shuts it on every tool change (setTool: st.subpick=false, index61c2.html 6641) and on a click outside the
+     * list and its button (6811). The state is the screen's and :app is compiled only in CI, so this reads the wiring:
+     * the open state is a NEW one for each face, step and tool; nothing keeps a key that can match again; and inside
+     * the photo's box fit and grid shut it as the photo does. DRIVEN on the page (DESIGN-port62, "The L6 review"):
+     * More ▸ and the chip's cycling "as …" button keep their click to themselves (6618, 3091) and leave the list OPEN
+     * -- so neither shuts it here, and More ▸ open is no key of the state.
+     */
+    @Test fun `L6 review - the chip's list of kinds dies with the face, step and tool it was opened on - fit and grid shut it, More and the cycling as-button do not`() {
+        val screen = app6("SurveyPrepScreen.kt"); val p3 = app6("SurveyPrep360.kt")
+        // a new state for each: 2 · Mark's by its face, step and tool; the 360's by its tab and tool
+        assertEquals(1, count6(screen, "val kindOpen = remember(tab, mode, tool) { mutableStateOf(false) }"))
+        assertEquals(1, count6(p3, "val kindOpen = remember(tab, tool) { mutableStateOf(false) }"))
+        for (src in listOf(screen, p3)) {
+            // nothing is left that remembers WHAT the list was opened for, to match again later
+            assertFalse(src.contains("kindFor"), "the key that outlived its tool is gone"); assertFalse(src.contains("kindKey"))
+            assertEquals(1, Regex("""\bkindOpen\b\s*(=|by)\s*remember""").findAll(src).count(), "one open state, and it is the keyed one")
+            // the gesture outlives recompositions (its pointerInput is not keyed on the tool): it shuts the CURRENT state
+            assertEquals(1, count6(src, "val kindOpenS by rememberUpdatedState(kindOpen)"))
+            assertEquals(1, count6(src, "kindOpenS.value = false"), "the photo's press, through the State")
+            // every write there is: a pick, fit and grid shut it; the kind button alone opens it
+            assertEquals(3, count6(src, "kindOpen.value = false"))
+            assertEquals(1, count6(src, "kindOpen.value = !kindOpen.value"))
+            assertEquals(4, Regex("""\bkindOpen\.value\s*=[^=]""").findAll(src).count(), "no other write")
+            // the cycling "as …" button goes straight to the screen: on the page it leaves the list open
+            assertEquals(1, count6(src, "onAs = onAs,"))
+        }
+        assertEquals(1, count6(screen, "kindOpen.value = false; view = view.fit(); tick++ }")); assertEquals(1, count6(screen, ".clickable(role = Role.Button) { kindOpen.value = false; onGrid() }"))
+        assertEquals(1, count6(p3, "kindOpen.value = false; act.look(Pano360.faceView(tab, 1.0, 1.0)) }")); assertEquals(1, count6(p3, ".clickable(role = Role.Button) { kindOpen.value = false; act.grid() }"))
+        // More ▸ only opens and shuts its sheet: it touches neither the tool nor the list
+        assertEquals(1, count6(screen, "SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })"))
+        // what DOES end it from outside the photo: a face or a step pressed -- the open one too -- goes back to Select, and
+        // a palette slot or a More tile changes the tool or lets it go (SurveyPrepPalette.next); each is a new state
+        assertTrue(screen.contains("tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "showTab: back to Select")
+        assertTrue(screen.contains("modeSet = m; sel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "setMode: back to Select")
+        assertTrue(screen.contains("ref = refT, land = land) { showTab(t) }"), "a tab pressed is showTab, the open tab too")
+        assertEquals(SurveyPrepPalette.SEL, SurveyPrepPalette.next("CRP", "CRP"), "the same type picked again lets the tool go")
+        assertEquals("CRP", SurveyPrepPalette.next("W", "CRP"))
     }
 }

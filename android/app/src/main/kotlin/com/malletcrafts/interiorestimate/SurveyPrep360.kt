@@ -236,9 +236,13 @@ internal fun Sp360(
     var tick by remember { mutableIntStateOf(0) }
     // THE FLOATING TRASH as last drawn (centre x, y and radius, box px), or null: written by the draw, read by a press
     val trashAt = remember { arrayOfNulls<FloatArray>(1) }
-    // THE CHIP'S LIST OF KINDS (port 62 slice L6): the tab and tool it was opened for, or null -- so a tool or a face
-    // changed shuts it without a word (sp.js setTool: st.subpick=false), and any press on the 360 shuts it too
-    var kindFor by remember { mutableStateOf<String?>(null) }
+    // THE CHIP'S LIST OF KINDS IS OPEN (port 62 slice L6; sp.js st.subpick), as 2 · Mark's: it DIES with the tab and the
+    // tool it was opened on -- a NEW state for each (the L6 review; setTool: st.subpick=false), so the same tab and tool
+    // come back to it SHUT. Inside the 360's box a press on the 360, on the chip's plain words (the 360's), on fit or on
+    // grid shuts it (6811) -- the 360's press through a State, because the gesture below is never restarted and would go
+    // on shutting the state it started with. More ▸ and the chip's cycling "as …" button do not, as on the page.
+    val kindOpen = remember(tab, tool) { mutableStateOf(false) }
+    val kindOpenS by rememberUpdatedState(kindOpen)
 
     fun frames(): Map<String, SurveyPrep.Frame> = roomS.let { r -> Pano360.frames(prepS, r[0], r[1], r[2]) }
     fun ab(s: String): DoubleArray = roomS.let { r -> SurveyPrep.sizeOf(s, prepS, r[0], r[1], r[2]) }
@@ -310,7 +314,7 @@ internal fun Sp360(
                 val first = awaitFirstDown()
                 first.consume()
                 // a press anywhere on the 360 shuts the chip's list of kinds, and goes on to do its own work (sp.js 6811)
-                kindFor = null
+                kindOpenS.value = false
                 // A PRESS JUST UNDER THE STEP STRIP IS THE STEP'S (v52 slice 6), as on the photo
                 val routed = actS.stepAt(first.position.x + boxAt.x, first.position.y + boxAt.y)
                 if (routed != null) {
@@ -695,7 +699,6 @@ internal fun Sp360(
         val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(tx, chainN)
                        else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tx, tool, drag, area?.size ?: 0)
                        else typeChip?.text
-        val kindKey = tab + "|" + tool // text:value a key for this screen's own state, never shown
         val kinds = if (typeChip == null || typeChip.kindFrom < 0) null else SurveyPrepPalette.kindList(tx, tab, tool, kindNow)
         if (chipText != null) {
             Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp)) {
@@ -705,13 +708,13 @@ internal fun Sp360(
                         onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null,
                         asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken, onAs = onAs,
                         kindFrom = typeChip?.kindFrom ?: -1, kindTo = typeChip?.kindTo ?: -1, kindLabel = typeChip?.kindLabel,
-                        onKind = { kindFor = if (kindFor == kindKey) null else kindKey }) {
+                        onKind = { kindOpen.value = !kindOpen.value }) {
                         act.tool(SurveyPrepPalette.SEL) }
                 }
                 // THE LIST OF KINDS, 4 dp under the chip, inside the 360 (t53subList): a pick is remembered and shuts it
-                if (kinds != null && kindFor == kindKey) {
+                if (kinds != null && kindOpen.value) {
                     SpKindList(kinds, Modifier.padding(top = 4.dp, end = 8.dp).widthIn(max = 280.dp).fillMaxWidth()) { id ->
-                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindFor = null }
+                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindOpen.value = false }
                 }
             }
         }
@@ -720,12 +723,13 @@ internal fun Sp360(
             Column(horizontalAlignment = Alignment.End) {
                 Text(tx.sp_fit, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
-                        act.look(Pano360.faceView(tab, 1.0, 1.0)) }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        // (a press outside the chip's list of kinds: it shuts that list, sp.js 6811)
+                        kindOpen.value = false; act.look(Pano360.faceView(tab, 1.0, 1.0)) }.padding(horizontal = 8.dp, vertical = 5.dp))
                 Text(tx.sp_grid, color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
                         .semantics { contentDescription = tx.sp_aria_plane_grid; selected = grid }
-                        .clickable(role = Role.Button) { act.grid() }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        .clickable(role = Role.Button) { kindOpen.value = false; act.grid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 Text(Pano360.zoomText(look.fov), color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000))
                         .padding(horizontal = 6.dp, vertical = 3.dp))

@@ -1117,6 +1117,15 @@ and NOTHING HAS BEEN SEEN ON A PHONE.
        says so there, as since L3; the page has no state for it on the sheet (it removes only a NEW Note).
     9. *A swipe down on the sheet is a cancel* (material3's sheet): an empty new Note goes with it, as with ✕, the
        scrim and ◁.
+    10. *Outside the photo, fewer presses shut the chip's list of kinds* (the L6 review, below; driven on the page).
+       On the page any click in survey prep outside the list and its button shuts it (`P L6811`) -- except one that
+       keeps its click to itself: a palette slot, More ▸ included (`L6618`), the cycling "as …" button (`L3091`) and
+       the top bar's ⋮ (`L6807`), which all leave it open. On the phone, inside the photo's box it is the same: the
+       photo, the chip's plain words (the photo's), fit and grid shut it; More ▸ and the cycling "as …" do not.
+       Outside the box only what changes the face, the step or the tool shuts it -- a tab or a step pressed (the open
+       one too: both go back to Select, as on the page), a palette slot, a More tile, ✕ on the chip. So the More
+       sheet's own ✕, undo and any other control outside the photo that changes none of the three leave the list
+       open where the page shuts it. A list he opened stays until he acts; it never opens by itself.
   - **Drawn on the screen only.** The pin and its tag are painted from the marks the screen holds. A saved "survey
     marks" picture and the exported A4 sheet are handed the room as surveyed (`SheetMarks`, L2), which holds no Note
     and no mark born a wish, so an office-only note's words cannot reach either: `SheetMarksTest` pins it with a Note
@@ -1130,6 +1139,41 @@ and NOTHING HAS BEEN SEEN ON A PHONE.
     given a vendor and a client the room as surveyed since 11 Nov (slice RD) -- no Note, no mark born a wish, no
     `sub` -- so nothing L6 writes reaches them; whether /projects NAMES the ten types and their kinds for staff when
     B3 ships is T5's, and B3 (L5 + L6 to `main`) should not go ahead of it.
+
+#### The L6 review (12 Nov 2026) — one finding on commit `7c945f0`, minor: confirmed in part, declined in part
+
+The finding was checked in both codes and then DRIVEN on the page, because the page's code read alone misleads here:
+survey prep's click listener shuts the list on any click outside the list and its button (`P L6811`), but two of the
+controls the finding names never reach that line. `l6/kind-list-drive.mjs` (new, committed: the scratchpad is a
+workbench) opens survey prep on a served copy of the built page through the page's own tour and presses the page's own
+controls, fifteen rows, each from "Carpentry unit armed, its list of kinds OPEN"; its output is what the verdicts
+below quote. **Confirmed: that the list comes back open by itself, and that fit and grid should shut it. Declined:
+that More ▸ and the cycling "as …" words should -- on the page both leave it open.**
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1a | The chip's list of kinds comes back open by itself: it is shut only by a press on the photo, a pick, or its own button, while the page shuts it on every tool change (minor) | **CONFIRMED, by both codes and by the drive.** L6 held the face and tool the list was opened FOR (`kindFor`, the key `tab\|tool`) in a state that outlived both and drew the list while the key matched; nothing cleared it but the three presses. So Front wall, More ▸ Carpentry unit, the kind button (open), ✕ on the chip, More ▸ Carpentry unit again: the key matches and the list is drawn at once, unasked. The same after another face and back, or another palette slot and back. Driven on the page: row B (✕, then the same type: `list shut`), row H (Left, Front, the type again: `list shut`), row I (Window, the type again: `list shut`) -- `setTool` sets `st.subpick=false` (`P L6641`). **One detail of the report is not as written:** "Front → Left → Front with the unit still armed" cannot happen on either -- a tab pressed goes back to Select on the page (`L5902`) and on the phone (`showTab`), so the unit has to be picked again; the list then reopened by itself all the same | **The open state DIES with what it was opened on** -- the reviewer's fix, with one correction to it. `SurveyPrepScreen.kt` (`SpPhoto`): `val kindOpen = remember(tab, mode, tool) { mutableStateOf(false) }`; `SurveyPrep360.kt` (`Sp360`): `remember(tab, tool)`. A new state for each face, step and tool, so the same face and tool come back to it shut; `kindFor` and `kindKey` are gone. **The correction:** the reviewer's `kindOpen = false` inside the press handler would have written to the state the gesture STARTED with -- `SpPhoto`'s `pointerInput` is keyed on the tab, the step and the squaring, not the tool, and `Sp360`'s on the picture alone, so after a tool change the photo's press would have shut a dead state and left the list open. The gesture shuts it through `val kindOpenS by rememberUpdatedState(kindOpen)`, as it reads everything else that changes under it |
+| 1b | "A tap on More ▸ opens the More sheet with the list still drawn above it, and a tap on the cycling 'as …' words leaves it open; the page shuts it in both cases" (part of the same finding) | **DECLINED -- the page leaves it open in both cases. Driven.** Row C: with the list open, More ▸ → `list OPEN \| More OPEN`; More ▸ again → `list OPEN \| More shut`. Row O (the cycling button, which the page draws only while the stage is unread: `P54.asFixed` stubbed to "not fixed" at the Wish list, and said so on the row): "as …" → `list OPEN`, the chip now `as Vendor added ▾`; again → `list OPEN`, `as Existing ▾`. Why line 6811 does not see them: a palette slot's own listener begins `ev.stopPropagation()` (`P L6618`), and the "as …" button is taken in CAPTURE by the Mark-life listener, which stops the click before it does its work (`L3089-3093`). The first version of this fix did shut the list for both (a `more` key on the state, and `onAs` wrapped) and was undone when the drive came back | Nothing: the phone already leaves it open in both. `PaletteTest` now pins that `onAs` goes straight to the screen and that More ▸ touches neither the tool nor the list |
+| 1c | "The prototype shuts it on ANY press elsewhere" (the finding's title; the reviewer leaves what is routed to the fixer, and asks for what remains to be said) | **CONFIRMED for every click that reaches line 6811, and that is not every click** (1b). Driven: fit (row E), grid (F), the chip's plain words (L), the fixed "as Client wish" words (N), the More sheet's own ✕ (D), undo (M -- the button enabled by hand, with nothing to undo) each → `list shut`; the open face's own tab (G) and the open step (J) → Select, so `list shut`; the top bar's ⋮ (K) → `list OPEN`, twice (`L6807` returns before 6811) | **Inside the photo's box the phone now does as the page does**: fit and grid shut the list (`kindOpen.value = false` first in each button's click, in both screens) -- they sit beside the chip, in the composable that owns the state; the photo's press and the chip's plain or fixed words (the photo's press) already did. **Outside the box only what changes the face, the step or the tool shuts it**, by the keys: a tab or a step (the open one too), a palette slot, a More tile, ✕ on the chip. **Not routed, and said:** the More sheet's own ✕, undo and any other control outside the photo that changes none of the three -- §3.6 "Where the phone differs", item 10, and Q-list 15. Routing those means lifting the state out of the two composables, or watching every press at the screen's root while telling the list's own presses apart by where they land; neither can be seen working here (`:app` is compiled only by CI), and what is left is a list that stays open until he acts -- never one that opens by itself |
+
+- **The test, and what it can be.** The open state is the screen's (Compose's `remember`), `:pano` has no Compose, and
+  `:app` is compiled only by CI -- so no test here can press the chip. `PaletteTest` 19 → 20: a test that reads the two
+  screens' sources, as L6's own wiring test does: the state keyed exactly so; no `kindFor` / `kindKey` left; one keyed
+  state and no other; the gesture's write through `kindOpenS`; every write to the state counted (a pick, fit, grid; the
+  kind button alone opens it); `onAs = onAs,`; More ▸'s `onMore` unchanged; `showTab` / `setMode` back to Select and a
+  tab's press being `showTab`; and `SurveyPrepPalette.next` (the same type again lets the tool go). L6's wiring test
+  follows the renamed lines. Red on L6 as built. **Seven one-line mutations of the fix**, each run against
+  `PaletteTest`: the state unkeyed (2 · Mark), keyed on the tab alone (360), the gesture writing the state it started
+  with, the "as …" button shutting the list, fit not shutting it, grid not shutting it (360), More ▸ going back to
+  Select -- all seven red.
+- **The compiler stand-in, again.** The whole of `:app` type-checked with kotlinc 2.0.21 against the real `:pano`
+  classes and the L6 workbench's stubs (given `remember`'s keyed overloads, which they lacked), before the fix and
+  after: no error added, none on a changed line. A workbench, in no repository; CI is the compiler.
+- **`:pano` after the fix, from the XML:** 1,239 tests in 86 suites, none failed, none skipped (1,238 before). No key
+  added or removed, Tx not regenerated; `i18nRatchet` lowered nothing and no file left the list (the removed
+  `kindKey` line was a `// text:value` line of `SurveyPrepScreen.kt` and of `SurveyPrep360.kt`); `unkeyed.tsv`
+  untouched. Two `:app` files changed (`SurveyPrepScreen.kt`, `SurveyPrep360.kt`); **`:app` is compiled only by CI,
+  and NOTHING HAS BEEN SEEN ON A PHONE.**
 
 ### 3.7 L7 · a wish on the 360 and in 3 · List (M)
 - **Prototype:** `outlinePoly` `P L2880` and the same pill on the 360; in List the state dot before the code
@@ -1313,14 +1357,15 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
     own comment says "the half-width is added for wall points only", its code leaves it out for a Bulb alone. No
     build has written such a reading, so nothing stored differs; it is listed so one rule is chosen for the page,
     S5 and the phone. The two new points (Plumbing, Low-voltage) follow the page's code since that review.
-15. **A kind and a Note on the phone: nine things it does that the page does otherwise or does not draw, and one
-    word** (decided building L6, 12 Nov, where the plan was silent; §3.6 "L6 AS BUILT", items 1-9; run on the page's
-    own code where they can be). An empty new Note's code is not handed out again (FNOTE2 next, the page says FNOTE1);
+15. **A kind and a Note on the phone: ten things it does that the page does otherwise or does not draw, and one
+    word** (decided building L6, 12 Nov, where the plan was silent; §3.6 "L6 AS BUILT", items 1-10, the tenth from
+    its review; run on the page's own code where they can be). An empty new Note's code is not handed out again (FNOTE2 next, the page says FNOTE1);
     the kind button's underline is solid, on the chip's own line; KIND's chips are not cut at two rows; a Plumbing
     point's list reads "प्लंबिंग पॉइंट · प्रकार" under मराठी where the page's text layer shows "· kind"; the Note's
     tag never halves an emoji; on 4 · 360 the chip names the open tab's kind while a tap places the landed surface's
     (it goes with item 2 of this list); a screen reader gets one press on the chip; "A Note needs its words" is said on the snackbar under
-    the sheet; a swipe down cancels the sheet. And the sheet's KIND label is keyed on the phone -- `life.kind`,
+    the sheet; a swipe down cancels the sheet; outside the photo only a change of face, step or tool shuts the chip's
+    list of kinds, where the page shuts it on almost any click (its More sheet's ✕, undo). And the sheet's KIND label is keyed on the phone -- `life.kind`,
     "प्रकार" -- where the page shows KIND in both languages: is "प्रकार" the word he wants there? None blocks B3.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2

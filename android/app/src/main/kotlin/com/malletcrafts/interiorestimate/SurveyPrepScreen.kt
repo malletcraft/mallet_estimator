@@ -2367,9 +2367,16 @@ private fun SpPhoto(
     var fitAt by remember { mutableStateOf<Rect?>(null) }
     // ... and off the tool chip (v52 slice 7, ct52 FX14): read only while a chip is shown
     var chipAt by remember { mutableStateOf<Rect?>(null) }
-    // THE CHIP'S LIST OF KINDS (port 62 slice L6; sp.js st.subpick): the face and tool it was opened for, or null -- so
-    // a tool or a face changed shuts it without a word (setTool: st.subpick=false), and any press on the photo shuts it
-    var kindFor by remember { mutableStateOf<String?>(null) }
+    // THE CHIP'S LIST OF KINDS IS OPEN (port 62 slice L6; sp.js st.subpick). It DIES with the face, the step and the tool
+    // it was opened on: a NEW state for each (the L6 review -- setTool: st.subpick=false, index61c2.html 6641), so the
+    // same face and tool come back to it SHUT. The first version kept the face and tool it was opened for and compared
+    // them, and going away and back found the list open again, unasked. Inside the photo's box a press on the photo, on
+    // the chip's plain words (the photo's), on fit or on grid shuts it, as on the page (6811). The photo's press does it
+    // through a State, because the gesture outlives recompositions and would otherwise go on shutting the state it
+    // started with. More ▸ and the chip's cycling "as …" button do NOT shut it -- nor do they on the page, where each
+    // keeps its click to itself (6618, 3091): driven, the list stays open over the More sheet and while "as" cycles.
+    val kindOpen = remember(tab, mode, tool) { mutableStateOf(false) }
+    val kindOpenS by rememberUpdatedState(kindOpen)
     // With Tape or Line on (v52 slice 9) the chip says what the tool does, live while a drag is pulled, and the
     // caution under it; with a type on, "Placing Door · tap the photo"
     val measTool = SurveyPrepPalette.isMeasTool(tool)
@@ -2397,7 +2404,6 @@ private fun SpPhoto(
     // Wardrobe ▾ · tap the photo" (port 62 slice L6; the tool's remembered kind, SurveyPrepPalette.subFor)
     val kindNow = SurveyPrepPalette.subFor(spKinds, tool, tab)
     val typeChip = if (mode != "mark" || chainTool || measTool) null else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked, sub = kindNow)
-    val kindKey = tab + "|" + tool // text:value a key for this screen's own state, never shown
     val kinds = if (typeChip == null || typeChip.kindFrom < 0) null else SurveyPrepPalette.kindList(tx, tab, tool, kindNow)
     val chipText = if (mode != "mark") null
                    else if (chainTool) SurveyChain.chipText(tx, chainN)
@@ -2664,7 +2670,7 @@ private fun SpPhoto(
                 val first = awaitFirstDown()
                 first.consume()
                 // a press anywhere on the photo shuts the chip's list of kinds, and goes on to do its own work (sp.js 6811)
-                kindFor = null
+                kindOpenS.value = false
                 // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there.
                 // Only with Select on (sp.js fTrashSurf): with a type on, the disc is not there, so a placing tap
                 // beside the mark just placed can never land on it and delete that mark
@@ -3122,13 +3128,13 @@ private fun SpPhoto(
                         asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken,
                         onAs = onAs,
                         kindFrom = typeChip?.kindFrom ?: -1, kindTo = typeChip?.kindTo ?: -1, kindLabel = typeChip?.kindLabel,
-                        onKind = { kindFor = if (kindFor == kindKey) null else kindKey }) { onTool(SurveyPrepPalette.SEL) }
+                        onKind = { kindOpen.value = !kindOpen.value }) { onTool(SurveyPrepPalette.SEL) }
                 }
                 // THE LIST OF KINDS (port 62 slice L6; the prototype's t53subList): 4 dp under the chip, inside the photo,
                 // 280 dp wide at most. A pick is remembered by the tool -- the next tap places that kind -- and shuts it.
-                if (kinds != null && kindFor == kindKey) {
+                if (kinds != null && kindOpen.value) {
                     SpKindList(kinds, Modifier.padding(top = 4.dp, end = 8.dp).widthIn(max = 280.dp).fillMaxWidth()) { id ->
-                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindFor = null }
+                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindOpen.value = false }
                 }
             }
         }
@@ -3137,14 +3143,15 @@ private fun SpPhoto(
                 Text(tx.sp_fit, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).clickable {
                         // sp.js V.fit: zoom 1 on the fit rect, and fitted again -- it follows the lines from here
-                        view = view.fit(); tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        // (and, a press outside the chip's list of kinds, it shuts that list: sp.js 6811)
+                        kindOpen.value = false; view = view.fit(); tick++ }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // THE GRID BUTTON (v52 slice 10) joins the fit column, so it costs no height: the plane grid on the face
                 // with it on (#22d3ee), and still by itself while a Tape or a Line is drawn
                 Text(tx.sp_grid, color = if (grid) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
                         .semantics { contentDescription = tx.sp_aria_plane_grid; selected = grid }
-                        .clickable(role = Role.Button) { onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
+                        .clickable(role = Role.Button) { kindOpen.value = false; onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
                 view.label()?.let { zl -> Text(zl, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp)) }
