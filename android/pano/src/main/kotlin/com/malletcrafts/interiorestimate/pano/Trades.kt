@@ -10,9 +10,9 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  *
  * Pure data and pure functions, ported whole and pinned row by row in TradesTest. NOTHING ON SCREEN READS THIS YET:
  * the Mark sheet's trade dot and its TRADE picker are slice L3's, More ▸ by trade L6's, the wish list's counts L9's.
- * The tables name all 22 types of the prototype -- v52's twelve letters, which the phone has, and the ten
- * abbreviations NOTE GRL AC CDP PLB CTR CRP LV SAN DEF, which [SurveyPrep.TYPES] gains in L5 -- because a prep the
- * prototype wrote already carries them and every one has a trade.
+ * The tables name all 22 types of the prototype -- v52's twelve letters and the ten abbreviations NOTE GRL AC CDP PLB
+ * CTR CRP LV SAN DEF, which [SurveyPrep.TYPES] has had since slice L5 ([MarkTypes]: the ten, their sub-kinds, boxes
+ * and measures) -- and every one has a trade.
  *
  * A trade's ID is the stored value (a Note's, an Other's, a Line's or an area's `cat`) and never changes; its two
  * names are shown through [name] and [short]. Not ported, by the plan's listed subset (DESIGN-port62 §7, Q-list 3):
@@ -102,7 +102,7 @@ object Trades {
     /** The key a Note, an Other, a Line or an area keeps its trade under; never written for General. */
     const val KEY_CAT = "cat"
 
-    /** The key a mark keeps its sub-kind under (slice L5's; here only what [tradeOf] reads of it); never written for the first. */
+    /** The key a mark keeps its sub-kind under; never written for the type's first ([MarkTypes.subToStore], slice L5). */
     const val KEY_SUB = "sub"
 
     /** The Defect sub-kind whose trade is Tiling ("Broken / hollow tile"); every other Defect is Painting's. */
@@ -213,8 +213,9 @@ object Trades {
     )
 
     /**
-     * The types each kind of surface carries: v52's first, in [SurveyPrep.TYPES]' own order (TradesTest holds the two
-     * equal), then v53's ten where they may go -- 21 on a wall, 11 on the floor, 13 on the ceiling.
+     * The types each kind of surface carries (the prototype's ON): v52's first, then v53's ten where they may go -- 21
+     * on a wall, 11 on the floor, 13 on the ceiling. Token for token [SurveyPrep.TYPES]' own rows since slice L5;
+     * TradesTest holds the two equal.
      */
     val ON: Map<String, List<String>> = linkedMapOf(
         "wall" to listOf("W", "D", "C", "B", "O", "N", "L", "E", "P", "S", "F", "X", "NOTE", "GRL", "AC", "PLB", "CTR", "CRP", "LV", "SAN", "DEF"),

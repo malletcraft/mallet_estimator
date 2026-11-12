@@ -42,12 +42,12 @@ class I18nTableTest {
         for (e in m.entries) {
             if (e.kind == GenTx.Kind.SKIPPED || e.kind == GenTx.Kind.REFUSED) continue
             val v = e.mr
-            if (v.isEmpty() && e.key != GenTx.EMPTY_OK) off += "${e.key}: empty"
+            if (v.isEmpty() && e.key !in GenTx.EMPTY_OK) off += "${e.key}: empty"
             if ('⟦' in v) off += "${e.key}: ⟦ in the Marathi"
             if (v.any { it in '०'..'९' }) off += "${e.key}: a Devanagari digit (digits stay Latin)"
             if (markup.containsMatchIn(v)) off += "${e.key}: markup in the Marathi"
         }
-        I18n.check("2 · Marathi", off, "every key the phone can call needs Marathi: non-empty (sp.the excepted), no ⟦, Latin digits, no markup")
+        I18n.check("2 · Marathi", off, "every key the phone can call needs Marathi: non-empty (the English articles sp.the, t53.a and t53.an excepted), no ⟦, Latin digits, no markup")
     }
 
     @Test fun `3 Marathi placeholders are a subset of the English`() {

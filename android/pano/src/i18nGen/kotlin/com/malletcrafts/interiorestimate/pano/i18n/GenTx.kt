@@ -40,8 +40,13 @@ object GenTx {
     /** Strings per generated filler method: 400 short literals stay far below the 64 KB method limit. */
     const val CHUNK = 400
 
-    /** The one legitimately empty Marathi value: the English article `the ` (design §3.3, check 2). */
-    const val EMPTY_OK = "sp.the"
+    /**
+     * The legitimately empty Marathi values: the English ARTICLES, which Marathi does not have -- `the ` (design §3.3,
+     * check 2), and the `A` / `An` before a new mark type's name in a placement refusal (port 62 slice L5: `t53.a`,
+     * `t53.an`, the `{a}` of refuse.t53.x_x_cannot_go and refuse.t53.x_x_goes_ceiling, whose own Marathi notes say
+     * "{a} is the English article — supply ''"). Nothing else may be empty.
+     */
+    val EMPTY_OK: Set<String> = setOf("sp.the", "t53.a", "t53.an")
 
     /** Tx's own members. Every accessor holds an `_`, so none can be one of these; the test pins it. */
     val MEMBERS = setOf("lang", "mr", "of", "EN", "MR", "tab")
@@ -270,7 +275,7 @@ object GenTx {
                 entries += Entry(k, enV, mrV, flags, Kind.NOUN_OTHER, accessorOf(k.removeSuffix(".other")), why = "the plural form of ${k.removeSuffix(".other")}", where = wh)
                 continue
             }
-            if (mrV.isEmpty() && k != EMPTY_OK) errors += "$k: no Marathi"
+            if (mrV.isEmpty() && k !in EMPTY_OK) errors += "$k: no Marathi"
             val acc = accessorOf(k)
             if (k.startsWith("noun.")) {
                 val other = "$k.other"

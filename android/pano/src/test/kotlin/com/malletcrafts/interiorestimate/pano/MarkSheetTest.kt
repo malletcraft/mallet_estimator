@@ -546,8 +546,9 @@ class MarkSheetTest {
 
     @Test fun `a Note a file holds needs its words -- Done with none says so and stays open`() {
         val r = Run(prepOf(markJson("NOTE", "FNOTE1", """"note":"old""""))).open()
-        // TRADE and NOTE, no STATE. (The head reads the type's token until slice L5 gives the phone the Note type; the page says "Note".)
-        assertEquals("FNOTE1 · NOTE | trade #adb5bd General | TRADE #adb5bd General ▾ | NOTE 3/280 [old] ph[What should the office or the vendor know here?] Client & vendors(on) / Office only | Done on", r.shown())
+        // TRADE and NOTE, no STATE. The head names the type, as the page's does: slice L5 gave the phone the Note type
+        // (until then the head read its token, NOTE).
+        assertEquals("FNOTE1 · Note | trade #adb5bd General | TRADE #adb5bd General ▾ | NOTE 3/280 [old] ph[What should the office or the vendor know here?] Client & vendors(on) / Office only | Done on", r.shown())
         r.note("  ")
         assertEquals("NEEDS_WORDS · undo 0 · {note=old}", r.done()); assertNotNull(r.st, "the sheet stays open"); assertEquals("  ", r.st!!.note)
         r.note("new words"); r.trade(); r.cat("civil")

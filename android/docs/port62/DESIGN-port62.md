@@ -913,6 +913,72 @@ for the unread chip.
   `SurveyPrepPalette.forSurface(s).all`, which is every row of `SurveyPrep.TYPES`, in a five-column grid with a
   fallback icon — so L5 on `main` by itself would publish a Play build with ten new tiles (21 on a wall) in
   v52's More grid. L5 stays on `batch-next` until L6 is green; B3 is the two together.
+- **L5 AS BUILT (12 Nov 2026; branch `port62-wish`, local, one commit, not pushed).** New `pano/MarkTypes.kt`: `NEW`
+  (the ten: token, name, colour, kinds, short name, trade, rectangle / point / pin, ink), `typesOn`, `SHORT`, `SUBS`
+  (77 rows, 57 labels; id, label, the column its box reads, a Low-voltage point's service, a Defect's trade),
+  `subsOf` / `subInfo` / `firstSub` / `subToStore` / `subOf` / `withSub` / `setSub`, `typeName` / `displayName`,
+  `parseCode` / `codeToken`, `defaults` (defaults53), `measures` (measures53) and `placeRefusal`. Wired:
+  `SurveyPrep.TYPES` appends `typesOn` (21 / 11 / 13), `isPoint` grows by PLB and LV, `defaults` and `measures0` ask
+  `MarkTypes` first (index61c2.html 4972 and 4977), `defaults` / `placeAt` / `addMark` / `addMarkAt` and `PhaseTools.place` take an
+  optional sub-kind, stored only when it is not the type's first; `Pano360.placeRefusal` asks `MarkTypes.placeRefusal`
+  first (index61c2.html 4326); `SurveyPrepPalette.SHORT` gains the ten (index61c2.html 6608); `Masters` gains the ten names
+  and short names and a new map, `type_sub`. **No file of `:app` is touched**: every signature it calls is as it
+  was (the new parameters have defaults; `place`'s sits before its trailing lambda), and it is compiled only by CI.
+  NOTHING HAS BEEN SEEN ON A PHONE, and nothing is built to be seen: More ▸ by trade, the kind picker, KIND in the
+  Mark sheet, the icons and the Note pin are L6's.
+  Tests: new `MarkTypesTest` (15) and its golden, `SurveyPrepFileTest` +2, `KeyGrammarTest` +1, `TradesTest` +1;
+  `PaletteTest`, `SurveyPrepTest`, `SurveyPrepMarathiTest`, `MarkSheetTest` (its head reads "Note" now, as the page's
+  does) and `MastersTest` updated for the wider table. `:pano`, from the XML: 1,212 tests in 85 suites, none failed,
+  none skipped (1,193 in 84 before). Three keys added, 1,910 in all; Tx regenerated (`:pano:i18nGen`), `i18nRatchet`
+  lowered nothing, `unkeyed.tsv` empty; `android/i18n/README.md` ("Port 62 slice L5") lists every key now read.
+  - **Pinned against the page's own code, row by row.** `proto-tables.mjs` gains an "L5" section that prints, from
+    T53 itself, NEW, the types of each kind of surface, every sub-kind with its label, what each stores and shows
+    (with none, and with one nobody knows), `defaults53` for all 22 types and every sub-kind on seventeen faces (the
+    tests' room, a wide wall, faces smaller than a default box, a narrow one, a large one), `measures53` for a mark of
+    every type in each corner and the middle of the room's faces, `placeRefusal`, `parseCode` and `nextCode`: 992
+    rows, committed as `pano/src/test/resources/marktypes/proto-type-rows.txt`. `MarkTypesTest` prints the same rows
+    from the phone's models and compares them LINE FOR LINE. The hand-typed tables beside it (the ten, the sub-kinds
+    with their Marathi as the page's text layer shows them, a new mark's box and stored `sub`, codes and readings,
+    the checklists, the refusals) are written from that output and the page's code.
+    29 one-line mutations -- 21 of `MarkTypes`' tables and rules (a sub-kind's height, a point's centre, the nearer-side
+    test, a measure's word, the first-is-not-stored rule, a type's kinds, the article, the grammar's letter run ...),
+    8 of the wiring in `SurveyPrep`, `Pano360`, `PhaseTools` and `SurveyPrepPalette` -- were each run against the ten
+    suites that read them: every one turned a suite red, none by a compile error.
+  - **Three keys added, each the prototype's own English, none coined.** `type.sub.wc` -- "WC", the floor's first
+    Sanitary ware sub-kind, the one label of the 57 the page draws with no key (Marathi `WC`, as the page shows it;
+    on `latin-ok.txt`). `t53.a` / `t53.an` -- the article the page picks in code for a refusal
+    (`/^[AEIOU]/.test(n.name)?'An':'A'`, `P L2590`) and glues in as `{a}`; Marathi EMPTY, because the two templates'
+    own notes say "{a} is the English article — supply ''". So `GenTx.EMPTY_OK`, which named the one empty Marathi
+    value (`sp.the`, the article "the "), is now the set of the three English articles, and check 2's message says
+    so. Decided here, where the plan was silent: the alternative was a literal "A" / "An" in the code picked by the
+    language flag, and a shown text is keyed (the L1 review, finding 2), while `Tx.mr` is for layout alone.
+  - **Under मराठी a refusal is the T53 keys', not what the page shows.** The page's text layer finds a sentence by
+    its English, so "A Grill cannot go on the ceiling" is matched by v54's `refuse.v360` row ("छत: इथे ग्रिल लावता येत
+    नाही") and the others keep their English article ("An AC युनिट जमिनीवर लावता येत नाही", "A छताचा ड्रॉप फक्त छतावरच लावता
+    येईल" -- run, in the script's last lines). The phone renders `refuse.t53.x_x_cannot_go` and
+    `refuse.t53.x_x_goes_ceiling` themselves with no article: "ग्रिल छतावर लावता येत नाही", "AC युनिट जमिनीवर लावता येत
+    नाही", "छताचा ड्रॉप फक्त छतावरच लावता येईल". Q-list 13.
+  - **The code grammar.** `Prep.highest` / `nextCode` / `claimCode` already read only the marks whose type IS the
+    token, so they needed no change: FP1 and FPLB1, FL1 and FLV1, FS1 and FSAN1, FC1 / FCRP1 / FCTR1, FN1 and
+    FNOTE1, FD1 and FDEF1 are pinned never to share a number or a reading. `parseCode` / `codeToken` are ported
+    (nothing reads them yet). T53's `nextCode` is NOT ported as a second function: nothing on the page calls it, and
+    the phone's own never hands a deleted mark's number out again (v52 slice 8); the golden's NEXT row is printed
+    with nothing deleted, where the two agree. A code's number past 2^31 reads as no code (the page's is a float).
+  - **An older box of a new point.** `SurveyPrepFile.open` runs `normPoints` over `isPoint`, so a Plumbing point or
+    a Low-voltage point stored larger than 50 mm is made a spot at its centre and its edge readings go to the
+    centre keys, exactly as E's do (sp.js `normPoints` over `ISPOINT`). On a plan the phone moves l r f k to the
+    centre keys UNCHANGED for every point but E -- its own rule since v52 slice 4 for P and F -- where the page adds
+    half the box for every plan point but P; no build has written such a reading for the two new points.
+  - **For L6, which wires it.** The tool's remembered sub-kind (`subFor` / `setSub`'s memory, `P L2471-2473`) is not
+    ported: `PhaseTools.place` takes the sub-kind and L6 holds the memory. `setSub` changes the stored kind and
+    leaves the box, as the Mark sheet's KIND does. `SurveyPrepEdit.duplicate` copies the box alone, so the copy of a
+    Kitchen base is a unit with a kitchen base's box and NO `sub` -- it reads "Wardrobe" (the page's `duplicateItem`
+    does the same; put with Q-list 8). A sub-kind this build does not know reads as the first and is kept in the
+    file until a kind is picked. `MarkTypes.New.ink` (Sanitary ware) is carried for L8. And the saved "survey marks"
+    pictures keep `sub` (`SheetMarks.KEPT`, L2) while S5 has held it back from a vendor and a client since the RD
+    review (§3.11): two rules for one key, to settle with Q-list 7.
+  - **Not ported, and why.** `serviceOf` / `serviceRoomMatch` (L9); `MarkFilter`, `paletteMain` by trade,
+    `catForNew` and `counts` (the Trade chip, Q-list 3); the ten icons, the spot symbols and `renderMore` (L6).
 
 ### 3.6 L6 · More ▸ by trade, the kind picker, the Note pin (M) — after T5 is on stage
 - **Prototype:** More ▸ as one row per trade, General first (`moreRows` `P L2602`, `renderMore` `L2688-2694`); the
@@ -1098,6 +1164,13 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
     Client wish" keeps the cycling button's 32 px line although it is plain words, so the chip is 55-72 px tall;
     (d) at Client approved the 360 still draws its palette row, every tool of which bounces back to Select -- one
     more control that shows and cannot act (item 6).
+13. **What a new type's refusal says under मराठी** (run on the page's text layer building L5, 12 Nov; §3.5 "L5 AS
+    BUILT"). The page shows three shapes for one kind of sentence: v54's `refuse.v360` wording where the English
+    happens to begin "A … cannot go on the ceiling / floor" ("छत: इथे ग्रिल लावता येत नाही"), and for the rest the T53
+    row with its English article left standing ("An AC युनिट जमिनीवर लावता येत नाही", "A छताचा ड्रॉप फक्त छतावरच लावता
+    येईल"). The phone renders the T53 rows themselves, with no article, as their notes ask. To settle on the
+    prototype: one wording for a refusal -- and whether "A Sanitary ware cannot go on the ceiling" is the English he
+    wants (it is the page's own, and the phone's). Not reachable on the phone before L6 gives the ten a tile.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,

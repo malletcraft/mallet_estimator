@@ -50,10 +50,12 @@ object SurveyPrepPalette {
     fun chipColour(s: String, tool: String) = if (tool in TOOLS) toolColour(tool) else SurveyPrep.typeOf(s, tool).colour
 
     /** A type's short name, by its name (sp.js SHORT): the identity its slot and its More tile show through
-     *  [Masters.type_short] (port 61c slice M3a). */
+     *  [Masters.type_short] (port 61c slice M3a). The ten new types' follow (port 62 slice L5; index61c2.html 6608,
+     *  `Object.assign(SHORT, T53.SHORT53)`): Note, Grill, AC, Drop, Plumbing, Track, Unit, LV point, Sanitary, Defect. */
     val SHORT = mapOf("Window" to "Window", "Door" to "Door", "Column" to "Column", "Beam" to "Beam", // text:value identity, shown through Masters.type_short
         "Opening" to "Opening", "Niche" to "Niche", "Loft" to "Loft", "Electric point" to "Electric", // text:value identity, shown through Masters.type_short
-        "Bulb point" to "Bulb", "Other" to "Other", "Step" to "Step", "Switch plate" to "Switch", "Fan" to "Fan") // text:value identity, shown through Masters.type_short
+        "Bulb point" to "Bulb", "Other" to "Other", "Step" to "Step", "Switch plate" to "Switch", "Fan" to "Fan") + // text:value identity, shown through Masters.type_short
+        MarkTypes.SHORT
 
     /** A type's short name as its slot and its More tile print it, in the language. */
     fun short(tx: Tx, name: String) = Masters.type_short(tx, SHORT[name] ?: name)

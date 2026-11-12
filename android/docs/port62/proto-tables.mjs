@@ -38,6 +38,16 @@
 // alone)" below). The phone's menu has that row on a mark only where the box alone is what a tap would place
 // (PhaseTools.copyOk: Survey, and unread with the chip on "as Existing"), because the unstamped copy of a wish would leave the
 // office as a surveyed mark (Q-list 8). A Line's and a chain's rows agree with the page's.
+// SLICE L5 (12 Nov 2026) adds one section, "L5 …": the ten new mark types and their sub-kinds by the page's own T53 -- NEW, the
+// types of each kind of surface, SUBS with each label, what a mark stores and shows for every sub-kind (and for none, and for
+// one nobody knows), defaults53 for every type and sub-kind on seventeen faces, measures53 for a mark in each corner and the
+// middle of the room's faces, placeRefusal, parseCode and nextCode. The rows between "L5 GOLDEN" and "L5 END" ARE MarkTypesTest's
+// golden (pano/src/test/resources/marktypes/proto-type-rows.txt, 992 rows; the command is at the section). WHERE THE PHONE
+// DIFFERS, ON PURPOSE: under मराठी it renders a refusal from the T53 keys themselves, with no article (the keys' own notes:
+// "{a} is the English article — supply ''"), where the page's text layer finds the sentence by its English and so shows v54's
+// refuse.v360 wording for "A …" and leaves "An" / "A" standing in the others; and its next code never reuses a deleted mark's
+// number (v52 slice 8, the surface's `seq`), where T53.nextCode -- which nothing on the page calls -- counts the marks still there:
+// the NEXT row is printed with nothing deleted, where the two agree.
 import fs from 'node:fs';
 
 const page = process.argv[2];
@@ -329,6 +339,62 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   console.log('L4 under मराठी, the texts the page finds:', JSON.stringify(['as Existing', 'as Client wish', 'as Vendor added', 'Marks are placed as Client wish in this phase', 'Place marks as Existing — tap to change',
     'Placing Electric point · tap the photo', 'every mark you place is a client wish', 'Phase not read yet — S5 decides when online', 'FW1 was marked in Survey — move the phase back to change it',
     'After the estimate — tell the office'].map(x => L57.vis(x))));
+}
+
+// ---- SLICE L5: THE TEN NEW TYPES AND THEIR SUB-KINDS, by the page's own T53 -- NEW (2397-2407), SUBS (2423-2466),
+// displayName (2478), the code grammar (2534-2543), defaults53 (2551-2565), measures53 (2569-2588), placeRefusal (2590).
+// Every row from "L5 GOLDEN" to "L5 END" is one line of MarkTypesTest's golden: that test prints the same rows from
+// pano/MarkTypes.kt and SurveyPrep and compares them line for line.
+//   node proto-tables.mjs <page> | awk '/^L5 GOLDEN/{f=1;next} /^L5 END/{f=0} f' > ../../pano/src/test/resources/marktypes/proto-type-rows.txt
+// A figure is printed to 0.001 mm; a box as x0,x1,y0,y1; `v52` where the page's function answers null (sp.js's own v52
+// rule decides); `site` for a measure with no photo estimate. The faces are the tests' room (2678 x 2677 x 3319), a wide
+// wall, faces smaller than a default box, a narrow one and a large one, so every clamp is reached.
+{
+  try { L57.set('en'); } catch (_) {}
+  const n = v => (v == null ? 'site' : String(Math.round(v * 1000) / 1000));
+  const boxOf = d => (d ? [d.x0, d.x1, d.y0, d.y1].map(n).join(',') : 'v52');
+  const SURF = { wall: 'front', floor: 'floor', ceil: 'ceil' };
+  const FACES = { wall: [[2678, 2677], [3319, 2677], [6000, 3000], [1000, 1000], [400, 2400], [180, 80], [40, 30]], floor: [[2678, 3319], [6000, 4000], [500, 5000], [180, 80], [40, 30]], ceil: [[2678, 3319], [6000, 4000], [500, 5000], [180, 80], [40, 30]] };
+  const subsPlus = (t, k) => [undefined, ...T53.subsOf(t, k).map(x => x.id), 'zzz'];
+  const nm = sub => (sub === undefined ? '(none)' : sub);
+  console.log('\nL5 GOLDEN');
+  for (const x of T53.NEW) console.log('NEW', x.t, '|', x.name, '|', x.col, '|', x.kinds.join(' '), '|', x.short, '|', x.trade || '-', '|', T53.isPin(x.t) ? 'pin' : T53.isPoint53(x.t) ? 'point' : 'rect', '|', x.ink ? 1 : 0);
+  for (const k of T53.KINDS) console.log('TYPES53', k, '|', T53.TYPES53[k].map(r => r.join('=')).join(' ; '));
+  for (const k of T53.KINDS) console.log('ON', k, '|', T53.ON[k].join(' '));
+  console.log('POINT |', ALLT.filter(t => T53.isPoint53(t)).join(' '), '| PIN |', ALLT.filter(t => T53.isPin(t)).join(' '), '| NEW |', ALLT.filter(t => T53.isNew(t)).join(' '));
+  for (const t of ALLT) console.log('CANGO', t, '|', T53.KINDS.map(k => k + '=' + (T53.canGo(t, k) == null ? '-' : T53.canGo(t, k) ? 1 : 0)).join(' '), '| typeName', T53.typeName(t));
+  console.log('typeName of a token nobody knows |', T53.typeName('QQ'));
+  for (const t of ALLT) for (const k of T53.KINDS) {
+    const L = T53.subsOf(t, k);
+    console.log('SUBS', t, k, '|', L.map(x => x.id + '=' + x.label + (x.service ? ' service:' + x.service : '') + (x.trade ? ' trade:' + x.trade : '')).join(' ; ') || '-', '| first', T53.firstSub(t, k) || '-',
+      '| stored', subsPlus(t, k).map(sub => nm(sub) + '>' + (T53.subToStore(t, k, sub) || '-')).join(' '));
+    console.log('NAME', t, k, '|', subsPlus(t, k).map(sub => nm(sub) + '=' + T53.displayName(t, k, sub)).join(' ; '));
+  }
+  for (const k of T53.KINDS) for (const [A, B] of FACES[k]) for (const t of ALLT)
+    console.log('BOX', SURF[k], A + 'x' + B, t, '|', subsPlus(t, k).map(sub => nm(sub) + '=' + boxOf(T53.defaults53(SURF[k], t, sub, A, B))).join(' ; '));
+  // a mark of each new type in each corner and in the middle of the room's faces: every nearer-side key, with its words
+  const ROOM = { wall: [2678, 2677], floor: [2678, 3319], ceil: [2678, 3319] };
+  for (const k of T53.KINDS) { const [A, B] = ROOM[k];
+    for (const t of ALLT) { const pt = T53.isPoint53(t) || T53.isPin(t), w = pt ? 50 : 300, h = pt ? 50 : 200;
+      for (const [x, y] of [[10, 10], [A - w - 10, B - h - 10], [(A - w) / 2, (B - h) / 2], [10, B - h - 10], [A - w - 10, 10], [0, 0]]) {
+        const e = { t, x0: x, x1: x + w, y0: y, y1: y + h }, m = T53.measures53(SURF[k], e, A, B);
+        console.log('MEAS', SURF[k], t, '@' + boxOf(e), '|', m == null ? 'v52' : m.map(r => r[0] + ':' + r[1] + ':' + n(r[2])).join(' ; ') || '(none)'); } } }
+  for (const t of ALLT) console.log('REFUSE', t, '|', T53.KINDS.map(k => k + '=' + (T53.placeRefusal(t, k) || 'ok')).join(' | '));
+  for (const c of ['FW1', 'FP1', 'FPLB1', 'FPLB12.cl', 'CCDP1', 'GNOTE2', 'LLV3', 'LL1', 'RS4.w', 'BCRP10.p', 'F-M1', 'F-M2.per', 'G-T3', 'FK1', 'FK1.t', 'FK12.3', 'FWx7', 'FW01', 'fw1', 'XW1', 'F1', 'FW', 'F-X1', 'FPLB1.c l', 'FPLB1.', '', 'F W1'])
+    { const p = T53.parseCode(c); console.log('CODE', JSON.stringify(c), '|', p ? [p.surface, p.surf, p.token == null ? '-' : p.token, p.kind, p.n, p.measure == null ? '-' : p.measure].join(' ') : 'null', '| token', T53.codeToken(c) || '-'); }
+  // the next code of a token on a surface: counted per TOKEN, so P and PLB (and L and LV) never share a number
+  const ELS = [['P', 'FP1'], ['PLB', 'FPLB1'], ['PLB', 'FPLB7'], ['P', 'FP2'], ['L', 'FL3'], ['LV', 'FLV9'], ['S', 'FS2'], ['SAN', 'FSAN5'], ['C', 'FC4'], ['CRP', 'FCRP6'], ['CTR', 'FCTR1'], ['NOTE', 'FNOTE2'], ['D', 'FD1'], ['DEF', 'FDEF8']].map(([t, code]) => ({ t, code }));
+  console.log('NEXT front |', ALLT.map(t => t + '>' + T53.nextCode('front', t, ELS)).join(' '));
+  console.log('L5 END');
+  try { L57.set('mr'); } catch (_) {}
+  console.log('L5 under मराठी, the texts the page finds (a name it has no row for comes back as it went in):');
+  console.log('   type names:', JSON.stringify(T53.NEW.map(x => L57.vis(x.name))));
+  console.log('   short names:', JSON.stringify(T53.NEW.map(x => L57.vis(x.short))));
+  for (const t of ['S', ...T53.TOKENS]) for (const k of T53.KINDS) if (T53.subsOf(t, k).length) console.log('   sub-kinds', t, k + ':', JSON.stringify(T53.subsOf(t, k).map(x => L57.vis(T53.displayName(t, k, x.id)))));
+  console.log('   measure words:', JSON.stringify(['track length', 'projection from wall', 'underside, from floor', 'depth from wall', 'drop below ceiling', 'drop below slab', 'height', 'width', 'width, left–right', 'depth, front–back',
+    'from left corner, to centre', 'from right wall, to centre', 'from floor, to centre', 'from ceiling, to centre', 'from front wall, to centre', 'from back wall, to centre', 'from floor', 'from ceiling'].map(x => L57.vis(x))));
+  console.log('   refusals (the text layer finds a sentence by its English, so "A … cannot go on the ceiling" is matched by v54\'s refuse.v360 row and the article of the others is left as it was -- the phone renders the T53 keys themselves, with no article under मराठी):');
+  for (const s of ['A Grill cannot go on the ceiling', 'An AC unit cannot go on the floor', 'A Ceiling drop goes on the ceiling only', 'A Sanitary ware cannot go on the ceiling']) console.log('     ', JSON.stringify(s), '->', JSON.stringify(L57.vis(s)));
 }
 
 // ---- L57: what the page shows under मराठी for each line of the file given (a text it does not know comes back as it went in)

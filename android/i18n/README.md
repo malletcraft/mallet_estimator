@@ -738,11 +738,64 @@ maps; `Masters.kt` came out unchanged, as on both sides, and `index.tsv` as the 
 `unkeyed.tsv` stays empty; the accessors nothing calls stay 652. Where a section above says "1,900 keys" or "1,902
 keys", read it as that slice's own branch on 11 Nov.
 
+## Port 62 slice L5 (12 Nov 2026): the ten new mark types and their sub-kinds, pure -- three keys added
+
+`pano/MarkTypes.kt` (new) joins `ported.txt`: the prototype's T53 tables for the ten new types -- NOTE GRL AC CDP PLB CTR CRP
+LV SAN DEF -- their sub-kinds, default boxes, measures and where each may go (DESIGN-port62 §3.5). Pure models; **no screen
+is built for them** (More ▸ by trade, the kind picker and the Note pin are slice L6's, and L5 reaches `main` only with L6).
+What the tables are read for, all of it already on the prototype's card:
+
+- **A type's name** (`Masters.type`, ten rows added to `masters.tsv`): `type.note`, `type.grl`, `type.ac`, `type.cdp`,
+  `type.plb`, `type.ctr`, `type.crp`, `type.lv`, `type.san`, `type.def`. **Its short name on a slot and a More tile**
+  (`Masters.type_short`, ten rows): `type.cdp.short`, `type.ctr.short`, `type.crp.short`, `type.lv.short`,
+  `type.san.short`; Note, Grill and Defect are short already (their one key serves both); AC and Plumbing are a trade's
+  short name too, so each is that one key (`trade.hvac.short`, `trade.plumbing.short`).
+- **A sub-kind's label** (`Masters.type_sub`, a NEW map, 57 rows; the stored value is the sub-kind's id, never the label):
+  the 55 `type.sub.*` keys, `type.ctr` (Curtain track is the type's name and its first sub-kind) and `type.sub.wc`, below.
+  A Plumbing point keeps its type's name first: `t53.plumbing_point_x` ("Plumbing point · Cold").
+- **A new type's measures** (`MarkTypes.measures`, each a `Msg`): `measure.width`, `measure.height`,
+  `measure.width_left_right`, `measure.depth_front_back`, the four corner / wall offsets and `measure.front_wall`,
+  `measure.back_wall`, `measure.from_floor`, `measure.from_ceiling` (with `measure.to_centre` after a point's two, joined as
+  `SurveyPrep.measures0` joins it), and the ones v52 had no use for: `measure.track_length`, `measure.depth_wall`,
+  `measure.drop_below_slab`; `measure.projection_wall`, `measure.underside_floor` and `measure.drop_below_ceiling` are read for
+  the new types too.
+- **Where a new type may not go** (`MarkTypes.placeRefusal`, asked first by `Pano360.placeRefusal`):
+  `refuse.t53.x_x_cannot_go` with `t53.the_ceiling` / `t53.the_floor` / `t53.a_wall`, and `refuse.t53.x_x_goes_ceiling`.
+
+**Three keys added**, each a phone text holding the prototype's own English (flag `phone-text`; Marathi by Claude, decision 6
+of 28 Oct 2026; Amit tests it on the phone):
+
+- `type.sub.wc` -- `WC` / `WC`. The floor's first Sanitary ware sub-kind (T53 `SUBS.SAN.floor`, `{id:'wc',label:'WC'}`), the one
+  label of the 57 the prototype draws with no key, so it reads WC under मराठी there too. Kept as written: the abbreviation
+  staff say, as `type.sub.wall_hung_wc`'s own "वॉल-हँग WC" keeps it; `latin-ok.txt`'s WC row names the new key, and
+  `MastersTest` lists `WC` (and `AC`, the AC unit's short name) among the values shown as written.
+- `t53.a` -- `A` / empty, and `t53.an` -- `An` / empty. The article before a type's name in the two refusals: the prototype
+  picks it in code (`/^[AEIOU]/.test(n.name)?'An':'A'`) and glues it in as `{a}`, so it had no key. Marathi has no article,
+  and the two templates' own notes say so ("{a} is the English article — supply ''"), so both are EMPTY in `strings-mr.json`
+  -- which until now only `sp.the` (the article "the ") was allowed to be. **`GenTx.EMPTY_OK` is therefore the SET of the
+  three English articles** (`sp.the`, `t53.a`, `t53.an`), and check 2 names them; nothing else may be empty. The phone's
+  Marathi sentence starts at the name: "AC युनिट जमिनीवर लावता येत नाही". (The prototype's own text layer, which finds a
+  sentence by its English, shows v54's `refuse.v360` wording for "A …" and leaves "An" standing: DESIGN-port62 Q-list 13.)
+
+**Stored in English, never through a key**: a type's token (a mark's `t`), a sub-kind's id (`sub`, written only when it is
+not the type's first), a reading's key (`FPLB1.cl`) and the code grammar. `MastersTest`'s wire check names `MarkTypes`'
+readers and writers of them, none of which takes a `Tx`.
+
+1,910 keys (1,907 + 3); Tx regenerated with `:pano:i18nGen` (1,839 accessors, the same 14 refused, 20 master maps -- `type_sub`
+is the new one); `i18nRatchet` lowered nothing (`MarkTypes.kt` enters `literal-counts.tsv` at 0); `unkeyed.tsv` stays empty;
+the accessors nothing calls BY NAME go 652 -> 643: ten gain a reader (`measure.track_length`, `measure.depth_wall`,
+`measure.drop_below_slab`, `t53.plumbing_point_x`, the two `refuse.t53.*`, `t53.the_ceiling`, `t53.the_floor`, `t53.a_wall`,
+`type.s.floor`), `t53.a` and `t53.an` are born read, and `type.sub.wc` is read through `Masters.type_sub` alone. That
+report scans the hand-written sources for an accessor's name, so a key read only through a `Masters` map still shows on
+its list: the 56 `type.sub.*` labels, nine of the ten names (`type.note` is also the wish list's Note label) and the five
+`type.*.short`. `MarkTypesTest` holds every name, short name, label, measure and refusal to cells of the tables, and
+the Marathi of each name and label to what the prototype's page shows.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,907 keys each (counted 11 Nov 2026, each step from that commit's own table; joined by the build 2 merge, above): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 115 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`) and 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`). 286 of the 1,907 carry the flag `phone-text` (the card's 171 and these 115). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,910 keys each (counted 12 Nov 2026, each step from that commit's own table; 1,907 at the build 2 merge, above, and 3 in slice L5): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 118 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) and 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`). 289 of the 1,910 carry the flag `phone-text` (the card's 171 and these 118). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

@@ -231,8 +231,14 @@ object Pano360 {
      * picked on tab [from]; a press landing on [to] may place it only when [to] has a type of that NAME under the same
      * letter -- the wall's S is a Switch plate and the floor's S a Step, so neither crosses. Null: it may; else the
      * refusal, said as a note and nothing placed.
+     *
+     * ONE OF THE TEN NEW TYPES IS ASKED ITS OWN TABLE FIRST (port 62 slice L5; index61c2.html 4326, placeCheck:
+     * `T53.placeRefusal(t, kindTo)`, then the meaning): a Grill goes on a wall only, a Ceiling drop on the ceiling
+     * only, and it says so in T53's words -- "An AC unit cannot go on the floor", "A Ceiling drop goes on the ceiling
+     * only" ([MarkTypes.placeRefusal]). A v52 letter keeps the rule above and its words.
      */
     fun placeRefusal(tx: Tx, from: String, to: String, t: String): String? {
+        MarkTypes.placeRefusal(tx, t, to)?.let { return it }
         val name = SurveyPrep.typeOf(from, t).name
         val ok = canPlace(name, to) && SurveyPrep.types(to).any { it.letter == t && it.name == name }
         return if (ok) null else cannotGo(tx, name, to)

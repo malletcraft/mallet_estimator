@@ -17,21 +17,37 @@ class PaletteTest {
     private fun f(kind: String) = SurveyPrepPalette.paletteFor(kind).let { p ->
         p.main.joinToString("") { it.letter } + "/" + p.more.joinToString("") { it.letter } }
 
+    private fun g(kind: String) = SurveyPrepPalette.paletteFor(kind).let { p ->
+        p.main.joinToString(" ") { it.letter } + " / " + p.more.joinToString(" ") { it.letter } }
+
     @Test fun `palette types per kind, More in TYPES order`() {
-        // ct52 T: walls W D E (More: C B O N L P S F X), floor C S E (More: O P X), ceiling B E P (More: C F O X)
-        assertEquals("WDE/CBONLPSFX", f("wall"))
-        assertEquals("CSE/OPX", f("floor"))
-        assertEquals("BEP/CFOX", f("ceil"))
-        assertEquals("WDE/CBONLPSFX", SurveyPrepPalette.forSurface("left").let { p ->
-            p.main.joinToString("") { it.letter } + "/" + p.more.joinToString("") { it.letter } })
+        // ct52 T: walls W D E (More: C B O N L P S F X), floor C S E (More: O P X), ceiling B E P (More: C F O X) -- and
+        // after them v53's ten where each may go (port 62 slice L5; index61c2.html 4926: TYPES53 pushed after v52's rows). The
+        // three slots stay v52's: with no Trade chip on the phone the palette is paletteMain('all') (index61c2.html 2597)
+        assertEquals("W D E / C B O N L P S F X NOTE GRL AC PLB CTR CRP LV SAN DEF", g("wall"))
+        assertEquals("C S E / O P X NOTE PLB CRP SAN DEF", g("floor"))
+        assertEquals("B E P / C F O X NOTE AC CDP CTR LV DEF", g("ceil"))
+        assertEquals(g("wall"), SurveyPrepPalette.forSurface("left").let { p ->
+            p.main.joinToString(" ") { it.letter } + " / " + p.more.joinToString(" ") { it.letter } })
+        // v52's part, as ct52 T wrote it, is the head of each list
+        assertTrue(f("wall").startsWith("WDE/CBONLPSFX")); assertTrue(f("floor").startsWith("CSE/OPX")); assertTrue(f("ceil").startsWith("BEP/CFOX"))
+        assertEquals(listOf(21, 11, 13), listOf("wall", "floor", "ceil").map { SurveyPrepPalette.paletteFor(it).all.size })
     }
 
     @Test fun `the More sheet lists every type with its short name`() {
-        // ct52 T: the sheet reads Window|Door|Column|Beam|Opening|Niche|Loft|Electric|Bulb|Switch|Fan|Other
-        assertEquals("Window|Door|Column|Beam|Opening|Niche|Loft|Electric|Bulb|Switch|Fan|Other",
+        // ct52 T: the sheet reads Window|Door|Column|Beam|Opening|Niche|Loft|Electric|Bulb|Switch|Fan|Other -- then the
+        // ten's short names (T53 SHORT53, index61c2.html 2397-2407 and 2412), each fitting a slot
+        assertEquals("Window|Door|Column|Beam|Opening|Niche|Loft|Electric|Bulb|Switch|Fan|Other|Note|Grill|AC|Plumbing|Track|Unit|LV point|Sanitary|Defect",
             SurveyPrepPalette.paletteFor("wall").all.joinToString("|") { SurveyPrepPalette.short(Tx.EN, it.name) })
-        assertEquals("Column|Step|Opening|Electric|Bulb|Other",
+        assertEquals("Column|Step|Opening|Electric|Bulb|Other|Note|Plumbing|Unit|Sanitary|Defect",
             SurveyPrepPalette.paletteFor("floor").all.joinToString("|") { SurveyPrepPalette.short(Tx.EN, it.name) })
+        assertEquals("Beam|Column|Electric|Bulb|Fan|Opening|Other|Note|AC|Drop|Track|LV point|Defect",
+            SurveyPrepPalette.paletteFor("ceil").all.joinToString("|") { SurveyPrepPalette.short(Tx.EN, it.name) })
+        // a More type names itself on the More slot and on the tool chip by the same tables
+        assertEquals("Unit\u202f▾", SurveyPrepPalette.moreLabel(Tx.EN, "wall", "CRP"))
+        assertEquals("Drop\u202f▾", SurveyPrepPalette.moreLabel(Tx.EN, "ceil", "CDP"))
+        assertEquals("Placing Carpentry unit · tap the photo", SurveyPrepPalette.chipText(Tx.EN, "front", "CRP"))
+        assertEquals("Placing Note · tap the photo", SurveyPrepPalette.chipText(Tx.EN, "floor", "NOTE"))
         assertEquals("Every mark type · Front wall", SurveyPrepPalette.sheetTitle(Tx.EN, "front"))
         assertEquals("Every mark type · Ceiling", SurveyPrepPalette.sheetTitle(Tx.EN, "ceil"))
     }

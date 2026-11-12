@@ -1538,7 +1538,9 @@ svc.electrical	svc_electrical	static	-
 svc.guest-bath	svc_guest_bath	static	-
 svc.intercom	svc_intercom	static	-
 svc.master-bath	svc_master_bath	static	-
+t53.a	t53_a	static	-
 t53.a_wall	t53_a_wall	static	-
+t53.an	t53_an	static	-
 t53.aria.show_marks_x	t53_aria_show_marks_x	template	v: String
 t53.in_this_room	t53_in_this_room	static	-
 t53.no_x_marks_face	t53_no_x_marks_face	template	short: String
@@ -1813,6 +1815,7 @@ type.sub.wardrobe	type_sub_wardrobe	static	-
 type.sub.wash_basin	type_sub_wash_basin	static	-
 type.sub.washing_machine	type_sub_washing_machine	static	-
 type.sub.waste_outlet	type_sub_waste_outlet	static	-
+type.sub.wc	type_sub_wc	static	-
 type.sub.wi_fi_access_point	type_sub_wi_fi_access_point	static	-
 type.sub.window_ac	type_sub_window_ac	static	-
 type.sub.window_grill	type_sub_window_grill	static	-

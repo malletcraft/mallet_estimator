@@ -256,12 +256,15 @@ object PhaseTools {
      * A DUPLICATE is not a placement: the prototype's duplicateItem copies the box alone and stamps nothing
      * ([SurveyPrepEdit.duplicate]; DESIGN-port62 Q-list 8) -- and the phone makes that copy of a mark only where a tap
      * here would place the same unstamped mark ([copyOk]).
+     * [sub] (port 62 slice L5; the prototype's T53.newFields): the sub-kind the type tool is on -- the new mark takes
+     * that sub-kind's size and stores it only when it is not the type's first ([SurveyPrep.Prep.addMarkAt]). Nothing
+     * passes one until the kind picker exists (slice L6), so every mark placed today is its type's first sub-kind.
      */
     fun place(p: SurveyPrep.Prep, s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String,
-              stage: Int?, picked: String?, at: Instant, snapshot: () -> Unit): Placed? {
+              stage: Int?, picked: String?, at: Instant, sub: String? = null, snapshot: () -> Unit): Placed? {
         if (!can(Tool.PALETTE, stage)) return null
         snapshot()
-        val e = p.addMarkAt(s, t, x, y, a, b, id)
+        val e = p.addMarkAt(s, t, x, y, a, b, id, sub)
         MarkLife.placeAs(e, asFor(stage, picked), stage, at)
         return Placed(e, phaseOf(stage).let { it != null && it >= ESTIMATION })
     }

@@ -41,11 +41,20 @@ class SurveyPrepMarathiTest {
         assertEquals("स्विच", SurveyPrepPalette.short(Tx.MR, "Switch plate"))
         assertEquals("दरवाजा", SurveyPrepPalette.short(Tx.MR, "Door"))
         assertNotEquals(SurveyPrepPalette.short(Tx.MR, "Electric point"), SurveyPrepPalette.short(Tx.MR, "Bulb point"))
+        // the ten of port 62 slice L5 are in TYPES too. Two abbreviations staff say are kept as written by the tables
+        // themselves (android/i18n/latin-ok.txt: AC, LV) -- "AC युनिट", "LV पॉइंट", and AC alone on a slot; no other Latin
+        fun abbr(s: String) = s.replace(Regex("\\b(AC|LV)\\b"), "")
         for ((kind, ts) in SurveyPrep.TYPES) for (t in ts) {
             val s = if (kind == "wall") "front" else kind
-            noLatin(SurveyPrep.typeName(Tx.MR, s, t.letter), "type ${t.name} on $kind")
-            noLatin(SurveyPrepPalette.short(Tx.MR, t.name), "short ${t.name}")
+            noLatin(abbr(SurveyPrep.typeName(Tx.MR, s, t.letter)), "type ${t.name} on $kind")
+            noLatin(abbr(SurveyPrepPalette.short(Tx.MR, t.name)), "short ${t.name}")
+            // and no type's name is its English under मराठी but the abbreviation AC on its slot
+            if (t.name != "AC unit") assertNotEquals(SurveyPrepPalette.short(Tx.EN, t.name), SurveyPrepPalette.short(Tx.MR, t.name), "short ${t.name}")
+            assertNotEquals(SurveyPrep.typeName(Tx.EN, s, t.letter), SurveyPrep.typeName(Tx.MR, s, t.letter), "type ${t.name}")
         }
+        assertEquals("AC युनिट", SurveyPrep.typeName(Tx.MR, "front", "AC")); assertEquals("AC", SurveyPrepPalette.short(Tx.MR, "AC unit"))
+        assertEquals("LV पॉइंट", SurveyPrepPalette.short(Tx.MR, "Low-voltage point"))
+        assertEquals("प्लंबिंग", SurveyPrepPalette.short(Tx.MR, "Plumbing point")); assertEquals("नोंद", SurveyPrep.typeName(Tx.MR, "ceil", "NOTE"))
     }
 
     @Test fun `a lock group's name, a tab, the strip's face, a step's label and the checklist labels`() {

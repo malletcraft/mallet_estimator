@@ -456,6 +456,8 @@ class SurveyPrepFileTest {
                     // written with every default: placed as Existing, General, no note, an act where none belongs -- and to a wish and back
                     assertNull(MarkLife.placeAs(e, PhaseTools.asFor(PhaseTools.SURVEY), PhaseTools.SURVEY, at))
                     Trades.setCat(e, Trades.GENERAL); MarkLife.setNote(e, "  ", office = true); assertFalse(MarkLife.setAct(e, "shift"))
+                    // ... nor a sub-kind (port 62 slice L5): none, the first, one nobody knows -- a v52 letter has none to store
+                    for (sub in listOf(null, "switch", "zzz")) MarkTypes.setSub(s, e, sub)
                     assertTrue(MarkLife.move(e, "wish", PhaseTools.WISH_LIST, at, act = "shift").ok); assertTrue(MarkLife.move(e, "exist", PhaseTools.WISH_LIST, at).ok)
                 }
                 for (m in d.prep.surface(s).meas) { Trades.setCat(m, null); MarkLife.setNote(m, "", office = false) }
@@ -463,5 +465,113 @@ class SurveyPrepFileTest {
             assertEquals("{exist=1, wish=0, vrev=0, vok=0, vadd=0, cok=0, scope=0, drop=0}", MarkLife.countLife(d.prep).toString())
             assertEquals(before, write(SurveyPrepFile.encode(d.prep, z[0], z[1], z[2])), "byte for byte the file it was")
         }
+    }
+
+    // ------------------------------------------------------------------ port 62 slice L5: the ten new types and their sub-kinds
+
+    private val keys7 = listOf("id", "t", "code", "x0", "x1", "y0", "y1")
+
+    @Test fun `a room marked with every new type and sub-kind by this build saves and reads back whole -- sub only when not the first`() {
+        val l = 5458.5; val w = 3310.0; val h = 2705.0
+        val p = SurveyPrep.fresh(l, w, h)
+        // every new type on every surface it may go on, once per sub-kind (a Note, which has none, once); S's three on each wall
+        val placed = LinkedHashMap<String, Triple<String, String, String?>>()   // code -> surface, token, the sub-kind it was placed as
+        var i = 0
+        for (s in SurveyPrep.SURFACES) {
+            val ab = SurveyPrep.size(s, l, w, h)
+            val types = MarkTypes.TOKENS.filter { MarkTypes.canGo(it, s) == true } + (if (SurveyPrep.isPlan(s)) emptyList() else listOf("S"))
+            for (t in types) for (sub in MarkTypes.subsOf(t, s).map<MarkTypes.Sub, String?> { it.id }.ifEmpty { listOf(null) })
+                p.addMark(s, t, ab[0], ab[1], "n${i++}", sub).let { placed[it.code] = Triple(s, t, sub) }
+        }
+        // 4 walls x (Note 1 + GRL 4 + AC 3 + PLB 6 + CTR 4 + CRP 8 + LV 5 + SAN 6 + DEF 5 + S 3) + floor (1 + 4 + 4 + 3 + 5) + ceiling (1 + 2 + 3 + 4 + 3 + 5)
+        assertEquals(4 * 45 + 17 + 18, placed.size)
+        // the last code of each type on a surface: numbered per TOKEN, the token whole
+        fun last(s: String) = placed.entries.filter { it.value.first == s }.groupBy { it.value.second }.map { (_, rows) -> rows.last().key }
+        assertEquals(listOf("FNOTE1", "FGRL4", "FAC3", "FPLB6", "FCTR4", "FCRP8", "FLV5", "FSAN6", "FDEF5", "FS3"), last("front"))
+        assertEquals(listOf("LNOTE1", "LGRL4", "LAC3", "LPLB6", "LCTR4", "LCRP8", "LLV5", "LSAN6", "LDEF5", "LS3"), last("left"))
+        assertEquals(listOf("GNOTE1", "GPLB4", "GCRP4", "GSAN3", "GDEF5"), last("floor"))
+        assertEquals(listOf("CNOTE1", "CAC2", "CCDP3", "CCTR4", "CLV3", "CDEF5"), last("ceil"))
+        // readings, under the keys the checklists ask for: a point's to its centre
+        p.actual.putAll(mapOf("FPLB1.cl" to 325.0, "FPLB1.cs" to 900.0, "GPLB2.ck" to 410.0, "CLV3.cf" to 77.0, "FCRP2.p" to 600.0, "CCDP3.p" to 150.0, "FCTR1.w" to 1510.0, "FS2.w" to 300.0))
+
+        val tree = SurveyPrepFile.encode(p, l, w, h); val text = write(tree)
+        val o = open(text, Disk()).opened as SurveyPrepFile.Opened.Restored
+        assertTrue(o.decoded.problems.isEmpty()); assertEquals(0, o.decoded.points, "this build's own points are 50 mm spots already"); assertFalse(SurveyPrepFile.saveOnOpen(o))
+        val back = o.decoded.prep
+        val again = SurveyPrepFile.encode(back, l, w, h)
+        assertEquals(norm(tree), norm(again), "what was written is what is read and written again")
+        assertEquals(p.actual, back.actual)
+        var stored = 0
+        for (s in SurveyPrep.SURFACES) {
+            val els = elsOf(again, s); val marks = back.surface(s).marks
+            assertEquals(elsOf(tree, s).map { it.keys.toList() }, els.map { it.keys.toList() }, "$s: every mark's keys, in the order they were written")
+            assertEquals(els.size, marks.size, s)
+            for ((j, e) in marks.withIndex()) {
+                val (s0, t, sub) = placed.getValue(e.code); val first = MarkTypes.firstSub(t, s)
+                assertEquals(s to t, s0 to e.t, e.code); assertEquals(t, MarkTypes.codeToken(e.code), e.code)
+                // the file's row: the seven keys, and `sub` after them ONLY when it is not the type's first there
+                assertEquals(if (sub == null || sub == first) keys7 else keys7 + "sub", els[j].keys.toList(), e.code)
+                assertEquals(if (sub == null || sub == first) null else sub, els[j]["sub"], e.code)
+                if (sub != null && sub != first) stored++
+                // read back: the sub-kind it was placed as, its label, its trade, the box that sub-kind starts with
+                assertEquals(sub, MarkTypes.subOf(s, e)?.id, e.code)
+                val ab = SurveyPrep.size(s, l, w, h)
+                assertEquals(SurveyPrep.defaults(s, t, ab[0], ab[1], sub).toList(), listOf(e.x0, e.x1, e.y0, e.y1), e.code)
+                assertEquals(Trades.tradeOf(t, s, sub), Trades.of(s, e), e.code)
+            }
+        }
+        // 4 walls x (GRL 3 + AC 2 + PLB 5 + CTR 3 + CRP 7 + LV 4 + SAN 5 + DEF 4 + S 2) + floor (3 + 3 + 2 + 4) + ceiling (1 + 2 + 3 + 2 + 4)
+        assertEquals(4 * 35 + 12 + 12, stored)
+        assertEquals("Kitchen base", MarkTypes.displayName(Tx.EN, "front", back.markOf("FCRP2.p")!!.second)); assertEquals("Full false ceiling", MarkTypes.displayName(Tx.EN, "ceil", back.markOf("CCDP3.p")!!.second))
+        assertEquals("DB / MCB board", MarkTypes.displayName(Tx.EN, "front", back.markOf("FS2.w")!!.second)); assertEquals("Plumbing point · Waste outlet", MarkTypes.displayName(Tx.EN, "floor", back.markOf("GPLB2.ck")!!.second))
+        // a kind picked later is one key changed on one mark, and nothing else in the file
+        val e = back.markOf("FCRP2.p")!!.second
+        MarkTypes.setSub("front", e, "tv")
+        val after = SurveyPrepFile.encode(back, l, w, h)
+        assertEquals("tv", elsOf(after, "front").first { it["code"] == "FCRP2" }["sub"])
+        assertEquals(elsOf(tree, "front").filter { it["code"] != "FCRP2" }.map { norm(it) }, elsOf(after, "front").filter { it["code"] != "FCRP2" }.map { norm(it) })
+        for (s in SurveyPrep.SURFACES - "front") assertEquals(elsOf(tree, s).map { norm(it) }, elsOf(after, s).map { norm(it) }, s)
+        MarkTypes.setSub("front", e, "wardrobe"); assertEquals(keys7, elsOf(SurveyPrepFile.encode(back, l, w, h), "front").first { it["code"] == "FCRP2" }.keys.toList(), "back to the first: the key is gone")
+    }
+
+    @Test fun `a sub-kind, a token and a key this build does not know are kept as they came -- and an older box of a new point opens as a spot`() {
+        // as a later build, or the prototype, may have written it: a CRP whose kind this build has no row for, a type nobody
+        // knows yet, a Defect with keys beside its sub-kind, and a Plumbing point drawn 150 x 150 with a reading to its edge
+        val added = listOf(
+            """{"id":"u1","t":"CRP","code":"FCRP1","x0":150,"x1":1350,"y0":0,"y1":2100,"locked":false,"sub":"bar-unit","later":{"finish":"teak","n":[1,null]}}""",
+            """{"id":"u2","t":"SKY","code":"FSKY1","x0":10,"x1":310,"y0":10,"y1":210,"sub":"dome","cat":"civil"}""",
+            """{"id":"u3","t":"DEF","code":"FDEF1","x0":500,"x1":800,"y0":500,"y1":800,"sub":"tile","note":"three tiles hollow","vis":"office","photo":["a.jpg"]}""",
+            """{"id":"u4","t":"PLB","code":"FPLB1","x0":300,"x1":450,"y0":800,"y1":950,"sub":"mixer"}""",
+        ).joinToString(",")
+        val text = v1.replaceFirst("""[{"id":"a1","t":"D"""", "[$added," + """{"id":"a1","t":"D"""")
+            .replace(""""actual":{""", """"actual":{"FPLB1.l":300,"FPLB1.s":800,"FCRP1.p":600,""")
+        val o = open(text, Disk()).opened as SurveyPrepFile.Opened.Restored
+        assertTrue(o.decoded.problems.isEmpty(), o.decoded.problems.map { it(Tx.EN) }.toString())
+        val p = o.decoded.prep; val z = o.decoded.size!!
+        val f = p.surface("front").marks.associateBy { it.id }
+        // read: an unknown sub-kind is the type's first for every reader, and is still there; the unknown type is the grey unknown
+        val u1 = f.getValue("u1")
+        assertEquals("bar-unit", Trades.subOf(u1.extra)); assertEquals("wardrobe", MarkTypes.subOf("front", u1)!!.id); assertEquals("Wardrobe", MarkTypes.displayName(Tx.EN, "front", u1))
+        val u2 = f.getValue("u2")
+        assertEquals("SKY", SurveyPrep.typeOf("front", "SKY").name); assertNull(MarkTypes.subOf("front", u2)); assertEquals("SKY", MarkTypes.displayName(Tx.EN, "front", u2)); assertEquals("general", Trades.of("front", u2))
+        assertEquals("tiling", Trades.of("front", f.getValue("u3"))); assertEquals("Broken / hollow tile", MarkTypes.displayName(Tx.EN, "front", f.getValue("u3")))
+        // the Plumbing point was made a 50 mm spot at its centre on opening, its edge readings going to the centre keys (as E's do), its kind kept
+        assertEquals(1, o.decoded.points); assertTrue(SurveyPrepFile.saveOnOpen(o))
+        val u4 = f.getValue("u4")
+        assertEquals(listOf(350.0, 400.0, 850.0, 900.0), listOf(u4.x0, u4.x1, u4.y0, u4.y1)); assertEquals("mixer", Trades.subOf(u4.extra))
+        assertEquals(375.0, p.actual["FPLB1.cl"]); assertEquals(875.0, p.actual["FPLB1.cs"]); assertNull(p.actual["FPLB1.l"]); assertEquals(600.0, p.actual["FCRP1.p"])
+        // written: every key of the three others exactly as it came, in its own order
+        val saved = SurveyPrepFile.encode(p, z[0], z[1], z[2]); val was = elsOf(parse(text), "front")
+        for (j in 0..2) { assertEquals(norm(was[j]), norm(elsOf(saved, "front")[j]), "mark ${j + 1}"); assertEquals(was[j].keys.toList(), elsOf(saved, "front")[j].keys.toList()) }
+        assertEquals("bar-unit", elsOf(saved, "front")[0]["sub"]); assertEquals("dome", elsOf(saved, "front")[1]["sub"]); assertEquals("SKY", elsOf(saved, "front")[1]["t"])
+        // a copy for undo and a lock keep the unknown sub-kind; only PICKING a kind replaces it
+        val q = p.copy(); val c1 = q.markById("u1")!!.second
+        c1.extra = SurveyPrep.withKey(c1.extra, SurveyPrep.LOCKED, true)
+        assertEquals("bar-unit", elsOf(SurveyPrepFile.encode(q, z[0], z[1], z[2]), "front")[0]["sub"])
+        MarkTypes.setSub("front", c1, "kbase"); assertEquals("kbase", elsOf(SurveyPrepFile.encode(q, z[0], z[1], z[2]), "front")[0]["sub"])
+        assertEquals(norm(mapOf("finish" to "teak", "n" to listOf(1, null))), norm(elsOf(SurveyPrepFile.encode(q, z[0], z[1], z[2]), "front")[0]["later"]))
+        assertEquals("bar-unit", Trades.subOf(p.markById("u1")!!.second.extra), "the prep the copy was taken from is untouched")
+        // and the next codes run on from the ones the file holds, token by token
+        assertEquals(listOf("FCRP2", "FPLB2", "FDEF2", "FSKY2", "FD2"), listOf("CRP", "PLB", "DEF", "SKY", "D").map { p.nextCode("front", it) })
     }
 }
