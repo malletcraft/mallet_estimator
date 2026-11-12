@@ -7,6 +7,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,8 +75,13 @@ import com.malletcrafts.interiorestimate.pano.MarkSheet
  * the sides and 8 under; the head 40 dp (the code in gold mono, · the name, the trade's dot and short name, ✕); each
  * block a 16 dp label over its controls, 4 dp apart, the blocks 6 dp apart; chips 32 dp, a move 40 dp with its Why
  * box 18 dp in under it, the note two lines in 48 dp, the audience 32 dp, ONE Done of 48 dp. Portrait is one column:
- * TRADE, STATE, NOTE. Landscape is two: TRADE, and at the foot NOTE and Done, on the left; STATE on the right, its
- * label beside the now-line (the sheet's `.land` grid, 1048-1062).
+ * KIND, TRADE, STATE, NOTE. Landscape is two: KIND and TRADE, and at the foot NOTE and Done, on the left; STATE on the
+ * right, its label beside the now-line (the sheet's `.land` grid, 1048-1062).
+ *
+ * KIND (port 62 slice L6; `.l53kind`, 3030 and CSS 1019): the type's sub-kinds as 32 dp chips that wrap, the one the
+ * mark is ringed gold; drawn off on a locked mark. The prototype cuts the chips at two rows (`max-height:68px;
+ * overflow:hidden`); here the block grows with them, so a kind is never out of reach under मराठी's longer names.
+ * A NOTE JUST PLACED opens with the keyboard on its note field (`View.focusNote`).
  *
  * IT OPENS WHOLE (`skipPartiallyExpanded = true`), as the album's sheets do since the K4 review: the prototype draws it
  * at its content's height, never half-open, and material3's default would open a sheet taller than half the window at
@@ -112,11 +119,13 @@ private const val MS_OFF = 0.45f
 
 /**
  * What the sheet's controls do. Each is a tap or a keystroke for the caller to hand to [MarkSheet]'s pure functions:
+ * a KIND chip tapped (the sub-kind's id; slice L6),
  * a move tapped (its target), a why typed (the move's target, the text), an act chip, the note typed, the audience
  * picked (true: Office only), the TRADE button, a trade picked in the picker, a bare part of the sheet tapped (the
  * picker shuts), Done, and cancel -- ✕, the scrim, ◁ and a swipe down.
  */
 internal class MarkSheetActions(
+    val onKind: (String) -> Unit,
     val onMove: (String) -> Unit,
     val onWhy: (String, String) -> Unit,
     val onAct: (String) -> Unit,
@@ -153,23 +162,25 @@ internal fun SpMarkSheet(v: MarkSheet.View, land: Boolean, a: MarkSheetActions) 
     }
 }
 
-/** Portrait: the head, then TRADE, STATE and NOTE in one column, then Done. */
+/** Portrait: the head, then KIND, TRADE, STATE and NOTE in one column, then Done. */
 @Composable
 private fun MsPortrait(v: MarkSheet.View, a: MarkSheetActions) {
     Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
         MsHead(v, 40.dp, a.onCancel)
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            val kind = v.kind
+            if (kind != null) MsKind(kind, a.onKind)
             val trade = v.tradeBlock
             if (trade != null) MsTrade(trade, a.onTrade)
             val state = v.state
             if (state != null) MsState(state, v, false, a)
-            MsNote(v.note, a)
+            MsNote(v.note, v.focusNote, a)
         }
         MsDone(v, 8.dp, a.onDone)
     }
 }
 
-/** Landscape: the head across; TRADE at the top of the left column, NOTE and Done at its foot; STATE on the right. */
+/** Landscape: the head across; KIND and TRADE at the top of the left column, NOTE and Done at its foot; STATE on the right. */
 @Composable
 private fun MsLandscape(v: MarkSheet.View, a: MarkSheetActions) {
     Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 6.dp)) {
@@ -177,14 +188,19 @@ private fun MsLandscape(v: MarkSheet.View, a: MarkSheetActions) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
-                    // the grid's KIND and TRADE rows, each with its 4 dp gap: TRADE sits 8 dp under the head, and with
-                    // neither the note starts 12 dp under it (slice L5 puts KIND in the first)
-                    Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)) {
-                        val trade = v.tradeBlock
-                        if (trade != null) MsTrade(trade, a.onTrade)
+                    // the grid's KIND and TRADE rows, each with its 4 dp gap: KIND sits 4 dp under the head and TRADE 4 dp
+                    // under it -- 8 dp under the head where the type has no kinds -- and with neither the note starts
+                    // 12 dp under the head
+                    Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                        val kind = v.kind
+                        if (kind != null) MsKind(kind, a.onKind)
+                        Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            val trade = v.tradeBlock
+                            if (trade != null) MsTrade(trade, a.onTrade)
+                        }
                     }
                     Column(Modifier.fillMaxWidth()) {
-                        MsNote(v.note, a)
+                        MsNote(v.note, v.focusNote, a)
                         MsDone(v, 6.dp, a.onDone)
                     }
                 }
@@ -250,6 +266,22 @@ private fun MsChip(words: String, dot: Int?, on: Boolean, enabled: Boolean, modi
 @Composable
 private fun MsLine(words: String) {
     Text(words, color = MS_MUTED, fontSize = 12.sp, lineHeight = 16.sp)
+}
+
+/** KIND: its label over the type's sub-kinds, as chips that wrap; the one the mark is ringed gold, all off on a locked mark. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MsKind(k: MarkSheet.KindBlock, onKind: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        MsLabel(k.label)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            for (c in k.chips) MsChip(c.text, null, c.on, k.enabled, Modifier) { onKind(c.id) }
+        }
+    }
 }
 
 /** TRADE: its label over the button that opens the picker. */
@@ -365,9 +397,14 @@ private fun MsMove(m: MarkSheet.MoveRow, onClick: () -> Unit) {
     }
 }
 
-/** NOTE: the label and "20/280", the two-line box, and who it is for: Client & vendors | Office only. */
+/**
+ * NOTE: the label and "20/280", the two-line box, and who it is for: Client & vendors | Office only. [focus]: the box
+ * takes the keyboard, once, as the sheet opens -- a Note just placed is only its words (slice L6; openSheet's `fresh`).
+ */
 @Composable
-private fun MsNote(n: MarkSheet.NoteBlock, a: MarkSheetActions) {
+private fun MsNote(n: MarkSheet.NoteBlock, focus: Boolean, a: MarkSheetActions) {
+    val noteFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { if (focus) runCatching { noteFocus.requestFocus() } }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             MsLabel(n.label, Modifier.weight(1f))
@@ -377,7 +414,9 @@ private fun MsNote(n: MarkSheet.NoteBlock, a: MarkSheetActions) {
             value = n.text, onValueChange = { t -> a.onNote(t) },
             textStyle = TextStyle(color = MS_FG, fontSize = 13.sp, lineHeight = 18.sp),
             cursorBrush = SolidColor(MS_GOLD),
-            modifier = Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(8.dp)).background(MS_FIELD)
+            modifier = Modifier.fillMaxWidth().height(48.dp)
+                .let { if (focus) it.focusRequester(noteFocus) else it }
+                .clip(RoundedCornerShape(8.dp)).background(MS_FIELD)
                 .border(1.dp, MS_FIELD_LINE, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
             decorationBox = { inner ->
                 Box(Modifier.fillMaxWidth().fillMaxHeight(), contentAlignment = Alignment.TopStart) {

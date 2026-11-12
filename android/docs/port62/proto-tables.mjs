@@ -38,6 +38,36 @@
 // alone)" below). The phone's menu has that row on a mark only where the box alone is what a tap would place
 // (PhaseTools.copyOk: Survey, and unread with the chip on "as Existing"), because the unstamped copy of a wish would leave the
 // office as a surveyed mark (Q-list 8). A Line's and a chain's rows agree with the page's.
+// SLICE L5 (12 Nov 2026) adds one section, "L5 …": the ten new mark types and their sub-kinds by the page's own T53 -- NEW, the
+// types of each kind of surface, SUBS with each label, what a mark stores and shows for every sub-kind (and for none, and for
+// one nobody knows), defaults53 for every type and sub-kind on seventeen faces, measures53 for a mark in each corner and the
+// middle of the room's faces, placeRefusal, parseCode and nextCode. The rows between "L5 GOLDEN" and "L5 END" ARE MarkTypesTest's
+// golden (pano/src/test/resources/marktypes/proto-type-rows.txt, 992 rows; the command is at the section). WHERE THE PHONE
+// DIFFERS, ON PURPOSE: under मराठी it renders a refusal from the T53 keys themselves, with no article (the keys' own notes:
+// "{a} is the English article — supply ''"), where the page's text layer finds the sentence by its English and so shows v54's
+// refuse.v360 wording for "A …" and leaves "An" / "A" standing in the others; and its next code never reuses a deleted mark's
+// number (v52 slice 8, the surface's `seq`), where T53.nextCode -- which nothing on the page calls -- counts the marks still there:
+// the NEXT row is printed with nothing deleted, where the two agree.
+// THE L5 REVIEW (12 Nov 2026; DESIGN-port62.md §3.5, "The L5 review") adds "L5 REVIEW normPoints": the page's own normPoints
+// (not in a module: cut from `function normPoints(w,act){` to its `return n; }`, with the page's own `ckey`) run over ISPOINT =
+// E P F PLB LV on an older box of each point with edge readings. Its rows but the last ARE MarkTypesTest's NORM_PAGE table. A plan
+// Plumbing point's and Low-voltage point's l r f k take half the box, as a wall's do (`toC=plan&&e.t==='P'`): the phone does the
+// same since that review (L5 as built moved them unchanged). WHERE THE PHONE DIFFERS, ON PURPOSE, the last row: a plan FAN moves
+// unchanged on the phone (v52 slice 4), where the page adds half its box. And "L5 REVIEW the memory": T53's remembered sub-kind
+// is per type and kind of surface, and a new mark takes the memory of the kind it lands on -- what PhaseTools.place's caller (slice
+// L6) must hand in (finding 2; MarkTypesTest pins what the phone stores when it is handed another kind's).
+// SLICE L6 (12 Nov 2026) adds one section, "L6 …", and gives the L3 sheet its KIND. The stub host of the Mark sheet now has
+// the page's own subsOf and setSub (index61c2.html 7057-7059), so the sheet paints KIND for a type with sub-kinds; nine items
+// join the L3 table (a DB board, three Carpentry units, a Plumbing point, a Defect, an AC unit, two Notes) and the golden is
+// cut again with the same command (30 items, 210 rows; only "a switch plate" changed among the old 21: it gained its KIND).
+// The L6 section prints, from the page's own code: More ▸ as one row per trade (T53.moreRows, with renderMore's label and
+// tiles) and the More slot's name with a More type armed; the tool chip's kind button and its list of kinds (sp.js t53subBtn
+// and t53subList, cut from the page by their opening lines and run on a stub); the tool's remembered kind; the Note's tag
+// (L53.noteTag, a text measured as its UTF-16 units x 6 u); and the sheet's journeys for a kind changed, and for a NEW Note --
+// Done with words, Done with none, and ✕. They are the cross-check behind PaletteTest, NotePinTest and MarkSheetTest's L6
+// tests. WHERE THE PHONE DIFFERS, ON PURPOSE: KIND is `life.kind` -- प्रकार under मराठी, where the page, which has no key for
+// the word, shows KIND; an empty new Note's code is not handed out again (v52 slice 8: a code never is), so the next Note is
+// FNOTE2 where the page says FNOTE1; and the tag's cut never halves an emoji.
 import fs from 'node:fs';
 
 const page = process.argv[2];
@@ -190,6 +220,9 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
     markById: id => { const e = W.front.els.find(x => x.id === id); return e ? ['front', e] : [null, null]; },
     lineById: id => { const m = W.front.meas.find(x => x.id === id && (x.kind === 'line' || x.kind === 'area')); return m ? ['front', m] : [null, null]; },
     tinfo: (s, t) => [t, T53.displayName(t, kind(s))], subName: (s, e, sub) => T53.displayName(e.t, kind(s), sub != null ? sub : e.sub),
+    // slice L6: the page's own host has these two (index61c2.html 7057 and 7059), and with them the sheet paints KIND
+    subsOf: (s, t) => { const L = T53.subsOf(t, kind(s)); return L.length ? L.map(x => [x.id, x.label]) : null; },
+    setSub: (s, e, sub) => { const v = T53.subToStore(e.t, kind(s), sub); if (v) e.sub = v; else delete e.sub; T53.setSub(e.t, kind(s), sub); },
     trades: () => T53.TRADES, tradeOf: (s, e, cat, sub) => T53.tradeOf(e.kind === 'line' || e.kind === 'area' ? e.kind : e.t, kind(s), sub != null ? sub : e.sub, cat != null ? cat : e.cat),
     catOf: (s, e) => e.cat || 'general', takesCat: t => t === 'NOTE' || t === 'X', isLand: () => false, root: () => rootEl, captureId: () => 'c1', stageIdx: () => stage, NAME: {}, CODE: {} };
   try { L57.set('en'); } catch (_) {}
@@ -204,6 +237,8 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
     const one = (re, f) => { const m = re.exec(h); if (m) out.push(f(m)); };
     one(/<span class="l53ttl">(.*?)<\/span>/, m => txt(m[1]));
     one(/<span class="l53trd">(<i[^>]*><\/i>)(.*?)<\/span>/, m => `trade ${col(m[1])} ${txt(m[2])}`);
+    one(/<div class="l53blk l53kind"><div class="l53lab">([^<]*)<\/div><div class="l53chips">(.*?)<\/div><\/div>/, m => `${txt(m[1])} ` +
+      [...m[2].matchAll(/<button class="l53c (on)?" data-l53sub="([\w-]+)"( disabled)?>(.*?)<\/button>/g)].map(c => `${txt(c[4])}${c[1] ? '(on)' : ''}${c[3] ? '(off)' : ''}`).join(', '));
     one(/<div class="l53lab">([^<]*)<\/div><button class="l53c l53tp" data-l53trp="1"( disabled)?>(<i[^>]*><\/i>)(.*?)<\/button>/, m => `${txt(m[1])} ${col(m[3])} ${txt(m[4])}${m[2] ? ' (off)' : ''}`);
     one(/<div class="l53blk l53state"><div class="l53lab">([^<]*)<\/div><div class="l53now"[^>]*>(<i[^>]*><\/i>)<b>(.*?)<\/b>(.*?)<\/div>/, m => `${txt(m[1])} | now ${col(m[2])} ${txt(m[3])}${txt(m[4].replace(/<span class="l53vp">(.*?)<\/span>/, '[$1]'))}`);
     one(/<div class="l53chips l53acts">(.*?)<\/div>/, m => 'acts ' + [...m[1].matchAll(/<button class="l53c (on)?" data-l53act="(\w+)"( disabled)?>(.*?)<\/button>/g)].map(a => `${txt(a[4])}${a[1] ? '(on)' : ''}${a[3] ? '(off)' : ''}`).join(', '));
@@ -233,6 +268,14 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
     ['an Other', M('a', 'X', 'FX1')], ['an Other for the carpenter, locked', M('a', 'X', 'FX1', { cat: 'carpentry', locked: true })], ['an Other whose cat is no trade', M('a', 'X', 'FX1', { cat: 'zzz' })],
     ['a switch plate', M('a', 'S', 'FS1')], ['a stamp nobody can read, decided by somebody else', M('a', 'W', 'FW1', { life: 'wish', lifeAt: 'soon', lifeAs: 'architect' })],
     ['a Line', { id: 'a', kind: 'line', code: 'F-M1', pts: [[0, 0], [9, 0]] }], ['an area for the tiler, locked, with a note', { id: 'a', kind: 'area', code: 'F-M2', pts: [[0, 0], [9, 0], [9, 9]], cat: 'tiling', locked: true, note: 'skirting too' }],
+    // slice L6: types with sub-kinds (KIND), and the Note
+    ['a DB board', M('a', 'S', 'FS1', { sub: 'db' })], ['a wardrobe', M('a', 'CRP', 'FCRP1')],
+    ['a kitchen base, born a wish', M('a', 'CRP', 'FCRP1', { sub: 'kbase', born: 'wish', life: 'wish', lifeAt: at, lifeAs: 'client' })],
+    ['a unit of a kind nobody knows', M('a', 'CRP', 'FCRP1', { sub: 'zzz' })], ['a plumbing point, hot, locked', M('a', 'PLB', 'FPLB1', { sub: 'hot', locked: true })],
+    ['a defect, a broken tile', M('a', 'DEF', 'FDEF1', { sub: 'tile' })],
+    ['an AC unit a vendor added, in Scope', M('a', 'AC', 'FAC1', { sub: 'window-ac', born: 'vadd', life: 'scope', lifeAt: at, lifeAs: 'staff', locked: true })],
+    ['a Note', M('a', 'NOTE', 'FNOTE1', { note: 'ask about the beam' })],
+    ['a Note for the office and the electrician, locked', M('a', 'NOTE', 'FNOTE1', { note: 'DB to be shifted', vis: 'office', cat: 'electrical', locked: true })],
   ];
   console.log('\nL3 the sheet as the page paints it, item by item, at stages 0..5 and unread (each dot as its colour before its text; ~ before the hint of a move; (on) picked, (off) disabled):');
   for (const [n, e] of ITEMS()) { console.log('  ', n, '=', JSON.stringify(e)); for (const s of STAGES) { stage = s; put(ITEMS().find(x => x[0] === n)[1]); L53.openSheet('a'); console.log('      ', String(s).padEnd(4), shown()); L53.cancelSheet(); } }
@@ -282,6 +325,8 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   console.log('L3 under मराठी, the texts the page finds:', JSON.stringify(['STATE', 'TRADE', 'NOTE', 'Done', 'Close', 'Mark sheet', '↻ Replace', '⇢ Shift', '⚒ Repair', '✕ Remove', ' · decided by staff', ' · decided by the surveyor', 'since 16 Oct, 06:37 IST',
     'Client & vendors', 'Office only', 'A note on this mark (optional)', 'A note on this length (optional)', 'What should the office or the vendor know here?', 'Trade · FX1', 'Open the Mark sheet for FW1',
     'FD1 is locked — only its note can change', 'A Note needs its words — type them, or delete the Note'].map(x => L57.vis(x))));
+  // slice L6 drives the same sheet again, after the L5 sections (which read T53's memory untouched)
+  globalThis.RIG = { H, W, said, tap, type, shown, put, M, html, at, setStage: s => { stage = s; } };
 }
 
 // ---- SLICE L4: the phase in survey prep -- P54.spPre (4204-4224) on a stub root, L53's asChipHTML / cycleAs / asPlace
@@ -329,6 +374,207 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   console.log('L4 under मराठी, the texts the page finds:', JSON.stringify(['as Existing', 'as Client wish', 'as Vendor added', 'Marks are placed as Client wish in this phase', 'Place marks as Existing — tap to change',
     'Placing Electric point · tap the photo', 'every mark you place is a client wish', 'Phase not read yet — S5 decides when online', 'FW1 was marked in Survey — move the phase back to change it',
     'After the estimate — tell the office'].map(x => L57.vis(x))));
+}
+
+// ---- SLICE L5: THE TEN NEW TYPES AND THEIR SUB-KINDS, by the page's own T53 -- NEW (2397-2407), SUBS (2423-2466),
+// displayName (2478), the code grammar (2534-2543), defaults53 (2551-2565), measures53 (2569-2588), placeRefusal (2590).
+// Every row from "L5 GOLDEN" to "L5 END" is one line of MarkTypesTest's golden: that test prints the same rows from
+// pano/MarkTypes.kt and SurveyPrep and compares them line for line.
+//   node proto-tables.mjs <page> | awk '/^L5 GOLDEN/{f=1;next} /^L5 END/{f=0} f' > ../../pano/src/test/resources/marktypes/proto-type-rows.txt
+// A figure is printed to 0.001 mm; a box as x0,x1,y0,y1; `v52` where the page's function answers null (sp.js's own v52
+// rule decides); `site` for a measure with no photo estimate. The faces are the tests' room (2678 x 2677 x 3319), a wide
+// wall, faces smaller than a default box, a narrow one and a large one, so every clamp is reached.
+{
+  try { L57.set('en'); } catch (_) {}
+  const n = v => (v == null ? 'site' : String(Math.round(v * 1000) / 1000));
+  const boxOf = d => (d ? [d.x0, d.x1, d.y0, d.y1].map(n).join(',') : 'v52');
+  const SURF = { wall: 'front', floor: 'floor', ceil: 'ceil' };
+  const FACES = { wall: [[2678, 2677], [3319, 2677], [6000, 3000], [1000, 1000], [400, 2400], [180, 80], [40, 30]], floor: [[2678, 3319], [6000, 4000], [500, 5000], [180, 80], [40, 30]], ceil: [[2678, 3319], [6000, 4000], [500, 5000], [180, 80], [40, 30]] };
+  const subsPlus = (t, k) => [undefined, ...T53.subsOf(t, k).map(x => x.id), 'zzz'];
+  const nm = sub => (sub === undefined ? '(none)' : sub);
+  console.log('\nL5 GOLDEN');
+  for (const x of T53.NEW) console.log('NEW', x.t, '|', x.name, '|', x.col, '|', x.kinds.join(' '), '|', x.short, '|', x.trade || '-', '|', T53.isPin(x.t) ? 'pin' : T53.isPoint53(x.t) ? 'point' : 'rect', '|', x.ink ? 1 : 0);
+  for (const k of T53.KINDS) console.log('TYPES53', k, '|', T53.TYPES53[k].map(r => r.join('=')).join(' ; '));
+  for (const k of T53.KINDS) console.log('ON', k, '|', T53.ON[k].join(' '));
+  console.log('POINT |', ALLT.filter(t => T53.isPoint53(t)).join(' '), '| PIN |', ALLT.filter(t => T53.isPin(t)).join(' '), '| NEW |', ALLT.filter(t => T53.isNew(t)).join(' '));
+  for (const t of ALLT) console.log('CANGO', t, '|', T53.KINDS.map(k => k + '=' + (T53.canGo(t, k) == null ? '-' : T53.canGo(t, k) ? 1 : 0)).join(' '), '| typeName', T53.typeName(t));
+  console.log('typeName of a token nobody knows |', T53.typeName('QQ'));
+  for (const t of ALLT) for (const k of T53.KINDS) {
+    const L = T53.subsOf(t, k);
+    console.log('SUBS', t, k, '|', L.map(x => x.id + '=' + x.label + (x.service ? ' service:' + x.service : '') + (x.trade ? ' trade:' + x.trade : '')).join(' ; ') || '-', '| first', T53.firstSub(t, k) || '-',
+      '| stored', subsPlus(t, k).map(sub => nm(sub) + '>' + (T53.subToStore(t, k, sub) || '-')).join(' '));
+    console.log('NAME', t, k, '|', subsPlus(t, k).map(sub => nm(sub) + '=' + T53.displayName(t, k, sub)).join(' ; '));
+  }
+  for (const k of T53.KINDS) for (const [A, B] of FACES[k]) for (const t of ALLT)
+    console.log('BOX', SURF[k], A + 'x' + B, t, '|', subsPlus(t, k).map(sub => nm(sub) + '=' + boxOf(T53.defaults53(SURF[k], t, sub, A, B))).join(' ; '));
+  // a mark of each new type in each corner and in the middle of the room's faces: every nearer-side key, with its words
+  const ROOM = { wall: [2678, 2677], floor: [2678, 3319], ceil: [2678, 3319] };
+  for (const k of T53.KINDS) { const [A, B] = ROOM[k];
+    for (const t of ALLT) { const pt = T53.isPoint53(t) || T53.isPin(t), w = pt ? 50 : 300, h = pt ? 50 : 200;
+      for (const [x, y] of [[10, 10], [A - w - 10, B - h - 10], [(A - w) / 2, (B - h) / 2], [10, B - h - 10], [A - w - 10, 10], [0, 0]]) {
+        const e = { t, x0: x, x1: x + w, y0: y, y1: y + h }, m = T53.measures53(SURF[k], e, A, B);
+        console.log('MEAS', SURF[k], t, '@' + boxOf(e), '|', m == null ? 'v52' : m.map(r => r[0] + ':' + r[1] + ':' + n(r[2])).join(' ; ') || '(none)'); } } }
+  for (const t of ALLT) console.log('REFUSE', t, '|', T53.KINDS.map(k => k + '=' + (T53.placeRefusal(t, k) || 'ok')).join(' | '));
+  for (const c of ['FW1', 'FP1', 'FPLB1', 'FPLB12.cl', 'CCDP1', 'GNOTE2', 'LLV3', 'LL1', 'RS4.w', 'BCRP10.p', 'F-M1', 'F-M2.per', 'G-T3', 'FK1', 'FK1.t', 'FK12.3', 'FWx7', 'FW01', 'fw1', 'XW1', 'F1', 'FW', 'F-X1', 'FPLB1.c l', 'FPLB1.', '', 'F W1'])
+    { const p = T53.parseCode(c); console.log('CODE', JSON.stringify(c), '|', p ? [p.surface, p.surf, p.token == null ? '-' : p.token, p.kind, p.n, p.measure == null ? '-' : p.measure].join(' ') : 'null', '| token', T53.codeToken(c) || '-'); }
+  // the next code of a token on a surface: counted per TOKEN, so P and PLB (and L and LV) never share a number
+  const ELS = [['P', 'FP1'], ['PLB', 'FPLB1'], ['PLB', 'FPLB7'], ['P', 'FP2'], ['L', 'FL3'], ['LV', 'FLV9'], ['S', 'FS2'], ['SAN', 'FSAN5'], ['C', 'FC4'], ['CRP', 'FCRP6'], ['CTR', 'FCTR1'], ['NOTE', 'FNOTE2'], ['D', 'FD1'], ['DEF', 'FDEF8']].map(([t, code]) => ({ t, code }));
+  console.log('NEXT front |', ALLT.map(t => t + '>' + T53.nextCode('front', t, ELS)).join(' '));
+  console.log('L5 END');
+  // ---- the L5 review: an older box of a point, by the page's own normPoints (MarkTypesTest NORM_PAGE; the last row is the Fan's)
+  { const a = lines.findIndex(l => l.startsWith('function normPoints(w,act){')), b = lines.findIndex((l, i) => i > a && l.trim() === 'return n; }');
+    const ck = lines.find(l => l.startsWith('const ckey='));
+    if (a < 0 || b < 0 || !ck) throw new Error('normPoints not found');
+    const PTS = ['E', 'P', 'F', ...T53.TOKENS.filter(t => T53.isPoint53(t))];
+    const np = new Function('ISPOINT', 'isPlan', 'SURF', 'st', 'ptLog', 'SPOT', ck + '\n' + lines.slice(a, b + 1).join('\n') + '\nreturn normPoints;')(
+      t => PTS.includes(t), s => s === 'floor' || s === 'ceil', Object.values(SURF).concat(['right', 'back', 'left']), { w: null, actual: null }, [], 50);
+    console.log('\nL5 REVIEW normPoints', `${a + 1}-${b + 1}`, 'over', PTS.join(' '), '|', lines[a + 6].trim());
+    for (const [s, t, code, box, rd] of [
+      ['floor', 'PLB', 'GPLB1', [100, 250, 200, 350], { l: 40, k: 60 }], ['floor', 'PLB', 'GPLB2', [100, 250, 200, 350], { r: 40, f: 60, w: 120 }],
+      ['ceil', 'LV', 'CLV2', [1000, 1200, 2000, 2100], { f: 7 }], ['ceil', 'LV', 'CLV3', [1000, 1200, 2000, 2100], { l: 10, k: 20, h: 80 }],
+      ['front', 'PLB', 'FPLB1', [300, 450, 800, 950], { l: 300, s: 800, w: 150 }], ['front', 'LV', 'FLV1', [300, 450, 800, 950], { r: 300, t: 800 }],
+      ['ceil', 'P', 'CP9', [500, 650, 800, 950], { r: 900, f: 700 }], ['floor', 'P', 'GP9', [925, 1075, 1925, 2075], { l: 1000, k: 2000 }],
+      ['floor', 'E', 'GE1', [0, 150, 0, 150], { l: 75, k: 75 }], ['ceil', 'F', 'CF1', [1000, 1200, 1000, 1200], { l: 1100 }]]) {
+      const act = Object.fromEntries(Object.entries(rd).map(([k, v]) => [code + '.' + k, v])), e = { id: 'a', t, code, x0: box[0], x1: box[1], y0: box[2], y1: box[3] };
+      np({ [s]: { els: [e] } }, act);
+      console.log([s, t, code, box.join(','), ...Object.entries(rd).map(([k, v]) => k + '=' + v)].join(' '), '->', Object.keys(act).sort().map(k => k + '=' + act[k]).join(' '), '@', [e.x0, e.x1, e.y0, e.y1].join(',')); } }
+  // ---- the L5 review, finding 2: the tool's remembered sub-kind is kept per type AND kind of surface, and a new mark is given the
+  // memory of the kind it LANDS on (addElAt: T53.newFields(t, tkind(s))) -- so a kind picked on a wall says nothing about the floor
+  { const nf = (t, k) => t + '@' + k + ' ' + JSON.stringify(T53.newFields(t, k));
+    console.log('L5 REVIEW the memory, untouched:', ['PLB', 'CRP', 'LV'].flatMap(t => T53.KINDS.filter(k => T53.subsOf(t, k).length).map(k => nf(t, k))).join(' | '));
+    T53.setSub('PLB', 'wall', 'hot'); T53.setSub('CRP', 'wall', 'other'); T53.setSub('LV', 'wall', 'wifi'); T53.setSub('PLB', 'floor', 'mixer');
+    console.log('L5 REVIEW after the wall\'s picker chose PLB hot, CRP other, LV wifi (and the floor was offered PLB mixer, not a floor kind):',
+      ['PLB', 'CRP', 'LV'].flatMap(t => T53.KINDS.filter(k => T53.subsOf(t, k).length).map(k => nf(t, k))).join(' | ')); }
+  try { L57.set('mr'); } catch (_) {}
+  console.log('L5 under मराठी, the texts the page finds (a name it has no row for comes back as it went in):');
+  console.log('   type names:', JSON.stringify(T53.NEW.map(x => L57.vis(x.name))));
+  console.log('   short names:', JSON.stringify(T53.NEW.map(x => L57.vis(x.short))));
+  for (const t of ['S', ...T53.TOKENS]) for (const k of T53.KINDS) if (T53.subsOf(t, k).length) console.log('   sub-kinds', t, k + ':', JSON.stringify(T53.subsOf(t, k).map(x => L57.vis(T53.displayName(t, k, x.id)))));
+  console.log('   measure words:', JSON.stringify(['track length', 'projection from wall', 'underside, from floor', 'depth from wall', 'drop below ceiling', 'drop below slab', 'height', 'width', 'width, left–right', 'depth, front–back',
+    'from left corner, to centre', 'from right wall, to centre', 'from floor, to centre', 'from ceiling, to centre', 'from front wall, to centre', 'from back wall, to centre', 'from floor', 'from ceiling'].map(x => L57.vis(x))));
+  console.log('   refusals (the text layer finds a sentence by its English, so "A … cannot go on the ceiling" is matched by v54\'s refuse.v360 row and the article of the others is left as it was -- the phone renders the T53 keys themselves, with no article under मराठी):');
+  for (const s of ['A Grill cannot go on the ceiling', 'An AC unit cannot go on the floor', 'A Ceiling drop goes on the ceiling only', 'A Sanitary ware cannot go on the ceiling']) console.log('     ', JSON.stringify(s), '->', JSON.stringify(L57.vis(s)));
+}
+
+// ---- SLICE L6: More ▸ by trade, the tool chip's kind button and its list, the tool's memory, the Note's tag, and the sheet's
+// journeys for a kind and for a NEW Note -- the cross-check behind PaletteTest, NotePinTest and MarkSheetTest's L6 tests.
+{
+  try { L57.set('en'); } catch (_) {}
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const dec = t => t.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  const strip = h => dec(String(h).replace(/<[^>]+>/g, ''));
+  // sp.js's own SHORT (the slots' and tiles' short names), cut from the page, with T53's ten assigned over it as line 6608 does
+  const SHORT = Object.assign((0, eval)('(' + /^const SHORT=(\{.*\});\s*$/.exec(lines.find(l => l.startsWith('const SHORT={Window:')))[1] + ')'), T53.SHORT53);
+  const nameOf = (t, k) => (t === 'S' && k === 'floor' ? 'Step' : T53.typeName(t));
+  const colOf = t => (T53.NEWT[t] ? T53.NEWT[t].col : '#v52');
+  for (const lang of ['en', 'mr']) {
+    try { L57.set(lang); } catch (_) {}
+    console.log(`\nL6 More ▸ under ${L57.lang()}, one row per trade (T53.moreRows; a row: the trade's short name and dot, then each tile's token and short name):`);
+    for (const k of T53.KINDS) { const rows = T53.moreRows(k, 'all');
+      console.log('  ', k, `${rows.length} rows · landscape ${Math.ceil(rows.length / 2)} + ${rows.length - Math.ceil(rows.length / 2)}`);
+      for (const r of rows) console.log('     ', `${L57.vis(T53.TRADE[r.trade].short)} ${T53.TRADE[r.trade].dot}${r.picked ? ' (picked)' : ''}:`, r.types.map(t => `${t} ${L57.vis(SHORT[nameOf(t, k)] || nameOf(t, k))}`).join(', ')); }
+  }
+  try { L57.set('en'); } catch (_) {}
+  // the More slot with a More type armed (index61c2.html 6697): its short name, U+202F, ▾; `long53` (letter-spacing -1) past 9 characters
+  const MAIN = T53.V52MAIN;
+  console.log('L6 the More slot with a More type armed (! = long53):');
+  for (const k of T53.KINDS) console.log('  ', k, T53.ON[k].filter(t => !MAIN[k].includes(t)).map(t => { const nm = SHORT[nameOf(t, k)] + '\u202f▾'; return `${t}=${nm.replace('\u202f', '~')}${nm.length > 9 ? '!' : ''}`; }).join(' '));
+  // ---- the kind button and its list: sp.js's own t53subBtn and t53subList, cut from the page and run on a stub
+  const a = lines.findIndex(l => l.startsWith('const t53subBtn=(s,t)=>')), b = lines.findIndex((l, i) => i > a && l.startsWith('function setTool('));
+  const st6 = { subpick: true }, sp6 = { hidden: true, innerHTML: '', style: { top: '', setProperty(k, v) { this[k] = v; } } };
+  const $6 = id => (id === 't53subs' ? sp6 : id === 'toolchip' ? { offsetTop: 8, offsetHeight: 32, parentNode: { appendChild() {} } } : null);
+  const tinfo6 = (s, t) => [t, nameOf(t, T53.kindOf(s)), colOf(t)];
+  const sub6 = new Function('T53', 'tkind', 'esc', 'st', '$', 'tinfo', lines.slice(a, b).join('\n') + '\nreturn { t53subBtn, t53subList };')(T53, T53.kindOf, esc, st6, $6, tinfo6);
+  const SURF6 = { wall: 'front', floor: 'floor', ceil: 'ceil' };
+  // the memory back to each type's first (the L5 REVIEW section above set four): subFor answers as untouched
+  const firsts = () => { for (const t of ['S', ...T53.TOKENS]) for (const k of T53.KINDS) { const f = T53.firstSub(t, k); if (f) T53.setSub(t, k, f); } };
+  firsts();
+  const chipOf = (t, k, where) => { const btn = sub6.t53subBtn(SURF6[k], t); return `Placing ${btn ? strip(btn) : nameOf(t, k)} · tap the ${where}`; };
+  for (const lang of ['en', 'mr']) {
+    try { L57.set(lang); } catch (_) {}
+    console.log(`L6 the tool chip's words under ${L57.lang()} for every type of each kind of surface, nothing picked ([…] = the kind button; its label after ~):`);
+    for (const k of T53.KINDS) for (const t of T53.ON[k]) { const btn = sub6.t53subBtn(SURF6[k], t);
+      const words = `Placing ${btn ? '[' + strip(btn) + ']' : nameOf(t, k)} · tap the photo`;
+      console.log('     ', k.padEnd(5), t.padEnd(4), lang === 'mr' ? L57.vis(chipOf(t, k, 'photo')) : words, btn ? '~ ' + L57.vis(dec((/aria-label="([^"]*)"/.exec(btn) || [, ''])[1])) : ''); }
+    console.log(`L6 the list of kinds under ${L57.lang()} (its title, then each kind; (on) the one a tap places):`);
+    for (const k of T53.KINDS) for (const t of T53.ON[k]) { st6.subpick = true; sp6.innerHTML = ''; sub6.t53subList(SURF6[k], t, true); if (sp6.hidden) continue;
+      const h = sp6.innerHTML;
+      console.log('     ', k.padEnd(5), t.padEnd(4), sp6.style['--c'], L57.vis(strip((/<div class="t53sh">(.*?)<\/div>/.exec(h) || [, ''])[1])), '|',
+        [...h.matchAll(/<button class="t53sv( on)?" role="option" aria-selected="(true|false)" data-t53subv="([\w-]+)">(.*?)<\/button>/g)].map(m => `${m[3]}=${L57.vis(strip(m[4]))}${m[1] ? '(on)' : ''}`).join(', ')); }
+  }
+  // ---- THE GOLDEN: the rows PaletteTest prints from SurveyPrepPalette and compares line for line
+  //   node proto-tables.mjs <page> | awk '/^L6 GOLDEN/{f=1;next} /^L6 END/{f=0} f' > ../../pano/src/test/resources/palette/proto-palette-rows.txt
+  // more <lang> <kind> <n> rows, landscape a + b; then a row per trade: its short name, its dot, each tile's token and short name
+  // slot <kind>: the More slot's name with each More type armed (~ for U+202F; ! drawn tight)
+  // chip <kind> <type>: the tool chip's words, the kind button in [ ] and its label after ~ ; kinds <kind> <type>: the list's title | id=label, (on) the one placed
+  { firsts(); const G = [];
+    for (const lang of ['en', 'mr']) { try { L57.set(lang); } catch (_) {}
+      for (const k of T53.KINDS) { const rows = T53.moreRows(k, 'all');
+        G.push(`more ${lang} ${k} ${rows.length} rows, landscape ${Math.ceil(rows.length / 2)} + ${rows.length - Math.ceil(rows.length / 2)}`);
+        for (const r of rows) G.push(`more ${lang} ${k} ${L57.vis(T53.TRADE[r.trade].short)} ${T53.TRADE[r.trade].dot}: ` + r.types.map(t => `${t} ${L57.vis(SHORT[nameOf(t, k)] || nameOf(t, k))}`).join(', ')); } }
+    try { L57.set('en'); } catch (_) {}
+    for (const k of T53.KINDS) G.push(`slot ${k}: ` + T53.ON[k].filter(t => !MAIN[k].includes(t)).map(t => { const nm = SHORT[nameOf(t, k)] + '\u202f▾'; return `${t}=${nm.replace('\u202f', '~')}${nm.length > 9 ? '!' : ''}`; }).join(' '));
+    for (const k of T53.KINDS) for (const t of T53.ON[k]) { const btn = sub6.t53subBtn(SURF6[k], t);
+      G.push(`chip ${k} ${t}: Placing ${btn ? '[' + strip(btn) + ']' : nameOf(t, k)} · tap the photo` + (btn ? ' ~ ' + dec((/aria-label="([^"]*)"/.exec(btn) || [, ''])[1]) : '')); }
+    for (const k of T53.KINDS) for (const t of T53.ON[k]) { st6.subpick = true; sp6.innerHTML = ''; sub6.t53subList(SURF6[k], t, true); if (sp6.hidden) continue; const h = sp6.innerHTML;
+      G.push(`kinds ${k} ${t}: ` + strip((/<div class="t53sh">(.*?)<\/div>/.exec(h) || [, ''])[1]) + ' | ' +
+        [...h.matchAll(/<button class="t53sv( on)?" role="option" aria-selected="(true|false)" data-t53subv="([\w-]+)">(.*?)<\/button>/g)].map(m => `${m[3]}=${strip(m[4])}${m[1] ? '(on)' : ''}`).join(', ')); }
+    console.log('L6 GOLDEN'); for (const l of G) console.log(l); console.log('L6 END'); }
+  try { L57.set('en'); } catch (_) {}
+  console.log('L6 the 360: "Placing … · tap the 360" for a unit and a window:', JSON.stringify([chipOf('CRP', 'wall', '360'), chipOf('W', 'wall', '360')]), 'and under मराठी:', (L57.set('mr'), JSON.stringify([chipOf('CRP', 'wall', '360'), chipOf('W', 'wall', '360')].map(x => L57.vis(x)))));
+  try { L57.set('en'); } catch (_) {}
+  console.log('L6 the tool remembers the last kind, per type AND kind of surface (subFor after each setSub):');
+  { const show = () => ['CRP', 'PLB', 'LV', 'S'].flatMap(t => T53.KINDS.filter(k => T53.subsOf(t, k).length).map(k => `${t}@${k}=${T53.subFor(t, k)}`)).join(' ');
+    console.log('      untouched:', show());
+    T53.setSub('CRP', 'wall', 'kbase'); console.log('      CRP wall kbase:', show(), '· the chip:', chipOf('CRP', 'wall', 'photo'), '· the floor\'s:', chipOf('CRP', 'floor', 'photo'));
+    T53.setSub('PLB', 'floor', 'cold'); T53.setSub('PLB', 'wall', 'waste'); console.log('      PLB floor cold, wall waste:', show());
+    T53.setSub('CRP', 'wall', 'island'); T53.setSub('CRP', 'wall', 'zzz'); T53.setSub('W', 'wall', 'x'); console.log('      a kind the wall has not (island, zzz), a type with none (W): unchanged:', show());
+    T53.setSub('S', 'wall', 'db'); T53.setSub('S', 'floor', 'db'); console.log('      S wall db (the floor\'s S is a Step, with no kinds):', show(), '· newFields CRP wall', JSON.stringify(T53.newFields('CRP', 'wall')), 'floor', JSON.stringify(T53.newFields('CRP', 'floor')), 'S wall', JSON.stringify(T53.newFields('S', 'wall')), 'NOTE', JSON.stringify(T53.newFields('NOTE', 'wall')));
+    firsts(); console.log('      back to the firsts:', show()); }
+  // ---- the Note's tag (L53.noteTag): a text measured as its UTF-16 units x 6 u, so the cut is comparable
+  console.log('L6 noteTag (u = 1 and u = 2; a text is its UTF-16 units x 6 u wide; the tag: head | words | office | width in u):');
+  { const g = u => ({ font: '', measureText: t => ({ width: t.length * 6 * u }) });
+    const N = (code, note, x = {}) => Object.assign({ id: 'n', t: 'NOTE', code, x0: 0, x1: 50, y0: 0, y1: 50 }, note == null ? {} : { note }, x);
+    const cases = [['no words', N('FNOTE1')], ['blank words', N('FNOTE1', '   ')], ['short', N('FNOTE1', 'beam')], ['eleven', N('FNOTE1', 'ask the PMC')], ['twelve', N('FNOTE1', 'ask the PMCs')],
+      ['24 characters', N('FNOTE1', 'abcdefghijklmnopqrstuvwx')], ['25 characters', N('FNOTE1', 'abcdefghijklmnopqrstuvwxy')], ['a sentence', N('FNOTE1', 'The client wants a full-height wardrobe here')],
+      ['lines and runs of spaces', N('FNOTE1', '  ask\n\nabout   the\tbeam  over the door ')], ['a space at the cut', N('FNOTE1', 'close the door with brickwork')],
+      ['office only', N('FNOTE1', 'DB to be shifted to the passage', { vis: 'office' })], ['office only, short', N('FNOTE1', 'DB', { vis: 'office' })], ['office only, no words', N('FNOTE1', null, { vis: 'office' })],
+      ['a long code', N('CNOTE128', 'false ceiling stops at the beam')], ['a code so long nothing fits', N('GNOTE1234567890123', 'tile')], ['an audience nobody knows', N('FNOTE1', 'beam', { vis: 'cv' })],
+      ['Devanagari', N('FNOTE1', 'इथे नवीन वॉर्डरोब हवा आहे, पूर्ण उंचीचा')], ['words that are a number', N('FNOTE1', 12345)]];
+    for (const u of [1, 2]) for (const [n, e] of cases) { const T = L53.noteTag(e, g(u), u); console.log('     ', `u${u}`, n.padEnd(28), '|', T.head, '|', JSON.stringify(T.text), '|', T.off, '|', +(T.w / u).toFixed(3)); } }
+  // ---- the sheet: KIND, and a NEW Note, driven as the L3 journeys are
+  { const R = globalThis.RIG, { H, W, said, tap, type, shown, put, M, at } = R;
+    const S = () => { const x = L53.sheetState(); return x ? JSON.stringify({ sub: x.sub, sub0: x.sub0, to: x.to, act: x.act, note: x.note, vis: x.vis, cat: x.cat, fresh: x.fresh, hist: x.hist }) : '(closed)'; };
+    const done = () => { tap('apply'); return `${L53.isOpen() ? 'OPEN' : 'closed'} · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])}${said.length ? ' · ' + said.join(' ; ') : ''}`; };
+    const J = (title, f) => { console.log('  ', title); f(l => console.log('      ', l)); };
+    const mem = () => `the tool: CRP@wall=${T53.subFor('CRP', 'wall')} DEF@wall=${T53.subFor('DEF', 'wall')} S@wall=${T53.subFor('S', 'wall')}`;
+    // a Note as a tap places it: one undo step, the mark with no words, its sheet opened fresh
+    const place = () => { put(); H.snapshot(); W.front.els.push(M('a', 'NOTE', 'FNOTE1', { x0: 0, x1: 50, y0: 0, y1: 50, locked: false })); H.st.sel = { id: 'a' }; H.st.active = 'x'; L53.openSheet('a', { fresh: true }); };
+    R.setStage(1); firsts();
+    console.log('L6 journeys of the sheet (stage 1 unless said):');
+    J('KIND: a wardrobe made a Kitchen base -- the head follows the chip, Done stores it in one undo step, the tool remembers it; back to the first deletes the key', p => { put(M('a', 'CRP', 'FCRP1')); L53.openSheet('a'); p(S()); p(shown());
+      p('tap kbase: ' + tap('sub', 'kbase') + ' ' + S()); p(shown()); p(done()); p(mem());
+      L53.openSheet('a'); p('reopened: ' + S()); p('tap wardrobe: ' + tap('sub', 'wardrobe')); p(done()); p(mem()); });
+    J('a kind picked and put back is nothing changed', p => { put(M('a', 'CRP', 'FCRP1', { sub: 'tv' })); L53.openSheet('a'); tap('sub', 'study'); tap('sub', 'tv'); p(done()); p(mem()); });
+    J('a kind nobody knows reads as the first, and is kept until another kind is picked', p => { put(M('a', 'CRP', 'FCRP1', { sub: 'zzz' })); L53.openSheet('a'); p(S()); p(done());
+      L53.openSheet('a'); p('tap the first, wardrobe: ' + tap('sub', 'wardrobe') + ' · ' + done()); L53.openSheet('a'); p('tap shoe: ' + tap('sub', 'shoe') + ' · ' + done()); });
+    J('a locked mark keeps its kind: the chips are off (a Scope mark\'s too), and Done with a note writes the note alone', p => { put(M('a', 'PLB', 'FPLB1', { sub: 'hot', locked: true })); L53.openSheet('a'); p('tap cold: ' + tap('sub', 'cold') + ' ' + S()); type('note', null, 'n'); p(done());
+      R.setStage(2); put(M('a', 'AC', 'FAC1', { life: 'scope', lifeAs: 'staff', locked: true })); L53.openSheet('a'); p('a Scope mark, tap outdoor: ' + tap('sub', 'outdoor')); p(done()); R.setStage(1); });
+    J('a Defect\'s trade follows its kind: Broken / hollow tile is the tiler\'s', p => { firsts(); put(M('a', 'DEF', 'FDEF1')); L53.openSheet('a'); p(shown()); tap('sub', 'tile'); p(shown()); p(done()); p(mem()); });
+    J('a kind beside a move and a note: the kind is written first', p => { put(M('a', 'S', 'FS1')); L53.openSheet('a'); tap('sub', 'meter'); tap('mv', 'wish'); tap('act', 'shift'); type('note', null, 'move it to the passage'); p(shown()); p(done()); p(mem()); });
+    J('KIND at Survey (stage 0) and at Client approved (stage 5): the kind is the mark\'s at every stage', p => { for (const s of [0, 5]) { R.setStage(s); put(M('a', 'CRP', 'FCRP1')); L53.openSheet('a'); p(`stage ${s}: tap vanity: ` + tap('sub', 'vanity') + ' · ' + done()); } R.setStage(1); });
+    J('a NEW Note: its sheet opens fresh; words typed, Done -- no undo step of its own', p => { place(); p(S()); p(shown()); type('note', null, 'ask about the beam'); tap('vis', 'office'); tap('trp'); tap('cat', 'civil'); p(done()); p('selected still: ' + JSON.stringify(H.st.sel)); });
+    J('a NEW Note, Done with no words: it is removed, the placement\'s undo step with it', p => { place(); p(done()); p('selected: ' + JSON.stringify(H.st.sel) + ' active: ' + JSON.stringify(H.st.active)); place(); type('note', null, '   '); p('blank words: ' + done()); });
+    J('a NEW Note, ✕: removed the same way -- even with words typed, for nothing was stored', p => { place(); p('✕: ' + tap('close') + ` · ${L53.isOpen() ? 'OPEN' : 'closed'} · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])} · ${said.join(' ; ')}`);
+      place(); type('note', null, 'typed, then closed'); tap('close'); p(`with words typed: ${L53.isOpen() ? 'OPEN' : 'closed'} · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])} · ${said.join(' ; ')}`); });
+    J('a NEW Note removed after another undo step was taken since it opened: that step stays', p => { place(); H.snapshot(); tap('close'); p(`closed · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])} · ${said.join(' ; ')}`); });
+    J('a Note a file holds: ✕ removes nothing; Done with its words blanked says so and stays', p => { put(M('a', 'NOTE', 'FNOTE1', { note: 'old' })); L53.openSheet('a'); p(S()); type('note', null, ''); tap('close'); p(`✕: closed · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])}${said.length ? ' · ' + said.join(' ; ') : ''}`);
+      L53.openSheet('a'); type('note', null, ' '); p(done()); });
+    J('a fresh sheet on a Note that has its words (a file\'s): ✕ keeps it', p => { put(M('a', 'NOTE', 'FNOTE1', { note: 'kept' })); H.snapshot(); L53.openSheet('a', { fresh: true }); tap('close'); p(`closed · undo steps ${H.st.hist.length} · ${JSON.stringify(W.front.els[0])}${said.length ? ' · ' + said.join(' ; ') : ''}`); });
+    firsts(); }
+  try { L57.set('mr'); } catch (_) {}
+  console.log('L6 under मराठी, the texts the page finds (KIND has no row: it comes back as it went in):', JSON.stringify(['KIND', 'Carpentry unit · kind', 'Switch plate · kind', 'Kind: Wardrobe — tap to change', 'Kind: Plumbing point · Cold — tap to change',
+    'Empty note removed', 'Every mark type · Front wall', 'FNOTE1 · Note', 'Wardrobe', 'Full false ceiling', 'Other unit'].map(x => L57.vis(x))));
 }
 
 // ---- L57: what the page shows under मराठी for each line of the file given (a text it does not know comes back as it went in)

@@ -913,6 +913,96 @@ for the unread chip.
   `SurveyPrepPalette.forSurface(s).all`, which is every row of `SurveyPrep.TYPES`, in a five-column grid with a
   fallback icon — so L5 on `main` by itself would publish a Play build with ten new tiles (21 on a wall) in
   v52's More grid. L5 stays on `batch-next` until L6 is green; B3 is the two together.
+- **L5 AS BUILT (12 Nov 2026; branch `port62-wish`, local, one commit, not pushed).** New `pano/MarkTypes.kt`: `NEW`
+  (the ten: token, name, colour, kinds, short name, trade, rectangle / point / pin, ink), `typesOn`, `SHORT`, `SUBS`
+  (77 rows, 57 labels; id, label, the column its box reads, a Low-voltage point's service, a Defect's trade),
+  `subsOf` / `subInfo` / `firstSub` / `subToStore` / `subOf` / `withSub` / `setSub`, `typeName` / `displayName`,
+  `parseCode` / `codeToken`, `defaults` (defaults53), `measures` (measures53) and `placeRefusal`. Wired:
+  `SurveyPrep.TYPES` appends `typesOn` (21 / 11 / 13), `isPoint` grows by PLB and LV, `defaults` and `measures0` ask
+  `MarkTypes` first (index61c2.html 4972 and 4977), `defaults` / `placeAt` / `addMark` / `addMarkAt` and `PhaseTools.place` take an
+  optional sub-kind, stored only when it is not the type's first; `Pano360.placeRefusal` asks `MarkTypes.placeRefusal`
+  first (index61c2.html 4326); `SurveyPrepPalette.SHORT` gains the ten (index61c2.html 6608); `Masters` gains the ten names
+  and short names and a new map, `type_sub`. **No file of `:app` is touched**: every signature it calls is as it
+  was (the new parameters have defaults; `place`'s sits before its trailing lambda), and it is compiled only by CI.
+  NOTHING HAS BEEN SEEN ON A PHONE, and nothing is built to be seen: More ▸ by trade, the kind picker, KIND in the
+  Mark sheet, the icons and the Note pin are L6's.
+  Tests: new `MarkTypesTest` (15) and its golden, `SurveyPrepFileTest` +2, `KeyGrammarTest` +1, `TradesTest` +1;
+  `PaletteTest`, `SurveyPrepTest`, `SurveyPrepMarathiTest`, `MarkSheetTest` (its head reads "Note" now, as the page's
+  does) and `MastersTest` updated for the wider table. `:pano`, from the XML: 1,212 tests in 85 suites, none failed,
+  none skipped (1,193 in 84 before). Three keys added, 1,910 in all; Tx regenerated (`:pano:i18nGen`), `i18nRatchet`
+  lowered nothing, `unkeyed.tsv` empty; `android/i18n/README.md` ("Port 62 slice L5") lists every key now read.
+  - **Pinned against the page's own code, row by row.** `proto-tables.mjs` gains an "L5" section that prints, from
+    T53 itself, NEW, the types of each kind of surface, every sub-kind with its label, what each stores and shows
+    (with none, and with one nobody knows), `defaults53` for all 22 types and every sub-kind on seventeen faces (the
+    tests' room, a wide wall, faces smaller than a default box, a narrow one, a large one), `measures53` for a mark of
+    every type in each corner and the middle of the room's faces, `placeRefusal`, `parseCode` and `nextCode`: 992
+    rows, committed as `pano/src/test/resources/marktypes/proto-type-rows.txt`. `MarkTypesTest` prints the same rows
+    from the phone's models and compares them LINE FOR LINE. The hand-typed tables beside it (the ten, the sub-kinds
+    with their Marathi as the page's text layer shows them, a new mark's box and stored `sub`, codes and readings,
+    the checklists, the refusals) are written from that output and the page's code.
+    29 one-line mutations -- 21 of `MarkTypes`' tables and rules (a sub-kind's height, a point's centre, the nearer-side
+    test, a measure's word, the first-is-not-stored rule, a type's kinds, the article, the grammar's letter run ...),
+    8 of the wiring in `SurveyPrep`, `Pano360`, `PhaseTools` and `SurveyPrepPalette` -- were each run against the ten
+    suites that read them: every one turned a suite red, none by a compile error.
+  - **Three keys added, each the prototype's own English, none coined.** `type.sub.wc` -- "WC", the floor's first
+    Sanitary ware sub-kind, the one label of the 57 the page draws with no key (Marathi `WC`, as the page shows it;
+    on `latin-ok.txt`). `t53.a` / `t53.an` -- the article the page picks in code for a refusal
+    (`/^[AEIOU]/.test(n.name)?'An':'A'`, `P L2590`) and glues in as `{a}`; Marathi EMPTY, because the two templates'
+    own notes say "{a} is the English article — supply ''". So `GenTx.EMPTY_OK`, which named the one empty Marathi
+    value (`sp.the`, the article "the "), is now the set of the three English articles, and check 2's message says
+    so. Decided here, where the plan was silent: the alternative was a literal "A" / "An" in the code picked by the
+    language flag, and a shown text is keyed (the L1 review, finding 2), while `Tx.mr` is for layout alone.
+  - **Under मराठी a refusal is the T53 keys', not what the page shows.** The page's text layer finds a sentence by
+    its English, so "A Grill cannot go on the ceiling" is matched by v54's `refuse.v360` row ("छत: इथे ग्रिल लावता येत
+    नाही") and the others keep their English article ("An AC युनिट जमिनीवर लावता येत नाही", "A छताचा ड्रॉप फक्त छतावरच लावता
+    येईल" -- run, in the script's last lines). The phone renders `refuse.t53.x_x_cannot_go` and
+    `refuse.t53.x_x_goes_ceiling` themselves with no article: "ग्रिल छतावर लावता येत नाही", "AC युनिट जमिनीवर लावता येत
+    नाही", "छताचा ड्रॉप फक्त छतावरच लावता येईल". Q-list 13.
+  - **The code grammar.** `Prep.highest` / `nextCode` / `claimCode` already read only the marks whose type IS the
+    token, so they needed no change: FP1 and FPLB1, FL1 and FLV1, FS1 and FSAN1, FC1 / FCRP1 / FCTR1, FN1 and
+    FNOTE1, FD1 and FDEF1 are pinned never to share a number or a reading. `parseCode` / `codeToken` are ported
+    (nothing reads them yet). T53's `nextCode` is NOT ported as a second function: nothing on the page calls it, and
+    the phone's own never hands a deleted mark's number out again (v52 slice 8); the golden's NEXT row is printed
+    with nothing deleted, where the two agree. A code's number past 2^31 reads as no code (the page's is a float).
+  - **An older box of a new point.** `SurveyPrepFile.open` runs `normPoints` over `isPoint`, so a Plumbing point or
+    a Low-voltage point stored larger than 50 mm is made a spot at its centre and its edge readings go to the
+    centre keys, exactly as E's do (sp.js `normPoints` over `ISPOINT`). ~~On a plan the phone moves l r f k to the
+    centre keys UNCHANGED for every point but E -- its own rule since v52 slice 4 for P and F -- where the page adds
+    half the box for every plan point but P~~ **CHANGED BY THE L5 REVIEW (finding 1, below):** on a plan the two new
+    points' l r f k take half the box, as the page's do; only a Bulb and a Fan move unchanged. No build has written
+    such a reading for the two new points.
+  - **For L6, which wires it.** The tool's remembered sub-kind (`subFor` / `setSub`'s memory, `P L2471-2473`) is not
+    ported: `PhaseTools.place` takes the sub-kind and L6 holds the memory. `setSub` changes the stored kind and
+    leaves the box, as the Mark sheet's KIND does. `SurveyPrepEdit.duplicate` copies the box alone, so the copy of a
+    Kitchen base is a unit with a kitchen base's box and NO `sub` -- it reads "Wardrobe" (the page's `duplicateItem`
+    does the same; put with Q-list 8). A sub-kind this build does not know reads as the first and is kept in the
+    file until a kind is picked. `MarkTypes.New.ink` (Sanitary ware) is carried for L8. And the saved "survey marks"
+    pictures keep `sub` (`SheetMarks.KEPT`, L2) while S5 has held it back from a vendor and a client since the RD
+    review (§3.11): two rules for one key, to settle with Q-list 7.
+  - **Not ported, and why.** `serviceOf` / `serviceRoomMatch` (L9); `MarkFilter`, `paletteMain` by trade,
+    `catForNew` and `counts` (the Trade chip, Q-list 3); the ten icons, the spot symbols and `renderMore` (L6).
+
+#### The L5 review (12 Nov 2026) — two findings on commit `a22ff9d`, both minor
+
+Each was checked against the committed code and against the prototype's own code RUN in node, not only read:
+`proto-tables.mjs` gained two "L5 REVIEW" prints (the page's `normPoints`, cut from `P L4944-4955` with its own `ckey`,
+over ISPOINT = E P F PLB LV; and T53's remembered sub-kind, `subMem` / `subFor` / `newFields`, `P L2471-2473`,
+`L2639`). The reviewer's line numbers for `normPoints` are a few off (4940-4949); the code is the same.
+**Confirmed: both. Declined: none.** Finding 1 is fixed in code; finding 2 changes no behaviour — it is the contract
+slice L6 builds on, stated where L6 will read it and pinned by a test, as the reviewer asks.
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | A plan Plumbing / Low-voltage point's edge reading converts differently from the prototype, and the new test pins the phone's figure while saying it is sp.js's (minor) | **CONFIRMED, every figure.** The page's own `normPoints`, run: a ceiling LV stored 200 × 100 with `CLV2.f = 7` answers `CLV2.cf = 57`; a floor PLB 150 × 150 with `l = 40`, `k = 60` answers `cl = 115`, `ck = 135` (`toC=plan&&e.t==='P'`, `P L4950`: every plan point but a Bulb takes half the measured-or-box width or height; a plan E is skipped). L5's `normPoints` added 0 on any plan and `MarkTypesTest` asserted `"CLV2.cf" to 7.0` under a comment naming sp.js. The walls agree (`FPLB1.cl 375`, `.cs 875`). **Two things the reviewer did not name, found confirming it, which decided between his two remedies:** (a) S5's /projects, which has known PLB and LV as points since slice T5, shows such a reading by the page's rule (`asis_view.js` `normPoints`, the same `toC = plan && e0.t === 'P'`) — so kept as built, the phone and the web would have shown two figures for one stored reading; (b) the phone's reason for moving a plan Bulb's and Fan's figures unchanged is history ("already measured to its centre" by the builds before v52) and cannot hold for two types no build has ever measured: an l r f k reading of one is an edge reading. Nothing stored is affected: no build, nor the page (which writes the centre keys from the start), has written such a reading | **The phone follows the page for the two new points** — the reviewer's first remedy. `SurveyPrep.normPoints`: half the box is left out only for a plan Bulb and a plan Fan (`toC = plan && (t == "P" \|\| t == "F")`, the page's `toC` plus the phone's own Fan); every other plan point takes it, as on a wall. `MarkTypesTest`: the pin is 57 and its comment says the page's rule; new test, `NORM_PAGE` — nine rows typed from the script's print (floor PLB with and without a measured width, ceiling LV with and without a measured height, both on a wall, a plan Bulb, a plan E) compared line for line with the phone's answer, each also run twice (the second pass changes nothing). Fails on L5 as built (two tests red). **Seen, NOT changed — v52 slice 4's, not L5's:** a plan FAN still moves unchanged on the phone (`CF1.l 1100` → `cl 1100`; the page and S5 give 1200), pinned since v52 by `SurveyPrepTest` and now named in the new test and in the script's last row. No build has written an l r f k reading for a ceiling Fan either. Q-list 14. And the phone's own extension stays (an edge reading arriving for a point ALREADY a spot converts too, by its 50 mm box where nothing else is known — `GPLB3.l 40` → `cl 65`; the page skips a spot) |
+| 2 | `place` / `addMarkAt` take ONE sub-kind but read it against the surface the tap LANDS on — on the 360 an id shared by two kinds of surface is stored where the prototype would store the landed kind's own (minor) | **CONFIRMED, by the page's code and by running T53.** The memory is per type AND kind of surface (`subMem[t+'@'+kind]`), and `addElAt` asks it with the landed surface for the box and the stored key alike (`P L5924-5925`: `defaults(s,t,A,B)` → `subFor(t,tkind(s))`, `T53.newFields(t,tkind(s))`). Run: after the wall's picker chose PLB `hot`, CRP `other`, LV `wifi`, `newFields` answers `{"sub":"hot"}` / `{"sub":"other"}` / `{"sub":"wifi"}` on a wall and `{}` on the floor and the ceiling. On the phone `subToStore` accepts any id that is a non-first sub-kind of `kindOf(s)`, and ten type-and-id pairs are shared by two kinds (a Defect's five by all three), five of them at different places (PLB `cold` 0 → 2, `hot` 1 → 3, `waste` 5 → 1; CRP `other` 7 → 3; LV `wifi` 4 → 1) — so the wall's default `cold`, handed in for a tap that lands on the floor, is stored there. Nothing passes a sub-kind yet (the two `:app` calls omit it; no `:app` file is touched), so no behaviour is wrong today | **The contract is stated where L6 will read it, and pinned** — the reviewer's fix. KDoc of `PhaseTools.place` and `Prep.addMarkAt`: `sub` is the sub-kind remembered for the kind of surface the mark LANDS on (`kindOf(s)`), never the open tab's; on the 360 the two differ; the function cannot tell, it reads the one id it is given against the surface it is given. `MarkTypesTest` +1: the shared ids with their place in each list, and `place(…, "floor", "PLB", …, sub = "cold")` storing `cold` ("Plumbing point · Cold") where the floor's own memory, untouched, stores nothing ("Floor trap"); an id the landed kind lacks (`mixer`, `wardrobe`) stored as nothing; a shared id taking the LANDED kind's box. The test passes on L5's code — it pins what the functions do, not a change — and goes red if `subToStore` reads another kind's first. **For L6 (§3.6):** hold the memory per type and kind, and ask it with the surface `place360` lands on. Not built here: a signature that would make the wrong call impossible (the memory handed in as a function of the kind) — L6 holds the memory and is the slice to choose it |
+
+`:pano` after the fix, from the XML: 1,214 tests in 85 suites, none failed, none skipped (1,212 before:
+`MarkTypesTest` 15 → 17). No key added or removed, Tx not regenerated, `unkeyed.tsv` untouched and still empty;
+`proto-type-rows.txt` unchanged (the script prints the same 992 golden rows). Mutations, each run against
+`MarkTypesTest` and `SurveyPrepTest`: `normPoints` back to L5 as built (two tests red); the page's rule exactly,
+the Fan taking half too (the new test and v52's Fan test red); `subToStore` reading the wall's first for every
+kind (the new contract test and two of L5's red). **No file of `:app` is touched**; `:app` is compiled only by CI,
+and NOTHING HAS BEEN SEEN ON A PHONE.
 
 ### 3.6 L6 · More ▸ by trade, the kind picker, the Note pin (M) — after T5 is on stage
 - **Prototype:** More ▸ as one row per trade, General first (`moreRows` `P L2602`, `renderMore` `L2688-2694`); the
@@ -923,11 +1013,167 @@ for the unread chip.
   (KIND; TRADE for a Note — an Other has it since L3), `pano/SurveyPrepPalette.kt`. With no Trade chip the three
   palette slots stay v52's (`paletteMain('all')`, `L2597`). The Note pin and its tag are drawn on the SCREEN
   only: the saved "survey marks" pictures go through `SheetMarks` (L2) and carry no Note.
+- **The sub-kind handed to `PhaseTools.place` (the L5 review, finding 2, §3.5):** L6 holds the tool's memory PER
+  TYPE AND KIND OF SURFACE, as the page does (`subMem[t+'@'+kind]`), and asks it with the surface the mark LANDS on
+  — on the 360 (`place360`) that need not be the open tab's. `place` reads the one id it is given against the
+  landed surface and an id can belong to two kinds (`cold`: the wall's first, the floor's third), so the tab's
+  sub-kind handed in for a tap on the floor would be stored there. `MarkTypesTest` pins what is stored.
 - **Tests:** `PaletteTest` (the rows per surface kind), `MarkSheetTest` (KIND; a Note needs its words),
   `SheetMarksTest` again with a Note of each audience.
   **i18n on:** `trade.*.short`, `life.what_should_office_vendor`, `life.msg.empty_note_removed`, `life.trade`.
 - **Amit can:** his five examples as the prototype does them — Carpentry unit · Wardrobe; Ceiling drop · Full
   false ceiling (POP); Carpentry unit · Other unit plus a note (dining table); the window and the door from L3.
+- **L6 AS BUILT (12 Nov 2026; branch `port62-wish`, local, one commit, not pushed).** The screens of L5's tables.
+  `:pano`: `SurveyPrepPalette` gains `moreRows` / `moreColumns` (More ▸ as rows per trade, and the two columns of
+  landscape), `moreLong` (the More slot drawn tight), the tool's memory -- `subKey`, `subFor`, `rememberSub` --
+  `kindList` (the chip's list) and `chip`'s kind button (`Chip.kindFrom` / `kindTo` / `kindLabel`); `MarkSheet` gains
+  KIND (`State.sub`, `pickSub`, `View.kind`, `Applied.kind`) and the sheet of a Note just placed (`open(…, fresh,
+  hist)`, `View.focusNote`, `Outcome.REMOVED`, `cancel`, `takesBackUndo`, `emptyRemoved`); new `pano/NotePin.kt` (the
+  pin's sizes and what its tag says); `SurveyPrep.isSpot` (a point or a pin), asked by `Pano360.markPoly`. `:app`:
+  `SurveyPrepTools.kt` (`SpMoreSheet` by trade, `SpKindList`, `SpToolChip`'s kind button, the ten icons, the memory
+  `spKinds`), `SurveyPrepDraw.kt` (`notePin`, `newSpotSym`, a Note in `drawMarks`), `SurveyPrep360.kt` (the same pin,
+  symbols, chip and list on 4 · 360), `SurveyPrepScreen.kt` (both placements hand `PhaseTools.place` the kind
+  remembered for the surface the mark lands on; a Note's sheet opens as it is placed; `noteRemoved`, `sheetCancel`)
+  and `MarkSheet.kt` (the KIND chips; the note field takes the keyboard for a new Note). **`:app` is compiled only by
+  CI, and NOTHING HAS BEEN SEEN ON A PHONE.**
+  - **What he can do, as the prototype does it.** More ▸ lists "Every mark type · Front wall" as one 44 dp row per
+    trade, General first with the Note as its first tile (eleven rows on a wall, six on the floor, eight on the
+    ceiling; two columns in landscape, the first the longer). A type with kinds names the kind on the chip --
+    "Placing Wardrobe ▾ · tap the photo · as Client wish" -- and a tap on those words opens "Carpentry unit · kind"
+    under the chip, two kinds to a row; the pick is what the next tap places and what the chip then says. A placed
+    mark's sheet has KIND first, over TRADE and STATE: a wardrobe is made a Kitchen base in one undo step, and the
+    tool remembers it. A Plumbing point is a drop in a 50 mm spot, a Low-voltage point a dot between two arcs. A Note
+    is a white pin with ✎; its sheet opens as it is placed, on the note field ("What should the office or the vendor
+    know here?", Client & vendors / Office only, TRADE); Done with words keeps it, tagged with its code, ✎ and the
+    first of its words ("FNOTE1 ✎ ask the PM…"); Done or ✕ with none takes it away again -- "Empty note removed", and
+    no undo entry is left. So his five examples: Carpentry unit · Wardrobe (the wall's first kind, placed with no
+    pick); Ceiling drop · Full false ceiling (the third of the ceiling's three, picked on the chip's list or in the
+    sheet's KIND; a tap places a Bulkhead until then); Carpentry unit · Other unit with a note; the window and the
+    door from L3. In the Wish list stage each is born a Client wish (L4), a Note excepted: it has no state.
+  - **Tests.** `PaletteTest` 11 → 19, `MarkSheetTest` 24 → 33, `SheetMarksTest` 13 → 15, new `NotePinTest` (5);
+    `PhaseToolsTest`'s reading of the two placement calls follows the new argument. `:pano`, from the XML: 1,238
+    tests in 86 suites, none failed, none skipped (1,214 in 85 before). One key added (`life.kind`), 1,911 in all;
+    Tx regenerated (`:pano:i18nGen`), `i18nRatchet` lowered nothing (`NotePin.kt` enters at 0), `unkeyed.tsv` empty;
+    `android/i18n/README.md` ("Port 62 slice L6") lists every key now read.
+  - **Pinned against the page's own code.** `proto-tables.mjs` gains an "L6" section that prints, from T53, L53 and
+    the page's own `t53subBtn` / `t53subList` (cut from the page): More ▸'s rows in English and under मराठी, the More
+    slot for every armed More type with `long53`, the chip's words and its kind button for every type of each kind of
+    surface, every list of kinds, the memory's journey (`subFor` after each `setSub`, `newFields`), `noteTag` for
+    eighteen notes at two scales, and the sheet's journeys for a kind and for a new Note. The first four are committed
+    as `pano/src/test/resources/palette/proto-palette-rows.txt` (122 rows) and `PaletteTest` prints the same rows from
+    the phone's models and compares them LINE FOR LINE. The Mark sheet's golden is re-cut with KIND in it and nine more
+    items (30 items, 210 rows; of the 21 it had, only the switch plate's rows changed -- it has a KIND now):
+    `proto-sheet-rows.txt`. The stub host of the script's L3 section was given the page's own `subsOf` and `setSub`
+    (`P L7057`, `L7059`), without which the page's sheet paints no KIND. `NotePinTest`'s tag table and
+    `MarkSheetTest`'s journeys are typed from the script's print. The L5 golden is unchanged.
+  - **The mutation run.** 35 one-line mutations of the new `:pano` rules, each run against the whole suite: 13 of
+    `SurveyPrepPalette` (the tight slot's nine characters, the columns' half, the rows' order, the memory's key by
+    surface or by type alone, a stale or foreign id kept, the list's ringed kind and its title, the chip's arrow, the
+    button's end, a Note's second half, the button's label), 13 of `MarkSheet` (a kind picked on a locked mark or by
+    any id, the undo step taken back, an empty Note kept or any removed, a fresh Done's own undo step, the kind not
+    written, written on a read-only mark, not handed to the tool, cancel removing a worded Note or a Note that is not
+    new, the focus), 7 of `NotePin` (24 characters, 120 u, the padlock's room, a leading space, half a pair, the space
+    before the ellipsis, the head's glyph) and 2 of the spot rule (`isSpot`, `markPoly`). 34 turned a suite red as the
+    tests stood, none by a compile error. ONE SURVIVED -- `cancel` without its `fresh` guard: no test opened a
+    wordless Note that a file holds (another writer's) and cancelled it -- so `MarkSheetTest` gained that case, and
+    the mutation is red against it.
+  - **A compiler stand-in for `:app`.** Besides the tests that read the app's sources for the exact calls
+    (`PaletteTest`, `MarkSheetTest`, `NotePinTest`, `SheetMarksTest`, `PhaseToolsTest`), the five changed `:app` files
+    were type-checked with kotlinc 2.0.21 against the real `:pano` classes and hand-written stubs of the Android and
+    Compose calls they make, before and after the slice: no error the slice added, and `SurveyPrepTools.kt`,
+    `SurveyPrepDraw.kt` and `app/MarkSheet.kt` with none at all. The stubs are a workbench, in no repository; CI is
+    the compiler. Found before the commit and fixed: the two placements called `notePlaced` above its declaration (a
+    local function is visible only below it) -- `MarkSheetTest` now pins the order they are declared in.
+  - **The memory, and the surface a mark lands on (the L5 review, finding 2).** `spKinds` is one map for the app's
+    run, `CRP@wall` → `kbase`, as the page's `subMem` lives for a page load: never in the prep file, the type's first
+    again after a restart. It is read only through `subFor(mem, t, s)` and both placements ask it with THE SURFACE
+    THE TAP LANDED ON (`placeMark`'s face, `place360`'s `s`), so a Plumbing point picked "Cold" on a wall and tapped
+    onto the floor on the 360 is the floor's own "Floor trap". `PaletteTest` pins both calls in the screen's source
+    and the journey against the page's.
+  - **One key added: `life.kind`.** The page draws the sheet's KIND label as a literal (`P L3030`), so it reads KIND
+    under मराठी there. On the phone every word a sheet shows is keyed: "KIND" / "प्रकार", the word `sp.x_kind` already
+    uses. Decided here; the alternative was a literal marked as an identity, which it is not.
+  - **Where the phone differs from the page, each decided here where the plan was silent (Q-list 15):**
+    1. *An empty new Note's code is not handed out again.* The page counts the marks still there, so the next Note
+       is FNOTE1 again; the phone never re-issues a code (v52 slice 8), so it is FNOTE2. No reading or record ever
+       held the first.
+    2. *The kind button is underlined solid, on the chip's own line.* The page's is `underline dotted` on a 32 px
+       line; Compose draws no dotted underline, and the chip's words are one run (as the "as …" half, Q-list 12c).
+    3. *KIND's chips wrap as far as they need.* The page caps the block at two rows of chips and hides what is
+       past them (`.l53chips{max-height:68px;overflow:hidden}`, `P L1019`); the phone draws every kind, and its
+       sheet scrolls between its head and Done when the blocks need more height than there is (L3, Q-list 10).
+    4. *A Plumbing point's list is titled "प्लंबिंग पॉइंट · प्रकार" under मराठी.* The page's text layer matches the
+       English "Plumbing point · kind" as a Plumbing point OF THE KIND "kind" and shows "प्लंबिंग पॉइंट · kind"; the
+       phone renders `sp.x_kind` itself, as for every other type.
+    5. *The tag never halves an emoji.* The page cuts by UTF-16 unit; `NotePin.tag` drops a pair whole. The same
+       words in every other case (`NotePinTest`, against the page's `noteTag`).
+    6. *On 4 · 360 the chip names the open tab's kind.* The phone's 360 is step 4 with the open tab's palette
+       (Q-list 2); v54's own 360 palette and `renderMore360` are not ported. A tap there still places the landed
+       surface's remembered kind, as above -- so with a wall's tab open the chip can say "Cold" for a point that
+       lands on the floor as a Floor trap.
+    7. *One press for a screen reader.* The chip is one node with one click: the kind's list where the chip has a
+       kind button ("Kind: Wardrobe — tap to change"), else the cycling "as …" half. By touch both buttons work.
+    8. *"A Note needs its words" is still said on the snackbar.* An existing Note emptied and Done stays open and
+       says so there, as since L3; the page has no state for it on the sheet (it removes only a NEW Note).
+    9. *A swipe down on the sheet is a cancel* (material3's sheet): an empty new Note goes with it, as with ✕, the
+       scrim and ◁.
+    10. *Outside the photo, fewer presses shut the chip's list of kinds* (the L6 review, below; driven on the page).
+       On the page any click in survey prep outside the list and its button shuts it (`P L6811`) -- except one that
+       keeps its click to itself: a palette slot, More ▸ included (`L6618`), the cycling "as …" button (`L3091`) and
+       the top bar's ⋮ (`L6807`), which all leave it open. On the phone, inside the photo's box it is the same: the
+       photo, the chip's plain words (the photo's), fit and grid shut it; More ▸ and the cycling "as …" do not.
+       Outside the box only what changes the face, the step or the tool shuts it -- a tab or a step pressed (the open
+       one too: both go back to Select, as on the page), a palette slot, a More tile, ✕ on the chip. So the More
+       sheet's own ✕, undo and any other control outside the photo that changes none of the three leave the list
+       open where the page shuts it. A list he opened stays until he acts; it never opens by itself.
+  - **Drawn on the screen only.** The pin and its tag are painted from the marks the screen holds. A saved "survey
+    marks" picture and the exported A4 sheet are handed the room as surveyed (`SheetMarks`, L2), which holds no Note
+    and no mark born a wish, so an office-only note's words cannot reach either: `SheetMarksTest` pins it with a Note
+    of each audience, and that `notePin` has two callers, both screens.
+  - **Not built here, and for which slice.** 3 · List: a Note is a row with its code and no measure rows; its panel
+    and a mark's note line are L7's, with the states on the 360. The Plan tab on screen draws a Note as its 50 mm box
+    until L8 gives the drawings their symbols and legend (`MarkTypes.New.ink` is carried for it). The Trade chip,
+    `paletteMain` by trade and More ▸'s "picked trade" row (Q-list 3). `MarkFilter`, `serviceOf` (L9). The page's
+    `focus:'note'` for an existing mark (no caller on the page).
+  - **"After T5 is on stage" was not checked here.** This container cannot read stage. S5's own notes say stage has
+    given a vendor and a client the room as surveyed since 11 Nov (slice RD) -- no Note, no mark born a wish, no
+    `sub` -- so nothing L6 writes reaches them; whether /projects NAMES the ten types and their kinds for staff when
+    B3 ships is T5's, and B3 (L5 + L6 to `main`) should not go ahead of it.
+
+#### The L6 review (12 Nov 2026) — one finding on commit `7c945f0`, minor: confirmed in part, declined in part
+
+The finding was checked in both codes and then DRIVEN on the page, because the page's code read alone misleads here:
+survey prep's click listener shuts the list on any click outside the list and its button (`P L6811`), but two of the
+controls the finding names never reach that line. `l6/kind-list-drive.mjs` (new, committed: the scratchpad is a
+workbench) opens survey prep on a served copy of the built page through the page's own tour and presses the page's own
+controls, fifteen rows, each from "Carpentry unit armed, its list of kinds OPEN"; its output is what the verdicts
+below quote. **Confirmed: that the list comes back open by itself, and that fit and grid should shut it. Declined:
+that More ▸ and the cycling "as …" words should -- on the page both leave it open.**
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1a | The chip's list of kinds comes back open by itself: it is shut only by a press on the photo, a pick, or its own button, while the page shuts it on every tool change (minor) | **CONFIRMED, by both codes and by the drive.** L6 held the face and tool the list was opened FOR (`kindFor`, the key `tab\|tool`) in a state that outlived both and drew the list while the key matched; nothing cleared it but the three presses. So Front wall, More ▸ Carpentry unit, the kind button (open), ✕ on the chip, More ▸ Carpentry unit again: the key matches and the list is drawn at once, unasked. The same after another face and back, or another palette slot and back. Driven on the page: row B (✕, then the same type: `list shut`), row H (Left, Front, the type again: `list shut`), row I (Window, the type again: `list shut`) -- `setTool` sets `st.subpick=false` (`P L6641`). **One detail of the report is not as written:** "Front → Left → Front with the unit still armed" cannot happen on either -- a tab pressed goes back to Select on the page (`L5902`) and on the phone (`showTab`), so the unit has to be picked again; the list then reopened by itself all the same | **The open state DIES with what it was opened on** -- the reviewer's fix, with one correction to it. `SurveyPrepScreen.kt` (`SpPhoto`): `val kindOpen = remember(tab, mode, tool) { mutableStateOf(false) }`; `SurveyPrep360.kt` (`Sp360`): `remember(tab, tool)`. A new state for each face, step and tool, so the same face and tool come back to it shut; `kindFor` and `kindKey` are gone. **The correction:** the reviewer's `kindOpen = false` inside the press handler would have written to the state the gesture STARTED with -- `SpPhoto`'s `pointerInput` is keyed on the tab, the step and the squaring, not the tool, and `Sp360`'s on the picture alone, so after a tool change the photo's press would have shut a dead state and left the list open. The gesture shuts it through `val kindOpenS by rememberUpdatedState(kindOpen)`, as it reads everything else that changes under it |
+| 1b | "A tap on More ▸ opens the More sheet with the list still drawn above it, and a tap on the cycling 'as …' words leaves it open; the page shuts it in both cases" (part of the same finding) | **DECLINED -- the page leaves it open in both cases. Driven.** Row C: with the list open, More ▸ → `list OPEN \| More OPEN`; More ▸ again → `list OPEN \| More shut`. Row O (the cycling button, which the page draws only while the stage is unread: `P54.asFixed` stubbed to "not fixed" at the Wish list, and said so on the row): "as …" → `list OPEN`, the chip now `as Vendor added ▾`; again → `list OPEN`, `as Existing ▾`. Why line 6811 does not see them: a palette slot's own listener begins `ev.stopPropagation()` (`P L6618`), and the "as …" button is taken in CAPTURE by the Mark-life listener, which stops the click before it does its work (`L3089-3093`). The first version of this fix did shut the list for both (a `more` key on the state, and `onAs` wrapped) and was undone when the drive came back | Nothing: the phone already leaves it open in both. `PaletteTest` now pins that `onAs` goes straight to the screen and that More ▸ touches neither the tool nor the list |
+| 1c | "The prototype shuts it on ANY press elsewhere" (the finding's title; the reviewer leaves what is routed to the fixer, and asks for what remains to be said) | **CONFIRMED for every click that reaches line 6811, and that is not every click** (1b). Driven: fit (row E), grid (F), the chip's plain words (L), the fixed "as Client wish" words (N), the More sheet's own ✕ (D), undo (M -- the button enabled by hand, with nothing to undo) each → `list shut`; the open face's own tab (G) and the open step (J) → Select, so `list shut`; the top bar's ⋮ (K) → `list OPEN`, twice (`L6807` returns before 6811) | **Inside the photo's box the phone now does as the page does**: fit and grid shut the list (`kindOpen.value = false` first in each button's click, in both screens) -- they sit beside the chip, in the composable that owns the state; the photo's press and the chip's plain or fixed words (the photo's press) already did. **Outside the box only what changes the face, the step or the tool shuts it**, by the keys: a tab or a step (the open one too), a palette slot, a More tile, ✕ on the chip. **Not routed, and said:** the More sheet's own ✕, undo and any other control outside the photo that changes none of the three -- §3.6 "Where the phone differs", item 10, and Q-list 15. Routing those means lifting the state out of the two composables, or watching every press at the screen's root while telling the list's own presses apart by where they land; neither can be seen working here (`:app` is compiled only by CI), and what is left is a list that stays open until he acts -- never one that opens by itself |
+
+- **The test, and what it can be.** The open state is the screen's (Compose's `remember`), `:pano` has no Compose, and
+  `:app` is compiled only by CI -- so no test here can press the chip. `PaletteTest` 19 → 20: a test that reads the two
+  screens' sources, as L6's own wiring test does: the state keyed exactly so; no `kindFor` / `kindKey` left; one keyed
+  state and no other; the gesture's write through `kindOpenS`; every write to the state counted (a pick, fit, grid; the
+  kind button alone opens it); `onAs = onAs,`; More ▸'s `onMore` unchanged; `showTab` / `setMode` back to Select and a
+  tab's press being `showTab`; and `SurveyPrepPalette.next` (the same type again lets the tool go). L6's wiring test
+  follows the renamed lines. Red on L6 as built. **Seven one-line mutations of the fix**, each run against
+  `PaletteTest`: the state unkeyed (2 · Mark), keyed on the tab alone (360), the gesture writing the state it started
+  with, the "as …" button shutting the list, fit not shutting it, grid not shutting it (360), More ▸ going back to
+  Select -- all seven red.
+- **The compiler stand-in, again.** The whole of `:app` type-checked with kotlinc 2.0.21 against the real `:pano`
+  classes and the L6 workbench's stubs (given `remember`'s keyed overloads, which they lacked), before the fix and
+  after: no error added, none on a changed line. A workbench, in no repository; CI is the compiler.
+- **`:pano` after the fix, from the XML:** 1,239 tests in 86 suites, none failed, none skipped (1,238 before). No key
+  added or removed, Tx not regenerated; `i18nRatchet` lowered nothing and no file left the list (the removed
+  `kindKey` line was a `// text:value` line of `SurveyPrepScreen.kt` and of `SurveyPrep360.kt`); `unkeyed.tsv`
+  untouched. Two `:app` files changed (`SurveyPrepScreen.kt`, `SurveyPrep360.kt`); **`:app` is compiled only by CI,
+  and NOTHING HAS BEEN SEEN ON A PHONE.**
 
 ### 3.7 L7 · a wish on the 360 and in 3 · List (M)
 - **Prototype:** `outlinePoly` `P L2880` and the same pill on the 360; in List the state dot before the code
@@ -1098,6 +1344,29 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
     Client wish" keeps the cycling button's 32 px line although it is plain words, so the chip is 55-72 px tall;
     (d) at Client approved the 360 still draws its palette row, every tool of which bounces back to Select -- one
     more control that shows and cannot act (item 6).
+13. **What a new type's refusal says under मराठी** (run on the page's text layer building L5, 12 Nov; §3.5 "L5 AS
+    BUILT"). The page shows three shapes for one kind of sentence: v54's `refuse.v360` wording where the English
+    happens to begin "A … cannot go on the ceiling / floor" ("छत: इथे ग्रिल लावता येत नाही"), and for the rest the T53
+    row with its English article left standing ("An AC युनिट जमिनीवर लावता येत नाही", "A छताचा ड्रॉप फक्त छतावरच लावता
+    येईल"). The phone renders the T53 rows themselves, with no article, as their notes ask. To settle on the
+    prototype: one wording for a refusal -- and whether "A Sanitary ware cannot go on the ceiling" is the English he
+    wants (it is the page's own, and the phone's). Not reachable on the phone before L6 gives the ten a tile.
+14. **An older ceiling Fan's edge reading** (run on the page's `normPoints` in the L5 review, 12 Nov; §3.5). The
+    page -- and S5's /projects -- add half the old box to a plan Fan's l r f k when it becomes a spot (`CF1.l 1100`
+    of a 200 mm box → `cl 1200`); the phone has moved it unchanged since v52 slice 4, as a plan Bulb's. The page's
+    own comment says "the half-width is added for wall points only", its code leaves it out for a Bulb alone. No
+    build has written such a reading, so nothing stored differs; it is listed so one rule is chosen for the page,
+    S5 and the phone. The two new points (Plumbing, Low-voltage) follow the page's code since that review.
+15. **A kind and a Note on the phone: ten things it does that the page does otherwise or does not draw, and one
+    word** (decided building L6, 12 Nov, where the plan was silent; §3.6 "L6 AS BUILT", items 1-10, the tenth from
+    its review; run on the page's own code where they can be). An empty new Note's code is not handed out again (FNOTE2 next, the page says FNOTE1);
+    the kind button's underline is solid, on the chip's own line; KIND's chips are not cut at two rows; a Plumbing
+    point's list reads "प्लंबिंग पॉइंट · प्रकार" under मराठी where the page's text layer shows "· kind"; the Note's
+    tag never halves an emoji; on 4 · 360 the chip names the open tab's kind while a tap places the landed surface's
+    (it goes with item 2 of this list); a screen reader gets one press on the chip; "A Note needs its words" is said on the snackbar under
+    the sheet; a swipe down cancels the sheet; outside the photo only a change of face, step or tool shuts the chip's
+    list of kinds, where the page shuts it on almost any click (its More sheet's ✕, undo). And the sheet's KIND label is keyed on the phone -- `life.kind`,
+    "प्रकार" -- where the page shows KIND in both languages: is "प्रकार" the word he wants there? None blocks B3.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,

@@ -52,7 +52,7 @@ LV	type.lv.short
 DB	type.sub.db_mcb_board
 MCB	type.sub.db_mcb_board
 RO	type.sub.ro_purifier
-WC	type.sub.wall_hung_wc
+WC	type.sub.wall_hung_wc,type.sub.wc
 PVC	article.pvc
 UPVC	wish.safety_door_aluminium_main
 POP

@@ -300,6 +300,59 @@ class SheetMarksTest {
         assertFalse(Regex("""SurveyPlan\s*\.\s*(dims|drawing|infoOf)\(""").containsMatchIn(code("PlanExport.kt")), "PlanExport makes a drawing of its own")
     }
 
+    // ------------------------------------------------------------------ port 62 slice L6: the Note and the new types
+
+    @Test fun `L6 - a Note placed on the phone, for everybody or for the office alone, is on no picture and no sheet for others -- nor a new thing born a wish, while a surveyed unit keeps its kind`() {
+        val at = java.time.Instant.parse("2026-11-11T05:00:00Z")
+        val p = SurveyPrep.fresh(L, W, H)
+        fun placed(t: String, x: Double, y: Double, id: String, stage: Int, sub: String? = null): SurveyPrep.Mark =
+            requireNotNull(PhaseTools.place(p, "front", t, x, y, W, H, id, stage, null, at, sub) { }).mark
+        // two Notes, placed as the screen places them and worded through the Mark sheet's own Done: one for the client and
+        // the vendors, one for the office alone
+        for ((id, words, office) in listOf(Triple("n1", NOTE_ALL, false), Triple("n2", NOTE_OFFICE, true))) {
+            placed(MarkLife.NOTE_TYPE, if (office) 2000.0 else 600.0, 1200.0, id, PhaseTools.WISH_LIST)
+            val st = MarkSheet.pickOffice(MarkSheet.typeNote(requireNotNull(MarkSheet.open(p, id, fresh = true, hist = 1)), words), office)
+            assertEquals(MarkSheet.Outcome.DONE, MarkSheet.apply(p, st, PhaseTools.WISH_LIST, at) { }.outcome)
+        }
+        // a Kitchen base that is THERE (placed at Survey), and a wardrobe the client wishes for (placed in the Wish list)
+        val base = placed("CRP", 1500.0, 400.0, "u1", PhaseTools.SURVEY, "kbase"); val wish = placed("CRP", 700.0, 1100.0, "u2", PhaseTools.WISH_LIST)
+        val sf = p.surface("front")
+        assertEquals(listOf("FNOTE1 {note=$NOTE_ALL}", "FNOTE2 {note=$NOTE_OFFICE, vis=office}", "FCRP1 {sub=kbase}"), sf.marks.take(3).map { it.code + " " + it.extra })
+        assertEquals(listOf("born", "life", "lifeAt", "lifeAs"), wish.extra.keys.toList(), "the wished wardrobe is born a wish: the first kind stores no sub")
+        // the office's screen is handed every one; a picture or a sheet for anybody else, the surveyed unit alone -- with its kind
+        assertSame(sf.marks, SheetMarks.marks(sf.marks, Audience.OFFICE))
+        val out = SheetMarks.marks(sf.marks, Audience.OTHERS)
+        assertEquals(listOf("FCRP1"), out.map { it.code }); assertSame(base, out[0], "it carries nothing a sheet leaves out: the mark itself")
+        assertEquals("Kitchen base", MarkTypes.displayName(Tx.EN, "front", out[0]))
+        assertEquals(listOf(false, false, true, false), sf.marks.map { SheetMarks.surveyed(it) })
+        // Notes alone make no "survey marks" picture for others; the office has one
+        val notes = SurveyPrep.fresh(L, W, H).surface("back").also { it.marks.addAll(sf.marks.take(2)) }
+        assertTrue(SheetMarks.any(notes, Audience.OFFICE)); assertFalse(SheetMarks.any(notes, Audience.OTHERS))
+        // not a word of either Note, nor a code of what is not in the room, on any of the six exported sheets
+        for ((v, _) in SurveyPlan.VIEWS) {
+            val svg = SvgWriter.write(SurveyExport.sheet(v, p, L, W, H, meta, "Living Room"))
+            for (w in listOf(NOTE_ALL, NOTE_OFFICE, "FNOTE1", "FNOTE2", "FCRP2")) assertFalse(svg.contains(w), "$v: $w is on a sheet for others")
+        }
+        assertTrue(SvgWriter.write(SurveyExport.sheet("front", p, L, W, H, meta, "Living Room")).contains("FCRP1"), "the surveyed unit is on the front elevation")
+        // the prep the sheets were drawn from still holds all four
+        assertEquals(4, sf.marks.size)
+    }
+
+    @Test fun `L6 - the Note's pin is painted from the marks the painter was HANDED -- one painter, called from the squared face and the 360, and never by a document`() {
+        val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
+        val calls = files.associateWith { Regex("""\bnotePin\(""").findAll(code(it)).count() }.filterValues { it > 0 }
+        assertEquals(mapOf("SurveyPrep360.kt" to 1, "SurveyPrepDraw.kt" to 2), calls, "its definition and its one call in drawMarks; the 360's one call")
+        val draw = code("SurveyPrepDraw.kt")
+        // in drawMarks the pin is drawn inside the loop over `els` -- SheetMarks.marks' answer -- and nowhere else in the painter
+        val loop = draw.substringAfter("val els = SheetMarks.marks(o.prep.surface(s).marks, audience)").substringBefore("fun drawGrid(")
+        assertEquals(1, Regex("""\bnotePin\(""").findAll(loop).count()); assertTrue(loop.contains("if (MarkLife.isNote(e)) {"))
+        assertTrue(draw.contains("fun notePin(c: Canvas, e: SurveyPrep.Mark, x: Float, y: Float, u: Float, sel: Boolean) {"))
+        // what the tag says and where it is cut is NotePin.tag's, measured with the paint it is drawn with
+        assertTrue(draw.contains("val tag = NotePin.tag(e, u.toDouble()) { t -> pen.measureText(t).toDouble() }"))
+        // the 360 is the office's own screen: it is never saved, and FaceWriter and the Plan's export name no Note painter at all
+        for (f in listOf("FaceWriter.kt", "PlanExport.kt")) assertFalse(code(f).contains("NotePin") || code(f).contains("notePin"), f)
+    }
+
     // ------------------------------------------------------------------ the wiring, read from the app's sources
 
     private val app = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")

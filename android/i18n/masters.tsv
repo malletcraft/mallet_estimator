@@ -74,6 +74,17 @@ type	type.s
 type	type.f
 type	type.x
 type	type.s.floor
+# MarkTypes.NEW (port 62 slice L5): the ten new mark types, by name, appended to SurveyPrep.TYPES where each may go.
+type	type.note
+type	type.grl
+type	type.ac
+type	type.cdp
+type	type.plb
+type	type.ctr
+type	type.crp
+type	type.lv
+type	type.san
+type	type.def
 
 # SurveyPrepPalette.SHORT: a type's name on its slot and its More tile.
 type_short	type.w
@@ -89,6 +100,79 @@ type_short	type.x
 type_short	type.s.floor
 type_short	type.s.short
 type_short	type.f
+# MarkTypes.SHORT (port 62 slice L5): the ten's names on a slot and a More tile. AC and Plumbing are a trade's
+# short name too, so each is that one key; Note, Grill and Defect are short already.
+type_short	type.note
+type_short	type.grl
+type_short	trade.hvac.short
+type_short	type.cdp.short
+type_short	trade.plumbing.short
+type_short	type.ctr.short
+type_short	type.crp.short
+type_short	type.lv.short
+type_short	type.san.short
+type_short	type.def
+
+# MarkTypes.SUBS (port 62 slice L5): a sub-kind's label, by the label (its id is the stored value). 57 labels:
+# the 55 type.sub.* keys of the prototype, Curtain track (the type's own name, its first sub-kind) and WC
+# (type.sub.wc, a phone text: the one label the prototype draws with no key).
+type_sub	type.sub.switch_plate
+type_sub	type.sub.db_mcb_board
+type_sub	type.sub.meter_board
+type_sub	type.sub.window_grill
+type_sub	type.sub.balcony_grill
+type_sub	type.sub.railing
+type_sub	type.sub.safety_door_grill
+type_sub	type.sub.split_indoor_unit
+type_sub	type.sub.window_ac
+type_sub	type.sub.outdoor_unit
+type_sub	type.sub.cassette
+type_sub	type.sub.ductable_grille
+type_sub	type.sub.bulkhead
+type_sub	type.sub.cove
+type_sub	type.sub.full_false_ceiling
+type_sub	type.sub.cold
+type_sub	type.sub.hot
+type_sub	type.sub.mixer_hot_cold
+type_sub	type.sub.washing_machine
+type_sub	type.sub.ro_purifier
+type_sub	type.sub.waste_outlet
+type_sub	type.sub.floor_trap
+type_sub	type.ctr
+type_sub	type.sub.rod
+type_sub	type.sub.roller_blind
+type_sub	type.sub.vertical_blind
+type_sub	type.sub.wardrobe
+type_sub	type.sub.kitchen_base
+type_sub	type.sub.kitchen_wall_unit
+type_sub	type.sub.tv_unit
+type_sub	type.sub.study
+type_sub	type.sub.shoe_rack
+type_sub	type.sub.vanity
+type_sub	type.sub.other_unit
+type_sub	type.sub.bed
+type_sub	type.sub.kitchen_platform
+type_sub	type.sub.island
+type_sub	type.sub.camera
+type_sub	type.sub.intercom_video_door_phone
+type_sub	type.sub.data_lan
+type_sub	type.sub.tv_point
+type_sub	type.sub.wi_fi_access_point
+type_sub	type.sub.smoke_detector
+type_sub	type.sub.wash_basin
+type_sub	type.sub.wall_hung_wc
+type_sub	type.sub.shower
+type_sub	type.sub.geyser
+type_sub	type.sub.kitchen_sink
+type_sub	type.sub.mirror_cabinet
+type_sub	type.sub.wc
+type_sub	type.sub.shower_area
+type_sub	type.sub.bathtub
+type_sub	type.sub.crack
+type_sub	type.sub.damp_seepage
+type_sub	type.sub.hollow_plaster
+type_sub	type.sub.peeling_paint
+type_sub	type.sub.broken_hollow_tile
 
 # SurveyPrep.NAME: a surface's name.
 surface	surface.front

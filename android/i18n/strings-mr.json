@@ -2917,6 +2917,10 @@
  "life.export": {
   "mr": "⇪ एक्सपोर्ट"
  },
+ "life.kind": {
+  "mr": "प्रकार",
+  "note": "L6: the word sp.x_kind (\"{v} · प्रकार\") and sp.aria.kind_x_tap_change (\"प्रकार: {nm} …\") already use for a type's kind; the prototype shows this label in English under Marathi, having no key for it; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.length": {
   "mr": "लांबी",
   "note": "fragment — see life.a_note_on_this"
@@ -5031,9 +5035,17 @@
   "mr": "मास्टर बाथरूम — संपूर्ण नूतनीकरण",
   "note": "long · DECIDED 21 Oct: D1 register"
  },
+ "t53.a": {
+  "mr": "",
+  "note": "L5: the English article -- Marathi has none. The two templates it fills say so themselves (refuse.t53.x_x_cannot_go, refuse.t53.x_x_goes_ceiling: \"{a} is the English article — supply ''\"), as sp.the's does for `the `; GenTx.EMPTY_OK lists the three. Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "t53.a_wall": {
   "mr": "भिंतीवर",
   "note": "review: carries its own postposition (oblique) — used only in refuse.t53.x_x_cannot_go"
+ },
+ "t53.an": {
+  "mr": "",
+  "note": "L5: the English article before a vowel -- Marathi has none; see t53.a. Marathi by Claude at full authority (decision 6, 28 Oct 2026)"
  },
  "t53.aria.show_marks_x": {
   "mr": "यांचे मार्क दाखवा: {v}",
@@ -5894,6 +5906,10 @@
  },
  "type.sub.waste_outlet": {
   "mr": "वेस्ट आउटलेट"
+ },
+ "type.sub.wc": {
+  "mr": "WC",
+  "note": "L5: kept as written -- the abbreviation staff say, on latin-ok.txt (\"Trade and material abbreviations as staff say them\"), as type.sub.wall_hung_wc's own वॉल-हँग WC keeps it and as the prototype shows it under मराठी; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
  },
  "type.sub.wi_fi_access_point": {
   "mr": "Wi-Fi ॲक्सेस पॉइंट"

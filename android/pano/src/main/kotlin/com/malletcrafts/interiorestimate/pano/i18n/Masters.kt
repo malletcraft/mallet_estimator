@@ -245,7 +245,7 @@ object Masters {
         else -> value
     }
 
-    /** 13 values. */
+    /** 23 values. */
     fun type(tx: Tx, value: String): String = when (value) {
         "Window" -> tx.type_w
         "Door" -> tx.type_d
@@ -260,10 +260,20 @@ object Masters {
         "Fan" -> tx.type_f
         "Other" -> tx.type_x
         "Step" -> tx.type_s_floor
+        "Note" -> tx.type_note
+        "Grill" -> tx.type_grl
+        "AC unit" -> tx.type_ac
+        "Ceiling drop" -> tx.type_cdp
+        "Plumbing point" -> tx.type_plb
+        "Curtain track" -> tx.type_ctr
+        "Carpentry unit" -> tx.type_crp
+        "Low-voltage point" -> tx.type_lv
+        "Sanitary ware" -> tx.type_san
+        "Defect" -> tx.type_def
         else -> value
     }
 
-    /** 13 values. */
+    /** 23 values. */
     fun type_short(tx: Tx, value: String): String = when (value) {
         "Window" -> tx.type_w
         "Door" -> tx.type_d
@@ -278,6 +288,78 @@ object Masters {
         "Step" -> tx.type_s_floor
         "Switch" -> tx.type_s_short
         "Fan" -> tx.type_f
+        "Note" -> tx.type_note
+        "Grill" -> tx.type_grl
+        "AC" -> tx.trade_hvac_short
+        "Drop" -> tx.type_cdp_short
+        "Plumbing" -> tx.trade_plumbing_short
+        "Track" -> tx.type_ctr_short
+        "Unit" -> tx.type_crp_short
+        "LV point" -> tx.type_lv_short
+        "Sanitary" -> tx.type_san_short
+        "Defect" -> tx.type_def
+        else -> value
+    }
+
+    /** 57 values. */
+    fun type_sub(tx: Tx, value: String): String = when (value) {
+        "Switch plate" -> tx.type_sub_switch_plate
+        "DB / MCB board" -> tx.type_sub_db_mcb_board
+        "Meter board" -> tx.type_sub_meter_board
+        "Window grill" -> tx.type_sub_window_grill
+        "Balcony grill" -> tx.type_sub_balcony_grill
+        "Railing" -> tx.type_sub_railing
+        "Safety door grill" -> tx.type_sub_safety_door_grill
+        "Split indoor unit" -> tx.type_sub_split_indoor_unit
+        "Window AC" -> tx.type_sub_window_ac
+        "Outdoor unit" -> tx.type_sub_outdoor_unit
+        "Cassette" -> tx.type_sub_cassette
+        "Ductable grille" -> tx.type_sub_ductable_grille
+        "Bulkhead" -> tx.type_sub_bulkhead
+        "Cove" -> tx.type_sub_cove
+        "Full false ceiling" -> tx.type_sub_full_false_ceiling
+        "Cold" -> tx.type_sub_cold
+        "Hot" -> tx.type_sub_hot
+        "Mixer (hot + cold)" -> tx.type_sub_mixer_hot_cold
+        "Washing machine" -> tx.type_sub_washing_machine
+        "RO / purifier" -> tx.type_sub_ro_purifier
+        "Waste outlet" -> tx.type_sub_waste_outlet
+        "Floor trap" -> tx.type_sub_floor_trap
+        "Curtain track" -> tx.type_ctr
+        "Rod" -> tx.type_sub_rod
+        "Roller blind" -> tx.type_sub_roller_blind
+        "Vertical blind" -> tx.type_sub_vertical_blind
+        "Wardrobe" -> tx.type_sub_wardrobe
+        "Kitchen base" -> tx.type_sub_kitchen_base
+        "Kitchen wall unit" -> tx.type_sub_kitchen_wall_unit
+        "TV unit" -> tx.type_sub_tv_unit
+        "Study" -> tx.type_sub_study
+        "Shoe rack" -> tx.type_sub_shoe_rack
+        "Vanity" -> tx.type_sub_vanity
+        "Other unit" -> tx.type_sub_other_unit
+        "Bed" -> tx.type_sub_bed
+        "Kitchen platform" -> tx.type_sub_kitchen_platform
+        "Island" -> tx.type_sub_island
+        "Camera" -> tx.type_sub_camera
+        "Intercom / video door phone" -> tx.type_sub_intercom_video_door_phone
+        "Data / LAN" -> tx.type_sub_data_lan
+        "TV point" -> tx.type_sub_tv_point
+        "Wi-Fi access point" -> tx.type_sub_wi_fi_access_point
+        "Smoke detector" -> tx.type_sub_smoke_detector
+        "Wash basin" -> tx.type_sub_wash_basin
+        "Wall-hung WC" -> tx.type_sub_wall_hung_wc
+        "Shower" -> tx.type_sub_shower
+        "Geyser" -> tx.type_sub_geyser
+        "Kitchen sink" -> tx.type_sub_kitchen_sink
+        "Mirror cabinet" -> tx.type_sub_mirror_cabinet
+        "WC" -> tx.type_sub_wc
+        "Shower area" -> tx.type_sub_shower_area
+        "Bathtub" -> tx.type_sub_bathtub
+        "Crack" -> tx.type_sub_crack
+        "Damp / seepage" -> tx.type_sub_damp_seepage
+        "Hollow plaster" -> tx.type_sub_hollow_plaster
+        "Peeling paint" -> tx.type_sub_peeling_paint
+        "Broken / hollow tile" -> tx.type_sub_broken_hollow_tile
         else -> value
     }
 
@@ -315,5 +397,5 @@ object Masters {
     }
 
     /** The map names, in order: for the tests that walk every identity list. */
-    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "client_name", "service", "service_note", "type", "type_short", "surface", "surface_tab", "view_title")
+    val MAPS: List<String> = listOf("article", "articlekind", "job", "room", "site", "stage", "work", "workphase", "quote", "state", "site_name", "client_name", "service", "service_note", "type", "type_short", "type_sub", "surface", "surface_tab", "view_title")
 }

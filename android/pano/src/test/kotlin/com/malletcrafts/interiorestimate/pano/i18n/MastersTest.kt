@@ -8,6 +8,7 @@ import com.malletcrafts.interiorestimate.pano.FlatPresets
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.MarkLife
 import com.malletcrafts.interiorestimate.pano.MarkSheet
+import com.malletcrafts.interiorestimate.pano.MarkTypes
 import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteMove
@@ -59,6 +60,8 @@ class MastersTest {
      */
     private val PASS_THROUGH = mapOf(
         "CCTV" to "an abbreviation, shown as written",
+        "AC" to "an abbreviation, shown as written: the AC unit's short name on a slot (trade.hvac.short; port 62 slice L5)",
+        "WC" to "an abbreviation, shown as written: the floor's first Sanitary ware sub-kind (type.sub.wc; port 62 slice L5)",
         "Nos" to "a unit (latin-ok.txt)",
         "Top" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
         "Bottom" to "Handover.FACE_LABELS: export-only, English (decision 4 of 21 Oct)",
@@ -81,6 +84,10 @@ class MastersTest {
             Triple("SurveyPlan.DTITLE", Masters::view_title, SurveyPlan.DTITLE.values),
             Triple("Handover.FACE_LABELS", Masters::surface_tab, Handover.FACE_LABELS.values),
             Triple("SurveyPrepPalette.SHORT", Masters::type_short, SurveyPrepPalette.SHORT.values.distinct()),
+            // port 62 slice L5: the ten new types' names and short names, and every sub-kind's label
+            Triple("MarkTypes.NEW", Masters::type, MarkTypes.NEW.map { it.name }),
+            Triple("MarkTypes.NEW short", Masters::type_short, MarkTypes.NEW.map { it.short }),
+            Triple("MarkTypes.SUBS", Masters::type_sub, MarkTypes.SUBS.values.flatMap { it.values.flatten() }.map { it.label }.distinct()),
             Triple("WishList.SERVICES", Masters::service, WishList.SERVICES.map { it.name }),
             Triple("WishList.SERVICES notes", Masters::service_note, WishList.SERVICES.map { it.detail }.filter { it.isNotEmpty() }),
             Triple("the default site", Masters::site_name, listOf("Main site")),
@@ -185,6 +192,11 @@ class MastersTest {
             MarkLife::class.java to listOf("lifeOf", "bornOf", "actOf", "whyOf", "noteOf", "allowedMoves", "move", "restore", "placeAs",
                 "setAct", "withNote", "setNote", "istIso", "countLife", "addCounts", "rollUp", "outlineWidth", "ringWidth", "barColour",
                 "deleteAct", "spared", "unlockable"),
+            // port 62 slice L5: a type's token, a sub-kind's id and a reading's key are STORED -- what a mark is, which
+            // sub-kind it stores, where it starts and how a code is read take no Tx; only the names, the labels, a
+            // measure's words (a Msg, drawn later) and the 360's refusal do
+            MarkTypes::class.java to listOf("byToken", "isNew", "isPoint", "isPin", "canGo", "typesOn", "nameOf", "subsOf", "subInfo",
+                "firstSub", "subToStore", "subOf", "withSub", "setSub", "parseCode", "codeToken", "defaults"),
             // ... a mark's trade is its stored cat or its type's own; only name and short take a Tx
             Trades::class.java to listOf("tradeOf", "of", "catOf", "subOf", "withCat", "setCat", "ownOn", "seesOn", "moreRows"),
             // ... and what a phase shows, offers and places decides what is WRITTEN (asFor: the `born` a new mark gets); only

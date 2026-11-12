@@ -308,10 +308,14 @@ class SurveyPrepTest {
         assertEquals(listOf(300.0, 1200.0, 0.0, 2100.0), door.toList())
         val beam = SurveyPrep.defaults("ceil", "B", W, L)
         assertEquals(listOf((W - 230) / 2, (W - 230) / 2 + 230, 0.0, L), beam.toList())
-        // v52 (sp.js TYPES): walls gain P Bulb point, S Switch plate and F Fan; the floor P; the ceiling P and F
-        assertEquals(listOf("W", "D", "C", "B", "O", "N", "L", "E", "P", "S", "F", "X"), SurveyPrep.types("front").map { it.letter })
-        assertEquals(listOf("C", "S", "O", "E", "P", "X"), SurveyPrep.types("floor").map { it.letter })
-        assertEquals(listOf("B", "C", "E", "P", "F", "O", "X"), SurveyPrep.types("ceil").map { it.letter })
+        // v52 (sp.js TYPES): walls gain P Bulb point, S Switch plate and F Fan; the floor P; the ceiling P and F -- and
+        // v53's ten follow where each may go (port 62 slice L5; MarkTypesTest pins them row by row)
+        assertEquals(listOf("W", "D", "C", "B", "O", "N", "L", "E", "P", "S", "F", "X"), SurveyPrep.types("front").map { it.letter }.take(12))
+        assertEquals(listOf("C", "S", "O", "E", "P", "X"), SurveyPrep.types("floor").map { it.letter }.take(6))
+        assertEquals(listOf("B", "C", "E", "P", "F", "O", "X"), SurveyPrep.types("ceil").map { it.letter }.take(7))
+        assertEquals(listOf("NOTE", "GRL", "AC", "PLB", "CTR", "CRP", "LV", "SAN", "DEF"), SurveyPrep.types("front").map { it.letter }.drop(12))
+        assertEquals(listOf("NOTE", "PLB", "CRP", "SAN", "DEF"), SurveyPrep.types("floor").map { it.letter }.drop(6))
+        assertEquals(listOf("NOTE", "AC", "CDP", "CTR", "LV", "DEF"), SurveyPrep.types("ceil").map { it.letter }.drop(7))
     }
 
     @Test fun `the squared picture maps mm and pixels both ways`() {

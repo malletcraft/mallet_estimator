@@ -40,6 +40,21 @@ class KeyGrammarTest {
         // and every centre key appears, so the grammar was really tried on them
         for (k in listOf("cl", "cr", "cs", "ct", "cf", "ck")) assertTrue(keys.any { it.endsWith(".$k") }, k)
         for (k in listOf("w", "h", "l", "r", "s", "t", "f", "k", "p", "d")) assertTrue(keys.any { it.endsWith(".$k") }, k)
+        // port 62 slice L5: the walk above is over SurveyPrep.TYPES, so the ten new types' keys were tried too -- a code is
+        // <surface letter><token><n>, the token up to four letters (FNOTE999, CCDP1, LLV9), a point's keys the centre keys
+        for (k in listOf("FPLB1.cl", "FPLB999.cs", "GPLB9.cf", "GPLB1.ck", "FLV1.cr", "CLV999.cf", "FCRP1.p", "FCRP999.s", "GCRP9.k", "CCDP1.p", "CCDP999.f",
+            "FCTR1.w", "FCTR9.t", "CCTR1.f", "FGRL1.s", "FGRL999.p", "FAC1.t", "CAC9.p", "FSAN1.s", "GSAN999.p", "FDEF1.w", "GDEF9.k", "CDEF999.f"))
+            assertTrue(k in keys, "$k is a key the checklists ask for")
+        // a Note has no reading at all, so no key of its is ever sent
+        assertTrue(keys.none { it.contains("NOTE") })
+        assertTrue(keys.any { it.startsWith("FSAN") } && keys.any { it.startsWith("LLV") } && keys.any { it.startsWith("RGRL") })
+    }
+
+    @Test fun `the longest code a new type can have still fits S5's grammar - a letter and up to 23 more before the dot`() {
+        // FNOTE: 5 letters, so 19 digits fit; the phone's numbers are far below that, but the grammar's edge is pinned
+        assertTrue(keyRe.matches("FPLB" + "9".repeat(20) + ".cl")); assertFalse(keyRe.matches("FPLB" + "9".repeat(21) + ".cl"))
+        for (t in MarkTypes.TOKENS) for (s in SurveyPrep.SURFACES) for (m in listOf("w", "h", "l", "r", "s", "t", "f", "k", "p", "cl", "cr", "cs", "ct", "cf", "ck"))
+            assertTrue(keyRe.matches(SurveyPrep.CODE.getValue(s) + t + "999." + m), "$s $t $m")
     }
 
     @Test fun `what normPoints writes is accepted too`() {

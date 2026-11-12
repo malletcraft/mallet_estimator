@@ -7471,6 +7471,16 @@
   "where": "v53build/life53.js:248 · mv",
   "kind": "static"
  },
+ "life.kind": {
+  "en": "KIND",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 77b26eb+L6 · MarkSheet.view, the label over the sub-kind chips of the Mark sheet (port 62 slice L6, 12 Nov 2026): the prototype's own word (index61c2.html 3030, paint: `<div class=\"l53lab\">KIND</div>`), drawn with no key, so it reads KIND under Marathi there; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "life.length": {
   "en": "length",
   "where": "v53build/life53.js:311 · amber",
@@ -13113,12 +13123,34 @@
   ],
   "kind": "static"
  },
+ "t53.a": {
+  "en": "A",
+  "where": [
+   "S2 APK phone text · MarkTypes.kt · MarkTypes.placeRefusal, the article before a new type's name in the 4 · 360 refusals refuse.t53.x_x_cannot_go and refuse.t53.x_x_goes_ceiling (port 62 slice L5, 12 Nov 2026): the prototype's own English, which it picks in code and glues in as {a} (index61c2.html 2590, `/^[AEIOU]/.test(n.name)?'An':'A'`) and so has no key for; a shown text is keyed, never a literal in the code; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "fragment",
+   "phone-text"
+  ]
+ },
  "t53.a_wall": {
   "en": "a wall",
   "where": "v53build/trades53.js:231 · a",
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "t53.an": {
+  "en": "An",
+  "where": [
+   "S2 APK phone text · MarkTypes.kt · MarkTypes.placeRefusal, the article before a new type's name that starts with a vowel (\"An AC unit cannot go on the floor\"; port 62 slice L5, 12 Nov 2026): the prototype's own English, picked in code as t53.a is (index61c2.html 2590); Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "fragment",
+   "phone-text"
   ]
  },
  "t53.aria.show_marks_x": {
@@ -14777,6 +14809,16 @@
    "v53build/trades53.js:85 · floor"
   ],
   "kind": "static"
+ },
+ "type.sub.wc": {
+  "en": "WC",
+  "where": [
+   "S2 APK phone text · MarkTypes.kt · MarkTypes.SUBS, the floor's first Sanitary ware sub-kind, shown through Masters.type_sub (port 62 slice L5, 12 Nov 2026): the prototype's own label (index61c2.html 2465, SUBS.SAN.floor `{id:'wc',label:'WC'}`), the one sub-kind label of the 57 it draws with no key, so it reads WC under मराठी there too; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "type.sub.wi_fi_access_point": {
   "en": "Wi-Fi access point",

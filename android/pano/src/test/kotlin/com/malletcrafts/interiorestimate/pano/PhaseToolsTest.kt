@@ -760,7 +760,8 @@ class PhaseToolsTest {
         // EVERY PLACEMENT GOES THROUGH PhaseTools.place -- 2 · Mark's and the 360's -- and nothing in the app adds a mark itself
         assertEquals(2, count(screen, "PhaseTools.place(prep, s, t, mx, my, a[0], a[1],"))
         for (f in appDir.listFiles { x -> x.name.endsWith(".kt") }!!) assertEquals(0, count(app(f.name), "addMarkAt("), f.name + " places no mark of its own")
-        assertEquals(2, count(screen, "quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null"), "born what the phase places, one undo step, or nothing")
+        // ... of the kind the tool remembers for the surface the mark is placed ON (slice L6; the L5 review, finding 2 -- PaletteTest reads which surface)
+        assertEquals(2, count(screen, "quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null"), "born what the phase places, one undo step, or nothing")
         assertEquals(2, count(screen, "if (placed.amber) say(MarkLife.afterEstimate(tx))"))
         // the step and the tool that are ON are the phase's answer, and only a step or tool change writes the ones last set
         assertEquals(1, count(screen, "val mode = PhaseTools.prepMode(modeSet, quoteStage) {"))

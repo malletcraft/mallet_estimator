@@ -231,8 +231,14 @@ object Pano360 {
      * picked on tab [from]; a press landing on [to] may place it only when [to] has a type of that NAME under the same
      * letter -- the wall's S is a Switch plate and the floor's S a Step, so neither crosses. Null: it may; else the
      * refusal, said as a note and nothing placed.
+     *
+     * ONE OF THE TEN NEW TYPES IS ASKED ITS OWN TABLE FIRST (port 62 slice L5; index61c2.html 4326, placeCheck:
+     * `T53.placeRefusal(t, kindTo)`, then the meaning): a Grill goes on a wall only, a Ceiling drop on the ceiling
+     * only, and it says so in T53's words -- "An AC unit cannot go on the floor", "A Ceiling drop goes on the ceiling
+     * only" ([MarkTypes.placeRefusal]). A v52 letter keeps the rule above and its words.
      */
     fun placeRefusal(tx: Tx, from: String, to: String, t: String): String? {
+        MarkTypes.placeRefusal(tx, t, to)?.let { return it }
         val name = SurveyPrep.typeOf(from, t).name
         val ok = canPlace(name, to) && SurveyPrep.types(to).any { it.letter == t && it.name == name }
         return if (ok) null else cannotGo(tx, name, to)
@@ -270,13 +276,14 @@ object Pano360 {
      * A MARK AS IT IS ON THE SCREEN: its surface and id, the outline a press inside picks it by, and that outline's area
      * (the smallest under the finger wins). A box's [pts] are its four corners through the perspective, clipped at the
      * near plane; a point's ([spot]: centre x, y and the radius it is drawn with -- its 50 mm, never under [SPOT_MIN_DP])
-     * a 16-sided ring at least [SPOT_HIT_DP] round it.
+     * a 16-sided ring at least [SPOT_HIT_DP] round it. A NOTE'S PIN is such a spot too (port 62 slice L6; index61c2.html
+     * 5960, `ISPOINT(e.t)||L53.isNote(e)`): pressed round its centre, moved whole, with no tabs ([SurveyPrep.isSpot]).
      */
     class Poly(val s: String, val id: String, val pts: List<DoubleArray>, val area: Double, val spot: DoubleArray? = null)
 
     /** [e] on [s] in the view [v], [dpPx] px per dp; null when it is off the view (behind the camera). */
     fun markPoly(v: View, s: String, f: SurveyPrep.Frame, e: SurveyPrep.Mark, dpPx: Double): Poly? {
-        if (SurveyPrep.isPoint(e.t)) {
+        if (SurveyPrep.isSpot(e.t)) {
             val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
             val c = toS(v, s, f, cx, cy) ?: return null
             val c2 = toS(v, s, f, cx + SurveyPrep.SPOT / 2, cy)

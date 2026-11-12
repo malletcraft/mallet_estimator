@@ -646,7 +646,8 @@ object SurveyPrep {
 
     // ------------------------------------------------------------- marks
 
-    /** A mark type: its letter, its name, its colour (0xRRGGBB). */
+    /** A mark type: its token ([letter]) -- one of v52's twelve LETTERS, or one of the ten abbreviations NOTE, GRL … DEF
+     *  ([MarkTypes], port 62 slice L5) -- its name, its colour (0xRRGGBB). */
     class MarkType(val letter: String, val name: String, val colour: Int)
 
     /**
@@ -656,6 +657,11 @@ object SurveyPrep {
      * control panels plate are rectangle. add mark type for it. also add seprate mark type
      * for fan"): S Switch plate on walls only; F Fan on walls and the ceiling. P Bulb point
      * (v40) on every surface.
+     *
+     * THEN THE TEN OF v53, where each may go, in their own order (port 62 slice L5; index61c2.html 4926,
+     * `TYPES[k].push(...T53.TYPES53[k])`): NOTE GRL AC CDP PLB CTR CRP LV SAN DEF, from [MarkTypes.typesOn] -- 21 types
+     * on a wall, 11 on the floor, 13 on the ceiling. A type's token is the WHOLE letter run of a code after its surface
+     * letter (FPLB1 is a Plumbing point, never a Bulb), and every lookup here is by the whole token.
      */
     val TYPES: Map<String, List<MarkType>> = mapOf(
         // A TYPE'S NAME IS AN IDENTITY VALUE (port 61c slice M3a): the `when` key of its icon, the English every menu,
@@ -664,12 +670,14 @@ object SurveyPrep {
         "wall" to listOf(MarkType("W", "Window", 0x4dabf7), MarkType("D", "Door", 0xff8a3d), MarkType("C", "Column", 0xb197fc), // text:value identity, shown through Masters.type
             MarkType("B", "Beam", 0xe0b040), MarkType("O", "Opening", 0x69db7c), MarkType("N", "Niche", 0x20c997), // text:value identity, shown through Masters.type
             MarkType("L", "Loft", 0xff922b), MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), // text:value identity, shown through Masters.type
-            MarkType("S", "Switch plate", 0xf783ac), MarkType("F", "Fan", 0x74c0fc), MarkType("X", "Other", 0xadb5bd)), // text:value identity, shown through Masters.type
+            MarkType("S", "Switch plate", 0xf783ac), MarkType("F", "Fan", 0x74c0fc), MarkType("X", "Other", 0xadb5bd)) + // text:value identity, shown through Masters.type
+            MarkTypes.typesOn("wall"),
         "floor" to listOf(MarkType("C", "Column", 0xb197fc), MarkType("S", "Step", 0xff8a3d), MarkType("O", "Opening", 0x69db7c), // text:value identity, shown through Masters.type
-            MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), MarkType("X", "Other", 0xadb5bd)), // text:value identity, shown through Masters.type
+            MarkType("E", "Electric point", 0xffd43b), MarkType("P", "Bulb point", 0xffa8a8), MarkType("X", "Other", 0xadb5bd)) + // text:value identity, shown through Masters.type
+            MarkTypes.typesOn("floor"),
         "ceil" to listOf(MarkType("B", "Beam", 0xe0b040), MarkType("C", "Column", 0xb197fc), MarkType("E", "Electric point", 0xffd43b), // text:value identity, shown through Masters.type
             MarkType("P", "Bulb point", 0xffa8a8), MarkType("F", "Fan", 0x74c0fc), MarkType("O", "Opening", 0x69db7c), // text:value identity, shown through Masters.type
-            MarkType("X", "Other", 0xadb5bd))) // text:value identity, shown through Masters.type
+            MarkType("X", "Other", 0xadb5bd)) + MarkTypes.typesOn("ceil")) // text:value identity, shown through Masters.type
 
     /** A type's name in the language: [Masters.type] over its identity (`"Switch plate"` -> स्विच प्लेट). */
     fun typeName(tx: Tx, s: String, t: String): String = Masters.type(tx, typeOf(s, t).name)
@@ -695,9 +703,20 @@ object SurveyPrep {
      * POINTS ARE SPOTS (v52; Amit, 11 Oct 2026 20:35: "electric points are spots . dont let
      * them resize. have its da 50 mm."): an Electric point, a Bulb and a Fan are stored as a
      * [SPOT] x [SPOT] box centred where the point is, never resized, and measured to their
-     * CENTRE on every surface.
+     * CENTRE on every surface. v53 adds two (port 62 slice L5; index61c2.html 4934, `ISPOINT` grows by
+     * `T53.isPoint53`): a Plumbing point (PLB) and a Low-voltage point (LV). A Note is NOT a point: it is a pin
+     * ([MarkTypes.isPin]).
      */
-    fun isPoint(t: String) = t == "E" || t == "P" || t == "F"
+    fun isPoint(t: String) = t == "E" || t == "P" || t == "F" || MarkTypes.isPoint(t)
+
+    /**
+     * DRAWN AND TOUCHED AS A SPOT (port 62 slice L6; index61c2.html 5082, 5791, 5809, 5960 and 5984, each
+     * `ISPOINT(e.t)||L53.isNote(e)`): a point -- and THE NOTE'S PIN, which is picked round its centre, moved whole,
+     * never resized and has no tabs, exactly as a point is. A Note is still no POINT: it has no measures, no reading
+     * and no symbol, and its [SPOT] box is only where the pin stands ([MarkTypes.isPin]). Every screen that asks
+     * "is this grabbed round its centre?" asks this; every rule about a point's figures asks [isPoint].
+     */
+    fun isSpot(t: String) = isPoint(t) || MarkTypes.isPin(t)
 
     /** A spot's box, mm across and up. */
     const val SPOT = 50.0
@@ -761,8 +780,14 @@ object SurveyPrep {
     /** [m] with [k] set to [v], as a NEW map (the old one may be shared by an undo copy). */
     fun withKey(m: Map<String, Any?>, k: String, v: Any?): Map<String, Any?> = LinkedHashMap(m).apply { put(k, v) }
 
-    /** Where a new mark of type [t] starts on a surface [a] x [b]: x0, x1, y0, y1. */
-    fun defaults(s: String, t: String, a: Double, b: Double): DoubleArray {
+    /**
+     * Where a new mark of type [t] starts on a surface [a] x [b]: x0, x1, y0, y1. A NEW type's box -- and a DB / MCB
+     * board's and a Meter board's, S's two new sub-kinds -- is its sub-kind [sub]'s ([MarkTypes.defaults], asked FIRST
+     * as index61c2.html 4972 asks T53.defaults53; absent or unknown: the type's first sub-kind); every v52 letter, and
+     * S with no sub-kind or `switch`, starts where v52 put it, below.
+     */
+    fun defaults(s: String, t: String, a: Double, b: Double, sub: String? = null): DoubleArray {
+        MarkTypes.defaults(s, t, sub, a, b)?.let { return it }
         fun c(w: Double, h: Double, x: Double, y: Double) = doubleArrayOf(x, x + w, y, y + h)
         if (!isPlan(s)) return when (t) {
             "W" -> c(1200.0, 1200.0, (a - 1200) / 2, 900.0)
@@ -795,10 +820,11 @@ object SurveyPrep {
      * [defaults] size, no wider than the face ([a]) nor taller ([b]), CENTRED ON THE TAP at ([x], [y]) mm and
      * then slid back inside the face where it would reach past an edge. A point stays [SPOT] square, centred on
      * the tap unless that is within 25 mm of an edge. A Column (full height), a Beam or a Loft (full width) keeps
-     * the side that spans the face. Returns x0, x1, y0, y1.
+     * the side that spans the face. Returns x0, x1, y0, y1. [sub]: the sub-kind whose size it takes ([defaults]) --
+     * a Wardrobe's 1200 x 2100, a Kitchen base's 1800 x 850; a Note is a 50 mm pin where the finger is.
      */
-    fun placeAt(t: String, s: String, x: Double, y: Double, a: Double, b: Double): DoubleArray {
-        val d = defaults(s, t, a, b)
+    fun placeAt(t: String, s: String, x: Double, y: Double, a: Double, b: Double, sub: String? = null): DoubleArray {
+        val d = defaults(s, t, a, b, sub)
         val w = min(a, d[1] - d[0]); val h = min(b, d[3] - d[2])
         val x0 = (x - w / 2).coerceIn(0.0, max(0.0, a - w)); val y0 = (y - h / 2).coerceIn(0.0, max(0.0, b - h))
         return doubleArrayOf(x0, x0 + w, y0, y0 + h)
@@ -834,8 +860,13 @@ object SurveyPrep {
      * width or a height (v52). A Switch plate is measured like a window: width,
      * height, the nearer corner and its height FROM THE FLOOR, never from the
      * ceiling, wherever it sits. Line for line sp.js measures0.
+     *
+     * A mark of one of the ten NEW types has its own checklist, asked FIRST (port 62 slice L5; index61c2.html 4977,
+     * T53.measures53 -- [MarkTypes.measures]): a Note none at all, a Plumbing point and a Low-voltage point their
+     * two offsets to the centre, the rest what their trade needs.
      */
     fun measures0(s: String, e: Mark, a: Double, b: Double): List<Measure> {
+        MarkTypes.measures(s, e, a, b)?.let { return it }
         val w = e.x1 - e.x0; val h = e.y1 - e.y0; val plan = isPlan(s); val cE = isPoint(e.t)
         val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
         // ", to centre" after a point's two offsets, joined as sp.js measures0 joins measure.to_centre (the card, 28 Oct 2026)
@@ -1084,14 +1115,19 @@ object SurveyPrep {
 
         /**
          * A new mark on [s]: its type's default box, and the next code -- see [nextCode]: a code is
-         * never handed out twice, not even after its mark was deleted.
+         * never handed out twice, not even after its mark was deleted. [sub] (port 62 slice L5; index61c2.html 5864,
+         * `...T53.newFields(t, kind)`): the sub-kind it is placed as -- its box is that sub-kind's, and it is STORED
+         * only when it is not the type's first ([MarkTypes.subToStore]), so a mark of the default kind has no `sub`.
          */
-        fun addMark(s: String, t: String, a: Double, b: Double, id: String): Mark {
-            val d = defaults(s, t, a, b)
-            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+        fun addMark(s: String, t: String, a: Double, b: Double, id: String, sub: String? = null): Mark {
+            val d = defaults(s, t, a, b, sub)
+            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3], MarkTypes.withSub(emptyMap(), t, s, sub)).also { surface(s).marks.add(it) }
         }
 
-        /** The highest number type [t]'s code has had on [s]: the surface's [SEQ], or a code still there. */
+        /** The highest number type [t]'s code has had on [s]: the surface's [SEQ], or a code still there. COUNTED PER
+         *  TOKEN (port 62 slice L5; T53.nextCode): [t] is the WHOLE letter run, so FP1 and FPLB1, FL1 and FLV1, FS1 and
+         *  FSAN1, FC1 and FCRP1 never share a number -- only marks whose type IS [t] are read, never a code by its
+         *  first letter. */
         fun highest(s: String, t: String): Int {
             val head = CODE.getValue(s) + t; val sf = surface(s)
             // a mark type's letter, or a Tape's "-T" / a Line's "-M" (v52 slice 9): those count the surface's meas; "K"
@@ -1133,10 +1169,16 @@ object SurveyPrep {
             return c
         }
 
-        /** A new mark of type [t] on [s] where the finger is, ([x], [y]) mm: [placeAt], numbered as [addMark]. */
-        fun addMarkAt(s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String): Mark {
-            val d = placeAt(t, s, x, y, a, b)
-            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3]).also { surface(s).marks.add(it) }
+        /** A new mark of type [t] on [s] where the finger is, ([x], [y]) mm: [placeAt], numbered as [addMark], and of
+         *  the sub-kind [sub] as [addMark]'s. [sub] IS THE SUB-KIND REMEMBERED FOR THE KIND OF SURFACE [s] IS -- the
+         *  surface the mark LANDS on, which on the 360 need not be the open tab's (the L5 review, finding 2; the
+         *  page's addElAt, index61c2.html 5922-5926, asks `T53.newFields(t, tkind(s))` and `defaults(s, …)` with the
+         *  landed surface). It is read against [s] alone, and an id can be a sub-kind of two kinds of surface (a
+         *  Plumbing point's `cold`: the wall's first, the floor's third), so another kind's id is stored if it
+         *  happens to be one of this kind's too: the caller asks its memory with [s] ([PhaseTools.place]). */
+        fun addMarkAt(s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String, sub: String? = null): Mark {
+            val d = placeAt(t, s, x, y, a, b, sub)
+            return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3], MarkTypes.withSub(emptyMap(), t, s, sub)).also { surface(s).marks.add(it) }
         }
 
         /** A mark -- or a Tape, a Line, an area (v52 slice 9), a chain (slice 11) -- and its readings go together: F-M1
@@ -1286,6 +1328,10 @@ object SurveyPrep {
      *    measured height (else [WAS], else the box's) -- l to cl, r to cr, s to cs, t to ct;
      *  - on the floor or ceiling a Bulb or a Fan was already measured to its centre, so its
      *    l, r, f, k move to cl, cr, cf, ck UNCHANGED; an Electric point keeps l, r, f, k;
+     *  - on the floor or ceiling EVERY OTHER POINT -- a Plumbing point, a Low-voltage point (port 62 slice L5,
+     *    its review) -- converts as on a wall, l / r plus half its width and f / k plus half its height: no build
+     *    ever measured one to its centre under l, r, f, k, so such a reading is an edge reading, and that is what
+     *    the prototype's normPoints (`toC=plan&&e.t==='P'`, index61c2.html 4950) and S5's /projects make of it;
      *  - its w and h, which a spot does not have, are taken out;
      *  - A FIGURE ALREADY UNDER THE CENTRE KEY IS NEVER OVERWRITTEN (staff on S5 typing to the
      *    centre while an old phone still sent the edge): the edge reading is then only removed --
@@ -1312,9 +1358,11 @@ object SurveyPrep {
                 val mh = act[key("h")] ?: (if (!boxed) was?.get(1) else null) ?: bh
                 val changes = mutableListOf<String>()
                 if (e.code.isNotEmpty()) {
+                    // already to its centre on a plan: the page's Bulb (`toC`), and the phone's own Fan (v52 slice 4)
+                    val toC = plan && (e.t == "P" || e.t == "F")
                     if (!(plan && e.t == "E")) for (k in if (plan) listOf("l", "r", "f", "k") else listOf("l", "r", "s", "t")) {
                         val v0 = act[key(k)] ?: continue
-                        val v = Math.round((v0 + (if (plan) 0.0 else (if (k == "l" || k == "r") mw else mh) / 2)) * 10) / 10.0
+                        val v = Math.round((v0 + (if (toC) 0.0 else (if (k == "l" || k == "r") mw else mh) / 2)) * 10) / 10.0
                         val ck = ckey(plan, e.t, k); val to = key(ck)
                         val kept = act[to]
                         val own = kept != null && conv[ck]?.let { abs(it - kept) < 1e-6 } == true

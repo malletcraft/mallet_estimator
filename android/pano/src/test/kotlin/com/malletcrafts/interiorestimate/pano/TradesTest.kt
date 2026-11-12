@@ -38,6 +38,11 @@ class TradesTest {
         "DEF" to KINDS.associateWith { listOf("crack", "damp", "hollow", "peeling", "tile") },
     )
 
+    /** Slice L5 ported the table ([MarkTypes.SUBS]): the ids typed here are its ids, type by type and kind by kind, in order. */
+    @Test fun `the sub-kind ids tradeOf is asked with are the ported table's`() {
+        assertEquals(SUBS, MarkTypes.SUBS.mapValues { (_, by) -> by.mapValues { (_, l) -> l.map { it.id } } })
+    }
+
     private fun mark(t: String, extra: Map<String, Any?> = emptyMap()) = SurveyPrep.Mark("a", t, "F${t}1", 0.0, 50.0, 0.0, 50.0, extra)
     private fun meas(kind: String, extra: Map<String, Any?> = emptyMap()) =
         SurveyPrep.Meas("m", kind, "F-M1", mutableListOf(doubleArrayOf(0.0, 0.0), doubleArrayOf(100.0, 0.0), doubleArrayOf(100.0, 100.0)), extra)
@@ -227,12 +232,16 @@ class TradesTest {
         assertEquals("B C E P F O X NOTE AC CDP CTR LV DEF", Trades.ON.getValue("ceil").joinToString(" "))
         assertEquals(listOf(21, 11, 13), KINDS.map { Trades.ON.getValue(it).size })
         assertEquals(KINDS, Trades.ON.keys.toList())
-        // v52's part is the phone's own type list, in its own order; v53's is the ten, in their order, where each may go
+        // ON is the phone's own type list, token for token, since slice L5 gave SurveyPrep.TYPES the ten: v52's part in
+        // its own order, then v53's ten, in their order, where each may go (MarkTypes.NEW's kinds)
         for (k in KINDS) {
-            val v52 = SurveyPrep.TYPES.getValue(k).map { it.letter }
+            assertEquals(SurveyPrep.TYPES.getValue(k).map { it.letter }, Trades.ON.getValue(k), k)
+            val v52 = Trades.ON.getValue(k).filter { it in V52 }
             assertEquals(v52, Trades.ON.getValue(k).take(v52.size), k)
             assertEquals(Trades.ON.getValue(k).drop(v52.size), V53.filter { it in Trades.ON.getValue(k) }, k)
+            assertEquals(V53.filter { MarkTypes.canGo(it, k) == true }, Trades.ON.getValue(k).drop(v52.size), k)
         }
+        assertEquals(V53, MarkTypes.TOKENS)
         assertEquals((V52 + V53).toSet(), Trades.ON.values.flatten().toSet())
         // every type but the two letters with two meanings is exactly one trade's own, and it is the trade tradeOf answers
         val owners = Trades.OWN.flatMap { (trade, own) -> own.map { it.substringBefore('@') to trade } }

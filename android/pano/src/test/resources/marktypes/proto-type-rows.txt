@@ -1,0 +1,992 @@
+NEW NOTE | Note | #ffffff | wall floor ceil | Note | - | pin | 0
+NEW GRL | Grill | #82c91e | wall | Grill | grills | rect | 0
+NEW AC | AC unit | #99e9f2 | wall ceil | AC | hvac | rect | 0
+NEW CDP | Ceiling drop | #96f2d7 | ceil | Drop | false-ceiling | rect | 0
+NEW PLB | Plumbing point | #15aabf | wall floor | Plumbing | plumbing | point | 0
+NEW CTR | Curtain track | #c2255c | wall ceil | Track | curtains | rect | 0
+NEW CRP | Carpentry unit | #a0522d | wall floor | Unit | carpentry | rect | 0
+NEW LV | Low-voltage point | #7048e8 | wall ceil | LV point | lowvolt | point | 0
+NEW SAN | Sanitary ware | #d0ebff | wall floor | Sanitary | plumbing | rect | 1
+NEW DEF | Defect | #f03e3e | wall floor ceil | Defect | - | rect | 0
+TYPES53 wall | NOTE=Note=#ffffff ; GRL=Grill=#82c91e ; AC=AC unit=#99e9f2 ; PLB=Plumbing point=#15aabf ; CTR=Curtain track=#c2255c ; CRP=Carpentry unit=#a0522d ; LV=Low-voltage point=#7048e8 ; SAN=Sanitary ware=#d0ebff ; DEF=Defect=#f03e3e
+TYPES53 floor | NOTE=Note=#ffffff ; PLB=Plumbing point=#15aabf ; CRP=Carpentry unit=#a0522d ; SAN=Sanitary ware=#d0ebff ; DEF=Defect=#f03e3e
+TYPES53 ceil | NOTE=Note=#ffffff ; AC=AC unit=#99e9f2 ; CDP=Ceiling drop=#96f2d7 ; CTR=Curtain track=#c2255c ; LV=Low-voltage point=#7048e8 ; DEF=Defect=#f03e3e
+ON wall | W D C B O N L E P S F X NOTE GRL AC PLB CTR CRP LV SAN DEF
+ON floor | C S O E P X NOTE PLB CRP SAN DEF
+ON ceil | B C E P F O X NOTE AC CDP CTR LV DEF
+POINT | PLB LV | PIN | NOTE | NEW | NOTE GRL AC CDP PLB CTR CRP LV SAN DEF
+CANGO W | wall=- floor=- ceil=- | typeName Window
+CANGO D | wall=- floor=- ceil=- | typeName Door
+CANGO C | wall=- floor=- ceil=- | typeName Column
+CANGO B | wall=- floor=- ceil=- | typeName Beam
+CANGO O | wall=- floor=- ceil=- | typeName Opening
+CANGO N | wall=- floor=- ceil=- | typeName Niche
+CANGO L | wall=- floor=- ceil=- | typeName Loft
+CANGO E | wall=- floor=- ceil=- | typeName Electric point
+CANGO P | wall=- floor=- ceil=- | typeName Bulb point
+CANGO S | wall=- floor=- ceil=- | typeName Switch plate
+CANGO F | wall=- floor=- ceil=- | typeName Fan
+CANGO X | wall=- floor=- ceil=- | typeName Other
+CANGO NOTE | wall=1 floor=1 ceil=1 | typeName Note
+CANGO GRL | wall=1 floor=0 ceil=0 | typeName Grill
+CANGO AC | wall=1 floor=0 ceil=1 | typeName AC unit
+CANGO CDP | wall=0 floor=0 ceil=1 | typeName Ceiling drop
+CANGO PLB | wall=1 floor=1 ceil=0 | typeName Plumbing point
+CANGO CTR | wall=1 floor=0 ceil=1 | typeName Curtain track
+CANGO CRP | wall=1 floor=1 ceil=0 | typeName Carpentry unit
+CANGO LV | wall=1 floor=0 ceil=1 | typeName Low-voltage point
+CANGO SAN | wall=1 floor=1 ceil=0 | typeName Sanitary ware
+CANGO DEF | wall=1 floor=1 ceil=1 | typeName Defect
+typeName of a token nobody knows | QQ
+SUBS W wall | - | first - | stored (none)>- zzz>-
+NAME W wall | (none)=Window ; zzz=Window
+SUBS W floor | - | first - | stored (none)>- zzz>-
+NAME W floor | (none)=Window ; zzz=Window
+SUBS W ceil | - | first - | stored (none)>- zzz>-
+NAME W ceil | (none)=Window ; zzz=Window
+SUBS D wall | - | first - | stored (none)>- zzz>-
+NAME D wall | (none)=Door ; zzz=Door
+SUBS D floor | - | first - | stored (none)>- zzz>-
+NAME D floor | (none)=Door ; zzz=Door
+SUBS D ceil | - | first - | stored (none)>- zzz>-
+NAME D ceil | (none)=Door ; zzz=Door
+SUBS C wall | - | first - | stored (none)>- zzz>-
+NAME C wall | (none)=Column ; zzz=Column
+SUBS C floor | - | first - | stored (none)>- zzz>-
+NAME C floor | (none)=Column ; zzz=Column
+SUBS C ceil | - | first - | stored (none)>- zzz>-
+NAME C ceil | (none)=Column ; zzz=Column
+SUBS B wall | - | first - | stored (none)>- zzz>-
+NAME B wall | (none)=Beam ; zzz=Beam
+SUBS B floor | - | first - | stored (none)>- zzz>-
+NAME B floor | (none)=Beam ; zzz=Beam
+SUBS B ceil | - | first - | stored (none)>- zzz>-
+NAME B ceil | (none)=Beam ; zzz=Beam
+SUBS O wall | - | first - | stored (none)>- zzz>-
+NAME O wall | (none)=Opening ; zzz=Opening
+SUBS O floor | - | first - | stored (none)>- zzz>-
+NAME O floor | (none)=Opening ; zzz=Opening
+SUBS O ceil | - | first - | stored (none)>- zzz>-
+NAME O ceil | (none)=Opening ; zzz=Opening
+SUBS N wall | - | first - | stored (none)>- zzz>-
+NAME N wall | (none)=Niche ; zzz=Niche
+SUBS N floor | - | first - | stored (none)>- zzz>-
+NAME N floor | (none)=Niche ; zzz=Niche
+SUBS N ceil | - | first - | stored (none)>- zzz>-
+NAME N ceil | (none)=Niche ; zzz=Niche
+SUBS L wall | - | first - | stored (none)>- zzz>-
+NAME L wall | (none)=Loft ; zzz=Loft
+SUBS L floor | - | first - | stored (none)>- zzz>-
+NAME L floor | (none)=Loft ; zzz=Loft
+SUBS L ceil | - | first - | stored (none)>- zzz>-
+NAME L ceil | (none)=Loft ; zzz=Loft
+SUBS E wall | - | first - | stored (none)>- zzz>-
+NAME E wall | (none)=Electric point ; zzz=Electric point
+SUBS E floor | - | first - | stored (none)>- zzz>-
+NAME E floor | (none)=Electric point ; zzz=Electric point
+SUBS E ceil | - | first - | stored (none)>- zzz>-
+NAME E ceil | (none)=Electric point ; zzz=Electric point
+SUBS P wall | - | first - | stored (none)>- zzz>-
+NAME P wall | (none)=Bulb point ; zzz=Bulb point
+SUBS P floor | - | first - | stored (none)>- zzz>-
+NAME P floor | (none)=Bulb point ; zzz=Bulb point
+SUBS P ceil | - | first - | stored (none)>- zzz>-
+NAME P ceil | (none)=Bulb point ; zzz=Bulb point
+SUBS S wall | switch=Switch plate ; db=DB / MCB board ; meter=Meter board | first switch | stored (none)>- switch>- db>db meter>meter zzz>-
+NAME S wall | (none)=Switch plate ; switch=Switch plate ; db=DB / MCB board ; meter=Meter board ; zzz=Switch plate
+SUBS S floor | - | first - | stored (none)>- zzz>-
+NAME S floor | (none)=Step ; zzz=Step
+SUBS S ceil | - | first - | stored (none)>- zzz>-
+NAME S ceil | (none)=Switch plate ; zzz=Switch plate
+SUBS F wall | - | first - | stored (none)>- zzz>-
+NAME F wall | (none)=Fan ; zzz=Fan
+SUBS F floor | - | first - | stored (none)>- zzz>-
+NAME F floor | (none)=Fan ; zzz=Fan
+SUBS F ceil | - | first - | stored (none)>- zzz>-
+NAME F ceil | (none)=Fan ; zzz=Fan
+SUBS X wall | - | first - | stored (none)>- zzz>-
+NAME X wall | (none)=Other ; zzz=Other
+SUBS X floor | - | first - | stored (none)>- zzz>-
+NAME X floor | (none)=Other ; zzz=Other
+SUBS X ceil | - | first - | stored (none)>- zzz>-
+NAME X ceil | (none)=Other ; zzz=Other
+SUBS NOTE wall | - | first - | stored (none)>- zzz>-
+NAME NOTE wall | (none)=Note ; zzz=Note
+SUBS NOTE floor | - | first - | stored (none)>- zzz>-
+NAME NOTE floor | (none)=Note ; zzz=Note
+SUBS NOTE ceil | - | first - | stored (none)>- zzz>-
+NAME NOTE ceil | (none)=Note ; zzz=Note
+SUBS GRL wall | window=Window grill ; balcony=Balcony grill ; railing=Railing ; door=Safety door grill | first window | stored (none)>- window>- balcony>balcony railing>railing door>door zzz>-
+NAME GRL wall | (none)=Window grill ; window=Window grill ; balcony=Balcony grill ; railing=Railing ; door=Safety door grill ; zzz=Window grill
+SUBS GRL floor | - | first - | stored (none)>- zzz>-
+NAME GRL floor | (none)=Grill ; zzz=Grill
+SUBS GRL ceil | - | first - | stored (none)>- zzz>-
+NAME GRL ceil | (none)=Grill ; zzz=Grill
+SUBS AC wall | split=Split indoor unit ; window-ac=Window AC ; outdoor=Outdoor unit | first split | stored (none)>- split>- window-ac>window-ac outdoor>outdoor zzz>-
+NAME AC wall | (none)=Split indoor unit ; split=Split indoor unit ; window-ac=Window AC ; outdoor=Outdoor unit ; zzz=Split indoor unit
+SUBS AC floor | - | first - | stored (none)>- zzz>-
+NAME AC floor | (none)=AC unit ; zzz=AC unit
+SUBS AC ceil | cassette=Cassette ; duct=Ductable grille | first cassette | stored (none)>- cassette>- duct>duct zzz>-
+NAME AC ceil | (none)=Cassette ; cassette=Cassette ; duct=Ductable grille ; zzz=Cassette
+SUBS CDP wall | - | first - | stored (none)>- zzz>-
+NAME CDP wall | (none)=Ceiling drop ; zzz=Ceiling drop
+SUBS CDP floor | - | first - | stored (none)>- zzz>-
+NAME CDP floor | (none)=Ceiling drop ; zzz=Ceiling drop
+SUBS CDP ceil | bulkhead=Bulkhead ; cove=Cove ; full=Full false ceiling | first bulkhead | stored (none)>- bulkhead>- cove>cove full>full zzz>-
+NAME CDP ceil | (none)=Bulkhead ; bulkhead=Bulkhead ; cove=Cove ; full=Full false ceiling ; zzz=Bulkhead
+SUBS PLB wall | cold=Cold ; hot=Hot ; mixer=Mixer (hot + cold) ; wm=Washing machine ; ro=RO / purifier ; waste=Waste outlet | first cold | stored (none)>- cold>- hot>hot mixer>mixer wm>wm ro>ro waste>waste zzz>-
+NAME PLB wall | (none)=Plumbing point · Cold ; cold=Plumbing point · Cold ; hot=Plumbing point · Hot ; mixer=Plumbing point · Mixer (hot + cold) ; wm=Plumbing point · Washing machine ; ro=Plumbing point · RO / purifier ; waste=Plumbing point · Waste outlet ; zzz=Plumbing point · Cold
+SUBS PLB floor | trap=Floor trap ; waste=Waste outlet ; cold=Cold ; hot=Hot | first trap | stored (none)>- trap>- waste>waste cold>cold hot>hot zzz>-
+NAME PLB floor | (none)=Plumbing point · Floor trap ; trap=Plumbing point · Floor trap ; waste=Plumbing point · Waste outlet ; cold=Plumbing point · Cold ; hot=Plumbing point · Hot ; zzz=Plumbing point · Floor trap
+SUBS PLB ceil | - | first - | stored (none)>- zzz>-
+NAME PLB ceil | (none)=Plumbing point ; zzz=Plumbing point
+SUBS CTR wall | track=Curtain track ; rod=Rod ; roller=Roller blind ; vertical=Vertical blind | first track | stored (none)>- track>- rod>rod roller>roller vertical>vertical zzz>-
+NAME CTR wall | (none)=Curtain track ; track=Curtain track ; rod=Rod ; roller=Roller blind ; vertical=Vertical blind ; zzz=Curtain track
+SUBS CTR floor | - | first - | stored (none)>- zzz>-
+NAME CTR floor | (none)=Curtain track ; zzz=Curtain track
+SUBS CTR ceil | track=Curtain track ; rod=Rod ; roller=Roller blind ; vertical=Vertical blind | first track | stored (none)>- track>- rod>rod roller>roller vertical>vertical zzz>-
+NAME CTR ceil | (none)=Curtain track ; track=Curtain track ; rod=Rod ; roller=Roller blind ; vertical=Vertical blind ; zzz=Curtain track
+SUBS CRP wall | wardrobe=Wardrobe ; kbase=Kitchen base ; kwall=Kitchen wall unit ; tv=TV unit ; study=Study ; shoe=Shoe rack ; vanity=Vanity ; other=Other unit | first wardrobe | stored (none)>- wardrobe>- kbase>kbase kwall>kwall tv>tv study>study shoe>shoe vanity>vanity other>other zzz>-
+NAME CRP wall | (none)=Wardrobe ; wardrobe=Wardrobe ; kbase=Kitchen base ; kwall=Kitchen wall unit ; tv=TV unit ; study=Study ; shoe=Shoe rack ; vanity=Vanity ; other=Other unit ; zzz=Wardrobe
+SUBS CRP floor | bed=Bed ; platform=Kitchen platform ; island=Island ; other=Other unit | first bed | stored (none)>- bed>- platform>platform island>island other>other zzz>-
+NAME CRP floor | (none)=Bed ; bed=Bed ; platform=Kitchen platform ; island=Island ; other=Other unit ; zzz=Bed
+SUBS CRP ceil | - | first - | stored (none)>- zzz>-
+NAME CRP ceil | (none)=Carpentry unit ; zzz=Carpentry unit
+SUBS LV wall | camera=Camera service:cctv ; intercom=Intercom / video door phone service:intercom ; data=Data / LAN service:cctv ; tv=TV point service:cctv ; wifi=Wi-Fi access point service:cctv | first camera | stored (none)>- camera>- intercom>intercom data>data tv>tv wifi>wifi zzz>-
+NAME LV wall | (none)=Camera ; camera=Camera ; intercom=Intercom / video door phone ; data=Data / LAN ; tv=TV point ; wifi=Wi-Fi access point ; zzz=Camera
+SUBS LV floor | - | first - | stored (none)>- zzz>-
+NAME LV floor | (none)=Low-voltage point ; zzz=Low-voltage point
+SUBS LV ceil | camera=Camera service:cctv ; wifi=Wi-Fi access point service:cctv ; smoke=Smoke detector service:cctv | first camera | stored (none)>- camera>- wifi>wifi smoke>smoke zzz>-
+NAME LV ceil | (none)=Camera ; camera=Camera ; wifi=Wi-Fi access point ; smoke=Smoke detector ; zzz=Camera
+SUBS SAN wall | basin=Wash basin ; wc-wall=Wall-hung WC ; shower=Shower ; geyser=Geyser ; sink=Kitchen sink ; mirror=Mirror cabinet | first basin | stored (none)>- basin>- wc-wall>wc-wall shower>shower geyser>geyser sink>sink mirror>mirror zzz>-
+NAME SAN wall | (none)=Wash basin ; basin=Wash basin ; wc-wall=Wall-hung WC ; shower=Shower ; geyser=Geyser ; sink=Kitchen sink ; mirror=Mirror cabinet ; zzz=Wash basin
+SUBS SAN floor | wc=WC ; shower-area=Shower area ; tub=Bathtub | first wc | stored (none)>- wc>- shower-area>shower-area tub>tub zzz>-
+NAME SAN floor | (none)=WC ; wc=WC ; shower-area=Shower area ; tub=Bathtub ; zzz=WC
+SUBS SAN ceil | - | first - | stored (none)>- zzz>-
+NAME SAN ceil | (none)=Sanitary ware ; zzz=Sanitary ware
+SUBS DEF wall | crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile trade:tiling | first crack | stored (none)>- crack>- damp>damp hollow>hollow peeling>peeling tile>tile zzz>-
+NAME DEF wall | (none)=Crack ; crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile ; zzz=Crack
+SUBS DEF floor | crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile trade:tiling | first crack | stored (none)>- crack>- damp>damp hollow>hollow peeling>peeling tile>tile zzz>-
+NAME DEF floor | (none)=Crack ; crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile ; zzz=Crack
+SUBS DEF ceil | crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile trade:tiling | first crack | stored (none)>- crack>- damp>damp hollow>hollow peeling>peeling tile>tile zzz>-
+NAME DEF ceil | (none)=Crack ; crack=Crack ; damp=Damp / seepage ; hollow=Hollow plaster ; peeling=Peeling paint ; tile=Broken / hollow tile ; zzz=Crack
+BOX front 2678x2677 W | (none)=v52 ; zzz=v52
+BOX front 2678x2677 D | (none)=v52 ; zzz=v52
+BOX front 2678x2677 C | (none)=v52 ; zzz=v52
+BOX front 2678x2677 B | (none)=v52 ; zzz=v52
+BOX front 2678x2677 O | (none)=v52 ; zzz=v52
+BOX front 2678x2677 N | (none)=v52 ; zzz=v52
+BOX front 2678x2677 L | (none)=v52 ; zzz=v52
+BOX front 2678x2677 E | (none)=v52 ; zzz=v52
+BOX front 2678x2677 P | (none)=v52 ; zzz=v52
+BOX front 2678x2677 S | (none)=v52 ; switch=v52 ; db=150,450,1500,1900 ; meter=150,600,1500,2100 ; zzz=150,350,1100,1190
+BOX front 2678x2677 F | (none)=v52 ; zzz=v52
+BOX front 2678x2677 X | (none)=v52 ; zzz=v52
+BOX front 2678x2677 NOTE | (none)=1314,1364,1313.5,1363.5 ; zzz=1314,1364,1313.5,1363.5
+BOX front 2678x2677 GRL | (none)=739,1939,900,2100 ; window=739,1939,900,2100 ; balcony=0,2678,0,1000 ; railing=0,2678,0,900 ; door=300,1300,0,2100 ; zzz=739,1939,900,2100
+BOX front 2678x2677 AC | (none)=839,1839,2227,2527 ; split=839,1839,2227,2527 ; window-ac=1039,1639,1200,1650 ; outdoor=939,1739,0,600 ; zzz=839,1839,2227,2527
+BOX front 2678x2677 CDP | (none)=1039,1639,1038.5,1638.5 ; zzz=1039,1639,1038.5,1638.5
+BOX front 2678x2677 PLB | (none)=300,350,875,925 ; cold=300,350,875,925 ; hot=300,350,875,925 ; mixer=300,350,975,1025 ; wm=300,350,975,1025 ; ro=300,350,1175,1225 ; waste=300,350,375,425 ; zzz=300,350,875,925
+BOX front 2678x2677 CTR | (none)=589,2089,2427,2527 ; track=589,2089,2427,2527 ; rod=589,2089,2427,2527 ; roller=589,2089,2427,2527 ; vertical=589,2089,2427,2527 ; zzz=589,2089,2427,2527
+BOX front 2678x2677 CRP | (none)=150,1350,0,2100 ; wardrobe=150,1350,0,2100 ; kbase=150,1950,0,850 ; kwall=150,1950,1500,2200 ; tv=150,1950,400,850 ; study=150,1350,0,750 ; shoe=150,1050,0,1000 ; vanity=150,1050,400,900 ; other=150,750,0,600 ; zzz=150,1350,0,2100
+BOX front 2678x2677 LV | (none)=2328,2378,2327,2377 ; camera=2328,2378,2327,2377 ; intercom=2328,2378,1375,1425 ; data=2328,2378,275,325 ; tv=2328,2378,1175,1225 ; wifi=2328,2378,2327,2377 ; zzz=2328,2378,2327,2377
+BOX front 2678x2677 SAN | (none)=1064,1614,400,850 ; basin=1064,1614,400,850 ; wc-wall=1159,1519,300,700 ; shower=1189,1489,1950,2250 ; geyser=1114,1564,1800,2400 ; sink=939,1739,850,1050 ; mirror=1039,1639,1200,1950 ; zzz=1064,1614,400,850
+BOX front 2678x2677 DEF | (none)=1189,1489,1188.5,1488.5 ; crack=1189,1489,1188.5,1488.5 ; damp=1189,1489,1188.5,1488.5 ; hollow=1189,1489,1188.5,1488.5 ; peeling=1189,1489,1188.5,1488.5 ; tile=1189,1489,1188.5,1488.5 ; zzz=1189,1489,1188.5,1488.5
+BOX front 3319x2677 W | (none)=v52 ; zzz=v52
+BOX front 3319x2677 D | (none)=v52 ; zzz=v52
+BOX front 3319x2677 C | (none)=v52 ; zzz=v52
+BOX front 3319x2677 B | (none)=v52 ; zzz=v52
+BOX front 3319x2677 O | (none)=v52 ; zzz=v52
+BOX front 3319x2677 N | (none)=v52 ; zzz=v52
+BOX front 3319x2677 L | (none)=v52 ; zzz=v52
+BOX front 3319x2677 E | (none)=v52 ; zzz=v52
+BOX front 3319x2677 P | (none)=v52 ; zzz=v52
+BOX front 3319x2677 S | (none)=v52 ; switch=v52 ; db=150,450,1500,1900 ; meter=150,600,1500,2100 ; zzz=150,350,1100,1190
+BOX front 3319x2677 F | (none)=v52 ; zzz=v52
+BOX front 3319x2677 X | (none)=v52 ; zzz=v52
+BOX front 3319x2677 NOTE | (none)=1634.5,1684.5,1313.5,1363.5 ; zzz=1634.5,1684.5,1313.5,1363.5
+BOX front 3319x2677 GRL | (none)=1059.5,2259.5,900,2100 ; window=1059.5,2259.5,900,2100 ; balcony=159.5,3159.5,0,1000 ; railing=159.5,3159.5,0,900 ; door=300,1300,0,2100 ; zzz=1059.5,2259.5,900,2100
+BOX front 3319x2677 AC | (none)=1159.5,2159.5,2227,2527 ; split=1159.5,2159.5,2227,2527 ; window-ac=1359.5,1959.5,1200,1650 ; outdoor=1259.5,2059.5,0,600 ; zzz=1159.5,2159.5,2227,2527
+BOX front 3319x2677 CDP | (none)=1359.5,1959.5,1038.5,1638.5 ; zzz=1359.5,1959.5,1038.5,1638.5
+BOX front 3319x2677 PLB | (none)=300,350,875,925 ; cold=300,350,875,925 ; hot=300,350,875,925 ; mixer=300,350,975,1025 ; wm=300,350,975,1025 ; ro=300,350,1175,1225 ; waste=300,350,375,425 ; zzz=300,350,875,925
+BOX front 3319x2677 CTR | (none)=909.5,2409.5,2427,2527 ; track=909.5,2409.5,2427,2527 ; rod=909.5,2409.5,2427,2527 ; roller=909.5,2409.5,2427,2527 ; vertical=909.5,2409.5,2427,2527 ; zzz=909.5,2409.5,2427,2527
+BOX front 3319x2677 CRP | (none)=150,1350,0,2100 ; wardrobe=150,1350,0,2100 ; kbase=150,1950,0,850 ; kwall=150,1950,1500,2200 ; tv=150,1950,400,850 ; study=150,1350,0,750 ; shoe=150,1050,0,1000 ; vanity=150,1050,400,900 ; other=150,750,0,600 ; zzz=150,1350,0,2100
+BOX front 3319x2677 LV | (none)=2969,3019,2327,2377 ; camera=2969,3019,2327,2377 ; intercom=2969,3019,1375,1425 ; data=2969,3019,275,325 ; tv=2969,3019,1175,1225 ; wifi=2969,3019,2327,2377 ; zzz=2969,3019,2327,2377
+BOX front 3319x2677 SAN | (none)=1384.5,1934.5,400,850 ; basin=1384.5,1934.5,400,850 ; wc-wall=1479.5,1839.5,300,700 ; shower=1509.5,1809.5,1950,2250 ; geyser=1434.5,1884.5,1800,2400 ; sink=1259.5,2059.5,850,1050 ; mirror=1359.5,1959.5,1200,1950 ; zzz=1384.5,1934.5,400,850
+BOX front 3319x2677 DEF | (none)=1509.5,1809.5,1188.5,1488.5 ; crack=1509.5,1809.5,1188.5,1488.5 ; damp=1509.5,1809.5,1188.5,1488.5 ; hollow=1509.5,1809.5,1188.5,1488.5 ; peeling=1509.5,1809.5,1188.5,1488.5 ; tile=1509.5,1809.5,1188.5,1488.5 ; zzz=1509.5,1809.5,1188.5,1488.5
+BOX front 6000x3000 W | (none)=v52 ; zzz=v52
+BOX front 6000x3000 D | (none)=v52 ; zzz=v52
+BOX front 6000x3000 C | (none)=v52 ; zzz=v52
+BOX front 6000x3000 B | (none)=v52 ; zzz=v52
+BOX front 6000x3000 O | (none)=v52 ; zzz=v52
+BOX front 6000x3000 N | (none)=v52 ; zzz=v52
+BOX front 6000x3000 L | (none)=v52 ; zzz=v52
+BOX front 6000x3000 E | (none)=v52 ; zzz=v52
+BOX front 6000x3000 P | (none)=v52 ; zzz=v52
+BOX front 6000x3000 S | (none)=v52 ; switch=v52 ; db=150,450,1500,1900 ; meter=150,600,1500,2100 ; zzz=150,350,1100,1190
+BOX front 6000x3000 F | (none)=v52 ; zzz=v52
+BOX front 6000x3000 X | (none)=v52 ; zzz=v52
+BOX front 6000x3000 NOTE | (none)=2975,3025,1475,1525 ; zzz=2975,3025,1475,1525
+BOX front 6000x3000 GRL | (none)=2400,3600,900,2100 ; window=2400,3600,900,2100 ; balcony=1500,4500,0,1000 ; railing=1500,4500,0,900 ; door=300,1300,0,2100 ; zzz=2400,3600,900,2100
+BOX front 6000x3000 AC | (none)=2500,3500,2550,2850 ; split=2500,3500,2550,2850 ; window-ac=2700,3300,1200,1650 ; outdoor=2600,3400,0,600 ; zzz=2500,3500,2550,2850
+BOX front 6000x3000 CDP | (none)=2700,3300,1200,1800 ; zzz=2700,3300,1200,1800
+BOX front 6000x3000 PLB | (none)=300,350,875,925 ; cold=300,350,875,925 ; hot=300,350,875,925 ; mixer=300,350,975,1025 ; wm=300,350,975,1025 ; ro=300,350,1175,1225 ; waste=300,350,375,425 ; zzz=300,350,875,925
+BOX front 6000x3000 CTR | (none)=2250,3750,2750,2850 ; track=2250,3750,2750,2850 ; rod=2250,3750,2750,2850 ; roller=2250,3750,2750,2850 ; vertical=2250,3750,2750,2850 ; zzz=2250,3750,2750,2850
+BOX front 6000x3000 CRP | (none)=150,1350,0,2100 ; wardrobe=150,1350,0,2100 ; kbase=150,1950,0,850 ; kwall=150,1950,1500,2200 ; tv=150,1950,400,850 ; study=150,1350,0,750 ; shoe=150,1050,0,1000 ; vanity=150,1050,400,900 ; other=150,750,0,600 ; zzz=150,1350,0,2100
+BOX front 6000x3000 LV | (none)=5650,5700,2650,2700 ; camera=5650,5700,2650,2700 ; intercom=5650,5700,1375,1425 ; data=5650,5700,275,325 ; tv=5650,5700,1175,1225 ; wifi=5650,5700,2650,2700 ; zzz=5650,5700,2650,2700
+BOX front 6000x3000 SAN | (none)=2725,3275,400,850 ; basin=2725,3275,400,850 ; wc-wall=2820,3180,300,700 ; shower=2850,3150,1950,2250 ; geyser=2775,3225,1800,2400 ; sink=2600,3400,850,1050 ; mirror=2700,3300,1200,1950 ; zzz=2725,3275,400,850
+BOX front 6000x3000 DEF | (none)=2850,3150,1350,1650 ; crack=2850,3150,1350,1650 ; damp=2850,3150,1350,1650 ; hollow=2850,3150,1350,1650 ; peeling=2850,3150,1350,1650 ; tile=2850,3150,1350,1650 ; zzz=2850,3150,1350,1650
+BOX front 1000x1000 W | (none)=v52 ; zzz=v52
+BOX front 1000x1000 D | (none)=v52 ; zzz=v52
+BOX front 1000x1000 C | (none)=v52 ; zzz=v52
+BOX front 1000x1000 B | (none)=v52 ; zzz=v52
+BOX front 1000x1000 O | (none)=v52 ; zzz=v52
+BOX front 1000x1000 N | (none)=v52 ; zzz=v52
+BOX front 1000x1000 L | (none)=v52 ; zzz=v52
+BOX front 1000x1000 E | (none)=v52 ; zzz=v52
+BOX front 1000x1000 P | (none)=v52 ; zzz=v52
+BOX front 1000x1000 S | (none)=v52 ; switch=v52 ; db=150,450,600,1000 ; meter=150,600,400,1000 ; zzz=150,350,910,1000
+BOX front 1000x1000 F | (none)=v52 ; zzz=v52
+BOX front 1000x1000 X | (none)=v52 ; zzz=v52
+BOX front 1000x1000 NOTE | (none)=475,525,475,525 ; zzz=475,525,475,525
+BOX front 1000x1000 GRL | (none)=0,1000,0,1000 ; window=0,1000,0,1000 ; balcony=0,1000,0,1000 ; railing=0,1000,0,900 ; door=0,1000,0,1000 ; zzz=0,1000,0,1000
+BOX front 1000x1000 AC | (none)=0,1000,550,850 ; split=0,1000,550,850 ; window-ac=200,800,550,1000 ; outdoor=100,900,0,600 ; zzz=0,1000,550,850
+BOX front 1000x1000 CDP | (none)=200,800,200,800 ; zzz=200,800,200,800
+BOX front 1000x1000 PLB | (none)=300,350,875,925 ; cold=300,350,875,925 ; hot=300,350,875,925 ; mixer=300,350,950,1000 ; wm=300,350,950,1000 ; ro=300,350,950,1000 ; waste=300,350,375,425 ; zzz=300,350,875,925
+BOX front 1000x1000 CTR | (none)=0,1000,750,850 ; track=0,1000,750,850 ; rod=0,1000,750,850 ; roller=0,1000,750,850 ; vertical=0,1000,750,850 ; zzz=0,1000,750,850
+BOX front 1000x1000 CRP | (none)=0,1000,0,1000 ; wardrobe=0,1000,0,1000 ; kbase=0,1000,0,850 ; kwall=0,1000,300,1000 ; tv=0,1000,400,850 ; study=0,1000,0,750 ; shoe=100,1000,0,1000 ; vanity=100,1000,400,900 ; other=150,750,0,600 ; zzz=0,1000,0,1000
+BOX front 1000x1000 LV | (none)=650,700,650,700 ; camera=650,700,650,700 ; intercom=650,700,950,1000 ; data=650,700,275,325 ; tv=650,700,950,1000 ; wifi=650,700,650,700 ; zzz=650,700,650,700
+BOX front 1000x1000 SAN | (none)=225,775,400,850 ; basin=225,775,400,850 ; wc-wall=320,680,300,700 ; shower=350,650,700,1000 ; geyser=275,725,400,1000 ; sink=100,900,800,1000 ; mirror=200,800,250,1000 ; zzz=225,775,400,850
+BOX front 1000x1000 DEF | (none)=350,650,350,650 ; crack=350,650,350,650 ; damp=350,650,350,650 ; hollow=350,650,350,650 ; peeling=350,650,350,650 ; tile=350,650,350,650 ; zzz=350,650,350,650
+BOX front 400x2400 W | (none)=v52 ; zzz=v52
+BOX front 400x2400 D | (none)=v52 ; zzz=v52
+BOX front 400x2400 C | (none)=v52 ; zzz=v52
+BOX front 400x2400 B | (none)=v52 ; zzz=v52
+BOX front 400x2400 O | (none)=v52 ; zzz=v52
+BOX front 400x2400 N | (none)=v52 ; zzz=v52
+BOX front 400x2400 L | (none)=v52 ; zzz=v52
+BOX front 400x2400 E | (none)=v52 ; zzz=v52
+BOX front 400x2400 P | (none)=v52 ; zzz=v52
+BOX front 400x2400 S | (none)=v52 ; switch=v52 ; db=100,400,1500,1900 ; meter=0,400,1500,2100 ; zzz=150,350,1100,1190
+BOX front 400x2400 F | (none)=v52 ; zzz=v52
+BOX front 400x2400 X | (none)=v52 ; zzz=v52
+BOX front 400x2400 NOTE | (none)=175,225,1175,1225 ; zzz=175,225,1175,1225
+BOX front 400x2400 GRL | (none)=0,400,900,2100 ; window=0,400,900,2100 ; balcony=0,400,0,1000 ; railing=0,400,0,900 ; door=0,400,0,2100 ; zzz=0,400,900,2100
+BOX front 400x2400 AC | (none)=0,400,1950,2250 ; split=0,400,1950,2250 ; window-ac=0,400,1200,1650 ; outdoor=0,400,0,600 ; zzz=0,400,1950,2250
+BOX front 400x2400 CDP | (none)=0,400,900,1500 ; zzz=0,400,900,1500
+BOX front 400x2400 PLB | (none)=175,225,875,925 ; cold=175,225,875,925 ; hot=175,225,875,925 ; mixer=175,225,975,1025 ; wm=175,225,975,1025 ; ro=175,225,1175,1225 ; waste=175,225,375,425 ; zzz=175,225,875,925
+BOX front 400x2400 CTR | (none)=0,400,2150,2250 ; track=0,400,2150,2250 ; rod=0,400,2150,2250 ; roller=0,400,2150,2250 ; vertical=0,400,2150,2250 ; zzz=0,400,2150,2250
+BOX front 400x2400 CRP | (none)=0,400,0,2100 ; wardrobe=0,400,0,2100 ; kbase=0,400,0,850 ; kwall=0,400,1500,2200 ; tv=0,400,400,850 ; study=0,400,0,750 ; shoe=0,400,0,1000 ; vanity=0,400,400,900 ; other=0,400,0,600 ; zzz=0,400,0,2100
+BOX front 400x2400 LV | (none)=50,100,2050,2100 ; camera=50,100,2050,2100 ; intercom=50,100,1375,1425 ; data=50,100,275,325 ; tv=50,100,1175,1225 ; wifi=50,100,2050,2100 ; zzz=50,100,2050,2100
+BOX front 400x2400 SAN | (none)=0,400,400,850 ; basin=0,400,400,850 ; wc-wall=20,380,300,700 ; shower=50,350,1950,2250 ; geyser=0,400,1800,2400 ; sink=0,400,850,1050 ; mirror=0,400,1200,1950 ; zzz=0,400,400,850
+BOX front 400x2400 DEF | (none)=50,350,1050,1350 ; crack=50,350,1050,1350 ; damp=50,350,1050,1350 ; hollow=50,350,1050,1350 ; peeling=50,350,1050,1350 ; tile=50,350,1050,1350 ; zzz=50,350,1050,1350
+BOX front 180x80 W | (none)=v52 ; zzz=v52
+BOX front 180x80 D | (none)=v52 ; zzz=v52
+BOX front 180x80 C | (none)=v52 ; zzz=v52
+BOX front 180x80 B | (none)=v52 ; zzz=v52
+BOX front 180x80 O | (none)=v52 ; zzz=v52
+BOX front 180x80 N | (none)=v52 ; zzz=v52
+BOX front 180x80 L | (none)=v52 ; zzz=v52
+BOX front 180x80 E | (none)=v52 ; zzz=v52
+BOX front 180x80 P | (none)=v52 ; zzz=v52
+BOX front 180x80 S | (none)=v52 ; switch=v52 ; db=0,180,0,80 ; meter=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 F | (none)=v52 ; zzz=v52
+BOX front 180x80 X | (none)=v52 ; zzz=v52
+BOX front 180x80 NOTE | (none)=65,115,15,65 ; zzz=65,115,15,65
+BOX front 180x80 GRL | (none)=0,180,0,80 ; window=0,180,0,80 ; balcony=0,180,0,80 ; railing=0,180,0,80 ; door=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 AC | (none)=0,180,0,80 ; split=0,180,0,80 ; window-ac=0,180,0,80 ; outdoor=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 CDP | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 PLB | (none)=65,115,30,80 ; cold=65,115,30,80 ; hot=65,115,30,80 ; mixer=65,115,30,80 ; wm=65,115,30,80 ; ro=65,115,30,80 ; waste=65,115,30,80 ; zzz=65,115,30,80
+BOX front 180x80 CTR | (none)=0,180,0,80 ; track=0,180,0,80 ; rod=0,180,0,80 ; roller=0,180,0,80 ; vertical=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 CRP | (none)=0,180,0,80 ; wardrobe=0,180,0,80 ; kbase=0,180,0,80 ; kwall=0,180,0,80 ; tv=0,180,0,80 ; study=0,180,0,80 ; shoe=0,180,0,80 ; vanity=0,180,0,80 ; other=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 LV | (none)=0,50,0,50 ; camera=0,50,0,50 ; intercom=0,50,30,80 ; data=0,50,30,80 ; tv=0,50,30,80 ; wifi=0,50,0,50 ; zzz=0,50,0,50
+BOX front 180x80 SAN | (none)=0,180,0,80 ; basin=0,180,0,80 ; wc-wall=0,180,0,80 ; shower=0,180,0,80 ; geyser=0,180,0,80 ; sink=0,180,0,80 ; mirror=0,180,0,80 ; zzz=0,180,0,80
+BOX front 180x80 DEF | (none)=0,180,0,80 ; crack=0,180,0,80 ; damp=0,180,0,80 ; hollow=0,180,0,80 ; peeling=0,180,0,80 ; tile=0,180,0,80 ; zzz=0,180,0,80
+BOX front 40x30 W | (none)=v52 ; zzz=v52
+BOX front 40x30 D | (none)=v52 ; zzz=v52
+BOX front 40x30 C | (none)=v52 ; zzz=v52
+BOX front 40x30 B | (none)=v52 ; zzz=v52
+BOX front 40x30 O | (none)=v52 ; zzz=v52
+BOX front 40x30 N | (none)=v52 ; zzz=v52
+BOX front 40x30 L | (none)=v52 ; zzz=v52
+BOX front 40x30 E | (none)=v52 ; zzz=v52
+BOX front 40x30 P | (none)=v52 ; zzz=v52
+BOX front 40x30 S | (none)=v52 ; switch=v52 ; db=0,40,0,30 ; meter=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 F | (none)=v52 ; zzz=v52
+BOX front 40x30 X | (none)=v52 ; zzz=v52
+BOX front 40x30 NOTE | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 GRL | (none)=0,40,0,30 ; window=0,40,0,30 ; balcony=0,40,0,30 ; railing=0,40,0,30 ; door=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 AC | (none)=0,40,0,30 ; split=0,40,0,30 ; window-ac=0,40,0,30 ; outdoor=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 CDP | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 PLB | (none)=0,40,0,30 ; cold=0,40,0,30 ; hot=0,40,0,30 ; mixer=0,40,0,30 ; wm=0,40,0,30 ; ro=0,40,0,30 ; waste=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 CTR | (none)=0,40,0,30 ; track=0,40,0,30 ; rod=0,40,0,30 ; roller=0,40,0,30 ; vertical=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 CRP | (none)=0,40,0,30 ; wardrobe=0,40,0,30 ; kbase=0,40,0,30 ; kwall=0,40,0,30 ; tv=0,40,0,30 ; study=0,40,0,30 ; shoe=0,40,0,30 ; vanity=0,40,0,30 ; other=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 LV | (none)=0,40,0,30 ; camera=0,40,0,30 ; intercom=0,40,0,30 ; data=0,40,0,30 ; tv=0,40,0,30 ; wifi=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 SAN | (none)=0,40,0,30 ; basin=0,40,0,30 ; wc-wall=0,40,0,30 ; shower=0,40,0,30 ; geyser=0,40,0,30 ; sink=0,40,0,30 ; mirror=0,40,0,30 ; zzz=0,40,0,30
+BOX front 40x30 DEF | (none)=0,40,0,30 ; crack=0,40,0,30 ; damp=0,40,0,30 ; hollow=0,40,0,30 ; peeling=0,40,0,30 ; tile=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 2678x3319 W | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 D | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 C | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 B | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 O | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 N | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 L | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 E | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 P | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 S | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 F | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 X | (none)=v52 ; zzz=v52
+BOX floor 2678x3319 NOTE | (none)=1314,1364,1634.5,1684.5 ; zzz=1314,1364,1634.5,1684.5
+BOX floor 2678x3319 GRL | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX floor 2678x3319 AC | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX floor 2678x3319 CDP | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX floor 2678x3319 PLB | (none)=1314,1364,1634.5,1684.5 ; trap=1314,1364,1634.5,1684.5 ; waste=1314,1364,1634.5,1684.5 ; cold=1314,1364,1634.5,1684.5 ; hot=1314,1364,1634.5,1684.5 ; zzz=1314,1364,1634.5,1684.5
+BOX floor 2678x3319 CTR | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX floor 2678x3319 CRP | (none)=150,1950,0,2000 ; bed=150,1950,0,2000 ; platform=150,2550,0,600 ; island=739,1939,1259.5,2059.5 ; other=150,1350,0,600 ; zzz=150,1950,0,2000
+BOX floor 2678x3319 LV | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX floor 2678x3319 SAN | (none)=1139,1539,0,700 ; wc=1139,1539,0,700 ; shower-area=0,900,0,900 ; tub=0,1700,0,750 ; zzz=1139,1539,0,700
+BOX floor 2678x3319 DEF | (none)=1189,1489,1509.5,1809.5 ; crack=1189,1489,1509.5,1809.5 ; damp=1189,1489,1509.5,1809.5 ; hollow=1189,1489,1509.5,1809.5 ; peeling=1189,1489,1509.5,1809.5 ; tile=1189,1489,1509.5,1809.5 ; zzz=1189,1489,1509.5,1809.5
+BOX floor 6000x4000 W | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 D | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 C | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 B | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 O | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 N | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 L | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 E | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 P | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 S | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 F | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 X | (none)=v52 ; zzz=v52
+BOX floor 6000x4000 NOTE | (none)=2975,3025,1975,2025 ; zzz=2975,3025,1975,2025
+BOX floor 6000x4000 GRL | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX floor 6000x4000 AC | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX floor 6000x4000 CDP | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX floor 6000x4000 PLB | (none)=2975,3025,1975,2025 ; trap=2975,3025,1975,2025 ; waste=2975,3025,1975,2025 ; cold=2975,3025,1975,2025 ; hot=2975,3025,1975,2025 ; zzz=2975,3025,1975,2025
+BOX floor 6000x4000 CTR | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX floor 6000x4000 CRP | (none)=150,1950,0,2000 ; bed=150,1950,0,2000 ; platform=150,2550,0,600 ; island=2400,3600,1600,2400 ; other=150,1350,0,600 ; zzz=150,1950,0,2000
+BOX floor 6000x4000 LV | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX floor 6000x4000 SAN | (none)=2800,3200,0,700 ; wc=2800,3200,0,700 ; shower-area=0,900,0,900 ; tub=0,1700,0,750 ; zzz=2800,3200,0,700
+BOX floor 6000x4000 DEF | (none)=2850,3150,1850,2150 ; crack=2850,3150,1850,2150 ; damp=2850,3150,1850,2150 ; hollow=2850,3150,1850,2150 ; peeling=2850,3150,1850,2150 ; tile=2850,3150,1850,2150 ; zzz=2850,3150,1850,2150
+BOX floor 500x5000 W | (none)=v52 ; zzz=v52
+BOX floor 500x5000 D | (none)=v52 ; zzz=v52
+BOX floor 500x5000 C | (none)=v52 ; zzz=v52
+BOX floor 500x5000 B | (none)=v52 ; zzz=v52
+BOX floor 500x5000 O | (none)=v52 ; zzz=v52
+BOX floor 500x5000 N | (none)=v52 ; zzz=v52
+BOX floor 500x5000 L | (none)=v52 ; zzz=v52
+BOX floor 500x5000 E | (none)=v52 ; zzz=v52
+BOX floor 500x5000 P | (none)=v52 ; zzz=v52
+BOX floor 500x5000 S | (none)=v52 ; zzz=v52
+BOX floor 500x5000 F | (none)=v52 ; zzz=v52
+BOX floor 500x5000 X | (none)=v52 ; zzz=v52
+BOX floor 500x5000 NOTE | (none)=225,275,2475,2525 ; zzz=225,275,2475,2525
+BOX floor 500x5000 GRL | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX floor 500x5000 AC | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX floor 500x5000 CDP | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX floor 500x5000 PLB | (none)=225,275,2475,2525 ; trap=225,275,2475,2525 ; waste=225,275,2475,2525 ; cold=225,275,2475,2525 ; hot=225,275,2475,2525 ; zzz=225,275,2475,2525
+BOX floor 500x5000 CTR | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX floor 500x5000 CRP | (none)=0,500,0,2000 ; bed=0,500,0,2000 ; platform=0,500,0,600 ; island=0,500,2100,2900 ; other=0,500,0,600 ; zzz=0,500,0,2000
+BOX floor 500x5000 LV | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX floor 500x5000 SAN | (none)=50,450,0,700 ; wc=50,450,0,700 ; shower-area=0,500,0,900 ; tub=0,500,0,750 ; zzz=50,450,0,700
+BOX floor 500x5000 DEF | (none)=100,400,2350,2650 ; crack=100,400,2350,2650 ; damp=100,400,2350,2650 ; hollow=100,400,2350,2650 ; peeling=100,400,2350,2650 ; tile=100,400,2350,2650 ; zzz=100,400,2350,2650
+BOX floor 180x80 W | (none)=v52 ; zzz=v52
+BOX floor 180x80 D | (none)=v52 ; zzz=v52
+BOX floor 180x80 C | (none)=v52 ; zzz=v52
+BOX floor 180x80 B | (none)=v52 ; zzz=v52
+BOX floor 180x80 O | (none)=v52 ; zzz=v52
+BOX floor 180x80 N | (none)=v52 ; zzz=v52
+BOX floor 180x80 L | (none)=v52 ; zzz=v52
+BOX floor 180x80 E | (none)=v52 ; zzz=v52
+BOX floor 180x80 P | (none)=v52 ; zzz=v52
+BOX floor 180x80 S | (none)=v52 ; zzz=v52
+BOX floor 180x80 F | (none)=v52 ; zzz=v52
+BOX floor 180x80 X | (none)=v52 ; zzz=v52
+BOX floor 180x80 NOTE | (none)=65,115,15,65 ; zzz=65,115,15,65
+BOX floor 180x80 GRL | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 AC | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 CDP | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 PLB | (none)=65,115,15,65 ; trap=65,115,15,65 ; waste=65,115,15,65 ; cold=65,115,15,65 ; hot=65,115,15,65 ; zzz=65,115,15,65
+BOX floor 180x80 CTR | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 CRP | (none)=0,180,0,80 ; bed=0,180,0,80 ; platform=0,180,0,80 ; island=0,180,0,80 ; other=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 LV | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 SAN | (none)=0,180,0,80 ; wc=0,180,0,80 ; shower-area=0,180,0,80 ; tub=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 180x80 DEF | (none)=0,180,0,80 ; crack=0,180,0,80 ; damp=0,180,0,80 ; hollow=0,180,0,80 ; peeling=0,180,0,80 ; tile=0,180,0,80 ; zzz=0,180,0,80
+BOX floor 40x30 W | (none)=v52 ; zzz=v52
+BOX floor 40x30 D | (none)=v52 ; zzz=v52
+BOX floor 40x30 C | (none)=v52 ; zzz=v52
+BOX floor 40x30 B | (none)=v52 ; zzz=v52
+BOX floor 40x30 O | (none)=v52 ; zzz=v52
+BOX floor 40x30 N | (none)=v52 ; zzz=v52
+BOX floor 40x30 L | (none)=v52 ; zzz=v52
+BOX floor 40x30 E | (none)=v52 ; zzz=v52
+BOX floor 40x30 P | (none)=v52 ; zzz=v52
+BOX floor 40x30 S | (none)=v52 ; zzz=v52
+BOX floor 40x30 F | (none)=v52 ; zzz=v52
+BOX floor 40x30 X | (none)=v52 ; zzz=v52
+BOX floor 40x30 NOTE | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 GRL | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 AC | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 CDP | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 PLB | (none)=0,40,0,30 ; trap=0,40,0,30 ; waste=0,40,0,30 ; cold=0,40,0,30 ; hot=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 CTR | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 CRP | (none)=0,40,0,30 ; bed=0,40,0,30 ; platform=0,40,0,30 ; island=0,40,0,30 ; other=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 LV | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 SAN | (none)=0,40,0,30 ; wc=0,40,0,30 ; shower-area=0,40,0,30 ; tub=0,40,0,30 ; zzz=0,40,0,30
+BOX floor 40x30 DEF | (none)=0,40,0,30 ; crack=0,40,0,30 ; damp=0,40,0,30 ; hollow=0,40,0,30 ; peeling=0,40,0,30 ; tile=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 2678x3319 W | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 D | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 C | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 B | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 O | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 N | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 L | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 E | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 P | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 S | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 F | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 X | (none)=v52 ; zzz=v52
+BOX ceil 2678x3319 NOTE | (none)=1314,1364,1634.5,1684.5 ; zzz=1314,1364,1634.5,1684.5
+BOX ceil 2678x3319 GRL | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX ceil 2678x3319 AC | (none)=1039,1639,1359.5,1959.5 ; cassette=1039,1639,1359.5,1959.5 ; duct=839,1839,1559.5,1759.5 ; zzz=1039,1639,1359.5,1959.5
+BOX ceil 2678x3319 CDP | (none)=0,2678,2719,3319 ; bulkhead=0,2678,2719,3319 ; cove=0,2678,3019,3319 ; full=300,2378,300,3019 ; zzz=0,2678,2719,3319
+BOX ceil 2678x3319 PLB | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX ceil 2678x3319 CTR | (none)=589,2089,2919,3019 ; track=589,2089,2919,3019 ; rod=589,2089,2919,3019 ; roller=589,2089,2919,3019 ; vertical=589,2089,2919,3019 ; zzz=589,2089,2919,3019
+BOX ceil 2678x3319 CRP | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX ceil 2678x3319 LV | (none)=1314,1364,1634.5,1684.5 ; camera=1314,1364,1634.5,1684.5 ; wifi=1314,1364,1634.5,1684.5 ; smoke=1314,1364,1634.5,1684.5 ; zzz=1314,1364,1634.5,1684.5
+BOX ceil 2678x3319 SAN | (none)=1039,1639,1359.5,1959.5 ; zzz=1039,1639,1359.5,1959.5
+BOX ceil 2678x3319 DEF | (none)=1189,1489,1509.5,1809.5 ; crack=1189,1489,1509.5,1809.5 ; damp=1189,1489,1509.5,1809.5 ; hollow=1189,1489,1509.5,1809.5 ; peeling=1189,1489,1509.5,1809.5 ; tile=1189,1489,1509.5,1809.5 ; zzz=1189,1489,1509.5,1809.5
+BOX ceil 6000x4000 W | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 D | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 C | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 B | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 O | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 N | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 L | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 E | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 P | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 S | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 F | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 X | (none)=v52 ; zzz=v52
+BOX ceil 6000x4000 NOTE | (none)=2975,3025,1975,2025 ; zzz=2975,3025,1975,2025
+BOX ceil 6000x4000 GRL | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX ceil 6000x4000 AC | (none)=2700,3300,1700,2300 ; cassette=2700,3300,1700,2300 ; duct=2500,3500,1900,2100 ; zzz=2700,3300,1700,2300
+BOX ceil 6000x4000 CDP | (none)=0,6000,3400,4000 ; bulkhead=0,6000,3400,4000 ; cove=0,6000,3700,4000 ; full=300,5700,300,3700 ; zzz=0,6000,3400,4000
+BOX ceil 6000x4000 PLB | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX ceil 6000x4000 CTR | (none)=2250,3750,3600,3700 ; track=2250,3750,3600,3700 ; rod=2250,3750,3600,3700 ; roller=2250,3750,3600,3700 ; vertical=2250,3750,3600,3700 ; zzz=2250,3750,3600,3700
+BOX ceil 6000x4000 CRP | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX ceil 6000x4000 LV | (none)=2975,3025,1975,2025 ; camera=2975,3025,1975,2025 ; wifi=2975,3025,1975,2025 ; smoke=2975,3025,1975,2025 ; zzz=2975,3025,1975,2025
+BOX ceil 6000x4000 SAN | (none)=2700,3300,1700,2300 ; zzz=2700,3300,1700,2300
+BOX ceil 6000x4000 DEF | (none)=2850,3150,1850,2150 ; crack=2850,3150,1850,2150 ; damp=2850,3150,1850,2150 ; hollow=2850,3150,1850,2150 ; peeling=2850,3150,1850,2150 ; tile=2850,3150,1850,2150 ; zzz=2850,3150,1850,2150
+BOX ceil 500x5000 W | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 D | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 C | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 B | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 O | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 N | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 L | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 E | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 P | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 S | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 F | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 X | (none)=v52 ; zzz=v52
+BOX ceil 500x5000 NOTE | (none)=225,275,2475,2525 ; zzz=225,275,2475,2525
+BOX ceil 500x5000 GRL | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX ceil 500x5000 AC | (none)=0,500,2200,2800 ; cassette=0,500,2200,2800 ; duct=0,500,2400,2600 ; zzz=0,500,2200,2800
+BOX ceil 500x5000 CDP | (none)=0,500,4400,5000 ; bulkhead=0,500,4400,5000 ; cove=0,500,4700,5000 ; full=300,301,300,4700 ; zzz=0,500,4400,5000
+BOX ceil 500x5000 PLB | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX ceil 500x5000 CTR | (none)=0,500,4600,4700 ; track=0,500,4600,4700 ; rod=0,500,4600,4700 ; roller=0,500,4600,4700 ; vertical=0,500,4600,4700 ; zzz=0,500,4600,4700
+BOX ceil 500x5000 CRP | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX ceil 500x5000 LV | (none)=225,275,2475,2525 ; camera=225,275,2475,2525 ; wifi=225,275,2475,2525 ; smoke=225,275,2475,2525 ; zzz=225,275,2475,2525
+BOX ceil 500x5000 SAN | (none)=0,500,2200,2800 ; zzz=0,500,2200,2800
+BOX ceil 500x5000 DEF | (none)=100,400,2350,2650 ; crack=100,400,2350,2650 ; damp=100,400,2350,2650 ; hollow=100,400,2350,2650 ; peeling=100,400,2350,2650 ; tile=100,400,2350,2650 ; zzz=100,400,2350,2650
+BOX ceil 180x80 W | (none)=v52 ; zzz=v52
+BOX ceil 180x80 D | (none)=v52 ; zzz=v52
+BOX ceil 180x80 C | (none)=v52 ; zzz=v52
+BOX ceil 180x80 B | (none)=v52 ; zzz=v52
+BOX ceil 180x80 O | (none)=v52 ; zzz=v52
+BOX ceil 180x80 N | (none)=v52 ; zzz=v52
+BOX ceil 180x80 L | (none)=v52 ; zzz=v52
+BOX ceil 180x80 E | (none)=v52 ; zzz=v52
+BOX ceil 180x80 P | (none)=v52 ; zzz=v52
+BOX ceil 180x80 S | (none)=v52 ; zzz=v52
+BOX ceil 180x80 F | (none)=v52 ; zzz=v52
+BOX ceil 180x80 X | (none)=v52 ; zzz=v52
+BOX ceil 180x80 NOTE | (none)=65,115,15,65 ; zzz=65,115,15,65
+BOX ceil 180x80 GRL | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 AC | (none)=0,180,0,80 ; cassette=0,180,0,80 ; duct=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 CDP | (none)=0,180,0,80 ; bulkhead=0,180,0,80 ; cove=0,180,0,80 ; full=179,180,79,80 ; zzz=0,180,0,80
+BOX ceil 180x80 PLB | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 CTR | (none)=0,180,0,80 ; track=0,180,0,80 ; rod=0,180,0,80 ; roller=0,180,0,80 ; vertical=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 CRP | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 LV | (none)=65,115,15,65 ; camera=65,115,15,65 ; wifi=65,115,15,65 ; smoke=65,115,15,65 ; zzz=65,115,15,65
+BOX ceil 180x80 SAN | (none)=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 180x80 DEF | (none)=0,180,0,80 ; crack=0,180,0,80 ; damp=0,180,0,80 ; hollow=0,180,0,80 ; peeling=0,180,0,80 ; tile=0,180,0,80 ; zzz=0,180,0,80
+BOX ceil 40x30 W | (none)=v52 ; zzz=v52
+BOX ceil 40x30 D | (none)=v52 ; zzz=v52
+BOX ceil 40x30 C | (none)=v52 ; zzz=v52
+BOX ceil 40x30 B | (none)=v52 ; zzz=v52
+BOX ceil 40x30 O | (none)=v52 ; zzz=v52
+BOX ceil 40x30 N | (none)=v52 ; zzz=v52
+BOX ceil 40x30 L | (none)=v52 ; zzz=v52
+BOX ceil 40x30 E | (none)=v52 ; zzz=v52
+BOX ceil 40x30 P | (none)=v52 ; zzz=v52
+BOX ceil 40x30 S | (none)=v52 ; zzz=v52
+BOX ceil 40x30 F | (none)=v52 ; zzz=v52
+BOX ceil 40x30 X | (none)=v52 ; zzz=v52
+BOX ceil 40x30 NOTE | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 GRL | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 AC | (none)=0,40,0,30 ; cassette=0,40,0,30 ; duct=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 CDP | (none)=0,40,0,30 ; bulkhead=0,40,0,30 ; cove=0,40,0,30 ; full=39,40,29,30 ; zzz=0,40,0,30
+BOX ceil 40x30 PLB | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 CTR | (none)=0,40,0,30 ; track=0,40,0,30 ; rod=0,40,0,30 ; roller=0,40,0,30 ; vertical=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 CRP | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 LV | (none)=0,40,0,30 ; camera=0,40,0,30 ; wifi=0,40,0,30 ; smoke=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 SAN | (none)=0,40,0,30 ; zzz=0,40,0,30
+BOX ceil 40x30 DEF | (none)=0,40,0,30 ; crack=0,40,0,30 ; damp=0,40,0,30 ; hollow=0,40,0,30 ; peeling=0,40,0,30 ; tile=0,40,0,30 ; zzz=0,40,0,30
+MEAS front W @10,310,10,210 | v52
+MEAS front W @2368,2668,2467,2667 | v52
+MEAS front W @1189,1489,1238.5,1438.5 | v52
+MEAS front W @10,310,2467,2667 | v52
+MEAS front W @2368,2668,10,210 | v52
+MEAS front W @0,300,0,200 | v52
+MEAS front D @10,310,10,210 | v52
+MEAS front D @2368,2668,2467,2667 | v52
+MEAS front D @1189,1489,1238.5,1438.5 | v52
+MEAS front D @10,310,2467,2667 | v52
+MEAS front D @2368,2668,10,210 | v52
+MEAS front D @0,300,0,200 | v52
+MEAS front C @10,310,10,210 | v52
+MEAS front C @2368,2668,2467,2667 | v52
+MEAS front C @1189,1489,1238.5,1438.5 | v52
+MEAS front C @10,310,2467,2667 | v52
+MEAS front C @2368,2668,10,210 | v52
+MEAS front C @0,300,0,200 | v52
+MEAS front B @10,310,10,210 | v52
+MEAS front B @2368,2668,2467,2667 | v52
+MEAS front B @1189,1489,1238.5,1438.5 | v52
+MEAS front B @10,310,2467,2667 | v52
+MEAS front B @2368,2668,10,210 | v52
+MEAS front B @0,300,0,200 | v52
+MEAS front O @10,310,10,210 | v52
+MEAS front O @2368,2668,2467,2667 | v52
+MEAS front O @1189,1489,1238.5,1438.5 | v52
+MEAS front O @10,310,2467,2667 | v52
+MEAS front O @2368,2668,10,210 | v52
+MEAS front O @0,300,0,200 | v52
+MEAS front N @10,310,10,210 | v52
+MEAS front N @2368,2668,2467,2667 | v52
+MEAS front N @1189,1489,1238.5,1438.5 | v52
+MEAS front N @10,310,2467,2667 | v52
+MEAS front N @2368,2668,10,210 | v52
+MEAS front N @0,300,0,200 | v52
+MEAS front L @10,310,10,210 | v52
+MEAS front L @2368,2668,2467,2667 | v52
+MEAS front L @1189,1489,1238.5,1438.5 | v52
+MEAS front L @10,310,2467,2667 | v52
+MEAS front L @2368,2668,10,210 | v52
+MEAS front L @0,300,0,200 | v52
+MEAS front E @10,310,10,210 | v52
+MEAS front E @2368,2668,2467,2667 | v52
+MEAS front E @1189,1489,1238.5,1438.5 | v52
+MEAS front E @10,310,2467,2667 | v52
+MEAS front E @2368,2668,10,210 | v52
+MEAS front E @0,300,0,200 | v52
+MEAS front P @10,310,10,210 | v52
+MEAS front P @2368,2668,2467,2667 | v52
+MEAS front P @1189,1489,1238.5,1438.5 | v52
+MEAS front P @10,310,2467,2667 | v52
+MEAS front P @2368,2668,10,210 | v52
+MEAS front P @0,300,0,200 | v52
+MEAS front S @10,310,10,210 | v52
+MEAS front S @2368,2668,2467,2667 | v52
+MEAS front S @1189,1489,1238.5,1438.5 | v52
+MEAS front S @10,310,2467,2667 | v52
+MEAS front S @2368,2668,10,210 | v52
+MEAS front S @0,300,0,200 | v52
+MEAS front F @10,310,10,210 | v52
+MEAS front F @2368,2668,2467,2667 | v52
+MEAS front F @1189,1489,1238.5,1438.5 | v52
+MEAS front F @10,310,2467,2667 | v52
+MEAS front F @2368,2668,10,210 | v52
+MEAS front F @0,300,0,200 | v52
+MEAS front X @10,310,10,210 | v52
+MEAS front X @2368,2668,2467,2667 | v52
+MEAS front X @1189,1489,1238.5,1438.5 | v52
+MEAS front X @10,310,2467,2667 | v52
+MEAS front X @2368,2668,10,210 | v52
+MEAS front X @0,300,0,200 | v52
+MEAS front NOTE @10,60,10,60 | (none)
+MEAS front NOTE @2618,2668,2617,2667 | (none)
+MEAS front NOTE @1314,1364,1313.5,1363.5 | (none)
+MEAS front NOTE @10,60,2617,2667 | (none)
+MEAS front NOTE @2618,2668,10,60 | (none)
+MEAS front NOTE @0,50,0,50 | (none)
+MEAS front GRL @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:from floor:10 ; p:projection from wall:site
+MEAS front GRL @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:from floor:2467 ; p:projection from wall:site
+MEAS front GRL @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:from floor:1238.5 ; p:projection from wall:site
+MEAS front GRL @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:from floor:2467 ; p:projection from wall:site
+MEAS front GRL @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:from floor:10 ; p:projection from wall:site
+MEAS front GRL @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:from floor:0 ; p:projection from wall:site
+MEAS front AC @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:from floor:10 ; p:projection from wall:site
+MEAS front AC @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; t:from ceiling:10 ; p:projection from wall:site
+MEAS front AC @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:from floor:1238.5 ; p:projection from wall:site
+MEAS front AC @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; t:from ceiling:10 ; p:projection from wall:site
+MEAS front AC @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:from floor:10 ; p:projection from wall:site
+MEAS front AC @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:from floor:0 ; p:projection from wall:site
+MEAS front CDP @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:from floor:10
+MEAS front CDP @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; t:from ceiling:10
+MEAS front CDP @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:from floor:1238.5
+MEAS front CDP @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; t:from ceiling:10
+MEAS front CDP @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:from floor:10
+MEAS front CDP @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:from floor:0
+MEAS front PLB @10,60,10,60 | cl:from left corner, to centre:35 ; cs:from floor, to centre:35
+MEAS front PLB @2618,2668,2617,2667 | cr:from right corner, to centre:35 ; ct:from ceiling, to centre:35
+MEAS front PLB @1314,1364,1313.5,1363.5 | cl:from left corner, to centre:1339 ; cs:from floor, to centre:1338.5
+MEAS front PLB @10,60,2617,2667 | cl:from left corner, to centre:35 ; ct:from ceiling, to centre:35
+MEAS front PLB @2618,2668,10,60 | cr:from right corner, to centre:35 ; cs:from floor, to centre:35
+MEAS front PLB @0,50,0,50 | cl:from left corner, to centre:25 ; cs:from floor, to centre:25
+MEAS front CTR @10,310,10,210 | w:track length:300 ; l:from left corner:10 ; t:from ceiling:2467 ; p:projection from wall:site
+MEAS front CTR @2368,2668,2467,2667 | w:track length:300 ; r:from right corner:10 ; t:from ceiling:10 ; p:projection from wall:site
+MEAS front CTR @1189,1489,1238.5,1438.5 | w:track length:300 ; l:from left corner:1189 ; t:from ceiling:1238.5 ; p:projection from wall:site
+MEAS front CTR @10,310,2467,2667 | w:track length:300 ; l:from left corner:10 ; t:from ceiling:10 ; p:projection from wall:site
+MEAS front CTR @2368,2668,10,210 | w:track length:300 ; r:from right corner:10 ; t:from ceiling:2467 ; p:projection from wall:site
+MEAS front CTR @0,300,0,200 | w:track length:300 ; l:from left corner:0 ; t:from ceiling:2477 ; p:projection from wall:site
+MEAS front CRP @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:underside, from floor:10 ; p:depth from wall:site
+MEAS front CRP @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:underside, from floor:2467 ; p:depth from wall:site
+MEAS front CRP @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:underside, from floor:1238.5 ; p:depth from wall:site
+MEAS front CRP @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:underside, from floor:2467 ; p:depth from wall:site
+MEAS front CRP @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:underside, from floor:10 ; p:depth from wall:site
+MEAS front CRP @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:underside, from floor:0 ; p:depth from wall:site
+MEAS front LV @10,60,10,60 | cl:from left corner, to centre:35 ; cs:from floor, to centre:35
+MEAS front LV @2618,2668,2617,2667 | cr:from right corner, to centre:35 ; ct:from ceiling, to centre:35
+MEAS front LV @1314,1364,1313.5,1363.5 | cl:from left corner, to centre:1339 ; cs:from floor, to centre:1338.5
+MEAS front LV @10,60,2617,2667 | cl:from left corner, to centre:35 ; ct:from ceiling, to centre:35
+MEAS front LV @2618,2668,10,60 | cr:from right corner, to centre:35 ; cs:from floor, to centre:35
+MEAS front LV @0,50,0,50 | cl:from left corner, to centre:25 ; cs:from floor, to centre:25
+MEAS front SAN @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:underside, from floor:10 ; p:projection from wall:site
+MEAS front SAN @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:underside, from floor:2467 ; p:projection from wall:site
+MEAS front SAN @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:underside, from floor:1238.5 ; p:projection from wall:site
+MEAS front SAN @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:underside, from floor:2467 ; p:projection from wall:site
+MEAS front SAN @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:underside, from floor:10 ; p:projection from wall:site
+MEAS front SAN @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:underside, from floor:0 ; p:projection from wall:site
+MEAS front DEF @10,310,10,210 | w:width:300 ; h:height:200 ; l:from left corner:10 ; s:from floor:10
+MEAS front DEF @2368,2668,2467,2667 | w:width:300 ; h:height:200 ; r:from right corner:10 ; t:from ceiling:10
+MEAS front DEF @1189,1489,1238.5,1438.5 | w:width:300 ; h:height:200 ; l:from left corner:1189 ; s:from floor:1238.5
+MEAS front DEF @10,310,2467,2667 | w:width:300 ; h:height:200 ; l:from left corner:10 ; t:from ceiling:10
+MEAS front DEF @2368,2668,10,210 | w:width:300 ; h:height:200 ; r:from right corner:10 ; s:from floor:10
+MEAS front DEF @0,300,0,200 | w:width:300 ; h:height:200 ; l:from left corner:0 ; s:from floor:0
+MEAS floor W @10,310,10,210 | v52
+MEAS floor W @2368,2668,3109,3309 | v52
+MEAS floor W @1189,1489,1559.5,1759.5 | v52
+MEAS floor W @10,310,3109,3309 | v52
+MEAS floor W @2368,2668,10,210 | v52
+MEAS floor W @0,300,0,200 | v52
+MEAS floor D @10,310,10,210 | v52
+MEAS floor D @2368,2668,3109,3309 | v52
+MEAS floor D @1189,1489,1559.5,1759.5 | v52
+MEAS floor D @10,310,3109,3309 | v52
+MEAS floor D @2368,2668,10,210 | v52
+MEAS floor D @0,300,0,200 | v52
+MEAS floor C @10,310,10,210 | v52
+MEAS floor C @2368,2668,3109,3309 | v52
+MEAS floor C @1189,1489,1559.5,1759.5 | v52
+MEAS floor C @10,310,3109,3309 | v52
+MEAS floor C @2368,2668,10,210 | v52
+MEAS floor C @0,300,0,200 | v52
+MEAS floor B @10,310,10,210 | v52
+MEAS floor B @2368,2668,3109,3309 | v52
+MEAS floor B @1189,1489,1559.5,1759.5 | v52
+MEAS floor B @10,310,3109,3309 | v52
+MEAS floor B @2368,2668,10,210 | v52
+MEAS floor B @0,300,0,200 | v52
+MEAS floor O @10,310,10,210 | v52
+MEAS floor O @2368,2668,3109,3309 | v52
+MEAS floor O @1189,1489,1559.5,1759.5 | v52
+MEAS floor O @10,310,3109,3309 | v52
+MEAS floor O @2368,2668,10,210 | v52
+MEAS floor O @0,300,0,200 | v52
+MEAS floor N @10,310,10,210 | v52
+MEAS floor N @2368,2668,3109,3309 | v52
+MEAS floor N @1189,1489,1559.5,1759.5 | v52
+MEAS floor N @10,310,3109,3309 | v52
+MEAS floor N @2368,2668,10,210 | v52
+MEAS floor N @0,300,0,200 | v52
+MEAS floor L @10,310,10,210 | v52
+MEAS floor L @2368,2668,3109,3309 | v52
+MEAS floor L @1189,1489,1559.5,1759.5 | v52
+MEAS floor L @10,310,3109,3309 | v52
+MEAS floor L @2368,2668,10,210 | v52
+MEAS floor L @0,300,0,200 | v52
+MEAS floor E @10,310,10,210 | v52
+MEAS floor E @2368,2668,3109,3309 | v52
+MEAS floor E @1189,1489,1559.5,1759.5 | v52
+MEAS floor E @10,310,3109,3309 | v52
+MEAS floor E @2368,2668,10,210 | v52
+MEAS floor E @0,300,0,200 | v52
+MEAS floor P @10,310,10,210 | v52
+MEAS floor P @2368,2668,3109,3309 | v52
+MEAS floor P @1189,1489,1559.5,1759.5 | v52
+MEAS floor P @10,310,3109,3309 | v52
+MEAS floor P @2368,2668,10,210 | v52
+MEAS floor P @0,300,0,200 | v52
+MEAS floor S @10,310,10,210 | v52
+MEAS floor S @2368,2668,3109,3309 | v52
+MEAS floor S @1189,1489,1559.5,1759.5 | v52
+MEAS floor S @10,310,3109,3309 | v52
+MEAS floor S @2368,2668,10,210 | v52
+MEAS floor S @0,300,0,200 | v52
+MEAS floor F @10,310,10,210 | v52
+MEAS floor F @2368,2668,3109,3309 | v52
+MEAS floor F @1189,1489,1559.5,1759.5 | v52
+MEAS floor F @10,310,3109,3309 | v52
+MEAS floor F @2368,2668,10,210 | v52
+MEAS floor F @0,300,0,200 | v52
+MEAS floor X @10,310,10,210 | v52
+MEAS floor X @2368,2668,3109,3309 | v52
+MEAS floor X @1189,1489,1559.5,1759.5 | v52
+MEAS floor X @10,310,3109,3309 | v52
+MEAS floor X @2368,2668,10,210 | v52
+MEAS floor X @0,300,0,200 | v52
+MEAS floor NOTE @10,60,10,60 | (none)
+MEAS floor NOTE @2618,2668,3259,3309 | (none)
+MEAS floor NOTE @1314,1364,1634.5,1684.5 | (none)
+MEAS floor NOTE @10,60,3259,3309 | (none)
+MEAS floor NOTE @2618,2668,10,60 | (none)
+MEAS floor NOTE @0,50,0,50 | (none)
+MEAS floor GRL @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10
+MEAS floor GRL @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10
+MEAS floor GRL @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS floor GRL @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10
+MEAS floor GRL @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10
+MEAS floor GRL @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0
+MEAS floor AC @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:drop below ceiling:site
+MEAS floor AC @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:drop below ceiling:site
+MEAS floor AC @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:drop below ceiling:site
+MEAS floor AC @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:drop below ceiling:site
+MEAS floor AC @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:drop below ceiling:site
+MEAS floor AC @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:drop below ceiling:site
+MEAS floor CDP @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:drop below slab:site
+MEAS floor CDP @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:drop below slab:site
+MEAS floor CDP @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:drop below slab:site
+MEAS floor CDP @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:drop below slab:site
+MEAS floor CDP @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:drop below slab:site
+MEAS floor CDP @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:drop below slab:site
+MEAS floor PLB @10,60,10,60 | cl:from left wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS floor PLB @2618,2668,3259,3309 | cr:from right wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS floor PLB @1314,1364,1634.5,1684.5 | cl:from left wall, to centre:1339 ; cf:from front wall, to centre:1659.5
+MEAS floor PLB @10,60,3259,3309 | cl:from left wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS floor PLB @2618,2668,10,60 | cr:from right wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS floor PLB @0,50,0,50 | cl:from left wall, to centre:25 ; ck:from back wall, to centre:25
+MEAS floor CTR @10,310,10,210 | w:track length:300 ; l:from left wall:10 ; k:from back wall:10
+MEAS floor CTR @2368,2668,3109,3309 | w:track length:300 ; r:from right wall:10 ; f:from front wall:10
+MEAS floor CTR @1189,1489,1559.5,1759.5 | w:track length:300 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS floor CTR @10,310,3109,3309 | w:track length:300 ; l:from left wall:10 ; f:from front wall:10
+MEAS floor CTR @2368,2668,10,210 | w:track length:300 ; r:from right wall:10 ; k:from back wall:10
+MEAS floor CTR @0,300,0,200 | w:track length:300 ; l:from left wall:0 ; k:from back wall:0
+MEAS floor CRP @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:height:site
+MEAS floor CRP @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:height:site
+MEAS floor CRP @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:height:site
+MEAS floor CRP @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:height:site
+MEAS floor CRP @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:height:site
+MEAS floor CRP @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:height:site
+MEAS floor LV @10,60,10,60 | cl:from left wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS floor LV @2618,2668,3259,3309 | cr:from right wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS floor LV @1314,1364,1634.5,1684.5 | cl:from left wall, to centre:1339 ; cf:from front wall, to centre:1659.5
+MEAS floor LV @10,60,3259,3309 | cl:from left wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS floor LV @2618,2668,10,60 | cr:from right wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS floor LV @0,50,0,50 | cl:from left wall, to centre:25 ; ck:from back wall, to centre:25
+MEAS floor SAN @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:height:site
+MEAS floor SAN @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:height:site
+MEAS floor SAN @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:height:site
+MEAS floor SAN @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:height:site
+MEAS floor SAN @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:height:site
+MEAS floor SAN @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:height:site
+MEAS floor DEF @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10
+MEAS floor DEF @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10
+MEAS floor DEF @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS floor DEF @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10
+MEAS floor DEF @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10
+MEAS floor DEF @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0
+MEAS ceil W @10,310,10,210 | v52
+MEAS ceil W @2368,2668,3109,3309 | v52
+MEAS ceil W @1189,1489,1559.5,1759.5 | v52
+MEAS ceil W @10,310,3109,3309 | v52
+MEAS ceil W @2368,2668,10,210 | v52
+MEAS ceil W @0,300,0,200 | v52
+MEAS ceil D @10,310,10,210 | v52
+MEAS ceil D @2368,2668,3109,3309 | v52
+MEAS ceil D @1189,1489,1559.5,1759.5 | v52
+MEAS ceil D @10,310,3109,3309 | v52
+MEAS ceil D @2368,2668,10,210 | v52
+MEAS ceil D @0,300,0,200 | v52
+MEAS ceil C @10,310,10,210 | v52
+MEAS ceil C @2368,2668,3109,3309 | v52
+MEAS ceil C @1189,1489,1559.5,1759.5 | v52
+MEAS ceil C @10,310,3109,3309 | v52
+MEAS ceil C @2368,2668,10,210 | v52
+MEAS ceil C @0,300,0,200 | v52
+MEAS ceil B @10,310,10,210 | v52
+MEAS ceil B @2368,2668,3109,3309 | v52
+MEAS ceil B @1189,1489,1559.5,1759.5 | v52
+MEAS ceil B @10,310,3109,3309 | v52
+MEAS ceil B @2368,2668,10,210 | v52
+MEAS ceil B @0,300,0,200 | v52
+MEAS ceil O @10,310,10,210 | v52
+MEAS ceil O @2368,2668,3109,3309 | v52
+MEAS ceil O @1189,1489,1559.5,1759.5 | v52
+MEAS ceil O @10,310,3109,3309 | v52
+MEAS ceil O @2368,2668,10,210 | v52
+MEAS ceil O @0,300,0,200 | v52
+MEAS ceil N @10,310,10,210 | v52
+MEAS ceil N @2368,2668,3109,3309 | v52
+MEAS ceil N @1189,1489,1559.5,1759.5 | v52
+MEAS ceil N @10,310,3109,3309 | v52
+MEAS ceil N @2368,2668,10,210 | v52
+MEAS ceil N @0,300,0,200 | v52
+MEAS ceil L @10,310,10,210 | v52
+MEAS ceil L @2368,2668,3109,3309 | v52
+MEAS ceil L @1189,1489,1559.5,1759.5 | v52
+MEAS ceil L @10,310,3109,3309 | v52
+MEAS ceil L @2368,2668,10,210 | v52
+MEAS ceil L @0,300,0,200 | v52
+MEAS ceil E @10,310,10,210 | v52
+MEAS ceil E @2368,2668,3109,3309 | v52
+MEAS ceil E @1189,1489,1559.5,1759.5 | v52
+MEAS ceil E @10,310,3109,3309 | v52
+MEAS ceil E @2368,2668,10,210 | v52
+MEAS ceil E @0,300,0,200 | v52
+MEAS ceil P @10,310,10,210 | v52
+MEAS ceil P @2368,2668,3109,3309 | v52
+MEAS ceil P @1189,1489,1559.5,1759.5 | v52
+MEAS ceil P @10,310,3109,3309 | v52
+MEAS ceil P @2368,2668,10,210 | v52
+MEAS ceil P @0,300,0,200 | v52
+MEAS ceil S @10,310,10,210 | v52
+MEAS ceil S @2368,2668,3109,3309 | v52
+MEAS ceil S @1189,1489,1559.5,1759.5 | v52
+MEAS ceil S @10,310,3109,3309 | v52
+MEAS ceil S @2368,2668,10,210 | v52
+MEAS ceil S @0,300,0,200 | v52
+MEAS ceil F @10,310,10,210 | v52
+MEAS ceil F @2368,2668,3109,3309 | v52
+MEAS ceil F @1189,1489,1559.5,1759.5 | v52
+MEAS ceil F @10,310,3109,3309 | v52
+MEAS ceil F @2368,2668,10,210 | v52
+MEAS ceil F @0,300,0,200 | v52
+MEAS ceil X @10,310,10,210 | v52
+MEAS ceil X @2368,2668,3109,3309 | v52
+MEAS ceil X @1189,1489,1559.5,1759.5 | v52
+MEAS ceil X @10,310,3109,3309 | v52
+MEAS ceil X @2368,2668,10,210 | v52
+MEAS ceil X @0,300,0,200 | v52
+MEAS ceil NOTE @10,60,10,60 | (none)
+MEAS ceil NOTE @2618,2668,3259,3309 | (none)
+MEAS ceil NOTE @1314,1364,1634.5,1684.5 | (none)
+MEAS ceil NOTE @10,60,3259,3309 | (none)
+MEAS ceil NOTE @2618,2668,10,60 | (none)
+MEAS ceil NOTE @0,50,0,50 | (none)
+MEAS ceil GRL @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10
+MEAS ceil GRL @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10
+MEAS ceil GRL @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS ceil GRL @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10
+MEAS ceil GRL @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10
+MEAS ceil GRL @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0
+MEAS ceil AC @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:drop below ceiling:site
+MEAS ceil AC @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:drop below ceiling:site
+MEAS ceil AC @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:drop below ceiling:site
+MEAS ceil AC @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:drop below ceiling:site
+MEAS ceil AC @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:drop below ceiling:site
+MEAS ceil AC @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:drop below ceiling:site
+MEAS ceil CDP @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:drop below slab:site
+MEAS ceil CDP @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:drop below slab:site
+MEAS ceil CDP @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:drop below slab:site
+MEAS ceil CDP @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:drop below slab:site
+MEAS ceil CDP @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:drop below slab:site
+MEAS ceil CDP @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:drop below slab:site
+MEAS ceil PLB @10,60,10,60 | cl:from left wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS ceil PLB @2618,2668,3259,3309 | cr:from right wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS ceil PLB @1314,1364,1634.5,1684.5 | cl:from left wall, to centre:1339 ; cf:from front wall, to centre:1659.5
+MEAS ceil PLB @10,60,3259,3309 | cl:from left wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS ceil PLB @2618,2668,10,60 | cr:from right wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS ceil PLB @0,50,0,50 | cl:from left wall, to centre:25 ; ck:from back wall, to centre:25
+MEAS ceil CTR @10,310,10,210 | w:track length:300 ; l:from left wall:10 ; k:from back wall:10
+MEAS ceil CTR @2368,2668,3109,3309 | w:track length:300 ; r:from right wall:10 ; f:from front wall:10
+MEAS ceil CTR @1189,1489,1559.5,1759.5 | w:track length:300 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS ceil CTR @10,310,3109,3309 | w:track length:300 ; l:from left wall:10 ; f:from front wall:10
+MEAS ceil CTR @2368,2668,10,210 | w:track length:300 ; r:from right wall:10 ; k:from back wall:10
+MEAS ceil CTR @0,300,0,200 | w:track length:300 ; l:from left wall:0 ; k:from back wall:0
+MEAS ceil CRP @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:height:site
+MEAS ceil CRP @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:height:site
+MEAS ceil CRP @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:height:site
+MEAS ceil CRP @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:height:site
+MEAS ceil CRP @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:height:site
+MEAS ceil CRP @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:height:site
+MEAS ceil LV @10,60,10,60 | cl:from left wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS ceil LV @2618,2668,3259,3309 | cr:from right wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS ceil LV @1314,1364,1634.5,1684.5 | cl:from left wall, to centre:1339 ; cf:from front wall, to centre:1659.5
+MEAS ceil LV @10,60,3259,3309 | cl:from left wall, to centre:35 ; cf:from front wall, to centre:35
+MEAS ceil LV @2618,2668,10,60 | cr:from right wall, to centre:35 ; ck:from back wall, to centre:35
+MEAS ceil LV @0,50,0,50 | cl:from left wall, to centre:25 ; ck:from back wall, to centre:25
+MEAS ceil SAN @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10 ; p:height:site
+MEAS ceil SAN @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10 ; p:height:site
+MEAS ceil SAN @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5 ; p:height:site
+MEAS ceil SAN @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10 ; p:height:site
+MEAS ceil SAN @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10 ; p:height:site
+MEAS ceil SAN @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0 ; p:height:site
+MEAS ceil DEF @10,310,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; k:from back wall:10
+MEAS ceil DEF @2368,2668,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; f:from front wall:10
+MEAS ceil DEF @1189,1489,1559.5,1759.5 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:1189 ; f:from front wall:1559.5
+MEAS ceil DEF @10,310,3109,3309 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:10 ; f:from front wall:10
+MEAS ceil DEF @2368,2668,10,210 | w:width, left–right:300 ; h:depth, front–back:200 ; r:from right wall:10 ; k:from back wall:10
+MEAS ceil DEF @0,300,0,200 | w:width, left–right:300 ; h:depth, front–back:200 ; l:from left wall:0 ; k:from back wall:0
+REFUSE W | wall=ok | floor=ok | ceil=ok
+REFUSE D | wall=ok | floor=ok | ceil=ok
+REFUSE C | wall=ok | floor=ok | ceil=ok
+REFUSE B | wall=ok | floor=ok | ceil=ok
+REFUSE O | wall=ok | floor=ok | ceil=ok
+REFUSE N | wall=ok | floor=ok | ceil=ok
+REFUSE L | wall=ok | floor=ok | ceil=ok
+REFUSE E | wall=ok | floor=ok | ceil=ok
+REFUSE P | wall=ok | floor=ok | ceil=ok
+REFUSE S | wall=ok | floor=ok | ceil=ok
+REFUSE F | wall=ok | floor=ok | ceil=ok
+REFUSE X | wall=ok | floor=ok | ceil=ok
+REFUSE NOTE | wall=ok | floor=ok | ceil=ok
+REFUSE GRL | wall=ok | floor=A Grill cannot go on the floor | ceil=A Grill cannot go on the ceiling
+REFUSE AC | wall=ok | floor=An AC unit cannot go on the floor | ceil=ok
+REFUSE CDP | wall=A Ceiling drop goes on the ceiling only | floor=A Ceiling drop goes on the ceiling only | ceil=ok
+REFUSE PLB | wall=ok | floor=ok | ceil=A Plumbing point cannot go on the ceiling
+REFUSE CTR | wall=ok | floor=A Curtain track cannot go on the floor | ceil=ok
+REFUSE CRP | wall=ok | floor=ok | ceil=A Carpentry unit cannot go on the ceiling
+REFUSE LV | wall=ok | floor=A Low-voltage point cannot go on the floor | ceil=ok
+REFUSE SAN | wall=ok | floor=ok | ceil=A Sanitary ware cannot go on the ceiling
+REFUSE DEF | wall=ok | floor=ok | ceil=ok
+CODE "FW1" | F front W mark 1 - | token W
+CODE "FP1" | F front P mark 1 - | token P
+CODE "FPLB1" | F front PLB mark 1 - | token PLB
+CODE "FPLB12.cl" | F front PLB mark 12 cl | token PLB
+CODE "CCDP1" | C ceil CDP mark 1 - | token CDP
+CODE "GNOTE2" | G floor NOTE mark 2 - | token NOTE
+CODE "LLV3" | L left LV mark 3 - | token LV
+CODE "LL1" | L left L mark 1 - | token L
+CODE "RS4.w" | R right S mark 4 w | token S
+CODE "BCRP10.p" | B back CRP mark 10 p | token CRP
+CODE "F-M1" | F front - line 1 - | token -
+CODE "F-M2.per" | F front - line 2 per | token -
+CODE "G-T3" | G floor - tape 3 - | token -
+CODE "FK1" | F front K chain 1 - | token K
+CODE "FK1.t" | F front K chain 1 t | token K
+CODE "FK12.3" | F front K chain 12 3 | token K
+CODE "FWx7" | F front Wx mark 7 - | token Wx
+CODE "FW01" | F front W mark 1 - | token W
+CODE "fw1" | null | token -
+CODE "XW1" | null | token -
+CODE "F1" | null | token -
+CODE "FW" | null | token -
+CODE "F-X1" | null | token -
+CODE "FPLB1.c l" | null | token -
+CODE "FPLB1." | null | token -
+CODE "" | null | token -
+CODE "F W1" | null | token -
+NEXT front | W>FW1 D>FD2 C>FC5 B>FB1 O>FO1 N>FN1 L>FL4 E>FE1 P>FP3 S>FS3 F>FF1 X>FX1 NOTE>FNOTE3 GRL>FGRL1 AC>FAC1 CDP>FCDP1 PLB>FPLB8 CTR>FCTR2 CRP>FCRP7 LV>FLV10 SAN>FSAN6 DEF>FDEF9
