@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,6 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
+import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.NotePin
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
@@ -233,6 +236,9 @@ internal fun Sp360(
     var tick by remember { mutableIntStateOf(0) }
     // THE FLOATING TRASH as last drawn (centre x, y and radius, box px), or null: written by the draw, read by a press
     val trashAt = remember { arrayOfNulls<FloatArray>(1) }
+    // THE CHIP'S LIST OF KINDS (port 62 slice L6): the tab and tool it was opened for, or null -- so a tool or a face
+    // changed shuts it without a word (sp.js setTool: st.subpick=false), and any press on the 360 shuts it too
+    var kindFor by remember { mutableStateOf<String?>(null) }
 
     fun frames(): Map<String, SurveyPrep.Frame> = roomS.let { r -> Pano360.frames(prepS, r[0], r[1], r[2]) }
     fun ab(s: String): DoubleArray = roomS.let { r -> SurveyPrep.sizeOf(s, prepS, r[0], r[1], r[2]) }
@@ -282,10 +288,10 @@ internal fun Sp360(
             }
             for (m in sf.meas) if (SurveyMeas.known(m.kind)) measL.add(Pano360.measLine(v, s, f, m, d))
         }
-        // the picked mark's tabs -- none on a locked mark or a spot (it is grabbed whole), nor on one the phase holds
-        // read-only (port 62 slice L4)
+        // the picked mark's tabs -- none on a locked mark or a spot (it is grabbed whole: a point, and a Note's pin
+        // since slice L6), nor on one the phase holds read-only (port 62 slice L4)
         val tabs = sm?.let { (s, e) ->
-            if (SurveyPrep.isLocked(e) || SurveyPrep.isPoint(e.t) || !PhaseTools.editable(e, stageS)) emptyList()
+            if (SurveyPrep.isLocked(e) || SurveyPrep.isSpot(e.t) || !PhaseTools.editable(e, stageS)) emptyList()
             else Pano360.tabsOf(e).mapNotNull { (part, mm) -> Pano360.toS(v, s, fr.getValue(s), mm[0], mm[1])?.let { part to it } }
         } ?: emptyList()
         val ends = sq?.let { (s, m) -> Pano360.screenPts(v, s, fr.getValue(s), m.pts) }
@@ -303,6 +309,8 @@ internal fun Sp360(
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
+                // a press anywhere on the 360 shuts the chip's list of kinds, and goes on to do its own work (sp.js 6811)
+                kindFor = null
                 // A PRESS JUST UNDER THE STEP STRIP IS THE STEP'S (v52 slice 6), as on the photo
                 val routed = actS.stepAt(first.position.x + boxAt.x, first.position.y + boxAt.y)
                 if (routed != null) {
@@ -678,18 +686,33 @@ internal fun Sp360(
         // the Chain's count and ✓; ✕ back to Select
         val chainN = chain?.nodes?.size ?: 0
         // ... and after a type's words what the tap places the mark AS (port 62 slice L4; SurveyPrepPalette.chip)
+        // ... and, for a type with sub-kinds on the open face, the KIND a tap places, as a button (port 62 slice L6): the
+        // tool was picked on the open tab's palette, so the chip names that tab's kind -- a tap that lands on another
+        // kind of surface places THAT surface's remembered kind (place360)
+        val kindNow = SurveyPrepPalette.subFor(spKinds, tool, tab)
         val typeChip = if (tool == SurveyPrepPalette.CHAIN || SurveyPrepPalette.isMeasTool(tool)) null
-                       else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked, "360")
+                       else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked, "360", kindNow)
         val chipText = if (tool == SurveyPrepPalette.CHAIN) SurveyChain.chipText(tx, chainN)
                        else if (SurveyPrepPalette.isMeasTool(tool)) SurveyMeas.chipText(tx, tool, drag, area?.size ?: 0)
                        else typeChip?.text
+        val kindKey = tab + "|" + tool // text:value a key for this screen's own state, never shown
+        val kinds = if (typeChip == null || typeChip.kindFrom < 0) null else SurveyPrepPalette.kindList(tx, tab, tool, kindNow)
         if (chipText != null) {
-            Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
-                SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool), Modifier,
-                    caution = if (SurveyPrepPalette.isMeasTool(tool) || tool == SurveyPrepPalette.CHAIN) SurveyMeas.caution(tx) else null,
-                    onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null,
-                    asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken, onAs = onAs) {
-                    act.tool(SurveyPrepPalette.SEL) }
+            Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp)) {
+                Box(Modifier.fillMaxWidth().padding(end = 62.dp)) {
+                    SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool), Modifier,
+                        caution = if (SurveyPrepPalette.isMeasTool(tool) || tool == SurveyPrepPalette.CHAIN) SurveyMeas.caution(tx) else null,
+                        onDone = if (tool == SurveyPrepPalette.CHAIN && SurveyChain.showDone(chainN)) ({ act.chainFinish() }) else null,
+                        asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken, onAs = onAs,
+                        kindFrom = typeChip?.kindFrom ?: -1, kindTo = typeChip?.kindTo ?: -1, kindLabel = typeChip?.kindLabel,
+                        onKind = { kindFor = if (kindFor == kindKey) null else kindKey }) {
+                        act.tool(SurveyPrepPalette.SEL) }
+                }
+                // THE LIST OF KINDS, 4 dp under the chip, inside the 360 (t53subList): a pick is remembered and shuts it
+                if (kinds != null && kindFor == kindKey) {
+                    SpKindList(kinds, Modifier.padding(top = 4.dp, end = 8.dp).widthIn(max = 280.dp).fillMaxWidth()) { id ->
+                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindFor = null }
+                }
             }
         }
         // fit (faces the open face again), the grid, and the view's width in degrees
@@ -797,7 +820,7 @@ private object P3Draw {
         if (g != null && gS != null) guide(c, v, g, fr.getValue(gS), st.guideA, ink)
         // the picked mark's eight tabs: white squares ringed in its colour, where a press resizes it
         val sm = st.selId?.let { prep.markById(it) }?.takeIf { it.first in fr }
-        if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isPoint(sm.second.t)) {
+        if (sm != null && st.tabs && !SurveyPrep.isLocked(sm.second) && !SurveyPrep.isSpot(sm.second.t)) {
             val (s, e) = sm; val f = fr.getValue(s); val hh = Pano360.TAB_HALF_DP.toFloat() * u
             val col = SurveyPrep.typeOf(s, e.t).colour
             for ((_, mm) in Pano360.tabsOf(e)) {
@@ -860,7 +883,8 @@ private object P3Draw {
         c.drawPath(ink.path, ink.paint(rgb))
     }
 
-    /** A SPOT (an Electric point, a Bulb, a Fan): its dot, its rim, its symbol, as on 2 · Mark. */
+    /** A SPOT (an Electric point, a Bulb, a Fan -- and, since slice L6, a Plumbing point and a Low-voltage point, by
+     *  2 · Mark's own painter of their symbols): its dot, its rim, its symbol, as on 2 · Mark. */
     private fun spot(c: android.graphics.Canvas, x: Float, y: Float, r: Float, t: String, rgb: Int, sel: Boolean, ink: P3Ink) {
         val u = ink.dp
         c.drawCircle(x, y, r, ink.paint(rgb))
@@ -882,6 +906,7 @@ private object P3Draw {
                 }
                 c.drawCircle(x, y, k * .18f, p)
             }
+            "PLB", "LV" -> SurveyPrepDraw.newSpotSym(c, x, y, k, t, ink.paint(0x14160F), ink.stroke(0x14160F, SurveyPrepDraw.newSpotPen(k)))
             else -> {
                 val p = ink.paint(0x14160F)
                 for (i in listOf(-1f, 1f)) c.drawCircle(x + i * k * .38f, y, max(.8f, k * .17f), p)
@@ -916,6 +941,14 @@ private object P3Draw {
             val sp = pl.spot
             if (sp != null) {
                 val x = sp[0].toFloat(); val y = sp[1].toFloat(); val r = sp[2].toFloat()
+                // A NOTE IS ITS PIN (port 62 slice L6; sp.js 5967): 2 · Mark's own painter, at full strength whatever is
+                // picked -- only a locked Note's padlock fades with the rest
+                if (MarkLife.isNote(e)) {
+                    SurveyPrepDraw.notePin(c, e, x, y, u, sel)
+                    if (locked) padPill(c, x + NotePin.PAD_DX.toFloat() * u, y - NotePin.PAD_UP.toFloat() * u, NotePin.DISC, ink)
+                    ink.a = 1f
+                    continue
+                }
                 spot(c, x, y, r, e.t, col, sel, ink)
                 label(c, e.code, min(w - 40f * u, x + r + 4f * u), max(14f * u, y - r - 2f * u), col, 13f * u, ink)
                 if (locked) padPill(c, x + r + 30f * u, y - r - 16f * u, col, ink)

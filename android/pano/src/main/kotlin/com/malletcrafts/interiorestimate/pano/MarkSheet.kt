@@ -10,7 +10,8 @@ import java.time.Instant
  * client wish list on foto itself the way i mark window door etc" -- "remove this window and install UPVC window",
  * "close this door with brickwork".
  *
- * A tap on a mark's code opens it. Top to bottom: the head (code · name, the trade's dot and short name, ✕); TRADE, on
+ * A tap on a mark's code opens it. Top to bottom: the head (code · name, the trade's dot and short name, ✕); KIND, on a
+ * mark whose type has sub-kinds on that surface (slice L6: its chips, the one the mark is ringed); TRADE, on
  * an Other, a Note, a Line and an area (the 13-trade picker); STATE, never on a Note, a Line or an area -- the
  * now-line ("● Client wish · since 11 Nov, 10:30 IST · decided by the client"), then what the phase offers the mark:
  * the four acts on a mark born Existing that has left, or is leaving, Existing (↻ Replace · ⇢ Shift · ⚒ Repair ·
@@ -18,18 +19,23 @@ import java.time.Instant
  * gate's line (Survey; on the phone Client approved, DESIGN-port62 Q-list 6), or the line that says why the phase
  * leaves it no move; NOTE (two lines, 0/280, "Client & vendors | Office only"); ONE Done. ✕, the scrim and ◁ cancel.
  *
- * PURE: the sheet's [State] is a value, every tap and keystroke answers a NEW one ([pickMove], [typeWhy], [pickAct],
- * [typeNote], [pickOffice], [togglePicker], [pickCat]), [view] is everything the screen draws -- every text here, no
- * rule there -- and [apply] is Done: ONE undo step per sheet, taken through its `snapshot` just before the first
- * write, and none when nothing changed. EVERY WRITE GOES THROUGH [MarkLife] AND [Trades] ([MarkLife.move],
- * [MarkLife.setAct], [MarkLife.setNote], [Trades.setCat]), which replace the item's `extra` map and never change it
- * in place, so the prep file keeps every unknown key whole and an undo copy keeps the map it had; the order of the
- * writes is the prototype's (the trade, the note, then the move or the act), so the keys land in its order.
+ * PURE: the sheet's [State] is a value, every tap and keystroke answers a NEW one ([pickSub], [pickMove], [typeWhy],
+ * [pickAct], [typeNote], [pickOffice], [togglePicker], [pickCat]), [view] is everything the screen draws -- every text
+ * here, no rule there -- and [apply] is Done: ONE undo step per sheet, taken through its `snapshot` just before the
+ * first write, and none when nothing changed. EVERY WRITE GOES THROUGH [MarkLife], [Trades] AND [MarkTypes]
+ * ([MarkLife.move], [MarkLife.setAct], [MarkLife.setNote], [Trades.setCat], [MarkTypes.setSub]), which replace the
+ * item's `extra` map and never change it in place, so the prep file keeps every unknown key whole and an undo copy
+ * keeps the map it had; the order of the writes is the prototype's (the kind, the trade, the note, then the move or
+ * the act), so the keys land in its order.
  *
- * NOT HERE, each with its slice: KIND, the sub-kinds of a type (L5 brings them, L6 their picker -- the phone has
- * twelve types and no sub-kind until then, so the head names the type alone); a NEW Note's sheet, which opens on its
- * note field and takes an empty Note away again (`fresh`, L6: nothing places a Note before it -- a Note a file already
- * holds opens here like any item, and Done on one with no words is refused in the prototype's own words).
+ * KIND AND A NEW NOTE (port 62 slice L6, 12 Nov 2026; index61c2.html 3013-3014, 3030, 3065-3070, 3073-3081). KIND: the
+ * head names the mark by its kind ("FCRP1 · Wardrobe", following the chip picked), a Defect's trade follows its kind,
+ * and Done stores the kind -- never the type's first, which is the default -- and tells the caller, so the tool
+ * remembers the last kind used ([Applied.kind]). A NEW NOTE's sheet is `fresh`: it opens on its note field
+ * ([View.focusNote]); its Done takes NO undo step (the placement took the one); and a Note still with no words goes
+ * again -- on Done ([Outcome.REMOVED]) and on ✕, the scrim and ◁ ([cancel]) -- with the placement's own undo step
+ * taken back ([takesBackUndo]), so it leaves nothing behind. A Note a file already holds opens like any item, and Done
+ * on one with no words is refused in the prototype's own words.
  */
 object MarkSheet {
 
@@ -86,25 +92,46 @@ object MarkSheet {
      * needs one, by its target; [act] the act chip that is on and [act0] the mark's own act when the sheet opened
      * (null: none); [note] and [office] as typed and picked; [cat] the trade picked and [cat0] the one it opened
      * with; [picker]: the trade picker is open. Nothing here is written to the prep until [apply].
+     *
+     * Slice L6: [sub] the KIND chip that is on and [sub0] the one the sheet opened on -- the mark's stored sub-kind,
+     * its type's first when it stores none or one this build does not know; null for a type with no sub-kinds on that
+     * surface, and for a Line or an area. [fresh]: the sheet of a Note JUST PLACED, and [hist] how many undo steps the
+     * screen held as it opened -- the placement's own the last of them ([takesBackUndo]).
      */
     data class State(
         val id: String, val focusMove: String?, val to: String?, val why: Map<String, String>,
         val act: String, val act0: String?, val note: String, val office: Boolean,
         val cat: String, val cat0: String, val picker: Boolean,
+        val sub: String? = null, val sub0: String? = null, val fresh: Boolean = false, val hist: Int = 0,
     )
 
     /**
      * The sheet for [id] as it opens (openSheet), or null when nothing opens for it ([itemOf]): no move picked, the
      * act chip on the mark's own act, else Replace; the note and its audience as stored; the trade as stored, General
      * when none. [focusMove]: [MarkLife.DROP] when a tap on Drop opened it -- the sheet opens on Dropped's Why box,
-     * and a why typed there picks the move ([typeWhy]).
+     * and a why typed there picks the move ([typeWhy]). The KIND chip is on the mark's own sub-kind, its type's first
+     * when it stores none ([MarkTypes.subInfo]). [fresh]: the sheet of a Note the tap before it placed -- it opens on
+     * the note field, and [hist] is the screen's count of undo steps now, the placement's included.
      */
-    fun open(prep: SurveyPrep.Prep, id: String, focusMove: String? = null): State? {
+    fun open(prep: SurveyPrep.Prep, id: String, focusMove: String? = null, fresh: Boolean = false, hist: Int = 0): State? {
         val it = itemOf(prep, id) ?: return null
         val act0 = it.mark?.let { e -> MarkLife.actOf(e) }
         val cat = Trades.catOf(it.extra)?.takeIf { c -> c.isNotEmpty() } ?: Trades.GENERAL
+        val sub = it.mark?.let { e -> MarkTypes.subOf(it.s, e)?.id }
         return State(id, focusMove, null, emptyMap(), act0 ?: MarkLife.REPLACE, act0, MarkLife.noteOf(it.extra), MarkLife.isOffice(it.extra),
-            cat, cat, false)
+            cat, cat, false, sub, sub, fresh, hist)
+    }
+
+    /**
+     * A tap on a KIND chip (the page's `S.sub=d.l53sub`): that kind on -- the head, and a Defect's trade, follow it.
+     * Nothing changes on a locked mark (its chips are drawn off, a Scope mark's too), nor for an id that is not one
+     * of the type's sub-kinds on that surface.
+     */
+    fun pickSub(prep: SurveyPrep.Prep, st: State, sub: String): State {
+        val it = itemOf(prep, st.id) ?: return st
+        val e = it.mark ?: return st
+        if (it.locked || MarkTypes.subsOf(e.t, it.s).none { x -> x.id == sub }) return st
+        return st.copy(sub = sub)
     }
 
     /** The moves the phase offers this item, in the sheet's order: none for a Note, a Line or an area, and none at a gate. */
@@ -198,6 +225,12 @@ object MarkSheet {
      */
     class TradeBlock(val label: String, val button: Dot, val enabled: Boolean, val title: String, val chips: List<TradeChip>?)
 
+    /** One kind in KIND: its stored [id], its label in the language, and whether it is the one picked ([on]). */
+    class KindChip(val id: String, val text: String, val on: Boolean)
+
+    /** KIND: its [label] over the type's sub-kinds on that surface, the first the default; [enabled] false on a locked mark. */
+    class KindBlock(val label: String, val chips: List<KindChip>, val enabled: Boolean)
+
     /** One act chip: "↻ Replace"; [on]: the act picked; [enabled] false on a locked mark. */
     class ActChip(val id: String, val text: String, val on: Boolean, val enabled: Boolean)
 
@@ -234,10 +267,13 @@ object MarkSheet {
      * Everything the sheet draws: [pane] what a screen reader calls it; the head -- [code], [name], the [trade]'s dot
      * and short name, ✕ labelled [close]; [tradeBlock] and [state], each only where the item has one; [note]; [done]
      * and whether it answers ([doneEnabled]: not while the move picked still needs its why); [whyHint] every Why
-     * box's placeholder; [focusWhy] the move whose Why box takes the keyboard as the sheet opens, or none.
+     * box's placeholder; [focusWhy] the move whose Why box takes the keyboard as the sheet opens, or none. Slice L6:
+     * [kind], KIND, only for a mark whose type has sub-kinds on that surface (drawn FIRST, over TRADE); [focusNote]:
+     * the note field takes the keyboard as the sheet opens -- a Note just placed.
      */
     class View(val pane: String, val code: String, val name: String, val trade: Dot, val close: String, val tradeBlock: TradeBlock?,
-               val state: StateBlock?, val note: NoteBlock, val done: String, val doneEnabled: Boolean, val whyHint: String, val focusWhy: String?)
+               val state: StateBlock?, val note: NoteBlock, val done: String, val doneEnabled: Boolean, val whyHint: String, val focusWhy: String?,
+               val kind: KindBlock? = null, val focusNote: Boolean = false)
 
     /** "since 16 Oct, 06:37 IST": when a mark took its state, from its `lifeAt`; "" when it has none or it is not a time (sinceText). */
     fun sinceText(tx: Tx, lifeAt: String?): String {
@@ -293,10 +329,19 @@ object MarkSheet {
         else -> tx.act_replace_sym
     }
 
-    /** The trade the head shows: a mark's own -- an Other's and a Note's the one PICKED, so the head follows the picker -- a Line's and an area's the one picked. */
+    /** The trade the head shows: a mark's own -- an Other's and a Note's the one PICKED, so the head follows the picker,
+     *  and a Defect's its KIND chip's (Broken / hollow tile is the tiler's) -- a Line's and an area's the one picked. */
     private fun tradeOf(it: Item, st: State): String {
         val e = it.mark ?: return Trades.known(st.cat)
-        return Trades.tradeOf(e.t, it.s, Trades.subOf(e.extra), st.cat)
+        return Trades.tradeOf(e.t, it.s, st.sub ?: Trades.subOf(e.extra), st.cat)
+    }
+
+    /** KIND for the item, or null: a Line, an area, and a mark whose type has no sub-kinds on that surface. */
+    private fun kindBlock(tx: Tx, it: Item, st: State): KindBlock? {
+        val e = it.mark ?: return null
+        val subs = MarkTypes.subsOf(e.t, it.s)
+        if (subs.isEmpty()) return null
+        return KindBlock(tx.life_kind, subs.map { x -> KindChip(x.id, MarkTypes.subLabel(tx, x), x.id == st.sub) }, !it.locked)
     }
 
     private fun dot(tx: Tx, trade: String, tail: String = ""): Dot = Dot(Trades.byId(Trades.known(trade))?.dot ?: 0, Trades.short(tx, trade) + tail)
@@ -308,7 +353,8 @@ object MarkSheet {
     fun view(tx: Tx, prep: SurveyPrep.Prep, st: State, stage: Int?): View? {
         val it = itemOf(prep, st.id) ?: return null
         val m = it.meas; val e = stated(it)
-        val name = if (m != null) SurveyMeas.typeName(tx, m) else SurveyPrep.typeName(tx, it.s, it.mark?.t.orEmpty())
+        // a mark is named by its KIND where its type has kinds -- the chip picked, so the head follows it (subName)
+        val name = if (m != null) SurveyMeas.typeName(tx, m) else MarkTypes.displayName(tx, it.mark?.t.orEmpty(), it.s, st.sub)
         val tradeBlock = if (!takesCat(it)) null else TradeBlock(tx.life_trade, dot(tx, st.cat, OPENS), !it.locked, tx.life_trade_x(it.code),
             if (st.picker) Trades.ALL.map { t -> TradeChip(t.id, t.dot, Trades.short(tx, t.id), st.cat == t.id) } else null)
         val state = if (e != null) stateBlock(tx, it, e, st, stage) else null
@@ -323,7 +369,7 @@ object MarkSheet {
         val needsWhy = picked != null && picked.why && !whyOk(st, picked.to)
         val focusWhy = st.focusMove?.takeIf { f -> state?.moves?.any { r -> r.to == f && r.why?.enabled == true } == true }
         return View(tx.life_aria_mark_sheet, it.code, name, dot(tx, tradeOf(it, st)), tx.common_close, tradeBlock, state, note,
-            tx.common_done, !needsWhy, MarkLife.whyNeeded(tx), focusWhy)
+            tx.common_done, !needsWhy, MarkLife.whyNeeded(tx), focusWhy, kindBlock(tx, it, st), st.fresh)
     }
 
     // ------------------------------------------------------------------ Done
@@ -331,21 +377,67 @@ object MarkSheet {
     /**
      * What Done did: [GONE] the item is gone, and [UNCHANGED] nothing was changed -- the sheet closes, with NO undo
      * step; [STAYS] the sheet stays open -- the move picked is no longer offered (it is un-picked), or still needs
-     * its why; [NEEDS_WORDS] a Note with no words: it stays open and says so ([needsWords]); [DONE] written, in one
-     * undo step, and the sheet closes.
+     * its why; [NEEDS_WORDS] a Note with no words: it stays open and says so ([needsWords]); [REMOVED] a Note JUST
+     * PLACED, still with no words: it is taken away again and the sheet closes ([emptyRemoved], [takesBackUndo]);
+     * [DONE] written, in one undo step -- a new Note's in none of its own, its placement took the one -- and the sheet
+     * closes.
      */
-    enum class Outcome { GONE, UNCHANGED, STAYS, NEEDS_WORDS, DONE }
+    enum class Outcome { GONE, UNCHANGED, STAYS, NEEDS_WORDS, REMOVED, DONE }
 
-    /** Done's answer: its [outcome]; the [state] the sheet keeps while it stays open, else null; [amber]: a move the office is told of ([MarkLife.afterEstimate]). */
-    class Applied(val outcome: Outcome, val state: State?, val amber: Boolean = false)
+    /** A kind Done stored: type [t] on surface [s] is now of sub-kind [sub] -- what the tool remembers ([SurveyPrepPalette.rememberSub]). */
+    class Kind(val t: String, val s: String, val sub: String)
+
+    /**
+     * Done's answer: its [outcome]; the [state] the sheet keeps while it stays open, else null; [amber]: a move the
+     * office is told of ([MarkLife.afterEstimate]); [kind]: the KIND that was changed, or null -- "the tool remembers
+     * the last kind used" (index61c2.html 7059).
+     */
+    class Applied(val outcome: Outcome, val state: State?, val amber: Boolean = false, val kind: Kind? = null)
+
+    /**
+     * A NEW NOTE THAT IS STILL EMPTY GOES AGAIN (removeFresh, index61c2.html 3068-3070): the Note of the fresh sheet
+     * [st] is taken off its surface. True when it went. Only ever a Note just placed with no stored words -- it has
+     * no reading and no state, and it is not locked. Its code is not handed out again: a code never is on the phone
+     * (v52 slice 8), so the next Note there is FNOTE2 where the page, which counts the marks still there, says FNOTE1.
+     */
+    private fun removeFresh(prep: SurveyPrep.Prep, it: Item): Boolean {
+        val e = it.mark ?: return false
+        return MarkLife.isNote(e) && prep.deleteMark(e.id)
+    }
+
+    /**
+     * ✕, THE SCRIM, ◁ AND A SWIPE DOWN (cancel, index61c2.html 3065-3067): the sheet closes and what was typed is
+     * lost. TRUE when it was the sheet of a Note just placed that still has no stored words: that Note is REMOVED
+     * here, and the caller takes the placement's undo step back ([takesBackUndo]) and says [emptyRemoved]. False:
+     * nothing was changed.
+     */
+    fun cancel(prep: SurveyPrep.Prep, st: State): Boolean {
+        if (!st.fresh) return false
+        val it = itemOf(prep, st.id) ?: return false
+        val e = it.mark ?: return false
+        if (!MarkLife.isNote(e) || MarkLife.noteOf(e.extra).trim().isNotEmpty()) return false
+        return removeFresh(prep, it)
+    }
+
+    /**
+     * Whether the screen's LAST undo step goes with a removed new Note (removeFresh: `hist.length===S.hist`): the
+     * sheet was a fresh one and nothing has been done since it opened, so the last of the [histSize] steps held is the
+     * placement's own -- taken back, an empty Note leaves no undo entry at all.
+     */
+    fun takesBackUndo(st: State, histSize: Int): Boolean = st.fresh && histSize > 0 && histSize == st.hist
+
+    /** "Empty note removed": said, with no UNDO, when a new Note with no words went again. */
+    fun emptyRemoved(tx: Tx): String = tx.life_msg_empty_note_removed
 
     /** JavaScript's `x || null`, for the two keys the prototype compares that way: nothing, "" and false are none. */
     private fun orNone(v: Any?): Any? = if (v == null || v == "" || v == false) null else v
 
     /**
-     * DONE (apply), at quote stage [stage] and time [at]. Nothing changed -- no trade, note, audience, move or act --
-     * closes the sheet with no undo step. Otherwise [snapshot] is called ONCE, just before the first write, and then,
-     * in the prototype's order: the trade (General deletes `cat`; never on a locked item); the note, cut to 280
+     * DONE (apply), at quote stage [stage] and time [at]. Nothing changed -- no kind, trade, note, audience, move or act
+     * -- closes the sheet with no undo step. Otherwise [snapshot] is called ONCE, just before the first write (NOT for
+     * the fresh sheet of a new Note: its placement took the step), and then, in the prototype's order: the kind
+     * ([MarkTypes.setSub]: the type's first deletes `sub`; never on a locked mark; the box stays as it is); the trade
+     * (General deletes `cat`; never on a locked item); the note, cut to 280
      * characters and kept as typed, with "Office only" only beside a note -- a blank note deletes both keys; then
      * the move picked ([MarkLife.move], with its why, and with the act on Existing → Client wish), or, with no move
      * picked, the act chip changed on a mark born Existing that has left Existing ([MarkLife.setAct]). A locked mark
@@ -363,16 +455,20 @@ object MarkSheet {
         val ro = readOnly(it)
         val before = it.extra
         val noted = MarkLife.withNote(before, st.note, st.office)
-        if (isNote(it) && noted[MarkLife.KEY_NOTE] == null) return Applied(Outcome.NEEDS_WORDS, st)
+        if (isNote(it) && noted[MarkLife.KEY_NOTE] == null)
+            return if (st.fresh && removeFresh(prep, it)) Applied(Outcome.REMOVED, null) else Applied(Outcome.NEEDS_WORDS, st)
+        val subCh = !ro && mark != null && st.sub != st.sub0
         val catCh = !ro && st.cat != st.cat0
         val noteCh = noted[MarkLife.KEY_NOTE] != orNone(before[MarkLife.KEY_NOTE]) || noted[MarkLife.KEY_VIS] != orNone(before[MarkLife.KEY_VIS])
         val actCh = st.to == null && mark != null && !MarkLife.isNote(mark) && MarkLife.bornOf(mark) == MarkLife.EXIST &&
             MarkLife.pastExisting(mark) && !ro && st.act != st.act0 && PhaseTools.gate(stage) != PhaseTools.Gate.APPROVED
-        if (!catCh && !noteCh && st.to == null && !actCh) return Applied(Outcome.UNCHANGED, null)
+        if (!subCh && !catCh && !noteCh && st.to == null && !actCh) return Applied(Outcome.UNCHANGED, null)
         val move = st.to?.let { to -> offered(it, stage).firstOrNull { x -> x.to == to } }
         if (st.to != null && (move == null || ro)) return Applied(Outcome.STAYS, st.copy(to = null))
         if (move != null && move.why && !whyOk(st, move.to)) return Applied(Outcome.STAYS, st)
-        snapshot()   // ONE undo step per sheet
+        if (!st.fresh) snapshot()   // ONE undo step per sheet; a new Note's placement already took it
+        // the kind first, as the page writes it: the type's first sub-kind is the default and is never stored
+        if (subCh) mark?.let { m -> MarkTypes.setSub(it.s, m, st.sub) }
         if (catCh) { if (mark != null) Trades.setCat(mark, st.cat) else if (meas != null) Trades.setCat(meas, st.cat) }
         if (mark != null) MarkLife.setNote(mark, st.note, st.office) else if (meas != null) MarkLife.setNote(meas, st.note, st.office)
         var amber = false
@@ -382,7 +478,8 @@ object MarkSheet {
                 amber = r.ok && r.amber
             } else if (actCh) MarkLife.setAct(mark, st.act)
         }
-        return Applied(Outcome.DONE, null, amber)
+        val kind = if (!subCh) null else mark?.let { m -> st.sub?.let { sub -> Kind(m.t, it.s, sub) } }
+        return Applied(Outcome.DONE, null, amber, kind)
     }
 
     /** "A Note needs its words — type them, or delete the Note": said when Done finds a Note with none ([Outcome.NEEDS_WORDS]). */

@@ -7471,6 +7471,16 @@
   "where": "v53build/life53.js:248 · mv",
   "kind": "static"
  },
+ "life.kind": {
+  "en": "KIND",
+  "where": [
+   "S2 APK phone text · MarkSheet.kt at 77b26eb+L6 · MarkSheet.view, the label over the sub-kind chips of the Mark sheet (port 62 slice L6, 12 Nov 2026): the prototype's own word (index61c2.html 3030, paint: `<div class=\"l53lab\">KIND</div>`), drawn with no key, so it reads KIND under Marathi there; Marathi by Claude (decision 6 of 28 Oct 2026)"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "life.length": {
   "en": "length",
   "where": "v53build/life53.js:311 · amber",

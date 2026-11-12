@@ -899,6 +899,7 @@ life.dropped	life_dropped	static	-
 life.every_approved_mark_scope	life_every_approved_mark_scope	static	-
 life.exist	life_exist	static	-
 life.export	life_export	static	-
+life.kind	life_kind	static	-
 life.length	life_length	static	-
 life.marks	life_marks	static	-
 life.move_x	life_move_x	template	mv: String

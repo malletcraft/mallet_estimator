@@ -169,6 +169,12 @@ import kotlin.math.roundToInt
  *    project's quote stage offers the mark (→ Client wish ...), the four acts,
  *    its note, and the trade of an Other, a Line or an area. Every rule and
  *    every write is MarkSheet / MarkLife in :pano.
+ *  - The ten new types, their kinds and the Note (port 62 slice L6): More ▸ is
+ *    one row per trade; a type with kinds names the kind on its chip ("Placing
+ *    Wardrobe ▾ · tap the photo") and a tap on those words lists them; the Mark
+ *    sheet's KIND changes a placed mark's; a Note is a pin of words, whose sheet
+ *    opens as it is placed. The rows, the chip, the kinds and the tool's memory
+ *    are SurveyPrepPalette in :pano; the pin's tag is NotePin.
  *  - The phase (port 62 slice L4): the project's quote stage decides what is
  *    here. A band says which phase it is ("2 · Wish list · every mark you place
  *    is a client wish"); at Estimated and at Client approved there is no 2 ·
@@ -658,6 +664,18 @@ internal fun SurveyPrepDialog(
         }
         rev++
     }
+    // ---- THE MARK SHEET (port 62 slice L3; the prototype's L53 sheet, index61c2.html 3012-3115): open on one item, or
+    // null. Its state is MarkSheet.State in :pano, a value: every tap and keystroke REPLACES it through MarkSheet's pure
+    // functions, and nothing reaches the prep until Done (sheetDone). Declared HERE, above the two placements, which open
+    // a new Note's sheet -- a local function is visible only below its declaration.
+    var markSheet by remember { mutableStateOf<MarkSheet.State?>(null) }
+    /** A tap on a mark's code (or a Line's, an area's): its sheet opens. [focusMove]: the move whose Why box it opens on
+     *  -- Dropped, when a tap on Drop opened it. A Tape, a chain and the reference have no sheet: nothing opens.
+     *  [fresh] (slice L6): the sheet of a Note the tap before it placed -- it opens on the note field, and knows how many
+     *  undo steps the screen holds now, the placement's the last. */
+    fun openSheet(mid: String, focusMove: String? = null, fresh: Boolean = false) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove, fresh, hist.size) }
+    /** A mark just placed: A NOTE OPENS ITS SHEET at once, on its note field (L53.placed: `openSheet(e.id,{fresh:true})`). */
+    fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openSheet(e.id, fresh = true) }
     /**
      * A TAP WITH A TYPE ON PLACES IT WHERE THE FINGER IS (v52 slice 7; Amit, 11 Oct 2026 20:35: "electric points
      * are spots . dont let them resize. have its da 50 mm." -- a spot centred where he taps): the type's default
@@ -673,12 +691,15 @@ internal fun SurveyPrepDialog(
         // BORN WHAT THE PHASE PLACES (port 62 slice L4; the prototype's L53.placed, index61c2.html 2959): a Client wish in
         // the Wish list stage, Vendor added at Vendor review and Revisions, a v52 mark at Survey -- and NOTHING, with no
         // undo step, where the phase has no palette. PhaseTools.place decides, stamps and takes the one undo step.
+        // OF THE KIND THE TOOL REMEMBERS for this type on this kind of surface (port 62 slice L6; T53.newFields): its
+        // first until one is picked on the chip or in a Mark sheet.
         val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
-            quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null
+            quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null
         val e = placed.mark
         sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
         if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
+        notePlaced(e)
         return e
     }
     /**
@@ -692,12 +713,15 @@ internal fun SurveyPrepDialog(
         Pano360.placeRefusal(tx, tab, s, t)?.let { say(it); return null }
         val a = ab(s)
         // born what the phase places, or not placed at all, exactly as on 2 · Mark (PhaseTools.place; slice L4)
+        // ... of the kind remembered for THE SURFACE IT LANDS ON, [s], never the open tab's (port 62 slice L6; the L5
+        // review, finding 2): a Plumbing point picked on a wall and tapped onto the floor is the floor's kind
         val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
-            quoteStage, asPicked, java.time.Instant.now()) { snapshot() } ?: return null
+            quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null
         val e = placed.mark
         tab = s; sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
         if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
+        notePlaced(e)
         return e
     }
     /**
@@ -763,28 +787,44 @@ internal fun SurveyPrepDialog(
         if (modeSet != mode) modeSet = mode
         if (toolSet != tool) { flushChain(); toolSet = tool; moreOpen = false; dropDrafts() }
     }
-    // ---- THE MARK SHEET (port 62 slice L3; the prototype's L53 sheet, index61c2.html 3012-3115): open on one item, or
-    // null. Its state is MarkSheet.State in :pano, a value: every tap and keystroke REPLACES it through MarkSheet's pure
-    // functions, and nothing reaches the prep until Done (sheetDone).
-    var markSheet by remember { mutableStateOf<MarkSheet.State?>(null) }
-    /** A tap on a mark's code (or a Line's, an area's): its sheet opens. [focusMove]: the move whose Why box it opens on
-     *  -- Dropped, when a tap on Drop opened it. A Tape, a chain and the reference have no sheet: nothing opens. */
-    fun openSheet(mid: String, focusMove: String? = null) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove) }
     /**
-     * DONE on the Mark sheet (the prototype's apply, 3071-3088): MarkSheet.apply writes through MarkLife and Trades --
-     * the trade, the note, then the move or the act -- and takes ONE undo step through the snapshot handed to it, just
-     * before its first write; nothing changed closes the sheet with no undo step at all. A move the office is told of
-     * says "After the estimate — tell the office". The sheet stays open while the move picked still needs its why.
+     * A NEW NOTE THAT WENT AGAIN with no words (port 62 slice L6; the prototype's removeFresh, index61c2.html 3068-3070):
+     * MarkSheet has taken it off its surface. The placement's own undo step is taken back with it -- when it is still
+     * the last one (MarkSheet.takesBackUndo) -- so an empty Note leaves no undo entry; it is no longer picked; and the
+     * screen says "Empty note removed", with no UNDO.
+     */
+    fun noteRemoved(st: MarkSheet.State) {
+        if (MarkSheet.takesBackUndo(st, hist.size)) hist.removeAt(hist.size - 1)
+        if (sel?.id == st.id) { sel = null; active = null }
+        changed()
+        snack(MarkSheet.emptyRemoved(tx), undo = false)
+    }
+    /**
+     * DONE on the Mark sheet (the prototype's apply, 3071-3088): MarkSheet.apply writes through MarkLife, Trades and
+     * MarkTypes -- the kind, the trade, the note, then the move or the act -- and takes ONE undo step through the
+     * snapshot handed to it, just before its first write (none for a new Note's sheet: its placement took the step);
+     * nothing changed closes the sheet with no undo step at all. A move the office is told of says "After the estimate
+     * — tell the office". The sheet stays open while the move picked still needs its why. A kind that was changed is
+     * remembered by the tool (slice L6); a new Note with no words goes again (noteRemoved).
      */
     fun sheetDone() {
         val st = markSheet ?: return
         val done = MarkSheet.apply(prep, st, quoteStage, java.time.Instant.now()) { snapshot() }
         markSheet = done.state
+        done.kind?.let { k -> SurveyPrepPalette.rememberSub(spKinds, k.t, k.s, k.sub) }
         when (done.outcome) {
             MarkSheet.Outcome.DONE -> { changed(); if (done.amber) say(MarkLife.afterEstimate(tx)) }
             MarkSheet.Outcome.NEEDS_WORDS -> snack(MarkSheet.needsWords(tx), undo = false)
+            MarkSheet.Outcome.REMOVED -> noteRemoved(st)
             MarkSheet.Outcome.GONE, MarkSheet.Outcome.UNCHANGED, MarkSheet.Outcome.STAYS -> Unit
         }
+    }
+    /** ✕, the scrim, ◁ and a swipe down on the Mark sheet (the prototype's cancel, 3065-3067): it closes and what was
+     *  typed is lost -- and a Note just placed, still with no words, goes again (MarkSheet.cancel removes it). */
+    fun sheetCancel() {
+        val st = markSheet ?: return
+        markSheet = null
+        if (MarkSheet.cancel(prep, st)) noteRemoved(st)
     }
     /** DELETE (every path: the bar row, the floating trash, a list row, the long-press menu): '<code> deleted' with
      *  UNDO, which brings the mark back with its readings; a LOCKED mark is refused, with no undo entry. A Tape, a
@@ -1997,11 +2037,13 @@ internal fun SurveyPrepDialog(
                     }
                 }
             }
-            // ---- MORE ▸ (v52 slice 7): "Every mark type · <Face>" over the bottom of the screen -- the whole width in
-            // portrait, 340 dp at the right in landscape (v42.css .moresheet); a pick or ✕ closes it
+            // ---- MORE ▸ (v52 slice 7; by trade since port 62 slice L6): "Every mark type · <Face>" over the bottom of
+            // the screen, one row per trade -- the whole width in portrait; in landscape two columns, 700 dp at the
+            // right (trades53.css .moresheet.ms53.two53), the whole width on a screen narrower than that; a pick or ✕
+            // closes it
             if (moreOpen && marking && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage)) {
-                SpMoreSheet(tab, tool,
-                    if (land) Modifier.align(Alignment.BottomEnd).width(340.dp) else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+                SpMoreSheet(tab, tool, land,
+                    if (land) Modifier.align(Alignment.BottomEnd).widthIn(max = 700.dp).fillMaxWidth() else Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
                     onPick = { t -> pickTool(t) }, onClose = { moreOpen = false })
             }
             // ---- ⋮: a tap anywhere outside the menu closes it; one on ← or ✓ Save then goes on to Back or Save
@@ -2061,6 +2103,7 @@ internal fun SurveyPrepDialog(
                 val drawn = MarkSheet.view(tx, prep, st, quoteStage)
                 if (drawn == null) LaunchedEffect(st.id) { markSheet = null }   // its item is gone: the sheet closes
                 else SpMarkSheet(drawn, land, MarkSheetActions(
+                    onKind = { sub -> markSheet = markSheet?.let { cur -> MarkSheet.pickSub(prep, cur, sub) } },
                     onMove = { to -> markSheet = markSheet?.let { cur -> MarkSheet.pickMove(prep, cur, quoteStage, to) } },
                     onWhy = { to, typed -> markSheet = markSheet?.let { cur -> MarkSheet.typeWhy(prep, cur, quoteStage, to, typed) } },
                     onAct = { act -> markSheet = markSheet?.let { cur -> MarkSheet.pickAct(prep, cur, quoteStage, act) } },
@@ -2070,7 +2113,7 @@ internal fun SurveyPrepDialog(
                     onCat = { cat -> markSheet = markSheet?.let { cur -> MarkSheet.pickCat(cur, cat) } },
                     onBare = { markSheet = markSheet?.let { cur -> MarkSheet.closePicker(cur) } },
                     onDone = { sheetDone() },
-                    onCancel = { markSheet = null }))
+                    onCancel = { sheetCancel() }))
             }
             // ---- THE GUIDED TOUR (port 61c §31): survey prep is a Dialog — its OWN window, which
             // the activity's overlay cannot cover — so it hosts the second TourOverlay instance,
@@ -2324,6 +2367,9 @@ private fun SpPhoto(
     var fitAt by remember { mutableStateOf<Rect?>(null) }
     // ... and off the tool chip (v52 slice 7, ct52 FX14): read only while a chip is shown
     var chipAt by remember { mutableStateOf<Rect?>(null) }
+    // THE CHIP'S LIST OF KINDS (port 62 slice L6; sp.js st.subpick): the face and tool it was opened for, or null -- so
+    // a tool or a face changed shuts it without a word (setTool: st.subpick=false), and any press on the photo shuts it
+    var kindFor by remember { mutableStateOf<String?>(null) }
     // With Tape or Line on (v52 slice 9) the chip says what the tool does, live while a drag is pulled, and the
     // caution under it; with a type on, "Placing Door · tap the photo"
     val measTool = SurveyPrepPalette.isMeasTool(tool)
@@ -2347,7 +2393,12 @@ private fun SpPhoto(
     }
     // ... and after it what the tap places the mark AS: "· as Client wish" in the Wish list stage (port 62 slice L4;
     // SurveyPrepPalette.chip: none at Survey, plain words where the phase fixes it, the cycling button while unread)
-    val typeChip = if (mode != "mark" || chainTool || measTool) null else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked)
+    // ... and, for a type with sub-kinds on this face, the KIND a tap places in the type's place, as a button: "Placing
+    // Wardrobe ▾ · tap the photo" (port 62 slice L6; the tool's remembered kind, SurveyPrepPalette.subFor)
+    val kindNow = SurveyPrepPalette.subFor(spKinds, tool, tab)
+    val typeChip = if (mode != "mark" || chainTool || measTool) null else SurveyPrepPalette.chip(tx, tab, tool, stage, asPicked, sub = kindNow)
+    val kindKey = tab + "|" + tool // text:value a key for this screen's own state, never shown
+    val kinds = if (typeChip == null || typeChip.kindFrom < 0) null else SurveyPrepPalette.kindList(tx, tab, tool, kindNow)
     val chipText = if (mode != "mark") null
                    else if (chainTool) SurveyChain.chipText(tx, chainN)
                    else if (measTool) SurveyMeas.chipText(tx, tool, drag?.takeIf { it.s == tab }, area?.size ?: 0)
@@ -2468,10 +2519,11 @@ private fun SpPhoto(
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         val els = prepS.surface(tab).marks
         // a point (v52) is a spot: its 25 mm on screen goes with it, so it is grabbed round its centre and never resized
+        // ... and so is a Note's pin (port 62 slice L6; sp.js 5791 and 5809: `ISPOINT(e.t)||L53.isNote(e)`)
         val drawn = els.map { e ->
             val p = toS(sq.x(e.x0), sq.y(e.y1)); val q = toS(sq.x(e.x1), sq.y(e.y0))
             SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble(),
-                spot = if (SurveyPrep.isPoint(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)
+                spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)
         }
         val tol = with(density) { 16.dp.toPx() }.toDouble()
         // a LOCKED picked mark has no tabs (v52 slice 8): it is tested as a mark like any other, so a press on it holds it
@@ -2611,6 +2663,8 @@ private fun SpPhoto(
             awaitEachGesture {
                 val first = awaitFirstDown()
                 first.consume()
+                // a press anywhere on the photo shuts the chip's list of kinds, and goes on to do its own work (sp.js 6811)
+                kindFor = null
                 // THE FLOATING TRASH is on top of everything: a press on it deletes the picked mark when it lifts there.
                 // Only with Select on (sp.js fTrashSurf): with a type on, the disc is not there, so a placing tap
                 // beside the mark just placed can never land on it and delete that mark
@@ -2988,7 +3042,7 @@ private fun SpPhoto(
                     val dpx = density.density
                     val bb = if (pickedPts != null) pickedPts.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])) }.let { ps ->
                         SurveyPrepTouch.Box(ps.minOf { it[0] }.toDouble(), ps.minOf { it[1] }.toDouble(), ps.maxOf { it[0] }.toDouble(), ps.maxOf { it[1] }.toDouble()) }
-                    else if (SurveyPrep.isPoint(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
+                    else if (SurveyPrep.isSpot(picked!!.t)) SurveyPrepDraw.spotOf(picked, rr.sq, m, dpx).let { d ->
                         SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
                     else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
                         SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
@@ -3059,13 +3113,23 @@ private fun SpPhoto(
         // THE TOOL CHIP (v52 slice 7): "Placing Door · tap the photo", top-left, as wide as the photo less 70 dp so
         // the fit button stays clear; ✕ goes back to Select. Hidden with Select on.
         if (chipText != null) {
-            Box(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp, end = 62.dp)) {
-                SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool),
-                    Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() },
-                    caution = if (measTool || chainTool) SurveyMeas.caution(tx) else null,
-                    onDone = if (chainTool && SurveyChain.showDone(chainN)) ({ onChainFinish() }) else null,
-                    asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken,
-                    onAs = onAs) { onTool(SurveyPrepPalette.SEL) }
+            Column(Modifier.align(Alignment.TopStart).fillMaxWidth().padding(start = 8.dp, top = 8.dp)) {
+                Box(Modifier.fillMaxWidth().padding(end = 62.dp)) {
+                    SpToolChip(chipText, SurveyPrepPalette.chipColour(tab, tool),
+                        Modifier.onGloballyPositioned { chipAt = it.boundsInRoot() },
+                        caution = if (measTool || chainTool) SurveyMeas.caution(tx) else null,
+                        onDone = if (chainTool && SurveyChain.showDone(chainN)) ({ onChainFinish() }) else null,
+                        asFrom = typeChip?.asFrom ?: -1, cycles = typeChip?.cycles == true, spoken = typeChip?.spoken,
+                        onAs = onAs,
+                        kindFrom = typeChip?.kindFrom ?: -1, kindTo = typeChip?.kindTo ?: -1, kindLabel = typeChip?.kindLabel,
+                        onKind = { kindFor = if (kindFor == kindKey) null else kindKey }) { onTool(SurveyPrepPalette.SEL) }
+                }
+                // THE LIST OF KINDS (port 62 slice L6; the prototype's t53subList): 4 dp under the chip, inside the photo,
+                // 280 dp wide at most. A pick is remembered by the tool -- the next tap places that kind -- and shuts it.
+                if (kinds != null && kindFor == kindKey) {
+                    SpKindList(kinds, Modifier.padding(top = 4.dp, end = 8.dp).widthIn(max = 280.dp).fillMaxWidth()) { id ->
+                        SurveyPrepPalette.rememberSub(spKinds, tool, tab, id); kindFor = null }
+                }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(6.dp)) {

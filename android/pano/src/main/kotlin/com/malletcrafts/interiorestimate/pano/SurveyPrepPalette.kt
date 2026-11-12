@@ -98,6 +98,95 @@ object SurveyPrepPalette {
      *  SPACE (U+202F), so "Opening ▾" fits its slot (sp.js 1453, ct52 FX8). */
     fun moreLabel(tx: Tx, kind: String, tool: String): String = moreArmed(kind, tool)?.let { short(tx, it.name) + " ▾" } ?: tx.common_more
 
+    /**
+     * Whether the More slot's name is drawn TIGHT (port 62 slice L6; index61c2.html 6697, `long53`, CSS 993): an armed
+     * type's name longer than v52's longest, "Opening ▾" -- "Plumbing ▾", "Sanitary ▾", "LV point ▾" -- is whole in
+     * its slot only at a letter spacing of -1. More than nine characters as drawn, the ▾ and its space counted.
+     */
+    fun moreLong(tx: Tx, kind: String, tool: String): Boolean = moreArmed(kind, tool) != null && moreLabel(tx, kind, tool).length > MORE_LONG
+
+    /** The longest armed More name drawn at the slot's own spacing: "Opening ▾", nine characters. */
+    const val MORE_LONG = 9
+
+    // ------------------------------------------------------------------ More ▸, one row per trade (port 62 slice L6)
+
+    /**
+     * ONE ROW OF MORE ▸ (the prototype's renderMore, index61c2.html 2688-2694, CSS 953-968): a [trade], its short name
+     * [label] in its own [colour] (0xRRGGBB), and its [tiles] -- the trade's OWN types on that kind of surface, in its
+     * own order ([Trades.ownOn]). Amit, 16 Oct 2026, 06:37 IST: "Make mark type categories better by service vendor
+     * point of view."
+     */
+    class MoreRow(val trade: String, val label: String, val colour: Int, val tiles: List<SurveyPrep.MarkType>)
+
+    /**
+     * MORE ▸ ON SURFACE [s]: one row per trade that has a type there, GENERAL FIRST -- the Note is its first tile -- then
+     * the trades in their order ([Trades.moreRows]): eleven rows on a wall, six on the floor, eight on the ceiling,
+     * and every type of the surface on exactly one of them (the three on the palette itself too, as the prototype
+     * lists them). With the Trade chip off the phone (DESIGN-port62 Q-list 3) no row is the "picked" one.
+     */
+    fun moreRows(tx: Tx, s: String): List<MoreRow> = Trades.moreRows(s).map { r ->
+        MoreRow(r.trade, Trades.short(tx, r.trade), Trades.byId(r.trade)?.dot ?: 0xadb5bd, r.types.map { SurveyPrep.typeOf(s, it) })
+    }
+
+    /**
+     * The rows as the sheet lays them out: ONE column in portrait; in landscape TWO, filled column by column -- the
+     * first takes the first half, rounded up (CSS 959: `grid-auto-flow:column`, `repeat(ceil(n / 2), 44px)`).
+     */
+    fun moreColumns(rows: List<MoreRow>, land: Boolean): List<List<MoreRow>> =
+        if (!land || rows.size < 2) listOf(rows) else rows.chunked((rows.size + 1) / 2)
+
+    // ------------------------------------------------------------------ the tool's remembered sub-kind (port 62 slice L6)
+
+    /**
+     * THE TOOL REMEMBERS THE LAST KIND PICKED, PER TYPE AND KIND OF SURFACE (T53's subMem, index61c2.html 2470-2473:
+     * `subMem[t+'@'+kind]`): the key a memory keeps type [t]'s sub-kind under for surface (or kind) [s]. A wall's
+     * Plumbing point and the floor's are two tools -- `cold` is the wall's first sub-kind and the floor's third.
+     */
+    fun subKey(t: String, s: String): String = t + "@" + MarkTypes.kindOf(s) // text:value a memory's key, never shown
+
+    /**
+     * The sub-kind a tap places type [t] as on surface [s] (subFor): the one [mem] remembers for that type AND that
+     * kind of surface, while it is still one of the type's there; else the type's first; null for a type with no
+     * sub-kinds there. THE SURFACE IS THE ONE THE MARK LANDS ON -- on the 360 that need not be the open tab's (the L5
+     * review, finding 2): [PhaseTools.place] is handed this, asked with the surface under the finger.
+     */
+    fun subFor(mem: Map<String, String>, t: String, s: String): String? {
+        val l = MarkTypes.subsOf(t, s); val m = mem[subKey(t, s)]
+        return if (m != null && l.any { it.id == m }) m else l.firstOrNull()?.id
+    }
+
+    /**
+     * A kind picked -- on the tool chip's list, or in the Mark sheet's KIND (setSub; index61c2.html 6823 and 7059, "the
+     * tool remembers the last kind used"): [mem] remembers [sub] for type [t] on [s]'s kind of surface. An id that is
+     * not one of the type's sub-kinds there is not remembered.
+     */
+    fun rememberSub(mem: MutableMap<String, String>, t: String, s: String, sub: String?) {
+        if (sub != null && MarkTypes.subsOf(t, s).any { it.id == sub }) mem[subKey(t, s)] = sub
+    }
+
+    /** One kind on the tool chip's list: its stored [id], its [label] in the language, and whether it is the one a tap places ([on]). */
+    class KindOption(val id: String, val label: String, val on: Boolean)
+
+    /**
+     * THE TOOL CHIP'S LIST OF KINDS (the prototype's t53subList, index61c2.html 6637-6640, CSS 997-1002): under the
+     * chip, inside the photo, [title] "Carpentry unit · kind" over the type's sub-kinds on that surface, two to a
+     * row, the one a tap places ringed in the type's [colour] (0xRRGGBB).
+     */
+    class KindList(val title: String, val colour: Int, val options: List<KindOption>)
+
+    /**
+     * The list for type [tool] on surface [s] with [sub] the kind remembered ([subFor]); null with Select or a drawing
+     * tool on, and for a type that has no sub-kinds there -- its chip has no kind button either. A kind is named by
+     * its own label ("Cold"), where the chip's button says the mark's whole name ("Plumbing point · Cold").
+     */
+    fun kindList(tx: Tx, s: String, tool: String, sub: String?): KindList? {
+        if (!isType(tool)) return null
+        val l = MarkTypes.subsOf(tool, s)
+        if (l.isEmpty()) return null
+        val cur = MarkTypes.subInfo(tool, s, sub)?.id
+        return KindList(tx.sp_x_kind(v = MarkTypes.typeName(tx, tool)), chipColour(s, tool), l.map { KindOption(it.id, MarkTypes.subLabel(tx, it), it.id == cur) })
+    }
+
     /** Is [slot] lit with [tool] on? */
     fun isOn(slot: Slot, kind: String, tool: String): Boolean = when (slot.kind) {
         SlotKind.SELECT -> tool == SEL
@@ -119,6 +208,10 @@ object SurveyPrepPalette {
     private const val AS_SEP = " · " // text:value the prototype's separator, the same in both languages
     /** After the cycling button's words: it opens nothing, each tap goes to the next. */
     private const val AS_MORE = " ▾" // text:value a glyph, the same in both languages
+    /** After the kind button's words: it opens the list of kinds. */
+    private const val KIND_MORE = " ▾" // text:value a glyph, the same in both languages
+    /** Stands where the type's name goes while the chip's sentence is laid out, to find where the kind button sits in it. */
+    private const val KIND_AT = "\u0000" // text:value a marker no text holds, never shown
 
     /**
      * THE TOOL CHIP WITH A TYPE ON (port 62 slice L4; the prototype's chip and asChipHTML, index61c2.html 6698 and
@@ -127,14 +220,24 @@ object SurveyPrepPalette {
      * to the next ([PhaseTools.nextAs]); else it is plain words, nothing to pick. [asLabel] is what a screen reader
      * says for the second half ("Marks are placed as Client wish in this phase" / "Place marks as Existing — tap to
      * change").
+     *
+     * ITS KIND BUTTON (port 62 slice L6; the prototype's t53subBtn, index61c2.html 6635-6636, CSS 996): for a type
+     * that has sub-kinds on the surface, [main] names the KIND a tap places in place of the type -- "Placing Wardrobe ▾
+     * · tap the photo", "Placing Plumbing point · Cold ▾ · tap the photo" -- and those words, from [kindFrom] up to
+     * [kindTo] in [text], are a button that opens the list of kinds ([kindList]); -1: the type has none, and the chip
+     * names the type as before. [kindLabel] is what a screen reader says for it ("Kind: Wardrobe — tap to change").
      */
-    class Chip(val main: String, val asText: String?, val asLabel: String?, val cycles: Boolean) {
+    class Chip(val main: String, val asText: String?, val asLabel: String?, val cycles: Boolean,
+               val kindFrom: Int = -1, val kindTo: Int = -1, val kindLabel: String? = null) {
         /** The chip's words as drawn: "Placing Door · tap the photo · as Client wish". */
         val text: String get() = if (asText == null) main else main + AS_SEP + asText
         /** Where the second half starts in [text] -- it is drawn bold from there, and a cycling one takes the tap; -1: none. */
         val asFrom: Int get() = if (asText == null) -1 else main.length + AS_SEP.length
-        /** The chip as a screen reader says it: [main], then the second half's own label. */
-        val spoken: String get() = if (asLabel == null) main else main + AS_SEP + asLabel
+        /** The chip as a screen reader says it: [main] -- its kind button by its own label -- then the second half's own label. */
+        val spoken: String get() {
+            val head = if (kindLabel == null || kindFrom < 0) main else main.substring(0, kindFrom) + kindLabel + main.substring(kindTo)
+            return if (asLabel == null) head else head + AS_SEP + asLabel
+        }
     }
 
     /** "as Existing", "as Client wish", "as Vendor added" (AS_NAME), by the state a mark is placed as. */
@@ -153,14 +256,26 @@ object SurveyPrepPalette {
      * last cycled to ([picked]; Existing until then). At Estimation and at Client approved there is no palette, so no
      * type is on and no chip is drawn at all. A Note's chip has no second half: a Note has no state. [where] as
      * [chipText]'s: "photo" on 2 · Mark, "360" on 4 · 360.
+     *
+     * [sub] (slice L6): the kind the tool remembers for [tool] on [s]'s kind of surface ([subFor]); a type with
+     * sub-kinds there names that kind, as a button ([Chip.kindFrom]); absent or unknown, its first.
      */
-    fun chip(tx: Tx, s: String, tool: String, stage: Int?, picked: String?, where: String = "photo"): Chip? {
-        val main = chipText(tx, s, tool, where) ?: return null
+    fun chip(tx: Tx, s: String, tool: String, stage: Int?, picked: String?, where: String = "photo", sub: String? = null): Chip? {
+        if (!isType(tool)) return null
+        val named = if (MarkTypes.subsOf(tool, s).isEmpty()) null else MarkTypes.displayName(tx, tool, s, sub)
+        // "photo" or "360" is an English word chosen in code, so each is its own whole key (the card's group 2)
+        fun placing(v: String) = if (where == "360") tx.sp_placing_x_tap_360(tool = v) else tx.sp_placing_x_tap_photo(tool = v)
+        val main = if (named == null) chipText(tx, s, tool, where) ?: return null else placing(named + KIND_MORE)
+        // where the kind button sits: found with a marker no text holds, so a kind whose name is also a word of the
+        // sentence is never mistaken for it, in either language's word order
+        val from = if (named == null) -1 else placing(KIND_AT).indexOf(KIND_AT)
+        val to = if (from < 0 || named == null) -1 else from + named.length + KIND_MORE.length
+        val label = if (from < 0 || named == null) null else tx.sp_aria_kind_x_tap_change(nm = named)
         val face = if (tool == MarkLife.NOTE_TYPE) PhaseTools.AsChip.NONE else PhaseTools.asChip(stage)
-        if (face == PhaseTools.AsChip.NONE) return Chip(main, null, null, false)
+        if (face == PhaseTools.AsChip.NONE) return Chip(main, null, null, false, from, to, label)
         val name = asName(tx, PhaseTools.asFor(stage, picked))
-        return if (face == PhaseTools.AsChip.FIXED) Chip(main, name, tx.life_aria_marks_are_placed_x(name), false)
-               else Chip(main, name + AS_MORE, tx.life_aria_place_marks_x_tap(name), true)
+        return if (face == PhaseTools.AsChip.FIXED) Chip(main, name, tx.life_aria_marks_are_placed_x(name), false, from, to, label)
+               else Chip(main, name + AS_MORE, tx.life_aria_place_marks_x_tap(name), true, from, to, label)
     }
 
     /** The More sheet's heading: "Every mark type · Front wall". */

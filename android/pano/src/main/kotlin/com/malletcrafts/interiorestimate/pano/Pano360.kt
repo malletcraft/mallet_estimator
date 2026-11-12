@@ -276,13 +276,14 @@ object Pano360 {
      * A MARK AS IT IS ON THE SCREEN: its surface and id, the outline a press inside picks it by, and that outline's area
      * (the smallest under the finger wins). A box's [pts] are its four corners through the perspective, clipped at the
      * near plane; a point's ([spot]: centre x, y and the radius it is drawn with -- its 50 mm, never under [SPOT_MIN_DP])
-     * a 16-sided ring at least [SPOT_HIT_DP] round it.
+     * a 16-sided ring at least [SPOT_HIT_DP] round it. A NOTE'S PIN is such a spot too (port 62 slice L6; index61c2.html
+     * 5960, `ISPOINT(e.t)||L53.isNote(e)`): pressed round its centre, moved whole, with no tabs ([SurveyPrep.isSpot]).
      */
     class Poly(val s: String, val id: String, val pts: List<DoubleArray>, val area: Double, val spot: DoubleArray? = null)
 
     /** [e] on [s] in the view [v], [dpPx] px per dp; null when it is off the view (behind the camera). */
     fun markPoly(v: View, s: String, f: SurveyPrep.Frame, e: SurveyPrep.Mark, dpPx: Double): Poly? {
-        if (SurveyPrep.isPoint(e.t)) {
+        if (SurveyPrep.isSpot(e.t)) {
             val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
             val c = toS(v, s, f, cx, cy) ?: return null
             val c2 = toS(v, s, f, cx + SurveyPrep.SPOT / 2, cy)

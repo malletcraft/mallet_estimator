@@ -16,14 +16,17 @@ import kotlin.test.assertTrue
 /**
  * The Mark sheet (port 62 slice L3), against the approved prototype v61c.2 (index61c2.html, L53: openSheet 3012, paint
  * 3023-3060, apply 3071-3088, onClick 3096-3101, onInput 3112-3115). TWO KINDS OF EXPECTED VALUE:
- *  - what the sheet DRAWS, for 21 kinds of item at each of the six stages and unread, is compared row for row with the
+ *  - what the sheet DRAWS, for 30 kinds of item at each of the six stages and unread (21 until slice L6, which gave the
+ *    script's host the page's own subsOf and setSub, so the sheet paints KIND, and added nine items: types with
+ *    sub-kinds, and the Note), is compared row for row with the
  *    prototype's own painted sheet -- `src/test/resources/marksheet/proto-sheet-rows.txt`, which is the first L3 table
  *    of `android/docs/port62/proto-tables.mjs`, cut from its output as its header says. That script binds the page's
  *    own L53 module to a stub host and prints the sheet's HTML as one row; [row] prints a [MarkSheet.View] in the
  *    same form. At Client approved the phone differs ON PURPOSE (DESIGN-port62 Q-list 6) and that row is pinned here;
  *  - what each tap, keystroke and Done LEAVES -- the sheet's state, the keys written and their order, the undo steps
  *    -- is written out by hand, and each journey is one the same script runs through the page's own click, input and
- *    apply handlers ("L3 journeys"): the values here are what it prints.
+ *    apply handlers ("L3 journeys"; and, for KIND and a NEW Note, "L6 journeys of the sheet"): the values here are what
+ *    it prints.
  */
 class MarkSheetTest {
 
@@ -40,6 +43,7 @@ class MarkSheetTest {
         val out = ArrayList<String>()
         out += v.code + MarkSheet.SEP + v.name
         out += "trade ${hex(v.trade.colour)} ${v.trade.text}"
+        v.kind?.let { k -> out += "${k.label} " + k.chips.joinToString(", ") { c -> c.text + (if (c.on) "(on)" else "") + (if (k.enabled) "" else "(off)") } }
         val tb = v.tradeBlock
         if (tb != null) out += "${tb.label} ${hex(tb.button.colour)} ${tb.button.text}${if (tb.enabled) "" else " (off)"}"
         v.state?.let { s ->
@@ -88,6 +92,7 @@ class MarkSheetTest {
         fun move(to: String) { st = MarkSheet.pickMove(prep, st!!, stage, to) }
         fun why(to: String, typed: String) { st = MarkSheet.typeWhy(prep, st!!, stage, to, typed) }
         fun act(a: String) { st = MarkSheet.pickAct(prep, st!!, stage, a) }
+        fun sub(k: String) { st = MarkSheet.pickSub(prep, st!!, k) }
         fun note(typed: String) { st = MarkSheet.typeNote(st!!, typed) }
         fun office(on: Boolean) { st = MarkSheet.pickOffice(st!!, on) }
         fun trade() { st = MarkSheet.togglePicker(prep, st!!) }
@@ -151,9 +156,9 @@ class MarkSheetTest {
     private val SURVEY_GATE = "gate: Finish the survey first — the stage moves to Client wish list on S5"
     private val APPROVED_GATE = "gate: Approved — changes go through change requests"
 
-    @Test fun `the sheet as drawn, for 21 kinds of item at every stage and unread, is the prototype's own painted sheet row for row -- and at Client approved Survey's shape with the approval lock's words`() {
+    @Test fun `the sheet as drawn, for 30 kinds of item at every stage and unread, is the prototype's own painted sheet row for row -- and at Client approved Survey's shape with the approval lock's words`() {
         val items = golden()
-        assertEquals(21, items.size)
+        assertEquals(30, items.size)
         var rows = 0
         for ((name, json, want) in items) {
             assertEquals(listOf("0", "1", "2", "3", "4", "5", "null"), want.keys.toList(), name)
@@ -168,7 +173,9 @@ class MarkSheetTest {
                 rows++
             }
         }
-        assertEquals(147, rows)
+        assertEquals(210, rows)
+        // nine of the thirty are slice L6's: seven with KIND -- which the sheet of the switch plate has had since then too -- and two Notes
+        assertEquals(8, items.count { it.third.getValue("1").contains(" | KIND ") }); assertEquals(2, items.count { it.second.contains("\"t\":\"NOTE\"") })
         // the golden's own stage-5 rows are what the phone does NOT draw: a wish is offered moves there on the page
         val pageAt5 = items.first { it.first == "a wish to replace" }.third.getValue("5")
         assertTrue(pageAt5.contains("move vrev") && pageAt5.contains("move drop"), pageAt5)
@@ -643,10 +650,10 @@ class MarkSheetTest {
         assertTrue(body.contains("MarkSheet.Outcome.DONE -> { changed(); if (done.amber) say(MarkLife.afterEstimate(tx)) }"), "written: saved, and the office told of an amber move")
         // Delete on a mark past Existing: the sheet, on Dropped, and nothing else
         assertTrue(prep.contains("MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }"))
-        assertTrue(prep.contains("fun openSheet(mid: String, focusMove: String? = null) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove) }"), "opening takes no undo step")
+        assertTrue(prep.contains("fun openSheet(mid: String, focusMove: String? = null, fresh: Boolean = false) { ctx = null; markSheet = MarkSheet.open(prep, mid, focusMove, fresh, hist.size) }"), "opening takes no undo step")
         // the sheet is drawn from MarkSheet.view for the stage the dialog was given, and every tap goes to a pure function
         assertTrue(prep.contains("val drawn = MarkSheet.view(tx, prep, st, quoteStage)"))
-        for (f in listOf("pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, typed)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, typed)",
+        for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, typed)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, typed)",
             "pickOffice(cur, office)", "togglePicker(prep, cur)", "pickCat(cur, cat)", "closePicker(cur)")) assertTrue(prep.contains("MarkSheet.$f"), f)
         // a code is a button exactly where a sheet opens for it: the picked mark's label, a picked Line's or area's code, a list row's code
         assertEquals(3, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(""").findAll(prep).count())
@@ -655,6 +662,7 @@ class MarkSheetTest {
         val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
         val writers = Regex("""MarkLife\s*\.\s*(move|setAct|setNote|withNote|placeAs)\(|Trades\s*\.\s*(setCat|withCat)\(|\.extra\s*=[^=]""")
         assertEquals(emptyList(), files.filter { writers.containsMatchIn(code(it)) }, "a screen writes a mark's keys itself")
+        assertEquals(emptyList(), files.filter { Regex("""MarkTypes\s*\.\s*(setSub|withSub)\(""").containsMatchIn(code(it)) }, "a screen writes a mark's kind itself: it is the sheet's Done")
         assertEquals(listOf("SurveyPrepScreen.kt"), files.filter { Regex("""MarkSheet\s*\.\s*(apply|open)\(""").containsMatchIn(code(it)) })
     }
 
@@ -668,5 +676,219 @@ class MarkSheetTest {
         assertFalse(Regex("""\btx\b|LocalTx|MarkLife|PhaseTools|Trades""").containsMatchIn(sheet), "app/MarkSheet.kt reads a text or a rule itself")
         // the picker takes no focus and no outside tap: the three cases are the sheet's own
         assertTrue(sheet.contains("properties = PopupProperties(focusable = false, dismissOnBackPress = false, dismissOnClickOutside = false),"))
+    }
+
+    // ------------------------------------------------------------------ port 62 slice L6: KIND, and a NEW Note
+    // (the page's own sheet, driven: proto-tables.mjs, "L6 journeys of the sheet")
+
+    private fun unit(extra: String = "") = prepOf(markJson("CRP", "FCRP1", extra))
+
+    @Test fun `L6 - KIND - a wardrobe made a Kitchen base - the head follows the chip, Done stores it in one undo step and tells the tool - and the first kind is never stored`() {
+        val r = Run(unit()).open()
+        assertEquals(listOf<Any?>("wardrobe", "wardrobe", false), listOf(r.st!!.sub, r.st!!.sub0, r.st!!.fresh))
+        assertEquals("FCRP1 · Wardrobe | trade #a0522d Carpentry | KIND Wardrobe(on), Kitchen base, Kitchen wall unit, TV unit, Study, Shoe rack, Vanity, Other unit | STATE | now #6b6f68 Existing | " +
+            "move wish #0f766e → Client wish ~ Client wants this changed | NOTE 0/280 [] ph[A note on this mark (optional)] Client & vendors(on) / Office only | Done on", r.shown())
+        r.sub("kbase"); assertEquals(listOf<Any?>("kbase", "wardrobe"), listOf(r.st!!.sub, r.st!!.sub0))
+        assertEquals("FCRP1 · Kitchen base | trade #a0522d Carpentry | KIND Wardrobe, Kitchen base(on), Kitchen wall unit, TV unit, Study, Shoe rack, Vanity, Other unit | STATE | now #6b6f68 Existing | " +
+            "move wish #0f766e → Client wish ~ Client wants this changed | NOTE 0/280 [] ph[A note on this mark (optional)] Client & vendors(on) / Office only | Done on", r.shown())
+        val old = r.extra()
+        assertEquals("DONE · undo 1 · {sub=kbase}", r.done()); assertNull(r.st); assertNotSame(old, r.extra(), "the map is replaced, never changed in place"); assertTrue(old.isEmpty())
+        // the tool remembers the last kind used: Done says which, for the surface the mark is on
+        assertEquals(listOf("CRP", "front", "kbase"), r.last!!.kind!!.let { listOf(it.t, it.s, it.sub) })
+        val mem = HashMap<String, String>(); r.last!!.kind!!.let { SurveyPrepPalette.rememberSub(mem, it.t, it.s, it.sub) }
+        assertEquals(listOf<Any?>("kbase", "bed"), listOf(SurveyPrepPalette.subFor(mem, "CRP", "left"), SurveyPrepPalette.subFor(mem, "CRP", "floor")))
+        // the box is as it was: a kind changed in the sheet keeps the box the mark has
+        r.prep.markById("a")!!.second.let { assertEquals(listOf(0.0, 1.0, 0.0, 1.0), listOf(it.x0, it.x1, it.y0, it.y1)) }
+        // reopened on the kind it is; back to the first DELETES the key, and the tool is told that too
+        r.open(); assertEquals(listOf<Any?>("kbase", "kbase"), listOf(r.st!!.sub, r.st!!.sub0)); r.sub("wardrobe")
+        assertEquals("DONE · undo 2 · {}", r.done()); assertEquals("wardrobe", r.last!!.kind!!.sub)
+        // a kind picked and put back is nothing changed: no undo step, nothing for the tool
+        val b = Run(unit(""""sub":"tv"""")).open(); b.sub("study"); b.sub("tv")
+        assertEquals("UNCHANGED · undo 0 · {sub=tv}", b.done()); assertNull(b.last!!.kind)
+    }
+
+    @Test fun `L6 - KIND - a kind nobody knows reads as the first and is kept until another is picked - and an id that is no kind picks nothing`() {
+        val r = Run(unit(""""sub":"zzz"""")).open()
+        assertEquals(listOf<Any?>("wardrobe", "wardrobe", "Wardrobe"), listOf(r.st!!.sub, r.st!!.sub0, r.view().name))
+        assertEquals("UNCHANGED · undo 0 · {sub=zzz}", r.done())
+        r.open(); r.sub("wardrobe"); assertEquals("UNCHANGED · undo 0 · {sub=zzz}", r.done(), "the first is where the sheet already stood")
+        r.open(); r.sub("shoe"); assertEquals("DONE · undo 1 · {sub=shoe}", r.done())
+        // an id of another kind of surface, of no kind, and a type with none: the state is the very one it was
+        val w = Run(unit()).open(); val st = w.st
+        for (k in listOf("bed", "island", "zzz", "")) { w.sub(k); assertSame(st, w.st, k) }
+        val win = Run(window()).open(); val ws = win.st; win.sub("wardrobe"); assertSame(ws, win.st); assertNull(win.view().kind); assertNull(ws!!.sub)
+        val line = Run(prepOf("""{"id":"a","kind":"line","code":"F-M1","pts":[[0,0],[9,0]]}""")).open(); val ls = line.st; line.sub("wardrobe"); assertSame(ls, line.st); assertNull(line.view().kind)
+        val gone = Run(unit()).open(); gone.prep.surface("front").marks.clear(); val gs = gone.st; gone.sub("kbase"); assertSame(gs, gone.st)
+    }
+
+    @Test fun `L6 - KIND - a locked mark keeps its kind, a Scope mark's too - the chips are drawn off, no tap lands, and Done writes the note alone`() {
+        val r = Run(prepOf(markJson("PLB", "FPLB1", """"sub":"hot","locked":true"""))).open()
+        assertEquals("KIND Cold(off), Hot(on)(off), Mixer (hot + cold)(off), Washing machine(off), RO / purifier(off), Waste outlet(off)", r.shown().split(" | ")[2])
+        assertEquals("FPLB1 · Plumbing point · Hot", r.shown().split(" | ")[0])
+        val st = r.st; r.sub("cold"); assertSame(st, r.st); r.note("n")
+        assertEquals("DONE · undo 1 · {sub=hot, locked=true, note=n}", r.done()); assertNull(r.last!!.kind)
+        // even a state that holds another kind for it -- the screen cannot make one -- is not applied
+        val held = MarkSheet.open(r.prep, "a")!!.copy(sub = "cold")
+        var undo = 0
+        assertEquals(listOf<Any?>(Outcome.UNCHANGED, 0, "hot"), MarkSheet.apply(r.prep, held, 1, at) { undo++ }.let { listOf(it.outcome, undo, r.extra()["sub"]) })
+        // a mark in Scope is locked BY its state: its moves are offered, its kind is not (the page's `lk` for KIND is the lock itself)
+        val s = Run(prepOf(markJson("AC", "FAC1", """"life":"scope","lifeAs":"staff","locked":true""")), PhaseTools.VENDOR_REVIEW).open()
+        assertFalse(s.view().kind!!.enabled); assertEquals(listOf(true), s.view().state!!.moves.map { it.enabled })
+        val ss = s.st; s.sub("outdoor"); assertSame(ss, s.st)
+        // ... and its Done writes what a Done on a mark past Existing with no act stored always wrote, and no kind (the page: act replace)
+        assertEquals("DONE · undo 1 · {life=scope, lifeAs=staff, locked=true, act=replace}", s.done())
+    }
+
+    @Test fun `L6 - KIND - a Defect's trade follows its kind, a kind is written before the note and the move, and it is the mark's at every stage`() {
+        val d = Run(prepOf(markJson("DEF", "FDEF1"))).open()
+        assertEquals("FDEF1 · Crack | trade #63e6be Painting | KIND Crack(on), Damp / seepage, Hollow plaster, Peeling paint, Broken / hollow tile", d.shown().split(" | ").take(3).joinToString(" | "))
+        d.sub("tile")
+        assertEquals("FDEF1 · Broken / hollow tile | trade #ff8787 Tiling | KIND Crack, Damp / seepage, Hollow plaster, Peeling paint, Broken / hollow tile(on)", d.shown().split(" | ").take(3).joinToString(" | "))
+        assertEquals("DONE · undo 1 · {sub=tile}", d.done()); assertEquals(Trades.TILING, Trades.of("front", d.prep.markById("a")!!.second))
+        // the kind, then the note, then the move's keys: the prototype's order
+        val s = Run(prepOf(markJson("S", "FS1"))).open()
+        s.sub("meter"); s.move("wish"); s.act("shift"); s.note("move it to the passage")
+        assertEquals("FS1 · Meter board | trade #ffd43b Electrical | KIND Switch plate, DB / MCB board, Meter board(on) | STATE | now #6b6f68 Existing | acts ↻ Replace, ⇢ Shift(on), ⚒ Repair, ✕ Remove | " +
+            "move wish #0f766e → Client wish ~ Client wants this changed (on) | NOTE 22/280 [move it to the passage] ph[A note on this mark (optional)] Client & vendors(on) / Office only | Done on", s.shown())
+        assertEquals("DONE · undo 1 · {sub=meter, note=move it to the passage, life=wish, lifeAt=$now, lifeAs=client, act=shift}", s.done())
+        assertEquals(listOf("sub", "note", "life", "lifeAt", "lifeAs", "act"), s.extra().keys.toList())
+        // Survey's gate and the approval lock hold the MOVES; the kind is what the thing is, at every stage and unread
+        for (stage in STAGES) { val r = Run(unit(), stage).open(); assertTrue(r.view().kind!!.enabled, "stage $stage"); r.sub("vanity"); assertEquals("DONE · undo 1 · {sub=vanity}", r.done(), "stage $stage") }
+        // a kind beside unknown keys: they stay where they were, whole, and `sub` lands after them
+        val k = Run(unit(""""locked":false,"later":{"by":"v70"},"zz":5""")).open(); k.sub("tv"); k.done()
+        assertEquals(listOf("locked", "later", "zz", "sub"), k.extra().keys.toList())
+        // ... and through the prep file: the kind comes back
+        val back = assertNotNull(SurveyPrepFile.decode(SurveyPrepFile.encode(k.prep, 3319.0, 2678.0, 2677.0))).prep.markById("a")!!.second
+        assertEquals("TV unit", MarkTypes.displayName(Tx.EN, "front", back))
+    }
+
+    @Test fun `L6 - KIND on a floor and on the ceiling - that surface's own kinds - and none where the type has none`() {
+        fun on(s: String, t: String, code: String, extra: Map<String, Any?> = emptyMap()): SurveyPrep.Prep =
+            SurveyPrep.fresh(3319.0, 2678.0, 2677.0).also { it.surface(s).marks.add(SurveyPrep.Mark("a", t, code, 0.0, 1.0, 0.0, 1.0, extra)) }
+        fun shown(p: SurveyPrep.Prep, tx: Tx = Tx.EN) = row(assertNotNull(MarkSheet.view(tx, p, MarkSheet.open(p, "a")!!, 1))).split(" | ").take(3).joinToString(" | ")
+        assertEquals("CCDP1 · Full false ceiling | trade #96f2d7 False ceil. | KIND Bulkhead, Cove, Full false ceiling(on)", shown(on("ceil", "CDP", "CCDP1", mapOf("sub" to "full"))))
+        assertEquals("GCRP1 · Bed | trade #a0522d Carpentry | KIND Bed(on), Kitchen platform, Island, Other unit", shown(on("floor", "CRP", "GCRP1")))
+        assertEquals("GPLB1 · Plumbing point · Floor trap | trade #15aabf Plumbing | KIND Floor trap(on), Waste outlet, Cold, Hot", shown(on("floor", "PLB", "GPLB1")))
+        // the wall's `cold` is the floor's third kind: read against the surface the mark is ON
+        assertEquals("GPLB1 · Plumbing point · Cold | trade #15aabf Plumbing | KIND Floor trap, Waste outlet, Cold(on), Hot", shown(on("floor", "PLB", "GPLB1", mapOf("sub" to "cold"))))
+        assertEquals("CLV1 · Camera | trade #7048e8 CCTV & data | KIND Camera(on), Wi-Fi access point, Smoke detector", shown(on("ceil", "LV", "CLV1")))
+        // the floor's S is a Step: no kinds, no KIND
+        val step = on("floor", "S", "GS1"); assertNull(MarkSheet.view(Tx.EN, step, MarkSheet.open(step, "a")!!, 1)!!.kind); assertNull(MarkSheet.open(step, "a")!!.sub)
+        // मराठी: KIND is its own key, life.kind -- the page, which has no key for the word, shows KIND there
+        assertEquals("FCRP1 · वॉर्डरोब | trade #a0522d सुतारकाम | प्रकार वॉर्डरोब(on), किचन खालचे युनिट, किचन वरचे युनिट, TV युनिट, स्टडी, शू रॅक, व्हॅनिटी, इतर युनिट", shown(unit(), Tx.MR))
+        assertEquals("CCDP1 · पूर्ण फॉल्स सीलिंग | trade #96f2d7 फॉ. सीलिंग | प्रकार बल्कहेड, कोव्ह, पूर्ण फॉल्स सीलिंग(on)", shown(on("ceil", "CDP", "CCDP1", mapOf("sub" to "full")), Tx.MR))
+        assertEquals("KIND", Tx.EN.life_kind)
+        // every word of KIND is a cell of the tables: its label and each chip
+        val p = probe(); val cell = Regex("^⟦\\d+⟧$"); val v = assertNotNull(MarkSheet.view(p, unit(), MarkSheet.open(unit(), "a")!!, 1))
+        assertTrue(cell.matches(v.kind!!.label), v.kind!!.label); for (c in v.kind!!.chips) assertTrue(cell.matches(c.text), c.text)
+        assertEquals(9, (v.kind!!.chips.map { it.text } + v.kind!!.label + v.name).toSet().size, "eight kinds and the label: nine cells (the head's name is the first chip's)")
+    }
+
+    /** A Note as a tap places it (PhaseTools.place at the Wish list), and the screen's one undo step for it. */
+    private inner class NewNote(stage: Int? = PhaseTools.WISH_LIST) {
+        val prep = SurveyPrep.fresh(3319.0, 2678.0, 2677.0)
+        var undo = 0
+        val mark = assertNotNull(PhaseTools.place(prep, "front", MarkLife.NOTE_TYPE, 900.0, 1200.0, 2678.0, 2677.0, "a", stage, null, at) { undo++ }).mark
+        var st: MarkSheet.State? = MarkSheet.open(prep, "a", fresh = true, hist = undo)
+        fun there() = prep.surface("front").marks.map { it.code + " " + it.extra }
+    }
+
+    @Test fun `L6 - a NEW Note - its sheet opens on the note field, and Done with its words takes no undo step of its own`() {
+        val n = NewNote()
+        // placed: a pin where the finger was, 50 mm, FNOTE1, with no key at all -- a Note is never born a wish, whatever the phase
+        assertEquals(listOf("FNOTE1 {}"), n.there()); assertEquals(1, n.undo)
+        assertEquals(listOf(875.0, 925.0, 1175.0, 1225.0), n.mark.let { listOf(it.x0, it.x1, it.y0, it.y1) })
+        assertEquals(MarkSheet.State("a", null, null, emptyMap(), "replace", null, "", false, "general", "general", false, null, null, true, 1), n.st)
+        val v = assertNotNull(MarkSheet.view(Tx.EN, n.prep, n.st!!, 1))
+        assertTrue(v.focusNote, "the keyboard goes to the note"); assertNull(v.focusWhy); assertNull(v.state); assertNull(v.kind)
+        assertEquals("FNOTE1 · Note | trade #adb5bd General | TRADE #adb5bd General ▾ | NOTE 0/280 [] ph[What should the office or the vendor know here?] Client & vendors(on) / Office only | Done on", row(v))
+        // a sheet opened by a tap on a code does not take the keyboard
+        assertFalse(MarkSheet.view(Tx.EN, n.prep, MarkSheet.open(n.prep, "a")!!, 1)!!.focusNote)
+        n.st = MarkSheet.pickCat(MarkSheet.togglePicker(n.prep, MarkSheet.pickOffice(MarkSheet.typeNote(n.st!!, "ask about the beam"), true)), "civil")
+        val done = MarkSheet.apply(n.prep, n.st!!, 1, at) { n.undo++ }
+        assertEquals(listOf<Any?>(Outcome.DONE, null, 1), listOf(done.outcome, done.state, n.undo), "ONE undo step for a new Note: its placement's")
+        assertEquals(listOf("FNOTE1 {cat=civil, note=ask about the beam, vis=office}"), n.there())
+        // at every stage that has a palette, and unread: the same Note, with no state
+        for (stage in listOf(0, 1, 2, 4, null)) assertEquals(listOf("FNOTE1 {}"), NewNote(stage).there(), "stage $stage")
+    }
+
+    @Test fun `L6 - a NEW Note with no words goes again - on Done and on cancel - and its placement's undo step goes with it`() {
+        // Done with nothing typed, and with only spaces
+        for (typed in listOf("", "   ", "\n \n")) {
+            val n = NewNote(); n.st = MarkSheet.typeNote(n.st!!, typed)
+            val done = MarkSheet.apply(n.prep, n.st!!, 1, at) { n.undo++ }
+            assertEquals(listOf<Any?>(Outcome.REMOVED, null, 1), listOf(done.outcome, done.state, n.undo), "'$typed': removed, and Done took no step")
+            assertEquals(emptyList(), n.there()); assertTrue(MarkSheet.takesBackUndo(n.st!!, n.undo), "the placement's step is the last: it is taken back")
+        }
+        // ✕, the scrim, ◁: removed the same way -- even with words typed, for nothing was stored
+        for (typed in listOf("", "typed, then closed")) {
+            val n = NewNote(); n.st = MarkSheet.typeNote(n.st!!, typed)
+            assertTrue(MarkSheet.cancel(n.prep, n.st!!), "'$typed'"); assertEquals(emptyList(), n.there()); assertTrue(MarkSheet.takesBackUndo(n.st!!, 1))
+        }
+        assertEquals("Empty note removed", MarkSheet.emptyRemoved(Tx.EN)); assertEquals("रिकामी नोंद काढली", MarkSheet.emptyRemoved(Tx.MR))
+        // the undo step is taken back ONLY while it is still the last one, and only for a fresh sheet
+        val n = NewNote(); val st = n.st!!
+        assertEquals(listOf(true, false, false, false), listOf(1, 2, 0, 40).map { MarkSheet.takesBackUndo(st, it) }, "one step held as it opened: 1 matches; another taken since, none, 40: not")
+        assertFalse(MarkSheet.takesBackUndo(st.copy(fresh = false), 1)); assertTrue(MarkSheet.takesBackUndo(st.copy(hist = 40), 40), "a full stack of 40 that still ends in the placement")
+        assertFalse(MarkSheet.takesBackUndo(st.copy(hist = 0), 0), "nothing held: nothing to take back")
+        // THE PHONE'S OWN RULE FOR CODES (v52 slice 8): a code is never handed out twice, so the next Note there is FNOTE2
+        // (the page counts the marks still there and says FNOTE1 again)
+        assertTrue(MarkSheet.cancel(n.prep, st))
+        assertEquals("FNOTE2", assertNotNull(PhaseTools.place(n.prep, "front", MarkLife.NOTE_TYPE, 500.0, 500.0, 2678.0, 2677.0, "b", 1, null, at) { }).mark.code)
+    }
+
+    @Test fun `L6 - only a NEW and still empty Note is removed - a Note a file holds, a fresh one that has its words, a mark that is no Note, all stay`() {
+        // a Note a file holds: cancel removes nothing; Done with its words blanked says so and stays open
+        val r = Run(prepOf(markJson("NOTE", "FNOTE1", """"note":"old""""))).open()
+        r.note(""); assertFalse(MarkSheet.cancel(r.prep, r.st!!)); assertEquals(1, r.prep.surface("front").marks.size)
+        assertEquals("NEEDS_WORDS · undo 0 · {note=old}", r.done()); assertNotNull(r.st)
+        // ... nor a Note a file holds with NO words (another writer's): opened by a tap on it, its sheet is not a new
+        // Note's, so ✕ leaves it where it is -- only `fresh` makes cancel a removal (the page's `if(fresh&&…)`)
+        val bare = prepOf(markJson("NOTE", "FNOTE1"))
+        assertFalse(MarkSheet.cancel(bare, MarkSheet.open(bare, "a")!!)); assertEquals(1, bare.surface("front").marks.size)
+        // a fresh sheet on a Note that already has its words: cancel keeps it; Done with them blanked removes it, as the page
+        // does (it is fresh, and it would be left with no words)
+        val kept = prepOf(markJson("NOTE", "FNOTE1", """"note":"kept""""))
+        val fresh = MarkSheet.open(kept, "a", fresh = true, hist = 1)!!
+        assertFalse(MarkSheet.cancel(kept, fresh)); assertEquals(1, kept.surface("front").marks.size)
+        assertEquals(Outcome.REMOVED, MarkSheet.apply(kept, MarkSheet.typeNote(fresh, " "), 1, at) { }.outcome); assertEquals(0, kept.surface("front").marks.size)
+        // a fresh flag on anything but a Note changes nothing: cancel keeps it, and Done takes no step of its own for a change
+        val w = window(); val wf = MarkSheet.open(w, "a", fresh = true, hist = 3)!!
+        assertFalse(MarkSheet.cancel(w, wf)); assertEquals(1, w.surface("front").marks.size)
+        // a LOCKED empty Note (no tap makes one) is not taken away: Done says it needs its words
+        val locked = prepOf(markJson("NOTE", "FNOTE1", """"locked":true"""))
+        var undo = 0
+        val out = MarkSheet.apply(locked, MarkSheet.open(locked, "a", fresh = true, hist = 1)!!, 1, at) { undo++ }
+        assertEquals(listOf<Any?>(Outcome.NEEDS_WORDS, 0, 1), listOf(out.outcome, undo, locked.surface("front").marks.size))
+        assertFalse(MarkSheet.cancel(locked, MarkSheet.open(locked, "a", fresh = true, hist = 1)!!)); assertEquals(1, locked.surface("front").marks.size)
+        // the item gone from under a fresh sheet: nothing to remove
+        val gone = NewNote(); gone.prep.surface("front").marks.clear(); assertFalse(MarkSheet.cancel(gone.prep, gone.st!!))
+    }
+
+    @Test fun `L6 - the screen removes an empty new Note as the sheet says, opens a new Note's sheet from both placements, and hands a kind to the tool`() {
+        val prep = code("SurveyPrepScreen.kt")
+        // a new Note's sheet opens at once, fresh, from BOTH placements -- and the two functions stand above them (a local
+        // function is visible only below its declaration: the app is compiled only by CI)
+        assertTrue(prep.contains("fun notePlaced(e: SurveyPrep.Mark) { if (MarkLife.isNote(e)) openSheet(e.id, fresh = true) }"))
+        assertEquals(2, Regex("""\n\s+changed\(\)\n\s+notePlaced\(e\)\n\s+return e\n""").findAll(prep).count(), "2 · Mark's placement and the 360's")
+        val order = listOf("var markSheet by remember", "fun openSheet(", "fun notePlaced(", "fun placeMark(", "fun place360(", "fun noteRemoved(", "fun sheetDone(", "fun sheetCancel(", "fun deleteMark(").map { prep.indexOf(it) }
+        assertTrue(order.all { it > 0 } && order == order.sorted(), "declared in the order they are used: $order")
+        // Done: a kind changed goes to the tool's memory; an empty new Note is removed
+        val body = prep.substringAfter("fun sheetDone() {").substringBefore("fun sheetCancel(")
+        assertTrue(body.contains("done.kind?.let { k -> SurveyPrepPalette.rememberSub(spKinds, k.t, k.s, k.sub) }"))
+        assertTrue(body.contains("MarkSheet.Outcome.REMOVED -> noteRemoved(st)"))
+        // cancel -- ✕, the scrim, ◁, a swipe -- goes through the sheet's own rule
+        assertTrue(prep.contains("fun sheetCancel() {\n        val st = markSheet ?: return\n        markSheet = null\n        if (MarkSheet.cancel(prep, st)) noteRemoved(st)\n    }"))
+        assertTrue(prep.contains("onCancel = { sheetCancel() }))")); assertEquals(0, Regex("""onCancel = \{ markSheet = null \}""").findAll(prep).count())
+        assertTrue(prep.contains("onKind = { sub -> markSheet = markSheet?.let { cur -> MarkSheet.pickSub(prep, cur, sub) } },"))
+        // removed: the placement's undo step taken back while it is the last, the pick let go, saved, and said with no UNDO
+        assertTrue(prep.contains("fun noteRemoved(st: MarkSheet.State) {\n        if (MarkSheet.takesBackUndo(st, hist.size)) hist.removeAt(hist.size - 1)\n" +
+            "        if (sel?.id == st.id) { sel = null; active = null }\n        changed()\n        snack(MarkSheet.emptyRemoved(tx), undo = false)\n    }"))
+        // the sheet draws KIND first, in both orientations, and a new Note's field takes the keyboard
+        val sheet = code("MarkSheet.kt")
+        assertEquals(2, Regex("""val kind = v\.kind\n\s+if \(kind != null\) MsKind\(kind, a\.onKind\)""").findAll(sheet).count())
+        assertEquals(2, Regex("""MsNote\(v\.note, v\.focusNote, a\)""").findAll(sheet).count())
+        assertTrue(sheet.contains("LaunchedEffect(Unit) { if (focus) runCatching { noteFocus.requestFocus() } }"))
+        assertTrue(sheet.contains("for (c in k.chips) MsChip(c.text, null, c.on, k.enabled, Modifier) { onKind(c.id) }"))
     }
 }

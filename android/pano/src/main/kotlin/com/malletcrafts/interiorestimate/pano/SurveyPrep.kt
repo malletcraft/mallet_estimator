@@ -709,6 +709,15 @@ object SurveyPrep {
      */
     fun isPoint(t: String) = t == "E" || t == "P" || t == "F" || MarkTypes.isPoint(t)
 
+    /**
+     * DRAWN AND TOUCHED AS A SPOT (port 62 slice L6; index61c2.html 5082, 5791, 5809, 5960 and 5984, each
+     * `ISPOINT(e.t)||L53.isNote(e)`): a point -- and THE NOTE'S PIN, which is picked round its centre, moved whole,
+     * never resized and has no tabs, exactly as a point is. A Note is still no POINT: it has no measures, no reading
+     * and no symbol, and its [SPOT] box is only where the pin stands ([MarkTypes.isPin]). Every screen that asks
+     * "is this grabbed round its centre?" asks this; every rule about a point's figures asks [isPoint].
+     */
+    fun isSpot(t: String) = isPoint(t) || MarkTypes.isPin(t)
+
     /** A spot's box, mm across and up. */
     const val SPOT = 50.0
 

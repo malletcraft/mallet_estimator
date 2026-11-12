@@ -1,0 +1,122 @@
+more en wall 11 rows, landscape 6 + 5
+more en wall General #adb5bd: NOTE Note, X Other
+more en wall Civil #b197fc: C Column, B Beam, O Opening, N Niche
+more en wall Doors & win. #4dabf7: W Window, D Door
+more en wall Grills #82c91e: GRL Grill
+more en wall Electrical #ffd43b: E Electric, P Bulb, S Switch, F Fan
+more en wall CCTV & data #7048e8: LV LV point
+more en wall AC #99e9f2: AC AC
+more en wall Carpentry #a0522d: L Loft, CRP Unit
+more en wall Plumbing #15aabf: PLB Plumbing, SAN Sanitary
+more en wall Painting #63e6be: DEF Defect
+more en wall Curtains #c2255c: CTR Track
+more en floor 6 rows, landscape 3 + 3
+more en floor General #adb5bd: NOTE Note, X Other
+more en floor Civil #b197fc: C Column, O Opening, S Step
+more en floor Electrical #ffd43b: E Electric, P Bulb
+more en floor Carpentry #a0522d: CRP Unit
+more en floor Plumbing #15aabf: PLB Plumbing, SAN Sanitary
+more en floor Painting #63e6be: DEF Defect
+more en ceil 8 rows, landscape 4 + 4
+more en ceil General #adb5bd: NOTE Note, X Other
+more en ceil Civil #b197fc: C Column, B Beam, O Opening
+more en ceil Electrical #ffd43b: E Electric, P Bulb, F Fan
+more en ceil CCTV & data #7048e8: LV LV point
+more en ceil AC #99e9f2: AC AC
+more en ceil False ceil. #96f2d7: CDP Drop
+more en ceil Painting #63e6be: DEF Defect
+more en ceil Curtains #c2255c: CTR Track
+more mr wall 11 rows, landscape 6 + 5
+more mr wall सामान्य #adb5bd: NOTE नोंद, X इतर
+more mr wall सिव्हिल #b197fc: C कॉलम, B बीम, O ओपनिंग, N कोनाडा
+more mr wall दारे-खिडक्या #4dabf7: W खिडकी, D दरवाजा
+more mr wall ग्रिल #82c91e: GRL ग्रिल
+more mr wall इलेक्ट्रिकल #ffd43b: E इलेक्ट्रिक, P बल्ब, S स्विच, F पंखा
+more mr wall CCTV व डेटा #7048e8: LV LV पॉइंट
+more mr wall AC #99e9f2: AC AC
+more mr wall सुतारकाम #a0522d: L लॉफ्ट, CRP युनिट
+more mr wall प्लंबिंग #15aabf: PLB प्लंबिंग, SAN सॅनिटरी
+more mr wall रंगकाम #63e6be: DEF दोष
+more mr wall पडदे #c2255c: CTR ट्रॅक
+more mr floor 6 rows, landscape 3 + 3
+more mr floor सामान्य #adb5bd: NOTE नोंद, X इतर
+more mr floor सिव्हिल #b197fc: C कॉलम, O ओपनिंग, S पायरी
+more mr floor इलेक्ट्रिकल #ffd43b: E इलेक्ट्रिक, P बल्ब
+more mr floor सुतारकाम #a0522d: CRP युनिट
+more mr floor प्लंबिंग #15aabf: PLB प्लंबिंग, SAN सॅनिटरी
+more mr floor रंगकाम #63e6be: DEF दोष
+more mr ceil 8 rows, landscape 4 + 4
+more mr ceil सामान्य #adb5bd: NOTE नोंद, X इतर
+more mr ceil सिव्हिल #b197fc: C कॉलम, B बीम, O ओपनिंग
+more mr ceil इलेक्ट्रिकल #ffd43b: E इलेक्ट्रिक, P बल्ब, F पंखा
+more mr ceil CCTV व डेटा #7048e8: LV LV पॉइंट
+more mr ceil AC #99e9f2: AC AC
+more mr ceil फॉ. सीलिंग #96f2d7: CDP ड्रॉप
+more mr ceil रंगकाम #63e6be: DEF दोष
+more mr ceil पडदे #c2255c: CTR ट्रॅक
+slot wall: C=Column~▾ B=Beam~▾ O=Opening~▾ N=Niche~▾ L=Loft~▾ P=Bulb~▾ S=Switch~▾ F=Fan~▾ X=Other~▾ NOTE=Note~▾ GRL=Grill~▾ AC=AC~▾ PLB=Plumbing~▾! CTR=Track~▾ CRP=Unit~▾ LV=LV point~▾! SAN=Sanitary~▾! DEF=Defect~▾
+slot floor: O=Opening~▾ P=Bulb~▾ X=Other~▾ NOTE=Note~▾ PLB=Plumbing~▾! CRP=Unit~▾ SAN=Sanitary~▾! DEF=Defect~▾
+slot ceil: C=Column~▾ F=Fan~▾ O=Opening~▾ X=Other~▾ NOTE=Note~▾ AC=AC~▾ CDP=Drop~▾ CTR=Track~▾ LV=LV point~▾! DEF=Defect~▾
+chip wall W: Placing Window · tap the photo
+chip wall D: Placing Door · tap the photo
+chip wall C: Placing Column · tap the photo
+chip wall B: Placing Beam · tap the photo
+chip wall O: Placing Opening · tap the photo
+chip wall N: Placing Niche · tap the photo
+chip wall L: Placing Loft · tap the photo
+chip wall E: Placing Electric point · tap the photo
+chip wall P: Placing Bulb point · tap the photo
+chip wall S: Placing [Switch plate ▾] · tap the photo ~ Kind: Switch plate — tap to change
+chip wall F: Placing Fan · tap the photo
+chip wall X: Placing Other · tap the photo
+chip wall NOTE: Placing Note · tap the photo
+chip wall GRL: Placing [Window grill ▾] · tap the photo ~ Kind: Window grill — tap to change
+chip wall AC: Placing [Split indoor unit ▾] · tap the photo ~ Kind: Split indoor unit — tap to change
+chip wall PLB: Placing [Plumbing point · Cold ▾] · tap the photo ~ Kind: Plumbing point · Cold — tap to change
+chip wall CTR: Placing [Curtain track ▾] · tap the photo ~ Kind: Curtain track — tap to change
+chip wall CRP: Placing [Wardrobe ▾] · tap the photo ~ Kind: Wardrobe — tap to change
+chip wall LV: Placing [Camera ▾] · tap the photo ~ Kind: Camera — tap to change
+chip wall SAN: Placing [Wash basin ▾] · tap the photo ~ Kind: Wash basin — tap to change
+chip wall DEF: Placing [Crack ▾] · tap the photo ~ Kind: Crack — tap to change
+chip floor C: Placing Column · tap the photo
+chip floor S: Placing Step · tap the photo
+chip floor O: Placing Opening · tap the photo
+chip floor E: Placing Electric point · tap the photo
+chip floor P: Placing Bulb point · tap the photo
+chip floor X: Placing Other · tap the photo
+chip floor NOTE: Placing Note · tap the photo
+chip floor PLB: Placing [Plumbing point · Floor trap ▾] · tap the photo ~ Kind: Plumbing point · Floor trap — tap to change
+chip floor CRP: Placing [Bed ▾] · tap the photo ~ Kind: Bed — tap to change
+chip floor SAN: Placing [WC ▾] · tap the photo ~ Kind: WC — tap to change
+chip floor DEF: Placing [Crack ▾] · tap the photo ~ Kind: Crack — tap to change
+chip ceil B: Placing Beam · tap the photo
+chip ceil C: Placing Column · tap the photo
+chip ceil E: Placing Electric point · tap the photo
+chip ceil P: Placing Bulb point · tap the photo
+chip ceil F: Placing Fan · tap the photo
+chip ceil O: Placing Opening · tap the photo
+chip ceil X: Placing Other · tap the photo
+chip ceil NOTE: Placing Note · tap the photo
+chip ceil AC: Placing [Cassette ▾] · tap the photo ~ Kind: Cassette — tap to change
+chip ceil CDP: Placing [Bulkhead ▾] · tap the photo ~ Kind: Bulkhead — tap to change
+chip ceil CTR: Placing [Curtain track ▾] · tap the photo ~ Kind: Curtain track — tap to change
+chip ceil LV: Placing [Camera ▾] · tap the photo ~ Kind: Camera — tap to change
+chip ceil DEF: Placing [Crack ▾] · tap the photo ~ Kind: Crack — tap to change
+kinds wall S: Switch plate · kind | switch=Switch plate(on), db=DB / MCB board, meter=Meter board
+kinds wall GRL: Grill · kind | window=Window grill(on), balcony=Balcony grill, railing=Railing, door=Safety door grill
+kinds wall AC: AC unit · kind | split=Split indoor unit(on), window-ac=Window AC, outdoor=Outdoor unit
+kinds wall PLB: Plumbing point · kind | cold=Cold(on), hot=Hot, mixer=Mixer (hot + cold), wm=Washing machine, ro=RO / purifier, waste=Waste outlet
+kinds wall CTR: Curtain track · kind | track=Curtain track(on), rod=Rod, roller=Roller blind, vertical=Vertical blind
+kinds wall CRP: Carpentry unit · kind | wardrobe=Wardrobe(on), kbase=Kitchen base, kwall=Kitchen wall unit, tv=TV unit, study=Study, shoe=Shoe rack, vanity=Vanity, other=Other unit
+kinds wall LV: Low-voltage point · kind | camera=Camera(on), intercom=Intercom / video door phone, data=Data / LAN, tv=TV point, wifi=Wi-Fi access point
+kinds wall SAN: Sanitary ware · kind | basin=Wash basin(on), wc-wall=Wall-hung WC, shower=Shower, geyser=Geyser, sink=Kitchen sink, mirror=Mirror cabinet
+kinds wall DEF: Defect · kind | crack=Crack(on), damp=Damp / seepage, hollow=Hollow plaster, peeling=Peeling paint, tile=Broken / hollow tile
+kinds floor PLB: Plumbing point · kind | trap=Floor trap(on), waste=Waste outlet, cold=Cold, hot=Hot
+kinds floor CRP: Carpentry unit · kind | bed=Bed(on), platform=Kitchen platform, island=Island, other=Other unit
+kinds floor SAN: Sanitary ware · kind | wc=WC(on), shower-area=Shower area, tub=Bathtub
+kinds floor DEF: Defect · kind | crack=Crack(on), damp=Damp / seepage, hollow=Hollow plaster, peeling=Peeling paint, tile=Broken / hollow tile
+kinds ceil AC: AC unit · kind | cassette=Cassette(on), duct=Ductable grille
+kinds ceil CDP: Ceiling drop · kind | bulkhead=Bulkhead(on), cove=Cove, full=Full false ceiling
+kinds ceil CTR: Curtain track · kind | track=Curtain track(on), rod=Rod, roller=Roller blind, vertical=Vertical blind
+kinds ceil LV: Low-voltage point · kind | camera=Camera(on), wifi=Wi-Fi access point, smoke=Smoke detector
+kinds ceil DEF: Defect · kind | crack=Crack(on), damp=Damp / seepage, hollow=Hollow plaster, peeling=Peeling paint, tile=Broken / hollow tile

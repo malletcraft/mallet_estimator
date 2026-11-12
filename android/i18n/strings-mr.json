@@ -2917,6 +2917,10 @@
  "life.export": {
   "mr": "⇪ एक्सपोर्ट"
  },
+ "life.kind": {
+  "mr": "प्रकार",
+  "note": "L6: the word sp.x_kind (\"{v} · प्रकार\") and sp.aria.kind_x_tap_change (\"प्रकार: {nm} …\") already use for a type's kind; the prototype shows this label in English under Marathi, having no key for it; Marathi by Claude at full authority (decision 6, 28 Oct 2026); Amit tests it on the phone"
+ },
  "life.length": {
   "mr": "लांबी",
   "note": "fragment — see life.a_note_on_this"

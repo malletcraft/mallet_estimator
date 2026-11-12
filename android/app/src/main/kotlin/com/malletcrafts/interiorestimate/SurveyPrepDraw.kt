@@ -7,6 +7,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
 import com.malletcrafts.interiorestimate.pano.MarkLife
+import com.malletcrafts.interiorestimate.pano.NotePin
 import com.malletcrafts.interiorestimate.pano.SheetMarks
 import com.malletcrafts.interiorestimate.pano.SurveyChain
 import com.malletcrafts.interiorestimate.pano.SurveyGuide
@@ -41,6 +42,12 @@ import kotlin.math.roundToInt
  * paintState, index61c2.html 2872-2911). FaceWriter's saved "survey marks" pictures pass OTHERS and are handed THE
  * ROOM AS SURVEYED: no mark born a wish or Vendor added, no Note, and no state on the marks that are there -- so this
  * painter cannot draw one into a document for anybody else, and a v52 prep's picture is what it always was.
+ *
+ * THE NOTE'S PIN (port 62 slice L6; the prototype's paintNote, index61c2.html 2918-2926): a Note is drawn as a 20 dp
+ * white disc with ✎, and beside it "FNOTE1 ✎", a padlock when it is for the office only, and the first of its words
+ * ([notePin]; what the tag says and where it is cut is NotePin.tag in :pano). ON THE SCREEN ONLY: the marks a picture
+ * for others is handed hold no Note, so no branch here can write an office-only note into one. A Plumbing point and a
+ * Low-voltage point are spots with their own symbols ([newSpotSym]).
  */
 internal object SurveyPrepDraw {
 
@@ -225,9 +232,33 @@ internal object SurveyPrepDraw {
     private const val SPOT_INK = 0x14160F
 
     /**
+     * THE TWO NEW POINTS' SYMBOLS inside a spot's dot (port 62 slice L6; the prototype's T53.spotSym, index61c2.html
+     * 2669-2672), [k] = 0.62 of the dot's radius: a Plumbing point a DROP; a Low-voltage point a dot between two arcs,
+     * above and below. [fill] and [line] are the caller's ink -- [line] a round-capped stroke max(1, 0.26 k) wide.
+     * False, with nothing drawn, for any other type. One painter for the squared face and the 360.
+     */
+    fun newSpotSym(c: Canvas, x: Float, y: Float, k: Float, t: String, fill: Paint, line: Paint): Boolean {
+        when (t) {
+            "PLB" -> c.drawPath(Path().apply {
+                moveTo(x, y - k * .85f); quadTo(x - k * .62f, y + k * .05f, x, y + k * .7f); quadTo(x + k * .62f, y + k * .05f, x, y - k * .85f); close() }, fill)
+            "LV" -> {
+                c.drawCircle(x, y, k * .22f, fill)
+                val box = RectF(x - k * .62f, y - k * .62f, x + k * .62f, y + k * .62f)
+                c.drawArc(box, -135f, 90f, false, line); c.drawArc(box, 45f, 90f, false, line)
+            }
+            else -> return false
+        }
+        return true
+    }
+
+    /** How wide the two new points' symbols are stroked, for a dot whose symbol scale is [k] (spotSym: max(1, 0.26 k)). */
+    fun newSpotPen(k: Float): Float = max(1f, k * .26f)
+
+    /**
      * A SPOT (Amit, 11 Oct 2026 20:35: "electric points are spots . dont let them resize. have
      * its da 50 mm."): a filled dot in the type's colour, a 1.6 dp dark rim (3 dp white when
-     * picked), and its symbol -- Electric two dots, Bulb an X, Fan three blades round a hub.
+     * picked), and its symbol -- Electric two dots, Bulb an X, Fan three blades round a hub; a
+     * Plumbing point a drop, a Low-voltage point a dot between two arcs ([newSpotSym], slice L6).
      * No resize tabs, ever. As sp.js spot().
      */
     private fun spot(c: Canvas, x: Float, y: Float, r: Float, t: String, col: Int, sel: Boolean, thin: Boolean, dp: Float) {
@@ -254,11 +285,50 @@ internal object SurveyPrepDraw {
                 }
                 c.drawCircle(x, y, k * .18f, p)
             }
+            "PLB", "LV" -> {
+                p.style = Paint.Style.FILL
+                newSpotSym(c, x, y, k, t, p, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE; color = argb(SPOT_INK); strokeWidth = newSpotPen(k); strokeCap = Paint.Cap.ROUND })
+            }
             else -> {
                 p.style = Paint.Style.FILL
                 for (i in listOf(-1f, 1f)) c.drawCircle(x + i * k * .38f, y, max(.8f, k * .17f), p)
             }
         }
+    }
+
+    // ------------------------------------------------------------ the Note's pin (port 62 slice L6)
+
+    /**
+     * A NOTE, at ([x], [y]) on the canvas (L53.paintNote, 2918-2926): a white disc 10 u in radius ringed 2 u in ink
+     * -- and, picked ([sel]), in gold 3 u outside it -- with ✎ on it; then its tag from 4 u right of the disc, bold 11 u
+     * on a dark halo: "FNOTE1 ✎" in white, a 10 u amber padlock when the note is for the office only, and its words in
+     * #ECEEE8, cut as NotePin.tag cuts them to the tag's 120 u. ALWAYS AT FULL STRENGTH: the prototype sets the alpha to
+     * 1 for a Note, so it does not dim while another mark is picked -- the caller draws it outside the fade's layer.
+     * One painter for the squared face and the 360.
+     */
+    fun notePin(c: Canvas, e: SurveyPrep.Mark, x: Float, y: Float, u: Float, sel: Boolean) {
+        val r = NotePin.R.toFloat() * u
+        c.drawCircle(x, y, r, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(NotePin.DISC) })
+        c.drawCircle(x, y, r, stroke(argb(NotePin.INK), NotePin.RING.toFloat() * u))
+        if (sel) c.drawCircle(x, y, r + NotePin.SEL_GAP.toFloat() * u, stroke(argb(NotePin.PICKED), NotePin.RING.toFloat() * u))
+        // ✎ centred on the disc, half a u under its centre (the page's textBaseline "middle")
+        val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = NotePin.GLYPH.toFloat() * u; isFakeBoldText = true; textAlign = Paint.Align.CENTER; color = argb(NotePin.INK) }
+        val fm = glyph.fontMetrics
+        c.drawText(MarkLife.NOTE_BADGE, x, y + NotePin.GLYPH_DY.toFloat() * u - (fm.ascent + fm.descent) / 2, glyph)
+        // the tag: measured with the paint it is drawn with
+        val size = NotePin.TAG_SIZE.toFloat() * u
+        val pen = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; isFakeBoldText = true }
+        val tag = NotePin.tag(e, u.toDouble()) { t -> pen.measureText(t).toDouble() }
+        val tx0 = x + r + NotePin.TAG_DX.toFloat() * u; val ty = y + NotePin.TAG_DY.toFloat() * u
+        label(c, tag.head, tx0, ty, NotePin.DISC, size, u)
+        var xx = tx0 + pen.measureText(tag.head) + NotePin.HEAD_GAP.toFloat() * u
+        if (tag.office) {
+            lockGlyph(c, xx + NotePin.LOCK_DX.toFloat() * u, ty - NotePin.LOCK_UP.toFloat() * u, NotePin.LOCK.toFloat() * u, argb(NotePin.LOCK_COLOUR))
+            xx += NotePin.LOCK_W.toFloat() * u
+        }
+        if (tag.text.isNotEmpty()) label(c, tag.text, xx + pen.measureText(" ") - NotePin.TEXT_BACK.toFloat() * u, ty, NotePin.TEXT_COLOUR, size, u)
     }
 
     // ------------------------------------------------------------ a mark's state (port 62 slice L2)
@@ -376,8 +446,8 @@ internal object SurveyPrepDraw {
         val sm = if (o.mode == "main" && o.selId != null) els.firstOrNull { it.id == o.selId } else null
         if (sm != null) {
             val pad = 6f * u
-            // a picked spot: the hole is round its dot, as drawn
-            val hole = if (SurveyPrep.isPoint(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->
+            // a picked spot -- a point, or a Note's pin (slice L6; sp.js 5082): the hole is round its dot, as drawn
+            val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->
                 floatArrayOf(d[0] - d[2], d[1] - d[2], d[0] + d[2], d[1] + d[2]) }
             else { val p = m(sq.x(sm.x0), sq.y(sm.y1)); val q = m(sq.x(sm.x1), sq.y(sm.y0)); floatArrayOf(p[0], p[1], q[0], q[1]) }
             val path = Path().apply {
@@ -393,6 +463,21 @@ internal object SurveyPrepDraw {
             val faded = sm != null && !sel
             // a locked mark (v52 slice 8): a padlock beside its code on the editing photo, and no resize tabs
             val locked = SurveyPrep.isLocked(e)
+            // A NOTE IS ITS PIN (port 62 slice L6; sp.js 5087): no box, no figures, no tabs, and never dimmed -- the pin and
+            // its tag are drawn at full strength, only a locked Note's padlock fades with the rest. In the magnifier, a dot.
+            if (MarkLife.isNote(e)) {
+                val at = m(sq.x((e.x0 + e.x1) / 2), sq.y((e.y0 + e.y1) / 2))
+                if (thin) c.drawCircle(at[0], at[1], NotePin.LOUPE_R.toFloat() * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = argb(NotePin.DISC) })
+                else {
+                    notePin(c, e, at[0], at[1], u, sel)
+                    if (locked && o.mode == "main") {
+                        if (faded) c.saveLayerAlpha(null, FADE)
+                        padPill(c, at[0] + NotePin.PAD_DX.toFloat() * u, at[1] - NotePin.PAD_UP.toFloat() * u, NotePin.DISC, u)
+                        if (faded) c.restore()
+                    }
+                }
+                continue
+            }
             if (faded) c.saveLayerAlpha(null, FADE)
             if (SurveyPrep.isPoint(e.t)) {
                 // A SPOT: its dot and symbol, its code beside it, its two figures when picked -- no tabs
