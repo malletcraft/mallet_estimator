@@ -48,6 +48,14 @@
 // refuse.v360 wording for "A …" and leaves "An" / "A" standing in the others; and its next code never reuses a deleted mark's
 // number (v52 slice 8, the surface's `seq`), where T53.nextCode -- which nothing on the page calls -- counts the marks still there:
 // the NEXT row is printed with nothing deleted, where the two agree.
+// THE L5 REVIEW (12 Nov 2026; DESIGN-port62.md §3.5, "The L5 review") adds "L5 REVIEW normPoints": the page's own normPoints
+// (not in a module: cut from `function normPoints(w,act){` to its `return n; }`, with the page's own `ckey`) run over ISPOINT =
+// E P F PLB LV on an older box of each point with edge readings. Its rows but the last ARE MarkTypesTest's NORM_PAGE table. A plan
+// Plumbing point's and Low-voltage point's l r f k take half the box, as a wall's do (`toC=plan&&e.t==='P'`): the phone does the
+// same since that review (L5 as built moved them unchanged). WHERE THE PHONE DIFFERS, ON PURPOSE, the last row: a plan FAN moves
+// unchanged on the phone (v52 slice 4), where the page adds half its box. And "L5 REVIEW the memory": T53's remembered sub-kind
+// is per type and kind of surface, and a new mark takes the memory of the kind it lands on -- what PhaseTools.place's caller (slice
+// L6) must hand in (finding 2; MarkTypesTest pins what the phone stores when it is handed another kind's).
 import fs from 'node:fs';
 
 const page = process.argv[2];
@@ -386,6 +394,30 @@ console.log('noMoveText:'); for (const s of STAGES) for (const L of ['exist', 'w
   const ELS = [['P', 'FP1'], ['PLB', 'FPLB1'], ['PLB', 'FPLB7'], ['P', 'FP2'], ['L', 'FL3'], ['LV', 'FLV9'], ['S', 'FS2'], ['SAN', 'FSAN5'], ['C', 'FC4'], ['CRP', 'FCRP6'], ['CTR', 'FCTR1'], ['NOTE', 'FNOTE2'], ['D', 'FD1'], ['DEF', 'FDEF8']].map(([t, code]) => ({ t, code }));
   console.log('NEXT front |', ALLT.map(t => t + '>' + T53.nextCode('front', t, ELS)).join(' '));
   console.log('L5 END');
+  // ---- the L5 review: an older box of a point, by the page's own normPoints (MarkTypesTest NORM_PAGE; the last row is the Fan's)
+  { const a = lines.findIndex(l => l.startsWith('function normPoints(w,act){')), b = lines.findIndex((l, i) => i > a && l.trim() === 'return n; }');
+    const ck = lines.find(l => l.startsWith('const ckey='));
+    if (a < 0 || b < 0 || !ck) throw new Error('normPoints not found');
+    const PTS = ['E', 'P', 'F', ...T53.TOKENS.filter(t => T53.isPoint53(t))];
+    const np = new Function('ISPOINT', 'isPlan', 'SURF', 'st', 'ptLog', 'SPOT', ck + '\n' + lines.slice(a, b + 1).join('\n') + '\nreturn normPoints;')(
+      t => PTS.includes(t), s => s === 'floor' || s === 'ceil', Object.values(SURF).concat(['right', 'back', 'left']), { w: null, actual: null }, [], 50);
+    console.log('\nL5 REVIEW normPoints', `${a + 1}-${b + 1}`, 'over', PTS.join(' '), '|', lines[a + 6].trim());
+    for (const [s, t, code, box, rd] of [
+      ['floor', 'PLB', 'GPLB1', [100, 250, 200, 350], { l: 40, k: 60 }], ['floor', 'PLB', 'GPLB2', [100, 250, 200, 350], { r: 40, f: 60, w: 120 }],
+      ['ceil', 'LV', 'CLV2', [1000, 1200, 2000, 2100], { f: 7 }], ['ceil', 'LV', 'CLV3', [1000, 1200, 2000, 2100], { l: 10, k: 20, h: 80 }],
+      ['front', 'PLB', 'FPLB1', [300, 450, 800, 950], { l: 300, s: 800, w: 150 }], ['front', 'LV', 'FLV1', [300, 450, 800, 950], { r: 300, t: 800 }],
+      ['ceil', 'P', 'CP9', [500, 650, 800, 950], { r: 900, f: 700 }], ['floor', 'P', 'GP9', [925, 1075, 1925, 2075], { l: 1000, k: 2000 }],
+      ['floor', 'E', 'GE1', [0, 150, 0, 150], { l: 75, k: 75 }], ['ceil', 'F', 'CF1', [1000, 1200, 1000, 1200], { l: 1100 }]]) {
+      const act = Object.fromEntries(Object.entries(rd).map(([k, v]) => [code + '.' + k, v])), e = { id: 'a', t, code, x0: box[0], x1: box[1], y0: box[2], y1: box[3] };
+      np({ [s]: { els: [e] } }, act);
+      console.log([s, t, code, box.join(','), ...Object.entries(rd).map(([k, v]) => k + '=' + v)].join(' '), '->', Object.keys(act).sort().map(k => k + '=' + act[k]).join(' '), '@', [e.x0, e.x1, e.y0, e.y1].join(',')); } }
+  // ---- the L5 review, finding 2: the tool's remembered sub-kind is kept per type AND kind of surface, and a new mark is given the
+  // memory of the kind it LANDS on (addElAt: T53.newFields(t, tkind(s))) -- so a kind picked on a wall says nothing about the floor
+  { const nf = (t, k) => t + '@' + k + ' ' + JSON.stringify(T53.newFields(t, k));
+    console.log('L5 REVIEW the memory, untouched:', ['PLB', 'CRP', 'LV'].flatMap(t => T53.KINDS.filter(k => T53.subsOf(t, k).length).map(k => nf(t, k))).join(' | '));
+    T53.setSub('PLB', 'wall', 'hot'); T53.setSub('CRP', 'wall', 'other'); T53.setSub('LV', 'wall', 'wifi'); T53.setSub('PLB', 'floor', 'mixer');
+    console.log('L5 REVIEW after the wall\'s picker chose PLB hot, CRP other, LV wifi (and the floor was offered PLB mixer, not a floor kind):',
+      ['PLB', 'CRP', 'LV'].flatMap(t => T53.KINDS.filter(k => T53.subsOf(t, k).length).map(k => nf(t, k))).join(' | ')); }
   try { L57.set('mr'); } catch (_) {}
   console.log('L5 under मराठी, the texts the page finds (a name it has no row for comes back as it went in):');
   console.log('   type names:', JSON.stringify(T53.NEW.map(x => L57.vis(x.name))));

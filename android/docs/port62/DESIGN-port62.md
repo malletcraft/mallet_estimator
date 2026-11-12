@@ -966,9 +966,11 @@ for the unread chip.
     with nothing deleted, where the two agree. A code's number past 2^31 reads as no code (the page's is a float).
   - **An older box of a new point.** `SurveyPrepFile.open` runs `normPoints` over `isPoint`, so a Plumbing point or
     a Low-voltage point stored larger than 50 mm is made a spot at its centre and its edge readings go to the
-    centre keys, exactly as E's do (sp.js `normPoints` over `ISPOINT`). On a plan the phone moves l r f k to the
+    centre keys, exactly as E's do (sp.js `normPoints` over `ISPOINT`). ~~On a plan the phone moves l r f k to the
     centre keys UNCHANGED for every point but E -- its own rule since v52 slice 4 for P and F -- where the page adds
-    half the box for every plan point but P; no build has written such a reading for the two new points.
+    half the box for every plan point but P~~ **CHANGED BY THE L5 REVIEW (finding 1, below):** on a plan the two new
+    points' l r f k take half the box, as the page's do; only a Bulb and a Fan move unchanged. No build has written
+    such a reading for the two new points.
   - **For L6, which wires it.** The tool's remembered sub-kind (`subFor` / `setSub`'s memory, `P L2471-2473`) is not
     ported: `PhaseTools.place` takes the sub-kind and L6 holds the memory. `setSub` changes the stored kind and
     leaves the box, as the Mark sheet's KIND does. `SurveyPrepEdit.duplicate` copies the box alone, so the copy of a
@@ -980,6 +982,28 @@ for the unread chip.
   - **Not ported, and why.** `serviceOf` / `serviceRoomMatch` (L9); `MarkFilter`, `paletteMain` by trade,
     `catForNew` and `counts` (the Trade chip, Q-list 3); the ten icons, the spot symbols and `renderMore` (L6).
 
+#### The L5 review (12 Nov 2026) — two findings on commit `a22ff9d`, both minor
+
+Each was checked against the committed code and against the prototype's own code RUN in node, not only read:
+`proto-tables.mjs` gained two "L5 REVIEW" prints (the page's `normPoints`, cut from `P L4944-4955` with its own `ckey`,
+over ISPOINT = E P F PLB LV; and T53's remembered sub-kind, `subMem` / `subFor` / `newFields`, `P L2471-2473`,
+`L2639`). The reviewer's line numbers for `normPoints` are a few off (4940-4949); the code is the same.
+**Confirmed: both. Declined: none.** Finding 1 is fixed in code; finding 2 changes no behaviour — it is the contract
+slice L6 builds on, stated where L6 will read it and pinned by a test, as the reviewer asks.
+
+| # | Finding (severity) | Verdict, and what was checked | Fixed how |
+|---|---|---|---|
+| 1 | A plan Plumbing / Low-voltage point's edge reading converts differently from the prototype, and the new test pins the phone's figure while saying it is sp.js's (minor) | **CONFIRMED, every figure.** The page's own `normPoints`, run: a ceiling LV stored 200 × 100 with `CLV2.f = 7` answers `CLV2.cf = 57`; a floor PLB 150 × 150 with `l = 40`, `k = 60` answers `cl = 115`, `ck = 135` (`toC=plan&&e.t==='P'`, `P L4950`: every plan point but a Bulb takes half the measured-or-box width or height; a plan E is skipped). L5's `normPoints` added 0 on any plan and `MarkTypesTest` asserted `"CLV2.cf" to 7.0` under a comment naming sp.js. The walls agree (`FPLB1.cl 375`, `.cs 875`). **Two things the reviewer did not name, found confirming it, which decided between his two remedies:** (a) S5's /projects, which has known PLB and LV as points since slice T5, shows such a reading by the page's rule (`asis_view.js` `normPoints`, the same `toC = plan && e0.t === 'P'`) — so kept as built, the phone and the web would have shown two figures for one stored reading; (b) the phone's reason for moving a plan Bulb's and Fan's figures unchanged is history ("already measured to its centre" by the builds before v52) and cannot hold for two types no build has ever measured: an l r f k reading of one is an edge reading. Nothing stored is affected: no build, nor the page (which writes the centre keys from the start), has written such a reading | **The phone follows the page for the two new points** — the reviewer's first remedy. `SurveyPrep.normPoints`: half the box is left out only for a plan Bulb and a plan Fan (`toC = plan && (t == "P" \|\| t == "F")`, the page's `toC` plus the phone's own Fan); every other plan point takes it, as on a wall. `MarkTypesTest`: the pin is 57 and its comment says the page's rule; new test, `NORM_PAGE` — nine rows typed from the script's print (floor PLB with and without a measured width, ceiling LV with and without a measured height, both on a wall, a plan Bulb, a plan E) compared line for line with the phone's answer, each also run twice (the second pass changes nothing). Fails on L5 as built (two tests red). **Seen, NOT changed — v52 slice 4's, not L5's:** a plan FAN still moves unchanged on the phone (`CF1.l 1100` → `cl 1100`; the page and S5 give 1200), pinned since v52 by `SurveyPrepTest` and now named in the new test and in the script's last row. No build has written an l r f k reading for a ceiling Fan either. Q-list 14. And the phone's own extension stays (an edge reading arriving for a point ALREADY a spot converts too, by its 50 mm box where nothing else is known — `GPLB3.l 40` → `cl 65`; the page skips a spot) |
+| 2 | `place` / `addMarkAt` take ONE sub-kind but read it against the surface the tap LANDS on — on the 360 an id shared by two kinds of surface is stored where the prototype would store the landed kind's own (minor) | **CONFIRMED, by the page's code and by running T53.** The memory is per type AND kind of surface (`subMem[t+'@'+kind]`), and `addElAt` asks it with the landed surface for the box and the stored key alike (`P L5924-5925`: `defaults(s,t,A,B)` → `subFor(t,tkind(s))`, `T53.newFields(t,tkind(s))`). Run: after the wall's picker chose PLB `hot`, CRP `other`, LV `wifi`, `newFields` answers `{"sub":"hot"}` / `{"sub":"other"}` / `{"sub":"wifi"}` on a wall and `{}` on the floor and the ceiling. On the phone `subToStore` accepts any id that is a non-first sub-kind of `kindOf(s)`, and ten type-and-id pairs are shared by two kinds (a Defect's five by all three), five of them at different places (PLB `cold` 0 → 2, `hot` 1 → 3, `waste` 5 → 1; CRP `other` 7 → 3; LV `wifi` 4 → 1) — so the wall's default `cold`, handed in for a tap that lands on the floor, is stored there. Nothing passes a sub-kind yet (the two `:app` calls omit it; no `:app` file is touched), so no behaviour is wrong today | **The contract is stated where L6 will read it, and pinned** — the reviewer's fix. KDoc of `PhaseTools.place` and `Prep.addMarkAt`: `sub` is the sub-kind remembered for the kind of surface the mark LANDS on (`kindOf(s)`), never the open tab's; on the 360 the two differ; the function cannot tell, it reads the one id it is given against the surface it is given. `MarkTypesTest` +1: the shared ids with their place in each list, and `place(…, "floor", "PLB", …, sub = "cold")` storing `cold` ("Plumbing point · Cold") where the floor's own memory, untouched, stores nothing ("Floor trap"); an id the landed kind lacks (`mixer`, `wardrobe`) stored as nothing; a shared id taking the LANDED kind's box. The test passes on L5's code — it pins what the functions do, not a change — and goes red if `subToStore` reads another kind's first. **For L6 (§3.6):** hold the memory per type and kind, and ask it with the surface `place360` lands on. Not built here: a signature that would make the wrong call impossible (the memory handed in as a function of the kind) — L6 holds the memory and is the slice to choose it |
+
+`:pano` after the fix, from the XML: 1,214 tests in 85 suites, none failed, none skipped (1,212 before:
+`MarkTypesTest` 15 → 17). No key added or removed, Tx not regenerated, `unkeyed.tsv` untouched and still empty;
+`proto-type-rows.txt` unchanged (the script prints the same 992 golden rows). Mutations, each run against
+`MarkTypesTest` and `SurveyPrepTest`: `normPoints` back to L5 as built (two tests red); the page's rule exactly,
+the Fan taking half too (the new test and v52's Fan test red); `subToStore` reading the wall's first for every
+kind (the new contract test and two of L5's red). **No file of `:app` is touched**; `:app` is compiled only by CI,
+and NOTHING HAS BEEN SEEN ON A PHONE.
+
 ### 3.6 L6 · More ▸ by trade, the kind picker, the Note pin (M) — after T5 is on stage
 - **Prototype:** More ▸ as one row per trade, General first (`moreRows` `P L2602`, `renderMore` `L2688-2694`); the
   tool's remembered sub-kind (`L2471-2473`) and KIND chips in the Mark sheet (`L3030`); the ten icons `L2649-2666`
@@ -989,6 +1013,11 @@ for the unread chip.
   (KIND; TRADE for a Note — an Other has it since L3), `pano/SurveyPrepPalette.kt`. With no Trade chip the three
   palette slots stay v52's (`paletteMain('all')`, `L2597`). The Note pin and its tag are drawn on the SCREEN
   only: the saved "survey marks" pictures go through `SheetMarks` (L2) and carry no Note.
+- **The sub-kind handed to `PhaseTools.place` (the L5 review, finding 2, §3.5):** L6 holds the tool's memory PER
+  TYPE AND KIND OF SURFACE, as the page does (`subMem[t+'@'+kind]`), and asks it with the surface the mark LANDS on
+  — on the 360 (`place360`) that need not be the open tab's. `place` reads the one id it is given against the
+  landed surface and an id can belong to two kinds (`cold`: the wall's first, the floor's third), so the tab's
+  sub-kind handed in for a tap on the floor would be stored there. `MarkTypesTest` pins what is stored.
 - **Tests:** `PaletteTest` (the rows per surface kind), `MarkSheetTest` (KIND; a Note needs its words),
   `SheetMarksTest` again with a Note of each audience.
   **i18n on:** `trade.*.short`, `life.what_should_office_vendor`, `life.msg.empty_note_removed`, `life.trade`.
@@ -1171,6 +1200,12 @@ The band and the `mark` / `palette` rows are L4's. L10 is the rest of the phase'
     येईल"). The phone renders the T53 rows themselves, with no article, as their notes ask. To settle on the
     prototype: one wording for a refusal -- and whether "A Sanitary ware cannot go on the ceiling" is the English he
     wants (it is the page's own, and the phone's). Not reachable on the phone before L6 gives the ten a tile.
+14. **An older ceiling Fan's edge reading** (run on the page's `normPoints` in the L5 review, 12 Nov; §3.5). The
+    page -- and S5's /projects -- add half the old box to a plan Fan's l r f k when it becomes a spot (`CF1.l 1100`
+    of a 200 mm box → `cl 1200`); the phone has moved it unchanged since v52 slice 4, as a plan Bulb's. The page's
+    own comment says "the half-width is added for wall points only", its code leaves it out for a Bulb alone. No
+    build has written such a reading, so nothing stored differs; it is listed so one rule is chosen for the page,
+    S5 and the phone. The two new points (Plumbing, Low-voltage) follow the page's code since that review.
 
 ### 3.11 RD · S5 gives a vendor or client the room as surveyed (S–M) — on stage BEFORE B2
 The room GET answers the stored record whole to every caller the access list admits (`asis.js:1472-1476`,

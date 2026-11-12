@@ -194,7 +194,9 @@ class MarkTypesTest {
         assertEquals(MarkTypes.NOTE, MarkLife.NOTE_TYPE); assertEquals(MarkTypes.NOTE, Trades.NOTE)
         // a point's figure is to its centre under the c-keys on every surface (a plan's E alone keeps l r f k)
         for (t in listOf("PLB", "LV")) for (plan in listOf(false, true)) for (k in listOf("l", "r", "s", "t", "f", "k")) assertEquals("c$k", SurveyPrep.ckey(plan, t, k))
-        // an older or resized box of a new point is made a 50 mm spot on opening, its edge readings going with it, as E's is (sp.js normPoints over ISPOINT)
+        // an older or resized box of a new point is made a 50 mm spot on opening and its EDGE readings go to its centre
+        // keys, each plus half the box -- ON A PLAN AS ON A WALL (the L5 review; the page's normPoints over ISPOINT,
+        // index61c2.html 4944-4955: `toC=plan&&e.t==='P'`, so only a plan Bulb moves unchanged there)
         val p = SurveyPrep.fresh(L, W, H)
         p.surface("front").marks.add(SurveyPrep.Mark("a", "PLB", "FPLB1", 300.0, 450.0, 800.0, 950.0))
         p.surface("ceil").marks.add(SurveyPrep.Mark("b", "LV", "CLV2", 1000.0, 1200.0, 2000.0, 2100.0))
@@ -205,7 +207,55 @@ class MarkTypesTest {
         val a = r.prep.markById("a")!!.second; val b = r.prep.markById("b")!!.second; val c = r.prep.markById("c")!!.second
         assertEquals(listOf(350.0, 400.0, 850.0, 900.0), listOf(a.x0, a.x1, a.y0, a.y1)); assertEquals(listOf(1075.0, 1125.0, 2025.0, 2075.0), listOf(b.x0, b.x1, b.y0, b.y1))
         assertEquals(listOf(100.0, 400.0, 100.0, 400.0), listOf(c.x0, c.x1, c.y0, c.y1), "a Note is no point: its box is left as it came")
-        assertEquals(mapOf("FPLB1.cl" to 375.0, "FPLB1.cs" to 875.0, "CLV2.cf" to 7.0), r.prep.actual)
+        assertEquals(mapOf("FPLB1.cl" to 375.0, "FPLB1.cs" to 875.0, "CLV2.cf" to 57.0), r.prep.actual, "the ceiling's LV: 7 + half its 100 mm box")
+    }
+
+    /**
+     * THE L5 REVIEW, finding 1. What the PAGE'S OWN normPoints answers for an older box of a point with edge readings
+     * (cut out of index61c2.html 4944-4955 and run in node: `proto-tables.mjs`, "L5 REVIEW normPoints"), typed out:
+     * surface, type, code, the box, its readings -> the readings after, the spot. A plan Plumbing point's and a plan
+     * Low-voltage point's l r f k are EDGE readings -- no build measured one to its centre under those keys -- and take
+     * half the measured width (else the box's) or half the box's height, as on a wall. L5 as built moved them unchanged
+     * (CLV2.cf 7, GPLB1.cl 40 / .ck 60), the phone's rule for a plan Bulb and Fan reaching two types it was never made for.
+     */
+    private val NORM_PAGE = listOf(
+        "floor PLB GPLB1 100,250,200,350 l=40 k=60 -> GPLB1.ck=135 GPLB1.cl=115 @ 150,200,250,300",
+        "floor PLB GPLB2 100,250,200,350 r=40 f=60 w=120 -> GPLB2.cf=135 GPLB2.cr=100 @ 150,200,250,300",
+        "ceil LV CLV2 1000,1200,2000,2100 f=7 -> CLV2.cf=57 @ 1075,1125,2025,2075",
+        "ceil LV CLV3 1000,1200,2000,2100 l=10 k=20 h=80 -> CLV3.ck=60 CLV3.cl=110 @ 1075,1125,2025,2075",
+        "front PLB FPLB1 300,450,800,950 l=300 s=800 w=150 -> FPLB1.cl=375 FPLB1.cs=875 @ 350,400,850,900",
+        "front LV FLV1 300,450,800,950 r=300 t=800 -> FLV1.cr=375 FLV1.ct=875 @ 350,400,850,900",
+        // the two the page and the phone already agreed on: a plan Bulb unchanged, a plan Electric point keeping l r f k
+        "ceil P CP9 500,650,800,950 r=900 f=700 -> CP9.cf=700 CP9.cr=900 @ 550,600,850,900",
+        "floor P GP9 925,1075,1925,2075 l=1000 k=2000 -> GP9.ck=2000 GP9.cl=1000 @ 975,1025,1975,2025",
+        "floor E GE1 0,150,0,150 l=75 k=75 -> GE1.k=75 GE1.l=75 @ 50,100,50,100",
+    )
+
+    private fun n1(v: Double) = if (v == Math.rint(v)) v.toLong().toString() else v.toString()
+
+    @Test fun `an older box of a plan Plumbing or Low-voltage point - its edge readings take half the box, as the page's normPoints answers`() {
+        val got = NORM_PAGE.map { row ->
+            val (given, _) = row.split(" -> "); val f = given.split(" ")
+            val (s, t, code) = f; val box = f[3].split(",").map { it.toDouble() }
+            val p = SurveyPrep.fresh(L, W, H)
+            p.surface(s).marks.add(SurveyPrep.Mark("a", t, code, box[0], box[1], box[2], box[3]))
+            for (kv in f.drop(4)) kv.split("=").let { (k, v) -> p.actual["$code.$k"] = v.toDouble() }
+            val r = SurveyPrep.normPoints(p); val e = r.prep.markById("a")!!.second
+            assertFalse(SurveyPrep.normPoints(r.prep).changed, "$code: the edge keys are consumed, so a second pass changes nothing")
+            given + " -> " + r.prep.actual.toSortedMap().map { (k, v) -> k + "=" + n1(v) }.joinToString(" ") + " @ " + listOf(e.x0, e.x1, e.y0, e.y1).joinToString(",") { n1(it) }
+        }
+        assertEquals(NORM_PAGE.joinToString("\n"), got.joinToString("\n"))
+        // WHERE THE PHONE STILL DIFFERS, on purpose and not L5's: a plan FAN moves unchanged (v52 slice 4, SurveyPrepTest
+        // "a plan Fan moves unchanged"), where the page adds half its box as for any plan point but a Bulb -- CF1.cl 1100
+        // here, 1200 on the page. No build has written an l r f k reading for a ceiling Fan; left for the prototype.
+        val fan = SurveyPrep.fresh(L, W, H)
+        fan.surface("ceil").marks.add(SurveyPrep.Mark("f", "F", "CF1", 1000.0, 1200.0, 1000.0, 1200.0)); fan.actual["CF1.l"] = 1100.0
+        assertEquals(mapOf("CF1.cl" to 1100.0), SurveyPrep.normPoints(fan).prep.actual)
+        // and the phone's own extension (v52 slice 4), which the page does not have: an edge reading that arrives for a
+        // point ALREADY a spot converts too -- on a plan as on a wall, by its 50 mm box where nothing else is known
+        val late = SurveyPrep.fresh(L, W, H)
+        late.surface("floor").marks.add(SurveyPrep.Mark("g", "PLB", "GPLB3", 500.0, 550.0, 500.0, 550.0)); late.actual.putAll(mapOf("GPLB3.l" to 40.0, "GPLB3.f" to 60.0))
+        assertEquals(mapOf("GPLB3.cl" to 65.0, "GPLB3.cf" to 85.0), SurveyPrep.normPoints(late).prep.actual)
     }
 
     // ------------------------------------------------------------------ the sub-kinds
@@ -461,6 +511,49 @@ class MarkTypesTest {
         val plain = PhaseTools.place(p, "back", "SAN", 1300.0, 900.0, W, H, "w2", PhaseTools.SURVEY, null, at) { steps++ }!!.mark
         assertEquals(emptyMap(), plain.extra); assertEquals(listOf(1025.0, 1575.0, 675.0, 1125.0), listOf(plain.x0, plain.x1, plain.y0, plain.y1))
         assertNull(PhaseTools.place(p, "back", "SAN", 1300.0, 900.0, W, H, "w3", PhaseTools.ESTIMATION, null, at, "geyser") { steps++ }); assertEquals(2, steps)
+    }
+
+    /**
+     * THE L5 REVIEW, finding 2 -- the contract slice L6 builds on, pinned where it will be read. `place` and `addMarkAt`
+     * are given ONE sub-kind and read it against the surface the mark LANDS on. The page never hands one over: addElAt
+     * (index61c2.html 5922-5926) asks its memory -- kept per type AND kind of surface, `subMem[t+'@'+kind]` (2471-2473) --
+     * with the landed surface, for the box and for the stored key. An id is not a kind's own, so the caller must do the
+     * same: the sub-kind chosen on a wall tab, handed in for a tap on the 360 that lands on the floor, is stored THERE
+     * wherever the floor has a sub-kind of that id -- and `cold`, the wall's default, is the floor's third.
+     */
+    @Test fun `the sub-kind handed to place is read against the surface the mark lands on - so the caller asks its memory with that surface, not the tab's`() {
+        // the ids two kinds of surface share, and where each sits in its list: only at 0 is it the default, stored as nothing
+        val shared = MarkTypes.SUBS.flatMap { (t, by) -> by.values.flatMap { l -> l.map { it.id } }.distinct()
+            .map { id -> t to id to by.mapValues { (_, l) -> l.indexOfFirst { it.id == id } }.filterValues { it >= 0 } }.filter { it.second.size > 1 }
+            .map { (ti, at) -> "${ti.first} ${ti.second} " + at.map { (k, i) -> "$k:$i" }.joinToString(" ") } }
+        assertEquals(listOf("PLB cold wall:0 floor:2", "PLB hot wall:1 floor:3", "PLB waste wall:5 floor:1",
+            "CTR track wall:0 ceil:0", "CTR rod wall:1 ceil:1", "CTR roller wall:2 ceil:2", "CTR vertical wall:3 ceil:3", "CRP other wall:7 floor:3",
+            "LV camera wall:0 ceil:0", "LV wifi wall:4 ceil:1") + listOf("crack", "damp", "hollow", "peeling", "tile").mapIndexed { i, d -> "DEF $d wall:$i floor:$i ceil:$i" }, shared)
+
+        val p = SurveyPrep.fresh(L, W, H); val at = Instant.parse("2026-11-12T05:00:00Z")
+        fun put(s: String, t: String, sub: String?, id: String): SurveyPrep.Mark = PhaseTools.place(p, s, t, 1000.0, 1000.0, W, if (SurveyPrep.isPlan(s)) L else H, id, PhaseTools.SURVEY, null, at, sub) {}!!.mark
+        fun shown(s: String, e: SurveyPrep.Mark) = MarkTypes.displayName(Tx.EN, s, e)
+        // the wall's default, as a wall tab's tool holds it: on a wall nothing is stored ...
+        val onWall = put("front", "PLB", "cold", "a")
+        assertEquals(emptyMap(), onWall.extra); assertEquals("Plumbing point · Cold", shown("front", onWall))
+        // ... and the SAME id for a tap that lands on the floor is stored: a Cold point, where the page -- its floor memory
+        // untouched -- places the floor's default and stores nothing
+        val wallsOnFloor = put("floor", "PLB", "cold", "b")
+        assertEquals(mapOf("sub" to "cold"), wallsOnFloor.extra); assertEquals("Plumbing point · Cold", shown("floor", wallsOnFloor))
+        // what the page's addElAt hands over there: the memory of the kind the mark lands on -- the floor's first until
+        // the picker sets the floor's own (subFor(t, tkind(s)))
+        val floors = put("floor", "PLB", MarkTypes.firstSub("PLB", "floor"), "c")
+        assertEquals(emptyMap(), floors.extra); assertEquals("Plumbing point · Floor trap", shown("floor", floors))
+        // an id the landed kind does not have reads as its first and is not stored: the wall's Mixer and Wardrobe on the floor
+        assertEquals(emptyMap(), put("floor", "PLB", "mixer", "d").extra)
+        val unit = put("floor", "CRP", "wardrobe", "e")
+        assertEquals(emptyMap(), unit.extra); assertEquals("Bed", shown("floor", unit))
+        assertEquals(SurveyPrep.placeAt("CRP", "floor", 1000.0, 1000.0, W, L).toList(), listOf(unit.x0, unit.x1, unit.y0, unit.y1))
+        // and a shared id takes the LANDED kind's box: the wall's Other unit handed in for the floor is the floor's Other unit
+        val other = put("floor", "CRP", "other", "f")
+        assertEquals(mapOf("sub" to "other"), other.extra)
+        assertEquals(SurveyPrep.placeAt("CRP", "floor", 1000.0, 1000.0, W, L, "other").toList(), listOf(other.x0, other.x1, other.y0, other.y1))
+        assertEquals(mapOf("sub" to "wifi"), p.addMarkAt("ceil", "LV", 1000.0, 1000.0, W, L, "g", "wifi").extra)
     }
 
     // ------------------------------------------------------------------ codes and reading keys

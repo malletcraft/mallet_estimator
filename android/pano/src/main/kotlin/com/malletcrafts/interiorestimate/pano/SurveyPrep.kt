@@ -1161,7 +1161,12 @@ object SurveyPrep {
         }
 
         /** A new mark of type [t] on [s] where the finger is, ([x], [y]) mm: [placeAt], numbered as [addMark], and of
-         *  the sub-kind [sub] as [addMark]'s. */
+         *  the sub-kind [sub] as [addMark]'s. [sub] IS THE SUB-KIND REMEMBERED FOR THE KIND OF SURFACE [s] IS -- the
+         *  surface the mark LANDS on, which on the 360 need not be the open tab's (the L5 review, finding 2; the
+         *  page's addElAt, index61c2.html 5922-5926, asks `T53.newFields(t, tkind(s))` and `defaults(s, …)` with the
+         *  landed surface). It is read against [s] alone, and an id can be a sub-kind of two kinds of surface (a
+         *  Plumbing point's `cold`: the wall's first, the floor's third), so another kind's id is stored if it
+         *  happens to be one of this kind's too: the caller asks its memory with [s] ([PhaseTools.place]). */
         fun addMarkAt(s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String, sub: String? = null): Mark {
             val d = placeAt(t, s, x, y, a, b, sub)
             return Mark(id, t, claimCode(s, t), d[0], d[1], d[2], d[3], MarkTypes.withSub(emptyMap(), t, s, sub)).also { surface(s).marks.add(it) }
@@ -1314,6 +1319,10 @@ object SurveyPrep {
      *    measured height (else [WAS], else the box's) -- l to cl, r to cr, s to cs, t to ct;
      *  - on the floor or ceiling a Bulb or a Fan was already measured to its centre, so its
      *    l, r, f, k move to cl, cr, cf, ck UNCHANGED; an Electric point keeps l, r, f, k;
+     *  - on the floor or ceiling EVERY OTHER POINT -- a Plumbing point, a Low-voltage point (port 62 slice L5,
+     *    its review) -- converts as on a wall, l / r plus half its width and f / k plus half its height: no build
+     *    ever measured one to its centre under l, r, f, k, so such a reading is an edge reading, and that is what
+     *    the prototype's normPoints (`toC=plan&&e.t==='P'`, index61c2.html 4950) and S5's /projects make of it;
      *  - its w and h, which a spot does not have, are taken out;
      *  - A FIGURE ALREADY UNDER THE CENTRE KEY IS NEVER OVERWRITTEN (staff on S5 typing to the
      *    centre while an old phone still sent the edge): the edge reading is then only removed --
@@ -1340,9 +1349,11 @@ object SurveyPrep {
                 val mh = act[key("h")] ?: (if (!boxed) was?.get(1) else null) ?: bh
                 val changes = mutableListOf<String>()
                 if (e.code.isNotEmpty()) {
+                    // already to its centre on a plan: the page's Bulb (`toC`), and the phone's own Fan (v52 slice 4)
+                    val toC = plan && (e.t == "P" || e.t == "F")
                     if (!(plan && e.t == "E")) for (k in if (plan) listOf("l", "r", "f", "k") else listOf("l", "r", "s", "t")) {
                         val v0 = act[key(k)] ?: continue
-                        val v = Math.round((v0 + (if (plan) 0.0 else (if (k == "l" || k == "r") mw else mh) / 2)) * 10) / 10.0
+                        val v = Math.round((v0 + (if (toC) 0.0 else (if (k == "l" || k == "r") mw else mh) / 2)) * 10) / 10.0
                         val ck = ckey(plan, e.t, k); val to = key(ck)
                         val kept = act[to]
                         val own = kept != null && conv[ck]?.let { abs(it - kept) < 1e-6 } == true

@@ -256,9 +256,18 @@ object PhaseTools {
      * A DUPLICATE is not a placement: the prototype's duplicateItem copies the box alone and stamps nothing
      * ([SurveyPrepEdit.duplicate]; DESIGN-port62 Q-list 8) -- and the phone makes that copy of a mark only where a tap
      * here would place the same unstamped mark ([copyOk]).
-     * [sub] (port 62 slice L5; the prototype's T53.newFields): the sub-kind the type tool is on -- the new mark takes
-     * that sub-kind's size and stores it only when it is not the type's first ([SurveyPrep.Prep.addMarkAt]). Nothing
-     * passes one until the kind picker exists (slice L6), so every mark placed today is its type's first sub-kind.
+     * [sub] (port 62 slice L5; the prototype's T53.newFields): the sub-kind the new mark takes -- that sub-kind's
+     * size, stored only when it is not the type's first ([SurveyPrep.Prep.addMarkAt]). Nothing passes one until the
+     * kind picker exists (slice L6), so every mark placed today is its type's first sub-kind.
+     * WHICH SUB-KIND THE CALLER HANDS IN (the L5 review, finding 2): THE ONE REMEMBERED FOR [t] ON THE KIND OF
+     * SURFACE THE MARK LANDS ON -- [MarkTypes.kindOf] of [s], the surface under the finger -- NEVER the open tab's.
+     * The page asks its memory, kept per type AND kind of surface (`subMem[t+'@'+kind]`, index61c2.html 2470-2473),
+     * with the landed surface for the box and for the stored key alike (addElAt 5922-5926: `defaults(s,t,A,B)` and
+     * `T53.newFields(t,tkind(s))`). On the 360 the two differ: a tap made from a wall tab can land on the floor. And
+     * an id is not a kind's own -- a Plumbing point's `cold` is the wall's FIRST sub-kind and the floor's third,
+     * `other`, `waste`, `hot` and `wifi` are shared the same way -- so the wall's sub-kind handed in for a tap on the
+     * floor is STORED there (`sub: cold`, "Plumbing point · Cold"), where the page places a Floor trap. This
+     * function cannot tell: it is given one id and reads it against the surface it is given (MarkTypesTest pins it).
      */
     fun place(p: SurveyPrep.Prep, s: String, t: String, x: Double, y: Double, a: Double, b: Double, id: String,
               stage: Int?, picked: String?, at: Instant, sub: String? = null, snapshot: () -> Unit): Placed? {
