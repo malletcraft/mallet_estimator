@@ -416,6 +416,10 @@ fun CaptureScreen(
     /** Opens Which work? to re-file this capture; null before Client approved,
      *  where the line is read-only (the prototype's detailRow57ro). */
     onPickWork: (() -> Unit)?,
+    /** Whether the WORK line is drawn at all (Album.workRowShown of this
+     *  capture's filing): always with site progress on; with it off only for a
+     *  capture filed to one of the sixteen works (port 63 slice SP0 review). */
+    workShown: Boolean,
     onPickSku: () -> Unit,
     onDelete: (() -> Unit)? = null,
     /** ERP's name for this capture, blank while it is still only on the
@@ -459,12 +463,17 @@ fun CaptureScreen(
         // over the stage it was taken in, the work's state, or `not filed to
         // a work`. Read-only until Client approved (no tap, no chevron);
         // after it a tap opens Which work? and re-files this one capture.
-        DetailRow(
-            lead = tx.album_work_caps,
-            title = Album.filingHead(tx, capture.work),
-            subtitle = workSub,
-            dim = capture.work == null,
-            onClick = onPickWork)
+        // With site progress off it is drawn only for a capture filed to a
+        // work (workShown, Album.workRowShown): a Quote-journey capture has no
+        // WORK line then, and the top bar still names every filing.
+        if (workShown) {
+            DetailRow(
+                lead = tx.album_work_caps,
+                title = Album.filingHead(tx, capture.work),
+                subtitle = workSub,
+                dim = capture.work == null,
+                onClick = onPickWork)
+        }
         // ONLY on a flat photo. A 360 is the record of a whole ROOM, and a
         // room is not one article — you cannot say "this 360 is the
         // wardrobe". What CAN carry a SKU is a single wall, floor or

@@ -224,21 +224,23 @@ class CaptureFilingTest {
 
     @Test fun `workSub - the stage, the state or not filed, then the lock before approval and tap to change after`() {
         val lock = " · locked until the client approves the estimate"
-        // the capture sheet before approval (workRow61c): the Quote journey over the stage and the lock
-        assertEquals("Vendor quoted$lock", Album.workSub(Tx.EN, false, 0, "Vendor quoted", null))
-        assertEquals("not read yet$lock", Album.workSub(Tx.EN, false, 0, "not read yet", null))
+        // the capture sheet before approval (workRow61c): the Quote journey over the stage and the lock -- the lock
+        // promises the pick that approval brings, so it is site progress's too (stated; with it off: FeaturesTest)
+        assertEquals("Vendor quoted$lock", Album.workSub(Tx.EN, false, 0, "Vendor quoted", null, siteProgress = true))
+        assertEquals("not read yet$lock", Album.workSub(Tx.EN, false, 0, "not read yet", null, siteProgress = true))
         // the photo's line before approval: an old photo filed under a work by its stage reads the work's state
-        assertEquals("Not started$lock", Album.workSub(Tx.EN, false, 20, "Survey", null))
-        assertEquals("not filed to a work$lock", Album.workSub(Tx.EN, false, null, "Survey", null))
+        assertEquals("Not started$lock", Album.workSub(Tx.EN, false, 20, "Survey", null, siteProgress = true))
+        assertEquals("not filed to a work$lock", Album.workSub(Tx.EN, false, null, "Survey", null, siteProgress = true))
         // after approval: the state and tap to change; an unfiled one says so; a quote-journey one keeps its stage
-        assertEquals("In progress · tap to change", Album.workSub(Tx.EN, true, 20, "Survey", Album.IN_PROGRESS))
-        assertEquals("Not started · tap to change", Album.workSub(Tx.EN, true, 90, "Survey", null))
-        assertEquals("not filed to a work · tap to change", Album.workSub(Tx.EN, true, null, "Survey", null))
-        assertEquals("Survey · tap to change", Album.workSub(Tx.EN, true, 0, "Survey", null))
+        // (re-filing is execution's, so with site progress ON, stated; with it off the line stops at its lead: FeaturesTest)
+        assertEquals("In progress · tap to change", Album.workSub(Tx.EN, true, 20, "Survey", Album.IN_PROGRESS, siteProgress = true))
+        assertEquals("Not started · tap to change", Album.workSub(Tx.EN, true, 90, "Survey", null, siteProgress = true))
+        assertEquals("not filed to a work · tap to change", Album.workSub(Tx.EN, true, null, "Survey", null, siteProgress = true))
+        assertEquals("Survey · tap to change", Album.workSub(Tx.EN, true, 0, "Survey", null, siteProgress = true))
         // hand-typed Marathi pins (SurveyPrepMarathiTest's rule)
-        assertEquals("व्हेंडरचे कोटेशन · ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक", Album.workSub(Tx.MR, false, 0, "व्हेंडरचे कोटेशन", null))
-        assertEquals("चालू आहे · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, 20, "", Album.IN_PROGRESS))
-        assertEquals("कोणत्याही कामात ठेवलेला नाही · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, null, "", null))
+        assertEquals("व्हेंडरचे कोटेशन · ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक", Album.workSub(Tx.MR, false, 0, "व्हेंडरचे कोटेशन", null, siteProgress = true))
+        assertEquals("चालू आहे · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, 20, "", Album.IN_PROGRESS, siteProgress = true))
+        assertEquals("कोणत्याही कामात ठेवलेला नाही · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, null, "", null, siteProgress = true))
     }
 
     @Test fun `needsRefile - on web, filed off the Quote journey, and not yet told to S5 as filed now`() {

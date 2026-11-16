@@ -467,6 +467,8 @@ fun RoomsScreen(
  *   THE TAP (role button, its expanded state announced as the expand / collapse action, as the prototype's
  *   aria-expanded): it opens the quote view under it for this visit, and while folded the second line ends in
  *   `tap to view` (D7: the span goes while open). With no [quote] (a line not at Client approved) there is no tap.
+ *   WITH SITE PROGRESS OFF (Features.SITE_PROGRESS, port 63 slice SP0) the same ✓ line reads `Quote · Client approved`
+ *   over `since …` (QuoteStage.projectLine decides the words; nothing here does), and its tap opens the same view.
  */
 @Composable
 private fun ProjectLineBox(line: QuoteStage.ProjectLine, quote: QuoteViewArgs?) {

@@ -155,9 +155,11 @@ object QuoteStageSync {
      * ([lineFor]) while it is the execution line -- "Execution · 1 in progress · 1 done" -- else null: through the
      * quote journey the band says the phase's own words and asks for no line. The same copy and the same queued
      * writes as every other reader of the line, so the band and the project screen never say two things.
+     * WHICH line is the execution line is QuoteStage.bandLine's answer (port 63 slice SP0): with site progress off
+     * (Features.SITE_PROGRESS) none is, so at Client approved the band says the stage's name alone.
      */
     fun prepLine(context: Context, stageKey: String?, tx: Tx): String? =
-        lineFor(context, stageKey, tx).takeIf { it.kind == QuoteStage.LineKind.EXEC }?.text
+        QuoteStage.bandLine(lineFor(context, stageKey, tx))
 
     /**
      * The works' states every other reader draws (port 61c slice K4): the store's copy for [stageKey] with the signed-in

@@ -743,9 +743,10 @@ class WishListTest {
         assertTrue(WishList.chipShown(i))
         assertEquals(listOf("Approved — changes go through change requests"),
             WishList.banners(Tx.EN, i, warned = false, notOnS5 = false))
-        // the top bar's sub-line, the one project line: approved, its states not read yet (port 61c slice PL)
+        // the top bar's sub-line, the one project line: approved, its states not read yet (port 61c slice PL) -- the
+        // execution line, so with site progress ON, stated; with it off the bar reads the approved state (FeaturesTest)
         assertEquals("Execution · not read yet",
-            QuoteStage.projectLine(named, false, emptyList(), Tx.EN, java.time.Instant.parse("2026-10-28T04:00:00Z")).text)
+            QuoteStage.projectLine(named, false, emptyList(), Tx.EN, java.time.Instant.parse("2026-10-28T04:00:00Z"), siteProgress = true).text)
         // what the stale screen drew before: no stage, so editable, with no banner and no lock
         assertTrue(WishList.editable(WishList.stageIndex(null)))
         assertEquals(emptyList(), WishList.banners(Tx.EN, null, warned = false, notOnS5 = true))

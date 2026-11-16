@@ -375,7 +375,11 @@ object QuoteStage {
 
     // ---- THE ONE DERIVED PROJECT LINE (v61c §3.1; index61c2.html projectLine) ------------------------------
 
-    /** What the line says: not read, a project S5 does not list, a quote-journey stage, or execution. */
+    /**
+     * What the line says: not read, a project S5 does not list, a quote-journey stage, or execution. [EXEC] is the line
+     * AT CLIENT APPROVED: its words are execution's only while site progress is on ([Features.SITE_PROGRESS]); with it
+     * off the same kind reads `Quote · Client approved` ([projectLine]).
+     */
     enum class LineKind { UNREAD, LOCAL, QUOTE, EXEC }
 
     /**
@@ -424,8 +428,19 @@ object QuoteStage {
      *   and never a bare `Execution` (critic G7). Its second line is `Quote · Client approved`.
      * The read time (decision 1 of 15 Oct) ends the second line of a quote-journey, unread or not-listed copy
      * read before today in IST.
+     *
+     * WITH SITE PROGRESS OFF ([siteProgress] false; [Features.SITE_PROGRESS], port 63 slice SP0 -- Amit, 15 Nov 2026:
+     * "Site progress will do post I confirm that survey to quote looks good") the line at Client approved says the
+     * approved state and nothing of execution: `Quote · Client approved` over `since d MMM, HH:mm IST on S5` -- the
+     * words every quote-journey stage already reads in, no new text -- with no count, whatever states or queued
+     * writes the phone holds. It is still the Client approved line ([LineKind.EXEC], every pip's worth lit, no read
+     * time: approval is final, so an old read still says where the project is), so the strip stays folded into the
+     * approved quote view and no reader has a second rule to keep. Every other line is the same either way.
      */
-    fun projectLine(cache: Cache?, phoneOnly: Boolean, queued: List<Album.Op>, tx: Tx, now: Instant): ProjectLine {
+    fun projectLine(
+        cache: Cache?, phoneOnly: Boolean, queued: List<Album.Op>, tx: Tx, now: Instant,
+        siteProgress: Boolean = Features.SITE_PROGRESS,
+    ): ProjectLine {
         if (phoneOnly) return local(tx, "", false)
         val old = cache != null && readIsOld(cache.readAt, now)
         val read = if (old) tx.wish_read_x(hm = hm(instantOf(cache!!.readAt)!!)) else ""
@@ -438,23 +453,37 @@ object QuoteStage {
         }
         if (stage != APPROVED) {
             val shown = Masters.quote(tx, stage)
-            val t = instantOf(cache.at)
-            val second = when {
-                t != null -> tx.wish_since_x_x_ist(d = day(t), h = hm(t))
-                // NAMED by an answer without its stamp ([named]): when S5 set it is unknown, not never set, so the
-                // line says it is not read yet, as `Execution · not read yet` does for states (critic G7) -- never
-                // `not set on S5 yet`, which a stage staff moved back to Survey would contradict (slice PL review)
-                cache.atUnknown -> listOf(shown, tx.wish_not_read_yet).joinToString(SEP)
-                else -> tx.wish_x_not_set_s5_yet(stage = shown)
-            }
-            return ProjectLine(LineKind.QUOTE, stage, tx.common_quote_x(quote = shown), emptyList(), second + read, i + 1, old,
+            return ProjectLine(LineKind.QUOTE, stage, tx.common_quote_x(quote = shown), emptyList(), since(tx, cache, shown) + read, i + 1, old,
                 tx.export_x_x(v = (i + 1).toString(), n = STAGES.size.toString()), atUnknown = cache.atUnknown)
+        }
+        if (!siteProgress) {
+            // SITE PROGRESS OFF (Features.SITE_PROGRESS): the approved state in the quote journey's own words, no count
+            val shown = Masters.quote(tx, APPROVED)
+            return ProjectLine(LineKind.EXEC, APPROVED, tx.common_quote_x(quote = shown), emptyList(), since(tx, cache, shown),
+                STAGES.size, false, "", atUnknown = cache.atUnknown)
         }
         val states = cache.states
         val parts = if (states == null) emptyList() else execParts(tx, Album.withQueued(states, queued))
         val head = if (states == null) listOf(tx.app_execution, tx.wish_not_read_yet) else listOf(tx.app_execution) + parts
         return ProjectLine(LineKind.EXEC, APPROVED, head.joinToString(SEP), parts,
             tx.common_quote_x(quote = Masters.quote(tx, APPROVED)), STAGES.size, false, "", atUnknown = cache.atUnknown)
+    }
+
+    /**
+     * The second line of a stage S5 lists, [shown] being its name through Masters: `since d MMM, HH:mm IST on S5`; for a
+     * copy an answer NAMED without its stamp, `<stage> · not read yet`; `<stage> · not set on S5 yet` when S5 has not
+     * timed it. One rule for the five quote-journey stages and -- with site progress off -- for Client approved.
+     */
+    private fun since(tx: Tx, cache: Cache, shown: String): String {
+        val t = instantOf(cache.at)
+        return when {
+            t != null -> tx.wish_since_x_x_ist(d = day(t), h = hm(t))
+            // NAMED by an answer without its stamp ([named]): when S5 set it is unknown, not never set, so the
+            // line says it is not read yet, as `Execution · not read yet` does for states (critic G7) -- never
+            // `not set on S5 yet`, which a stage staff moved back to Survey would contradict (slice PL review)
+            cache.atUnknown -> listOf(shown, tx.wish_not_read_yet).joinToString(SEP)
+            else -> tx.wish_x_not_set_s5_yet(stage = shown)
+        }
     }
 
     private fun local(tx: Tx, read: String, old: Boolean): ProjectLine =
@@ -496,11 +525,23 @@ object QuoteStage {
     /**
      * The rooms grid's dot for a room with [captures] (green when true, amber when false; a room with none
      * draws no dot): before approval the journey rule ([surveyShot]); at Client approved ([approved]) a capture
-     * filed to one of the sixteen works ([Album.workOfCapture], neither the quote journey nor unfiled).
+     * filed to one of the sixteen works ([Album.workOfCapture], neither the quote journey nor unfiled) -- which is
+     * execution's dot, so with site progress off ([siteProgress] false; [Features.SITE_PROGRESS], port 63 slice SP0)
+     * the journey rule stays after approval too: the dot goes on saying whether the room was surveyed.
      */
-    fun roomDot(captures: List<Shot>, approved: Boolean): Boolean =
-        if (approved) captures.any { s -> Album.workOfCapture(s.work, s.stage).let { w -> w != null && w != Album.QUOTE_WORK } }
+    fun roomDot(captures: List<Shot>, approved: Boolean, siteProgress: Boolean = Features.SITE_PROGRESS): Boolean =
+        if (approved && siteProgress) captures.any { s -> Album.workOfCapture(s.work, s.stage).let { w -> w != null && w != Album.QUOTE_WORK } }
         else captures.any { surveyShot(it) }
+
+    /**
+     * WHAT SURVEY PREP'S BAND SAYS AFTER "Client approved" ([PhaseTools.band]'s `line`): the project line's own text
+     * while that is the execution line -- "Execution · 1 in progress · 1 done" -- else null, and the band then says the
+     * stage's name alone. Null through the quote journey, where the band says the phase's own words; and null at
+     * Client approved with site progress off ([siteProgress] false; [Features.SITE_PROGRESS], port 63 slice SP0),
+     * where [projectLine] reads `Quote · Client approved` and the band would only say the stage twice.
+     */
+    fun bandLine(line: ProjectLine, siteProgress: Boolean = Features.SITE_PROGRESS): String? =
+        line.text.takeIf { siteProgress && line.kind == LineKind.EXEC }
 
     /** SURVEY COVERAGE: [n] of the [of] rooms in scope shot in the survey; [left] not shot yet. */
     data class Coverage(val n: Int, val of: Int) {

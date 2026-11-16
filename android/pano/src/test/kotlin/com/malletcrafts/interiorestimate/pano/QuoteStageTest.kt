@@ -295,8 +295,10 @@ class QuoteStageTest {
     private fun tree(t: String): Any? = MiniJson.parse(t)
     private fun rows(body: String): List<Listed> =
         ((tree(body) as Map<*, *>)["projects"] as List<*>).map { assertNotNull(QuoteStage.listedOf(MiniRead, it)) }
+    // THE LINE WITH SITE PROGRESS ON, stated: these tests hold the execution line and every line before it, whichever
+    // way Features.SITE_PROGRESS stands (port 63 slice SP0); the line with it off is FeaturesTest's
     private fun line(c: Cache?, tx: Tx = Tx.EN, phoneOnly: Boolean = false, queued: List<Album.Op> = emptyList(), t: Instant = now) =
-        QuoteStage.projectLine(c, phoneOnly, queued, tx, t)
+        QuoteStage.projectLine(c, phoneOnly, queued, tx, t, siteProgress = true)
     private fun approved(states: Map<Int, WorkState>?) = Cache(true, "Client approved", "pm@x", at, now.toString(), states)
 
     // S5's stamps in the QM0 harness run (S5Quote)
@@ -571,11 +573,12 @@ class QuoteStageTest {
         assertTrue(QuoteStage.roomDot(listOf(Shot(0, "Defect recorded"), Shot(null, "")), false))
         assertFalse(QuoteStage.roomDot(emptyList(), false))
         // after approval: any capture whose filing (workOfCapture) is a work -- neither the quote journey nor unfiled
-        assertTrue(QuoteStage.roomDot(listOf(Shot(50, "")), true))
-        assertTrue(QuoteStage.roomDot(listOf(Shot(null, "Plaster & waterproofing")), true), "an old capture filed by its stage, at 20")
-        assertFalse(QuoteStage.roomDot(listOf(Shot(0, ""), Shot(null, QuoteStage.SURVEY_STAGE), Shot(null, "")), true), "the quote journey")
-        assertFalse(QuoteStage.roomDot(listOf(Shot(null, "Material delivered on site")), true), "unfiled")
-        assertTrue(QuoteStage.roomDot(listOf(Shot(999, "Snagging")), true), "a stray id files by its stage (140)")
+        // (execution's dot, so with site progress ON, stated; with it off the journey rule stays: FeaturesTest)
+        assertTrue(QuoteStage.roomDot(listOf(Shot(50, "")), true, siteProgress = true))
+        assertTrue(QuoteStage.roomDot(listOf(Shot(null, "Plaster & waterproofing")), true, siteProgress = true), "an old capture filed by its stage, at 20")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(0, ""), Shot(null, QuoteStage.SURVEY_STAGE), Shot(null, "")), true, siteProgress = true), "the quote journey")
+        assertFalse(QuoteStage.roomDot(listOf(Shot(null, "Material delivered on site")), true, siteProgress = true), "unfiled")
+        assertTrue(QuoteStage.roomDot(listOf(Shot(999, "Snagging")), true, siteProgress = true), "a stray id files by its stage (140)")
         assertEquals("As-built site measure", QuoteStage.SURVEY_STAGE)
     }
 

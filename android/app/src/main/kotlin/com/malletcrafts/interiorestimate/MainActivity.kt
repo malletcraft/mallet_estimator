@@ -77,6 +77,7 @@ import com.malletcrafts.interiorestimate.pano.CaptureGeometry
 import com.malletcrafts.interiorestimate.pano.DeleteRoute
 import com.malletcrafts.interiorestimate.pano.Deletes
 import com.malletcrafts.interiorestimate.pano.FaceNote
+import com.malletcrafts.interiorestimate.pano.Features
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.Phases
@@ -884,7 +885,14 @@ private fun AppScreenBody(onLang: () -> Unit) {
     }
     val fileCache = remember(fileKey, dataTick, quoteTick) { fileKey?.let { QuoteStageSync.cached(context, it) } }
     val fileLine = remember(fileKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, fileKey, tx) }
-    val fileApproved = Album.approved(fileCache?.stage)
+    // SITE PROGRESS IS BEHIND ONE FLAG (Features.SITE_PROGRESS; port 63 slice SP0 -- Amit, 15 Nov 2026: "Do not delete
+    // any site progress code but toggle it as feature flag"). `fileApproved` is Album.execution's answer -- the client
+    // has approved AND site progress is on -- so with the flag off nothing below changes at approval: a new capture
+    // stays the Quote journey's (newWork is 0), the sheet's WORK row is not drawn (Album.workRowShown; SP0 review: it
+    // could only ever say Quote journey, under a lock that never lifts), its buttons never wait for a pick, and a
+    // single photo is not handed to S5's album. The project's own stage is asked only for the row's words with site
+    // progress on (Album.workSub: the lock before approval, `tap to change` after it).
+    val fileApproved = Album.execution(fileCache?.stage)
     // the works' states with this login's queued writes laid over them (port 61c slice K4): a state tapped on the
     // album is the default pick and the Which work? line at once
     val fileStates = remember(fileKey, dataTick, quoteTick) { QuoteStageSync.states(context, fileKey) }
@@ -1817,7 +1825,11 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
         // The tile, last in the rooms grid: the count of what this person may see (AlbumPage.tile). Opening it starts
         // a visit: nothing opened or folded by hand, the log folded, no photo open, the missing pictures asked again.
-        val albumTile = proj?.let { p ->
+        // THE ALBUM'S ONE ENTRY, behind Features.SITE_PROGRESS (port 63 slice SP0): with site progress off there is no
+        // tile -- the grid closes up after the rooms -- and nothing else sets albumFor, so the album's screen, its
+        // chapters and states, the Project Manager's writes, the change requests and the progress shot are all
+        // unreachable, and none of their code is gone.
+        val albumTile = if (!Features.SITE_PROGRESS) null else proj?.let { p ->
             AlbumTileArgs(AlbumPage.tile(tx, p.title, mirror, projectLine, albumItems)) {
                 AlbumImages.newVisit()
                 albumOpen.clear()
@@ -2489,7 +2501,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
         }
         val capCache = remember(capKey, dataTick, quoteTick) { capKey?.let { QuoteStageSync.cached(context, it) } }
         val capLine = remember(capKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, capKey, tx) }
-        val capApproved = Album.approved(capCache?.stage)
+        // Album.execution, as the capture sheet's fileApproved is (Features.SITE_PROGRESS, port 63 slice SP0): with site
+        // progress off the WORK line re-files nothing after approval either -- no tap, no Which work?, no job -- and is
+        // drawn only for a capture filed to one of the sixteen works (Album.workRowShown, SP0 review)
+        val capApproved = Album.execution(capCache?.stage)
         // the works' states with this login's queued writes laid over them (port 61c slice K4)
         val capStates = remember(capKey, dataTick, quoteTick) { QuoteStageSync.states(context, capKey) }
         var capMirror by remember(capKey) { mutableStateOf<Album.View?>(null) }
@@ -2500,7 +2515,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val quoteAt = if (capCache == null || capRow == null) null else Album.quoteTakenAt(
             capMirror?.stages, java.time.Instant.ofEpochMilli(capRow.createdAt).toString(),
             capCache.stage, capCache.at, capCache.atUnknown)
-        val workSub = Album.workSub(tx, capApproved, cap.work, Album.photoQuoteLead(tx, capLine, quoteAt),
+        // the project's OWN stage for the words, as the sheet's row (Album.workSub)
+        val workSub = Album.workSub(tx, Album.approved(capCache?.stage), cap.work, Album.photoQuoteLead(tx, capLine, quoteAt),
             cap.work?.let { w -> capStates?.get(w)?.state })
 
         Scaffold(topBar = {
@@ -2559,6 +2575,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     // tap opens Which work? and re-files this one capture.
                     workSub = workSub,
                     onPickWork = if (capApproved) ({ refileWork = true }) else null,
+                    workShown = Album.workRowShown(cap.work),
                     onPickSku = { retagSku = true },
                     serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                         ?.serverName.orEmpty(),
@@ -3109,9 +3126,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
         CaptureSheet(
             // The WORK row (v61c §4.3): where the next capture files, and why it cannot be changed yet
             workHead = Album.filingHead(tx, newWork),
-            workSub = Album.workSub(tx, fileApproved, newWork, Album.quoteLead(tx, fileLine, fileLine.quote),
+            // the project's OWN stage, not fileApproved: with site progress on the words are the lock before approval
+            // and `tap to change` after it; with it off the row is not drawn at all (workShown, below)
+            workSub = Album.workSub(tx, Album.approved(fileCache?.stage), newWork, Album.quoteLead(tx, fileLine, fileLine.quote),
                 newWork?.let { w -> fileStates?.get(w)?.state }),
             onWork = if (fileApproved) ({ showCaptureSheet = false; pickWork = true }) else null,
+            workShown = Album.workRowShown(newWork),
             noWork = fileApproved && newWork == null,
             roomLength = roomLength,
             roomWidth = roomWidth,

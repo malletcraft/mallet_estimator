@@ -45,7 +45,7 @@ class AlbumWriteTest {
     private fun model(
         mirror: View? = approved, c: QuoteStage.Cache? = cache, queue: List<Op> = emptyList(), who: Me = me, phoneOnly: Boolean = false,
     ): AlbumPage.Model {
-        val line = QuoteStage.projectLine(c, phoneOnly, emptyList(), Tx.EN, now)
+        val line = QuoteStage.projectLine(c, phoneOnly, emptyList(), Tx.EN, now, siteProgress = true)   // the album's line: site progress on, stated
         return AlbumPage.model(Tx.EN, "Demo flat", AlbumPage.compose(mirror, emptyList(), who), mirror, c, line, queue, who)
     }
 
