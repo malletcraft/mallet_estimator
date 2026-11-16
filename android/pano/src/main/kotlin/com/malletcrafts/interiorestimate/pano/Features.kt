@@ -27,10 +27,13 @@ object Features {
      *    instead of `Execution · 3 in progress · 2 done` -- on the project screen, the project list's rows and the
      *    Wish list's bar ([QuoteStage.projectLine]) -- and survey prep's band reads `Client approved` alone
      *    ([QuoteStage.bandLine]);
-     *  - FILING BY WORK AFTER APPROVAL: a new capture stays the Quote journey's, the Capture 360 sheet's WORK row
-     *    takes no tap and its buttons never wait for a pick, a single photo is not handed to S5's album, and the
-     *    photo's WORK line re-files nothing ([Album.execution]); the row and the line say where the capture is filed
-     *    and nothing more ([Album.workSub]);
+     *  - FILING BY WORK: a new capture stays the Quote journey's after approval, the Capture 360 sheet's buttons
+     *    never wait for a pick, a single photo is not handed to S5's album, and the photo's WORK line re-files
+     *    nothing ([Album.execution]). The sheet's WORK ROW IS NOT DRAWN, at any stage, and the photo's WORK LINE only
+     *    for a capture already filed to one of the sixteen works ([Album.workRowShown]; SP0 review: the row could
+     *    only ever read `Quote journey`, and before approval its `locked until the client approves the estimate`
+     *    promised a pick that never came). Where the line is drawn it says where the capture is filed and nothing
+     *    more, on both sides of approval: neither the lock nor `tap to change` ([Album.workSub]);
      *  - the rooms grid's dot keeps the survey's rule after approval ([QuoteStage.roomDot]);
      *  - the workers that serve only these: the album outbox's drain (AlbumOutbox, AlbumDrainWorker) and the
      *    re-file by work with its sweep and its refusal line (WorkRefile, WorkRefileWorker, AsIsUpload.refileRefused).
@@ -40,6 +43,16 @@ object Features {
      * strip and its moves, Approve with its scope sheet, the approved quote view with its APPROVED SCOPE row, every
      * upload, and the album MIRROR's read (AlbumSync), which the Approve and the quote view draw S5's role and scope
      * from. The room screen's headings stay the filing's name, as they are before approval.
+     *
+     * STILL SAID WHILE IT IS OFF, AND OPEN FOR AMIT'S RULING (SP0 review, finding 2 -- nothing here decides it): the
+     * approval lock's own words name the change requests, which are raised and answered only in the album and so
+     * cannot be reached from the phone while this is off -- the Wish list's banner and the Mark sheet's line at
+     * Client approved (`Approved — changes go through change requests`, [WishList.lockedLine], [PhaseTools.gateText]),
+     * the scope sheet's three notes ([QuoteView.note]) and the approved chip's TalkBack label (`… in execution`,
+     * [QuoteView.approvedChipLabel]). They are left as they are, by no rule's oversight: the banner's words are the
+     * ones Amit chose for the lock (28 Oct 2026) and S5's APPROVED_FINAL verbatim, the notes are S5 /projects' own,
+     * and S5's 409 goes on saying the same whatever the phone draws -- so a second wording is his to rule on, and
+     * any new text would be English only (android/i18n/mr-pending.tsv) until he has verified the journey.
      */
     const val SITE_PROGRESS: Boolean = false
 

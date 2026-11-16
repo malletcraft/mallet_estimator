@@ -888,9 +888,10 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // SITE PROGRESS IS BEHIND ONE FLAG (Features.SITE_PROGRESS; port 63 slice SP0 -- Amit, 15 Nov 2026: "Do not delete
     // any site progress code but toggle it as feature flag"). `fileApproved` is Album.execution's answer -- the client
     // has approved AND site progress is on -- so with the flag off nothing below changes at approval: a new capture
-    // stays the Quote journey's (newWork is 0), the sheet's WORK row takes no tap, its buttons never wait for a pick,
-    // and a single photo is not handed to S5's album. The project's own stage is asked only for the row's words
-    // (Album.workSub, which drops the lock's `until the client approves` once the client has).
+    // stays the Quote journey's (newWork is 0), the sheet's WORK row is not drawn (Album.workRowShown; SP0 review: it
+    // could only ever say Quote journey, under a lock that never lifts), its buttons never wait for a pick, and a
+    // single photo is not handed to S5's album. The project's own stage is asked only for the row's words with site
+    // progress on (Album.workSub: the lock before approval, `tap to change` after it).
     val fileApproved = Album.execution(fileCache?.stage)
     // the works' states with this login's queued writes laid over them (port 61c slice K4): a state tapped on the
     // album is the default pick and the Which work? line at once
@@ -2501,7 +2502,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
         val capCache = remember(capKey, dataTick, quoteTick) { capKey?.let { QuoteStageSync.cached(context, it) } }
         val capLine = remember(capKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, capKey, tx) }
         // Album.execution, as the capture sheet's fileApproved is (Features.SITE_PROGRESS, port 63 slice SP0): with site
-        // progress off the WORK line re-files nothing after approval either -- no tap, no Which work?, no job
+        // progress off the WORK line re-files nothing after approval either -- no tap, no Which work?, no job -- and is
+        // drawn only for a capture filed to one of the sixteen works (Album.workRowShown, SP0 review)
         val capApproved = Album.execution(capCache?.stage)
         // the works' states with this login's queued writes laid over them (port 61c slice K4)
         val capStates = remember(capKey, dataTick, quoteTick) { QuoteStageSync.states(context, capKey) }
@@ -2573,6 +2575,7 @@ private fun AppScreenBody(onLang: () -> Unit) {
                     // tap opens Which work? and re-files this one capture.
                     workSub = workSub,
                     onPickWork = if (capApproved) ({ refileWork = true }) else null,
+                    workShown = Album.workRowShown(cap.work),
                     onPickSku = { retagSku = true },
                     serverId = queue.firstOrNull { q -> q.deviceId == cap.deviceId }
                         ?.serverName.orEmpty(),
@@ -3123,10 +3126,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
         CaptureSheet(
             // The WORK row (v61c §4.3): where the next capture files, and why it cannot be changed yet
             workHead = Album.filingHead(tx, newWork),
-            // the project's OWN stage, not fileApproved: the words differ at approval even while site progress is off
+            // the project's OWN stage, not fileApproved: with site progress on the words are the lock before approval
+            // and `tap to change` after it; with it off the row is not drawn at all (workShown, below)
             workSub = Album.workSub(tx, Album.approved(fileCache?.stage), newWork, Album.quoteLead(tx, fileLine, fileLine.quote),
                 newWork?.let { w -> fileStates?.get(w)?.state }),
             onWork = if (fileApproved) ({ showCaptureSheet = false; pickWork = true }) else null,
+            workShown = Album.workRowShown(newWork),
             noWork = fileApproved && newWork == null,
             roomLength = roomLength,
             roomWidth = roomWidth,

@@ -7,6 +7,7 @@ import com.malletcrafts.interiorestimate.pano.QuoteStage.ProjectLine
 import com.malletcrafts.interiorestimate.pano.QuoteStage.Shot
 import com.malletcrafts.interiorestimate.pano.i18n.I18n
 import com.malletcrafts.interiorestimate.pano.i18n.LiteralScan
+import com.malletcrafts.interiorestimate.pano.i18n.Masters
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import java.time.Instant
 import kotlin.test.Test
@@ -177,10 +178,38 @@ class FeaturesTest {
             val sub = Album.workSub(tx, true, w, "Client approved", Album.IN_PROGRESS, siteProgress = false)
             for (gone in listOf("tap to change", "बदलण्यासाठी टॅप करा", "locked", "लॉक")) assertFalse(gone in sub, "$gone in $sub")
         }
-        // before approval the row is what it always was, on or off: the lock's words
-        assertEquals("Survey · locked until the client approves the estimate", Album.workSub(Tx.EN, false, 0, "Survey", null, siteProgress = false))
-        for (w in listOf(0, 20, null)) for (tx in listOf(Tx.EN, Tx.MR))
-            assertEquals(Album.workSub(tx, false, w, "Survey", null, siteProgress = true), Album.workSub(tx, false, w, "Survey", null, siteProgress = false), "$w")
+        // BEFORE approval too (SP0 review): the lock's `until the client approves the estimate` promises a pick that the
+        // switch never gives, so with site progress off the words stop at where the capture is filed at EVERY stage
+        assertEquals("Survey", Album.workSub(Tx.EN, false, 0, "Survey", null, siteProgress = false))
+        assertEquals("Not started", Album.workSub(Tx.EN, false, 20, "Survey", null, siteProgress = false), "an old capture filed to a work by its stage")
+        assertEquals("In progress", Album.workSub(Tx.EN, false, 20, "Survey", Album.IN_PROGRESS, siteProgress = false))
+        assertEquals("not filed to a work", Album.workSub(Tx.EN, false, null, "Survey", null, siteProgress = false))
+        for (approved in listOf(false, true)) for (w in listOf(0, 20, 90, null)) for (tx in listOf(Tx.EN, Tx.MR)) {
+            val sub = Album.workSub(tx, approved, w, Masters.quote(tx, "Survey"), null, siteProgress = false)
+            for (gone in listOf("tap to change", "बदलण्यासाठी टॅप करा", "locked", "लॉक", "approves", "मंजूर")) assertFalse(gone in sub, "$gone in `$sub` (approved $approved, work $w)")
+            assertEquals(Album.workSub(tx, true, w, Masters.quote(tx, "Survey"), null, siteProgress = false), sub, "the same words on both sides of approval")
+        }
+        // with it ON the lock is what it always was (CaptureFilingTest holds the rest)
+        assertEquals("Survey · locked until the client approves the estimate", Album.workSub(Tx.EN, false, 0, "Survey", null, siteProgress = true))
+    }
+
+    @Test fun `with site progress off the WORK row and line are drawn only for a capture filed to a work - never for the Quote journey, never an unanswerable Pick the work`() {
+        // THE CAPTURE 360 SHEET: every new capture files at the Quote journey with the switch off, so its row is never drawn
+        for (stage in QuoteStage.STAGES + listOf(null, "")) for (pick in listOf(null, 20, 90)) {
+            val next = Album.newCaptureWork(Album.execution(stage, siteProgress = false), pick, mapOf(20 to WorkState(Album.IN_PROGRESS, 3)))
+            assertEquals(Album.QUOTE_WORK, next, "$stage / $pick")
+            assertFalse(Album.workRowShown(next, siteProgress = false), "no WORK row on the sheet at $stage")
+        }
+        // THE PHOTO'S LINE: the Quote journey has none; an unfiled capture has none (its head would be `Pick the work`, which
+        // nothing answers -- the top bar's `not filed to a work` is where that is read); a capture filed to a work keeps it
+        assertFalse(Album.workRowShown(Album.QUOTE_WORK, siteProgress = false))
+        assertFalse(Album.workRowShown(null, siteProgress = false))
+        assertEquals("Pick the work", Album.filingHead(Tx.EN, null), "the head the unfiled line would have drawn")
+        assertEquals("not filed to a work", Album.workName(Tx.EN, null), "and what the photo's top bar reads instead")
+        for (w in Album.WORKS) assertTrue(Album.workRowShown(w.id, siteProgress = false), "${w.id} is a filing worth reading")
+        for (stray in listOf(-1, 5, 999)) assertFalse(Album.workRowShown(stray, siteProgress = false), "$stray is no work")
+        // with site progress ON the row and the line are always drawn, as they always were
+        for (w in listOf<Int?>(null, Album.QUOTE_WORK, 20, 90, 999)) assertTrue(Album.workRowShown(w, siteProgress = true), "$w")
     }
 
     // ---- (3) the gates, read as source (only CI compiles :app) ----------------------------------------------
@@ -224,9 +253,9 @@ class FeaturesTest {
     @Test fun `every gate reads the flag, and the gates are these and no others`() {
         // THE INVENTORY: each source that reads the switch, and how many times. A new gate is added HERE, with its reason.
         val readers = mapOf(
-            // the five pure rules: the default of each one's last parameter
+            // the six pure rules: the default of each one's last parameter
             pano + "QuoteStage.kt" to 3,     // projectLine (the execution line), roomDot (execution's dot), bandLine (survey prep's band)
-            pano + "Album.kt" to 2,          // execution (filing by work begins), workSub (the WORK row's and line's words)
+            pano + "Album.kt" to 3,          // execution (filing by work begins), workSub (the WORK row's and line's words), workRowShown (whether they are drawn)
             // :app's entries
             app + "MainActivity.kt" to 1,    // the album's tile: the album's one entry
             app + "AlbumOutbox.kt" to 3,     // enqueue, enqueueAll, AlbumDrainWorker.doWork: the album outbox's drain
@@ -240,14 +269,17 @@ class FeaturesTest {
         val stage = code(pano + "QuoteStage.kt")
         val album = code(pano + "Album.kt")
         val default = "siteProgress: Boolean = Features.SITE_PROGRESS"
-        assertEquals(3, count(stage, default)); assertEquals(2, count(album, default))
-        for ((src, fn) in listOf(stage to "projectLine", stage to "roomDot", stage to "bandLine", album to "execution", album to "workSub"))
+        assertEquals(3, count(stage, default)); assertEquals(3, count(album, default))
+        for ((src, fn) in listOf(stage to "projectLine", stage to "roomDot", stage to "bandLine", album to "execution", album to "workSub", album to "workRowShown"))
             assertTrue(Regex("""fun $fn\((?:[^()]|\([^()]*\))*siteProgress: Boolean = Features\.SITE_PROGRESS,?\s*\)""").containsMatchIn(src), "$fn's last parameter is the switch")
         assertTrue("if (!siteProgress) {" in stage, "projectLine turns to the approved state's words")
         assertTrue("if (approved && siteProgress) captures.any" in stage, "roomDot keeps the survey's rule")
         assertTrue("line.text.takeIf { siteProgress && line.kind == LineKind.EXEC }" in stage, "bandLine hands the band no line")
         assertTrue("siteProgress && approved(quoteStage)" in album, "execution is approval AND the switch")
         assertTrue("!siteProgress -> lead" in album, "workSub stops at where the capture is filed")
+        assertTrue(album.indexOf("!siteProgress -> lead") in 0 until album.indexOf("!approved -> lead + tx.app_stg_locked_quote"),
+            "and the switch is asked BEFORE the stage: the lock's words are site progress's on both sides of approval (SP0 review)")
+        assertTrue("Boolean = siteProgress || isWork(work)" in album, "workRowShown: always with the switch on, else only a capture filed to a work")
 
         // :app -- THE ALBUM: no tile, and the tile is the one place the album opens from
         val main = code(app + "MainActivity.kt")
@@ -267,6 +299,19 @@ class FeaturesTest {
         assertEquals(1, count(main, "Album.workSub(tx, Album.approved(fileCache?.stage), newWork,"))
         assertEquals(1, count(main, "Album.workSub(tx, Album.approved(capCache?.stage), cap.work,"))
         assertEquals(2, count(main, "Album.approved("), "nothing in MainActivity decides by the stage alone but the two rows' words")
+        // THE WORK ROW AND LINE THEMSELVES (SP0 review): each is drawn only when the rule says so, asked with the work it
+        // would name -- the sheet's with where the next capture files, the photo's with the capture's own filing
+        assertEquals(1, count(main, "workShown = Album.workRowShown(newWork),"), "the capture sheet's row")
+        assertEquals(1, count(main, "workShown = Album.workRowShown(cap.work),"), "the photo's line")
+        assertEquals(2, count(main, "Album.workRowShown("))
+        val tree = code(app + "TreeShell.kt")
+        assertEquals(1, count(tree, "workShown: Boolean,"), "CaptureSheet takes the answer")
+        assertTrue(Regex("""if \(workShown\) \{\s*ListItem\(\s*headlineContent = \{ Text\(workHead\) \},""").containsMatchIn(tree), "and draws its WORK row only then")
+        assertEquals(1, count(tree, "headlineContent = { Text(workHead) },"), "the one place the row is drawn")
+        val shots = code(app + "CaptureScreens.kt")
+        assertEquals(1, count(shots, "workShown: Boolean,"), "CaptureScreen takes the answer")
+        assertTrue(Regex("""if \(workShown\) \{\s*DetailRow\(\s*lead = tx\.album_work_caps,""").containsMatchIn(shots), "and draws its WORK line only then")
+        assertEquals(1, count(shots, "lead = tx.album_work_caps,"), "the one place the line is drawn")
         // what hangs off the two answers, each still wired as it was
         for (use in listOf(
             "val newWork = Album.newCaptureWork(fileApproved, pickKey?.let { capWorkFor[it] }, fileStates)",

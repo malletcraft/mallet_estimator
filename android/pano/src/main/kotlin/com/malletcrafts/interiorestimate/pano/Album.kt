@@ -575,9 +575,11 @@ object Album {
      * estimate`, the row takes no tap); after it ` · tap to change`.
      *
      * [approved] is the project's stage, never [execution]'s answer: WITH SITE PROGRESS OFF ([siteProgress] false;
-     * [Features.SITE_PROGRESS], port 63 slice SP0) an approved project's row and line take no tap, so they say where
-     * the capture is filed and stop there -- neither `tap to change`, which nothing would answer, nor the lock, whose
-     * `until the client approves the estimate` would be untrue of an estimate the client has approved.
+     * [Features.SITE_PROGRESS], port 63 slice SP0) the row and the line take no tap AT ANY STAGE, so they say where
+     * the capture is filed and stop there -- neither `tap to change`, which nothing would answer, nor the lock. The
+     * lock's `until the client approves the estimate` promises an unlock: after approval it is untrue of an estimate
+     * the client has approved, and BEFORE it (SP0 review) it promises a pick that the switch never gives, on every
+     * capture of the survey to quote journey. So the switch is asked first, and [approved] only with it on.
      */
     fun workSub(
         tx: Tx, approved: Boolean, work: Int?, quoteLead: String, state: String?,
@@ -589,11 +591,23 @@ object Album {
             else -> stateText(tx, state)
         }
         return when {
-            !approved -> lead + tx.app_stg_locked_quote
             !siteProgress -> lead
+            !approved -> lead + tx.app_stg_locked_quote
             else -> listOf(lead, tx.album_tap_to_change).joinToString(" · ")
         }
     }
+
+    /**
+     * WHETHER THE WORK ROW AND THE WORK LINE ARE DRAWN AT ALL (port 63 slice SP0, review): always with site progress
+     * on. With it off ([siteProgress] false; [Features.SITE_PROGRESS]) only for a capture that IS filed to one of
+     * the sixteen works -- a row filed while site progress was on, or by its legacy stage -- which reads its work
+     * and the work's state and takes no tap. The Quote journey has no row then: with filing by work hidden the slot
+     * could never say anything else, on every capture of the survey to quote journey; the Capture 360 sheet files
+     * every new capture there ([newCaptureWork] of an [execution] that is false is always 0), so the sheet never
+     * draws its row. Nor has an unfiled capture: its first text is `Pick the work` ([filingHead]), an instruction
+     * nothing would answer, and the photo's top bar already reads `not filed to a work` ([workName]).
+     */
+    fun workRowShown(work: Int?, siteProgress: Boolean = Features.SITE_PROGRESS): Boolean = siteProgress || isWork(work)
 
     /**
      * THE SWEEP'S RULE (FW2): whether a capture's copy on S5 is re-filed by S5-R. Only one the web holds

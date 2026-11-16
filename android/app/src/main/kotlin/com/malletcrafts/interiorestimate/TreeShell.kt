@@ -361,7 +361,11 @@ fun BottomBar(current: String, queued: Int, onTab: (String) -> Unit) {
  * the first In progress, or `Pick the work`) with its state and `tap to
  * change`, and the tap opens Which work? ([WorkSheet]). The thirty-nine-stage
  * picker that was FILED AT is gone with it: nothing on the phone picks a stage
- * any more. Every text is keyed; the camera's own note ([cameraNote]) is the
+ * any more. WITH SITE PROGRESS OFF THE ROW IS NOT DRAWN ([workShown] false;
+ * Album.workRowShown, port 63 slice SP0 review): every new capture is the
+ * Quote journey's then, so the row could say nothing else, and its `locked
+ * until the client approves the estimate` promised a pick that never came.
+ * Every text is keyed; the camera's own note ([cameraNote]) is the
  * camera module's, a LONG-LIVED note drawn in the language on when it is drawn
  * (the M3b readingsMsg rule; port 61c slice M6).
  */
@@ -374,6 +378,9 @@ fun CaptureSheet(
     /** Opens Which work?; null before approval, where the row is a plain line
      *  (the prototype's li without onClick: no tap, no chevron). */
     onWork: (() -> Unit)?,
+    /** Whether the WORK row is drawn at all (Album.workRowShown of the work the
+     *  next capture files at): always with site progress on, never with it off. */
+    workShown: Boolean,
     /** Approved, and no work to file at yet (Album.newCaptureWork null): Shoot,
      *  Pick, Camera and Gallery wait for a pick -- the album camera's rule. */
     noWork: Boolean,
@@ -403,11 +410,13 @@ fun CaptureSheet(
     ModalBottomSheet(onDismissRequest = onDismiss) {
         SheetTitle(tx.common_capture_360)
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            ListItem(
-                headlineContent = { Text(workHead) },
-                overlineContent = { Text(tx.album_work_caps) },
-                supportingContent = { Text(workSub) },
-                modifier = if (onWork != null) Modifier.clickableRow(onWork) else Modifier)
+            if (workShown) {
+                ListItem(
+                    headlineContent = { Text(workHead) },
+                    overlineContent = { Text(tx.album_work_caps) },
+                    supportingContent = { Text(workSub) },
+                    modifier = if (onWork != null) Modifier.clickableRow(onWork) else Modifier)
+            }
 
             Text(tx.app_room_size_mm,
                 style = MaterialTheme.typography.labelSmall,
