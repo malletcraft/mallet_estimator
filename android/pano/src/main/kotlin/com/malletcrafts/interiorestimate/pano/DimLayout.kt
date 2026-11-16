@@ -30,11 +30,29 @@ import kotlin.math.min
  *     tabs, the fit / grid / all column): ¼ and ¾ along the line, then off it on a leader, either side -- and, with
  *     that taken too, one plate further out again.
  *  4. Still no room: it shrinks to a 6 dp dot on its line -- hollow not measured, solid measured -- with a 32 dp tap
- *     box. THE ACTIVE DIMENSION IS PLACED FIRST AND NEVER SHRINKS.
+ *     box. THE ACTIVE DIMENSION IS PLACED FIRST AND NEVER SHRINKS. A dot looks for its own clear spot: the middle of
+ *     the part of its line the canvas shows, then along that part either way, a quarter dot at a time (a `p`: the
+ *     mark's four corners), clear of the plates and dots already placed and of the kept boxes -- beside its line
+ *     when the whole of it lies under plates; it then keeps that spot, so no later plate covers it.
  *  5. Every plate stays inside the photo.
+ *
+ * THE CANVAS IS THE VIEWPORT, NOT THE WALL (the review of M1, 16 Nov 2026). The painter maps the face through zoom
+ * and pan, so a mark can be wholly off the canvas. A figure whose dimension -- the span it measures on the mark, or a
+ * `p`'s corner ([Fig.span], [Fig.at]) -- lies wholly outside the canvas IS NOT PLACED: no plate, no dot, no tap box.
+ * Two exceptions, slid into view as the picked mark's tags are today: the ACTIVE figure, and the PICKED mark's. Each
+ * says so ([Plate.off]), and [Out.activeOff] tells the screen that the figure being measured is off the canvas, so
+ * it can pan to it (§1.4: "The photo pans only if that plate is off screen"). A dot is never slid onto the canvas
+ * from outside it: with its dimension off the canvas it stays on its own line, unseen.
  * A SMALL BOX -- both spans shorter than their plates plus [SHORT_DP] -- gets ONE compact plate beside it,
  * "≈200 × ≈90", each figure in its own style and its own tap half ([How.COMPACT]). A `p` has no line: a chip at the
  * mark's lower-right corner ([How.CHIP]).
+ *
+ * TWO UNITS, AND WHICH IS WHICH (the review of M1). The painter's unit [u] is the canvas / 480 -- on the Mi A3's
+ * 340 dp photo 0.71 dp -- and follows the canvas, so it is smaller again in landscape. The LINES are in units, where
+ * build 332 draws them. A PLATE IS IN dp, so it keeps a constant size on screen whatever the canvas: its figure the
+ * design's 12 sp on the picked mark and 10 sp on every other (§1.6; [TEXT_PICKED_DP], [TEXT_OTHER_DP] -- dp, since
+ * nothing drawn on the photo follows the system's font scale), its padding to match ([PAD_DP], [OVER_DP],
+ * [UNDER_DP]). Sized in units a figure was 8.5 dp on the picked mark and 7 dp on every other.
  *
  * IN 2 · MARK THE PICKED MARK KEEPS ITS TABS CLEAR (v52 item 14, Amit's "center handles"; the plan critic's finding
  * 15): for a picked box mark that shows its eight tabs ([Mark.tabs]) the `w` and `h` plates are anchored by
@@ -56,11 +74,11 @@ object DimLayout {
     /** A dimension line is 1 unit wide, with an arrowhead of 4 at each end. */
     const val LINE_U = 1.0
     const val ARROW_U = 4.0
-    /** A plate is its text and 10 units across; its text size, 2 units over it and 5 under, up. Corners of 5. */
-    const val PAD_U = 10.0
-    const val OVER_U = 2.0
-    const val UNDER_U = 5.0
-    const val RADIUS_U = 5.0
+    /** A plate is its text and 10 dp across; its text size, 2 dp over it and 5 under, up. Corners of 5 dp. */
+    const val PAD_DP = 10.0
+    const val OVER_DP = 2.0
+    const val UNDER_DP = 5.0
+    const val RADIUS_DP = 5.0
     /** A plate's tap box is its drawn box and 6 units each way -- and never under 32 dp either way. */
     const val TAP_GROW_U = 6.0
     const val TAP_MIN_DP = 32.0
@@ -75,16 +93,20 @@ object DimLayout {
     const val TAB_HALF_U = 5.0
     /** A `p`'s chip and a small box's compact plate stand 4 units off the corner, and off the `h` line. */
     const val GAP_U = 4.0
-    /** The picked mark's figures are 12 units high, every other mark's 10. */
-    const val TEXT_PICKED_U = 12.0
-    const val TEXT_OTHER_U = 10.0
+    /** The picked mark's figures are 12 dp high, every other mark's 10 (the design's 12 sp and 10 sp). */
+    const val TEXT_PICKED_DP = 12.0
+    const val TEXT_OTHER_DP = 10.0
+    /** The corner line and the floor or ceiling line stand off the mark's middle by so many "text sizes"
+     *  ([CORNER_UNDER_FS], [FLOOR_LEFT_FS]) of THIS size, units: the 12 units build 332 draws a picked mark's figures
+     *  at -- so the lines stay where that build draws them, and do not move when the mark is picked. */
+    const val LINE_FS_U = 12.0
 
-    /** A plate's width for a text [textW] wide, and its height at text size [fs], px. */
-    fun plateW(textW: Double, u: Double): Double = textW + PAD_U * u
-    fun plateH(fs: Double, u: Double): Double = fs + (OVER_U + UNDER_U) * u
+    /** A plate's width for a text [textW] wide, and its height at text size [fs], px; [dp] px a dp. */
+    fun plateW(textW: Double, dp: Double): Double = textW + PAD_DP * dp
+    fun plateH(fs: Double, dp: Double): Double = fs + (OVER_DP + UNDER_DP) * dp
 
-    /** The text size of a figure, px: larger on the picked mark. */
-    fun textSize(picked: Boolean, u: Double): Double = (if (picked) TEXT_PICKED_U else TEXT_OTHER_U) * u
+    /** The text size of a figure, px: larger on the picked mark; [dp] px a dp. */
+    fun textSize(picked: Boolean, dp: Double): Double = (if (picked) TEXT_PICKED_DP else TEXT_OTHER_DP) * dp
 
     // ------------------------------------------------------------------ which figures, in what order
 
@@ -127,7 +149,8 @@ object DimLayout {
      * WHERE A DIMENSION'S LINE RUNS ON THE CANVAS, where 0.3.332 draws it: [d]'s line on the face through [toPx] (face
      * mm to canvas px, y down), then `w` [LINE_OFF_U] units above the top edge, `h` as far right of the right edge,
      * the corner line [CORNER_UNDER_FS] text sizes under mid-height and the floor or ceiling line [FLOOR_LEFT_FS] left
-     * of centre -- both through the centre for a [point]. Null for a `p`, which has no line ([anchor]).
+     * of centre -- both through the centre for a [point]; [fs] that text size, px ([LINE_FS_U] units, not the plate's
+     * own). Null for a `p`, which has no line ([anchor]).
      */
     fun line(d: MarkDims.Dim, point: Boolean, toPx: (Double, Double) -> DoubleArray, fs: Double, u: Double): Seg? {
         if (!d.line) return null
@@ -146,6 +169,37 @@ object DimLayout {
     /** Where a `p`'s chip is anchored on the canvas: the mark's lower-right corner. */
     fun anchor(d: MarkDims.Dim, toPx: (Double, Double) -> DoubleArray): DoubleArray = toPx(d.x1, d.y1)
 
+    /** The span [d] measures, on the canvas and unshifted -- the mark's own edge for its size, the gap to the corner,
+     *  floor or ceiling for its position. Null for a `p`. Whether a figure is on the canvas is asked of THIS, not of
+     *  its [line]: a mark against the ceiling has its `w` line 6 units above the canvas and is still there to measure. */
+    fun span(d: MarkDims.Dim, toPx: (Double, Double) -> DoubleArray): Seg? {
+        if (!d.line) return null
+        val p = toPx(d.x1, d.y1); val q = toPx(d.x2, d.y2)
+        return Seg(p[0], p[1], q[0], q[1])
+    }
+
+    /** The part of [s] inside the [width] x [height] canvas, its edges included; null when none of it is. */
+    fun clip(s: Seg, width: Double, height: Double): Seg? {
+        var t0 = 0.0; var t1 = 1.0
+        // one edge of the canvas: the segment moves p across it for its whole length, and starts q inside it
+        fun edge(p: Double, q: Double): Boolean {
+            if (p == 0.0) return q >= 0
+            val t = q / p
+            if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t } else { if (t < t0) return false; if (t < t1) t1 = t }
+            return true
+        }
+        if (!edge(s.x1 - s.x2, s.x1) || !edge(s.x2 - s.x1, width - s.x1) || !edge(s.y1 - s.y2, s.y1) || !edge(s.y2 - s.y1, height - s.y1)) return null
+        val a = s.at(t0); val b = s.at(t1)
+        return Seg(a[0], a[1], b[0], b[1])
+    }
+
+    private fun inside(p: DoubleArray, width: Double, height: Double) = p[0] >= 0 && p[0] <= width && p[1] >= 0 && p[1] <= height
+
+    /** Whether any of the figure's dimension is on the [width] x [height] canvas: some of its [Fig.span], or a `p`'s
+     *  corner. A figure with neither is taken as there. */
+    fun onCanvas(f: Fig, width: Double, height: Double): Boolean =
+        f.span?.let { clip(it, width, height) != null } ?: f.at?.let { inside(it, width, height) } ?: true
+
     // ------------------------------------------------------------------ what goes in
 
     /**
@@ -154,11 +208,14 @@ object DimLayout {
      * is [measured] (a dot is solid then, hollow otherwise). What the painter then draws on the plate rides along,
      * untouched by the placing: the [text] as [MarkDims.shown] prints it, the figure's [state] (its
      * [MarkDims.style]), whether the `!` follows it ([check]) and whether it is the one being measured ([active]).
+     * [typing]: the text is the pad's uncommitted digits, not the stored figure ([mark]'s `live`). [span]: what the
+     * dimension measures on the canvas, unshifted ([DimLayout.span]) -- what [onCanvas] asks; its line when not given.
      */
     class Fig(val code: String, val role: MarkDims.Role, val line: Seg?, val at: DoubleArray?,
               val w: Double, val fs: Double, val rank: Rank, val measured: Boolean,
               val text: String = "", val state: MarkDims.State = if (measured) MarkDims.State.MEASURED else MarkDims.State.ESTIMATE,
-              val check: Boolean = false, val active: Boolean = rank == Rank.ACTIVE)
+              val check: Boolean = false, val active: Boolean = rank == Rank.ACTIVE, val typing: Boolean = false,
+              val span: Seg? = line)
 
     /**
      * ONE MARK'S FIGURES: its [id], its [box] as drawn on the canvas, whether it is the [picked] one, and whether it
@@ -170,20 +227,30 @@ object DimLayout {
      * THE MARK [e] ON [s] AS [place] TAKES IT: one [Fig] per [MarkDims.of], its text [MarkDims.shown] (with the `!`
      * after it where the check fires), measured by [textW] (text, text size px, bold) and sized by [plateW]; its line
      * by [line]; its rank by [rank] -- [active] the reading key being measured now. The painter builds its input
-     * here, so which figure, text and style a plate has is decided once, in this module.
+     * here, so which figure, text and style a plate has is decided once, in this module. [u] the drawing's unit and
+     * [dp] px a dp.
+     *
+     * [live] is the pad's uncommitted text, [MeasurePad.live]'s value (§1.4: "From the first key press the digits show
+     * live in the bar's box and on the gold plate"). Null -- the pad is closed or untouched -- and every figure is the
+     * stored one. Digits: the ACTIVE figure's plate reads the active glyph and those digits (a `p`'s after its `⊥`),
+     * is sized from that text, is drawn as a reading (white, bold, on the gold plate) and carries no `!`, since
+     * nothing has been checked yet; [Fig.typing] says so. An emptied pad (`""`) keeps the figure the plate had until
+     * the commit. Whether the dimension is [Fig.measured] stays what is STORED. No other figure is touched.
      */
     fun mark(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, a: Double, b: Double, picked: Boolean, tabs: Boolean,
-             active: String?, toPx: (Double, Double) -> DoubleArray, u: Double,
-             textW: (text: String, fs: Double, bold: Boolean) -> Double): Mark {
-        val pt = SurveyPrep.isPoint(e.t); val away = !MarkDims.asked(e); val fs = textSize(picked, u)
+             active: String?, toPx: (Double, Double) -> DoubleArray, u: Double, dp: Double,
+             textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null): Mark {
+        val pt = SurveyPrep.isPoint(e.t); val away = !MarkDims.asked(e); val fs = textSize(picked, dp)
         val figs = MarkDims.of(s, e, a, b).map { d ->
-            val v = MarkDims.value(actual, s, e, d.code, d.est, a, b)
+            val stored = MarkDims.value(actual, s, e, d.code, d.est, a, b)
             val on = d.code == active
+            val typing = on && !live.isNullOrEmpty()
+            val v = if (typing) MarkDims.Value(live!!, MarkDims.State.MEASURED, false) else stored
             val text = MarkDims.shown(v, d.role, on) + (if (v.check) MarkDims.CHECK_GLYPH else "")
-            val measured = v.state == MarkDims.State.MEASURED
-            Fig(d.code, d.role, line(d, pt, toPx, fs, u), if (d.line) null else anchor(d, toPx),
-                plateW(textW(text, fs, MarkDims.style(v.state, on).bold), u), fs, rank(on, picked, away, measured), measured,
-                MarkDims.shown(v, d.role, on), v.state, v.check, on)
+            val measured = stored.state == MarkDims.State.MEASURED
+            Fig(d.code, d.role, line(d, pt, toPx, LINE_FS_U * u, u), if (d.line) null else anchor(d, toPx),
+                plateW(textW(text, fs, MarkDims.style(v.state, on).bold), dp), fs, rank(on, picked, away, measured), measured,
+                MarkDims.shown(v, d.role, on), v.state, v.check, on, typing, span(d, toPx))
         }
         val p = toPx(e.x0, e.y1); val q = toPx(e.x1, e.y0)
         return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, tabs)
@@ -211,10 +278,12 @@ object DimLayout {
      * ONE FIGURE AS PLACED: the [fig] it is, of the mark [markId]; the box drawn ([box]; a dot's 6 dp square; a
      * compact half's part of [whole]), its tap box ([tap], at least 32 dp each way), whether its text is [turned] to
      * read bottom to top, the [leader] from its line to a plate that stepped off it, and whether the line's arrowheads
-     * stand outside pointing in ([arrowsIn]: the span is too short for the plate).
+     * stand outside pointing in ([arrowsIn]: the span is too short for the plate). [off]: its dimension is wholly off
+     * the canvas ([onCanvas]) -- the active figure or the picked mark's, the only ones placed then: a plate was slid
+     * into view from outside; a dot never is, and lies off the canvas with its line.
      */
     class Plate(val fig: Fig, val markId: String, val how: How, val box: Box, val tap: Box,
-                val turned: Boolean, val leader: Seg?, val arrowsIn: Boolean, val whole: Box?) {
+                val turned: Boolean, val leader: Seg?, val arrowsIn: Boolean, val whole: Box?, val off: Boolean = false) {
         val code: String get() = fig.code
         val role: MarkDims.Role get() = fig.role
         /** Its dimension line on the canvas; null for a `p`. */
@@ -223,9 +292,9 @@ object DimLayout {
         val dot: Boolean get() = how == How.DOT
     }
 
-    /** Where an upright plate's text starts and sits: half its padding inside the box, [UNDER_U] above its bottom. */
-    fun textLeft(box: Box, u: Double): Double = box.l + PAD_U * u / 2
-    fun baseline(box: Box, u: Double): Double = box.b - UNDER_U * u
+    /** Where an upright plate's text starts and sits: half its padding inside the box, [UNDER_DP] above its bottom. */
+    fun textLeft(box: Box, dp: Double): Double = box.l + PAD_DP * dp / 2
+    fun baseline(box: Box, dp: Double): Double = box.b - UNDER_DP * dp
 
     /** Every figure placed, in the order given (marks, then each mark's figures). */
     class Out(val plates: List<Plate>) {
@@ -234,6 +303,11 @@ object DimLayout {
         val tags: List<SurveyPrepTouch.Tag> get() = plates.map { SurveyPrepTouch.Tag(it.code, it.tap) }
         /** How many shrank to a dot. */
         val dots: Int get() = plates.count { it.dot }
+        /** The figure being measured now, as placed; null when none is. */
+        val active: Plate? get() = plates.firstOrNull { it.fig.active }
+        /** The figure being measured is wholly off the canvas, its plate slid into view: the screen pans to it
+         *  (§1.4, "The photo pans only if that plate is off screen"). */
+        val activeOff: Boolean get() = active?.off == true
     }
 
     // ------------------------------------------------------------------ the rule
@@ -261,16 +335,16 @@ object DimLayout {
     }
 
     /** A plate's extent ALONG its line: its width, but the plate's height for an unturned plate on a vertical line. */
-    private fun along(f: Fig, turned: Boolean, u: Double): Double =
-        if (turned || f.line?.vertical != true) f.w else plateH(f.fs, u)
+    private fun along(f: Fig, turned: Boolean, dp: Double): Double =
+        if (turned || f.line?.vertical != true) f.w else plateH(f.fs, dp)
 
     /** The `h` plate is turned to read bottom to top; every other plate is upright. */
     private fun turns(f: Fig): Boolean = f.role == MarkDims.Role.HEIGHT
 
     /** The span is too short for the plate to sit on (rule 2; and for both of a small box's, the compact plate). */
-    private fun short(f: Fig, u: Double, dp: Double): Boolean {
+    private fun short(f: Fig, dp: Double): Boolean {
         val ln = f.line ?: return false
-        return ln.len < along(f, turns(f), u) + SHORT_DP * dp
+        return ln.len < along(f, turns(f), dp) + SHORT_DP * dp
     }
 
     private class Cand(val box: Box, val how: How, val turned: Boolean, val leader: Seg?)
@@ -285,17 +359,18 @@ object DimLayout {
     private fun lineCands(mk: Mark, f: Fig, hand: Boolean, width: Double, height: Double, u: Double, dp: Double): List<Cand> {
         val ln = f.line ?: return emptyList()
         val out = ArrayList<Cand>()
-        val ph = plateH(f.fs, u)
+        val ph = plateH(f.fs, dp)
         if (hand && (f.role == MarkDims.Role.WIDTH || f.role == MarkDims.Role.HEIGHT)) {
             val a = if (f.role == MarkDims.Role.WIDTH) SurveyPrepTouch.widthTag(mk.box.l, mk.box.t, mk.box.r, f.fs, u, dp, true)
                     else SurveyPrepTouch.heightTag(mk.box.t, mk.box.r, mk.box.b, f.fs, u, dp, true)
-            val d = SurveyPrepTouch.tagShape(a, f.w, f.fs, u, width, height).drawn
-            out += Cand(boxAt((d.l + d.r) / 2, (d.t + d.b) / 2, d.w, d.h, width, height, u), How.HAND, false, null)
+            // the anchor is the tag's centre (or its left edge) and its text's baseline, as SurveyPrepTouch.tagShape reads it
+            val l = if (a.left) a.x else a.x - f.w / 2; val t = a.y - f.fs - OVER_DP * dp
+            out += Cand(boxAt(l + f.w / 2, t + ph / 2, f.w, ph, width, height, u), How.HAND, false, null)
         }
         // a HAND plate that finds no room falls back as any plate does; it is then upright, as the anchor's is
         val turned = turns(f) && !hand
         val bw = if (turned) ph else f.w; val bh = if (turned) f.w else ph
-        val al = along(f, turned, u); val len = ln.len
+        val al = along(f, turned, dp); val len = ln.len
         val ts = doubleArrayOf(0.5, 0.25, 0.75)
         for (t in ts) {
             // on the line: the whole plate within the span, half of SHORT_DP clear of each end
@@ -322,18 +397,64 @@ object DimLayout {
         val at = f.at ?: return emptyList()
         // off the corner by GAP_U -- and on a mark that shows its tabs, by what its w and h tags stand off them
         val g = if (hand) SurveyPrepTouch.clearance(u, dp) else GAP_U * u
-        val w = f.w; val h = plateH(f.fs, u); val x = at[0]; val y = at[1]
+        val w = f.w; val h = plateH(f.fs, dp); val x = at[0]; val y = at[1]
         fun c(l: Double, t: Double) = Cand(boxAt(l + w / 2, t + h / 2, w, h, width, height, u), How.CHIP, false, null)
         // outside the corner below and right; inside it; below, inside the right edge; right, above the corner
         return listOf(c(x + g, y + g), c(x - g - w, y - g - h), c(x - g - w, y + g), c(x + g, y - g - h))
     }
 
-    private fun dot(f: Fig, mk: Mark, width: Double, height: Double, u: Double, dp: Double, arrowsIn: Boolean): Plate {
-        val c = f.line?.at(0.5) ?: f.at ?: doubleArrayOf((mk.box.l + mk.box.r) / 2, (mk.box.t + mk.box.b) / 2)
-        val r = DOT_DP * dp / 2
-        val x = max(r, min(width - r, c[0])); val y = max(r, min(height - r, c[1]))
-        val b = Box(x - r, y - r, x + r, y + r)
-        return Plate(f, mk.id, How.DOT, b, tapOf(b, u, dp), false, null, arrowsIn, null)
+    /**
+     * WHERE A FIGURE'S DOT MAY GO, best first, and whether those spots are on the canvas. A line: the middle of the
+     * part of it the canvas shows, then along that part either way, a [step] at a time, towards its start first -- of
+     * the part of its [Fig.span] when the line itself runs outside (a mark against the ceiling). A `p`: the corner it
+     * is anchored at, then the mark's other three, those on the canvas. With none of it on the canvas: the line's own
+     * middle, the anchor -- where it is, never slid in.
+     */
+    private fun dotSpots(f: Fig, mk: Mark, width: Double, height: Double, step: Double): Pair<List<DoubleArray>, Boolean> {
+        val ln = f.line
+        if (ln != null) {
+            val part = clip(ln, width, height) ?: f.span?.let { clip(it, width, height) } ?: return Pair(listOf(ln.at(0.5)), false)
+            val spots = arrayListOf(part.at(0.5)); val len = part.len
+            var k = 1
+            while (len > 0 && k * step <= len / 2) { spots += part.at(0.5 - k * step / len); spots += part.at(0.5 + k * step / len); k++ }
+            return Pair(spots, true)
+        }
+        val at = f.at ?: return Pair(listOf(doubleArrayOf((mk.box.l + mk.box.r) / 2, (mk.box.t + mk.box.b) / 2)), true)
+        val b = mk.box
+        val corners = listOf(at, doubleArrayOf(b.l, b.b), doubleArrayOf(b.r, b.t), doubleArrayOf(b.l, b.t)).filter { inside(it, width, height) }
+        return if (corners.isNotEmpty()) Pair(corners, true) else Pair(listOf(at), false)
+    }
+
+    /**
+     * THE DOT OF A FIGURE WITH NO ROOM FOR ITS PLATE (rule 4): the first of [dotSpots] that is [clear] of what is
+     * placed and kept; else the first that [open] finds clear of what is placed. A line wholly under plates -- two
+     * points at one height share their corner line, and the first one's plate lies along it -- has neither: the dot
+     * then stands BESIDE its line, the nearest clear place within two plate heights of it, a quarter dot at a time,
+     * either side. Only with none of those is it drawn at its first spot, whatever is there. On the canvas it stays
+     * wholly inside it (half a dot at most from its spot); off it, it is not moved.
+     */
+    private fun dot(f: Fig, mk: Mark, width: Double, height: Double, u: Double, dp: Double, arrowsIn: Boolean, off: Boolean,
+                    clear: (Box) -> Boolean, open: (Box) -> Boolean): Plate {
+        val r = DOT_DP * dp / 2; val step = r / 2
+        val (spots, on) = dotSpots(f, mk, width, height, step)
+        fun round(x: Double, y: Double): Box {
+            val cx = if (on) max(r, min(width - r, x)) else x; val cy = if (on) max(r, min(height - r, y)) else y
+            return Box(cx - r, cy - r, cx + r, cy + r)
+        }
+        val boxes = spots.map { round(it[0], it[1]) }
+        var b = boxes.firstOrNull(clear) ?: boxes.firstOrNull(open)
+        val ln = f.line
+        if (b == null && on && ln != null) {
+            var k = 1
+            while (b == null && k * step <= 2 * plateH(f.fs, dp)) {
+                val d = k * step
+                b = spots.firstNotNullOfOrNull { c ->
+                    listOf(-d, d).map { if (ln.vertical) round(c[0] + it, c[1]) else round(c[0], c[1] + it) }.firstOrNull(open) }
+                k++
+            }
+        }
+        val at = b ?: boxes[0]
+        return Plate(f, mk.id, How.DOT, at, tapOf(at, u, dp), false, null, arrowsIn, null, off)
     }
 
     /**
@@ -341,7 +462,8 @@ object DimLayout {
      * ([shows]); the canvas is [width] x [height] px; [keep] the boxes no plate may cover (the marks' codes, the fit /
      * grid / all column, whatever else the screen passes); [u] the drawing's unit and [dp] px per dp; [times] the
      * width of the " × " between a compact plate's two figures, px. A figure [scope] does not show is not in the
-     * answer at all.
+     * answer at all -- nor is one whose dimension is wholly off the canvas ([onCanvas]), unless it is the active
+     * figure or the picked mark's ([Plate.off]).
      */
     fun place(marks: List<Mark>, scope: Scope, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
               times: Double = 0.0): Out {
@@ -350,26 +472,32 @@ object DimLayout {
         val blocked = ArrayList(keep)
         var n = 0
         for (mk in marks) {
-            val shown = mk.figs.filter { shows(scope, mk.picked, it.role) }
+            val shown = mk.figs.filter { shows(scope, mk.picked, it.role) && (mk.picked || it.active || onCanvas(it, width, height)) }
             val hand = scope == Scope.PICKED && mk.picked && mk.tabs
             if (hand) blocked += tabBoxes(mk.box, u)
             val w = shown.firstOrNull { it.role == MarkDims.Role.WIDTH && it.line != null }
             val h = shown.firstOrNull { it.role == MarkDims.Role.HEIGHT && it.line != null }
             // a small box: both spans too short for their plates -- one compact plate beside it
-            val pair = if (!hand && w != null && h != null && short(w, u, dp) && short(h, u, dp)) listOf(w, h) else null
+            val pair = if (!hand && w != null && h != null && short(w, dp) && short(h, dp)) listOf(w, h) else null
             if (pair != null) jobs += Job(mk, pair, minOf(w!!.rank, h!!.rank), n++, false)
             for (f in shown) if (pair == null || f !in pair) jobs += Job(mk, listOf(f), f.rank, n++, hand)
         }
         val apart = APART_U * u
         val placed = ArrayList<Box>()
-        fun free(b: Box) = placed.none { overlaps(b, it, apart) } && blocked.none { overlaps(b, it, 0.0) }
+        fun open(b: Box) = placed.none { overlaps(b, it, apart) }
+        fun free(b: Box) = open(b) && blocked.none { overlaps(b, it, 0.0) }
         val out = HashMap<String, Plate>()
+        // a dot keeps the spot it found: no later plate, and no later dot, is put over it
+        fun dotOf(f: Fig, mk: Mark, arrowsIn: Boolean) {
+            val d = dot(f, mk, width, height, u, dp, arrowsIn, !onCanvas(f, width, height), { free(it) }, { open(it) })
+            placed += d.box; out[f.code] = d
+        }
         for (j in jobs.sortedWith(compareBy<Job> { it.rank.ordinal }.thenBy { it.order })) {
             val mk = j.mk
             if (j.figs.size == 2) {
                 // THE COMPACT PLATE: "≈200 × ≈90" right of the box, else left of it, above it, below it
                 val w = j.figs[0]; val h = j.figs[1]
-                val cw = w.w + times + h.w; val ch = max(plateH(w.fs, u), plateH(h.fs, u))
+                val cw = w.w + times + h.w; val ch = max(plateH(w.fs, dp), plateH(h.fs, dp))
                 val g = (LINE_OFF_U + GAP_U) * u; val b = mk.box
                 val cx = (b.l + b.r) / 2; val cy = (b.t + b.b) / 2
                 val cands = listOf(
@@ -377,25 +505,25 @@ object DimLayout {
                     boxAt(cx, b.t - g - ch / 2, cw, ch, width, height, u), boxAt(cx, b.b + g + ch / 2, cw, ch, width, height, u))
                 val whole = cands.firstOrNull { free(it) } ?: if (j.rank == Rank.ACTIVE) cands[0] else null
                 if (whole == null) {
-                    for (f in j.figs) out[f.code] = dot(f, mk, width, height, u, dp, true)
+                    for (f in j.figs) dotOf(f, mk, true)
                     continue
                 }
                 placed += whole
                 val split = whole.l + w.w + times / 2
                 val tap = tapOf(whole, u, dp); val m = TAP_MIN_DP * dp
                 out[w.code] = Plate(w, mk.id, How.COMPACT, Box(whole.l, whole.t, whole.l + w.w, whole.b),
-                    Box(min(tap.l, split - m), tap.t, split, tap.b), false, null, true, whole)
+                    Box(min(tap.l, split - m), tap.t, split, tap.b), false, null, true, whole, !onCanvas(w, width, height))
                 out[h.code] = Plate(h, mk.id, How.COMPACT, Box(whole.r - h.w, whole.t, whole.r, whole.b),
-                    Box(split, tap.t, max(tap.r, split + m), tap.b), false, null, true, whole)
+                    Box(split, tap.t, max(tap.r, split + m), tap.b), false, null, true, whole, !onCanvas(h, width, height))
                 continue
             }
             val f = j.figs[0]
-            val tooShort = short(f, u, dp)
+            val tooShort = short(f, dp)
             val cands = if (f.line != null) lineCands(mk, f, j.hand, width, height, u, dp) else chipCands(f, j.hand, width, height, u, dp)
             val c = cands.firstOrNull { free(it.box) } ?: if (j.rank == Rank.ACTIVE) cands.firstOrNull() else null
-            if (c == null) { out[f.code] = dot(f, mk, width, height, u, dp, tooShort); continue }
+            if (c == null) { dotOf(f, mk, tooShort); continue }
             placed += c.box
-            out[f.code] = Plate(f, mk.id, c.how, c.box, tapOf(c.box, u, dp), c.turned, c.leader, tooShort, null)
+            out[f.code] = Plate(f, mk.id, c.how, c.box, tapOf(c.box, u, dp), c.turned, c.leader, tooShort, null, !onCanvas(f, width, height))
         }
         return Out(marks.flatMap { mk -> mk.figs.mapNotNull { out[it.code] } })
     }

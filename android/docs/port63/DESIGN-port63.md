@@ -391,6 +391,14 @@ So, in 3 · Measure, as it opens:
 
 That is 6 to 9 plates on the example wall, not 19. In 2 · Mark only the picked mark shows figures, as today.
 
+**The 10 sp and 12 sp are dp on the canvas, not the painter's units** (the review of M1, 16 Nov 2026). The painter's
+unit is `u = canvas / 480` (`SPS:2990`): 0.71 dp on the Mi A3's 340 dp photo, and smaller again on a smaller canvas
+(landscape). Sized in units, as M1 first had it, a picked mark's figure was 8.5 dp (today's tag) and every other
+mark's 7 dp, and shrank with the canvas. So a plate — its figure, 12 dp or 10 dp, and its padding (10 dp across, 2 dp
+over the text, 5 dp under) — is in dp and keeps its size on screen whatever the canvas; it does not follow the
+system's font scale, as nothing drawn on the photo does. The dimension LINES stay in units, where build 332 draws
+them.
+
 **And every figure at once, when he asks: the `all` toggle**, beside fit and grid in 3 · Measure, off on entry
 (in M2 — Amit: "imagemeter shows all dimensions on the annotation there itself"). On, every mark draws every
 figure it has (a mark not in the room in its estimate style), nothing dims, and plates still take a tap. It is a
@@ -406,8 +414,17 @@ tested here) is, in this order:
 3. If it would cover a placed plate, a mark's code or a box it is told to keep clear: try ¼ and ¾ along the line,
    then step off it on a leader.
 4. Still no room: it shrinks to a 6 dp dot on its line (hollow = not measured, solid = measured) with a 32 dp tap
-   box. The active dimension is placed first and never shrinks.
+   box. The active dimension is placed first and never shrinks. A dot takes a spot of its own — the middle of what
+   the canvas shows of its line, else along it, else just beside it (a `p`: one of the mark's corners) — clear of
+   every plate and dot already placed, and keeps it: no dot is drawn under a plate.
 5. Every plate stays inside the photo.
+
+**The canvas is the viewport, not the wall** (the review of M1). Zoomed or panned, a mark can be wholly off the
+canvas. A figure whose dimension — the span it measures, a `p`'s corner — is wholly off the canvas is not placed at
+all: no plate, no dot, no tap box. Two exceptions, slid into view as the picked mark's tags are today: the active
+dimension and the picked mark's figures. The model says which were (`Plate.off`) and whether the active one was
+(`Out.activeOff`), which is what §1.4's "the photo pans only if that plate is off screen" asks. A dot is never slid
+onto the canvas from outside it.
 
 **In 2 · Mark the picked mark keeps its tabs clear** (v52 item 14, Amit's "center handles"): for a picked box mark
 that shows its eight tabs — not a point, not locked, editable — the `w` and `h` plates are anchored by
@@ -577,7 +594,8 @@ the one compact plate with its two tap halves. `Scope`: `PICKED` (2 · Mark: the
 (3 · Measure: every mark's size, the picked mark's positions), `ALL` (3 · Measure with the toggle on: every figure
 of every mark). In `PICKED` scope, for a picked box mark that shows its tabs, the `w` and `h` plates are anchored
 by `SurveyPrepTouch.widthTag` / `heightTag` with `hand = true` and the tab squares are kept clear. It takes over
-the constants `SPD.dims` holds today and uses `SurveyPrepTouch.Box` and `Tag`.
+the constants `SPD.dims` holds today and uses `SurveyPrepTouch.Box` and `Tag`. As built, with the review of M1
+applied, see §9: plates in dp, the off-canvas rule, a dot's own spot, and the pad's live digits on the active plate.
 
 **`pano/MeasureWalk.kt`** — the order and the counts (§1.5).
 
@@ -633,7 +651,9 @@ the existing pins (`MeasTest:358`, `SurveyDrawMarathiTest:84`) stay as they are.
   340 × 340 in `FACE` scope with the door picked has no dot; the same wall in `ALL` scope places all 19 with no
   overlap, dots allowed and their count pinned; in `PICKED` scope a picked door's `w` and `h` plates stand where
   `widthTag` / `heightTag` with `hand = true` put them and cover none of its eight tabs, and a point's and a
-  locked mark's do not move.
+  locked mark's do not move. Added by the review of M1 (§9): the example wall at the phone's own numbers; the
+  zoomed and panned canvas (an off-canvas mark has no plate, dot or tap box; no more dots zoomed than at fit); a
+  dot's own clear spot; the pad's live digits on the active plate.
 - `MeasureWalkTest`: the order, with two marks whose `x0` differ by under a mm and two that share it; Notes, tapes
   and marks not in the room left out; a chain's total left out where the laser gives it; a derived segment and a
   derived total not left, not counted, skipped by `next`, still reached by `previous`; `next` wraps and skips what
@@ -885,7 +905,7 @@ What slice M2 calls, as it is in the code (the KDoc of each file is the full acc
 | File | What M2 uses |
 |---|---|
 | `pano/MarkDims.kt` | `of(s, e, a, b)` → `Dim(key, code, role, what, est, x1, y1, x2, y2, line, known)`; `asked(e)`; `inPlane(s, e, a, b)`; `value(actual, s, e, code, est, a, b)` → `Value(text, state, check)`; `check(read, est, inPlane)`; `done(prep, s, e, a, b)`; `shown(value, role, active)` (the plate's text with `▶` and `⊥ `); `style(state, active)` → `Style(ink, bold, fill, fillAlpha, outline, dashed)`; the glyphs `ACTIVE_GLYPH` `DEPTH_GLYPH` `CHECK_GLYPH` `DONE_GLYPH`; `LINE_COLOUR`, `LINE_ALPHA`, `CHECK_COLOUR` |
-| `pano/DimLayout.kt` | `mark(actual, s, e, a, b, picked, tabs, active, toPx, u, textW)` builds one mark's input (the painter passes its text measurer); `place(marks, scope, width, height, keep, u, dp, times)` → `Out(plates)` with `of(code)`, `tags`, `dots`; a `Plate` has `fig` (with `text`, `state`, `check`, `active`, `fs`, `line`), `how` (`ON_LINE`, `OFF_LINE`, `HAND`, `CHIP`, `COMPACT`, `DOT`), `box`, `tap`, `turned`, `leader`, `arrowsIn`, `whole`; `textLeft` / `baseline`; `shows(scope, picked, role)`; `textSize(picked, u)`; `tabBoxes`; the constants `SurveyPrepDraw.dims` held |
+| `pano/DimLayout.kt` | `mark(actual, s, e, a, b, picked, tabs, active, toPx, u, dp, textW, live = null)` builds one mark's input (the painter passes its text measurer, in px, and `MeasurePad.live(state)` as `live`); `place(marks, scope, width, height, keep, u, dp, times)` → `Out(plates)` with `of(code)`, `tags`, `dots`, `active`, `activeOff`; a `Plate` has `fig` (with `text`, `state`, `check`, `active`, `typing`, `fs`, `line`, `span`), `how` (`ON_LINE`, `OFF_LINE`, `HAND`, `CHIP`, `COMPACT`, `DOT`), `box`, `tap`, `turned`, `leader`, `arrowsIn`, `whole`, `off`; `textLeft(box, dp)` / `baseline(box, dp)`; `shows(scope, picked, role)`; `textSize(picked, dp)`, `plateW(textW, dp)`, `plateH(fs, dp)`; `onCanvas(fig, width, height)`, `clip`; `tabBoxes(box, u)`; the constants `SurveyPrepDraw.dims` held (the plate's now `PAD_DP`, `OVER_DP`, `UNDER_DP`, `RADIUS_DP`) |
 | `pano/MeasureWalk.kt` | `stops`, `left`, `next`, `previous`, `count` → `Count(read, total)` with `left` and `done`, `room`, `nextFace` → `Face(s, left)`, `stopsOf`, `step`, `marks`, `FACES` |
 | `pano/MeasurePad.kt` | `start(stored)`, `press(state, Key.Digit(n) / Key.Back / Key.Clear)`, `live(state)`, `commit(stored, state)` (= `MmBox.commit`) |
 | `pano/MeasureText.kt` | `label`, `cell` → `Cell(code, under)` with `text`, `progress`, `faceDone`, `nextFace`, `roomDone`, `photoSays`, `notInRoom` |
@@ -899,7 +919,8 @@ Decided by Claude while building, beyond what §4 says; each is in the code's ow
    its two figures as a dot on the 340 dp photo, with room an inch away. With it, the example wall shows no dot in
    3 · Measure whichever mark is picked and whichever of its dimensions is active.
 2. **With `all` on the example wall places all 19 with 2 dots at fit** (the corner point's two figures), pinned as
-   `DimLayoutTest.ALL_DOTS`. Zoom spreads them, as §7 says.
+   `DimLayoutTest.ALL_DOTS`. Zoom spreads them, as §7 says. *(The review of M1, below: 2 is the round test canvas's
+   count; at the phone's own numbers it is 1, `PHONE_ALL_DOTS`.)*
 3. **A `p`'s chip on a mark that shows its tabs stands off the corner by the tags' own clearance** (8 units, 6 dp at
    least), not 4: at 4 every one of its four places touched the corner's tab, and a picked door's chip was a dot.
 4. **In 2 · Mark the hand-anchored `w` and `h` tags give way like any plate when their place is taken.** On the example
@@ -915,3 +936,49 @@ Decided by Claude while building, beyond what §4 says; each is in the code's ow
 7. **The new test names are plain ASCII.** A test whose name holds `·` and whose body holds a local function or a
    lambda compiled to its own class could not be written to disk by this container's Kotlin daemon (the class file
    is named after the test); older tests with `·` in their names have no such body.
+
+### The review of M1 (16 Nov 2026)
+
+A reviewer read `f9af214` and reported four findings on `DimLayout`. Each was reproduced here first (a probe against
+the reviewed commit), all four were confirmed, none declined. After the fixes the `:pano` suite is 93 classes, 1,311
+tests, 0 failures (`DimLayoutTest` 15 → 22). `:app` is still not compiled here and nothing has been seen on a phone.
+
+1. **Off-canvas marks' figures were slid back onto the canvas edge once the photo was zoomed or panned (major) —
+   confirmed.** The probe: the example wall zoomed 3 times on the door gave, with `all` on, 19 figures of which 12
+   were dots, eight of them stacked on one spot in the canvas's corner under the door's chip. `place` clamped every
+   box into the canvas without asking whether the figure was on it. **Fixed:** a figure whose dimension is wholly off
+   the canvas is not placed (§1.6). "On the canvas" is asked of the dimension's own SPAN (`Fig.span`, the mark's edge
+   or the gap it measures), not of its drawn line: a mark against the ceiling or the right wall has its `w` or `h`
+   line 6 units outside the canvas at fit and must keep its figure — asking the line would have dropped those. The
+   active figure and the picked mark's are still slid into view and say so (`Plate.off`, `Out.activeOff`,
+   `Out.active`). A dot sits on the part of its line the canvas shows and is never slid in from outside.
+2. **The layout was built and tested at a unit the phone does not have (major) — confirmed.** `u` is canvas / 480
+   = 0.71 dp on the Mi A3, so "12 / 10" in units was 8.5 dp / 7 dp, not the 12 sp / 10 sp of §1.6, and the test
+   canvas (1 px a dp AND 1 px a unit) pinned results for plates 1.4 times larger than the model would have drawn.
+   **Decided by Claude: the design's sizes, in dp** (the reviewer's option a) — a 7 dp figure on every unpicked mark is
+   a third under the design's 10 sp, units shrink again in landscape while §1.6 says plates keep a constant size on
+   screen, and what Amit asked for is figures he can read on the annotation. So the plate's text and padding
+   are dp (`TEXT_PICKED_DP` 12, `TEXT_OTHER_DP` 10, `PAD_DP`, `OVER_DP`, `UNDER_DP`), the lines stay in units, and the
+   corner and floor lines stand off by build 332's own 12 units (`LINE_FS_U`) whether or not the mark is picked, so a
+   line no longer moves when its mark is picked. The hand-anchored `w` / `h` tags take `widthTag` / `heightTag`'s
+   anchor and the plate's own dp box. **Re-pinned at the phone's real numbers** (680 px, 2 px a dp, 680 / 480 px a
+   unit) in `the example wall at the phone's own numbers`: as 3 · Measure opens, 6 to 9 plates and no dot whichever
+   mark is picked and whichever dimension is active; with `all` on, all 19 with ONE dot (the corner point's floor
+   line), `PHONE_ALL_DOTS`. The round canvas keeps its 2 (`ALL_DOTS`). Departure 1 above (the second reach) was
+   checked again at the phone's numbers: without it a picked corner point has a dot there too. **For Amit on the
+   phone, with M2:** the figures are 12 dp on the picked mark and 10 dp on the others — larger than today's 8.5 dp
+   tags; if they crowd a real wall the two constants are the thing to turn.
+3. **A dot could sit under another figure's plate, and the test helper exempted dots (minor) — confirmed.** On the
+   round canvas with `all` on, the corner point's floor-line dot lay inside another point's plate. **Fixed:** a dot
+   looks for a clear spot — the middle of what the canvas shows of its line, then along it a quarter dot at a time,
+   then (a line wholly under plates: two points at one height share their corner line) just beside it within two
+   plate heights; a `p`: the mark's corners — and its box joins the placed boxes, so no later plate covers it. Only
+   with none of those does it fall back to its first spot. `sound()` now fails on any dot under a plate or on
+   another dot, on every layout it checks.
+4. **`mark` could not carry the pad's live digits onto the active plate (minor) — confirmed** against §1.4.
+   **Fixed:** `mark(…, live = MeasurePad.live(state))`. Digits: the active plate reads `▶` and the digits (a `p`'s
+   after its `⊥ `), is sized from that text, is drawn as a reading and carries no `!`; `Fig.typing` says so, and
+   `Fig.measured` stays what is stored. Null (untouched) or empty (an emptied pad) keeps the figure the plate had.
+
+Not changed by the review: the reading keys, the record, the texts (no key added or changed), `MarkDims`,
+`MeasureWalk`, `MeasurePad`, `MeasureText`.
