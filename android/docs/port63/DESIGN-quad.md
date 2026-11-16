@@ -758,3 +758,62 @@ Short names: `SPS` = `app/SurveyPrepScreen.kt`, `SPD` = `app/SurveyPrepDraw.kt`,
 | 7 | The phone's reader coerces numeric strings; S5's does not (minor) | **Confirmed.** `numOf` takes `is String -> v.toDoubleOrNull()` (`pano/SurveyPrep.kt:1311-1315`); S5's `coordsOk` tests `typeof v === 'number'` and passes any list of number pairs, three pairs included (`asis.js` 605–606) | §1.2 rule 1; Q1 `read(v)` and its `QuadTest` case; §4.1 item 1 reworded, with an S5 test for text parts and for three pairs |
 | 8 | Q3 does not name the S5 pins that move, one collides with "the fixtures are not edited"; the plain outline's stroke is unspecified (minor) | **Confirmed**, every line number as given: `api.test.mjs` 5340–5345, 5347, 5359, 5372, 5381; `asis-view.test.mjs` 1075; `asis.js` 197 and 218; `README.md` 75; `.pmark` and `.pmark span` (`projects.css` 43–44) | §4.1 items 1, 3 and 5. Three details differ from the fix's wording: which polygon is on top is said outright (the dark one underneath); the colour is written into the attribute as `outlineSvg` writes it, not as `var(--mc)`; and `.ptag` gets the same offsets as the `span` |
 | 9 | ", to nearest corner" after "from left corner" names two different corners (minor) | **Confirmed.** `measure.left_corner` is "from left corner" and `measure.right_corner` "from right corner": the wall's (`i18n/strings-en.json`) | §2.3, §2.5 (`FW1.s`), §5: ", to its nearest corner" |
+
+## 9. Slice Q1 as built (16 Nov 2026)
+
+The pure models, in `:pano` alone; no `:app` file changed and nothing is on screen. `:pano` went from 95 classes and
+1,352 tests to 97 classes and 1,390 tests, all green (the totals of `pano/build/test-results/test`); `:app` is compiled only by CI and nothing has been seen on a
+phone. This section says what exists, for whoever builds Q2, and where the build went past the design's wording.
+
+**What exists.**
+
+| File | What it now has |
+|---|---|
+| `pano/Quad.kt` (new) | `KEY PARTS SIDES DIAG CLOSE_MM CLOSE_PART`; `mayHave`, `read`, `identity`, `of`, `corners`, `cornerOf`, `free`, `set`, `clear`, `drag` → `Drag(p, snap)`, `guide`, `straight`, `square`, `spanW`, `spanH`, `touch` → `Touch`, `sideWhat`, `asked`, `closing` → `Closing`, `sideCodes` |
+| `pano/SurveyPrep.kt` | `measures0` is `Quad.asked(…)` over its old body (`rect0`); `moveMark` and `snapMark` take a corner part |
+| `pano/SurveyPrepFile.kt` | `decode` drops an unreadable `quad` with `sp.file.x_mark_x_shape_unreadable`, and the box's own corners quietly |
+| `pano/SurveyPrepEdit.kt` | `SHAPE_FREE`, `SHAPE_BOX`, `shapeRow`, `menuItemsOf(…, shape = false)`; `duplicate` carries `quad` |
+| `pano/SurveyPrepTouch.kt` | `Drawn(…, spot = null, corners = null)`, `nearestCorner`; `hit` answers `q0…q3` and a body press inside the shape |
+| `pano/MarkDims.kt` | `Role.SIDE`, `Role.DIAG`; `Dim.nx`, `Dim.ny`; `of` for a four-corner mark; `value` with the closing `!`; `photoCheck` |
+| `pano/DimLayout.kt` | `isSize`, `outward`, `cornerBoxes`; `Fig.out`; `Mark.corners`; `mark(…, live, free = false)`; a side's line, turn and step-off |
+| `pano/MeasureFlow.kt`, `pano/MeasureText.kt` | `checkText`; `checkEst` is the photo's half alone; `sidesSay` |
+| `pano/SurveyGuide.kt` | `Rays.bold` answers both axes for `hv` |
+| `pano/Pano360.kt` | `markPoly` from `Quad.corners`; `tabsOf(e, free = false)` |
+| `pano/SurveyPlan.kt` | §3.7, for a mark with `quad` only |
+| `pano/SheetMarks.kt` | `KEPT` holds `quad` |
+| `i18n/` | the fourteen keys, English first; 1,938 keys; 27 pending |
+
+**Where the build went past the wording.** Each is small; none changes a decision above.
+
+1. **`Quad.read` answers the parts or null, and `Quad.identity` says "the box's own corners".** `decode` needs to tell
+   the quiet drop from the said one, and `read` alone cannot.
+2. **`Quad.touch(e)`**: where the shape touches each edge of its box (one corner, or the midpoint of two). `MarkDims`
+   and `SurveyPlan` both end a position line there, so it is worked out once.
+3. **`Drag.snap` says which of the corner's two sides ARE straight after the move**, not which snapped in that event.
+   A nudge that lands a corner exactly level draws its ray bold too. For a drag the two are the same.
+4. **`snapMark` on a corner part** is `Quad.drag` from the mark as it stands, moved by nothing, with `SNAP` as its
+   distance. `moveMark` on a corner part is `Quad.drag` with distance 0 and answers false when the shape is refused.
+5. **`MarkDims.photoCheck`** is new, and `MeasureFlow.checkEst` asks it. `checkEst` used `value(…).check`, which now
+   also carries the closing `!` on the sloping side; left as it was it would have said "The photo says …" for a
+   reading the photo agrees with.
+6. **The diagonal's plate turns like a side's** when its line is more upright than level. §3.5 says it of a side.
+7. **`DimLayout.Mark.corners` is set only where the mark shows handles at all** (`tabs` and `free` both). The caller
+   passes `tabs` exactly as today (picked, 2 · Mark, unlocked, editable) and `free = Quad.free(e, freeId, part)`.
+   The four squares kept clear are 5.5 dp either side of each corner (the disc), never under a tab's own 5 units.
+8. **A test moved that §6 did not name:** `DimLayoutTest`, "which figures a scope shows". It walks every `Role`, so
+   the set shown on an unpicked mark in 3 · Measure had to gain `SIDE` and `DIAG`. `SheetMarksTest` (`KEPT`) moved
+   as named. `DuplicateTest` gained a case; its old assertions stand, since a rectangle's copy is still the box alone.
+9. **§1.3, read to the letter, refuses any shape under about 28 mm square.** A 20 mm rectangle's corner is 14 mm
+   outside the line joining its neighbours. Such a mark keeps its eight tabs' resize; once larger, its corners drag.
+10. **The six drawings draw no diagonal.** §3.7 names a dimension along each side only. `diag` is asked, walked and
+    drawn on the photo.
+11. **`RectanglePinTest`** is the pin of "a mark without `quad` is what it was". It dumps the checklist, the
+    dimensions, the plates in three scopes, the press over a grid, every tab's drag, the 360's tabs and outlines,
+    the six drawings, the sheet's marks, the file, the walk and the menu, for marks with no `quad`; and holds each
+    section to what the same dump printed on `7c49835`, where it was taken from a plain copy of that commit. The
+    two dumps, 3,972 lines, were byte for byte the same.
+
+**For Q2.** The menu's one call passes `shape = true`. `drawnMarks()` passes `corners =`. The painter and `Sp360`
+ask `Quad.free`. `sayCheck` says `MeasureFlow.checkText(…)`. `DimLayout.mark` is passed `free`. A corner's grab
+calls `Quad.drag` with `endTol` and shows `Quad.guide`. "Rectangle" is `Quad.clear`. Nothing in `:app` writes
+`.extra =`.

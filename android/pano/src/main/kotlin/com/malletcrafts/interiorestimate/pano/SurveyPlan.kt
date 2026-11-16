@@ -256,6 +256,35 @@ object SurveyPlan {
 
     private fun moved(p: DoubleArray, n: DoubleArray, d: Double) = doubleArrayOf(p[0] + n[0] * d, p[1] + n[1] * d)
 
+    // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
+
+    /*
+     * WHAT THE SIX DRAWINGS MAKE OF A FOUR-CORNER MARK (DESIGN-quad §3.7). A mark with no `quad` is drawn by none of
+     * this: every drawing of it is what it was.
+     *  - floor plan, a mark on a WALL: keeps the box -- the gap, niche, column or leaf is placed by the box's two ends;
+     *    its label is the code and the reading of a level side that spans the box, else ≈ the box's width ([widthFig]);
+     *  - floor plan and ceiling plan, a mark ON the floor or the ceiling: the real shape ([ring]);
+     *  - the four elevations: the real shape; a dimension along each side, 0.9 text sizes inside it; a door's head along
+     *    its top side; a window's transom between the mid-points of its left and right sides. Under the floor, the
+     *    corner offset only -- no width segment, for it has no `w`. Up the wall, the floor or ceiling offset at the
+     *    corner it runs to ([Quad.touch]); a window's head as its sill and the upright side that spans the box, when
+     *    both are read, else ≈; no `h`;
+     *  - ceiling plan: an opening's cross along its two diagonals; its offsets to the corner.
+     */
+
+    /** A four-corner mark's real outline, its y through [y] (a plan's [planY], an elevation's [elevY]); null for a mark
+     *  with no `quad`, which is its rectangle. */
+    private fun ring(e: SurveyPrep.Mark, y: (Double) -> Double): List<DoubleArray>? =
+        if (Quad.of(e) == null) null else Quad.corners(e).map { doubleArrayOf(it[0], y(it[1])) }
+
+    /** A mark's width as the floor plan labels it: its `w`, with the photo's [est] -- or, for a four-corner mark, the
+     *  reading of a level side that spans its box ([Quad.spanW]), else ≈ the box's width. */
+    private fun widthFig(k: Kit, e: SurveyPrep.Mark, est: Double?): Fig {
+        if (Quad.of(e) == null) return k.fig(e.code + ".w", est)
+        val read = Quad.spanW(e)?.let { k.actual[e.code + "." + it] }
+        return if (read != null) Fig(rnd(read).toString(), true) else Fig("≈" + rnd(e.x1 - e.x0), false)
+    }
+
     /** The first of a mark's checklist lines across: l / r, or a point's cl / cr (plan.js hxOf). */
     private fun hxOf(ms: List<SurveyPrep.Measure>) = ms.firstOrNull { Regex("^c?[lr]$").matches(it.key) }
     private fun side(k: String) = k.last()
@@ -324,7 +353,7 @@ object SurveyPlan {
                         k.items.add(Arc(hp[0], hp[1], dw, st, sw, INK, fs * 0.06, doubleArrayOf(fs * 0.3, fs * 0.2), "swing", e.code))
                     }
                     // its width and its offset from the nearer corner, outside the wall
-                    val fw = k.fig(e.code + ".w", get("w")?.est)
+                    val fw = widthFig(k, e, get("w")?.est)
                     val hx = SurveyPrep.measures0(s, e, a, ab[1]).firstOrNull { it.key == "l" || it.key == "r" }
                     // an opening at the corner still says so
                     val fo = hx?.let { m -> if (m.est != null && m.est < SurveyPrep.ZERO && actual[e.code + "." + m.key] == null) Fig("0", false)
@@ -345,7 +374,7 @@ object SurveyPlan {
                     val dp = min(T * 0.8, max(40.0, orJs(actual[e.code + ".p"], 100.0)))
                     k.items.add(Poly(listOf(listOf(a0, a1, moved(a1, n, -dp), moved(a0, n, -dp))), NICHE, 1.0, INK, fs * 0.07, null, "op", e.code, s))
                     val lab = moved(mid, n, -(T + fs * 1.1))
-                    k.txt(lab[0], lab[1], "${e.code} ${k.fig(e.code + ".w", get("w")?.est).t}", GREY, sz = 0.8, rot = rot, role = "opl", key = e.code) // text:value a code and its figure
+                    k.txt(lab[0], lab[1], "${e.code} ${widthFig(k, e, get("w")?.est).t}", GREY, sz = 0.8, rot = rot, role = "opl", key = e.code) // text:value a code and its figure
                     continue
                 }
                 if (t == "C" || t == "B" || t == "L") {
@@ -374,7 +403,7 @@ object SurveyPlan {
             val cx = (x0 + x1) / 2; val cy = (y0 + y1) / 2
             if (SurveyPrep.isPoint(t)) { k.pointSym(doubleArrayOf(cx, cy), t, e.code, s, "mk"); k.txt(cx, cy + fs * 1.1, e.code, sz = 0.65, role = "mkl", key = e.code); continue }
             val over = s == "ceil"
-            k.items.add(Poly(listOf(rect(x0, y0, x1 - x0, y1 - y0)), if (t == "C") INK else null, 1.0, INK, fs * 0.07,
+            k.items.add(Poly(listOf(ring(e) { planY(it, l) } ?: rect(x0, y0, x1 - x0, y1 - y0)), if (t == "C") INK else null, 1.0, INK, fs * 0.07,
                 if (over && t != "C") doubleArrayOf(fs * 0.45, fs * 0.3) else null, "mk", e.code, s))
             if (t == "S") k.ln(x0, cy, x1, cy, w = 0.05, role = "step", key = e.code)
             k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (over && t == "B") tx.sp_beam_over else ""), sz = 0.7, b = true, role = "mkl", key = e.code)
@@ -434,10 +463,31 @@ object SurveyPlan {
                 }
                 continue
             }
-            k.items.add(Poly(listOf(rect(x0, yy(y1), mw, hh)), col, if (t == "C") 0.45 else 0.18, col, fs * 0.1,
+            // a four-corner mark: its real corners, bottom-left, bottom-right, top-right, top-left, on the page (null: a rectangle)
+            val qc = ring(e, ::yy); val at = Quad.touch(e)
+            k.items.add(Poly(listOf(qc ?: rect(x0, yy(y1), mw, hh)), col, if (t == "C") 0.45 else 0.18, col, fs * 0.1,
                 if (t == "B" || t == "L") doubleArrayOf(fs * 0.45, fs * 0.25) else null, "el", e.code, s))
-            if (t == "D") k.ln(x0, yy(y1), x1, yy(y1), w = 0.1, role = "head", key = e.code)   // the door head
-            if (t == "W") k.ln(x0, yy((y0 + y1) / 2), x1, yy((y0 + y1) / 2), col, 0.05, role = "transom", key = e.code)   // so it reads as glass
+            if (qc != null) {
+                // the door head along its top side; the transom between the mid-points of its left and right sides
+                if (t == "D") k.ln(qc[3][0], qc[3][1], qc[2][0], qc[2][1], w = 0.1, role = "head", key = e.code)
+                if (t == "W") k.ln((qc[3][0] + qc[0][0]) / 2, (qc[3][1] + qc[0][1]) / 2, (qc[1][0] + qc[2][0]) / 2, (qc[1][1] + qc[2][1]) / 2,
+                    col, 0.05, role = "transom", key = e.code)
+                // a dimension along each side, 0.9 text sizes INSIDE it, its figure on the inner side of its line
+                for (i in 0 until 4) {
+                    val p = qc[i]; val n = qc[(i + 1) % 4]; val len = hypot(n[0] - p[0], n[1] - p[1])
+                    if (len < 1) continue
+                    // the corners run counter-clockwise as drawn, so the way INTO the shape is to the LEFT of the way a side
+                    // runs -- on a page whose y runs down, (dy, -dx)
+                    val ix = (n[1] - p[1]) / len; val iy = -(n[0] - p[0]) / len; val off = fs * 0.9
+                    val key = e.code + "." + Quad.SIDES[i]; val fig = k.fig(key, len)
+                    val vert = abs(n[1] - p[1]) > abs(n[0] - p[0])
+                    val inner = if ((if (vert) ix else iy) < 0) 1.0 else -1.0
+                    vdims.add { k.dim(p[0] + ix * off, p[1] + iy * off, n[0] + ix * off, n[1] + iy * off, fig, key, side = inner) }
+                }
+            } else {
+                if (t == "D") k.ln(x0, yy(y1), x1, yy(y1), w = 0.1, role = "head", key = e.code)   // the door head
+                if (t == "W") k.ln(x0, yy((y0 + y1) / 2), x1, yy((y0 + y1) / 2), col, 0.05, role = "transom", key = e.code)   // so it reads as glass
+            }
             val inTop = hh >= fs * 1.7; val ly = if (inTop) yy(y1) + fs * 0.75 else yy(y1) - fs * 0.55
             k.txt(cx, ly, e.code, sz = 0.85, b = true, role = "elc", key = e.code)
             fun get(key: String) = ms.firstOrNull { it.key == key }
@@ -453,12 +503,17 @@ object SurveyPlan {
             // loft, drop for a beam, height from the floor for a switch plate
             fun vx(dx: Double): Double { val v = x1 + dx; return if (v > a - fs * 0.4) x0 - dx else v }
             val inside = x0 + min(mw * 0.3, fs * 1.4)
+            // a four-corner mark's offsets up the wall stand AT THE CORNER THEY RUN TO: under its lowest corner, over its highest
+            val four = qc != null
+            fun low(x: Double) = if (four) at.xBottom else x
+            fun high(x: Double) = if (four) at.xTop else x
             when (t) {
                 "W" -> {
                     val sf = k.fig(e.code + ".s", y0)
-                    val rs = actual[e.code + ".s"]; val rh = actual[e.code + ".h"]
+                    // its head: the sill and its height -- a four-corner window's the upright side that spans its box, if it has one
+                    val rs = actual[e.code + ".s"]; val rh = if (four) Quad.spanH(e)?.let { actual[e.code + "." + it] } else actual[e.code + ".h"]
                     val hf = if (rs != null && rh != null) Fig(rnd(rs + rh).toString(), true) else Fig("≈" + rnd(y1), false)
-                    vdims.add { k.dim(inside, yy(0.0), inside, yy(y0), sf, e.code + ".s") }
+                    vdims.add { k.dim(low(inside), yy(0.0), low(inside), yy(y0), sf, e.code + ".s") }
                     vdims.add { k.dim(vx(fs * 0.8), yy(0.0), vx(fs * 0.8), yy(y1), hf, e.code + ".head") }
                 }
                 "D", "O", "N", "X" -> {
@@ -469,14 +524,14 @@ object SurveyPlan {
                     val vy = get("s") ?: get("t")
                     if (vy != null && t != "D" && ((vy.est ?: 0.0) >= SurveyPrep.ZERO || actual[e.code + "." + vy.key] != null)) {
                         val fv = k.fig(e.code + "." + vy.key, vy.est)
-                        vdims.add(if (vy.key == "s") { { k.dim(vx(fs * 0.8), yy(0.0), vx(fs * 0.8), yy(y0), fv, e.code + ".s") } }
-                                  else { { k.dim(vx(fs * 0.8), yy(b), vx(fs * 0.8), yy(y1), fv, e.code + ".t") } })
+                        vdims.add(if (vy.key == "s") { { k.dim(low(vx(fs * 0.8)), yy(0.0), low(vx(fs * 0.8)), yy(y0), fv, e.code + ".s") } }
+                                  else { { k.dim(high(vx(fs * 0.8)), yy(b), high(vx(fs * 0.8)), yy(y1), fv, e.code + ".t") } })
                     }
                 }
-                "L" -> { val fv = k.fig(e.code + ".s", y0); vdims.add { k.dim(cx, yy(0.0), cx, yy(y0), fv, e.code + ".s") } }
+                "L" -> { val fv = k.fig(e.code + ".s", y0); vdims.add { k.dim(low(cx), yy(0.0), low(cx), yy(y0), fv, e.code + ".s") } }
                 // v52 fix: a switch plate's height from the floor
-                "S" -> { val fv = k.fig(e.code + ".s", y0); vdims.add { k.dim(vx(fs * 0.8), yy(0.0), vx(fs * 0.8), yy(y0), fv, e.code + ".s") } }
-                "B" -> { val fv = k.fig(e.code + ".d", b - y0); vdims.add { k.dim(inside, yy(b), inside, yy(y0), fv, e.code + ".d") } }
+                "S" -> { val fv = k.fig(e.code + ".s", y0); vdims.add { k.dim(low(vx(fs * 0.8)), yy(0.0), low(vx(fs * 0.8)), yy(y0), fv, e.code + ".s") } }
+                "B" -> { val fv = k.fig(e.code + ".d", b - y0); vdims.add { k.dim(low(inside), yy(b), low(inside), yy(y0), fv, e.code + ".d") } }
             }
         }
         vdims.forEach { it() }
@@ -540,24 +595,33 @@ object SurveyPlan {
                 k.txt(cx + fs * 0.6, cy - fs * 0.6, e.code, a = Anchor.START, sz = 0.8, b = true, role = "elc", key = e.code)
             } else {
                 val fill = if (t == "C") INK else col; val op = if (t == "C") 1.0 else if (t == "O") 0.0 else 0.22
-                k.items.add(Poly(listOf(rect(x0, y0, x1 - x0, y1 - y0)), fill, op, if (t == "C") INK else col, fs * 0.1,
+                // a four-corner mark: its real shape (null: a rectangle)
+                val qc = ring(e) { planY(it, l) }
+                k.items.add(Poly(listOf(qc ?: rect(x0, y0, x1 - x0, y1 - y0)), fill, op, if (t == "C") INK else col, fs * 0.1,
                     if (t == "X") doubleArrayOf(fs * 0.3, fs * 0.3) else null, "el", e.code, "ceil"))
-                // an opening in the ceiling: crossed through
-                if (t == "O") { k.ln(x0, y0, x1, y1, col, 0.05, role = "cross", key = e.code); k.ln(x0, y1, x1, y0, col, 0.05, role = "cross", key = e.code) }
+                // an opening in the ceiling: crossed through -- a four-corner one along its two diagonals
+                if (t == "O" && qc != null) {
+                    k.ln(qc[0][0], qc[0][1], qc[2][0], qc[2][1], col, 0.05, role = "cross", key = e.code); k.ln(qc[1][0], qc[1][1], qc[3][0], qc[3][1], col, 0.05, role = "cross", key = e.code)
+                } else if (t == "O") { k.ln(x0, y0, x1, y1, col, 0.05, role = "cross", key = e.code); k.ln(x0, y1, x1, y0, col, 0.05, role = "cross", key = e.code) }
                 k.txt(cx, if (t == "C") y1 + fs * 0.8 else cy, e.code + (if (t == "B") tx.sp_beam else ""), sz = 0.8, b = true,
                     rot = if (t == "B" && (y1 - y0) > (x1 - x0) * 2) -90.0 else 0.0, role = "elc", key = e.code)
             }
             val ms = SurveyPrep.measures0("ceil", e, abC[0], abC[1])
             val hx = hxOf(ms); val vy = ms.firstOrNull { Regex("^c?[fk]$").matches(it.key) }
             fun show(m: SurveyPrep.Measure?) = m != null && (pt || (m.est ?: 0.0) >= SurveyPrep.ZERO || actual[e.code + "." + m.key] != null)
+            // a four-corner mark's offsets run TO THE CORNER that touches that edge of its box (Quad.touch); a rectangle's
+            // and a point's through its middle, as ever
+            val four = Quad.of(e) != null; val at = Quad.touch(e)
             if (hx != null && show(hx)) {
                 val xe = if (pt) cx else if (side(hx.key) == 'l') x0 else x1; val fh = k.fig(e.code + "." + hx.key, hx.est)
-                if (side(hx.key) == 'l') k.dim(0.0, cy, xe, cy, fh, e.code + "." + hx.key) else k.dim(xe, cy, w, cy, fh, e.code + "." + hx.key)
+                val hy = if (four) planY(if (side(hx.key) == 'l') at.yLeft else at.yRight, l) else cy
+                if (side(hx.key) == 'l') k.dim(0.0, hy, xe, hy, fh, e.code + "." + hx.key) else k.dim(xe, hy, w, hy, fh, e.code + "." + hx.key)
             }
             // from the front wall (the top of the page) or from the back wall (its bottom)
             if (vy != null && show(vy)) {
                 val ye = if (pt) cy else if (side(vy.key) == 'f') y0 else y1; val fv = k.fig(e.code + "." + vy.key, vy.est)
-                if (side(vy.key) == 'f') k.dim(cx, 0.0, cx, ye, fv, e.code + "." + vy.key) else k.dim(cx, ye, cx, l, fv, e.code + "." + vy.key)
+                val vx = if (four) (if (side(vy.key) == 'f') at.xTop else at.xBottom) else cx
+                if (side(vy.key) == 'f') k.dim(vx, 0.0, vx, ye, fv, e.code + "." + vy.key) else k.dim(vx, ye, vx, l, fv, e.code + "." + vy.key)
             }
         }
         // the room's W and L, FRONT over the front wall, the drawing's name under the back wall, the 1 m bar

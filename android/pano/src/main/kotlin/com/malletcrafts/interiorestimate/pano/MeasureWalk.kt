@@ -11,7 +11,8 @@ package com.malletcrafts.interiorestimate.pano
  *  1. the marks that are asked ([MarkDims.asked]: in the room, and not a Note), by their left edge `x0` rounded to
  *     the whole mm, ascending; equal `x0`: `y0` ascending (the lower first); then by code. A point is ordered by its
  *     box like any mark;
- *  2. inside a mark, the order [SurveyPrep.measures] gives;
+ *  2. inside a mark, the order [SurveyPrep.measures] gives -- a mark with four free corners (port 63 slice Q1): its
+ *     bottom, right, top and left sides, its diagonal if asked, then its type's own ([Quad.asked]);
  *  3. then the Lines and areas, in stored order (a tape has no reading);
  *  4. then each chain's [SurveyChain.openKeys], in stored order -- its segments, then its total, the total left out
  *     where the laser gives it.

@@ -104,6 +104,45 @@ class MeasureTextTest {
         assertEquals("Not in the room — a mark placed after the survey has nothing to measure", MeasureText.notInRoom(Tx.EN))
     }
 
+    @Test fun `a four-corner mark's texts -- its sides' own words on the bar, and the closing check's sentence (port 63 slice Q1)`() {
+        // the design's example, made up: front wall 3600 x 2700; FW1 with a sloping bottom; a unit on the floor with no straight side
+        val l = 5000.0; val a = 3600.0; val b = 2700.0
+        fun size(s: String) = SurveyPrep.size(s, l, a, b)
+        val p = SurveyPrep.fresh(l, a, b)
+        val w = p.put("front", "W", 1, 600.0, 2970.0, 900.0, 2450.0)
+        kotlin.test.assertTrue(Quad.set(w, listOf(pt(600.0, 1670.0), pt(2970.0, 900.0), pt(2970.0, 2450.0), pt(600.0, 2450.0))))
+        val u = p.put("floor", "CRP", 1, 400.0, 2200.0, 500.0, 2500.0)
+        kotlin.test.assertTrue(Quad.set(u, listOf(pt(400.0, 800.0), pt(2000.0, 500.0), pt(2200.0, 2300.0), pt(700.0, 2500.0))))
+        fun label(code: String) = MeasureText.label(Tx.EN, p, code, ::size)
+        // LINE 1 is the side's own words, alone
+        assertEquals(listOf("bottom side", "right side", "top side", "left side"), listOf("bottom", "right", "top", "left").map { label("FW1.$it") })
+        assertEquals("from left corner", label("FW1.l")); assertEquals("sill, from floor, to its nearest corner", label("FW1.s")); assertEquals("reveal depth", label("FW1.p"))
+        // w and h are not asked of it: the bar has no words for them
+        assertNull(label("FW1.w")); assertNull(label("FW1.h")); assertNull(label("FW1.diag"), "it has a square corner: no diagonal")
+        // on the floor the bottom is the back side and the top the front side; with no square corner, the diagonal
+        assertEquals(listOf("back side", "right side", "front side", "left side", "diagonal, back-left to front-right"),
+            listOf("bottom", "right", "top", "left", "diag").map { label("GCRP1.$it") })
+        assertEquals("from left wall, to its nearest corner", label("GCRP1.l")); assertEquals("from back wall, to its nearest corner", label("GCRP1.k"))
+        // a wall's diagonal
+        val x = p.put("front", "X", 1, 1000.0, 1900.0, 300.0, 800.0)
+        kotlin.test.assertTrue(Quad.set(x, listOf(pt(1000.0, 400.0), pt(1800.0, 300.0), pt(1900.0, 700.0), pt(1200.0, 800.0))))
+        assertEquals("diagonal, bottom-left to top-right", label("FX1.diag"))
+        // the label cell is the mark's code over its type's short name, as for any mark
+        assertEquals("FW1\nWindow", MeasureText.cell(Tx.EN, p, w.id)!!.text)
+        // THE CLOSING CHECK'S SENTENCE names the side, in its own words, and rounds as a figure does
+        assertEquals("The other sides make the bottom side ≈2466 mm. Check the readings, or the corners.", MeasureText.sidesSay(Tx.EN, "bottom side", 2465.6))
+        assertEquals("The other sides make the back side ≈2500 mm. Check the readings, or the corners.", MeasureText.sidesSay(Tx.EN, "back side", 2499.5))
+        // English first: under Marathi these new texts are still their English, and the measure words the app had keep theirs
+        assertEquals("bottom side", MeasureText.label(Tx.MR, p, "FW1.bottom", ::size)); assertEquals("डाव्या कोपऱ्यापासून", MeasureText.label(Tx.MR, p, "FW1.l", ::size))
+        assertEquals("The other sides make the bottom side ≈2466 mm. Check the readings, or the corners.", MeasureText.sidesSay(Tx.MR, "bottom side", 2465.6))
+        // the menu's two rows and the message after Four corners; and the salvage note
+        assertEquals("Four corners", Tx.EN.sp_shape_four_corners); assertEquals("Rectangle", Tx.EN.sp_shape_rectangle)
+        assertEquals("Drag a corner. A side near upright or level snaps straight.", Tx.EN.sp_shape_drag_corners)
+        assertEquals("Front wall: mark FW1's four corners were unreadable, kept as its box", Tx.EN.sp_file_x_mark_x_shape_unreadable(surface = "Front wall", code = "FW1"))
+        // the picked mark's row says "corner" with the key the app already had, Marathi and all
+        assertEquals("corner", Tx.EN.sp_corner); assertEquals("कोपरा", Tx.MR.sp_corner)
+    }
+
     @Test fun `the keys slice M2 will read are in the table, in English`() {
         // no reader yet: the face tab's count, the all toggle, the bar's three screen-reader labels, the reference's line
         assertEquals("2 to measure", Tx.EN.sp_measure_x_to_measure("2"))

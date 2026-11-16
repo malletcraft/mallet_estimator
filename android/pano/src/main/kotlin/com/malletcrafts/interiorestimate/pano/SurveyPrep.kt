@@ -864,8 +864,15 @@ object SurveyPrep {
      * A mark of one of the ten NEW types has its own checklist, asked FIRST (port 62 slice L5; index61c2.html 4977,
      * T53.measures53 -- [MarkTypes.measures]): a Note none at all, a Plumbing point and a Low-voltage point their
      * two offsets to the centre, the rest what their trade needs.
+     *
+     * A MARK WITH FOUR FREE CORNERS asks its four sides instead of a width and a height (port 63 slice Q1; DESIGN-quad
+     * §2.1-2.3): [Quad.asked] over the type's own checklist, [rect0] -- which it answers AS IT IS, the very list, for
+     * every mark that carries no `quad`.
      */
-    fun measures0(s: String, e: Mark, a: Double, b: Double): List<Measure> {
+    fun measures0(s: String, e: Mark, a: Double, b: Double): List<Measure> = Quad.asked(s, e, a, b, rect0(s, e, a, b))
+
+    /** What the mark's type asks of its BOX: [measures0]'s body as it has always been, line for line sp.js measures0. */
+    private fun rect0(s: String, e: Mark, a: Double, b: Double): List<Measure> {
         MarkTypes.measures(s, e, a, b)?.let { return it }
         val w = e.x1 - e.x0; val h = e.y1 - e.y0; val plan = isPlan(s); val cE = isPoint(e.t)
         val cx = (e.x0 + e.x1) / 2; val cy = (e.y0 + e.y1) / 2
@@ -919,10 +926,17 @@ object SurveyPrep {
      * A mark dragged: [part] "body" moves it whole (kept on the surface);
      * otherwise any of l r t b resize that edge (never under [MIN_SIZE]).
      * [o] is the mark as it was when the drag started.
+     *
+     * A CORNER PART, q0 … q3 ([Quad.PARTS]; port 63 slice Q1, DESIGN-quad §3.2), moves that one corner of the mark's
+     * four -- the box's own four on a mark with no `quad` -- with no snap at all ([Quad.drag], tol 0: a nudge never
+     * snaps, and a drag snaps in [snapMark]); false, and the corner where it last was, when the shape would be refused.
+     * On a four-corner mark "body" and l r t b work on the BOX as ever: its shape is stored as parts of the box and
+     * rides (or stretches) with it.
      */
     fun moveMark(e: Mark, o: Mark, part: String, dx: Double, dy: Double, a: Double, b: Double): Boolean {
         // A LOCKED MARK DOES NOT MOVE (v52 slice 8): neither a drag, a nudge nor a tab; the caller says why
         if (isLocked(e)) return false
+        Quad.cornerOf(part)?.let { i -> return Quad.drag(e, o, i, dx, dy, a, b, 0.0) != null }
         if (part == "body") {
             val w = o.x1 - o.x0; val h = o.y1 - o.y0
             e.x0 = max(0.0, min(a - w, o.x0 + dx)); e.x1 = e.x0 + w
@@ -936,9 +950,12 @@ object SurveyPrep {
         return true
     }
 
-    /** On a DRAG only (never a button nudge): within [SNAP] of a boundary, onto it. */
+    /** On a DRAG only (never a button nudge): within [SNAP] of a boundary, onto it. A corner part (q0 … q3) snaps as a
+     *  dragged corner does ([Quad.drag]) with [SNAP] as its snapping distance: straight onto a neighbour's line within
+     *  5°, else onto the face's edge -- and stays where it is if that would break the shape. */
     fun snapMark(e: Mark, part: String, a: Double, b: Double) {
         if (isLocked(e)) return
+        Quad.cornerOf(part)?.let { i -> Quad.drag(e, e.copy(), i, 0.0, 0.0, a, b, SNAP); return }
         val w = e.x1 - e.x0; val h = e.y1 - e.y0
         if (part == "body") {
             if (e.x0 < SNAP) { e.x0 = 0.0; e.x1 = w } else if (a - e.x1 < SNAP) { e.x1 = a; e.x0 = a - w }

@@ -36,7 +36,9 @@ import java.time.format.DateTimeFormatter
  * [tag or null, ...]}]}, ...}, actual: {"FW1.w": 1200, "F-M1.len": 1000, "FK1.1": 905,
  * "FK1.t": 3310}}. `meas` (v52 slice 9: Tapes, Lines and areas) and `chains`
  * (v52 slice 11) are written only where there is one, or where the file had
- * the key, so an older prep re-encodes unchanged.
+ * the key, so an older prep re-encodes unchanged. A mark's `quad` (port 63
+ * slice Q1: its four free corners, as parts of its box -- [Quad]) is one of
+ * the keys kept as they came, written only when the shape is not its box.
  */
 object SurveyPrepFile {
 
@@ -145,7 +147,20 @@ object SurveyPrepFile {
                     problems.add { tx -> tx.sp_file_x_mark_x_left_out(surface = surf(tx, s), code = named) }
                     return@forEachIndexed
                 }
-                marks.add(SurveyPrep.Mark(id, t, code, c[0]!!, c[1]!!, c[2]!!, c[3]!!, unknown(m, MARK_KEYS)))
+                // A MARK'S FOUR CORNERS (port 63 slice Q1; DESIGN-quad §1.2): its `quad` is kept as it came, like every
+                // key this build does not read as a field -- but only while it IS a shape. The box's own four corners
+                // say what the box says and are dropped quietly; any other value that cannot be read (Quad.read: the one
+                // rule, the same on S5 and S4), or one on a point or a Note, is dropped WITH a problem, so the mark is its
+                // box everywhere, the file is copied aside before anything is saved, and no build guesses a shape
+                var extra = unknown(m, MARK_KEYS)
+                if (extra.containsKey(Quad.KEY)) {
+                    val v = extra[Quad.KEY]
+                    if (!(Quad.mayHave(t) && Quad.read(v) != null)) {
+                        if (!Quad.identity(v)) problems.add { tx -> tx.sp_file_x_mark_x_shape_unreadable(surface = surf(tx, s), code = code) }
+                        extra = extra - Quad.KEY
+                    }
+                }
+                marks.add(SurveyPrep.Mark(id, t, code, c[0]!!, c[1]!!, c[2]!!, c[3]!!, extra))
             }
             // THE TAPES, LINES AND AREAS (v52 slice 9): {id, code, kind, locked, pts}. One that cannot be read costs
             // itself; a kind a later build adds is kept and written back as it came (it is drawn by nothing here)

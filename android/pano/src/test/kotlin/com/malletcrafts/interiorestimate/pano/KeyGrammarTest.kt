@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -95,6 +96,43 @@ class KeyGrammarTest {
         for (code in listOf("FK1", "RK12", "BK999", "LK99999999999999999999")) for (k in listOf("1", "9", "999", "t")) keys += "$code.$k"
         val bad = keys.filterNot { keyRe.matches(it) }
         assertTrue(bad.isEmpty(), "S5 would refuse: $bad")
+    }
+
+    @Test fun `a four-corner mark's five measure names, on every code, are accepted and are nobody else's (port 63 slice Q1)`() {
+        // whole words, letters only, 3 to 6 long: inside the grammar's 1 to 8 letters
+        assertEquals(listOf("bottom", "right", "top", "left"), Quad.SIDES); assertEquals("diag", Quad.DIAG)
+        val names = Quad.SIDES + Quad.DIAG
+        assertTrue(names.all { Regex("[a-z]{3,6}").matches(it) }, names.toString())
+        // none is taken by a rectangle's, a point's, a Line's, an area's or a chain's reading, and none is a two-letter
+        // name starting with c, which MarkDims and SurveyPlan read as a point's centre key
+        val taken = setOf("w", "h", "l", "r", "s", "t", "f", "k", "p", "d", "cl", "cr", "cs", "ct", "cf", "ck", "len", "per")
+        assertTrue(names.none { it in taken }); assertTrue(names.none { it.length == 2 && it[0] == 'c' })
+        // ASKED BY THE CHECKLIST ITSELF: every box type on every surface, as a shape with no straight side (so the
+        // diagonal is asked too), its code up to 999 -- and every key it then asks passes S5's grammar
+        val keys = mutableSetOf<String>()
+        for (s in SurveyPrep.SURFACES) {
+            val ab = SurveyPrep.size(s, room.first, room.second, h)
+            for (t in SurveyPrep.types(s)) for (n in listOf(1, 9, 999)) {
+                val code = SurveyPrep.CODE.getValue(s) + t.letter + n
+                val e = SurveyPrep.Mark("x", t.letter, code, 400.0, 1300.0, 300.0, 1000.0)
+                val shaped = Quad.set(e, listOf(doubleArrayOf(400.0, 500.0), doubleArrayOf(1200.0, 300.0), doubleArrayOf(1300.0, 850.0), doubleArrayOf(600.0, 1000.0)))
+                assertEquals(Quad.mayHave(t.letter), shaped, "$code: a spot has no quad")
+                if (!shaped) continue
+                val asked = SurveyPrep.measures0(s, e, ab[0], ab[1]).map { it.key }
+                assertEquals(names, asked.take(5), code)
+                assertTrue("w" !in asked && "h" !in asked, "$code: w and h mean the box's overall size and are not asked")
+                for (k in asked) keys.add("$code.$k")
+            }
+        }
+        val bad = keys.filterNot { keyRe.matches(it) }
+        assertTrue(bad.isEmpty(), "S5 would refuse: $bad")
+        for (k in listOf("FW1.bottom", "FW999.right", "RD9.top", "BO1.left", "LN999.diag", "GS1.bottom", "GCRP999.diag", "CCDP9.left", "FGRL1.top", "CB999.right", "FDEF1.diag"))
+            assertTrue(k in keys, "$k is a key the checklist asks")
+        // a point and a Note never ask one
+        assertTrue(keys.none { k -> listOf("FE", "FP", "FF", "FPLB", "FLV", "FNOTE").any { k.startsWith(it + "1.") } })
+        // and the longest code the grammar takes still takes the longest name
+        for (t in MarkTypes.TOKENS) for (s in SurveyPrep.SURFACES) for (m in names) assertTrue(keyRe.matches(SurveyPrep.CODE.getValue(s) + t + "999." + m), "$s $t $m")
+        assertTrue(keyRe.matches("FCRP" + "9".repeat(20) + ".bottom"))
     }
 
     @Test fun `the copied pattern still refuses what S5 refuses`() {

@@ -7936,6 +7936,26 @@
   "where": "v53build/trades53.js:219 · W",
   "kind": "static"
  },
+ "measure.diagonal": {
+  "en": "diagonal, bottom-left to top-right",
+  "where": [
+   "S2 APK phone text · Quad.kt asked at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's diagonal on a wall (reading key <code>.diag), asked only when the mark has no square corner · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.diagonal_plan": {
+  "en": "diagonal, back-left to front-right",
+  "where": [
+   "S2 APK phone text · Quad.kt asked at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's diagonal on the floor or the ceiling (reading key <code>.diag) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "measure.drop_below_ceiling": {
   "en": "drop below ceiling",
   "where": [
@@ -8056,6 +8076,66 @@
   ],
   "kind": "static"
  },
+ "measure.side_back": {
+  "en": "back side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for the side <code>.bottom of a four-corner mark on the floor or the ceiling, where the bottom edge is the back wall's · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.side_bottom": {
+  "en": "bottom side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's side from its bottom-left corner to its bottom-right, on a wall (reading key <code>.bottom) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.side_front": {
+  "en": "front side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for the side <code>.top of a four-corner mark on the floor or the ceiling, where the top edge is the front wall's · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.side_left": {
+  "en": "left side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's side from its top-left corner to its bottom-left, on every surface (reading key <code>.left) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.side_right": {
+  "en": "right side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's side from its bottom-right corner to its top-right, on every surface (reading key <code>.right) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "measure.side_top": {
+  "en": "top side",
+  "where": [
+   "S2 APK phone text · Quad.kt sideWhat at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the measure bar's first line for a four-corner mark's side from its top-right corner to its top-left, on a wall (reading key <code>.top) · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "measure.sill_floor": {
   "en": "sill, from floor",
   "where": "v53build/sp.js:179 · vy",
@@ -8069,6 +8149,17 @@
   ],
   "kind": "static",
   "flags": [
+   "fragment"
+  ]
+ },
+ "measure.to_nearest_corner": {
+  "en": ", to its nearest corner",
+  "where": [
+   "S2 APK phone text · Quad.kt asked at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): a fragment after a position's words, as measure.to_centre is after a point's -- from left corner, to its nearest corner -- where that side of a four-corner mark is not straight; its, because the words before it already name a corner of the WALL · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
    "fragment"
   ]
  },
@@ -10970,6 +11061,20 @@
    "phone-text"
   ]
  },
+ "sp.file.x_mark_x_shape_unreadable": {
+  "en": "{surface}: mark {code}'s four corners were unreadable, kept as its box",
+  "where": [
+   "S2 APK phone text · SurveyPrepFile.kt decode at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): opening a saved prep (salvage notes): a mark's quad key that is not a readable shape is dropped and the mark stays its box · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "surface": "a surface name (SurveyPrep.NAME), shown through surface.*",
+   "code": "the mark's code"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.file.x_marks_unreadable": {
   "en": "{surface}: its marks were unreadable",
   "where": [
@@ -11592,6 +11697,20 @@
    "phone-text"
   ]
  },
+ "sp.measure.sides_say_x": {
+  "en": "The other sides make the {side} ≈{est} mm. Check the readings, or the corners.",
+  "where": [
+   "S2 APK phone text · MeasureText.kt sidesSay at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the screen's message line, when a four-corner mark's three straight sides and its sloping side do not close -- said as any of its four side readings lands or becomes active, so it names the side · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "side": "the sloping side's own words, a measure.side_* text (bottom side; on a plan, back side)",
+   "est": "what the other three readings make that side, whole mm"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.measure.x_of_x": {
   "en": "{read} of {total} measured",
   "where": [
@@ -12169,6 +12288,36 @@
   "kind": "static",
   "flags": [
    "fragment"
+  ]
+ },
+ "sp.shape.drag_corners": {
+  "en": "Drag a corner. A side near upright or level snaps straight.",
+  "where": [
+   "S2 APK phone text · SurveyPrepScreen.kt (slice Q2) at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the screen's message line after Four corners is chosen; no reader until slice Q2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.shape.four_corners": {
+  "en": "Four corners",
+  "where": [
+   "S2 APK phone text · SurveyPrepEdit.kt shapeRow at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the long-press menu's row on a rectangle that may have four free corners, after Duplicate; no reader on screen until slice Q2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.shape.rectangle": {
+  "en": "Rectangle",
+  "where": [
+   "S2 APK phone text · SurveyPrepEdit.kt shapeRow at efe8d91+Q1 · Survey prep · a mark with four free corners (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §5): the long-press menu's row on a four-corner mark: back to its bounding rectangle; no reader on screen until slice Q2 · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.show_faces_reference_2": {

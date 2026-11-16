@@ -6,7 +6,19 @@
 # Latin scans read it like every other key.
 #   key<TAB>English   the English exactly as strings-en.json has it (MrPendingTest holds the three equal, byte for byte)
 # TxRenderTest's two Latin scans skip the keys listed here, and only those. No existing Marathi value is ever listed.
+# Port 63 slice Q1 (16 Nov 2026) added fourteen: a four-corner mark's texts (the nine measure.* words of its sides, its
+# diagonal and "to its nearest corner"; sp.shape.*; sp.measure.sides_say_x; sp.file.x_mark_x_shape_unreadable). 27 in all.
 key	English
+measure.diagonal	diagonal, bottom-left to top-right
+measure.diagonal_plan	diagonal, back-left to front-right
+measure.side_back	back side
+measure.side_bottom	bottom side
+measure.side_front	front side
+measure.side_left	left side
+measure.side_right	right side
+measure.side_top	top side
+measure.to_nearest_corner	, to its nearest corner
+sp.file.x_mark_x_shape_unreadable	{surface}: mark {code}'s four corners were unreadable, kept as its box
 sp.measure.all	all
 sp.measure.aria.all	Every figure on this face
 sp.measure.aria.previous	The measurement before
@@ -17,6 +29,10 @@ sp.measure.next_face_x	Next: {face} · {n} to measure ▸
 sp.measure.not_in_room	Not in the room — a mark placed after the survey has nothing to measure
 sp.measure.photo_says_x	The photo says ≈{est} mm. Check the mark, or shoot again.
 sp.measure.room_done_x	Room measured · all {total} ✓
+sp.measure.sides_say_x	The other sides make the {side} ≈{est} mm. Check the readings, or the corners.
 sp.measure.x_of_x	{read} of {total} measured
 sp.measure.x_to_measure	{n} to measure
 sp.reference_shown_measure	Reference shown on 2 · Mark, 3 · Measure and 4 · 360
+sp.shape.drag_corners	Drag a corner. A side near upright or level snaps straight.
+sp.shape.four_corners	Four corners
+sp.shape.rectangle	Rectangle

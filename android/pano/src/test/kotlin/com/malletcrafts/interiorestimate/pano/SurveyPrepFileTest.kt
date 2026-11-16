@@ -574,4 +574,97 @@ class SurveyPrepFileTest {
         // and the next codes run on from the ones the file holds, token by token
         assertEquals(listOf("FCRP2", "FPLB2", "FDEF2", "FSKY2", "FD2"), listOf("CRP", "PLB", "DEF", "SKY", "D").map { p.nextCode("front", it) })
     }
+
+    // ------------------------------------------------------------------ port 63 slice Q1: a mark with four free corners
+
+    /** A front wall 3600 x 2700 with the design's example window: its box and its `quad`, as the design writes it. */
+    private fun quadPrep(quad: String, t: String = "W", code: String = "FW1", more: String = ""): String =
+        "{\"v\":1,\"L\":5000,\"W\":3600,\"H\":2700,\"w\":{" + listOf("front", "right", "back", "left", "floor", "ceil").joinToString(",") { s ->
+            "\"$s\":" + surface(els = if (s == "front")
+                "[{\"id\":\"a1\",\"t\":\"$t\",\"code\":\"$code\",\"x0\":600,\"x1\":2970,\"y0\":900,\"y1\":2450,\"locked\":false,\"quad\":$quad$more}]" else "[]")
+        } + "},\"actual\":{\"$code.left\":780,\"$code.w\":2370}}"
+
+    private val EXAMPLE = "[[0, 0.496774], [1, 0], [1, 1], [0, 1]]"
+
+    @Test fun `a four-corner mark's quad is kept as it came, where it came, and read as its shape`() {
+        val text = quadPrep(EXAMPLE, more = ",\"sub\":\"bay\"")
+        val (o, back) = roundTrip(text)
+        assertEquals(norm(o), norm(back)); assertEquals(norm(o), norm(parse(write(back))))
+        // the key stays between the mark's own keys, in the order it came: the seven, then what the file carried
+        assertEquals(listOf("id", "t", "code", "x0", "x1", "y0", "y1", "locked", "quad", "sub"), elsOf(back, "front")[0].keys.toList())
+        val d = SurveyPrepFile.decode(parse(text))!!
+        assertTrue(d.problems.isEmpty(), d.problems.map { it(Tx.EN) }.toString())
+        val e = d.prep.markById("a1")!!.second
+        assertEquals(listOf(listOf(0.0, 0.496774), listOf(1.0, 0.0), listOf(1.0, 1.0), listOf(0.0, 1.0)), Quad.of(e)!!.map { it.toList() })
+        assertEquals(listOf(600.0, 2970.0, 900.0, 2450.0), listOf(e.x0, e.x1, e.y0, e.y1), "the box is the box")
+        assertEquals(listOf("bottom", "right", "top", "left", "l", "s", "p"), SurveyPrep.measures("front", e, 3600.0, 2700.0).map { it.key })
+        // a reading it kept from its time as a rectangle, and its side reading, are both in the file still
+        assertEquals(mapOf("FW1.left" to 780.0, "FW1.w" to 2370.0), d.prep.actual)
+        // opened whole: Restored, nothing copied aside, and not saved on open
+        val disk = Disk(); val r = open(text, disk)
+        assertTrue(r.opened is SurveyPrepFile.Opened.Restored); assertTrue(disk.copied.isEmpty()); assertFalse(SurveyPrepFile.saveOnOpen(r.opened))
+    }
+
+    @Test fun `an unreadable quad is dropped and said -- the mark stays, as its box, and the file is copied aside first`() {
+        val said = "Front wall: mark FW1's four corners were unreadable, kept as its box"
+        for ((what, quad) in listOf("three pairs" to "[[0,0.5],[1,0],[1,1]]", "five pairs" to "[[0,0.5],[1,0],[1,1],[0,1],[0.5,0.5]]",
+            "text that looks like numbers" to "[[\"0\",\"0.5\"],[\"1\",\"0\"],[\"1\",\"1\"],[\"0\",\"1\"]]",
+            "the box's corners as text" to "[[\"0\",\"0\"],[\"1\",\"0\"],[\"1\",\"1\"],[\"0\",\"1\"]]",
+            "a part of 7" to "[[0,0.5],[7,0],[1,1],[0,1]]", "not spanning its box" to "[[0.1,0.5],[1,0],[1,1],[0.1,1]]",
+            "clockwise" to "[[1,0],[0,0],[0,1],[1,1]]", "a corner turned inward" to "[[0,0],[1,0],[0.4,0.4],[0,1]]",
+            "a word" to "\"trapezoid\"", "null" to "null", "an object" to "{\"q\":[[0,0.5],[1,0],[1,1],[0,1]]}")) {
+            val text = quadPrep(quad)
+            val d = assertNotNull(SurveyPrepFile.decode(parse(text)), what)
+            assertEquals(listOf(said), d.problems.map { it(Tx.EN) }, what)
+            val e = d.prep.surface("front").marks.single()
+            // the mark is not lost: it is its box, with every other key it carried
+            assertEquals("FW1", e.code); assertEquals(listOf(600.0, 2970.0, 900.0, 2450.0), listOf(e.x0, e.x1, e.y0, e.y1), what)
+            assertFalse(Quad.KEY in e.extra, what); assertEquals(setOf("locked"), e.extra.keys, what); assertNull(Quad.of(e))
+            assertEquals(listOf("w", "h", "l", "s", "p"), SurveyPrep.measures("front", e, 3600.0, 2700.0).map { it.key }, what)
+            // the salvage path: copied aside before anything is saved, then saved clean, and the next open is whole
+            val disk = Disk(); val r = open(text, disk)
+            val o = r.opened as SurveyPrepFile.Opened.Salvaged
+            assertEquals(listOf("C.json"), disk.copied); assertFalse(r.hold); assertTrue(SurveyPrepFile.saveOnOpen(o), what)
+            val healed = write(SurveyPrepFile.encode(o.decoded.prep, 5000.0, 3600.0, 2700.0))
+            assertFalse("quad" in healed, what)
+            val again = Disk(); assertTrue(open(healed, again).opened is SurveyPrepFile.Opened.Restored, what); assertTrue(again.copied.isEmpty())
+        }
+        // a quad on a point or on a Note: unreadable too, whatever it holds -- the mark may not have one
+        for ((t, code) in listOf("E" to "FE1", "PLB" to "FPLB1", MarkTypes.NOTE to "FNOTE1")) {
+            val d = SurveyPrepFile.decode(parse(quadPrep(EXAMPLE, t, code)))!!
+            assertEquals(listOf("Front wall: mark $code's four corners were unreadable, kept as its box"), d.problems.map { it(Tx.EN) }, t)
+            assertFalse(Quad.KEY in d.prep.surface("front").marks.single().extra, t)
+        }
+        // English first: the note is its English under Marathi for now, the surface's name in the language
+        val mr = SurveyPrepFile.decode(parse(quadPrep("[[0,0.5],[1,0],[1,1]]")))!!.problems.single()(Tx.MR)
+        assertEquals("समोरील भिंत: mark FW1's four corners were unreadable, kept as its box", mr)
+    }
+
+    @Test fun `the box's own four corners say what the box says -- dropped quietly, on any mark`() {
+        for (same in listOf("[[0,0],[1,0],[1,1],[0,1]]", "[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,1.0]]")) for ((t, code) in listOf("W" to "FW1", "E" to "FE1")) {
+            val text = quadPrep(same, t, code)
+            val d = SurveyPrepFile.decode(parse(text))!!
+            assertTrue(d.problems.isEmpty(), "$t: ${d.problems.map { it(Tx.EN) }}")
+            val e = d.prep.surface("front").marks.single()
+            assertFalse(Quad.KEY in e.extra); assertEquals(setOf("locked"), e.extra.keys)
+            // read whole: nothing is copied aside and nothing is saved on open -- the key simply is not written again
+            val disk = Disk(); val r = open(text, disk)
+            assertTrue(r.opened is SurveyPrepFile.Opened.Restored || SurveyPrepFile.convertedOf(r.opened), t); assertTrue(disk.copied.isEmpty())
+            assertFalse("quad" in write(SurveyPrepFile.encode(d.prep, 5000.0, 3600.0, 2700.0)))
+        }
+    }
+
+    @Test fun `a prep written by today's build has no quad anywhere, and reads and writes back as it was`() {
+        for (text in listOf(v1, proto, v53)) {
+            val (o, back) = roundTrip(text)
+            assertEquals(norm(o), norm(back)); assertFalse("quad" in write(back))
+            val d = SurveyPrepFile.decode(parse(text))!!
+            for (s in SurveyPrep.SURFACES) for (e in d.prep.surface(s).marks) {
+                assertNull(Quad.of(e), e.code); assertEquals(listOf(true, true, true, true), Quad.straight(e))
+                // its checklist is its rectangle's own, the very list
+                val base = SurveyPrep.measures0(s, e, 3310.0, 2705.0)
+                assertTrue(base.none { it.key in Quad.SIDES || it.key == Quad.DIAG }, e.code)
+            }
+        }
+    }
 }

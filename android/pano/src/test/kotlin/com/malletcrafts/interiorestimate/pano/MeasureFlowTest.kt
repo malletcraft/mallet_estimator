@@ -301,6 +301,106 @@ class MeasureFlowTest {
         for (k in listOf("FD1.p", "F-M1.len", "FK1.1", "FZ9.w", "FD1.s")) assertNull(est(k), k)
     }
 
+    // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
+
+    /** The design's example, made up: the front wall 3600 x 2700 of PROJ-T1; window FW1 with uprights 1550 (right) and
+     *  780 (left), a level top of 2370 and a sloping bottom; and a door, a rectangle. */
+    private val QL = 5000.0; private val QA = 3600.0; private val QB = 2700.0
+    private fun qab(s: String): DoubleArray = SurveyPrep.size(s, QL, QA, QB)
+    private fun trapezoid(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(QL, QA, QB)
+        val w = p.put("front", "W", 1, 600.0, 2970.0, 900.0, 2450.0)
+        assertTrue(Quad.set(w, listOf(pt(600.0, 1670.0), pt(2970.0, 900.0), pt(2970.0, 2450.0), pt(600.0, 2450.0))))
+        p.put("front", "D", 1, 100.0, 500.0, 0.0, 2100.0)
+        p.actual.putAll(mapOf("FD1.w" to 400.0, "FD1.h" to 2100.0, "FD1.l" to 100.0, "FD1.p" to 230.0))
+        return p
+    }
+    private val SAY = "The other sides make the bottom side ≈2466 mm. Check the readings, or the corners."
+
+    @Test fun `the closing check's sentence is said as the reading that completes the four lands - in walk order, on the left upright`() {
+        val p = trapezoid()
+        fun say(code: String) = MeasureFlow.checkText(Tx.EN, p, code, ::qab)
+        // THE WALK reads the sloping bottom FIRST: 2495, then right 1550, top 2370 -- nothing to close yet, nothing said
+        var at = MeasureWalk.next(p, "front", QA, QB, null)
+        for ((code, mm) in listOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0)) {
+            assertEquals(code, at); p.actual[code] = mm
+            assertNull(say(code), "$code: three of the four are not a check")
+            at = MeasureFlow.stay(p, "front", QA, QB, code, ::qab)
+        }
+        // the left upright typed 870 by mistake completes the four: sqrt(2370^2 + 680^2) = 2465.6, off the 2495 by 29.4
+        assertEquals("FW1.left", at); p.actual["FW1.left"] = 870.0
+        assertEquals(SAY, say("FW1.left"), "said as the 870 lands on the LEFT side -- and it names the bottom side")
+        // ... while the walk moves on to the corner offset, where nothing is said
+        assertEquals("FW1.l", MeasureFlow.stay(p, "front", QA, QB, "FW1.left", ::qab)); assertNull(say("FW1.l")); assertNull(say("FW1.s")); assertNull(say("FW1.p"))
+        // the 870 is 90 from the photo's 780, inside the photo check: no other sentence competes
+        assertNull(MeasureFlow.checkEst(p, "FW1.left", ::qab))
+        // THE SAME SENTENCE on every one of its four side codes while the check fails -- whichever becomes active
+        for (k in listOf("bottom", "right", "top", "left")) assertEquals(SAY, say("FW1.$k"), k)
+        // the `!` is on the sloping side's plate alone
+        assertEquals(listOf(true, false, false, false), listOf("bottom", "right", "top", "left").map { MeasureFlow.value(p, "FW1.$it", ::qab)!!.check })
+        assertEquals("2495", MeasureFlow.value(p, "FW1.bottom", ::qab)!!.text)
+        // the photo has nothing to say of the bottom: 2495 is 3 mm from its 2492 -- checkEst is the photo's half alone
+        assertNull(MeasureFlow.checkEst(p, "FW1.bottom", ::qab))
+        // corrected to 780 the four close (the others make 2491.9, off by 3): nothing is said, no `!`
+        p.actual["FW1.left"] = 780.0
+        for (k in listOf("bottom", "right", "top", "left")) assertNull(say("FW1.$k"), k)
+        assertFalse(MeasureFlow.value(p, "FW1.bottom", ::qab)!!.check)
+        // nothing was stored but the readings themselves
+        assertEquals(setOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FW1.bottom", "FW1.right", "FW1.top", "FW1.left"), p.actual.keys)
+    }
+
+    @Test fun `which sentence when a code could say two - the photo's for the figure just read, the closing one on the sloping side`() {
+        val p = trapezoid()
+        fun say(code: String) = MeasureFlow.checkText(Tx.EN, p, code, ::qab)
+        p.actual.putAll(mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0))
+        // A LEFT TYPED FAR FROM THE PHOTO -- 300 against its 780 -- fails its OWN photo check: on that code the photo's
+        // sentence is said, because it names the figure just read
+        p.actual["FW1.left"] = 300.0
+        assertEquals(780.0, MeasureFlow.checkEst(p, "FW1.left", ::qab)!!, 0.01)
+        assertEquals("The photo says ≈780 mm. Check the mark, or shoot again.", say("FW1.left"))
+        // ... while on the sloping side's own code, and on the two sides that pass their photo check, the closing sentence
+        val far = "The other sides make the bottom side ≈2679 mm. Check the readings, or the corners."        // sqrt(2370^2 + 1250^2)
+        assertEquals(far, say("FW1.bottom")); assertEquals(far, say("FW1.right")); assertEquals(far, say("FW1.top"))
+        // ON THE SLOPING SIDE'S OWN CODE the closing sentence is said also when that plate fails the photo check too
+        p.actual["FW1.left"] = 780.0; p.actual["FW1.bottom"] = 2900.0                                     // 408 from the photo's 2492
+        assertEquals(2491.95, MeasureFlow.checkEst(p, "FW1.bottom", ::qab)!!, 0.01)
+        assertEquals("The other sides make the bottom side ≈2492 mm. Check the readings, or the corners.", say("FW1.bottom"))
+        assertTrue(MeasureFlow.value(p, "FW1.bottom", ::qab)!!.check)
+        // a photo check alone, with the four closing: the photo's sentence on that code, nothing on the others
+        p.actual["FW1.bottom"] = 2495.0; p.actual["FW1.l"] = 1000.0                                        // the corner offset, 400 from the photo's 600
+        assertEquals("The photo says ≈600 mm. Check the mark, or shoot again.", say("FW1.l")); assertNull(say("FW1.bottom")); assertNull(say("FW1.left"))
+        // A RECTANGLE SAYS WHAT checkEst SAID, on every one of its codes, read or not -- and nothing more
+        p.actual["FD1.w"] = 700.0                                                                           // 300 off the door's 400
+        for (k in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p", "FD1.s", "FZ9.w")) {
+            val est = MeasureFlow.checkEst(p, k, ::qab)
+            assertEquals(est?.let { MeasureText.photoSays(Tx.EN, it) }, say(k), k)
+        }
+        assertEquals("The photo says ≈400 mm. Check the mark, or shoot again.", say("FD1.w")); assertNull(say("FD1.h"))
+        // on the floor the sentence names the side in the plan's words
+        val u = p.put("floor", "X", 1, 400.0, 2200.0, 500.0, 2500.0)
+        assertTrue(Quad.set(u, listOf(pt(400.0, 900.0), pt(2200.0, 500.0), pt(2200.0, 2500.0), pt(400.0, 2500.0))))
+        p.actual.putAll(mapOf("GX1.bottom" to 1700.0, "GX1.right" to 2000.0, "GX1.top" to 1800.0, "GX1.left" to 1600.0))
+        assertEquals("The other sides make the back side ≈1844 mm. Check the readings, or the corners.", say("GX1.top"))
+    }
+
+    @Test fun `a four-corner mark on the measuring screen - a tap on a side's figure, the bar's words, and where the photo pans to`() {
+        val p = trapezoid(); val w = p.markOf("FW1.bottom")!!.second
+        // a tap on a side's figure picks the window and makes that side the reading being taken; again, the pad opens
+        val t = MeasureFlow.figure(p, "FW1.right", null, 0, ::qab)
+        assertEquals(w.id, t.pick!!.id); assertEquals("FW1.right", t.active); assertFalse(t.pad)
+        assertTrue(MeasureFlow.figure(p, "FW1.right", "FW1.right", 0, ::qab).pad)
+        // a tap on the mark makes its FIRST unmeasured dimension active: the bottom side
+        assertEquals("FW1.bottom", MeasureFlow.body(p, w.id, null, null, 0, ::qab).active)
+        // w and h take no reading on it, in any phase: nobody asks them
+        assertFalse(MeasureFlow.takes(p, "FW1.w", 0, ::qab)); assertTrue(MeasureFlow.takes(p, "FW1.left", 0, ::qab)); assertFalse(MeasureFlow.takes(p, "FW1.left", 1, ::qab))
+        // the bar: the side's words over the face's progress
+        val bar = MeasureFlow.onFace(Tx.EN, p, "front", w.id, "FW1.bottom", 0, ::qab)
+        assertEquals(Kind.ACTIVE, bar.kind); assertEquals("bottom side", bar.what); assertEquals("4 of 11 measured", bar.line); assertEquals("≈2492", bar.figure!!.text)
+        // what the reading measures on its face: the true sloping side, corner to corner -- where the photo pans to
+        assertEquals(listOf(600.0, 1670.0, 2970.0, 900.0), MeasureFlow.span(p, "FW1.bottom", ::qab)!!.map { Math.round(it * 10) / 10.0 })
+        assertEquals(listOf(2970.0, 0.0, 2970.0, 900.0), MeasureFlow.span(p, "FW1.s", ::qab)!!.toList())
+    }
+
     // ------------------------------------------------------------------ the measure bar
 
     private fun onFace(p: SurveyPrep.Prep, s: String, picked: String?, active: String?, stage: Int?, tx: Tx = Tx.EN) =

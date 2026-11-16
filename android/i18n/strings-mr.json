@@ -3131,6 +3131,14 @@
   "mr": "भिंतीपासून डेप्थ",
   "note": "depth = डेप्थ (what staff say); खोली would read as 'room' on these screens"
  },
+ "measure.diagonal": {
+  "mr": "diagonal, bottom-left to top-right",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.diagonal_plan": {
+  "mr": "diagonal, back-left to front-right",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "measure.drop_below_ceiling": {
   "mr": "छतापासून खाली",
   "note": "alt: छताखाली ड्रॉप"
@@ -3179,11 +3187,39 @@
  "measure.right_wall": {
   "mr": "उजव्या भिंतीपासून"
  },
+ "measure.side_back": {
+  "mr": "back side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.side_bottom": {
+  "mr": "bottom side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.side_front": {
+  "mr": "front side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.side_left": {
+  "mr": "left side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.side_right": {
+  "mr": "right side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "measure.side_top": {
+  "mr": "top side",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "measure.sill_floor": {
   "mr": "सिल, जमिनीपासून"
  },
  "measure.to_centre": {
   "mr": ", मध्यापर्यंत"
+ },
+ "measure.to_nearest_corner": {
+  "mr": ", to its nearest corner",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "measure.total": {
   "mr": "एकूण"
@@ -4257,6 +4293,10 @@
  "sp.file.x_mark_x_left_out": {
   "mr": "{surface}: मार्क {code} वाचता आला नाही, वगळला"
  },
+ "sp.file.x_mark_x_shape_unreadable": {
+  "mr": "{surface}: mark {code}'s four corners were unreadable, kept as its box",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.file.x_marks_unreadable": {
   "mr": "{surface}: मार्क वाचता आले नाहीत",
   "note": "L2 finalised (28 Oct 2026): 'त्याचे' is wrong for a wall or the floor (feminine); the surface name before it already says whose"
@@ -4459,6 +4499,10 @@
  "sp.measure.room_done_x": {
   "mr": "Room measured · all {total} ✓",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.sides_say_x": {
+  "mr": "The other sides make the {side} ≈{est} mm. Check the readings, or the corners.",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.measure.x_of_x": {
   "mr": "{read} of {total} measured",
@@ -4682,6 +4726,18 @@
  "sp.segment": {
   "mr": "भाग ",
   "note": "fragment"
+ },
+ "sp.shape.drag_corners": {
+  "mr": "Drag a corner. A side near upright or level snaps straight.",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.shape.four_corners": {
+  "mr": "Four corners",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.shape.rectangle": {
+  "mr": "Rectangle",
+  "note": "port 63 Q1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.show_faces_reference_2": {
   "mr": "बाजूंवर दाखवा: संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर"

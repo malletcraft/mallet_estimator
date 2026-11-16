@@ -108,6 +108,7 @@ class DuplicateTest {
 
 
     // ------------------------------------------------------------------ port 62 slice L4: a copy is the box alone
+    // (port 63 slice Q1: of a mark with four free corners, the box AND ITS SHAPE -- the test after this one)
 
     /** What [SurveyPrepEdit.duplicate] MAKES, wherever it is asked. Where the phone asks it at all is the next test's. */
     @Test fun `the copy of a wish is the box alone - no born, no state, no act, no note - as the page's duplicateItem makes it`() {
@@ -141,6 +142,40 @@ class DuplicateTest {
         // two copies, never the wished socket they were made from
         assertEquals(listOf("FW1", "FE2", "FW2"), SheetMarks.marks(p.surface("front").marks, SheetMarks.Audience.OTHERS).map { it.code })
         assertFalse(SheetMarks.surveyed(p.markById("e")!!.second)); assertTrue(SheetMarks.surveyed(p.markById("e2")!!.second))
+    }
+
+    /** PORT 63 SLICE Q1 (DESIGN-quad §3.3): "the box alone" is, for a mark with four free corners, THE BOX AND ITS SHAPE --
+     *  its `quad`, the parts of its box, and still nothing else. A rectangle's copy is the box alone, as above. */
+    @Test fun `the copy of a four-corner mark is its box and its shape - and nothing else, no readings, unlocked, the next code`() {
+        val p = SurveyPrep.fresh(L, W, H)
+        val w = p.addMarkAt("front", "W", 1000.0, 1500.0, W, H, "w")                     // 400..1600 x 900..2100
+        assertTrue(Quad.set(w, listOf(doubleArrayOf(400.0, 1400.0), doubleArrayOf(1600.0, 900.0), doubleArrayOf(1600.0, 2100.0), doubleArrayOf(400.0, 2100.0))))
+        SurveyPrepEdit.setLocked(p, "w", true); MarkLife.setNote(w, "bay window", office = true)
+        p.actual["FW1.left"] = 700.0; p.actual["FW1.bottom"] = 1300.0
+        val c = assertNotNull(SurveyPrepEdit.duplicate(p, "w", W, H, "w2"))
+        assertEquals("FW2", c.code); assertEquals("W", c.t)
+        // its box 100 mm right and up, the same size -- and the same shape in it: the very parts
+        assertEquals(listOf(500.0, 1700.0, 1000.0, 2200.0), listOf(c.x0, c.x1, c.y0, c.y1))
+        assertEquals(setOf(Quad.KEY), c.extra.keys); assertEquals(w.extra[Quad.KEY], c.extra[Quad.KEY])
+        fun r1(v: Double) = Math.round(v * 10) / 10.0
+        assertEquals(listOf(listOf(500.0, 1500.0), listOf(1700.0, 1000.0), listOf(1700.0, 2200.0), listOf(500.0, 2200.0)), Quad.corners(c).map { listOf(r1(it[0]), r1(it[1])) })
+        assertEquals(listOf(false, true, true, true), Quad.straight(c))
+        // nothing else: no lock, no note, no state, no readings -- it is another thing on the wall, measured on its own
+        assertFalse(SurveyPrep.isLocked(c)); assertEquals("", MarkLife.noteOf(c.extra)); assertEquals(MarkLife.EXIST, MarkLife.lifeOf(c))
+        assertTrue(p.actual.keys.none { it.startsWith("FW2.") }); assertEquals(2, p.actual.size)
+        assertEquals(listOf("bottom", "right", "top", "left", "l", "s", "p"), SurveyPrep.measures("front", c, W, H).map { it.key })
+        // back the other way at the wall's edge: the shape rides with its box
+        val e = p.addMarkAt("front", "X", 2300.0, 2300.0, W, H, "x")                     // 2000..2600 x 2000..2600
+        assertTrue(Quad.set(e, listOf(doubleArrayOf(2000.0, 2000.0), doubleArrayOf(2600.0, 2000.0), doubleArrayOf(2600.0, 2400.0), doubleArrayOf(2000.0, 2600.0))))
+        val ec = SurveyPrepEdit.duplicate(p, "x", W, H, "x2")!!
+        assertEquals(listOf(1900.0, 2500.0, 1900.0, 2500.0), listOf(ec.x0, ec.x1, ec.y0, ec.y1)); assertEquals(e.extra[Quad.KEY], ec.extra[Quad.KEY])
+        for (m in listOf(c, ec)) assertFalse(SurveyPrep.outOf(m, W, H))
+        // a quad nobody can read is not a shape, and is not copied: the copy is the box alone
+        val bad = SurveyPrep.Mark("b", "W", "FW9", 100.0, 300.0, 100.0, 300.0, mapOf(Quad.KEY to listOf(listOf(0.0, 0.5), listOf(1.0, 0.0), listOf(1.0, 1.0))))
+        p.surface("front").marks.add(bad)
+        assertTrue(SurveyPrepEdit.duplicate(p, "b", W, H, "b2")!!.extra.isEmpty())
+        // and a rectangle's copy is still the box alone
+        val r = p.addMarkAt("front", "D", 700.0, 1100.0, W, H, "d"); assertTrue(SurveyPrepEdit.duplicate(p, "d", W, H, "d2")!!.extra.isEmpty()); assertNull(Quad.of(r))
     }
 
     @Test fun `the L4 review - so the phone copies a mark only where that box is what a tap places - never the copy of a wish in the phase it was wished in`() {

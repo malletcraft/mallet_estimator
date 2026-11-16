@@ -39,6 +39,11 @@ object MarkDims {
         /** `p`: what the photo cannot show -- reveal depth, projection, a drop below the slab. No line: a chip at the
          *  mark's lower-right corner. */
         DEPTH,
+        /** `bottom` `right` `top` `left`: one side of a mark with four free corners, from one corner to the next
+         *  (port 63 slice Q1; DESIGN-quad §2.1, §3.5). Its line runs parallel to the side, outside the shape. */
+        SIDE,
+        /** `diag`: a four-corner mark's diagonal, from its bottom-left corner to its top-right, inside the shape. */
+        DIAG,
     }
 
     /**
@@ -46,11 +51,12 @@ object MarkDims {
      * checklist's own [Msg]), the photo's estimate ([est]; null: site only) and its line on the face, mm, from
      * ([x1], [y1]) to ([x2], [y2]). A [Role.DEPTH] has no line ([line] false): both ends are its anchor, the mark's
      * lower-right corner. [known] false: a key this build has no drawing for, shown as a chip rather than dropped --
-     * MarkDimsTest proves no key of today's types is one.
+     * MarkDimsTest proves no key of today's types is one. ([nx], [ny]): for a [Role.SIDE], the unit normal pointing OUT
+     * of the shape, on the face (y up), which is the way its line stands off the side; 0, 0 for every other role.
      */
     class Dim(val key: String, val code: String, val role: Role, val what: Msg, val est: Double?,
               val x1: Double, val y1: Double, val x2: Double, val y2: Double,
-              val line: Boolean = true, val known: Boolean = true) {
+              val line: Boolean = true, val known: Boolean = true, val nx: Double = 0.0, val ny: Double = 0.0) {
         /** The line's length on the face, mm: for every key the photo can estimate, its [est]. */
         val length: Double get() = hypot(x2 - x1, y2 - y1)
     }
@@ -68,8 +74,13 @@ object MarkDims {
      * A POINT'S offsets run to its CENTRE, under its own keys (`cl` `cr` `cs` `ct` `cf` `ck`; a plan's Electric point
      * keeps `l` `r` `f` `k`: [SurveyPrep.ckey]) -- which key it is called decides nothing here, only that the mark is a
      * point. A Note asks nothing and has none.
+     *
+     * A MARK WITH FOUR FREE CORNERS ([Quad.of]; port 63 slice Q1, DESIGN-quad §2.3 and §3.5) is drawn by the same rule,
+     * by key, from its real corners ([quad]): each SIDE from one corner to the next, with the normal its line stands
+     * off by; the DIAGONAL from q0 to q2; and its position lines to the corner that touches that edge of its box.
      */
     fun of(s: String, e: SurveyPrep.Mark, a: Double, b: Double): List<Dim> {
+        if (Quad.of(e) != null) return quad(s, e, a, b)
         val pt = SurveyPrep.isPoint(e.t)
         val xm = (e.x0 + e.x1) / 2; val ym = (e.y0 + e.y1) / 2
         return SurveyPrep.measures(s, e, a, b).map { m ->
@@ -85,6 +96,46 @@ object MarkDims {
                 "d" -> Dim(m.key, code, Role.DROP, m.what, m.est, xm, e.y0, xm, b)
                 "p" -> Dim(m.key, code, Role.DEPTH, m.what, m.est, e.x1, e.y0, e.x1, e.y0, line = false)
                 else -> Dim(m.key, code, Role.DEPTH, m.what, m.est, e.x1, e.y0, e.x1, e.y0, line = false, known = false)
+            }
+        }
+    }
+
+    /**
+     * THE DIMENSIONS OF A FOUR-CORNER MARK, one per [SurveyPrep.measures], in the same order, from its real corners
+     * ([Quad.corners]). By key:
+     *  - `bottom` `right` `top` `left`: the side from corner i to corner i + 1, its length the photo's estimate, with
+     *    the unit normal pointing out of the shape (the corners run counter-clockwise, so that is to the RIGHT of the
+     *    way the side runs);
+     *  - `diag`: from q0 to q2;
+     *  - `l` / `r` / `s` `k` / `t` `f`: from the corner of the wall, the floor or the ceiling to the corner of the MARK
+     *    that touches that edge of its box -- level with it (`l`, `r`) or plumb under or over it (`s`, `t`). Where two
+     *    corners touch it (that side is straight) the line ends at their midpoint, which is where a rectangle's ends
+     *    ([Quad.touch]);
+     *  - `d`: a Beam's drop, from its lowest corner up to the ceiling;
+     *  - `p`: no line, anchored at q1, the bottom-right corner.
+     * The position figures' estimates are the box's own, as on every reader: the box's edge IS the shape's outermost
+     * corner there.
+     */
+    private fun quad(s: String, e: SurveyPrep.Mark, a: Double, b: Double): List<Dim> {
+        val c = Quad.corners(e)
+        // where the corners that touch one edge of the box stand, along that edge: one corner, or the midpoint of two
+        val at = Quad.touch(e); val yL = at.yLeft; val yR = at.yRight; val xB = at.xBottom; val xT = at.xTop
+        return SurveyPrep.measures(s, e, a, b).map { m ->
+            val code = e.code + "." + m.key
+            val side = Quad.SIDES.indexOf(m.key)
+            if (side >= 0) {
+                val p = c[side]; val n = c[(side + 1) % 4]; val len = hypot(n[0] - p[0], n[1] - p[1]).takeIf { it > 0 } ?: 1.0
+                return@map Dim(m.key, code, Role.SIDE, m.what, m.est, p[0], p[1], n[0], n[1], nx = (n[1] - p[1]) / len, ny = (p[0] - n[0]) / len)
+            }
+            when (m.key) {
+                Quad.DIAG -> Dim(m.key, code, Role.DIAG, m.what, m.est, c[0][0], c[0][1], c[2][0], c[2][1])
+                "l" -> Dim(m.key, code, Role.OFF_H, m.what, m.est, 0.0, yL, e.x0, yL)
+                "r" -> Dim(m.key, code, Role.OFF_H, m.what, m.est, e.x1, yR, a, yR)
+                "s", "k" -> Dim(m.key, code, Role.OFF_V, m.what, m.est, xB, 0.0, xB, e.y0)
+                "t", "f" -> Dim(m.key, code, Role.OFF_V, m.what, m.est, xT, e.y1, xT, b)
+                "d" -> Dim(m.key, code, Role.DROP, m.what, m.est, xB, e.y0, xB, b)
+                "p" -> Dim(m.key, code, Role.DEPTH, m.what, m.est, c[1][0], c[1][1], c[1][0], c[1][1], line = false)
+                else -> Dim(m.key, code, Role.DEPTH, m.what, m.est, c[1][0], c[1][1], c[1][0], c[1][1], line = false, known = false)
             }
         }
     }
@@ -120,8 +171,16 @@ object MarkDims {
     fun value(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, code: String, est: Double?, a: Double, b: Double): Value {
         val read = actual[code]
         val state = if (read != null) State.MEASURED else if (est == null) State.UNKNOWN else State.ESTIMATE
-        return Value(SurveyPlan.figure(actual, code, est).t, state, check(read, est, inPlane(s, e, a, b)))
+        // ... and on a four-corner mark's SLOPING side, the `!` of the closing check too: its three straight sides'
+        // readings and its own do not close (Quad.closing; DESIGN-quad §2.4) -- on that plate alone
+        val open = Quad.closing(actual, e)?.let { it.fails && it.code == code } == true
+        return Value(SurveyPlan.figure(actual, code, est).t, state, photoCheck(actual, s, e, code, est, a, b) || open)
     }
+
+    /** THE PHOTO'S HALF OF [value]'s CHECK, alone: the reading under [code] against the photo's estimate ([check]), on
+     *  a mark that lies in the squared plane. What "The photo says ≈640 mm" is said for ([MeasureFlow.checkEst]). */
+    fun photoCheck(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, code: String, est: Double?, a: Double, b: Double): Boolean =
+        check(actual[code], est, inPlane(s, e, a, b))
 
     // ------------------------------------------------------------------ the one check that stays
 

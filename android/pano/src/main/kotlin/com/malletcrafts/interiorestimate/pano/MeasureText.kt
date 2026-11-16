@@ -73,6 +73,15 @@ object MeasureText {
      */
     fun photoSays(tx: Tx, est: Double): String = tx.sp_measure_photo_says_x(Math.round(est).toString())
 
+    /**
+     * What the message line says while a four-corner mark's three straight sides and its sloping side do not close
+     * ([Quad.closing]; port 63 slice Q1, DESIGN-quad §2.4): "The other sides make the bottom side ≈2466 mm. Check the
+     * readings, or the corners." [side] is the sloping side's own words ([Quad.sideWhat]: "bottom side", on a plan "back
+     * side"), already in the language; [est] what the other three readings make it, rounded as a figure is. It names
+     * the side because it is said when ANY of the four side readings lands ([MeasureFlow.checkText]).
+     */
+    fun sidesSay(tx: Tx, side: String, est: Double): String = tx.sp_measure_sides_say_x(side = side, est = Math.round(est).toString())
+
     /** What a tap on a figure of a mark that is not in the room says (a Client wish and a Vendor-added mark alike). */
     fun notInRoom(tx: Tx): String = tx.sp_measure_not_in_room
 

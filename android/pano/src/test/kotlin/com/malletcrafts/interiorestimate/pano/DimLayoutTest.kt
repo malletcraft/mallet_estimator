@@ -156,11 +156,16 @@ class DimLayoutTest {
     @Test fun `which figures a scope shows, and the order they are placed in`() {
         val all = MarkDims.Role.values().toList()
         val size = setOf(MarkDims.Role.WIDTH, MarkDims.Role.HEIGHT)
+        // ... and a four-corner mark's four sides and its diagonal ARE its size (port 63 slice Q1; DESIGN-quad §3.5): the
+        // two roles join the two that were, and a rectangle's w and h show as they did
+        val quad = setOf(MarkDims.Role.SIDE, MarkDims.Role.DIAG)
+        assertEquals(setOf(MarkDims.Role.WIDTH, MarkDims.Role.HEIGHT, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DROP, MarkDims.Role.DEPTH) + quad, all.toSet())
         for (r in all) {
             // 2 · Mark: the picked mark, everything; nobody else
             assertTrue(DimLayout.shows(DimLayout.Scope.PICKED, true, r)); assertFalse(DimLayout.shows(DimLayout.Scope.PICKED, false, r))
             // 3 · Measure: every mark its size, the picked mark its position too
-            assertTrue(DimLayout.shows(DimLayout.Scope.FACE, true, r)); assertEquals(r in size, DimLayout.shows(DimLayout.Scope.FACE, false, r))
+            assertTrue(DimLayout.shows(DimLayout.Scope.FACE, true, r)); assertEquals(r in size || r in quad, DimLayout.shows(DimLayout.Scope.FACE, false, r))
+            assertEquals(r in size || r in quad, DimLayout.isSize(r))
             // all: every figure of every mark
             assertTrue(DimLayout.shows(DimLayout.Scope.ALL, true, r)); assertTrue(DimLayout.shows(DimLayout.Scope.ALL, false, r))
         }
@@ -787,10 +792,194 @@ class DimLayoutTest {
     }
 
 
+    // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
+
+    /**
+     * THE DESIGN'S OWN EXAMPLE (DESIGN-quad §0, §2.5), made up: the front wall 3600 x 2700 mm, and on it window FW1 with
+     * uprights 1550 (right) and 780 (left), a level top of 2370 and so a sloping bottom. AT THE PHONE'S OWN NUMBERS: the
+     * Mi A3's photo 340 dp = 680 px wide at 2 px a dp, so 510 px high for this wall (one scale both ways, as the squared
+     * picture has), the painter's unit 680 / 480 px.
+     */
+    private inner class QuadRig(val width: Double = 680.0, val u: Double = 680.0 / 480, val dp: Double = 2.0) {
+        val a = 3600.0; val b = 2700.0; val height = width * b / a
+        val window = SurveyPrep.Mark("id-W1", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0).also {
+            assertTrue(Quad.set(it, listOf(doubleArrayOf(600.0, 1670.0), doubleArrayOf(2970.0, 900.0), doubleArrayOf(2970.0, 2450.0), doubleArrayOf(600.0, 2450.0)))) }
+        fun toPx(x: Double, y: Double) = doubleArrayOf(x * width / a, height - y * width / a)
+        fun textW(text: String, fs: Double, bold: Boolean) = text.length * fs * 0.6
+        val times: Double get() = textW(" × ", 10.0 * dp, false)
+        fun mark(e: SurveyPrep.Mark, picked: Boolean = false, active: String? = null, actual: Map<String, Double> = emptyMap(), tabs: Boolean = false, free: Boolean = false) =
+            DimLayout.mark(actual, "front", e, a, b, picked, tabs, active, ::toPx, u, dp, ::textW, null, free)
+        /** Where its code is drawn: inside the bounding box's top-left corner, which a four-corner mark's code keeps. */
+        fun code(e: SurveyPrep.Mark): Box { val p = toPx(e.x0, e.y1); return Box(p[0] + 6 * u, p[1] + 3 * u, p[0] + 6 * u + textW(e.code, 13.0 * u, true), p[1] + 19 * u) }
+        val column = Box(width - 50 * dp, 6.0 * dp, width - 6 * dp, 84.0 * dp)
+        fun place(ms: List<DimLayout.Mark>, scope: DimLayout.Scope, keep: List<Box>) = DimLayout.place(ms, scope, width, height, keep, u, dp, times)
+        /** The shape on the canvas, q0 … q3. */
+        fun corners(e: SurveyPrep.Mark) = Quad.corners(e).map { toPx(it[0], it[1]) }
+        /** Which side of the shape on the canvas is nearest ([x], [y]), and how far. */
+        fun nearest(e: SurveyPrep.Mark, x: Double, y: Double): Pair<Int, Double> = corners(e).let { c ->
+            (0 until 4).map { i -> i to SurveyMeas.segDist(x, y, c[i], c[(i + 1) % 4]) }.minByOrNull { it.second }!! }
+        fun sound(out: DimLayout.Out, keep: List<Box>, forced: Set<String>, what: String) {
+            val plates = out.plates.filter { !it.dot }
+            for (p in out.plates) {
+                val e = if (p.dot) 0.0 else DimLayout.EDGE_U * u
+                assertTrue(p.box.l >= e - 1e-9 && p.box.t >= e - 1e-9 && p.box.r <= width - e + 1e-9 && p.box.b <= height - e + 1e-9, "$what: ${p.code} is off the photo: ${p.box}")
+                assertTrue(p.tap.w >= 32 * dp - 1e-9 && p.tap.h >= 32 * dp - 1e-9, "$what: ${p.code}'s tap box")
+                if (!p.dot && p.code !in forced) for (k in keep) assertFalse(hit(p.box, k), "$what: ${p.code} ${p.box} covers a kept box $k")
+                if (p.dot) for (o in plates) assertFalse(hit(p.box, o.box), "$what: the dot ${p.code} lies under ${o.code}")
+            }
+            for (i in plates.indices) for (j in i + 1 until plates.size) assertFalse(hit(plates[i].box, plates[j].box), "$what: ${plates[i].code} and ${plates[j].code} overlap")
+            assertEquals(out.plates.size, out.plates.map { it.code }.toSet().size, what)
+        }
+    }
+
+    @Test fun `the four-corner example at the phone's own numbers -- seven figures, each side's plate on its own side`() {
+        val r = QuadRig(); val e = r.window; val keep = listOf(r.code(e), r.column)
+        val SEVEN = listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left", "FW1.l", "FW1.s", "FW1.p")
+        assertEquals(510.0, r.height); assertEquals(0.71, r.u / r.dp, 0.005)
+        val m = r.mark(e, picked = true, active = "FW1.bottom")
+        assertEquals(SEVEN, m.figs.map { it.code }); assertFalse(m.tabs); assertNull(m.corners)
+        assertEquals(listOf(MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DEPTH), m.figs.map { it.role })
+        assertEquals(listOf("▶≈2492", "≈1550", "≈2370", "≈780", "≈600", "≈900", "⊥ ?"), m.figs.map { it.text })
+        // its box on the canvas is its BOUNDING box, which its code, its padlock and the trash keep
+        val p = r.toPx(600.0, 2450.0); val q = r.toPx(2970.0, 900.0)
+        assertEquals(listOf(p[0], p[1], q[0], q[1]), l(m.box))
+        // EACH SIDE'S LINE runs parallel to its side, 6 units outside the shape; the true sloping side is not levelled
+        val c = r.corners(e); val off = 6 * r.u
+        for (i in 0 until 4) {
+            val f = m.figs[i]; val ln = assertNotNull(f.line); val n = assertNotNull(f.out); val sp = assertNotNull(f.span)
+            val a0 = c[i]; val a1 = c[(i + 1) % 4]
+            assertEquals(listOf(a0[0], a0[1], a1[0], a1[1]), listOf(sp.x1, sp.y1, sp.x2, sp.y2), f.code)
+            assertEquals(listOf(a0[0] + n[0] * off, a0[1] + n[1] * off, a1[0] + n[0] * off, a1[1] + n[1] * off), listOf(ln.x1, ln.y1, ln.x2, ln.y2), f.code)
+            assertEquals(1.0, n[0] * n[0] + n[1] * n[1], 1e-9); assertEquals(0.0, n[0] * (a1[0] - a0[0]) + n[1] * (a1[1] - a0[1]), 1e-9, "${f.code} is square to its side")
+            // out of the shape: away from its middle
+            val mid = ln.at(0.5); val cx = c.map { it[0] }.average(); val cy = c.map { it[1] }.average()
+            assertTrue((mid[0] - cx) * n[0] + (mid[1] - cy) * n[1] > 0, f.code)
+            assertEquals(i, r.nearest(e, mid[0], mid[1]).first, "${f.code}'s line stands off its own side"); assertEquals(off, r.nearest(e, mid[0], mid[1]).second, 1e-9)
+        }
+        // on the canvas, y down: the right side's way out is right, the top's up, the left's left, the bottom's down and left
+        assertEquals(listOf(1.0, 0.0), m.figs[1].out!!.map { Math.round(it * 1e9) / 1e9 + 0.0 }); assertEquals(listOf(0.0, -1.0), m.figs[2].out!!.map { Math.round(it * 1e9) / 1e9 + 0.0 })
+        assertEquals(listOf(-1.0, 0.0), m.figs[3].out!!.map { Math.round(it * 1e9) / 1e9 + 0.0 }); assertTrue(m.figs[0].out!!.let { it[0] < 0 && it[1] > 0 })
+        // ITS POSITION LINES run to the corner and are NOT shifted off-centre, as a point's are not: the corner line level
+        // with the middle of its upright left side, the sill plumb under its low corner q1; its p hangs at q1
+        val lf = m.figs[4].line!!; val sf = m.figs[5].line!!
+        val yl = r.toPx(0.0, 2060.0)[1]
+        assertEquals(0.0, lf.x1); assertEquals(p[0], lf.x2); assertEquals(yl, lf.y1, 1e-3); assertEquals(yl, lf.y2, 1e-3)
+        assertEquals(listOf(q[0], r.height, q[0], q[1]), listOf(sf.x1, sf.y1, sf.x2, sf.y2))
+        assertEquals(listOf(q[0], q[1]), m.figs[6].at!!.toList()); assertNull(m.figs[6].line); assertNull(m.figs[4].out)
+        // AS 3 · MEASURE OPENS, nothing picked: its four sides -- they are its size -- and nothing of its position
+        val open = r.place(listOf(r.mark(e)), DimLayout.Scope.FACE, keep)
+        r.sound(open, keep, emptySet(), "FACE, nothing picked")
+        assertEquals(SEVEN.take(4), open.plates.map { it.code }); assertEquals(QUAD_FACE_DOTS, open.dots)
+        // PICKED, the bottom being measured: all seven placed
+        val out = r.place(listOf(m), DimLayout.Scope.FACE, keep)
+        r.sound(out, keep, setOf("FW1.bottom"), "FACE, picked")
+        assertEquals(SEVEN, out.plates.map { it.code }); assertEquals(QUAD_PICKED_DOTS, out.dots, out.plates.filter { it.dot }.joinToString { it.code })
+        // each side's plate on ITS OWN side: outside the shape, nearer its own side than any other
+        for (i in 0 until 4) {
+            val pl = out.plates[i]; if (pl.dot) continue
+            val cx = (pl.box.l + pl.box.r) / 2; val cy = (pl.box.t + pl.box.b) / 2
+            assertFalse(Pano360.inPoly(cx, cy, c), "${pl.code}'s plate is inside the shape")
+            assertEquals(i, r.nearest(e, cx, cy).first, "${pl.code}'s plate ${pl.box} stands by another side")
+            assertTrue(pl.how == DimLayout.How.ON_LINE || pl.how == DimLayout.How.OFF_LINE, "${pl.code}: ${pl.how}")
+        }
+        // upright on the top and on the sloping bottom (18 degrees off level); turned to read bottom to top on the two
+        // uprights -- never turned to the slope
+        assertEquals(listOf(false, true, false, true), out.plates.take(4).map { it.turned })
+        // the active plate sits mid-span on the true sloping line, which it breaks
+        val bp = out.of("FW1.bottom")!!; val bl = bp.line!!
+        assertEquals(DimLayout.How.ON_LINE, bp.how); assertFalse(bp.dot)
+        assertEquals(bl.at(0.5).toList().map { Math.round(it * 1e6) / 1e6 }, listOf((bp.box.l + bp.box.r) / 2, (bp.box.t + bp.box.b) / 2).map { Math.round(it * 1e6) / 1e6 })
+        assertTrue(bl.y2 != bl.y1 && !bl.vertical)
+        // no compact plate and no hand-anchored tag: it has no w and no h
+        assertTrue(out.plates.none { it.how == DimLayout.How.COMPACT || it.how == DimLayout.How.HAND }); assertEquals(DimLayout.How.CHIP, out.of("FW1.p")!!.how)
+        // WITH all ON: the same seven, whether or not it is picked
+        for (pk in listOf(false, true)) {
+            val all = r.place(listOf(r.mark(e, picked = pk)), DimLayout.Scope.ALL, keep)
+            r.sound(all, keep, emptySet(), "ALL, picked $pk"); assertEquals(SEVEN, all.plates.map { it.code }); assertEquals(QUAD_ALL_DOTS, all.dots, "picked $pk")
+        }
+        // whichever of its seven is being measured, it is a plate and the layout is sound
+        for (k in SEVEN) {
+            val o = r.place(listOf(r.mark(e, picked = true, active = k)), DimLayout.Scope.FACE, keep)
+            r.sound(o, keep, setOf(k), "FACE, $k active"); assertEquals(SEVEN, o.plates.map { it.code }); assertFalse(o.of(k)!!.dot, k)
+        }
+        // readings change the texts, never the soundness: the closing check's ! rides on the sloping side's plate alone
+        val read = mapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0, "FW1.left" to 870.0)
+        val rd = r.mark(e, picked = true, active = "FW1.l", actual = read)
+        assertEquals(listOf(true, false, false, false, false, false, false), rd.figs.map { it.check })
+        assertEquals(listOf("2495", "1550", "2370", "870", "▶≈600", "≈900", "⊥ ?"), rd.figs.map { it.text })
+        r.sound(r.place(listOf(rd), DimLayout.Scope.FACE, keep), keep, setOf("FW1.l"), "FACE, read")
+        // the same input gives the same output
+        fun dump(o: DimLayout.Out) = o.plates.map { listOf(it.code, it.how, it.turned, it.arrowsIn, l(it.box), l(it.tap), it.leader?.toString()) }
+        assertEquals(dump(out), dump(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), DimLayout.Scope.FACE, keep)))
+    }
+
+    @Test fun `a picked mark whose corners are free keeps its four corner handles clear, not eight tabs`() {
+        val r = QuadRig(); val e = r.window; val keep = listOf(r.code(e), r.column)
+        // 2 · Mark, the mark picked, editable and unlocked (tabs) with its corners free: four corners, no tabs
+        val m = r.mark(e, picked = true, active = "FW1.bottom", tabs = true, free = true)
+        assertFalse(m.tabs); val cs = assertNotNull(m.corners)
+        assertEquals(r.corners(e).map { it.toList() }, cs.map { it.toList() })
+        // each handle a disc of 5.5 dp: the square its plates keep clear is 11 px either side at the phone's numbers
+        val handles = DimLayout.cornerBoxes(cs, r.u, r.dp)
+        assertEquals(4, handles.size); assertEquals(listOf(cs[0][0] - 11, cs[0][1] - 11, cs[0][0] + 11, cs[0][1] + 11), l(handles[0]))
+        assertEquals(5.5, SurveyGuide.END_R_DP)
+        val out = r.place(listOf(m), DimLayout.Scope.PICKED, keep)
+        r.sound(out, keep + handles, setOf("FW1.bottom"), "PICKED, corners free")
+        assertEquals(7, out.plates.size)
+        for (p in out.plates) if (!p.dot) for (h in handles) assertFalse(hit(p.box, h), "${p.code} ${p.box} covers a corner handle $h")
+        // its side plates still turn on the uprights: only a w or an h is anchored by hand, and it has neither
+        assertTrue(out.plates.none { it.how == DimLayout.How.HAND }); assertEquals(listOf(false, true, false, true), out.plates.take(4).map { it.turned })
+        // its p's chip stands off q1 by the tags' own clearance, so the corner's handle stays free
+        val chip = out.of("FW1.p")!!
+        if (chip.how == DimLayout.How.CHIP) assertTrue(handles.none { hit(chip.box, it) })
+        // NOT free -- or shown no handles at all (locked, a later phase, 3 · Measure) -- it has no corners here
+        assertNull(r.mark(e, picked = true, tabs = false, free = true).corners); assertFalse(r.mark(e, picked = true, tabs = false, free = true).tabs)
+        r.mark(e, picked = true, tabs = true, free = false).let { assertTrue(it.tabs); assertNull(it.corners) }
+        // corners asked for outside 2 · Mark keep nothing clear: only PICKED shows handles
+        val face = r.place(listOf(m), DimLayout.Scope.FACE, keep)
+        assertEquals(l(r.place(listOf(r.mark(e, picked = true, active = "FW1.bottom")), DimLayout.Scope.FACE, keep).of("FW1.top")!!.box), l(face.of("FW1.top")!!.box))
+        // A RECTANGLE WHOSE CORNERS WERE FREED (the menu's Four corners, before any corner is dragged) shows its box's
+        // four corners in the tabs' place -- and its w and h, which it still has
+        val rect = SurveyPrep.Mark("id-D1", "D", "FD1", 600.0, 1500.0, 0.0, 2100.0)
+        val fr = r.mark(rect, picked = true, tabs = true, free = true)
+        assertFalse(fr.tabs); assertEquals(listOf(r.toPx(600.0, 0.0), r.toPx(1500.0, 0.0), r.toPx(1500.0, 2100.0), r.toPx(600.0, 2100.0)).map { it.toList() }, fr.corners!!.map { it.toList() })
+        assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p"), fr.figs.map { it.code })
+        val fo = r.place(listOf(fr), DimLayout.Scope.PICKED, listOf(r.code(rect), r.column))
+        for (p in fo.plates) if (!p.dot) for (h in DimLayout.cornerBoxes(fr.corners!!, r.u, r.dp)) assertFalse(hit(p.box, h), "${p.code} covers a corner handle")
+        // ... and the same rectangle, its corners not free, is the mark it always was: eight tabs, the default
+        val plain = DimLayout.mark(emptyMap(), "front", rect, r.a, r.b, true, true, null, r::toPx, r.u, r.dp, r::textW)
+        assertTrue(plain.tabs); assertNull(plain.corners); assertTrue(plain.figs.all { it.out == null })
+        // a point is never free, whatever it is told
+        val pt = SurveyPrep.Mark("id-E1", "E", "FE1", 1475.0, 1525.0, 275.0, 325.0)
+        assertNull(r.mark(pt, picked = true, tabs = true, free = true).corners)
+    }
+
+    @Test fun `a very small four-corner mark has no compact plate -- its four sides fall to leaders and dots`() {
+        val r = QuadRig()
+        // a switch plate 200 x 90 mm, its top sloping: 38 x 17 px on the phone's photo
+        val e = SurveyPrep.Mark("id-S1", "S", "FS1", 1100.0, 1300.0, 1100.0, 1190.0)
+        assertTrue(Quad.set(e, listOf(doubleArrayOf(1100.0, 1100.0), doubleArrayOf(1300.0, 1100.0), doubleArrayOf(1300.0, 1160.0), doubleArrayOf(1100.0, 1190.0))))
+        val keep = listOf(r.code(e), r.column)
+        for (scope in listOf(DimLayout.Scope.FACE, DimLayout.Scope.ALL)) {
+            val out = r.place(listOf(r.mark(e)), scope, keep)
+            r.sound(out, keep, emptySet(), "small, $scope")
+            assertEquals(listOf("FS1.bottom", "FS1.right", "FS1.top", "FS1.left"), out.plates.take(4).map { it.code })
+            assertTrue(out.plates.none { it.how == DimLayout.How.COMPACT || it.how == DimLayout.How.HAND }, out.plates.joinToString { "${it.code} ${it.how}" })
+            assertTrue(out.plates.take(4).none { it.how == DimLayout.How.ON_LINE }, out.plates.joinToString { "${it.code} ${it.how}" })
+            // every side too short for its plate: off its line on a leader with the arrowheads pointing in, or a dot
+            for (p in out.plates.take(4)) { assertTrue(p.arrowsIn, p.code); assertTrue(p.dot || p.leader != null, p.code) }
+        }
+    }
+
     private companion object {
         /** How many of the example wall's 19 figures shrink to a dot with `all` on at fit, nothing picked: on the round
          *  canvas (340 px, 1 px a dp, 1 px a unit), and at the phone's own numbers (680 px, 2 px a dp, 680 / 480 px a unit). */
         const val ALL_DOTS = 2
         const val PHONE_ALL_DOTS = 1
+        /** How many of the four-corner example's figures shrink to a dot at the phone's own numbers, pinned AS FOUND: as
+         *  3 · Measure opens (its four sides), picked (its seven), and with `all` on (its seven). */
+        const val QUAD_FACE_DOTS = 0
+        const val QUAD_PICKED_DOTS = 0
+        const val QUAD_ALL_DOTS = 0
     }
 }

@@ -58,6 +58,26 @@ class MrPendingTest {
         I18n.check("mr-pending · phone texts", off, "a key waiting for its Marathi is a phone text (flag phone-text) added in English")
     }
 
+    @Test fun `port 63 slice Q1 -- each of a four-corner mark's fourteen keys is in both tables, and listed for as long as its Marathi is its English`() {
+        // THE LIST IS COMPLETE FOR THE SLICE: a key added in English and left OFF the list would be read by TxRenderTest's
+        // Latin scans as Marathi with English in it. Held here by name, as a property that outlives the Marathi pass: a
+        // key is either still waiting (listed, its Marathi its English) or translated (its Marathi no longer its English)
+        val q1 = listOf("measure.side_bottom", "measure.side_right", "measure.side_top", "measure.side_left", "measure.side_back", "measure.side_front",
+            "measure.diagonal", "measure.diagonal_plan", "measure.to_nearest_corner", "sp.shape.four_corners", "sp.shape.rectangle", "sp.shape.drag_corners",
+            "sp.measure.sides_say_x", "sp.file.x_mark_x_shape_unreadable")
+        val off = ArrayList<String>()
+        for (k in q1) {
+            val e = en[k]?.get("en") as? String; val m = mr[k]?.get("mr") as? String
+            when {
+                e == null || m == null -> off += "$k: not in both tables"
+                m == e && k !in I18n.pending -> off += "$k: its Marathi is still its English and it is not listed"
+                "phone-text" !in ((en[k]?.get("flags") as? List<*>)?.map { it.toString() } ?: emptyList()) -> off += "$k: not flagged phone-text"
+            }
+        }
+        I18n.check("mr-pending · Q1", off, "a key added in English for a four-corner mark is listed in android/i18n/mr-pending.tsv until its Marathi is written")
+        assertTrue(q1.size == 14 && q1.toSet().size == 14)
+    }
+
     @Test fun `the Latin scans skip exactly the listed keys`() {
         // TxRenderTest reads the skip from the same list this test holds: it names I18n.pending in both scans and
         // skips by nothing else new -- read from its own source, so a second, wider skip cannot be added quietly

@@ -59,6 +59,14 @@ import kotlin.math.min
  * [SurveyPrepTouch.widthTag] / [SurveyPrepTouch.heightTag] with `hand = true`, as the painter anchors them today,
  * not mid-span on the line, and the eight tab squares join the boxes to keep clear.
  *
+ * A MARK WITH FOUR FREE CORNERS (port 63 slice Q1, 16 Nov 2026; DESIGN-quad §3.5) is placed by the same rule: its four
+ * sides ([MarkDims.Role.SIDE]) each on a line parallel to its side and [LINE_OFF_U] units outside the shape, the plate
+ * mid-span -- upright, or turned to read bottom to top on a side more upright than level, never turned to the slope --
+ * and its diagonal ([MarkDims.Role.DIAG]) from q0 to q2 inside it. They are its SIZE: every mark of the face shows them
+ * ([isSize]). It has no `w` and no `h`, so no hand-anchored tag and no compact plate: a very small one falls to
+ * leaders and dots. Picked in 2 · Mark with its corners free it keeps its four corner handles clear ([Mark.corners]),
+ * not eight tabs.
+ *
  * The same input gives the same output: no clock, no randomness, and ties keep the order they were given in.
  */
 object DimLayout {
@@ -116,9 +124,14 @@ object DimLayout {
     /** Whether a figure of [role] is drawn in [scope], on the [picked] mark or on another. */
     fun shows(scope: Scope, picked: Boolean, role: MarkDims.Role): Boolean = when (scope) {
         Scope.PICKED -> picked
-        Scope.FACE -> picked || role == MarkDims.Role.WIDTH || role == MarkDims.Role.HEIGHT
+        Scope.FACE -> picked || isSize(role)
         Scope.ALL -> true
     }
+
+    /** A mark's SIZE: its `w` and `h` -- and a four-corner mark's four sides and its diagonal, which are its size (port
+     *  63 slice Q1; DESIGN-quad §3.5), so every mark of the face shows them, picked or not. */
+    fun isSize(role: MarkDims.Role): Boolean =
+        role == MarkDims.Role.WIDTH || role == MarkDims.Role.HEIGHT || role == MarkDims.Role.SIDE || role == MarkDims.Role.DIAG
 
     /** The order plates are placed in: an earlier one is never moved for a later one. */
     enum class Rank { ACTIVE, PICKED, UNMEASURED, MEASURED, AWAY }
@@ -151,6 +164,10 @@ object DimLayout {
      * the corner line [CORNER_UNDER_FS] text sizes under mid-height and the floor or ceiling line [FLOOR_LEFT_FS] left
      * of centre -- both through the centre for a [point]; [fs] that text size, px ([LINE_FS_U] units, not the plate's
      * own). Null for a `p`, which has no line ([anchor]).
+     *
+     * A FOUR-CORNER MARK'S (port 63 slice Q1; DESIGN-quad §3.5): a SIDE's line runs parallel to its side, [LINE_OFF_U]
+     * units OUTSIDE the shape ([outward]); its DIAGONAL runs from q0 to q2 inside it, unshifted; and its position lines
+     * run to the corner and are not shifted off-centre, as a point's are not -- its caller passes [point] true for them.
      */
     fun line(d: MarkDims.Dim, point: Boolean, toPx: (Double, Double) -> DoubleArray, fs: Double, u: Double): Seg? {
         if (!d.line) return null
@@ -161,9 +178,26 @@ object DimLayout {
             MarkDims.Role.HEIGHT -> dx = LINE_OFF_U * u
             MarkDims.Role.OFF_H -> if (!point) dy = CORNER_UNDER_FS * fs
             MarkDims.Role.OFF_V -> if (!point) dx = -FLOOR_LEFT_FS * fs
+            MarkDims.Role.SIDE -> outward(d, toPx)?.let { n -> dx = n[0] * LINE_OFF_U * u; dy = n[1] * LINE_OFF_U * u }
             else -> {}
         }
         return Seg(p[0] + dx, p[1] + dy, q[0] + dx, q[1] + dy)
+    }
+
+    /**
+     * THE WAY OUT OF THE SHAPE ACROSS A SIDE, on the canvas: the unit vector square to [d]'s line there that points the
+     * way its face normal ([MarkDims.Dim.nx], [MarkDims.Dim.ny]) does. Null for a dimension that is not a side, and for
+     * a side with no length on the canvas.
+     */
+    fun outward(d: MarkDims.Dim, toPx: (Double, Double) -> DoubleArray): DoubleArray? {
+        if (d.role != MarkDims.Role.SIDE) return null
+        val p = toPx(d.x1, d.y1); val q = toPx(d.x2, d.y2)
+        val len = hypot(q[0] - p[0], q[1] - p[1])
+        if (!(len > 0)) return null
+        val nx = -(q[1] - p[1]) / len; val ny = (q[0] - p[0]) / len
+        // which of the two ways across the line is out: the one the face's own normal points, seen on the canvas
+        val o = toPx(d.x1 + d.nx, d.y1 + d.ny)
+        return if ((o[0] - p[0]) * nx + (o[1] - p[1]) * ny >= 0) doubleArrayOf(nx, ny) else doubleArrayOf(-nx, -ny)
     }
 
     /** Where a `p`'s chip is anchored on the canvas: the mark's lower-right corner. */
@@ -210,18 +244,23 @@ object DimLayout {
      * [MarkDims.style]), whether the `!` follows it ([check]) and whether it is the one being measured ([active]).
      * [typing]: the text is the pad's uncommitted digits, not the stored figure ([mark]'s `live`). [span]: what the
      * dimension measures on the canvas, unshifted ([DimLayout.span]) -- what [onCanvas] asks; its line when not given.
+     * [out]: a four-corner mark's SIDE only -- the way out of the shape across it, on the canvas ([outward]), which is
+     * the side its plate steps off to first; null for every other figure.
      */
     class Fig(val code: String, val role: MarkDims.Role, val line: Seg?, val at: DoubleArray?,
               val w: Double, val fs: Double, val rank: Rank, val measured: Boolean,
               val text: String = "", val state: MarkDims.State = if (measured) MarkDims.State.MEASURED else MarkDims.State.ESTIMATE,
               val check: Boolean = false, val active: Boolean = rank == Rank.ACTIVE, val typing: Boolean = false,
-              val span: Seg? = line)
+              val span: Seg? = line, val out: DoubleArray? = null)
 
     /**
      * ONE MARK'S FIGURES: its [id], its [box] as drawn on the canvas, whether it is the [picked] one, and whether it
      * shows its eight resize [tabs] -- a picked box mark in 2 · Mark that is not a point, not locked and editable.
+     * [corners] (port 63 slice Q1; DESIGN-quad §3.5): such a mark whose corners are FREE shows its four corners
+     * instead -- q0 … q3 on the canvas -- and no tabs; null for every other mark. [box] is then its bounding box.
      */
-    class Mark(val id: String, val box: Box, val figs: List<Fig>, val picked: Boolean = false, val tabs: Boolean = false)
+    class Mark(val id: String, val box: Box, val figs: List<Fig>, val picked: Boolean = false, val tabs: Boolean = false,
+               val corners: List<DoubleArray>? = null)
 
     /**
      * THE MARK [e] ON [s] AS [place] TAKES IT: one [Fig] per [MarkDims.of], its text [MarkDims.shown] (with the `!`
@@ -236,11 +275,18 @@ object DimLayout {
      * is sized from that text, is drawn as a reading (white, bold, on the gold plate) and carries no `!`, since
      * nothing has been checked yet; [Fig.typing] says so. An emptied pad (`""`) keeps the figure the plate had until
      * the commit. Whether the dimension is [Fig.measured] stays what is STORED. No other figure is touched.
+     *
+     * [free] (port 63 slice Q1; DESIGN-quad §3.1, §3.5): the mark's corners are free ([Quad.free], the one rule the
+     * painter, the press and this ask). Where it would show its tabs ([tabs]) it then shows its four CORNERS instead
+     * ([Mark.corners]), which [place] keeps clear in the tabs' place. The LAST parameter, false by default: every
+     * caller that passes the thirteen before it by position reads as it did. A four-corner mark's position lines are
+     * not shifted off-centre, whether or not its corners are shown.
      */
     fun mark(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, a: Double, b: Double, picked: Boolean, tabs: Boolean,
              active: String?, toPx: (Double, Double) -> DoubleArray, u: Double, dp: Double,
-             textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null): Mark {
-        val pt = SurveyPrep.isPoint(e.t); val away = !MarkDims.asked(e); val fs = textSize(picked, dp)
+             textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null, free: Boolean = false): Mark {
+        // a point's position lines run through its centre and a four-corner mark's to its corner: neither is shifted
+        val pt = SurveyPrep.isPoint(e.t) || Quad.of(e) != null; val away = !MarkDims.asked(e); val fs = textSize(picked, dp)
         val figs = MarkDims.of(s, e, a, b).map { d ->
             val stored = MarkDims.value(actual, s, e, d.code, d.est, a, b)
             val on = d.code == active
@@ -250,10 +296,12 @@ object DimLayout {
             val measured = stored.state == MarkDims.State.MEASURED
             Fig(d.code, d.role, line(d, pt, toPx, LINE_FS_U * u, u), if (d.line) null else anchor(d, toPx),
                 plateW(textW(text, fs, MarkDims.style(v.state, on).bold), dp), fs, rank(on, picked, away, measured), measured,
-                MarkDims.shown(v, d.role, on), v.state, v.check, on, typing, span(d, toPx))
+                MarkDims.shown(v, d.role, on), v.state, v.check, on, typing, span(d, toPx), outward(d, toPx))
         }
         val p = toPx(e.x0, e.y1); val q = toPx(e.x1, e.y0)
-        return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, tabs)
+        val handles = tabs && free && Quad.mayHave(e)
+        return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, tabs && !handles,
+            if (handles) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
     }
 
     // ------------------------------------------------------------------ what comes out
@@ -334,12 +382,22 @@ object DimLayout {
         Box(p[0] - h, p[1] - h, p[0] + h, p[1] + h)
     }
 
+    /** The four free corners of a mark, as the squares its plates keep clear: each handle is a disc of
+     *  [SurveyGuide.END_R_DP] dp, never under a tab's own square ([TAB_HALF_U]). */
+    fun cornerBoxes(corners: List<DoubleArray>, u: Double, dp: Double): List<Box> = corners.map { c ->
+        val h = max(TAB_HALF_U * u, SurveyGuide.END_R_DP * dp)
+        Box(c[0] - h, c[1] - h, c[0] + h, c[1] + h)
+    }
+
     /** A plate's extent ALONG its line: its width, but the plate's height for an unturned plate on a vertical line. */
     private fun along(f: Fig, turned: Boolean, dp: Double): Double =
         if (turned || f.line?.vertical != true) f.w else plateH(f.fs, dp)
 
-    /** The `h` plate is turned to read bottom to top; every other plate is upright. */
-    private fun turns(f: Fig): Boolean = f.role == MarkDims.Role.HEIGHT
+    /** The `h` plate is turned to read bottom to top; every other plate is upright -- but for a four-corner mark's side
+     *  or diagonal that is more upright than level, which reads bottom to top as an `h` does. Such a plate is never
+     *  turned to the slope: it stands upright or a quarter turn, and breaks the true sloping line. */
+    private fun turns(f: Fig): Boolean = f.role == MarkDims.Role.HEIGHT ||
+        ((f.role == MarkDims.Role.SIDE || f.role == MarkDims.Role.DIAG) && f.line?.vertical == true)
 
     /** The span is too short for the plate to sit on (rule 2; and for both of a small box's, the compact plate). */
     private fun short(f: Fig, dp: Double): Boolean {
@@ -367,8 +425,9 @@ object DimLayout {
             val l = if (a.left) a.x else a.x - f.w / 2; val t = a.y - f.fs - OVER_DP * dp
             out += Cand(boxAt(l + f.w / 2, t + ph / 2, f.w, ph, width, height, u), How.HAND, false, null)
         }
-        // a HAND plate that finds no room falls back as any plate does; it is then upright, as the anchor's is
-        val turned = turns(f) && !hand
+        // a HAND plate that finds no room falls back as any plate does; it is then upright, as the anchor's is (a `w`
+        // or an `h` only: a four-corner mark has neither, and its sides' plates turn as they always do)
+        val turned = turns(f) && !(hand && (f.role == MarkDims.Role.WIDTH || f.role == MarkDims.Role.HEIGHT))
         val bw = if (turned) ph else f.w; val bh = if (turned) f.w else ph
         val al = along(f, turned, dp); val len = ln.len
         val ts = doubleArrayOf(0.5, 0.25, 0.75)
@@ -380,7 +439,9 @@ object DimLayout {
         }
         // off the line: half a plate height clear of it (centre to line, one plate height for a plate lying along it),
         // either side; and, with that taken too, one plate further out again
-        val first = side(f.role); val across = if (ln.vertical) bw else bh
+        // a four-corner mark's side steps off OUT of the shape first (Fig.out); every other line by its role
+        val first = f.out?.let { n -> (if (ln.vertical) n[0] else n[1]).let { if (it > 0) 1.0 else if (it < 0) -1.0 else null } } ?: side(f.role)
+        val across = if (ln.vertical) bw else bh
         for (reach in doubleArrayOf(across / 2 + ph / 2, across / 2 + ph / 2 + across + APART_U * u))
             for (t in ts) for (sd in doubleArrayOf(first, -first)) {
                 val c = ln.at(t)
@@ -473,8 +534,9 @@ object DimLayout {
         var n = 0
         for (mk in marks) {
             val shown = mk.figs.filter { shows(scope, mk.picked, it.role) && (mk.picked || it.active || onCanvas(it, width, height)) }
-            val hand = scope == Scope.PICKED && mk.picked && mk.tabs
-            if (hand) blocked += tabBoxes(mk.box, u)
+            // the picked mark's handles in 2 · Mark: its eight tabs, or -- its corners free -- its four corners
+            val hand = scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null)
+            if (hand) blocked += mk.corners?.let { cornerBoxes(it, u, dp) } ?: tabBoxes(mk.box, u)
             val w = shown.firstOrNull { it.role == MarkDims.Role.WIDTH && it.line != null }
             val h = shown.firstOrNull { it.role == MarkDims.Role.HEIGHT && it.line != null }
             // a small box: both spans too short for their plates -- one compact plate beside it

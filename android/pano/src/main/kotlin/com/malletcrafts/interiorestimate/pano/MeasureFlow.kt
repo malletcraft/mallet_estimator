@@ -25,7 +25,8 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  *    only while a dimension OF THE PICKED ITEM is active ([own]);
  *  - [move]: what a press on a step or a face tab does to the measuring -- the walk starts, the reading is let go,
  *    or (the step and the face already open in 3 · Measure) nothing at all;
- *  - [value] / [checkEst]: the one figure of any reading key, and the estimate the check's sentence names;
+ *  - [value] / [checkEst] / [checkText]: the one figure of any reading key, the estimate the photo's check names,
+ *    and the whole sentence the message line says -- the photo's, or a four-corner mark's closing check's;
  *  - [span] / [panTo]: the photo pans only if the figure being measured is off screen.
  *
  * Nothing here writes a reading: the screen's one `reading()` and [MmBox.commit] do. The reading keys, S5's key
@@ -218,7 +219,33 @@ object MeasureFlow {
         val (s, e) = prep.markOf(code) ?: return null
         val z = ab(s)
         val d = MarkDims.of(s, e, z[0], z[1]).firstOrNull { it.code == code } ?: return null
-        return d.est?.takeIf { MarkDims.value(prep.actual, s, e, code, it, z[0], z[1]).check }
+        // the PHOTO's check alone: a four-corner mark's sloping side may carry its `!` for the closing check instead,
+        // and then the photo has nothing to say of it ([checkText] says the right sentence)
+        return d.est?.takeIf { MarkDims.photoCheck(prep.actual, s, e, code, it, z[0], z[1]) }
+    }
+
+    /**
+     * WHAT THE MESSAGE LINE SAYS OF THE READING [code] when it lands and when its plate becomes active -- every check
+     * there is, in one place (port 63 slice Q1; DESIGN-quad §2.4). For a rectangle, and for every mark with no `quad`,
+     * it is the photo's sentence exactly where [checkEst] names an estimate, and nothing else. A MARK WITH FOUR FREE
+     * CORNERS has one more check, its three straight sides against the fourth ([Quad.closing]), and its sentence is
+     * said on ANY of the mark's four side codes while it fails -- the reading that completes the four is usually not
+     * the sloping side's (the walk reads the sloping bottom first and the left upright last), and the screen speaks
+     * only for the code that just landed or became active. So, in this order:
+     *  - on the SLOPING side's own code, the closing sentence -- also when that plate fails the photo check too;
+     *  - else the photo's sentence, when THIS reading fails its own photo check: it names the figure just read;
+     *  - else, on another of the mark's four side codes, the closing sentence;
+     *  - else nothing.
+     * The closing sentence names the side, in its own words, because it is often said while another side is active:
+     * "The other sides make the bottom side ≈2466 mm. Check the readings, or the corners." Nothing is stored.
+     */
+    fun checkText(tx: Tx, prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): String? {
+        val shut = prep.markOf(code)?.let { (s, e) -> Quad.closing(prep.actual, e)?.takeIf { it.fails }?.let { Triple(s, e, it) } }
+        fun closing(): String? = shut?.let { (s, _, c) -> MeasureText.sidesSay(tx, Quad.sideWhat(s, c.side)(tx), c.derived) }
+        if (shut != null && shut.third.code == code) return closing()
+        checkEst(prep, code, ab)?.let { return MeasureText.photoSays(tx, it) }
+        if (shut != null && code in Quad.sideCodes(shut.second)) return closing()
+        return null
     }
 
     // ------------------------------------------------------------------ the measure bar

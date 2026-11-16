@@ -88,11 +88,24 @@ object SurveyPrepTouch {
     fun tabOrTag(tabDist: Double, tagCentreDist: Double?): Boolean = tagCentreDist == null || tagCentreDist >= tabDist
 
     /** A mark as drawn: its id and its box, canvas px. [spot]: for a point (E, P, F), the radius its 50 mm
-     *  makes on screen (25 mm, canvas px, before the 6 dp floor it is drawn with); null for a box. */
-    class Drawn(val id: String, val x0: Double, val x1: Double, val yT: Double, val yB: Double, val spot: Double? = null) {
+     *  makes on screen (25 mm, canvas px, before the 6 dp floor it is drawn with); null for a box.
+     *  [corners] (port 63 slice Q1; DESIGN-quad §3.4): for a mark whose corners are FREE ([Quad.free]), its four
+     *  corners on the canvas, q0 … q3 -- bottom-left, bottom-right, top-right, top-left; null for every other mark. Such
+     *  a mark is pressed by its four corners where a rectangle is by its eight tabs, and its body only INSIDE its shape. */
+    class Drawn(val id: String, val x0: Double, val x1: Double, val yT: Double, val yB: Double, val spot: Double? = null,
+                val corners: List<DoubleArray>? = null) {
         val cx get() = (x0 + x1) / 2
         val cy get() = (yT + yB) / 2
     }
+
+    /** The free corner nearest ([x], [y]) within [tol], as the part it is (q0 … q3), and its distance; null when none is. */
+    fun nearestCorner(corners: List<DoubleArray>, x: Double, y: Double, tol: Double): Pair<String, Double>? =
+        corners.take(Quad.PARTS.size).mapIndexed { i, q -> Quad.PARTS[i] to hypot(x - q[0], y - q[1]) }
+            .filter { it.second < tol }.minByOrNull { it.second }
+
+    /** The handle of [m] nearest the finger within [tol]: one of its four free corners, else one of its eight tabs. */
+    private fun nearestHandle(m: Drawn, x: Double, y: Double, tol: Double): Pair<String, Double>? =
+        m.corners.let { c -> if (c != null) nearestCorner(c, x, y, tol) else nearestTab(m.x0, m.x1, m.yT, m.yB, x, y, tol) }
 
     /** How far from its centre a PICKED spot is grabbed: its 25 mm and 6 dp more, never under 12 dp. */
     fun spotReachPicked(spot: Double, dp: Double) = max(12 * dp, spot + 6 * dp)
@@ -127,6 +140,11 @@ object SurveyPrepTouch {
      *     moved whole, never resized; the picked box within [tol] of its edge
      *     (a tab there still resizes), any other box only inside it.
      * Null: nothing, and the finger slides the photo.
+     *
+     * A MARK WHOSE CORNERS ARE FREE ([Drawn.corners]; port 63 slice Q1): picked, its four corners stand where the eight
+     * tabs do in this order, each the part it drags (q0 … q3), a tag under the finger taking the touch only when its
+     * centre is nearer; and in step 4 its body counts only INSIDE ITS SHAPE -- so the empty corner of its bounding box
+     * no longer hides what is under it -- while a press on one of the picked one's corners still drags that corner.
      */
     fun hit(marks: List<Drawn>, selId: String?, tags: List<Tag>, x: Double, y: Double, tol: Double, dp: Double = tol / 16,
             nodes: List<Nodes> = emptyList(), nodeR: Double = tol): Hit? {
@@ -138,7 +156,7 @@ object SurveyPrepTouch {
                 val d = hypot(x - sel.cx, y - sel.cy)
                 if (d <= spotReachPicked(sp, dp) && tabOrTag(d, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, "body")
             } else {
-                val t = nearestTab(sel.x0, sel.x1, sel.yT, sel.yB, x, y, tol)
+                val t = nearestHandle(sel, x, y, tol)
                 if (t != null && tabOrTag(t.second, under?.box?.centreDist(x, y))) return Hit.Mark(sel.id, t.first)
             }
         }
@@ -151,6 +169,13 @@ object SurveyPrepTouch {
                 continue
             }
             if (x < m.x0 - tol || x > m.x1 + tol || y < m.yT - tol || y > m.yB + tol) continue
+            val free = m.corners
+            if (free != null) {
+                // four free corners: the picked one's corner under the finger, else its body -- inside its shape only
+                if (m.id == selId) nearestCorner(free, x, y, tol)?.let { return Hit.Mark(m.id, it.first) }
+                if (!Pano360.inPoly(x, y, free)) continue
+                return Hit.Mark(m.id, "body")
+            }
             if (m.id == selId) return Hit.Mark(m.id, nearestTab(m.x0, m.x1, m.yT, m.yB, x, y, tol)?.first ?: "body")
             if (x < m.x0 || x > m.x1 || y < m.yT || y > m.yB) continue
             return Hit.Mark(m.id, "body")

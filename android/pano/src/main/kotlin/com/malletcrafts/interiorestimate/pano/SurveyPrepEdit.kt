@@ -16,6 +16,8 @@ import kotlin.math.max
  *  - Duplicate is a copy 100 mm away (back the other way at an edge) with the NEXT code and no readings;
  *  - ⋮ clears this surface or the whole room after a second tap -- every UNLOCKED item and its readings;
  *  - Start over keeps a locked surface's lines, every locked item and its readings; the rest starts fresh.
+ *  - (port 63 slice Q1) a mark that may have four free corners gains one row after Duplicate, "Four corners" or
+ *    "Rectangle" ([shapeRow]) -- built here and NOT on screen until slice Q2 asks for it ([menuItemsOf]'s `shape`);
  * Everything walks [SurveyPrep.Prep.itemsOf], so the Line and Tape (slice 9) and the chains (slice 11) join a clear
  * and a count by joining it; Start over, Lock all, the menu and Duplicate name them.
  *
@@ -286,6 +288,11 @@ object SurveyPrepEdit {
     const val LOCK = "lock"
     const val LOCK_ALL = "lockall"
     const val CANCEL = "cancel"
+    /** "Four corners" on a rectangle: the mark's corners are freed (port 63 slice Q1; DESIGN-quad §3.1). It changes
+     *  nothing in the record -- the shape is still its box, and the key is stored only when it is not. */
+    const val SHAPE_FREE = "free"
+    /** "Rectangle" on a four-corner mark: back to its bounding rectangle ([Quad.clear]). */
+    const val SHAPE_BOX = "box"
 
     /** The menu's head: "FD1 Door", "🔒 FD1 Door" when locked (sp.js 1469). */
     fun menuHeader(tx: Tx, s: String, e: SurveyPrep.Mark): String =
@@ -339,8 +346,8 @@ object SurveyPrepEdit {
      * the phase at the Wish list, Vendor review, Revisions and Client approved as well; there the copy of a thing that
      * is not in the room would leave the office as a surveyed one (DESIGN-port62 Q-list 8).
      */
-    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?): List<Pair<String, String>> =
-        menuItemsOf(tx, p, id).filter { (k, _) ->
+    fun menuItemsOf(tx: Tx, p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, shape: Boolean = false): List<Pair<String, String>> {
+        val cut = menuItemsOf(tx, p, id).filter { (k, _) ->
             when (k) {
                 DELETE -> PhaseTools.delOk(p, id, stage)
                 LOCK -> PhaseTools.lockOk(p, id, stage)
@@ -349,6 +356,29 @@ object SurveyPrepEdit {
                 else -> true
             }
         }
+        // THE SHAPE ROW (port 63 slice Q1; DESIGN-quad §3.1): only where the caller asks for it ([shape]) -- NOT YET ON
+        // SCREEN: the screen draws whatever list this returns and its pick ends `else -> ctx = null`, so the row joins
+        // the list in the same commit as its two acts (slice Q2), never as a row that only closes the menu. On a mark
+        // that may have four corners, and hidden where the phase holds it read-only, like Lock all; on a LOCKED mark it
+        // is drawn, and the act answers the lock's own words, as Delete does. It stands after Duplicate -- after
+        // whichever of Delete and Duplicate the phase left, before Lock
+        val row = if (shape && PhaseTools.editable(p, id, stage)) p.markById(id)?.let { (_, e) -> shapeRow(tx, e) } else null
+        if (row == null) return cut
+        val at = cut.indexOfLast { it.first == DELETE || it.first == DUPLICATE } + 1
+        return cut.subList(0, at) + row + cut.subList(at, cut.size)
+    }
+
+    /**
+     * THE MENU'S SHAPE ROW ON THE MARK [e] (DESIGN-quad §3.1): "Four corners" ([SHAPE_FREE]) on a rectangle,
+     * "Rectangle" ([SHAPE_BOX]) on a mark that carries a `quad`; null where the mark may not have one (a point, a
+     * Note). On a mark with no key the row reads "Four corners" even while its corners are already free: picking it
+     * again changes nothing.
+     */
+    fun shapeRow(tx: Tx, e: SurveyPrep.Mark): Pair<String, String>? = when {
+        !Quad.mayHave(e) -> null
+        Quad.of(e) != null -> SHAPE_BOX to tx.sp_shape_rectangle
+        else -> SHAPE_FREE to tx.sp_shape_four_corners
+    }
 
     /** "Lock" / "Unlock" and "Lock all" / "Unlock all" are chosen in code, so each is its own whole key (the card's group 2).
      *  [delete]: the first row's word -- Delete, or a mark's own. */
@@ -373,6 +403,10 @@ object SurveyPrepEdit {
      * surveyed one. That is what the page DOES (its own comment says otherwise); whether a copy should be born what
      * the phase places is DESIGN-port62 Q-list 8, and until Amit rules nothing is stamped here.
      *
+     * A MARK WITH FOUR FREE CORNERS is copied WITH ITS SHAPE (port 63 slice Q1; DESIGN-quad §3.3): the box and its
+     * `quad` -- the parts of its box, so the shape is wherever the box goes -- and still nothing else: no readings, no
+     * lock, no state.
+     *
      * WHERE A COPY OF A MARK MAY BE MADE AT ALL is [PhaseTools.copyOk], asked by the menu and by the screen before
      * this (the L4 review, finding 1): only where this unstamped mark is what a tap would place -- an unstamped mark
      * is read as IN THE ROOM by the exported sheet ([SheetMarks.surveyed]) and by S5's answer to a vendor or a client,
@@ -384,7 +418,10 @@ object SurveyPrepEdit {
         var x0 = e.x0 + DUP_MM; var y0 = e.y0 + DUP_MM
         if (x0 + w > a) x0 = max(0.0, e.x0 - DUP_MM)
         if (y0 + h > b) y0 = max(0.0, e.y0 - DUP_MM)
-        val c = SurveyPrep.Mark(newId, e.t, p.claimCode(s, e.t), x0, x0 + w, y0, y0 + h)
+        // ... AND ITS SHAPE (port 63 slice Q1; DESIGN-quad §3.3): a four-corner mark's copy carries its `quad` -- the
+        // parts of its box, so the shape goes wherever the box does -- and still nothing else
+        val shape = if (Quad.of(e) != null) mapOf(Quad.KEY to e.extra[Quad.KEY]) else emptyMap()
+        val c = SurveyPrep.Mark(newId, e.t, p.claimCode(s, e.t), x0, x0 + w, y0, y0 + h, shape)
         p.surface(s).marks.add(c)
         return c
     }

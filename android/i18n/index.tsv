@@ -962,6 +962,8 @@ measure.back_wall	measure_back_wall	static	-
 measure.depth_front_back	measure_depth_front_back	static	-
 measure.depth_into_wall	measure_depth_into_wall	static	-
 measure.depth_wall	measure_depth_wall	static	-
+measure.diagonal	measure_diagonal	static	-
+measure.diagonal_plan	measure_diagonal_plan	static	-
 measure.drop_below_ceiling	measure_drop_below_ceiling	static	-
 measure.drop_below_slab	measure_drop_below_slab	static	-
 measure.from_ceiling	measure_from_ceiling	static	-
@@ -977,8 +979,15 @@ measure.projection_wall	measure_projection_wall	static	-
 measure.reveal_depth	measure_reveal_depth	static	-
 measure.right_corner	measure_right_corner	static	-
 measure.right_wall	measure_right_wall	static	-
+measure.side_back	measure_side_back	static	-
+measure.side_bottom	measure_side_bottom	static	-
+measure.side_front	measure_side_front	static	-
+measure.side_left	measure_side_left	static	-
+measure.side_right	measure_side_right	static	-
+measure.side_top	measure_side_top	static	-
 measure.sill_floor	measure_sill_floor	static	-
 measure.to_centre	measure_to_centre	static	-
+measure.to_nearest_corner	measure_to_nearest_corner	static	-
 measure.total	measure_total	static	-
 measure.track_length	measure_track_length	static	-
 measure.underside_floor	measure_underside_floor	static	-
@@ -1300,6 +1309,7 @@ sp.file.x_chain_x_left_out	sp_file_x_chain_x_left_out	template	surface: String �
 sp.file.x_chains_unreadable	sp_file_x_chains_unreadable	template	surface: String
 sp.file.x_line_unreadable	sp_file_x_line_unreadable	template	surface: String · line: String
 sp.file.x_mark_x_left_out	sp_file_x_mark_x_left_out	template	surface: String · code: String
+sp.file.x_mark_x_shape_unreadable	sp_file_x_mark_x_shape_unreadable	template	surface: String · code: String
 sp.file.x_marks_unreadable	sp_file_x_marks_unreadable	template	surface: String
 sp.file.x_measurement_x_left_out	sp_file_x_measurement_x_left_out	template	surface: String · code: String
 sp.file.x_measurements_unreadable	sp_file_x_measurements_unreadable	template	surface: String
@@ -1362,6 +1372,7 @@ sp.measure.next_face_x	sp_measure_next_face_x	template	face: String · n: String
 sp.measure.not_in_room	sp_measure_not_in_room	static	-
 sp.measure.photo_says_x	sp_measure_photo_says_x	template	est: String
 sp.measure.room_done_x	sp_measure_room_done_x	template	total: String
+sp.measure.sides_say_x	sp_measure_sides_say_x	template	side: String · est: String
 sp.measure.x_of_x	sp_measure_x_of_x	template	read: String · total: String
 sp.measure.x_to_measure	sp_measure_x_to_measure	template	n: String
 sp.measured_x_x_x	sp_measured_x_x_x	template	ta: String · A: String · tb: String · B: String · LS0: String · LS1: String
@@ -1429,6 +1440,9 @@ sp.room_size_l_x_2	sp_room_size_l_x_2	template	z0: String · z1: String · z2: S
 sp.save	sp_save	static	-
 sp.save.aria	sp_save_aria	static	-
 sp.segment	sp_segment	static	-
+sp.shape.drag_corners	sp_shape_drag_corners	static	-
+sp.shape.four_corners	sp_shape_four_corners	static	-
+sp.shape.rectangle	sp_shape_rectangle	static	-
 sp.show_faces_reference_2	sp_show_faces_reference_2	static	-
 sp.showing	sp_showing	static	-
 sp.shown_x_fit_window	-	skipped	prototype-only

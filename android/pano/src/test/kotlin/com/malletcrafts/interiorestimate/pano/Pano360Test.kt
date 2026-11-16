@@ -449,6 +449,56 @@ class Pano360Test {
         }
     }
 
+    // ------------------------------------------------------------------ port 63 slice Q1: a mark with four free corners
+
+    @Test fun `on the 360 a four-corner mark is its real shape, and a free mark's handles are its four corners`() {
+        val p = room(); val fr = frames(p); val f = fr.getValue("front")
+        val v = Pano360.faceView("front", 680.0, 840.0)
+        // a rectangle's eight tabs are what they were, by default
+        val e = p.addMarkAt("front", "W", 1300.0, 1500.0, W, H, "w1")           // 700..1900 x 900..2100
+        assertEquals(listOf("l", "r", "t", "b", "lt", "rt", "lb", "rb"), Pano360.tabsOf(e).map { it.first })
+        assertEquals(Pano360.tabsOf(e).map { it.second.toList() }, Pano360.tabsOf(e, false).map { it.second.toList() })
+        val boxPoly = Pano360.markPoly(v, "front", f, e, DP)!!
+        // ITS CORNERS FREED -- by the menu, or because q0 is the part picked -- and no key yet: the box's own four, as q0 … q3
+        assertTrue(Quad.free(e, null, "q0")); assertFalse(Quad.free(e, null, null)); assertTrue(Quad.free(e, "w1", null))
+        val free = Pano360.tabsOf(e, Quad.free(e, null, "q0"))
+        assertEquals(listOf("q0", "q1", "q2", "q3"), free.map { it.first })
+        assertEquals(listOf(listOf(700.0, 900.0), listOf(1900.0, 900.0), listOf(1900.0, 2100.0), listOf(700.0, 2100.0)), free.map { it.second.toList() })
+        // the same four the outline has, in the same order: a rectangle is drawn as it was
+        assertEquals(free.map { Pano360.toS(v, "front", f, it.second[0], it.second[1])!!.toList() }, boxPoly.pts.map { it.toList() })
+        // A CORNER DRAGGED ON THE 360 goes through moveMark and snapMark, as a tab does: q0 pulled 60 dp up moves that
+        // one corner, the other three stay, and the mark now carries its quad
+        val start = e.copy()
+        val m0 = under(v, "front", f, 700.0, 900.0); val m1 = under(v, "front", f, 700.0, 900.0, 0.0, -60 * DP)
+        assertTrue(SurveyPrep.moveMark(e, start, "q0", m1[0] - m0[0], m1[1] - m0[1], f.a, f.b)); SurveyPrep.snapMark(e, "q0", f.a, f.b)
+        val c = Quad.corners(e)
+        assertTrue(c[0][1] > 900.0 + 100 && abs(c[0][0] - 700.0) < 30, "q0 went up: ${c[0].toList()}")
+        assertEquals(listOf(listOf(1900.0, 900.0), listOf(1900.0, 2100.0)), c.subList(1, 3).map { it.toList() }); assertEquals(2100.0, c[3][1])
+        assertNotNull(Quad.of(e)); assertEquals(listOf(900.0, 2100.0), listOf(e.y0, e.y1), "its box is still the bounding box")
+        // ITS OUTLINE IS ITS REAL SHAPE: four points through the perspective, q0 where the corner now is
+        val poly = assertNotNull(Pano360.markPoly(v, "front", f, e, DP))
+        assertEquals(4, poly.pts.size); assertNull(poly.spot)
+        for (i in 0 until 4) { val at = Pano360.toS(v, "front", f, c[i][0], c[i][1])!!; assertEquals(at[0], poly.pts[i][0], 1e-6); assertEquals(at[1], poly.pts[i][1], 1e-6) }
+        assertTrue(poly.area < boxPoly.area, "smaller than its box")
+        // a press in the corner of its bounding box that the shape left is not on it; a press inside it is
+        val gone = Pano360.toS(v, "front", f, 760.0, 940.0)!!; val inside = Pano360.toS(v, "front", f, 1300.0, 1700.0)!!
+        assertTrue(Pano360.inPoly(gone[0], gone[1], boxPoly.pts)); assertFalse(Pano360.inPoly(gone[0], gone[1], poly.pts)); assertTrue(Pano360.inPoly(inside[0], inside[1], poly.pts))
+        assertNull(Pano360.markAt(listOf(poly), null, gone[0], gone[1])); assertEquals("w1", Pano360.markAt(listOf(poly), null, inside[0], inside[1])!!.id)
+        // with a quad it is free by rule 1, whatever is picked; its handles are its real corners, pressed as tabs are
+        assertTrue(Quad.free(e, null, null))
+        val tabs = Pano360.tabsOf(e, true).mapNotNull { (part, mm) -> Pano360.toS(v, "front", f, mm[0], mm[1])?.let { part to it } }
+        val sc = Pano360.Scene(null, tabs, emptyList(), listOf(poly), "w1")
+        val q0 = tabs[0].second
+        assertEquals(Pano360.Pick.Tab("q0"), Pano360.pick(Pano360.order(SurveyPrepPalette.SEL, false), sc, q0[0] + 6 * DP, q0[1], DP))
+        assertEquals(Pano360.Pick.Mark("front", "w1"), Pano360.pick(Pano360.order(SurveyPrepPalette.SEL, false), sc, inside[0], inside[1], DP))
+        // a spot has no corners to free, whatever it is told: its outline is its ring
+        val sp = p.addMarkAt("front", "E", 400.0, 400.0, W, H, "e1")
+        assertFalse(Quad.free(sp, "e1", "q0")); assertEquals(16, Pano360.markPoly(v, "front", f, sp, DP)!!.pts.size)
+        // the floating trash keeps the bounding box
+        val tr = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "w1"))
+        val bl = Pano360.toS(v, "front", f, e.x0, e.y0)!!; assertEquals(bl[0], tr.box.l, 1e-6)
+    }
+
     // ------------------------------------------------------------------ slice 17 review fixes
 
     @Test fun `a quick second tap with Select on is a tap -- the DoubleTap the classifier sends resolves as the Tap does`() {

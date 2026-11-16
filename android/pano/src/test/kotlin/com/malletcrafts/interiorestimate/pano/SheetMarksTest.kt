@@ -96,9 +96,38 @@ class SheetMarksTest {
         assertTrue(SurveyPrep.isLocked(o.getValue("FD1"))); assertTrue(SurveyPrep.isLocked(o.getValue("FE1"))); assertFalse(SurveyPrep.isLocked(o.getValue("FW2")))
         assertEquals(mapOf("locked" to false), o.getValue("FW2").extra); assertEquals(emptyMap(), o.getValue("FW3").extra)
         assertEquals(mapOf("sub" to "5a", "locked" to true), o.getValue("FE1").extra); assertEquals(emptyMap(), o.getValue("FW8").extra)
-        assertEquals(setOf("locked", "sub"), SheetMarks.KEPT)
-        assertEquals(setOf("id", "t", "code", "x0", "x1", "y0", "y1", "locked", "sub"), SurveyPrepFile.MARK_KEYS + SheetMarks.KEPT,
-            "S5's own list for a caller who is not staff (slice RD, DESIGN-port62 section 3.11)")
+        // ... and, since port 63 slice Q1, its four corners: a surveyed opening's SHAPE is the room as surveyed, as its box
+        // is (DESIGN-quad §3.8; S5's SEEN_MARK gains the same key in slice Q3, on stage before the phone build with Q2)
+        assertEquals(setOf("locked", "sub", "quad"), SheetMarks.KEPT)
+        assertEquals(setOf("id", "t", "code", "x0", "x1", "y0", "y1", "locked", "sub", "quad"), SurveyPrepFile.MARK_KEYS + SheetMarks.KEPT,
+            "S5's list for a caller who is not staff (slice RD, DESIGN-port62 section 3.11), with the sub-kind the phone's sheet keeps and quad (slice Q3)")
+    }
+
+    @Test fun `a surveyed mark keeps its four corners on a sheet for others -- its shape is the room as surveyed, a wished one's is not there`() {
+        val quad = listOf(listOf(0.0, 0.5), listOf(1.0, 0.0), listOf(1.0, 1.0), listOf(0.0, 1.0))
+        val at = "2026-11-16T10:00:00+05:30"
+        // a surveyed window the client wants replaced, with a note; a unit born a wish; a surveyed opening, plain
+        val win = SurveyPrep.Mark("w", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0, linkedMapOf("locked" to false, "quad" to quad, "life" to "wish", "lifeAt" to at, "act" to "replace", "note" to "UPVC", "vis" to "office"))
+        val unit = SurveyPrep.Mark("u", "CRP", "FCRP1", 100.0, 500.0, 0.0, 2100.0, linkedMapOf("quad" to quad, "born" to "wish", "life" to "wish"))
+        val open = SurveyPrep.Mark("o", "O", "FO1", 3000.0, 3500.0, 0.0, 2100.0, linkedMapOf("quad" to quad))
+        val all = listOf(win, unit, open)
+        val others = SheetMarks.marks(all, SheetMarks.Audience.OTHERS)
+        assertEquals(listOf("FW1", "FO1"), others.map { it.code }, "the wished unit is not in the room")
+        // the window as surveyed: its box, its lock and its SHAPE -- no state, no act, no note
+        assertEquals(mapOf("locked" to false, "quad" to quad), others[0].extra); assertEquals(listOf("locked", "quad"), others[0].extra.keys.toList())
+        assertEquals(Quad.corners(win).map { it.toList() }, Quad.corners(others[0]).map { it.toList() })
+        assertNull(MarkLife.tag(Tx.EN, others[0])); assertEquals(MarkLife.EXIST, MarkLife.lifeOf(others[0]))
+        // a mark that carries nothing but kept keys is handed over as ITSELF, the same object
+        assertTrue(others[1] === open)
+        // the office's screen draws every mark as it is, the same list
+        assertTrue(SheetMarks.marks(all, SheetMarks.Audience.OFFICE) === all)
+        // WHY IT MAY LEAVE THE OFFICE: nothing of the wish round can be written into a surveyed mark's shape -- a corner is
+        // a resize, and a surveyed mark is edited at Survey (and while the stage is unread) and never after
+        for (st in listOf(1, 2, 3, 4, 5)) assertFalse(PhaseTools.editable(win, st), "$st"); assertTrue(PhaseTools.editable(win, 0)); assertTrue(PhaseTools.editable(win, null))
+        // the prep a drawing of the room for others is made from carries the shape too, and never the wished unit
+        val p = SurveyPrep.fresh(5000.0, 3600.0, 2700.0); p.surface("front").marks.addAll(all)
+        val room = SheetMarks.prep(p, SheetMarks.Audience.OTHERS).surface("front").marks
+        assertEquals(listOf("FW1", "FO1"), room.map { it.code }); assertTrue(Quad.of(room[0]) != null); assertEquals(3, p.surface("front").marks.size)
     }
 
     @Test fun `not a word of a note or a why reaches a sheet for others, and the prep itself is not changed`() {

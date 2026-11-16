@@ -104,8 +104,9 @@ object SurveyGuide {
      * the start and across the whole face; [snap] the axis the drag is on, whose ray is drawn bold ([widthDp]).
      */
     class Rays(val h: Seg?, val v: Seg?, val snap: String?) {
-        /** Whether the ray on [axis] ("h" or "v") is the one snapped onto. */
-        fun bold(axis: String) = snap == axis
+        /** Whether the ray on [axis] ("h" or "v") is the one snapped onto -- BOTH for "hv", a four-corner mark's corner
+         *  whose two sides are both straight ([Quad.drag]: a square corner; port 63 slice Q1). */
+        fun bold(axis: String) = snap == axis || snap == "hv"
         /** Its width, dp: 2.8 on the snapped axis, else 1.6. */
         fun widthDp(axis: String) = if (bold(axis)) RAY_SNAP_DP else RAY_DP
     }

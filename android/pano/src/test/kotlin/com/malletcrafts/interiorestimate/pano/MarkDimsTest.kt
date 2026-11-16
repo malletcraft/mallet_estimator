@@ -271,6 +271,120 @@ class MarkDimsTest {
         assertEquals(listOf(true, true, false, true, false), ws.map { MarkDims.value(half, "front", win, it.code, it.est, W, H).check })
     }
 
+    // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
+
+    /** Three shapes in the box [g]: a trapezoid (a sloping bottom), a lean (level top and bottom, no square corner) and
+     *  one with no straight side. Null where the box is too small to hold them. */
+    private fun shapes(g: DoubleArray): List<List<DoubleArray>> {
+        val x0 = g[0]; val x1 = g[1]; val y0 = g[2]; val y1 = g[3]; val w = x1 - x0; val h = y1 - y0
+        fun p(x: Double, y: Double) = doubleArrayOf(x, y)
+        return listOf(
+            listOf(p(x0, y0 + h * 0.4), p(x1, y0), p(x1, y1), p(x0, y1)),
+            listOf(p(x0, y0), p(x1 - w * 0.2, y0), p(x1, y1), p(x0 + w * 0.2, y1)),
+            listOf(p(x0, y0 + h * 0.25), p(x1 - w * 0.15, y0), p(x1, y1 - h * 0.2), p(x0 + w * 0.2, y1)))
+    }
+
+    @Test fun `no key of a four-corner mark is undrawn -- every box type and sub-kind on every kind of surface, by key`() {
+        val prep = SurveyPrep.fresh(L, W, H)
+        var marks = 0; var sides = 0; var diags = 0
+        everyMark { _, s, ab, r ->
+            if (!Quad.mayHave(r)) { assertFalse(Quad.set(r.copy(), shapes(doubleArrayOf(r.x0, r.x1, r.y0, r.y1))[0]), "${r.t} is a spot"); return@everyMark }
+            for (mm in shapes(doubleArrayOf(r.x0, r.x1, r.y0, r.y1))) {
+                val e = r.copy()
+                if (!Quad.set(e, mm)) continue          // the grid's 90 mm high boxes cannot hold a shape 20 mm clear of itself
+                if (Quad.of(e) == null) continue
+                marks++
+                val at = "${e.code} ${e.t} on $s at ${e.x0},${e.y0} ${e.x1 - e.x0}x${e.y1 - e.y0}"
+                val ds = MarkDims.of(s, e, ab[0], ab[1]); val c = Quad.corners(e)
+                // the same reading keys, in the same order, as the checklist: nothing left out, nothing invented
+                assertEquals(prep.keysOf(s, e, ab[0], ab[1]), ds.map { it.code }, at)
+                assertEquals(listOf("bottom", "right", "top", "left"), ds.take(4).map { it.key }, at)
+                assertTrue(ds.none { it.key == "w" || it.key == "h" }, at)
+                val cx = c.map { it[0] }.average(); val cy = c.map { it[1] }.average()
+                for (d in ds) {
+                    assertTrue(d.known, "$at: ${d.key} has no drawing")
+                    assertEquals(d.role != MarkDims.Role.DEPTH, d.line, "$at: ${d.key}")
+                    assertEquals(d.key == "p", d.role == MarkDims.Role.DEPTH, "$at: ${d.key}")
+                    val est = d.est
+                    // the line IS the estimate, for a side, the diagonal and every position line alike
+                    if (d.line) assertTrue(est != null && abs(d.length - est) < 1e-6, "$at: ${d.key} line ${d.length} est $est")
+                    when (d.role) {
+                        MarkDims.Role.SIDE -> {
+                            sides++
+                            val i = Quad.SIDES.indexOf(d.key)
+                            // from corner i to corner i + 1, with a unit normal that points OUT of the shape
+                            assertEquals(listOf(c[i][0], c[i][1], c[(i + 1) % 4][0], c[(i + 1) % 4][1]), listOf(d.x1, d.y1, d.x2, d.y2), "$at: ${d.key}")
+                            assertEquals(1.0, d.nx * d.nx + d.ny * d.ny, 1e-9, "$at: ${d.key}")
+                            assertEquals(0.0, d.nx * (d.x2 - d.x1) + d.ny * (d.y2 - d.y1), 1e-6, "$at: ${d.key} is square to its side")
+                            val mx = (d.x1 + d.x2) / 2; val my = (d.y1 + d.y2) / 2
+                            assertTrue((mx - cx) * d.nx + (my - cy) * d.ny > 0, "$at: ${d.key}'s normal points into the shape")
+                        }
+                        MarkDims.Role.DIAG -> { diags++; assertEquals(listOf(c[0][0], c[0][1], c[2][0], c[2][1]), listOf(d.x1, d.y1, d.x2, d.y2), at); assertEquals("diag", d.key) }
+                        // a position line runs level or plumb from the wall, the floor or the ceiling TO THE BOX'S EDGE, where
+                        // a corner of the mark is -- one corner, or the midpoint of the two on a straight side
+                        MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DROP -> {
+                            assertTrue(d.x1 == d.x2 || d.y1 == d.y2, "$at: ${d.key}")
+                            val end = if (d.key == "l" || d.key == "s" || d.key == "k") listOf(d.x2, d.y2) else listOf(d.x1, d.y1)
+                            val on = c.map { it.toList() } + (0 until 4).map { i -> listOf((c[i][0] + c[(i + 1) % 4][0]) / 2, (c[i][1] + c[(i + 1) % 4][1]) / 2) }
+                            assertTrue(on.any { abs(it[0] - end[0]) < 1e-9 && abs(it[1] - end[1]) < 1e-9 }, "$at: ${d.key} ends at $end, not at a corner of $on")
+                            assertEquals(0.0, d.nx); assertEquals(0.0, d.ny)
+                        }
+                        // the p chip hangs at q1, the bottom-right corner
+                        MarkDims.Role.DEPTH -> assertEquals(listOf(c[1][0], c[1][1], c[1][0], c[1][1]), listOf(d.x1, d.y1, d.x2, d.y2), "$at: p")
+                        else -> assertTrue(false, "$at: a four-corner mark has no ${d.role}")
+                    }
+                }
+                // one figure per dimension, by the Plan tab's rule, for the new keys as for the old
+                for (d in ds) assertEquals(SurveyPlan.figure(emptyMap(), d.code, d.est).t, MarkDims.value(emptyMap(), s, e, d.code, d.est, ab[0], ab[1]).text, d.code)
+            }
+        }
+        assertTrue(marks > 2000 && sides == 4 * marks && diags > 500, "walked $marks shapes, $sides sides and $diags diagonals")
+    }
+
+    @Test fun `the example's seven lines -- each side corner to corner, the offsets to the corner, the chip at q1`() {
+        // the design's own: the front wall 3600 x 2700; FW1 with uprights 1550 and 780, a level top of 2370, a sloping bottom
+        val a = 3600.0; val b = 2700.0
+        val e = SurveyPrep.Mark("w", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0)
+        assertTrue(Quad.set(e, listOf(doubleArrayOf(600.0, 1670.0), doubleArrayOf(2970.0, 900.0), doubleArrayOf(2970.0, 2450.0), doubleArrayOf(600.0, 2450.0))))
+        val ds = MarkDims.of("front", e, a, b); val d = ds.associateBy { it.key }
+        assertEquals(listOf("bottom", "right", "top", "left", "l", "s", "p"), ds.map { it.key })
+        assertEquals(listOf(MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.SIDE, MarkDims.Role.OFF_H, MarkDims.Role.OFF_V, MarkDims.Role.DEPTH), ds.map { it.role })
+        fun line(k: String) = d.getValue(k).let { listOf(it.x1, it.y1, it.x2, it.y2).map { v -> Math.round(v * 10) / 10.0 } }
+        assertEquals(listOf(600.0, 1670.0, 2970.0, 900.0), line("bottom"))       // the true sloping side
+        assertEquals(listOf(2970.0, 900.0, 2970.0, 2450.0), line("right")); assertEquals(listOf(2970.0, 2450.0, 600.0, 2450.0), line("top"))
+        assertEquals(listOf(600.0, 2450.0, 600.0, 1670.0), line("left"))
+        // out of the shape: the right side's normal points right, the top's up, the left's left, the bottom's down and to the left
+        assertEquals(listOf(1.0, 0.0), d.getValue("right").let { listOf(it.nx, it.ny) }); assertEquals(listOf(0.0, 1.0), d.getValue("top").let { listOf(it.nx, it.ny) })
+        assertEquals(listOf(-1.0, 0.0), d.getValue("left").let { listOf(it.nx, it.ny) })
+        d.getValue("bottom").let { assertEquals(-770.0 / 2491.95, it.nx, 1e-4); assertEquals(-2370.0 / 2491.95, it.ny, 1e-4) }
+        // from the left corner to the left side, which is upright: at the midpoint of its two corners, as a rectangle's
+        assertEquals(listOf(0.0, 2060.0, 600.0, 2060.0), line("l"))
+        // the sill: from the floor up to its LOW corner, q1 -- plumb under it
+        assertEquals(listOf(2970.0, 0.0, 2970.0, 900.0), line("s"))
+        // the reveal's chip hangs at q1
+        assertEquals(listOf(2970.0, 900.0, 2970.0, 900.0), line("p")); assertFalse(d.getValue("p").line)
+        assertEquals(listOf("≈2492", "≈1550", "≈2370", "≈780", "≈600", "≈900", "?"), ds.map { MarkDims.value(emptyMap(), "front", e, it.code, it.est, a, b).text })
+        // THE `!` OF THE CLOSING CHECK is on the sloping side's plate alone: 2495, 1550, 2370 and a left upright typed 870
+        val read = mutableMapOf("FW1.bottom" to 2495.0, "FW1.right" to 1550.0, "FW1.top" to 2370.0, "FW1.left" to 780.0)
+        fun checks() = ds.map { MarkDims.value(read, "front", e, it.code, it.est, a, b).check }
+        assertEquals(List(7) { false }, checks())
+        read["FW1.left"] = 870.0
+        assertEquals(listOf(true, false, false, false, false, false, false), checks())
+        // ... which the photo's own check does not raise: 2495 is 3 mm from the photo's 2492
+        assertFalse(MarkDims.photoCheck(read, "front", e, "FW1.bottom", ds[0].est, a, b))
+        // the photo check still runs per figure: a right upright read 1900 against the photo's 1550
+        read["FW1.left"] = 780.0; read["FW1.right"] = 1900.0
+        assertTrue(MarkDims.photoCheck(read, "front", e, "FW1.right", ds[1].est, a, b))
+        assertEquals(listOf(true, true, false, false, false, false, false), checks(), "the bottom for the closing check, the right for the photo's")
+        // done once all seven are read
+        val prep = SurveyPrep.fresh(5000.0, a, b); prep.surface("front").marks.add(e)
+        for (k in listOf("bottom", "right", "top", "left", "l", "s")) prep.actual["FW1.$k"] = 1000.0
+        assertFalse(MarkDims.done(prep, "front", e, a, b)); prep.actual["FW1.p"] = 230.0; assertTrue(MarkDims.done(prep, "front", e, a, b))
+        // a w or an h reading it kept from its time as a rectangle is not asked, shown or counted -- and is still there
+        prep.actual["FW1.w"] = 2370.0
+        assertTrue("FW1.w" !in prep.keysOf("front", e, a, b)); assertEquals(2370.0, prep.actual["FW1.w"])
+    }
+
     // ------------------------------------------------------------------ who is asked, and when a mark is done
 
     @Test fun `only a mark in the room is asked -- not one born a wish, not a vendor's, not a Note`() {

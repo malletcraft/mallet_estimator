@@ -252,6 +252,36 @@ class SvgExportTest {
         assertTrue(SvgWriter.write(SurveyExport.sheet("floor", doorRoom(), L, W, H, meta)).contains(" A"), "the door swing")
     }
 
+    @Test fun `a four-corner mark goes on its sheet in its real shape -- the export writes any polygon (port 63 slice Q1)`() {
+        // the design's example, made up: front wall 3600 x 2700, FW1 with a sloping bottom; and a unit the client wishes for
+        val l = 5000.0; val w = 3600.0; val h = 2700.0
+        val p = SurveyPrep.fresh(l, w, h)
+        val win = SurveyPrep.Mark("w1", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0, mapOf(MarkLife.KEY_LIFE to MarkLife.WISH))
+        assertTrue(Quad.set(win, listOf(doubleArrayOf(600.0, 1670.0), doubleArrayOf(2970.0, 900.0), doubleArrayOf(2970.0, 2450.0), doubleArrayOf(600.0, 2450.0))))
+        val unit = SurveyPrep.Mark("u1", "CRP", "FCRP1", 100.0, 500.0, 0.0, 2100.0, mapOf(MarkLife.KEY_BORN to MarkLife.WISH, MarkLife.KEY_LIFE to MarkLife.WISH))
+        assertTrue(Quad.set(unit, listOf(doubleArrayOf(100.0, 0.0), doubleArrayOf(500.0, 0.0), doubleArrayOf(500.0, 1800.0), doubleArrayOf(100.0, 2100.0))))
+        p.surface("front").marks.add(win); p.surface("front").marks.add(unit)
+        val s = SurveyExport.sheet("front", p, l, w, h, meta)
+        // the sheet is for others: the room AS SURVEYED -- the surveyed window in its real SHAPE (its quad is kept, its
+        // state is not), the wished unit not at all
+        val el = s.drawing.items.filterIsInstance<SurveyPlan.Poly>().filter { it.role == "el" }
+        assertEquals(listOf("FW1"), el.map { it.key })
+        assertEquals(listOf(listOf(600.0, 1030.0), listOf(2970.0, 1800.0), listOf(2970.0, 250.0), listOf(600.0, 250.0)),
+            el.single().rings.single().map { c -> c.map { Math.round(it * 10) / 10.0 } })
+        assertEquals(listOf("≈2492", "≈1550", "≈2370", "≈780"), listOf("bottom", "right", "top", "left").map { s.drawing.dim("FW1.$it")?.text })
+        // written like any polygon: one path, four points, closed -- and one element per item, as for every sheet
+        val g = children(parse(SvgWriter.write(s))).single { it.getAttribute("data-plan") == "1" }
+        assertEquals(s.drawing.items.size, children(g).size)
+        val path = children(g).single { it.getAttribute("data-r") == "el" && it.getAttribute("data-k") == "FW1" }
+        assertEquals("path", path.localName); assertEquals(1, Regex("M").findAll(path.getAttribute("d")).count()); assertEquals(3, Regex("L").findAll(path.getAttribute("d")).count())
+        assertTrue(children(g).none { it.getAttribute("data-k").startsWith("FCRP1") })
+        // the same window as a rectangle is another path
+        val q = SurveyPrep.fresh(l, w, h); q.surface("front").marks.add(SurveyPrep.Mark("w1", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0))
+        val box = children(children(parse(SvgWriter.write(SurveyExport.sheet("front", q, l, w, h, meta)))).single { it.getAttribute("data-plan") == "1" })
+            .single { it.getAttribute("data-r") == "el" && it.getAttribute("data-k") == "FW1" }
+        assertFalse(box.getAttribute("d") == path.getAttribute("d"))
+    }
+
     @Test fun `the inks are the screen's -- a laser reading in ink, the photo's estimate grey with its approx sign`() {
         val s = SurveyExport.sheet("front", gb(), L, W, H, meta)
         val root = parse(SvgWriter.write(s))

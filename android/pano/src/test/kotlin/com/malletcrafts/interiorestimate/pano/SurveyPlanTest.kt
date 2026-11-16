@@ -374,6 +374,143 @@ class SurveyPlanTest {
 
     // ------------------------------------------------------------------ the chips, the line under it, fit
 
+    // ------------------------------------------------------------------ port 63 slice Q1: a mark with four free corners
+
+    /** The design's example, made up: a room 3600 wide, 5000 long, 2700 high; on its front wall window FW1 with uprights
+     *  1550 (right) and 780 (left), a level top of 2370 and a sloping bottom. */
+    private val qL = 5000.0; private val qW = 3600.0; private val qH = 2700.0
+    private fun shaped(p: SurveyPrep.Prep, s: String, t: String, code: String, vararg c: Pair<Double, Double>): SurveyPrep.Mark =
+        put(p, s, t, code, c.minOf { it.first }, c.maxOf { it.first }, c.minOf { it.second }, c.maxOf { it.second })
+            .also { assertTrue(Quad.set(it, c.map { doubleArrayOf(it.first, it.second) }), code) }
+    private fun trapezoid(): SurveyPrep.Prep = room(qL, qW, qH).also { shaped(it, "front", "W", "FW1", 600.0 to 1670.0, 2970.0 to 900.0, 2970.0 to 2450.0, 600.0 to 2450.0) }
+    private fun lines(d: SurveyPlan.Drawing, role: String, key: String) = d.items.filterIsInstance<SurveyPlan.Line>().filter { it.role == role && it.key == key }
+    private fun r1(v: Double) = Math.round(v * 10) / 10.0
+    private fun ends(l: SurveyPlan.Line) = listOf(r1(l.x1), r1(l.y1), r1(l.x2), r1(l.y2))
+
+    @Test fun `an elevation draws a four-corner mark in its real shape, a figure along each side, its offsets at the corner`() {
+        val p = trapezoid()
+        var d = SurveyPlan.drawing(Tx.EN, "front", p, qL, qW, qH)
+        val fs = d.fs; assertEquals(3600.0 / 34, fs, 1e-9)
+        // THE REAL SHAPE, on the page (y down from the ceiling): bottom-left, bottom-right, top-right, top-left
+        val el = poly(d, "el", "FW1")
+        assertEquals(listOf(listOf(600.0, 1030.0), listOf(2970.0, 1800.0), listOf(2970.0, 250.0), listOf(600.0, 250.0)), el.rings.single().map { it.map(::r1) })
+        // A DIMENSION ALONG EACH SIDE, the photo's estimate until it is read -- and no width, no height
+        assertEquals(listOf("≈2492", "≈1550", "≈2370", "≈780"), listOf("bottom", "right", "top", "left").map { d.dim("FW1.$it")?.text })
+        assertNull(d.dim("FW1.w")); assertNull(d.dim("FW1.h"))
+        // ... drawn 0.9 text sizes INSIDE its side: the top's under it, the left's right of it, the right's left of it
+        val off = fs * 0.9
+        assertEquals(listOf(2970.0, r1(250 + off), 600.0, r1(250 + off)), ends(lines(d, "dim.line", "FW1.top").single()))
+        assertEquals(listOf(r1(600 + off), 250.0, r1(600 + off), 1030.0), ends(lines(d, "dim.line", "FW1.left").single()))
+        assertEquals(listOf(r1(2970 - off), 1800.0, r1(2970 - off), 250.0), ends(lines(d, "dim.line", "FW1.right").single()))
+        // the sloping bottom's runs parallel to it, inside it: up the page and to the right of the side itself
+        val bl = lines(d, "dim.line", "FW1.bottom").single()
+        assertEquals((1800.0 - 1030.0) / 2370.0, (bl.y2 - bl.y1) / (bl.x2 - bl.x1), 1e-4, "parallel to the side")
+        assertTrue(bl.y1 < 1030.0 && bl.x1 > 600.0, "inside the shape: ${ends(bl)}")
+        assertEquals(off, abs((bl.x1 - 600.0) * 770.0 + (bl.y1 - 1030.0) * -2370.0) / Math.hypot(770.0, 2370.0), 0.05)
+        // every figure is on the inner side of its line: the top's under its line, the left's right of it
+        fun text(k: String) = d.items.filterIsInstance<SurveyPlan.Text>().single { it.role == "dim" && it.key == k }
+        assertTrue(text("FW1.top").y > 250 + off); assertTrue(text("FW1.left").x > 600 + off); assertTrue(text("FW1.right").x < 2970 - off)
+        // THE TRANSOM runs between the mid-points of its left and right sides; a rectangle's is level
+        assertEquals(listOf(600.0, 640.0, 2970.0, 1025.0), ends(lines(d, "transom", "FW1").single()))
+        // UNDER THE FLOOR: the corner offset only -- no width segment
+        assertEquals("≈600", d.dim("FW1.l")?.text)
+        assertEquals(listOf(0.0, 600.0), lines(d, "dim.line", "FW1.l").single().let { listOf(it.x1, it.x2) })
+        // UP THE WALL: the sill AT THE CORNER IT RUNS TO, its low corner q1 -- plumb under it, from the floor line
+        assertEquals("≈900", d.dim("FW1.s")?.text)
+        assertEquals(listOf(2970.0, 2700.0, 2970.0, 1800.0), ends(lines(d, "dim.line", "FW1.s").single()))
+        // its head: the sill and the upright side that spans its box (the right), when both are read -- else the photo's
+        assertEquals("≈2450", d.dim("FW1.head")?.text); assertFalse(d.dim("FW1.head")!!.read)
+        p.actual["FW1.s"] = 905.0; p.actual["FW1.h"] = 1.0                    // a height it kept from its time as a rectangle is not used
+        assertEquals("≈2450", SurveyPlan.drawing(Tx.EN, "front", p, qL, qW, qH).dim("FW1.head")?.text)
+        p.actual["FW1.right"] = 1548.0; p.actual["FW1.left"] = 782.0
+        d = SurveyPlan.drawing(Tx.EN, "front", p, qL, qW, qH)
+        assertEquals("2453", d.dim("FW1.head")?.text); assertTrue(d.dim("FW1.head")!!.read, "905 + 1548")
+        // readings turn the sides to ink
+        assertEquals(listOf("≈2492", "1548", "≈2370", "782"), listOf("bottom", "right", "top", "left").map { d.dim("FW1.$it")?.text })
+        assertEquals(SurveyPlan.INK, d.items.filterIsInstance<SurveyPlan.Text>().single { it.role == "dim" && it.key == "FW1.left" }.colour)
+        // the info line and the code are what they were: the code inside the top of its bounding box
+        assertEquals("Front · 3600 × 2700 · 1 mark", d.info); assertEquals(1785.0, d.texts("elc").single { it.key == "FW1" }.x)
+        // A DOOR'S HEAD runs along its top side; an Other high on the wall has its ceiling offset over its highest corner
+        val q = room(qL, qW, qH)
+        shaped(q, "front", "D", "FD1", 300.0 to 0.0, 1200.0 to 0.0, 1200.0 to 2100.0, 300.0 to 1900.0)
+        shaped(q, "front", "X", "FX1", 2000.0 to 1800.0, 3000.0 to 1800.0, 3000.0 to 2300.0, 2300.0 to 2500.0)
+        val e = SurveyPlan.drawing(Tx.EN, "front", q, qL, qW, qH)
+        assertEquals(listOf(300.0, 800.0, 1200.0, 600.0), ends(lines(e, "head", "FD1").single()))
+        assertNull(e.dim("FD1.h")); assertEquals("≈2100", e.dim("FD1.right")?.text); assertEquals("≈1900", e.dim("FD1.left")?.text)
+        assertEquals("≈200", e.dim("FX1.t")?.text)
+        assertEquals(listOf(2300.0, 0.0, 2300.0, 200.0), ends(lines(e, "dim.line", "FX1.t").single()), "from the ceiling down to q3, its highest corner")
+        // A RECTANGLE BESIDE IT IS DRAWN AS IT ALWAYS WAS: the same wall with FW1 put back to its box
+        val plain = room(qL, qW, qH).also { put(it, "front", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0) }
+        val pd = SurveyPlan.drawing(Tx.EN, "front", plain, qL, qW, qH)
+        assertEquals(listOf(listOf(600.0, 250.0), listOf(2970.0, 250.0), listOf(2970.0, 1800.0), listOf(600.0, 1800.0)), poly(pd, "el", "FW1").rings.single().map { it.toList() })
+        assertEquals(listOf("FW1.s", "FW1.head", "FW1.l", "FW1.w", "A", "H"), pd.dims.map { it.key })
+        assertEquals(listOf(600.0, 1025.0, 2970.0, 1025.0), ends(lines(pd, "transom", "FW1").single()))
+    }
+
+    @Test fun `the floor plan keeps a four-corner wall mark's box and labels it by a level side that spans it`() {
+        val p = trapezoid()
+        var d = SurveyPlan.drawing(Tx.EN, "floor", p, qL, qW, qH)
+        // the gap through the wall band is placed by the BOX's two ends, as a rectangle's: 600 to 2970 along the front wall
+        val op = poly(d, "op", "FW1").rings.single()
+        assertEquals(listOf(listOf(600.0, 0.0), listOf(2970.0, 0.0), listOf(2970.0, -150.0), listOf(600.0, -150.0)), op.map { it.toList() })
+        // its label: the code and ≈ the box's width, until its level top -- the side that spans the box -- is read
+        assertEquals("FW1 ≈2370", d.texts("opl").single().text); assertEquals(SurveyPlan.GREY, d.texts("opl").single().colour)
+        p.actual["FW1.w"] = 9999.0                            // a width it kept from its time as a rectangle is not its figure
+        assertEquals("FW1 ≈2370", SurveyPlan.drawing(Tx.EN, "floor", p, qL, qW, qH).texts("opl").single().text)
+        p.actual["FW1.bottom"] = 2495.0                       // nor is its sloping bottom
+        assertEquals("FW1 ≈2370", SurveyPlan.drawing(Tx.EN, "floor", p, qL, qW, qH).texts("opl").single().text)
+        p.actual["FW1.top"] = 2368.0
+        d = SurveyPlan.drawing(Tx.EN, "floor", p, qL, qW, qH)
+        assertEquals("FW1 2368", d.texts("opl").single().text); assertEquals(SurveyPlan.INK, d.texts("opl").single().colour)
+        assertEquals("600 from left corner", d.texts("opo").single().text.replace("≈", ""))
+        // a shape with no level side spanning its box keeps ≈ the box's width, whatever is read
+        val q = room(qL, qW, qH)
+        shaped(q, "front", "O", "FO1", 600.0 to 0.0, 1400.0 to 0.0, 1500.0 to 2000.0, 700.0 to 2100.0)
+        q.actual.putAll(mapOf("FO1.bottom" to 801.0, "FO1.top" to 803.0))
+        assertEquals("FO1 ≈900", SurveyPlan.drawing(Tx.EN, "floor", q, qL, qW, qH).texts("opl").single().text)
+        // a niche's label follows the same rule
+        val n = room(qL, qW, qH)
+        shaped(n, "left", "N", "LN1", 1200.0 to 750.0, 2100.0 to 750.0, 2100.0 to 1950.0, 1200.0 to 1700.0)
+        assertEquals("LN1 ≈900", SurveyPlan.drawing(Tx.EN, "floor", n, qL, qW, qH).texts("opl").single().text)
+        n.actual["LN1.bottom"] = 903.0
+        assertEquals("LN1 903", SurveyPlan.drawing(Tx.EN, "floor", n, qL, qW, qH).texts("opl").single().text)
+        // A MARK ON THE FLOOR ITSELF is drawn in its real shape, front at the top: page y is L - y
+        val f = room(qL, qW, qH)
+        shaped(f, "floor", "X", "GX1", 400.0 to 800.0, 2000.0 to 500.0, 2200.0 to 2300.0, 700.0 to 2500.0)
+        put(f, "floor", "S", "GS1", 2600.0, 3500.0, 150.0, 450.0)
+        val fd = SurveyPlan.drawing(Tx.EN, "floor", f, qL, qW, qH)
+        assertEquals(listOf(listOf(400.0, 4200.0), listOf(2000.0, 4500.0), listOf(2200.0, 2700.0), listOf(700.0, 2500.0)), poly(fd, "mk", "GX1").rings.single().map { it.map(::r1) })
+        // ... and the rectangle beside it as it always was
+        assertEquals(listOf(listOf(2600.0, 4550.0), listOf(3500.0, 4550.0), listOf(3500.0, 4850.0), listOf(2600.0, 4850.0)), poly(fd, "mk", "GS1").rings.single().map { it.toList() })
+    }
+
+    @Test fun `the ceiling plan draws a four-corner mark in its real shape, an opening's cross along its diagonals, its offsets to the corner`() {
+        val p = room(qL, qW, qH)
+        shaped(p, "ceil", "O", "CO1", 1700.0 to 2400.0, 2300.0 to 2500.0, 2300.0 to 2900.0, 1800.0 to 2900.0)
+        put(p, "ceil", "O", "CO2", 400.0, 1000.0, 400.0, 900.0)
+        val d = SurveyPlan.drawing(Tx.EN, "ceil", p, qL, qW, qH)
+        // the real shape, reflected the same way round as the floor plan: page y is L - y
+        assertEquals(listOf(listOf(1700.0, 2600.0), listOf(2300.0, 2500.0), listOf(2300.0, 2100.0), listOf(1800.0, 2100.0)), poly(d, "el", "CO1").rings.single().map { it.map(::r1) })
+        // crossed through along its TWO DIAGONALS, q0 to q2 and q1 to q3
+        assertEquals(listOf(listOf(1700.0, 2600.0, 2300.0, 2100.0), listOf(2300.0, 2500.0, 1800.0, 2100.0)), lines(d, "cross", "CO1").map(::ends))
+        // its offsets run TO THE CORNER that touches that edge of its box: from the right wall level with the middle of
+        // its upright right side, from the front wall plumb over the middle of its level top
+        assertEquals(listOf(2300.0, 2300.0, 3600.0, 2300.0), ends(lines(d, "dim.line", "CO1.r").single()))
+        assertEquals(listOf(2050.0, 0.0, 2050.0, 2100.0), ends(lines(d, "dim.line", "CO1.f").single()))
+        assertEquals("≈1300", d.dim("CO1.r")?.text); assertEquals("≈2100", d.dim("CO1.f")?.text)
+        // the rectangle beside it: its box, its cross corner to corner of the box, its offsets through its middle
+        assertEquals(listOf(listOf(400.0, 4100.0), listOf(1000.0, 4100.0), listOf(1000.0, 4600.0), listOf(400.0, 4600.0)), poly(d, "el", "CO2").rings.single().map { it.toList() })
+        assertEquals(listOf(listOf(400.0, 4100.0, 1000.0, 4600.0), listOf(400.0, 4600.0, 1000.0, 4100.0)), lines(d, "cross", "CO2").map(::ends))
+        assertEquals(listOf(0.0, 4350.0, 400.0, 4350.0), ends(lines(d, "dim.line", "CO2.l").single()))
+        assertEquals(listOf(700.0, 4600.0, 700.0, 5000.0), ends(lines(d, "dim.line", "CO2.k").single()))
+        // a leaning shape: each offset to its ONE corner on that edge
+        val q = room(qL, qW, qH)
+        shaped(q, "ceil", "X", "CX1", 500.0 to 700.0, 1400.0 to 400.0, 1600.0 to 1300.0, 800.0 to 1500.0)
+        val e = SurveyPlan.drawing(Tx.EN, "ceil", q, qL, qW, qH)
+        assertEquals(listOf(0.0, 4300.0, 500.0, 4300.0), ends(lines(e, "dim.line", "CX1.l").single()), "level with q0, its leftmost corner")
+        assertEquals(listOf(1400.0, 4600.0, 1400.0, 5000.0), ends(lines(e, "dim.line", "CX1.k").single()), "plumb under q1, its corner nearest the back wall")
+    }
+
     @Test fun `six drawings, Floor first -- titles -- the room's name from the screen's title`() {
         assertEquals("Floor|Ceiling|Front|Right|Back|Left", SurveyPlan.VIEWS.joinToString("|") { it.second })
         assertEquals(listOf("floor", "ceil", "front", "right", "back", "left"), SurveyPlan.VIEWS.map { it.first })

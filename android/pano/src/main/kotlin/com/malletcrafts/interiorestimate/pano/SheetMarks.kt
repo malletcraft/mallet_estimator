@@ -46,8 +46,14 @@ object SheetMarks {
      * The keys of a mark a sheet for others keeps besides its box: the lock, which moves nothing and says nothing, and
      * the sub-kind, which is what the thing IS. S5's own list for a caller who is not staff (slice RD): id, t, code,
      * x0, x1, y0, y1, locked, sub.
+     *
+     * AND ITS FOUR CORNERS (port 63 slice Q1; DESIGN-quad §3.8, decided by Claude): a surveyed opening's SHAPE is the
+     * room as surveyed, as its box is, so the A4 sheet and the saved pictures draw it in its real shape. Nothing of the
+     * wish round can be written into it: a corner is reshaped only where the phase lets the mark be edited, and a
+     * surveyed mark is edited at Survey alone. S5's SEEN_MARK gains the same key in slice Q3, on stage before the phone
+     * build that carries the screen (Q2), so the phone's documents and the web never give two answers.
      */
-    val KEPT: Set<String> = setOf(SurveyPrep.LOCKED, Trades.KEY_SUB)
+    val KEPT: Set<String> = setOf(SurveyPrep.LOCKED, Trades.KEY_SUB, Quad.KEY)
 
     /** Whether the mark is IN THE ROOM AS SURVEYED: it was there (`born` absent or "exist") and it is not a Note. */
     fun surveyed(e: SurveyPrep.Mark): Boolean {

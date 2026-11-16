@@ -199,6 +199,65 @@ class SurveyPrepTouchTest {
 
     private fun under(s: SurveyPrepTouch.Spot, fx: Double, fy: Double) = hypot(fx - (s.left + dia / 2), fy - (s.top + dia / 2)) <= dia / 2
 
+    // ------------------------------------------------- port 63 slice Q1: a mark whose four corners are free
+
+    /** The design's example, made up, on a 3600 x 2700 wall at 0.2 px a mm: FW1 with a sloping bottom, as drawn -- its
+     *  bounding box, and its four corners q0 … q3 when they are free. */
+    private fun quadDrawn(free: Boolean): SurveyPrepTouch.Drawn {
+        val e = SurveyPrep.Mark("w1", "W", "FW1", 600.0, 2970.0, 900.0, 2450.0)
+        assertTrue(Quad.set(e, listOf(doubleArrayOf(600.0, 1670.0), doubleArrayOf(2970.0, 900.0), doubleArrayOf(2970.0, 2450.0), doubleArrayOf(600.0, 2450.0))))
+        fun px(x: Double, y: Double) = doubleArrayOf(x * 0.2, (2700 - y) * 0.2)
+        val p = px(e.x0, e.y1); val q = px(e.x1, e.y0)
+        return SurveyPrepTouch.Drawn(e.id, p[0], q[0], p[1], q[1], corners = if (free) Quad.corners(e).map { px(it[0], it[1]) } else null)
+    }
+
+    @Test fun `a free mark is pressed by its four corners where a rectangle is by its eight tabs`() {
+        val d = quadDrawn(true); val c = d.corners!!; val tol = 16 * DP
+        fun hit(x: Double, y: Double, sel: String? = "w1", tags: List<SurveyPrepTouch.Tag> = emptyList(), marks: List<SurveyPrepTouch.Drawn> = listOf(d)) =
+            SurveyPrepTouch.hit(marks, sel, tags, x, y, tol, DP)
+        // picked: each corner is its own part, on it and anywhere within the tabs' own reach of it
+        for ((i, part) in listOf("q0", "q1", "q2", "q3").withIndex()) {
+            for ((dx, dy) in listOf(0.0 to 0.0, 20.0 to 0.0, -15.0 to 15.0, 0.0 to -31.0)) {
+                val h = hit(c[i][0] + dx, c[i][1] + dy)
+                assertIs<SurveyPrepTouch.Hit.Mark>(h, "$part + $dx, $dy"); assertEquals(part, h.part, "$part + $dx, $dy"); assertEquals("w1", h.id)
+            }
+        }
+        assertEquals("q0" to 20.0, SurveyPrepTouch.nearestCorner(c, c[0][0] + 20, c[0][1], tol)); assertEquals(null, SurveyPrepTouch.nearestCorner(c, c[0][0] + 33, c[0][1], tol))
+        // NO TAB IS LEFT on it: the middle of its top side, of its right side and of its bounding box's bottom edge are
+        // not handles -- a press there is its body, or nothing
+        val top = hit((c[2][0] + c[3][0]) / 2, c[3][1] + 4); assertIs<SurveyPrepTouch.Hit.Mark>(top); assertEquals("body", top.part)
+        val right = hit(c[1][0] - 4, (c[1][1] + c[2][1]) / 2); assertIs<SurveyPrepTouch.Hit.Mark>(right); assertEquals("body", right.part)
+        // A BODY PRESS COUNTS ONLY INSIDE THE SHAPE: the empty corner of the bounding box, under the sloping bottom, is
+        // not the mark -- picked or not -- so what lies under it can be pressed
+        val ex = d.x0 + 60; val ey = d.yB - 30                 // inside the box, below the sloping side, away from every corner
+        assertTrue(ex > d.x0 && ex < d.x1 && ey > d.yT && ey < d.yB); assertFalse(Pano360.inPoly(ex, ey, c))
+        assertEquals(null, hit(ex, ey)); assertEquals(null, hit(ex, ey, sel = null))
+        val under = SurveyPrepTouch.Drawn("p1", ex - 5, ex + 5, ey - 5, ey + 5, spot = 5.0)
+        val got = hit(ex, ey, sel = null, marks = listOf(under, d)); assertIs<SurveyPrepTouch.Hit.Mark>(got); assertEquals("p1", got.id)
+        // ... while the very same press on the same mark as a RECTANGLE is its body: the box hides what is under it
+        val boxed = quadDrawn(false)
+        val asBox = hit(ex, ey, sel = null, marks = listOf(under, boxed)); assertIs<SurveyPrepTouch.Hit.Mark>(asBox); assertEquals("w1", asBox.id); assertEquals("body", asBox.part)
+        // inside the shape it is the body, picked or not; and a press past the picked one's edge is no longer the mark
+        for (sel in listOf<String?>("w1", null)) { val b = hit(d.x1 - 60, d.yT + 60, sel = sel); assertIs<SurveyPrepTouch.Hit.Mark>(b); assertEquals("body", b.part) }
+        assertEquals(null, hit(d.x1 + 20, (d.yT + d.yB) / 2), "a rectangle's right tab would have been here")
+        // not picked, its corners are not handles: a press on one is its body where that is inside the shape, else nothing
+        assertEquals(null, hit(c[0][0] - 10, c[0][1], sel = null))
+        // a tag under the finger takes the touch only when its centre is nearer than the corner, as with a tab
+        val near = SurveyPrepTouch.Tag("FW1.bottom", SurveyPrepTouch.Box(c[0][0] + 2, c[0][1] - 10, c[0][0] + 42, c[0][1] + 10))
+        val onCorner = hit(c[0][0], c[0][1], tags = listOf(near)); assertIs<SurveyPrepTouch.Hit.Mark>(onCorner); assertEquals("q0", onCorner.part)
+        val onTag = hit(c[0][0] + 20, c[0][1], tags = listOf(near)); assertIs<SurveyPrepTouch.Hit.Tag>(onTag); assertEquals("FW1.bottom", onTag.code)
+        // A RECTANGLE WHOSE CORNERS WERE FREED and never dragged: its corners are the box's four, and the four middles are tabs no more
+        val r = SurveyPrepTouch.Drawn("d1", 100.0, 300.0, 100.0, 500.0, corners = listOf(doubleArrayOf(100.0, 500.0), doubleArrayOf(300.0, 500.0), doubleArrayOf(300.0, 100.0), doubleArrayOf(100.0, 100.0)))
+        fun part(x: Double, y: Double) = (SurveyPrepTouch.hit(listOf(r), "d1", emptyList(), x, y, tol, DP) as? SurveyPrepTouch.Hit.Mark)?.part
+        assertEquals(listOf("q0", "q1", "q2", "q3"), listOf(part(100.0, 500.0), part(300.0, 500.0), part(300.0, 100.0), part(100.0, 100.0)))
+        assertEquals("body", part(200.0, 104.0)); assertEquals(null, part(200.0, 90.0)); assertEquals("body", part(104.0, 300.0))
+        // ... and with no corners handed in it is the rectangle it always was: eight tabs, the picked box grabbed to its edge and a little past
+        val plain = SurveyPrepTouch.Drawn("d1", 100.0, 300.0, 100.0, 500.0)
+        fun old(x: Double, y: Double) = (SurveyPrepTouch.hit(listOf(plain), "d1", emptyList(), x, y, tol, DP) as? SurveyPrepTouch.Hit.Mark)?.part
+        assertEquals(listOf("lb", "rb", "rt", "lt", "t", "t", "l"), listOf(old(100.0, 500.0), old(300.0, 500.0), old(300.0, 100.0), old(100.0, 100.0), old(200.0, 104.0), old(200.0, 90.0), old(104.0, 300.0)))
+        assertEquals(null, plain.corners); assertEquals(null, plain.spot)
+    }
+
     @Test fun `finger at the top edge -- the far top corner, moved in past the fit button, never below or under the finger`() {
         val ob = fitCol(pw)
         // left half: the far corner is the right one, where the fit button is -- moved in to its left, still at the top

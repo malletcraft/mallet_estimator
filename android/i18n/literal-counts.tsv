@@ -102,6 +102,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhaseTools.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PlanSave.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Quad.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteStage.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteView.kt	0

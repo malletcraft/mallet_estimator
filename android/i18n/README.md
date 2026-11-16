@@ -935,11 +935,56 @@ figures is marked the same way.
 
 1,924 keys (none added); `i18nRatchet` lowered nothing and entered the two new files at 0; `unkeyed.tsv` stays empty.
 
+## Port 63 slice Q1 (16 Nov 2026): a mark with four free corners, as pure models -- 14 keys added, English first
+
+Amit, 16 Nov 2026, after a balcony window job surveyed with the phone: "while marking window, I realised that it can draw
+only rectangular windows. there are scenarios when i need to draw trapezoidal windows as well like one just exported." --
+and, on the selector, "Four corners": every box mark can become a four-corner shape, and each of its four sides carries
+its own figure (`android/docs/port63/DESIGN-quad.md`). Slice Q1 is its pure models, **nothing on screen**: one new
+`:pano` file, `pano/Quad.kt`, joins `ported.txt` at 0 in `literal-counts.tsv` (the record key `quad`, the corner drag,
+the four side figures and the closing check; its words are `tx.<key>` reads and it has no other literal a person sees).
+
+**Fourteen keys added**, each a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above): the Marathi value of
+each IS its English for now, with a note saying so, and all fourteen are listed in `mr-pending.tsv` (13 -> 27).
+
+| Key | English | Read by |
+|---|---|---|
+| `measure.side_bottom` | `bottom side` | `Quad.sideWhat` -- the bar's first line, a wall |
+| `measure.side_right` | `right side` | `Quad.sideWhat` |
+| `measure.side_top` | `top side` | `Quad.sideWhat` -- a wall |
+| `measure.side_left` | `left side` | `Quad.sideWhat` |
+| `measure.side_back` | `back side` | `Quad.sideWhat` -- the floor and the ceiling: side `bottom` |
+| `measure.side_front` | `front side` | `Quad.sideWhat` -- the floor and the ceiling: side `top` |
+| `measure.diagonal` | `diagonal, bottom-left to top-right` | `Quad.asked` -- a wall |
+| `measure.diagonal_plan` | `diagonal, back-left to front-right` | `Quad.asked` -- the floor and the ceiling |
+| `measure.to_nearest_corner` | `, to its nearest corner` | `Quad.asked` -- a FRAGMENT (flag `fragment`) after a position's words, as `measure.to_centre` is after a point's: "from left corner, to its nearest corner" |
+| `sp.shape.four_corners` | `Four corners` | `SurveyPrepEdit.shapeRow` -- the long-press menu's row on a rectangle; on screen from slice Q2 |
+| `sp.shape.rectangle` | `Rectangle` | `SurveyPrepEdit.shapeRow` -- the row on a four-corner mark; on screen from slice Q2 |
+| `sp.shape.drag_corners` | `Drag a corner. A side near upright or level snaps straight.` | slice Q2 (the message line after "Four corners"); no reader yet |
+| `sp.measure.sides_say_x` | `The other sides make the {side} ≈{est} mm. Check the readings, or the corners.` | `MeasureText.sidesSay` -- `{side}` is the sloping side's own words (a `measure.side_*` text), `{est}` whole mm |
+| `sp.file.x_mark_x_shape_unreadable` | `{surface}: mark {code}'s four corners were unreadable, kept as its box` | `SurveyPrepFile.decode` -- a salvage note |
+
+Every placeholder is a description, so each is a `String` parameter. **No existing key is changed, and no existing
+Marathi value**: the diff of `strings-mr.json` is fourteen additions. The picked mark's row will say "corner" with the
+key the app already has, `sp.corner` (`कोपरा`, unchanged).
+
+`{side}` is filled with ANOTHER key's text (`measure.side_bottom` ...), which is a whole name and not a glued fragment:
+the sentence's own Marathi, when it is written, places `{side}` where its grammar wants it. `measure.to_nearest_corner`
+IS glued after a position's words, exactly as `measure.to_centre` has been since M3a; both are phone-sited or share no
+whole template at a prototype site, so check 9 has nothing to supersede them with.
+
+**Stored in English, never through a key**: the record key `quad`, the parts `q0` ... `q3`, the reading names `bottom`
+`right` `top` `left` `diag` (inside S5's key grammar: KeyGrammarTest) and the menu actions `free` / `box`.
+
+1,938 keys (1,924 + 14); Tx regenerated with `:pano:i18nGen` (1,867 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and entered `pano/Quad.kt` at 0; `unkeyed.tsv` stays empty; the accessors nothing calls BY
+NAME go 657 -> 658: `sp.shape.drag_corners`, which slice Q2 reads.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,924 keys each (counted 16 Nov 2026, each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6 and 13 in port 63 slice M1): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 132 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`) and 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`). 303 of the 1,924 carry the flag `phone-text` (the card's 171 and these 132). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,938 keys each (counted 16 Nov 2026, each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6, 13 in port 63 slice M1 and 14 in its slice Q1): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 146 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`), 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`) and 14 in its slice Q1 (a four-corner mark's nine `measure.*` words, the three `sp.shape.*`, `sp.measure.sides_say_x` and `sp.file.x_mark_x_shape_unreadable`, pending likewise). 317 of the 1,938 carry the flag `phone-text` (the card's 171 and these 146). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |

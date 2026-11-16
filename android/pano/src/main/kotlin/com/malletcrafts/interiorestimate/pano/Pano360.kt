@@ -264,8 +264,14 @@ object Pano360 {
      * A PICKED MARK'S EIGHT TABS, in mm on its surface, in sp.js's order -- each the part it drags: the left and right
      * edges at mid-height, the top and bottom at mid-width, then the four corners. So a tab dragged on the 360 moves
      * exactly its own edge(s) along the surface (ct52 X5), through SurveyPrep.moveMark as on 2 · Mark.
+     *
+     * A MARK WHOSE CORNERS ARE FREE ([free]: [Quad.free], the one rule; port 63 slice Q1, DESIGN-quad §3.6) has its
+     * FOUR CORNERS instead, as the parts q0 … q3 -- the box's own four on a mark with no `quad` -- and a corner dragged
+     * on the 360 goes through the same SurveyPrep.moveMark and snapMark. [free] defaults to false: the eight tabs, as
+     * every caller had them.
      */
-    fun tabsOf(e: SurveyPrep.Mark): List<Pair<String, DoubleArray>> {
+    fun tabsOf(e: SurveyPrep.Mark, free: Boolean = false): List<Pair<String, DoubleArray>> {
+        if (free) return Quad.corners(e).mapIndexed { i, c -> Quad.PARTS[i] to c }
         val xm = (e.x0 + e.x1) / 2; val ym = (e.y0 + e.y1) / 2
         return listOf("l" to doubleArrayOf(e.x0, ym), "r" to doubleArrayOf(e.x1, ym), "t" to doubleArrayOf(xm, e.y1),
             "b" to doubleArrayOf(xm, e.y0), "lt" to doubleArrayOf(e.x0, e.y1), "rt" to doubleArrayOf(e.x1, e.y1),
@@ -278,6 +284,7 @@ object Pano360 {
      * near plane; a point's ([spot]: centre x, y and the radius it is drawn with -- its 50 mm, never under [SPOT_MIN_DP])
      * a 16-sided ring at least [SPOT_HIT_DP] round it. A NOTE'S PIN is such a spot too (port 62 slice L6; index61c2.html
      * 5960, `ISPOINT(e.t)||L53.isNote(e)`): pressed round its centre, moved whole, with no tabs ([SurveyPrep.isSpot]).
+     * A FOUR-CORNER MARK'S outline is its real shape (port 63 slice Q1): pressed inside it, drawn as it is.
      */
     class Poly(val s: String, val id: String, val pts: List<DoubleArray>, val area: Double, val spot: DoubleArray? = null)
 
@@ -292,8 +299,8 @@ object Pano360 {
             val ring = (0 until 16).map { i -> val a = i * PI / 8; doubleArrayOf(c[0] + rh * cos(a), c[1] + rh * sin(a)) }
             return Poly(s, e.id, ring, PI * rh * rh, doubleArrayOf(c[0], c[1], r))
         }
-        val pts = v.clipPoly(listOf(doubleArrayOf(e.x0, e.y0), doubleArrayOf(e.x1, e.y0), doubleArrayOf(e.x1, e.y1),
-            doubleArrayOf(e.x0, e.y1)).map { dirOfMm(s, f, it[0], it[1]) })
+        // its four REAL corners (Quad.corners: the box's own four, in this same order, for a mark with no `quad`)
+        val pts = v.clipPoly(Quad.corners(e).map { dirOfMm(s, f, it[0], it[1]) })
         if (pts.size < 3) return null
         return Poly(s, e.id, pts, polyArea(pts))
     }

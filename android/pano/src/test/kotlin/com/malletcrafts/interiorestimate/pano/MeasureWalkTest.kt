@@ -226,4 +226,46 @@ class MeasureWalkTest {
         assertEquals(emptyList(), MeasureWalk.stopsOf(p, assertNotNull(p.markOf("FNOTE1.x")).second.id, ::ab))
         assertEquals(emptyList(), MeasureWalk.stopsOf(p, "nothing", ::ab))
     }
+
+    // ------------------------------------------------------------------ a mark with four free corners (port 63 slice Q1)
+
+    @Test fun `a four-corner mark is walked side by side -- bottom, right, top, left, then its type's own`() {
+        // the design's example, made up: the front wall 3600 x 2700; a door, and window FW1 with a sloping bottom
+        val l = 5000.0; val a = 3600.0; val b = 2700.0
+        val p = SurveyPrep.fresh(l, a, b)
+        val w = p.put("front", "W", 1, 600.0, 2970.0, 900.0, 2450.0)
+        assertTrue(Quad.set(w, listOf(pt(600.0, 1670.0), pt(2970.0, 900.0), pt(2970.0, 2450.0), pt(600.0, 2450.0))))
+        p.put("front", "D", 1, 100.0, 500.0, 0.0, 2100.0)
+        val seven = listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left", "FW1.l", "FW1.s", "FW1.p")
+        // marks are ordered as before, by the box's left edge: the door first; inside the window, its sides and then its own
+        assertEquals(listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p") + seven, MeasureWalk.stops(p, "front", a, b))
+        assertEquals(0 to 11, MeasureWalk.count(p, "front", a, b).let { it.read to it.total })
+        for (k in listOf("FD1.w", "FD1.h", "FD1.l", "FD1.p")) p.actual[k] = 900.0
+        // the walk reads the sloping bottom FIRST and the left upright LAST of the four
+        var at: String? = null; val walked = ArrayList<String>()
+        repeat(7) { at = MeasureWalk.next(p, "front", a, b, at); walked += at!!; p.actual[at!!] = 1000.0 }
+        assertEquals(seven, walked); assertNull(MeasureWalk.next(p, "front", a, b, at))
+        assertEquals(11 to 11, MeasureWalk.count(p, "front", a, b).let { it.read to it.total }); assertTrue(MeasureWalk.count(p, "front", a, b).done)
+        assertEquals("FW1.left", MeasureWalk.previous(p, "front", a, b, "FW1.l")); assertEquals("FW1.p", MeasureWalk.previous(p, "front", a, b, null))
+        // the picked item's own keys, for 2 Mark's arrows
+        assertEquals(seven, MeasureWalk.stopsOf(p, w.id) { SurveyPrep.size(it, l, a, b) })
+        // a reading it kept from its time as a rectangle is nobody's stop and in no count -- and is not removed
+        p.actual["FW1.w"] = 2370.0; p.actual["FW1.h"] = 1550.0
+        assertFalse(MeasureWalk.left(p, "front", a, b, "FW1.w")); assertEquals(11, MeasureWalk.count(p, "front", a, b).total)
+        assertEquals(2370.0, p.actual["FW1.w"])
+        // put back to a rectangle it asks w and h again, and finds the readings it kept; its side readings wait in turn
+        assertTrue(Quad.clear(w))
+        assertEquals(listOf("FW1.w", "FW1.h", "FW1.l", "FW1.s", "FW1.p"), MeasureWalk.stopsOf(p, w.id) { SurveyPrep.size(it, l, a, b) })
+        assertEquals(9 to 9, MeasureWalk.count(p, "front", a, b).let { it.read to it.total }); assertEquals(1000.0, p.actual["FW1.left"])
+        // a shape with no square corner is walked through its diagonal after its four sides
+        val x = p.put("front", "X", 1, 1000.0, 1900.0, 300.0, 800.0)
+        assertTrue(Quad.set(x, listOf(pt(1000.0, 400.0), pt(1800.0, 300.0), pt(1900.0, 700.0), pt(1200.0, 800.0))))
+        assertEquals(listOf("FX1.bottom", "FX1.right", "FX1.top", "FX1.left", "FX1.diag", "FX1.l", "FX1.s"), MeasureWalk.stopsOf(p, x.id) { SurveyPrep.size(it, l, a, b) })
+        // a wished four-corner unit is not in the room: it shows its side estimates and takes no reading
+        val u = p.put("front", "CRP", 1, 2000.0, 3200.0, 0.0, 2100.0, mapOf(MarkLife.KEY_BORN to MarkLife.WISH, MarkLife.KEY_LIFE to MarkLife.WISH))
+        assertTrue(Quad.set(u, listOf(pt(2000.0, 0.0), pt(3200.0, 0.0), pt(3200.0, 1800.0), pt(2000.0, 2100.0))))
+        assertEquals(emptyList(), MeasureWalk.stopsOf(p, u.id) { SurveyPrep.size(it, l, a, b) })
+        assertTrue(MeasureWalk.stops(p, "front", a, b).none { it.startsWith("FCRP1.") })
+        assertEquals(listOf("≈1200", "≈1800", "≈1237", "≈2100"), MarkDims.of("front", u, a, b).take(4).map { MarkDims.value(p.actual, "front", u, it.code, it.est, a, b).text })
+    }
 }
