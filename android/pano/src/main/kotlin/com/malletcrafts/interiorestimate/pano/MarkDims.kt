@@ -306,4 +306,93 @@ object MarkDims {
             State.UNKNOWN -> Style(ink, false, 0x000000, 0x88, ink, true)
         }
     }
+
+    // ------------------------------------------------------------------ NO PHOTO ESTIMATE, ANYWHERE (port 63 slice I1a)
+
+    /*
+     * Amit, 16 Nov 2026, shown the pictures of the one-step screen: "No foto estimation at all. It confuses user"
+     * (DESIGN-imagemeter §18, which overrides every `≈` before it). So a dimension has TWO looks only -- READ, its
+     * figure, and NOT READ -- and the functions below are the screen's path from slice I1b on: [read] in [value]'s
+     * place, [plate] in [style]'s, [figureText] in [shown]'s, [guard] in [photoCheck]'s. They stand BESIDE the old
+     * ones, which the screen still calls until I1b switches it over and the saved pictures' painter until slice M3.
+     * The photo's estimate lives on in the model ([Dim.est]) for the gross guard alone, and for nothing a person reads.
+     */
+
+    /** What a plate shows for a dimension nobody has read: `?`. The same in every language. */
+    const val ASK_TEXT = "?" // text:value the not-read glyph, the same in every language
+    /** The glyph before the figure being measured while the laser is NOT ready: hollow, so at the figure he is looking
+     *  at he can see that a press of the meter will not arrive (DESIGN-imagemeter §2.2, §4.2). Ready: [ACTIVE_GLYPH]. */
+    const val WAIT_GLYPH = "▷" // text:value the gold figure's glyph while the laser is not ready, the same in every language
+
+    /**
+     * THE ONE FIGURE of the reading key [code] of the mark [e] on [s], WITH NO ESTIMATE (§18 rule 1): the reading as
+     * [SurveyPlan.figure] rounds it, [State.MEASURED] -- else `?`, [State.UNKNOWN], whether or not the photo could
+     * estimate it. Never [State.ESTIMATE]. [Value.check]: the gross guard ([guard]) on a reading, or a four-corner
+     * mark's closing check on its sloping side ([Quad.closing]), as [value] carries it. [d] is the dimension itself
+     * ([of]'s), which names its role and what the mark is drawn as.
+     */
+    fun read(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, d: Dim, a: Double, b: Double): Value {
+        val v = actual[d.code] ?: return Value(ASK_TEXT, State.UNKNOWN, false)
+        val open = Quad.closing(actual, e)?.let { it.fails && it.code == d.code } == true
+        return Value(Math.round(v).toString(), State.MEASURED, guard(actual, s, e, d, a, b) || open)
+    }
+
+    /** A reading more than this many times the side as the mark is drawn fails the gross guard ... */
+    const val GROSS_OVER = 2.0
+    /** ... and so does one less than this part of it. */
+    const val GROSS_UNDER = 0.5
+
+    /**
+     * THE GROSS GUARD (§18 rule 5): a reading more than TWICE, or less than HALF, the side as the mark is drawn -- on a
+     * mark that lies in the squared plane ([inPlane]) only, for the reason [check] gives. It is the guard against a
+     * shot that landed on the wrong thing while the gold moved by itself (a door's width into its height), and it
+     * quotes no number: nobody sees the estimate it is compared with. The 150 mm / 15 % rule ([check]) goes with the
+     * screen's old path: with loosely drawn marks it would cry wolf. Exactly twice and exactly half pass.
+     */
+    fun gross(read: Double?, drawn: Double?, inPlane: Boolean): Boolean {
+        if (!inPlane || read == null || drawn == null || !(drawn > 0)) return false
+        return read > GROSS_OVER * drawn || read < GROSS_UNDER * drawn
+    }
+
+    /**
+     * WHICH DIMENSIONS THE GUARD READS: a mark's SIDES -- its `w` and `h`, and a four-corner mark's four sides and its
+     * diagonal. "The side as the mark is drawn" (§18 rule 5) is the mark's own size; a position figure (from the
+     * corner, the floor, the ceiling) is a distance to a wall, where a mark drawn 40 mm from a corner that is really
+     * 90 mm away would cry wolf at every door. A `p` has no estimate at all.
+     */
+    fun guarded(role: Role): Boolean = role == Role.WIDTH || role == Role.HEIGHT || role == Role.SIDE || role == Role.DIAG
+
+    /** [gross] for the dimension [d] of the mark [e]: its reading against what it is drawn as, where [guarded]. */
+    fun guard(actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, d: Dim, a: Double, b: Double): Boolean =
+        guarded(d.role) && gross(actual[d.code], d.est, inPlane(s, e, a, b))
+
+    /**
+     * The figure as its plate prints it, WITH NO ESTIMATE: the gold glyph before the one being measured -- [ACTIVE_GLYPH]
+     * while the laser is [ready], [WAIT_GLYPH] while it is not -- then `⊥ ` before a `p`'s, then the reading or `?`
+     * ([read]): `898`, `?`, `⊥ ?`, `▶?`, `▷?`. The `!` is drawn after it, in [checkInk], when [Value.check].
+     *
+     * A `⊥` CHIP THAT IS GOLD CARRIES ITS OWN NAME WHILE IT IS GOLD ([name]: the checklist's own words for it, in the
+     * language), `▶⊥ reveal depth ?` -- the photo cannot draw what a depth is, and with the measure bar gone nothing
+     * else on the screen says which figure the next shot is for (DESIGN-imagemeter §2.2). Every other figure is drawn
+     * on the thing it measures and takes no name.
+     */
+    fun figureText(v: Value, role: Role, gold: Boolean, ready: Boolean = true, name: String? = null): String =
+        (if (gold) (if (ready) ACTIVE_GLYPH else WAIT_GLYPH) else "") + (if (role == Role.DEPTH) DEPTH_GLYPH else "") +
+            (if (gold && role == Role.DEPTH && !name.isNullOrEmpty()) "$name " else "") + v.text
+
+    /** What is not read is written in this grey, inside a dashed outline of the same: "the old estimate's plate with
+     *  `?` in it" (§18 rule 2). There is ONE "not read", so a `⊥ ?` is this grey too, not amber. */
+    const val ASK_INK = 0xcfd3cb
+
+    /**
+     * A PLATE'S STYLE WITH NO ESTIMATE (§18 rule 2): READ white and bold on solid black; NOT READ the quiet `?` --
+     * grey on half-black inside a dashed grey outline; and the one being measured ([gold]) SOLID GOLD with dark bold
+     * text inside a white edge, whatever it holds ([style]'s own gold, H1 as built). [state] is [read]'s: never
+     * [State.ESTIMATE] -- handed one, it is painted as not read.
+     */
+    fun plate(state: State, gold: Boolean): Style = when {
+        gold -> Style(ACTIVE_INK, true, ACTIVE_COLOUR, 0xff, 0xffffff, false)
+        state == State.MEASURED -> Style(0xffffff, true, 0x000000, 0xdd, null, false)
+        else -> Style(ASK_INK, false, 0x000000, 0x88, ASK_INK, true)
+    }
 }

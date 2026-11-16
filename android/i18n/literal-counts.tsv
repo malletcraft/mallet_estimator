@@ -87,6 +87,8 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Features.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Landing.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserChip.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkDims.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt	0
@@ -103,6 +105,8 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Panorama.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhaseTools.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Phases.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PhotoFigures.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pick.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/PlanSave.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Quad.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/QuoteMove.kt	0

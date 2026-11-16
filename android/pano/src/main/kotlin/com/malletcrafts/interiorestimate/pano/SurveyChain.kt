@@ -212,6 +212,40 @@ object SurveyChain {
     /** Its colour: the chain's rose, amber when the readings and a laser or measured total disagree by more than TOL. */
     fun totalColour(v: Vals): Int { val ck = v.check; return if (ck != null && abs(ck) > SurveyPrep.TOL) CHECK_COLOUR else COLOUR }
 
+    // ---- with no photo figure and no derived one (port 63 slice I1a; DESIGN-imagemeter §18 rule 3)
+
+    /**
+     * Segment [i]'s figure WITH NO PHOTO FIGURE AND NO DERIVED ONE: its reading, white -- else `?` in the quiet grey
+     * only where it can be acted on ([ask]: the chain is the picked item, on a face) -- else NULL: nothing is drawn.
+     * A derived segment is a figure nobody measured; while the chain is picked it is a `?` like any other, since it
+     * still takes a typed or lasered reading. A chain being drawn has no [Vals] and shows no figure at all. It takes
+     * [segFigure]'s place on the screen from slice I1b on.
+     */
+    fun segShown(v: Vals, i: Int, ask: Boolean): Pair<String, Int>? {
+        val m = v.meas.getOrNull(i)
+        return when {
+            m != null -> r(m) to MEASURED_COLOUR
+            ask -> MarkDims.ASK_TEXT to MarkDims.ASK_INK
+            else -> null
+        }
+    }
+
+    /**
+     * The tag under the last point WITH NO PHOTO FIGURE AND NO DERIVED ONE: a READ total, "FK1 Σ 3310"; THE LASER'S,
+     * "FK1 Σ 3310 laser" -- a chain that runs wall to wall takes the room's own W, L or H, which is a reading (§18
+     * rule 7), not an estimate; a total that is only the sum of its segments, or unknown, is not shown: the code
+     * alone, "FK1", and "FK1 Σ ?" where it can be acted on ([ask]). It takes [totalTag]'s place from slice I1b on.
+     */
+    fun totalShown(tx: Tx, code: String, v: Vals, ask: Boolean): String {
+        val t = v.total
+        return when {
+            t != null && v.src == MEASURED -> "$code Σ ${r(t)}" // text:value a code, Σ and a figure
+            t != null && v.src == LASER -> "$code Σ ${r(t)}" + tx.sp_laser_suffix // text:value a code, Σ and a figure before the laser's word
+            ask -> "$code Σ " + MarkDims.ASK_TEXT // text:value a code, Σ and the not-read glyph
+            else -> code
+        }
+    }
+
     /** The selection row under the photo (sp.js 1503, ct52 K): "≈905 · ≈2405 · Σ 3310 laser". */
     fun rowValue(tx: Tx, v: Vals): String =
         v.est.indices.joinToString(" · ") { segFigure(v, it).first } + " · Σ " + totalText(tx, v) // text:value separators and Σ round the figures

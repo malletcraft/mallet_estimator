@@ -207,6 +207,82 @@ object PhaseTools {
         return m
     }
 
+    // ------------------------------------------------------------------ the three-step route (port 63 slice I1a)
+
+    /*
+     * ONE STEP TO MARK AND MEASURE (DESIGN-imagemeter §10, §3.1 row 28; Amit, 16 Nov 2026: "do we really need two
+     * screen now? which is mark and measure?"). The steps are [StepRoute.ROUTE] -- 1 · Lines, 2 · Mark, 3 · 360 -- and
+     * 2 · MARK IS IN EVERY PHASE: it is the squared photo with its figures, the step every phase shows, where the
+     * four-step route had 3 · Measure. What the phase takes away is not the step but what can be DONE in it: placing
+     * ([Tool.PALETTE]: no tool row at Estimation and Client approved), holding and moving ([holds]) and keying a
+     * reading ([Tool.READINGS]: after Survey nothing turns gold, there is no keypad, no laser chip, no count and no
+     * `▸`). These stand BESIDE [toolOf], [prepSteps] and [prepMode], which the screen reads until slice I1b switches
+     * it over and deletes them.
+     */
+
+    /**
+     * The tool a step of [StepRoute.ROUTE] stands for; null for a key that is no step. 2 · MARK reads the row the
+     * four-step route's third step read, [Tool.LIST] -- the view every phase shows; the prototype's own `mark` row
+     * ([Tool.MARK]) now says whether anything may be held and moved there ([holds]), and no longer hides the step.
+     */
+    fun routeTool(step: String): Tool? = when (step) {
+        StepRoute.LINES -> Tool.LINES
+        StepRoute.MARK -> Tool.LIST
+        StepRoute.PANO -> Tool.VIEW_360
+        else -> null
+    }
+
+    /** The steps survey prep's strip draws at [stage]: all three in every phase -- 1 · Lines until its row is honoured
+     *  (DESIGN-port63 J3), 2 · Mark and 3 · 360 always. Each keeps its own number. */
+    fun routeSteps(stage: Int?): List<String> = StepRoute.ROUTE.filter { k -> routeTool(k)?.let { prepShows(it, stage) } ?: false }
+
+    /**
+     * The step survey prep is on, on the three-step route (§3.1 row 28): [mode] as [StepRoute.routeOf] reads it -- the
+     * old third step's key is 2 · Mark -- and 2 · MARK ON A FACE WHOSE FOUR LINES DO NOT CLOSE FALLS TO 1 · LINES, in
+     * every phase: there is no squared photo to mark or measure on, and no third step to fall to any more.
+     * [markable]: the open tab is a face whose four lines close. (A hidden 1 · Lines goes to 2 · Mark when
+     * [markable], once that row is honoured -- DESIGN-port63 J3; where neither can be shown it stays.)
+     */
+    fun routeMode(mode: String, stage: Int?, markable: () -> Boolean): String {
+        var m = StepRoute.routeOf(mode)
+        if (m == StepRoute.LINES && !prepShows(Tool.LINES, stage) && markable()) m = StepRoute.MARK
+        if (m == StepRoute.MARK && !markable()) m = StepRoute.LINES
+        return m
+    }
+
+    /** What asking for a step answers ([routeAsk]). */
+    enum class Ask {
+        /** The step opens. */
+        OPEN,
+        /** The phase does not show it: it is not on the strip, and a press routed to where it was does nothing. */
+        HIDDEN,
+        /** 2 · Mark on a face whose four lines do not close: refused IN EVERY PHASE, with the existing
+         *  `refuse.sp.these_four_lines_do_2` ([routeRefusal]). Nothing changes -- not the step, the pick or the gold. */
+        LINES_OPEN,
+    }
+
+    /** A step asked for -- by its circle, a thumb under the strip, or a tour: see [Ask]. */
+    fun routeAsk(step: String, stage: Int?, markable: () -> Boolean): Ask = when {
+        step !in routeSteps(stage) -> Ask.HIDDEN
+        step == StepRoute.MARK && !markable() -> Ask.LINES_OPEN
+        else -> Ask.OPEN
+    }
+
+    /** What [Ask.LINES_OPEN] says: "These four lines do not make a closed shape yet", the words the screen has always said. */
+    fun routeRefusal(tx: Tx): String = tx.refuse_sp_these_four_lines_do_2
+
+    /**
+     * WHETHER ANYTHING MAY BE HELD -- picked by hand, shown with its handles, moved -- at [stage] ([Pick]): where the
+     * phase has the prototype's `mark` tool ([Tool.MARK]): Survey, the Wish list, Vendor review, Revisions and while
+     * unread. AT ESTIMATION AND AT CLIENT APPROVED 2 · MARK IS THE VIEW: figures show, a tap picks, and nothing is
+     * held or moved -- exactly what those phases had while their only photo step was 3 · Measure, which moved nothing.
+     * Without this, [editable]'s own answer at Client approved (a mark born Vendor added may be edited, as the
+     * prototype's code answers for any later stage) would let that mark be dragged after approval, outside the change
+     * requests: the prototype never reaches that answer, because it has no Mark step there. Which ITEM may be held
+     * where the phase holds anything is [editable] and the lock ([Pick.mayHold]).
+     */
+    fun holds(stage: Int?): Boolean = can(Tool.MARK, stage)
+
     // ------------------------------------------------------------------ what a new mark is placed as
 
     /**

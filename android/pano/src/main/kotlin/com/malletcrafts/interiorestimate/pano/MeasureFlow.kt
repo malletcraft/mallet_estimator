@@ -248,6 +248,36 @@ object MeasureFlow {
         return null
     }
 
+    // ------------------------------------------------------------------ the check, with no figure (port 63 slice I1a)
+
+    /**
+     * WHETHER THE READING UNDER [code] KEEPS ITS `!` -- what its plate carries ([MarkDims.read]): a MARK's side whose
+     * reading fails the gross guard ([MarkDims.guard]: more than twice, or less than half, the side as the mark is
+     * drawn), or a four-corner mark's sloping side while its four readings do not close ([Quad.closing]). False for a
+     * key with no reading, a Line's, an area's and a chain's, which are checked against nothing. This is what "a
+     * reading that fails the check" means wherever the one step asks ([Pick.landed], [Landing.after]).
+     */
+    fun flagged(prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): Boolean {
+        val (s, e) = prep.markOf(code) ?: return false
+        val z = ab(s)
+        val d = MarkDims.of(s, e, z[0], z[1]).firstOrNull { it.code == code } ?: return false
+        return MarkDims.read(prep.actual, s, e, d, z[0], z[1]).check
+    }
+
+    /**
+     * WHAT THE MESSAGE LINE SAYS OF THE READING [code], WITH NO FIGURE (DESIGN-imagemeter §18 rule 5) -- when it lands
+     * and when its plate turns gold: [MeasureText.checkReading] while its own plate carries `!` ([flagged]), and also
+     * on any other of a four-corner mark's four side codes while that mark's closing check fails ([checkText]'s own
+     * reach: the reading that completes the four is usually not the sloping side's). Null when there is nothing to
+     * say. It takes [checkText]'s place from slice I1b on: that one quotes the photo's estimate, and for a four-corner
+     * mark the figure its other sides make -- neither is a figure anybody measured.
+     */
+    fun guardText(tx: Tx, prep: SurveyPrep.Prep, code: String, ab: (String) -> DoubleArray): String? {
+        if (flagged(prep, code, ab)) return MeasureText.checkReading(tx)
+        val open = prep.markOf(code)?.let { (_, e) -> Quad.closing(prep.actual, e)?.fails == true && code in Quad.sideCodes(e) } == true
+        return if (open) MeasureText.checkReading(tx) else null
+    }
+
     // ------------------------------------------------------------------ the measure bar
 
     /** What the measure bar is. */

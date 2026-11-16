@@ -118,6 +118,40 @@ class SurveyPrepTouchTest {
         }
     }
 
+    @Test fun `a tap at the centre of a held mark's width plate, and of its height plate, is the figure's - a mark just placed opens its keypad`() {
+        // DESIGN-imagemeter §13 (the plan critic's finding C5): the HELD mark shows its eight tabs and its w and h plates
+        // together. The plates as DimLayout REALLY places them (markShown / placeShown, hand-anchored clear of the tabs),
+        // pressed at their centres with the tabs tested first: each press is the figure's, never a tab's -- so the gold
+        // width plate of a mark just placed always opens the keypad (Pick.figure on the gold figure)
+        for (portrait in listOf(true, false)) for (z in listOf(1.0, 2.5)) for (e in listOf(door, small)) {
+            val v = view(portrait, z, if (z > 1) e else null)
+            val toPx = { x: Double, y: Double -> doubleArrayOf(v.x(x), v.y(y)) }
+            val textW = { t: String, fs: Double, _: Boolean -> t.length * 0.6 * fs }
+            for (gold in listOf("FD1.w", "FD1.h", null)) {
+                val mk = DimLayout.markShown(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, emptyMap(), "front", e, W, H, picked = true, held = true, gold = gold, toPx = toPx, u = v.u, dp = DP, textW = textW)
+                assertTrue(mk.tabs)
+                val out = DimLayout.placeShown(listOf(mk), v.bw, v.bh, emptyList(), v.u, DP)
+                val d = drawn(v, e)
+                for (k in listOf("FD1.w", "FD1.h")) {
+                    val pl = out.of(k)!!
+                    // a held mark's w and h are placed by hand and never shrink to a dot at fit: the test is not vacuous
+                    if (z == 1.0) { assertFalse(pl.dot, "$k of ${e.code} ($portrait)"); assertEquals(DimLayout.How.HAND, pl.how) }
+                    if (pl.dot) continue   // zoomed far in, a plate with no room is a dot on its own line: not this test's
+                    val cx = (pl.box.l + pl.box.r) / 2; val cy = (pl.box.t + pl.box.b) / 2
+                    val h = SurveyPrepTouch.hit(listOf(d), Pick.handleId(Pick.State(e.id, true, gold)), out.tags, cx, cy, 16 * DP)
+                    assertIs<SurveyPrepTouch.Hit.Tag>(h, "$k of ${e.code} ($portrait, $z x, gold $gold)"); assertEquals(k, h.code)
+                }
+                // ... and every one of the eight tabs still resizes: the plates took none of them
+                for (part in SurveyPrepTouch.TABS) {
+                    val at = SurveyPrepTouch.tabAt(part, d.x0, d.x1, d.yT, d.yB)
+                    if (at[0] !in 0.0..v.bw || at[1] !in 0.0..v.bh) continue
+                    val h = SurveyPrepTouch.hit(listOf(d), e.id, out.tags, at[0], at[1], 16 * DP)
+                    assertIs<SurveyPrepTouch.Hit.Mark>(h, "$part of ${e.code} ($portrait, $z x, gold $gold)"); assertEquals(part, h.part)
+                }
+            }
+        }
+    }
+
     @Test fun `a tap on the middle of a tag still picks its measure and moves nothing`() {
         val v = view(true); val d = drawn(v, door)
         for (t in tags(v, door, hand = true)) {

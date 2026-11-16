@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.SurveyPrepTouch.Box
+import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
@@ -66,6 +67,12 @@ import kotlin.math.min
  * ([isSize]). It has no `w` and no `h`, so no hand-anchored tag and no compact plate: a very small one falls to
  * leaders and dots. Picked in 2 · Mark with its corners free it keeps its four corner handles clear ([Mark.corners]),
  * not eight tabs.
+ *
+ * FROM SLICE I1b THERE IS NO SCOPE (port 63 slice I1a; DESIGN-imagemeter §13, §18): the one step that marks and
+ * measures hands [placeShown] only the figures the photo draws -- an unpicked mark what has been READ of its size, the
+ * picked mark everything it asks, with no photo estimate anywhere ([markShown], [PhotoFigures]) -- and the HELD mark,
+ * the one that shows its tabs, keeps them clear. [Scope], [shows], [mark] and [place] stay until the screen is switched
+ * over; the placing rule itself is one function under both.
  *
  * The same input gives the same output: no clock, no randomness, and ties keep the order they were given in.
  */
@@ -304,6 +311,44 @@ object DimLayout {
             if (handles) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
     }
 
+    /**
+     * THE MARK [e] ON [s] AS [placeShown] TAKES IT, WITH NO PHOTO ESTIMATE (port 63 slice I1a; DESIGN-imagemeter §18
+     * rule 2; Amit, 16 Nov 2026: "No foto estimation at all. It confuses user"). Not read is shown only where it can
+     * be acted on, so WHICH figures the mark has here depends on whether it is picked:
+     *  - NOT PICKED: only what has been READ of its SIZE ([isSize]) -- each read figure on its own edge, nothing at all
+     *    for an unread side, and no position figure. A wall nobody has measured is outlines and codes;
+     *  - PICKED: every dimension it asks, size and position -- a read one as its figure, an unread one as the quiet `?`
+     *    ([MarkDims.read], [MarkDims.plate]), each a tap target; the one being measured ([gold], a reading key) the
+     *    gold plate, `▶?` until the reading lands or digits are typed ([MarkDims.figureText]; [ready] false: `▷?`);
+     *  - A MARK THAT IS NOT IN THE ROOM (born a Client wish or Vendor added: [MarkDims.asked]) asks no reading and
+     *    shows NO figure at all, picked or not (§18 rule 6) -- its handles are still its own.
+     * A small box's one compact plate so carries its read halves, and an unread half only while the mark is picked.
+     *
+     * [held]: the mark is picked BY HAND and may move ([Pick.State.held]) -- it then shows its eight tabs
+     * ([Mark.tabs]; a point has none), or with its corners [free] its four corners ([Mark.corners]), and [placeShown]
+     * anchors its `w` and `h` clear of them. [live]: the keypad's uncommitted digits ([MeasurePad.live]), drawn on the
+     * gold plate in the reading's own style with no `!`, exactly as [mark] draws them. [tx]: the language a gold `⊥`
+     * chip names itself in ([MarkDims.figureText]) -- the one word a plate carries. Everything else is [mark]'s.
+     */
+    fun markShown(tx: Tx, actual: Map<String, Double>, s: String, e: SurveyPrep.Mark, a: Double, b: Double, picked: Boolean, held: Boolean,
+                  gold: String?, toPx: (Double, Double) -> DoubleArray, u: Double, dp: Double,
+                  textW: (text: String, fs: Double, bold: Boolean) -> Double, live: String? = null, free: Boolean = false,
+                  ready: Boolean = true): Mark {
+        val pt = SurveyPrep.isPoint(e.t) || Quad.of(e) != null; val fs = textSize(picked, dp)
+        // WHICH figures, their texts and their looks are PhotoFigures' -- the one place rule 2 is written
+        val figs = PhotoFigures.ofMark(tx, actual, s, e, a, b, picked, gold, live, ready).map { f ->
+            val d = f.dim
+            Fig(d.code, d.role, line(d, pt, toPx, LINE_FS_U * u, u), if (d.line) null else anchor(d, toPx),
+                plateW(textW(f.text + (if (f.check) MarkDims.CHECK_GLYPH else ""), fs, f.style.bold), dp), fs,
+                rank(f.gold, picked, false, f.measured), f.measured, f.text, f.state, f.check, f.gold, f.typing, span(d, toPx), outward(d, toPx))
+        }
+        val p = toPx(e.x0, e.y1); val q = toPx(e.x1, e.y0)
+        val tabs = picked && held && !SurveyPrep.isPoint(e.t)
+        val handles = tabs && free && Quad.mayHave(e)
+        return Mark(e.id, Box(min(p[0], q[0]), min(p[1], q[1]), max(p[0], q[0]), max(p[1], q[1])), figs, picked, tabs && !handles,
+            if (handles) Quad.corners(e).map { toPx(it[0], it[1]) } else null)
+    }
+
     // ------------------------------------------------------------------ what comes out
 
     /** How a figure ended up. */
@@ -527,15 +572,38 @@ object DimLayout {
      * figure or the picked mark's ([Plate.off]).
      */
     fun place(marks: List<Mark>, scope: Scope, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
-              times: Double = 0.0): Out {
+              times: Double = 0.0): Out =
+        lay(marks, width, height, keep, u, dp, times, { mk, f -> shows(scope, mk.picked, f.role) },
+            // the picked mark's handles in 2 · Mark: its eight tabs, or -- its corners free -- its four corners
+            { mk -> scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null) })
+
+    /**
+     * EVERY FIGURE HANDED IN, PLACED (port 63 slice I1a; DESIGN-imagemeter §13 and §18 "In the models"): [place]'s
+     * rule with NO SCOPE -- the one step that marks and measures has no `all` and no "which marks show which figures"
+     * of its own. WHICH figures a mark shows is decided before this is called ([markShown]: an unpicked mark only what
+     * has been read of its size, the picked mark everything it asks), so [marks] carry only those and an unpicked,
+     * unmeasured mark costs the layout nothing.
+     *
+     * THE HELD MARK KEEPS ITS TABS CLEAR, re-keyed from `Scope.PICKED` to the mark itself (the plan critic's finding
+     * C5): a picked mark that shows its eight tabs ([Mark.tabs]: it is HELD, [Pick]) has its `w` and `h` plates
+     * anchored by hand, clear of every tab, and its tab squares -- or its four free corners ([Mark.corners]) -- kept
+     * clear by every plate. A mark the walk reached is picked and shows no tabs: its plates sit on their lines.
+     */
+    fun placeShown(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double,
+                   times: Double = 0.0): Out =
+        lay(marks, width, height, keep, u, dp, times, { _, _ -> true }, { mk -> mk.picked && (mk.tabs || mk.corners != null) })
+
+    /** The placing rule itself ([place]'s header): [shows] which of a mark's figures are drawn at all, [handed]
+     *  whether the mark shows handles its plates must keep clear of. */
+    private fun lay(marks: List<Mark>, width: Double, height: Double, keep: List<Box>, u: Double, dp: Double, times: Double,
+                    shows: (Mark, Fig) -> Boolean, handed: (Mark) -> Boolean): Out {
         class Job(val mk: Mark, val figs: List<Fig>, val rank: Rank, val order: Int, val hand: Boolean)
         val jobs = ArrayList<Job>()
         val blocked = ArrayList(keep)
         var n = 0
         for (mk in marks) {
-            val shown = mk.figs.filter { shows(scope, mk.picked, it.role) && (mk.picked || it.active || onCanvas(it, width, height)) }
-            // the picked mark's handles in 2 · Mark: its eight tabs, or -- its corners free -- its four corners
-            val hand = scope == Scope.PICKED && mk.picked && (mk.tabs || mk.corners != null)
+            val shown = mk.figs.filter { shows(mk, it) && (mk.picked || it.active || onCanvas(it, width, height)) }
+            val hand = handed(mk)
             if (hand) blocked += mk.corners?.let { cornerBoxes(it, u, dp) } ?: tabBoxes(mk.box, u)
             val w = shown.firstOrNull { it.role == MarkDims.Role.WIDTH && it.line != null }
             val h = shown.firstOrNull { it.role == MarkDims.Role.HEIGHT && it.line != null }

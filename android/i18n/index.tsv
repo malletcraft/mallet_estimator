@@ -1338,6 +1338,9 @@ sp.laser.no_disto_found	sp_laser_no_disto_found	static	-
 sp.laser.not_a_disto	sp_laser_not_a_disto	static	-
 sp.laser.not_a_length_x	sp_laser_not_a_length_x	template	x: String
 sp.laser.not_metric_x	sp_laser_not_metric_x	template	unit: String
+sp.laser.off	sp_laser_off	static	-
+sp.laser.on_360_x	sp_laser_on_360_x	template	mm: String
+sp.laser.ready	sp_laser_ready	static	-
 sp.laser.reconnecting_x	sp_laser_reconnecting_x	template	status: String
 sp.laser.scan_failed_x	sp_laser_scan_failed_x	template	code: String
 sp.laser.scan_refused_x	sp_laser_scan_refused_x	template	why: String
@@ -1364,9 +1367,12 @@ sp.marked_area_x	sp_marked_area_x	template	v: String
 sp.marked_length	sp_marked_length	static	-
 sp.measure.all	sp_measure_all	static	-
 sp.measure.aria.all	sp_measure_aria_all	static	-
+sp.measure.aria.keep	sp_measure_aria_keep	static	-
+sp.measure.aria.next_x	sp_measure_aria_next_x	template	n: String
 sp.measure.aria.previous	sp_measure_aria_previous	static	-
 sp.measure.aria.skip	sp_measure_aria_skip	static	-
 sp.measure.aria.type	sp_measure_aria_type	static	-
+sp.measure.check_reading	sp_measure_check_reading	static	-
 sp.measure.face_done_x	sp_measure_face_done_x	template	face: String · total: String
 sp.measure.next_face_x	sp_measure_next_face_x	template	face: String · n: String
 sp.measure.not_in_room	sp_measure_not_in_room	static	-
@@ -1433,6 +1439,7 @@ sp.reference	sp_reference	static	-
 sp.reference_2	sp_reference_2	static	-
 sp.reference_hidden_faces_still	sp_reference_hidden_faces_still	template	v: String
 sp.reference_shown_2_mark	sp_reference_shown_2_mark	static	-
+sp.reference_shown_mark	sp_reference_shown_mark	static	-
 sp.reference_shown_measure	sp_reference_shown_measure	static	-
 sp.right	sp_right	static	-
 sp.room_size_l_x	sp_room_size_l_x	template	L: String · W: String · H: String

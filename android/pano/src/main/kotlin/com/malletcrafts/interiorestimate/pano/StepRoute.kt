@@ -154,4 +154,109 @@ object StepRoute {
      *  in it (StepRouteTest); the palette and the picked mark's row do NOT fit beside the pad, which is why an open pad
      *  takes their place in 2 · Mark and 4 · 360. */
     const val LAND_COLUMN_DP = 324
+
+    // ------------------------------------------------------------------ ONE STEP TO MARK AND MEASURE (port 63 slice I1a)
+
+    /*
+     * Amit, 16 Nov 2026, on build 0.3.337: "do we really need two screen now? which is mark and measure? as we should
+     * be measure where marking is done." So the steps become 1 · Lines, 2 · Mark, 3 · 360 (DESIGN-imagemeter §0, §2.1,
+     * §14 I1): 3 · Measure goes, and with it the measure bar. What follows is that route, BESIDE the four-step one
+     * above, which the screen still draws until slice I1b switches it over and deletes [MEASURE], [STEPS], [label],
+     * [stepName], [stepIndex] and [measureBarDp].
+     */
+
+    /** The three steps' keys. A key is never shown; its name is [routeName]. */
+    const val LINES = "lines"
+    const val MARK = "mark"
+    const val PANO = "360"
+
+    /** THE STEPS OF A FACE, in order: 1 · Lines, 2 · Mark, 3 · 360. Marking and measuring are ONE step. */
+    val ROUTE: List<String> = listOf(LINES, MARK, PANO)
+
+    /** A step's name: Lines, Mark (common.*) and 360, which is a number in every language. */
+    fun routeName(tx: Tx, key: String): String = when (key) {
+        LINES -> tx.common_lines
+        MARK -> tx.common_mark
+        else -> key // "360"
+    }
+
+    /** Where [mode] sits in the three steps (-1: not one of them -- the old "measure" among those). */
+    fun routeIndex(mode: String): Int = ROUTE.indexOf(mode)
+
+    /** The step as it is read out and labelled: "2 · Mark", "3 · 360" -- its number in [ROUTE], the separator, its name. */
+    fun routeLabel(tx: Tx, i: Int): String = "${i + 1}$SEP${routeName(tx, ROUTE[i])}"
+
+    /**
+     * THE STEP A MODE KEY MEANS ON THE THREE-STEP ROUTE: itself when it is one of [ROUTE]; the old third step's key
+     * ([MEASURE], "measure") is 2 · Mark, where its figures now are; anything else is 1 · Lines, the step every face
+     * starts on. Nothing stores a step, so this only ever meets a key a caller still holds in memory -- but a key that
+     * is nobody's must never leave the screen on no step at all.
+     */
+    fun routeOf(mode: String): String = when (mode) {
+        in ROUTE -> mode
+        MEASURE -> MARK
+        else -> LINES
+    }
+
+    /** The palette's row under the photo, dp: 6 over 50 in portrait, 6 over 46 in landscape (as it stands today). */
+    fun toolRowDp(land: Boolean): Int = SurveyPrepPalette.TOP_DP + if (land) 46 else 50
+
+    /** The keypad, dp: 6 over its four rows -- 182 in portrait (6 + 4 x 44), 150 in landscape (6 + 4 x 36). It stands
+     *  IN THE COLUMN in place of the tool row (DESIGN-imagemeter §2.3 E, §5), with no display line. */
+    fun keypadDp(land: Boolean): Int = SurveyPrepPalette.TOP_DP + PAD_ROWS * padRowDp(land)
+
+    /** The held item's row, for the one build I1 (DESIGN-imagemeter §14 I1): what moves the item and nothing else,
+     *  about 48 dp in portrait and 34 in landscape. Slice I2 deletes it. */
+    fun heldRowDp(land: Boolean): Int = if (land) 34 else 48
+
+    /** Portrait's window under the status bar on the Mi A3 (360 x 780 dp), and what stands above the photo in it --
+     *  the column's padding 12, the phase band 20, the top bar 40, the tabs and the strip 92, the caption 22 -- so
+     *  the photo and whatever is under it share 570 dp (DESIGN-imagemeter §2.1, §2.4). */
+    const val PORTRAIT_WINDOW_DP = 756
+    const val PORTRAIT_CHROME_DP = 186
+
+    /** What stands under the photo in 2 · Mark. */
+    enum class Under {
+        /** No tool row at all: Estimation and Client approved, where nothing is placed. */
+        NOTHING,
+        /** The tool row alone: nothing held -- nothing picked, or a mark the walk reached. */
+        TOOLS,
+        /** The held item's row over the tool row (slice I1 only). */
+        HELD,
+        /** The keypad, in the tool row's place -- and in the held item's row's place too. */
+        KEYPAD,
+    }
+
+    /** How much of the column what is [under] the photo takes in 2 · Mark, dp. */
+    fun underDp(under: Under, land: Boolean): Int = when (under) {
+        Under.NOTHING -> 0
+        Under.TOOLS -> toolRowDp(land)
+        Under.HELD -> heldRowDp(land) + toolRowDp(land)
+        Under.KEYPAD -> keypadDp(land)
+    }
+
+    /**
+     * WHAT 2 · MARK STANDS UNDER THE PHOTO (DESIGN-imagemeter §2.3): the keypad while it is open -- it takes the tool
+     * row's place AND the held item's row's, so the photo never loses both; else the held item's row over the tool
+     * row while an item is [held]; else the tool row; and where the phase has no tool row ([toolRow] false:
+     * Estimation and Client approved, [PhaseTools.can] of the palette) nothing at all -- but for a keypad, which is
+     * never open there. NOTHING HERE SHOWS A MEASUREMENT: no bar, no figure box, no number.
+     */
+    fun underMark(toolRow: Boolean, held: Boolean, keypad: Boolean): Under = when {
+        keypad -> Under.KEYPAD
+        !toolRow -> Under.NOTHING
+        held -> Under.HELD
+        else -> Under.TOOLS
+    }
+
+    /** The photo's height in 2 · Mark in PORTRAIT on the Mi A3, dp, with [under] under it: 514 with the tool row,
+     *  466 while an item is held, 388 with the keypad up, 570 with no row (DESIGN-imagemeter §2.4, "After I1"). In
+     *  landscape every row lives in the right column and the photo keeps its height: [landFits] is the question there. */
+    fun markPhotoDp(under: Under): Int = PORTRAIT_WINDOW_DP - PORTRAIT_CHROME_DP - underDp(under, false)
+
+    /** Landscape's column under its top bar, the tabs and the strip: 212 dp for whatever 2 · Mark stands there. */
+    fun landUnderDp(): Int = LAND_COLUMN_DP - LAND_TOPBAR_DP - budgetDp(true, "front")
+
+    /** Whether what is [under] the photo fits landscape's column ([landUnderDp]). */
+    fun landFits(under: Under): Boolean = underDp(under, true) <= landUnderDp()
 }

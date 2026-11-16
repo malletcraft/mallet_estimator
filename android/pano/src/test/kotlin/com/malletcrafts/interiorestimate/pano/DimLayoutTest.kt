@@ -971,6 +971,69 @@ class DimLayoutTest {
         }
     }
 
+    // ------------------------------------------------------------------ the one step: no scope, the HELD mark's tabs (port 63 slice I1a)
+
+    /** The example wall as [PhotoFigures.layout] hands it to [DimLayout.placeShown]: what is picked, held and gold. */
+    private fun Rig.shown(pick: Pick.State, actual: Map<String, Double> = emptyMap(), els: List<SurveyPrep.Mark> = wall, live: String? = null,
+                          ready: Boolean = true): List<DimLayout.Mark> =
+        els.map { e -> DimLayout.markShown(com.malletcrafts.interiorestimate.pano.i18n.Tx.EN, actual, "front", e, W, H, pick.picked == e.id, pick.picked == e.id && pick.held, pick.gold, ::toPx, u, dp, ::textW, live, ready = ready) }
+
+    private fun Rig.placeShown(ms: List<DimLayout.Mark>, keep: List<Box> = keep()) = DimLayout.placeShown(ms, size, size, keep, u, dp, times)
+
+    @Test fun `no DRAWN plate of the held mark overlaps one of its tab squares - re-keyed from the scope to the mark that shows its tabs`() {
+        // DESIGN-imagemeter §13 (the plan critic's finding C5): with DimLayout.Scope gone, what keeps the held mark's w
+        // and h plates off its own tabs is the mark itself -- Mark.tabs, the HELD box mark
+        val els = listOf(door, window) + points
+        val read = MarkDims.of("front", door, W, H).associate { it.code to (it.est ?: 120.0) }
+        for (r in listOf(fit, phone)) for ((what, actual, gold) in listOf(
+            Triple("just placed, its width gold", emptyMap<String, Double>(), "FD1.w"), Triple("held, nothing gold", emptyMap<String, Double>(), null),
+            Triple("held, every figure read", read, null), Triple("held, its height gold over a reading", read, "FD1.h"))) {
+            val ms = r.shown(Pick.State(door.id, true, gold), actual, els)
+            assertTrue(ms[0].tabs, what); assertTrue(ms.drop(1).none { it.tabs }, what)
+            val out = r.placeShown(ms, r.keep(els))
+            val tabs = DimLayout.tabBoxes(ms[0].box, r.u)
+            assertEquals(8, tabs.size)
+            // the w and h plates are anchored by hand, as the painter anchors them today, and NO plate covers a tab square
+            assertEquals(DimLayout.How.HAND, out.of("FD1.w")!!.how, what); assertEquals(DimLayout.How.HAND, out.of("FD1.h")!!.how, what)
+            for (pl in out.plates.filter { it.markId == door.id }) for (t in tabs) assertFalse(hit(pl.whole ?: pl.box, t), "$what: ${pl.code} ${pl.box} covers a tab $t")
+            r.sound(out, r.keep(els) + tabs, setOfNotNull(gold), "held door, $what")
+            // exactly where Scope.PICKED put them: the old path and the new one agree on the hand anchor
+            val old = r.place(r.marks(picked = door.id, active = gold, actual = actual, tabs = true, els = els), DimLayout.Scope.PICKED, r.keep(els))
+            for (k in listOf("FD1.w", "FD1.h")) { assertEquals(old.of(k)!!.box.t, out.of(k)!!.box.t, 1e-9, "$what $k"); assertEquals(old.of(k)!!.box.b, out.of(k)!!.box.b, 1e-9, "$what $k") }
+        }
+        // A MARK THE WALK REACHED is picked and shows NO tabs: its plates sit on their lines, and no tab square is kept clear
+        for (r in listOf(fit, phone)) {
+            val ms = r.shown(Pick.State(door.id, false, "FD1.w"), els = els)
+            assertFalse(ms[0].tabs)
+            val out = r.placeShown(ms, r.keep(els))
+            assertTrue(out.plates.none { it.how == DimLayout.How.HAND }); assertEquals(DimLayout.How.ON_LINE, out.of("FD1.w")!!.how)
+        }
+        // a held POINT has no tabs to keep clear; a held LOCKED mark does not exist (Pick never holds one)
+        assertFalse(fit.shown(Pick.State(points[0].id, true, null))[3].tabs)
+    }
+
+    @Test fun `placeShown places every figure it is handed and nothing else - an unpicked, unmeasured mark costs the layout nothing`() {
+        for (r in listOf(fit, phone)) {
+            // a wall nobody has measured, nothing picked: no plate, no dot, no tap box
+            val none = r.placeShown(r.shown(Pick.NONE))
+            assertTrue(none.plates.isEmpty()); assertTrue(none.tags.isEmpty())
+            // the door's width read: ONE plate on the whole wall
+            val one = r.placeShown(r.shown(Pick.NONE, mapOf("FD1.w" to 898.0)))
+            assertEquals(listOf("FD1.w"), one.plates.map { it.code }); assertEquals("898", one.of("FD1.w")!!.fig.text)
+            // the window picked by the walk, its height gold: all five of its figures, and still the door's one
+            val w = r.placeShown(r.shown(Pick.State(window.id, false, "FW1.h"), mapOf("FD1.w" to 898.0, "FW1.w" to 912.0)))
+            assertEquals(listOf("FD1.w", "FW1.w", "FW1.h", "FW1.r", "FW1.s", "FW1.p"), w.plates.map { it.code })
+            assertEquals(listOf("898", "912", "▶?", "?", "?", "⊥ ?"), w.plates.map { it.fig.text })
+            // the window's reveal depth gold: the one plate that carries its name, and it is still placed whole
+            r.placeShown(r.shown(Pick.State(window.id, false, "FW1.p"))).let { o ->
+                assertEquals("▶⊥ reveal depth ?", o.active!!.fig.text); assertFalse(o.active!!.dot); r.sound(o, r.keep(), setOf("FW1.p"), "the window's depth gold") }
+            assertEquals("FW1.h", w.active!!.code); assertFalse(w.active!!.dot)
+            r.sound(w, r.keep(), setOf("FW1.h"), "the window picked by the walk")
+            // NO PLATE ANYWHERE READS AN ESTIMATE
+            assertTrue(w.plates.none { "≈" in it.fig.text || it.fig.state == MarkDims.State.ESTIMATE })
+        }
+    }
+
     private companion object {
         /** How many of the example wall's 19 figures shrink to a dot with `all` on at fit, nothing picked: on the round
          *  canvas (340 px, 1 px a dp, 1 px a unit), and at the phone's own numbers (680 px, 2 px a dp, 680 / 480 px a unit). */

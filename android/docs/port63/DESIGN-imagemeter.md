@@ -1065,3 +1065,182 @@ was declined whole; five details were changed in applying, and are listed under 
   apart from it.
 - `port63-quad` forks at `7c49835`, before H1 and F1; five source files, the literal counts and three tests changed
   on both sides, so its merge before I2 is a step with its own green run (§14).
+
+---
+
+## 19. I1a as built — the pure rules, beside what stands (16 Nov 2026)
+
+Slice I1 is built in two commits. **I1a (this one) adds every pure rule I1 needs to `:pano`, with its tests, and changes
+or deletes NOTHING that `:app` calls**: the only edited line of existing logic is `DimLayout.place`, whose body moved
+into a private `lay` that both it and the new `placeShown` call (its 1,436 earlier tests are unchanged and green).
+**I1b switches the screen over by calling what is listed here and deleting the old** (§13's "Deleted" rows for I1).
+Nothing of I1a is on screen; `:app` is compiled only by CI and has not been touched.
+
+Built on `port63-i1` at `3c377c3` (the phone's 0.3.341 plus the four-corner mark's pure models). **Line numbers below
+are that commit's — and this commit's, since no `:app` file changed.** `SPS` = `SurveyPrepScreen.kt`, `SPD` =
+`SurveyPrepDraw.kt`, `SP360` = `SurveyPrep360.kt`, `SPT` = `SurveyPrepTools.kt`, `SM` = `SurveyMeasure.kt`, all under
+`APP/`. `:pano` after I1a: 106 test classes, 1,522 tests, 0 failures (before: 101 and 1,436).
+
+### 19.1 New functions, and the `:app` call site each is meant to replace
+
+**`Pick` (new file `PANO/Pick.kt`; `PickTest`, 40 tests — one per row of §3.1, named by its row)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `Pick.State` | `data class State(picked: String? = null, held: Boolean = false, gold: String? = null)`; `Pick.NONE` | the two states `sel` (`SPS:299`) and `active` (`SPS:300`); `SpSel.part` stays as the nudge's part |
+| `Pick.Scene` | `class Scene(prep, stage: Int?, step: String, ab: (String) -> DoubleArray)` | built where `prep`, `quoteStage`, `mode` and `ab` (`SPS:389`) are in scope |
+| `Pick.Out` | `state, pad: Pad, refused: MeasureFlow.Refused?, options, nudge: String?, finished: Finished?, stay, byItself, waits, zoom` | what each handler below then does; `Pad` = `KEEP / OPEN / SHUT_STORE / SHUT_DROP` drives `padOpen` (`SPS:308`) and `commitPad` (`SPS:591`) |
+| `Pick.mayHold` | `(sc: Scene, id: String): Boolean` | the `tabs = …editable…` of `SPS:3331`, and the locked / phase checks at the head of every drag |
+| `Pick.goldOk` | `(sc: Scene): Boolean` | `mode == StepRoute.MEASURE && …` and `MeasureFlow.canRead(quoteStage)` wherever `active` is set (`SPS:492`, `553`, `566`) |
+| `Pick.settle` | `(sc: Scene, st: State): State` | the stage-moved effect `SPS:902-908` (its line 907) |
+| `Pick.turnedGold` | `(before: State, after: State): Boolean` | where `sayCheck` (`SPS:533`) and, new, `LaserChip.gold` are asked |
+| `Pick.body` (rows 1, 2) | `(sc, st, id: String): Out` | `selectMark` `SPS:760-766`, `grabbed` `SPS:769-782`, `markTap` `SPS:1169-1176`, `selectChain` `SPS:1121-1128`, `selectMeas` `SPS:1131-1138` |
+| `Pick.longPress` (row 3) | `(sc, st, id: String): Out` | the `LongPress` branch `SPS:3183` (opens today's `ctx` menu until I2) |
+| `Pick.figure` (rows 4-6) | `(sc, st, code: String): Out` | `figureTap` `SPS:1147-1163` |
+| `Pick.options` (row 7) | `(st): Out` | I2 (the code chip, `⋯`); until then the held row's label, `SPS:1891` |
+| `Pick.handle` (row 8) | `(st, part: String): Out` | the grab of a tab with no drag — `sel.part`, read by the row at `SPS:1870` |
+| `Pick.handleId` | `(st): String?` | the `selId` handed to `SurveyPrepTouch.hit` at `SPS:2794` (and the `null` at `SPS:2746`) |
+| `Pick.tap` | `(sc, st, hit: SurveyPrepTouch.Hit?, line: String? = null): Out` | `hitMarks` `SPS:2780-2825` with `hitChain` / `hitMeas` (`SPS:3072-3076`), and `measureTap` `SPS:3026-3032` |
+| `Pick.drag` (row 9) | `(sc, st, on: String?): Drag` — `MOVE / PAN / LOCKED / READ_ONLY`; `Pick.BODY_SLOP_DP = 8.0` | the `Down` branch that grabs on press, `SPS:3053-3078`, and `val measuring` `SPS:2996`; `Pick.dragged(st)` is row 9's no-change |
+| `Pick.empty` (rows 10-12) | `(st): Out` | `tapAt` `SPS:3020-3022` when no tool is armed; the `else -> Unit` of `SPS:3030` |
+| `Pick.emptied`, `Pick.doubleTap` (row 13) | `(before: State, now: Long): Emptied`; `(sc, st, first: Emptied?, now: Long): Out` | slice I4, the `DoubleTap` branch `SPS:3170` |
+| `Pick.placed` (row 14) | `(sc, id: String): Out` | `SPS:815` (`placeMark`), `837` (`place360`), `856-857` (`finishChain`), `1208` (`endDrag`), `1231` (`areaTap`) |
+| `Pick.duplicated` (row 15) | `(sc, copy: String): Out` | `SPS:1092`, `1097`, `1102` |
+| `Pick.shaped` (row 16) | `(sc, st, id: String): Out` | I2 / Q2 (`Fine move`, `Four corners`, `Rectangle`) |
+| `Pick.locked` (row 17) | `(sc, st, id: String): Out` | `toggleLock` `SPS:1009` |
+| `Pick.landed` (rows 18-20), `Pick.released` | `(sc, st, code: String, busy: Boolean, typed: Boolean = false): Out`; `(sc, st, code): Out` | the `moveOn` half of `reading` `SPS:565-570` — asked through `Landing`, below |
+| `Pick.next` (rows 21, 22) | `(sc, st, face: String): Out` | `barStep` `SPS:1184-1194`, `walkOn` `SPS:551-556`, `measureAt` `SPS:538-543` |
+| `Pick.finishedText` | `(tx, sc, face: String, f: Finished): String` | the bar's `Kind.DONE` line (`MeasureFlow.onFace`, `SPS:2009`), now said by `say` |
+| `Pick.undone` (row 23) | `(sc, st): Out` | `SPS:486-493` in `undo` |
+| `Pick.deleted` (row 24) | `(st, id: String): Out` | `deleteMark` `SPS:951` |
+| `Pick.tab` (rows 25, 26) | `(st, from: String, to: String): Out` | `showTab` `SPS:1272-1287` (`MeasureFlow.move`, `SPS:1275`) |
+| `Pick.step` (rows 25, 26, 28) | `(st, from, to, face, ask: PhaseTools.Ask): Out` | `setMode` `SPS:1288-1311` (`MeasureFlow.move`, `SPS:1295`) |
+| `Pick.handles` | `(st, id: String): Boolean` | `ends = …` and `tabs = …` handed to `SurveyPrepDraw.Marks`, `SPS:3328`, `3331` |
+| `Pick.trash` | `(sc, st, toolArmed: Boolean): Boolean` | the disc's press `SPS:2946` and its drawing `SPS:3342` |
+| `Pick.row` | `(sc, st): Row?` — `Row(sheet, nudges, padlock)` | the three rows of `markPanel`, `SPS:1868-1967`: the value texts (`SPS:1931`, `1955`) and the Deletes with `SpDeleteGap` (`SPS:1909-1913`, `1937-1941`, `1961-1965`) go |
+
+**`Landing` (new file `PANO/Landing.kt`; `LandingTest`, 9 tests)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `Landing.route` | `(shot: SurveyRef.Shot?, sc: Pick.Scene, st: Pick.State, mm: Int, now: Long): Route` — `Ref(s, k)` / `Gold(code)` / `Refused(text: Msg, haptic = LONG, stays = true)` | `disto.onReading`'s `when`, `SPS:627-646` |
+| `Landing.after` | `(sc, st, code: String, busy: Boolean): After` — `state, pad, haptic: Haptic?, note: Msg?, ring: String?, byItself, waits` | `SPS:640-642` (`dropTyped`, `reading`, the one haptic) and `sayCheck` `SPS:571` |
+| `Landing.released` | `(sc, st, code: String): After` | new: asked when the Mark sheet (`markSheet`, `SPS:787`), the More sheet or the menu closes, and when the last finger lifts (`photoBusy`, `SPS:353`) |
+| `Landing.keyed` | `(sc, st, code: String): After` | the pad's `onNext`, `SPS:1986`, when `MeasurePad.commit` wrote a value (else `Pick.next`) |
+| `Landing.Haptic`, `Landing.RING_MS` | `TICK / DOUBLE / LONG`; `1000L` | `HapticFeedbackType.TextHandleMove` at `SPS:642`; the ring is new |
+
+A `Refused` whose `stays` is true keeps its note until the next touch: `say` (`SPS:367-368`) needs a sibling that does
+not start the 2.6 s timer, cleared by the gesture loop's first `Down`.
+
+**`LaserChip` (new file `PANO/LaserChip.kt`; `LaserChipTest`, 7 tests)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `LaserChip.Link`, `look`, `shown`, `ready`, `label`, `TEXT`, `WIDTH_DP` | `enum Link { OFF, SCANNING, CONNECTING, READY }` (= `DistoClient.State` by name); `look(link): Look`; `shown(stage): Boolean`; `ready(link): Boolean`; `label(tx, link): String` | the chip is new, in the top bar between the title and ↶; `ready` feeds `PhotoFigures`' `ready` |
+| `LaserChip.Mem`, `Step` | `data class Mem(startedAt: Long?, asked: Boolean, wasReady: Boolean)`; `class Step(mem, start, askPermission, say: Msg?)` | one `remember`ed `Mem` beside `distoState`, `SPS:519` |
+| `LaserChip.gold`, `opened` | `(mem, link, permitted: Boolean, stage: Int?, now: Long): Step` | `fire()` `SPS:610-615` and `distoGo()` `SPS:603-609` are DELETED from survey prep (`fireRef`, `SPS:1051`, keeps its own until I4); `opened` in a `LaunchedEffect(Unit)` |
+| `LaserChip.tap` | `(mem, link, permitted, now): Step` | the chip's click; `askBle.launch` at `SPS:605` moves here |
+| `LaserChip.permission` | `(mem, granted: Boolean, now): Step` | the launcher's result, `SPS:525-527` |
+| `LaserChip.state` | `(mem, link, note: Msg?): Step` | `disto.onState`, `SPS:625` (`if (n != null) say(n(tx))` becomes `step.say?.let { say(it(tx)) }`) |
+
+**The three steps (`StepRoute`, `PhaseTools`; `OneStepTest`, 11 tests)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `StepRoute.LINES / MARK / PANO`, `ROUTE` | `const`s; `val ROUTE = listOf("lines", "mark", "360")` | `StepRoute.STEPS` and every `"mark"`, `"lines"`, `"360"`, `StepRoute.MEASURE` literal in `SPS` |
+| `StepRoute.routeName`, `routeIndex`, `routeLabel`, `routeOf` | `(tx, key)`, `(mode): Int`, `(tx, i: Int)`, `(mode): String` | `stepName` `SPS:1570`, `stepIndex` `SPS:1536`, `1547`, `label` `SPS:1551` |
+| `PhaseTools.routeTool`, `routeSteps` | `(step): Tool?`; `(stage): List<String>` | `prepSteps` at `SPS:1291`, `1374`, `1546` |
+| `PhaseTools.routeMode` | `(mode, stage, markable: () -> Boolean): String` | `prepMode` at `SPS:398` |
+| `PhaseTools.routeAsk`, `Ask`, `routeRefusal` | `(step, stage, markable): Ask` — `OPEN / HIDDEN / LINES_OPEN`; `(tx): String` | the two guards at the head of `setMode`, `SPS:1291-1292` |
+| `PhaseTools.holds` | `(stage: Int?): Boolean` | new (see 19.3, decision 3) |
+| `StepRoute.toolRowDp`, `keypadDp`, `heldRowDp`, `Under`, `underDp`, `underMark`, `markPhotoDp`, `landUnderDp`, `landFits` | `(land): Int` x 3; `enum Under { NOTHING, TOOLS, HELD, KEYPAD }`; `underMark(toolRow, held, keypad): Under` | which of the rows `markPanel` draws, `SPS:1866-1868`, `1976-1997`; `measurePanel` `SPS:2006-2019` and its dispatch at `SPS:2188`, `2217` are deleted; the pad's height at `SM:212` gains the 6 dp the bar's padding gave |
+
+**The row and its tools (`SurveyPrepPalette`; in `OneStepTest`)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `SurveyPrepPalette.afterPlaced`, `armed` | `(tool, keep: Boolean = false): String`; `(tool): Boolean` | after each placement (`SPS:815`, `837`, `1208`, `1231`): `toolSet = SurveyPrepPalette.afterPlaced(tool)`; `armed` for every `tool == SurveyPrepPalette.SEL` test (`SPS:2946`, `3072`, `3328`, `3342`) |
+| `SurveyPrepPalette.row`, `RowKind`, `RowSlot`, `rowOn`, `NEXT_GLYPH` | `(kind, tools = offered()): List<RowSlot>`; `enum RowKind { TOOL, TYPE, MORE, NEXT }`; `(slot, kind, tool): Boolean` | `slots`, `SlotKind`, `isOn` in `SpPalette`, `SPT:104-147`; `drawSelectIcon`, `SPT:393`, goes |
+| `SurveyPrepPalette.nextSlot`, `NextSlot` | `(tx, prep, face, gold: String?, stage, step, ab): NextSlot` — `shown`, `label` | the bar's `›`, `SM:177` / `SPS:1983`, `2014` |
+
+**No photo estimate (`PhotoFigures` new, `MarkDims`, `DimLayout`, `SurveyMeas`, `SurveyChain`, `MeasureFlow`, `MeasureText`, `SurveyRef`; `PhotoFiguresTest` 16 tests, two more in `DimLayoutTest`, one in `SurveyPrepTouchTest`)**
+
+| New | Signature | Replaces in `:app` |
+|---|---|---|
+| `PhotoFigures.ofMark`, `Figure`, `Look` | `(tx, actual, s, e, a, b, picked: Boolean, gold: String?, live: String? = null, ready: Boolean = true): List<Figure>`; `Look { READ, ASK, GOLD }` | the rule itself; asked by the two below |
+| `PhotoFigures.onFace` | `(tx, prep, s, a, b, pick: Pick.State, live, ready): List<Pair<Mark, List<Figure>>>` | for a test or a reader that wants the figures without a canvas |
+| `PhotoFigures.layout` | `(tx, prep, s, a, b, pick, toPx, u, dp, textW, live = null, ready = true, free = { false }): List<DimLayout.Mark>` | the `laid` list, `SPD:942-948` |
+| `DimLayout.markShown` | `(tx, actual, s, e, a, b, picked, held, gold, toPx, u, dp, textW, live = null, free = false, ready = true): Mark` | `DimLayout.mark`, `SPD:947` |
+| `DimLayout.placeShown` | `(marks, width, height, keep, u, dp, times = 0.0): Out` | `DimLayout.place(…, o.scope, …)`, `SPD:950`; `Marks.scope` (`SPD:236`), `figScope` (`SPS:3303`), `allFigs` (`SPS:303`) and the `all` button (`SPS:3463-3470`) go |
+| `MarkDims.read`, `plate`, `figureText`, `ASK_TEXT`, `WAIT_GLYPH`, `ASK_INK` | `read(actual, s, e, d: Dim, a, b): Value`; `plate(state, gold): Style`; `figureText(v, role, gold, ready = true, name: String? = null): String` | `MarkDims.style(f.state, f.active)` at `SPD:1023` becomes `MarkDims.plate(…)`; `value`, `shown`, `style` stay for the saved pictures until M3 |
+| `MarkDims.gross`, `guarded`, `guard`, `GROSS_OVER`, `GROSS_UNDER` | `gross(read, drawn, inPlane): Boolean`; `guarded(role): Boolean`; `guard(actual, s, e, d, a, b): Boolean` | inside `read`; `check` / `photoCheck` stay for the old path |
+| `MeasureFlow.flagged`, `guardText` | `(prep, code, ab): Boolean`; `(tx, prep, code, ab): String?` | `sayCheck`, `SPS:533-536` (`checkEst` + `MeasureText.photoSays`) |
+| `MeasureText.checkReading`, `on360` | `(tx): String`; `(tx, mm: Int): String` | through the two above and `Landing.route` |
+| `PhotoFigures.line`, `Tag`, `DRAFT_TAG` | `(m: Meas, actual, pick, ready = true): Tag` — `text, key: String?, gold, colour: Int?` | `SurveyMeas.lineTag` + the glyph + `figureTag`, `SPD:747-757`; a draft (`SPD:695-697`) draws `DRAFT_TAG` |
+| `PhotoFigures.chainSeg`, `chainTotal` | `(c, v: Vals, i: Int, pick, ready = true): Tag?`; `(tx, c, v, pick, ready = true): Tag` | `SPD:888-894` and `SPD:896-906`; a chain being drawn (`SPD:837-838`, the `≈` at `SPD:889`) draws no figure |
+| `PhotoFigures.line360`, `chainSeg360`, `chainTotal360` | `(m, actual): String`; `(v, i): Pair<String, Int>?`; `(tx, code, v): String` | `SP360:1080-1083`, `SP360:1180-1182`, `SP360:1186` |
+| `SurveyMeas.shownTag`, `tagTaps` | `(code: String?, kind, reading: Double?, ask: Boolean): String`; `(reading, ask): Boolean` | under `PhotoFigures.line` |
+| `SurveyChain.segShown`, `totalShown` | `(v, i, ask): Pair<String, Int>?`; `(tx, code, v, ask): String` | under `PhotoFigures.chainSeg` / `chainTotal` |
+| `SurveyRef.shownOnRoute` | `(tx, s, shown: Boolean): String` | `SurveyRef.shownSaid`, `SPS:1048` |
+| `MeasureFlow.tabLeft` (unchanged) | `(prep, s, stage, a, b): Int` | already the tabs' count in EVERY step, `SPS:1522` — see 19.3, 9 |
+
+**Texts (English first; `mr-pending.tsv` 27 → 34):** `sp.laser.off`, `sp.laser.ready`, `sp.laser.on_360_x`,
+`sp.measure.aria.next_x`, `sp.measure.aria.keep`, `sp.reference_shown_mark` as §12 words them, and
+`sp.measure.check_reading` = "This reading does not match the mark. Shoot again, or ▸ to keep it." No key is deleted
+in I1a: §12's "Deleted" keys and `sp.measure.photo_says_x` still have their readers on the screen and go with them in I1b.
+
+### 19.2 The order the screen calls them in (I1b)
+
+- **A tap on the photo, no tool armed:** `val o = Pick.tap(sc, pick, hit, line)`; then the pad as `o.pad` says
+  (`SHUT_STORE`: `commitPad()` then shut — NOT before asking `Pick`, or a tap on the gold plate would store half a
+  figure); `pick = o.state`; say `o.refused`; if `Pick.turnedGold(before, o.state)`: `LaserChip.gold(…)` and
+  `MeasureFlow.guardText`. A press does nothing until it lifts unless `Pick.drag(sc, pick, id) == MOVE`.
+- **A reading:** `Landing.route` → for `Gold(code)`: write it (`reading(code, v)`, the one place), then
+  `Landing.after(sc, pick, code, busy)` where `busy` = a sheet or the menu is open, or `photoBusy`; apply
+  `state`, `pad` (drop the typed digits, shut), `haptic`, `note`, `ring`; if `byItself`, `MeasureFlow.panTo`; if
+  `waits`, keep `code` and ask `Landing.released` on close / lift.
+- **Next ▸ on the keypad:** `MeasurePad.commit` → a value: write it, `Landing.keyed`; nothing written: `Pick.next`.
+- **`sc.step`** is `PhaseTools.routeMode(modeSet, quoteStage) { … }`; `Pick.settle` runs where `SPS:902` runs.
+
+### 19.3 Where the design was not exact enough, and what was decided
+
+1. **Rule 5's "the side as the mark is drawn"** is read as the mark's SIZE: `w`, `h`, a four-corner mark's sides and
+   diagonal (`MarkDims.guarded`). Position figures are not guarded: a door drawn 300 mm from a corner that is really
+   90 mm away would keep its `!`, stop the walk and double-buzz at every door. One line to widen if Amit wants it (A8).
+2. **The new sentence** (§18 gives no words): "This reading does not match the mark. Shoot again, or ▸ to keep it." It
+   names `▸` because a failed reading no longer moves on, and `▸` is the way out.
+3. **§10's "`PhaseTools.editable` decides who can be held" would let a mark born Vendor added be dragged at Client
+   approved** — `editable` answers true there, as the prototype's code does, and until now it could not be reached
+   because those phases had no 2 · Mark. So `PhaseTools.holds(stage)` (the prototype's own `mark` row) is asked first:
+   at Estimation and Client approved 2 · Mark is the view and NOTHING is held, exactly as 3 · Measure left it.
+4. **Every reading thrown away is felt and its note stays** — nothing gold (§4.4), and also on the 360, after Survey
+   and a reference box that was left. §4.4 names the first only; one rule for "a reading thrown away must be felt".
+5. **A tap on the photo shuts the keypad and stores** (§5), in every row but row 5 — a tap on another figure
+   included: the second figure is then gold and the keypad is one more tap. Next ▸ is the way to type along a wall.
+6. **Row 13 (the double tap) is built now** though the gesture is I4's, because the table is the specification.
+7. **A chain's total the laser gives is shown** ("FK1 Σ 2678 laser"): it is the room's own W, L or H, a reading by
+   rule 7, not an estimate. A total that is only the sum of its segments, and a derived segment, are not shown; while
+   the chain is picked each is a `?`, since it still takes a reading.
+8. **A Line's or an area's tag takes a tap only when it shows a figure or `?`**; the code alone is not a tap target
+   (a tap on the Line's body picks it, which is what puts the `?` there). **A Line being pulled and an area being
+   tapped show no figure at all** — their length and m² are the photo's; rule 3 names only plotted ones. The Tape's
+   draft keeps its figure, with the Tape (rule 4).
+9. **"The tabs' counts show in Mark" needs nothing new:** `MeasureFlow.tabLeft` takes no step and `SPS:1522` already
+   draws it in every step (§2.1 and §9 say "today in 3 · Measure only"; the code at `3c377c3` says otherwise).
+   `OneStepTest` pins that the rule names no step.
+10. **§18 rule 6 against `MarkDims.asked`'s own note:** a mark not in the room shows NO figure, a reading an earlier
+    build left on it included. Row 6's "figure of a mark not in the room" can then no longer be tapped; the row is
+    kept and tested, for a key that arrives any other way.
+11. **A gold `⊥` chip carries its name** (§2.2) with the reading or `?` after it: "▶⊥ reveal depth ?". `markShown`
+    and `PhotoFigures` therefore take a `Tx`.
+12. **The four-corner mark's closing check** (`sp.measure.sides_say_x`, "The other sides make the bottom side ≈2466
+    mm") quotes a figure nobody measured. `guardText` says the no-number sentence for it too. No such mark can exist
+    yet (its menu row is off); slice Q2 owns its words.
+13. **`▸` with a figure gold** goes to the FACE's next unread figure (row 21, `MeasureWalk.next`), not first to the
+    same item's as a landed reading does (row 18): a figure skipped inside a mark comes round at the end of the wall.
+14. **The hollow `▶`** is the glyph `▷` (`MarkDims.WAIT_GLYPH`), from `LaserChip.ready`.
+15. **Landscape's held row** is taken as 34 dp (`StepRouteTest`'s own "about 34"); portrait's as §2.4's 48.
+16. **No `:pano` function or test is deleted in I1a** — `MeasureBarLayout`, `MeasureFlow.Bar / onFace / onItem / move`,
+    `SurveyMeas.rowValue`, `SurveyChain.rowValue`, `DeleteGuard`'s row clearances, `SurveyPrepPalette.slots`,
+    `StepRoute.MEASURE` and their tests all have `:app` callers at this commit. They go in I1b with those callers;
+    after deleting each, grep `:app` AND `:camera`.

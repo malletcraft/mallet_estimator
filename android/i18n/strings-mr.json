@@ -4384,6 +4384,18 @@
   "mr": "मीटरवर मीटर/mm दिसत नाही (युनिट कोड {unit}) — तो m किंवा mm वर सेट करा",
   "note": "L2 finalised (28 Oct 2026): the card's 'मीटर मीटर/मिमी' read the device and the unit as one doubled word; mm is Latin everywhere else in the table"
  },
+ "sp.laser.off": {
+  "mr": "Laser not connected · tap to connect",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.laser.on_360_x": {
+  "mr": "D2 {mm} mm — not used: readings are taken on the wall's own tab",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.laser.ready": {
+  "mr": "D2 connected · press the meter's own button to read",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.laser.reconnecting_x": {
   "mr": "पुन्हा जोडत आहे ({status})…"
  },
@@ -4468,6 +4480,14 @@
   "mr": "Every figure on this face",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
+ "sp.measure.aria.keep": {
+  "mr": "Keep this reading · nothing else left on this wall",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.aria.next_x": {
+  "mr": "Next figure to measure · {n} left",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.measure.aria.previous": {
   "mr": "The measurement before",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
@@ -4479,6 +4499,10 @@
  "sp.measure.aria.type": {
   "mr": "Type the figure",
   "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.check_reading": {
+  "mr": "This reading does not match the mark. Shoot again, or ▸ to keep it.",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.measure.face_done_x": {
   "mr": "{face} · all {total} measured ✓",
@@ -4702,6 +4726,10 @@
  },
  "sp.reference_shown_2_mark": {
   "mr": "संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर दिसतो"
+ },
+ "sp.reference_shown_mark": {
+  "mr": "Reference shown on 2 · Mark and 3 · 360",
+  "note": "port 63 I1a: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.reference_shown_measure": {
   "mr": "Reference shown on 2 · Mark, 3 · Measure and 4 · 360",

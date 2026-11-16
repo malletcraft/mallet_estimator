@@ -300,6 +300,73 @@ object SurveyPrepPalette {
                else Chip(main, name + AS_MORE, tx.life_aria_place_marks_x_tap(name), true, from, to, label)
     }
 
+    // ------------------------------------------------------------------ one item, then off; no Select slot; ▸ last (port 63 slice I1a)
+
+    /*
+     * FROM SLICE I1 HE MEASURES ON THE SCREEN WHERE HE PLACES (DESIGN-imagemeter §7, the plan critic's finding C2). With
+     * a type left on, a tap on empty photo -- which now only lets the pick go -- would place another Door; with Tape or
+     * Line left on, nothing under the finger is picked, so a tap on a figure would add an area corner and no figure
+     * could be measured until he found the lit slot. So A TOOL PLACES ONE ITEM AND GOES OFF, and with no tool armed a
+     * touch selects: Select is no longer a tool with a slot of its own. These stand BESIDE [slots] and [isOn], which
+     * the screen draws until slice I1b switches it over and deletes them with [SlotKind].
+     */
+
+    /**
+     * THE TOOL AFTER IT HAS PLACED ITS ITEM -- a mark placed, a Tape or a Line plotted, an area closed: OFF ([SEL]: no
+     * tool armed). [keep]: the tool was kept on by a long press on its slot, which arrives in slice I3 -- until then
+     * nothing passes it, and six sockets are six taps on the slot.
+     */
+    fun afterPlaced(tool: String, keep: Boolean = false): String = if (keep) tool else SEL
+
+    /** A tool is armed: a type or a drawing tool is on. With none ([SEL]), a touch on the photo selects. */
+    fun armed(tool: String): Boolean = tool != SEL
+
+    /** What a slot of the row is: a drawing tool, a type, More ▸, or `▸` -- the next unread figure. No Select. */
+    enum class RowKind { TOOL, TYPE, MORE, NEXT }
+
+    /** One slot of the row: what it is, the tool it arms (a tool's key, a type's letter; "" for More and for `▸`), its type. */
+    class RowSlot(val kind: RowKind, val key: String, val type: SurveyPrep.MarkType? = null)
+
+    /** `▸`, the row's last slot: it carries NO number -- the open face's tab already shows the count, in amber, and the
+     *  same number in the row would be a figure about measurements under the photo. */
+    const val NEXT_GLYPH = "▸" // text:value the next-figure glyph, the same in every language
+
+    /**
+     * THE ROW UNDER THE PHOTO FROM SLICE I1 UNTIL I3, left to right: the drawing [tools] it offers ([offered]: Tape,
+     * Line), the three types, More ▸, and `▸` LAST -- seven equal slots, where today's row is Select and six. `▸` is
+     * ALWAYS a slot of the row: when it is not drawn ([nextSlot]) its place stays empty and no other slot moves.
+     * Nothing in the row fires the laser and nothing in it deletes.
+     */
+    fun row(kind: String, tools: List<String> = offered()): List<RowSlot> {
+        val p = paletteFor(kind)
+        return tools.map { RowSlot(RowKind.TOOL, it) } + p.main.map { RowSlot(RowKind.TYPE, it.letter, it) } +
+            (if (p.more.isEmpty()) emptyList() else listOf(RowSlot(RowKind.MORE, ""))) + RowSlot(RowKind.NEXT, "")
+    }
+
+    /** Is [slot] lit with [tool] on? `▸` never is: it arms nothing. */
+    fun rowOn(slot: RowSlot, kind: String, tool: String): Boolean = when (slot.kind) {
+        RowKind.TOOL, RowKind.TYPE -> slot.key == tool
+        RowKind.MORE -> moreArmed(kind, tool) != null
+        RowKind.NEXT -> false
+    }
+
+    /** `▸` as drawn: whether it is [shown], and what it is read out as ([label]; null while it is not shown). */
+    class NextSlot(val shown: Boolean, val label: String?)
+
+    /**
+     * `▸` ON THE OPEN TAB [face], with [gold] the figure being measured (DESIGN-imagemeter §2.1, §9): DRAWN in 2 · Mark,
+     * at Survey (where readings are keyed: [MeasureFlow.canRead]), while the open face has a figure LEFT or a figure
+     * is gold -- so a reading that failed the check on a wall's last figure can still be accepted. NOT drawn after
+     * Survey, on 3 · 360, in 1 · Lines or on the Plan. Read out as "Next figure to measure · 7 left" -- the count is
+     * in its description only -- or, with nothing left, "Keep this reading · nothing else left on this wall".
+     */
+    fun nextSlot(tx: Tx, prep: SurveyPrep.Prep, face: String, gold: String?, stage: Int?, step: String, ab: (String) -> DoubleArray): NextSlot {
+        if (step != StepRoute.MARK || !StepRoute.isFace(face) || !MeasureFlow.canRead(stage)) return NextSlot(false, null)
+        val left = ab(face).let { z -> MeasureWalk.count(prep, face, z[0], z[1]).left }
+        if (left == 0 && gold == null) return NextSlot(false, null)
+        return NextSlot(true, if (left > 0) tx.sp_measure_aria_next_x(left.toString()) else tx.sp_measure_aria_keep)
+    }
+
     /** The More sheet's heading: "Every mark type · Front wall". */
     fun sheetTitle(tx: Tx, s: String) = tx.sp_every_mark_type_x(T = Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 }

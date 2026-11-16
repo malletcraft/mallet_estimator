@@ -71,6 +71,13 @@ object SurveyRef {
         if (shown) tx.sp_reference_shown_measure
         else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
 
+    /** [shownSaid] on the three-step route (port 63 slice I1a; DESIGN-imagemeter §11): on, "Reference shown on 2 · Mark
+     *  and 3 · 360" -- there is no 3 · Measure to name any more. It takes [shownSaid]'s place from slice I1b on.
+     *  English first: its Marathi is pending (android/i18n/mr-pending.tsv). */
+    fun shownOnRoute(tx: Tx, s: String, shown: Boolean) =
+        if (shown) tx.sp_reference_shown_mark
+        else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
+
     /** What it is called: "Front wall reference" (the menu's head, a refusal). */
     fun name(tx: Tx, s: String) = tx.sp_x_reference(Masters.surface(tx, SurveyPrep.NAME.getValue(s)))
 

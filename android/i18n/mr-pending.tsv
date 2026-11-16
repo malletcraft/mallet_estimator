@@ -8,6 +8,9 @@
 # TxRenderTest's two Latin scans skip the keys listed here, and only those. No existing Marathi value is ever listed.
 # Port 63 slice Q1 (16 Nov 2026) added fourteen: a four-corner mark's texts (the nine measure.* words of its sides, its
 # diagonal and "to its nearest corner"; sp.shape.*; sp.measure.sides_say_x; sp.file.x_mark_x_shape_unreadable). 27 in all.
+# Port 63 slice I1a (16 Nov 2026) added seven: the one step that marks and measures (DESIGN-imagemeter §12, §18) -- the laser
+# chip's two lines and the 360's refusal (sp.laser.off / ready / on_360_x), the ▸ slot's two labels (sp.measure.aria.next_x /
+# keep), the check's sentence with no figure (sp.measure.check_reading) and sp.reference_shown_mark. 34 in all.
 key	English
 measure.diagonal	diagonal, bottom-left to top-right
 measure.diagonal_plan	diagonal, back-left to front-right
@@ -19,11 +22,17 @@ measure.side_right	right side
 measure.side_top	top side
 measure.to_nearest_corner	, to its nearest corner
 sp.file.x_mark_x_shape_unreadable	{surface}: mark {code}'s four corners were unreadable, kept as its box
+sp.laser.off	Laser not connected · tap to connect
+sp.laser.on_360_x	D2 {mm} mm — not used: readings are taken on the wall's own tab
+sp.laser.ready	D2 connected · press the meter's own button to read
 sp.measure.all	all
 sp.measure.aria.all	Every figure on this face
+sp.measure.aria.keep	Keep this reading · nothing else left on this wall
+sp.measure.aria.next_x	Next figure to measure · {n} left
 sp.measure.aria.previous	The measurement before
 sp.measure.aria.skip	Skip to the next measurement
 sp.measure.aria.type	Type the figure
+sp.measure.check_reading	This reading does not match the mark. Shoot again, or ▸ to keep it.
 sp.measure.face_done_x	{face} · all {total} measured ✓
 sp.measure.next_face_x	Next: {face} · {n} to measure ▸
 sp.measure.not_in_room	Not in the room — a mark placed after the survey has nothing to measure
@@ -32,6 +41,7 @@ sp.measure.room_done_x	Room measured · all {total} ✓
 sp.measure.sides_say_x	The other sides make the {side} ≈{est} mm. Check the readings, or the corners.
 sp.measure.x_of_x	{read} of {total} measured
 sp.measure.x_to_measure	{n} to measure
+sp.reference_shown_mark	Reference shown on 2 · Mark and 3 · 360
 sp.reference_shown_measure	Reference shown on 2 · Mark, 3 · Measure and 4 · 360
 sp.shape.drag_corners	Drag a corner. A side near upright or level snaps straight.
 sp.shape.four_corners	Four corners

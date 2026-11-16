@@ -11375,6 +11375,40 @@
    "phone-text"
   ]
  },
+ "sp.laser.off": {
+  "en": "Laser not connected · tap to connect",
+  "where": [
+   "S2 APK phone text · LaserChip.kt label at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the laser chip in the top bar while the D2 is not linked, read out -- and said when a tap on it cannot start the link; no screen reader until slice I1b draws the chip · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
+ "sp.laser.on_360_x": {
+  "en": "D2 {mm} mm — not used: readings are taken on the wall's own tab",
+  "where": [
+   "S2 APK phone text · Landing.kt route at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the message line when a laser reading arrives on 3 · 360, where nothing is measured; the reading is thrown away; no screen reader until slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "mm": "the reading, whole mm"
+  },
+  "flags": [
+   "phone-text"
+  ]
+ },
+ "sp.laser.ready": {
+  "en": "D2 connected · press the meter's own button to read",
+  "where": [
+   "S2 APK phone text · LaserChip.kt label / tap at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the laser chip while the D2 is linked, read out, and what a tap on the gold chip says; nothing on the screen fires the meter; no screen reader until slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
+ },
  "sp.laser.reconnecting_x": {
   "en": "Reconnecting ({status})…",
   "where": [
@@ -11600,6 +11634,31 @@
    "aria-label"
   ]
  },
+ "sp.measure.aria.keep": {
+  "en": "Keep this reading · nothing else left on this wall",
+  "where": [
+   "S2 APK phone text · SurveyPrepPalette.kt nextSlot at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the tool row's ▸ read out while a figure is gold and nothing on the wall is left -- it keeps a reading that failed the check and lets the gold go; no screen reader until slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
+ "sp.measure.aria.next_x": {
+  "en": "Next figure to measure · {n} left",
+  "where": [
+   "S2 APK phone text · SurveyPrepPalette.kt nextSlot at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the tool row's last slot, ▸, read out -- it carries no number on screen, the open face's tab shows the count; no screen reader until slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "template",
+  "placeholders": {
+   "n": "how many figures the open face still asks"
+  },
+  "flags": [
+   "phone-text",
+   "aria-label"
+  ]
+ },
  "sp.measure.aria.previous": {
   "en": "The measurement before",
   "where": [
@@ -11631,6 +11690,16 @@
   "flags": [
    "phone-text",
    "aria-label"
+  ]
+ },
+ "sp.measure.check_reading": {
+  "en": "This reading does not match the mark. Shoot again, or ▸ to keep it.",
+  "where": [
+   "S2 APK phone text · MeasureText.kt checkReading at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the message line when a reading more than twice, or less than half, the side as the mark is drawn lands, and when its plate turns gold; it quotes NO figure (Amit, 16 Nov 2026: \"No foto estimation at all. It confuses user\") and takes the place of sp.measure.photo_says_x from slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
   ]
  },
  "sp.measure.face_done_x": {
@@ -12226,6 +12295,16 @@
   "en": "Reference shown on 2 · Mark, 3 · List and 4 · 360",
   "where": "v53build/sp.js:774 · v",
   "kind": "static"
+ },
+ "sp.reference_shown_mark": {
+  "en": "Reference shown on 2 · Mark and 3 · 360",
+  "where": [
+   "S2 APK phone text · SurveyRef.kt shownOnRoute at 3c377c3+I1a · Survey prep · one step to mark and measure (port 63 slice I1a, 16 Nov 2026; DESIGN-imagemeter §12, §18): the reference rectangle's line under 1 · Lines once the steps are Lines, Mark, 360, in place of sp.reference_shown_measure; no screen reader until slice I1b · English first (Amit, 16 Nov 2026): the Marathi waits in android/i18n/mr-pending.tsv until he has verified the journey end to end in English"
+  ],
+  "kind": "static",
+  "flags": [
+   "phone-text"
+  ]
  },
  "sp.reference_shown_measure": {
   "en": "Reference shown on 2 · Mark, 3 · Measure and 4 · 360",

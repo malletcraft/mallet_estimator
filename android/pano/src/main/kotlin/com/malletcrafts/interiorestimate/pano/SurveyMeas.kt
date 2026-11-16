@@ -312,6 +312,26 @@ object SurveyMeas {
         else -> ""
     }
 
+    /**
+     * A PLOTTED LINE'S OR AREA'S TAG WITH NO PHOTO FIGURE (port 63 slice I1a; DESIGN-imagemeter §18 rule 3; Amit, 16 Nov
+     * 2026: "No foto estimation at all. It confuses user"). A Line shows its reading once read, "F-M1 1240 mm"; until
+     * then its code alone, "F-M1", and `?` after it only where it can be acted on ([ask]: it is the picked item, on a
+     * face), "F-M1 ?". An AREA'S m² IS COMPUTED FROM THE PHOTO, SO IT IS NOT SHOWN: its perimeter is, once read,
+     * "F-M2 5734 mm"; until then "F-M2", or "F-M2 ?". A Line being pulled and an area being tapped ([code] null) show
+     * NOTHING: their length and m² are the photo's. The Tape is the one exception and keeps [tapeTag] (§18 rule 4).
+     * Codes and figures: byte-equal in every language. It takes [lineTag]'s place on the screen from slice I1b on.
+     */
+    fun shownTag(code: String?, kind: String, reading: Double?, ask: Boolean): String = when {
+        code == null || (kind != LINE && kind != AREA) -> ""
+        reading != null -> "$code " + mmTxt(reading) // text:value a code and a figure
+        ask -> "$code " + MarkDims.ASK_TEXT // text:value a code and the not-read glyph
+        else -> code
+    }
+
+    /** Whether that tag takes a tap under its reading key: only when it shows a figure or `?` -- the code alone is
+     *  not a figure, and a tap on the Line's own body picks it (which is what puts the `?` there). */
+    fun tagTaps(reading: Double?, ask: Boolean): Boolean = reading != null || ask
+
     // ------------------------------------------------------------ picking on the photo
 
     /**

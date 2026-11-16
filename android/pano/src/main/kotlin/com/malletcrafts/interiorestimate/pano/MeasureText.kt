@@ -82,6 +82,19 @@ object MeasureText {
      */
     fun sidesSay(tx: Tx, side: String, est: Double): String = tx.sp_measure_sides_say_x(side = side, est = Math.round(est).toString())
 
+    /**
+     * THE CHECK'S SENTENCE WITH NO FIGURE (port 63 slice I1a; DESIGN-imagemeter §18 rule 5; Amit, 16 Nov 2026: "No foto
+     * estimation at all. It confuses user"): "This reading does not match the mark. Shoot again, or ▸ to keep it." --
+     * what the message line says when a reading that fails the gross guard ([MarkDims.guard]) lands, and when its
+     * plate turns gold. It takes [photoSays]' place from slice I1b on: that sentence quoted the photo's estimate.
+     * English first: its Marathi is pending (android/i18n/mr-pending.tsv).
+     */
+    fun checkReading(tx: Tx): String = tx.sp_measure_check_reading
+
+    /** What a laser reading that arrives on 3 · 360 says (DESIGN-imagemeter §11): "D2 1203 mm — not used: readings are
+     *  taken on the wall's own tab". Nothing is measured on the 360; the reading is thrown away. */
+    fun on360(tx: Tx, mm: Int): String = tx.sp_laser_on_360_x(mm.toString())
+
     /** What a tap on a figure of a mark that is not in the room says (a Client wish and a Vendor-added mark alike). */
     fun notInRoom(tx: Tx): String = tx.sp_measure_not_in_room
 
