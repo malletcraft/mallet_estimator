@@ -105,6 +105,9 @@ tasks.test {
     inputs.dir(projectDir.resolve("src/test/kotlin")).withPropertyName("panoTestSources").withPathSensitivity(PathSensitivity.RELATIVE)
     // I18nBuildTest reads this script itself.
     inputs.file(projectDir.resolve("build.gradle.kts")).withPropertyName("panoBuildScript").withPathSensitivity(PathSensitivity.RELATIVE)
+    // QuadMeetsF1Test holds DESIGN-quad's note for slice Q2 to the tests that pin the lines Q2 rewrites: it reads the
+    // design itself, so an edit of that note alone must run the tests. It goes with that test, in slice Q2.
+    inputs.file(rootDir.resolve("docs/port63/DESIGN-quad.md")).withPropertyName("quadDesign").withPathSensitivity(PathSensitivity.RELATIVE)
     // The OPTIONAL client-name list: a file (-Pi18n.deny=<file>, resolved against android/pano) or the
     // I18N_DENY_NAMES secret. Only its hash is an input, so the names never reach Gradle's task history.
     // A path that is not a readable file is passed on as given, and check 8 FAILS on it, naming it.

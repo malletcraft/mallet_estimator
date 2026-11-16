@@ -736,6 +736,9 @@ To be re-read against the code at build time; `:app` compiles only in CI.
   `Marks(…)` literal is FaceWriter's, which Q2 does not change; `Marks` gains `free` as a named, defaulted
   parameter) and `LockTest` (it reads no screen source). No `:app` file may write `.extra =`: every write is a
   `Quad` function.
+  **Corrected 16 Nov 2026 (the review of the merge, finding 2):** this list, and every `:app` line number in this
+  section, is `7c49835`'s. F1 pinned the same lines of the screen in four more places and moved the lines; the list
+  that holds after the merge is §10's note 6, the line numbers its note 7.
 
 The build note for Amit: long-press a window, choose Four corners, drag a corner, and measure its four sides in
 3 · Measure; use a project at Survey or only on the phone. If Q2 ships without M3, the note adds one line: an
@@ -913,6 +916,7 @@ alone at the bar's end, delete apart and last, a Tape / Line / area moved by its
 section is the merge of `030a2f7f5` into `port63-quad`: what git could not decide, what was decided where the two
 meet, and what Q2 inherits. `:pano` after the merge: **101 classes, 1,435 tests, 0 failures, 0 errors** (the totals of
 `pano/build/test-results/test`; batch-next alone 98 and 1,388, Q1 alone 97 and 1,392, the merge's own `QuadMeetsF1Test` 7).
+The review of the merge added one test to `QuadMeetsF1Test` (note 6 below): 101 classes, **1,436** tests since.
 **`:app` is batch-next's own, unchanged by the merge, compiled only by CI, and nothing of the merge has been seen on a
 phone.** `Tx` was regenerated (no difference: batch-next added no key); `unkeyed.tsv` is empty; `mr-pending.tsv`
 keeps its 27 keys; no Marathi value changed.
@@ -955,4 +959,53 @@ it moved. **Three sections are new and held to `030a2f7f5`** — `gold`, `trash`
    the dim hole.
 5. **A four-corner mark's own body** is the mark's, moved by `moveMark` as always. F1's `bodyPress` / `bodyMove`
    are a Tape's, a Line's and an area's and are not asked for a mark.
+6. **THE SOURCE PINS THAT MOVE IN Q2 — §6's list is `7c49835`'s, and F1 pinned the very lines Q2 rewrites in four
+   more places** (the review of the merge, finding 2). Each line of `:app` that Q2 rewrites, and every `:pano` test
+   that holds it as it is today. The test files are held: `QuadMeetsF1Test`'s last test lists these lines and fails
+   when a test that pins one is not named in this note. The line numbers are this commit's, and nothing holds them.
 
+   | The line of `:app` today | Q2 | Pinned by |
+   |---|---|---|
+   | the menu's one call, `SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)` (`SurveyPrepScreen.kt:2258`) | gains `shape = true` (note 2) | `PhaseToolsTest` 823, its first count (the two beside it stay: `menuItemsOf(tx, prep, c.id)` at 0, and `menuItemsOf(` once at 824); `FeaturesTest` 621; `DeleteGuardTest` 376, with `val rows = ` before it; `QuadMeetsF1Test` 347 |
+   | the phase guard, `if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(` | a third beside the padlock's and Duplicate's: the shape's act, 2 → 3 | `PhaseToolsTest` 830 (§6's "801") |
+   | the menu's height before it is first measured, `(232 + DeleteGuard.CLEAR_DP).dp.toPx()` (`:2254`) | the height of six rows; and what note 1 settles may rewrite the `DeleteGuard.menuTop(` call pinned beside it at 378 | `DeleteGuardTest` 380 |
+   | the trash's keep, `SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)` (`:3365`) | gains the corners (note 3) | `DeleteGuardTest` 383, with `else ` before it; `QuadMeetsF1Test` 352 |
+   | the 360's trash, `Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { … }, dpx.toDouble())` (`SurveyPrep360.kt:703`) | gains `free` (note 3) | `DeleteGuardTest` 387; `QuadMeetsF1Test` 353 |
+   | `sayCheck`'s two lines, `MeasureFlow.checkEst(prep, c) { ab(it) }` and `say(MeasureText.photoSays(tx, est))` (`:534`) | become the one `checkText` (but see note 8) | `MeasureScreenTest` 336–338 (335 only finds the function, and stays) |
+   | the dim's hole, `val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->` (`SurveyPrepDraw.kt:502`) | the hole is the shape's for a four-corner mark | `NotePinTest` 116 — it moves only if this opening line is rewritten; a branch added after the spot's leaves it |
+   | the plates, `DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)` (`SurveyPrepDraw.kt:947`) | is passed `free` | `QuadMeetsF1Test` 357 |
+
+   **And the whole of `QuadMeetsF1Test`'s test "the screen's calls are batch-next's own …" (341–363) is rewritten or
+   goes in Q2**: besides the lines above it holds `corners =` at 0 in the screen (349), `Pano360.tabsOf(e)` twice in
+   the 360 (355), and no `Quad.`, `SHAPE_FREE`, `SHAPE_BOX`, `shapeRow`, `free = ` or `freeId` in any `:app` file
+   (359–362). The test after it, which holds this note, goes with it.
+
+   **Checked and NOT moving — some of them only if Q2 puts a new named argument AHEAD of a pinned tail:**
+   `PhaseToolsTest` 825 (`stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })` twice; one of the two is the
+   last line of the `Sp360(…)` call, so `freeId` goes before `stage =`); `MeasureScreenTest` 391 (`scope = figScope,
+   live = live, keep = figKeep)`, the tail of the screen's `Marks(…)`: `free` goes before `scope =`); `NotePinTest`
+   114 (`spot = …`: `corners = …` goes before it, as §6 says), 117 and 118 (the guards on the line before each
+   `tabsOf` call in the 360); `FeaturesTest` 606 (the first line of the `Sp360(` call); `MeasureScreenTest` 192
+   (`hit(drawnMarks(), …)`), 299–300 (`grabbed`'s `MeasureFlow.own` line), 363 (`DimLayout.mark(` once) and 386
+   (FaceWriter's `Marks(`); `SheetMarksTest` 401 (`drawMarks`' signature: `Marks` gains `free`, the function nothing);
+   `DeleteGuardTest` 307 (the nudge's row) and 347 (`DELETE -> deleteMark(mid)`); `LockTest` (it reads no screen
+   source).
+7. **`:app`'s line numbers in §3 to §9 are `7c49835`'s** (the same finding). H1 and F1 moved them. As they stand at
+   this commit — and to be re-read at build time all the same, since batch-next moves on: the menu's call
+   `SurveyPrepScreen.kt:2228` → `:2258`; the long press that sets `ctx` `:1400` → `:1410`; `Drawn(…)` `:2696` →
+   `:2732`, its `spot =` on `:2733`; the `checkEst` call `:530` → `:534`; `nudgeMark` `:988-997` → `:998-1007`, its
+   dropped `moveMark` `:995` → `:1005`, and the refused restore beside it `:976` → `:980`; the drag's two call sites
+   `SurveyPrepScreen.kt:2748` → `:2819` and `SurveyPrep360.kt:465` → `:467`; `tabsOf(e)` at `SurveyPrep360.kt:299`
+   (not moved) and the painter's at `:830` → `:853`; `SurveyPrepDraw.kt:917` → `:947` and `:1009` → `:1045`.
+8. **batch-next has moved one commit past what was merged** (the same review, finding 3). The merge's parent is
+   `030a2f7f5`; `batch-next` is `b475ae8` since — DESIGN-imagemeter §18 and its pictures redrawn: 18 files, all under
+   `android/docs/port63`, no Kotlin, no i18n table, no `:app` file. So `port63-quad` is NOT batch-next's tip plus Q1,
+   and its next meeting with batch-next is a true merge, never a fast-forward. Mechanically that merge is docs alone:
+   no `:pano` total moves by it, nothing is re-pinned and `Tx` is not regenerated — and its commit says so.
+   **What that commit SAYS is not docs-only for this design.** §18 is Amit's ruling of 16 Nov 2026 — "No foto
+   estimation at all. It confuses user" — and it overrides every `≈` on the phone and names
+   `sp.measure.photo_says_x` as a text that goes. This design was written before it: §2.5's example gives an unread side
+   the photo's `≈` figure, §3.7's plan label and elevation fall back to `≈`, and §2.4's `checkText` says the photo's
+   sentence as its second case (the closing sentence's own `≈` is worked from READINGS, not from the photo; whether it
+   stays is not decided here). **Q2 is re-read against §18 before it is built.** Nothing of Q1 is changed on its
+   account in this commit: Q1 draws nothing, and the ruling is batch-next's to build first.

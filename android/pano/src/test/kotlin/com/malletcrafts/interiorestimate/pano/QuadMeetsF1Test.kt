@@ -361,4 +361,45 @@ class QuadMeetsF1Test {
             for (word in listOf("SHAPE_FREE", "SHAPE_BOX", "shapeRow", "free = ", "freeId")) assertEquals(0, count(text, word), "$name: $word")
         }
     }
+
+    // ---------------------------------------------------------------- the plan for Q2 names what Q2 turns red
+
+    /**
+     * The review of the merge, finding 2 (16 Nov 2026): DESIGN-quad's plan for slice Q2 listed the `:pano` source pins
+     * that move as they stood on 7c49835 -- two tests -- while F1 pinned the very lines Q2 rewrites in four more. A plan
+     * that reads as complete and is not is the fault; so the lines are listed HERE, as `:app` has them today, and every
+     * test that pins one has to be named in DESIGN-quad section 10's note 6. A later slice on batch-next that pins one
+     * of them in a new test turns this red until the note names it. It goes with the test above, in slice Q2.
+     */
+    @Test fun `DESIGN-quad's note for Q2 names every test that pins a line of app slice Q2 rewrites`() {
+        val app = File("../app/src/main/kotlin/com/malletcrafts/interiorestimate")
+        val tests = File("src/test/kotlin/com/malletcrafts/interiorestimate/pano")
+        val doc = File("../docs/port63/DESIGN-quad.md").also { assertTrue(it.isFile, "DESIGN-quad.md is where this test reads it") }.readText()
+        val from = doc.indexOf("\n6. **THE SOURCE PINS THAT MOVE IN Q2")
+        assertTrue(from >= 0, "DESIGN-quad section 10 has no note 6 naming the source pins that move in Q2")
+        val to = doc.indexOf("\n7. **", from); assertTrue(to > from, "note 6 ends where note 7 begins")
+        val note = doc.substring(from, to)
+        // every line of :app that section 6 and section 10's notes 1 to 3 have Q2 rewrite, as it stands today
+        val lines = mapOf(
+            "SurveyPrepScreen.kt" to listOf(
+                "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)",                           // gains `shape = true`
+                "if (!PhaseTools.editable(prep, mid, quoteStage)) { phaseRefuse(",                            // a third: the shape's act
+                "(232 + DeleteGuard.CLEAR_DP).dp.toPx()",                                                     // the menu's height for six rows
+                "SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)",            // gains the corners
+                "MeasureFlow.checkEst(prep, c) { ab(it) }", "say(MeasureText.photoSays(tx, est))"),          // become the one checkText
+            "SurveyPrep360.kt" to listOf(
+                "Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())"),   // gains `free`
+            "SurveyPrepDraw.kt" to listOf(
+                "val hole = if (SurveyPrep.isSpot(sm.t)) spotOf(sm, sq, m, o.dp).let { d ->",                 // the hole is the shape's
+                "DimLayout.mark(o.prep.actual, s, e, o.a, o.b, on, hand, o.active, toPx, du, dp, textW, o.live)"))  // gains `free`
+        val sources = tests.listFiles()!!.filter { it.name.endsWith("Test.kt") }.associate { it.name.removeSuffix(".kt") to it.readText() }
+        assertTrue(sources.size > 90, "the tests are where this test reads them")
+        val named = mutableSetOf<String>()
+        for ((file, ls) in lines) for (line in ls) {
+            assertTrue(File(app, file).readText().contains(line), "$file no longer has `$line`: this list is of another commit")
+            val pinning = sources.filterValues { it.contains(line) }.keys
+            for (t in pinning) { assertTrue(note.contains("`$t`"), "$t pins `$line`, which slice Q2 rewrites, and note 6 does not name it"); named += t }
+        }
+        assertEquals(setOf("DeleteGuardTest", "FeaturesTest", "MeasureScreenTest", "NotePinTest", "PhaseToolsTest", "QuadMeetsF1Test"), named)
+    }
 }
