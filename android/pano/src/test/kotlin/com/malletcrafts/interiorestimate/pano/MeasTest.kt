@@ -362,6 +362,38 @@ class MeasTest {
         assertEquals("Tape", SurveyMeas.typeName(Tx.EN, t)); assertEquals("Marked length", SurveyMeas.typeName(Tx.EN, m)); assertEquals("Marked area", SurveyMeas.typeName(Tx.EN, a))
     }
 
+    @Test fun `a Line's tag shows one figure and says which, an area's gains its perimeter -- and with neither asked it prints what it did`() {
+        // port 63 slice M1 (DESIGN-port63 §1.2): the two new parameters default to what lineTag printed before, so the
+        // saved pictures and a Line still being pulled are byte-identical until the screen passes them (slice M2)
+        val line = listOf(pt(500.0, 1600.0), pt(1300.0, 2200.0))                       // 1000 on the photo
+        val area = listOf(pt(0.0, 0.0), pt(1240.0, 0.0), pt(1240.0, 1500.0))            // 0.93 m², 4686 round
+        // a plotted Line with a reading: THAT figure, never the photo's beside it
+        assertEquals("F-M1 1240 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line, reading = 1240.0))
+        assertEquals("F-M1 1240 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line, reading = 1240.0, approx = true))
+        assertEquals("F-M1 1240 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line, reading = 1240.4, approx = true))
+        // without one, and approx asked: ≈ before the photo's length, as S5 draws it
+        assertEquals("F-M1 ≈1000 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line, approx = true))
+        // with neither: as today
+        assertEquals("F-M1 1000 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line))
+        assertEquals("F-M1 1000 mm", SurveyMeas.lineTag("F-M1", SurveyMeas.LINE, line, null, false))
+        // a Line still being pulled has no code and no reading: "1000 mm", whatever is passed
+        assertEquals("1000 mm", SurveyMeas.lineTag(null, SurveyMeas.LINE, line))
+        assertEquals("1000 mm", SurveyMeas.lineTag(null, SurveyMeas.LINE, line, approx = true))
+        assertEquals("1000 mm", SurveyMeas.lineTag(null, SurveyMeas.LINE, line, reading = 1240.0, approx = true))
+        // an area: its m² as today, and its perimeter after it once read -- figures only, no word
+        assertEquals("F-M2 0.93 m²", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, area))
+        assertEquals("F-M2 0.93 m² · 4690 mm", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, area, reading = 4690.0))
+        // approx does not touch an area: its m² is the photo's by nature, and an unread perimeter is not printed at all
+        assertEquals("F-M2 0.93 m²", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, area, approx = true))
+        assertEquals("F-M2 0.93 m² · 4690 mm", SurveyMeas.lineTag("F-M2", SurveyMeas.AREA, area, reading = 4690.0, approx = true))
+        // an area still being tapped: as today, with or without
+        assertEquals("0.93 m²…", SurveyMeas.lineTag(null, SurveyMeas.AREA, area))
+        assertEquals("0.93 m²…", SurveyMeas.lineTag(null, SurveyMeas.AREA, area, reading = 4690.0, approx = true))
+        assertEquals("", SurveyMeas.lineTag(null, SurveyMeas.AREA, area.take(2), reading = 4690.0))
+        // a tape has its own tag and no reading: nothing here
+        assertEquals("", SurveyMeas.lineTag("F-T1", SurveyMeas.TAPE, line, reading = 1240.0, approx = true))
+    }
+
     @Test fun `an area by taps -- refused off the face, closed by a double tap or the first corner once it has three`() {
         val none = emptyList<DoubleArray>()
         assertEquals(SurveyMeas.Tap.REFUSED, SurveyMeas.areaTap(none, pt(-300.0, 100.0), W, H, false, false))

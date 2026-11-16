@@ -178,4 +178,36 @@ class StepRouteTest {
         assertEquals(92, StepRoute.budgetDp(false, "front", "list", true))
         assertTrue(StepRoute.budgetDp(true, "front", "list", true) <= 82)
     }
+
+    // ------------------------------------------------------------------ the measure bar and its pad (port 63 slice M1)
+
+    @Test
+    fun `the measure bar is 56 dp and a pad row 44, 48 and 36 in landscape, four rows`() {
+        assertEquals(56, StepRoute.measureBarDp(false)); assertEquals(48, StepRoute.measureBarDp(true))
+        assertEquals(44, StepRoute.padRowDp(false)); assertEquals(36, StepRoute.padRowDp(true))
+        assertEquals(4, StepRoute.PAD_ROWS)
+        // bar + pad: 232 dp in portrait, 192 in landscape (DESIGN-port63 §1.4)
+        assertEquals(232, StepRoute.measureBarDp(false) + StepRoute.PAD_ROWS * StepRoute.padRowDp(false))
+        assertEquals(192, StepRoute.measureBarDp(true) + StepRoute.PAD_ROWS * StepRoute.padRowDp(true))
+    }
+
+    @Test
+    fun `in landscape the bar, the tabs, the strip, the measure bar and the open pad fit the column`() {
+        assertEquals(32, StepRoute.LAND_TOPBAR_DP); assertEquals(324, StepRoute.LAND_COLUMN_DP)
+        // the tabs 56 and the strip 24, in English and under मराठी alike
+        for (mr in listOf(false, true)) {
+            assertEquals(56, 2 * StepRoute.tabRowDp(true, false, mr)); assertEquals(24, StepRoute.stripDp(true, false))
+            val column = StepRoute.LAND_TOPBAR_DP + StepRoute.budgetDp(true, "front", "mark", mr) +
+                StepRoute.measureBarDp(true) + StepRoute.PAD_ROWS * StepRoute.padRowDp(true)
+            assertEquals(304, column)                                   // 32 + 56 + 24 + 48 + 144
+            assertTrue(column <= StepRoute.LAND_COLUMN_DP)
+        }
+        // what is left under the top bar, the tabs and the strip is 212 dp: the picked mark's row (about 34), the
+        // measure bar, the palette (52) and the pad together are 278 -- so an open pad takes the palette's and the
+        // row's place (the plan critic's finding 4), and this is why
+        val under = StepRoute.LAND_COLUMN_DP - StepRoute.LAND_TOPBAR_DP - StepRoute.budgetDp(true, "front", "mark", false)
+        assertEquals(212, under)
+        assertTrue(34 + StepRoute.measureBarDp(true) + 52 + StepRoute.PAD_ROWS * StepRoute.padRowDp(true) > under)
+        assertTrue(StepRoute.measureBarDp(true) + StepRoute.PAD_ROWS * StepRoute.padRowDp(true) <= under)
+    }
 }

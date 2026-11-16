@@ -295,10 +295,20 @@ object SurveyMeas {
     fun tapeTag(code: String?, len: Double) = (if (code != null) "$code " else "") + mmTxt(len) // text:value a code and a figure
 
     /** A Line's label on the photo: "F-M1 1234 mm" ("1234 mm" while pulled); an area's "F-M2 1.86 m²" ("1.86 m²…"
-     *  while its corners are tapped, from the third). Codes and figures: byte-equal in every language. */
-    fun lineTag(code: String?, kind: String, pts: List<DoubleArray>): String = when (kind) {
-        LINE -> (if (code != null) "$code " else "") + mmTxt(plen(pts)) // text:value a code and a figure
-        AREA -> if (code != null) "$code ${m2txt(parea(pts))}" else if (pts.size > 2) "${m2txt(parea(pts))}…" else "" // text:value a code and a figure
+     *  while its corners are tapped, from the third). Codes and figures: byte-equal in every language.
+     *
+     *  ONE FIGURE, AND IT SAYS WHICH (port 63 slice M1; DESIGN-port63 §1.2): a plotted Line with a [reading] (its
+     *  `<code>.len`) shows THAT figure, "F-M1 1240 mm"; without one, `≈` stands before the photo's length only when
+     *  [approx] -- "F-M1 ≈1234 mm", as S5 QUOTE draws it. An area keeps its m² and, with a [reading] (its `<code>.per`,
+     *  the perimeter, until now shown nowhere but the list), gains " · 5734 mm" after it; [approx] does not touch an
+     *  area. BOTH DEFAULT TO WHAT THIS PRINTED BEFORE: a Line still being pulled ([code] null) and the saved pictures
+     *  pass neither, so those are byte-identical until slice M3 moves them; only the screen's two callers pass them,
+     *  from slice M2. A Line or an area being drawn ([code] null) has no reading to show and ignores one. */
+    fun lineTag(code: String?, kind: String, pts: List<DoubleArray>, reading: Double? = null, approx: Boolean = false): String = when (kind) {
+        LINE -> if (code == null) mmTxt(plen(pts))
+                else "$code " + (reading?.let { mmTxt(it) } ?: ((if (approx) "≈" else "") + mmTxt(plen(pts)))) // text:value a code and a figure, ≈ the photo-estimate glyph
+        AREA -> if (code != null) "$code ${m2txt(parea(pts))}" + (reading?.let { " · " + mmTxt(it) } ?: "") // text:value a code and its figures
+                else if (pts.size > 2) "${m2txt(parea(pts))}…" else "" // text:value a figure
         else -> ""
     }
 

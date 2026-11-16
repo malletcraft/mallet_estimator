@@ -1,0 +1,22 @@
+# MARATHI PENDING (port 63, DESIGN-port63 §3). Amit, 16 Nov 2026: "Survey to Quote journey is priority. Let amit
+# verify it end to end in English then only start Marathi transformation." So a key added for the journey is built
+# and verified in English first: its value in strings-mr.json is its ENGLISH for now, and the key is listed here.
+# THESE KEYS WAIT FOR AMIT'S END-TO-END VERIFICATION OF THE SURVEY TO QUOTE JOURNEY IN ENGLISH. Nobody writes their
+# Marathi before that. A key leaves this list in the commit that writes its Marathi, and from then on TxRenderTest's
+# Latin scans read it like every other key.
+#   key<TAB>English   the English exactly as strings-en.json has it (MrPendingTest holds the three equal, byte for byte)
+# TxRenderTest's two Latin scans skip the keys listed here, and only those. No existing Marathi value is ever listed.
+key	English
+sp.measure.all	all
+sp.measure.aria.all	Every figure on this face
+sp.measure.aria.previous	The measurement before
+sp.measure.aria.skip	Skip to the next measurement
+sp.measure.aria.type	Type the figure
+sp.measure.face_done_x	{face} · all {total} measured ✓
+sp.measure.next_face_x	Next: {face} · {n} to measure ▸
+sp.measure.not_in_room	Not in the room — a mark placed after the survey has nothing to measure
+sp.measure.photo_says_x	The photo says ≈{est} mm. Check the mark, or shoot again.
+sp.measure.room_done_x	Room measured · all {total} ✓
+sp.measure.x_of_x	{read} of {total} measured
+sp.measure.x_to_measure	{n} to measure
+sp.reference_shown_measure	Reference shown on 2 · Mark, 3 · Measure and 4 · 360

@@ -871,3 +871,47 @@ code — and finding 7 is applied in part: one piece of its fix is declined, wit
 | 15 | In 2 · Mark the plates must keep the picked mark's tab clearance (minor) | **Confirmed.** `hand` at `SPD:813`, `widthTag` / `heightTag` at `pano/SurveyPrepTouch.kt:53-59` | §1.6's last paragraph; `DimLayout`'s `PICKED` scope and its test. **Corrected from the code:** `trashSpot` is given the tags' TAP boxes (`tags.map { it.box }`, `SPS:3057`), not their drawn boxes; the design says tap boxes |
 | 16 | Three small points a `:app` builder cannot check here (minor) | **Confirmed.** (a) every tab is `weight(1f)` in its row (`SPS:1301-1313`); (b) no haptic call and no vibrate permission exist in the app (`AndroidManifest.xml`); `HapticFeedbackType.TextHandleMove` has been in Compose UI since 1.0 and the app's BOM is `2024.12.01` (`app/build.gradle.kts:126`) — not resolvable in this container, so CI is what proves the import; (c) the laser writes `prep.actual[code] = v` in `reading()` (`SPS:493`) and `ReadingsSync` merges into the same map | (a) §1.3; (b) §1.4 and M2 item 4, with the imports; (c) M2's source pin reworded and scoped to `SPS` and `app/SurveyMeasure.kt` |
 | 17 | Three of the journey reader's decisions were dropped without a word (minor) | **Confirmed** against the design, and each topic exists in the code (the vendor states in `pano/MarkLife.kt:43-45`, the twelve services in `pano/WishList.kt`, `scope` as a state and as the sixteen works, the single photo's capture). The reader's own list is not in the repository, so its numbering is the finding's | §7 "Held for after walk 1" |
+
+## 9. M1 as built (16 Nov 2026)
+
+Slice M1 is built: the pure models in `:pano`, nothing on screen. `port63-measure` took `port63-sp0` first, by a merge
+(`9d619ae`); the `:pano` suite after the merge and before M1 was 87 classes, 1,249 tests, 0 failures. With M1 it is
+93 classes, 1,304 tests, 0 failures (55 more: `MarkDimsTest` 11, `DimLayoutTest` 15, `MeasureWalkTest` 7,
+`MeasurePadTest` 9, `MeasureTextTest` 5, `i18n/MrPendingTest` 5, two in `StepRouteTest`, one in `MeasTest`). `:app` was
+not compiled here and nothing has been seen on a phone. 1,924 keys (13 added, their Marathi pending); 1,853 accessors.
+
+What slice M2 calls, as it is in the code (the KDoc of each file is the full account):
+
+| File | What M2 uses |
+|---|---|
+| `pano/MarkDims.kt` | `of(s, e, a, b)` → `Dim(key, code, role, what, est, x1, y1, x2, y2, line, known)`; `asked(e)`; `inPlane(s, e, a, b)`; `value(actual, s, e, code, est, a, b)` → `Value(text, state, check)`; `check(read, est, inPlane)`; `done(prep, s, e, a, b)`; `shown(value, role, active)` (the plate's text with `▶` and `⊥ `); `style(state, active)` → `Style(ink, bold, fill, fillAlpha, outline, dashed)`; the glyphs `ACTIVE_GLYPH` `DEPTH_GLYPH` `CHECK_GLYPH` `DONE_GLYPH`; `LINE_COLOUR`, `LINE_ALPHA`, `CHECK_COLOUR` |
+| `pano/DimLayout.kt` | `mark(actual, s, e, a, b, picked, tabs, active, toPx, u, textW)` builds one mark's input (the painter passes its text measurer); `place(marks, scope, width, height, keep, u, dp, times)` → `Out(plates)` with `of(code)`, `tags`, `dots`; a `Plate` has `fig` (with `text`, `state`, `check`, `active`, `fs`, `line`), `how` (`ON_LINE`, `OFF_LINE`, `HAND`, `CHIP`, `COMPACT`, `DOT`), `box`, `tap`, `turned`, `leader`, `arrowsIn`, `whole`; `textLeft` / `baseline`; `shows(scope, picked, role)`; `textSize(picked, u)`; `tabBoxes`; the constants `SurveyPrepDraw.dims` held |
+| `pano/MeasureWalk.kt` | `stops`, `left`, `next`, `previous`, `count` → `Count(read, total)` with `left` and `done`, `room`, `nextFace` → `Face(s, left)`, `stopsOf`, `step`, `marks`, `FACES` |
+| `pano/MeasurePad.kt` | `start(stored)`, `press(state, Key.Digit(n) / Key.Back / Key.Clear)`, `live(state)`, `commit(stored, state)` (= `MmBox.commit`) |
+| `pano/MeasureText.kt` | `label`, `cell` → `Cell(code, under)` with `text`, `progress`, `faceDone`, `nextFace`, `roomDone`, `photoSays`, `notInRoom` |
+| `pano/StepRoute.kt` | `measureBarDp(land)`, `padRowDp(land)`, `PAD_ROWS`, `LAND_TOPBAR_DP`, `LAND_COLUMN_DP` |
+| `pano/SurveyMeas.kt` | `lineTag(code, kind, pts, reading = null, approx = false)` |
+
+Decided by Claude while building, beyond what §4 says; each is in the code's own comments and held by a test:
+
+1. **A plate that finds no room beside its line tries once more, one plate further out, before it becomes a dot**
+   (rule 3 of §1.6, widened). Without it a picked electric point 180 mm from a corner and 300 from the floor had one of
+   its two figures as a dot on the 340 dp photo, with room an inch away. With it, the example wall shows no dot in
+   3 · Measure whichever mark is picked and whichever of its dimensions is active.
+2. **With `all` on the example wall places all 19 with 2 dots at fit** (the corner point's two figures), pinned as
+   `DimLayoutTest.ALL_DOTS`. Zoom spreads them, as §7 says.
+3. **A `p`'s chip on a mark that shows its tabs stands off the corner by the tags' own clearance** (8 units, 6 dp at
+   least), not 4: at 4 every one of its four places touched the corner's tab, and a picked door's chip was a dot.
+4. **In 2 · Mark the hand-anchored `w` and `h` tags give way like any plate when their place is taken.** On the example
+   wall the switch plate's code stands exactly where the picked door's `h` tag goes; the tag then sits upright a
+   quarter along its line. In 0.3.332 the tag was simply drawn over the code. If Amit prefers that in 2 · Mark, M2
+   passes no code boxes in `keep` for `Scope.PICKED`: nothing else changes.
+5. **A dimension is "too short for its plate" under plate + 8 dp** (the small box's own figure), on the line a plate
+   stays half of that clear of each end, plates stay 2 units inside the photo and 1 off each other, and a compact
+   plate stands 10 units off its box. These are first figures, seen on the Mi A3 with M2.
+6. **`MrPendingTest` reads the tables**, so `I18nTestHygieneTest` names it among the files that may, for its one
+   property; it also holds that every pending key is a phone text and that `TxRenderTest`'s leak scan skips nothing
+   but the laser test's log lines and the list.
+7. **The new test names are plain ASCII.** A test whose name holds `·` and whose body holds a local function or a
+   lambda compiled to its own class could not be written to disk by this container's Kotlin daemon (the class file
+   is named after the test); older tests with `·` in their names have no such body.

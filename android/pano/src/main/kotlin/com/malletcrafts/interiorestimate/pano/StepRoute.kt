@@ -126,4 +126,31 @@ object StepRoute {
         val list = listView(tab, mode)
         return 2 * tabRowDp(land, list, mr) + if (showStrip(tab)) stripDp(land, list) else 0
     }
+
+    // ------------------------------------------------------------------ the measure bar and its pad (port 63 slice M1)
+
+    /*
+     * MEASURING HAPPENS ON THE PHOTO (DESIGN-port63 §1.4): under it, one bar -- label · ‹ · two lines · the figure box
+     * · D2 · › -- and, only when asked for, the app's own pad of four rows under the bar. Their heights are here so the
+     * arithmetic of what still fits is tested in this module; nothing draws them yet (slice M2), and the steps, the
+     * tabs and the budgets above are unchanged until then.
+     */
+
+    /** The measure bar, dp: 56 in portrait, 48 in landscape. */
+    fun measureBarDp(land: Boolean): Int = if (land) 48 else 56
+
+    /** One row of the pad, dp: 44 in portrait, 36 in landscape. */
+    fun padRowDp(land: Boolean): Int = if (land) 36 else 44
+
+    /** The pad's rows: 1 2 3 ⌫ / 4 5 6 Clear / 7 8 9 Next / ⌄ 0 (Next, two rows tall). */
+    const val PAD_ROWS = 4
+
+    /** Landscape's column of controls, as SurveyPrepScreen lays it out (a ~336 dp window under the status bar, less
+     *  its 12 dp of padding): the top bar, dp ... */
+    const val LAND_TOPBAR_DP = 32
+
+    /** ... and the column's whole height, dp. The bar, the tabs, the strip, the measure bar and the open pad must fit
+     *  in it (StepRouteTest); the palette and the picked mark's row do NOT fit beside the pad, which is why an open pad
+     *  takes their place in 2 · Mark and 4 · 360. */
+    const val LAND_COLUMN_DP = 324
 }

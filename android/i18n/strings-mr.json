@@ -4420,6 +4420,54 @@
  "sp.marked_length": {
   "mr": " मार्क केलेली लांबी"
  },
+ "sp.measure.all": {
+  "mr": "all",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.aria.all": {
+  "mr": "Every figure on this face",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.aria.previous": {
+  "mr": "The measurement before",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.aria.skip": {
+  "mr": "Skip to the next measurement",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.aria.type": {
+  "mr": "Type the figure",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.face_done_x": {
+  "mr": "{face} · all {total} measured ✓",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.next_face_x": {
+  "mr": "Next: {face} · {n} to measure ▸",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.not_in_room": {
+  "mr": "Not in the room — a mark placed after the survey has nothing to measure",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.photo_says_x": {
+  "mr": "The photo says ≈{est} mm. Check the mark, or shoot again.",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.room_done_x": {
+  "mr": "Room measured · all {total} ✓",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.x_of_x": {
+  "mr": "{read} of {total} measured",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
+ "sp.measure.x_to_measure": {
+  "mr": "{n} to measure",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
+ },
  "sp.measured_x_x_x": {
   "mr": "मोजले {ta} {A} × {tb} {B} · लेझर {LS0} × {LS1}"
  },
@@ -4610,6 +4658,10 @@
  },
  "sp.reference_shown_2_mark": {
   "mr": "संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर दिसतो"
+ },
+ "sp.reference_shown_measure": {
+  "mr": "Reference shown on 2 · Mark, 3 · Measure and 4 · 360",
+  "note": "port 63 M1: NOT TRANSLATED YET -- English first (Amit, 16 Nov 2026). This value is the English, listed in android/i18n/mr-pending.tsv; the Marathi is written, and the key leaves that list, only after Amit has verified the survey to quote journey end to end in English"
  },
  "sp.right": {
   "mr": " उजवीकडे",

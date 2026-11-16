@@ -59,6 +59,19 @@ screen. Port 61c slice L2 adds keys and no reader.
    sign-in sheet) get Marathi written by Claude straight into these tables, in the slice that keys the
    screen; Claude also finalises the card's wording. Amit tests it on the phone once the row is on.
 
+## Amit's decision, 16 Nov 2026: English first
+
+7. **"Survey to Quote journey is priority. Let amit verify it end to end in English then only start Marathi
+   transformation."** Said on resuming after his first use of the app on a client site (15 Nov). It NARROWS decision 6
+   for the texts of the survey → quote journey (port 63), it does not undo it: a NEW key is still born keyed, here, so
+   the later Marathi pass is a table edit and no code change -- but nobody composes its Marathi yet. Its value in
+   `strings-mr.json` is its ENGLISH for the time being, and the key is listed in **`mr-pending.tsv`**
+   (`key<TAB>English`). When Amit has verified the journey end to end in English, the Marathi is written by Claude as
+   decision 6 says, and each key leaves the list in the commit that translates it. **No existing Marathi value is
+   removed or changed by this**: every text the app already showed in Marathi still does, and under मराठी a screen
+   reads Marathi with its pending texts in English, exactly as a screen not yet keyed did during the port.
+   What keeps the list honest is below, under "What the checks refuse".
+
 ## The v61c card (port 61c slice L2, 28 Oct 2026)
 
 L2 added 194 keys (1,607 -> 1,801) and no reader: 171 are the phone's own texts on screens the prototype
@@ -831,17 +844,67 @@ is born read. `PaletteTest` holds every More row, tile, chip and kind list to th
 Marathi (`proto-palette-rows.txt`, printed by `docs/port62/proto-tables.mjs` from the page's modules); `MarkSheetTest`
 holds KIND and the Note's sheet to it row for row (`proto-sheet-rows.txt`).
 
+## Port 63 slice M1 (16 Nov 2026): the models of measuring on the photo, born keyed -- 13 keys added, English first
+
+Port 63 is the measuring screen Amit asked for on 15 Nov 2026, after his first use of the app on a client site: "Having
+both measurements foto and measured and both is very confusing while using app. The laundry list of measurements shown
+below screen is also frustrating. … imagemeter shows all dimensions on the annotation there itself which is easy to
+use." (`android/docs/port63/DESIGN-port63.md`). Slice M1 is its pure models, **nothing on screen**: five new `:pano`
+files join `ported.txt` at 0 in `literal-counts.tsv` -- `pano/MarkDims.kt` (a mark's dimensions, by its checklist's own
+keys; its glyphs `▶ ⊥ ! ✓` are marked `// text:value`), `pano/DimLayout.kt` (where each plate goes), `pano/MeasureWalk.kt`
+(the order and the counts), `pano/MeasurePad.kt` (the pad's digits) and `pano/MeasureText.kt` (the measure bar's texts).
+What is read:
+
+- **The bar's first line** (`MeasureText.label`): the measure's own words, alone -- the `measure.*` keys, `life.length`,
+  `measure.perimeter`, `sp.segment` and `measure.total`, exactly as the checklist's `Msg` already gave them.
+- **The label cell** (`MeasureText.cell`): a mark's code over its type's short name (`Masters.type_short`, as a palette
+  slot prints it) or `sp.locked`.
+- **Six of the new keys** (`MeasureText.progress`, `faceDone`, `nextFace`, `roomDone`, `photoSays`, `notInRoom`), a
+  face's name through `Masters.surface`.
+
+**Thirteen keys added**, each a phone text (flag `phone-text`), ENGLISH FIRST (decision 7 above): the Marathi value of
+each IS its English for now, with a note saying so, and all thirteen are listed in `mr-pending.tsv`.
+
+| Key | English | Read by |
+|---|---|---|
+| `sp.measure.x_of_x` | `{read} of {total} measured` | `MeasureText.progress` |
+| `sp.measure.face_done_x` | `{face} · all {total} measured ✓` | `MeasureText.faceDone` |
+| `sp.measure.next_face_x` | `Next: {face} · {n} to measure ▸` | `MeasureText.nextFace` |
+| `sp.measure.room_done_x` | `Room measured · all {total} ✓` | `MeasureText.roomDone` |
+| `sp.measure.photo_says_x` | `The photo says ≈{est} mm. Check the mark, or shoot again.` | `MeasureText.photoSays` |
+| `sp.measure.not_in_room` | `Not in the room — a mark placed after the survey has nothing to measure` | `MeasureText.notInRoom` |
+| `sp.measure.x_to_measure` | `{n} to measure` | slice M2 (a face tab's count, read out) |
+| `sp.measure.all` | `all` | slice M2 (the toggle beside fit and grid; lower case as they are -- `common.all` is the capitalised chip) |
+| `sp.measure.aria.all` | `Every figure on this face` | slice M2 |
+| `sp.measure.aria.previous` | `The measurement before` | slice M2 (`‹`) |
+| `sp.measure.aria.skip` | `Skip to the next measurement` | slice M2 (`›`) |
+| `sp.measure.aria.type` | `Type the figure` | slice M2 (the bar's figure box) |
+| `sp.reference_shown_measure` | `Reference shown on 2 · Mark, 3 · Measure and 4 · 360` | slice M2 (`SurveyRef`, in place of `sp.reference_shown_2_mark`, whose step 3 is the list) |
+
+Every placeholder is a description, so each is a `String` parameter (a count goes in as its digits). **No existing key
+is changed, and no existing Marathi value**: the diff of `strings-mr.json` is thirteen additions. `sp.reference_shown_2_mark`
+keeps its reader until slice M2 changes the step, and stays in the tables after it.
+
+**Stored in English, never through a key**: a reading's key (`FD1.w`, `F-M1.len`, `FK1.2`) and a mark's code, which
+`MarkDims`, `MeasureWalk` and `DimLayout` pass about and never show through a table; `SurveyMeas.lineTag`'s new figures
+(`F-M1 ≈1234 mm`, `F-M2 1.86 m² · 5734 mm`) are codes and figures, byte-equal in both languages as its old ones are.
+
+1,924 keys (1,911 + 13); Tx regenerated with `:pano:i18nGen` (1,853 accessors, the same 14 refused, 20 master maps);
+`i18nRatchet` lowered nothing and entered the five new files at 0; `unkeyed.tsv` stays empty; the accessors nothing
+calls BY NAME go 640 -> 647: the seven keys slice M2 will read.
+
 ## What is here
 
 | File | What it is | Who writes it |
 |---|---|---|
-| `strings-en.json`, `strings-mr.json` | The two tables, 1,911 keys each (counted 12 Nov 2026, each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5 and 1 in slice L6): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 119 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`) and 1 in its slice L6 (`life.kind`). 290 of the 1,911 carry the flag `phone-text` (the card's 171 and these 119). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
+| `strings-en.json`, `strings-mr.json` | The two tables, 1,924 keys each (counted 16 Nov 2026, each step from that commit's own table; 1,907 at the build 2 merge, above, 3 in slice L5, 1 in slice L6 and 13 in port 63 slice M1): the prototype's 1,607 (v61c.1) and the v61c card's 194 (L2), less the 14 ORPHAN v59 album keys (K1b) and the 2 ORPHAN phase.aria keys (PL), plus the 7 prototype keys of port 62 slice A2 (item P0, above), plus 132 phone texts added since the card: 9 through K3 (4 in K1b, 2 in M4 and its review, 1 in QM0, 1 in the FW2 review, 1 in K3 after its review, above), 3 in M3b, 1 in M2, 16 in M6, 81 in M8, 1 in the L1 review of port 62 (`trade.hvac.short`), 2 in its L2 review (`life.vadd.badge`, `life.drop.verb`), 2 in its slice L3 (`life.note_length_optional`, `life.note_area_optional`) 3 in its slice L5 (`t53.a`, `t53.an`, `type.sub.wc`), 1 in its slice L6 (`life.kind`) and 13 in port 63 slice M1 (the twelve `sp.measure.*` keys and `sp.reference_shown_measure`, whose Marathi is pending: `mr-pending.tsv`). 303 of the 1,924 carry the flag `phone-text` (the card's 171 and these 132). In the prototype's byte format (one-space JSON, no trailing newline) and key order (family, then key); never reformatted. | a reviewed commit here |
 | `masters.tsv` | Which keys show an identity value (a room, a stage, a mark type) whose key is not in its own family. Read into `Masters.kt`. | by hand |
 | `index.tsv` | One row per key: key, accessor on `Tx`, kind, parameters (or why it has none). Grep it in either direction. | GENERATED |
 | `unkeyed.tsv` | The worklist: each shown text that is not keyed yet (file, text exactly as in the source). It only shrinks. | each slice removes its rows |
 | `ported.txt` | Files whose every shown text is keyed. | each slice adds its files |
 | `literal-counts.tsv` | Per-file count of prose literals outside UI positions, minus those listed in `unkeyed.tsv` or marked `// text:value`: the ratchet. | `i18nRatchet` (only lowers counts) |
 | `latin-ok.txt` | The Latin words a Marathi text may contain: units, product names, codes, demo names, months. | by hand, with a reason |
+| `mr-pending.tsv` | The keys whose Marathi is still their English (decision 7, 16 Nov 2026: English first): `key<TAB>English`. They wait for Amit's end-to-end verification of the survey → quote journey in English. It only shrinks once that Marathi is written. | the slice that adds a key in English adds its row; the commit that translates it removes it |
 | `deny-patterns.txt` | The shapes that must never be in the tables, keys included: email, mobile and landline numbers, 10-digit number, currency figure, lakh/crore, PIN code. | by hand |
 
 GenTx also writes `Tx.kt`, `TxEn.kt`, `TxMr.kt` and `Masters.kt` into
@@ -932,7 +995,8 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   only the entry's position is named.
 - **Rendering** (`TxRenderTest`):
   - a Latin word in a Marathi rendering that is not in `latin-ok.txt`, or an entry in that list that
-    nothing uses any more;
+    nothing uses any more. Both scans SKIP the keys listed in `mr-pending.tsv`, and only those (decision 7): a
+    pending key's "Marathi" is its English, so it neither fails the leak scan nor keeps a `latin-ok.txt` entry alive;
   - a `{placeholder}` left in any rendering;
   - a separator printed twice, with each optional tail filled from the fragment key at its prototype
     location;
@@ -940,6 +1004,15 @@ Each check puts all of its offenders in one assertion message. On CI each check 
     `"mr"` as English;
   - a split template's case (the v61c card's group 2) stops rendering as its whole sentence, in English
     or in Marathi: each one is pinned with a literal.
+- **The Marathi-pending list** (`MrPendingTest`), which is what keeps that skip the size of the list:
+  - a key listed twice; a listed key that is not in both tables;
+  - a listed key whose Marathi is not BYTE FOR BYTE its English, or whose English is not the list's own second
+    column -- so a key that has been translated cannot stay listed, and no existing key with real Marathi can be put
+    behind the skip;
+  - a listed key that is not a phone text (flag `phone-text`);
+  - `TxRenderTest`'s leak scan skipping anything but the laser test's log lines and this list, or either scan no
+    longer reading the list (read from the test's own source);
+  - the list's `#` header no longer saying what the keys wait for.
 - **Identity values** (`MastersTest`):
   - a stored identity value (a stage, work, state, room, site type, mark type, surface, service) that
     does not show its own English bytes under English, or has no Marathi name. The pass-through list
@@ -978,7 +1051,8 @@ Each check puts all of its offenders in one assertion message. On CI each check 
     commented-out gate is refused too.
 - **The tests themselves** (`I18nTestHygieneTest`): an `assertEquals(Tx.…)`; a test that reads the
   tables or the model built from them (`I18n.model`, `byKey`) other than `I18nTableTest` (properties
-  only) and `TxRenderTest` (accessor names and types only); or `TxRenderTest` reading an entry's text.
+  only), `TxRenderTest` (accessor names and types only) and `MrPendingTest` (one property: a pending key's Marathi
+  is its English and the list's own column); or `TxRenderTest` reading an entry's text.
   Comparing the table with itself proves nothing.
 
 ## Rules that do not change
@@ -989,6 +1063,8 @@ Each check puts all of its offenders in one assertion message. On CI each check 
   21 Oct). Digits stay Latin, and months stay Jan–Dec (decision 3 of 21 Oct).
 - **No text is invented on the phone.** A text with no key stays English and listed in `unkeyed.tsv`
   until a reviewed commit here keys it: the v61c card's 194 (L2), or, for a screen the prototype never
-  had, the Marathi Claude writes in the slice that keys it (decision 6).
+  had, the Marathi Claude writes in the slice that keys it (decision 6) -- and, for the survey → quote journey
+  (decision 7, 16 Nov 2026), a key born in English whose Marathi waits in `mr-pending.tsv` until Amit has verified
+  the journey.
 - **This repository is public.** The tables hold no client names, phone numbers, emails, rates or vendor
   names, and the checks above refuse any.

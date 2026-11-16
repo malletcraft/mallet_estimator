@@ -21,9 +21,11 @@ class I18nTestHygieneTest {
     /**
      * The files that may read the tables, each for a reason: I18n.kt builds the model; I18nTableTest asserts
      * properties of it and compares no value; TxRenderTest walks it for accessor names, kinds and parameter
-     * types to render the whole table, and never reads an entry's text.
+     * types to render the whole table, and never reads an entry's text. MrPendingTest (port 63 slice M1) holds
+     * android/i18n/mr-pending.tsv to the tables: a listed key's Marathi IS its English, byte for byte, and both are the
+     * list's own second column -- a property of the pair against a hand-written file, never a pin taken from the table.
      */
-    private val MAY_READ = setOf("I18n.kt", "I18nTableTest.kt", "TxRenderTest.kt")
+    private val MAY_READ = setOf("I18n.kt", "I18nTableTest.kt", "TxRenderTest.kt", "MrPendingTest.kt")
 
     /** An entry's text read in TxRenderTest: `byKey….en`, or `e.mr` / `it.en` / `entry.mr` on a model entry. */
     private val VALUE_READ = Regex("""(?:\bbyKey\b[^\n]*|\b(?:e|it|entry|f)\b)\s*\.\s*(?:en|mr)\b""")

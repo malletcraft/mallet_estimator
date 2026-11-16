@@ -1352,6 +1352,18 @@ sp.lwh.title	sp_lwh_title	static	-
 sp.marked_area	sp_marked_area	static	-
 sp.marked_area_x	sp_marked_area_x	template	v: String
 sp.marked_length	sp_marked_length	static	-
+sp.measure.all	sp_measure_all	static	-
+sp.measure.aria.all	sp_measure_aria_all	static	-
+sp.measure.aria.previous	sp_measure_aria_previous	static	-
+sp.measure.aria.skip	sp_measure_aria_skip	static	-
+sp.measure.aria.type	sp_measure_aria_type	static	-
+sp.measure.face_done_x	sp_measure_face_done_x	template	face: String · total: String
+sp.measure.next_face_x	sp_measure_next_face_x	template	face: String · n: String
+sp.measure.not_in_room	sp_measure_not_in_room	static	-
+sp.measure.photo_says_x	sp_measure_photo_says_x	template	est: String
+sp.measure.room_done_x	sp_measure_room_done_x	template	total: String
+sp.measure.x_of_x	sp_measure_x_of_x	template	read: String · total: String
+sp.measure.x_to_measure	sp_measure_x_to_measure	template	n: String
 sp.measured_x_x_x	sp_measured_x_x_x	template	ta: String · A: String · tb: String · B: String · LS0: String · LS1: String
 sp.mi_a3_360_780	-	skipped	prototype-only
 sp.mi_a3_x_dp	-	skipped	prototype-only
@@ -1410,6 +1422,7 @@ sp.reference	sp_reference	static	-
 sp.reference_2	sp_reference_2	static	-
 sp.reference_hidden_faces_still	sp_reference_hidden_faces_still	template	v: String
 sp.reference_shown_2_mark	sp_reference_shown_2_mark	static	-
+sp.reference_shown_measure	sp_reference_shown_measure	static	-
 sp.right	sp_right	static	-
 sp.room_size_l_x	sp_room_size_l_x	template	L: String · W: String · H: String
 sp.room_size_l_x_2	sp_room_size_l_x_2	template	z0: String · z1: String · z2: String

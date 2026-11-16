@@ -209,9 +209,15 @@ class TxRenderTest {
     @Test fun `no Latin word leaks into a Marathi rendering`() {
         val ok = latinOk()
         val diag = I18n.model.entries.filter { "diagnostic-log" in it.flags }.map { it.key }.toSet()
+        // ENGLISH FIRST (port 63; Amit, 16 Nov 2026): a key listed in android/i18n/mr-pending.tsv has its English as its
+        // Marathi until he has verified the journey end to end. Those keys are skipped here, AND ONLY THOSE --
+        // MrPendingTest holds the list to keys whose Marathi is byte for byte their English, so a key with real
+        // Marathi cannot hide a Latin word behind it, and a key leaves the list in the commit that translates it.
+        val pending = I18n.pending
         val off = ArrayList<String>()
         for ((key, name, text) in Rendered.mr) {
             if (key in diag) continue     // the laser test's log: English by the 21 Oct decision
+            if (key in pending) continue  // not translated yet: listed, and held to its English by MrPendingTest
             run.findAll(text).map { it.value }.filter { !allowed(ok, it, key) }.distinct()
                 .forEach { off += "$key ($name): '$it'" }
         }
@@ -221,7 +227,9 @@ class TxRenderTest {
     @Test fun `latin-ok txt lists only runs some Marathi rendering still uses`() {
         // the list itself is pruned: an entry nothing needs is a hole somebody will one day walk through
         val ok = latinOk()
-        val used = Rendered.mr.flatMap { (key, _, text) -> run.findAll(text).map { it.value to key }.toList() }
+        // a pending key's "Marathi" is its English (mr-pending.tsv): it keeps no entry of this list alive
+        val pending = I18n.pending
+        val used = Rendered.mr.filter { it.first !in pending }.flatMap { (key, _, text) -> run.findAll(text).map { it.value to key }.toList() }
         val stale = ok.filter { (tok, where) -> used.none { (r, key) -> r == tok && (where.isEmpty() || where.any { w -> if (w.endsWith("*")) key.startsWith(w.dropLast(1)) else key == w }) } }
         I18n.check("latin-ok.txt", stale.map { it.first + (if (it.second.isEmpty()) "" else " (${it.second.joinToString(",")})") },
             "android/i18n/latin-ok.txt lists a Latin run no Marathi rendering has any more: remove the line")

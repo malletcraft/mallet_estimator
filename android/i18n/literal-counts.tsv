@@ -77,6 +77,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CameraPort.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureGeometry.kt	2
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/CaptureSchema.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DeleteRoute.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/DimLayout.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Disto.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FaceNote.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FacePrep.kt	0
@@ -85,9 +86,13 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/FlatPresets.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/GestureClassifier.kt	1
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Handover.kt	4
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/LaserNote.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkDims.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkSheet.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkTypes.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasurePad.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureText.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureWalk.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MmBox.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/NotePin.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/Pano360.kt	5
