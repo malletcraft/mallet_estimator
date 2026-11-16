@@ -83,7 +83,7 @@ class MeasureBarLayoutTest {
         assertEquals(4, MeasureBarLayout.gapBefore(Part.LINES, Part.BOX)); assertEquals(4, MeasureBarLayout.gapBefore(Part.LINES, Part.NEXT_FACE))
         // the slots as laid out: each part's own width, the dead bar before it
         val sl = MeasureBarLayout.slotsOf(whole)
-        assertEquals(listOf(52, 32, 32, 0, 64, 48), sl.map { it.widthDp })
+        assertEquals(listOf(52, 36, 36, 0, 64, 48), sl.map { it.widthDp })
         assertEquals(listOf(0, 4, 0, 4, 4, 12), sl.map { it.gapDp })
         assertEquals(whole, sl.map { it.part })
         // HOW FAR EVERY PART THAT TAKES A PRESS IS FROM D2: the box 12 dp; the arrows the whole of the box and the words
@@ -91,7 +91,7 @@ class MeasureBarLayoutTest {
         val clear = MeasureBarLayout.clearOfD2(whole)
         assertEquals(setOf(Part.CELL, Part.PREV, Part.NEXT, Part.BOX), clear.keys, "the two lines take no press")
         assertEquals(12, clear.getValue(Part.BOX))
-        assertEquals(12 + 64 + 4 + 4, clear.getValue(Part.NEXT)); assertEquals(12 + 64 + 4 + 4 + 32, clear.getValue(Part.PREV))
+        assertEquals(12 + 64 + 4 + 4, clear.getValue(Part.NEXT)); assertEquals(12 + 64 + 4 + 4 + 36, clear.getValue(Part.PREV))
         assertTrue(clear.values.all { it >= 12 }, "$clear")
         assertTrue(clear.getValue(Part.NEXT) >= 80, "the arrow pressed after every skipped reading is 84 dp and the words away; in M2 it was 4")
         // in every bar the screen can draw -- with and without the label, with one key and so no arrows, with no figure
@@ -110,26 +110,48 @@ class MeasureBarLayoutTest {
         assertEquals(310, column); assertTrue(column + 4 <= StepRoute.LAND_COLUMN_DP, "with 3 - Measure's 4 dp over the bar")
     }
 
-    @Test fun `the width budget - the two lines get 76 dp in portrait and 54 in landscape under the whole bar`() {
+    @Test fun `no part that takes a press is under 36 dp wide - the arrows keep what M2 gave them, side by side`() {
+        // THE F1 REVIEW, finding 2: F1 as built paid for D2's distance out of the arrows, 36 -> 32 dp each. An arrow is
+        // pressed after every reading he skips; a narrower button beside another is not how a button stops being fired
+        // by accident. The words pay instead.
+        assertEquals(36, MeasureBarLayout.TOUCH_MIN_DP)
+        for (part in Part.values()) if (MeasureBarLayout.takesPress(part))
+            assertTrue(MeasureBarLayout.widthOf(part) >= MeasureBarLayout.TOUCH_MIN_DP, "$part is ${MeasureBarLayout.widthOf(part)} dp wide")
+        assertEquals(36, MeasureBarLayout.ARROW_DP); assertEquals(MeasureBarLayout.widthOf(Part.PREV), MeasureBarLayout.widthOf(Part.NEXT))
+        // the pair: nothing between them -- every dp of the 72 is one arrow's or the other's, and 4 dp of bar either side
+        assertEquals(0, MeasureBarLayout.gapBefore(Part.PREV, Part.NEXT))
+        val sl = MeasureBarLayout.slotsOf(whole)
+        val prev = sl.first { it.part == Part.PREV }; val next = sl.first { it.part == Part.NEXT }
+        assertEquals(72, prev.widthDp + next.gapDp + next.widthDp)
+        assertEquals(4, prev.gapDp); assertEquals(4, sl[sl.indexOf(next) + 1].gapDp)
+        // the two arrows' middles are 36 dp apart: what M2's one arrow was wide
+        assertEquals(36, prev.widthDp / 2 + next.gapDp + next.widthDp / 2)
+        // and D2 is no nearer for it: still 84 dp and the words from the arrow pressed most
+        assertEquals(84, MeasureBarLayout.clearOfD2(whole).getValue(Part.NEXT))
+    }
+
+    @Test fun `the width budget - the two lines get 68 dp in portrait and 46 in landscape under the whole bar`() {
         assertEquals(340, MeasureBarLayout.barDp(false)); assertEquals(318, MeasureBarLayout.barDp(true))
         assertEquals(6, MeasureBarLayout.PAD_DP)
-        // 3 - Measure, a dimension being measured: label 52, the arrows 32 + 32, the box 64, D2 48, gaps 4 + 0 + 4 + 4 + 12
-        assertEquals(76, MeasureBarLayout.linesDp(whole, 340)); assertEquals(54, MeasureBarLayout.linesDp(whole, 318))
-        assertEquals(340 - 12 - (52 + 32 + 32 + 64 + 48) - (4 + 0 + 4 + 4 + 12), MeasureBarLayout.linesDp(whole, MeasureBarLayout.barDp(false)))
+        // 3 - Measure, a dimension being measured: label 52, the arrows 36 + 36, the box 64, D2 48, gaps 4 + 0 + 4 + 4 + 12
+        assertEquals(68, MeasureBarLayout.linesDp(whole, 340)); assertEquals(46, MeasureBarLayout.linesDp(whole, 318))
+        assertEquals(340 - 12 - (52 + 36 + 36 + 64 + 48) - (4 + 0 + 4 + 4 + 12), MeasureBarLayout.linesDp(whole, MeasureBarLayout.barDp(false)))
         // M2's bar left them 80 and 58: label 52, an arrow 36, the box 64, D2 40, an arrow 36, five gaps of 4
         assertEquals(80, 340 - 12 - (52 + 36 + 64 + 40 + 36) - 5 * 4); assertEquals(58, 318 - 12 - (52 + 36 + 64 + 40 + 36) - 5 * 4)
-        // 2 - Mark and 4 - 360 with the pad shut draw no label: 132 and 110; a Line there has one key and no arrows: 200 and 178
-        assertEquals(132, MeasureBarLayout.linesDp(whole - Part.CELL, 340)); assertEquals(110, MeasureBarLayout.linesDp(whole - Part.CELL, 318))
+        // so D2's 8 dp more and its 8 dp wider gap, less the one gap saved, cost the words 12 dp -- and the arrows nothing
+        assertEquals(12, 80 - MeasureBarLayout.linesDp(whole, 340)); assertEquals(12, 58 - MeasureBarLayout.linesDp(whole, 318))
+        // 2 - Mark and 4 - 360 with the pad shut draw no label: 124 and 102; a Line there has one key and no arrows: 200 and 178
+        assertEquals(124, MeasureBarLayout.linesDp(whole - Part.CELL, 340)); assertEquals(102, MeasureBarLayout.linesDp(whole - Part.CELL, 318))
         assertEquals(200, MeasureBarLayout.linesDp(listOf(Part.LINES, Part.BOX, Part.D2), 340)); assertEquals(178, MeasureBarLayout.linesDp(listOf(Part.LINES, Part.BOX, Part.D2), 318))
         // a finished face: label, the arrow back, the line and the next face's button at the right end, where it always was
         val done = listOf(Part.CELL, Part.PREV, Part.LINES, Part.NEXT_FACE)
         assertEquals(Part.NEXT_FACE, MeasureBarLayout.ORDER.last())
         assertEquals(112, MeasureBarLayout.widthOf(Part.NEXT_FACE))
-        assertEquals(340 - 12 - (52 + 32 + 112) - 3 * 4, MeasureBarLayout.linesDp(done, 340))
+        assertEquals(340 - 12 - (52 + 36 + 112) - 3 * 4, MeasureBarLayout.linesDp(done, 340))
         assertTrue(MeasureBarLayout.linesDp(done, 318) >= 90, "its one line keeps what M2 gave it: ${MeasureBarLayout.linesDp(done, 318)} dp")
-        // nothing the screen can draw leaves the words less than 54 dp
+        // nothing the screen can draw leaves the words less than 46 dp
         for (land in listOf(false, true)) for (ps in listOf(whole, whole - Part.CELL, done, listOf(Part.CELL, Part.LINES), listOf(Part.PREV, Part.NEXT, Part.LINES)))
-            assertTrue(MeasureBarLayout.linesDp(ps, MeasureBarLayout.barDp(land)) >= 54, "$ps, landscape $land")
+            assertTrue(MeasureBarLayout.linesDp(ps, MeasureBarLayout.barDp(land)) >= 46, "$ps, landscape $land")
     }
 
     @Test fun `a finished face keeps its next-face button at the right end, and draws no D2`() {

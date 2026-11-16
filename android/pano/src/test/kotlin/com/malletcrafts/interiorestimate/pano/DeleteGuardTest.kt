@@ -1,5 +1,6 @@
 package com.malletcrafts.interiorestimate.pano
 
+import com.malletcrafts.interiorestimate.pano.MeasureBarLayout.Part
 import com.malletcrafts.interiorestimate.pano.i18n.I18n
 import com.malletcrafts.interiorestimate.pano.i18n.LiteralScan
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
@@ -174,6 +175,112 @@ class DeleteGuardTest {
         throw AssertionError("`$head`: its body never closes")
     }
 
+    // ---- the F1 review ----------------------------------------------------------------------------------------
+
+    @Test fun `the row's delete control is 16 dp above D2 - dead space between the row and the bar, in both orientations`() {
+        // AS F1 WAS BUILT the bar stood right under the row: Delete's lower edge was the row's padding and D2's inset in
+        // the bar from D2 -- 14 dp in portrait, 8 (9 with the compact button's 1 dp of slack) in landscape
+        assertEquals(4, DeleteGuard.rowPadDp(false)); assertEquals(2, DeleteGuard.rowPadDp(true))
+        assertEquals(10, MeasureBarLayout.d2InsetDp(false)); assertEquals(6, MeasureBarLayout.d2InsetDp(true))
+        assertEquals(14, DeleteGuard.rowPadDp(false) + MeasureBarLayout.d2InsetDp(false)); assertEquals(8, DeleteGuard.rowPadDp(true) + MeasureBarLayout.d2InsetDp(true))
+        // NOW: 2 dp of nothing between them in portrait, 8 in landscape, and Delete is 16 dp above D2 in both
+        assertEquals(2, DeleteGuard.rowToBarDp(false)); assertEquals(8, DeleteGuard.rowToBarDp(true))
+        for (land in listOf(false, true)) {
+            assertTrue(DeleteGuard.clearOfD2Dp(land) >= DeleteGuard.CLEAR_DP, "landscape $land: ${DeleteGuard.clearOfD2Dp(land)} dp")
+            assertTrue(DeleteGuard.clearOfD2Dp(land) >= MeasureBarLayout.D2_CLEAR_DP, "and D2's own 12 dp holds upwards too")
+            assertEquals(DeleteGuard.rowPadDp(land) + DeleteGuard.rowToBarDp(land) + (StepRoute.measureBarDp(land) - MeasureBarLayout.D2_H_DP) / 2, DeleteGuard.clearOfD2Dp(land))
+            assertTrue(DeleteGuard.rowToBarDp(land) >= 0)
+        }
+        assertEquals(16, DeleteGuard.clearOfD2Dp(false)); assertEquals(16, DeleteGuard.clearOfD2Dp(true))
+        // landscape's column still holds the top bar, the tabs and the strip, the row (34 dp at most: StepRouteTest's own
+        // figure), the gap, the bar, its 4 dp and the palette (6 + 46)
+        val column = StepRoute.LAND_TOPBAR_DP + StepRoute.budgetDp(true, "front") + 34 + DeleteGuard.rowToBarDp(true) + StepRoute.measureBarDp(true) + 4 + 52
+        assertEquals(258, column); assertTrue(column <= StepRoute.LAND_COLUMN_DP)
+
+        // WHERE NO BAR IS DRAWN (a picked Tape; a mark with nothing left to read) THE PALETTE STANDS UNDER THE ROW, its
+        // last slot -- More -- under Delete, 6 dp of its own over its slots: as built 10 dp from Delete, 8 in landscape
+        assertEquals(6, SurveyPrepPalette.TOP_DP)
+        assertEquals(10, DeleteGuard.rowPadDp(false) + SurveyPrepPalette.TOP_DP); assertEquals(8, DeleteGuard.rowPadDp(true) + SurveyPrepPalette.TOP_DP)
+        assertEquals(6, DeleteGuard.rowToPaletteDp(false)); assertEquals(8, DeleteGuard.rowToPaletteDp(true))
+        for (land in listOf(false, true)) {
+            assertTrue(DeleteGuard.clearOfPaletteDp(land) >= DeleteGuard.CLEAR_DP, "landscape $land: ${DeleteGuard.clearOfPaletteDp(land)} dp")
+            assertEquals(DeleteGuard.rowPadDp(land) + DeleteGuard.rowToPaletteDp(land) + SurveyPrepPalette.TOP_DP, DeleteGuard.clearOfPaletteDp(land))
+            // and with the bar between them D2 is further from the palette than its own 12 dp: its inset, the bar's 4 dp, the palette's 6
+            assertTrue(MeasureBarLayout.d2InsetDp(land) + 4 + SurveyPrepPalette.TOP_DP >= MeasureBarLayout.D2_CLEAR_DP)
+        }
+
+        // THE SCREEN, read as source: all three rows take their padding from the rule, and the bar under a row starts
+        // the rule's gap lower -- padding, which takes no tap
+        val c = code(sps)
+        assertEquals(3, count(c, "Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = DeleteGuard.rowPadDp(land).dp),"), "a mark's row, a Tape's / Line's / area's, a chain's")
+        assertEquals(0, count(c, "vertical = if (land) 2.dp else 4.dp"), "no row keeps a padding of its own")
+        assertEquals(1, count(c, "val underRow = sm != null || sq != null || sk != null"))
+        assertEquals(1, count(c, "modifier = Modifier.padding(top = (if (underRow) DeleteGuard.rowToBarDp(land) else 0).dp, bottom = 4.dp))"))
+        assertEquals(1, count(c, "DeleteGuard.rowToBarDp("))
+        // the three rows are drawn before that bar, and nothing that takes a tap between the last of them and it
+        val panel = c.substring(c.indexOf("val markPanel: @Composable () -> Unit = {"), c.indexOf("modifier = Modifier.padding(top = (if (underRow)"))
+        for (v in listOf("sm", "sq", "sk")) assertEquals(1, count(panel, "{ deleteMark($v.id) }"), v)
+        val between = panel.substring(panel.indexOf("{ deleteMark(sk.id) }"))
+        assertEquals(0, count(between, "clickable")); assertEquals(0, count(between, "SpButton(")); assertEquals(0, count(between, "SpPadlock("))
+        // the palette under a row with no bar between starts the rule's gap lower -- a Spacer, which takes no tap --
+        // and its own 6 dp is the rule's
+        assertEquals(1, count(c, "if (underRow && mbar == null) Spacer(Modifier.height(DeleteGuard.rowToPaletteDp(land).dp))\n" +
+            "        if (!padUp && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))\n            SpPalette(tab, tool, land,"))
+        assertEquals(1, count(c, "DeleteGuard.rowToPaletteDp(")); assertEquals(1, count(c, "SpPalette(tab, tool, land,"))
+        val pal = code(app + "SurveyPrepTools.kt")
+        assertEquals(1, count(pal, "Row(Modifier.fillMaxWidth().padding(top = SurveyPrepPalette.TOP_DP.dp)) {")); assertEquals(0, count(pal, "padding(top = 6.dp)"))
+        assertTrue(c.indexOf("val underRow = sm != null || sq != null || sk != null") < c.indexOf("if (mbar != null) {\n            val owner = active"))
+        // 3 - Measure's bar has no row over it and keeps its own padding
+        assertEquals(1, count(c, "onNextFace = { mbar.nextFace?.let { f -> showTab(f.s) } },\n            modifier = Modifier.padding(top = 4.dp))"))
+        assertEquals(2, count(c, "SpMeasureBar(mbar, land,"), "2 - Mark's and 4 - 360's bar, and 3 - Measure's")
+        // and the bar draws D2 where the rule measures it: centred in the bar's height, at the bar's end
+        val b = code(app + "SurveyMeasure.kt")
+        assertEquals(1, count(b, "Row(modifier.fillMaxWidth().height(StepRoute.measureBarDp(land).dp)"))
+        assertEquals(1, count(b, ".padding(horizontal = MeasureBarLayout.PAD_DP.dp),\n        verticalAlignment = Alignment.CenterVertically) {"))
+        assertEquals(1, count(b, "MeasureBarLayout.Part.D2 -> Row(Modifier.width(slot.widthDp.dp).height(MeasureBarLayout.D2_H_DP.dp)"))
+        assertEquals(Part.D2, MeasureBarLayout.ORDER.filter { it != Part.NEXT_FACE }.last())
+    }
+
+    @Test fun `the model refuses a locked item and a mark past Existing and nothing else - and the screen answers both before its undo step`() {
+        // every kind of item, free and locked; a mark in every stored state; a Note (it has no state)
+        val p = room()
+        fun mark(id: String, code: String, extra: Map<String, Any?>) = p.surface("front").marks.add(SurveyPrep.Mark(id, "W", code, 1500.0, 1900.0, 900.0, 1500.0, extra))
+        mark("lk", "FW1", mapOf(SurveyPrep.LOCKED to true))
+        val lives = MarkLife.STORED.filter { it != MarkLife.EXIST }
+        assertTrue(MarkLife.WISH in lives && MarkLife.DROP in lives && MarkLife.SCOPE in lives)
+        lives.forEachIndexed { i, life ->
+            mark("life$i", "FW${i + 2}", mapOf(MarkLife.KEY_LIFE to life))
+            mark("lifelk$i", "FW${i + 20}", mapOf(MarkLife.KEY_LIFE to life, SurveyPrep.LOCKED to true))
+        }
+        p.surface("front").marks.add(SurveyPrep.Mark("n1", MarkLife.NOTE_TYPE, "FNOTE1", 100.0, 150.0, 100.0, 150.0, mapOf(MarkLife.KEY_LIFE to MarkLife.WISH)))
+        p.addMeas("front", SurveyMeas.LINE, listOf(doubleArrayOf(100.0, 100.0), doubleArrayOf(200.0, 200.0)), "m9")
+        p.addChain("front", "x", listOf(doubleArrayOf(300.0, 300.0), doubleArrayOf(900.0, 300.0)), listOf(null, null), "k9")
+        assertEquals(true, SurveyPrepEdit.setLocked(p, "m9", true)); assertEquals(true, SurveyPrepEdit.setLocked(p, "k9", true))
+        val ids = SurveyPrep.SURFACES.flatMap { s -> p.itemsOf(s).map { it.id } }
+        assertEquals(5 + 1 + 2 * lives.size + 3, ids.size, "$ids")
+        var refused = 0
+        for (id in ids) {
+            val item = p.itemById(id)!!
+            val e = p.markById(id)?.second
+            // WHAT THE SCREEN'S deleteMark ANSWERS BEFORE ITS SNAPSHOT: the lock ("FD1 is locked -- unlock first"), and
+            // for a mark whatever is not a plain delete (Restore, or the Mark sheet on Dropped)
+            val answered = item.locked || (e != null && MarkLife.deleteAct(e) != MarkLife.DeleteAct.PLAIN)
+            // WHAT THE MODEL REFUSES
+            val q = p.copy(); val took = q.deleteMark(id)
+            assertEquals(!item.spared, took, "$id: the model refuses exactly a locked item and a mark past Existing")
+            assertEquals(!took, answered, "$id: the screen answers every refusal of the model's before any undo step, and no delete it would make")
+            assertEquals(took, q.itemById(id) == null, id)
+            if (!took) refused++
+        }
+        assertEquals(1 + 2 * lives.size + 2, refused, "the locked mark, every mark past Existing free or locked, the locked Line and chain")
+        // a Note is deleted whatever its `life` says: it has no state
+        assertTrue(p.copy().deleteMark("n1")); assertEquals(MarkLife.DeleteAct.PLAIN, MarkLife.deleteAct(p.markById("n1")!!.second))
+        // an id nothing has is the model's only other false, and the screen returns on it before anything (itemById)
+        assertFalse(p.copy().deleteMark("nobody")); assertNull(p.itemById("nobody"))
+        val del = body(code(sps), "fun deleteMark(mid: String)")
+        assertTrue(del.indexOf("val it0 = prep.itemById(mid) ?: return") in 0 until del.indexOf("snapshot()"))
+    }
+
     @Test fun `the picked item's row - its delete control is the last, 16 dp of dead row before it, in its own red`() {
         val c = code(sps)
         // the two rows' own spacings, and the 16 dp each then leaves before its delete control
@@ -211,20 +318,29 @@ class DeleteGuardTest {
     @Test fun `every one-tap delete comes through deleteMark - one undo step, and the snackbar says the code with UNDO`() {
         val c = code(sps); val p3 = code(app + "SurveyPrep360.kt")
         val del = body(c, "fun deleteMark(mid: String)")
-        // ONE step on the plain path, taken just before the one call that deletes -- and taken back if the model refuses
-        assertEquals(1, count(del, "snapshot()\n        if (!prep.deleteMark(mid)) { hist.removeAt(hist.size - 1); return }"))
+        // ONE step on the plain path, taken with the one call that deletes -- and NEVER taken and then taken back (the F1
+        // review, finding 4): snapshot() drops the oldest of 40 held steps, so a pop after it loses a step for nothing.
+        // The model's own refusals are answered before the step (the test below holds that those are all it has).
+        assertEquals(1, count(del, "\n        snapshot(); prep.deleteMark(mid)\n"))
         assertEquals(1, count(del, "prep.deleteMark(mid)"))
+        assertEquals(0, count(del, "if (!prep.deleteMark(mid))"), "no branch for a refusal that cannot happen")
+        // the one pop in the whole function is RESTORE's own, and nothing after the plain path's snapshot takes it back
+        assertEquals(1, count(del, "hist.removeAt(")); assertEquals(2, count(del, "snapshot()"))
+        assertEquals(0, count(del.substring(del.indexOf("snapshot(); prep.deleteMark(mid)")), "hist.removeAt("))
         for (rel in appSources()) assertEquals(if (rel == sps) 1 else 0, count(code(rel), "prep.deleteMark("), "$rel deletes an item by itself")
         // it says WHAT went, by the existing sentence, in the snackbar that carries UNDO
         assertEquals(1, count(del, "snack(SurveyPrepEdit.deleted(tx, code))")); assertEquals(1, count(c, "SurveyPrepEdit.deleted("))
-        assertTrue(del.indexOf("if (!prep.deleteMark(mid))") < del.indexOf("snack(SurveyPrepEdit.deleted(tx, code))"))
+        assertTrue(del.indexOf("snapshot(); prep.deleteMark(mid)") < del.indexOf("snack(SurveyPrepEdit.deleted(tx, code))"))
         assertEquals(1, count(c, "fun snack(text: String, undo: Boolean = true) { snackText = text; snackUndo = undo; snackSeq++; snackHist = hist.size }"))
         assertEquals("FD1 deleted", SurveyPrepEdit.deleted(Tx.EN, "FD1"))
         // no confirm and no second tap: he asked for distance
         assertEquals(0, count(del, "armed")); assertEquals(0, count(del, "Dialog("))
         // the phase and the lock are asked before the step, as they were
         assertTrue(del.indexOf("if (!PhaseTools.delOk(prep, mid, quoteStage))") in 0 until del.indexOf("if (it0.locked) { refuse(code); return }"))
-        assertTrue(del.indexOf("if (it0.locked) { refuse(code); return }") < del.indexOf("if (!prep.deleteMark(mid))"))
+        assertTrue(del.indexOf("if (it0.locked) { refuse(code); return }") < del.indexOf("snapshot(); prep.deleteMark(mid)"))
+        // ... and so is a mark past Existing: Restore and the Drop sheet both return before the plain path
+        assertTrue(del.indexOf("MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }") in 0 until del.indexOf("snapshot(); prep.deleteMark(mid)"))
+        assertTrue(del.indexOf("MarkLife.DeleteAct.RESTORE -> {") in 0 until del.indexOf("MarkLife.DeleteAct.DROP_SHEET"))
         // EVERY PATH: the three rows, the photo's disc, the 360's disc and the menu's row
         for (v in listOf("sm", "sq", "sk")) assertEquals(1, count(c, "{ deleteMark($v.id) }"), v)
         assertEquals(1, count(c, "onDelete = { deleteMark(it) },")); assertEquals(1, count(c, "delete = { mid -> deleteMark(mid) },"))

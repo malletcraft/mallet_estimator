@@ -210,17 +210,28 @@ object SurveyPrepTouch {
      *
      * NOW THE DISC IS [clear] (16 dp, [DeleteGuard.CLEAR_DP]) FROM EVERYTHING ELSE THAT TAKES A PRESS: its edge that
      * far from every point and every piece of [keep] -- the picked item's own handles ([TrashKeep]) -- and its square
-     * that far from every figure. Eight candidates, each kept 4 dp inside the photo and clear of the fit / zoom
-     * buttons in the top-right corner: above-right, above-left, below-right, below-left -- out of the box's corner
-     * along its diagonal, just far enough that the disc's edge is [clear] from the corner itself -- then the same four
-     * one trash-height further out. The first that is [clear] from the handles AND from the figures wins; where the
-     * figures crowd round the item and none is, the first that is [clear] from the handles and COVERS no figure (v52's
-     * own rule for a figure: "a tap meant for the figure deleted the point").
+     * that far from every figure. Eight candidates at its corners, each kept 4 dp inside the photo and clear of the
+     * fit / zoom buttons in the top-right corner: above-right, above-left, below-right, below-left -- out of the box's
+     * corner along its diagonal, just far enough that the disc's edge is [clear] from the corner itself -- then the
+     * same four one trash-height further out.
+     *
+     * THEN SIX BESIDE IT (the F1 review, finding 3): right of the box and left of it, the disc's square [clear] (and a
+     * tape's band) off the box's side, at the middle of what the photo shows of the item, then a quarter and three
+     * quarters down it. An item AS TALL AS THE PHOTO -- a floor-to-ceiling wardrobe, a tape from floor to ceiling;
+     * in landscape the wall fills the photo's height, so every such item at fit zoom -- has no corner place: the
+     * photo's edge clamps all eight to the same two rows beside a corner tab or the band's end, and F1 as built gave
+     * it no disc. A place beside it is tried only where it FITS: one the photo's edge or the fit / zoom corner would
+     * move sideways is moved onto the item itself, between its tabs, and is not a candidate.
+     *
+     * The first of the fourteen that is [clear] from the handles AND from the figures wins; where the figures crowd
+     * round the item and none is, the first that is [clear] from the handles and COVERS no figure (v52's own rule
+     * for a figure: "a tap meant for the figure deleted the point").
      *
      * NULL -- NO DISC AT ALL -- when the item is off the photo, and WHEN NO CANDIDATE IS CLEAR OF ITS HANDLES AND OFF
-     * EVERY FIGURE (the item fills the photo, zoomed in). The prototype's rule was "none clear, the first": a disc on
-     * a handle or over a figure. The picked item's row under the photo and the long-press menu still delete it; a
-     * delete control standing where a slip lands on it is worse than none.
+     * EVERY FIGURE: an item that fills the photo BOTH ways (wall to wall and floor to ceiling, or zoomed in), or one
+     * with a figure on every side. The prototype's rule was "none clear, the first": a disc on a handle or over a
+     * figure. The picked item's row under the photo and the long-press menu still delete it; a delete control
+     * standing where a slip lands on it is worse than none.
      */
     fun trashSpot(bb: Box, tags: List<Box>, w: Double, h: Double, dp: Double,
                   keep: TrashKeep = TrashKeep.NONE, clear: Double = DeleteGuard.CLEAR_DP * dp): Spot? {
@@ -251,6 +262,17 @@ object SurveyPrepTouch {
             c.add(at(bb.l - size - off, bb.t - size - off - out, "above-left"))
             c.add(at(bb.r + off, bb.b + off + out, "below-right"))
             c.add(at(bb.l - size - off, bb.b + off + out, "below-left"))
+        }
+        // BESIDE IT: the disc's square [clear] (and a tape's band) off the box's side, in whole dp, at three heights of
+        // what the photo shows of the item -- and only where the place was not moved sideways, onto the item
+        val side = ceil((clear + keep.bodyHalf) / dp) * dp
+        val vt = max(bb.t, 0.0); val vb = min(bb.b, h)
+        for (f in doubleArrayOf(0.5, 0.25, 0.75)) {
+            val t0 = vt + (vb - vt) * f - rad
+            for ((l0, how) in listOf(bb.r + side to "right", bb.l - size - side to "left")) {
+                val sp = at(l0, t0, how)
+                if (sp.left == l0) c.add(sp)
+            }
         }
         return c.firstOrNull { handles(it) && figures(it, clear) } ?: c.firstOrNull { handles(it) && figures(it, 0.0) }
     }

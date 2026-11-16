@@ -985,10 +985,11 @@ internal fun SurveyPrepDialog(
         }
         // ONE ↶ STEP, AND THE SCREEN SAYS WHAT WENT (port 63 slice F1): every one-tap delete -- the row's control, the
         // floating trash, the long-press menu, on the photo and on the 360 -- comes through here, takes exactly this one
-        // snapshot and answers "FD1 deleted" with UNDO, so a slip is seen and taken back at once. A delete the model
-        // refuses takes its step back off: no undo entry that undoes nothing.
-        snapshot()
-        if (!prep.deleteMark(mid)) { hist.removeAt(hist.size - 1); return }
+        // snapshot and answers "FD1 deleted" with UNDO, so a slip is seen and taken back at once.
+        // NO STEP IS TAKEN AND THEN TAKEN BACK (the F1 review, finding 4; the note in RESTORE above): the model refuses
+        // a LOCKED item and a mark PAST EXISTING and nothing else (DeleteGuardTest holds it to exactly those), and both
+        // were answered above, each in its own words, before any step -- so the one call below always deletes.
+        snapshot(); prep.deleteMark(mid)
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
         snack(SurveyPrepEdit.deleted(tx, code))
@@ -1881,7 +1882,7 @@ internal fun SurveyPrepDialog(
             // ITS STATE (port 62 slice L2; the prototype's nlAttrs, index61c2.html 2930): a 3 dp bar on the label's left
             // edge in the state's colour -- none for an Existing mark, whose label is v52's
             val lifeBar = MarkLife.barColour(sm)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = DeleteGuard.rowPadDp(land).dp),
                 horizontalArrangement = Arrangement.spacedBy(SP_MARK_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 // ... and A TAP ON IT OPENS THE MARK SHEET (slice L3; nlAttrs' role=button, "Open the Mark sheet for FW1")
                 Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
@@ -1919,7 +1920,7 @@ internal fun SurveyPrepDialog(
         if (sq != null) {
             val lk = SurveyPrep.isLocked(sq)
             val tp = sq.kind == SurveyMeas.TAPE
-            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = DeleteGuard.rowPadDp(land).dp),
                 horizontalArrangement = Arrangement.spacedBy(SP_LINE_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 // a Line's or an area's code opens its Mark sheet, for its TRADE and its NOTE (slice L3); a tape has none
                 Text(sq.code, color = Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
@@ -1947,7 +1948,7 @@ internal fun SurveyPrepDialog(
         if (sk != null) {
             val lk = SurveyPrep.isLocked(sk)
             val kv = ab(tab).let { SurveyChain.vals(sk, prep.actual, it[0], it[1]) }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = DeleteGuard.rowPadDp(land).dp),
                 horizontalArrangement = Arrangement.spacedBy(SP_LINE_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(sk.code, color = SP_CHAIN, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
                     lineHeight = 16.sp, maxLines = 1)
@@ -1967,6 +1968,12 @@ internal fun SurveyPrepDialog(
         // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, a Line's
         // length, an area's perimeter or a chain's segment (the D2 and the pad land on its reading key). ONE FIGURE: the
         // bar's box shows what the plate on the photo shows -- the reading, else ≈ and the photo's estimate -- never both.
+        // DELETE IS NEVER RIGHT OVER D2, NOR OVER THE PALETTE (the F1 review, finding 1): the picked item's row ends with
+        // Delete; the bar under it ends with D2, and where no bar is drawn the palette's last slot stands there. Under
+        // a row the bar starts DeleteGuard.rowToBarDp lower -- padding, which takes no tap -- and the palette
+        // DeleteGuard.rowToPaletteDp lower, so Delete is 16 dp from either (it was 14 dp from D2 in portrait and about
+        // 9 in landscape; 10 and about 9 from the palette).
+        val underRow = sm != null || sq != null || sk != null
         if (mbar != null) {
             val owner = active?.let { a -> prep.ownerOf(a) }?.id
             SpMeasureBar(mbar, land,
@@ -1975,7 +1982,7 @@ internal fun SurveyPrepDialog(
                 onCell = { owner?.let { id -> openSheet(id) } },
                 onPrev = { barStep(false) }, onNext = { barStep(true) },
                 onBox = { padOpen = true; rev++ }, onD2 = { fire() }, onNextFace = { },
-                modifier = Modifier.padding(bottom = 4.dp))
+                modifier = Modifier.padding(top = (if (underRow) DeleteGuard.rowToBarDp(land) else 0).dp, bottom = 4.dp))
             if (padUp) SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { barStep(true) }, onHide = { commitPad(); padOpen = false; rev++ })
         }
         // THE PALETTE (v52 slice 7) in place of the old toolbar: 6 + 50 dp (6 + 46 in landscape), where SpMarkToolbar
@@ -1983,6 +1990,9 @@ internal fun SurveyPrepDialog(
         // ... where the phase has one (port 62 slice L4): at Estimated and at Client approved there is no palette --
         // nothing new is marked there, and the band over the screen says so
         // ... and not under an open pad, which has taken its place (port 63 slice M2)
+        // ... and DeleteGuard.rowToPaletteDp lower under a picked item's row with no bar between (the F1 review): the
+        // row's Delete is then 16 dp over the last slot. A Spacer: it takes no tap.
+        if (underRow && mbar == null) Spacer(Modifier.height(DeleteGuard.rowToPaletteDp(land).dp))
         if (!padUp && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))
             SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })
     }

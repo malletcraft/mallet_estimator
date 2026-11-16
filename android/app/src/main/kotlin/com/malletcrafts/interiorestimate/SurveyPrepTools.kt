@@ -100,7 +100,7 @@ internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) 
     val tx = LocalTx.current
     val kind = SurveyPrep.kind(s)
     // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape)
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = SurveyPrepPalette.TOP_DP.dp)) {
         for (slot in SurveyPrepPalette.slots(kind)) {
             val on = SurveyPrepPalette.isOn(slot, kind, tool)
             val armed = if (slot.kind == SurveyPrepPalette.SlotKind.MORE) SurveyPrepPalette.moreArmed(kind, tool) else null

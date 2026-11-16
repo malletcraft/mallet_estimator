@@ -10,7 +10,8 @@ package com.malletcrafts.interiorestimate.pano
  * 4 dp from a shot he had not asked for -- and a shot that lands is written.
  *
  * So the order is `label · ‹ › · two lines · figure box · D2`:
- *  - ‹ and › are a PAIR on the left, side by side ([ARROW_DP] each, nothing between them): the two ways to walk;
+ *  - ‹ and › are a PAIR on the left, side by side ([ARROW_DP] each -- the 36 dp M2 gave them, [TOUCH_MIN_DP] --
+ *    nothing between them): the two ways to walk;
  *  - D2 is ALONE AT THE RIGHT END, larger ([D2_DP] x [D2_H_DP]), with [D2_CLEAR_DP] of bar that takes no tap between
  *    it and the figure box -- its only neighbour in the bar; past it there is only the bar's own edge;
  *  - under an open pad the pad's first row starts [PAD_GAP_DP] below the bar, so its ⌫ is never nearer D2 than
@@ -20,10 +21,16 @@ package com.malletcrafts.interiorestimate.pano
  *
  * WHAT THE TWO LINES GET ([linesDp]): the bar is as wide as its column, [PORTRAIT_DP] in portrait (a 360 dp screen
  * less the screen's 10 dp either side) and [LAND_DP] in landscape (the column of controls), less [PAD_DP] either
- * side. With the whole bar -- label, both arrows, the box and D2 -- that is 76 dp in portrait and 54 in landscape
- * (M2: 80 and 58); where 2 · Mark's bar draws no label, 132 and 110. D2's 8 dp more and its 8 dp wider gap are paid
- * for mostly by the arrows -- 36 dp each in M2, 32 now, and one 4 dp gap fewer since they stand together -- so the
- * two lines give up 4 dp, and line 1 is cut with an ellipsis where it must, as before.
+ * side. With the whole bar -- label, both arrows, the box and D2 -- that is 68 dp in portrait and 46 in landscape
+ * (M2: 80 and 58); where 2 · Mark's bar draws no label, 124 and 102. D2's 8 dp more and its 8 dp wider gap are paid
+ * for by the WORDS, less the one 4 dp gap saved now that the arrows stand together: the two lines give up 12 dp, and
+ * line 1 is cut with an ellipsis where it must, as before. F1 as built took 8 of those 12 dp from the arrows instead
+ * (32 dp each); its review put them back -- an arrow is pressed after every reading he skips, and the fix for a
+ * button fired by accident is not a narrower button beside another.
+ *
+ * AND THE ROW ABOVE THE BAR ([d2InsetDp]): in 2 · Mark and 4 · 360 the picked item's row stands right over the bar,
+ * and its Delete is over D2. How far apart those two are kept is [DeleteGuard.rowToBarDp], worked out from D2's
+ * inset in the bar.
  *
  * Pure data: SurveyMeasure.kt lays the bar out from [slots] and nothing else, so what is tested here -- the order,
  * every gap, and that D2 is never beside ‹ or › -- is what CI compiles onto the phone.
@@ -55,8 +62,11 @@ object MeasureBarLayout {
     const val PAD_DP = 6
     /** The label cell, dp. */
     const val CELL_DP = 52
+    /** NOTHING IN THE BAR THAT TAKES A PRESS IS NARROWER THAN THIS, dp (the F1 review, finding 2): what M2's arrows
+     *  were. F1 as built cut them to 32 dp to pay for D2's distance. */
+    const val TOUCH_MIN_DP = 36
     /** ‹ and ›, each, dp wide; they are as tall as the bar. */
-    const val ARROW_DP = 32
+    const val ARROW_DP = 36
     /** The figure box, dp wide and tall. */
     const val BOX_DP = 64
     const val BOX_H_DP = 32
@@ -143,7 +153,11 @@ object MeasureBarLayout {
         return out
     }
 
+    /** How far inside the bar D2 stands, above and below, dp: it is centred in the bar's height (10 in portrait, 6 in
+     *  landscape). */
+    fun d2InsetDp(land: Boolean): Int = (StepRoute.measureBarDp(land) - D2_H_DP) / 2
+
     /** How far D2's lower edge is from the first row of an open pad, dp: D2 is centred in the bar, and [PAD_GAP_DP]
      *  of nothing lies between the bar and the pad. */
-    fun d2ClearOfPadDp(land: Boolean): Int = (StepRoute.measureBarDp(land) - D2_H_DP) / 2 + PAD_GAP_DP
+    fun d2ClearOfPadDp(land: Boolean): Int = d2InsetDp(land) + PAD_GAP_DP
 }

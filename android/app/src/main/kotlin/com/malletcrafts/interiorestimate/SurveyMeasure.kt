@@ -63,7 +63,7 @@ import com.malletcrafts.interiorestimate.pano.StepRoute
  * THIS FILE ONLY DRAWS. What the bar is and says is MeasureFlow.Bar, built in :pano (MeasureFlow.onFace for
  * 3 · Measure, MeasureFlow.onItem for 2 · Mark and 4 · 360) and tested there; what a key of the pad does to the text
  * is MeasurePad; the heights are StepRoute.measureBarDp / padRowDp, whose arithmetic of what fits a landscape column
- * is tested too. The widths leave the two lines 76 dp in portrait and 54 in landscape under the whole bar
+ * is tested too. The widths leave the two lines 68 dp in portrait and 46 in landscape under the whole bar
  * (MeasureBarLayout.linesDp), so line 1 is cut with an ellipsis where it must.
  * Every word is a tx accessor (English first: the `sp.measure.*` keys' Marathi is pending, android/i18n/mr-pending.tsv);
  * the glyphs are the same in every language.

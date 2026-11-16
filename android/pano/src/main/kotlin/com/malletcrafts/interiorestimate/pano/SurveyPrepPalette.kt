@@ -33,6 +33,11 @@ object SurveyPrepPalette {
     /** The Select tool's key; a type tool's key is its letter. */
     const val SEL = "sel"
 
+    /** The dead space over the palette's row of slots, dp (.tools.pal: 6 dp over the row). The slots fill the row's
+     *  height under it, so this is how far the nearest slot is from whatever stands over the palette
+     *  ([DeleteGuard.rowToPaletteDp]). */
+    const val TOP_DP = 6
+
     /** The drawing tools, in palette order: Tape "T" and Line "M" (v52 slice 9), Chain "K" (v52 slice 11). EVERY
      *  drawing tool there is, offered or not: what tells a tool's key from a mark type's ([isType]). What the palette
      *  OFFERS is [offered]. */

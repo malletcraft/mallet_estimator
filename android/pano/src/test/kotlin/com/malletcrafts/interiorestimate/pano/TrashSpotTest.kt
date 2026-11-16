@@ -181,6 +181,74 @@ class TrashSpotTest {
         assertTrue(clearOf(s4, chain) >= 16.0, "${dpOf(s4)}: ${clearOf(s4, chain)} dp")
     }
 
+    // ---- the F1 review, finding 3: an item as tall as the photo, at fit zoom ------------------------------------
+
+    @Test fun `a floor-to-ceiling mark and a floor-to-ceiling tape get their disc beside them, 16 dp off`() {
+        // A WARDROBE, floor to ceiling, in the middle of the wall. Above and below it the photo's edge clamps all eight
+        // corner places to the same two rows, 12.8 dp from a corner tab -- F1 as built gave it NO disc, at fit zoom
+        val wr = box(100.0, 4.0, 200.0, 279.0)
+        val corner = SurveyPrepTouch.Spot(207.0 * dp, 4.0 * dp, "above-right, clamped")
+        assertEquals(12.8, edgeTo(corner, pt(200.0, 4.0)), 0.01)
+        val s = assertNotNull(SurveyPrepTouch.trashSpot(wr, emptyList(), w, h, dp, mark(wr)), "a floor-to-ceiling mark has its disc")
+        // right of it, at mid-height: its square 16 dp off the mark's side, so 16 dp from the mid tab and far from the corners
+        assertEquals("right", s.how); assertEquals(listOf(216.0, 123.5), dpOf(s))
+        assertTrue(clearOf(s, mark(wr)) >= 16.0, "${clearOf(s, mark(wr))} dp")
+        // A TAPE, floor to ceiling: beside its band, its edge 16 dp from the band
+        val ends = listOf(pt(150.0, 4.0), pt(150.0, 279.0)); val keep = SurveyPrepTouch.keepOfLine(ends, false, 3.5 * dp)
+        val t = assertNotNull(SurveyPrepTouch.trashSpot(box(150.0, 4.0, 150.0, 279.0), emptyList(), w, h, dp, keep), "a floor-to-ceiling tape has its disc")
+        assertEquals("right", t.how); assertEquals(listOf(170.0, 123.5), dpOf(t))
+        assertTrue(clearOf(t, keep) >= 16.0, "${clearOf(t, keep)} dp")
+        // a Line the same, with no band: 16 dp, no more
+        val line = SurveyPrepTouch.keepOfLine(ends, false)
+        val l = assertNotNull(SurveyPrepTouch.trashSpot(box(150.0, 4.0, 150.0, 279.0), emptyList(), w, h, dp, line))
+        assertEquals(listOf(166.0, 123.5), dpOf(l)); assertEquals(16.0, clearOf(l, line), 1e-9)
+        // an item that still has a corner place keeps it: the places beside it are tried LAST
+        val door = box(100.0, 150.0, 140.0, 279.0)
+        assertEquals("above-right", SurveyPrepTouch.trashSpot(door, emptyList(), w, h, dp, mark(door))!!.how)
+    }
+
+    @Test fun `beside it - the other side by the wall, another height past a figure, and never moved onto the item`() {
+        // against the right wall there is no room on the right: the place would be clamped back ONTO the wardrobe, 68 dp
+        // from its tabs and so "clear of its handles" -- it is not tried, and the disc goes left
+        val byWall = box(240.0, 4.0, 330.0, 279.0)
+        val s = SurveyPrepTouch.trashSpot(byWall, emptyList(), w, h, dp, mark(byWall))!!
+        assertEquals("left", s.how); assertEquals(listOf(188.0, 123.5), dpOf(s))
+        assertTrue(s.left + 36 * dp <= byWall.l - 16 * dp, "its square is 16 dp off the mark's side")
+        // the height's own figure at mid-height on the right: left of it; a figure on both sides: right, a quarter down
+        val wr = box(100.0, 4.0, 200.0, 279.0)
+        val right = box(205.0, 130.0, 250.0, 150.0); val left = box(50.0, 130.0, 95.0, 150.0)
+        assertEquals("left", SurveyPrepTouch.trashSpot(wr, listOf(right), w, h, dp, mark(wr))!!.how)
+        val q = SurveyPrepTouch.trashSpot(wr, listOf(right, left), w, h, dp, mark(wr))!!
+        assertEquals("right", q.how); assertEquals(listOf(216.0, 4.0 + 275.0 / 4 - 18.0), dpOf(q))
+        assertTrue(listOf(right, left).none { covers(q, it) }); assertTrue(clearOf(q, mark(wr)) >= 16.0)
+        // ZOOMED IN, the mark running off the photo's top with a figure across the top of the screen: beside it, at the
+        // middle of WHAT IS ON SCREEN of it (0 to 279 dp), not of the whole mark
+        val zoomed = box(-50.0, -100.0, 150.0, 279.0)
+        val z = assertNotNull(SurveyPrepTouch.trashSpot(zoomed, listOf(box(0.0, 0.0, 340.0, 60.0)), w, h, dp, mark(zoomed)))
+        assertEquals("right", z.how); assertEquals(listOf(166.0, 279.0 / 2 - 18.0), dpOf(z))
+        assertTrue(clearOf(z, mark(zoomed)) >= 16.0)
+        // STILL NO DISC where no place is clear: a floor-to-ceiling mark with a figure down the whole of each side --
+        // never one over a figure, never one on a tab
+        val walls = listOf(box(205.0, 0.0, 300.0, 283.0), box(0.0, 0.0, 95.0, 283.0))
+        assertNull(SurveyPrepTouch.trashSpot(wr, walls, w, h, dp, mark(wr)))
+        // NEVER MOVED ONTO THE ITEM: a wardrobe nearly wall to wall, a figure across the top of the photo. A place
+        // beside it would be clamped back inside the photo -- over the mark's own side, 50 dp and more from its tabs, so
+        // "clear of its handles" -- where a press meant to move the mark would delete it. It is not a candidate: no disc
+        val wide = box(30.0, 4.0, 320.0, 279.0)
+        val onIt = SurveyPrepTouch.Spot(300.0 * dp, (4.0 + 275.0 * 0.75 - 18.0) * dp, "right, clamped")
+        assertTrue(clearOf(onIt, mark(wide)) >= 16.0 && onIt.left < wide.r, "the clamped place passes the handles' test, on the mark")
+        assertNull(SurveyPrepTouch.trashSpot(wide, listOf(box(0.0, 0.0, 340.0, 60.0)), w, h, dp, mark(wide)))
+        // EVERY floor-to-ceiling mark, wherever it stands and however wide: a disc, 16 dp and more from all eight tabs;
+        // and one placed beside it has its whole square 16 dp off the mark's side -- it is never moved onto the mark
+        for (l in 4..300 step 8) for (wd in listOf(12, 40, 90, 160)) {
+            val b = box(l.toDouble(), 4.0, minOf(336.0, (l + wd).toDouble()), 279.0)
+            val sp = assertNotNull(SurveyPrepTouch.trashSpot(b, emptyList(), w, h, dp, mark(b)), "left $l, width $wd")
+            assertTrue(clearOf(sp, mark(b)) >= 16.0, "left $l, width $wd: ${clearOf(sp, mark(b))} dp at ${dpOf(sp)}")
+            if (sp.how == "right") assertTrue(sp.left >= b.r + 16 * dp, "left $l, width $wd: ${dpOf(sp)}")
+            if (sp.how == "left") assertTrue(sp.left + 36 * dp <= b.l - 16 * dp, "left $l, width $wd: ${dpOf(sp)}")
+        }
+    }
+
     @Test fun `no place clear of its handles - no disc at all, never one on a handle`() {
         // handles every 30 dp over the whole photo (an item zoomed to fill it, its points everywhere): every candidate
         // is within 16 dp of one
