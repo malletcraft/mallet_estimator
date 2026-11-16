@@ -57,6 +57,13 @@ object Quad {
     /** ... and this part of the derived length. Claude's starting figures: a corner 1° out of square moves the design's
      *  example by about 13 mm, so it stays quiet on an ordinary opening and fires on a wrong target. */
     const val CLOSE_PART = 0.01
+    /** How far OUTSIDE the line joining its two neighbours every corner stays, mm ([sound]): only what keeps a shape a
+     *  shape -- uncrossed, no corner turned inward, never flattened to a triangle -- and ten steps of the 0.1 mm a corner
+     *  is placed to. NOT [SurveyPrep.MIN_SIZE], which is a SIDE's floor (the review of Q1, finding 1): a W x H
+     *  rectangle's corner stands W·H / √(W² + H²) outside that line, always under its shorter side, so at 20 mm a mark
+     *  squeezed to the floor a tab stops at could never have a corner moved, not even outward. Every rectangle a tab can
+     *  leave stands at least 20 / √2 = 14.1 mm clear. */
+    const val OUT_MM = 1.0
 
     // ------------------------------------------------------------------ the record
 
@@ -139,17 +146,18 @@ object Quad {
     private fun r6(v: Double): Double = Math.round(v * 1e6) / 1e6
 
     /** What a shape may not have (DESIGN-quad §1.3), mm: a side running under [SurveyPrep.MIN_SIZE] in its own
-     *  direction, or a corner less than that outside the line joining its two neighbours -- the one test that forbids
-     *  crossed sides, a corner turned inward and a shape flattened to a triangle. */
+     *  direction -- the floor a tab's resize stops at, so a rectangle and a four-corner mark have ONE smallest side --
+     *  or a corner less than [OUT_MM] outside the line joining its two neighbours: the one test that forbids crossed
+     *  sides, a corner turned inward and a shape flattened to a triangle. */
     private fun sound(c: List<DoubleArray>): Boolean {
-        val m = SurveyPrep.MIN_SIZE - 1e-6
+        val m = SurveyPrep.MIN_SIZE - 1e-6; val out = OUT_MM - 1e-6
         if (c[1][0] - c[0][0] < m || c[2][0] - c[3][0] < m || c[3][1] - c[0][1] < m || c[2][1] - c[1][1] < m) return false
         for (i in 0 until 4) {
             val p = c[(i + 3) % 4]; val n = c[(i + 1) % 4]; val q = c[i]
             val dx = n[0] - p[0]; val dy = n[1] - p[1]; val len = hypot(dx, dy)
             if (!(len > 0)) return false
             // the polygon runs counter-clockwise, so a corner stands to the RIGHT of the line from its neighbour before to its neighbour after
-            if (-(dx * (q[1] - p[1]) - dy * (q[0] - p[0])) / len < m) return false
+            if (-(dx * (q[1] - p[1]) - dy * (q[0] - p[0])) / len < out) return false
         }
         return true
     }

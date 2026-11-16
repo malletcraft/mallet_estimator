@@ -192,12 +192,13 @@ class QuadTest {
         refused(e, "the left runs 10 mm up") { Quad.set(e, pts(300.0 to 590.0, 900.0 to 0.0, 600.0 to 900.0, 0.0 to 600.0)) }
         // crossed sides: two corners swapped
         refused(e, "crossed") { Quad.set(e, pts(1000.0 to 0.0, 0.0 to 0.0, 1000.0 to 1000.0, 0.0 to 1000.0)) }
-        // a corner turned inward, and a shape flattened to a triangle: one test, a corner under 20 mm outside the line
-        // joining its two neighbours
+        // a corner turned inward, and a shape flattened to a triangle: one test, a corner under 1 mm (Quad.OUT_MM)
+        // outside the line joining its two neighbours -- NOT the 20 mm of a side's run (the review of Q1, finding 1)
         refused(e, "turned inward") { Quad.set(e, pts(0.0 to 0.0, 1000.0 to 0.0, 400.0 to 400.0, 0.0 to 1000.0)) }
         refused(e, "a triangle") { Quad.set(e, pts(0.0 to 0.0, 1000.0 to 0.0, 500.0 to 500.0, 0.0 to 1000.0)) }
-        refused(e, "14 mm outside") { Quad.set(e, pts(0.0 to 0.0, 1000.0 to 0.0, 510.0 to 510.0, 0.0 to 1000.0)) }
-        assertTrue(Quad.set(mark(), pts(0.0 to 0.0, 1000.0 to 0.0, 515.0 to 515.0, 0.0 to 1000.0)), "21 mm outside is a shape")
+        refused(e, "0.7 mm outside") { Quad.set(e, pts(0.0 to 0.0, 1000.0 to 0.0, 500.5 to 500.5, 0.0 to 1000.0)) }
+        assertTrue(Quad.set(mark(), pts(0.0 to 0.0, 1000.0 to 0.0, 501.0 to 501.0, 0.0 to 1000.0)), "1.4 mm outside is a shape")
+        assertTrue(Quad.set(mark(), pts(0.0 to 0.0, 1000.0 to 0.0, 510.0 to 510.0, 0.0 to 1000.0)), "14 mm outside is a shape")
         // not four corners, a corner that is no number
         refused(e, "three corners") { Quad.set(e, MM.take(3)) }
         refused(e, "five corners") { Quad.set(e, MM + listOf(doubleArrayOf(1000.0, 1000.0))) }
@@ -228,6 +229,63 @@ class QuadTest {
         assertNull(Quad.cornerOf("lt")); assertNull(Quad.cornerOf(null)); assertEquals(listOf(0, 1, 2, 3), Quad.PARTS.map { Quad.cornerOf(it) })
         // no part's name holds l, r, t or b, which moveMark and snapMark test by letter
         assertTrue(Quad.PARTS.none { p -> "lrtb".any { it in p } })
+    }
+
+    /** Review of Q1, finding 1: the corner test stood at 20 mm, the resize floor itself, and a W x H rectangle's corner is
+     *  W·H / √(W² + H²) outside its neighbours' line -- always UNDER its shorter side. So a mark squeezed to the floor a
+     *  tab stops at refused every corner move, the ones that only enlarge it too, and a 30 mm square refused some. */
+    @Test fun `every rectangle a tab can leave has corners that move -- the thinnest too`() {
+        fun rect(w: Double, h: Double) = mark(x0 = 1000.0, x1 = 1000.0 + w, y0 = 500.0, y1 = 500.0 + h)
+        // a mark squeezed by its top tab as far as it goes: 20 mm thick, the floor of SurveyPrep.MIN_SIZE
+        val thin = rect(2000.0, 500.0)
+        assertTrue(SurveyPrep.moveMark(thin, thin.copy(), "t", 0.0, -5000.0, A, B)); assertEquals(SurveyPrep.MIN_SIZE, thin.y1 - thin.y0)
+        // ... its corners still move: outward, which only enlarges it,
+        assertTrue(SurveyPrep.moveMark(thin, thin.copy(), "q2", 0.0, 5.0, A, B), "2000 x 20, q2 up 5")
+        assertEquals(listOf(listOf(1000.0, 500.0), listOf(3000.0, 500.0), listOf(3000.0, 525.0), listOf(1000.0, 520.0)), mm(thin))
+        assertTrue(SurveyPrep.moveMark(thin, thin.copy(), "q0", 0.0, -1.0, A, B), "then q0 down 1")
+        assertEquals(listOf(1000.0, 3000.0, 499.0, 525.0), box(thin))
+        // ... and along its own side, which keeps both its short sides at the floor
+        val slid = rect(2000.0, 20.0); assertTrue(SurveyPrep.moveMark(slid, slid.copy(), "q0", 300.0, 0.0, A, B), "2000 x 20, q0 along the bottom")
+        // every rectangle at the floor, long or square, each corner pulled 5 mm straight out of the mark
+        val out = listOf(-5.0 to -5.0, 5.0 to -5.0, 5.0 to 5.0, -5.0 to 5.0)
+        for ((w, h) in listOf(2000.0 to 20.0, 20.0 to 2000.0, 100.0 to 20.0, 20.0 to 20.0, 30.0 to 30.0, 21.0 to 2000.0)) for (i in 0..3) {
+            val e = rect(w, h)
+            assertTrue(SurveyPrep.moveMark(e, e.copy(), "q$i", out[i].first, out[i].second, A, B), "$w x $h, q$i pulled out")
+            assertNotNull(Quad.of(e), "$w x $h, q$i: now a shape that is not its box")
+        }
+        // the review's own two: a 30 mm square's q2 up 5 (q3 then stands 19.5 mm outside the line from q2 to q0), and a
+        // 20 mm square's q2 up 20 -- a sound little trapezoid, 20 wide with uprights of 20 and 40
+        val s30 = rect(30.0, 30.0); assertTrue(SurveyPrep.moveMark(s30, s30.copy(), "q2", 0.0, 5.0, A, B), "30 x 30, q2 up 5")
+        val s20 = rect(20.0, 20.0); assertTrue(SurveyPrep.moveMark(s20, s20.copy(), "q2", 0.0, 20.0, A, B), "20 x 20, q2 up 20")
+        // WHAT THE FLOOR STILL STOPS: a side shortened under 20 mm in its own direction, on the same thin mark
+        val t = rect(2000.0, 20.0); val tb = box(t); val te = t.extra
+        assertFalse(SurveyPrep.moveMark(t, t.copy(), "q2", 0.0, -1.0, A, B), "the right side would run 19 mm"); assertEquals(tb, box(t)); assertSame(te, t.extra)
+        assertFalse(SurveyPrep.moveMark(t, t.copy(), "q3", 1990.0, 0.0, A, B), "the top would run 10 mm"); assertEquals(tb, box(t)); assertSame(te, t.extra)
+        // the two floors are two figures: a side's run is the resize floor; a corner's stand-off only keeps the shape a shape
+        assertEquals(20.0, SurveyPrep.MIN_SIZE); assertEquals(1.0, Quad.OUT_MM)
+        assertTrue(Quad.OUT_MM < SurveyPrep.MIN_SIZE / Math.sqrt(2.0), "the smallest square a tab can leave stands 14.1 mm clear at each corner")
+    }
+
+    /** Review of Q1, finding 2 -- a DECISION pinned, not a change: [SurveyGuide.snapCoord] reads x0 x1 y0 y1 alone, so a
+     *  Line's, an area's or a chain's end catches a four-corner mark's BOX, and the tag a chain keeps ("FW1 bottom", with a
+     *  space) names the box's edge -- the level of the shape's outermost corner, where FW1.s is measured to -- never the
+     *  side FW1.bottom reads. Passes before the review as after it; fails the day somebody adds the corners as candidates
+     *  without giving them a tag of their own. */
+    @Test fun `a Line's or a chain's end snaps to a four-corner mark's box -- the snap tag names the box's edge, never a side`() {
+        val w = window(); val box = mark()
+        fun sn(e: SurveyPrep.Mark, v: Double, axis: Int) = SurveyGuide.snapCoord("front", A, B, listOf(e), v, axis, 25.0).let { it.v to it.tag }
+        // the box's four edges, each with a corner of the shape on it: the lowest corner's level is "FW1 bottom"
+        assertEquals(900.0 to "FW1 bottom", sn(w, 910.0, 1)); assertEquals(2450.0 to "FW1 top", sn(w, 2440.0, 1))
+        assertEquals(600.0 to "FW1 left", sn(w, 610.0, 0)); assertEquals(2970.0 to "FW1 right", sn(w, 2960.0, 0))
+        // the corner INSIDE the box -- q0, the short upright's foot at y 1670 -- is no candidate: the end stays where it was put
+        assertEquals(listOf(600.0, 1670.0), mm(w)[0]); assertEquals(1675.0 to null, sn(w, 1675.0, 1)); assertEquals(1670.0 to null, sn(w, 1670.0, 1))
+        // so on every level and every upright of the wall a four-corner mark snaps exactly as the rectangle of its box does
+        var v = 0.0
+        while (v <= A) { assertEquals(sn(box, v, 0), sn(w, v, 0), "x $v"); if (v <= B) assertEquals(sn(box, v, 1), sn(w, v, 1), "y $v"); v += 5.0 }
+        // a snap tag is not a reading key: no side's key is ever a tag, and "FW1 bottom" is no key S5's grammar would take
+        val tags = listOf("FW1 left", "FW1 right", "FW1 bottom", "FW1 top")
+        assertEquals(listOf("FW1.bottom", "FW1.right", "FW1.top", "FW1.left"), Quad.sideCodes(w)); assertTrue(Quad.sideCodes(w).none { it in tags })
+        assertTrue(tags.none { Regex("^[A-Za-z][A-Za-z0-9-]{0,23}\\.([A-Za-z]{1,8}|[0-9]{1,3})$").matches(it) })
     }
 
     // ------------------------------------------------------------------ dragging a corner, and the snap

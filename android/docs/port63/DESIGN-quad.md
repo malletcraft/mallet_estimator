@@ -10,6 +10,9 @@ a phone. Every "decided by Claude" is judged by Amit on the phone.
 **Revised the same day** after the plan critic's nine findings, each checked against the code first. What was
 confirmed, what was refuted and what changed is in §8.
 
+**Slice Q1 is built** (§9), and its review's two findings are answered at the end of §9: the corner's stand-off is
+1 mm, no longer the 20 mm of a side's run (§1.3), and a snap tag keeps meaning the box's edge (§3.3).
+
 Paths: `pano/…` = `android/pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/…`, `app/…` =
 `android/app/src/main/kotlin/com/malletcrafts/interiorestimate/…`.
 
@@ -129,9 +132,20 @@ mark always starts as a rectangle with no key (`defaults`, `placeAt`, `PhaseTool
 An edit is refused, and the corner stays where it last was, when the result would have:
 
 - a corner off the face (it is clamped to the face first);
-- a side that runs less than `SurveyPrep.MIN_SIZE` (20 mm) in its own direction (rule 3, in mm);
-- a corner less than 20 mm outside the line joining its two neighbours. That one test forbids crossed sides, a corner
-  turned inward and a shape flattened to a triangle.
+- a side that runs less than `SurveyPrep.MIN_SIZE` (20 mm) in its own direction (rule 3, in mm). This is the floor a
+  tab's resize stops at, so a rectangle and a four-corner mark have one smallest side;
+- a corner less than 1 mm (`Quad.OUT_MM`) outside the line joining its two neighbours. That one test forbids crossed
+  sides, a corner turned inward and a shape flattened to a triangle, and it asks nothing more.
+
+**Why the corner's figure is not the side's** (the review of Q1, finding 1; this bullet first said 20 mm). A W × H
+rectangle's corner stands `W·H / √(W² + H²)` outside the line joining its neighbours, which is always under its
+shorter side. At 20 mm the rule therefore refused the very shape a mark has after a tab has squeezed it to the floor:
+a 2000 × 20 mark could never have a corner moved, not even outward, and a 30 mm square refused some moves that only
+enlarged it. Every rectangle a tab can leave stands at least 20 / √2 = 14.1 mm clear, so at 1 mm each of them has
+corners that drag. 1 mm is ten steps of the 0.1 mm a corner is placed to. What it allows that 20 mm did not: on a
+large mark a corner may be pulled until it is 1 mm short of the line through its neighbours, which looks like a
+triangle; its four sides still run 20 mm and are still four figures. `Quad.set` still writes nothing the three
+readers would not read back (§1.2 is checked on the parts before the key is stored).
 
 Never possible: three or five corners, a curved side, a `quad` on a point or a Note.
 
@@ -382,6 +396,15 @@ rectangle. The selection goes back to the whole mark, and `freeId` is cleared.
 - **Duplicate:** the copy is the box and its `quad`, and nothing else. No readings, unlocked, the next code, as today.
 - **Undo:** unchanged. The snapshot shares `extra`, which is only ever replaced.
 - **Lock:** a locked mark's corners do not move.
+- **What a Line's, an area's or a chain's end snaps to: the mark's box, as today** (the review of Q1, finding 2;
+  decided by Claude). `SurveyGuide.snapCoord` reads `x0 x1 y0 y1` alone and is not changed, in Q1 or in Q2. Every box
+  edge has a corner of the shape on it, so an end still catches the shape's outermost corner on each side. **A snap
+  tag keeps meaning the box's edge:** the tag a chain stores, `FW1 bottom`, is the level of the shape's LOWEST corner,
+  which is where the position figure `FW1.s` runs to (§2.3). It is never the sloping side that the reading
+  `FW1.bottom` measures. The two cannot be confused in the record: a tag has a space and is kept in a chain's `snaps`;
+  a reading key has a dot. A corner INSIDE the box (the example's `q0`, at y 1670) is no snap candidate, so an end
+  put level with it is placed by eye and zoom. Making it one needs a tag of its own (the four words are the box's),
+  which changes what a chain stores and what S5's as-surveyed rule reads in a tag, so it is not done here (§7).
 - **Phases:** a corner drag is a resize and asks `PhaseTools.editable` like one. A surveyed mark is reshaped at Survey
   (and while the stage is unread) and never after. A mark born a Client wish is reshaped in the Wish list, one born
   Vendor added in Vendor review and after. This is the condition under which S5 may give a surveyed mark's `quad` to
@@ -690,6 +713,15 @@ To be re-read against the code at build time; `:app` compiles only in CI.
 - `SurveyPrep360.kt`: `Sp360` gains `freeId: String?`. One local function answers `free` for the picked mark,
   `Quad.free(e, freeId, sel.part)`, and both places use it: `tabsOf(e, free)` at `:299`, and the painter at `:830`
   through one new field on `P3Draw.State`, where a free mark's handles are four discs.
+- `SurveyPrepScreen.kt`, the nudge (`nudgeMark`, `:988-997`) — the review of Q1, finding 1: it takes `snapshot()`
+  and then drops `moveMark`'s answer. For a corner part `moveMark` answers false when the shape would be refused
+  (§1.3), and nothing moves. Q2 acts on it: `if (!SurveyPrep.moveMark(…)) { hist.removeAt(hist.size - 1); snack(…,
+  undo = false); return }`, as the refused restore beside it does (`:976`). So no empty undo step, and one line said.
+  Its text is a FIFTEENTH key, keyed in Q2 by §5's rules (English first, a row in `mr-pending.tsv`, `Tx`
+  regenerated): `sp.shape.corner_stops`, proposed "{code}: the corner stops here. No side goes under 20 mm, and the
+  shape cannot fold." A DRAG says nothing: the corner simply stops (§3.2), and the drag call sites
+  (`SurveyPrepScreen.kt:2748`, `SurveyPrep360.kt:465`) may go on dropping the answer.
+- `SurveyGuide.snapCoord` (`:pano`): no change (§3.3).
 - `MarkSheet.kt`, `SurveyMeasure.kt`, `FaceWriter.kt`, `AsIsUpload.kt`: no change.
 - Source pins in `:pano` that move, each with its reason: `PhaseToolsTest` 794 (the menu call's literal ends
   `asPicked)`; it gains `shape = true`) and 801 (the phase guard's count, 2 → 3); `MeasureScreenTest` 335–338
@@ -734,6 +766,11 @@ Risks:
 - **The closing sentence is said on a side that is not the one flagged** (§2.4). The sentence names the side, but
   the `!` he sees is on another plate than the one he just read. Whether that reads clearly is his to judge on the
   phone.
+- **A Line cannot catch a four-corner mark's inner corner** (§3.3). An end snaps to the box's four edges only. On
+  the example a Line from the floor to the short upright's foot is placed by eye. If Amit misses it on the phone, the
+  remedy is a new snap tag for a corner, with S5.
+- **A corner can be pulled almost flat** (§1.3): 1 mm outside the line through its neighbours. Nothing breaks; whether
+  the stop should come sooner on a large mark is his to judge on the phone, and the one constant is `Quad.OUT_MM`.
 - **Found, not changed here:** the phone's `SheetMarks.KEPT` keeps `sub` for others, and `SheetMarksTest` calls the
   list S5's own, but S5 took `sub` out of `SEEN_MARK` in RD's review. The two lists already differ by that key.
 - **`:app` is unverified.** Q2's file list comes from a reader, not a compiler.
@@ -762,14 +799,15 @@ Short names: `SPS` = `app/SurveyPrepScreen.kt`, `SPD` = `app/SurveyPrepDraw.kt`,
 ## 9. Slice Q1 as built (16 Nov 2026)
 
 The pure models, in `:pano` alone; no `:app` file changed and nothing is on screen. `:pano` went from 95 classes and
-1,352 tests to 97 classes and 1,390 tests, all green (the totals of `pano/build/test-results/test`); `:app` is compiled only by CI and nothing has been seen on a
+1,352 tests to 97 classes and 1,390 tests, all green (the totals of `pano/build/test-results/test`), and to 1,392
+with the review's two cases (below); `:app` is compiled only by CI and nothing has been seen on a
 phone. This section says what exists, for whoever builds Q2, and where the build went past the design's wording.
 
 **What exists.**
 
 | File | What it now has |
 |---|---|
-| `pano/Quad.kt` (new) | `KEY PARTS SIDES DIAG CLOSE_MM CLOSE_PART`; `mayHave`, `read`, `identity`, `of`, `corners`, `cornerOf`, `free`, `set`, `clear`, `drag` → `Drag(p, snap)`, `guide`, `straight`, `square`, `spanW`, `spanH`, `touch` → `Touch`, `sideWhat`, `asked`, `closing` → `Closing`, `sideCodes` |
+| `pano/Quad.kt` (new) | `KEY PARTS SIDES DIAG CLOSE_MM CLOSE_PART OUT_MM`; `mayHave`, `read`, `identity`, `of`, `corners`, `cornerOf`, `free`, `set`, `clear`, `drag` → `Drag(p, snap)`, `guide`, `straight`, `square`, `spanW`, `spanH`, `touch` → `Touch`, `sideWhat`, `asked`, `closing` → `Closing`, `sideCodes` |
 | `pano/SurveyPrep.kt` | `measures0` is `Quad.asked(…)` over its old body (`rect0`); `moveMark` and `snapMark` take a corner part |
 | `pano/SurveyPrepFile.kt` | `decode` drops an unreadable `quad` with `sp.file.x_mark_x_shape_unreadable`, and the box's own corners quietly |
 | `pano/SurveyPrepEdit.kt` | `SHAPE_FREE`, `SHAPE_BOX`, `shapeRow`, `menuItemsOf(…, shape = false)`; `duplicate` carries `quad` |
@@ -803,8 +841,11 @@ phone. This section says what exists, for whoever builds Q2, and where the build
 8. **A test moved that §6 did not name:** `DimLayoutTest`, "which figures a scope shows". It walks every `Role`, so
    the set shown on an unpicked mark in 3 · Measure had to gain `SIDE` and `DIAG`. `SheetMarksTest` (`KEPT`) moved
    as named. `DuplicateTest` gained a case; its old assertions stand, since a rectangle's copy is still the box alone.
-9. **§1.3, read to the letter, refuses any shape under about 28 mm square.** A 20 mm rectangle's corner is 14 mm
-   outside the line joining its neighbours. Such a mark keeps its eight tabs' resize; once larger, its corners drag.
+9. **WITHDRAWN by the review's finding 1 (below); it described the first build and understated it.** It read:
+   "§1.3, read to the letter, refuses any shape under about 28 mm square. A 20 mm rectangle's corner is 14 mm outside
+   the line joining its neighbours. Such a mark keeps its eight tabs' resize; once larger, its corners drag." The real
+   boundary was any mark with a side at the 20 mm floor, whatever its length (2000 × 20 refused every corner move),
+   and partial refusals up to about 30 mm square. Since the fix no rectangle a tab can leave refuses a corner.
 10. **The six drawings draw no diagonal.** §3.7 names a dimension along each side only. `diag` is asked, walked and
     drawn on the photo.
 11. **`RectanglePinTest`** is the pin of "a mark without `quad` is what it was". It dumps the checklist, the
@@ -816,4 +857,44 @@ phone. This section says what exists, for whoever builds Q2, and where the build
 **For Q2.** The menu's one call passes `shape = true`. `drawnMarks()` passes `corners =`. The painter and `Sp360`
 ask `Quad.free`. `sayCheck` says `MeasureFlow.checkText(…)`. `DimLayout.mark` is passed `free`. A corner's grab
 calls `Quad.drag` with `endTol` and shows `Quad.guide`. "Rectangle" is `Quad.clear`. Nothing in `:app` writes
-`.extra =`.
+`.extra =`. The nudge acts on `moveMark`'s false for a corner part: no undo step, and `sp.shape.corner_stops` said
+(§6, Q2). `SurveyGuide.snapCoord` is not touched (§3.3).
+
+### Review fixes (16 Nov 2026)
+
+A reviewer read commit `f451363` and raised two findings, both minor. Each was checked against the code before
+anything changed. **Both are confirmed; none is declined.** One local commit, `:pano` only: 97 classes, 1,392 tests,
+all green (the totals of `pano/build/test-results/test`). No `:app` file changed, `:app` is compiled only by CI, and
+nothing has been seen on a phone. No text was added, so `i18n/` and `Tx` are as Q1 left them.
+
+1. **A mark with a 20 mm side could never have a corner moved, and small marks refused moves that only enlarged
+   them; item 9 above understated it. CONFIRMED,** by a test written first and run on the reviewed code: a
+   2000 × 500 mark squeezed by its top tab to the floor (2000 × 20) answered false to `moveMark(…, "q2", 0, +5)`.
+   The cause is as the reviewer gives it: `sound` held a corner to `MIN_SIZE` outside its neighbours' line, and a
+   rectangle's corner stands `W·H / √(W² + H²)` out, under its shorter side (19.999 mm at 2000 × 20, 19.6 at
+   100 × 20, 14.1 at 20 × 20).
+   **Fixed in the code, the reviewer's second way:** the 20 mm stays the floor of a SIDE's run, and a corner's
+   stand-off is its own figure, `Quad.OUT_MM` = 1 mm (§1.3, with what it allows). The reviewer's first way, 20 mm less
+   half the grid, was not taken: it passes 2000 × 20 and still refuses 100 × 20 and the 30 mm square. Keeping the
+   rule and correcting item 9 was not taken either: a rule that refuses the shape the mark already has, on a mark
+   whose tabs are hidden while its corners are free, is a fault and not a boundary to document.
+   Tests, `QuadTest`: "every rectangle a tab can leave has corners that move -- the thinnest too" (the squeezed mark's
+   q2 up 5 and q0 down 1 to the last corner; a corner slid along the thin side; every corner of six floor-sized
+   rectangles pulled outward; the reviewer's 30 × 30 case and a 20 × 20 pulled into a 20/40 trapezoid; a side under
+   20 mm still refused; the two figures pinned apart). It fails on the reviewed code at "2000 x 20, q2 up 5". The
+   old pin "14 mm outside is refused, 21 mm is a shape" moved with the rule: 0.7 mm refused, 1.4 mm and 14 mm shapes.
+   **For Q2, recorded in §6:** the nudge takes `snapshot()` and drops `moveMark`'s Boolean (`SurveyPrepScreen.kt:995`),
+   so a refused corner nudge would leave an empty undo step and say nothing. Q2 drops the step and says one line,
+   whose key Q2 adds. That is `:app`, and nothing here could change or test it.
+2. **Line and chain ends snap to a four-corner mark's bounding box only, and the design never said so. CONFIRMED.**
+   `SurveyGuide.snapCoord` builds its candidates from `x0 x1 y0 y1`, Q1 did not touch it, and no section named it
+   among the box's readers. **Decided, not changed** (the reviewer asked for the decision, and no code change): a
+   snap tag keeps meaning the box's edge on a four-corner mark, for the reasons in §3.3. The alternative, the real
+   corners as candidates, adds only the corners inside the box, since each box edge already has a corner on it, and
+   those have no tag to carry: `FW1 bottom` for q0's level would make one tag mean two levels, and a new tag is a
+   change to the wire that this design does not name. It is listed in §7 for Amit's judgement on the phone.
+   `snapCoord`'s own comment now says it, and `QuadTest` pins it: "a Line's or a chain's end snaps to a four-corner
+   mark's box -- the snap tag names the box's edge, never a side" (the four edges with their tags; q0's level catches
+   nothing; over the whole wall the four-corner mark snaps exactly as the rectangle of its box; no side's reading key
+   is a tag, and no tag passes S5's key grammar). This test is a pin of the decision: it passes on the reviewed code
+   too, because the finding is about what the design left unsaid, not about what the code does.

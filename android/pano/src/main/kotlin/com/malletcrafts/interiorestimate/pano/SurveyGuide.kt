@@ -163,6 +163,12 @@ object SurveyGuide {
      * "left corner" / "right corner" and "floor" / "ceiling" on a wall; "left edge" / "right edge" and "back edge" /
      * "front edge" on the floor and the ceiling -- and every one of [marks]' two edges on it ("FD1 left", "FD1 right",
      * "FD1 bottom", "FD1 top"). The nearest wins; on a tie, the first in that order. Nothing within [tol]: [v] as it is.
+     *
+     * A MARK'S EDGES HERE ARE ITS BOX'S, also on a mark with four free corners (port 63 slice Q1, the review's finding 2;
+     * DESIGN-quad §3.3): x0 x1 y0 y1, each of which has a corner of the shape on it. So "FW1 bottom" is the level of the
+     * shape's LOWEST corner -- where its position figure FW1.s runs to -- and never the sloping side its reading
+     * FW1.bottom measures: a snap tag (a space) is not a reading key (a dot). A corner inside the box is no candidate:
+     * it would need a tag of its own, which is a change to what a chain stores and S5 reads.
      */
     fun snapCoord(s: String, a: Double, b: Double, marks: List<SurveyPrep.Mark>, v: Double, axis: Int, tol: Double): Snapped {
         val plan = SurveyPrep.isPlan(s)
