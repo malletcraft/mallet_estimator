@@ -231,14 +231,15 @@ class CaptureFilingTest {
         assertEquals("Not started$lock", Album.workSub(Tx.EN, false, 20, "Survey", null))
         assertEquals("not filed to a work$lock", Album.workSub(Tx.EN, false, null, "Survey", null))
         // after approval: the state and tap to change; an unfiled one says so; a quote-journey one keeps its stage
-        assertEquals("In progress · tap to change", Album.workSub(Tx.EN, true, 20, "Survey", Album.IN_PROGRESS))
-        assertEquals("Not started · tap to change", Album.workSub(Tx.EN, true, 90, "Survey", null))
-        assertEquals("not filed to a work · tap to change", Album.workSub(Tx.EN, true, null, "Survey", null))
-        assertEquals("Survey · tap to change", Album.workSub(Tx.EN, true, 0, "Survey", null))
+        // (re-filing is execution's, so with site progress ON, stated; with it off the line stops at its lead: FeaturesTest)
+        assertEquals("In progress · tap to change", Album.workSub(Tx.EN, true, 20, "Survey", Album.IN_PROGRESS, siteProgress = true))
+        assertEquals("Not started · tap to change", Album.workSub(Tx.EN, true, 90, "Survey", null, siteProgress = true))
+        assertEquals("not filed to a work · tap to change", Album.workSub(Tx.EN, true, null, "Survey", null, siteProgress = true))
+        assertEquals("Survey · tap to change", Album.workSub(Tx.EN, true, 0, "Survey", null, siteProgress = true))
         // hand-typed Marathi pins (SurveyPrepMarathiTest's rule)
         assertEquals("व्हेंडरचे कोटेशन · ग्राहकाने अंदाजपत्रक मंजूर करेपर्यंत लॉक", Album.workSub(Tx.MR, false, 0, "व्हेंडरचे कोटेशन", null))
-        assertEquals("चालू आहे · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, 20, "", Album.IN_PROGRESS))
-        assertEquals("कोणत्याही कामात ठेवलेला नाही · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, null, "", null))
+        assertEquals("चालू आहे · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, 20, "", Album.IN_PROGRESS, siteProgress = true))
+        assertEquals("कोणत्याही कामात ठेवलेला नाही · बदलण्यासाठी टॅप करा", Album.workSub(Tx.MR, true, null, "", null, siteProgress = true))
     }
 
     @Test fun `needsRefile - on web, filed off the Quote journey, and not yet told to S5 as filed now`() {

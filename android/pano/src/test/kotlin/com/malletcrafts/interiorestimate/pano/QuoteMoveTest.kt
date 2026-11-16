@@ -347,8 +347,9 @@ class QuoteMoveTest {
         // a final 409 makes the line Execution at once (the Wish list's W rule, for every reader)
         val final = stage(409, S5Quote.FINAL, sent(tApproved))
         assertIs<Verdict.Final>(final)
+        // (the execution line: site progress ON, stated -- Features.SITE_PROGRESS, port 63 slice SP0)
         val line = QuoteStage.projectLine(QuoteStage.merge(at("Revisions", tRevisions), QuoteMove.copyOf(final, read)!!, 3L, 2L),
-            false, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"))
+            false, emptyList(), Tx.EN, java.time.Instant.parse("2026-11-03T08:00:00Z"), siteProgress = true)
         assertEquals("Execution · not read yet", line.text, "S5 named the stage; the works are not read yet")
     }
 
@@ -409,7 +410,7 @@ class QuoteMoveTest {
 
     @Test fun `Approve from the Revisions panel - the sheet's ticks become the body S5 accepted, and each verdict goes where the strip, the store and the mirror read it (QM2)`() {
         val now = java.time.Instant.parse("2026-11-03T08:00:00Z")
-        fun lineOf(c: Cache) = QuoteStage.projectLine(c, false, emptyList(), Tx.EN, now)
+        fun lineOf(c: Cache) = QuoteStage.projectLine(c, false, emptyList(), Tx.EN, now, siteProgress = true)   // the execution line after the Approve: site progress on, stated
         // the PM at Revisions, with the scope recorded at Revisions on /projects as the mirror holds it (the scope S5 echoed in SCOPE_STALE)
         val revisions = at("Revisions", tRevisions)
         val mirror = Album.View(role = Album.PM, scope = listOf(10, 20, 30), scopeAt = tScope)

@@ -12,6 +12,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.AsIsPath
+import com.malletcrafts.interiorestimate.pano.Features
 import com.malletcrafts.interiorestimate.pano.SurveyPrep
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.UploadNote
@@ -145,8 +146,13 @@ object AsIsUpload {
         }
     }
 
-    /** S5's words for the re-file it last refused of [id], or null: none refused, or one taken since. */
-    fun refileRefused(context: Context, id: String): String? = runCatching<String?> {
+    /**
+     * S5's words for the re-file it last refused of [id], or null: none refused, or one taken since. NULL WITH SITE
+     * PROGRESS OFF (Features.SITE_PROGRESS, port 63 slice SP0): the re-file by work is execution's and its sweep is
+     * waiting (WorkRefile), so survey prep's web line does not go on showing a refusal nothing will ask about again
+     * until the flag is on; the words stay stored beside the mark.
+     */
+    fun refileRefused(context: Context, id: String): String? = if (!Features.SITE_PROGRESS) null else runCatching<String?> {
         val f = file(context, id)
         if (!f.exists()) null else JSONObject(f.readText()).optString("refile", "").ifBlank { null }
     }.getOrNull()

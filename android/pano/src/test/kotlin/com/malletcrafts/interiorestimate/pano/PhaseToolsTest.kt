@@ -490,7 +490,8 @@ class PhaseToolsTest {
         }
         // the line is the project line's own text
         val states = mapOf(3 to Album.WorkState(Album.IN_PROGRESS, 7))
-        val line = QuoteStage.projectLine(listed("Client approved").copy(states = states), false, emptyList(), Tx.EN, now)
+        // (the execution line: site progress ON, stated -- with it off the band is handed no line, FeaturesTest)
+        val line = QuoteStage.projectLine(listed("Client approved").copy(states = states), false, emptyList(), Tx.EN, now, siteProgress = true)
         assertEquals("Client approved · " + line.text, PhaseTools.band(Tx.EN, PhaseTools.stageOf(listed("Client approved"), false), line.text).whole)
         assertTrue(line.text.startsWith("Execution"))
         val unread = PhaseTools.band(Tx.EN, null, "Execution · 1 in progress")

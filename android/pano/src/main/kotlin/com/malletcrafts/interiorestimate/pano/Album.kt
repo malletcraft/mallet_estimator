@@ -573,14 +573,26 @@ object Album {
      * P23): for the Quote journey the stage ([quoteLead]), for an unfiled capture `not filed to a work`, for a
      * work its [state] as shown -- then, before approval, the lock (` · locked until the client approves the
      * estimate`, the row takes no tap); after it ` · tap to change`.
+     *
+     * [approved] is the project's stage, never [execution]'s answer: WITH SITE PROGRESS OFF ([siteProgress] false;
+     * [Features.SITE_PROGRESS], port 63 slice SP0) an approved project's row and line take no tap, so they say where
+     * the capture is filed and stop there -- neither `tap to change`, which nothing would answer, nor the lock, whose
+     * `until the client approves the estimate` would be untrue of an estimate the client has approved.
      */
-    fun workSub(tx: Tx, approved: Boolean, work: Int?, quoteLead: String, state: String?): String {
+    fun workSub(
+        tx: Tx, approved: Boolean, work: Int?, quoteLead: String, state: String?,
+        siteProgress: Boolean = Features.SITE_PROGRESS,
+    ): String {
         val lead = when (work) {
             QUOTE_WORK -> quoteLead
             null -> tx.album_unfiled
             else -> stateText(tx, state)
         }
-        return if (!approved) lead + tx.app_stg_locked_quote else listOf(lead, tx.album_tap_to_change).joinToString(" · ")
+        return when {
+            !approved -> lead + tx.app_stg_locked_quote
+            !siteProgress -> lead
+            else -> listOf(lead, tx.album_tap_to_change).joinToString(" · ")
+        }
     }
 
     /**
@@ -747,6 +759,18 @@ object Album {
 
     /** The quote stage IS Client approved: the only stage at which a change request is raised or answered (§14.8). */
     fun approved(quoteStage: String?): Boolean = quoteStage?.trim() == QuoteStage.APPROVED
+
+    /**
+     * WHETHER EXECUTION HAS BEGUN ON THE PHONE for a project at [quoteStage] (port 63 slice SP0): the client has
+     * approved the estimate ([approved]) AND site progress is switched on ([siteProgress]; [Features.SITE_PROGRESS]).
+     * The ONE answer behind everything the phone does differently after approval when filing a capture: a new capture
+     * files to a work instead of the Quote journey ([newCaptureWork]), the Capture 360 sheet's WORK row takes a tap and
+     * its buttons wait for a pick, a single photo is handed to S5's album, and the photo's WORK line re-files it. With
+     * site progress off this is false at every stage, so all of that stays exactly as it is before approval. Not
+     * [exec], which is the album's own lock (S5's rule: approved, or work recorded).
+     */
+    fun execution(quoteStage: String?, siteProgress: Boolean = Features.SITE_PROGRESS): Boolean =
+        siteProgress && approved(quoteStage)
 
     /** Only leaving Done needs a remark (v61a's Done guard). */
     fun remarkNeeded(from: String): Boolean = from == DONE

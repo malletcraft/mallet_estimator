@@ -32,7 +32,9 @@ class AlbumPageTest {
     private val now: Instant = Instant.parse("2026-11-03T06:00:00Z")
     private val read = "2026-11-03T05:20:00.000Z"
 
-    private fun line(cache: QuoteStage.Cache?, phoneOnly: Boolean = false) = QuoteStage.projectLine(cache, phoneOnly, emptyList(), Tx.EN, now)
+    // the album is execution's: its tests draw the line with site progress ON, stated (Features.SITE_PROGRESS, port 63 slice SP0)
+    private fun line(cache: QuoteStage.Cache?, phoneOnly: Boolean = false) =
+        QuoteStage.projectLine(cache, phoneOnly, emptyList(), Tx.EN, now, siteProgress = true)
 
     /** The approved project of S5's scenario (PROJ-DEMO, Client approved, 10 Done, a change live on 50, 90's add approved). */
     private val approved = view(S5Album.GET_PM)
@@ -603,7 +605,7 @@ class AlbumPageTest {
         assertEquals("9 Nov, 12:30 · P M", p.header.log.rows[0].sub, "this person, at the tap's own time")
         assertEquals(AlbumPage.End("Album closed · Cleaning & handover is Done", true, "9 Nov"), p.end)
         // the project line every other reader draws lays the same queue over the same store
-        assertEquals("Execution · 1 in progress · 2 done", QuoteStage.projectLine(approvedCache, false, listOf(ip, done), Tx.EN, now).text)
+        assertEquals("Execution · 1 in progress · 2 done", QuoteStage.projectLine(approvedCache, false, listOf(ip, done), Tx.EN, now, siteProgress = true).text)
         assertEquals(Album.IN_PROGRESS, QuoteStage.statesWith(approvedCache, listOf(ip))?.get(20)?.state)
     }
 

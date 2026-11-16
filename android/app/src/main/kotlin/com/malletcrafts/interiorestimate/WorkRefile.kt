@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AsIsPath
+import com.malletcrafts.interiorestimate.pano.Features
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -61,6 +62,13 @@ import java.util.concurrent.TimeUnit
  * save it, and is more machinery than the one PUT it saves.
  *
  * The WORK line draws the phone's own filing; what S5 answered is the log line and, for a refusal, the web line.
+ *
+ * BEHIND Features.SITE_PROGRESS (port 63 slice SP0; Amit, 15 Nov 2026: "Do not delete any site progress code but toggle
+ * it as feature flag"): filing by work is execution's -- only S5's album reads a capture's work -- so with site progress
+ * off [enqueue] and [sweep] queue no job, and a job an earlier build left in WorkManager ends at once without a PUT
+ * ([WorkRefileWorker]). No done-mark moves, so when the flag is on again the sweep finds every capture whose filing S5
+ * was not told of and sends it then. A capture's own record still carries its `work` (AsIsPath.body): uploads are as
+ * they were.
  */
 object WorkRefile {
 
@@ -71,6 +79,7 @@ object WorkRefile {
 
     /** Queue (or replace) the re-file of one capture: the job reads the row's filing when it runs. */
     fun enqueue(context: Context, captureId: String) {
+        if (!Features.SITE_PROGRESS) return   // site progress is off: no re-file is queued
         val req = OneTimeWorkRequestBuilder<WorkRefileWorker>()
             .setConstraints(Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -92,6 +101,7 @@ object WorkRefile {
      * journey, and not yet told to S5 as it is filed now. Reads only; the jobs do the sending.
      */
     fun sweep(context: Context, store: CaptureStore) {
+        if (!Features.SITE_PROGRESS) return   // site progress is off: the sweep waits, every done-mark as it is
         for (c in store.all()) {
             val told = AsIsUpload.told(context, c.deviceId)
             if (Album.needsRefile(onWeb(context, c.deviceId), Album.workOfCapture(c.work, c.stage), told?.work, told != null))
@@ -106,6 +116,8 @@ class WorkRefileWorker(context: Context, params: WorkerParameters) :
     private val tag = "WorkRefile"
 
     override suspend fun doWork(): Result {
+        // a job an earlier build queued, run with site progress off: nothing is sent and no mark moves
+        if (!Features.SITE_PROGRESS) return Result.success()
         val ctx = applicationContext
         val id = WorkRefile.captureId(inputData) ?: return Result.failure()
         // A session near its 12 h end is renewed before the PUT, as the upload job does.

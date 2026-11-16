@@ -17,6 +17,7 @@ import com.malletcrafts.interiorestimate.pano.Album
 import com.malletcrafts.interiorestimate.pano.AlbumQueue
 import com.malletcrafts.interiorestimate.pano.AlbumWire
 import com.malletcrafts.interiorestimate.pano.AlbumWrite
+import com.malletcrafts.interiorestimate.pano.Features
 import com.malletcrafts.interiorestimate.pano.TourDemo
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +76,12 @@ import java.util.concurrent.TimeUnit
  * the screen through [KEY_ROWS] (finding 6). [trim] keeps the shots the outboxes hold, and none when they cannot be read.
  *
  * NEVER A FAILURE OF THE SYNC, and never a header in a log line: S5's words at most.
+ *
+ * BEHIND Features.SITE_PROGRESS (port 63 slice SP0; Amit, 15 Nov 2026: "Do not delete any site progress code but toggle
+ * it as feature flag"): the album's writes are execution's, so with site progress off the drain has no way in -- [enqueue]
+ * and [enqueueAll] queue no job, and a job an earlier build left in WorkManager ends at once without a send
+ * ([AlbumDrainWorker]). The STORE is not touched: whatever a login had queued stays queued, is still read by its
+ * readers ([queued], [holdsPhoto]) and is sent when the flag is on again, by the project open or the hourly catch-up.
  */
 object AlbumOutbox {
 
@@ -268,6 +275,7 @@ object AlbumOutbox {
 
     /** Queue the drain of [project]: REPLACE (a tap, a project open, the catch-up of a job not running) runs it now; KEEP leaves one queued. */
     fun enqueue(context: Context, project: String, replace: Boolean = true) {
+        if (!Features.SITE_PROGRESS) return   // site progress is off: no drain is queued, the outbox keeps what it holds
         if (project.isBlank()) return
         val req = OneTimeWorkRequestBuilder<AlbumDrainWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -284,6 +292,7 @@ object AlbumOutbox {
      * forward and one that ended starts again, and a pass in flight is never cancelled. Reads only; the jobs send.
      */
     suspend fun enqueueAll(context: Context) {
+        if (!Features.SITE_PROGRESS) return   // site progress is off: no catch-up, and no shot is trimmed while it is
         trimShots(context)
         val login = S5Session.loginKey(context)
         if (login.isEmpty() || !S5Session.signedIn(context)) return
@@ -494,6 +503,8 @@ object AlbumOutbox {
 class AlbumDrainWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        // a job an earlier build queued, run with site progress off: nothing is sent, the queue stays as it is
+        if (!Features.SITE_PROGRESS) return Result.success()
         val project = AlbumOutbox.projectOf(inputData) ?: return Result.failure()
         val ends = withContext(Dispatchers.IO) { AlbumOutbox.run(applicationContext, project) { isStopped } }
         return when (ends) {
