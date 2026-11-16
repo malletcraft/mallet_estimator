@@ -186,19 +186,15 @@ function othersProposed(o = {}) {
   // the four-corner window: each side's figure on its own side
   g += boxMark(FW2);
   const q = QUAD;
-  g += plate({ cx: (q[0][0] + q[1][0]) / 2, cy: q[0][1], text: '≈830' });
-  g += plate({ cx: q[1][0], cy: (q[1][1] + q[2][1]) / 2, text: '≈630', turned: true });
-  g += plate({ cx: q[3][0] + 0.75 * (q[2][0] - q[3][0]), cy: q[3][1] + 0.75 * (q[2][1] - q[3][1]), text: '≈917' });
-  g += plate({ cx: q[3][0], cy: (q[3][1] + q[0][1]) / 2, text: '≈1020', turned: true });
+  // NO PHOTO ESTIMATE (Amit, 16 Nov 2026): two of its sides are read and shown; the two not yet read show nothing
+  g += plate({ cx: (q[0][0] + q[1][0]) / 2, cy: q[0][1], text: '830', st: 'read' });
+  g += plate({ cx: q[1][0], cy: (q[1][1] + q[2][1]) / 2, text: '630', st: 'read', turned: true });
   // switch plate: too small for two plates -- one compact plate beside it
   g += boxMark(FS1);
-  g += compact((FS1.x0 + FS1.x1) / 2, FS1.y0 - 10 - 8.5, { text: '≈222' }, { text: '≈102' });
   // points: a spot and its code, no size
   g += spot(FE1) + spot(FE2);
   if (!o.noWindow) {
     g += boxMark(FW1);
-    g += plate({ cx: FW1.x0 + 0.75 * (FW1.x1 - FW1.x0), cy: FW1.y0, text: '≈909' });
-    g += plate({ cx: FW1.x1, cy: W1.ym, text: '≈1106', turned: true });
   }
   return g;
 }
@@ -206,12 +202,12 @@ function othersProposed(o = {}) {
 /** FW1's position figures, each on its white line with arrowheads, as today. [hand]: the mark shows its tabs. */
 function windowPosition(hand) {
   let g = '';
-  const rp = { cx: (FW1.x1 + WX1) / 2, cy: CORNER_Y, text: '≈740', fs: 12 };
+  const rp = { cx: (FW1.x1 + WX1) / 2, cy: CORNER_Y, text: '?', fs: 12 };
   g += dline(FW1.x1, CORNER_Y, WX1, CORNER_Y, { gap: plateBox(rp) }) + plate(rp);
-  const sp = { cx: FLOOR_X, cy: (FW1.y1 + WY1) / 2, text: '≈780', fs: 12 };
+  const sp = { cx: FLOOR_X, cy: (FW1.y1 + WY1) / 2, text: '?', fs: 12 };
   g += dline(FLOOR_X, FW1.y1, FLOOR_X, WY1, { gap: plateBox(sp) }) + plate(sp);
   const gp = hand ? 8 : 4, ps = plateSize('⊥ ?', 12);
-  g += plate({ cx: FW1.x1 + gp + ps.w / 2, cy: FW1.y1 + gp + ps.h / 2, text: '⊥ ?', st: 'unk', fs: 12 });
+  g += plate({ cx: FW1.x1 + gp + ps.w / 2, cy: FW1.y1 + gp + ps.h / 2, text: '⊥ ?', fs: 12 });
   return g;
 }
 
@@ -229,20 +225,20 @@ function wallMarks(state) {
   if (state === 'held') {
     near += boxMark(FW1, { sel: true, noCode: true });
     // width: gold, on its line 6 dp over the edge, the plate hand-anchored clear of the tabs
-    const wp = { cx: W1.xm, cy: FW1.y0 - 22.1, text: '≈909', fs: 12, active: true, tri: 'hollow' };
+    const wp = { cx: W1.xm, cy: FW1.y0 - 22.1, text: '?', fs: 12, active: true, tri: 'hollow' };
     near += dline(FW1.x0, FW1.y0 - 6, FW1.x1, FW1.y0 - 6, { active: true });
     // height: its line 6 dp right of the edge, the plate hand-anchored right of it
-    const hs = plateSize('≈1106', 12);
+    const hs = plateSize('?', 12);
     near += dline(FW1.x1 + 6, FW1.y0, FW1.x1 + 6, FW1.y1);
     near += windowPosition(true);
     near += tabs(FW1);
     near += plate(wp);
-    near += plate({ cx: FW1.x1 + 14 + hs.w / 2, cy: W1.ym - 0.5, text: '≈1106', fs: 12 });
+    near += plate({ cx: FW1.x1 + 14 + hs.w / 2, cy: W1.ym - 0.5, text: '?', fs: 12 });
     near += codeChip(FW1, FW1.x0, FW1.y0 - 31.6 - 3 - 22);
   } else {
     near += boxMark(FW1, { sel: true, noCode: true });
     const typed = state === 'type';
-    const hp = { cx: FW1.x1, cy: W1.ym, text: typed ? '110' : '≈1106', fs: 12, active: true, tri: 'solid', turned: true };
+    const hp = { cx: FW1.x1, cy: W1.ym, text: typed ? '110' : '?', fs: 12, active: true, tri: 'solid', turned: true };
     // the edge is the line: the side being measured is gold and heavy
     near += dline(FW1.x1, FW1.y0, FW1.x1, FW1.y1, { active: true, gap: plateBox(hp) });
     near += windowPosition(false);
@@ -588,14 +584,14 @@ const visible = 780 - PANEL_H - T.photo;
 const lift = (T.photo + (PH - IH) / 2 + W1.ym) - (T.photo + visible / 2);
 
 const pages = {
-  'mcft-new-1-nothing-picked': page('Proposed · nothing picked', proposed('none', { left: 20, laser: 'off' })),
-  'mcft-new-2-mark-held': page('Proposed · a mark held', proposed('held', { left: 20, laser: 'off' })),
-  'mcft-new-3-measuring-gold': page('Proposed · a dimension being measured', proposed('walk', { left: 19, laser: 'ready' })),
-  'mcft-new-4-keypad': page('Proposed · the keypad open', proposed('type', { left: 19, laser: 'ready' })),
-  'mcft-new-5-panel': page('Proposed · the panel', proposed('held', { left: 20, laser: 'off', sheet: 'panel', sheetH: PANEL_H, lift, id: 'panel' })),
-  'mcft-new-6-add-sheet': page('Proposed · the Add sheet', proposed('none', { left: 20, laser: 'off', sheet: 'add', sheetH: ADD_H, id: 'add' })),
-  'mcft-new-6b-tool-armed': page('Proposed · a tool armed', proposed('none', { left: 20, laser: 'off', armed: 'D', id: 'armed' })),
-  'mcft-new-7-today-vs-proposed': page('Today and proposed', `<div class="wrap"><div class="colm"><div class="hd2">today · build 0.3.339</div>${today()}</div><div class="colm"><div class="hd2 new">proposed</div>${proposed('walk', { left: 19, laser: 'ready', id: 'cmp' })}</div></div>`, 760, 800,
+  'mcft-new-1-nothing-picked': page('Proposed · nothing picked', proposed('none', { left: 18, laser: 'off' })),
+  'mcft-new-2-mark-held': page('Proposed · a mark held', proposed('held', { left: 18, laser: 'off' })),
+  'mcft-new-3-measuring-gold': page('Proposed · a dimension being measured', proposed('walk', { left: 17, laser: 'ready' })),
+  'mcft-new-4-keypad': page('Proposed · the keypad open', proposed('type', { left: 17, laser: 'ready' })),
+  'mcft-new-5-panel': page('Proposed · the panel', proposed('held', { left: 18, laser: 'off', sheet: 'panel', sheetH: PANEL_H, lift, id: 'panel' })),
+  'mcft-new-6-add-sheet': page('Proposed · the Add sheet', proposed('none', { left: 18, laser: 'off', sheet: 'add', sheetH: ADD_H, id: 'add' })),
+  'mcft-new-6b-tool-armed': page('Proposed · a tool armed', proposed('none', { left: 18, laser: 'off', armed: 'D', id: 'armed' })),
+  'mcft-new-7-today-vs-proposed': page('Today and proposed', `<div class="wrap"><div class="colm"><div class="hd2">today · build 0.3.339</div>${today()}</div><div class="colm"><div class="hd2 new">proposed</div>${proposed('walk', { left: 17, laser: 'ready', id: 'cmp' })}</div></div>`, 760, 800,
     `.wrap{width:760px;height:800px;background:#000;display:flex;gap:20px;padding:0 10px}.colm{width:360px}.hd2{height:20px;line-height:20px;text-align:center;font-size:13px;font-weight:700;letter-spacing:.4px;color:#cfd3cb}.hd2.new{color:#E0B040}`),
 };
 for (const [name, html] of Object.entries(pages)) fs.writeFileSync(path.join(OUT, name + '.html'), html);

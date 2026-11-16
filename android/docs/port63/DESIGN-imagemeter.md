@@ -945,6 +945,65 @@ figure takes the next shot?
 
 ---
 
+## 18. No photo estimate, anywhere (Amit, 16 Nov 2026, ~22:55 IST) — this section OVERRIDES every `≈` above
+
+Amit was sent the seven pictures of this design (`imagemeter-pictures/`, their first set) and answered in his own
+words: **"No foto estimation at all. It confuses user"**. Every figure drawn `≈` in those pictures — the photo's
+estimate of a side nobody had measured — goes. It overrides §0 ("an unread figure is the photo's `≈` estimate"), §2.2,
+§4.3 item 4, §5, §9, §15 A3, `DESIGN-port63.md` §1.1 (which chose the estimate over a blank), and his own earlier
+choice "Every mark's size, always", which now reads: every mark's MEASURED size, always. The pictures are redrawn; the
+folder holds the new set and the first set is gone from it.
+
+**The rules.** Builders follow these where the sections above differ.
+
+1. **The phone never shows a figure nobody measured.** No `≈` on the photo, on the 360, in the note line, on the Plan
+   or the six drawings, in the saved pictures (already "Measured figures only", his answer the same evening) or in
+   an export a person reads. A dimension has two looks only: READ — its figure, white bold on black — and NOT READ.
+2. **Not read is shown only where it can be acted on.**
+   - **A mark that is not picked shows only what has been read**: each read size figure on its own edge; nothing at
+     all for an unread side. A wall nobody has measured is outlines and codes. What is left is said by the tabs'
+     amber counts, by the code's missing `✓`, and found by `▸`.
+   - **The picked mark shows every dimension it asks** — size and position — read ones as figures, unread ones as a
+     quiet `?` plate (grey, dashed: the old estimate's plate with `?` in it), each a tap target; the one being
+     measured is H1's gold plate reading `▶ ?` until the reading lands or digits are typed. This is ImageMeter's own
+     sign for a measure with no value (§0), kept to the one element that is selected.
+   - A small box's compact plate carries its read halves; an unread half is `?` only while the mark is picked. A
+     `⊥` depth is `⊥ ?` in the same quiet style as any other unread figure (it was amber: there is now one "not
+     read", not two).
+3. **A Line** shows its reading once read; until then its code alone, and `?` after it while it is picked. **An
+   area's m² is computed from the photo, so it is not shown**; its perimeter is, once read. **A chain** (kept only
+   where a room already has one) shows read segments and a read total; no derived and no photo figure.
+4. **The Tape is the one exception, and it is asked** (A7): it is a ruler the surveyor lays on the photo with his own
+   hand, its band and ticks say so, and its figure IS what the photo says — that is the tool. It stays as built
+   until he rules; he moved one that evening and asked only that it move by its body.
+5. **The check keeps no number and becomes a gross guard.** `sp.measure.photo_says_x` ("The photo says ≈640 mm…")
+   goes: it quoted an estimate. What stays is the guard against a shot that landed on the wrong thing while the gold
+   moved by itself (§16 risk 2): a reading more than TWICE, or less than HALF, the side as the mark is drawn keeps
+   its `!`, does not move on, double-buzzes, and the note says, with no figure, that the reading does not match the
+   mark (`sp.measure.check_reading`, new, English first). The 150 mm / 15 % rule goes: with loosely drawn marks it
+   would cry wolf, and nobody now sees the estimate it was compared with. Whether even this `!` stays is asked (A8).
+   The estimate itself lives on in the model for this guard and for nothing a person reads.
+6. **A mark that is not in the room** (a Client wish, a Vendor-added mark) asks no reading and so shows no figure at
+   all on the phone. How a wished thing's intended size is given — typed, in the panel — belongs to the wish round's
+   own design; nothing is built for it here.
+7. Unchanged: the room's W, L and H and the reference rectangle's W and H are readings or typed figures, never
+   estimates. S5 `/projects` still shows the office the photo's figure beside each reading (its Diff column); that
+   page is not the surveyor's screen and is asked separately (A9), not changed here.
+
+**In the models.** `MarkDims.value` answers MEASURED or UNKNOWN; the ESTIMATE state and its style go from the
+screen's path (the saved pictures' old painter, which still prints both, goes with slice M3). `DimLayout.place` is
+handed only the figures rule 2 shows, so an unpicked, unmeasured mark costs it nothing. `MeasureWalk`'s order and
+counts are unchanged: they count what is asked and not read.
+
+**In the slices.** I1 carries rules 1, 2, 3 and 5 for the photo in 2 · Mark and for the 360's tags — it is the slice
+that rewrites what the photo draws. The Plan, the six drawings and the exports follow in M3 with the saved pictures
+("Measured figures only" is the same rule). Nothing else in §14 moves.
+
+**Asked of Amit when their slice comes up, not before** (he closed a four-question selector that evening and
+answered in a line; a question is put to him only when a build waits on it): **A7** the Tape's photo figure (stays /
+goes / shown only while picked); **A8** the gross-mismatch `!` (stays / goes); **A9** the office's web page still
+showing the photo figure beside a reading. **A3 is answered by this section** and is no longer asked.
+
 ## 17. The critic
 
 The plan critic read the first version of this file (`744925b`) and returned nineteen findings. Each was checked
