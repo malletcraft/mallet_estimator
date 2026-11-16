@@ -5,8 +5,10 @@ branch `port63-measure`.
 
 **Basis.** Code read at `775d33c` (0.3.332 = port 62 build 3) and slice SP0 on `port63-sp0` at `2fec4fe`; four
 readers' reports (the screen today, ImageMeter's manual, the journey walked in the code, two candidate designs).
-Nothing was run for this file, no gradle, nothing seen on a phone. Every "decided by Claude" below is judged by Amit
-on the phone, not on a prototype: the prototype is on hold.
+Revised the same day after the plan critic's seventeen findings, each checked against the code first; §8 records
+what was confirmed, what changed and the one part declined. Nothing was run for this file, no gradle, nothing seen
+on a phone. Every "decided by Claude" below is judged by Amit on the phone, not on a prototype: the prototype is on
+hold.
 
 Paths: `pano/…` = `android/pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/…`, `app/…` =
 `android/app/src/main/kotlin/com/malletcrafts/interiorestimate/…`, `SPS` = `app/SurveyPrepScreen.kt`,
@@ -58,14 +60,32 @@ office a figure that is visibly an estimate. A blank cannot tell "not measured y
 What goes: the Show row (≈ Photo / Measured / Both), the ` | ` divider, the `±d` difference and its green and
 amber. Whether a reading was lasered or typed is not stored and not shown.
 
-**One check stays, as a mark, never a number.** A measured plate carries a small amber `!` after its figure when the
-reading differs from the photo by more than the larger of 150 mm and 15 % of the estimate. The bar (§1.4) then says
-why. It is computed from the reading and the box as it is now, so it also catches a mark moved after it was
-lasered; nothing is stored. The threshold is deliberately wide: it should fire on a shot at the wrong target, not
-on an ordinary estimate. It is Claude's starting figure, to be tuned from his first rooms.
+**One check stays, as a mark, never a number — and only on a mark that lies in the squared plane.** A measured
+plate carries a small amber `!` after its figure when the reading differs from the photo by more than the larger of
+150 mm and 15 % of the estimate. It is computed from the reading and the box as it is now, so it also catches a
+mark moved after it was lasered; nothing is stored. The threshold is deliberately wide: it should fire on a shot at
+the wrong target, not on an ordinary estimate. It is Claude's starting figure, to be tuned from his first rooms.
 
-After a reading the phone no longer shows the photo's estimate anywhere, except inside that check's sentence. The
-office still sees both on S5 `/projects`.
+Which marks it is made on is not a figure to tune. A face is squared to the wall's (the floor's, the ceiling's) own
+plane, so a thing that stands off that plane is nearer the camera and its box on the squared photo is larger than
+the thing: a 600 mm deep wardrobe on the wall of a 2.7 m room, seen from the middle, reads about 1350 / 750 = 1.8
+times its width; a 450 mm high bed on the floor about 1.4 times. A check there would flag the true reading of every
+such mark, and a warning that fires every time teaches him to skip it. So:
+
+- the check is made on a mark that asks no `p`, and on one whose `p` is a depth INTO the wall: a wall's Door,
+  Window, Opening and Niche (`D`, `W`, `O`, `N`);
+- it is never made on a mark whose `p` is a projection, a depth from the wall, a drop or a height — a wall's
+  Column, Beam, Loft, Grill, AC unit, Curtain track, Carpentry unit and Sanitary ware; the floor's Step, Carpentry
+  unit and Sanitary ware; the ceiling's Beam, AC unit and Ceiling drop (`SurveyPrep.measures0`,
+  `pano/SurveyPrep.kt:885-903`; `MarkTypes.measures`, `pano/MarkTypes.kt:377-389`). On these no figure of the mark
+  carries `!`, its position figures included.
+
+`MarkDims.inPlane` is that rule (§4, M1), and a type added later with a `p` is a red test until it is classified.
+
+The `!` says nothing by itself. When a reading that fails the check lands, and again whenever a plate carrying `!`
+becomes active, the screen's existing message line says why: "The photo says ≈640 mm. Check the mark, or shoot
+again." (§1.4). After a reading the phone no longer shows the photo's estimate anywhere, except inside that
+sentence. The office still sees both on S5 `/projects`.
 
 ### 1.2 What is drawn for each mark
 
@@ -97,13 +117,19 @@ Examples, from the same rule:
 - **Carpentry unit, Grill, Sanitary ware**: width, height, corner, underside from the floor, `⊥` depth.
   **Curtain track**: its length as `w`, corner, from the ceiling, `⊥`. **Beam**: `d`, corner, `⊥`.
 - **Note**: its pin; nothing to measure. **Tape**: unchanged; it has no reading.
-- **Line, area, chain**: already one figure. One fix: a Line's tag shows its reading once read, else `≈`
-  (`F-M1 1240 mm` / `F-M1 ≈1234 mm`, as S5 already draws it).
+- **Line, area, chain**: already one figure. Two fixes. A plotted Line's tag shows its reading once read, else `≈`
+  before the photo's length (`F-M1 1240 mm` / `F-M1 ≈1234 mm`, as S5 already draws it); a Line still being pulled
+  keeps `1234 mm`. An area's tag shows its perimeter after its m² once read: `F-M2 1.86 m² · 5734 mm` (figures
+  only, no word) — today a read perimeter is shown nowhere but the list (`pano/SurveyMeas.kt:287-303`). All of
+  these figures take a tap (§1.5).
 
-A mark that is **not in the room** (born a Client wish or Vendor added; `SheetMarks.surveyed` is false) keeps its
-state outline and pill, shows estimate-style figures, and is never asked for a reading: its plates take no tap and
-it is not in the walk or the counts. This is S5's rule for the same mark. A mark that was surveyed keeps its
-readings whatever its state.
+A mark that is **not in the room** (born a Client wish or Vendor added; `SheetMarks.surveyed` is false,
+`pano/SheetMarks.kt:53`) keeps its state outline and pill and shows estimate-style figures. It is never asked for a
+reading: it is never active and it is not in the walk or the counts. Its plates are still tap targets: a tap picks
+the mark (so its label is there to open the Mark sheet) and says `sp.measure.not_in_room`, and that is all it
+does. A reading such a mark already holds from an earlier build (0.3.332 gave it a reading box) is shown as a
+measured figure, S5's rule for the same mark, and is not removed. A mark that was surveyed keeps its readings
+whatever its state.
 
 The wall's own W × H stays in the caption above the photo ("Front wall · W 2678 × H 2677").
 
@@ -117,11 +143,37 @@ The strip keeps four steps. The third changes from the list to the photo:
   Placing or picking a mark makes its first unmeasured dimension active, as today, and a tap on a figure makes that
   one active; the measure bar then appears above the palette. So "place a door, shoot its width" still works
   without leaving the step (ImageMeter's "select, then shoot"). After a reading the next unmeasured dimension of
-  the same mark becomes active, as today.
+  the same mark becomes active, as today; when the mark has nothing left nothing is active and the bar goes.
 - **3 · Measure** is the same squared photo with the figures on it and a walk through the unmeasured ones. Nothing
   can be moved, resized or placed there, so a thumb on the photo cannot drag a mark while the other hand holds the
   laser. A drag pans; a pinch zooms.
 - **4 · 360** keeps the same bar (§1.7).
+
+**3 · Measure has a picked mark**, the screen's existing `sel`, and these are all its taps:
+
+- A tap on a **mark** picks it: its position figures are drawn (§1.6) and its first unmeasured dimension becomes
+  active if it has one. A fully measured mark is picked with nothing active, and every plate of it takes a tap;
+  that is how a reading is corrected.
+- A tap on a **plate** picks its mark and makes that dimension active. A tap on the plate that is already active
+  opens the pad (§1.4).
+- "Becomes active" is always at Survey (or while the stage is unread) and for a mark that is in the room. After
+  Survey (§1.8) and on a mark not in the room (§1.2) the same taps pick, say why, and make nothing active.
+- A **Line, an area and a chain** are picked by a tap on one of their figures, which makes that reading active
+  (§1.5). A tape has no figure to read and is not picked here.
+- A tap on **empty photo** does nothing: a stray thumb must not lose the dimension the laser is about to fill.
+- **No tap target is added on a code**, and `SurveyPrepTouch.hit` gains no new `Hit`. The code is drawn inside the
+  box's top-left corner (`SPD:509`); on a 25 × 11 dp switch plate it covers the whole box, so "tap the code" and
+  "tap the mark" could not both exist. 3 · Measure calls `hit` with `selId = null` and no chain nodes, so it
+  answers `Tag` or `Mark "body"` only (`pano/SurveyPrepTouch.kt:104-111`, `:131`).
+
+**The Mark sheet opens from the picked mark's label**, the way it does today: in 0.3.332 it never opened from the
+code on the photo but from the 52 dp label of the picked mark's row under the photo (`SPS:1735-1738`), from a
+Line's row (`SPS:1769-1770`) and from the list (`SPS:1526`). In 2 · Mark and 4 · 360 that row stays as it is. In
+3 · Measure, which has no such row, the label is the left cell of the measure bar (§1.4): the same 52 dp cell, the
+state's 3 dp bar on its left edge, `clickable { openSheet(id) }`, the existing `life.aria.open_mark_sheet_x`. It is
+drawn at every stage, after Survey too, where the rest of the bar is not (L4's rule: the label stays, controls are
+hidden). A picked Line or area gets a label the same way; a tape and a chain none, as today
+(`MarkSheet.opens`).
 
 Why a third step and not everything in 2 · Mark: at Estimated and at Client approved there is no 2 · Mark (port 62
 slice L4, shipped), and survey prep needs a step to land on that places nothing. The third step is that, as the
@@ -137,12 +189,17 @@ What the list did, and where each part goes:
 | The list had | Now |
 |---|---|
 | Every reading box | the plate on the photo, with the bar, the pad and the laser |
-| A mark's code opening the Mark sheet | a tap on the code in 3 · Measure opens it, as in 2 · Mark. This matters at Estimated and Client approved, where there is no 2 · Mark |
+| Re-opening a reading already taken (a mark's, a Line's, an area's, a chain's) | a tap on its figure on the photo, or `‹` (§1.5): both in M2, the build that removes the list |
+| A read area's perimeter | on the area's tag (§1.2) |
+| Every figure of a face at once | the `all` toggle in 3 · Measure (§1.6), in M2 |
+| A mark's code opening the Mark sheet | the picked mark's label: 2 · Mark's row as today, the measure bar's left cell in 3 · Measure, at every stage — so at Estimated and Client approved, where there is no 2 · Mark, the sheet still opens |
 | Delete / Drop / Restore | already on the picked mark's row in 2 · Mark |
 | "… is outside the face" | the red dashed outline on the photo, as today |
 | All six surfaces at once (LIST tab) | a count on each face tab, and the walk's "next face" (§1.5) |
 
-The tabs become FRONT RIGHT BACK LEFT / FLOOR CEILING PLAN.
+The tabs become FRONT RIGHT BACK LEFT / FLOOR CEILING PLAN. Each row's tabs share the row's width equally, four in
+the first and three in the second: every tab is `Modifier.weight(1f)` in its own row already (`SPS:1301-1313`), so
+dropping `list` from `TAB_ROWS` is the whole change and the strip's touch routing is untouched.
 
 ### 1.4 The bar, the pad, the laser
 
@@ -151,81 +208,169 @@ The tabs become FRONT RIGHT BACK LEFT / FLOOR CEILING PLAN.
 │ Survey … (the phase band)            │
 │ ←  Living · survey prep   ↶ ⋮ ✓ Save │
 │ FRONT ✓  RIGHT ✓ 2  BACK   LEFT      │
-│ FLOOR    CEILING    PLAN             │
+│ FLOOR       CEILING       PLAN       │
 │ 1·Lines  2·Mark  3·Measure  4·360    │
 │ Front wall · W 2678 × H 2677         │
 │ ┌──────────────────────────────────┐ │
 │ │        ├── ≈1203 ──┤        fit  │ │
 │ │       ┌───────────┐         grid │ │
-│ │       │FW1        │ 1198         │ │
+│ │       │FW1        │ 1198    all  │ │
 │ │       └───────────┘              │ │
 │ │  ├─▶≈640─┤  ⊥ ?                  │ │
 │ └──────────────────────────────────┘ │
-│ ‹  FW1 Window · from left corner     │
-│    7 of 18 measured     [≈640] D2  › │
+│ FW1    ‹ from left      [≈640] D2 ›  │
+│ Window   corner                      │
+│          7 of 18 measured            │
 └──────────────────────────────────────┘
 ```
 
-**The measure bar** (56 dp in portrait, 48 dp in landscape), one composable used in steps 2, 3 and 4:
+**The measure bar** — `measureBarDp(land)`: 56 dp in portrait, 48 dp in landscape — is one composable used in
+steps 2, 3 and 4:
 
-`‹` · two lines of text · the figure box · `D2` · `›`
+`label` · `‹` · two lines of text · the figure box · `D2` · `›`
 
-- Line 1 names the dimension: `FW1 Window · from left corner` (code, type name, the measure's own words).
-- Line 2 is progress, `7 of 18 measured`; or, on a checked figure, "The photo says ≈640 mm. Check the mark, or
-  shoot again."
-- The figure box shows the same one figure as the plate, in the same style. A tap opens the pad.
-- `D2` fires the laser, as today's button does (`fire()`, `SPS:505`). The meter's own button works the same.
-- `‹` goes to the dimension before, read or not, to correct it. `›` skips: the dimension stays unmeasured and comes
-  round again.
+- **The label cell** (52 dp) is drawn by the bar wherever the picked mark's own row is not: in 3 · Measure, and in
+  2 · Mark and 4 · 360 while the pad is open. For a mark it reads its code over its type's SHORT name
+  (`SurveyPrepPalette.short`: `Window`, `Switch`, `Unit`, `Sanitary` — the full name does not fit 52 dp), or over
+  `locked`; for a Line or an area its code. It opens the Mark sheet (§1.3). 2 · Mark's own row keeps its label as
+  it is today (the code over Move / the edge being moved / `locked`).
+- **Line 1 is the measure's own words alone**: `from left corner`, `sill, from floor`, `reveal depth`; a Line
+  `length`, an area `perimeter`, a chain `segment 2` or `total` — the `what` of the active key
+  (`Prep.readingOf`), nothing composed. 12 sp, at most two lines, then an ellipsis. The code and the type are
+  beside it in the label cell (in 2 · Mark, in the row above), so the line does not repeat them.
+- **Line 2 is progress**, `7 of 18 measured`, 10 sp, one line.
+- **The check's sentence is not in the bar.** It is said through the screen's message line
+  (`say(…)`, the line every refusal already uses) when a reading that fails the check lands, and again when a
+  plate carrying `!` becomes active.
+- **The figure box** (64 dp) shows the same one figure as the plate, in the same style; from the first key press
+  it shows the pad's digits. A tap opens the pad.
+- **`D2`** fires the laser, as today's button does (`fire()`, `SPS:505`). The meter's own button works the same.
+- **`‹` and `›`** are 36 dp wide and as tall as the bar.
 
-In 2 · Mark the bar shows only while a dimension is active, where the reading strip is today. In 3 · Measure it
-takes the palette's place and is always there.
+The width, which is why the lines are what they are. Portrait: 360 dp less the screen's 20 and the bar's own 12 is
+328 dp; landscape's column is 318, so 306.
+
+| | Portrait | Landscape |
+|---|---|---|
+| label 52 · `‹` 36 · box 64 · `D2` 40 · `›` 36 · five 4 dp gaps | 248 | 248 |
+| left for the two lines, with the label cell | 80 dp, about 12 characters a line | 58 dp, about 9 |
+| left for the two lines, without it (2 · Mark, pad closed) | 136 dp | 114 dp |
+
+So `from left corner` and `underside, from floor` hold in two lines; the longest, `from right corner, to centre`,
+is cut with an ellipsis in the narrow cases. That is accepted: the gold plate on the photo is what says which line
+is being measured, and the words name it. These are budgets, first seen on the Mi A3 (§7).
+
+**Where the bar is, and what `‹` and `›` do.**
+
+- **In 3 · Measure** the bar sits where 2 · Mark has its palette and is always there at Survey. `‹` goes to the
+  stop before, read or not, to correct it. `›` skips: the dimension stays unmeasured, the walk goes to the next
+  unmeasured one and comes round again. Line 2 counts the open face. Its states:
+  - a dimension active: the whole bar;
+  - nothing active and something left: label, `‹`, the progress line, `›` (which goes to the first unmeasured);
+  - the face finished: label, `‹`, "Front wall · all 9 measured ✓" and the next-face button in `›`'s place (§1.5);
+  - nothing asked on the face: `fp.nothing_measure_face_yet`.
+- **In 2 · Mark and 4 · 360** the bar shows only while a dimension is active, where the reading strip is today.
+  `‹` and `›` move within the picked item's own keys only — a mark's `measures()` order, a chain's keys — read or
+  not, wrapping; they never change the selection, and an item with one key (a Line) draws neither. Line 2 counts
+  the picked item's face (`sel.s`), since 4 · 360 has no open face. When the picked item has nothing left the bar
+  goes, as the strip does today; a tap on one of its plates brings it back for a correction.
+
+Only in 3 · Measure do `‹`, `›` and a reading walk from one mark to another.
 
 **The pad** is the app's own, not the system keyboard, which covers far more of the screen, jumps at every field
-and has no Next. Four rows of 44 dp (36 dp in landscape):
+and has no Next. Four rows of `padRowDp(land)`: 44 dp, 36 dp in landscape.
 
 ```
  1   2   3   ⌫
  4   5   6   Clear
  7   8   9   Next ▸
- ⌄   0       (Next ▸, two rows tall)
+ ⌄   [  0  ]   (Next ▸, two rows tall)
 ```
 
-- Digits only, six at most, whole mm. The digits show live in the bar's box and on the gold plate.
-- `Next ▸` commits and moves to the next unmeasured dimension. Leaving the dimension any other way (a tap on
-  another plate, `‹`, `›`) commits what was typed too, as losing focus does today.
-- `Clear` empties the figure; committing an empty figure removes the reading and the estimate returns.
-- `⌄` hides the pad. Open or hidden is remembered for the session, so a laser user never sees it.
-- The pad sits under the bar and the photo gives up the height; it never covers the photo. In landscape bar and
-  pad sit in the 318 dp right column.
-- Every write goes through `MmBox.commit`, unchanged: only a typed or lasered value becomes a reading.
+`0` spans the two middle columns.
+
+- **It opens only when asked**: a tap on the bar's figure box, or on the plate that is already active. It never
+  opens by itself when a dimension becomes active, so placing and nudging are never covered unasked and a laser
+  user never sees it. It is closed on first entry to survey prep; open or hidden is then kept in a `remember` of
+  the survey prep dialog, and lost when the dialog closes. `⌄` hides it.
+- **What it starts with.** When a dimension becomes active the pad's text is `MmBox.shownText(prep.actual[code])`
+  — the STORED reading, or empty. Never the estimate, and never a chain's derived or laser figure, which are not
+  readings (the fault `pano/MmBox.kt`'s header records). A `fresh` flag is set.
+- **Keys.** While fresh, the first digit REPLACES the text and `⌫` empties it; after that a digit appends and `⌫`
+  removes one. Digits only, six at most, whole mm; a `0` that would lead the figure is ignored. `Clear` empties.
+  From the first key press the digits show live in the bar's box and on the gold plate (an emptied pad shows the
+  box's `mm` hint, and the plate keeps the figure it had until the commit).
+- **Every commit is `MmBox.commit(prep.actual[code], text)`**, unchanged (`pano/MmBox.kt:26`). So an untouched pad
+  writes nothing: walking with `‹`, `›` or `Next ▸` over a measured dimension never changes or removes it. Typing
+  the figure it already holds writes nothing. An emptied pad over a stored reading removes the reading, and the
+  estimate returns; an empty pad over no reading writes nothing.
+- **`Next ▸`** commits and moves on as `›` does; with nothing typed it IS `›`. Leaving the dimension any other way
+  commits what was typed too, as losing focus does today: a tap on another plate or mark, `‹`, `›`, `⌄`, a change
+  of step, face or tab, ← and ✓ Save.
+- **A laser reading that arrives while digits are uncommitted discards them and is the reading.**
+- **Where it sits.** Under the bar; the photo gives up the height and nothing is covered. In 3 · Measure that is
+  bar + pad. In 2 · Mark and 4 · 360, while the pad is open it takes the place of the palette AND of the picked
+  mark's row (nudges, padlock, delete); the label moves into the bar; `⌄` brings both back. All four together do
+  not fit: in landscape the 324 dp column less the bar (32), the tabs (56) and the strip (24) leaves 212 dp, and
+  the picked row (about 34) + bar 48 + palette 52 + pad 144 is 278. Bar + pad is 192. In portrait bar + pad
+  leaves the photo about 342 dp of height (780 − 24 − 12 − 170 − 56 − 176), its full square.
 
 **The laser** is unchanged in its rules. A reading lands on the active dimension, decided when it arrives
 (`SurveyRef.route`, `SPS:522-533`); a reference box's shot never becomes a mark's reading. New in M2:
 
 - In 3 · Measure, when the mark has nothing left, the walk moves to the next unmeasured dimension on the face, with
-  no tap on the phone. The photo pans only if that plate is off screen.
-- A short haptic tick when a reading lands, because his eyes are on the laser dot.
+  no tap on the phone; the picked mark follows it. The photo pans only if that plate is off screen.
+- A short tick when a reading lands, because his eyes are on the laser dot:
+  `LocalHapticFeedback.current.performHapticFeedback(HapticFeedbackType.TextHandleMove)` — the value read once in
+  the dialog's composition, the call made where the laser's reading is taken. No `Vibrator`, no permission (the
+  manifest has none for it).
 - The plate turns from grey `≈` to white with the figure.
 
-**Corrections.** Tap the plate (or `‹`), then shoot or type again: the new value overwrites. `Clear` then
-`Next ▸` removes a reading. ↶ still never undoes a reading.
+**Corrections.** Tap the plate (or `‹`), then shoot, or open the pad and type: the new value overwrites. `Clear`
+then `Next ▸` removes a reading. ↶ still never undoes a reading.
 
 ### 1.5 Progress and the next unmeasured
 
-- **In the bar:** `7 of 18 measured` for the open face.
+- **In the bar:** `7 of 18 measured` for the open face (in 2 · Mark and 4 · 360, the picked item's face).
 - **On each face tab:** a small amber count of what is still to measure there (`RIGHT ✓ 2`). No count when nothing
   is left or nothing is asked. The existing ✓ keeps its one meaning, "four lines set".
 - **On a mark:** `✓` after its code once everything it asks is measured.
 - **A finished face:** the bar reads "Front wall · all 9 measured ✓" and offers "Next: Right wall · 4 to measure ▸".
-  It never changes face by itself: he has to turn round. When no face has anything left: "Room measured · all 31 ✓".
+  It keeps `‹`, which goes to the face's LAST stop, so a reading on a finished face can still be reached without
+  finding its plate. It never changes face by itself: he has to turn round. When no face has anything left: "Room
+  measured · all 31 ✓".
 - **Entering 3 · Measure**, or changing face inside it, makes the first unmeasured dimension active, so he can
   shoot at once.
 
-**The walk's order** (one rule for all six surfaces): marks left to right across the photo, ties lower first, then
-by code; inside a mark the order `measures()` gives; then Lines and areas in stored order; then each chain's
-`SurveyChain.openKeys` (its total left out where the laser gives it). Notes, tapes and marks not in the room are
-left out. Faces follow the tabs: front, right, back, left, floor, ceiling.
+**Every reading can be re-opened from the photo.** A mark's plates take a tap. So do the figures that are not
+plates: a Line's and an area's tag and a chain's segment figures and its total are added to `o.tags` under their
+reading keys (`F-M1.len`, `F-M2.per`, `FK1.2`, `FK1.t`), so a tap makes that reading active exactly as a plate's
+does. A chain total the laser gives is not added, and a tap on it does nothing: it takes no reading, as today
+(`SurveyChain.totalReadOnly`). This is in M2, because M2 deletes the list: today the list is the only place a
+read CHAIN reading can be retyped or cleared (picking a chain makes only an OPEN key active, `SPS:1001`,
+`Prep.nextOpen`, `pano/SurveyPrep.kt:1266-1284`) and the only place a read perimeter is seen, and 3 · Measure
+picks a Line or an area by its figure alone. In 2 · Mark a fresh pick of a Line or an area goes on making its
+key active, read or not, as today (`SurveyMeas.pickActive`).
+
+**The walk's order** (one rule for all six surfaces):
+
+1. the marks that are asked, by their left edge `x0` rounded to the whole mm, ascending; equal `x0`: `y0`
+   ascending (lower first); then by code. A point is ordered by its box like any mark;
+2. inside a mark, the order `measures()` gives;
+3. then Lines and areas in stored order;
+4. then each chain's `SurveyChain.openKeys` in stored order — its segments, then its total, the total left out
+   where the laser gives it.
+
+Notes, tapes and marks not in the room are left out. Faces follow the tabs: front, right, back, left, floor,
+ceiling.
+
+**What counts as left.** A stop is LEFT when it has no reading — and, for a chain's key, when `SurveyChain.vals`
+gives it no figure either. A chain is used to read n − 1 segments and derive the last (`vals`, `der`,
+`pano/SurveyChain.kt:153-166`), and with every segment read its total is derived; neither has a reading by design.
+So a derived segment and a derived total are not left: they are skipped by the walk's `next`, they are not in the
+tab's count, and `7 of 18` counts neither side of them (`read` is the stops with a reading, `total` is `read` plus
+what is left), so "all N measured ✓" is true of N readings. Each is still a stop: a tap or `‹` reaches it and it
+takes a typed or lasered reading. A total the laser gives is not a stop at all.
 
 Progress never gates ✓ Save.
 
@@ -234,44 +379,71 @@ Progress never gates ✓ Save.
 The example wall (a door, a window, a switch plate, three electric points) asks for 19 figures. The photo is about
 340 dp square. All 19 with their lines would put six lines across the wall and five up it.
 
-So, in 3 · Measure:
+So, in 3 · Measure, as it opens:
 
 - **Every mark shows its size**: `w` on its top edge and `h` on its right edge, 10 sp.
-- **Only the active mark shows its position** dimensions (corner, floor or ceiling, drop, the `⊥` chip), with their
-  lines, at 12 sp. The other marks draw at 75 % and the rest of the photo dims 20 %, as today.
+- **Only the picked mark shows its position** dimensions (corner, floor or ceiling, drop, the `⊥` chip), with their
+  lines, at 12 sp — whether or not one of them is active, so a fully measured mark that is tapped shows them all
+  for a correction. The other marks draw at 75 % and the rest of the photo dims 20 %, as today.
 - **A small box** (both spans shorter than their plates plus 8 dp) gets one compact plate beside it,
   `≈200 × ≈90`, each figure in its own style and its own tap half.
-- **A point** not being measured shows its spot, its code and its `✓`.
+- **A point** that is not picked shows its spot, its code and its `✓`.
 
 That is 6 to 9 plates on the example wall, not 19. In 2 · Mark only the picked mark shows figures, as today.
 
-Plates keep a constant size on screen, so zooming in spreads them apart. When two would overlap, the placing rule
-(pure, in `pano/DimLayout.kt`, tested here) is, in this order:
+**And every figure at once, when he asks: the `all` toggle**, beside fit and grid in 3 · Measure, off on entry
+(in M2 — Amit: "imagemeter shows all dimensions on the annotation there itself"). On, every mark draws every
+figure it has (a mark not in the room in its estimate style), nothing dims, and plates still take a tap. It is a
+view, so it works at every stage. Zoom spreads the plates apart; the placing rule below decides the rest.
 
-1. Place in rank order: the active dimension, the active mark's others, unmeasured, measured.
+Plates keep a constant size on screen. When two would overlap, the placing rule (pure, in `pano/DimLayout.kt`,
+tested here) is, in this order:
+
+1. Place in rank order: the active dimension, the picked mark's others, unmeasured, measured, then the figures
+   of a mark not in the room.
 2. A plate sits mid-span on its line. A span too short for it: the plate steps off the line by one plate height on
    a short leader, arrowheads outside pointing in.
-3. If it would cover a placed plate or a mark's code: try ¼ and ¾ along the line, then step off it on a leader.
+3. If it would cover a placed plate, a mark's code or a box it is told to keep clear: try ¼ and ¾ along the line,
+   then step off it on a leader.
 4. Still no room: it shrinks to a 6 dp dot on its line (hollow = not measured, solid = measured) with a 32 dp tap
    box. The active dimension is placed first and never shrinks.
 5. Every plate stays inside the photo.
 
-An `all` button beside fit and grid, drawing every figure of every mark for a review, comes in M3 with the same
-rule.
+**In 2 · Mark the picked mark keeps its tabs clear** (v52 item 14, Amit's "center handles"): for a picked box mark
+that shows its eight tabs — not a point, not locked, editable — the `w` and `h` plates are anchored by
+`SurveyPrepTouch.widthTag` / `heightTag` with `hand = true` (`pano/SurveyPrepTouch.kt:53-59`, as `SPD:813-824`
+does today), not mid-span on the line, and the eight tab squares join the boxes to keep clear. The plates' tap
+boxes (`o.tags`) are what `trashSpot` is given, as today (`SPS:3057`).
 
 ### 1.7 The 360 and the Plan
 
 - **4 · 360:** no dimension lines on the sphere. The bar is the same one, so a picked mark can be shot or typed
-  there, and the figure is in the bar. M4 turns the view to the active mark and rings it in gold.
+  there, and the figure is in the bar; `‹` and `›` stay inside the picked item (§1.4). A Line's tag there follows
+  §1.2. M4 turns the view to the active mark and rings it in gold.
 - **PLAN tab:** unchanged. It already shows one figure per dimension.
 
 ### 1.8 Phases, wishes, locked marks
 
 - **Readings follow the phase from M2** (the readings part of port 62's L10): `Tool.READINGS` joins
-  `PhaseTools.PREP_HONOURS`. At Survey, and while the stage is unread, everything above applies. After Survey
-  3 · Measure, and the picked mark in 2 · Mark, show the same plates as figures: no bar, no pad, no counts, and a
-  tap on a plate (or a laser reading arriving) says the existing `refuse.readonly.readings`, "Readings are taken in
-  the Survey phase — move the phase back on the project screen to key one".
+  `PhaseTools.PREP_HONOURS`. At Survey, and while the stage is unread, everything above applies. After Survey the
+  plates are figures: nothing becomes active, there is no pad, no `D2`, no `‹` `›` and no counts, and a tap on a
+  plate (or a laser reading arriving) says the existing `refuse.readonly.readings`, "Readings are taken in the
+  Survey phase — move the phase back on the project screen to key one".
+- **After Survey 3 · Measure says so without being asked.** The quote stage is the project's, not the room's, and
+  a live project can already sit at Client wish list; a photo with figures and an empty space under it would read
+  as a broken screen. So where the bar would be, 3 · Measure shows one line always: the picked mark's label (when
+  one is picked) and `refuse.readonly.readings` beside it, 11 sp, three lines at most. Picking, the Mark sheet and
+  the `all` toggle work as at Survey. In 2 · Mark and 4 · 360 the sentence is said on the tap and is not a
+  standing line (§8, finding 7). At Client approved the stage cannot be moved back, so the sentence's second half
+  does not apply there; it is the prototype's sentence for every stage after Survey and its words are J2's to
+  judge, not reworded here.
+- **Capture 360 follows the phase from M2 too** (brought forward from J3): the room screen's Capture 360 button is
+  drawn only where `PhaseTools.can(Tool.CAPTURE, stage)` — its row is already `[1,0,0,0,0,1]`. Without it, from M2
+  a room captured after Survey could be neither measured (this rule) nor, at Estimated, marked, and until then its
+  doors and windows are born wishes (port 62 §3.4, the L4 review's finding 2, which left this gate open to be
+  brought forward). At Client approved the row shows the button again, as the prototype does for execution; with
+  site progress off a 360 taken there is the Quote journey's and its survey prep has no mark tools and no
+  readings. That cell is left as SP0 left it and is named here so it is not read as covered.
 - **A locked mark is still measured.** A lock stops moving, not reading.
 - **Read-only marks** keep L4's rule: their controls are hidden, never greyed.
 
@@ -285,10 +457,11 @@ rule.
 - The single call sites pinned by source-reading tests stay single (`PhaseTools.place`, `MarkSheet.apply` / `open`,
   `SurveyExport.sheet`, `SurveyPrepEdit.duplicate(`, `drawMarks` with a named audience). A pin whose count changes
   because the list is gone moves to the new count with the reason in the test; none is loosened.
-- Hit order: tabs, then plates, then marks (`SurveyPrepTouch.hit`).
+- Hit order: tabs, then plates, then marks (`SurveyPrepTouch.hit`), which gains no new `Hit`.
 - Nothing scrolls. The photo takes every dp the controls leave.
-- The saved `-survey.jpg` gallery pictures are **not changed by M2** (they keep today's painter path for mode
-  `sheet`) until Amit answers question 1; M3 moves them.
+- The saved `-survey.jpg` gallery pictures are **not changed by M1 or M2**: they keep today's painter path for mode
+  `sheet`, and `lineTag`'s new parameters default to what it prints today (§4, M1), so they are byte-identical
+  until Amit answers question 1; M3 moves them.
 
 ## 2. Where survey → quote ends, site progress, the tours
 
@@ -328,9 +501,11 @@ The table tests keep their strength:
 | `sp.measure.face_done_x` | `{face} · all {total} measured ✓` | the bar on a finished face |
 | `sp.measure.next_face_x` | `Next: {face} · {n} to measure ▸` | the bar's button on a finished face |
 | `sp.measure.room_done_x` | `Room measured · all {total} ✓` | the bar when no face has anything left |
-| `sp.measure.photo_says_x` | `The photo says ≈{est} mm. Check the mark, or shoot again.` | the bar's second line on a checked figure |
-| `sp.measure.not_in_room` | `Not in the room — a mark placed as a wish has nothing to measure` | said on a tap on such a mark's figure |
+| `sp.measure.photo_says_x` | `The photo says ≈{est} mm. Check the mark, or shoot again.` | the screen's message line, when a reading that fails the check lands and when a plate carrying `!` becomes active — never in the bar |
+| `sp.measure.not_in_room` | `Not in the room — a mark placed after the survey has nothing to measure` | the message line, on a tap on such a mark's figure (a Client wish or a Vendor-added mark alike) |
 | `sp.measure.x_to_measure` | `{n} to measure` | a face tab's count, read out |
+| `sp.measure.all` | `all` | the toggle beside fit and grid in 3 · Measure |
+| `sp.measure.aria.all` | `Every figure on this face` | that toggle, read out |
 | `sp.measure.aria.previous` | `The measurement before` | `‹` |
 | `sp.measure.aria.skip` | `Skip to the next measurement` | `›` |
 | `sp.measure.aria.type` | `Type the figure` | the bar's figure box |
@@ -338,22 +513,26 @@ The table tests keep their strength:
 
 **Existing keys reused, Marathi untouched:** `common.measure` (the step's name, "Measure"), `common.next` (the
 pad's Next, with the glyph ` ▸`), `fp.clear` (the pad's Clear), `fp.nothing_measure_face_yet` (a face with nothing
-asked), `refuse.readonly.readings`, `refuse.sp.tap_measurement_first`, `sp.msg.d2_x_tap_measurement`, the measure
-names (`measure.*`) and the type names.
+asked), `refuse.readonly.readings` (said on a tap, and 3 · Measure's standing line after Survey),
+`refuse.sp.tap_measurement_first`, `sp.msg.d2_x_tap_measurement`, `sp.locked`, `life.aria.open_mark_sheet_x`, the
+measure names (`measure.*`, `life.length`, `sp.segment`), and the type names and short names.
 
 **Keys that lose their reader and stay in the tables:** `common.show`, `common.photo`, `common.both`,
 `sp.reference_shown_2_mark`, and `common.list` if nothing else reads it. If a table test refuses a key with no
 reader, the builder says so and follows that test's own rule; the Marathi value is not deleted.
 
-**Glyphs**, each a `// text:value` literal, byte-equal in both languages: `≈ ? ▶ ⊥ ✓ ! × ‹ › ⌫ ⌄ ▸`.
+**Glyphs**, each a `// text:value` literal, byte-equal in both languages: `≈ ? ▶ ⊥ ✓ ! × ‹ › ⌫ ⌄ ▸`, and the
+box's `mm` hint.
 
 Texts of the journey slices (§5) are listed in each slice's own commit, by the same rule.
 
 ## 4. The slices
 
 M1 and M2 ship together, with SP0, as one Play build: the tour must go off in the build that changes the screen,
-and M1 alone shows nothing. `port63-measure` takes `port63-sp0` (`2fec4fe`) before M2 starts, because M2 needs
-`pano/Features.kt`; M1 does not.
+and M1 alone shows nothing. **`port63-measure` takes `port63-sp0` (`2fec4fe`) FIRST, before M1**: SP0 appended two
+lines to the END of `android/i18n/ported.txt` and a row to `literal-counts.tsv`, M1 adds five new `:pano` files
+that each need both, and M2 needs `pano/Features.kt`. After the merge the `:pano` suite is run once and its totals
+recorded before M1 starts.
 
 How each is built: `:pano` is run here (`nice -n 15 gradle … --offline` from `android/`); `:app` is compiled only
 by CI. Commits are local, of the changed paths only, and each message gives the `:pano` totals and says that
@@ -362,9 +541,9 @@ by CI. Commits are local, of the changed paths only, and each message gives the 
 | id | Slice | Piece | Size | Needs | What Amit sees |
 |---|---|---|---|---|---|
 | SP0 | Site progress behind `Features.SITE_PROGRESS` | S2 APK | built | — | no Album tile; after approval the line reads "Quote · Client approved" |
-| M1 | The measuring models, pure, with tests; the new keys and `mr-pending.tsv` | S2 APK | M | — | nothing on screen |
-| M2 | The measuring screen; the list gone; readings by phase; the tour off | S2 APK | M–L | M1, SP0 | one figure on each dimension, the bar, the pad, the laser walking on by itself; no list; no Help row |
-| M3 | Every figure at once (`all`); chain and Line figures take a tap; the saved pictures by his answer | S2 APK | S–M | M2; question 1 | an `all` button; the gallery pictures with one figure per dimension |
+| M1 | The measuring models, pure, with tests; the new keys and `mr-pending.tsv` | S2 APK | M | SP0 merged | nothing on screen |
+| M2 | The measuring screen; the list gone; every figure at once; readings and Capture 360 by phase; the tour off | S2 APK | L | M1, SP0 | one figure on each dimension, the bar, the pad, the laser walking on by itself, an `all` toggle; no list; after Survey the figures with one line saying why they cannot be keyed, and no Capture 360; no Help row |
+| M3 | What leaves the phone: the saved pictures by his answer; the old painter deleted | S2 APK | S | M2; question 1 | the gallery pictures with one figure per dimension |
 | M4 | The 360 turns to the dimension being measured | S2 APK | S | M2 | on 4 · 360 the view turns to the mark and rings it in gold |
 
 ### M1 · the pure models (`:pano` only, M)
@@ -381,35 +560,61 @@ Run and tested in this container; totals are read from the XML under `pano/build
   anchor at (x1, y0). A key it does not know is drawn as a `DEPTH` chip, never dropped; a test proves no key of
   today's types reaches that case, so a new key shows up as a red test first.
 - `asked(e) = SheetMarks.surveyed(e)` — only a mark in the room takes a reading.
-- `value(actual, code, est): Value` — `text` from `SurveyPlan.figure` (the one rule), `state` (`MEASURED`,
-  `ESTIMATE`, `UNKNOWN`), `check`.
-- `check(read, est)` — true when both exist and `|read − est| > max(CHECK_MM, CHECK_PART × est)`;
-  `CHECK_MM = 150.0`, `CHECK_PART = 0.15`.
+- `inPlane(s, e, a, b)` — the mark lies in the squared plane (§1.1): it asks no `p`, or it is a `D`, `W`, `O` or
+  `N` on a wall. Anything else that asks a `p` stands off the plane.
+- `value(actual, s, e, code, est, a, b): Value` — `text` from `SurveyPlan.figure` (the one rule), `state`
+  (`MEASURED`, `ESTIMATE`, `UNKNOWN`), `check`.
+- `check(read, est, inPlane)` — true when the mark is in plane, both figures exist and
+  `|read − est| > max(CHECK_MM, CHECK_PART × est)`; `CHECK_MM = 150.0`, `CHECK_PART = 0.15`. For a mark that stands
+  off the plane it is always false, for every one of its keys.
 - `done(prep, s, e, a, b)` — every key the mark asks has a reading (the `✓` after its code).
 
 **`pano/DimLayout.kt`** — plates in px: placing and collisions (§1.6). In: for each figure its code, role, line in
-px, plate size, rank; the canvas size; boxes to keep clear (the marks' codes); `u` and `dp`. Out, per code: the
-drawn box, the tap box, turned or not, a leader or none, shrunk to a dot or not; and for a small box the one
-compact plate with its two tap halves. `Scope`: `PICKED` (2 · Mark: the picked mark, everything), `FACE`
-(3 · Measure: every asked mark's size, the active mark's positions), `ALL` (M3). It takes over the constants
-`SPD.dims` holds today and uses `SurveyPrepTouch.Box` and `Tag`.
+px, plate size, rank; the canvas size; boxes to keep clear (the marks' codes; a picked mark's eight tabs; any box
+the screen passes, which in M2 is the fit / grid / all column, already measured as `fitAt`); `u` and `dp`. Out,
+per code: the drawn box, the tap box, turned or not, a leader or none, shrunk to a dot or not; and for a small box
+the one compact plate with its two tap halves. `Scope`: `PICKED` (2 · Mark: the picked mark, everything), `FACE`
+(3 · Measure: every mark's size, the picked mark's positions), `ALL` (3 · Measure with the toggle on: every figure
+of every mark). In `PICKED` scope, for a picked box mark that shows its tabs, the `w` and `h` plates are anchored
+by `SurveyPrepTouch.widthTag` / `heightTag` with `hand = true` and the tab squares are kept clear. It takes over
+the constants `SPD.dims` holds today and uses `SurveyPrepTouch.Box` and `Tag`.
 
 **`pano/MeasureWalk.kt`** — the order and the counts (§1.5).
 
-- `stops(prep, s, a, b)` — every reading key the face asks, in walk order.
-- `next(prep, s, a, b, after)` — the next one with no reading, wrapping; null when none.
-- `previous(prep, s, a, b, before)` — the stop before, read or not.
-- `count(prep, s, a, b): Count(read, total)`; `room(prep, ab)`; `nextFace(prep, from, ab)` — the next face in tab
-  order with something left, and how many.
+- `stops(prep, s, a, b)` — every reading key the face asks, in the walk's exact order (§1.5's four rules).
+- `left(prep, s, a, b, code)` — no reading, and for a chain's key no figure from `SurveyChain.vals` either: a
+  derived segment (`der`) and a derived total are not left.
+- `next(prep, s, a, b, after)` — the next stop that is left, wrapping; `after = null` is the first one left; null
+  when none.
+- `previous(prep, s, a, b, before)` — the stop before, left or not, wrapping; `before = null` is the LAST stop of
+  the face; null when the face has none.
+- `count(prep, s, a, b): Count(read, total)` — `read` the stops with a reading, `total` = `read` + what is left;
+  `room(prep, ab)`; `nextFace(prep, from, ab)` — the next face in tab order with something left, and how many.
+- `stopsOf(prep, id, ab)` and `step(keys, from, forward)` — the picked item's own keys (a mark's `keysOf`, a
+  Line's or an area's one key, a chain's `openKeys`) and the key before or after `from`, read or not, wrapping:
+  `‹` and `›` in 2 · Mark and 4 · 360.
 
-**`pano/MeasurePad.kt`** — `press(text, key)`: a digit appends (six at most, no leading zero), `⌫` removes one,
-Clear empties. The write is `MmBox.commit`, unchanged.
+**`pano/MeasurePad.kt`** — the pad's text. `State(text, fresh)`; `start(stored: Double?)` =
+`State(MmBox.shownText(stored), fresh = true)`; `press(state, key)`: while fresh the first digit replaces the text
+and `⌫` empties it, then a digit appends (six at most; a leading `0` is ignored and leaves the state as it was),
+`⌫` removes one, Clear empties; `live(state)` — null while fresh (the box and the plate draw the one figure), else
+the text. The write is `MmBox.commit(stored, state.text)`, unchanged.
 
-**`pano/MeasureText.kt`** — the bar's lines through `Tx`: `label` ("FW1 Window · from left corner"; a Line
-"F-M1 · length"; a chain "FK1 · segment 2"), `progress`, `faceDone`, `nextFace`, `roomDone`, `photoSays`.
+**`pano/MeasureText.kt`** — the bar's texts through `Tx`: `label` — the measure's own words, the `what` of
+`Prep.readingOf(code)` (`from left corner`; a Line `length`; an area `perimeter`; a chain `segment 2`, `total`);
+`cell` — the label cell: a mark's code over its type's short name (`SurveyPrepPalette.short`) or `sp.locked`, a
+Line's or an area's code; `progress`, `faceDone`, `nextFace`, `roomDone`, `photoSays`, `notInRoom`.
 
-**`pano/SurveyMeas.kt`** — `lineTag` takes the Line's reading: `F-M1 1240 mm` once read, else `F-M1 ≈1234 mm`.
-The saved pictures keep passing no reading until M3.
+**`pano/SurveyMeas.kt`** — `lineTag(code, kind, pts, reading: Double? = null, approx: Boolean = false)`. A Line:
+with a reading, that figure (`F-M1 1240 mm`); without one, `≈` before the photo's length only when `approx`
+(`F-M1 ≈1234 mm`), else as today (`F-M1 1234 mm`). An area: its m² as today, and with a reading (its perimeter)
+` · 5734 mm` after it; `approx` does not touch an area. A Line being pulled (code null) and mode `sheet` pass
+neither, so today's two callers print what they print today and the saved pictures are byte-identical until M3;
+the existing pins (`MeasTest:358`, `SurveyDrawMarathiTest:84`) stay as they are.
+
+**`pano/StepRoute.kt`** — only additions in M1 (the steps change in M2): `measureBarDp(land)` 56 / 48,
+`padRowDp(land)` 44 / 36, `PAD_ROWS = 4`, and the landscape column's two budgets the screen's own comment gives
+(`SPS:2001-2002`, a ~336 dp window less its 12 dp of padding): `LAND_TOPBAR_DP = 32`, `LAND_COLUMN_DP = 324`.
 
 **Tests.**
 
@@ -417,61 +622,127 @@ The saved pictures keep passing no reading until M3.
   `Prep.keysOf` in order; every line's length equals its `est`; a point's lines end at its centre; a mark on the
   floor has no `s`; crossing the midline swaps `l` and `r`; no key falls to the unknown case; the figure equals
   `SurveyPlan.figure` for the same input; the check at 149 and 151 mm on a 900 span and at 15 % on a 2678 span,
-  never without a reading or an estimate; a mark born a wish is not asked.
+  never without a reading or an estimate; a mark born a wish is not asked. **In plane:** every type and sub-kind
+  on every kind of surface is classified; the set that asks a `p` equals, by name, the in-plane four (a wall's
+  `D W O N`) plus the stand-off set (wall `C B L GRL AC CTR CRP SAN`, floor `S CRP SAN`, ceiling `B AC CDP`), so a
+  type added with a `p` and no classification is a red test; a 600 mm wardrobe read at 1.8 times its estimate
+  carries no `!`, on any of its keys.
 - `DimLayoutTest`: home position; a turned plate; the small-box compact plate; the ¼ and ¾ slide; the leader; the
   dot; the active plate never shrinks; no two placed plates overlap; every plate inside the canvas; tap boxes at
-  least 32 dp; the same input gives the same output; the example wall at 340 × 340 in `FACE` scope with the door
-  active has no dot.
-- `MeasureWalkTest`: the order; Notes, tapes and marks not in the room left out; a chain's total left out where
-  the laser gives it; `next` wraps and skips what is read; `previous` includes what is read; the counts; the faces'
-  order; null after the last reading.
-- `MeasurePadTest`, `MeasureTextTest` (English), `MeasTest` (the Line's tag), `i18n/MrPendingTest`, and
-  `TxRenderTest`'s two scans reading the pending list.
+  least 32 dp; a kept-clear box is never covered; the same input gives the same output; the example wall at
+  340 × 340 in `FACE` scope with the door picked has no dot; the same wall in `ALL` scope places all 19 with no
+  overlap, dots allowed and their count pinned; in `PICKED` scope a picked door's `w` and `h` plates stand where
+  `widthTag` / `heightTag` with `hand = true` put them and cover none of its eight tabs, and a point's and a
+  locked mark's do not move.
+- `MeasureWalkTest`: the order, with two marks whose `x0` differ by under a mm and two that share it; Notes, tapes
+  and marks not in the room left out; a chain's total left out where the laser gives it; a derived segment and a
+  derived total not left, not counted, skipped by `next`, still reached by `previous`; `next` wraps and skips what
+  is read; `previous` includes what is read; `next(after = null)` the first left and `previous(before = null)` the
+  last stop; the counts; the faces' order; null after the last reading; `stopsOf` and `step` wrapping inside one
+  mark, one chain, and a Line's single key.
+- `MeasurePadTest`: the start text is the stored reading or empty; `‹`, `›` and `Next ▸` across a measured
+  dimension with no key pressed leave `prep.actual` unchanged; the first digit replaces; `⌫` on a fresh pad
+  empties; six digits at most; a leading `0` ignored; Clear then `Next ▸` removes the reading; typing the stored
+  figure writes nothing; a derived chain segment starts empty and a blank commit writes nothing.
+- `StepRouteTest` (M1's part): the landscape column — `LAND_TOPBAR_DP` 32 + tabs 56 + strip 24 +
+  `measureBarDp(true)` 48 + `PAD_ROWS × padRowDp(true)` 144 = 304 — is at most `LAND_COLUMN_DP` 324.
+- `MeasureTextTest` (English: the label is the measure's words alone, the cell's short names, a locked mark),
+  `MeasTest` (`lineTag`'s cases: a plotted Line with a reading, with `approx`, with neither as today, a Line
+  being pulled; an area with and without its perimeter), `i18n/MrPendingTest`, and `TxRenderTest`'s two scans
+  reading the pending list.
 
-### M2 · the screen (M–L)
+### M2 · the screen (L)
 
 `:app` compiles only in CI, so every import, accessor and caller is exact; the rules of the screen are asked of
 `:pano`, never written again in `:app`.
 
 1. **Painter** (`SPD`): for the screen, `dims` draws from `MarkDims.of` and `DimLayout`; a new `plate` draws one
    figure in its state's style (§1.1), turned on a vertical line, with the `!`, the `⊥` chip and the `✓` after a
-   code. `Marks` gains the scope (`DimLayout.Scope`). Every plate is added to `o.tags`, so the hit order holds.
-   Mode `sheet` (the saved pictures) keeps today's `dims` / `vtag` path untouched.
-2. **`app/SurveyMeasure.kt`** (new): `SpMeasureBar` and `SpMeasurePad`.
+   code. `Marks` gains the scope (`DimLayout.Scope`); with `ALL` nothing dims. Every plate is added to `o.tags`,
+   so the hit order holds — and so are a Line's and an area's tag and a chain's segment figures and total, under
+   their reading keys (`F-M1.len`, `F-M2.per`, `FK1.n`, `FK1.t`), each with the drawn label's box grown to 32 dp
+   at least each way; a chain total the laser gives is not added. The screen's two callers of `lineTag`
+   (`SPD:669` for mode `main`, `app/SurveyPrep360.kt:1052`) pass the reading and `approx = true` for a plotted
+   Line and the perimeter for an area. Mode `sheet` (the saved pictures) keeps today's `dims` / `vtag` path
+   untouched and passes `lineTag` neither.
+2. **`app/SurveyMeasure.kt`** (new): `SpMeasureBar` (its label cell, `‹`, the two lines, the box, `D2`, `›`, and
+   its other states of §1.4) and `SpMeasurePad`. Heights from `StepRoute.measureBarDp` / `padRowDp`.
 3. **`pano/StepRoute.kt`**: `STEPS = lines, mark, measure, 360`; the step's name is `tx.common_measure`;
    `TAB_ROWS` loses `list`; `listView` and the list's `budgetDp` cases go. **`pano/PhaseTools.kt`**:
    `toolOf("measure") = Tool.LIST` (the prototype's row keeps its name; its KDoc says the phone's third step is
    3 · Measure since port 63); `modeFor` and `prepMode` fall to `measure`; `PREP_HONOURS` gains `READINGS`.
-4. **`SPS`**: the Measure pane is the photo pane with no drag, resize or placing. A tap on a plate makes it active;
-   on the active plate, or the bar's box, opens the pad; on a mark's code opens the Mark sheet through the one
-   existing call; elsewhere on a mark jumps the walk to its first unmeasured dimension. `reading()` asks
-   `prep.nextAfter(code)` and then, in 3 · Measure, `MeasureWalk.next`. The reading strip becomes the bar. The Show
-   row, `listPane`, `surfaceBlock`, `SpTable`, `SpMmField` (if nothing else uses it) and every `listView` branch
-   are deleted. The face tabs draw their count. After Survey: `PhaseTools.readingRefusal` is said on a plate's tap
-   and on a laser reading, and nothing becomes active. A face that is not bounded shows in 3 · Measure what
-   2 · Mark shows there today.
+4. **`SPS`**:
+   - **The Measure pane** is the photo pane with no drag, resize or placing. Its tap is
+     `SurveyPrepTouch.hit(drawn, null, tags, x, y, tol, dp)` — `selId = null`, no chain nodes. `Hit.Tag(code)`:
+     the key's owner (`prep.ownerOf`) is picked through the existing `selectMark` / `selectMeas` / `selectChain`
+     and, at Survey and for an owner that is asked, the key becomes active; on the key that is already active the
+     pad opens; on a mark not in the room it says `sp.measure.not_in_room`; after Survey it says
+     `PhaseTools.readingRefusal`; in the last two cases the owner is picked and nothing becomes active.
+     `Hit.Mark(id, "body")`: the mark is picked and, at Survey and if it is asked, `prep.nextOpen(s, e, null, …)`
+     becomes active (null for a measured mark). No hit: nothing. No drawn tabs, no trash, no magnifier there.
+     2 · Mark's own `Hit.Tag` branch (`hitMarks`, `SPS:2545-2549`) follows the same rule: it finds the owner by
+     `prep.ownerOf`, not `markOf` alone, since a Line's, an area's and a chain's figures are tags now, and a tap on
+     the key that is already active opens the pad.
+   - **The bar and the pad.** The reading strip becomes `SpMeasureBar`. The pad's `MeasurePad.State` and its
+     open flag are a `remember` of the dialog; the state restarts (`MeasurePad.start`) whenever the active key
+     changes. Whatever leaves a dimension commits first through `MmBox.commit` (§1.4's list). While the pad is
+     open in 2 · Mark or 4 · 360 the palette and the picked mark's row are not drawn and the bar draws the label.
+   - **The walk.** One local function, `walkOn(after: String?)`, is the only caller of `MeasureWalk.next(`: it
+     makes the next stop that is left active and the picked item follows that key's owner. `reading()` asks
+     `prep.nextAfter(code)` and then, in 3 · Measure only, `walkOn(code)`; `›` and `Next ▸` there are
+     `walkOn(active)`; entering 3 · Measure or changing face in it is `walkOn(null)`. `‹` is
+     `MeasureWalk.previous`. In 2 · Mark and 4 · 360 `‹` and `›` are `MeasureWalk.step` over `stopsOf`.
+   - **The tick**: `val haptic = LocalHapticFeedback.current` in the dialog's composition
+     (`androidx.compose.ui.platform.LocalHapticFeedback`), and
+     `haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)`
+     (`androidx.compose.ui.hapticfeedback.HapticFeedbackType`) in the laser's `Route.Normal` branch after
+     `reading(…)`.
+   - **The check's sentence**: `say(MeasureText.photoSays(…))` when a reading that fails `MarkDims.check` lands
+     and when a plate carrying `!` becomes active.
+   - **The `all` toggle**: a third text button in the fit column (`SPS:3141-3158`), after grid, drawn in
+     3 · Measure only, styled as grid is, off whenever the step is entered; it sets the painter's scope to `ALL`.
+   - **Deleted**: the Show row, `listPane`, `surfaceBlock`, `SpTable`, `SpMmField` (if nothing else uses it) and
+     every `listView` branch. The face tabs draw their count.
+   - **After Survey**: nothing becomes active; 3 · Measure draws the label cell and `refuse.readonly.readings` in
+     the bar's place (§1.8); a plate's tap and a laser reading say it.
+   - A face that is not bounded shows in 3 · Measure what 2 · Mark shows there today.
 5. **The tour off**: `Features.HELP_TOURS = false`; `TourFlows.shipped(tx, tours = Features.HELP_TOURS)`; the
    drawer's Help row and `TourSeed.ensure` behind the same constant (`app/MainActivity.kt:1600`, `:3645`, `:588`).
 6. **`pano/SurveyRef.kt:68`** reads `sp.reference_shown_measure`.
+7. **Capture 360 by phase**: the room screen's button — the `ExtendedFloatingActionButton` at
+   `app/MainActivity.kt:3216`, the one opener of the capture sheet — is drawn only where
+   `PhaseTools.can(PhaseTools.Tool.CAPTURE, stage)`, `stage` being what a new capture's survey prep is already
+   handed (`QuoteStageSync.prepStage`: Survey for a project only on the phone, null while unread, so both show
+   it). No text changes.
 
-**Tests** (in `:pano`; `:app` is read as source): `StepRouteTest` (the steps, the labels, the tabs);
-`PhaseToolsTest` (`PREP_HONOURS`, the refusal by stage, `prepMode` landing on `measure`, the strip at every stage);
-`TourFlowsTest` (nothing shipped with the tours off, the survey flow with them on); `FeaturesTest` (the constant,
-and every reader of it by file and count); and source pins: no `SpTable`, no Show row and no `"both"` in `SPS`;
-`MeasureWalk.next(` once; `readingRefusal` called; `MmBox.commit` the only way a figure is written; the four tour
-anchors and `TourBindSurvey` still there; the moved counts of §1.9.
+**Tests** (in `:pano`; `:app` is read as source): `StepRouteTest` (the steps, the labels, the tabs — four and
+three); `PhaseToolsTest` (`PREP_HONOURS`, the refusal by stage, `prepMode` landing on `measure`, the strip at
+every stage, and the `CAPTURE` row at all six stages, unread and not on S5); `TourFlowsTest` (nothing shipped with
+the tours off, the survey flow with them on); `FeaturesTest` (the constant, and every reader of it by file and
+count). And the source pins:
+
+- no `SpTable`, no Show row and no `"both"` in `SPS`;
+- `MeasureWalk.next(` once, in `walkOn`; `readingRefusal` called;
+- a TYPED figure is written only through `MmBox.commit`: in `SPS` and `app/SurveyMeasure.kt` `prep.actual[` is
+  assigned in one place, `reading()`, and `prep.actual.remove(` in one place, where `MmBox`'s `Commit(null)` is
+  acted on. The undo's `back.actual[`, the web merge in `ReadingsSync` and a delete's sweep in `:pano` are other
+  names and other files, and stay;
+- `SurveyPrepTouch.hit(` called with a null `selId` in the Measure pane;
+- `PhaseTools.Tool.CAPTURE` read once in `app/MainActivity.kt`;
+- `LocalHapticFeedback`, and no `Vibrator`;
+- the four tour anchors and `TourBindSurvey` still there; the moved counts of §1.9.
 
 If M2 proves too large for one review, its cut is: (a) items 1–4 without the phase rule, (b) the readings' phase
-rule and the tour off. Both still land in the same build.
+rule, Capture 360 by phase and the tour off. Both still land in the same build.
 
-**What the build note tells Amit:** measuring is on the photo now; the list is gone; after Survey a figure cannot
-be changed until the phase is moved back; Help's tours are off for now; the gallery pictures are unchanged.
+**What the build note tells Amit:** measuring is on the photo now; the list is gone, and `all` in 3 · Measure
+shows every figure at once; after Survey a figure cannot be changed until the phase is moved back, 3 · Measure
+says so under the photo, and the room screen has no Capture 360 there — so to try measuring, use a project that is
+at Survey (a new one is), or move a test project's stage back on `/projects` first; Help's tours are off for now;
+the gallery pictures are unchanged.
 
-### M3 · every figure, and what leaves the phone (S–M)
+### M3 · what leaves the phone (S)
 
-- An `all` button beside fit and grid: `DimLayout.Scope.ALL`.
-- A chain's segment figures and total, and a Line's and an area's tag, take a tap (a total the laser gives says so
-  and takes none).
 - The saved `-survey.jpg` pictures follow question 1's answer. They stay English and the room as surveyed.
 - The old `vtag`, `Marks.show` and the both-figures code are deleted with their last caller.
 
@@ -490,10 +761,10 @@ In build order. Each is one slice; phone and web are separate pieces.
 
 | # | id | Slice | Piece | Size | Needs |
 |---|---|---|---|---|---|
-| 1 | SP0 + M1 + M2 | Site progress hidden; measure on the photo; tour off | S2 APK | built + M + M–L | — |
+| 1 | SP0 + M1 + M2 | Site progress hidden; measure on the photo; readings and Capture 360 by phase; tour off | S2 APK | built + M + L | — |
 | 2 | J1 | **What he does reaches the office.** Leaving survey prep by ← queues the upload when something changed since the last one; the web line (On web ✓ / Waiting to upload / Not on web) sits on the bar, not behind ⋮; when an upload lands the phone reads S5's project list, so a new project stops reading "not on S5 yet"; and, by question 2, ✓ Save works with fewer than six surfaces bounded | S2 APK | S | question 2 for its last part only |
 | 3 | J2 | **True words.** The strip's lines stop naming tools the phone does not have (vendor packs, hand-off); one set of stage names on the phone, S5's stored ones; the "Open ImageMeter → …" line after a capture goes. Amit is shown the new English on a selector when the slice starts | S2 APK | S | — |
-| 4 | J3 | **The rest of L10.** 1 · Lines, the room-size pencil and Capture 360 follow the phase (`Tool.LINES` joins `PREP_HONOURS`; `Tool.CAPTURE` on the room screen, its table row as it is) | S2 APK | S–M | M2 |
+| 4 | J3 | **The rest of L10.** 1 · Lines and the room-size pencil follow the phase (`Tool.LINES` joins `PREP_HONOURS`). Capture 360 by phase is no longer here: M2 carries it (§1.8) | S2 APK | S | M2 |
 | 5 | PL | The room's plan opens from the room screen (decided 11 Nov). It no longer waits for prototype item P2: it is built on the phone | S2 APK | S | — |
 | 6 | J4 | **The wish list on `/projects`**: read for everyone admitted, edit for staff, on the routes that exist | S5 QUOTE | M | — |
 | — | | **Walk 1 can be made here** | | | |
@@ -509,8 +780,8 @@ In build order. Each is one slice; phone and web are separate pieces.
 M3 and M4 fit anywhere after M2; M3 waits for question 1.
 
 **Walk 1**, in English, on a test project of its own (approval cannot be undone): sign in → client, site, project,
-room → Capture 360 with its sizes → lines → marks → measure → the room on S5 → Client wish list: wish marks and the
-wish list, on the phone and on the web → the vendor round and the estimate by hand, the stage moved by hand →
+room → Capture 360 with its sizes → lines → marks → measure → the room on S5 → Client wish list: wish marks and
+the wish list, on the phone and on the web → the vendor round and the estimate by hand, the stage moved by hand →
 Revisions → Approve with its scope. Walk 2 replaces "by hand" with J5–J7.
 
 J1's caution for its builder: the upload job sends the record, then six photos, then the readings
@@ -525,7 +796,7 @@ bounded surfaces are read in `functions/_lib/asis.js` before the last part is bu
 | L7 · a wish on the 360 and in 3 · List | **L7′**: the 360 half only. The List half is void: there is no list |
 | L8 · a wish on the six drawings | unchanged, after walk 2's S5 slices |
 | L9 · the wish list counts its marks | unchanged, row 7 |
-| L10 · lines, readings, room size, Capture 360 by phase | readings → **M2**; the rest → **J3** |
+| L10 · lines, readings, room size, Capture 360 by phase | readings and Capture 360 → **M2**; lines and the room-size pencil → **J3** |
 | P1, TR · the tour texts and the two more tours | **held** until Amit approves the journey; then written for the phone, not a prototype |
 | PL · the room's plan from the room screen | row 5; prototype item P2 is dropped |
 | RP, AR, RQ (S5 web) | unchanged in port 62's plan; J5 uses photos until RP's line drawings exist, and J5–J6 are the first small steps of RQ |
@@ -549,14 +820,54 @@ None blocks M1 or M2. Each is asked as a selector, recommended option first.
 
 ## 7. Risks, and what is not in this design
 
-- **The check's threshold is a guess.** If `!` fires on ordinary estimates it will teach him to ignore it; it is
-  widened or removed from his first rooms' evidence, not argued.
+- **The check's threshold is a guess, and its reach is partial.** If `!` fires on ordinary estimates it will teach
+  him to ignore it; the 150 mm / 15 % is widened or removed from his first rooms' evidence, not argued. What is
+  not a guess is that it is not made on a mark that stands off the plane (§1.1) — so a wrong-target shot on a
+  wardrobe, a loft or a beam goes unflagged, which is the price of not flagging every one of them. Two cases the
+  rule cannot see, both to watch on the phone: an Other, which asks no `p` and may stand off the wall, and a point
+  that hangs below its ceiling (a fan), whose position on the squared photo is off by the same geometry.
 - **Readings after Survey.** From M2 a figure missed on site cannot be keyed once the stage has moved, until the
-  phase is moved back. It is the approved phase rule and the refusal says what to do; the build note says it too.
-- **No list means no one-screen review of every figure** until M3's `all`. The tab counts and the walk say what is
-  left; the Plan tab draws each surface with its figures.
+  phase is moved back, and a room cannot be captured there either. It is the approved phase rule; 3 · Measure says
+  it under the photo and the build note says it too. At Client approved the stage cannot go back at all.
+- **A busy face with `all` on** may shrink figures to dots at fit; zoom spreads them. The tab counts and the walk
+  say what is left; the Plan tab draws each surface with its figures.
+- **The bar's words are cut on the narrowest bar** (landscape, with the label cell: about 58 dp for the two
+  lines). If `underside, from floor` does not hold there on the Mi A3, the first thing to give is line 1's size
+  (12 → 11 sp), not a cell.
 - **The screen cannot be seen here.** `:app` is compiled by CI only; plate sizes, the pad's height and the turned
   text are first seen on the Mi A3. The numbers in §1.4 and §1.6 are budgets, checked on the phone.
 - **Not designed here:** the vendor document, the quote log and the estimate link beyond their one-line scope (each
   gets its own note when its slice starts); S5's arranger and line drawings (port 62 §4.1, §5); Marathi for any new
   text; site progress; the tours.
+- **Held for after walk 1**, each to be asked when its screen is next touched, none decided here: whether the
+  vendor-side mark states (Vendor review, Vendor approved, Vendor added) stay on the phone; whether the twelve-row
+  wish list is hand-ticked, derived from the marks or removed (L9 counts them in the meantime); the two meanings
+  of "scope" (a mark's state and the sixteen works of the approval); and marking a single flat photo in the quote
+  journey — until then a one-window job is surveyed with a 360.
+
+## 8. The critic
+
+The plan critic read this design against the code and raised seventeen findings (16 Nov 2026). Each was checked
+against the code at `775d33c` (and SP0 at `2fec4fe`) before anything was changed. All seventeen are confirmed in
+substance. Sixteen are applied whole — four of them (1, 5, 10, 15) with a detail of the finding corrected from the
+code — and finding 7 is applied in part: one piece of its fix is declined, with the reason.
+
+| # | Finding (severity) | Checked against | What changed |
+|---|---|---|---|
+| 1 | The Mark sheet does not open from a code on the photo; 3 · Measure had no picked mark (major) | **Confirmed.** `Hit` is `Mark`, `Tag`, `Node` only (`pano/SurveyPrepTouch.kt:104-111`); the sheet opens from the picked row's 52 dp label (`SPS:1737`), a Line's row (`:1770`) and the list (`:1526`); the code is drawn inside the box (`SPD:509`); `hit` with `selId = null` and no nodes answers `Tag` or `Mark "body"` | §1.3: 3 · Measure's picked mark and its taps, the label rule, the table row; §1.4 the label cell; §1.6 "picked" for "active"; M2 item 4. **Corrected from the code:** 2 · Mark's label reads the code over Move / an edge / `locked`, not a type name, and a full type name does not fit 52 dp — so the bar's cell reads the type's SHORT name (`SurveyPrepPalette.short`) and 2 · Mark's row is left as it is. Added: a tap on empty photo does nothing |
+| 2 | The pad's starting text was undefined; read one way, the design deletes a stored reading he walks past (major) | **Confirmed.** `MmBox.commit` writes nothing only when the text equals `shownText(value)` and removes on a blank text over a reading (`pano/MmBox.kt:20-32`); `SpMmField` starts from `shownText(value)` today (`SPS:3349`) | §1.4 the pad (start text, `fresh`, every commit through `MmBox.commit`, `Next ▸` = `›` when nothing is typed, the laser discards uncommitted digits, `0` two columns wide); `MeasurePad` and `MeasurePadTest`. Added: a leading `0` is ignored and leaves a fresh pad fresh, so `0` then `Next ▸` cannot remove a reading |
+| 3 | The measure bar cannot hold its two lines at 360 dp (major) | **Confirmed.** Today's strip is `▶ FD1 width`, two lines, beside a 72 dp box and `D2` (`SPS:1811-1817`); the landscape column is 318 dp (`SPS:2022`); the longest measure words are 28 characters (`measure.right_corner` + `measure.to_centre`) | §1.4: line 1 is the measure's words alone, line 2 the progress, the check's sentence goes to the message line; the width table (with the label cell of finding 1: 80 / 58 dp for the lines, which the finding foresaw); `MeasureText.label` / `cell`; `StepRoute` constants and the landscape-column test; §7's risk |
+| 4 | The pad, the palette and the picked row do not fit together (major) | **Confirmed.** Landscape: 324 − 32 − 56 − 24 = 212 dp (`SPS:2000-2038`, `StepRoute.tabRowDp`, `stripDp`); the four together need 278 | §1.4: the pad opens only when asked; in 2 · Mark and 4 · 360 it takes the palette's and the picked row's place; its open flag is a `remember` of the dialog |
+| 5 | Deleting the list removed the only way back to a read Line, area or chain reading (major) | **Confirmed for a chain and for 3 · Measure.** Picking a chain makes only an OPEN key active (`selectChain`, `SPS:1001`; `Prep.nextOpen`, `pano/SurveyPrep.kt:1266-1284`); an area's tag and row show m² only (`pano/SurveyMeas.kt:287-303`); `previous` had no meaning for `before = null` | §1.5 "Every reading can be re-opened from the photo", moved from M3 to M2 (painter item 1, and 2 · Mark's `Hit.Tag` branch by `ownerOf`); the area's tag with its perimeter (§1.2, `lineTag`); `previous(before = null)` / `next(after = null)`; a finished face keeps `‹`. **Corrected from the code:** a fresh pick of a Line or an area in 2 · Mark makes its key active even when read (`SurveyMeas.pickActive`, `pano/SurveyMeas.kt:139-140`), so there the list was not the only way back; in 3 · Measure, which picks neither by its body, it would have been |
+| 6 | "All dimensions on the annotation" was deferred to M3 while the list goes in M2 (major) | **Confirmed** against the design and Amit's words; `Scope.ALL` was already M1's | §1.6, M2 item 4 and the slice table: the `all` toggle is in M2; M3 keeps only the saved pictures. Added with it: two keys (`sp.measure.all`, `sp.measure.aria.all`; `common.all` is "All", capitalised, beside `fit` and `grid`), and the fit / grid / all column as a box plates keep clear of. `DimLayoutTest`'s `ALL` case |
+| 7 | After Survey the measuring step shows nothing and says why only on a tap (major) | **Confirmed.** `Tool.READINGS` is `[1,0,0,0,0,0]` and `CAPTURE` `[1,0,0,0,0,1]` (`pano/PhaseTools.kt:105`, `:112`); no app source reads `Tool.CAPTURE`; port 62's L4 review, finding 2, records the wish-born room and leaves this gate open to be brought forward | §1.8: 3 · Measure's standing line; Capture 360 by phase in M2 (item 7), J3 reduced; the build note. **Declined in part:** the standing line is NOT drawn under the picked mark in 2 · Mark and 4 · 360. After Survey those steps are for marking wishes; a two-line sentence under every picked mark would cost about 28 dp of the photo on the step whose job is placing (finding 4's own concern) and would stand there every time, wanted or not. There the refusal stays on the tap. Also named: at Client approved the row shows Capture 360 and the sentence's "move the phase back" does not apply |
+| 8 | The `!` check would fire on every wardrobe, loft, column, beam and bed (major) | **Confirmed.** The types whose `p` is a projection, a depth from the wall, a drop or a height (`pano/SurveyPrep.kt:885-903`, `pano/MarkTypes.kt:377-389`) stand off the squared plane, and the perspective error is systematic | §1.1 rewritten; `MarkDims.inPlane` and the classification test with both sets by name; §7's risk, with the two cases the rule cannot see (an Other, a hanging point) |
+| 9 | What `‹`, `›` and the progress line do in 2 · Mark and 4 · 360 was not said (major) | **Confirmed.** After a mark's last reading nothing is active (`reading()`, `SPS:492-497`, `Prep.nextAfter`); 4 · 360 has no open face | §1.4 "Where the bar is": inside the picked item only, wrapping, never changing the selection; line 2 counts `sel.s`; `MeasureWalk.stopsOf` / `step` |
+| 10 | A derived chain segment and total would count as "to measure" for ever (minor) | **Confirmed.** `openKeys` leaves out only a laser total (`pano/SurveyChain.kt:182-185`); `vals` derives a segment and a total (`:153-166`) | §1.5 "What counts as left"; `MeasureWalk.left` and `Count`; three test cases. **Corrected from the code:** a laser total is not a stop at all and takes no reading (`totalReadOnly`, `:188`), so only the derived segment and the derived total are "still reached by a tap or `‹`" |
+| 11 | A mark not in the room: "takes no tap" against "said on a tap"; wrong words for a Vendor-added mark; a held reading undefined (minor) | **Confirmed.** `SheetMarks.surveyed` is false for any `born` but absent or `exist` (`pano/SheetMarks.kt:53-57`), so Vendor added too | §1.2's paragraph; the key's English. The tap also picks the mark, by the same rule as every plate (finding 1), so its label can open the Mark sheet |
+| 12 | The `lineTag` change could alter the saved pictures in M1 (minor) | **Confirmed.** One `lineTag` call serves the screen and FaceWriter's `sheet` pictures (`SPD:669`), and two tests pin today's text (`MeasTest:358`, `SurveyDrawMarathiTest:84`) | M1's `lineTag` with two defaulted parameters; §1.9; M2 item 1 names the two screen callers, the 360's (`app/SurveyPrep360.kt:1052`) included |
+| 13 | SP0 should be merged before M1 (minor) | **Confirmed.** `git diff 775d33c..2fec4fe -- android/i18n`: two lines at the end of `ported.txt`, one row in `literal-counts.tsv` | §4's first paragraph and the slice table |
+| 14 | The walk's order was not exact (minor) | **Confirmed** against the design: `x0` is a double and no tie was defined | §1.5's four rules; the two near-tie cases in `MeasureWalkTest` |
+| 15 | In 2 · Mark the plates must keep the picked mark's tab clearance (minor) | **Confirmed.** `hand` at `SPD:813`, `widthTag` / `heightTag` at `pano/SurveyPrepTouch.kt:53-59` | §1.6's last paragraph; `DimLayout`'s `PICKED` scope and its test. **Corrected from the code:** `trashSpot` is given the tags' TAP boxes (`tags.map { it.box }`, `SPS:3057`), not their drawn boxes; the design says tap boxes |
+| 16 | Three small points a `:app` builder cannot check here (minor) | **Confirmed.** (a) every tab is `weight(1f)` in its row (`SPS:1301-1313`); (b) no haptic call and no vibrate permission exist in the app (`AndroidManifest.xml`); `HapticFeedbackType.TextHandleMove` has been in Compose UI since 1.0 and the app's BOM is `2024.12.01` (`app/build.gradle.kts:126`) — not resolvable in this container, so CI is what proves the import; (c) the laser writes `prep.actual[code] = v` in `reading()` (`SPS:493`) and `ReadingsSync` merges into the same map | (a) §1.3; (b) §1.4 and M2 item 4, with the imports; (c) M2's source pin reworded and scoped to `SPS` and `app/SurveyMeasure.kt` |
+| 17 | Three of the journey reader's decisions were dropped without a word (minor) | **Confirmed** against the design, and each topic exists in the code (the vendor states in `pano/MarkLife.kt:43-45`, the twelve services in `pano/WishList.kt`, `scope` as a state and as the sixteen works, the single photo's capture). The reader's own list is not in the repository, so its numbering is the finding's | §7 "Held for after walk 1" |
