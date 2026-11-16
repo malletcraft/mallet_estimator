@@ -22,6 +22,9 @@ import kotlin.math.max
  */
 object StepRoute {
 
+    /** The third step's key: 3 · Measure (port 63 slice M2). A step's key is never shown; its name is [stepName]. */
+    const val MEASURE = "measure"
+
     /** How far below a step's top a press still belongs to it: the APK's minimum touch size. */
     const val REACH_DP = 48.0
 
@@ -36,7 +39,7 @@ object StepRoute {
      *
      * A step's circle is the drawing; its touch area runs from its top DOWN
      * [REACH_DP] dp over whatever lies under the strip (the caption line, the
-     * top of the photo, the empty part of the Show row), and horizontally
+     * top of the photo), and horizontally
      * max([HALF_MIN_DP] dp, half its width) either side of its centre -- so a
      * press just under a step changes the step instead of panning, without
      * the row itself growing to 48 dp and costing the photo the difference
@@ -60,38 +63,43 @@ object StepRoute {
 
     // ------------------------------------------------------------------ what the tabs and strip show
 
-    /** The face tabs, two rows: PLAN is the 8th, after List, with the six drawings (slice 13; ct52 X1:
-     *  front,right,back,left,floor,ceil,list,plan). */
-    val TAB_ROWS: List<List<String>> = listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list", "plan"))
+    /**
+     * The face tabs, two rows: FRONT RIGHT BACK LEFT / FLOOR CEILING PLAN (port 63 slice M2). The room's LIST tab is
+     * gone with the list -- Amit, 15 Nov 2026: "The laundry list of measurements shown below screen is also
+     * frustrating." -- so PLAN, the six drawings (slice 13), is the seventh and last. Each row's tabs share its width
+     * equally, four in the first and three in the second: every tab is weighted alike in its own row.
+     */
+    val TAB_ROWS: List<List<String>> = listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "plan"))
 
-    /** A tab that is one of the six faces -- not List, not Plan. Only a face has steps, lines, marks and a clear. */
+    /** A tab that is one of the six faces -- not Plan. Only a face has steps, lines, marks and a clear. */
     fun isFace(t: String): Boolean = t in SurveyPrep.SURFACES
 
     /** The Plan tab: the six drawings (slice 13). */
     fun isPlan(t: String): Boolean = t == "plan"
 
-    /** A tab's text before it is upper-cased: the face's short name (surface.*.short, through Masters), List or Plan. */
+    /** A tab's text before it is upper-cased: the face's short name (surface.*.short, through Masters), or Plan. */
     fun tabName(tx: Tx, t: String): String = when (t) {
-        "list" -> tx.common_list
         "plan" -> tx.common_plan
         else -> SurveyPrep.TAB[t]?.let { Masters.surface_tab(tx, it) } ?: t
     }
 
-    /** The ✓ goes on a face whose four lines are all set; List and Plan never carry one. */
+    /** The ✓ goes on a face whose four lines are all set; Plan never carries one. */
     fun tabTick(t: String, bounded: Boolean): Boolean = isFace(t) && bounded
 
     /**
-     * The steps of a face, in order: 1 · Lines, 2 · Mark, 3 · List, 4 · 360. 4 · 360 joined with slice 17, once it
-     * works (Amit, 15 Oct 2026: "Yes, last, after everything else"); until then it was hidden, never greyed -- no dead
-     * step, by the no-fallbacks rule.
+     * The steps of a face, in order: 1 · Lines, 2 · Mark, 3 · Measure, 4 · 360. THE THIRD STEP IS THE PHOTO, NOT A
+     * LIST (port 63 slice M2; DESIGN-port63 §1.3): the same squared face with one figure on every dimension and a walk
+     * through the unmeasured ones, where nothing can be moved, resized or placed. 4 · 360 joined with slice 17, once
+     * it works (Amit, 15 Oct 2026: "Yes, last, after everything else"); until then it was hidden, never greyed -- no
+     * dead step, by the no-fallbacks rule.
      */
-    val STEPS: List<String> = listOf("lines", "mark", "list", "360")
+    val STEPS: List<String> = listOf("lines", "mark", MEASURE, "360")
 
-    /** A step's name: Lines, Mark, List (common.*) and 360, which is a number in every language. */
+    /** A step's name: Lines, Mark, Measure (common.*) and 360, which is a number in every language. */
     fun stepName(tx: Tx, key: String): String = when (key) {
         "lines" -> tx.common_lines
         "mark" -> tx.common_mark
-        "list" -> tx.common_list
+        MEASURE -> tx.common_measure
         else -> key // "360"
     }
 
@@ -107,33 +115,26 @@ object StepRoute {
     /** "Front wall ·": the face the strip belongs to (surface.*, through Masters). */
     fun stripFace(tx: Tx, tab: String): String = (SurveyPrep.NAME[tab]?.let { Masters.surface(tx, it) } ?: "") + SEP.trimEnd()
 
-    /** The strip is the open face's; the room's List tab and the Plan tab have no steps (slice 13). */
+    /** The strip is the open face's; the Plan tab has no steps (slice 13). */
     fun showStrip(tab: String): Boolean = isFace(tab)
 
-    /** A list view: the room's List tab, or a FACE's 3 · List -- never the Plan tab, whatever step a face was left on. */
-    fun listView(tab: String, mode: String): Boolean = tab == "list" || (isFace(tab) && mode == "list")
+    /** One row of tabs, dp: 32 in portrait, 28 in landscape -- which holds a face's name on its 17 sp line under मराठी
+     *  over a Ref line's 9 sp (the landscape LIST's 24 / 27 dp rows went with the list, port 63 slice M2). */
+    fun tabRowDp(land: Boolean): Int = if (land) 28 else 32
 
-    /** One row of tabs, dp: 32 in portrait, 28 in landscape, 24 in a landscape list (so CEILING ✓ is never cut) -- 27 there under
-     *  मराठी ([mr], Tx.mr): the name's 17 sp line (SpTab, design-marathi §4) over a Ref line's 9 sp is 26, which 24 cut (M3a review). */
-    fun tabRowDp(land: Boolean, list: Boolean, mr: Boolean): Int = if (land && list) (if (mr) 27 else 24) else if (land) 28 else 32
+    /** The strip, dp: 28 in portrait, 24 in landscape. */
+    fun stripDp(land: Boolean): Int = if (land) 24 else 28
 
-    /** The strip, dp: 28 in portrait, 24 in landscape, 20 in a landscape list. */
-    fun stripDp(land: Boolean, list: Boolean): Int = if (land && list) 20 else if (land) 24 else 28
-
-    /** The tabs and the strip together, dp: 92 portrait, 80 landscape, 68 landscape 3 · List (v51 took 110, 82, 68; 74 under
-     *  मराठी); the List and Plan tabs, no strip: 64 portrait, 56 landscape (48 for List; 54 under मराठी). */
-    fun budgetDp(land: Boolean, tab: String, mode: String, mr: Boolean): Int {
-        val list = listView(tab, mode)
-        return 2 * tabRowDp(land, list, mr) + if (showStrip(tab)) stripDp(land, list) else 0
-    }
+    /** The tabs and the strip together, dp: 92 portrait, 80 landscape (v51 took 110 and 82); the Plan tab, no strip:
+     *  64 portrait, 56 landscape. */
+    fun budgetDp(land: Boolean, tab: String): Int = 2 * tabRowDp(land) + if (showStrip(tab)) stripDp(land) else 0
 
     // ------------------------------------------------------------------ the measure bar and its pad (port 63 slice M1)
 
     /*
      * MEASURING HAPPENS ON THE PHOTO (DESIGN-port63 §1.4): under it, one bar -- label · ‹ · two lines · the figure box
      * · D2 · › -- and, only when asked for, the app's own pad of four rows under the bar. Their heights are here so the
-     * arithmetic of what still fits is tested in this module; nothing draws them yet (slice M2), and the steps, the
-     * tabs and the budgets above are unchanged until then.
+     * arithmetic of what still fits is tested in this module; slice M2 draws them (app/SurveyMeasure.kt).
      */
 
     /** The measure bar, dp: 56 in portrait, 48 in landscape. */

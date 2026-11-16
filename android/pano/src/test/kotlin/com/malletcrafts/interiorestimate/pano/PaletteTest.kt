@@ -486,7 +486,7 @@ class PaletteTest {
         // a palette slot or a More tile changes the tool or lets it go (SurveyPrepPalette.next); each is a new state
         assertTrue(screen.contains("tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "showTab: back to Select")
         assertTrue(screen.contains("modeSet = m; sel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false;"), "setMode: back to Select")
-        assertTrue(screen.contains("ref = refT, land = land) { showTab(t) }"), "a tab pressed is showTab, the open tab too")
+        assertTrue(screen.contains("ref = refT, land = land, left = left) { showTab(t) }"), "a tab pressed is showTab, the open tab too (port 63 slice M2: the tab carries its count of what is left to measure)")
         assertEquals(SurveyPrepPalette.SEL, SurveyPrepPalette.next("CRP", "CRP"), "the same type picked again lets the tool go")
         assertEquals("CRP", SurveyPrepPalette.next("W", "CRP"))
     }

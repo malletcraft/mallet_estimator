@@ -982,3 +982,104 @@ tests, 0 failures (`DimLayoutTest` 15 → 22). `:app` is still not compiled here
 
 Not changed by the review: the reading keys, the record, the texts (no key added or changed), `MarkDims`,
 `MeasureWalk`, `MeasurePad`, `MeasureText`.
+
+## 10. M2 as built (16 Nov 2026)
+
+Slice M2 is built on `port63-measure`, on M1 and its review (`f9af214`, `2399d3a`): the measuring screen. The `:pano`
+suite before it was 93 classes, 1,311 tests, 0 failures; with it 95 classes, 1,348 tests, 0 failures (37 more:
+`MeasureFlowTest` 21, `MeasureScreenTest` 13, two in `FeaturesTest`, one in `TourFlowsTest`). **`:app` was not compiled
+here and nothing has been seen on a phone**: CI is the only compiler `:app` has, and the Mi A3 the only screen.
+
+What the phone shows now, in the order Amit meets it:
+
+- **The third step is 3 · Measure** (`StepRoute.MEASURE`, the step's name `common.measure`). The list of measurements
+  under the photo, its LIST tab, its typed boxes and the Show row are deleted; the tabs are FRONT RIGHT BACK LEFT over
+  FLOOR CEILING PLAN.
+- **One figure per dimension, on the annotation** (`SurveyPrepDraw.figures`, from `MarkDims` and `DimLayout`): the
+  reading once it is read, else `≈` and the photo's estimate, never both; a `!` when the reading and the photo
+  disagree; a `✓` after the code of a mark with nothing left; `▶` on the one being measured. In 3 · Measure every
+  mark of the face shows its figures (the picked mark's position figures too); in 2 · Mark the picked mark's, as before.
+- **A tap on a figure makes it the one being measured; a second tap on it, or a tap on the bar's box, opens the pad.**
+  A tap on a mark picks it and makes its first unmeasured dimension active. A Line's and an area's tag and a chain's
+  segment figures and total are taps too, under their reading keys; a chain total the laser gives is not.
+- **The measure bar** (`SpMeasureBar`): the picked item's label (it opens the Mark sheet), `‹`, the measure's own
+  words over `3 of 12 measured`, the figure box, `D2`, `›`. **The pad** (`SpMeasurePad`): 1 to 9, `⌄`, 0, `⌫`, Clear and
+  `Next ▸`. What is typed is written when the dimension is left -- Next, `‹`, `›`, `⌄`, a tap elsewhere, a change of
+  face or step, ← and ✓ Save -- through `MmBox.commit`, unchanged.
+- **The D2 fills the active figure, ticks, and the walk moves on by itself** to the next unmeasured dimension of the
+  face; when the face is finished the bar says so and offers the next face with something left
+  (`Next: Floor · 5 to measure ▸`); it never changes face by itself. A face tab carries its count of what is left.
+- **`all`**, beside fit and grid in 3 · Measure only: every figure of the face at once, nothing dimmed; off whenever a
+  step is entered.
+- **After Survey nothing is measured**: no figure becomes active, the bar shows the label and
+  `refuse.readonly.readings`, and a tap on a figure and a laser reading say it. **Capture 360** on the room screen is
+  drawn only in a phase that captures (`PhaseTools.Tool.CAPTURE`: Survey, Client approved, and a project not read yet
+  or only on the phone).
+- **The survey tour is off** (`Features.HELP_TOURS = false`): `TourFlows.shipped` gives nothing, the drawer's Help row
+  is not drawn, a fresh install is not seeded with the Demo Client. Nothing of the tour is deleted.
+
+What was built, file by file:
+
+| File | What changed |
+|---|---|
+| `pano/StepRoute.kt` | `MEASURE = "measure"`; `STEPS` = lines, mark, measure, 360; `TAB_ROWS` without `list`; `stepName` reads `common.measure`; `listView` gone; `tabRowDp(land)`, `stripDp(land)`, `budgetDp(land, tab)` lost the list's cases |
+| `pano/PhaseTools.kt` | `toolOf("measure") = Tool.LIST`; `modeFor` / `prepMode` fall to `measure`; `PREP_HONOURS` gains `READINGS` |
+| `pano/Features.kt`, `pano/Tour.kt` | `HELP_TOURS = false`; `TourFlows.shipped(tx, tours = Features.HELP_TOURS)` |
+| `pano/SurveyRef.kt` | `shownSaid` reads `sp.reference_shown_measure` |
+| `pano/MeasureFlow.kt` (new) | the screen's own rules, pure -- see departure 1 |
+| `app/SurveyMeasure.kt` (new) | `SpMeasureBar`, `SpMeasurePad`; draws `MeasureFlow.Bar`, reads no rule |
+| `app/SurveyPrepDraw.kt` | `Marks` gains `scope`, `live`, `keep` (and keeps `show`, defaulted, for the saved pictures); mode `main` draws `figures` / `plate` / `dimLine` / `dot`; a Line's, an area's and a chain's figures become tags; mode `sheet` keeps `dims` / `vtag` untouched |
+| `app/SurveyPrepScreen.kt` | the Measure pane and panel; `walkOn`, `reading`, `padPress`, `commitPad`, `figureTap`, `markTap`, `barStep`; the laser's branch by phase, with the tick; the tabs' counts; the `all` toggle; the list, the Show row, `SpTable` and `SpMmField` deleted |
+| `app/SurveyPrep360.kt` | its `lineTag` caller passes the reading |
+| `app/MainActivity.kt` | Capture 360 by phase; the Help row and `TourSeed.ensure` behind `Features.HELP_TOURS` |
+| `i18n/` | `ported.txt` and `literal-counts.tsv` take the two new files at 0; `README.md` "Port 63 slice M2". No key added, no table changed, `Tx` not regenerated |
+| tests | `MeasureFlowTest` and `MeasureScreenTest` (new: the rules, and `:app` read as source -- every pin of §4's list); `StepRouteTest`, `PhaseToolsTest`, `FeaturesTest`, `TourFlowsTest` for the new steps, `PREP_HONOURS` and the tours' switch; `MarkSheetTest`, `PaletteTest`, `SheetMarksTest`, `RefFrameTest`, `SurveyPrepMarathiTest` moved to the new counts and texts, each with its reason |
+
+Decided by Claude while building, beyond what §4 says; each is in the code's own comments and held by a test:
+
+1. **`pano/MeasureFlow.kt` exists.** §4 puts the tap, the bar's states and the walk's edges in `SPS`, which no test
+   here can run. They are one pure object instead -- `canRead`, `takes`, `activeFor`, `firstOpen`, `figure`, `body`,
+   `stay`, `tabLeft`, `value`, `checkEst`, `onFace`, `onItem`, `span`, `panTo` -- and `SPS` only acts on its answers.
+   `MeasureFlowTest` holds them at every stage.
+2. **A tap on the figure of a mark that is not in the room says "not in the room" before it says "read-only".** After
+   Survey both are true of a wished mark; the first is the one that does not change when the phase is moved back.
+3. **In 3 · Measure the walk does not stop on a chain's derived segment.** §4 has `reading()` ask
+   `prep.nextAfter(code)` first; on a chain that is the next segment whether or not it still needs a reading, and one
+   segment is worked out once the others and the total are known. `MeasureFlow.stay` keeps `nextAfter`'s answer only
+   while `MeasureWalk` still counts it as left; otherwise `walkOn`. 2 · Mark and 4 · 360 keep `nextAfter` as it was.
+4. **`▶` also marks the active figure of a Line, an area and a chain**, not only a mark's plate: they are taps now, and
+   without it nothing on the photo says which one the D2 will fill.
+5. **A face whose four lines do not close shows a sentence in 2 · Mark and 3 · Measure** (`sp.x_set_four_lines`, the
+   words the list said it in), where a spinner turned for a picture that never comes. §4 says "shows in 3 · Measure
+   what 2 · Mark shows there today"; both now say why. At Estimated and at Client approved 3 · Measure is the step
+   every face lands on, so the spinner would have been the first thing seen there.
+6. **A typed figure says the check's sentence too** when it disagrees with the photo, as a laser's does.
+7. **The phone's Back goes through `back()`**, so digits typed and not yet committed are written before the dialog
+   closes, as ← does.
+8. **3 · Measure has no long-press menu, no drawn tabs, no trash and no magnifier**, and a finger down starts no drag
+   there: a long press is a tap. Moving, resizing and deleting stay 2 · Mark's.
+9. **In 2 · Mark and 4 · 360 the bar is drawn only while a dimension is active** (where the reading strip stood), and
+   an open pad takes the place of the picked item's row and of the palette: all four do not fit a landscape column.
+10. **`Marks.show` stays, defaulted to `"both"`**, because `FaceWriter` passes its arguments by position and the saved
+    pictures must stay byte-identical until M3; the screen no longer names it.
+11. **What lost its only caller is left in place**, with its tests: five `:pano` functions the list alone called --
+    `SurveyMeas.listName`, `SurveyMeas.tapeNote`, `SurveyChain.listName`, `SurveyPrep.outNote` and
+    `SurveyPrepEdit.deleteWord(tx, p, id)` -- and seventeen keys (`android/i18n/README.md`, "Port 63 slice M2"). M3,
+    which deletes the old painter, is the slice to sweep them; none is a second answer to anything -- nothing calls them.
+
+**How `:app` was checked without a compiler.** The three files that carry the screen (`SurveyPrepDraw.kt`,
+`SurveyMeasure.kt`, `SurveyPrepScreen.kt`) were type-checked here against the real `:pano` classes and hand-written
+stand-ins for the Android and Compose APIs they use (the Kotlin compiler from the Gradle cache, run directly; the
+stand-ins are in no repository). The first two came out clean; the third showed only names that live in app files
+left out of that run, none on a changed line. That catches a wrong `:pano` accessor, a wrong parameter name and a
+missing import of a `:pano` class; it does NOT prove an Android or Compose signature, since the stand-ins are written
+from memory. CI's compile is still the first real one.
+
+**For Amit on the phone** (the build note of §4, as built): measuring is on the photo; the list is gone; `all` in
+3 · Measure shows every figure; after Survey a figure cannot be changed until the phase is moved back, and the room
+screen has no Capture 360 there -- so to try measuring, use a project that is at Survey or only on the phone. First
+figures to judge on the Mi A3: the plates' sizes (12 dp picked, 10 dp others), the pad's rows, and whether the bar's
+two lines read at arm's length.
+
+Not in M2, as planned: the saved `-survey.jpg` pictures (M3, after question 1); the 360 turning to the active
+dimension and ringing it (M4 -- the 360 draws no `▶`); the Marathi of the thirteen pending keys; any tour work.

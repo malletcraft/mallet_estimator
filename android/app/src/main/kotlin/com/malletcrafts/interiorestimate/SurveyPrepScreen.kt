@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,13 +32,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -69,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -79,12 +77,14 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
@@ -103,10 +103,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.malletcrafts.interiorestimate.pano.DimLayout
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.MarkLife
 import com.malletcrafts.interiorestimate.pano.MarkSheet
-import com.malletcrafts.interiorestimate.pano.MmBox
+import com.malletcrafts.interiorestimate.pano.MeasureFlow
+import com.malletcrafts.interiorestimate.pano.MeasurePad
+import com.malletcrafts.interiorestimate.pano.MeasureText
+import com.malletcrafts.interiorestimate.pano.MeasureWalk
 import com.malletcrafts.interiorestimate.pano.Pano360
 import com.malletcrafts.interiorestimate.pano.Panorama
 import com.malletcrafts.interiorestimate.pano.PhaseTools
@@ -156,16 +160,27 @@ import kotlin.math.roundToInt
  *    diamond grip pivots it, and every line has its own permanent row of
  *    buttons under the photo (1 or 5 mm, 0.1 degree). No numbers on lines.
  *  - 2 · Mark: the surface squared to the laser size; boxes for what is on
- *    it, each with its checklist of measurements, the photo's estimate, and
- *    the site reading from the DISTO D2 or typed. The palette under the
+ *    it, each with its checklist of measurements -- every one drawn ON the
+ *    mark with ONE figure: the site reading from the DISTO D2 or typed, else
+ *    ≈ and the photo's estimate (port 63 slice M2). The palette under the
  *    photo (v52 slice 7, complete in slice 11): Select, Tape, Line, Chain,
  *    three types, More ▸; a type stays on and every tap on empty photo
  *    places one where the finger is; Chain taps a run of points along one
  *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
- *  - 3 · List: the surface's checklist, the only part of the screen that
- *    scrolls (v52 slice 6).
+ *  - 3 · Measure (port 63 slice M2; Amit, 15 Nov 2026, after his first use on
+ *    a client site: "The laundry list of measurements shown below screen is
+ *    also frustrating. … imagemeter shows all dimensions on the annotation
+ *    there itself which is easy to use."): the same squared photo with one
+ *    figure on every dimension and a walk through the unmeasured ones. A tap
+ *    on a figure makes it the one being measured; the D2, or the app's own
+ *    pad under the measure bar, fills it; the next unmeasured one becomes
+ *    active by itself. Nothing can be moved, resized or placed there. THE
+ *    LIST IS GONE: no 3 · List, no LIST tab, no Show row. What a tap does,
+ *    what may be measured and what the bar says are MeasureFlow, MeasureWalk,
+ *    MeasurePad and MeasureText in :pano; the bar and the pad are drawn by
+ *    SurveyMeasure.kt; the plates by SurveyPrepDraw from MarkDims / DimLayout.
  *  - The Mark sheet (port 62 slice L3, SpMarkSheet): a tap on a mark's code --
- *    on the picked row under the photo, or in a list -- opens it: the moves the
+ *    on the picked row under the photo, or on the measure bar's label -- opens it: the moves the
  *    project's quote stage offers the mark (→ Client wish ...), the four acts,
  *    its note, and the trade of an Other, a Line or an area. Every rule and
  *    every write is MarkSheet / MarkLife in :pano.
@@ -186,7 +201,7 @@ import kotlin.math.roundToInt
  *    chains and reference on the 360 itself, turned by the finger, and
  *    placed and edited there through the same functions -- one model, two
  *    views; the maths is Pano360 in :pano.
- *  - PLAN, the 8th tab (v52 slice 13): six drawings -- the floor plan, the
+ *  - PLAN, the 7th tab (v52 slice 13): six drawings -- the floor plan, the
  *    reflected ceiling plan and the four wall elevations -- from one pure
  *    display list (SurveyPlan in :pano), painted by SpPlanPane.
  *  - The faces are tabs and the steps a strip under them; the photo takes
@@ -277,9 +292,20 @@ internal fun SurveyPrepDialog(
     var planBusy by remember { mutableStateOf(false) }
     var planSaved by remember { mutableStateOf<PlanExport.Saved?>(null) }
     val scope = rememberCoroutineScope()
-    var show by remember { mutableStateOf("both") }
     var sel by remember { mutableStateOf<SpSel?>(null) }
     var active by remember { mutableStateOf<String?>(null) }
+    // ---- MEASURING ON THE PHOTO (port 63 slice M2; DESIGN-port63 §1.4-§1.6)
+    // EVERY FIGURE AT ONCE: 3 · Measure's `all` button, off whenever a step is entered
+    var allFigs by remember { mutableStateOf(false) }
+    // THE PAD under the measure bar: open or hidden -- closed when survey prep opens, then kept for as long as this
+    // dialog is, and opened only when asked for (a tap on the bar's figure box, or on the plate already active) -- and
+    // the digits typed on it. They belong to ONE reading, [padKey], the one that was active when the first key was
+    // pressed: whatever leaves that reading commits them to IT (commitPad), never to the one active by then.
+    var padOpen by remember { mutableStateOf(false) }
+    var padKey by remember { mutableStateOf<String?>(null) }
+    var padText by remember { mutableStateOf(MeasurePad.start(null)) }
+    // a short tick when a laser reading lands -- his eyes are on the laser dot, not the phone. Read once, here.
+    val haptic = LocalHapticFeedback.current
     val hist = remember { mutableStateListOf<SurveyPrep.Prep>() }
     // "N points re-centred" (v52 slice 4): said once, on the open that made older points 50 mm spots -- a Msg,
     // rendered with the open-time tx (say() keeps a String: M3a's rule)
@@ -489,12 +515,81 @@ internal fun SurveyPrepDialog(
     val askBle = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.all { it }) disto.start() else say(tx.sp_msg_bluetooth_refused)
     }
-    fun reading(code: String, v: Double) {
+    /**
+     * THE CHECK'S SENTENCE (port 63 slice M2; DESIGN-port63 §1.1): "The photo says ≈640 mm. Check the mark, or shoot
+     * again." -- said through the screen's message line, never in the bar, when a reading that fails MarkDims.check
+     * lands and whenever a plate carrying `!` becomes the active one. Which reading that is, is MeasureFlow.checkEst.
+     */
+    fun sayCheck(code: String?) {
+        val est = code?.let { c -> MeasureFlow.checkEst(prep, c) { ab(it) } } ?: return
+        say(MeasureText.photoSays(tx, est))
+    }
+    /** [code] becomes the reading being taken and the picked item follows its owner: the walk's moves, ‹ and ›. */
+    fun measureAt(code: String?) {
+        active = code
+        code?.let { c -> prep.ownerOf(c) }?.let { o -> if (sel?.id != o.id) sel = SpSel(o.s, id = o.id) }
+        sayCheck(code)
+        rev++
+    }
+    /**
+     * THE WALK (3 · Measure; DESIGN-port63 §1.5): the next dimension of the open face that is still LEFT after [after]
+     * becomes the one being measured -- null: the first one left -- with no tap on the phone, and the picked mark
+     * follows it. None left: nothing is active, and the bar says the face is finished. THE ONE CALLER OF
+     * MeasureWalk.next: a reading that leaves its mark with nothing left, ›, the pad's Next, entering the step and
+     * changing face in it all come here. Not after Survey, where nothing is measured.
+     */
+    fun walkOn(after: String?) {
+        val s = tab
+        if (!StepRoute.isFace(s) || !MeasureFlow.canRead(quoteStage)) return
+        val z = ab(s)
+        measureAt(MeasureWalk.next(prep, s, z[0], z[1], after))
+    }
+    /**
+     * A READING IS WRITTEN: the laser's, or a figure typed on the pad -- THE ONE PLACE THIS SCREEN ASSIGNS prep.actual.
+     * [moveOn] (the laser's): the next one still missing on the same thing becomes active (a Line has one reading, so
+     * none after it, v52 slice 9); and in 3 · Measure, when that thing has nothing left, the walk moves on by itself
+     * (walkOn). A typed figure moves nothing here: what was pressed to leave it -- Next, ‹, ›, a tap -- decides.
+     */
+    fun reading(code: String, v: Double, moveOn: Boolean = true) {
         prep.actual[code] = v
-        // the next one still missing on the same mark; a Line has one reading, so none after it (v52 slice 9)
-        active = prep.nextAfter(code) { ab(it) }
+        if (moveOn) {
+            val walking = mode == StepRoute.MEASURE && StepRoute.isFace(tab)
+            active = if (walking) ab(tab).let { z -> MeasureFlow.stay(prep, tab, z[0], z[1], code) { s -> ab(s) } }
+                     else prep.nextAfter(code) { ab(it) }
+            if (walking && active == null) walkOn(code)
+        }
+        sayCheck(code)
         changed()
     }
+    /** The pad's text NOW: the digits typed for the reading being taken, else that reading as stored -- fresh
+     *  (MeasurePad.start: the STORED reading or empty, never an estimate, never a chain's derived figure). */
+    fun padNow(): MeasurePad.State =
+        if (padKey != null && padKey == active) padText else MeasurePad.start(active?.let { a -> prep.actual[a] })
+    /** A key of the pad pressed: the digits are the active reading's from here on. */
+    fun padPress(key: MeasurePad.Key) {
+        val code = active ?: return
+        val now = padNow()
+        padKey = code; padText = MeasurePad.press(now, key); rev++
+    }
+    /**
+     * WHAT WAS TYPED IS WRITTEN, FOR THE READING IT WAS TYPED FOR -- through MmBox.commit alone (MeasurePad.commit), so
+     * an untouched pad writes nothing, the figure already stored writes nothing, and an emptied pad over a stored
+     * reading removes it: THE ONE PLACE THIS SCREEN REMOVES A READING. Called by whatever leaves the dimension -- Next,
+     * ‹, ›, ⌄, a tap on another figure or mark, a change of step, face or tab, ← and ✓ Save -- and, for every other way
+     * the active reading changes, by the effect below. Twice is once: the digits are forgotten as they are written.
+     */
+    fun commitPad() {
+        val code = padKey ?: return
+        val typed = padText
+        padKey = null
+        if (prep.ownerOf(code) == null) return
+        val c = MeasurePad.commit(prep.actual[code], typed) ?: return
+        val v = c.value
+        if (v != null) reading(code, v, moveOn = false) else { prep.actual.remove(code); changed() }
+    }
+    LaunchedEffect(active) { commitPad() }
+    /** A laser reading that arrives while digits are typed and not committed DISCARDS them and is the reading. */
+    fun dropTyped(code: String) { if (padKey == code) padKey = null }
     fun distoGo() {
         when (distoState) {
             DistoClient.State.OFF -> askBle.launch(blePerms)
@@ -526,9 +621,17 @@ internal fun SurveyPrepDialog(
         when (route) {
             is SurveyRef.Route.Ref -> setRefDimS(route.k, r.mm.toDouble(), route.s)
             is SurveyRef.Route.Drop -> say(SurveyRef.leftSaid(tx, route.mm))
-            SurveyRef.Route.Normal ->
-                if (a == null || prep.ownerOf(a) == null) say(tx.sp_msg_d2_x_tap_measurement(r.mm.toString()))
-                else reading(a, r.mm.toDouble())
+            SurveyRef.Route.Normal -> {
+                // READINGS FOLLOW THE PHASE (port 63 slice M2): after Survey a laser reading is said why it is not taken
+                val no = PhaseTools.readingRefusal(tx, quoteStage)
+                if (no != null) say(no)
+                else if (a == null || prep.ownerOf(a) == null) say(tx.sp_msg_d2_x_tap_measurement(r.mm.toString()))
+                else {
+                    dropTyped(a)
+                    reading(a, r.mm.toDouble())
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+            }
         }
     }
 
@@ -622,9 +725,8 @@ internal fun SurveyPrepDialog(
         if (now == null || SurveyPrep.growExt(now.ext, c.ext) != null) views[s] = SpCut(bmp, c.ox, c.oy, c.ext)
     }
     val need = when {
-        tab == "list" -> SurveyPrep.SURFACES.filter { prep.surface(it).done() }
         !StepRoute.isFace(tab) -> emptyList()   // the Plan tab draws from the marks, not from a squared photo
-        mode == "mark" || mode == "list" -> listOf(tab)
+        mode == "mark" || mode == StepRoute.MEASURE -> listOf(tab)
         else -> emptyList()
     }
     val wanted = need.mapNotNull { s -> keyOf(s)?.let { s to it } }
@@ -642,12 +744,14 @@ internal fun SurveyPrepDialog(
     fun rectOf(s: String): SpRect? = rects[s]?.takeIf { it.key == keyOf(s) }
 
     // ---- selecting and editing
-    fun selectMark(s: String, e: SurveyPrep.Mark, measure: String?) {
+    // WHAT PICKING OR PLACING AN ITEM MAKES ACTIVE is MeasureFlow.firstOpen everywhere below (port 63 slice M2): its
+    // first reading still missing -- and nothing after Survey, where readings are not keyed, nor on a mark that is not
+    // in the room (born a Client wish or Vendor added), which is never asked for one.
+    fun selectMark(s: String, e: SurveyPrep.Mark) {
         val fresh = sel?.id != e.id
         sel = SpSel(s, id = e.id)
-        if (measure != null) active = measure
-        else if (fresh) active = ab(s).let { prep.nextOpen(s, e, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
+        if (fresh) active = MeasureFlow.firstOpen(prep, e.id, quoteStage) { ab(it) }
+        if (tab != s) { tab = s; if (mode != "360" && mode != StepRoute.MEASURE) modeSet = "mark"; dropDrafts() }
         rev++
     }
     /** A finger down on a line or a mark: it is selected, with the part grabbed; a newly selected mark's
@@ -657,10 +761,9 @@ internal fun SurveyPrepDialog(
         sel = g
         val gid = g.id
         if (fresh && gid != null) {
-            val e = prep.markById(gid)
-            if (e != null) active = ab(e.first).let { prep.nextOpen(e.first, e.second, null, it[0], it[1]) }
-            // a chain's point pressed (v52 slice 11): the chain picked, its first open segment the one being read
-            else prep.chainById(gid)?.let { (s, c) -> active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) } }
+            // a mark's first unmeasured field; a chain's point pressed (v52 slice 11): the chain picked, its first open
+            // segment the one being read. A Tape's or a Line's end and the reference change nothing, as before.
+            if (prep.markById(gid) != null || prep.chainById(gid) != null) active = MeasureFlow.firstOpen(prep, gid, quoteStage) { ab(it) }
         }
         rev++
     }
@@ -696,7 +799,7 @@ internal fun SurveyPrepDialog(
         val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
             quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null
         val e = placed.mark
-        sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
+        sel = SpSel(s, id = e.id); active = MeasureFlow.firstOpen(prep, e.id, quoteStage) { ab(it) }
         if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
         notePlaced(e)
@@ -718,7 +821,7 @@ internal fun SurveyPrepDialog(
         val placed = PhaseTools.place(prep, s, t, mx, my, a[0], a[1], java.util.UUID.randomUUID().toString().take(8),
             quoteStage, asPicked, java.time.Instant.now(), SurveyPrepPalette.subFor(spKinds, t, s)) { snapshot() } ?: return null
         val e = placed.mark
-        tab = s; sel = SpSel(s, id = e.id); active = prep.nextOpen(s, e, null, a[0], a[1])
+        tab = s; sel = SpSel(s, id = e.id); active = MeasureFlow.firstOpen(prep, e.id, quoteStage) { ab(it) }
         if (placed.amber) say(MarkLife.afterEstimate(tx))
         changed()
         notePlaced(e)
@@ -738,7 +841,7 @@ internal fun SurveyPrepDialog(
                 snapshot()
                 val c = prep.addChain(d.s, f.axis, f.nodes, f.snaps, java.util.UUID.randomUUID().toString().take(8))
                 sel = SpSel(d.s, id = c.id)
-                active = ab(d.s).let { prep.nextOpen(c, null, it[0], it[1]) }
+                active = MeasureFlow.firstOpen(prep, c.id, quoteStage) { ab(it) }
                 changed()
             }
         }
@@ -786,6 +889,9 @@ internal fun SurveyPrepDialog(
     LaunchedEffect(modeSet, toolSet, quoteStage) {
         if (modeSet != mode) modeSet = mode
         if (toolSet != tool) { flushChain(); toolSet = tool; moreOpen = false; dropDrafts() }
+        // READINGS FOLLOW THE PHASE (port 63 slice M2): a stage that moves past Survey while the screen is open leaves
+        // nothing being measured -- no bar, no pad, no D2
+        if (active != null && !MeasureFlow.canRead(quoteStage)) { active = null; rev++ }
     }
     /**
      * A NEW NOTE THAT WENT AGAIN with no words (port 62 slice L6; the prototype's removeFresh, index61c2.html 3068-3070):
@@ -964,17 +1070,17 @@ internal fun SurveyPrepDialog(
         if (prep.markById(mid) != null) {
             val c = SurveyPrepEdit.duplicate(prep, mid, a[0], a[1], nid)
             if (c == null) { hist.removeAt(hist.size - 1); return }
-            sel = SpSel(s, id = c.id); active = prep.nextOpen(s, c, null, a[0], a[1])
+            sel = SpSel(s, id = c.id); active = MeasureFlow.firstOpen(prep, c.id, quoteStage) { ab(it) }
         } else if (prep.chainById(mid) != null) {
             // a chain (v52 slice 11): 100 mm across its axis, the next K number, picked, its first segment active
             val c = SurveyPrepEdit.duplicateChain(prep, mid, a[0], a[1], nid)
             if (c == null) { hist.removeAt(hist.size - 1); return }
-            sel = SpSel(s, id = c.id); active = prep.nextOpen(c, null, a[0], a[1])
+            sel = SpSel(s, id = c.id); active = MeasureFlow.firstOpen(prep, c.id, quoteStage) { ab(it) }
         } else {
             // a Tape, a Line or an area (v52 slice 9): the next number of its own prefix, picked, its reading active
             val c = SurveyPrepEdit.duplicateMeas(prep, mid, a[0], a[1], nid)
             if (c == null) { hist.removeAt(hist.size - 1); return }
-            sel = SpSel(s, id = c.id); active = SurveyMeas.key(c)
+            sel = SpSel(s, id = c.id); active = MeasureFlow.activeFor(prep, SurveyMeas.key(c), quoteStage) { ab(it) }
         }
         changed()
     }
@@ -992,25 +1098,80 @@ internal fun SurveyPrepDialog(
         }
     }
     /** A chain picked (sp.js kPick): selected; on a FRESH pick its first open reading becomes the one being taken (the
-     *  laser's total skipped) -- or [measure], when a list row named it (v52 slice 11). */
-    fun selectChain(s: String, cid: String, measure: String? = null) {
-        val c = prep.chainById(cid)?.second ?: return
+     *  laser's total skipped; v52 slice 11). A read segment is re-opened by a tap on its figure (figureTap). */
+    fun selectChain(s: String, cid: String) {
+        if (prep.chainById(cid) == null) return
         val fresh = sel?.id != cid
         sel = SpSel(s, id = cid)
-        if (measure != null) active = measure
-        else if (fresh) active = ab(s).let { prep.nextOpen(c, null, it[0], it[1]) }
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
+        if (fresh) active = MeasureFlow.firstOpen(prep, cid, quoteStage) { ab(it) }
+        if (tab != s) { tab = s; if (mode != "360" && mode != StepRoute.MEASURE) modeSet = "mark"; dropDrafts() }
         rev++
     }
     /** A Tape, a Line or an area picked (sp.js mPick): selected; a newly picked Line's reading becomes the one being
-     *  taken -- or [measure], when a list row named it. A tape has none. */
-    fun selectMeas(s: String, mid: String, measure: String? = null) {
+     *  taken, read or not, as before (SurveyMeas.pickActive) -- where the phase keys readings. A tape has none. */
+    fun selectMeas(s: String, mid: String) {
         val m = prep.measById(mid)?.second ?: return
         val fresh = sel?.id != mid
         sel = SpSel(s, id = mid)
-        active = SurveyMeas.pickActive(m, fresh, measure, active)
-        if (tab != s && tab != "list") { tab = s; if (mode != "360") modeSet = "mark"; dropDrafts() }
+        active = MeasureFlow.activeFor(prep, SurveyMeas.pickActive(m, fresh, null, active), quoteStage) { ab(it) }
+        if (tab != s) { tab = s; if (mode != "360" && mode != StepRoute.MEASURE) modeSet = "mark"; dropDrafts() }
         rev++
+    }
+    /**
+     * A FIGURE ON THE PHOTO TAPPED (port 63 slice M2; DESIGN-port63 §1.3, §1.5) -- a mark's plate, a Line's or an
+     * area's tag, a chain's segment figure or its total, under its reading key [code] -- in 3 · Measure and in 2 · Mark
+     * alike. What the tap does is MeasureFlow.figure: the key's OWNER is picked (through the pick functions above), so
+     * its label can open its Mark sheet; at Survey, and for an owner that takes readings, that reading becomes the one
+     * being measured -- and on the figure already active the pad opens; on a mark not in the room, and after Survey,
+     * the owner is picked, the screen says why, and nothing is active. This is how a reading already taken is re-opened.
+     */
+    fun figureTap(code: String) {
+        val t = MeasureFlow.figure(prep, code, active, quoteStage) { ab(it) }
+        val o = t.pick ?: return
+        if (t.active != active) commitPad()
+        val mk = prep.markById(o.id)
+        if (mk != null) selectMark(mk.first, mk.second)
+        else if (prep.chainById(o.id) != null) selectChain(o.s, o.id)
+        else selectMeas(o.s, o.id)
+        active = t.active
+        if (t.pad) padOpen = true
+        when (t.refused) {
+            MeasureFlow.Refused.NOT_IN_ROOM -> say(MeasureText.notInRoom(tx))
+            MeasureFlow.Refused.READ_ONLY -> PhaseTools.readingRefusal(tx, quoteStage)?.let { no -> say(no) }
+            null -> sayCheck(t.active)
+        }
+        rev++
+    }
+    /**
+     * A MARK TAPPED IN 3 · MEASURE (MeasureFlow.body): it is picked -- its position figures are drawn -- and, at Survey
+     * and if it is in the room, its first unmeasured dimension becomes the one being measured (none for a measured
+     * mark, every plate of which then takes a tap). It says nothing; nothing moves: 3 · Measure grabs nothing.
+     */
+    fun markTap(mid: String) {
+        val t = MeasureFlow.body(prep, mid, sel?.id, active, quoteStage) { ab(it) }
+        val o = t.pick ?: return
+        if (t.active != active) commitPad()
+        prep.markById(o.id)?.let { (s, e) -> selectMark(s, e) }
+        active = t.active
+        rev++
+    }
+    /**
+     * ‹ AND › ON THE MEASURE BAR, and the pad's Next (which is › once what was typed is committed). In 3 · MEASURE they
+     * walk the open face: ‹ to the stop before, read or not, to correct it (MeasureWalk.previous; from nothing, the
+     * face's last stop); › skips -- the dimension stays unmeasured, the walk goes to the next unmeasured one and comes
+     * round again. In 2 · MARK AND 4 · 360 they move within the active reading's OWNER's own keys only, read or not,
+     * wrapping, and never change the selection (MeasureWalk.step over stopsOf).
+     */
+    fun barStep(forward: Boolean) {
+        commitPad()
+        if (mode == StepRoute.MEASURE) {
+            if (forward) walkOn(active)
+            else if (StepRoute.isFace(tab) && MeasureFlow.canRead(quoteStage)) ab(tab).let { z -> measureAt(MeasureWalk.previous(prep, tab, z[0], z[1], active)) }
+        } else {
+            val a = active ?: return
+            val o = prep.ownerOf(a) ?: return
+            measureAt(MeasureWalk.step(MeasureWalk.stopsOf(prep, o.id) { ab(it) }, a, forward))
+        }
     }
     /**
      * A TAPE OR A LINE LET GO (v52 slice 9, sp.js measureDown.end): off the surface it is REFUSED -- "Only things on
@@ -1025,7 +1186,7 @@ internal fun SurveyPrepDialog(
             SurveyMeas.End.PLOTTED -> {
                 snapshot()
                 val m = prep.addMeas(d.s, d.kind, d.pts(), java.util.UUID.randomUUID().toString().take(8))
-                sel = SpSel(d.s, id = m.id); active = SurveyMeas.key(m)
+                sel = SpSel(d.s, id = m.id); active = MeasureFlow.activeFor(prep, SurveyMeas.key(m), quoteStage) { ab(it) }
                 changed()
             }
         }
@@ -1048,7 +1209,7 @@ internal fun SurveyPrepDialog(
                 snapshot()
                 val m = prep.addMeas(s, SurveyMeas.AREA, pts, java.util.UUID.randomUUID().toString().take(8))
                 dropDrafts()
-                sel = SpSel(s, id = m.id); active = SurveyMeas.key(m)
+                sel = SpSel(s, id = m.id); active = MeasureFlow.activeFor(prep, SurveyMeas.key(m), quoteStage) { ab(it) }
                 changed()
             }
         }
@@ -1089,19 +1250,26 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
+    fun showTab(t: String) { commitPad(); flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
         // on 4 · 360 a face tab turns the 360 to that face (sp.js showTab: P3.face)
         if (mode == "360" && StepRoute.isFace(t)) p3Look = Pano360.faceView(t, 1.0, 1.0)
-        tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++ }
+        tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++
+        // 3 · MEASURE ON ANOTHER FACE (port 63 slice M2): its first unmeasured dimension is the one being measured, so he
+        // can shoot at once; what was being measured on the face he left is let go
+        if (mode == StepRoute.MEASURE) { active = null; walkOn(null) } }
     fun setMode(m: String) {
         // a step the phase does not show cannot be opened (slice L4): it is not on the strip, and a press routed to
         // where it was, or a tour's move, does nothing
         if (m !in PhaseTools.prepSteps(quoteStage)) return
         if (m == "mark" && frameOf(tab) == null) { say(tx.refuse_sp_these_four_lines_do_2); return }
-        flushChain(); refShot = SurveyRef.leave(refShot)
+        commitPad(); flushChain(); refShot = SurveyRef.leave(refShot)
         // 4 · 360 opens facing the open face (sp.js setMode: P3.face)
         if (m == "360") p3Look = Pano360.faceView(tab, 1.0, 1.0)
         modeSet = m; sel = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; dropDrafts(); rev++
+        // EVERY FIGURE AT ONCE is off whenever a step is entered; and 3 · MEASURE opens on the face's first unmeasured
+        // dimension (port 63 slice M2; DESIGN-port63 §1.5), walkOn deciding whether anything may be measured at all
+        allFigs = false
+        if (m == StepRoute.MEASURE) { active = null; walkOn(null) }
     }
 
     fun openLwh() {
@@ -1137,24 +1305,23 @@ internal fun SurveyPrepDialog(
     // ---- v52 slice 6 (item 9): THE FACES ARE TABS, THE STEPS A STRIP UNDER THEM, AND THE PHOTO TAKES THE HEIGHT LEFT.
     // Amit, 14 Oct 2026 06:23 IST: "all having same size confuses me. its actually parent child relation for face and
     // 1 2 3 4."; 20:45 IST: "Why all faces amd 1 2 3 4 have same look and feel. i had requested distinction in them."
-    // NOTHING SCROLLS BUT A LIST: the photo has weight 1, so it gets every dp the controls leave, in both orientations;
-    // the status, the laser sizes, the web lines, Start over and Discard sit behind ⋮ in the bar, with ✓ Save beside it.
+    // NOTHING SCROLLS (the list, the one thing that did, went with port 63 slice M2): the photo has weight 1, so it gets
+    // every dp the controls leave, in both orientations; the status, the laser sizes, the web lines, Start over and
+    // Discard sit behind ⋮ in the bar, with ✓ Save beside it.
     val conf = LocalConfiguration.current
     val land = conf.screenWidthDp > conf.screenHeightDp
-    val listView = StepRoute.listView(tab, mode)
-    // a FACE has lines, steps, marks and its own clear; the List and Plan tabs have none of them (slice 13)
+    // a FACE has lines, steps, marks and its own clear; the Plan tab has none of them (slice 13)
     val face = StepRoute.isFace(tab)
     // 2 · Mark and 4 · 360 edit the same marks: the selection rows, the D2 strip, the palette and More ▸ serve both
     val marking = face && (mode == "mark" || mode == "360")
     val planTab = StepRoute.isPlan(tab)
     val dens = LocalDensity.current
     // Where each step of the strip is, and the strip's own top-left, in root px: a press within 48 dp under a step
-    // (the caption, the top of the photo, the empty part of the Show row) is that step's -- StepRoute.stepFor, in :pano.
+    // (the caption, the top of the photo) is that step's -- StepRoute.stepFor, in :pano.
     // Only ever read by the pointer handlers, never by composition, so laying them out recomposes nothing.
     val stepBoxes = remember { mutableStateMapOf<String, Rect>() }
     var stripAt by remember { mutableStateOf(Offset.Zero) }
     var capAt by remember { mutableStateOf(Offset.Zero) }
-    var showAt by remember { mutableStateOf(Offset.Zero) }
     var gapAt by remember { mutableStateOf(Offset.Zero) }
     // Where ← and ✓ Save are, in root px, and the ⋮ overlay's own top-left: with ⋮ open a tap outside the menu closes
     // it, and a tap that lands on ← or ✓ Save then goes on to Back or Save (sp.js 1559). Read only by the overlay's
@@ -1210,7 +1377,7 @@ internal fun SurveyPrepDialog(
     )
 
     val statusText = when {
-        tab == "list" || planTab -> {
+        planTab -> {
             val marks = SurveyPrep.SURFACES.sumOf { prep.surface(it).marks.size }
             val items = SurveyPrep.SURFACES.sumOf { s -> prep.surface(s).marks.sumOf { e -> SurveyPrep.measures(s, e, ab(s)[0], ab(s)[1]).size } }
             tx.sp_engineer_s_sheet_x(marks = marks, items = items, v = prep.actual.size.toString())
@@ -1220,7 +1387,7 @@ internal fun SurveyPrepDialog(
             // the names are joined with ", " in both languages, as sp.js joins them
             if (left.isNotEmpty()) tx.sp_place_x(left.joinToString(", ")) else tx.sp_all_four_lines_placed
         }
-        mode == "list" -> {
+        mode == StepRoute.MEASURE -> {
             val els = prep.surface(tab).marks
             val n = els.sumOf { e -> SurveyPrep.measures(tab, e, ab(tab)[0], ab(tab)[1]).size }
             // the prototype's wording wins (decision 5): it always writes "measurements"
@@ -1232,11 +1399,13 @@ internal fun SurveyPrepDialog(
     val openShape = face && mode == "lines" && frameOf(tab) == null
     val boundedText = tx.sp_x_6_surfaces_bounded(done.toString())
 
-    fun back() { menuOpen = false; onCancel(prep.copy(), roomSize.copyOf()) }
+    // ← and ✓ Save leave the dimension being measured: what was typed on the pad is written first (port 63 slice M2)
+    fun back() { commitPad(); menuOpen = false; onCancel(prep.copy(), roomSize.copyOf()) }
     /** ✓ Save: only with all six surfaces bounded. */
     fun saveNow() {
         menuOpen = false
         if (done != 6) return
+        commitPad()
         // The read-back save, then the as-is upload to the web (AsIsUpload); a save that did not
         // read back queues nothing, so the web never gets a prep this phone does not hold.
         if (store.save(id, prep, roomSize[0], roomSize[1], roomSize[2])) {
@@ -1296,7 +1465,7 @@ internal fun SurveyPrepDialog(
     // ---- THE PARENT: the faces as text tabs, two rows, the open one white and bold over a 3 dp gold bar
     val tabsUi: @Composable () -> Unit = {
         rev    // read: a drag only bumps rev, and the ✓ on a face that just closed must follow it live
-        val rowH = StepRoute.tabRowDp(land, listView, tx.mr).dp   // 27 in a landscape list under मराठी: SpTab's 17 sp name + a 9 sp Ref line
+        val rowH = StepRoute.tabRowDp(land).dp
         Column(Modifier.fillMaxWidth()) {
             for (row in StepRoute.TAB_ROWS) {
                 Row(Modifier.fillMaxWidth().height(rowH).drawBehind {
@@ -1307,10 +1476,14 @@ internal fun SurveyPrepDialog(
                         // a face squared from its reference says so under its name, "Ref 905 × 2053" (v52 slice 12) --
                         // shown or hidden on the faces, since it squares the face either way
                         val refT = if (t in SurveyPrep.SURFACES) SurveyRef.tabText(tx, prep.surface(t)) else null
+                        // WHAT IS STILL TO MEASURE ON THE FACE (port 63 slice M2; DESIGN-port63 §1.5): a small amber count
+                        // after its name -- none when nothing is left, nothing is asked, or after Survey (MeasureFlow.tabLeft).
+                        // The ✓ keeps its one meaning: four lines set.
+                        val left = if (StepRoute.isFace(t)) ab(t).let { z -> MeasureFlow.tabLeft(prep, t, quoteStage, z[0], z[1]) } else 0
                         // the guided tour's `tab:<tab>` anchor (port 61c §31), in the dialog's own window
                         SpTab(StepRoute.tabName(tx, t), tab == t, tick,
                             Modifier.weight(1f).fillMaxHeight().tourAnchor("tab:$t", TourState.HOST_SURVEY),
-                            ref = refT, land = land) { showTab(t) }
+                            ref = refT, land = land, left = left) { showTab(t) }
                     }
                 }
             }
@@ -1321,11 +1494,10 @@ internal fun SurveyPrepDialog(
     // has a tap of its own: every press on the strip (and under it, see routeToStep) goes through StepRoute.stepFor.
     val stripUi: @Composable () -> Unit = {
         val ci = StepRoute.stepIndex(mode)
-        val tight = land && listView
-        Row(Modifier.fillMaxWidth().height(StepRoute.stripDp(land, listView).dp)
+        Row(Modifier.fillMaxWidth().height(StepRoute.stripDp(land).dp)
             .onGloballyPositioned { stripAt = it.positionInRoot() }
             .pointerInput(Unit) { routeToStep({ stripAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
-            .padding(start = 2.dp, end = 2.dp, top = if (tight) 0.dp else 2.dp),
+            .padding(start = 2.dp, end = 2.dp, top = 2.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Text(StepRoute.stripFace(tx, tab), color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1, softWrap = false,
                 modifier = Modifier.padding(end = 6.dp))
@@ -1337,7 +1509,7 @@ internal fun SurveyPrepDialog(
                 val on = i == ci
                 val past = ci >= 0 && i < ci
                 val lab = StepRoute.label(tx, i)
-                Row(Modifier.height(if (tight) 20.dp else if (land) 22.dp else 26.dp)
+                Row(Modifier.height(if (land) 22.dp else 26.dp)
                     .onGloballyPositioned { stepBoxes[k] = it.boundsInRoot() }
                     // the guided tour's `mode:<step>` anchor (port 61c §31)
                     .tourAnchor("mode:$k", TourState.HOST_SURVEY)
@@ -1362,20 +1534,6 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // the photo-vs-measured toggle belongs to marks only (Amit, 2026-10-10: "lines should not show that"); its empty
-    // part takes part in the strip's touch area, its chips keep their own taps (FX3)
-    val showRow: @Composable () -> Unit = {
-        Row(Modifier.fillMaxWidth().onGloballyPositioned { showAt = it.positionInRoot() }
-            .pointerInput(Unit) { routeToStep({ showAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) }
-            .padding(top = 3.dp, bottom = if (land) 3.dp else 6.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(tx.common_show, color = SP_MUTED, fontSize = 11.sp, lineHeight = 14.sp)
-            for ((k, lab) in listOf("derived" to tx.common_photo, "actual" to tx.common_measured, "both" to tx.common_both)) {
-                SpPill(lab, show == k, Modifier.weight(1f), outline = true, compact = land) { show = k; rev++ }
-            }
-        }
-    }
-
     // the surface's title is a caption ABOVE the photo, never on it; it takes part in the strip's touch area. The lines'
     // padlock (slice 8) moved from its right end into 1 · Lines' Size from row with slice 12, beside the reference's own
     // padlock and its eye, where the prototype has it (sp.js 1512-1514, ct52 X4)
@@ -1395,9 +1553,9 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // THE NOTE AND THE SNACKBAR over the bottom of the photo (or the list), the note above the snackbar: neither
+    // THE NOTE AND THE SNACKBAR over the bottom of the photo, the note above the snackbar: neither
     // costs any height (v52 slice 8 keeps slice 7's dp budget). UNDO undoes the change the snackbar names.
-    // THE BAND IN LANDSCAPE lies over the foot of the left column -- the photo, the list or the drawing -- so the
+    // THE BAND IN LANDSCAPE lies over the foot of the left column -- the photo or the drawing -- so the
     // right-hand column loses no height (port 62 slice L4; phase54.css 1269-1270); the note and the snackbar are drawn
     // after it, over it, as the prototype stacks them. In portrait it is the screen's first line, over the bar.
     val bandOver: @Composable BoxScope.() -> Unit = {
@@ -1411,11 +1569,11 @@ internal fun SurveyPrepDialog(
         }
     }
 
-    // ---- THE PHOTO, with all the height the controls leave (1 · Lines and 2 · Mark)
+    // ---- THE PHOTO, with all the height the controls leave (1 · Lines, 2 · Mark and 3 · Measure)
     val photoPane: @Composable ColumnScope.() -> Unit = {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             // 1 · Lines: the wall's cut, drawn at its offset, fitted to the surface its lines enclose and 12° beyond its
-            // corners (sp.js fitRectFor); 2 · Mark: the squared face, fitted whole
+            // corners (sp.js fitRectFor); 2 · Mark and 3 · Measure: the squared face, fitted whole
             val cut = if (mode == "lines") views[tab] else null
             val img: Bitmap? = if (mode == "lines") cut?.bmp else rectOf(tab)?.bmp
             val fitTo: DoubleArray? = cut?.let { c -> SurveyPrep.fitRectFor(tab, prep.surface(tab).lines, frameOf(tab)?.q, c.ext) }
@@ -1424,6 +1582,14 @@ internal fun SurveyPrepDialog(
                 Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,
                     mdrag, area, areaS, kdraft, SurveyGuide.now(mdrag, endG, areaS, area, tool, kdraft), grid, p3Actions,
                     stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })
+            } else if (mode != "lines" && frameOf(tab) == null) {
+                // A FACE WHOSE FOUR LINES DO NOT CLOSE CANNOT BE SQUARED: 2 · Mark and 3 · Measure say so, in the words the
+                // list said it in, where a picture that never comes kept a spinner turning (port 63 slice M2: at Estimated
+                // and at Client approved 3 · Measure is the step every face lands on, bounded or not)
+                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                    Text(tx.sp_x_set_four_lines(SurveyPrep.NAME[tab]?.let { Masters.surface(tx, it) } ?: tab), color = SP_MUTED,
+                        fontSize = 12.sp, lineHeight = 15.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(16.dp))
+                }
             } else if (img == null) {
                 Box(Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
@@ -1434,8 +1600,14 @@ internal fun SurveyPrepDialog(
                     img = img, ox = (cut?.ox ?: 0).toDouble(), oy = (cut?.oy ?: 0).toDouble(), fitTo = fitTo,
                     tab = tab, mode = mode, rev = rev,
                     prep = prep, ab = ab(tab), frame = frameOf(tab), rect = rectOf(tab),
-                    sel = sel, active = active, show = show,
-                    onSelect = { s, e, measure -> selectMark(s, e, measure) },
+                    sel = sel, active = active,
+                    // port 63 slice M2: a figure on the photo tapped (2 · Mark and 3 · Measure), a mark tapped in 3 · Measure,
+                    // every figure at once, and the pad's uncommitted digits for the plate of the figure being measured
+                    onFigure = { code -> figureTap(code) },
+                    onMarkTap = { mid -> markTap(mid) },
+                    all = allFigs,
+                    onAll = { allFigs = !allFigs; rev++ },
+                    live = MeasurePad.live(padNow()),
                     onGrab = { g -> grabbed(g) },
                     onBeforeChange = { snapshot() },
                     onMoved = { rev++ },
@@ -1474,71 +1646,6 @@ internal fun SurveyPrepDialog(
                     onBusy = { b -> photoBusy = b },
                     // port 62 slice L4: the phase -- which marks may be changed, and the chip's "as …"
                     stage = quoteStage, asPicked = asPicked, onAs = { cycleAs() })
-            }
-            bandOver()
-            notesOver()
-        }
-    }
-
-    // one surface squared, with codes and dimensions, and its table: every surface on the room's List tab, the open
-    // face alone on its 3 · List
-    val surfaceBlock: @Composable (String, Boolean) -> Unit = { s, room ->
-        val a = ab(s); val tg = SurveyPrep.sizeTag(s)
-        val act = active
-        val actHere = act != null && prep.ownerOf(act)?.s == s
-        val faceName = Masters.surface(tx, SurveyPrep.NAME.getValue(s))
-        Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(SP_SHEET).padding(6.dp)) {
-            Row(Modifier.fillMaxWidth().padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (room) faceName else tx.sp_x_its_list(faceName), color = SP_FG,
-                    fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                // squared from its reference rectangle, its size is the reference's measure, not the laser's (v52 slice 12);
-                // "Ref" (common.ref) is the card's row for the phone's "ref" (decision 5); "Laser" (app.laser) is Claude's extension of
-                // it to the tag's other branch (decision 6) -- the card's only `· laser` row is the chain total's, keyed whole as sp.total_laser
-                if (room || !actHere) Text("${tg.first} ${a[0].roundToInt()} × ${tg.second} ${a[1].roundToInt()} · ${if (frameOf(s)?.ref != null) tx.common_ref else tx.app_laser}",
-                    color = SP_MUTED, fontSize = 12.sp)
-                else SpD2(Modifier, "D2 → $act") { fire() } // text:value the laser (DISTO D2) and the reading key it is armed for
-            }
-            val r = if (room) { if (prep.surface(s).done()) rectOf(s) else null } else rectOf(s)
-            when {
-                // the prototype names the surface in both lines (decision 5: sp.x_set_four_lines_2, sp.x_set_four_lines)
-                room && !prep.surface(s).done() -> Text(tx.sp_x_set_four_lines_2(faceName), color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
-                !room && frameOf(s) == null -> Text(tx.sp_x_set_four_lines(faceName), color = SP_MUTED, fontSize = 12.sp,
-                    modifier = Modifier.padding(4.dp))
-                r == null -> CircularProgressIndicator(Modifier.padding(12.dp))
-                else -> Canvas(Modifier.fillMaxWidth().aspectRatio(r.sq.width.toFloat() / r.sq.height).clip(RoundedCornerShape(8.dp))) {
-                    rev; show; active
-                    val sc = size.width / r.sq.width
-                    drawIntoCanvas { cv ->
-                        val nc = cv.nativeCanvas
-                        nc.save(); nc.scale(sc, sc); nc.drawBitmap(r.bmp, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG)); nc.restore()
-                        // the List's picture is the office's own screen: every mark, with its state (port 62 slice L2)
-                        SurveyPrepDraw.drawMarks(nc, tx, SheetMarks.Audience.OFFICE, s, SurveyPrepDraw.Marks(prep, a[0], a[1], r.sq, "sheet", true, null, active, show,
-                            size.width, size.height, null, density, frame = frameOf(s)),
-                            { x, y -> floatArrayOf((x * sc).toFloat(), (y * sc).toFloat()) }, sc)
-                    }
-                }
-            }
-            if (!room || prep.surface(s).done()) {
-                SpTable(s, prep, a, rev, sel, active, show, room, quoteStage,
-                    onRow = { e, code -> selectMark(s, e, code) },
-                    onMeasRow = { m, code -> selectMeas(s, m.id, code) },
-                    onChainRow = { k, code -> selectChain(s, k.id, code) },
-                    onSheet = { openSheet(it) },
-                    onDelete = { deleteMark(it) },
-                    onFocus = { active = it },
-                    onValue = { code, v -> if (v != null) reading(code, v) else { prep.actual.remove(code); changed() } },
-                    onFire = { code -> active = code; fire() },
-                    emptyText = if (room) tx.sp_nothing_marked_surface else tx.sp_no_marks_yet_add)
-            }
-        }
-    }
-
-    // ---- THE LIST (3 · List, and the room's List tab): only the list scrolls
-    val listPane: @Composable ColumnScope.() -> Unit = {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                if (tab == "list") for (s in SurveyPrep.SURFACES) surfaceBlock(s, true)
-                else surfaceBlock(tab, false)
             }
             bandOver()
             notesOver()
@@ -1618,7 +1725,7 @@ internal fun SurveyPrepDialog(
         }
     }
     // ---- THE PLAN TAB (v52 slice 13, items 10 and 11): the six drawings in one box with all the height the controls
-    // leave -- nothing scrolls -- and the line under it naming the drawing. No step strip, no Show row, no caption, and
+    // leave -- nothing scrolls -- and the line under it naming the drawing. No step strip, no caption, and
     // no Clear this surface behind ⋮ (face is false here); the note and the snackbar sit over the drawing as over a photo.
     val planPane: @Composable ColumnScope.() -> Unit = {
         SpPlanPane(Modifier.weight(1f).fillMaxWidth(), prep, roomSize, SurveyPlan.roomName(title), rev, planV, planFit, land,
@@ -1711,7 +1818,13 @@ internal fun SurveyPrepDialog(
     // ---- under the photo in 2 · Mark: the selected mark's buttons, the measurement being taken, then the palette
     val markPanel: @Composable () -> Unit = {
         rev    // read: a mark's edge dragged moves its live ≈ value while the finger is down
-        val sm = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
+        // THE MEASURE BAR (port 63 slice M2; DESIGN-port63 §1.4), in 2 · Mark and 4 · 360 only while a dimension is being
+        // measured on the open face -- where the reading strip stood -- and THE PAD, only when asked for. An open pad takes
+        // the place of the picked item's own row AND of the palette (all four do not fit a landscape column), and the
+        // bar then carries the label; ⌄ brings both back. What the bar is and says is MeasureFlow.onItem.
+        val mbar = if (marking) MeasureFlow.onItem(tx, prep, active?.takeIf { a -> prep.ownerOf(a)?.s == tab }, quoteStage, withCell = padOpen) { ab(it) } else null
+        val padUp = padOpen && mbar != null
+        val sm = sel?.takeIf { marking && !padUp && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
         if (sm != null) {
             val p = sel!!.part
             val edge = p != "body"
@@ -1757,7 +1870,7 @@ internal fun SurveyPrepDialog(
         // A PICKED TAPE, LINE OR AREA (v52 slice 9, sp.js 1505-1507): its own row -- "F-T1 · Tape · 1234 mm", "F-M1 ·
         // 1234 mm" once read (else "≈1234 mm"), "F-M2 · 1.86 m²" -- with its padlock and Delete. A tape has NO D2 strip
         // under it (it has no reading); a Line's strip follows, as a mark's does.
-        val sq = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).meas.firstOrNull { it.id == sl.id } }
+        val sq = sel?.takeIf { marking && !padUp && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).meas.firstOrNull { it.id == sl.id } }
         if (sq != null) {
             val lk = SurveyPrep.isLocked(sq)
             val tp = sq.kind == SurveyMeas.TAPE
@@ -1782,7 +1895,7 @@ internal fun SurveyPrepDialog(
         // A PICKED CHAIN (v52 slice 11, sp.js 1503, ct52 K): its own row -- "FK1 ≈905 · ≈2405 · Σ 3310 laser", each
         // segment its reading, "2410 d" derived, or the photo's ≈ -- with its padlock and Delete; the D2 strip follows,
         // on its first open segment
-        val sk = sel?.takeIf { marking && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).chains.firstOrNull { it.id == sl.id } }
+        val sk = sel?.takeIf { marking && !padUp && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).chains.firstOrNull { it.id == sl.id } }
         if (sk != null) {
             val lk = SurveyPrep.isLocked(sk)
             val kv = ab(tab).let { SurveyChain.vals(sk, prep.actual, it[0], it[1]) }
@@ -1800,29 +1913,48 @@ internal fun SurveyPrepDialog(
                         SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
             }
         }
-        // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, or a
-        // Line's length / an area's perimeter (v52 slice 9: the D2 and the keyboard land on F-M1.len, F-M2.per)
-        val act = active
-        val am = act?.let { a -> prep.readingOf(a) { ab(it) } }?.takeIf { marking && it.first == tab }
-        val mm = am?.second
-        if (am != null && mm != null && act != null) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp).background(Color(0xFF2A2410)).border(1.5.dp, SP_GOLD).padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("▶ ${act.substringBeforeLast('.')} ${mm.what(tx)}", color = Color.White, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 2, modifier = Modifier.weight(1f))
-                Text(mm.est?.let { "≈" + it.roundToInt() } ?: tx.sp_site_only, color = Color(0xFFCFD3CB), fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp, lineHeight = 15.sp)
-                SpMmField(act, prep.actual[act], true, Modifier.width(72.dp), onFocus = { active = act }) { v ->
-                    if (v != null) reading(act, v) else { prep.actual.remove(act); changed() } }
-                SpD2(Modifier) { fire() }
-            }
+        // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, a Line's
+        // length, an area's perimeter or a chain's segment (the D2 and the pad land on its reading key). ONE FIGURE: the
+        // bar's box shows what the plate on the photo shows -- the reading, else ≈ and the photo's estimate -- never both.
+        if (mbar != null) {
+            val owner = active?.let { a -> prep.ownerOf(a) }?.id
+            SpMeasureBar(mbar, land,
+                cellBar = owner?.let { id -> prep.markById(id) }?.second?.let { e -> MarkLife.barColour(e) },
+                live = MeasurePad.live(padNow()),
+                onCell = { owner?.let { id -> openSheet(id) } },
+                onPrev = { barStep(false) }, onNext = { barStep(true) },
+                onBox = { padOpen = true; rev++ }, onD2 = { fire() }, onNextFace = { },
+                modifier = Modifier.padding(bottom = 4.dp))
+            if (padUp) SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { barStep(true) }, onHide = { commitPad(); padOpen = false; rev++ })
         }
         // THE PALETTE (v52 slice 7) in place of the old toolbar: 6 + 50 dp (6 + 46 in landscape), where SpMarkToolbar
         // took 48 + 5 -- the photo gives up 3 dp in portrait and gains 1 in landscape
         // ... where the phase has one (port 62 slice L4): at Estimated and at Client approved there is no palette --
         // nothing new is marked there, and the band over the screen says so
-        if (PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))
+        // ... and not under an open pad, which has taken its place (port 63 slice M2)
+        if (!padUp && PhaseTools.can(PhaseTools.Tool.PALETTE, quoteStage))
             SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })
+    }
+
+    // ---- under the photo in 3 · MEASURE (port 63 slice M2; DESIGN-port63 §1.4, §1.8): THE MEASURE BAR, always there --
+    // the picked item's label (it opens the Mark sheet, at every stage), ‹, the measure's own words over the progress, the
+    // figure box, D2 and › while a dimension is being measured; the progress alone, a finished face with the next face's
+    // button, or "nothing to measure" otherwise; and after Survey the label and the phase's refusal, standing, so the
+    // step never reads as a broken screen. Under it THE PAD, when asked for. Every state and every word is
+    // MeasureFlow.onFace; ‹, › and Next walk the face (barStep).
+    val measurePanel: @Composable () -> Unit = {
+        rev    // read: the counts and the figure follow every reading
+        val pid = sel?.takeIf { it.s == tab }?.id
+        val mbar = MeasureFlow.onFace(tx, prep, tab, pid, active, quoteStage) { ab(it) }
+        SpMeasureBar(mbar, land,
+            cellBar = pid?.let { id -> prep.markById(id) }?.second?.let { e -> MarkLife.barColour(e) },
+            live = if (mbar.d2) MeasurePad.live(padNow()) else null,
+            onCell = { pid?.let { id -> openSheet(id) } },
+            onPrev = { barStep(false) }, onNext = { barStep(true) },
+            onBox = { padOpen = true; rev++ }, onD2 = { fire() },
+            onNextFace = { mbar.nextFace?.let { f -> showTab(f.s) } },
+            modifier = Modifier.padding(top = 4.dp))
+        if (padOpen && mbar.d2) SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { barStep(true) }, onHide = { commitPad(); padOpen = false; rev++ })
     }
 
     // The sizes half: the status, then the laser L/W/H with its caption. Every Text carries its own line height, or it
@@ -1972,7 +2104,7 @@ internal fun SurveyPrepDialog(
             else if (lwhOpen) lwhOpen = false
             else if (menuOpen) menuOpen = false
             else if (moreOpen) moreOpen = false
-            else onCancel(prep.copy(), roomSize.copyOf())
+            else back()
         },
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)) {
         Surface(Modifier.fillMaxSize(), color = SP_BG) {
@@ -1980,7 +2112,7 @@ internal fun SurveyPrepDialog(
               .onSizeChanged { rootH = it.height; rootW = it.width }) {
             rev    // read, so every model change recomposes the screen
             if (!land) {
-                // PORTRAIT, 360 x 780: bar 40 · tabs 64 + strip 28 = 92 · (Show) · caption · THE PHOTO · what works on it
+                // PORTRAIT, 360 x 780: bar 40 · tabs 64 + strip 28 = 92 · caption · THE PHOTO · what works on it
                 // ... and since port 62 slice L4 the phase band over them all, 20 dp: the screen's first line
                 Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 6.dp)) {
                     SpPhaseBand(band, false)
@@ -1988,30 +2120,23 @@ internal fun SurveyPrepDialog(
                     openedLine()
                     tabsUi()
                     if (face) stripUi()
-                    if (listView || (face && mode == "mark")) showRow()
                     if (planTab) { planPane(); planFoot() }
-                    else if (listView) listPane()
                     else {
                         caption()
                         photoPane()
-                        if (mode == "lines") linesPanel() else markPanel()
+                        if (mode == "lines") linesPanel() else if (mode == StepRoute.MEASURE) measurePanel() else markPanel()
                     }
                 }
             } else {
                 // LANDSCAPE, 780 x 360 (a ~336 dp window under the status bar): the photo on the left at full height;
-                // on the right, 318 dp of controls -- bar 32 · tabs 56 + strip 24 = 80 · (Show) · gap · what works on it.
-                // 3 · List and the List tab (v42.css .spv.land.lst): the tabs, the strip and Show go to the top of the
-                // LEFT column, over the list, and only the bar stays on the right. The salvaged-prep line sits on the
-                // left in landscape too, where it shortens the photo rather than clipping the panel under the controls.
+                // on the right, 318 dp of controls -- bar 32 · tabs 56 + strip 24 = 80 · gap · what works on it (in
+                // 3 · Measure the measure bar, 48, and its pad when open, 144: StepRouteTest holds that they fit).
+                // The salvaged-prep line sits on the left in landscape too, where it shortens the photo rather than
+                // clipping the panel under the controls.
                 Row(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 6.dp)) {
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         openedLine()
-                        if (listView) {
-                            tabsUi()
-                            if (face) stripUi()
-                            showRow()
-                            listPane()
-                        } else if (planTab) {
+                        if (planTab) {
                             planPane()
                         } else {
                             caption()
@@ -2021,19 +2146,14 @@ internal fun SurveyPrepDialog(
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.width(318.dp).fillMaxHeight()) {
                         bar()
-                        if (!listView) {
-                            tabsUi()
-                            if (face) stripUi()
-                            if (face && mode == "mark") showRow()
-                        }
+                        tabsUi()
+                        if (face) stripUi()
                         // the empty gap under the controls takes part in the strip's touch area (sp.js .spgap)
                         Box(Modifier.weight(1f).fillMaxWidth().onGloballyPositioned { gapAt = it.positionInRoot() }
                             .pointerInput(Unit) { routeToStep({ gapAt }, { x, y -> routeS(x, y) }, { k -> goStepS(k) }) })
                         // the Plan tab: the line naming the drawing, at the foot of the controls (sp.html #planfoot in .spfoot)
                         if (planTab) planFoot()
-                        else if (!listView) {
-                            if (mode == "lines") linesPanel() else markPanel()
-                        }
+                        else if (mode == "lines") linesPanel() else if (mode == StepRoute.MEASURE) measurePanel() else markPanel()
                     }
                 }
             }
@@ -2222,6 +2342,10 @@ private class SpLoupe(val points: List<DoubleArray>, val finger: Offset)
  * its corners -- "fit" resets; a magnifier follows a drag, and two watch the corners while
  * a line swings. In 2 · Mark a tap with Select picks, a tap with a type on
  * places one where the finger is, and the tool's chip sits top-left (v52 slice 7).
+ * In 3 · Measure (port 63 slice M2) nothing is grabbed, moved, resized or placed:
+ * a tap on a figure or on a mark is the dialog's (onFigure, onMarkTap), a tap
+ * on empty photo does nothing, a drag pans and a pinch zooms -- so a thumb on
+ * the photo cannot drag a mark while the other hand holds the laser.
  */
 @Composable
 private fun SpPhoto(
@@ -2235,8 +2359,17 @@ private fun SpPhoto(
     fitTo: DoubleArray?,
     tab: String, mode: String, rev: Int,
     prep: SurveyPrep.Prep, ab: DoubleArray, frame: SurveyPrep.Frame?, rect: SpRect?,
-    sel: SpSel?, active: String?, show: String,
-    onSelect: (String, SurveyPrep.Mark, String?) -> Unit,
+    sel: SpSel?, active: String?,
+    /** A FIGURE ON THE PHOTO TAPPED (port 63 slice M2): its reading key -- a mark's plate, a Line's or an area's tag, a
+     *  chain's figure. In 2 · Mark at the press, as a number tag always was; in 3 · Measure when the press lifts as a tap. */
+    onFigure: (String) -> Unit,
+    /** A MARK TAPPED IN 3 · MEASURE: its id. It is picked; it never moves. */
+    onMarkTap: (String) -> Unit,
+    /** 3 · Measure's `all` button: every figure of every mark at once -- and a tap on it. */
+    all: Boolean,
+    onAll: () -> Unit,
+    /** The pad's uncommitted digits (MeasurePad.live), drawn on the plate of the figure being measured; null: none. */
+    live: String?,
     onGrab: (SpSel) -> Unit,
     onBeforeChange: () -> Unit,
     onMoved: () -> Unit,
@@ -2330,7 +2463,8 @@ private fun SpPhoto(
     // squaring), so everything it reads that can change under it is read through these.
     val prepS by rememberUpdatedState(prep); val selS by rememberUpdatedState(sel)
     val rectS by rememberUpdatedState(rect); val abS by rememberUpdatedState(ab)
-    val onSelectS by rememberUpdatedState(onSelect); val onGrabS by rememberUpdatedState(onGrab)
+    val onFigureS by rememberUpdatedState(onFigure); val onMarkTapS by rememberUpdatedState(onMarkTap)
+    val onGrabS by rememberUpdatedState(onGrab)
     val onBeforeChangeS by rememberUpdatedState(onBeforeChange); val onMovedS by rememberUpdatedState(onMoved)
     val onChangedS by rememberUpdatedState(onChanged); val onDeleteS by rememberUpdatedState(onDelete)
     val stepAtS by rememberUpdatedState(stepAt); val onStepS by rememberUpdatedState(onStep)
@@ -2521,16 +2655,34 @@ private fun SpPhoto(
      * FREELY, THEN SET ITS BOUNDARIES: anywhere on a mark moves it, only the picked mark's tabs resize.
      * The order itself is SurveyPrepTouch.hit, tested in :pano; this only measures and acts.
      */
-    fun hitMarks(sx: Float, sy: Float, tagged: () -> Unit = {}): SpGrab? {
-        val r = rectS ?: return null; val sq = r.sq; val ab = abS
-        val els = prepS.surface(tab).marks
+    /** The open face's marks as drawn on the canvas, for the hit test (SurveyPrepTouch.Drawn); none without a squared face. */
+    fun drawnMarks(): List<SurveyPrepTouch.Drawn> {
+        val r = rectS ?: return emptyList(); val sq = r.sq
         // a point (v52) is a spot: its 25 mm on screen goes with it, so it is grabbed round its centre and never resized
         // ... and so is a Note's pin (port 62 slice L6; sp.js 5791 and 5809: `ISPOINT(e.t)||L53.isNote(e)`)
-        val drawn = els.map { e ->
+        return prepS.surface(tab).marks.map { e ->
             val p = toS(sq.x(e.x0), sq.y(e.y1)); val q = toS(sq.x(e.x1), sq.y(e.y0))
             SurveyPrepTouch.Drawn(e.id, p[0].toDouble(), q[0].toDouble(), p[1].toDouble(), q[1].toDouble(),
                 spot = if (SurveyPrep.isSpot(e.t)) SurveyPrep.SPOT / 2 / sq.mpp * k() else null)
         }
+    }
+
+    /**
+     * WHAT A TAP TAKES IN 3 · MEASURE (port 63 slice M2; DESIGN-port63 §1.3): a figure under the finger -- a plate, a
+     * dot, a Line's, an area's or a chain's figure -- else the mark under it, whole. The same hit test as 2 · Mark's
+     * with NO picked mark and NO chain points handed in, so it can only answer a figure or a mark's body: no tab, no
+     * point, nothing that resizes or moves. Null: empty photo, and the tap does nothing.
+     */
+    fun measureHit(sx: Float, sy: Float): SurveyPrepTouch.Hit? {
+        if (rectS == null) return null
+        val tol = with(density) { 16.dp.toPx() }.toDouble()
+        return SurveyPrepTouch.hit(drawnMarks(), null, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble())
+    }
+
+    fun hitMarks(sx: Float, sy: Float, tagged: () -> Unit = {}): SpGrab? {
+        val r = rectS ?: return null; val sq = r.sq; val ab = abS
+        val els = prepS.surface(tab).marks
+        val drawn = drawnMarks()
         val tol = with(density) { 16.dp.toPx() }.toDouble()
         // a LOCKED picked mark has no tabs (v52 slice 8): it is tested as a mark like any other, so a press on it holds it
         // ... and so has a picked mark the phase holds read-only (port 62 slice L4): no tabs drawn, none to press
@@ -2543,7 +2695,9 @@ private fun SpPhoto(
             null -> null
             is SurveyPrepTouch.Hit.Node -> nodeGrab(h.id, h.i)
             is SurveyPrepTouch.Hit.Tag -> {
-                prepS.markOf(h.code)?.let { (s, e) -> onSelectS(s, e, h.code) }
+                // A FIGURE TAPPED: its owner picked and its reading the one being measured -- a mark's plate, and since
+                // port 63 slice M2 a Line's, an area's and a chain's figure too; on the one already active, the pad opens
+                onFigureS(h.code)
                 tagged()
                 null
             }
@@ -2653,6 +2807,19 @@ private fun SpPhoto(
         return SpLoupe(j ?: listOf(g.focus?.invoke() ?: doubleArrayOf(ix, iy)), finger)
     }
 
+    // THE PHOTO PANS ONLY IF THE FIGURE BEING MEASURED IS OFF SCREEN (port 63 slice M2; DESIGN-port63 §1.4): when the
+    // walk (or ‹, ›, a reading) makes a dimension active in 3 · Measure, and none of what it measures is in the box --
+    // the photo is zoomed elsewhere -- the view moves, at its own zoom, to centre it. At fit nothing ever moves. The
+    // rule is MeasureFlow.span / panTo, tested in :pano.
+    LaunchedEffect(active, mode, tab) {
+        val code = active
+        val r = rect
+        if (mode == StepRoute.MEASURE && code != null && r != null && boxW > 1f && boxH > 1f && prep.ownerOf(code)?.s == tab) {
+            val at = MeasureFlow.span(prep, code) { _ -> ab }
+            if (at != null) MeasureFlow.panTo(view, box(), r.sq.x(at[0]), r.sq.y(at[1]), r.sq.x(at[2]), r.sq.y(at[3]))?.let { v -> view = v; tick++ }
+        }
+    }
+
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
         .onSizeChanged { boxW = it.width.toFloat(); boxH = it.height.toFloat() }
         .onGloballyPositioned { photoAt = it.positionInRoot() }
@@ -2721,6 +2888,12 @@ private fun SpPhoto(
                 // a tap adds it where the finger lifts, a drag adds it where the finger went down and carries it; a double
                 // tap ends the chain. Nothing else under the finger is picked or moved meanwhile.
                 val chainOn = mode == "mark" && tool0 == SurveyPrepPalette.CHAIN
+                // 3 · MEASURE (port 63 slice M2): NOTHING IS GRABBED. A press picks nothing when it goes down -- a thumb
+                // resting on the photo while the other hand holds the laser must change nothing -- and acts only when it
+                // lifts as a tap (measureTap); a drag pans, a pinch zooms, and no mark, tab, end or point ever moves.
+                val measuring = mode == StepRoute.MEASURE
+                // the finger slid the photo: a press that panned is not a slow tap
+                var panned = false
                 // the point this press added to the chain being drawn (its index), and whether the press tried to add one
                 var chainIdx: Int? = null
                 var chainTried = false
@@ -2745,6 +2918,16 @@ private fun SpPhoto(
                 fun tapAt(x: Double, y: Double) {
                     if (grab == null && placing && !tagged) placeGrab(x.toFloat(), y.toFloat(), tool0)
                 }
+                /** 3 · MEASURE'S ONE TAP, at canvas ([x], [y]): a figure makes its reading the one being measured (on the
+                 *  one already active the pad opens); a mark is picked; EMPTY PHOTO DOES NOTHING -- a stray thumb must not
+                 *  lose the dimension the laser is about to fill. What each does is the dialog's (MeasureFlow). */
+                fun measureTap(x: Double, y: Double) {
+                    when (val h = measureHit(x.toFloat(), y.toFloat())) {
+                        is SurveyPrepTouch.Hit.Tag -> onFigureS(h.code)
+                        is SurveyPrepTouch.Hit.Mark -> onMarkTapS(h.id)
+                        else -> Unit
+                    }
+                }
                 /** A tap with Tape or Line on, at canvas ([x], [y]): the Tape's hint, or a Line area's corner. */
                 fun measTap(x: Double, y: Double, dbl: Boolean) {
                     if (tool0 == SurveyPrepPalette.TAPE) { onTapeTapS(); return }
@@ -2763,8 +2946,9 @@ private fun SpPhoto(
                 }
                 fun act(evs: List<GestureClassifier.Event>) {
                     for (e in evs) if (!spent) when (e) {
-                        // the press: what is under it is picked now, as sp.js picks on pointerdown
-                        is GestureClassifier.Event.Down -> {
+                        // the press: what is under it is picked now, as sp.js picks on pointerdown -- but not in 3 · Measure,
+                        // where a press grabs and picks nothing (port 63 slice M2)
+                        is GestureClassifier.Event.Down -> if (!measuring) {
                             // FIRST, THE SELECTED ITEM'S ENDS (v52 slice 10, sp.js hit): with Select on the press grabs
                             // the end; with Tape or Line on it starts a NEW one there -- it never stretches the old one
                             val eh = endHit(e.x.toFloat(), e.y.toFloat(), tool0)
@@ -2864,8 +3048,9 @@ private fun SpPhoto(
                                 }
                             } else {
                                 // A DRAG ON EMPTY PHOTO PANS, at any zoom (sp.js v43: "pan anywhere"), so the cut past a
-                                // wall's corners can be brought into the box
+                                // wall's corners can be brought into the box -- and in 3 · Measure every drag does
                                 view = view.pan(box(), slideCx, slideCy, e.dx, e.dy)
+                                panned = true
                                 tick++
                             }
                         }
@@ -2875,13 +3060,15 @@ private fun SpPhoto(
                         // An end that moved and still lifted as a tap is put back, with its undo step (review).
                         is GestureClassifier.Event.Tap -> {
                             if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
-                            if (measOn) measTap(e.x, e.y, false) else if (chainOn) chainTap(e.x, e.y) else tapAt(e.x, e.y)
+                            if (measuring) measureTap(e.x, e.y)
+                            else if (measOn) measTap(e.x, e.y, false) else if (chainOn) chainTap(e.x, e.y) else tapAt(e.x, e.y)
                         }
                         // a double tap closes a Line area of three corners or more (v52 slice 9), and ENDS a chain (slice 11,
                         // sp.js kDown: the second tap of the pair adds no point -- the first already did)
                         is GestureClassifier.Event.DoubleTap -> {
                             if (SurveyGuide.revertOnTap(gated, moved)) { onRevertS(); moved = false; snapped = false }
-                            if (measOn) measTap(e.x, e.y, true)
+                            if (measuring) measureTap(e.x, e.y)
+                            else if (measOn) measTap(e.x, e.y, true)
                             else if (chainOn) { if (grab == null) onChainFinishS() }
                             else tapAt(e.x, e.y)
                         }
@@ -2890,7 +3077,8 @@ private fun SpPhoto(
                         // the finger went down and a slide after it carries the mark. With Select on it opens the
                         // menu of the mark under it (below).
                         // with Chain on a long still press is a slow tap: a point where the finger went down, at the lift
-                        is GestureClassifier.Event.LongPress -> if (measOn) { heldTap = true } else if (chainOn) { if (grab == null) heldTap = true } else {
+                        // in 3 · Measure too a long still press is a slow tap: it acts at the lift, unless the finger slid on
+                        is GestureClassifier.Event.LongPress -> if (measuring || measOn) { heldTap = true } else if (chainOn) { if (grab == null) heldTap = true } else {
                             val gid = grab?.sel?.id ?: pickedMeas
                             if (grab == null && placing && !tagged)
                                 placeGrab(e.x.toFloat(), e.y.toFloat(), tool0)?.let { grab = it; snapped = true; gc.grabbed() }
@@ -2973,6 +3161,7 @@ private fun SpPhoto(
                     // a slow tap with Tape or Line on: a corner (or the hint) where the finger went down
                     if (measOn && heldTap && !measDragged && !gone) measTap(first.position.x.toDouble(), first.position.y.toDouble(), false)
                     if (chainOn && heldTap && !gone) chainTap(first.position.x.toDouble(), first.position.y.toDouble())
+                    if (measuring && heldTap && !panned && !gone) measureTap(first.position.x.toDouble(), first.position.y.toDouble())
                 } finally {
                     // a drag the loop left (the gesture ended any other way): nothing plotted
                     if (draft != null) { draft = null; onDragCancelS() }
@@ -2985,7 +3174,7 @@ private fun SpPhoto(
             }
         }) {
         Canvas(Modifier.fillMaxSize()) {
-            rev; tick; view; loupe; sel; active; show; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
+            rev; tick; view; loupe; sel; active; all; live; photoAt; fitAt; chipAt; chipText; drag; area; grid; guide; chain
             val fw = fr[2] - fr[0]; val fh = fr[3] - fr[1]
             val u = min(size.width, (size.height * fw / fh).toFloat()) / 480f
             // THE GUIDE AS DRAWN THIS FRAME (v52 slice 10): the one on now, or the last one while it fades out; reading
@@ -3006,6 +3195,13 @@ private fun SpPhoto(
                 nc.drawBitmap(img, (-ox).toFloat(), (-oy).toFloat(), Paint().apply { isFilterBitmap = zz < 2.5 })
                 nc.restore()
                 val m: (Double, Double) -> FloatArray = { x, y -> floatArrayOf(((x - vx) * kk + size.width / 2).toFloat(), ((y - vy) * kk + size.height / 2).toFloat()) }
+                // ONE FIGURE ON EVERY DIMENSION (port 63 slice M2): which marks show which figures -- 2 · Mark the picked
+                // mark's, 3 · Measure every mark's size and the picked mark's position, and with `all` on every figure of
+                // every mark -- and the fit / grid / all column, which no plate may cover (canvas px)
+                val figScope = if (mode != StepRoute.MEASURE) DimLayout.Scope.PICKED else if (all) DimLayout.Scope.ALL else DimLayout.Scope.FACE
+                val figKeep = listOfNotNull(fitAt).map { f ->
+                    SurveyPrepTouch.Box((f.left - photoAt.x).toDouble(), (f.top - photoAt.y).toDouble(),
+                        (f.right - photoAt.x).toDouble(), (f.bottom - photoAt.y).toDouble()) }
                 fun overlay(c: android.graphics.Canvas, mm: (Double, Double) -> FloatArray, which: String) {
                     if (mode == "lines") {
                         // the plane grid in 1 · Lines (its button on), through the face's own mapping, so it leans with
@@ -3021,12 +3217,17 @@ private fun SpPhoto(
                     else rect?.let { r ->
                         // the editing photo and its loupe are the office's own screen (port 62 slice L2)
                         SurveyPrepDraw.drawMarks(c, tx, SheetMarks.Audience.OFFICE, tab, SurveyPrepDraw.Marks(prep, ab[0], ab[1], r.sq, which, false,
-                            sel?.takeIf { it.s == tab }?.id, active, show, size.width, size.height, if (which == "main") tags else null,
-                            density.density, drag = drag?.takeIf { it.s == tab }, area = area,
-                            gridAlpha = gridA, guide = gNow, guideAlpha = ga, ends = tool == SurveyPrepPalette.SEL,
+                            sel?.takeIf { it.s == tab }?.id, active, width = size.width, height = size.height,
+                            tags = if (which == "main") tags else null,
+                            dp = density.density, drag = drag?.takeIf { it.s == tab }, area = area,
+                            gridAlpha = gridA, guide = gNow, guideAlpha = ga,
+                            // a picked Line's ends are handles, and a picked mark shows its tabs, only where they can be
+                            // moved: 2 · Mark. 3 · Measure draws neither (port 63 slice M2)
+                            ends = mode == "mark" && tool == SurveyPrepPalette.SEL,
                             chain = chain?.takeIf { it.s == tab }, frame = frame,
                             // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
-                            tabs = sel?.takeIf { it.s == tab }?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), mm, u)
+                            tabs = mode == "mark" && (sel?.takeIf { it.s == tab }?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true),
+                            scope = figScope, live = live, keep = figKeep), mm, u)
                     }
                 }
                 tags.clear()
@@ -3152,225 +3353,20 @@ private fun SpPhoto(
                         .background(if (grid) Color(0xCC22D3EE) else Color(0xAA000000))
                         .semantics { contentDescription = tx.sp_aria_plane_grid; selected = grid }
                         .clickable(role = Role.Button) { kindOpen.value = false; onGrid() }.padding(horizontal = 8.dp, vertical = 5.dp))
+                // EVERY FIGURE AT ONCE (port 63 slice M2; Amit, 15 Nov 2026: "imagemeter shows all dimensions on the
+                // annotation there itself"): `all`, in 3 · Measure only, after grid and styled as grid is -- on, every mark
+                // draws every figure it has and nothing dims. It is a view, so it is there at every stage.
+                if (mode == StepRoute.MEASURE) Text(tx.sp_measure_all, color = if (all) Color(0xFF06232A) else Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp))
+                        .background(if (all) Color(0xCC22D3EE) else Color(0xAA000000))
+                        .semantics { contentDescription = tx.sp_measure_aria_all; selected = all }
+                        .clickable(role = Role.Button) { onAll() }.padding(horizontal = 8.dp, vertical = 5.dp))
                 // the zoom, whenever the view is out of fit (sp.js zl: hidden while fitted; two places below 1)
                 view.label()?.let { zl -> Text(zl, color = Color.White, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
                     modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xAA000000)).padding(horizontal = 6.dp, vertical = 3.dp)) }
             }
         }
     }
-}
-
-/**
- * One surface's checklist: Mark | Measure | ≈ Photo | Measured (+ D2) | Δ. Tapping a row selects its mark.
- * v52 slice 9 (item 6): every item's TYPE NAME stands on its own line under its code -- "Door", "Electric point",
- * "Marked length", "Marked area · 1.86 m²", and on the room's List tab ([room]) " · Front wall" after it; the column
- * title is "≈ Photo" in full; every Delete is labelled from its item ("Delete F-M1 marked length", "Delete FD1 Door").
- * After the marks come the Lines and areas, each with its one reading row (its length, its perimeter), and the tapes:
- * "Tape · 1234 mm · from the photo" with the note that a tape has no reading box -- and none.
- */
-@Composable
-private fun SpTable(
-    s: String, prep: SurveyPrep.Prep, ab: DoubleArray, rev: Int,
-    sel: SpSel?, active: String?, show: String, room: Boolean,
-    /** Port 62 slice L4: the project's quote stage -- a row's Delete is hidden where the phase holds its item read-only. */
-    stage: Int?,
-    onRow: (SurveyPrep.Mark, String) -> Unit,
-    onMeasRow: (SurveyPrep.Meas, String?) -> Unit,
-    /** A chain's row tapped (v52 slice 11): the chain, and the reading key the row is (FK1.2, FK1.t). */
-    onChainRow: (SurveyPrep.Chain, String?) -> Unit,
-    /** A code tapped (port 62 slice L3): its Mark sheet opens -- a mark's, a Line's, an area's; the item's id. */
-    onSheet: (String) -> Unit,
-    onDelete: (String) -> Unit,
-    onFocus: (String) -> Unit,
-    onValue: (String, Double?) -> Unit,
-    onFire: (String) -> Unit,
-    emptyText: String,
-) {
-    rev
-    val tx = LocalTx.current
-    val els = prep.surface(s).marks
-    val meas = prep.surface(s).meas.filter { SurveyMeas.known(it.kind) }
-    val chains = prep.surface(s).chains
-    if (els.isEmpty() && meas.isEmpty() && chains.isEmpty()) { Text(emptyText, color = SP_MUTED, fontSize = 12.sp, modifier = Modifier.padding(4.dp)); return }
-    val where = if (room) " · " + Masters.surface(tx, SurveyPrep.NAME.getValue(s)) else "" // text:value the separator before the face's name
-    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(tx.common_mark, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp))
-        // the checklist's column, not a tool: it stays "Measure" (item 6)
-        Text(tx.common_measure, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(tx.common_photo, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-            modifier = Modifier.width(54.dp), textAlign = TextAlign.End)
-        Text(tx.common_measured, color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(112.dp), textAlign = TextAlign.Center)
-        Text("Δ", color = SP_MUTED, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.End) // text:value glyph
-    }
-    /** The first column: the code, the type name on its own line under it, and Delete labelled from the item. The code
-     *  of a mark, a Line and an area is a button: it opens the Mark sheet (slice L3; the prototype's markPanel, 6660). */
-    @Composable
-    fun head(id: String, code: String, colour: Color, name: String?) {
-        Column(Modifier.width(56.dp).padding(3.dp)) {
-            Text(code, color = colour, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
-                modifier = if (!MarkSheet.opens(prep, id)) Modifier else Modifier.clip(RoundedCornerShape(3.dp))
-                    .clickable(role = Role.Button) { onSheet(id) }
-                    .semantics { contentDescription = tx.life_aria_open_mark_sheet_x(code) })
-            if (name != null) Text(name, color = SP_MUTED, fontSize = 10.sp, lineHeight = 11.sp)
-            // a mark's own word -- Drop past Existing, Restore on a Dropped one (port 62 slice L2); Delete for the rest --
-            // and none at all where the phase holds the item read-only (slice L4; the prototype's spPost on [data-del])
-            if (PhaseTools.delOk(prep, id, stage)) Text(SurveyPrepEdit.deleteWord(tx, prep, id), color = Color(0xFFFF9B7A), fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, Color(0x88FF9B7A), RoundedCornerShape(6.dp))
-                    .clickable { onDelete(id) }.semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, id) ?: tx.sp_aria_delete_x(code) }
-                    .padding(horizontal = 6.dp, vertical = 3.dp))
-        }
-    }
-    /** One reading row: what · ≈ photo · the box and D2 · Δ. */
-    @Composable
-    fun line(code: String, mm: SurveyPrep.Measure, pick: () -> Unit) {
-        val a = prep.actual[code]; val act = active == code
-        val d = if (a != null && mm.est != null) a - mm.est!! else null
-        Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
-            .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            // a reading row: one of the four boxes the prototype measured for Devanagari -- 17 sp under मराठी, or the vowel
-            // signs below (उजव्या कोपऱ्यापासून) are cut (design-marathi §4; v61c.2 CSS .ms2 .wh)
-            Text((if (act) "▶ " else "") + mm.what(tx), color = SP_FG, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 12.sp, modifier = Modifier.weight(1f))
-            Text(if (show == "actual") "" else (mm.est?.let { "≈" + it.roundToInt() } ?: tx.sp_site_only), color = Color(0xFFCFD3CB),
-                fontSize = if (mm.est == null) 9.sp else 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
-            Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SpMmField(code, a, act, Modifier.weight(1f), onFocus = { onFocus(code) }) { v -> onValue(code, v) }
-                Spacer(Modifier.width(3.dp))
-                SpD2(Modifier, small = true) { onFire(code) }
-            }
-            Text(if (show == "both" && d != null) SurveyPrepDraw.sgn(d) else "",
-                color = if (d != null && kotlin.math.abs(d) <= SurveyPrep.TOL) SP_OK else SP_AMB,
-                fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
-        }
-    }
-    for (e in els) {
-        val ms = SurveyPrep.measures(s, e, ab[0], ab[1])
-        val selM = sel?.id == e.id
-        Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)) {
-            head(e.id, e.code, SP_GOLD, SurveyPrep.typeName(tx, s, e.t) + where)
-            Column(Modifier.weight(1f)) {
-                for (mm in ms) { val code = e.code + "." + mm.key; line(code, mm) { onRow(e, code) } }
-            }
-        }
-        if (SurveyPrep.outOf(e, ab[0], ab[1]))
-            Text(SurveyPrep.outNote(tx, e.code), color = SP_OUT, fontSize = 11.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
-    }
-    // THE LINES AND AREAS, then THE TAPES (v52 slice 9)
-    for (m in meas.sortedBy { if (it.kind == SurveyMeas.TAPE) 1 else 0 }) {
-        val selM = sel?.id == m.id
-        val tp = m.kind == SurveyMeas.TAPE
-        Row(Modifier.fillMaxWidth().background(if (selM) Color(0xFF2A2614) else Color.Transparent)
-            .let { if (tp) it.clickable { onMeasRow(m, null) } else it }) {
-            head(m.id, m.code, Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
-                // a tape's one header line is the right column's "Tape · 1234 mm · from the photo" (sp.js markPanel):
-                // under its code, nothing -- or "Tape" would be said twice
-                if (tp) null else SurveyMeas.listName(tx, s, m, room))
-            Column(Modifier.weight(1f).padding(top = 3.dp)) {
-                if (tp) {
-                    // NO READING BOX: the tape's figure is the photo's
-                    Text(SurveyMeas.listName(tx, s, m, room), color = SP_FG, fontSize = 11.sp, lineHeight = 13.sp)
-                    Text(SurveyMeas.tapeNote(tx), color = SP_MUTED, fontSize = 10.sp, lineHeight = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 3.dp))
-                } else for (mm in SurveyMeas.measures(m)) { val code = m.code + "." + mm.key; line(code, mm) { onMeasRow(m, code) } }
-            }
-        }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
-    }
-    /**
-     * One row of a chain (v52 slice 11, sp.js chainPanel): [label] (FK1.1, "FK1.2 · derived", "total · laser"), the
-     * photo's ≈, the box with what the row IS -- its reading, else the derived figure in violet, the laser's total in
-     * rose, read-only ([readOnly]: no D2 either) -- and Δ: a segment against its photo figure, the total its check.
-     */
-    @Composable
-    fun chainLine(code: String, label: String, est: Double, shown: Double?, isReading: Boolean, tint: Color?, readOnly: Boolean, delta: Double?, pick: () -> Unit) {
-        val act = active == code
-        Row(Modifier.fillMaxWidth().background(if (act) Color(0xFF3D3410) else Color.Transparent)
-            .clickable { pick() }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text((if (act) "▶ " else "") + label, color = SP_FG, fontSize = 11.sp, lineHeight = if (tx.mr) 17.sp else 12.sp, modifier = Modifier.weight(1f))
-            Text(if (show == "actual") "" else "≈" + est.roundToInt(), color = Color(0xFFCFD3CB),
-                fontSize = 11.sp, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
-            Row(Modifier.width(112.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                SpMmField(code, shown, act, Modifier.weight(1f), onFocus = { if (!readOnly) onFocus(code) }, tint = tint, readOnly = readOnly,
-                    isReading = isReading) { v ->
-                    if (!readOnly) onValue(code, v) }
-                if (!readOnly) { Spacer(Modifier.width(3.dp)); SpD2(Modifier, small = true) { onFire(code) } }
-            }
-            Text(if (show == "both" && delta != null) SurveyPrepDraw.sgn(delta) else "",
-                color = if (delta != null && kotlin.math.abs(delta) <= SurveyPrep.TOL) SP_OK else SP_AMB,
-                fontSize = 11.sp, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.width(36.dp))
-        }
-    }
-    // THE CHAINS (v52 slice 11): "Chain · horizontal · 2 parts" under the code, each segment a row, then the total --
-    // the laser's when the chain runs edge to edge (read-only then), else its reading or the sum of the segments
-    for (k in chains) {
-        val selK = sel?.id == k.id
-        val kv = SurveyChain.vals(k, prep.actual, ab[0], ab[1])
-        Row(Modifier.fillMaxWidth().background(if (selK) Color(0xFF2A2614) else Color.Transparent)) {
-            head(k.id, k.code, SP_CHAIN, SurveyChain.listName(tx, s, k, room))
-            Column(Modifier.weight(1f)) {
-                for ((i, mm) in SurveyChain.measures(k).withIndex()) {
-                    val code = k.code + "." + mm.key
-                    if (mm.key == SurveyChain.TOTAL) {
-                        val ro = SurveyChain.totalReadOnly(kv)
-                        // "total", then " · laser" or " · derived", then " · Σ N" were joined in code: one whole key per form
-                        // (the card, 28 Oct 2026: sp.total_laser_x, sp.total_laser, sp.total_derived, sp.total_x; measure.total alone)
-                        val sum = kv.sum?.takeIf { kv.src != SurveyChain.DERIVED }?.roundToInt()?.toString()
-                        val total = when (kv.src) {
-                            SurveyChain.LASER -> if (sum != null) tx.sp_total_laser_x(sum) else tx.sp_total_laser
-                            SurveyChain.DERIVED -> tx.sp_total_derived
-                            else -> if (sum != null) tx.sp_total_x(sum) else tx.measure_total
-                        }
-                        chainLine(code, total, kv.estT, kv.total, kv.src == SurveyChain.MEASURED,
-                            when (kv.src) { SurveyChain.LASER -> SP_CHAIN; SurveyChain.DERIVED -> SP_DER; else -> null }, ro, kv.check) {
-                            if (!ro) onChainRow(k, code) else onChainRow(k, null) }
-                    } else {
-                        val der = kv.der == i
-                        val shown: Double? = kv.meas.getOrNull(i) ?: (if (der) kv.value.getOrNull(i) else null)
-                        // a derived segment's tag: the separator and sp.derived, as the prototype joins them
-                        chainLine(code, if (der) "$code · ${tx.sp_derived}" else code, mm.est ?: 0.0, shown, kv.meas.getOrNull(i) != null,
-                            if (der) SP_DER else null, false,
-                            shown?.let { it - (mm.est ?: 0.0) }) { onChainRow(k, code) }
-                    }
-                }
-            }
-        }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF2C2F28)))
-    }
-}
-
-/** A reading box: typed mm, kept on Done or when the box loses focus; cleared to remove a reading. [tint]: the figure's
- *  colour when it is not a reading (a chain's derived segment, the laser's total -- v52 slice 11); [readOnly]: shown,
- *  not typed into; [isReading]: [value] is a stored reading, not a derived figure. Only what was TYPED is written
- *  (MmBox.commit, sp.js `change`): focusing a box and leaving it writes nothing, so a derived 2404.5 shown "2405"
- *  never becomes a reading nobody took. */
-@Composable
-private fun SpMmField(code: String, value: Double?, active: Boolean, modifier: Modifier, onFocus: () -> Unit,
-                      tint: Color? = null, readOnly: Boolean = false, isReading: Boolean = true, onCommit: (Double?) -> Unit) {
-    val focus = LocalFocusManager.current
-    var text by remember(code, value) { mutableStateOf(MmBox.shownText(value)) }
-    var focused by remember { mutableStateOf(false) }
-    fun commit() {
-        if (readOnly) return
-        val c = MmBox.commit(value, text, isReading) ?: return
-        onCommit(c.value)
-    }
-    BasicTextField(
-        value = text, onValueChange = { t -> text = t.filter { it.isDigit() }.take(6) }, singleLine = true, readOnly = readOnly,
-        textStyle = TextStyle(color = tint ?: Color.White, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, textAlign = TextAlign.End),
-        cursorBrush = SolidColor(SP_GOLD),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(onDone = { commit(); focus.clearFocus() }),
-        modifier = modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black)
-            .border(1.5.dp, if (active) SP_GOLD else Color(0xFF3A3E35), RoundedCornerShape(6.dp))
-            .onFocusChanged { fs ->
-                if (fs.isFocused) { focused = true; onFocus() }
-                else if (focused) { focused = false; commit() }
-            }.padding(horizontal = 5.dp, vertical = 5.dp),
-        decorationBox = { inner ->
-            Box(contentAlignment = Alignment.CenterEnd) {
-                if (text.isEmpty()) Text("mm", color = SP_DIM, fontSize = 12.sp) // text:value unit
-                inner()
-            }
-        })
 }
 
 /**
@@ -3464,16 +3460,21 @@ private fun SpText(text: String, color: Color, sizeSp: Int, modifier: Modifier) 
  * open one white and bold over a 3 dp gold bar inset 12 % each side; a bounded face carries ' ✓' in green.
  * [ref]: a face squared from its reference rectangle carries "Ref 905 × 2053" under its name (v52 slice 12,
  * tools52.css .ftab .refl): 9 sp on a 10 sp line in #22d3ee, 8.5 on 9 in landscape -- inside the row's own height.
+ * [left] (port 63 slice M2): how many readings are still to take on the face, a small amber count after its name
+ * ("RIGHT ✓ 2") -- none at 0; read out as "2 to measure".
  */
 @Composable
 private fun SpTab(name: String, on: Boolean, tick: Boolean, modifier: Modifier, ref: String? = null, land: Boolean = false,
-                  onClick: () -> Unit) {
+                  left: Int = 0, onClick: () -> Unit) {
     val tx = LocalTx.current
-    Box(modifier.clickable(role = Role.Tab) { onClick() }.semantics { selected = on }, contentAlignment = Alignment.Center) {
+    Box(modifier.clickable(role = Role.Tab) { onClick() }
+        .semantics { selected = on; if (left > 0) stateDescription = tx.sp_measure_x_to_measure(left.toString()) },
+        contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(bottom = if (ref != null && !land) 2.dp else 0.dp)) {
             Text(buildAnnotatedString {
                     append(name.uppercase())
                     if (tick) withStyle(SpanStyle(color = SP_OK, fontWeight = FontWeight.Bold)) { append(" ✓") } // text:value glyph
+                    if (left > 0) withStyle(SpanStyle(color = SP_AMB, fontWeight = FontWeight.Bold)) { append(" "); append(left.toString()) }
                 },
                 // a face tab: one of the four boxes the prototype measured for Devanagari -- 17 sp under मराठी, or the marks above
                 // the line (the ॅ of प्लॅन) are cut (design-marathi §4; v61c.2 CSS .ftab .fl)
@@ -3500,7 +3501,7 @@ private fun SpNote(text: String, modifier: Modifier) {
 /**
  * THE STEP STRIP'S TOUCH AREA (v52 slice 6): a press here that StepRoute gives to a step (within 48 dp under its top)
  * opens that step when it lifts, and is nobody else's; any other press is left alone. [at] is this element's top-left
- * in root px, read on each press. A press something under it has already taken -- a Show chip's own tap, which
+ * in root px, read on each press. A press something under it has already taken -- a control's own tap, which
  * consumes its down -- is never routed: awaitFirstDown passes over a consumed down (ct52 FX3).
  */
 private suspend fun PointerInputScope.routeToStep(at: () -> Offset, route: (Float, Float) -> String?, go: (String) -> Unit) {
@@ -3534,9 +3535,8 @@ private val SP_PAST = Color(0xFFB9A35A)
 private val SP_JOIN = Color(0xFF4A4E45)
 /** A mark past its face, and a refused size (v51). */
 private val SP_OUT = Color(0xFFFF5C5C)
-/** The chain's rose (v52 slice 11, sp.js KC #fb7185), and a derived segment's violet in its box (sp.js .der). */
+/** The chain's rose (v52 slice 11, sp.js KC #fb7185). */
 private val SP_CHAIN = Color(0xFFFB7185)
-private val SP_DER = Color(0xFFC4B5FD)
 /** The reference rectangle's cyan (v52 slice 12, sp.js RC #22d3ee), its boxes' ring (#22d3ee88). */
 private val SP_REF = Color(0xFF22D3EE)
 private val SP_REF_RING = Color(0x8822D3EE)

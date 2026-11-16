@@ -57,11 +57,22 @@ object Features {
     const val SITE_PROGRESS: Boolean = false
 
     /**
-     * THE HELP TOURS (Amit, 15 Nov 2026: "For time being hold help tour as well from development as it can be done
-     * once I approve survey to quote journey its functionality etc."). Still ON: the survey tour on the phone since
-     * 0.3.318 stays until the measuring screen changes, and is switched off -- code kept -- in the SAME build that
-     * ships the new screen (slice M2), so it never teaches a screen that is gone. Nothing reads this yet: slice SP0
-     * only gives the switch its home.
+     * THE HELP TOURS ARE OFF (Amit, 15 Nov 2026: "For time being hold help tour as well from development as it can be
+     * done once I approve survey to quote journey its functionality etc."). The survey tour, on the phone since
+     * 0.3.318, stayed until the measuring screen changed, and went off -- code kept -- in the SAME build that ships
+     * the new screen (port 63 slice M2, 16 Nov 2026), so it never teaches a screen that is gone: its step 11 teaches
+     * the list, which that build removes.
+     *
+     * What it hides, each at its entry (FeaturesTest pins every one):
+     *  - the SHIPPED SET: [TourFlows.shipped] gives nothing, so no tour can be listed or started;
+     *  - the drawer's HELP ROW (MainActivity's settings groups): it would read "0 tours", so its group is not drawn,
+     *    and with it the Help screen has no way in;
+     *  - the DEMO CLIENT's seeding on a fresh install (TourSeed.ensure at MainActivity's start): the demo flat exists
+     *    only for the tours. A Demo Client a phone already holds is left alone.
+     * Nothing is deleted: the seven flows and their texts, TourMachine, TourOverlay, the anchors on the screens,
+     * survey prep's TourBindSurvey and the Help screen are all still there, and compiled on every build. The survey
+     * flow's `mode:list` anchor names a step the screen no longer has; it is for whoever rewrites the tour once Amit
+     * has approved the journey (DESIGN-port63 section 2).
      */
-    const val HELP_TOURS: Boolean = true
+    const val HELP_TOURS: Boolean = false
 }

@@ -390,8 +390,11 @@ class SheetMarksTest {
     @Test fun `only the screen draws for the office, and every caller of the painter names its audience`() {
         val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
         val calls = files.associateWith { audiences(code(it)) }.filterValues { it.isNotEmpty() }
+        // ONE call on the screen since port 63 slice M2: the editing photo (and its loupe). The second was the list's
+        // squared picture, which went with the list (Amit, 15 Nov 2026: "The laundry list of measurements shown below
+        // screen is also frustrating.")
         assertEquals(mapOf("FaceWriter.kt" to listOf("SheetMarks.Audience.OTHERS"),
-            "SurveyPrepScreen.kt" to listOf("SheetMarks.Audience.OFFICE", "SheetMarks.Audience.OFFICE")), calls)
+            "SurveyPrepScreen.kt" to listOf("SheetMarks.Audience.OFFICE")), calls)
         // every call was seen: none is written in a way the reader above does not match
         for (f in files) assertEquals(calls[f]?.size ?: 0, Regex("""SurveyPrepDraw\s*\.\s*drawMarks\(""").findAll(code(f)).count(), f)
         assertEquals(listOf("SurveyPrepScreen.kt"), files.filter { code(it).contains("Audience.OFFICE") }, "who draws a mark's state")

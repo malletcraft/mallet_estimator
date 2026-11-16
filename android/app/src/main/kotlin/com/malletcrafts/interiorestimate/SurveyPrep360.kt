@@ -816,7 +816,7 @@ private object P3Draw {
         }
         for ((s, f) in fr) {
             val sf = prep.surface(s)
-            meas(c, v, s, f, sf, st, ink, w, h)
+            meas(c, v, s, f, sf, prep.actual, st, ink, w, h)
             chains(c, tx, v, s, f, prep, sf, st, ink, w, h)
             ref(c, tx, v, s, f, sf, st.selId, ink)
         }
@@ -1004,11 +1004,14 @@ private object P3Draw {
         }
     }
 
-    /** THE LINES, AREAS AND TAPES on [s] (sp.js drawMeas, drawTapes), then what is being drawn there. */
+    /** THE LINES, AREAS AND TAPES on [s] (sp.js drawMeas, drawTapes), then what is being drawn there. A plotted Line's
+     *  tag is its ONE figure and an area's carries its perimeter once read, as on the squared face (port 63 slice M2):
+     *  [actual] the site readings, each read under the item's own key (SurveyMeas.key). */
     private fun meas(c: android.graphics.Canvas, v: Pano360.View, s: String, f: SurveyPrep.Frame, sf: SurveyPrep.Surface,
-                     st: State, ink: P3Ink, w: Float, h: Float) {
+                     actual: Map<String, Double>, st: State, ink: P3Ink, w: Float, h: Float) {
         for (q in sf.meas) if (q.kind == SurveyMeas.LINE || q.kind == SurveyMeas.AREA)
-            line(c, v, s, f, q.kind, q.pts, q.code, st.selId == q.id, false, false, SurveyPrep.isLocked(q), st.ends, ink)
+            line(c, v, s, f, q.kind, q.pts, q.code, st.selId == q.id, false, false, SurveyPrep.isLocked(q), st.ends, ink,
+                reading = SurveyMeas.key(q)?.let { k -> actual[k] })
         st.area?.takeIf { st.areaS == s }?.let { line(c, v, s, f, "open", it, null, false, true, false, false, false, ink) }
         st.drag?.takeIf { it.s == s && it.kind == SurveyMeas.LINE }?.let { d ->
             line(c, v, s, f, SurveyMeas.LINE, d.pts(), null, false, true, d.off, false, false, ink) }
@@ -1019,7 +1022,9 @@ private object P3Draw {
     }
 
     private fun line(c: android.graphics.Canvas, v: Pano360.View, s: String, f: SurveyPrep.Frame, kind: String, pts: List<DoubleArray>,
-                     code: String?, sel: Boolean, draft: Boolean, off: Boolean, locked: Boolean, handles: Boolean, ink: P3Ink) {
+                     code: String?, sel: Boolean, draft: Boolean, off: Boolean, locked: Boolean, handles: Boolean, ink: P3Ink,
+                     /** A plotted Line's or area's site reading (its length, its perimeter), or null: none yet, or one being drawn. */
+                     reading: Double? = null) {
         if (pts.isEmpty()) return
         val u = ink.dp
         val closed = kind == SurveyMeas.AREA; val isLine = kind == SurveyMeas.LINE
@@ -1049,7 +1054,9 @@ private object P3Draw {
         }
         if (drawn.isNotEmpty()) {
             val cx = drawn.map { it[0] }.average().toFloat(); val cy = drawn.map { it[1] }.average().toFloat()
-            val t = SurveyMeas.lineTag(code, if (kind == "open") SurveyMeas.AREA else kind, pts)
+            // ONE FIGURE (port 63 slice M2): a plotted Line its reading, else ≈ and the photo's length; an area its perimeter
+            // after its m² once read. One being pulled or tapped ([code] null) is the photo's figure alone, as before.
+            val t = SurveyMeas.lineTag(code, if (kind == "open") SurveyMeas.AREA else kind, pts, reading = reading, approx = code != null)
             if (t.isNotEmpty()) label(c, t, cx + (if (locked) 30f else 6f) * u, cy - 6f * u, 0xe0f7ff, 12f * u, ink)
             if (locked && !draft) padPill(c, cx + 26f * u, cy - 21f * u, LINE_C, ink)
         }

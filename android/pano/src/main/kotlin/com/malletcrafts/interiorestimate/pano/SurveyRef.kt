@@ -63,9 +63,12 @@ object SurveyRef {
     fun sizeFrom(tx: Tx) = tx.sp_size_from
     fun placeHint(tx: Tx) = tx.sp_drag_four_cyan_corners
 
-    /** What the eye says (sp.js setRefShown). */
+    /** What the eye says (sp.js setRefShown) -- on, it names the phone's own steps: "Reference shown on 2 · Mark,
+     *  3 · Measure and 4 · 360" (port 63 slice M2: the third step is the photo, not a list; the prototype's own
+     *  sentence, sp.reference_shown_2_mark, stays in the tables with no phone reader). English first: its Marathi is
+     *  pending (android/i18n/mr-pending.tsv). */
     fun shownSaid(tx: Tx, s: String, shown: Boolean) =
-        if (shown) tx.sp_reference_shown_2_mark
+        if (shown) tx.sp_reference_shown_measure
         else tx.sp_reference_hidden_faces_still(Masters.surface(tx, SurveyPrep.NAME.getValue(s)).lowercase())
 
     /** What it is called: "Front wall reference" (the menu's head, a refusal). */

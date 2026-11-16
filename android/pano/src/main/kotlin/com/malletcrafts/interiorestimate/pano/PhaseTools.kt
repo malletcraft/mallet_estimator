@@ -21,8 +21,8 @@ import java.time.Instant
  * CSS for Capture 360 ([TOOLS]). Three things at Client approved are the PHONE'S, until Amit rules on the prototype
  * (DESIGN-port62 Q-list 6): no life-cycle move is offered ([moveOk]; the prototype falls through to Vendor review's
  * moves, which would record a change after approval outside the change requests), the gate's line there is the
- * approval lock's own words ([gate]), and the step strip shows 3 · List without the two steps the prototype draws
- * but cannot enter ([steps]). Two more follow from the first: a mark past Existing has no delete control there
+ * approval lock's own words ([gate]), and the step strip shows its third step (3 · Measure since port 63) without
+ * the two steps the prototype draws but cannot enter ([steps]). Two more follow from the first: a mark past Existing has no delete control there
  * ([delOk]) -- its Delete is a Drop or a Restore, a move, and a control that could only refuse is hidden, as at
  * Estimation -- and a locked mark in Scope has no padlock there ([lockOk], slice L2): its unlock could only say
  * "take it Out of scope in its sheet". Everything else there is as the prototype's own code answers for a stage
@@ -34,8 +34,14 @@ import java.time.Instant
  * did. Pure. SLICE L3 wired the moves and the gate (the Mark sheet); SLICE L4 (11 Nov 2026) wires survey prep itself:
  * the band ([band]), the `mark` and `palette` rows ([prepSteps], [prepMode], [toolFor]), what a type tool's tap places
  * ([place], and the chip's second half through SurveyPrepPalette.chip), and the marks of earlier phases held read-only
- * ([editable], [delOk], [lockOk], [bulk] and what a refused act says). The `lines`, `readings` and `capture` rows are
- * slice L10's ([PREP_HONOURS]).
+ * ([editable], [delOk], [lockOk], [bulk] and what a refused act says). PORT 63 SLICE M2 (16 Nov 2026) wires the
+ * `readings` row -- after Survey a figure is not keyed ([PREP_HONOURS], [readingRefusal]) -- and the `capture` row, on
+ * the room screen (MainActivity asks [can] for [Tool.CAPTURE]). The `lines` row is still to come (DESIGN-port63 J3).
+ *
+ * THE THIRD STEP IS 3 · MEASURE SINCE PORT 63 (Amit, 15 Nov 2026: "The laundry list of measurements shown below screen
+ * is also frustrating."): the phone has no list any more, and the step every phase shows -- the one survey prep lands
+ * on where a phase has no 2 · Mark -- is the squared photo with its figures, [StepRoute.MEASURE]. The prototype's row
+ * for it keeps its name, [Tool.LIST]: the table is the prototype's, cell for cell.
  */
 object PhaseTools {
 
@@ -98,7 +104,7 @@ object PhaseTools {
         //                          Survey Wish Vendor Estim. Revis.   Approved
         Tool.LINES        to row(1, 0, 0, 0, 0,   0),   // survey only (bounding); Revisions surveys nothing
         Tool.MARK         to row(1, 1, 1, 0, 1,   0),   // Revisions can re-place a mark (as Vendor added)
-        Tool.LIST         to row(1, 1, 1, 1, 1,   1),   // 3 · List and the List tab
+        Tool.LIST         to row(1, 1, 1, 1, 1,   1),   // the prototype's 3 · List; on the phone 3 · Measure (port 63)
         Tool.STATE_FILTER to row(0, 1, 1, 1, 1,   0),   // Survey hides State ▾ / Move N ▸ (every mark there is Existing)
         Tool.VIEW_360     to row(1, 1, 1, 1, 1,   1),   // the 360
         Tool.PALETTE      to row(1, 1, 1, 0, 1,   0),   // Revisions has the type tools, like Vendor review
@@ -117,11 +123,13 @@ object PhaseTools {
 
     // ------------------------------------------------------------------ the step strip
 
-    /** The tool a step of [StepRoute.STEPS] stands for; null for a key that is no step. */
+    /** The tool a step of [StepRoute.STEPS] stands for; null for a key that is no step. THE PHONE'S THIRD STEP IS
+     *  3 · MEASURE since port 63 (slice M2): it stands where the prototype's 3 · List stands, shown in every phase, so
+     *  it reads that row, [Tool.LIST] -- the row keeps the prototype's name. */
     fun toolOf(step: String): Tool? = when (step) {
         "lines" -> Tool.LINES
         "mark" -> Tool.MARK
-        "list" -> Tool.LIST
+        StepRoute.MEASURE -> Tool.LIST
         "360" -> Tool.VIEW_360
         else -> null
     }
@@ -131,7 +139,7 @@ object PhaseTools {
 
     /**
      * The steps the strip shows at [stage], in [StepRoute.STEPS] order: all four at Survey and while unread; 2 · Mark
-     * on through the Wish list, Vendor review and Revisions; 3 · List (and the 360) alone at Estimation -- and at
+     * on through the Wish list, Vendor review and Revisions; 3 · Measure (and the 360) alone at Estimation -- and at
      * Client approved, where the prototype draws steps 1 and 2 but lets neither be entered (Q-list 6).
      */
     fun steps(stage: Int?): List<String> = StepRoute.STEPS.filter { stepShown(it, stage) }
@@ -139,12 +147,12 @@ object PhaseTools {
     /**
      * The step survey prep is on, moved on from one the phase hides (spPre): a hidden 1 · Lines goes to 2 · Mark when
      * the phase shows it and the open tab is [markable] (a face whose four lines are set, so it can be squared), else
-     * to 3 · List; a hidden 2 · Mark goes to 3 · List. Any other [mode] is kept.
+     * to 3 · Measure; a hidden 2 · Mark goes to 3 · Measure. Any other [mode] is kept.
      */
     fun modeFor(mode: String, stage: Int?, markable: Boolean): String {
         var m = mode
-        if (m == "lines" && !can(Tool.LINES, stage)) m = if (can(Tool.MARK, stage) && markable) "mark" else "list"
-        if (m == "mark" && !can(Tool.MARK, stage)) m = "list"
+        if (m == "lines" && !can(Tool.LINES, stage)) m = if (can(Tool.MARK, stage) && markable) "mark" else StepRoute.MEASURE
+        if (m == "mark" && !can(Tool.MARK, stage)) m = StepRoute.MEASURE
         return m
     }
 
@@ -156,13 +164,16 @@ object PhaseTools {
     /**
      * THE ROWS OF [TOOLS] SURVEY PREP'S OWN SCREEN HONOURS SO FAR (port 62 slice L4, which closes build B2): `mark` and
      * `palette` -- at Estimation and at Client approved there is no 2 · Mark and no palette, so no build can place a
-     * mark where the prototype has no tool (the plan critic's blocker). The rest of the phase's hiding -- 1 · Lines
-     * and the reading boxes after Survey -- reaches the phone with slice L10 (build B5), which adds [Tool.LINES] and
-     * [Tool.READINGS] here; until then the strip keeps 1 · Lines in every phase, as before. `list` and `view360` are
-     * shown in every phase, so honouring them changes nothing. ONE PLACE: the strip, the step survey prep is on and
-     * every press routed to a step read [prepSteps] / [prepMode], never a rule of their own.
+     * mark where the prototype has no tool (the plan critic's blocker) -- and, since PORT 63 SLICE M2, `readings`:
+     * AFTER SURVEY A FIGURE IS NOT KEYED. Nothing becomes the reading being taken, there is no pad, no D2 and no
+     * walk, and a tap on a figure (or a laser reading arriving) says [readingRefusal] (DESIGN-port63 §1.8; the
+     * readings part of port 62's L10). The last of the phase's hiding -- 1 · Lines and the room-size pencil -- adds
+     * [Tool.LINES] here (DESIGN-port63 J3); until then the strip keeps 1 · Lines in every phase, as before. `list`
+     * and `view360` are shown in every phase, so honouring them changes nothing. ONE PLACE: the strip, the step survey
+     * prep is on and every press routed to a step read [prepSteps] / [prepMode], never a rule of their own; whether a
+     * reading may be keyed is [prepShows] of [Tool.READINGS].
      */
-    val PREP_HONOURS: Set<Tool> = setOf(Tool.MARK, Tool.PALETTE)
+    val PREP_HONOURS: Set<Tool> = setOf(Tool.MARK, Tool.PALETTE, Tool.READINGS)
 
     /** Whether survey prep shows [tool] at [stage] in this build: the table's cell for a row it honours, else shown. */
     fun prepShows(tool: Tool, stage: Int?): Boolean = tool !in PREP_HONOURS || can(tool, stage)
@@ -171,20 +182,20 @@ object PhaseTools {
      * The steps survey prep's strip draws at [stage], in [StepRoute.STEPS] order -- each keeps its own number, so with
      * 2 · Mark hidden the strip reads 1 · 3 · 4, as the prototype's does with its hidden step's circle gone (CSS
      * 1272-1274): all four at Survey, the Wish list, Vendor review, Revisions and while unread; no 2 · Mark at
-     * Estimation and at Client approved.
+     * Estimation and at Client approved, where 3 · Measure is the step that places nothing (port 63).
      */
     fun prepSteps(stage: Int?): List<String> = StepRoute.STEPS.filter { k -> toolOf(k)?.let { prepShows(it, stage) } ?: false }
 
     /**
      * The step survey prep is on at [stage], moved on from one it does not show (spPre, by the rows it honours): 2 ·
-     * Mark goes to 3 · List where the phase has no Mark; every other [mode] is kept. (A hidden 1 · Lines will go to
-     * 2 · Mark when [markable] -- the open tab is a face whose four lines close -- else to 3 · List, once slice L10
-     * honours that row; [markable] is asked only then.)
+     * Mark goes to 3 · Measure where the phase has no Mark; every other [mode] is kept. (A hidden 1 · Lines will go
+     * to 2 · Mark when [markable] -- the open tab is a face whose four lines close -- else to 3 · Measure, once that
+     * row is honoured (DESIGN-port63 J3); [markable] is asked only then.)
      */
     fun prepMode(mode: String, stage: Int?, markable: () -> Boolean): String {
         var m = mode
-        if (m == "lines" && !prepShows(Tool.LINES, stage)) m = if (prepShows(Tool.MARK, stage) && markable()) "mark" else "list"
-        if (m == "mark" && !prepShows(Tool.MARK, stage)) m = "list"
+        if (m == "lines" && !prepShows(Tool.LINES, stage)) m = if (prepShows(Tool.MARK, stage) && markable()) "mark" else StepRoute.MEASURE
+        if (m == "mark" && !prepShows(Tool.MARK, stage)) m = StepRoute.MEASURE
         return m
     }
 
@@ -484,7 +495,10 @@ object PhaseTools {
     /**
      * A reading is keyed only where the phase shows readings (spReadingRefused): null where it may be, else "Readings
      * are taken in the Survey phase — move the phase back on the project screen to key one". Outside Survey a reading
-     * is a figure, not a box.
+     * is a figure, not a box. Wired since port 63 slice M2: said on a tap on a figure and when a laser reading
+     * arrives, and standing under the photo in 3 · Measure. (At Client approved the stage cannot be moved back, so
+     * the sentence's second half does not apply there; it is the prototype's sentence for every stage after Survey,
+     * and its words are for slice J2 to judge.)
      */
     fun readingRefusal(tx: Tx, stage: Int?): String? = if (can(Tool.READINGS, stage)) null else tx.refuse_readonly_readings
 

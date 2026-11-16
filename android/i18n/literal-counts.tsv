@@ -47,6 +47,7 @@ app/src/main/kotlin/com/malletcrafts/interiorestimate/ScopeSheet.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SitePhotosApp.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SiteRename.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/StampScan.kt	2
+app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyMeasure.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPlanScreen.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrep360.kt	0
 app/src/main/kotlin/com/malletcrafts/interiorestimate/SurveyPrepDraw.kt	0
@@ -90,6 +91,7 @@ pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkDims.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkLife.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkSheet.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MarkTypes.kt	0
+pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureFlow.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasurePad.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureText.kt	0
 pano/src/main/kotlin/com/malletcrafts/interiorestimate/pano/MeasureWalk.kt	0

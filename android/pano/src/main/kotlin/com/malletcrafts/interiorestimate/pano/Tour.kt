@@ -121,8 +121,16 @@ object TourFlows {
     /** The seven flows, the prototype's order, titles and bodies from the one home of the texts. */
     fun all(tx: Tx): List<TourFlow> = listOf(phases(tx), survey(tx), existing(tx), wish(tx), vendor(tx), t360(tx), plan(tx))
 
-    /** What the Help screen lists and the drawer row counts (the prototype's own `flows().length`). */
-    fun shipped(tx: Tx): List<TourFlow> = all(tx).filter { it.ships }
+    /**
+     * What the Help screen lists and the drawer row counts (the prototype's own `flows().length`) -- NONE WHILE THE
+     * HELP TOURS ARE OFF ([tours], [Features.HELP_TOURS]; port 63 slice M2). Amit, 15 Nov 2026: "For time being hold
+     * help tour as well from development as it can be done once I approve survey to quote journey its functionality
+     * etc." -- and the survey tour is switched off, code kept, in the same build that ships the new measuring screen,
+     * so it never teaches a screen that is gone (its step 11 teaches the list, which that build removes). The switch
+     * is the DEFAULT of this rule's last parameter, as every feature switch is, so both sides stay tested; nothing is
+     * deleted: every flow, step, text and anchor is still here ([all]).
+     */
+    fun shipped(tx: Tx, tours: Boolean = Features.HELP_TOURS): List<TourFlow> = if (!tours) emptyList() else all(tx).filter { it.ships }
 
     private fun phases(tx: Tx) = TourFlow(
         id = "phases", name = tx.tour_phases_name, line = tx.tour_phases_line, ships = false,

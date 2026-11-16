@@ -655,9 +655,12 @@ class MarkSheetTest {
         assertTrue(prep.contains("val drawn = MarkSheet.view(tx, prep, st, quoteStage)"))
         for (f in listOf("pickSub(prep, cur, sub)", "pickMove(prep, cur, quoteStage, to)", "typeWhy(prep, cur, quoteStage, to, typed)", "pickAct(prep, cur, quoteStage, act)", "typeNote(cur, typed)",
             "pickOffice(cur, office)", "togglePicker(prep, cur)", "pickCat(cur, cat)", "closePicker(cur)")) assertTrue(prep.contains("MarkSheet.$f"), f)
-        // a code is a button exactly where a sheet opens for it: the picked mark's label, a picked Line's or area's code, a list row's code
-        assertEquals(3, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(""").findAll(prep).count())
-        assertEquals(2, Regex("""if \(!MarkSheet\.opens\(prep, (?:sq\.)?id\)\) Modifier else""").findAll(prep).count(), "a Tape's and a chain's code is no button")
+        // a code is a button exactly where a sheet opens for it: the picked mark's label and a picked Line's or area's code
+        // in 2 · Mark and 4 · 360, and -- since port 63 slice M2, which removed the list and its rows' codes -- the measure
+        // bar's label cell (SurveyMeasure.kt), which is how the sheet opens in 3 · Measure, at every stage
+        assertEquals(2, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(""").findAll(prep).count())
+        assertEquals(1, Regex("""contentDescription = tx\.life_aria_open_mark_sheet_x\(cell\.code\)""").findAll(code("SurveyMeasure.kt")).count())
+        assertEquals(1, Regex("""if \(!MarkSheet\.opens\(prep, (?:sq\.)?id\)\) Modifier else""").findAll(prep).count(), "a Tape's code is no button (the list's own rows are gone)")
         // EVERY WRITE GOES THROUGH MarkSheet: no file of the app moves a mark, sets its act, its note or its trade, or touches `extra`
         val files = app.walk().filter { it.isFile && it.extension == "kt" }.map { it.name }.sorted().toList()
         val writers = Regex("""MarkLife\s*\.\s*(move|setAct|setNote|withNote|placeAs)\(|Trades\s*\.\s*(setCat|withCat)\(|\.extra\s*=[^=]""")

@@ -16,6 +16,11 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * 2 dp under the strip's top (its padding), 26 dp tall. Step 1 (circle only)
  * 28 dp wide centred at x 120 dp; step 2, the current one with its name
  * ("2 · Mark"), 72 dp wide centred at x 200 dp; step 3 28 dp wide at x 290.
+ *
+ * PORT 63 SLICE M2 (16 Nov 2026): the third step is 3 · Measure -- the squared photo with its figures, not a list --
+ * and the room's LIST tab is gone, so the tabs are four and three. Amit, 15 Nov 2026, after his first use of the app on
+ * a client site: "The laundry list of measurements shown below screen is also frustrating." The landscape list's own
+ * tab-row and strip heights went with it: every budget below is now the face's or the Plan tab's.
  */
 class StepRouteTest {
 
@@ -26,7 +31,7 @@ class StepRouteTest {
     private fun step(key: String, cxDp: Double, wDp: Double, topDp: Double = 122.0, hDp: Double = 26.0) =
         StepRoute.Step(key, px(cxDp - wDp / 2), px(topDp), px(cxDp + wDp / 2), px(topDp + hDp))
 
-    private val steps = listOf(step("lines", 120.0, 28.0), step("mark", 200.0, 72.0), step("list", 290.0, 28.0))
+    private val steps = listOf(step("lines", 120.0, 28.0), step("mark", 200.0, 72.0), step("measure", 290.0, 28.0))
     private fun at(xDp: Double, yDp: Double, s: List<StepRoute.Step> = steps, top: Double = stripTop) =
         StepRoute.stepFor(px(xDp), px(yDp), s, top, d)
 
@@ -34,7 +39,7 @@ class StepRouteTest {
     fun `a press on a step's circle is that step's`() {
         assertEquals("lines", at(120.0, 135.0))
         assertEquals("mark", at(200.0, 135.0))
-        assertEquals("list", at(290.0, 135.0))
+        assertEquals("measure", at(290.0, 135.0))
     }
 
     @Test
@@ -92,91 +97,86 @@ class StepRouteTest {
     }
 
     @Test
-    fun `landscape, a 24 dp strip -- and a landscape 3 · List, a 20 dp one -- reach the same 48 dp`() {
+    fun `landscape, a 24 dp strip, reaches the same 48 dp -- 3 Measure's step as any other`() {
         // landscape: the strip at 70 dp, steps 2 dp down and 22 dp tall
         val top = px(70.0)
-        val land = listOf(step("lines", 30.0, 28.0, 72.0, 22.0), step("mark", 100.0, 72.0, 72.0, 22.0))
+        val land = listOf(step("lines", 30.0, 28.0, 72.0, 22.0), step("mark", 100.0, 72.0, 72.0, 22.0), step("measure", 200.0, 86.0, 72.0, 22.0))
         assertEquals("mark", at(100.0, 72.0 + 40.0, land, top))
         assertNull(at(100.0, 72.0 + 70.0, land, top))
         assertNull(at(100.0, 69.0, land, top))
-        // landscape 3 · List: no padding, the steps fill the 20 dp strip
-        val lst = listOf(step("list", 200.0, 64.0, 70.0, 20.0))
-        assertEquals("list", at(200.0, 70.0, lst, top))
-        assertEquals("list", at(200.0, 70.0 + 47.0, lst, top))
-        assertNull(at(200.0, 70.0 + 70.0, lst, top))
+        // 3 · Measure, the current step with its name: the same reach, and its own half width
+        assertEquals("measure", at(200.0, 72.0, land, top))
+        assertEquals("measure", at(200.0, 72.0 + 47.0, land, top))
+        assertEquals("measure", at(200.0 + 42.0, 72.0 + 20.0, land, top))
+        assertNull(at(200.0, 72.0 + 70.0, land, top))
     }
 
     @Test
-    fun `the tabs, in order -- PLAN the 8th, after List (slice 13, ct52 X1)`() {
-        assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "list", "plan")), StepRoute.TAB_ROWS)
-        assertEquals("front,right,back,left,floor,ceil,list,plan", StepRoute.TAB_ROWS.flatten().joinToString(","))
-        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "List", "Plan"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(Tx.EN, it) })
+    fun `the tabs, in order -- four and three, PLAN the last, and no LIST tab (port 63 slice M2)`() {
+        assertEquals(listOf(listOf("front", "right", "back", "left"), listOf("floor", "ceil", "plan")), StepRoute.TAB_ROWS)
+        assertEquals("front,right,back,left,floor,ceil,plan", StepRoute.TAB_ROWS.flatten().joinToString(","))
+        assertEquals(listOf(4, 3), StepRoute.TAB_ROWS.map { it.size })
+        assertEquals(listOf("Front", "Right", "Back", "Left", "Floor", "Ceiling", "Plan"), StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(Tx.EN, it) })
+        // the six faces in the walk's order, then Plan: every tab but the last is a face
+        assertEquals(SurveyPrep.SURFACES, StepRoute.TAB_ROWS.flatten().dropLast(1)); assertEquals(MeasureWalk.FACES, StepRoute.TAB_ROWS.flatten().filter { StepRoute.isFace(it) })
         assertTrue(StepRoute.tabTick("ceil", true))
         assertFalse(StepRoute.tabTick("ceil", false))
-        assertFalse(StepRoute.tabTick("list", true))
         assertFalse(StepRoute.tabTick("plan", true))
-        assertTrue(StepRoute.isFace("front")); assertFalse(StepRoute.isFace("list")); assertFalse(StepRoute.isFace("plan"))
+        assertTrue(StepRoute.isFace("front")); assertFalse(StepRoute.isFace("plan"))
+        // THE LIST IS GONE: no tab, no face and no step is called so, and a stale "list" is nobody's
+        assertFalse("list" in StepRoute.TAB_ROWS.flatten()); assertFalse("list" in StepRoute.STEPS)
+        assertFalse(StepRoute.isFace("list")); assertFalse(StepRoute.isPlan("list")); assertFalse(StepRoute.showStrip("list")); assertEquals(-1, StepRoute.stepIndex("list"))
+        // the tab's name under मराठी is the key it always was
+        assertEquals("प्लॅन", StepRoute.tabName(Tx.MR, "plan"))
     }
 
     @Test
-    fun `the Plan tab has no step strip and is never a list view, whatever step a face was left on`() {
-        assertFalse(StepRoute.showStrip("plan"))
-        for (m in listOf("lines", "mark", "list")) assertFalse(StepRoute.listView("plan", m), m)
-        assertTrue(StepRoute.listView("front", "list"))
-        assertEquals(64, StepRoute.budgetDp(false, "plan", "list", false))
-        assertEquals(56, StepRoute.budgetDp(true, "plan", "mark", false))
+    fun `the Plan tab has no step strip - its tab rows alone, 64 dp portrait and 56 landscape`() {
+        assertFalse(StepRoute.showStrip("plan")); assertTrue(StepRoute.isPlan("plan"))
+        assertEquals(64, StepRoute.budgetDp(false, "plan"))
+        assertEquals(56, StepRoute.budgetDp(true, "plan"))
     }
 
     @Test
-    fun `the steps are 1 · Lines, 2 · Mark, 3 · List, 4 · 360 -- the 360 shown now it works (slice 17)`() {
-        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · List", "4 · 360"), StepRoute.STEPS.indices.map { StepRoute.label(Tx.EN, it) })
+    fun `the steps are 1 · Lines, 2 · Mark, 3 · Measure, 4 · 360 -- the third is the photo, not a list (port 63 slice M2)`() {
+        assertEquals(listOf("lines", "mark", "measure", "360"), StepRoute.STEPS)
+        assertEquals("measure", StepRoute.MEASURE)
+        assertEquals(listOf("1 · Lines", "2 · Mark", "3 · Measure", "4 · 360"), StepRoute.STEPS.indices.map { StepRoute.label(Tx.EN, it) })
+        assertEquals(listOf("Lines", "Mark", "Measure", "360"), StepRoute.STEPS.map { StepRoute.stepName(Tx.EN, it) })
         assertEquals(1, StepRoute.stepIndex("mark"))
-        assertEquals(2, StepRoute.stepIndex("list"))
+        assertEquals(2, StepRoute.stepIndex(StepRoute.MEASURE))
         assertEquals(3, StepRoute.stepIndex("360"))
         assertEquals(-1, StepRoute.stepIndex("plan"))
-        // 4 · 360 is a face's step, never a list view: it draws the 360, not a list
-        assertFalse(StepRoute.listView("front", "360"))
         assertEquals("Front wall ·", StepRoute.stripFace(Tx.EN, "front"))
         assertEquals("Ceiling ·", StepRoute.stripFace(Tx.EN, "ceil"))
         assertTrue(StepRoute.showStrip("front"))
-        assertFalse(StepRoute.showStrip("list"))
+        // the step's name is an EXISTING key (common.measure), with the Marathi it always had: nothing new to translate
+        assertEquals("3 · मोजा", StepRoute.label(Tx.MR, 2))
     }
 
     @Test
-    fun `tabs and strip take 92 dp portrait, 80 landscape, 68 landscape 3 · List`() {
-        for (m in listOf("lines", "mark")) {
-            assertEquals(92, StepRoute.budgetDp(false, "front", m, false))
-            assertEquals(80, StepRoute.budgetDp(true, "front", m, false))
+    fun `tabs and strip take 92 dp portrait and 80 landscape on every face and every step - the list's own heights are gone`() {
+        for (s in SurveyPrep.SURFACES) {
+            assertEquals(92, StepRoute.budgetDp(false, s))
+            assertEquals(80, StepRoute.budgetDp(true, s))
         }
-        assertEquals(68, StepRoute.budgetDp(true, "front", "list", false))
-        assertEquals(92, StepRoute.budgetDp(false, "front", "list", false))
-        // the room's List tab: no strip, the tab rows only
-        assertEquals(64, StepRoute.budgetDp(false, "list", "mark", false))
-        assertEquals(48, StepRoute.budgetDp(true, "list", "lines", false))
-        // the strip is always smaller than a tab row, in either language
-        for (land in listOf(false, true)) for (list in listOf(false, true)) for (mr in listOf(false, true))
-            assertTrue(StepRoute.stripDp(land, list) < StepRoute.tabRowDp(land, list, mr))
-        // never above v51's 110 / 82 / 68
-        assertTrue(StepRoute.budgetDp(false, "front", "mark", false) <= 110)
-        assertTrue(StepRoute.budgetDp(true, "front", "mark", false) <= 82)
+        assertEquals(32, StepRoute.tabRowDp(false)); assertEquals(28, StepRoute.tabRowDp(true))
+        assertEquals(28, StepRoute.stripDp(false)); assertEquals(24, StepRoute.stripDp(true))
+        // the strip is always smaller than a tab row
+        for (land in listOf(false, true)) assertTrue(StepRoute.stripDp(land) < StepRoute.tabRowDp(land))
+        // never above v51's 110 / 82
+        assertTrue(StepRoute.budgetDp(false, "front") <= 110)
+        assertTrue(StepRoute.budgetDp(true, "front") <= 82)
     }
 
     @Test
-    fun `under Marathi a landscape list's tab row is 27 dp, the 17 sp name over a 9 sp Ref line, and nothing else moves (M3a review)`() {
+    fun `a tab row holds a face's name under Marathi over a Ref line, in both orientations (M3a review)`() {
         // SpTab draws a face's name on a 17 sp line under मराठी (design-marathi §4, measured for the prototype's 32 px tab)
-        // and, on a face squared from its reference, "Ref 905 × 2053" on a 9 sp line in landscape: 26 dp. The 24 dp
-        // landscape-list row gave the Ref line the 7 dp left and TextOverflow.Ellipsis clipped it. 27 holds both.
-        assertEquals(27, StepRoute.tabRowDp(true, true, true))
-        assertTrue(StepRoute.tabRowDp(true, true, true) >= 17 + 9)
-        assertEquals(24, StepRoute.tabRowDp(true, true, false))
-        // portrait (32) and a landscape face view (28) had the room already: 14 + 9 and 17 + 9 fit either
-        for (list in listOf(false, true)) assertEquals(32, StepRoute.tabRowDp(false, list, true))
-        assertEquals(28, StepRoute.tabRowDp(true, false, true))
-        assertEquals(74, StepRoute.budgetDp(true, "front", "list", true))   // 2 × 27 + the 20 dp strip
-        assertEquals(54, StepRoute.budgetDp(true, "list", "lines", true))   // the room's List tab: no strip
-        assertEquals(80, StepRoute.budgetDp(true, "front", "mark", true))
-        assertEquals(92, StepRoute.budgetDp(false, "front", "list", true))
-        assertTrue(StepRoute.budgetDp(true, "front", "list", true) <= 82)
+        // and, on a face squared from its reference, "Ref 905 × 2053" on a 10 sp line (9 in landscape). The landscape
+        // LIST's 24 dp row once cut that line and was made 27 under मराठी; that row is gone with the list (port 63 slice
+        // M2), and the two rows that are left had the room already.
+        assertTrue(StepRoute.tabRowDp(false) >= 17 + 10)
+        assertTrue(StepRoute.tabRowDp(true) >= 17 + 9)
     }
 
     // ------------------------------------------------------------------ the measure bar and its pad (port 63 slice M1)
@@ -194,10 +194,10 @@ class StepRouteTest {
     @Test
     fun `in landscape the bar, the tabs, the strip, the measure bar and the open pad fit the column`() {
         assertEquals(32, StepRoute.LAND_TOPBAR_DP); assertEquals(324, StepRoute.LAND_COLUMN_DP)
-        // the tabs 56 and the strip 24, in English and under मराठी alike
+        // the tabs 56 and the strip 24, in English and under मराठी alike (the heights name no language any more)
         for (mr in listOf(false, true)) {
-            assertEquals(56, 2 * StepRoute.tabRowDp(true, false, mr)); assertEquals(24, StepRoute.stripDp(true, false))
-            val column = StepRoute.LAND_TOPBAR_DP + StepRoute.budgetDp(true, "front", "mark", mr) +
+            assertEquals(56, 2 * StepRoute.tabRowDp(true)); assertEquals(24, StepRoute.stripDp(true))
+            val column = StepRoute.LAND_TOPBAR_DP + StepRoute.budgetDp(true, "front") +
                 StepRoute.measureBarDp(true) + StepRoute.PAD_ROWS * StepRoute.padRowDp(true)
             assertEquals(304, column)                                   // 32 + 56 + 24 + 48 + 144
             assertTrue(column <= StepRoute.LAND_COLUMN_DP)
@@ -205,7 +205,7 @@ class StepRouteTest {
         // what is left under the top bar, the tabs and the strip is 212 dp: the picked mark's row (about 34), the
         // measure bar, the palette (52) and the pad together are 278 -- so an open pad takes the palette's and the
         // row's place (the plan critic's finding 4), and this is why
-        val under = StepRoute.LAND_COLUMN_DP - StepRoute.LAND_TOPBAR_DP - StepRoute.budgetDp(true, "front", "mark", false)
+        val under = StepRoute.LAND_COLUMN_DP - StepRoute.LAND_TOPBAR_DP - StepRoute.budgetDp(true, "front")
         assertEquals(212, under)
         assertTrue(34 + StepRoute.measureBarDp(true) + 52 + StepRoute.PAD_ROWS * StepRoute.padRowDp(true) > under)
         assertTrue(StepRoute.measureBarDp(true) + StepRoute.PAD_ROWS * StepRoute.padRowDp(true) <= under)

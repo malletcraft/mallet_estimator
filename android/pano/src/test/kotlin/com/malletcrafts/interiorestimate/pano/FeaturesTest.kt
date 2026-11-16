@@ -21,7 +21,8 @@ import kotlin.test.assertTrue
  * first use of the app on a client site: "Lets focus on survey to quote approval workflow first. Site progress will do
  * post I confirm that survey to quote looks good. Do not delete any site progress code but toggle it as feature flag."
  *
- * Three things are held here. (1) The switch itself ([Features.SITE_PROGRESS] off, [Features.HELP_TOURS] on).
+ * Three things are held here. (1) The switches themselves ([Features.SITE_PROGRESS] off; [Features.HELP_TOURS] off too
+ * since port 63 slice M2, the build that changes the measuring screen -- its gates and what it keeps are the last tests).
  * (2) What each pure rule answers with site progress OFF -- every call states the switch, so these pass whichever way
  * the constant stands; the same rules with it ON are held where they always were (QuoteStageTest, CaptureFilingTest,
  * PhaseToolsTest, the Album tests), each stating `siteProgress = true`. (3) :app read as source, since only CI
@@ -48,12 +49,17 @@ class FeaturesTest {
 
     // ---- (1) the switches -----------------------------------------------------------------------------------
 
-    @Test fun `site progress is off, and the help tours are still on`() {
+    @Test fun `site progress is off, and so are the help tours - with the build that ships the new measuring screen`() {
         val siteProgress: Boolean = Features.SITE_PROGRESS
         assertFalse(siteProgress, "Features.SITE_PROGRESS is on: everything after Client approved shows again (Amit, 15 Nov 2026: site progress " +
             "waits until he confirms that survey to quote looks good)")
+        // Amit, 15 Nov 2026: "For time being hold help tour as well from development as it can be done once I approve survey
+        // to quote journey its functionality etc." -- and the survey tour, on the phone since 0.3.318, goes off (code kept)
+        // in the SAME build that ships the new measuring screen, slice M2: its step 11 teaches the list that build removes
         val tours: Boolean = Features.HELP_TOURS
-        assertTrue(tours, "Features.HELP_TOURS is off: the survey tour goes with the build that ships the new measuring screen (slice M2), not before")
+        assertFalse(tours, "Features.HELP_TOURS is on: the survey tour would teach 3 · List, a step the phone no longer has (port 63 slice M2)")
+        assertFalse("list" in StepRoute.STEPS, "the screen the tour's step 11 teaches is gone")
+        assertEquals(TourDone.Mode("list"), TourFlows.all(Tx.EN).single { it.id == "survey" }.steps[10].done, "survey.11 still asks for the list: the tour is rewritten after Amit approves the journey")
     }
 
     // ---- (2) the pure rules with site progress off ----------------------------------------------------------
@@ -235,10 +241,10 @@ class FeaturesTest {
 
     private val read = "Features.SITE_PROGRESS"
 
-    @Test fun `one constant is the switch - declared once, off, with the tours' switch beside it`() {
+    @Test fun `one constant is the switch - declared once, off, with the tours' switch beside it, off too`() {
         val features = code(pano + "Features.kt")
         assertEquals(1, count(features, "const val SITE_PROGRESS: Boolean = false"), "the switch is a constant, and it is off")
-        assertEquals(1, count(features, "const val HELP_TOURS: Boolean = true"), "the tours' switch has its home, and is on")
+        assertEquals(1, count(features, "const val HELP_TOURS: Boolean = false"), "the tours' switch has its home, and is off (port 63 slice M2)")
         assertEquals(2, count(features, "const val "), "two switches and nothing else")
         // no second switch, anywhere a screen is built from: nothing else declares or assigns one
         val all = LiteralScan.ROOTS.flatMap { sources(it) }
@@ -394,5 +400,68 @@ class FeaturesTest {
         assertFalse(read in code(app + "AlbumSync.kt"))
         assertEquals(1, count(sync, "AlbumSync.refresh(applicationContext, p.serverId)"))
         assertEquals(1, count(main, "val got = withContext(Dispatchers.IO) { AlbumSync.refresh(context, id) }"))
+    }
+
+    // ---- (4) the help tours' switch (port 63 slice M2) -------------------------------------------------------
+
+    @Test fun `with the help tours off nothing ships, and with them on the survey flow does - the rule takes the switch as its default`() {
+        // the default IS the switch: off, the Help screen would list nothing and the drawer's row would read "0 tours"
+        assertEquals(emptyList(), TourFlows.shipped(Tx.EN).map { it.id }); assertEquals(emptyList(), TourFlows.shipped(Tx.MR).map { it.id })
+        assertEquals(TourFlows.shipped(Tx.EN, tours = Features.HELP_TOURS).map { it.id }, TourFlows.shipped(Tx.EN).map { it.id })
+        assertEquals(emptyList(), TourFlows.shipped(Tx.EN, tours = false).map { it.id })
+        // both sides stay tested: on, exactly what shipped before -- nothing was deleted
+        assertEquals(listOf("survey"), TourFlows.shipped(Tx.EN, tours = true).map { it.id })
+        assertEquals(12, TourFlows.shipped(Tx.MR, tours = true).single().steps.size)
+        assertEquals(7, TourFlows.all(Tx.EN).size, "every flow is still there")
+    }
+
+    @Test fun `every gate of the help tours reads the one constant - the shipped set, the drawer's Help row and the demo's seeding - and nothing of the tours was deleted`() {
+        val tours = "Features.HELP_TOURS"
+        // THE INVENTORY: each source that reads the switch, and how many times
+        val found = LiteralScan.ROOTS.flatMap { sources(it) }.associateWith { count(code(it), tours) }.filterValues { it > 0 }
+        assertEquals(mapOf(
+            pano + "Tour.kt" to 1,           // TourFlows.shipped: the default of its last parameter
+            app + "MainActivity.kt" to 2,    // the demo flat's seeding at start, and the drawer's Help group
+        ).toSortedMap(), found.toSortedMap(), "the sources that read Features.HELP_TOURS, and how often")
+        val declared = LiteralScan.ROOTS.flatMap { sources(it) }.filter { Regex("""\bHELP_TOURS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
+        assertEquals(listOf(pano + "Features.kt"), declared, "HELP_TOURS is given a value in one place")
+        // :pano -- the rule takes the switch as the DEFAULT of its last parameter
+        assertEquals(1, count(code(pano + "Tour.kt"),
+            "fun shipped(tx: Tx, tours: Boolean = Features.HELP_TOURS): List<TourFlow> = if (!tours) emptyList() else all(tx).filter { it.ships }"))
+        // :app -- the Help screen and the drawer's count still ask the rule, with no answer of their own
+        val main = code(app + "MainActivity.kt")
+        assertEquals(1, count(main, "tours = remember(tx) { TourFlows.shipped(tx).size },"))
+        assertEquals(1, count(code(app + "HelpScreen.kt"), "val flows = remember(tx) { TourFlows.shipped(tx) }"))
+        assertFalse("tours = " in code(app + "HelpScreen.kt"), "the Help screen never overrides the switch")
+        // THE DRAWER'S HELP GROUP: not drawn with the tours off (it would read "0 tours"), so the Help screen has no way in
+        assertEquals(1, count(main, "if (Features.HELP_TOURS) DrawerGroup(tx.common_help, listOf("))
+        assertTrue(Regex("""if \(Features\.HELP_TOURS\) DrawerGroup\(tx\.common_help, listOf\(\s*DrawerLine\(tx\.help_row, value = [^\n]*\n\s*icon = R\.drawable\.ic_mcft_info, onClick = onHelp\),\s*\)\) else null,""").containsMatchIn(main),
+            "the whole group is behind the switch")
+        assertEquals(1, count(main, "): List<DrawerGroup> = listOfNotNull("), "a group that is not drawn leaves no gap")
+        assertEquals(1, count(main, "onHelp = { helpOpen = true },"), "the row's tap is still wired")
+        assertEquals(1, count(main, "DrawerLine(tx.help_row,"), "and it is the one way in")
+        // THE DEMO FLAT: not seeded on a fresh install with the tours off; what a phone holds is left alone (nothing removes it)
+        assertEquals(1, count(main, "if (Features.HELP_TOURS) withContext(Dispatchers.IO) { runCatching { TourSeed.ensure(context, store) } }"))
+        assertEquals(1, count(main, "TourSeed.ensure("), "the one place the demo is seeded")
+        // NOTHING OF THE TOURS WAS DELETED: the flows, the machine, the overlay, the Help screen, the seeding, the bridge
+        // into survey prep and its four anchors there
+        val kept = mapOf(
+            pano + "Tour.kt" to listOf("object TourFlows", "object TourAnchors", "fun all(tx: Tx): List<TourFlow>", "private fun survey(tx: Tx)"),
+            pano + "TourMachine.kt" to listOf("class TourMachine("),
+            pano + "TourDemo.kt" to listOf("object TourDemo"),
+            pano + "TourPlace.kt" to listOf("object TourPlace"),
+            app + "TourOverlay.kt" to listOf("object TourState", "fun Modifier.tourAnchor(", "internal fun TourBindSurvey(", "fun TourOverlay(host: Int)", "object TourSeed",
+                "fun ensure(context: Context, store: CaptureStore)"),
+            app + "HelpScreen.kt" to listOf("fun HelpScreen(onBack: () -> Unit, onStart: (TourFlow) -> Unit)"),
+        )
+        for ((rel, has) in kept) { val c = code(rel); for (d in has) assertTrue(d in c, "$rel still has `$d`") }
+        assertEquals(1, count(main, "HelpScreen("), "the Help screen's branch is still there")
+        assertEquals(1, count(main, "TourSeed.restore(context, store, r.snap)")); assertEquals(1, count(main, "TourSeed.snapshot(context, store)"))
+        // survey prep's four anchors (save, tab:<tab>, mode:<step>, lines:row), its bridge and its own overlay: the anchors'
+        // names are string bodies, blanked in the code read here, so they are counted by their call and their host
+        val prepScreen = code(app + "SurveyPrepScreen.kt")
+        assertEquals(4, count(prepScreen, "tourAnchor("), "save, tab:<tab>, mode:<step> and lines:row")
+        assertEquals(5, count(prepScreen, "TourState.HOST_SURVEY"), "each of the four in survey prep's own window, and its own overlay")
+        assertEquals(1, count(prepScreen, "TourBindSurvey(tab, mode,")); assertEquals(1, count(prepScreen, "TourOverlay(TourState.HOST_SURVEY)"))
     }
 }

@@ -893,6 +893,48 @@ keeps its reader until slice M2 changes the step, and stays in the tables after 
 `i18nRatchet` lowered nothing and entered the five new files at 0; `unkeyed.tsv` stays empty; the accessors nothing
 calls BY NAME go 640 -> 647: the seven keys slice M2 will read.
 
+## Port 63 slice M2 (16 Nov 2026): the measuring screen -- no key added, seven of M1's now read, seventeen left without a reader
+
+Slice M2 is the screen itself (`android/docs/port63/DESIGN-port63.md` §4 and §10): 3 · List is 3 · Measure, every
+dimension is drawn on its mark with one figure, and the list under the photo, its LIST tab, its typed boxes and the Show
+row (≈ Photo / Measured / Both) are deleted. **No key is added and no table changes**, so `Tx` is not regenerated: the
+thirteen keys this screen reads came, English first, with slice M1 and are still the thirteen of `mr-pending.tsv`.
+
+Two files join `ported.txt` at 0 in `literal-counts.tsv`:
+
+- `pano/MeasureFlow.kt` -- the screen's own rules, pure: what a tap on a figure or on a mark does, what may be
+  measured in which phase, what a reading leaves active, the measure bar as drawn, when the photo pans. Its texts are
+  `MeasureText`'s, `fp.nothing_measure_face_yet` and, through `PhaseTools.readingRefusal`, `refuse.readonly.readings`.
+  Its one literal, an item's stored kind (`"mark"`), is marked `// text:value`.
+- `app/SurveyMeasure.kt` -- draws the measure bar and its pad from `MeasureFlow.Bar`. Its words are accessors
+  (`life.aria.open_mark_sheet_x`, `sp.measure.aria.previous`, `sp.measure.aria.skip`, `sp.measure.aria.type`,
+  `fp.clear`, `common.next`); its glyphs `‹ › ⌫ ⌄ ▸`, the laser's name `D2` and the unit `mm` are marked
+  `// text:value`, and a digit of the pad is a number's own text.
+
+**The seven keys M1 added for this slice are read now**: `sp.measure.all` and `sp.measure.aria.all` (the toggle beside
+fit and grid, in 3 · Measure only), `sp.measure.x_to_measure` (a face tab's count, read out), `sp.measure.aria.previous`
+/ `skip` / `type` (the bar), and `sp.reference_shown_measure` (`SurveyRef.shownSaid`, in place of
+`sp.reference_shown_2_mark`). The step's name is `common.measure`, which the tables already had (`मोजा`, unchanged).
+
+**Seventeen keys lose their only reader by name and STAY in the tables**, each with its Marathi untouched -- a key is
+never removed because a screen stopped showing it, and the saved pictures (slice M3) and the tour's rewrite may read
+some again: `common.show`, `common.photo`, `common.both`, `common.measured`, `common.list`, `common.ref`,
+`sp.x_its_list`, `sp.site_only`, `sp.derived`, `sp.total_x`, `sp.total_laser`, `sp.total_laser_x`, `sp.total_derived`,
+`sp.aria.delete_x`, `sp.no_marks_yet_add`, `sp.nothing_marked_surface` and `sp.reference_shown_2_mark`. So the
+accessors nothing calls BY NAME go 647 -> 657 (seven fewer, seventeen more).
+
+**Under मराठी the new screen is English where its text is one of the thirteen pending keys** (the progress line, a
+finished face, the next face, the room done, the check's sentence, "not in the room", `all`, the four spoken labels and
+the reference eye's sentence) and Marathi everywhere else (the step's name, a measure's own words, a face's name,
+Clear, Next, the read-only sentence). That is decision 7's state, not a gap: nobody writes those thirteen before Amit
+has verified the survey to quote journey in English.
+
+**Stored in English, never through a key**, as before: a reading's key, a mark's code, the figures themselves, and the
+plate's glyphs `▶ ⊥ ! ✓` (`MarkDims`, marked `// text:value` since M1); the painter's ` × ` between a mark's two
+figures is marked the same way.
+
+1,924 keys (none added); `i18nRatchet` lowered nothing and entered the two new files at 0; `unkeyed.tsv` stays empty.
+
 ## What is here
 
 | File | What it is | Who writes it |

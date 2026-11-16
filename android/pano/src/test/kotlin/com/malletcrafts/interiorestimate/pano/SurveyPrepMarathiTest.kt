@@ -65,8 +65,8 @@ class SurveyPrepMarathiTest {
         assertEquals("पायरी", SurveyPrepEdit.groupName(Tx.MR, SurveyPrepEdit.Group("S", "Step", false, 1)))
         assertEquals("स्विच प्लेट", SurveyPrepEdit.groupName(Tx.MR, SurveyPrepEdit.Group("S", "Switch plate", false, 1)))
         assertEquals("इलेक्ट्रिक पॉइंट", SurveyPrepEdit.groupName(Tx.MR, SurveyPrepEdit.Group("E", "Electric point", false, 1)))
-        // a tab is the face's SHORT name (surface_tab); List and Plan are common.*
-        assertEquals(listOf("समोर", "उजवी", "मागे", "डावी", "जमीन", "छत", "यादी", "प्लॅन"),
+        // a tab is the face's SHORT name (surface_tab); Plan is common.* (the LIST tab went with port 63 slice M2)
+        assertEquals(listOf("समोर", "उजवी", "मागे", "डावी", "जमीन", "छत", "प्लॅन"),
             StepRoute.TAB_ROWS.flatten().map { StepRoute.tabName(Tx.MR, it) })
         for (s in SurveyPrep.SURFACES) noLatin(StepRoute.tabName(Tx.MR, s), "tab $s")
         // the strip's face and every text that names a face use its FULL name (surface)
@@ -144,7 +144,11 @@ class SurveyPrepMarathiTest {
         assertEquals("साखळी · आडवी · 2 भाग · समोरील भिंत", SurveyChain.listName(Tx.MR, "front", k, true))
         assertEquals("Chain · horizontal · 2 parts · Front wall", SurveyChain.listName(Tx.EN, "front", k, true))
         assertEquals("बाजूंवर संदर्भ लपवला — तरीही तो समोरील भिंत सरळ करतो", SurveyRef.shownSaid(Tx.MR, "front", false))
-        assertEquals("संदर्भ 2 · मार्क, 3 · यादी आणि 4 · 360 वर दिसतो", SurveyRef.shownSaid(Tx.MR, "front", true))
+        // ENGLISH FIRST (Amit, 16 Nov 2026): the eye's "shown" sentence names the phone's own third step, 3 · Measure, since
+        // port 63 slice M2 -- a NEW key, sp.reference_shown_measure, whose Marathi is its English until Amit has verified
+        // the survey to quote journey (android/i18n/mr-pending.tsv; MrPendingTest holds the list). The prototype's own
+        // sentence (sp.reference_shown_2_mark, "… 3 · यादी …") keeps its Marathi in the table, with no phone reader.
+        assertEquals("Reference shown on 2 · Mark, 3 · Measure and 4 · 360", SurveyRef.shownSaid(Tx.MR, "front", true))
         // the card's own pairing: sp.aria.lock_x over sp.the_x_reference ("समोरील भिंत संदर्भ लॉक करा", vis())
         assertEquals("समोरील भिंत संदर्भ लॉक करा", SurveyRef.lockLabel(Tx.MR, "front", false))
         assertEquals("Lock the front wall reference", SurveyRef.lockLabel(Tx.EN, "front", false))

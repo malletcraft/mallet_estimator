@@ -80,6 +80,7 @@ import com.malletcrafts.interiorestimate.pano.FaceNote
 import com.malletcrafts.interiorestimate.pano.Features
 import com.malletcrafts.interiorestimate.pano.Handover
 import com.malletcrafts.interiorestimate.pano.Panorama
+import com.malletcrafts.interiorestimate.pano.PhaseTools
 import com.malletcrafts.interiorestimate.pano.Phases
 import com.malletcrafts.interiorestimate.pano.QuoteStage
 import com.malletcrafts.interiorestimate.pano.QuoteView
@@ -585,8 +586,12 @@ private fun AppScreenBody(onLang: () -> Unit) {
     // ---- THE GUIDED TOURS' HOST (port 61c §31) -------------------------------------------
     // The demo flat, seeded idempotently at start (ch55, approved with v55): the capture row,
     // the bundled pano, the prep. Always in Browse, as Demo Client always is on the prototype.
+    // ... WHILE THE HELP TOURS ARE ON (Features.HELP_TOURS; port 63 slice M2 -- Amit, 15 Nov 2026:
+    // "For time being hold help tour as well from development"): the demo flat exists only for the
+    // tours, so with them off a fresh install is not seeded with it. A Demo Client a phone already
+    // holds is left alone; nothing of the seeding is deleted.
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) { runCatching { TourSeed.ensure(context, store) } }
+        if (Features.HELP_TOURS) withContext(Dispatchers.IO) { runCatching { TourSeed.ensure(context, store) } }
         reload()
     }
     // Where the app is, for the machine's screen predicates (the engine's screen(); survey
@@ -885,6 +890,15 @@ private fun AppScreenBody(onLang: () -> Unit) {
     }
     val fileCache = remember(fileKey, dataTick, quoteTick) { fileKey?.let { QuoteStageSync.cached(context, it) } }
     val fileLine = remember(fileKey, dataTick, quoteTick, istDay, tx) { QuoteStageSync.lineFor(context, fileKey, tx) }
+    // CAPTURE 360 FOLLOWS THE PHASE (port 63 slice M2; DESIGN-port63 §1.8, brought forward from port 62's L10): the
+    // room screen's Capture 360 button is drawn only where the project's phase has the tool -- PhaseTools' `capture`
+    // row: Survey, and Client approved again -- asked of the very stage a new capture's survey prep is handed
+    // (QuoteStageSync.prepStage: Survey for a project only on this phone, unread while a listed project's stage has
+    // not been read -- both show it). Without this a room captured after Survey could be neither measured (readings
+    // are Survey's from this slice) nor, at Estimated, marked, and until then its doors and windows would be born
+    // wishes. Hidden, never greyed; the capture sheet has no other way in.
+    val captureShown = PhaseTools.can(PhaseTools.Tool.CAPTURE,
+        remember(fileKey, dataTick, quoteTick) { QuoteStageSync.prepStage(context, fileKey) })
     // SITE PROGRESS IS BEHIND ONE FLAG (Features.SITE_PROGRESS; port 63 slice SP0 -- Amit, 15 Nov 2026: "Do not delete
     // any site progress code but toggle it as feature flag"). `fileApproved` is Album.execution's answer -- the client
     // has approved AND site progress is on -- so with the flag off nothing below changes at approval: a new capture
@@ -3233,7 +3247,8 @@ private fun AppScreenBody(onLang: () -> Unit) {
                 }
             },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
+                // ... only in a phase that captures (captureShown, above: port 63 slice M2)
+                if (captureShown) ExtendedFloatingActionButton(
                     onClick = { showCaptureSheet = true },
                     icon = { Icon(painterResource(R.drawable.ic_mcft_cam),
                                   contentDescription = null) },
@@ -3656,15 +3671,18 @@ private fun drawerGroups(
     /** How many guided tours ship on this build (TourFlows.shipped), and the Help screen. */
     tours: Int,
     onHelp: () -> Unit,
-): List<DrawerGroup> = listOf(
+): List<DrawerGroup> = listOfNotNull(
     // THE HELP GROUP, FIRST (port 61c §31; ch55: the drawer already scrolls, and a row at its
     // foot starts below the fold). One row, "Help · guided tours · N tours", opening the full
     // Help screen; the count is computed from the shipped flows, the prototype's own
     // `flows().length + ' tours'` — so it reads honestly while flows are still blocked.
-    DrawerGroup(tx.common_help, listOf(
+    // NOT DRAWN WHILE THE HELP TOURS ARE OFF (Features.HELP_TOURS; port 63 slice M2): the row
+    // would read "0 tours" and open a Help screen with nothing to start. The group, the row and
+    // the screen are all still here.
+    if (Features.HELP_TOURS) DrawerGroup(tx.common_help, listOf(
         DrawerLine(tx.help_row, value = "$tours${tx.app_tours}",
             icon = R.drawable.ic_mcft_info, onClick = onHelp),
-    )),
+    )) else null,
     DrawerGroup(tx.app_sync, listOf(
         DrawerLine(tx.common_sync_now,
             value = if (queued == 0) lastSync else tx.app_x_waiting(queued.toString()),
