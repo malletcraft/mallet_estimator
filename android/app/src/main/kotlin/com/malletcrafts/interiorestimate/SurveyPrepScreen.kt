@@ -103,6 +103,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.malletcrafts.interiorestimate.pano.DeleteGuard
 import com.malletcrafts.interiorestimate.pano.DimLayout
 import com.malletcrafts.interiorestimate.pano.GestureClassifier
 import com.malletcrafts.interiorestimate.pano.MarkLife
@@ -163,10 +164,13 @@ import kotlin.math.roundToInt
  *    it, each with its checklist of measurements -- every one drawn ON the
  *    mark with ONE figure: the site reading from the DISTO D2 or typed, else
  *    ≈ and the photo's estimate (port 63 slice M2). The palette under the
- *    photo (v52 slice 7, complete in slice 11): Select, Tape, Line, Chain,
- *    three types, More ▸; a type stays on and every tap on empty photo
- *    places one where the finger is; Chain taps a run of points along one
- *    axis, each segment a D2 reading (FK1.1 …) and its total (FK1.t).
+ *    photo (v52 slice 7): Select, Tape, Line, three types, More ▸; a type
+ *    stays on and every tap on empty photo places one where the finger is.
+ *    THE CHAIN TOOL IS OFF (port 63 slice F1; Features.CHAINS -- Amit, 16 Nov
+ *    2026: "chain mark is rarely used. get rid of it."): no new chain can be
+ *    drawn, and one a room already has is kept, drawn, measured (FK1.1 … and
+ *    its total FK1.t) and can be deleted. A picked Tape, Line or area moves
+ *    whole by a drag on its body, as a mark does (slice F1; SurveyGuide).
  *  - 3 · Measure (port 63 slice M2; Amit, 15 Nov 2026, after his first use on
  *    a client site: "The laundry list of measurements shown below screen is
  *    also frustrating. … imagemeter shows all dimensions on the annotation
@@ -979,7 +983,12 @@ internal fun SurveyPrepDialog(
             }
             MarkLife.DeleteAct.DROP_SHEET -> { openSheet(mid, MarkLife.DROP); return }
         }
-        snapshot(); prep.deleteMark(mid)
+        // ONE ↶ STEP, AND THE SCREEN SAYS WHAT WENT (port 63 slice F1): every one-tap delete -- the row's control, the
+        // floating trash, the long-press menu, on the photo and on the 360 -- comes through here, takes exactly this one
+        // snapshot and answers "FD1 deleted" with UNDO, so a slip is seen and taken back at once. A delete the model
+        // refuses takes its step back off: no undo entry that undoes nothing.
+        snapshot()
+        if (!prep.deleteMark(mid)) { hist.removeAt(hist.size - 1); return }
         if (sel?.id == mid) sel = null
         if (active?.startsWith("$code.") == true) active = null
         snack(SurveyPrepEdit.deleted(tx, code))
@@ -1873,7 +1882,7 @@ internal fun SurveyPrepDialog(
             // edge in the state's colour -- none for an Existing mark, whose label is v52's
             val lifeBar = MarkLife.barColour(sm)
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                horizontalArrangement = Arrangement.spacedBy(SP_MARK_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 // ... and A TAP ON IT OPENS THE MARK SHEET (slice L3; nlAttrs' role=button, "Open the Mark sheet for FW1")
                 Text("${sm.code}\n${if (lk) tx.sp_locked else what}", color = SP_GOLD, fontSize = 10.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center, modifier = Modifier.width(52.dp).clip(RoundedCornerShape(3.dp)).drawBehind {
@@ -1893,9 +1902,14 @@ internal fun SurveyPrepDialog(
                 if (PhaseTools.lockOk(sm, quoteStage))
                     SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sm.code) else tx.sp_aria_lock_x(sm.code)) { toggleLock(sm.id) }
                 // Delete, Drop on a mark past Existing, Restore on a Dropped one (port 62 slice L2; the prototype's delWord)
-                if (PhaseTools.delOk(sm, quoteStage))
+                // ... THE ROW'S LAST CONTROL, AND APART (port 63 slice F1; Amit, 16 Nov 2026: "same for delete button for
+                // any item"): 16 dp of dead row between it and the padlock or the last nudge, and its own quiet red
+                // outline where theirs is gold. One tap still deletes; "FD1 deleted" with UNDO says what went.
+                if (PhaseTools.delOk(sm, quoteStage)) {
+                    SpDeleteGap(SP_MARK_ROW_DP)
                     SpButton(MarkLife.deleteLabel(tx, sm), Modifier.weight(1.4f).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sm.id) ?: MarkLife.deleteLabel(tx, sm) },
-                        SP_GOLD, compact = land, dim = lk) { deleteMark(sm.id) }
+                        SP_DELETE, compact = land, dim = lk, ink = SP_DELETE_INK) { deleteMark(sm.id) }
+                }
             }
         }
         // A PICKED TAPE, LINE OR AREA (v52 slice 9, sp.js 1505-1507): its own row -- "F-T1 · Tape · 1234 mm", "F-M1 ·
@@ -1906,7 +1920,7 @@ internal fun SurveyPrepDialog(
             val lk = SurveyPrep.isLocked(sq)
             val tp = sq.kind == SurveyMeas.TAPE
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                horizontalArrangement = Arrangement.spacedBy(SP_LINE_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 // a Line's or an area's code opens its Mark sheet, for its TRADE and its NOTE (slice L3); a tape has none
                 Text(sq.code, color = Color(SurveyPrepDraw.argb(if (tp) SurveyMeas.TAPE_COLOUR else SurveyMeas.LINE_COLOUR)),
                     fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1,
@@ -1918,9 +1932,12 @@ internal fun SurveyPrepDialog(
                 // a Tape, a Line and an area are the phase's own tools up to Estimation, where these two go (slice L4)
                 if (PhaseTools.lockOk(sq, quoteStage))
                     SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sq.code) else tx.sp_aria_lock_x(sq.code)) { toggleLock(sq.id) }
-                if (PhaseTools.delOk(sq, quoteStage))
+                // its Delete: the row's last control, 16 dp clear of the padlock, in the delete control's own look (slice F1)
+                if (PhaseTools.delOk(sq, quoteStage)) {
+                    SpDeleteGap(SP_LINE_ROW_DP)
                     SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sq.id) ?: tx.common_delete },
-                        SP_GOLD, compact = land, dim = lk) { deleteMark(sq.id) }
+                        SP_DELETE, compact = land, dim = lk, ink = SP_DELETE_INK) { deleteMark(sq.id) }
+                }
             }
         }
         // A PICKED CHAIN (v52 slice 11, sp.js 1503, ct52 K): its own row -- "FK1 ≈905 · ≈2405 · Σ 3310 laser", each
@@ -1931,7 +1948,7 @@ internal fun SurveyPrepDialog(
             val lk = SurveyPrep.isLocked(sk)
             val kv = ab(tab).let { SurveyChain.vals(sk, prep.actual, it[0], it[1]) }
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = if (land) 2.dp else 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                horizontalArrangement = Arrangement.spacedBy(SP_LINE_ROW_DP.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(sk.code, color = SP_CHAIN, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 13.sp,
                     lineHeight = 16.sp, maxLines = 1)
                 Text(SurveyChain.rowValue(tx, kv), color = Color.White, fontFamily = FontFamily.Monospace, fontSize = 12.sp,
@@ -1939,9 +1956,12 @@ internal fun SurveyPrepDialog(
                 // ... and so is a chain (slice L4)
                 if (PhaseTools.lockOk(sk, quoteStage))
                     SpPadlock(lk, if (lk) tx.sp_aria_unlock_x(sk.code) else tx.sp_aria_lock_x(sk.code)) { toggleLock(sk.id) }
-                if (PhaseTools.delOk(sk, quoteStage))
+                // ... and its Delete stands apart as every item's does (slice F1): a chain a room already has can still go
+                if (PhaseTools.delOk(sk, quoteStage)) {
+                    SpDeleteGap(SP_LINE_ROW_DP)
                     SpButton(tx.common_delete, Modifier.width(72.dp).semantics { contentDescription = SurveyPrepEdit.deleteLabel(tx, prep, sk.id) ?: tx.common_delete },
-                        SP_GOLD, compact = land, dim = lk) { deleteMark(sk.id) }
+                        SP_DELETE, compact = land, dim = lk, ink = SP_DELETE_INK) { deleteMark(sk.id) }
+                }
             }
         }
         // THE MEASUREMENT BEING TAKEN, right under the photo, so nothing need be opened while lasering: a mark's, a Line's
@@ -2208,7 +2228,8 @@ internal fun SurveyPrepDialog(
                     menu()
                 }
             }
-            // ---- THE LONG-PRESS MENU (v52 slice 8): Delete · Duplicate · Lock/Unlock · Lock all <type> · Cancel, its
+            // ---- THE LONG-PRESS MENU (v52 slice 8): Duplicate · Lock/Unlock · Lock all <type> · Cancel, and Delete LAST
+            // and apart (port 63 slice F1: it was the first row, right under the finger -- SurveyPrepEdit.menuItems), its
             // top-left 24 dp left of and 12 dp above the press, kept 4 dp inside the screen in either orientation
             // (sp.js 1471). Under it, the whole screen takes a press as Cancel, so nothing beneath moves while it is open.
             // ... on a mark, a Tape or a Line (v52 slice 9: "Lock all tapes", "Lock all Line marks")
@@ -2220,12 +2241,17 @@ internal fun SurveyPrepDialog(
                     .semantics { onClick(label = tx.sp_aria_close_menu) { ctx = null; true } })
                 val edge = with(dens) { 4.dp.toPx() }
                 val mw = if (ctxSize.width > 0) ctxSize.width.toFloat() else with(dens) { 180.dp.toPx() }
-                val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { 232.dp.toPx() }
+                val mh = if (ctxSize.height > 0) ctxSize.height.toFloat() else with(dens) { (232 + DeleteGuard.CLEAR_DP).dp.toPx() }
                 val left = (c.x - rootLeft - with(dens) { 24.dp.toPx() }).coerceAtMost(rootW - mw - edge).coerceAtLeast(edge)
-                val top = (c.y - rootTop - with(dens) { 12.dp.toPx() }).coerceAtMost(rootH - mh - edge).coerceAtLeast(edge)
                 // ... less the rows the phase hides (port 62 slice L4): on a surveyed mark after Survey, its head and Cancel;
                 // and no Duplicate on a mark where its copy would not be what a tap places (the L4 review; copyOk)
-                SpCtxMenu(head, SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked),
+                val rows = SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)
+                // 12 dp above the press, kept on the screen -- and NEVER WITH ITS DELETE ROW UNDER THE FINGER (port 63
+                // slice F1; DeleteGuard.menuTop): low on the screen the menu is pushed up, and what lands under the
+                // finger is its last row, which is Delete now; there it opens above the press instead
+                val top = DeleteGuard.menuTop((c.y - rootTop).toDouble(), mh.toDouble(), rootH.toDouble(), dens.density.toDouble(),
+                    rows.any { it.first == SurveyPrepEdit.DELETE }).toFloat()
+                SpCtxMenu(head, rows,
                     Modifier.offset { IntOffset(left.roundToInt(), top.roundToInt()) }.onSizeChanged { ctxSize = it }) { k -> ctxPick(c.id, k) }
             }
             // ---- the size sheet, under the size line, over the screen (nothing scrolls for it)
@@ -2710,6 +2736,37 @@ private fun SpPhoto(
         return SurveyPrepTouch.hit(drawnMarks(), null, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble())
     }
 
+    /**
+     * A TAPE, A LINE AND AN AREA MOVE BY THEIR BODY (port 63 slice F1; Amit, 16 Nov 2026: "tape mark does not move unless
+     * its end points are moved. difficult for moving it from one point to other."). A press on the PICKED one's body --
+     * within 12 dp of its line, of a tape's band or of an area's outline, and outside its ends' 14 dp -- grabs it whole:
+     * a drag moves every point by the same delta, stopped at the face's edge so its shape never changes
+     * (SurveyGuide.bodyMove), one ↶ step, once the finger has left the dead zone (SpGrab.gate), so the tap that picks it
+     * never nudges it. As a picked mark's body: with Select on, in 2 · Mark; a LOCKED one is picked and does not move,
+     * and a drag says "F-T1 is locked — unlock to move it"; one the phase holds read-only says the phase's line; a long
+     * still press opens its menu. Its reading is not touched. WHETHER the press is on the body at all is
+     * SurveyGuide.bodyPress, tested in :pano. Null: it is not -- the press goes on down the hit order.
+     */
+    fun bodyGrab(sx: Float, sy: Float): SpGrab? {
+        val r = rectS ?: return null; val sq = r.sq
+        val sid = selS?.takeIf { it.s == tab }?.id ?: return null
+        val m = prepS.surface(tab).meas.firstOrNull { it.id == sid } ?: return null
+        val scr = m.pts.map { p -> toS(sq.x(p[0]), sq.y(p[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }
+        val dpx = density.density.toDouble()
+        val bp = SurveyGuide.bodyPress(mode == "mark", toolS, m, !areaS.isNullOrEmpty(), scr, sx.toDouble(), sy.toDouble(),
+            SurveyGuide.END_HIT_DP * dpx, SurveyMeas.PICK_DP * dpx,
+            if (m.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(k() / sq.mpp, dpx) else 0.0) ?: return null
+        val at = fromS(sx, sy); val pick = SpSel(tab, id = m.id)
+        if (bp is SurveyGuide.BodyPress.Locked) return SpGrab(at[0], at[1], pick, null, bp.code, endLock = true, gate = true) { _, _ -> }
+        // at Estimation a Tape, a Line and an area are read-only (PhaseTools.editable): picked, nothing moves, a drag says why
+        if (!PhaseTools.editable(m, stageS)) return SpGrab(at[0], at[1], pick, null, PhaseTools.refuseText(txS, m, stageS), gate = true, said = true) { _, _ -> }
+        val start = m.pts.map { it.copyOf() }; val mx0 = sq.mmX(at[0]); val my0 = sq.mmY(at[1])
+        return SpGrab(at[0], at[1], pick, null, gate = true) { jx, jy ->
+            val ab = abS
+            SurveyGuide.bodyMove(m, start, sq.mmX(jx) - mx0, sq.mmY(jy) - my0, ab[0], ab[1])
+        }
+    }
+
     fun hitMarks(sx: Float, sy: Float, tagged: () -> Unit = {}): SpGrab? {
         val r = rectS ?: return null; val sq = r.sq; val ab = abS
         val els = prepS.surface(tab).marks
@@ -2721,9 +2778,13 @@ private fun SpPhoto(
         // A CHAIN'S POINTS (v52 slice 11), with Select on: AFTER the picked mark's tabs (ct52 X5: "a chain point on a
         // door's left tab resizes the door") and before every tag and mark -- 16 dp each (sp.js hit)
         val nodes = if (toolS == SurveyPrepPalette.SEL) chainsOnScreen().map { (id, pts) -> SurveyPrepTouch.Nodes(id, pts) } else emptyList()
+        // THE PICKED TAPE'S, LINE'S OR AREA'S BODY under the finger (slice F1), or null: SurveyPrepTouch.hit places it in
+        // the order -- after a chain's point and a figure, before every mark
+        val body = bodyGrab(sx, sy)
         return when (val h = SurveyPrepTouch.hit(drawn, selId, tags.toList(), sx.toDouble(), sy.toDouble(), tol, density.density.toDouble(),
-                nodes, SurveyChain.NODE_HIT_DP * density.density)) {
+                nodes, SurveyChain.NODE_HIT_DP * density.density, body = body != null)) {
             null -> null
+            is SurveyPrepTouch.Hit.Body -> body
             is SurveyPrepTouch.Hit.Node -> nodeGrab(h.id, h.i)
             is SurveyPrepTouch.Hit.Tag -> {
                 // A FIGURE TAPPED: its owner picked and its reading the one being measured -- a mark's plate, and since
@@ -3284,10 +3345,15 @@ private fun SpPhoto(
                         SurveyPrepTouch.Box((d[0] - d[2]).toDouble(), (d[1] - d[2]).toDouble(), (d[0] + d[2]).toDouble(), (d[1] + d[2]).toDouble()) }
                     else { val p0 = m(rr.sq.x(picked.x0), rr.sq.y(picked.y1)); val q0 = m(rr.sq.x(picked.x1), rr.sq.y(picked.y0))
                         SurveyPrepTouch.Box(p0[0].toDouble(), p0[1].toDouble(), q0[0].toDouble(), q0[1].toDouble()) }
-                    // the selected Tape's, Line's or area's end handles: the disc keeps off them (v52 slice 10 review)
-                    val handles = pickedPts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }.orEmpty()
-                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
-                        handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)?.let { ts ->
+                    // DELETE CANNOT BE PRESSED BY ACCIDENT (port 63 slice F1; DeleteGuard): the disc keeps 16 dp clear of the
+                    // picked item's own handles -- a box mark's eight tabs (a spot's centre); a Tape's, a Line's, an area's
+                    // or a chain's points and its line, a tape's as wide as its band -- and of every figure; where no place
+                    // is that clear there is no disc (SurveyPrepTouch.trashSpot). It sat 2 dp off the corner tab until now.
+                    val scrPts = pickedPts?.map { pq -> m(rr.sq.x(pq[0]), rr.sq.y(pq[1])).let { q -> doubleArrayOf(q[0].toDouble(), q[1].toDouble()) } }
+                    val keep = if (scrPts != null) SurveyPrepTouch.keepOfLine(scrPts, pickedM?.kind == SurveyMeas.AREA,
+                            if (pickedM?.kind == SurveyMeas.TAPE) SurveyMeas.bandHalfPx(kk / rr.sq.mpp, dpx.toDouble()) else 0.0)
+                        else SurveyPrepTouch.keepOfMark(bb, picked?.let { SurveyPrep.isSpot(it.t) } == true)
+                    SurveyPrepTouch.trashSpot(bb, tags.map { it.box }, size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), keep)?.let { ts ->
                         val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
                         val pt = Paint(Paint.ANTI_ALIAS_FLAG)
                         pt.style = Paint.Style.FILL; pt.color = android.graphics.Color.rgb(0xE5, 0x48, 0x4D); nc.drawCircle(tcx, tcy, rad, pt)
@@ -3468,17 +3534,29 @@ private fun SpPill(text: String, on: Boolean, modifier: Modifier, square: Boolea
     }
 }
 
-/** [enabled] false: drawn dim and does nothing (a locked mark's nudges); [dim]: drawn dim, still answers (its Delete). */
+/** [enabled] false: drawn dim and does nothing (a locked mark's nudges); [dim]: drawn dim, still answers (its Delete).
+ *  [ink]: its word's colour -- white, but the delete control's own red (SP_DELETE_INK). */
 @Composable
 private fun SpButton(text: String, modifier: Modifier, border: Color, compact: Boolean = false, enabled: Boolean = true,
-                     dim: Boolean = false, onClick: () -> Unit) {
+                     dim: Boolean = false, ink: Color = Color.White, onClick: () -> Unit) {
     val faint = !enabled || dim
     Box(modifier.clip(RoundedCornerShape(7.dp)).background(Color.Black)
         .border(1.5.dp, if (faint) border.copy(alpha = 0.35f) else border, RoundedCornerShape(7.dp))
         .clickable(enabled = enabled) { onClick() }.padding(vertical = if (compact) 4.dp else 8.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = if (faint) SP_DIM else Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+        Text(text, color = if (faint) SP_DIM else ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
             lineHeight = if (compact) 14.sp else TextUnit.Unspecified)   // compact: 4 + 14 + 4 = 22 dp, not the theme's 24 sp line
     }
+}
+
+/**
+ * THE DEAD ROW BEFORE A DELETE CONTROL (port 63 slice F1; Amit, 16 Nov 2026: "navigation button and D2 aer very close
+ * where d2 get accidentally fired. same for delete button for any item."): a Spacer -- it takes no tap -- wide enough
+ * that the control after it stands DeleteGuard.CLEAR_DP (16 dp) from the one before it, in a row that lays its
+ * children [spacingDp] apart. The arithmetic is DeleteGuard.rowGapDp, tested in :pano.
+ */
+@Composable
+private fun SpDeleteGap(spacingDp: Int) {
+    Spacer(Modifier.width(DeleteGuard.rowGapDp(spacingDp).dp))
 }
 
 @Composable
@@ -3556,6 +3634,14 @@ private val SP_DIM = Color(0xFF555A50)
 private val SP_CHIP = Color(0xFF23261F)
 private val SP_SHEET = Color(0xFF1A1C18)
 private val SP_GOLD = Color(0xFFE0B040)
+/** THE DELETE CONTROL'S OWN LOOK (port 63 slice F1; DeleteGuard): a quiet red outline and its word in the menu's delete
+ *  red -- never SP_GOLD, the outline of the nudges beside it, so it is not one more button in their row. */
+private val SP_DELETE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))
+private val SP_DELETE_INK = Color(SurveyPrepDraw.argb(DeleteGuard.INK))
+/** How far apart the picked item's row lays its children, dp: a mark's row, and a Tape's / Line's / area's / chain's.
+ *  Each is the row's own spacing AND what its delete control's dead gap is worked out from (SpDeleteGap). */
+private const val SP_MARK_ROW_DP = 4
+private const val SP_LINE_ROW_DP = 6
 private val SP_OK = Color(0xFF7DFF8A)
 private val SP_AMB = Color(0xFFFFC46B)
 private val SP_LINE_BORDER = Color(0xFF3A3E35)

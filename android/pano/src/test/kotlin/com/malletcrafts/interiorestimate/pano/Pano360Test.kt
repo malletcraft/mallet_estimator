@@ -217,7 +217,9 @@ class Pano360Test {
     // ------------------------------------------------------------------ the pick order
 
     @Test fun `the 360's pick order -- ends, then the picked mark's tabs BEFORE chain points, then as 2 · Mark`() {
-        assertEquals(listOf(S.END, S.TABS, S.NODES, S.MARK, S.LOOK), Pano360.order(SurveyPrepPalette.SEL, false))
+        // ... with Select on, the picked Tape's / Line's / area's BODY after the chain points and before the marks (port 63
+        // slice F1: it moves whole), as SurveyPrepTouch.hit has it on 2 · Mark
+        assertEquals(listOf(S.END, S.TABS, S.NODES, S.BODY, S.MARK, S.LOOK), Pano360.order(SurveyPrepPalette.SEL, false))
         assertEquals(listOf(S.TABS, S.MARK, S.PLACE), Pano360.order("W", false))
         assertEquals(listOf(S.END, S.MEAS), Pano360.order(SurveyPrepPalette.TAPE, false))
         assertEquals(listOf(S.END, S.MEAS), Pano360.order(SurveyPrepPalette.LINE, false))
@@ -225,6 +227,46 @@ class Pano360Test {
         // while a Line area or a chain is being tapped, no end is grabbed: its taps are corners
         assertEquals(listOf(S.MEAS), Pano360.order(SurveyPrepPalette.LINE, true))
         assertEquals(listOf(S.TABS, S.NODES, S.MARK, S.LOOK), Pano360.order(SurveyPrepPalette.SEL, true))
+        // the body is Select's alone: no type, no Tape, no Line and no Chain ever grabs one, and none while an area is tapped
+        for (tool in listOf("W", "E", SurveyPrepPalette.TAPE, SurveyPrepPalette.LINE, SurveyPrepPalette.CHAIN)) for (drafting in listOf(false, true))
+            assertFalse(S.BODY in Pano360.order(tool, drafting), "$tool, $drafting")
+    }
+
+    @Test fun `F1 - on the 360 the picked tape is grabbed by its body - after its ends and a chain's point, before a mark under it`() {
+        val door = Pano360.Poly("front", "FD", listOf(doubleArrayOf(100.0, 100.0), doubleArrayOf(400.0, 100.0),
+            doubleArrayOf(400.0, 300.0), doubleArrayOf(100.0, 300.0)), 60000.0)
+        // a tape picked, lying across the door: its ends at (60, 200) and (500, 200), its band 4 px either side
+        val ends = listOf(doubleArrayOf(60.0, 200.0), doubleArrayOf(500.0, 200.0))
+        val body = Pano360.Line("t1", listOf(ends[0] to ends[1]), 4.0)
+        val nodes = listOf("FK1" to listOf(doubleArrayOf(250.0, 205.0), doubleArrayOf(250.0, 400.0)))
+        val sc = Pano360.Scene(ends, emptyList(), nodes, listOf(door), "t1", body)
+        val sel = Pano360.order(SurveyPrepPalette.SEL, false)
+        // on its band over the door: the BODY, not the door under it
+        assertEquals(Pano360.Pick.Body, Pano360.pick(sel, sc, 320.0, 203.0, DP))
+        // within 12 dp of the band's edge (24 px + its 4 px): still the body; further, the door
+        assertEquals(Pano360.Pick.Body, Pano360.pick(sel, sc, 320.0, 200.0 + 4.0 + 23.0, DP))
+        assertEquals(Pano360.Pick.Mark("front", "FD"), Pano360.pick(sel, sc, 320.0, 200.0 + 4.0 + 25.0, DP))
+        // AN END KEEPS ITS OWN PRESS (14 dp), and so does a chain's point (16 dp)
+        assertEquals(Pano360.Pick.End(0), Pano360.pick(sel, sc, 70.0, 204.0, DP))
+        assertEquals(Pano360.Pick.End(1), Pano360.pick(sel, sc, 480.0, 190.0, DP))
+        assertEquals(Pano360.Pick.Node("FK1", 0), Pano360.pick(sel, sc, 252.0, 202.0, DP))
+        // off everything: the view turns
+        assertEquals(Pano360.Pick.Look, Pano360.pick(sel, sc, 320.0, 500.0, DP))
+        // nothing picked, or a scene with no body (a mark is picked): the door is the door
+        val none = Pano360.Scene(null, emptyList(), emptyList(), listOf(door), null)
+        assertEquals(Pano360.Pick.Mark("front", "FD"), Pano360.pick(sel, none, 320.0, 203.0, DP))
+        // with a type on the body is never grabbed: the door under the tape is picked and moved, or a mark placed
+        assertEquals(Pano360.Pick.Mark("front", "FD"), Pano360.pick(Pano360.order("W", false), sc, 320.0, 203.0, DP))
+        // with Tape on the press pulls a new tape -- from the end when it is on one -- and the old one never moves
+        assertEquals(Pano360.Pick.Meas, Pano360.pick(Pano360.order(SurveyPrepPalette.TAPE, false), sc, 320.0, 203.0, DP))
+        assertEquals(Pano360.Pick.End(0), Pano360.pick(Pano360.order(SurveyPrepPalette.TAPE, false), sc, 70.0, 204.0, DP))
+        // the scene's body IS the picked item's own line as drawn: a tape's with its band, an area's closed
+        val p = room(); val fr = frames(p); val v = Pano360.faceView("front", 680.0, 840.0)
+        val t = p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(400.0, 1000.0), doubleArrayOf(1400.0, 1000.0)), "t1")
+        val l = Pano360.measLine(v, "front", fr.getValue("front"), t, DP)
+        assertEquals(1, l.segs.size); assertTrue(l.widen > 0)
+        val a = p.addMeas("front", SurveyMeas.AREA, listOf(doubleArrayOf(400.0, 400.0), doubleArrayOf(900.0, 400.0), doubleArrayOf(900.0, 900.0), doubleArrayOf(400.0, 900.0)), "a1")
+        assertEquals(4, Pano360.measLine(v, "front", fr.getValue("front"), a, DP).segs.size)
     }
 
     @Test fun `a chain point on the picked door's tab -- the tab wins, an end before both, then the marks`() {
@@ -476,16 +518,32 @@ class Pano360Test {
         val v = Pano360.faceView("front", 680.0, 840.0)
         p.surface("front").marks.add(SurveyPrep.Mark("m1", "D", "F-D1", 900.0, 1800.0, 400.0, 2000.0))
         val t = p.addMeas("front", SurveyMeas.TAPE, listOf(doubleArrayOf(400.0, 1000.0), doubleArrayOf(1400.0, 1000.0)), "t1")
-        // a mark: the box of its four corners as drawn, no handles
-        val m = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "m1"))
+        // a mark: the box of its four corners as drawn; the disc keeps off its eight TABS where they are drawn (port 63
+        // slice F1: it sat 2 dp off the corner, inside the corner tab's reach) -- no line of its own
+        val m = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "m1", DP))
         val corners = listOf(900.0 to 400.0, 1800.0 to 400.0, 1800.0 to 2000.0, 900.0 to 2000.0).map { (x, y) -> Pano360.toS(v, "front", fr.getValue("front"), x, y)!! }
         assertEquals(corners.minOf { it[0] }, m.box.l, 1e-9); assertEquals(corners.maxOf { it[0] }, m.box.r, 1e-9)
         assertEquals(corners.minOf { it[1] }, m.box.t, 1e-9); assertEquals(corners.maxOf { it[1] }, m.box.b, 1e-9)
-        assertTrue(m.handles.isEmpty())
-        // a Tape: its two ends are the box and the handles the disc keeps off
-        val tt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, t.id))
-        assertEquals(2, tt.handles.size)
-        assertNotNull(SurveyPrepTouch.trashSpot(tt.box, emptyList(), 680.0, 840.0, DP, tt.handles, SurveyGuide.HANDLE_CLEAR_DP * DP))
+        val door = p.surface("front").marks.single()
+        assertEquals(Pano360.tabsOf(door).map { (_, mm) -> Pano360.toS(v, "front", fr.getValue("front"), mm[0], mm[1])!!.toList() }, m.keep.points.map { it.toList() })
+        assertEquals(8, m.keep.points.size); assertTrue(m.keep.body.isEmpty())
+        val ms = assertNotNull(SurveyPrepTouch.trashSpot(m.box, emptyList(), 680.0, 840.0, DP, m.keep))
+        assertTrue(m.keep.points.all { q -> kotlin.math.hypot(ms.left + 18 * DP - q[0], ms.top + 18 * DP - q[1]) >= (18 + DeleteGuard.CLEAR_DP) * DP })
+        // a Tape: its two ends are the box; the disc keeps off both ends AND its band, which takes a press too (it moves
+        // the tape whole) -- one piece, as wide as the band is drawn there
+        val tt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, t.id, DP))
+        assertEquals(2, tt.keep.points.size); assertEquals(1, tt.keep.body.size)
+        assertEquals(Pano360.measLine(v, "front", fr.getValue("front"), t, DP).widen, tt.keep.bodyHalf, 1e-9); assertTrue(tt.keep.bodyHalf > 0)
+        val ts = assertNotNull(SurveyPrepTouch.trashSpot(tt.box, emptyList(), 680.0, 840.0, DP, tt.keep))
+        assertTrue(tt.keep.body.all { (a, b) -> SurveyMeas.segDist(ts.left + 18 * DP, ts.top + 18 * DP, a, b) >= (18 + DeleteGuard.CLEAR_DP) * DP + tt.keep.bodyHalf })
+        // a chain a room already has: its points, and the pieces between them
+        val ch = p.addChain("front", "x", listOf(doubleArrayOf(300.0, 600.0), doubleArrayOf(900.0, 600.0), doubleArrayOf(1500.0, 600.0)), listOf(null, null, null), "k1")
+        val kt = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, ch.id, DP))
+        assertEquals(3, kt.keep.points.size); assertEquals(2, kt.keep.body.size); assertEquals(0.0, kt.keep.bodyHalf)
+        // a point: its own centre
+        p.surface("front").marks.add(SurveyPrep.Mark("e1", "E", "FE1", 400.0, 450.0, 300.0, 350.0))
+        val et = assertNotNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, "e1", DP))
+        assertEquals(listOf(Pano360.toS(v, "front", fr.getValue("front"), 425.0, 325.0)!!.toList()), et.keep.points.map { it.toList() })
         // with a tool on, nothing picked, the reference, or the item behind the camera: no trash
         assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.TAPE, "m1"))
         assertNull(Pano360.trashOf(v, fr, p, SurveyPrepPalette.SEL, null))

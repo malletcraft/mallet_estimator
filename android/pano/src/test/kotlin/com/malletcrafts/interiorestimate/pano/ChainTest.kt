@@ -267,7 +267,7 @@ class ChainTest {
 
     @Test fun `Lock all chains, the menu, and every label (ct52 N, L, FX9)`() {
         val p = room(); val k1 = fk1(p); tapChain(p, "front", "k2", pt(500.0, 600.0), pt(1500.0, 600.0))
-        assertEquals("Delete|Duplicate|Lock|Lock all chains|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
+        assertEquals("Duplicate|Lock|Lock all chains|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
         assertEquals("FK1 chain", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, k1.id))
         assertEquals("FK1 chain", SurveyPrepEdit.labelOf(Tx.EN, p, k1.id))
         assertEquals("Delete FK1 chain", SurveyPrepEdit.deleteLabel(Tx.EN, p, k1.id))
@@ -278,7 +278,7 @@ class ChainTest {
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", g.t, true, g.kind))
         assertFalse(SurveyPrep.isLocked(p.surface("front").marks[0]))
         assertEquals("🔒 FK1 chain", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, k1.id))
-        assertEquals("Delete|Duplicate|Unlock|Unlock all chains|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
+        assertEquals("Duplicate|Unlock|Unlock all chains|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, k1.id).joinToString("|") { it.second })
         // Lock all marks (every item, kind null) takes the chains too; a mark type's or Lines' do not
         assertEquals(0, SurveyPrepEdit.lockAll(p, "front", null, true, SurveyPrepEdit.KIND_LINE))
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", null, false))

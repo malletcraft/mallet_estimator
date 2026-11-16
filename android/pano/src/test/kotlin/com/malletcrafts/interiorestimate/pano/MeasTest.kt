@@ -264,8 +264,8 @@ class MeasTest {
         p.addMeas("front", SurveyMeas.AREA, listOf(pt(0.0, 0.0), pt(900.0, 0.0), pt(900.0, 900.0)), "m2")
         p.addMarkAt("front", "D", 2000.0, 1050.0, W, H, "d1")
         // ct52 T: holding F-T1, then F-M1
-        assertEquals("Delete|Duplicate|Lock|Lock all tapes|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "t1").joinToString("|") { it.second })
-        assertEquals("Delete|Duplicate|Lock|Lock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m1").joinToString("|") { it.second })
+        assertEquals("Duplicate|Lock|Lock all tapes|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "t1").joinToString("|") { it.second })
+        assertEquals("Duplicate|Lock|Lock all Line marks|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m1").joinToString("|") { it.second })
         assertEquals("F-T1 tape", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "t1")); assertEquals("F-M2 marked area", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "m2"))
         assertEquals("FD1 Door", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "d1"))
         val (s, g) = assertNotNull(SurveyPrepEdit.lockGroupOf(p, "m1"))
@@ -276,7 +276,7 @@ class MeasTest {
         assertTrue(SurveyPrep.isLocked(by("F-M1"))); assertTrue(SurveyPrep.isLocked(by("F-M2")))
         assertFalse(SurveyPrep.isLocked(by("F-T1"))); assertFalse(SurveyPrep.isLocked(by("F-T2")))
         assertFalse(SurveyPrep.isLocked(p.markById("d1")!!.second))
-        assertEquals("Delete|Duplicate|Unlock|Unlock all Line marks|Cancel", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m2").joinToString("|") { it.second })
+        assertEquals("Duplicate|Unlock|Unlock all Line marks|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "m2").joinToString("|") { it.second })
         assertEquals("🔒 F-M1 marked length", SurveyPrepEdit.menuHeaderOf(Tx.EN, p, "m1"))
         // "Lock all tapes" locks the two tapes only
         assertEquals(2, SurveyPrepEdit.lockAll(p, "front", null, true, SurveyPrepEdit.KIND_TAPE))

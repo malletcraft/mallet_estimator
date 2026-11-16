@@ -20,6 +20,12 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  * A SLOT APPEARS ONLY WHEN ITS TOOL WORKS (no dead buttons): Tape and Line joined in slice 9 and Chain in slice 11
  * (v52 slice 11: the palette is COMPLETE -- Select, Tape, Line, Chain, three types, More ▸: exactly eight slots).
  *
+ * THE CHAIN'S SLOT IS GONE AGAIN (port 63 slice F1, 16 Nov 2026; Amit, with build 0.3.337 on his phone: "chain mark is
+ * rarely used. get rid of it."): [offered] is what the palette draws -- Select, Tape, Line, three types, More ▸, SEVEN
+ * slots while [Features.CHAINS] is off, each a seventh of the row, so nothing is left where the eighth stood. The
+ * Chain is still one of the drawing [TOOLS] -- its key is never a mark type -- and its code is all kept: one line in
+ * Features brings the slot back.
+ *
  * Pure, so the slots, the More order, the labels and the sticky rule are tested here; SpPalette only draws.
  */
 object SurveyPrepPalette {
@@ -27,11 +33,20 @@ object SurveyPrepPalette {
     /** The Select tool's key; a type tool's key is its letter. */
     const val SEL = "sel"
 
-    /** The drawing tools, in palette order: Tape "T" and Line "M" (v52 slice 9), Chain "K" (v52 slice 11). */
+    /** The drawing tools, in palette order: Tape "T" and Line "M" (v52 slice 9), Chain "K" (v52 slice 11). EVERY
+     *  drawing tool there is, offered or not: what tells a tool's key from a mark type's ([isType]). What the palette
+     *  OFFERS is [offered]. */
     const val TAPE = "T"
     const val LINE = "M"
     const val CHAIN = "K"
     val TOOLS: List<String> = listOf(TAPE, LINE, CHAIN)
+
+    /**
+     * THE DRAWING TOOLS THE PALETTE OFFERS, in its order: Tape and Line -- and the Chain only while [chains] is on
+     * (port 63 slice F1; [Features.CHAINS], off: Amit, 16 Nov 2026, "chain mark is rarely used. get rid of it."). The
+     * switch is the DEFAULT of the last parameter, so both sides stay tested whichever way it stands.
+     */
+    fun offered(chains: Boolean = Features.CHAINS): List<String> = if (chains) TOOLS else TOOLS - CHAIN
 
     /** Tape or Line -- the two that pull a figure by a drag (SurveyMeas); the Chain is tapped point by point. */
     fun isMeasTool(tool: String) = tool == TAPE || tool == LINE
@@ -80,8 +95,10 @@ object SurveyPrepPalette {
     /** One slot: what it is, the tool it turns on ([SEL], a tool's key, a type's letter; "" for More), its type. */
     class Slot(val kind: SlotKind, val key: String, val type: SurveyPrep.MarkType? = null)
 
-    /** The palette's slots, left to right: Select, the working [tools], the three types, More ▸. */
-    fun slots(kind: String, tools: List<String> = TOOLS): List<Slot> {
+    /** The palette's slots, left to right: Select, the drawing [tools] it offers ([offered]: no Chain while
+     *  [Features.CHAINS] is off), the three types, More ▸. Every slot is drawn the same width, so a tool that is not
+     *  offered leaves no gap. */
+    fun slots(kind: String, tools: List<String> = offered()): List<Slot> {
         val p = paletteFor(kind)
         return listOf(Slot(SlotKind.SELECT, SEL)) + tools.map { Slot(SlotKind.TOOL, it) } +
             p.main.map { Slot(SlotKind.TYPE, it.letter, it) } + (if (p.more.isEmpty()) emptyList() else listOf(Slot(SlotKind.MORE, "")))
