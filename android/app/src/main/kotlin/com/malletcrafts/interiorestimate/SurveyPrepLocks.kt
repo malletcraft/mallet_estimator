@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.malletcrafts.interiorestimate.pano.DeleteGuard
 import com.malletcrafts.interiorestimate.pano.SurveyPrepEdit
 
 /**
@@ -55,7 +57,8 @@ import com.malletcrafts.interiorestimate.pano.SurveyPrepEdit
  *    five seconds; the no-UNDO variant (.snack.lkmsg: #FFE9A8 on #3D3410) for a refusal, which wraps rather
  *    than cuts ("FD1 is locked — unlock first" is whole at 360 dp).
  *  - [SpCtxMenu]: v42.css .ctxm -- #2A2D25, 10 dp corners, at least 156 dp wide, a gold monospace head, rows
- *    40 dp tall, Delete in #FF8A8A.
+ *    40 dp tall, Delete in #FF8A8A -- and, since port 63 slice F1, Delete LAST and APART: 16 dp of dead menu above it
+ *    and a quiet red outline round it (DeleteGuard), where the prototype had it first, right under the finger.
  *  - [SpPadlock] / [SpLinesLock]: sp.js LOCKSVG -- lit gold when locked; a tap toggles.
  *  - [SpTwoTap]: ⋮'s Clear this surface… / Clear whole room…, armed by the first tap, done by the second.
  */
@@ -68,7 +71,9 @@ private val SN_LK_FG = Color(0xFFFFE9A8)
 private val CM_BG = Color(0xFF2A2D25)
 private val CM_LINE = Color(0xFF3A3E35)
 private val CM_FG = Color(0xFFECEEE8)
-private val CM_DEL = Color(0xFFFF8A8A)
+/** The delete row's word and its outline (DeleteGuard.INK / OUTLINE: the one look every delete control has). */
+private val CM_DEL = Color(SurveyPrepDraw.argb(DeleteGuard.INK))
+private val CM_DEL_LINE = Color(SurveyPrepDraw.argb(DeleteGuard.OUTLINE))
 private val LK_GOLD = Color(0xFFE0B040)
 private val LK_INK = Color(0xFF14160F)
 private val LK_OFF = Color(0xFF7E847A)
@@ -103,20 +108,39 @@ internal fun SpSnack(text: String, undo: Boolean, modifier: Modifier, onUndo: ()
 
 /**
  * The long-press menu on a mark: [header] ("FD1 Door", "🔒 FD1 Door"), then [items] as (action, text) --
- * Delete · Duplicate · Lock · Lock all Door · Cancel (SurveyPrepEdit.menuItems). The caller places it at the press.
+ * Duplicate · Lock · Lock all Door · Cancel · Delete (SurveyPrepEdit.menuItems). The caller places it at the press.
+ *
+ * DELETE CANNOT BE PRESSED BY ACCIDENT (port 63 slice F1; Amit, 16 Nov 2026: "same for delete button for any item").
+ * The menu opens with its head under the finger that held the mark, and the prototype's first row was Delete: a
+ * second tap that came down a little low deleted the mark it had only meant to lock. SurveyPrepEdit puts the delete
+ * row LAST now (DeleteGuard.last); here it stands DeleteGuard.CLEAR_DP of dead menu below the row before it -- a
+ * Spacer, which takes no tap -- inside a quiet red outline, its word in the same red. One tap still deletes: "FD1
+ * deleted" with UNDO says what went. The delete row is the menu's foot -- DeleteGuard.MENU_ROW_DP tall,
+ * DeleteGuard.MENU_FOOT_DP of padding under it -- which is what DeleteGuard.menuTop needs to know to keep that row from
+ * ever opening under the finger (the caller places the menu with it).
  */
 @Composable
 internal fun SpCtxMenu(header: String, items: List<Pair<String, String>>, modifier: Modifier, onPick: (String) -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Column(modifier.width(IntrinsicSize.Max).widthIn(min = 156.dp).shadow(10.dp, shape).clip(shape).background(CM_BG)
-        .border(1.dp, CM_LINE, shape).padding(vertical = 4.dp)) {
+        .border(1.dp, CM_LINE, shape).padding(vertical = DeleteGuard.MENU_FOOT_DP.dp)) {
         Text(header, color = LK_GOLD, fontSize = 12.sp, lineHeight = 16.sp, fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(max = 220.dp).padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 2.dp))
         for ((k, t) in items) {
-            Box(Modifier.fillMaxWidth().height(40.dp).clickable(role = Role.Button) { onPick(k) }.padding(horizontal = 14.dp),
-                contentAlignment = Alignment.CenterStart) {
-                Text(t, color = if (k == SurveyPrepEdit.DELETE) CM_DEL else CM_FG, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
+            if (k == SurveyPrepEdit.DELETE) {
+                val del = RoundedCornerShape(8.dp)
+                Spacer(Modifier.height(DeleteGuard.CLEAR_DP.dp))
+                Box(Modifier.fillMaxWidth().padding(horizontal = 6.dp).height(DeleteGuard.MENU_ROW_DP.dp).clip(del).border(1.5.dp, CM_DEL_LINE, del)
+                    .clickable(role = Role.Button) { onPick(k) }.padding(horizontal = 8.dp),
+                    contentAlignment = Alignment.CenterStart) {
+                    Text(t, color = CM_DEL, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
+                }
+            } else {
+                Box(Modifier.fillMaxWidth().height(DeleteGuard.MENU_ROW_DP.dp).clickable(role = Role.Button) { onPick(k) }.padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart) {
+                    Text(t, color = CM_FG, fontSize = 14.sp, lineHeight = 18.sp, maxLines = 1)
+                }
             }
         }
     }

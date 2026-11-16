@@ -31,6 +31,12 @@ import kotlin.test.assertTrue
  *
  * TO TURN SITE PROGRESS BACK ON: `SITE_PROGRESS = true` in Features.kt, and the first test and the declaration's pin
  * below follow it. Nothing else moves.
+ *
+ * (5) THE CHAIN TOOL'S SWITCH (port 63 slice F1, 16 Nov 2026; Amit, with build 0.3.337 on his phone: "chain mark is
+ * rarely used. get rid of it."): [Features.CHAINS] is off; every entry that could start a new chain reads it -- three
+ * pure rules of :pano, each taking it as the default of its last parameter, which :app asks with no answer of its own;
+ * a room that already has a chain keeps it, drawn, picked, measured, counted and deletable; and every file of the
+ * chain is still there. The last tests.
  */
 class FeaturesTest {
 
@@ -245,7 +251,8 @@ class FeaturesTest {
         val features = code(pano + "Features.kt")
         assertEquals(1, count(features, "const val SITE_PROGRESS: Boolean = false"), "the switch is a constant, and it is off")
         assertEquals(1, count(features, "const val HELP_TOURS: Boolean = false"), "the tours' switch has its home, and is off (port 63 slice M2)")
-        assertEquals(2, count(features, "const val "), "two switches and nothing else")
+        assertEquals(1, count(features, "const val CHAINS: Boolean = false"), "the chain tool's switch has its home, and is off (port 63 slice F1)")
+        assertEquals(3, count(features, "const val "), "three switches and nothing else")
         // no second switch, anywhere a screen is built from: nothing else declares or assigns one
         val all = LiteralScan.ROOTS.flatMap { sources(it) }
         assertTrue(all.size > 100, "the three main trees were walked (${all.size} sources)")
@@ -463,5 +470,182 @@ class FeaturesTest {
         assertEquals(4, count(prepScreen, "tourAnchor("), "save, tab:<tab>, mode:<step> and lines:row")
         assertEquals(5, count(prepScreen, "TourState.HOST_SURVEY"), "each of the four in survey prep's own window, and its own overlay")
         assertEquals(1, count(prepScreen, "TourBindSurvey(tab, mode,")); assertEquals(1, count(prepScreen, "TourOverlay(TourState.HOST_SURVEY)"))
+    }
+
+    // ---- (5) the chain tool's switch (port 63 slice F1) -------------------------------------------------------
+
+    private val W = 2678.0; private val H = 2677.0; private val L = 3319.0
+    private fun ab(s: String): DoubleArray = SurveyPrep.size(s, L, W, H)
+    private fun pt(x: Double, y: Double) = doubleArrayOf(x, y)
+
+    /** A front wall a surveyor already drew a chain on, and read one segment of: a door, a tape and the chain FK1. */
+    private fun roomWithChain(): SurveyPrep.Prep {
+        val p = SurveyPrep.fresh(L, W, H)
+        p.surface("front").marks.add(SurveyPrep.Mark("d1", "D", "FD1", 300.0, 1200.0, 0.0, 2100.0))
+        p.addMeas("front", SurveyMeas.TAPE, listOf(pt(0.0, 1000.0), pt(1234.0, 1000.0)), "t1")
+        p.addChain("front", "x", listOf(pt(300.0, 2400.0), pt(1200.0, 2400.0), pt(2400.0, 2400.0)), listOf(null, "FD1 right", null), "k1")
+        p.actual["FK1.1"] = 905.0
+        return p
+    }
+
+    @Test fun `the chain tool is off - no slot offers it, the tool that is on is never it, and a chain is never copied`() {
+        // Amit, 16 Nov 2026, with build 0.3.337 on his phone: "chain mark is rarely used. get rid of it."
+        val chains: Boolean = Features.CHAINS
+        assertFalse(chains, "Features.CHAINS is on: the palette offers the Chain again and a new chain can be drawn")
+        // ENTRY 1, THE PALETTE: its default IS the switch; off, no slot's key is the Chain's on any kind of surface
+        assertEquals(SurveyPrepPalette.offered(chains = Features.CHAINS), SurveyPrepPalette.offered())
+        for (kind in listOf("wall", "floor", "ceil")) {
+            assertEquals(SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = Features.CHAINS)).map { it.key }, SurveyPrepPalette.slots(kind).map { it.key })
+            assertFalse(SurveyPrepPalette.CHAIN in SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = false)).map { it.key }, kind)
+            assertTrue(SurveyPrepPalette.CHAIN in SurveyPrepPalette.slots(kind, SurveyPrepPalette.offered(chains = true)).map { it.key }, "$kind: the other side is whole")
+        }
+        // ENTRY 2, THE TOOL THAT IS ON: whatever was picked, at every stage and unread
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) {
+            assertEquals(SurveyPrepPalette.SEL, PhaseTools.toolFor(SurveyPrepPalette.CHAIN, st, chains = false), "at $st")
+            assertEquals(PhaseTools.toolFor(SurveyPrepPalette.CHAIN, st, chains = Features.CHAINS), PhaseTools.toolFor(SurveyPrepPalette.CHAIN, st))
+        }
+        assertEquals(SurveyPrepPalette.CHAIN, PhaseTools.toolFor(SurveyPrepPalette.CHAIN, 0, chains = true), "on, Survey draws chains as before")
+        // ... so the 360's press never reaches the Chain's own step, and 2 - Mark's never its branch: both ask the tool that is on
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) for (drafting in listOf(false, true))
+            assertFalse(Pano360.Step.CHAIN in Pano360.order(PhaseTools.toolFor(SurveyPrepPalette.CHAIN, st), drafting), "at $st")
+        // ENTRY 3, DUPLICATE ON A CHAIN: a copy would be a new chain
+        val p = roomWithChain()
+        for (st in listOf(0, 1, 2, 3, 4, 5, null)) for (picked in listOf(null, "exist", "wish", "vadd")) {
+            assertFalse(PhaseTools.copyOk(p, "k1", st, picked, chains = false), "at $st, $picked")
+            assertEquals(PhaseTools.copyOk(p, "k1", st, picked, chains = Features.CHAINS), PhaseTools.copyOk(p, "k1", st, picked))
+            assertFalse(SurveyPrepEdit.DUPLICATE in SurveyPrepEdit.menuItemsOf(Tx.EN, p, "k1", st, picked).map { it.first }, "the menu at $st, $picked")
+        }
+        assertTrue(PhaseTools.copyOk(p, "k1", 0, null, chains = true), "on, a chain is copied wherever it may be edited")
+        // NO HELP LINE NAMES IT: no tour that ships -- none does while the tours are off -- says Chain, in either language
+        for (tx in listOf(Tx.EN, Tx.MR)) for (f in TourFlows.shipped(tx, tours = true)) for (st in f.steps)
+            for (word in listOf("Chain", "chain", tx.common_chain))
+                assertFalse(word in st.title || word in st.body || word in f.name || word in f.line, "${f.id} ${st.id} names $word")
+    }
+
+    @Test fun `a room that already has a chain keeps it - read and written unchanged, picked, measured, counted, locked and deleted`() {
+        val p = roomWithChain(); val z = ab("front")
+        val k = p.chainById("k1")!!.second
+        // THE FILE: it is written, read back and written again byte for byte -- nothing of it is dropped on the way
+        val o = SurveyPrepFile.encode(p, L, W, H)
+        val d = SurveyPrepFile.decode(o)!!
+        assertTrue(d.problems.isEmpty())
+        val k2 = d.prep.chainById("k1")!!.second
+        assertEquals("FK1", k2.code); assertEquals("x", k2.axis); assertEquals(k.nodes.map { it.toList() }, k2.nodes.map { it.toList() })
+        assertEquals(listOf(null, "FD1 right", null), k2.snaps); assertEquals(905.0, d.prep.actual["FK1.1"])
+        assertEquals(o.toString(), SurveyPrepFile.encode(d.prep, L, W, H).toString())
+        // IT IS AN ITEM OF THE FACE LIKE ANY OTHER: listed, owned, labelled
+        assertEquals(listOf("FD1", "F-T1", "FK1"), p.itemsOf("front").map { it.code })
+        assertEquals("k1", p.ownerOf("FK1.2")!!.id); assertEquals("FK1 chain", SurveyPrepEdit.labelOf(Tx.EN, p, "k1"))
+        // PICKED: a tap within 12 dp of its line; its point within 16 dp (screen px = mm here)
+        val scr = listOf("k1" to k.nodes)
+        assertEquals("k1", SurveyChain.pick(scr, 800.0, 2405.0, 12.0)); assertEquals("k1" to 1, SurveyChain.nodeAt(scr, 1205.0, 2395.0, 16.0))
+        // MEASURED: its segments and its total are stops of 3 - Measure's walk, in the counts, and take a reading
+        val stops = MeasureWalk.stops(p, "front", z[0], z[1])
+        assertEquals(listOf("FK1.1", "FK1.2", "FK1.t"), stops.filter { it.startsWith("FK1.") })
+        assertEquals(listOf("FK1.1", "FK1.2", "FK1.t"), MeasureWalk.stopsOf(p, "k1") { ab(it) })
+        val before = MeasureWalk.count(p, "front", z[0], z[1])
+        assertTrue(MeasureFlow.takes(p, "FK1.2", 0) { ab(it) }); assertEquals("FK1.2", MeasureFlow.firstOpen(p, "k1", 0) { ab(it) })
+        assertEquals("FK1.2", MeasureFlow.figure(p, "FK1.2", null, 0) { ab(it) }.active)
+        p.actual["FK1.2"] = 1200.0
+        val after = MeasureWalk.count(p, "front", z[0], z[1])
+        // one more read; and with both segments read the total is DERIVED, so it is no longer left -- on neither side, as ever
+        assertEquals(before.read + 1, after.read); assertEquals(before.left - 2, after.left)
+        assertFalse(MeasureWalk.left(p, "front", z[0], z[1], "FK1.t"))
+        assertEquals(MeasureWalk.count(p, "front", z[0], z[1]).left, MeasureFlow.tabLeft(p, "front", 0, z[0], z[1]))
+        // its own menu: everything but Duplicate -- Lock, Lock all chains, Cancel, and Delete last
+        assertEquals("Lock|Lock all chains|Cancel|Delete", SurveyPrepEdit.menuItemsOf(Tx.EN, p, "k1", 0, null).joinToString("|") { it.second })
+        assertTrue(PhaseTools.editable(p, "k1", 0) && PhaseTools.lockOk(p, "k1", 0) && PhaseTools.delOk(p, "k1", 0))
+        assertEquals(true, SurveyPrepEdit.setLocked(p, "k1", true)); assertFalse(p.deleteMark("k1"), "locked, it is not deleted")
+        assertEquals(false, SurveyPrepEdit.setLocked(p, "k1", false))
+        // its points still move along it (the chain's own code, untouched)
+        assertTrue(SurveyChain.nodeMove("front", k, 1, pt(1250.0, 2400.0), z[0], z[1], emptyList(), 0.0))
+        assertEquals(1250.0, k.nodes[1][0])
+        // DELETED: it goes with its readings and nothing else's; one undo brings it and them back
+        val snap = p.copy()
+        assertTrue(p.deleteMark("k1"))
+        assertNull(p.chainById("k1")); assertTrue(p.actual.keys.none { it.startsWith("FK1.") })
+        assertEquals(listOf("FD1", "F-T1"), p.itemsOf("front").map { it.code })
+        val back = SurveyPrepEdit.undoTo(p, snap)
+        assertEquals(listOf("FD1", "F-T1", "FK1"), back.itemsOf("front").map { it.code })
+        assertEquals(905.0, back.actual["FK1.1"]); assertEquals(1200.0, back.actual["FK1.2"])
+    }
+
+    @Test fun `every entry of the chain tool reads the one constant, the app overrides none, and nothing of the chain was deleted`() {
+        val chains = "Features.CHAINS"
+        val all = LiteralScan.ROOTS.flatMap { sources(it) }
+        // THE INVENTORY: each source that reads the switch, and how many times -- all in :pano, each the default of a
+        // pure rule's last parameter
+        val found = all.associateWith { count(code(it), chains) }.filterValues { it > 0 }
+        assertEquals(mapOf(
+            pano + "SurveyPrepPalette.kt" to 1,   // offered: what the palette draws
+            pano + "PhaseTools.kt" to 2,          // toolFor: the tool that is on; copyOk: Duplicate on a chain
+            pano + "SurveyPrepEdit.kt" to 1,      // menuItemsOf: the menu's Duplicate row, through copyOk
+        ).toSortedMap(), found.toSortedMap(), "the sources that read Features.CHAINS, and how often")
+        val declared = all.filter { Regex("""\bCHAINS\b\s*(?::\s*Boolean\s*)?=[^=]""").containsMatchIn(code(it)) }
+        assertEquals(listOf(pano + "Features.kt"), declared, "CHAINS is given a value in one place")
+        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun offered(chains: Boolean = Features.CHAINS): List<String> = if (chains) TOOLS else TOOLS - CHAIN"))
+        assertEquals(1, count(code(pano + "SurveyPrepPalette.kt"), "fun slots(kind: String, tools: List<String> = offered()): List<Slot> {"))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String ="))
+        assertEquals(1, count(code(pano + "PhaseTools.kt"), "fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean ="))
+        assertEquals(1, count(code(pano + "SurveyPrepEdit.kt"), "DUPLICATE -> PhaseTools.copyOk(p, id, stage, picked, chains)"))
+        // :app NEVER OVERRIDES IT: no app source names the switch or hands a rule its own answer
+        val apps = all.filter { it.startsWith("app/") || it.startsWith("camera/") }
+        assertTrue(apps.size > 40, "the app's sources were walked (${apps.size})")
+        for (rel in apps) {
+            assertEquals(0, count(code(rel), "chains ="), "$rel hands a rule the answer")
+            assertEquals(0, count(code(rel), "offered("), "$rel asks what is offered by itself")
+        }
+        val screen = code(app + "SurveyPrepScreen.kt"); val tools = code(app + "SurveyPrepTools.kt"); val p3 = code(app + "SurveyPrep360.kt")
+        // ENTRY 1: the palette draws the slots the rule gives, weighed alike -- no list of its own, so no gap
+        assertEquals(1, count(tools, "for (slot in SurveyPrepPalette.slots(kind)) {"))
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepTools.kt") 1 else 0, count(code(rel), "SurveyPrepPalette.slots("), rel)
+        assertEquals(1, count(tools, "Modifier.weight(1f).height(if (land) 46.dp else 50.dp).clip(shape)"), "every slot the same share of the row")
+        // ENTRY 2: ONE tool is on, the rule's answer, and both views, the palette and More are handed that one
+        assertEquals(1, count(screen, "val tool = PhaseTools.toolFor(toolSet, quoteStage)"))
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "PhaseTools.toolFor("), rel)
+        assertEquals(1, count(screen, "Sp360(Modifier.fillMaxSize(), previewPano, p3Look, tab, rev, prep, roomSize, sel, active, tool,"))
+        assertEquals(1, count(screen, "tool = tool,"), "2 - Mark's photo")
+        assertEquals(1, count(screen, "SpPalette(tab, tool, land, onTool = { t -> pickTool(t) }, onMore = { moreOpen = !moreOpen })"))
+        assertEquals(1, count(screen, "SpMoreSheet(tab, tool, land,"))
+        // ... and the tool last picked is only ever what a slot gave, the tool that is on, or Select
+        assertEquals(5, count(screen, "toolSet = "), "pickTool, the phase's move, a face, a step and Start over")
+        assertEquals(1, count(screen, "toolSet = SurveyPrepPalette.next(tool, t)")); assertEquals(1, count(screen, "toolSet = tool;"))
+        assertEquals(3, count(screen, "toolSet = SurveyPrepPalette.SEL"))
+        // a new chain's point is added in one place, behind the tool: 2 - Mark's branch and the 360's pick order
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "SurveyChain.press("), rel)
+        assertEquals(1, count(screen, "val chainOn = mode == "), "2 - Mark: only with the Chain's key on")
+        assertTrue(Regex("""val chainOn = mode == "[^"]*" && tool0 == SurveyPrepPalette\.CHAIN""").containsMatchIn(screen))
+        assertEquals(1, count(p3, "val order = Pano360.order(tool0, drafting)"))
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "prep.addChain("), "$rel plots a chain")
+        // ENTRY 3: the menu and the act both ask the copy rule, with no answer of their own
+        assertEquals(1, count(screen, "SurveyPrepEdit.menuItemsOf(tx, prep, c.id, quoteStage, asPicked)"))
+        val dup = screen.indexOf("if (!PhaseTools.copyOk(prep, mid, quoteStage, asPicked)) { phaseRefuse(null); return }")
+        val made = screen.indexOf("SurveyPrepEdit.duplicateChain(prep, mid, a[0], a[1], nid)")
+        assertTrue(dup in 0 until made, "the copy rule is asked before the one call that copies a chain")
+        for (rel in apps) assertEquals(if (rel == app + "SurveyPrepScreen.kt") 1 else 0, count(code(rel), "duplicateChain("), rel)
+        // NOTHING OF THE CHAIN WAS DELETED: its model, its file's reader and writer, its two gesture branches, its
+        // drawing on the photo, the 360 and the Plan, its icon, its row, and its own tests
+        val kept = mapOf(
+            pano + "SurveyChain.kt" to listOf("object SurveyChain", "fun press(d: Draft?,", "fun finish(d: Draft): Finish", "fun vals(c: SurveyPrep.Chain,", "fun nodeMove(",
+                "fun duplicate(p: SurveyPrep.Prep,", "fun chipText(tx: Tx, points: Int)", "fun openKeys(c: SurveyPrep.Chain,"),
+            pano + "SurveyPrep.kt" to listOf("class Chain(val id: String,", "fun addChain(s: String,", "fun chainById(id: String)"),
+            pano + "SurveyPrepFile.kt" to listOf("chains.add(SurveyPrep.Chain(id, code,", "if (sf.chains.isNotEmpty() || sf.chainsKey)"),
+            pano + "SurveyPrepPalette.kt" to listOf("val TOOLS: List<String> = listOf(TAPE, LINE, CHAIN)", "CHAIN -> tx.common_chain"),
+            pano + "Pano360.kt" to listOf("if (chain) { out.add(Step.CHAIN); return out }", "Step.CHAIN -> return Pick.Chain"),
+            pano + "MeasureWalk.kt" to listOf("chains"),
+            app + "SurveyPrepScreen.kt" to listOf("fun finishChain(d: SurveyChain.Draft)", "fun flushChain()", "fun chainPress(mm: DoubleArray, tol: Double): Int?",
+                "fun nodeGrab(cid: String, i: Int): SpGrab?", "fun hitChain(sx: Float, sy: Float): String?", "fun selectChain(s: String, cid: String)",
+                "Text(SurveyChain.rowValue(tx, kv),", "else if (chainTool) SurveyChain.chipText(tx, chainN)"),
+            app + "SurveyPrepDraw.kt" to listOf("private fun drawChains(c: Canvas,", "if (o.mode != "),
+            app + "SurveyPrepTools.kt" to listOf("private fun DrawScope.drawChainIcon(c: Color)", "SurveyPrepPalette.CHAIN -> drawChainIcon(col)"),
+            app + "SurveyPrep360.kt" to listOf("Pano360.Pick.Chain -> chainOn = true", "is Pano360.Pick.Node -> {", "fun chainAt(x: Double, y: Double): Int?"),
+        )
+        for ((rel, has) in kept) { val c = code(rel); for (dcl in has) assertTrue(dcl in c, "$rel still has `$dcl`") }
+        assertTrue(I18n.android.resolve(tests + "ChainTest.kt").isFile, "the chain's own tests still run")
+        // every text of the chain is still keyed, for the chains a room already has and for the day the switch goes on
+        for (tx in listOf(Tx.EN, Tx.MR)) {
+            assertTrue(tx.common_chain.isNotBlank()); assertTrue(SurveyChain.chipText(tx, 2).isNotBlank()); assertTrue(SurveyChain.doneLabel(tx).isNotBlank())
+        }
+        assertEquals("Chain", Tx.EN.common_chain)
     }
 }

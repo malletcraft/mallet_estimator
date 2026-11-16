@@ -412,6 +412,9 @@ object Pano360 {
         CHAIN,
         /** Tape or Line on: a drag pulls one, a tap is a Line area's corner (or the Tape's hint). */
         MEAS,
+        /** The PICKED Tape's, Line's or area's body within 12 dp, outside its ends' reach (port 63 slice F1): with
+         *  Select on it is grabbed whole and moves along its surface, every point together ([SurveyGuide.bodyMove]). */
+        BODY,
         /** A mark's outline under the finger: the picked one first, then the smallest. */
         MARK,
         /** A type on: placed on the surface under the finger, centred and kept inside it. */
@@ -424,6 +427,8 @@ object Pano360 {
      * WHAT A PRESS ON THE 360 TRIES, IN ORDER, with [tool] on (sp.js P3 pointerdown) -- [drafting]: a Line area or a
      * chain is being tapped, whose taps are corners and points, so no end is grabbed. The same order as 2 · Mark's,
      * with the tabs before the chain points (item 14) and the ends first (item 8); a drawing tool stops at its own step.
+     * With Select on, the picked Tape's, Line's or area's BODY comes after the chain points and BEFORE the marks (port
+     * 63 slice F1), as on 2 · Mark ([SurveyPrepTouch.hit]): it is the thing picked, and it is drawn over them.
      */
     fun order(tool: String, drafting: Boolean): List<Step> {
         val out = mutableListOf<Step>()
@@ -433,6 +438,7 @@ object Pano360 {
         if (tool == SurveyPrepPalette.SEL || chain) out.add(Step.NODES)
         if (chain) { out.add(Step.CHAIN); return out }
         if (meas) { out.add(Step.MEAS); return out }
+        if (!drafting && tool == SurveyPrepPalette.SEL) out.add(Step.BODY)
         out.add(Step.MARK)
         out.add(if (SurveyPrepPalette.isType(tool)) Step.PLACE else Step.LOOK)
         return out
@@ -442,9 +448,12 @@ object Pano360 {
      * What is on the screen to be pressed: the selected Tape's / Line's / area's points ([ends], null when none is
      * selected; a point behind the camera far off the screen), the picked mark's tabs ([tabs]; empty for a locked mark
      * or a spot), every chain's points ([nodes]: id, points), and every mark's outline ([polys]), [selId] the picked one.
+     * [body] (port 63 slice F1): the selected Tape's / Line's / area's own line as drawn ([measLine]: a tape's widened
+     * by its band), which a press grabs it whole by; null when none is selected.
      */
     class Scene(val ends: List<DoubleArray>?, val tabs: List<Pair<String, DoubleArray>>,
-                val nodes: List<Pair<String, List<DoubleArray>>>, val polys: List<Poly>, val selId: String?)
+                val nodes: List<Pair<String, List<DoubleArray>>>, val polys: List<Poly>, val selId: String?,
+                val body: Line? = null)
 
     /** What a press took. */
     sealed class Pick {
@@ -453,6 +462,8 @@ object Pano360 {
         data class Node(val id: String, val i: Int) : Pick()
         object Chain : Pick() { override fun toString() = "Chain" }
         object Meas : Pick() { override fun toString() = "Meas" }
+        /** The picked Tape's, Line's or area's body: it moves whole. */
+        object Body : Pick()
         data class Mark(val s: String, val id: String) : Pick()
         object Place : Pick() { override fun toString() = "Place" }
         object Look : Pick() { override fun toString() = "Look" }
@@ -467,6 +478,7 @@ object Pano360 {
             Step.NODES -> SurveyChain.nodeAt(sc.nodes, x, y, NODE_DP * dpPx)?.let { (id, i) -> return Pick.Node(id, i) }
             Step.CHAIN -> return Pick.Chain
             Step.MEAS -> return Pick.Meas
+            Step.BODY -> sc.body?.let { l -> if (pickLine(listOf(l), x, y, LINE_PICK_DP * dpPx) != null) return Pick.Body }
             Step.MARK -> markAt(sc.polys, sc.selId, x, y)?.let { return Pick.Mark(it.s, it.id) }
             Step.PLACE -> return Pick.Place
             Step.LOOK -> return Pick.Look
@@ -497,30 +509,47 @@ object Pano360 {
 
     // ------------------------------------------------------------------ the floating trash
 
-    /** The trash's place, on the screen: [box] round the picked item, and [handles] the disc keeps off (its ends). */
-    class Trash(val box: SurveyPrepTouch.Box, val handles: List<DoubleArray>)
+    /** The trash's place, on the screen: [box] round the picked item, and what the disc keeps clear of beside it
+     *  ([keep]: the item's own handles, [SurveyPrepTouch.TrashKeep]). */
+    class Trash(val box: SurveyPrepTouch.Box, val keep: SurveyPrepTouch.TrashKeep)
 
     /**
      * THE FLOATING TRASH ON THE 360 (sp.js fTrashP3): with [tool] Select and [selId] picked, the screen box of its points
      * in its surface's mm (sp.js itemMM) -- a mark's four corners, a Tape's / Line's / area's points, a chain's nodes --
-     * through the view [v]; the Tape's, Line's, area's or chain's points are also the handles the disc keeps clear of, as
-     * on 2 · Mark. Null with another tool on, for the reference (never deleted), on a surface not bounded ([fr] has no
-     * frame for it), or when no point is in front of the camera. SurveyPrepTouch.trashSpot places the disc from this.
+     * through the view [v]. Null with another tool on, for the reference (never deleted), on a surface not bounded ([fr]
+     * has no frame for it), or when no point is in front of the camera. SurveyPrepTouch.trashSpot places the disc from this.
+     *
+     * WHAT THE DISC KEEPS 16 DP CLEAR OF (port 63 slice F1; [DeleteGuard]), each through the same view: a box mark's
+     * eight tabs where they are DRAWN ([tabsOf]) -- a spot's own centre; a Tape's, a Line's or an area's points and
+     * the pieces of its line (a tape's as wide as its band there, [measLine]); a chain's points and its line. [dpPx]
+     * px per dp, for the tape's band.
      */
-    fun trashOf(v: View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep, tool: String, selId: String?): Trash? {
+    fun trashOf(v: View, fr: Map<String, SurveyPrep.Frame>, prep: SurveyPrep.Prep, tool: String, selId: String?, dpPx: Double = 1.0): Trash? {
         if (tool != SurveyPrepPalette.SEL || selId == null || SurveyRef.isId(selId)) return null
-        var ends = true
-        val (s, mm) = prep.markById(selId)?.let { (s, e) ->
-            ends = false
-            s to listOf(doubleArrayOf(e.x0, e.y0), doubleArrayOf(e.x1, e.y0), doubleArrayOf(e.x1, e.y1), doubleArrayOf(e.x0, e.y1))
-        } ?: prep.measById(selId)?.let { (s, m) -> s to m.pts }
-          ?: prep.chainById(selId)?.let { (s, c) -> s to c.nodes }
-          ?: return null
-        val f = fr[s] ?: return null
-        val q = mm.mapNotNull { toS(v, s, f, it[0], it[1]) }
-        if (q.isEmpty()) return null
-        return Trash(SurveyPrepTouch.Box(q.minOf { it[0] }, q.minOf { it[1] }, q.maxOf { it[0] }, q.maxOf { it[1] }),
-            if (ends) q else emptyList())
+        fun boxOf(q: List<DoubleArray>) = SurveyPrepTouch.Box(q.minOf { it[0] }, q.minOf { it[1] }, q.maxOf { it[0] }, q.maxOf { it[1] })
+        prep.markById(selId)?.let { (s, e) ->
+            val f = fr[s] ?: return null
+            val q = listOf(doubleArrayOf(e.x0, e.y0), doubleArrayOf(e.x1, e.y0), doubleArrayOf(e.x1, e.y1), doubleArrayOf(e.x0, e.y1))
+                .mapNotNull { toS(v, s, f, it[0], it[1]) }
+            if (q.isEmpty()) return null
+            val pts = if (SurveyPrep.isSpot(e.t)) listOfNotNull(toS(v, s, f, (e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2))
+                      else tabsOf(e).mapNotNull { (_, mm) -> toS(v, s, f, mm[0], mm[1]) }
+            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(pts))
+        }
+        prep.measById(selId)?.let { (s, m) ->
+            val f = fr[s] ?: return null
+            val q = m.pts.mapNotNull { toS(v, s, f, it[0], it[1]) }
+            if (q.isEmpty()) return null
+            val line = measLine(v, s, f, m, dpPx)
+            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(q, line.segs, line.widen))
+        }
+        prep.chainById(selId)?.let { (s, c) ->
+            val f = fr[s] ?: return null
+            val q = c.nodes.mapNotNull { toS(v, s, f, it[0], it[1]) }
+            if (q.isEmpty()) return null
+            return Trash(boxOf(q), SurveyPrepTouch.TrashKeep(q, segsOf(v, s, f, c.nodes, false)))
+        }
+        return null
     }
 
     // ------------------------------------------------------------------ the view's pixels

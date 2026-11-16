@@ -299,7 +299,9 @@ internal fun Sp360(
             else Pano360.tabsOf(e).mapNotNull { (part, mm) -> Pano360.toS(v, s, fr.getValue(s), mm[0], mm[1])?.let { part to it } }
         } ?: emptyList()
         val ends = sq?.let { (s, m) -> Pano360.screenPts(v, s, fr.getValue(s), m.pts) }
-        return P3Scene(Pano360.Scene(ends, tabs, nodes, polys, sid), sq, sm, chainL, measL)
+        // the picked Tape's, Line's or area's own line: a press on it grabs it whole (port 63 slice F1; Pano360.Step.BODY)
+        val body = sq?.let { (s, m) -> Pano360.measLine(v, s, fr.getValue(s), m, d) }
+        return P3Scene(Pano360.Scene(ends, tabs, nodes, polys, sid, body), sq, sm, chainL, measL)
     }
 
     Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)
@@ -485,6 +487,26 @@ internal fun Sp360(
                             }
                             Pano360.Pick.Chain -> chainOn = true
                             Pano360.Pick.Meas -> measOn = true
+                            // THE PICKED TAPE'S, LINE'S OR AREA'S BODY (port 63 slice F1; Amit, 16 Nov 2026: "tape mark
+                            // does not move unless its end points are moved"): grabbed whole, exactly as on 2 · Mark --
+                            // every point by the same delta along its surface, stopped at the face's edge
+                            // (SurveyGuide.bodyMove), past the dead zone, one undo step; locked or read-only it is picked,
+                            // nothing moves, and a drag says why
+                            Pano360.Pick.Body -> {
+                                val (s, m) = scene.selMeas!!
+                                actS.grab(SpSel(s, id = m.id)); actS.focus(s); gc.grabbed(); gated = true
+                                grab = if (SurveyPrep.isLocked(m)) P3Grab(s, m.id, m.code, endLock = true, gate = true) { }
+                                else if (!PhaseTools.editable(m, stageS)) P3Grab(s, m.id, PhaseTools.refuseText(txS, m, stageS), gate = true, said = true) { }
+                                else {
+                                    val m0 = mmAt(s, e.x, e.y); val start = m.pts.map { it.copyOf() }
+                                    P3Grab(s, m.id, gate = true) { mm ->
+                                        if (m0 != null) {
+                                            val ab0 = ab(s)
+                                            SurveyGuide.bodyMove(m, start, mm[0] - m0[0], mm[1] - m0[1], ab0[0], ab0[1])
+                                        }
+                                    }
+                                }
+                            }
                             is Pano360.Pick.Mark -> {
                                 val mk = prepS.surface(pk.s).marks.firstOrNull { it.id == pk.id }
                                 if (mk != null) {
@@ -673,12 +695,13 @@ internal fun Sp360(
                     // no resize tabs on a picked mark the phase holds read-only (port 62 slice L4)
                     tabs = sel?.id?.let { sid -> PhaseTools.editable(prep, sid, stage) } ?: true), ink, size.width, size.height)
                 // THE FLOATING TRASH (sp.js fTrashP3): beside the picked mark, Tape, Line, area or chain, with Select on,
-                // never for the reference; placed by SurveyPrepTouch.trashSpot as on 2 · Mark, clear of its end handles
+                // never for the reference; placed by SurveyPrepTouch.trashSpot as on 2 · Mark -- 16 dp clear of the picked
+                // item's own handles (its tabs, its ends, its line: Pano360.trashOf's `keep`), or not drawn at all (port 63
+                // slice F1; DeleteGuard)
                 trashAt[0] = null
                 // ... nor where the phase hides the picked item's delete (port 62 slice L4; sp.js fTrashP3's `!P54.spDelOk`)
-                Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) })?.let { t ->
-                    SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(),
-                        t.handles, SurveyGuide.HANDLE_CLEAR_DP * dpx)
+                Pano360.trashOf(v, fr, prep, tool, sel?.id?.takeIf { sid -> PhaseTools.delOk(prep, sid, stage) }, dpx.toDouble())?.let { t ->
+                    SurveyPrepTouch.trashSpot(t.box, emptyList(), size.width.toDouble(), size.height.toDouble(), dpx.toDouble(), t.keep)
                 }?.let { ts ->
                     val rad = 18f * dpx; val tcx = ts.left.toFloat() + rad; val tcy = ts.top.toFloat() + rad
                     P3Draw.trash(nc, tcx, tcy, rad, ink)

@@ -80,6 +80,12 @@ import com.malletcrafts.interiorestimate.pano.i18n.Masters
  * type for it. also add seprate mark type for fan" -- the Switch plate and the Fan are in More ▸, with their
  * own icons. The old one-row SpMarkToolbar (a tap added a mark at its default place) is gone: there is no
  * second way to add a mark.
+ *
+ * THE CHAIN'S SLOT IS NOT DRAWN (port 63 slice F1, 16 Nov 2026; Amit, with build 0.3.337 on his phone: "chain mark is
+ * rarely used. get rid of it."): SurveyPrepPalette.slots answers SEVEN slots while Features.CHAINS is off -- Select,
+ * Tape, Line, three types, More ▸ -- and every slot is weighed alike here, so each is a seventh of the row and nothing
+ * is left where the eighth stood. This file asks slots() with no list of its own; the Chain's icon and its chip below
+ * are kept, and drawn again by the one line in Features.
  */
 /**
  * THE TOOL REMEMBERS THE LAST KIND PICKED (port 62 slice L6; T53's subMem, index61c2.html 2470-2473): type and kind of
@@ -94,7 +100,7 @@ internal fun SpPalette(s: String, tool: String, land: Boolean, onTool: (String) 
     val tx = LocalTx.current
     val kind = SurveyPrep.kind(s)
     // .tools.pal: 6 dp over the row, no gap between slots; a slot 50 dp tall (46 in landscape)
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = SurveyPrepPalette.TOP_DP.dp)) {
         for (slot in SurveyPrepPalette.slots(kind)) {
             val on = SurveyPrepPalette.isOn(slot, kind, tool)
             val armed = if (slot.kind == SurveyPrepPalette.SlotKind.MORE) SurveyPrepPalette.moreArmed(kind, tool) else null

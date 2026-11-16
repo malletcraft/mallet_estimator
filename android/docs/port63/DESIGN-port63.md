@@ -229,6 +229,10 @@ steps 2, 3 and 4:
 
 `label` · `‹` · two lines of text · the figure box · `D2` · `›`
 
+> **Superseded 16 Nov 2026 by §11 (slice F1):** the order is `label` · `‹` `›` · two lines · the figure box · `D2`,
+> with D2 alone at the right end. Amit, on the phone: "navigation button and D2 aer very close where d2 get
+> accidentally fired". The widths and gaps below are M2's; the ones built now are `MeasureBarLayout`'s.
+
 - **The label cell** (52 dp) is drawn by the bar wherever the picked mark's own row is not: in 3 · Measure, and in
   2 · Mark and 4 · 360 while the pad is open. For a mark it reads its code over its type's SHORT name
   (`SurveyPrepPalette.short`: `Window`, `Switch`, `Unit`, `Sanitary` — the full name does not fit 52 dp), or over
@@ -1134,3 +1138,237 @@ the selection says what it does with the reading. Each new test fails on `ba2b08
 
 Not changed by the review: the reading keys, the record, the texts (no key added or changed), the painter, the pad's
 own rules, 3 · Measure's taps and its walk between marks and faces.
+
+## 11. Amit on 0.3.337 (16 Nov 2026)
+
+0.3.337 is the first build with this document's measuring screen (M1, M2 and its review: `main` `7c49835`). Amit
+tested it on his phone the same evening and wrote, verbatim:
+
+1. ~19:05 IST: "do we really need two screen now? which is mark and measure? as we should be measure where marking
+   is done. also highlight of mark which we aer measuring is not correct . i cant see which mark is being measured as
+   its no highlighted on foto"
+2. ~19:25 IST: "chain mark is rarely used. get rid of it. also navigation button and D2 aer very close where d2 get
+   accidentally fired. same for delete button for any item. tape mark does not move unless its end points are moved.
+   difficult for moving it from one point to other."
+
+Three slices answer them, in this order, all on `port63-measure`. Standing direction is unchanged: every mark type
+stays (he asked to drop the Chain TOOL only), the phone is developed directly with no prototype, the help tours and
+site progress stay off behind their switches, English first, and nothing that holds a user's data is deleted.
+
+### H1 · the one being measured is gold (built, `8455c77`)
+
+His second sentence of message 1. Until H1 the mark being measured had an outline a little heavier, the rest of the
+photo 20 % darker, and its figure's plate dark brown with a thin gold ring; its dimension's line was the same white
+hairline as every other. Now (`MarkDims.ACTIVE_COLOUR` and the constants beside it; `SurveyPrepDraw.measuring`,
+`figures`, `plate`, `line`):
+
+- the MARK being measured is framed in gold over a dark casing, just outside its box (a point: a ring outside its
+  dot), under the marks so its own outline, code and tabs stay on top;
+- its DIMENSION'S LINE and arrowheads are gold over a dark casing, three times as heavy as any other line;
+- its PLATE is solid gold with dark bold text, whatever its state (the `≈` or `?` still says what it is);
+- a Line or an area being measured is drawn gold over a dark casing too; the rest of the photo is 35 % darker.
+
+No text changed. Not done there: a chain's segment being measured keeps only its `▶`.
+
+### F1 · four fixes from the phone in his hand (this slice, as built)
+
+*What follows is F1 as it stands AFTER its review (the next heading): the arrows' width, the words' budget, the dead
+space under the picked item's row, the disc's places beside an item and `deleteMark`'s one step are the review's.*
+
+Message 2, all four. `:pano` before F1: 95 classes, 1,352 tests, 0 failures; with it 98 classes, 1,383 tests, 0
+failures, 0 errors (new: `MeasureBarLayoutTest` 5, `DeleteGuardTest` 7, `BodyMoveTest` 11; `TrashSpotTest` rewritten,
+7 → 10; `FeaturesTest` +3, `PaletteTest` +1, `Pano360Test` +1; the menu's order moved in `LockTest`, `MeasTest`,
+`ChainTest` and `PhaseToolsTest`). **`:app` is compiled only by CI and nothing has been seen on a phone.** The four
+`:app` files whose code changed (`SurveyMeasure.kt`, `SurveyPrepLocks.kt`, `SurveyPrepScreen.kt`, `SurveyPrep360.kt`;
+`SurveyPrepTools.kt` changed in a comment only) were type-checked here against the stand-ins M2 used (§10), with
+three more written for the menu (`IntrinsicSize`, `heightIn`, `shadow`): no error on a changed line. That catches a
+wrong `:pano` name, parameter or a missing branch of a `when`; it proves no Android or Compose signature. No key was
+added or changed: `unkeyed.tsv` is empty, `mr-pending.tsv` is as it was, and no Marathi value was touched.
+
+**1. The chain tool goes** ("chain mark is rarely used. get rid of it.").
+
+- ONE switch, `Features.CHAINS = false`, beside `SITE_PROGRESS` and `HELP_TOURS`. Three entries read it, each a pure
+  rule of `:pano` that takes it as the default of its last parameter, and `:app` asks each with no answer of its own:
+  - `SurveyPrepPalette.offered` -- what the palette draws: Select, Tape, Line, three types, More ▸. SEVEN slots,
+    each a seventh of the row, so nothing is left where the eighth stood. More ▸ lists mark types only and never
+    held the Chain;
+  - `PhaseTools.toolFor` -- the tool that is ON, the one answer 2 · Mark's photo, 4 · 360, the chip and the palette
+    draw from: never the Chain, whatever was picked. So no chip counts its points, no tap adds one, no `✓` ends one;
+  - `PhaseTools.copyOk` (and through it `SurveyPrepEdit.menuItemsOf`) -- Duplicate on a chain is hidden and the act
+    makes nothing: a copy of a chain is a new chain.
+- **A room that already has a chain keeps it.** The file reads and writes it unchanged; it is drawn on the photo, the
+  360 and the Plan; a tap picks it and its points still move; its segments stay in 3 · Measure's walk and in every
+  count and take the D2 and the pad; it locks; and it can be deleted, with ↶. Its long-press menu is `Lock · Lock all
+  chains · Cancel · Delete`.
+- Nothing of the chain's code is deleted: `SurveyChain`, both gesture loops' chain branches, its drawing, icon and
+  texts are compiled on every build and come back with the one line.
+- **Still written and not shown:** the tour flow `existing` lists the palette as "Select, Tape, Line, Chain, …"
+  (`tour.existing.1.body`). The tours are off and that flow never shipped; whoever rewrites the tours after Amit
+  approves the journey drops the word (the same note as the survey flow's `mode:list` anchor, §2).
+
+**2. D2 cannot be fired by accident** ("navigation button and D2 aer very close where d2 get accidentally fired").
+
+M2's bar was `label · ‹ · two lines · figure box (64) · D2 (40 × 32) · › (36)`, 4 dp apart: the laser's button stood
+between the figure box and the arrow pressed after every reading he skips. The bar is now
+
+`label` · `‹` `›` · two lines · the figure box · `D2`
+
+- `‹` and `›` are a pair on the left, side by side, 36 dp each -- what M2 gave each -- and as tall as the bar;
+- **D2 is alone at the right end, 48 × 36 dp, with 12 dp of bar that takes no tap between it and the figure box** --
+  its only neighbour IN THE BAR; past it there is only the bar's edge. From `›` it is 84 dp and the words away (it
+  was 4 dp);
+- OVER D2, in 2 · Mark and 4 · 360, stands the picked item's row, and that row's Delete is straight above it: the
+  bar starts 2 dp lower under a row in portrait and 8 dp lower in landscape, so the two are 16 dp apart (point 3);
+- under an open pad, the pad's first row starts 6 dp below the bar (dead space), so the pad -- its `⌫` is the key
+  right under D2 -- begins 16 dp below D2 in portrait and 12 in landscape (M2's smaller D2: 12 and 8). No key of the
+  pad fires the laser and none changed. The bar and the open pad still fit landscape's column (310 of 324 dp);
+- a finished face's `Next: Right wall · 4 to measure ▸` keeps the place it had, the right end; no D2 is drawn there.
+
+**The width budget.** The bar is as wide as its column: 340 dp in portrait (a 360 dp screen less 10 dp either side),
+318 dp in landscape; its own padding is 6 dp either side. With the whole bar -- label 52, arrows 36 + 36, box 64, D2
+48, gaps 4 + 0 + 4 + 4 + 12 -- **the two lines get 68 dp in portrait and 46 dp in landscape** (M2: 80 and 58). Where
+2 · Mark's bar draws no label they get 124 and 102; a Line there has one key and no arrows: 200 and 178. So D2's 8 dp
+more and its 8 dp wider gap, less the one gap saved now that the arrows stand together, cost the WORDS 12 dp and the
+arrows nothing. Line 1 is still cut with an ellipsis where it must, and in landscape line 2 (`3 of 9 measured`) may
+be cut too, as it may have been at 58 dp: no text can be measured here, so that is for the phone.
+
+The order, every width and every gap are data in `:pano` (`MeasureBarLayout`); `SurveyMeasure.kt` lays the bar out
+from `MeasureBarLayout.slots` and holds none of those numbers. `MeasureBarLayoutTest` holds that D2 is never beside
+`‹` or `›`, that every part that takes a press is 12 dp or more from it in every bar the screen can draw, and that
+no part that takes a press is under 36 dp wide (`TOUCH_MIN_DP`).
+
+**3. Delete cannot be pressed by accident** ("same for delete button for any item").
+
+He asked for distance, so there is no confirm and no second tap. Every one-tap delete of an item (a mark, a Tape, a
+Line, an area, a chain) now stands 16 dp (`DeleteGuard.CLEAR_DP`) from the CONTROLS round it -- the one before it in
+its row or menu, the one under it (D2, or the palette), the picked item's own handles and the figures -- last in
+what it is part of, and drawn apart. (Not measured against the photo itself: the row's own padding, 4 dp and 2 in
+landscape, is all that lies between the row and the photo's lower edge, as it always was.)
+
+| Where | Was | Now |
+|---|---|---|
+| The picked item's row under the photo (2 · Mark and 4 · 360; a mark's, a Tape's / Line's / area's, a chain's) | last in the row, but 4–6 dp from the padlock, gold like the nudges | the row's last control, 16 dp of dead row before it, a quiet red outline (`#C9504C`) and its word in the menu's delete red, where the buttons beside it are gold. **And 16 dp above what stands under it** (the review, finding 1): D2 at the measure bar's end -- the bar starts 2 dp lower under a row in portrait, 8 dp in landscape (`DeleteGuard.rowToBarDp`) -- or, where no bar is drawn, the palette's last slot, More ▸ -- the palette starts 6 dp lower, 8 in landscape (`rowToPaletteDp`). Both are dead space that takes no tap |
+| The long-press menu | its FIRST row, 16 dp under the finger that opened the menu | its LAST row (`Duplicate · Lock · Lock all … · Cancel · Delete`), 16 dp of dead menu above it, outlined the same. And the menu never opens with that row under the finger: low on the screen, where it used to be pushed up over the press, it opens above the press instead (`DeleteGuard.menuTop`) |
+| The floating trash disc beside the picked item, on the photo and on the 360 | 2 dp off the mark's corner: 10 dp from the corner tab, inside that tab's 16 dp reach, and the disc took the press first; 7.5 dp off a tape's end; anywhere beside a figure | 16 dp from the item's own handles -- a mark's eight tabs, a Tape's / Line's / area's ends and line (a tape's band), a chain's points and line -- and from every figure. Fourteen places are tried: eight off the item's corners, then six BESIDE it -- right and left, at the middle, a quarter and three quarters of what the photo shows of it (the review, finding 3) -- so an item as tall as the photo has its disc at its side. Where the figures crowd the item it may stand nearer a figure but never over one; **where no place is clear there is no disc** (the row and the menu still delete) |
+
+- The Mark sheet deletes nothing by one tap (a Drop is its why and Done); ⋮'s clears and Start over take two taps;
+  3 · Measure deletes nothing. None of them changed.
+- **A delete is one ↶ step and the screen says what went.** All six ways in (three rows, two discs, the menu) come
+  through `deleteMark`, which takes exactly one snapshot and answers `FD1 deleted` with UNDO (the existing
+  `sp.msg.x_deleted`). The model refuses a locked item and a mark past Existing and nothing else, and the screen
+  answers both, each in its own words, BEFORE the step is taken -- no step is ever taken and then taken back (the
+  review, finding 4).
+- On a mark past Existing the same control reads Drop or Restore; it has the same place and the same look.
+
+**4. A Tape, a Line and an area move by their body** ("tape mark does not move unless its end points are moved.
+difficult for moving it from one point to other.").
+
+- With the item PICKED, a drag that starts on its body -- within 12 dp of its line, of a tape's band or of an area's
+  outline -- and outside its ends' 14 dp moves the WHOLE item: every point by the same delta, to 0.1 mm
+  (`SurveyGuide.bodyPress`, `bodyDelta`, `bodyMove`). An end grabbed within its radius still moves alone.
+- **The move stops at the edge**: the delta is cut where the first point would leave the face, so no point is
+  clamped alone and the shape never changes. An item that already reaches past an edge (a tape plotted on the
+  boundary line) is never pulled back by a move and never pushed further out.
+- It follows a picked mark's own rule for the rest: Select on, in 2 · Mark and on 4 · 360, never in 3 · Measure; a
+  locked one is picked and does not move, and a drag says `F-T1 is locked — unlock to move it`; one the phase holds
+  read-only says the phase's line; a long still press opens its menu; a second finger lets it go where it is. Like
+  an end it waits for the finger to leave the dead zone, so the tap that picks it never nudges it. One ↶ step. The
+  magnifier follows the finger as it does for a mark; no guide is shown.
+- Its reading -- a Line's length, an area's perimeter -- is not touched; a tape's figure, its own length, is the same.
+- **Where it stands in the hit order** (`SurveyPrepTouch.hit`, `Pano360.order`): after the item's own ends, a
+  chain's point and a figure under the finger; BEFORE the marks. A tape laid across a window is moved by its band,
+  and the window by the rest of itself.
+- **Decided by Claude, for Amit to judge on the phone:** only the PICKED item moves by its body. A press on a Tape or
+  a Line that is not picked picks it and moves nothing, as before -- a tape can lie right across the wall, and a
+  finger that went down on it to slide the photo must not carry it off. So: tap it, then drag it. An area is grabbed
+  by its OUTLINE, not its inside, so the marks inside an area stay within reach.
+
+Nothing else changed: no step was added or removed, no reading key and no wire shape changed, every mark type stays.
+
+**What could not be done exactly, and why.**
+
+- The floating trash can now be ABSENT: where none of its fourteen places is 16 dp from the item's handles and off
+  every figure -- figures on every side of it, or handles all round every place (an item zoomed to fill the photo).
+  An item as tall as the photo is NOT such a case (the review, finding 3): it has its disc beside it. The
+  alternative was the prototype's "none clear, the first": a disc on a handle or over a figure.
+- With the menu, a screen under 328 dp tall cannot both hold the five-row menu and keep its delete row 16 dp from a
+  press at its foot; the Mi A3's landscape window (336 dp and more) can, and `DeleteGuardTest` walks every press on
+  it. On a smaller window the menu goes as far up as the screen allows.
+- In landscape the bar's two lines have 46 dp under the whole bar: `sill, from floor` wraps and will often be cut.
+  That is 12 dp less than M2 gave them, and the price of D2's distance now that the arrows keep their width. The
+  gold plate and the gold line on the photo say which dimension it is (H1); the words are the second place to look.
+
+**For Amit on the phone.** The palette has seven slots and no Chain. On the measure bar `‹ ›` are together on the
+left and D2 is by itself at the right end. Delete is at the end of the picked item's row, apart and outlined red,
+with a little empty space under the row before the bar or the palette; in the long-press menu it is the last row;
+the red disc beside a picked mark stands further off its corner, and beside a floor-to-ceiling item it stands at the
+item's side. Pick a tape (tap it), then drag it by its band: it moves whole and stops at the wall's edge; drag an end
+and only that end moves.
+
+### F1 · its review (fixed, the commit after `136b4c7`)
+
+A reviewer read `136b4c7` and reported four findings. Each was confirmed here before anything was changed; none was
+refuted, and one half of one was declined. `:pano` with the fixes: 98 classes, 1,388 tests, 0 failures, 0 errors
+(`TrashSpotTest` 10 → 12, `DeleteGuardTest` 7 → 9, `MeasureBarLayoutTest` 5 → 6). Each fix undone on purpose turned
+its test red: the bar not lowered under a row, the gap 0, the arrows 32 dp, no places beside the item, a place
+beside it kept after the photo's edge moved it, the pop put back, and a model refusing something new. **`:app` is
+compiled only by CI and nothing has been seen on a phone**; the `:app` lines changed are a padding read from a rule
+(three rows and the palette), one padding on the bar's modifier, one `Spacer`, and one line of `deleteMark`. No key
+was added or changed, no Marathi touched; `unkeyed.tsv` is empty.
+
+1. **Delete stood straight over D2 -- CONFIRMED (major), fixed.** Read in the code as the reviewer read it: the
+   picked item's row, then the bar with no space over it. The row ends with Delete; F1 put D2 at the bar's end; so
+   one is above the other, and whenever a picked mark has an open reading both are drawn. Delete's lower edge was
+   the row's padding (4 dp; 2 in landscape) and D2's inset in the bar (10 dp; 6) from D2: **14 dp in portrait and
+   8–9 in landscape**, under the delete rule's 16 and, in landscape, under D2's own 12. Before F1 the control under
+   Delete was `›`. F1's tests measured gaps inside a row and inside the bar only, and this section said D2's "only
+   neighbour" was the figure box and every delete "16 dp clear of whatever else takes a press": both sentences are
+   corrected above.
+   *The fix:* dead space between the row and the bar when both are drawn -- `DeleteGuard.rowToBarDp`, 2 dp in
+   portrait and 8 in landscape, worked out from the row's padding (`rowPadDp`, which the three rows now read) and
+   D2's inset (`MeasureBarLayout.d2InsetDp`) -- so `clearOfD2Dp` is 16 in both. Delete stays the row's last control
+   and D2 the bar's. Landscape's column holds it: 258 of 324 dp.
+   *Found while confirming it, and fixed by the same rule:* where NO bar is drawn under the row -- a picked Tape, a
+   mark with nothing left to read -- the palette stands there, and Delete was 10 dp (8 in landscape) over its last
+   slot, More ▸. That was so before F1 too. The palette now starts `rowToPaletteDp` lower under a row (6 dp; 8), and
+   its own 6 dp of top space is `SurveyPrepPalette.TOP_DP`, read by the palette and by the rule.
+2. **`‹` and `›` narrowed to 32 dp and touching -- CONFIRMED (minor); the width fixed, the gap DECLINED.** F1 paid
+   for D2's distance out of the arrows (36 → 32 dp each). They are 36 dp again (`ARROW_DP`, held to `TOUCH_MIN_DP`
+   for every part that takes a press), and the words pay: 68 and 46 dp under the whole bar, where F1 had 76 and 54.
+   The reviewer offered either 36 dp arrows or 32 dp with 4 dp between them. *Declined:* a dead strip between the
+   two. With 36 dp arrows side by side their middles are 36 dp apart -- exactly what 32 + 4 + 32 would give -- and
+   every dp of the pair answers; a strip would add 4 dp that does nothing under the thumb and cost the words 4 dp
+   more (64 and 42). A slip across the shared edge steps back one measurement and writes nothing; `›` returns. If
+   the phone shows the pair is mis-pressed, the strip is one number (`gapBefore(PREV, NEXT)`).
+3. **No floating trash for a floor-to-ceiling item at fit zoom -- CONFIRMED (minor), fixed.** Run in Kotlin, not
+   only replicated: on the 340 × 283 dp photo a mark from 4 to 279 dp and a tape from floor to ceiling each got
+   `null` from `trashSpot` (the new test was red on `136b4c7`). All eight places were off the box's CORNERS and the
+   second ring went further out in y only, so for an item as tall as the photo the photo's edge clamped all eight to
+   two rows 12.8 dp from a corner tab. In landscape the wall fills the photo's height, so that was every
+   floor-to-ceiling item. The record said the disc was absent only "zoomed in, or figures on every side"; corrected
+   above.
+   *The fix:* six more places, tried last -- right of the box and left of it, the disc's square 16 dp (and a tape's
+   band) off its side, at the middle, a quarter and three quarters of what the photo shows of the item. Same
+   `handles()` and `figures()` tests. A place the photo's edge or the fit / zoom corner would move SIDEWAYS is not
+   tried: it would be moved onto the item, between its tabs, where the handles' test passes and a press meant to move
+   the mark would delete it (`TrashSpotTest` holds a case that the handles' test alone lets through).
+   *Seen, and NOT changed here:* a mark nearly as wide as the photo AND at its top (30–320 dp of 340, from 4 dp
+   down) still takes the first corner place, which the fit / zoom rule moves to 236, 4 -- inside the mark, on its top
+   edge, 50 dp and more from its tabs. v52 put it there and F1 kept it; a mark's BODY is not among the handles the
+   disc keeps off. It is outside this review's findings and is for the phone to judge, or for F2.
+4. **`deleteMark`'s refused-delete branch snapshots, then pops -- CONFIRMED (minor), fixed.** `snapshot()` drops
+   the oldest of 40 held steps before the pop takes the new one off: the very pattern the L2 review's note fifteen
+   lines above forbids; and the branch returned without a word. It is unreachable today, as the reviewer found: the
+   model refuses a locked item and a mark past Existing, and both are answered earlier.
+   *The fix:* the branch is gone (`snapshot(); prep.deleteMark(mid)`, as before F1), and what made it dead is now
+   HELD: `DeleteGuardTest` walks every kind of item, free and locked, and a mark in every stored state, and fails
+   unless the model refuses exactly those the screen answers before its step -- so a new refusal in the model turns
+   that test red and has to be given its words on the screen first.
+
+### F2 · one step for marking and measuring (next)
+
+His first sentence of message 1: "do we really need two screen now? which is mark and measure? as we should be measure
+where marking is done." **Not built in F1, and next on this branch.** F1 adds nothing that needs two steps to remain:
+the bar's layout, the delete rules and the chain's switch are step-blind, and the body's press takes "this step moves
+things" as a plain yes or no from the screen (`bodyPress`'s first parameter), which F2 answers however it merges the
+steps.

@@ -75,4 +75,33 @@ object Features {
      * has approved the journey (DESIGN-port63 section 2).
      */
     const val HELP_TOURS: Boolean = false
+
+    /**
+     * THE CHAIN TOOL IS OFF (Amit, 16 Nov 2026, with build 0.3.337 -- the first with port 63's measuring screen -- on
+     * his phone: "chain mark is rarely used. get rid of it."; port 63 slice F1). No way to DRAW A NEW CHAIN is offered
+     * anywhere on the phone. Every mark type stays: he asked to drop this one tool.
+     *
+     * What it hides, each at its entry (FeaturesTest pins every one; all three are pure rules of :pano that take this
+     * constant as the default of their last parameter, and :app asks them with no answer of its own):
+     *  - the PALETTE'S SLOT: [SurveyPrepPalette.offered] leaves Chain out, so 2 · Mark's row is Select, Tape, Line,
+     *    three types and More ▸ -- seven slots sharing the width, no gap where the eighth stood ([SurveyPrepPalette.slots]).
+     *    More ▸ lists mark types only and never held it;
+     *  - THE TOOL THAT IS ON: [PhaseTools.toolFor] answers Select for the Chain's key, whatever was last picked -- so
+     *    on 2 · Mark and on 4 · 360 no chip counts its points, no tap adds one, no ✓ ends one, and none of the words
+     *    that belong to drawing one is ever said;
+     *  - DUPLICATE ON A CHAIN: [PhaseTools.copyOk] refuses it and [SurveyPrepEdit.menuItemsOf] hides the row -- a copy
+     *    of a chain is a new chain.
+     *
+     * What it does NOT touch -- A ROOM THAT ALREADY HAS A CHAIN KEEPS IT. The file reads and writes it unchanged
+     * (SurveyPrepFile); it is drawn on the photo, the 360 and the Plan; a tap picks it; its points still move; its
+     * segments stay in 3 · Measure's walk and in every count, and take the D2 and the pad as before; it locks, and it
+     * can be DELETED (one ↶ brings it back). Hiding a surveyor's existing readings would be a second answer about the
+     * room. Nothing is deleted from the code either: SurveyChain, the chain's branches of the two gesture loops, its
+     * drawing and its texts are all still there, compiled on every build, and reached again by the ONE line here.
+     *
+     * STILL WRITTEN, AND NOT SHOWN: the guided tours' flow `existing` lists the palette as "Select, Tape, Line, Chain,
+     * …" (tour.existing.1.body). The tours are off ([HELP_TOURS]) and that flow never shipped; whoever rewrites the
+     * tours once Amit has approved the journey drops the word.
+     */
+    const val CHAINS: Boolean = false
 }

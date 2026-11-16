@@ -156,8 +156,16 @@ object PhaseTools {
         return m
     }
 
-    /** The palette's tool, put back to Select where the phase has no palette (spPre): nothing is placed or drawn there. */
-    fun toolFor(tool: String, stage: Int?): String = if (can(Tool.PALETTE, stage)) tool else SurveyPrepPalette.SEL
+    /**
+     * THE TOOL THAT IS ON, from the one last picked ([tool]): put back to Select where the phase has no palette (spPre)
+     * -- nothing is placed or drawn there -- AND NEVER THE CHAIN WHILE [chains] IS OFF (port 63 slice F1;
+     * [Features.CHAINS]: Amit, 16 Nov 2026, "chain mark is rarely used. get rid of it."). This is the one answer 2 ·
+     * Mark's photo, 4 · 360, the chip and the palette all draw from, so with the switch off no chain can be started
+     * whatever was picked: the palette does not offer it ([SurveyPrepPalette.offered]), and a key that arrived any
+     * other way is Select here. The switch is the DEFAULT of the last parameter: both sides stay tested.
+     */
+    fun toolFor(tool: String, stage: Int?, chains: Boolean = Features.CHAINS): String =
+        if (!can(Tool.PALETTE, stage) || (tool == SurveyPrepPalette.CHAIN && !chains)) SurveyPrepPalette.SEL else tool
 
     // ------------------------------------------------------------------ survey prep, as far as it is wired (slice L4)
 
@@ -432,9 +440,15 @@ object PhaseTools {
      * wherever they may be edited ([editable]) -- they carry no state and every document draws them as they are; an id
      * that is no item answers TRUE, as [editable] does. [picked] has NO default: the menu and the act both name what
      * this capture's chip was cycled to.
+     *
+     * A CHAIN IS NOT COPIED WHILE [chains] IS OFF (port 63 slice F1; [Features.CHAINS]): the copy of a chain is a NEW
+     * chain, and no way to make one is offered -- the menu's Duplicate row is hidden on a chain and the act makes
+     * nothing. The chain itself stays, with everything else its menu offers. The switch is the DEFAULT of the last
+     * parameter.
      */
-    fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?): Boolean =
-        p.markById(id)?.let { copyOk(it.second, stage, picked) } ?: editable(p, id, stage)
+    fun copyOk(p: SurveyPrep.Prep, id: String, stage: Int?, picked: String?, chains: Boolean = Features.CHAINS): Boolean =
+        p.markById(id)?.let { copyOk(it.second, stage, picked) }
+            ?: if (!chains && p.chainById(id) != null) false else editable(p, id, stage)
 
     /**
      * [editable], [delOk] and [lockOk] for the item of [p] with the id [id], whatever it is -- a mark, a Tape, a Line,
