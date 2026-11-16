@@ -262,14 +262,18 @@ is being measured, and the words name it. These are budgets, first seen on the M
 
 **Where the bar is, and what `‹` and `›` do.**
 
-- **In 3 · Measure** the bar sits where 2 · Mark has its palette and is always there at Survey. `‹` goes to the
+- **In 3 · Measure** the bar sits where 2 · Mark has its palette and is always there at Survey. A press on the
+  step or on the face tab that is already open changes nothing: the walk restarts only when the step is entered or
+  another face is opened (the review of M2, §10). `‹` goes to the
   stop before, read or not, to correct it. `›` skips: the dimension stays unmeasured, the walk goes to the next
   unmeasured one and comes round again. Line 2 counts the open face. Its states:
   - a dimension active: the whole bar;
   - nothing active and something left: label, `‹`, the progress line, `›` (which goes to the first unmeasured);
   - the face finished: label, `‹`, "Front wall · all 9 measured ✓" and the next-face button in `›`'s place (§1.5);
   - nothing asked on the face: `fp.nothing_measure_face_yet`.
-- **In 2 · Mark and 4 · 360** the bar shows only while a dimension is active, where the reading strip is today.
+- **In 2 · Mark and 4 · 360** the bar shows only while a dimension OF THE PICKED ITEM is active, where the reading
+  strip is today. Nothing picked is nothing being measured there: a step entered, a face opened, a tap on empty 360
+  and ↶ let the reading go with the selection (the review of M2, §10).
   `‹` and `›` move within the picked item's own keys only — a mark's `measures()` order, a chain's keys — read or
   not, wrapping; they never change the selection, and an item with one key (a Line) draws neither. Line 2 counts
   the picked item's face (`sel.s`), since 4 · 360 has no open face. When the picked item has nothing left the bar
@@ -292,7 +296,8 @@ and has no Next. Four rows of `padRowDp(land)`: 44 dp, 36 dp in landscape.
 - **It opens only when asked**: a tap on the bar's figure box, or on the plate that is already active. It never
   opens by itself when a dimension becomes active, so placing and nudging are never covered unasked and a laser
   user never sees it. It is closed on first entry to survey prep; open or hidden is then kept in a `remember` of
-  the survey prep dialog, and lost when the dialog closes. `⌄` hides it.
+  the survey prep dialog, and lost when the dialog closes. `⌄` hides it, and so does entering a step: asked for in
+  the step he left, it is not asked for in the one he opens (the review of M2, §10).
 - **What it starts with.** When a dimension becomes active the pad's text is `MmBox.shownText(prep.actual[code])`
   — the STORED reading, or empty. Never the estimate, and never a chain's derived or laser figure, which are not
   readings (the fault `pano/MmBox.kt`'s header records). A `fresh` flag is set.
@@ -1083,3 +1088,49 @@ two lines read at arm's length.
 
 Not in M2, as planned: the saved `-survey.jpg` pictures (M3, after question 1); the 360 turning to the active
 dimension and ringing it (M4 -- the 360 draws no `▶`); the Marathi of the thirteen pending keys; any tour work.
+
+### The review of M2 (16 Nov 2026)
+
+A reviewer read `ba2b08c` and reported two findings on `SurveyPrepScreen.kt`. Both were read in the committed file and
+confirmed; none declined. After the fixes the `:pano` suite is 95 classes, 1,352 tests, 0 failures (`MeasureFlowTest`
+21 → 23, `MeasureScreenTest` 13 → 15). `:app` is still not compiled here and nothing has been seen on a phone.
+
+1. **Leaving 3 · Measure kept the walk's dimension, and an open pad (major) — confirmed.** `setMode` cleared `sel` in
+   every step but `active` only into 3 · Measure, and never `padOpen`; 3 · Measure always leaves a dimension active.
+   So 2 · Mark and 4 · 360 opened with nothing picked and a bar that read `width · 3 of 9 measured` -- line 1 is the
+   measure's words alone since M2, the code is on the picked item's row, and there was no picked item -- nothing gold
+   on the photo, and a laser shot wrote that reading; with the pad left open it stood where the palette belongs. The
+   same bar after a face tab, a tap on empty 360 and ↶. The old strip had survived the same exits, but it printed
+   `▶ FD1 width`. **Fixed, as one rule: outside 3 · Measure, nothing picked is nothing being measured.**
+   - `setMode` and `showTab` clear `active` with the selection in every step; `setMode` also shuts the pad.
+   - A tap on empty 360 (`deselect`) commits what was typed, then lets the picked item and its reading go together.
+   - ↶ lets the reading go outside 3 · Measure. In 3 · Measure it keeps the walk's dimension while its owner is
+     still there and picks that owner again, so the bar keeps its label cell (before, ↶ there left a bar with no
+     label).
+   - `MeasureFlow.onItem` takes the picked item and draws the bar only for a reading that is its own
+     (`MeasureFlow.own`): no bar means no pad (`padUp`), so the palette is never hidden with nothing picked.
+   - **One exit the reviewer did not name, found while reading every `sel =`**: a Tape's or a Line's end, or the
+     reference, grabbed while a mark's reading was active picked the new item and kept the mark's reading -- the
+     Line's row with the door's bar under it. `grabbed` now asks `MeasureFlow.own`, so nothing of another item's
+     stays active. Without this, the rule in `onItem` would have hidden that bar and left the laser a reading on no
+     bar at all.
+   - **Decided by Claude: every step entered shuts the pad**, 3 · Measure too. §1.4 kept it open for the life of the
+     dialog; read with "never covered unasked", a pad asked for in one step is not asked for in the next, and one
+     rule is easier to learn on the phone than two. Inside a step it is kept as before (across faces, marks and the
+     walk). If typing users find the extra tap on entering 3 · Measure a nuisance, it is one word in `setMode`.
+2. **A press on the open face's tab or on `3 · Measure` itself restarted the walk (minor) — confirmed.** Both
+   functions reset and re-walked without asking whether anything had changed, so the open tab, the open step, or a
+   thumb within 48 dp under the strip routed to it dropped the dimension he had tapped or skipped to and made the
+   face's first unmeasured one active: the next laser shot landed somewhere else. **Fixed:** `MeasureFlow.move(fromStep,
+   toStep, fromFace, toFace)` answers `STAY`, `WALK` or `DROP`, and on `STAY` -- 3 · Measure, same step, same face,
+   and the tab is a face -- both functions return before anything is committed, cleared or walked. In every other
+   step a press on the open tab or step does what it did (back to Select, the selection cleared), and on the Plan
+   tab too.
+
+What holds it: `MeasureFlowTest` runs `own`, `onItem` with and without a picked item, and `move` over every step and
+tab; `MeasureScreenTest` pins that `setMode` and `showTab` ask `move` before anything else, clear `active` once and
+not for 3 · Measure alone, that the pad is opened in three places only, and that each of the nine places that clear
+the selection says what it does with the reading. Each new test fails on `ba2b08c`.
+
+Not changed by the review: the reading keys, the record, the texts (no key added or changed), the painter, the pad's
+own rules, 3 · Measure's taps and its walk between marks and faces.

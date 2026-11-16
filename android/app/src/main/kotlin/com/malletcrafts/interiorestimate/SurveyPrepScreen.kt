@@ -480,7 +480,13 @@ internal fun SurveyPrepDialog(
         val back = SurveyPrepEdit.undoTo(prep, old)
         hideSnack(); ctx = null
         prep = back; sel = null
-        if (active != null && back.ownerOf(active!!) == null) active = null
+        // NOTHING PICKED IS NOTHING BEING MEASURED (port 63 M2 review): in 2 · Mark and 4 · 360 the bar is the picked
+        // item's, so the reading being taken goes with the selection -- left behind, it was a bar that named nothing and
+        // a laser shot onto a reading nobody could see. In 3 · Measure the walk's dimension stays while its owner is
+        // still there, and the picked item follows it as the walk has it (measureAt). What was typed for a reading let
+        // go here is written by the effect on `active` (commitPad), as for every exit that is not a named one.
+        active = active?.takeIf { a -> mode == StepRoute.MEASURE && back.ownerOf(a) != null }
+        active?.let { a -> back.ownerOf(a) }?.let { o -> sel = SpSel(o.s, id = o.id) }
         // a reference box's D2 still out is LEFT (slice 12 review): its reading is set aside, never a mark's, and a
         // reference undone away never takes one (SurveyRef.route)
         refShot = SurveyRef.leave(refShot)
@@ -762,8 +768,11 @@ internal fun SurveyPrepDialog(
         val gid = g.id
         if (fresh && gid != null) {
             // a mark's first unmeasured field; a chain's point pressed (v52 slice 11): the chain picked, its first open
-            // segment the one being read. A Tape's or a Line's end and the reference change nothing, as before.
-            if (prep.markById(gid) != null || prep.chainById(gid) != null) active = MeasureFlow.firstOpen(prep, gid, quoteStage) { ab(it) }
+            // segment the one being read. A Tape's or a Line's end and the reference make nothing active, as before --
+            // and they do not keep ANOTHER item's reading as the one being taken (port 63 M2 review): the bar is the
+            // picked item's (MeasureFlow.own), so that reading would be on no bar and still take the laser's shot
+            active = if (prep.markById(gid) != null || prep.chainById(gid) != null) MeasureFlow.firstOpen(prep, gid, quoteStage) { ab(it) }
+                     else MeasureFlow.own(prep, active, gid)
         }
         rev++
     }
@@ -1250,18 +1259,31 @@ internal fun SurveyPrepDialog(
     }
     // a face or a step changed: back to Select, the More sheet shut, a chain half drawn ended first (sp.js showTab /
     // setMode: kFlush, then gClear)
-    fun showTab(t: String) { commitPad(); flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
+    fun showTab(t: String) {
+        // THE OPEN FACE'S OWN TAB IN 3 · MEASURE IS NO CHANGE (port 63 M2 review; MeasureFlow.move): the dimension he
+        // tapped or skipped to, the picked mark and what he is typing stay -- the walk is not restarted under him
+        val mv = MeasureFlow.move(mode, mode, tab, t)
+        if (mv == MeasureFlow.Move.STAY) return
+        commitPad(); flushChain(); refShot = SurveyRef.leave(refShot); if (StepRoute.isPlan(t)) planFit++ else planExp = false
         // on 4 · 360 a face tab turns the 360 to that face (sp.js showTab: P3.face)
         if (mode == "360" && StepRoute.isFace(t)) p3Look = Pano360.faceView(t, 1.0, 1.0)
         tab = t; sel = null; menuOpen = false; toolSet = SurveyPrepPalette.SEL; moreOpen = false; ctx = null; armedClear = null; dropDrafts(); rev++
-        // 3 · MEASURE ON ANOTHER FACE (port 63 slice M2): its first unmeasured dimension is the one being measured, so he
-        // can shoot at once; what was being measured on the face he left is let go
-        if (mode == StepRoute.MEASURE) { active = null; walkOn(null) } }
+        // NOTHING PICKED IS NOTHING BEING MEASURED (port 63 M2 review): the selection went above, and the reading being
+        // taken goes with it in every step -- 2 · Mark and 4 · 360 never keep a bar that names nothing. 3 · MEASURE ON
+        // ANOTHER FACE (port 63 slice M2): its first unmeasured dimension is the one being measured, so he can shoot at
+        // once; what was being measured on the face he left is let go
+        active = null
+        if (mv == MeasureFlow.Move.WALK) walkOn(null)
+    }
     fun setMode(m: String) {
         // a step the phase does not show cannot be opened (slice L4): it is not on the strip, and a press routed to
         // where it was, or a tour's move, does nothing
         if (m !in PhaseTools.prepSteps(quoteStage)) return
         if (m == "mark" && frameOf(tab) == null) { say(tx.refuse_sp_these_four_lines_do_2); return }
+        // 3 · MEASURE PRESSED WHILE IT IS OPEN -- or a thumb under the strip routed to it -- IS NO CHANGE (port 63 M2
+        // review; MeasureFlow.move): the walk is not restarted, and nothing he chose or typed is dropped
+        val mv = MeasureFlow.move(mode, m, tab, tab)
+        if (mv == MeasureFlow.Move.STAY) return
         commitPad(); flushChain(); refShot = SurveyRef.leave(refShot)
         // 4 · 360 opens facing the open face (sp.js setMode: P3.face)
         if (m == "360") p3Look = Pano360.faceView(tab, 1.0, 1.0)
@@ -1269,7 +1291,13 @@ internal fun SurveyPrepDialog(
         // EVERY FIGURE AT ONCE is off whenever a step is entered; and 3 · MEASURE opens on the face's first unmeasured
         // dimension (port 63 slice M2; DESIGN-port63 §1.5), walkOn deciding whether anything may be measured at all
         allFigs = false
-        if (m == StepRoute.MEASURE) { active = null; walkOn(null) }
+        // NOTHING PICKED IS NOTHING BEING MEASURED, IN EVERY STEP ENTERED (port 63 M2 review): 3 · Measure always leaves
+        // a dimension active, and kept, 2 · Mark and 4 · 360 opened on a bar that named nothing, with nothing gold on
+        // the photo, for the laser to write. AND THE PAD IS SHUT: asked for in the step he left, it is not asked for
+        // here, where it would stand in the palette's place the moment a mark is picked (DESIGN-port63 §1.4: "never
+        // covered unasked"); a tap on the bar's figure box opens it again
+        active = null; padOpen = false
+        if (mv == MeasureFlow.Move.WALK) walkOn(null)
     }
 
     fun openLwh() {
@@ -1349,7 +1377,9 @@ internal fun SurveyPrepDialog(
         moved = { rev++ },
         changed = { changed() },
         revert = { revertPress() },
-        deselect = { if (sel != null) { sel = null; rev++ } },
+        // a tap on empty 360 lets the picked item go, and the reading being taken with it (port 63 M2 review): what
+        // was typed is written first, as every named exit does
+        deselect = { if (sel != null || active != null) { commitPad(); sel = null; active = null; rev++ } },
         place = { s, t, mx, my -> place360(s, t, mx, my) },
         pickChain = { s, cid -> selectChain(s, cid) },
         pickMeas = { s, mid -> selectMeas(s, mid) },
@@ -1821,8 +1851,9 @@ internal fun SurveyPrepDialog(
         // THE MEASURE BAR (port 63 slice M2; DESIGN-port63 §1.4), in 2 · Mark and 4 · 360 only while a dimension is being
         // measured on the open face -- where the reading strip stood -- and THE PAD, only when asked for. An open pad takes
         // the place of the picked item's own row AND of the palette (all four do not fit a landscape column), and the
-        // bar then carries the label; ⌄ brings both back. What the bar is and says is MeasureFlow.onItem.
-        val mbar = if (marking) MeasureFlow.onItem(tx, prep, active?.takeIf { a -> prep.ownerOf(a)?.s == tab }, quoteStage, withCell = padOpen) { ab(it) } else null
+        // bar then carries the label; ⌄ brings both back. What the bar is and says is MeasureFlow.onItem -- which draws
+        // it only for a reading of THE PICKED ITEM on the open face (port 63 M2 review): nothing picked, no bar and no pad.
+        val mbar = if (marking) MeasureFlow.onItem(tx, prep, sel?.takeIf { it.s == tab }?.id, active, quoteStage, withCell = padOpen) { ab(it) } else null
         val padUp = padOpen && mbar != null
         val sm = sel?.takeIf { marking && !padUp && it.s == tab && it.id != null }?.let { sl -> prep.surface(tab).marks.firstOrNull { it.id == sl.id } }
         if (sm != null) {

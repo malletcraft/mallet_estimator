@@ -120,9 +120,11 @@ class MeasureScreenTest {
         assertEquals(1, count(step, "if (forward) walkOn(active)"))
         // what was typed is written before the bar moves
         assertTrue(step.indexOf("commitPad()") in 0 until step.indexOf("walkOn(active)"), "the pad is committed before the walk moves on")
-        // entering the step and changing face in it start the walk from the top: both come through walkOn(null)
-        assertEquals(2, count(c, "{ active = null; walkOn(null) }"))
-        assertEquals(1, count(body(c, "fun setMode(m: String)"), "if (m == StepRoute.MEASURE) { active = null; walkOn(null) }"))
+        // entering the step and changing face in it start the walk from the top: both come through walkOn(null), where
+        // MeasureFlow.move says WALK (the M2 review: never for the step and the face that are already open)
+        assertEquals(2, count(c, "walkOn(null)"))
+        assertEquals(1, count(body(c, "fun setMode(m: String)"), "if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
+        assertEquals(1, count(body(c, "fun showTab(t: String)"), "if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
         // a reading that leaves its thing with nothing left walks on by itself, in 3 - Measure only
         val reading = body(c, "fun reading(code: String, v: Double, moveOn: Boolean = true)")
         assertEquals(1, count(reading, "val walking = mode == StepRoute.MEASURE && StepRoute.isFace(tab)"))
@@ -212,7 +214,9 @@ class MeasureScreenTest {
         assertEquals(2, count(c, "SpMeasureBar(mbar, land,"), "2 - Mark / 4 - 360 and 3 - Measure")
         assertEquals(2, count(c, "SpMeasurePad(land, onKey = { k -> padPress(k) }, onNext = { barStep(true) }, onHide = { commitPad(); padOpen = false; rev++ })"))
         assertEquals(1, count(c, "MeasureFlow.onFace(tx, prep, tab, pid, active, quoteStage) { ab(it) }"))
-        assertEquals(1, count(c, "MeasureFlow.onItem(tx, prep, active?.takeIf { a -> prep.ownerOf(a)?.s == tab }, quoteStage, withCell = padOpen) { ab(it) }"))
+        // ... in 2 - Mark and 4 - 360 for the PICKED item on the open face alone (the M2 review): nothing picked, no bar
+        assertEquals(1, count(c, "MeasureFlow.onItem(tx, prep, sel?.takeIf { it.s == tab }?.id, active, quoteStage, withCell = padOpen) { ab(it) }"))
+        assertEquals(1, count(c, "MeasureFlow.onItem("))
         assertEquals(2, count(c, "onPrev = { barStep(false) }, onNext = { barStep(true) },"))
         assertEquals(2, count(c, "onD2 = { fire() }"), "D2 on the bar is the laser's own trigger")
         // while the pad is up in 2 - Mark the palette is not drawn (PhaseToolsTest holds the gate's text)
@@ -247,6 +251,65 @@ class MeasureScreenTest {
         assertEquals(1, count(c, "onAll = { allFigs = !allFigs; rev++ },"))
         assertEquals(1, count(c, "if (mode == StepRoute.MEASURE) Text(tx.sp_measure_all,"))
         assertEquals(1, count(c, "contentDescription = tx.sp_measure_aria_all; selected = all"))
+    }
+
+    // ---- the M2 review: nothing picked is nothing being measured ---------------------------------------------
+
+    @Test fun `a step or a face pressed lets the reading go with the selection, and the open one in 3 Measure restarts nothing`() {
+        val c = code(sps)
+        val mode = body(c, "fun setMode(m: String)")
+        val tab = body(c, "fun showTab(t: String)")
+        // what the press does is :pano's, asked once in each, BEFORE anything is committed, cleared or walked
+        assertEquals(2, count(c, "MeasureFlow.move("))
+        assertEquals(1, count(mode, "val mv = MeasureFlow.move(mode, m, tab, tab)"))
+        assertEquals(1, count(tab, "val mv = MeasureFlow.move(mode, mode, tab, t)"))
+        for (b in listOf(mode, tab)) {
+            val stay = b.indexOf("if (mv == MeasureFlow.Move.STAY) return")
+            assertTrue(stay > 0, "the open step / the open face's tab in 3 - Measure returns")
+            for (later in listOf("commitPad()", "sel = null", "active = null", "walkOn(null)", "rev++"))
+                assertTrue(b.indexOf(later) > stay, "`$later` comes after the STAY return")
+            // the selection goes, and the reading being taken with it -- in EVERY step, not only into 3 - Measure
+            val clear = b.indexOf("active = null")
+            assertTrue(b.indexOf("sel = null") in 0 until clear && clear < b.indexOf("if (mv == MeasureFlow.Move.WALK) walkOn(null)"))
+            assertEquals(1, count(b, "active = null"))
+            assertEquals(0, count(b, "if (m == StepRoute.MEASURE)") + count(b, "if (mode == StepRoute.MEASURE)"), "the clear is not Measure's alone")
+        }
+        // a step entered shuts the pad: asked for in the step he left, it would take the palette's place unasked
+        assertEquals(1, count(mode, "active = null; padOpen = false"))
+        // the phase's and the frame's refusals still come first in setMode
+        assertTrue(mode.indexOf("if (m !in PhaseTools.prepSteps(quoteStage)) return") in 0 until mode.indexOf("MeasureFlow.move("))
+        // the pad is opened in three places only, each a tap that asks for it; nothing opens it by itself
+        assertEquals(3, count(c, "padOpen = true"))
+        assertEquals(2, count(c, "onBox = { padOpen = true; rev++ }"))
+        assertEquals(1, count(c, "if (t.pad) padOpen = true"))
+    }
+
+    @Test fun `whatever clears or changes the selection outside 3 Measure never leaves another item's reading being taken`() {
+        val c = code(sps)
+        // a tap on empty 360: what was typed is written, then the picked item and its reading go together
+        assertEquals(1, count(c, "deselect = { if (sel != null || active != null) { commitPad(); sel = null; active = null; rev++ } },"))
+        // undo: outside 3 - Measure the reading goes with the selection; in it the walk's dimension stays while its
+        // owner is still there, and the picked item follows it
+        val undo = body(c, "fun undo()")
+        assertEquals(1, count(undo, "prep = back; sel = null"))
+        assertEquals(1, count(undo, "active = active?.takeIf { a -> mode == StepRoute.MEASURE && back.ownerOf(a) != null }"))
+        assertEquals(1, count(undo, "active?.let { a -> back.ownerOf(a) }?.let { o -> sel = SpSel(o.s, id = o.id) }"))
+        assertTrue(undo.indexOf("sel = null") < undo.indexOf("active = active?.takeIf"))
+        // a Tape's or a Line's end, or the reference, grabbed: nothing of another item's stays active
+        val grab = body(c, "fun grabbed(g: SpSel)")
+        assertEquals(1, count(grab, "else MeasureFlow.own(prep, active, gid)"))
+        assertEquals(1, count(c, "MeasureFlow.own("))
+        // every other place that clears the selection clears the reading in the same statement
+        for (both in listOf("if (sel?.id == st.id) { sel = null; active = null }", "sel = null; active = null; menuOpen = false; ctx = null; dropDrafts()",
+            "hist.clear(); sel = null; active = null; toolSet = SurveyPrepPalette.SEL; moreOpen = false"))
+            assertEquals(1, count(c, both), both)
+        // ... but a delete, which lets go of the deleted item's own reading on the next line, and the reference's
+        // Edges switch, which holds no reading: nine `sel = null` in all -- undo, the 360's tap, a face, a step, the
+        // three above and these two -- each accounted for
+        assertEquals(1, count(c, "if (sel?.id == mid) sel = null"))
+        assertEquals(1, count(c, "if (active?.startsWith("))
+        assertEquals(1, count(c, "if (!on && SurveyRef.isId(sel?.id)) sel = null"))
+        assertEquals(9, count(c, "sel = null"), "a new place that clears the selection says here what it does with the reading being taken")
     }
 
     // ---- the tick --------------------------------------------------------------------------------------------

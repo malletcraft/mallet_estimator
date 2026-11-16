@@ -1,6 +1,7 @@
 package com.malletcrafts.interiorestimate.pano
 
 import com.malletcrafts.interiorestimate.pano.MeasureFlow.Kind
+import com.malletcrafts.interiorestimate.pano.MeasureFlow.Move
 import com.malletcrafts.interiorestimate.pano.MeasureFlow.Refused
 import com.malletcrafts.interiorestimate.pano.i18n.Tx
 import kotlin.test.Test
@@ -402,7 +403,9 @@ class MeasureFlowTest {
         assertEquals("रीडिंग सर्व्हे फेजमध्ये घेतले जातात — रीडिंग टाकण्यासाठी प्रोजेक्टच्या स्क्रीनवर फेज मागे न्या", onFace(p, "front", null, null, 2, Tx.MR).line)
     }
 
-    private fun onItem(p: SurveyPrep.Prep, active: String?, stage: Int?, withCell: Boolean = false) = MeasureFlow.onItem(Tx.EN, p, active, stage, withCell, ::ab)
+    /** The bar of 2 · Mark and 4 · 360 with the reading's OWNER picked, as the screen has it whenever it sets one. */
+    private fun onItem(p: SurveyPrep.Prep, active: String?, stage: Int?, withCell: Boolean = false) =
+        MeasureFlow.onItem(Tx.EN, p, active?.let { p.ownerOf(it)?.id }, active, stage, withCell, ::ab)
 
     @Test fun `in 2 Mark and 4 360 the bar shows only while a dimension is active, and its arrows stay inside the picked item`() {
         val p = wall()
@@ -429,6 +432,67 @@ class MeasureFlowTest {
         assertNull(onItem(p, null, SURVEY)); assertNull(onItem(p, "FD2.w", SURVEY)); assertNull(onItem(p, "FZ9.w", SURVEY)); assertNull(onItem(p, "F-T1.len", SURVEY))
         for (st in AFTER) assertNull(onItem(p, "FD1.l", st), "$st: the refusal is said on the tap, there is no standing bar")
         assertNotNull(onItem(p, "FD1.l", null))
+    }
+
+    // ------------------------------------------------------------------ the M2 review: nothing picked, nothing measured
+
+    @Test fun `in 2 Mark and 4 360 the bar is the picked item's - nothing picked or another item picked draws no bar and no pad`() {
+        val p = wall()
+        fun bar(picked: String?, active: String?, withCell: Boolean = false) = MeasureFlow.onItem(Tx.EN, p, picked, active, SURVEY, withCell, ::ab)
+        val door = id(p, "FD1"); val window = id(p, "FW1")
+        // the picked door's own reading: the bar, and under the pad its label
+        assertEquals("width", bar(door, "FD1.w")!!.what)
+        assertEquals("FD1\nDoor", bar(door, "FD1.w", withCell = true)!!.cell?.text)
+        // NOTHING PICKED (3 - Measure left with the walk's dimension still active): no bar -- so no pad in the palette's
+        // place, whatever the pad's flag says. It read `width - 0 of 16 measured` with no code and nothing gold on the photo
+        assertNull(bar(null, "FD1.w")); assertNull(bar(null, "FD1.w", withCell = true))
+        // ANOTHER ITEM PICKED (a Line's end grabbed while the door's width was being taken): the Line's row would have
+        // had the door's bar under it
+        assertNull(bar(window, "FD1.w")); assertNull(bar("m1", "FD1.w")); assertNull(bar("no-such-id", "FD1.w"))
+        // a Line and a chain picked: their own readings
+        assertEquals("length", bar("m1", "F-M1.len")!!.what); assertEquals("segment 1", bar("k1", "FK1.1")!!.what)
+        // the rule itself: what stays the reading being taken when [picked] is the picked item
+        assertEquals("FD1.w", MeasureFlow.own(p, "FD1.w", door))
+        assertNull(MeasureFlow.own(p, "FD1.w", null)); assertNull(MeasureFlow.own(p, "FD1.w", window)); assertNull(MeasureFlow.own(p, null, door))
+        assertNull(MeasureFlow.own(p, "FZ9.w", door), "a key nobody owns")
+        assertEquals("F-M1.len", MeasureFlow.own(p, "F-M1.len", "m1")); assertNull(MeasureFlow.own(p, "F-M1.len", "t1"))
+    }
+
+    @Test fun `a step or a face pressed - the walk starts in 3 Measure, every other step lets the reading go, and the open one changes nothing`() {
+        val steps = StepRoute.STEPS; val M = StepRoute.MEASURE
+        val faces = SurveyPrep.SURFACES; val tabs = StepRoute.TAB_ROWS.flatten()
+        assertEquals(6, faces.size); assertEquals(7, tabs.size)
+        // A STEP PRESSED on the tab [t] (setMode: the tab stays)
+        for (from in steps) for (to in steps) for (t in tabs) {
+            val mv = MeasureFlow.move(from, to, t, t)
+            val want = when {
+                to != M -> Move.DROP                                 // 1 - Lines, 2 - Mark, 4 - 360: nothing picked, nothing measured
+                from == M && StepRoute.isFace(t) -> Move.STAY        // 3 - Measure pressed while it is open: not a change
+                else -> Move.WALK                                    // 3 - Measure entered
+            }
+            assertEquals(want, mv, "step $from -> $to on $t")
+        }
+        // A FACE TAB PRESSED in the step [st] (showTab: the step stays)
+        for (st in steps) for (from in tabs) for (to in tabs) {
+            val mv = MeasureFlow.move(st, st, from, to)
+            val want = when {
+                st != M -> Move.DROP                                 // the selection goes, and the reading with it
+                from == to && StepRoute.isFace(to) -> Move.STAY      // the open face's own tab: the walk is not restarted
+                else -> Move.WALK                                    // another face: its first unmeasured dimension
+            }
+            assertEquals(want, mv, "tab $from -> $to in $st")
+        }
+        // the cases the review named, by name
+        assertEquals(Move.DROP, MeasureFlow.move(M, "mark", "front", "front"), "3 - Measure -> 2 - Mark: the walk's dimension is let go")
+        assertEquals(Move.DROP, MeasureFlow.move(M, "360", "front", "front"))
+        assertEquals(Move.DROP, MeasureFlow.move("mark", "mark", "front", "right"), "a face change in 2 - Mark")
+        assertEquals(Move.STAY, MeasureFlow.move(M, M, "front", "front"), "the open step, or the open face's tab")
+        assertEquals(Move.WALK, MeasureFlow.move(M, M, "front", "right")); assertEquals(Move.WALK, MeasureFlow.move("mark", M, "front", "front"))
+        // only a face is walked: on the Plan tab a press is what it always was (the screen's walkOn does nothing there)
+        assertEquals(Move.WALK, MeasureFlow.move(M, M, "plan", "plan"))
+        // STAY is the only answer that changes nothing, and it never leaves 3 - Measure
+        for (a in steps) for (b in steps) for (f in tabs) for (g in tabs)
+            if (MeasureFlow.move(a, b, f, g) == Move.STAY) { assertEquals(M, a); assertEquals(M, b); assertEquals(f, g); assertTrue(StepRoute.isFace(g)) }
     }
 
     // ------------------------------------------------------------------ the photo pans only if it must

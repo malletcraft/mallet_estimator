@@ -22,7 +22,9 @@ import com.malletcrafts.interiorestimate.pano.i18n.Tx
  *  - [stay]: after a reading in 3 · Measure, the next of the same item that is still LEFT -- else the walk moves on
  *    ([MeasureWalk.next]);
  *  - [onFace] / [onItem]: the measure bar as drawn ([Bar]) -- in 3 · Measure always there, in 2 · Mark and 4 · 360
- *    only while a dimension is active;
+ *    only while a dimension OF THE PICKED ITEM is active ([own]);
+ *  - [move]: what a press on a step or a face tab does to the measuring -- the walk starts, the reading is let go,
+ *    or (the step and the face already open in 3 · Measure) nothing at all;
  *  - [value] / [checkEst]: the one figure of any reading key, and the estimate the check's sentence names;
  *  - [span] / [panTo]: the photo pans only if the figure being measured is off screen.
  *
@@ -127,6 +129,48 @@ object MeasureFlow {
         val own = active?.takeIf { prep.ownerOf(it)?.id == id && takes(prep, it, stage, ab) }
         if (picked == id && own != null) return Tap(o, own)
         return Tap(o, firstOpen(prep, id, stage, ab))
+    }
+
+    // ------------------------------------------------------------------ a step or a face pressed
+
+    /**
+     * NOTHING PICKED IS NOTHING BEING MEASURED, OUTSIDE 3 · MEASURE (M2 review, 16 Nov 2026): [active] while it is a
+     * reading of the PICKED item [picked], else null. In 2 · Mark and 4 · 360 the bar is "the picked item's own keys"
+     * (DESIGN-port63 §1.4): its line 1 is the measure's words alone, and the code that names it is on the picked
+     * item's row (or, under the pad, in the bar's label cell, which is the picked item's too). So a reading whose
+     * owner is not the picked item has no name on the screen -- `width · 3 of 9 measured`, nothing gold on the photo
+     * -- and must not be the one a laser shot lands on. The screen asks this where a pick changes without choosing a
+     * reading; [onItem] asks it before it draws.
+     */
+    fun own(prep: SurveyPrep.Prep, active: String?, picked: String?): String? =
+        active?.takeIf { picked != null && prep.ownerOf(it)?.id == picked }
+
+    /** What a press on a step or on a face tab does to the measuring ([move]). */
+    enum class Move {
+        /** The step AND the face that are already open, in 3 · Measure: not a change. The dimension he tapped or
+         *  skipped to, the picked mark and what he is typing all stay -- the press does nothing. */
+        STAY,
+        /** 3 · Measure entered, or another face opened in it: the walk starts from that face's first unmeasured
+         *  dimension ([MeasureWalk.next] from the top). */
+        WALK,
+        /** Every other step entered, and a face opened in one: nothing is picked there, so nothing is being measured. */
+        DROP,
+    }
+
+    /**
+     * A STEP OR A FACE TAB PRESSED: the screen is on step [fromStep] and tab [fromFace], and the press asks for
+     * [toStep] and [toFace] (a step press keeps the tab, a tab press keeps the step). Every such press clears the
+     * selection, so outside 3 · Measure the reading being taken goes with it ([Move.DROP]) -- 3 · Measure always
+     * leaves one active, and 2 · Mark or 4 · 360 would open on a bar that names nothing. Into 3 · Measure, or onto
+     * another face in it, the walk starts from the top ([Move.WALK]). But the open face's own tab, the open step
+     * itself, or a thumb within 48 dp under the strip routed to it ([StepRoute.stepFor]) is no change at all
+     * ([Move.STAY]): restarting the walk there dropped the dimension he had chosen, and his next laser shot landed
+     * on another one. Only a FACE is walked: on the Plan tab a press is what it always was.
+     */
+    fun move(fromStep: String, toStep: String, fromFace: String, toFace: String): Move = when {
+        toStep != StepRoute.MEASURE -> Move.DROP
+        fromStep == toStep && fromFace == toFace && StepRoute.isFace(toFace) -> Move.STAY
+        else -> Move.WALK
     }
 
     // ------------------------------------------------------------------ after a reading
@@ -238,15 +282,16 @@ object MeasureFlow {
     }
 
     /**
-     * THE BAR OF 2 · MARK AND 4 · 360, where it shows ONLY WHILE A DIMENSION IS ACTIVE (null: no bar -- after Survey,
-     * and when the picked item has nothing left, as the reading strip went before). ‹ and › move within the active
-     * reading's OWNER's own keys only ([MeasureWalk.stopsOf], [MeasureWalk.step]), read or not, wrapping, and never
-     * change the selection; an item with one key (a Line) draws neither. Line 2 counts the owner's face -- 4 · 360 has
-     * no open face. [withCell]: the bar draws the label cell -- only while the pad is open, when the pad has taken the
-     * place of the picked item's own row; otherwise that row carries the label, as it always did.
+     * THE BAR OF 2 · MARK AND 4 · 360, where it shows ONLY WHILE A DIMENSION OF THE PICKED ITEM [picked] IS ACTIVE
+     * (null: no bar -- nothing picked, a reading that is another item's ([own]: the bar would name nothing), after
+     * Survey, and when the picked item has nothing left, as the reading strip went before). ‹ and › move within the
+     * active reading's OWNER's own keys only ([MeasureWalk.stopsOf], [MeasureWalk.step]), read or not, wrapping, and
+     * never change the selection; an item with one key (a Line) draws neither. Line 2 counts the owner's face -- 4 ·
+     * 360 has no open face. [withCell]: the bar draws the label cell -- only while the pad is open, when the pad has
+     * taken the place of the picked item's own row; otherwise that row carries the label, as it always did.
      */
-    fun onItem(tx: Tx, prep: SurveyPrep.Prep, active: String?, stage: Int?, withCell: Boolean, ab: (String) -> DoubleArray): Bar? {
-        val code = active?.takeIf { takes(prep, it, stage, ab) } ?: return null
+    fun onItem(tx: Tx, prep: SurveyPrep.Prep, picked: String?, active: String?, stage: Int?, withCell: Boolean, ab: (String) -> DoubleArray): Bar? {
+        val code = own(prep, active, picked)?.takeIf { takes(prep, it, stage, ab) } ?: return null
         val o = prep.ownerOf(code) ?: return null
         val z = ab(o.s)
         val many = MeasureWalk.stopsOf(prep, o.id, ab).size > 1
